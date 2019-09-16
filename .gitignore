@@ -1,0 +1,4 @@
+docker-compose.yaml
+/recordings
+config.py
+__pycache__
