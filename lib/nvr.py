@@ -27,7 +27,7 @@ class FFMPEGNVR(object):
         # Use FFMPEG to read from camera. Used for reading/recording
         self.ffmpeg = FFMPEGCamera(frame_buffer)
         # Object detector class. Called every config.OBJECT_DETECTION_INTERVAL
-        self.detector = Detector(self.ffmpeg, mqtt, self.object_event, self.motion_event, detector_queue, decoded_frame_buffer, self.frame_ready)
+        self.detector = Detector(self.ffmpeg, mqtt, self.object_event, self.motion_event, detector_queue)
         self.ffmpeg.detector = self.detector
 
         # Start a process to pipe ffmpeg output
