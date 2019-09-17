@@ -1,5 +1,5 @@
 import logging
-import threading
+from threading import Thread, Event
 from queue import Queue
 
 import config
@@ -14,12 +14,10 @@ class FFMPEGNVR(object):
     def __init__(self, mqtt, frame_buffer):
         LOGGER.info('Initializing NVR thread')
         self.kill_received = False
-        self.frame_ready = threading.Event()
-        self.object_event = threading.Event()
-        self.motion_event = threading.Event()
+        self.frame_ready = Event()
+        self.object_event = Event()
+        self.motion_event = Event()
         self.recorder_thread = None
-
-        decoded_frame_buffer = Queue(maxsize=100)
 
         decoder_queue = Queue(maxsize=1)
         detector_queue = Queue(maxsize=1)
@@ -31,12 +29,13 @@ class FFMPEGNVR(object):
         self.ffmpeg.detector = self.detector
 
         # Start a process to pipe ffmpeg output
-        self.ffmpeg_grabber = threading.Thread(target=self.ffmpeg.capture_pipe,
-                                               args=(frame_buffer,
-                                                     self.frame_ready,
-                                                     decoder_queue))
+        self.ffmpeg_grabber = Thread(target=self.ffmpeg.capture_pipe,
+                                     args=(frame_buffer,
+                                           self.frame_ready,
+                                           config.OBJECT_DETECTION_INTERVAL,
+                                           decoder_queue))
 
-        self.ffmpeg_decoder = threading.Thread(
+        self.ffmpeg_decoder = Thread(
             target=self.ffmpeg.decoder,
             args=(decoder_queue,
                   detector_queue,
@@ -79,11 +78,11 @@ class FFMPEGNVR(object):
                 if not self.Recorder.is_recording:
                     mqtt.publish_sensor(True, self.detector.filtered_objects)
                     self.recorder_thread = \
-                        threading.Thread(target=self.Recorder.start_recording,
-                                         args=(frame_buffer,
-                                               self.ffmpeg.stream_width,
-                                               self.ffmpeg.stream_height,
-                                               self.ffmpeg.stream_fps))
+                        Thread(target=self.Recorder.start_recording,
+                               args=(frame_buffer,
+                                     self.ffmpeg.stream_width,
+                                     self.ffmpeg.stream_height,
+                                     self.ffmpeg.stream_fps))
                     self.recorder_thread.start()
                     continue
 
