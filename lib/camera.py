@@ -16,13 +16,10 @@ LOGGER = logging.getLogger(__name__)
 
 
 class FFMPEGCamera(object):
-    def __init__(self, frame_buffer, detection_lock, image_processing_buffer, decoded_frame_buffer):
+    def __init__(self, frame_buffer):
         LOGGER.info('Initializing ffmpeg RTSP pipe')
 
         self.detector = None
-        self.detection_lock = detection_lock
-        self.image_processing_buffer = image_processing_buffer
-        self.decoded_frame_buffer = decoded_frame_buffer
 
         # Activate OpenCL
         if cv2.ocl.haveOpenCL():
@@ -53,7 +50,7 @@ class FFMPEGCamera(object):
         stream.release()
         return width, height, fps
 
-    def capture_pipe(self, frame_buffer, frame_ready):
+    def capture_pipe(self, frame_buffer, frame_ready, decoder_queue):
         LOGGER.info('Starting capture process')
 
         ffmpeg_global_args = [
@@ -107,21 +104,14 @@ class FFMPEGCamera(object):
                 frame_buffer.put({
                     'frame': self.raw_image})
 
-            with self.detection_lock:
-                if self.detector.tracking:
-                    try:
-                        self.image_processing_buffer.put_nowait({
-                            'frame': self.raw_image,
-                            'trackable_objects': self.detector.filtered_objects
-                        })
-                    except Full:
-                        LOGGER.error("Image processing queue full, discarding")
-                        self.image_processing_buffer.get()
-                        self.image_processing_buffer.put_nowait({
-                            'frame': self.raw_image,
-                            'trackable_objects': self.detector.filtered_objects
-                        })
-                    self.detector.filtered_objects = None
+            try:
+                decoder_queue.put_nowait({
+                    'frame': self.raw_image})
+            except Full:
+                decoder_queue.get()
+                decoder_queue.put({
+                    'frame': self.raw_image})
+
             frame_ready.set()
             frame_ready.clear()
 
@@ -166,19 +156,18 @@ class FFMPEGCamera(object):
                 (width, height), interpolation=cv2.INTER_LINEAR)
         return False, None
 
-    def decoder(self):
+    def decoder(self, decoder_queue, detector_queue):
         LOGGER.info("Starting decoder thread")
-        while self.detector.tracking:
-            raw_image = self.image_processing_buffer.get()
+        while self.connected:
+            raw_image = decoder_queue.get()
             ret, frame = self.decode_frame(raw_image['frame'])
             if ret:
-                self.decoded_frame_buffer.put({
+                detector_queue.put_nowait({
                     'frame': cv2.resize(
                         cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21),
-                        (config.OBJECT_TRACKING_WIDTH,
-                         config.OBJECT_TRACKING_HEIGHT),
-                        interpolation=cv2.INTER_LINEAR),
-                    'trackable_objects': raw_image['trackable_objects']
+                        (config.OBJECT_DETECTION_WIDTH,
+                         config.OBJECT_DETECTION_HEIGHT),
+                        interpolation=cv2.INTER_LINEAR)
                 })
         LOGGER.info("Exiting decoder thread")
         return

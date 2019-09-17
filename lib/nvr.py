@@ -19,22 +19,29 @@ class FFMPEGNVR(object):
         self.motion_event = threading.Event()
         self.recorder_thread = None
 
-        detection_lock = threading.Lock()
-        image_processing_buffer = Queue(maxsize=100)
         decoded_frame_buffer = Queue(maxsize=100)
 
+        decoder_queue = Queue(maxsize=1)
+        detector_queue = Queue(maxsize=1)
+
         # Use FFMPEG to read from camera. Used for reading/recording
-        self.ffmpeg = FFMPEGCamera(frame_buffer, detection_lock, image_processing_buffer, decoded_frame_buffer)
+        self.ffmpeg = FFMPEGCamera(frame_buffer)
         # Object detector class. Called every config.OBJECT_DETECTION_INTERVAL
-        self.detector = Detector(self.ffmpeg, mqtt, self.object_event, self.motion_event, decoded_frame_buffer, self.frame_ready)
+        self.detector = Detector(self.ffmpeg, mqtt, self.object_event, self.motion_event, detector_queue, decoded_frame_buffer, self.frame_ready)
         self.ffmpeg.detector = self.detector
 
         # Start a process to pipe ffmpeg output
         self.ffmpeg_grabber = threading.Thread(target=self.ffmpeg.capture_pipe,
                                                args=(frame_buffer,
-                                                     self.frame_ready))
+                                                     self.frame_ready,
+                                                     decoder_queue))
+        self.ffmpeg_decoder = threading.Thread(target=self.ffmpeg.decoder,
+                                               args=(decoder_queue,
+                                                     detector_queue))
         self.ffmpeg_grabber.daemon = True
+        self.ffmpeg_decoder.daemon = True
         self.ffmpeg_grabber.start()
+        self.ffmpeg_decoder.start()
 
         # Initialize recorder
         self.Recorder = FFMPEGRecorder()

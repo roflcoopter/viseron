@@ -13,7 +13,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Detector(object):
-    def __init__(self, Camera, mqtt, object_event, motion_event,
+    def __init__(self, Camera, mqtt, object_event, motion_event, detector_queue,
                  decoded_frame_buffer, frame_ready):
         LOGGER.info('Initializing detection thread')
 
@@ -34,6 +34,7 @@ class Detector(object):
         self.filtered_objects = []
         self.decoded_frame_buffer = decoded_frame_buffer
         self.object_event = object_event
+        self.detector_queue = detector_queue
 
         self._motion_detected = False
         self.motion_detector = MotionDetection()
