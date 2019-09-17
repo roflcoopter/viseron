@@ -35,9 +35,14 @@ class FFMPEGNVR(object):
                                                args=(frame_buffer,
                                                      self.frame_ready,
                                                      decoder_queue))
-        self.ffmpeg_decoder = threading.Thread(target=self.ffmpeg.decoder,
-                                               args=(decoder_queue,
-                                                     detector_queue))
+
+        self.ffmpeg_decoder = threading.Thread(
+            target=self.ffmpeg.decoder,
+            args=(decoder_queue,
+                  detector_queue,
+                  config.OBJECT_DETECTION_MODEL_WIDTH,
+                  config.OBJECT_DETECTION_MODEL_HEIGHT))
+
         self.ffmpeg_grabber.daemon = True
         self.ffmpeg_decoder.daemon = True
         self.ffmpeg_grabber.start()
