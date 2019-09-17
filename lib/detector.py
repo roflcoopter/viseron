@@ -14,7 +14,7 @@ LOGGER = logging.getLogger(__name__)
 
 class Detector(object):
     def __init__(self, Camera, mqtt, object_event, motion_event, detector_queue,
-                 decoded_frame_buffer, frame_ready):
+                 decoded_frame_buffer):
         LOGGER.info('Initializing detection thread')
 
         # Make the logging of apscheduler less verbose
@@ -41,10 +41,6 @@ class Detector(object):
         self.motion_frames = 0
         self.motion_area = 0
         self.motion_event = motion_event
-
-        self.tracking = False
-        self.tracking_successful = False
-        self.frame_ready = frame_ready
 
         if config.OBJECT_DETECTION_TYPE == "edgetpu":
             from lib.edgetpu_detection import ObjectDetection
@@ -218,6 +214,5 @@ class Detector(object):
     def stop(self):
         self.object_detected = False
         self.motion_detected = False
-        self.tracking = False
         self.scheduler.shutdown()
         return
