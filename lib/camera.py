@@ -50,7 +50,7 @@ class FFMPEGCamera(object):
         stream.release()
         return width, height, fps
 
-    def capture_pipe(self, frame_buffer, frame_ready, decoder_queue):
+    def capture_pipe(self, frame_buffer, frame_ready, decoder_interval, decoder_queue):
         LOGGER.info('Starting capture process')
 
         ffmpeg_global_args = [
@@ -91,6 +91,7 @@ class FFMPEGCamera(object):
         pipe = sp.Popen(ffmpeg_cmd, stdout=sp.PIPE, bufsize=10**8)
 
         self.connected = True
+        frame_number = 0
 
         bytes_to_read = int(self.stream_width*self.stream_height*1.5)
 
@@ -104,13 +105,15 @@ class FFMPEGCamera(object):
                 frame_buffer.put({
                     'frame': self.raw_image})
 
-            try:
-                decoder_queue.put_nowait({
-                    'frame': self.raw_image})
-            except Full:
-                decoder_queue.get()
-                decoder_queue.put({
-                    'frame': self.raw_image})
+            if frame_number % decoder_interval == 0:
+                frame_number = 0
+                try:
+                    decoder_queue.put_nowait({
+                        'frame': self.raw_image})
+                except Full:
+                    decoder_queue.get()
+                    decoder_queue.put({
+                        'frame': self.raw_image})
 
             frame_ready.set()
             frame_ready.clear()

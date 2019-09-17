@@ -63,7 +63,7 @@ class FFMPEGNVR(object):
 
     def run(self, mqtt, frame_buffer):
         """ Main thread. It handles starting/stopping of recordings and
-        publishes to MQTT of object is detected. Speed is determined by FPS"""
+        publishes to MQTT if object is detected. Speed is determined by FPS"""
         LOGGER.info('Starting main loop')
 
         idle_frames = 0
