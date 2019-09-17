@@ -13,8 +13,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Detector(object):
-    def __init__(self, Camera, mqtt, object_event, motion_event, detector_queue,
-                 decoded_frame_buffer):
+    def __init__(self, Camera, mqtt, object_event, motion_event, detector_queue):
         LOGGER.info('Initializing detection thread')
 
         # Make the logging of apscheduler less verbose
@@ -32,7 +31,6 @@ class Detector(object):
 
         self._object_detected = False
         self.filtered_objects = []
-        self.decoded_frame_buffer = decoded_frame_buffer
         self.object_event = object_event
         self.detector_queue = detector_queue
 
