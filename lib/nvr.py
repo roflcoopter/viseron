@@ -15,6 +15,8 @@ class FFMPEGNVR(object):
         LOGGER.info('Initializing NVR thread')
         self.kill_received = False
         self.frame_ready = threading.Event()
+        self.object_event = threading.Event()
+        self.motion_event = threading.Event()
         self.recorder_thread = None
 
         detection_lock = threading.Lock()
@@ -24,7 +26,7 @@ class FFMPEGNVR(object):
         # Use FFMPEG to read from camera. Used for reading/recording
         self.ffmpeg = FFMPEGCamera(frame_buffer, detection_lock, image_processing_buffer, decoded_frame_buffer)
         # Object detector class. Called every config.OBJECT_DETECTION_INTERVAL
-        self.detector = Detector(self.ffmpeg, mqtt, detection_lock, image_processing_buffer, decoded_frame_buffer, self.frame_ready)
+        self.detector = Detector(self.ffmpeg, mqtt, self.object_event, self.motion_event, decoded_frame_buffer, self.frame_ready)
         self.ffmpeg.detector = self.detector
 
         # Start a process to pipe ffmpeg output
@@ -41,11 +43,9 @@ class FFMPEGNVR(object):
         LOGGER.info('NVR thread initialized')
 
     def event_over(self):
-        if self.detector.object_detected:
+        if self.object_event.is_set():
             return False
-        if config.MOTION_DETECTION_TIMEOUT and self.detector.motion_detected:
-            return False
-        if config.OBJECT_TRACKING_TIMEOUT and self.detector.tracking_successful:
+        if config.MOTION_DETECTION_TIMEOUT and self.motion_event.is_set():
             return False
         return True
 
@@ -59,10 +59,10 @@ class FFMPEGNVR(object):
         # Continue til we get kill command from root thread
         while not self.kill_received:
             self.frame_ready.wait(10)
-            if self.detector.motion_detected:
+            if self.motion_event.is_set():
                 idle_frames = 0
             # Start recording
-            if self.detector.object_detected:
+            if self.object_event.is_set():
                 idle_frames = 0
                 if not self.Recorder.is_recording:
                     mqtt.publish_sensor(True, self.detector.filtered_objects)
