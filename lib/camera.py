@@ -161,16 +161,26 @@ class FFMPEGCamera(object):
 
     def decoder(self, input_queue, output_queue, width, height):
         LOGGER.info("Starting decoder thread")
-        while self.connected:
+        while True:
             raw_image = input_queue.get()
             ret, frame = self.decode_frame(raw_image['frame'])
             if ret:
-                output_queue.put_nowait({
-                    'frame': cv2.resize(
-                        cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21),
-                        (width, height),
-                        interpolation=cv2.INTER_LINEAR)
-                })
+                try:
+                    output_queue.put_nowait({
+                        'frame': cv2.resize(
+                            cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21),
+                            (width, height),
+                            interpolation=cv2.INTER_LINEAR)
+                    })
+                except Full:
+                    output_queue.get()
+                    output_queue.put_nowait({
+                        'frame': cv2.resize(
+                            cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21),
+                            (width, height),
+                            interpolation=cv2.INTER_LINEAR)
+                    })
+
         LOGGER.info("Exiting decoder thread")
         return
 

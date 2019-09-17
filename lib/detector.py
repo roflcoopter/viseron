@@ -100,14 +100,11 @@ class Detector(object):
         return False
 
     def object_detection(self):
-        # Get the most recently grabbed frame
-        grabbed, current_frame = self.Camera.current_frame_resized(
-            config.OBJECT_DETECTION_MODEL_WIDTH,
-            config.OBJECT_DETECTION_MODEL_HEIGHT)
-
         self.filtered_objects = []
 
-        if grabbed:
+        try:
+            current_frame = self.detector_queue.get_nowait()
+
             objects = self.ObjectDetection.return_objects(current_frame)
             for obj in objects:
                 cv2.rectangle(current_frame,
@@ -126,7 +123,7 @@ class Detector(object):
                 if not self.object_detected:
                     self.object_detected = True
                 return
-        else:
+        except Empty:
             LOGGER.error('Frame not grabbed for object detection')
 
         if self.object_detected:
