@@ -103,17 +103,17 @@ class Detector(object):
         self.filtered_objects = []
 
         try:
-            current_frame = self.detector_queue.get_nowait()
+            frame = self.detector_queue.get_nowait()
 
-            objects = self.ObjectDetection.return_objects(current_frame)
+            objects = self.ObjectDetection.return_objects(frame['frame'])
             for obj in objects:
-                cv2.rectangle(current_frame,
+                cv2.rectangle(frame['frame'],
                               (int(obj["unscaled_x1"]),
                                int(obj["unscaled_y1"])),
                               (int(obj["unscaled_x2"]),
                                int(obj["unscaled_y2"])),
                               (255, 0, 0), 5)
-                self.mqtt.publish_image(current_frame)
+                self.mqtt.publish_image(frame['frame'])
 
             self.filtered_objects = list(
                 filter(self.filter_objects, objects))
