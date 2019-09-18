@@ -114,8 +114,8 @@ class DuplicateFilter(logging.Filter):
             self.current_count = 0
         else:
             self.current_count += 1
-            if self.current_count > 1:
-                record.msg = '{}, message repeated {} times'.format(record.msg, self.current_count)
+            if self.current_count > 0:
+                record.msg = '{}, message repeated {} times'.format(record.msg, self.current_count + 1)
         return True
 
 
