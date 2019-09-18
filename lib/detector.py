@@ -6,20 +6,13 @@ import imutils
 import os
 import threading
 from queue import Queue, Empty, Full
-from apscheduler.schedulers.background import BackgroundScheduler
-from lib.motion_detection import MotionDetection
 
 LOGGER = logging.getLogger(__name__)
 
 
 class Detector(object):
-    def __init__(self, Camera, mqtt, object_event, motion_event, detector_queue):
+    def __init__(self, Camera, mqtt, object_event):
         LOGGER.info('Initializing detection thread')
-
-        # Make the logging of apscheduler less verbose
-        logging.getLogger(
-            'apscheduler.executors.default').setLevel(logging.ERROR)
-        logging.getLogger('apscheduler.scheduler').setLevel(logging.ERROR)
 
         # Activate OpenCL
         if cv2.ocl.haveOpenCL():
@@ -32,13 +25,6 @@ class Detector(object):
         self._object_detected = False
         self.filtered_objects = []
         self.object_event = object_event
-        self.detector_queue = detector_queue
-
-        self._motion_detected = False
-        self.motion_detector = MotionDetection()
-        self.motion_frames = 0
-        self.motion_area = 0
-        self.motion_event = motion_event
 
         if config.OBJECT_DETECTION_TYPE == "edgetpu":
             from lib.edgetpu_detection import ObjectDetection
@@ -72,18 +58,6 @@ class Detector(object):
             LOGGER.error("OBJECT_DETECTION_TYPE has to be "
                          "either \"edgetpu\", \"darknet\" or \"posenet\"")
             return
-
-        self.scheduler = BackgroundScheduler(timezone='UTC')
-        self.scheduler.start()
-
-        self.scheduler.add_job(self.motion_detection,
-                               'interval',
-                               seconds=config.MOTION_DETECTION_INTERVAL,
-                               id='motion_detector',
-                               next_run_time=datetime.utcnow())
-
-        if not config.MOTION_DETECTION_TRIGGER:
-            self.scheduler.pause_job('motion_detector')
 
     def filter_objects(self, result):
         if result['label'] in config.OBJECT_DETECTION_LABELS \
@@ -135,66 +109,9 @@ class Detector(object):
 
         if _object_detected:
             self.object_event.set()
-            if config.MOTION_DETECTION_TIMEOUT:
-                self.scheduler.resume_job('motion_detector')
-                self.scheduler.modify_job(job_id='motion_detector',
-                                          next_run_time=datetime.utcnow())
-                LOGGER.info("Object detected! Starting motion detector")
         else:
             self.object_event.clear()
 
-    # @profile
-    def motion_detection(self):
-        # resize the frame, convert it to grayscale, and blur it
-        grabbed, frame = self.Camera.current_frame_resized(
-            config.MOTION_DETECTION_WIDTH,
-            config.MOTION_DETECTION_HEIGHT)
-
-        if grabbed:
-            max_contour = self.motion_detector.detect(frame)
-        else:
-            LOGGER.error('Frame not grabbed for motion detector')
-            return
-
-        if max_contour > config.MIN_MOTION_AREA:
-            self.motion_area = max_contour
-            _motion_found = True
-        else:
-            _motion_found = False
-
-        if _motion_found:
-            self.motion_frames += 1
-            LOGGER.debug("Motion frames: {}, "
-                         "area: {}".format(self.motion_frames, max_contour))
-
-            if self.motion_frames >= config.MOTION_FRAMES:
-                self.motion_frames = config.MOTION_FRAMES
-                if not self.motion_detected:
-                    self.motion_detected = True
-                return
-        else:
-            self.motion_frames = 0
-
-        if self.motion_detected:
-            self.motion_detected = False
-
-    @property
-    def motion_detected(self):
-        return self._motion_detected
-
-    @motion_detected.setter
-    def motion_detected(self, _motion_detected):
-        self._motion_detected = _motion_detected
-
-        if _motion_detected:
-            self.motion_event.set()
-
-        else:
-            LOGGER.debug("Motion has ended")
-            self.motion_event.clear()
-
     def stop(self):
         self.object_detected = False
-        self.motion_detected = False
-        self.scheduler.shutdown()
         return

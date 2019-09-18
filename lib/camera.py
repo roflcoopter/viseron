@@ -50,7 +50,10 @@ class FFMPEGCamera(object):
         stream.release()
         return width, height, fps
 
-    def capture_pipe(self, frame_buffer, frame_ready, decoder_interval, decoder_queue, scan_for_objects):
+    def capture_pipe(self, frame_buffer, frame_ready,
+                     object_decoder_interval, object_decoder_queue,
+                     scan_for_objects, motion_decoder_interval,
+                     motion_decoder_queue, scan_for_motion):
         LOGGER.info('Starting capture process')
 
         ffmpeg_global_args = [
@@ -91,7 +94,8 @@ class FFMPEGCamera(object):
         pipe = sp.Popen(ffmpeg_cmd, stdout=sp.PIPE, bufsize=10**8)
 
         self.connected = True
-        frame_number = 0
+        object_frame_number = 0
+        motion_frame_number = 0
 
         bytes_to_read = int(self.stream_width*self.stream_height*1.5)
 
@@ -106,18 +110,32 @@ class FFMPEGCamera(object):
                     'frame': self.raw_image})
 
             if scan_for_objects.is_set():
-                if frame_number % decoder_interval == 0:
-                    frame_number = 0
+                if object_frame_number % object_decoder_interval == 0:
+                    object_frame_number = 0
                     try:
-                        decoder_queue.put_nowait({
+                        object_decoder_queue.put_nowait({
                             'frame': self.raw_image})
                     except Full:
-                        decoder_queue.get()
-                        decoder_queue.put({
+                        object_decoder_queue.get()
+                        object_decoder_queue.put({
                             'frame': self.raw_image})
-                frame_number += 1
+                object_frame_number += 1
             else:
-                frame_number = 0
+                object_frame_number = 0
+
+            if scan_for_motion.is_set():
+                if motion_frame_number % motion_decoder_interval == 0:
+                    motion_frame_number = 0
+                    try:
+                        motion_decoder_queue.put_nowait({
+                            'frame': self.raw_image})
+                    except Full:
+                        motion_decoder_queue.get()
+                        motion_decoder_queue.put({
+                            'frame': self.raw_image})
+                motion_frame_number += 1
+            else:
+                motion_frame_number = 0
 
             frame_ready.set()
             frame_ready.clear()
