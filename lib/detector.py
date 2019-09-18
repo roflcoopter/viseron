@@ -75,11 +75,6 @@ class Detector(object):
 
         self.scheduler = BackgroundScheduler(timezone='UTC')
         self.scheduler.start()
-        self.scheduler.add_job(self.object_detection,
-                               'interval',
-                               seconds=config.OBJECT_DETECTION_INTERVAL,
-                               id='object_detector',
-                               next_run_time=datetime.utcnow())
 
         self.scheduler.add_job(self.motion_detection,
                                'interval',
@@ -87,9 +82,7 @@ class Detector(object):
                                id='motion_detector',
                                next_run_time=datetime.utcnow())
 
-        if config.MOTION_DETECTION_TRIGGER:
-            self.scheduler.pause_job('object_detector')
-        else:
+        if not config.MOTION_DETECTION_TRIGGER:
             self.scheduler.pause_job('motion_detector')
 
     def filter_objects(self, result):
@@ -99,36 +92,38 @@ class Detector(object):
             return True
         return False
 
-    def object_detection(self):
-        self.filtered_objects = []
+    def object_detection(self, detector_queue):
+        while True:
+            LOGGER.debug('Running object detection')
+            self.filtered_objects = []
 
-        try:
-            frame = self.detector_queue.get_nowait()
+            try:
+                frame = detector_queue.get()
 
-            objects = self.ObjectDetection.return_objects(frame['frame'])
-            for obj in objects:
-                LOGGER.debug(obj)
-                cv2.rectangle(frame['frame'],
-                              (int(obj["unscaled_x1"]),
-                               int(obj["unscaled_y1"])),
-                              (int(obj["unscaled_x2"]),
-                               int(obj["unscaled_y2"])),
-                              (255, 0, 0), 5)
-                self.mqtt.publish_image(frame['frame'])
+                objects = self.ObjectDetection.return_objects(frame['frame'])
+                for obj in objects:
+                    LOGGER.debug(obj)
+                    cv2.rectangle(frame['frame'],
+                                  (int(obj["unscaled_x1"]),
+                                   int(obj["unscaled_y1"])),
+                                  (int(obj["unscaled_x2"]),
+                                   int(obj["unscaled_y2"])),
+                                  (255, 0, 0), 5)
+                    self.mqtt.publish_image(frame['frame'])
 
-            self.filtered_objects = list(
-                filter(self.filter_objects, objects))
+                self.filtered_objects = list(
+                    filter(self.filter_objects, objects))
 
-            if self.filtered_objects:
-                LOGGER.info(self.filtered_objects)
-                if not self.object_detected:
-                    self.object_detected = True
-                return
-        except Empty:
-            LOGGER.error('Frame not grabbed for object detection')
+                if self.filtered_objects:
+                    LOGGER.info(self.filtered_objects)
+                    if not self.object_detected:
+                        self.object_detected = True
+                    return
+            except Empty:
+                LOGGER.error('Frame not grabbed for object detection')
 
-        if self.object_detected:
-            self.object_detected = False
+            if self.object_detected:
+                self.object_detected = False
 
     @property
     def object_detected(self):
@@ -193,19 +188,10 @@ class Detector(object):
 
         if _motion_detected:
             self.motion_event.set()
-            if config.MOTION_DETECTION_TRIGGER:
-                self.scheduler.resume_job('object_detector')
-                self.scheduler.modify_job(
-                    job_id='object_detector',
-                    next_run_time=datetime.utcnow())
-                LOGGER.debug(
-                    "Motion detected! Starting object detector")
+
         else:
             LOGGER.debug("Motion has ended")
             self.motion_event.clear()
-            if not self.object_detected and not self.Recorder.is_recording and config.MOTION_DETECTION_TRIGGER:
-                LOGGER.debug("Not recording, pausing object detector")
-                self.scheduler.pause_job('object_detector')
 
     def stop(self):
         self.object_detected = False

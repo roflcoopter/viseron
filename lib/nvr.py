@@ -15,25 +15,37 @@ class FFMPEGNVR(object):
         LOGGER.info('Initializing NVR thread')
         self.kill_received = False
         self.frame_ready = Event()
-        self.object_event = Event()
-        self.motion_event = Event()
+        self.object_event = Event()  # Triggered when object detected
+        self.scan_for_objects = Event()  # Set when frame should be scanned
+        self.motion_event = Event()  # Triggered when motion detected
         self.recorder_thread = None
+
+        if config.MOTION_DETECTION_TRIGGER:
+            self.scan_for_objects.clear()
+        else:
+            self.scan_for_objects.set()
 
         decoder_queue = Queue(maxsize=1)
         detector_queue = Queue(maxsize=1)
 
         # Use FFMPEG to read from camera. Used for reading/recording
         self.ffmpeg = FFMPEGCamera(frame_buffer)
+
         # Object detector class. Called every config.OBJECT_DETECTION_INTERVAL
         self.detector = Detector(self.ffmpeg, mqtt, self.object_event, self.motion_event, detector_queue)
         self.ffmpeg.detector = self.detector
+        self.detector_thread = Thread(target=self.detector.object_detection,
+                                      args=(detector_queue,))
+        self.detector_thread.daemon = True
 
         # Start a process to pipe ffmpeg output
         self.ffmpeg_grabber = Thread(target=self.ffmpeg.capture_pipe,
                                      args=(frame_buffer,
                                            self.frame_ready,
                                            config.OBJECT_DETECTION_INTERVAL,
-                                           decoder_queue))
+                                           decoder_queue,
+                                           self.scan_for_objects))
+        self.ffmpeg_grabber.daemon = True
 
         self.ffmpeg_decoder = Thread(
             target=self.ffmpeg.decoder,
@@ -41,11 +53,11 @@ class FFMPEGNVR(object):
                   detector_queue,
                   config.OBJECT_DETECTION_MODEL_WIDTH,
                   config.OBJECT_DETECTION_MODEL_HEIGHT))
-
-        self.ffmpeg_grabber.daemon = True
         self.ffmpeg_decoder.daemon = True
+
         self.ffmpeg_grabber.start()
         self.ffmpeg_decoder.start()
+        self.detector_thread.start()
 
         # Initialize recorder
         self.Recorder = FFMPEGRecorder()
@@ -72,6 +84,14 @@ class FFMPEGNVR(object):
             self.frame_ready.wait(10)
             if self.motion_event.is_set():
                 idle_frames = 0
+                if config.MOTION_DETECTION_TRIGGER \
+                and not self.scan_for_objects.is_set():
+                    self.scan_for_objects.set()
+                    LOGGER.debug("Motion detected! Starting object detector")
+            elif self.scan_for_objects.is_set() and not self.Recorder.is_recording and config.MOTION_DETECTION_TRIGGER:
+                LOGGER.debug("Not recording, pausing object detector")
+                self.scan_for_objects.clear()
+
             # Start recording
             if self.object_event.is_set():
                 idle_frames = 0
@@ -102,7 +122,7 @@ class FFMPEGNVR(object):
                     self.detector.tracking = False
                     self.Recorder.stop()
                     if config.MOTION_DETECTION_TRIGGER:
-                        self.detector.scheduler.pause_job('object_detector')
+                        self.scan_for_objects.clear()
                         LOGGER.info("Pausing object detector")
                     else:
                         self.detector.scheduler.pause_job('motion_detector')
