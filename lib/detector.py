@@ -107,6 +107,7 @@ class Detector(object):
 
             objects = self.ObjectDetection.return_objects(frame['frame'])
             for obj in objects:
+                LOGGER.debug(obj)
                 cv2.rectangle(frame['frame'],
                               (int(obj["unscaled_x1"]),
                                int(obj["unscaled_y1"])),
