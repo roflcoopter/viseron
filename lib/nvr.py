@@ -29,10 +29,10 @@ class FFMPEGNVR(object):
             self.scan_for_objects.set()
             self.scan_for_motion.clear()
 
-        object_decoder_queue = Queue(maxsize=1)
-        motion_decoder_queue = Queue(maxsize=1)
-        motion_queue = Queue(maxsize=1)
-        detector_queue = Queue(maxsize=1)
+        object_decoder_queue = Queue(maxsize=2)
+        motion_decoder_queue = Queue(maxsize=2)
+        motion_queue = Queue(maxsize=2)
+        detector_queue = Queue(maxsize=2)
 
         # Use FFMPEG to read from camera. Used for reading/recording
         self.ffmpeg = FFMPEGCamera(frame_buffer)
