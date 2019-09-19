@@ -68,7 +68,6 @@ class Detector(object):
 
     def object_detection(self, detector_queue):
         while True:
-            LOGGER.debug('Running object detection')
             self.filtered_objects = []
 
             try:
@@ -76,7 +75,6 @@ class Detector(object):
 
                 objects = self.ObjectDetection.return_objects(frame['frame'])
                 for obj in objects:
-                    LOGGER.debug(obj)
                     cv2.rectangle(frame['frame'],
                                   (int(obj["unscaled_x1"]),
                                    int(obj["unscaled_y1"])),
@@ -92,7 +90,7 @@ class Detector(object):
                     LOGGER.info(self.filtered_objects)
                     if not self.object_detected:
                         self.object_detected = True
-                    return
+                    continue
             except Empty:
                 LOGGER.error('Frame not grabbed for object detection')
 
