@@ -49,8 +49,6 @@ class MotionDetection(object):
         _motion_frames = 0
 
         while True:
-            LOGGER.debug('Running motion detection')
-
             try:
                 frame = motion_queue.get()
 
