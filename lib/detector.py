@@ -68,30 +68,27 @@ class Detector(object):
         while True:
             self.filtered_objects = []
 
-            try:
-                frame = detector_queue.get()
-                object_event = frame['object_event']
+            frame = detector_queue.get()
+            object_event = frame['object_event']
 
-                objects = self.ObjectDetection.return_objects(frame['frame'])
-                for obj in objects:
-                    cv2.rectangle(frame['frame'],
-                                  (int(obj["unscaled_x1"]),
-                                   int(obj["unscaled_y1"])),
-                                  (int(obj["unscaled_x2"]),
-                                   int(obj["unscaled_y2"])),
-                                  (255, 0, 0), 5)
-                    self.mqtt.publish_image(frame['frame'])
+            objects = self.ObjectDetection.return_objects(frame['frame'])
+            for obj in objects:
+                cv2.rectangle(frame['frame'],
+                                (int(obj["unscaled_x1"]),
+                                int(obj["unscaled_y1"])),
+                                (int(obj["unscaled_x2"]),
+                                int(obj["unscaled_y2"])),
+                                (255, 0, 0), 5)
+                self.mqtt.publish_image(frame['frame'])
 
-                self.filtered_objects = list(
-                    filter(self.filter_objects, objects))
+            self.filtered_objects = list(
+                filter(self.filter_objects, objects))
 
-                if self.filtered_objects:
-                    LOGGER.info(self.filtered_objects)
-                    if not object_event.is_set():
-                        object_event.set()
-                    continue
-            except Empty:
-                LOGGER.error('Frame not grabbed for object detection')
+            if self.filtered_objects:
+                LOGGER.info(self.filtered_objects)
+                if not object_event.is_set():
+                    object_event.set()
+                continue
 
             if object_event.is_set():
                 object_event.clear()
