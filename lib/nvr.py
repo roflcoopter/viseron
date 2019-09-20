@@ -33,6 +33,7 @@ class FFMPEGNVR(object):
         motion_decoder_queue = Queue(maxsize=2)
         motion_queue = Queue(maxsize=2)
         detector_queue = Queue(maxsize=2)
+        self.object_return_queue = Queue(maxsize=20)
 
         # Use FFMPEG to read from camera. Used for reading/recording
         self.ffmpeg = FFMPEGCamera(frame_buffer)
@@ -71,6 +72,7 @@ class FFMPEGNVR(object):
                                            object_decoder_queue,
                                            self.scan_for_objects,
                                            self.object_event,
+                                           self.object_return_queue,
                                            config.MOTION_DETECTION_INTERVAL,
                                            motion_decoder_queue,
                                            self.scan_for_motion))

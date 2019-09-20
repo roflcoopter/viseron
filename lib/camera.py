@@ -50,9 +50,9 @@ class FFMPEGCamera(object):
         stream.release()
         return width, height, fps
 
-    def capture_pipe(self, frame_buffer, frame_ready,
-                     object_decoder_interval, object_decoder_queue,
-                     scan_for_objects, object_event, motion_decoder_interval,
+    def capture_pipe(self, frame_buffer, frame_ready, object_decoder_interval,
+                     object_decoder_queue, scan_for_objects, object_event,
+                     object_return_queue, motion_decoder_interval,
                      motion_decoder_queue, scan_for_motion):
         LOGGER.info('Starting capture process')
 
@@ -115,12 +115,14 @@ class FFMPEGCamera(object):
                     try:
                         object_decoder_queue.put_nowait({
                             'frame': self.raw_image,
-                            'object_event': object_event})
+                            'object_event': object_event,
+                            'object_return_queue': object_return_queue})
                     except Full:
                         object_decoder_queue.get()
                         object_decoder_queue.put({
                             'frame': self.raw_image,
-                            'object_event': object_event})
+                            'object_event': object_event,
+                            'object_return_queue': object_return_queue})
                 object_frame_number += 1
             else:
                 object_frame_number = 0

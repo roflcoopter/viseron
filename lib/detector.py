@@ -72,6 +72,7 @@ class Detector(object):
             object_event = frame['object_event']
 
             objects = self.ObjectDetection.return_objects(frame['frame'])
+
             for obj in objects:
                 cv2.rectangle(frame['frame'],
                                 (int(obj["unscaled_x1"]),
@@ -86,6 +87,12 @@ class Detector(object):
 
             if self.filtered_objects:
                 LOGGER.info(self.filtered_objects)
+                try:
+                    frame['object_return_queue'].put_nowait(self.filtered_objects)
+                except Full:
+                    frame['object_return_queue'].get()
+                    frame['object_return_queue'].put_nowait(self.filtered_objects)
+
                 if not object_event.is_set():
                     object_event.set()
                 continue
