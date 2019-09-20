@@ -1,6 +1,6 @@
 import logging
 from threading import Thread, Event
-from queue import Queue
+from queue import Queue, Empty
 
 import config
 from lib.camera import FFMPEGCamera
@@ -126,8 +126,12 @@ class FFMPEGNVR(object):
             # Start recording
             if self.object_event.is_set():
                 idle_frames = 0
+                try:
+                    mqtt.publish_sensor(True, self.object_return_queue.get_nowait())
+                except Empty:
+                    mqtt.publish_sensor(True, [])
+
                 if not self.Recorder.is_recording:
-                    mqtt.publish_sensor(True, self.detector.filtered_objects)
                     self.recorder_thread = \
                         Thread(target=self.Recorder.start_recording,
                                args=(frame_buffer,
@@ -152,7 +156,7 @@ class FFMPEGNVR(object):
                 if idle_frames >= (self.ffmpeg.stream_fps *
                                    config.RECORDING_TIMEOUT):
 
-                    mqtt.publish_sensor(False, self.detector.filtered_objects)
+                    mqtt.publish_sensor(False, [])
                     self.detector.tracking = False
                     self.Recorder.stop()
                     if config.MOTION_DETECTION_TRIGGER:
