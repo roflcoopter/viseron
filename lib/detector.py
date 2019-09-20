@@ -11,7 +11,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Detector(object):
-    def __init__(self, Camera, mqtt, object_event):
+    def __init__(self, Camera, mqtt):
         LOGGER.info('Initializing detection thread')
 
         # Activate OpenCL
@@ -22,9 +22,7 @@ class Detector(object):
         self.mqtt = mqtt
         self.Recorder = None
 
-        self._object_detected = False
         self.filtered_objects = []
-        self.object_event = object_event
 
         if config.OBJECT_DETECTION_TYPE == "edgetpu":
             from lib.edgetpu_detection import ObjectDetection
@@ -72,6 +70,7 @@ class Detector(object):
 
             try:
                 frame = detector_queue.get()
+                object_event = frame['object_event']
 
                 objects = self.ObjectDetection.return_objects(frame['frame'])
                 for obj in objects:
@@ -88,28 +87,14 @@ class Detector(object):
 
                 if self.filtered_objects:
                     LOGGER.info(self.filtered_objects)
-                    if not self.object_detected:
-                        self.object_detected = True
+                    if not object_event.is_set():
+                        object_event.set()
                     continue
             except Empty:
                 LOGGER.error('Frame not grabbed for object detection')
 
-            if self.object_detected:
-                self.object_detected = False
-
-    @property
-    def object_detected(self):
-        return self._object_detected
-
-    @object_detected.setter
-    def object_detected(self, _object_detected):
-        self._object_detected = _object_detected
-
-        if _object_detected:
-            self.object_event.set()
-        else:
-            self.object_event.clear()
+            if object_event.is_set():
+                object_event.clear()
 
     def stop(self):
-        self.object_detected = False
         return

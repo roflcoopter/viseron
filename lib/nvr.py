@@ -38,7 +38,7 @@ class FFMPEGNVR(object):
         self.ffmpeg = FFMPEGCamera(frame_buffer)
 
         # Object detector class. Called every config.OBJECT_DETECTION_INTERVAL
-        self.detector = Detector(self.ffmpeg, mqtt, self.object_event)
+        self.detector = Detector(self.ffmpeg, mqtt)
         self.ffmpeg.detector = self.detector
         self.detector_thread = Thread(target=self.detector.object_detection,
                                       args=(detector_queue,))
@@ -70,6 +70,7 @@ class FFMPEGNVR(object):
                                            config.OBJECT_DETECTION_INTERVAL,
                                            object_decoder_queue,
                                            self.scan_for_objects,
+                                           self.object_event,
                                            config.MOTION_DETECTION_INTERVAL,
                                            motion_decoder_queue,
                                            self.scan_for_motion))
