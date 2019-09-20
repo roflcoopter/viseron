@@ -196,7 +196,9 @@ class FFMPEGCamera(object):
                         'frame': cv2.resize(
                             cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21),
                             (width, height),
-                            interpolation=cv2.INTER_LINEAR)
+                            interpolation=cv2.INTER_LINEAR),
+                        'object_event': raw_image['object_event'],
+                        'object_return_queue': raw_image['object_return_queue']
                     })
                 except Full:
                     output_queue.get()
@@ -204,7 +206,9 @@ class FFMPEGCamera(object):
                         'frame': cv2.resize(
                             cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21),
                             (width, height),
-                            interpolation=cv2.INTER_LINEAR)
+                            interpolation=cv2.INTER_LINEAR),
+                        'object_event': raw_image['object_event'],
+                        'object_return_queue': raw_image['object_return_queue']
                     })
 
         LOGGER.info("Exiting decoder thread")
