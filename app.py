@@ -82,7 +82,10 @@ def log_settings():
 
 class MyFormatter(logging.Formatter):
     # pylint: disable=protected-access
-    overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K[%(asctime)s] [%(name)-12s] [%(levelname)-8s] - %(message)s"
+    overwrite_fmt = (
+        "\x1b[80D\x1b[1A\x1b[K[%(asctime)s] "
+        "[%(name)-12s] [%(levelname)-8s] - %(message)s"
+    )
 
     def __init__(self):
         super().__init__(
