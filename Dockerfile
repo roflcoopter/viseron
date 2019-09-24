@@ -207,6 +207,7 @@ RUN  wget https://bootstrap.pypa.io/get-pip.py --progress=bar:force:noscroll && 
 
 # Fetch models for Google Coral
 RUN mkdir -p /detectors/models/edgetpu/classification && \
+    apt-get update --fix-missing && \
     apt-get install --no-install-recommends -y curl && \
     # EdgeTPU MobileNet SSD v2 Object Detection model
     wget https://dl.google.com/coral/canned_models/mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite -O /detectors/models/edgetpu/model.tflite --trust-server-names --progress=bar:force:noscroll && \
