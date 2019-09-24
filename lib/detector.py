@@ -1,11 +1,8 @@
 import logging
-from datetime import datetime
+from queue import Full
+
 import config
 import cv2
-import imutils
-import os
-import threading
-from queue import Queue, Empty, Full
 
 LOGGER = logging.getLogger(__name__)
 
