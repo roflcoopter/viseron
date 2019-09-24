@@ -130,13 +130,18 @@ class FFMPEGCamera(object):
             if scan_for_motion.is_set():
                 if motion_frame_number % motion_decoder_interval == 0:
                     motion_frame_number = 0
+                    ########## TODO REMOVE DIS SHIT
                     try:
                         motion_decoder_queue.put_nowait({
-                            'frame': self.raw_image})
+                            'frame': self.raw_image,
+                            'object_event': object_event,
+                            'object_return_queue': object_return_queue})
                     except Full:
                         motion_decoder_queue.get()
                         motion_decoder_queue.put({
-                            'frame': self.raw_image})
+                            'frame': self.raw_image,
+                            'object_event': object_event,
+                            'object_return_queue': object_return_queue})
                 motion_frame_number += 1
             else:
                 motion_frame_number = 0
