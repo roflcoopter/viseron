@@ -202,7 +202,11 @@ RUN  wget https://bootstrap.pypa.io/get-pip.py --progress=bar:force:noscroll && 
      imutils \
      Cython \
      Flask \
-     line_profiler
+     line_profiler \
+     tenacity \
+     pyyaml \
+     voluptuous \
+     python-slugify
 
 
 # Fetch models for Google Coral
