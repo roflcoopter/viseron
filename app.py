@@ -1,12 +1,15 @@
 import logging
 import signal
+import sys
 import threading
 from queue import Queue
 
-import config
 from lib.cleanup import Cleanup
+from lib.config import ViseronConfig
 from lib.mqtt import MQTT
 from lib.nvr import FFMPEGNVR
+
+sys.path.append("/config")
 
 
 LOGGER = logging.getLogger()
@@ -23,7 +26,11 @@ LEVELS = {
 
 def main():
     # Initialize logging
-    log_settings()
+    # yaml_config = Config()
+    viseron_config = ViseronConfig()
+    config = viseron_config.config
+
+    log_settings(config)
     LOGGER.info("-------------------------------------------")
     LOGGER.info("Initializing...")
 
@@ -66,8 +73,8 @@ def schedule_cleanup():
     cleanup.cleanup()
 
 
-def log_settings():
-    LOGGER.setLevel(LEVELS[config.LOG_LEVEL])
+def log_settings(config):
+    LOGGER.setLevel(LEVELS[config.logging.level])
     formatter = logging.Formatter(
         "[%(asctime)s] [%(name)-12s] [%(levelname)-8s] - %(message)s",
         "%Y-%m-%d %H:%M:%S",
