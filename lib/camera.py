@@ -19,13 +19,12 @@ class FFMPEGCamera(object):
     def __init__(self, frame_buffer):
         LOGGER.info('Initializing ffmpeg RTSP pipe')
 
-        self.detector = None
-
         # Activate OpenCL
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
 
         self.connected = False
+        self.connection_error = True
         self.raw_image = None
 
         self.stream_width, self.stream_height, self.stream_fps, = \
@@ -172,23 +171,9 @@ class FFMPEGCamera(object):
             return False, None
         except ValueError:
             LOGGER.error("Unable to fetch frame. FFMPEG pipe seems broken")
+            self.connection_error = True
             return False, None
         return True, cv2.UMat(decoded_frame)
-
-    #@profile
-    def current_frame(self):
-        ret, frame = self.decode_frame()
-        if ret:
-            return True, cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21)
-        return False, None
-
-    def current_frame_resized(self, width, height):
-        ret, frame = self.decode_frame()
-        if ret:
-            return True, cv2.resize(
-                cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21),
-                (width, height), interpolation=cv2.INTER_LINEAR)
-        return False, None
 
     def decoder(self, input_queue, output_queue, width, height):
         LOGGER.info("Starting decoder thread")
