@@ -1,12 +1,13 @@
+import logging
+from queue import Empty
+
 import cv2
 import imutils
-from queue import Empty
-import logging
 
 LOGGER = logging.getLogger(__name__)
 
 
-class MotionDetection(object):
+class MotionDetection:
     def __init__(self, motion_event, min_motion_area, motion_frames):
         self.avg = None
         self._motion_detected = False
@@ -36,9 +37,7 @@ class MotionDetection(object):
         # in holes, then find contours on thresholded image
         thresh = cv2.threshold(frame_delta, 5, 255, cv2.THRESH_BINARY)[1]
         thresh = cv2.dilate(thresh, None, iterations=2)
-        cnts = cv2.findContours(thresh,
-                                cv2.RETR_EXTERNAL,
-                                cv2.CHAIN_APPROX_SIMPLE)
+        cnts = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cnts = imutils.grab_contours(cnts)
 
         max_contour = max([cv2.contourArea(c) for c in cnts], default=0)
@@ -52,7 +51,7 @@ class MotionDetection(object):
             try:
                 frame = motion_queue.get()
 
-                max_contour = self.detect(frame['frame'])
+                max_contour = self.detect(frame["frame"])
 
                 if max_contour > self.min_motion_area:
                     self.motion_area = max_contour
@@ -62,9 +61,10 @@ class MotionDetection(object):
 
                 if _motion_found:
                     _motion_frames += 1
-                    LOGGER.debug("Motion frames: {}, "
-                                 "area: {}".format(_motion_frames,
-                                                   max_contour))
+                    LOGGER.debug(
+                        "Motion frames: {}, "
+                        "area: {}".format(_motion_frames, max_contour)
+                    )
 
                     if _motion_frames >= self.motion_frames:
                         if not self.motion_detected:
@@ -74,7 +74,7 @@ class MotionDetection(object):
                     _motion_frames = 0
 
             except Empty:
-                LOGGER.error('Frame not grabbed for motion detector')
+                LOGGER.error("Frame not grabbed for motion detector")
 
             if self.motion_detected:
                 self.motion_detected = False
