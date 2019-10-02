@@ -9,14 +9,14 @@ import config
 LOGGER = logging.getLogger(__name__)
 
 
-class FFMPEGRecorder(object):
-    def __init__(self):
+class FFMPEGRecorder:
+    def __init__(self, frame_buffer):
         LOGGER.info("Initializing ffmpeg recorder")
         self.is_recording = False
         self.writer_pipe = None
-        return
+        self.frame_buffer = frame_buffer
 
-    def write_frames(self, file_name, frame_buffer, width, height, fps):
+    def write_frames(self, file_name, width, height, fps):
         # fmt: off
         command = ['/root/bin/ffmpeg',
                    '-loglevel', 'panic',
@@ -40,7 +40,7 @@ class FFMPEGRecorder(object):
 
         while self.is_recording:
             try:
-                frame = frame_buffer.get(timeout=1)
+                frame = self.frame_buffer.get(timeout=1)
                 #                LOGGER.debug("Writing frame of size {} to file."
                 #                             .format(sys.getsizeof(frame)))
                 writer_pipe.stdin.write(frame["frame"])
@@ -54,7 +54,7 @@ class FFMPEGRecorder(object):
     def subfolder_name(self, today):
         return "{:04}-{:02}-{:02}".format(today.year, today.month, today.day)
 
-    def start_recording(self, frame_buffer, width, height, fps):
+    def start_recording(self, width, height, fps):
         LOGGER.info("Starting recorder")
         self.is_recording = True
 
@@ -82,9 +82,7 @@ class FFMPEGRecorder(object):
         except FileExistsError:
             LOGGER.error("Folder already exists")
 
-        self.write_frames(
-            os.path.join(full_path, file_name), frame_buffer, width, height, fps
-        )
+        self.write_frames(os.path.join(full_path, file_name), width, height, fps)
 
     def stop(self):
         LOGGER.info("Stopping recorder")

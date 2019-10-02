@@ -2,14 +2,12 @@ import logging
 import signal
 import sys
 import threading
-from queue import Queue
 
+sys.path.append("/config")
 from lib.cleanup import Cleanup
 from lib.config import ViseronConfig
 from lib.mqtt import MQTT
 from lib.nvr import FFMPEGNVR
-
-sys.path.append("/config")
 
 
 LOGGER = logging.getLogger()
@@ -38,10 +36,8 @@ def main():
     # Start MQTT connection
     mqtt = MQTT()
 
-    # Maxsize changes later based on config option LOOKBACK_SECONDS
-    frame_buffer = Queue(maxsize=1)
-    nvr = FFMPEGNVR(mqtt, frame_buffer)
-    thread = threading.Thread(target=nvr.run, args=(mqtt, frame_buffer))
+    nvr = FFMPEGNVR(mqtt)
+    thread = threading.Thread(target=nvr.run, args=(mqtt,))
     thread.start()
 
     LOGGER.info("Initialization complete")
