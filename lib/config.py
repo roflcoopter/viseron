@@ -195,6 +195,8 @@ class CameraConfig:
         self._username = camera.username
         self._password = camera.password
         self._path = camera.path
+        self._width = camera.width
+        self._height = camera.height
         self._fps = camera.fps
 
     @property
@@ -224,6 +226,14 @@ class CameraConfig:
     @property
     def path(self):
         return self._path
+
+    @property
+    def width(self):
+        return self._width
+
+    @property
+    def height(self):
+        return self._height
 
     @property
     def fps(self):
