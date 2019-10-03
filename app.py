@@ -24,7 +24,6 @@ LEVELS = {
 
 def main():
     # Initialize logging
-    # yaml_config = Config()
     viseron_config = ViseronConfig()
     config = viseron_config.config
 
@@ -36,26 +35,31 @@ def main():
     # Start MQTT connection
     mqtt = MQTT()
 
-    nvr = FFMPEGNVR(mqtt)
-    thread = threading.Thread(target=nvr.run, args=(mqtt,))
-    thread.start()
+    threads = []
+    for camera in config.cameras:
+        threads.append(FFMPEGNVR(mqtt, viseron_config.get_camera_config(camera)))
+
+    for thread in threads:
+        thread.start()
 
     LOGGER.info("Initialization complete")
 
     def signal_term(*_):
         LOGGER.info("Kill received! Sending kill to threads..")
-        nvr.stop()
-        thread.join()
+        for thread in threads:
+            thread.stop()
+            thread.join()
 
     # Listen to sigterm
     signal.signal(signal.SIGTERM, signal_term)
 
     try:
-        thread.join()
+        threads[0].join()
     except KeyboardInterrupt:
         LOGGER.info("Ctrl-C received! Sending kill to threads..")
-        nvr.stop()
-        thread.join()
+        for thread in threads:
+            thread.stop()
+            thread.join()
 
     LOGGER.info("Exiting")
     return
