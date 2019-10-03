@@ -23,6 +23,8 @@ LOGGER = logging.getLogger(__name__)
 
 with open("/config/config.yaml", "r") as f:
     RAW_CONFIG = yaml.safe_load(f)
+##ith open("/workspace/viseron/config/config.yaml", "r") as f:
+#   RAW_CONFIG = yaml.safe_load(f)
 
 
 def slugify(text: str) -> str:
@@ -38,31 +40,24 @@ def ensure_mqtt_name(camera_data: list) -> list:
 
 
 # TODO test this inside docker container
-def ensure_label(data: list) -> list:
-    for detector in data:
-        if (
-            detector["type"] in ["darknet", "edgetpu"]
-            and detector["label_path"] is None
-        ):
-            raise Invalid(
-                "Detector type {} requires a label file".format(detector["type"])
-            )
-        if detector["label_path"]:
-            with open(detector["label_path"], "rt") as f:
-                labels_file = f.read().rstrip("\n").split("\n")
-            for label in detector["labels"]:
-                if label not in labels_file:
-                    raise Invalid("Provided label doesn't exist in label file")
-    return data
+def ensure_label(detector: dict) -> dict:
+    if detector["type"] in ["darknet", "edgetpu"] and detector["label_path"] is None:
+        raise Invalid("Detector type {} requires a label file".format(detector["type"]))
+    if detector["label_path"]:
+        with open(detector["label_path"], "rt") as f:
+            labels_file = f.read().rstrip("\n").split("\n")
+        for label in detector["labels"]:
+            if label not in labels_file:
+                raise Invalid("Provided label doesn't exist in label file")
+    return detector
 
 
-def ensure_min_max(data: list) -> list:
-    for detector in data:
-        if detector["height_min"] > detector["height_max"]:
-            raise Invalid("height_min may not be larger than height_max")
-        if detector["width_min"] > detector["width_max"]:
-            raise Invalid("width_min may not be larger than width_max")
-    return data
+def ensure_min_max(detector: dict) -> dict:
+    if detector["height_min"] > detector["height_max"]:
+        raise Invalid("height_min may not be larger than height_max")
+    if detector["width_min"] > detector["width_max"]:
+        raise Invalid("width_min may not be larger than width_max")
+    return detector
 
 
 def upper_case(data: dict) -> dict:
@@ -92,28 +87,25 @@ LABELS_CONFIG = Schema([str])
 
 OBJECT_DETECTION_CONFIG = Schema(
     All(
-        [
-            {
-                Required("type"): Any("darknet", "edgetpu", "posenet"),
-                Required("model_path"): str,
-                Required("label_path", default=None): Any(
-                    All(str, Length(min=1)), None
-                ),
-                Required("model_width"): int,
-                Required("model_height"): int,
-                Required("threshold"): All(
-                    Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
-                ),
-                Required("suppression"): All(
-                    Any(0, 1, All(float, Range(min=0, max=1))), Coerce(float)
-                ),
-                Required("height_min"): int,
-                Required("height_max"): int,
-                Required("width_min"): int,
-                Required("width_max"): int,
-                Required("labels"): LABELS_CONFIG,
-            }
-        ],
+        {
+            Required("type"): Any("darknet", "edgetpu", "posenet"),
+            Required("model_path"): str,
+            Required("label_path", default=None): Any(All(str, Length(min=1)), None),
+            Required("model_width"): int,
+            Required("model_height"): int,
+            Required("interval", default=1): int,
+            Required("threshold"): All(
+                Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
+            ),
+            Required("suppression"): All(
+                Any(0, 1, All(float, Range(min=0, max=1))), Coerce(float)
+            ),
+            Required("height_min"): int,
+            Required("height_max"): int,
+            Required("width_min"): int,
+            Required("width_max"): int,
+            Required("labels"): LABELS_CONFIG,
+        },
         ensure_min_max,
         ensure_label,
     )
@@ -192,6 +184,30 @@ VALIDATED_CONFIG = VISERON_CONFIG(RAW_CONFIG)
 # )
 
 
+class CameraConfig:
+    def __init__(self, camera, object_detection, motion_detection, recorder):
+        self._camera = camera
+        self._object_detection = object_detection
+        self._motion_detection = motion_detection
+        self._recorder = recorder
+
+    @property
+    def camera(self):
+        return self._camera
+
+    @property
+    def object_detection(self):
+        return self._object_detection
+
+    @property
+    def motion_detection(self):
+        return self._motion_detection
+
+    @property
+    def recorder(self):
+        return self._recorder
+
+
 class ViseronConfig:
     def __init__(self):
         self._config = json.loads(
@@ -202,3 +218,26 @@ class ViseronConfig:
     @property
     def config(self):
         return self._config
+
+    def get_camera_config(self, camera: tuple) -> object:
+        print(camera)
+        camera_config = CameraConfig(
+            camera,
+            self.config.object_detection,
+            self.config.motion_detection,
+            self.config.recorder,
+        )
+        return camera_config
+
+
+def main():
+    viseron_config = ViseronConfig()
+    config = viseron_config.config
+
+    for camera in config.cameras:
+        config = viseron_config.get_camera_config(camera)
+        print(config.motion_detection)
+
+
+if __name__ == "__main__":
+    main()
