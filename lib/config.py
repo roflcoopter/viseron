@@ -23,8 +23,8 @@ LOGGER = logging.getLogger(__name__)
 
 with open("/config/config.yaml", "r") as f:
     RAW_CONFIG = yaml.safe_load(f)
-##ith open("/workspace/viseron/config/config.yaml", "r") as f:
-#   RAW_CONFIG = yaml.safe_load(f)
+# with open("/workspace/viseron/config/config.yaml", "r") as f:
+#    RAW_CONFIG = yaml.safe_load(f)
 
 
 def slugify(text: str) -> str:
@@ -76,6 +76,8 @@ CAMERA_CONFIG = Schema(
                 Optional("username", default=None): Any(All(str, Length(min=1)), None),
                 Optional("password", default=None): Any(All(str, Length(min=1)), None),
                 Required("path"): All(str, Length(min=1)),
+                Optional("width", default=None): Any(int, None),
+                Optional("height", default=None): Any(int, None),
                 Optional("fps", default=None): Any(All(int, Range(min=1)), None),
             }
         ],
@@ -178,18 +180,207 @@ VISERON_CONFIG = Schema(
 )
 
 VALIDATED_CONFIG = VISERON_CONFIG(RAW_CONFIG)
-# CONFIG = json.loads(
-#    json.dumps(CONFIG),
-#    object_hook=lambda d: namedtuple("ViseronConfig", d.keys())(*d.values()),
-# )
+CONFIG = json.loads(
+    json.dumps(VALIDATED_CONFIG),
+    object_hook=lambda d: namedtuple("ViseronConfig", d.keys())(*d.values()),
+)
 
 
 class CameraConfig:
-    def __init__(self, camera, object_detection, motion_detection, recorder):
-        self._camera = camera
-        self._object_detection = object_detection
-        self._motion_detection = motion_detection
-        self._recorder = recorder
+    def __init__(self, camera):
+        self._name = camera.name
+        self._mqtt_name = camera.mqtt_name
+        self._host = camera.host
+        self._port = camera.port
+        self._username = camera.username
+        self._password = camera.password
+        self._path = camera.path
+        self._fps = camera.fps
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def mqtt_name(self):
+        return self._mqtt_name
+
+    @property
+    def host(self):
+        return self._host
+
+    @property
+    def port(self):
+        return self._port
+
+    @property
+    def username(self):
+        return self._username
+
+    @property
+    def password(self):
+        return self._password
+
+    @property
+    def path(self):
+        return self._path
+
+    @property
+    def fps(self):
+        return self._fps
+
+    @property
+    def stream_url(self):
+        return (
+            f"rtsp://{self.username}:{self.password}@{self.host}:{self.port}{self.path}"
+        )
+
+
+class ObjectDetectionConfig:
+    def __init__(self, object_detection):
+        self._type = object_detection.type
+        self._model_path = object_detection.model_path
+        self._label_path = object_detection.label_path
+        self._model_width = object_detection.model_width
+        self._model_height = object_detection.model_height
+        self._interval = object_detection.interval
+        self._threshold = object_detection.threshold
+        self._suppression = object_detection.suppression
+        self._height_min = object_detection.height_min
+        self._height_max = object_detection.height_max
+        self._width_min = object_detection.width_min
+        self._width_max = object_detection.width_max
+        self._labels = object_detection.labels
+
+    @property
+    def type(self):
+        return self._type
+
+    @property
+    def model_path(self):
+        return self._model_path
+
+    @property
+    def label_path(self):
+        return self._label_path
+
+    @property
+    def model_width(self):
+        return self._model_width
+
+    @property
+    def model_height(self):
+        return self._model_height
+
+    @property
+    def interval(self):
+        return self._interval
+
+    @property
+    def threshold(self):
+        return self._threshold
+
+    @property
+    def suppression(self):
+        return self._suppression
+
+    @property
+    def height_min(self):
+        return self._height_min
+
+    @property
+    def height_max(self):
+        return self._height_max
+
+    @property
+    def width_min(self):
+        return self._width_min
+
+    @property
+    def width_max(self):
+        return self._width_max
+
+    @property
+    def labels(self):
+        return self._labels
+
+
+class MotionDetectionConfig:
+    def __init__(self, motion_detection):
+        self._interval = motion_detection.interval
+        self._trigger = motion_detection.trigger
+        self._timeout = motion_detection.timeout
+        self._width = motion_detection.width
+        self._height = motion_detection.height
+        self._area = motion_detection.area
+        self._frames = motion_detection.frames
+
+    @property
+    def interval(self):
+        return self._interval
+
+    @property
+    def trigger(self):
+        return self._trigger
+
+    @property
+    def timeout(self):
+        return self._timeout
+
+    @property
+    def width(self):
+        return self._width
+
+    @property
+    def height(self):
+        return self._height
+
+    @property
+    def area(self):
+        return self._area
+
+    @property
+    def frames(self):
+        return self._frames
+
+
+class RecorderConfig:
+    def __init__(self, recorder):
+        self._lookback = recorder.lookback
+        self._timeout = recorder.timeout
+        self._retain = recorder.retain
+        self._folder = recorder.folder
+        self._extension = recorder.extension
+
+    @property
+    def lookback(self):
+        return self._lookback
+
+    @property
+    def timeout(self):
+        return self._timeout
+
+    @property
+    def retain(self):
+        return self._retain
+
+    @property
+    def folder(self):
+        return self._folder
+
+    @property
+    def extension(self):
+        return self._extension
+
+
+class ViseronConfig:
+    config = CONFIG
+
+    def __init__(self, camera):
+        self._camera = CameraConfig(camera)
+        self._object_detection = ObjectDetectionConfig(self.config.object_detection)
+        self._motion_detection = MotionDetectionConfig(self.config.motion_detection)
+        self._recorder = RecorderConfig(self.config.recorder)
 
     @property
     def camera(self):
@@ -208,35 +399,13 @@ class CameraConfig:
         return self._recorder
 
 
-class ViseronConfig:
-    def __init__(self):
-        self._config = json.loads(
-            json.dumps(VALIDATED_CONFIG),
-            object_hook=lambda d: namedtuple("ViseronConfig", d.keys())(*d.values()),
-        )
-
-    @property
-    def config(self):
-        return self._config
-
-    def get_camera_config(self, camera: tuple) -> object:
-        print(camera)
-        camera_config = CameraConfig(
-            camera,
-            self.config.object_detection,
-            self.config.motion_detection,
-            self.config.recorder,
-        )
-        return camera_config
-
-
 def main():
-    viseron_config = ViseronConfig()
-    config = viseron_config.config
-
-    for camera in config.cameras:
-        config = viseron_config.get_camera_config(camera)
-        print(config.motion_detection)
+    for camera in ViseronConfig.config.cameras:
+        config = ViseronConfig(camera)
+        print(config.camera.stream_url)
+        print(config.object_detection.labels)
+        print(config.motion_detection.timeout)
+        print(config.recorder.folder)
 
 
 if __name__ == "__main__":

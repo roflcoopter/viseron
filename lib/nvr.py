@@ -40,7 +40,7 @@ class FFMPEGNVR(Thread):
         # Use FFMPEG to read from camera. Used for reading/recording
         # Maxsize changes later based on config option LOOKBACK_SECONDS
         frame_buffer = Queue(maxsize=1)
-        self.ffmpeg = FFMPEGCamera(frame_buffer)
+        self.ffmpeg = FFMPEGCamera(self.config, frame_buffer)
 
         # Object detector class. Called every config.OBJECT_DETECTION_INTERVAL
         self.detector = Detector(self.ffmpeg, mqtt)
@@ -167,7 +167,7 @@ class FFMPEGNVR(Thread):
                         ),
                     )
                     self.recorder_thread.start()
-                    if config.motion_detection.timeout:
+                    if self.config.motion_detection.timeout:
                         self.scan_for_motion.set()
                         LOGGER.info("Starting motion detector")
                     continue

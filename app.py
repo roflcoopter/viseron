@@ -24,8 +24,7 @@ LEVELS = {
 
 def main():
     # Initialize logging
-    viseron_config = ViseronConfig()
-    config = viseron_config.config
+    config = ViseronConfig.config
 
     log_settings(config)
     LOGGER.info("-------------------------------------------")
@@ -37,7 +36,7 @@ def main():
 
     threads = []
     for camera in config.cameras:
-        threads.append(FFMPEGNVR(mqtt, viseron_config.get_camera_config(camera)))
+        threads.append(FFMPEGNVR(mqtt, ViseronConfig(camera)))
 
     for thread in threads:
         thread.start()
