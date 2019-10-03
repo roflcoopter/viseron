@@ -5,7 +5,6 @@ import subprocess as sp
 import threading
 from queue import Full
 
-import config
 import cv2
 import numpy as np
 from retrying import retry
@@ -16,9 +15,9 @@ LOGGER = logging.getLogger(__name__)
 
 
 class FFMPEGCamera(object):
-    def __init__(self, new_config, frame_buffer):
+    def __init__(self, config, frame_buffer):
         LOGGER.info("Initializing ffmpeg RTSP pipe")
-        self.config = new_config
+        self.config = config
 
         # Activate OpenCL
         if cv2.ocl.haveOpenCL():
@@ -28,15 +27,26 @@ class FFMPEGCamera(object):
         self.connection_error = True
         self.raw_image = None
 
-        self.stream_width, self.stream_height, self.stream_fps, = self.get_stream_characteristics(
-            config.STREAM_URL
+        if (
+            self.config.camera.width
+            and self.config.camera.height
+            and self.config.camera.fps
+        ):
+            self.stream_width, self.stream_height, self.stream_fps = (
+                self.config.camera.width,
+                self.config.camera.height,
+                self.config.camera.fps,
+            )
+        else:
+            self.stream_width, self.stream_height, self.stream_fps = self.get_stream_characteristics(
+                self.config.stream_url
+            )
+
+        frame_buffer.maxsize = self.stream_fps * self.config.recorder.lookback
+
+        LOGGER.info(
+            f"Resolution = {self.stream_width}x{self.stream_height} @ {self.stream_fps} FPS"
         )
-        self.stream_fps = config.STREAM_FPS if config.STREAM_FPS else self.stream_fps
-
-        frame_buffer.maxsize = self.stream_fps * config.LOOKBACK_SECONDS
-
-        LOGGER.info("Resolution = {}x{}".format(self.stream_width, self.stream_height))
-        LOGGER.info("FPS = {}".format(self.stream_fps))
 
     @staticmethod
     def get_stream_characteristics(stream_url):
