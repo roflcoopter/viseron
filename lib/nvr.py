@@ -111,7 +111,7 @@ class FFMPEGNVR(Thread):
         self.detector_thread.start()
 
         # Initialize recorder
-        self.Recorder = FFMPEGRecorder(frame_buffer)
+        self.Recorder = FFMPEGRecorder(self.config, frame_buffer)
         # Detector and Recorder are both dependant on eachother
         self.detector.Recorder = self.Recorder
         LOGGER.info("NVR thread initialized")

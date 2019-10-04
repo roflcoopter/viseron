@@ -4,14 +4,13 @@ import os
 import subprocess as sp
 from queue import Empty
 
-import config
-
 LOGGER = logging.getLogger(__name__)
 
 
 class FFMPEGRecorder:
-    def __init__(self, frame_buffer):
+    def __init__(self, config, frame_buffer):
         LOGGER.info("Initializing ffmpeg recorder")
+        self.config = config
         self.is_recording = False
         self.writer_pipe = None
         self.frame_buffer = frame_buffer
@@ -58,20 +57,20 @@ class FFMPEGRecorder:
         LOGGER.info("Starting recorder")
         self.is_recording = True
 
-        if config.OUTPUT_DIRECTORY is None:
+        if self.config.recorder.folder is None:
             LOGGER.error("Output directory is not specified")
             return
 
         # Create filename
         now = datetime.datetime.now()
         file_name = "{}{}".format(
-            now.strftime("%H:%M:%S"), config.OUTPUT_FILES_EXTENSION
+            now.strftime("%H:%M:%S"), self.config.recorder.extension
         )
 
         # Create foldername
         subfolder = self.subfolder_name(now)
         full_path = os.path.normpath(
-            os.path.join(config.OUTPUT_DIRECTORY, "./{}".format(subfolder))
+            os.path.join(self.config.recorder.folder, "./{}".format(subfolder))
         )
         try:
             if not os.path.isdir(full_path):
