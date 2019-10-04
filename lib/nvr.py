@@ -1,5 +1,7 @@
 import logging
 from threading import Thread, Event
+
+# from lib.helpers import ExceptionThread
 from queue import Queue, Empty
 
 from lib.camera import FFMPEGCamera
@@ -130,7 +132,12 @@ class FFMPEGNVR(Thread):
 
         # Continue til we get kill command from root thread
         while not self.kill_received:
-            self.frame_ready.wait(10)
+            try:
+                self.frame_ready.wait(2)
+            except:
+                LOGGER.error("Timeout waiting for frame")
+                continue
+
             if self.motion_event.is_set():
                 idle_frames = 0
                 if (
