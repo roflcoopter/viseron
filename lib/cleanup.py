@@ -1,25 +1,25 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from path import Path
 import logging
-import config
 import time
 
 LOGGER = logging.getLogger(__name__)
 
 
 class Cleanup(object):
-    def __init__(self):
-        self.directory = config.OUTPUT_DIRECTORY
+    def __init__(self, config):
+        self.directory = config.recorder.folder
 
-        if config.DAYS_TO_RETAIN is None:
+        if config.recorder.retain is None:
             self.days_to_retain = 7
-            LOGGER.error("Number of days to retain recordings "
-                         "is not specified. Default = 7")
+            LOGGER.error(
+                "Number of days to retain recordings " "is not specified. Default = 7"
+            )
         else:
-            self.days_to_retain = config.DAYS_TO_RETAIN
+            self.days_to_retain = config.recorder.retain
 
         self.scheduler = BackgroundScheduler(timezone="UTC")
-        self.scheduler.add_job(self.cleanup, 'cron', hour='1')
+        self.scheduler.add_job(self.cleanup, "cron", hour="1")
         return
 
     def cleanup(self):
@@ -35,8 +35,7 @@ class Cleanup(object):
 
         folders = d.walkdirs("*-*-*")
         for folder in folders:
-            LOGGER.debug("Items in {}: {}".format(folder,
-                                                  len(folder.listdir())))
+            LOGGER.debug("Items in {}: {}".format(folder, len(folder.listdir())))
             if len(folder.listdir()) == 0:
                 try:
                     folder.rmdir()
