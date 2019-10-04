@@ -30,7 +30,7 @@ def main():
     LOGGER.info("-------------------------------------------")
     LOGGER.info("Initializing...")
 
-    schedule_cleanup()
+    schedule_cleanup(config)
     # Start MQTT connection
     mqtt = MQTT()
 
@@ -64,9 +64,9 @@ def main():
     return
 
 
-def schedule_cleanup():
+def schedule_cleanup(config):
     LOGGER.info("Starting cleanup scheduler")
-    cleanup = Cleanup()
+    cleanup = Cleanup(config)
     cleanup.scheduler.start()
     LOGGER.info("Running initial cleanup")
     cleanup.cleanup()
