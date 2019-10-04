@@ -111,7 +111,7 @@ class FFMPEGCamera(object):
             + ffmpeg_global_args
             + ffmpeg_input_args
             + ffmpeg_input_hwaccel_args
-            + ["-rtsp_transport", "tcp", "-i", config.STREAM_URL]
+            + ["-rtsp_transport", "tcp", "-i", self.config.camera.stream_url]
             + ffmpeg_output_args
         )
         LOGGER.debug("FFMPEG command: {}".format(" ".join(ffmpeg_cmd)))
@@ -185,7 +185,7 @@ class FFMPEGCamera(object):
 
         frame_ready.set()
         pipe.terminate()
-        pipe.wait()
+        pipe.communicate()
         LOGGER.info("FFMPEG frame grabber stopped")
 
     # @profile
