@@ -23,7 +23,7 @@ class FFMPEGRecorder:
                    '-threads', '8',
                    '-y',
                    '-f', 'rawvideo', '-pix_fmt', 'nv12', '-s:v',
-                   '{}x{}'.format(width, height),
+                   f'{width}x{height}',
                    '-r', str(fps), '-i', 'pipe:0',
                    '-an',
                    '-vf', 'format=nv12|vaapi,hwupload',
@@ -31,7 +31,8 @@ class FFMPEGRecorder:
                    '-qp', '19', '-bf', '2',
                    file_name]
         # fmt: on
-        LOGGER.debug("Filename: {}".format(file_name))
+        LOGGER.debug(f"FFMPEG command: {' '.join(command)}")
+        LOGGER.debug(f"Filename: {file_name}")
 
         writer_pipe = sp.Popen(
             command, stdin=sp.PIPE, bufsize=int(width * height * 1.5)
@@ -40,8 +41,7 @@ class FFMPEGRecorder:
         while self.is_recording:
             try:
                 frame = self.frame_buffer.get(timeout=1)
-                #                LOGGER.debug("Writing frame of size {} to file."
-                #                             .format(sys.getsizeof(frame)))
+                # LOGGER.debug(f"Writing frame of size {sys.getsizeof(frame)} to file.")
                 writer_pipe.stdin.write(frame["frame"])
             except Empty:
                 LOGGER.error("Timed out")
@@ -51,7 +51,7 @@ class FFMPEGRecorder:
         LOGGER.info("FFMPEG recorder stopped")
 
     def subfolder_name(self, today):
-        return "{:04}-{:02}-{:02}".format(today.year, today.month, today.day)
+        return f"{today.year:04}-{today.month:02}-{today.day:02}"
 
     def start_recording(self, width, height, fps):
         LOGGER.info("Starting recorder")
@@ -63,18 +63,16 @@ class FFMPEGRecorder:
 
         # Create filename
         now = datetime.datetime.now()
-        file_name = "{}{}".format(
-            now.strftime("%H:%M:%S"), self.config.recorder.extension
-        )
+        file_name = f"{now.strftime('%H:%M:%S')}.{self.config.recorder.extension}"
 
         # Create foldername
         subfolder = self.subfolder_name(now)
         full_path = os.path.normpath(
-            os.path.join(self.config.recorder.folder, "./{}".format(subfolder))
+            os.path.join(self.config.recorder.folder, f"./{subfolder}")
         )
         try:
             if not os.path.isdir(full_path):
-                LOGGER.info("Creating folder {}".format(full_path))
+                LOGGER.info(f"Creating folder {full_path}")
                 os.makedirs(full_path)
             else:
                 LOGGER.info("Folder already exists")
