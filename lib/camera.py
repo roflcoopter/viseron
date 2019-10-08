@@ -8,6 +8,7 @@ from queue import Full
 import cv2
 import numpy as np
 from retrying import retry
+from lib.helpers import pop_if_full
 
 LOGGER = logging.getLogger(__name__)
 # kernprof -v -l app.py
@@ -125,32 +126,20 @@ class FFMPEGCamera(object):
 
         while self.connected:
             self.raw_image = pipe.stdout.read(bytes_to_read)
-            try:
-                frame_buffer.put_nowait({"frame": self.raw_image})
-            except Full:
-                frame_buffer.get()
-                frame_buffer.put({"frame": self.raw_image})
+            pop_if_full(frame_buffer, {"frame": self.raw_image})
 
             if scan_for_objects.is_set():
                 if object_frame_number % object_decoder_interval == 0:
                     object_frame_number = 0
-                    try:
-                        object_decoder_queue.put_nowait(
-                            {
-                                "frame": self.raw_image,
-                                "object_event": object_event,
-                                "object_return_queue": object_return_queue,
-                            }
-                        )
-                    except Full:
-                        object_decoder_queue.get()
-                        object_decoder_queue.put(
-                            {
-                                "frame": self.raw_image,
-                                "object_event": object_event,
-                                "object_return_queue": object_return_queue,
-                            }
-                        )
+                    pop_if_full(
+                        object_decoder_queue,
+                        {
+                            "frame": self.raw_image,
+                            "object_event": object_event,
+                            "object_return_queue": object_return_queue,
+                        },
+                    )
+
                 object_frame_number += 1
             else:
                 object_frame_number = 0
@@ -159,23 +148,8 @@ class FFMPEGCamera(object):
                 if motion_frame_number % motion_decoder_interval == 0:
                     motion_frame_number = 0
                     ########## TODO REMOVE DIS SHIT
-                    try:
-                        motion_decoder_queue.put_nowait(
-                            {
-                                "frame": self.raw_image,
-                                "object_event": object_event,
-                                "object_return_queue": object_return_queue,
-                            }
-                        )
-                    except Full:
-                        motion_decoder_queue.get()
-                        motion_decoder_queue.put(
-                            {
-                                "frame": self.raw_image,
-                                "object_event": object_event,
-                                "object_return_queue": object_return_queue,
-                            }
-                        )
+                    pop_if_full(motion_decoder_queue, {"frame": self.raw_image})
+
                 motion_frame_number += 1
             else:
                 motion_frame_number = 0
@@ -209,40 +183,20 @@ class FFMPEGCamera(object):
         return True, cv2.UMat(decoded_frame)
 
     def decoder(self, input_queue, output_queue, width, height):
+        """Decodes the frame, leaves any other potential keys in the dict untouched"""
         LOGGER.info("Starting decoder thread")
         while True:
-            raw_image = input_queue.get()
-            ret, frame = self.decode_frame(raw_image["frame"])
+            input_item = input_queue.get()
+            ret, frame = self.decode_frame(input_item["frame"])
             if ret:
-                try:
-                    output_queue.put_nowait(
-                        {
-                            "frame": cv2.resize(
-                                cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21),
-                                (width, height),
-                                interpolation=cv2.INTER_LINEAR,
-                            ),
-                            "object_event": raw_image["object_event"],
-                            "object_return_queue": raw_image["object_return_queue"],
-                        }
-                    )
-                except Full:
-                    output_queue.get()
-                    output_queue.put_nowait(
-                        {
-                            "frame": cv2.resize(
-                                cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21),
-                                (width, height),
-                                interpolation=cv2.INTER_LINEAR,
-                            ),
-                            "object_event": raw_image["object_event"],
-                            "object_return_queue": raw_image["object_return_queue"],
-                        }
-                    )
+                input_item["frame"] = cv2.resize(
+                    cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21),
+                    (width, height),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+                pop_if_full(output_queue, input_item)
 
         LOGGER.info("Exiting decoder thread")
-        return
 
     def release(self):
         self.connected = False
-        return
