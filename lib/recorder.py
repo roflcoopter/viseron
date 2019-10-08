@@ -26,6 +26,7 @@ class FFMPEGRecorder:
                    f'{width}x{height}',
                    '-r', str(fps), '-i', 'pipe:0',
                    '-an',
+                   '-movflags', '+faststart',
                    '-vf', 'format=nv12|vaapi,hwupload',
                    '-vcodec', 'h264_vaapi',
                    '-qp', '19', '-bf', '2',
