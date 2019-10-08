@@ -8,7 +8,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Detector(object):
-    def __init__(self, Camera, mqtt):
+    def __init__(self, Camera):
         LOGGER.info("Initializing detection thread")
 
         # Activate OpenCL
@@ -16,8 +16,6 @@ class Detector(object):
             cv2.ocl.setUseOpenCL(True)
 
         self.Camera = Camera
-        self.mqtt = mqtt
-        self.Recorder = None
 
         self.filtered_objects = []
 
@@ -83,25 +81,19 @@ class Detector(object):
 
             objects = self.ObjectDetection.return_objects(frame["frame"])
 
-            for obj in objects:
-                cv2.rectangle(
-                    frame["frame"],
-                    (int(obj["unscaled_x1"]), int(obj["unscaled_y1"])),
-                    (int(obj["unscaled_x2"]), int(obj["unscaled_y2"])),
-                    (255, 0, 0),
-                    5,
-                )
-                self.mqtt.publish_image(frame["frame"])
-
             self.filtered_objects = list(filter(self.filter_objects, objects))
 
             if self.filtered_objects:
                 LOGGER.info(self.filtered_objects)
                 try:
-                    frame["object_return_queue"].put_nowait(self.filtered_objects)
+                    frame["object_return_queue"].put_nowait(
+                        {"frame": frame["frame"], "objects": self.filtered_objects}
+                    )
                 except Full:
                     frame["object_return_queue"].get()
-                    frame["object_return_queue"].put_nowait(self.filtered_objects)
+                    frame["object_return_queue"].put_nowait(
+                        {"frame": frame["frame"], "objects": self.filtered_objects}
+                    )
 
                 if not object_event.is_set():
                     object_event.set()
