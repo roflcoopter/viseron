@@ -3,6 +3,7 @@ from queue import Full
 
 import config
 import cv2
+from lib.helpers import pop_if_full
 
 LOGGER = logging.getLogger(__name__)
 
@@ -85,15 +86,10 @@ class Detector(object):
 
             if self.filtered_objects:
                 LOGGER.info(self.filtered_objects)
-                try:
-                    frame["object_return_queue"].put_nowait(
-                        {"frame": frame["frame"], "objects": self.filtered_objects}
-                    )
-                except Full:
-                    frame["object_return_queue"].get()
-                    frame["object_return_queue"].put_nowait(
-                        {"frame": frame["frame"], "objects": self.filtered_objects}
-                    )
+                pop_if_full(
+                    frame["object_return_queue"],
+                    {"frame": frame["frame"], "objects": self.filtered_objects},
+                )
 
                 if not object_event.is_set():
                     object_event.set()
