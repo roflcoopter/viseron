@@ -161,7 +161,7 @@ class FFMPEGNVR(Thread):
             returned_objects = self.object_return_queue.get_nowait()
             frame = returned_objects["frame"]
             for obj in returned_objects["objects"]:
-                frame = draw_boundingbox_relative(
+                frame = draw_bounding_box_relative(
                     frame,
                     (
                         int(obj["unscaled_x1"]),
