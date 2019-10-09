@@ -1,5 +1,4 @@
 import logging
-from queue import Full
 
 import config
 import cv2
@@ -8,7 +7,7 @@ from lib.helpers import pop_if_full
 LOGGER = logging.getLogger(__name__)
 
 
-class Detector(object):
+class Detector:
     def __init__(self, Camera):
         LOGGER.info("Initializing detection thread")
 
@@ -51,12 +50,10 @@ class Detector(object):
                     config.OBJECT_DETECTION_MODEL_WIDTH,
                     config.OBJECT_DETECTION_MODEL_HEIGHT,
                 ),
-                camera_res=(Camera.stream_width, Camera.stream_height),
             )
         else:
             LOGGER.error(
-                "OBJECT_DETECTION_TYPE has to be "
-                'either "edgetpu", "darknet" or "posenet"'
+                "OBJECT_DETECTION_TYPE has to be either edgetpu, darknet or posenet"
             )
             return
 
@@ -81,7 +78,11 @@ class Detector(object):
             object_event = frame["object_event"]
 
             objects = self.ObjectDetection.return_objects(frame["frame"])
+            for obj in objects:
+                obj["width"] = obj["width"] * frame["resolution"][0]
+                obj["height"] = obj["height"] * frame["resolution"][1]
 
+            LOGGER.debug(objects)
             self.filtered_objects = list(filter(self.filter_objects, objects))
 
             if self.filtered_objects:
