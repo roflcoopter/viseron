@@ -11,3 +11,6 @@ Ideas
 
 - Dynamic detection interval:
   Speed up interval when detection happens for all types of detectors
+
+- Properties:
+  All public vars should be exposed by property
