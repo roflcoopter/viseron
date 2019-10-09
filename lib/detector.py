@@ -26,7 +26,10 @@ class Detector:
                 model=config.OBJECT_DETECTION_MODEL,
                 labels=config.OBJECT_DETECTION_LABELS_FILE,
                 threshold=config.OBJECT_DETECTION_THRESH,
-                camera_res=(Camera.stream_width, Camera.stream_height),
+                model_res=(
+                    config.OBJECT_DETECTION_MODEL_WIDTH,
+                    config.OBJECT_DETECTION_MODEL_HEIGHT,
+                ),
             )
         elif config.OBJECT_DETECTION_TYPE == "darknet":
             from lib.darknet_detection import ObjectDetection
