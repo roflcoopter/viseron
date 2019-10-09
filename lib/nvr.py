@@ -1,11 +1,13 @@
 import logging
 from threading import Thread, Event
 from queue import Queue, Empty
+import cv2
 
 from lib.camera import FFMPEGCamera
 from lib.detector import Detector
 from lib.recorder import FFMPEGRecorder
 from lib.motion import MotionDetection
+from lib.helpers import draw_bounding_box_relative
 
 LOGGER = logging.getLogger(__name__)
 
@@ -157,15 +159,18 @@ class FFMPEGNVR(Thread):
     def publish_objects(self):
         try:
             returned_objects = self.object_return_queue.get_nowait()
+            frame = returned_objects["frame"]
             for obj in returned_objects["objects"]:
-                cv2.rectangle(
-                    returned_objects["frame"],
-                    (int(obj["unscaled_x1"]), int(obj["unscaled_y1"])),
-                    (int(obj["unscaled_x2"]), int(obj["unscaled_y2"])),
-                    (255, 0, 0),
-                    5,
+                frame = draw_boundingbox_relative(
+                    frame,
+                    (
+                        int(obj["unscaled_x1"]),
+                        int(obj["unscaled_y1"]),
+                        int(obj["unscaled_x2"]),
+                        int(obj["unscaled_y2"]),
+                    ),
                 )
-                self.mqtt.publish_image(returned_objects["frame"])
+            self.mqtt.publish_image(frame)
         except Empty:
             pass
 
