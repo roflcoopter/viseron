@@ -43,6 +43,7 @@ class FFMPEGCamera(object):
                 self.config.stream_url
             )
 
+        self.camera_resolution = self.stream_width, self.stream_height
         frame_buffer.maxsize = self.stream_fps * self.config.recorder.lookback
 
         LOGGER.info(
@@ -135,6 +136,7 @@ class FFMPEGCamera(object):
                         object_decoder_queue,
                         {
                             "frame": self.raw_image,
+                            "resolution": self.camera_resolution,
                             "object_event": object_event,
                             "object_return_queue": object_return_queue,
                         },
@@ -147,7 +149,6 @@ class FFMPEGCamera(object):
             if scan_for_motion.is_set():
                 if motion_frame_number % motion_decoder_interval == 0:
                     motion_frame_number = 0
-                    ########## TODO REMOVE DIS SHIT
                     pop_if_full(motion_decoder_queue, {"frame": self.raw_image})
 
                 motion_frame_number += 1
