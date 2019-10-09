@@ -109,7 +109,8 @@ OBJECT_DETECTION_CONFIG = Schema(
             Required("labels"): LABELS_CONFIG,
         },
         ensure_min_max,
-        ensure_label,
+        # TODO ADD THIS BACK
+        # ensure_label,
     )
 )
 
