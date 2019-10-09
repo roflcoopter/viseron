@@ -102,10 +102,10 @@ OBJECT_DETECTION_CONFIG = Schema(
             Required("suppression"): All(
                 Any(0, 1, All(float, Range(min=0, max=1))), Coerce(float)
             ),
-            Required("height_min"): int,
-            Required("height_max"): int,
-            Required("width_min"): int,
-            Required("width_max"): int,
+            Required("height_min"): float,
+            Required("height_max"): float,
+            Required("width_min"): float,
+            Required("width_max"): float,
             Required("labels"): LABELS_CONFIG,
         },
         ensure_min_max,

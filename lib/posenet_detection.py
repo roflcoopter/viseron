@@ -65,8 +65,8 @@ class ObjectDetection(object):
                         "height": relative_coords[3] - relative_coords[2],
                         "width": relative_coords[1] - relative_coords[0],
                         "relative_x1": relative_coords[0],
-                        "relative_x2": relative_coords[1],
-                        "relative_y1": relative_coords[2],
+                        "relative_y1": relative_coords[1],
+                        "relative_x2": relative_coords[2],
                         "relative_y2": relative_coords[3],
                     }
                 )

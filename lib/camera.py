@@ -2,12 +2,9 @@
 # https://unix.stackexchange.com/questions/233832/merge-two-video-clips-into-one-placing-them-next-to-each-other
 import logging
 import subprocess as sp
-import threading
-from queue import Full
 
 import cv2
 import numpy as np
-from retrying import retry
 from lib.helpers import pop_if_full
 
 LOGGER = logging.getLogger(__name__)
@@ -136,7 +133,6 @@ class FFMPEGCamera(object):
                         object_decoder_queue,
                         {
                             "frame": self.raw_image,
-                            "resolution": self.camera_resolution,
                             "object_event": object_event,
                             "object_return_queue": object_return_queue,
                         },

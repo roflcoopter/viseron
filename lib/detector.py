@@ -26,10 +26,6 @@ class Detector:
                 model=config.OBJECT_DETECTION_MODEL,
                 labels=config.OBJECT_DETECTION_LABELS_FILE,
                 threshold=config.OBJECT_DETECTION_THRESH,
-                model_res=(
-                    config.OBJECT_DETECTION_MODEL_WIDTH,
-                    config.OBJECT_DETECTION_MODEL_HEIGHT,
-                ),
             )
         elif config.OBJECT_DETECTION_TYPE == "darknet":
             from lib.darknet_detection import ObjectDetection
@@ -81,9 +77,6 @@ class Detector:
             object_event = frame["object_event"]
 
             objects = self.ObjectDetection.return_objects(frame["frame"])
-            for obj in objects:
-                obj["width"] = obj["width"] * frame["resolution"][0]
-                obj["height"] = obj["height"] * frame["resolution"][1]
 
             LOGGER.debug(objects)
             self.filtered_objects = list(filter(self.filter_objects, objects))
