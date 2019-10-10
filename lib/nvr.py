@@ -1,13 +1,12 @@
 import logging
-from threading import Thread, Event
-from queue import Queue, Empty
-import cv2
+from queue import Empty, Queue
+from threading import Event, Thread
 
 from lib.camera import FFMPEGCamera
 from lib.detector import Detector
-from lib.recorder import FFMPEGRecorder
-from lib.motion import MotionDetection
 from lib.helpers import draw_bounding_box_relative
+from lib.motion import MotionDetection
+from lib.recorder import FFMPEGRecorder
 
 LOGGER = logging.getLogger(__name__)
 
@@ -46,7 +45,7 @@ class FFMPEGNVR(Thread):
         self.ffmpeg = FFMPEGCamera(self.config, frame_buffer)
 
         # Object detector class. Called every config.OBJECT_DETECTION_INTERVAL
-        self.detector = Detector(self.ffmpeg)
+        self.detector = Detector(config)
         self.detector_thread = Thread(
             target=self.detector.object_detection, args=(detector_queue,)
         )
