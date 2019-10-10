@@ -1,6 +1,5 @@
 import logging
 
-import config
 import cv2
 from lib.helpers import pop_if_full
 
@@ -8,46 +7,44 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Detector:
-    def __init__(self, Camera):
+    def __init__(self, config):
         LOGGER.info("Initializing detection thread")
+        self.config = config
 
         # Activate OpenCL
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
 
-        self.Camera = Camera
-
         self.filtered_objects = []
 
-        if config.OBJECT_DETECTION_TYPE == "edgetpu":
+        if self.config.object_detection.type == "edgetpu":
             from lib.edgetpu_detection import ObjectDetection
 
             self.ObjectDetection = ObjectDetection(
-                model=config.OBJECT_DETECTION_MODEL,
-                labels=config.OBJECT_DETECTION_LABELS_FILE,
-                threshold=config.OBJECT_DETECTION_THRESH,
+                model=self.config.object_detection.model_path,
+                labels=self.config.object_detection.label_path,
+                threshold=self.config.object_detection.threshold,
             )
-        elif config.OBJECT_DETECTION_TYPE == "darknet":
+        elif self.config.object_detection.type == "darknet":
             from lib.darknet_detection import ObjectDetection
 
             self.ObjectDetection = ObjectDetection(
                 input=None,
-                model=config.OBJECT_DETECTION_MODEL,
-                config=config.OBJECT_DETECTION_CONFIG,
-                classes=config.OBJECT_DETECTION_LABELS_FILE,
-                thr=config.OBJECT_DETECTION_THRESH,
-                nms=config.OBJECT_DETECTION_NMS,
-                camera_res=(Camera.stream_width, Camera.stream_height),
+                model=self.config.object_detection.model_path,
+                config=self.config.object_detection.model_config,
+                classes=self.config.object_detection.label_path,
+                thr=self.config.object_detection.threshold,
+                nms=self.config.object_detection.suppression,
             )
-        elif config.OBJECT_DETECTION_TYPE == "posenet":
+        elif self.config.object_detection.type == "posenet":
             from lib.posenet_detection import ObjectDetection
 
             self.ObjectDetection = ObjectDetection(
-                model=config.OBJECT_DETECTION_MODEL,
-                threshold=config.OBJECT_DETECTION_THRESH,
+                model=self.config.object_detection.model_path,
+                threshold=self.config.object_detection.threshold,
                 model_res=(
-                    config.OBJECT_DETECTION_MODEL_WIDTH,
-                    config.OBJECT_DETECTION_MODEL_HEIGHT,
+                    self.config.object_detection.model_width,
+                    self.config.object_detection.model_height,
                 ),
             )
         else:
@@ -58,13 +55,13 @@ class Detector:
 
     def filter_objects(self, result):
         if (
-            result["label"] in config.OBJECT_DETECTION_LABELS
-            and config.OBJECT_DETECTION_HEIGHT_MIN
+            result["label"] in self.config.object_detection.labels
+            and self.config.object_detection.height_min
             <= result["height"]
-            <= config.OBJECT_DETECTION_HEIGHT_MAX
-            and config.OBJECT_DETECTION_WIDTH_MIN
+            <= self.config.object_detection.height_max
+            and self.config.object_detection.width_min
             <= result["width"]
-            <= config.OBJECT_DETECTION_WIDTH_MAX
+            <= self.config.object_detection.width_max
         ):
             return True
         return False

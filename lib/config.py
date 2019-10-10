@@ -92,6 +92,7 @@ OBJECT_DETECTION_CONFIG = Schema(
         {
             Required("type"): Any("darknet", "edgetpu", "posenet"),
             Required("model_path"): str,
+            Required("model_config", default=None): Any(str, None),
             Required("label_path", default=None): Any(All(str, Length(min=1)), None),
             Required("model_width"): int,
             Required("model_height"): int,

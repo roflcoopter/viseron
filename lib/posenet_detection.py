@@ -62,8 +62,8 @@ class ObjectDetection(object):
                     {
                         "label": "person",
                         "confidence": float(pose.score),
-                        "height": relative_coords[3] - relative_coords[2],
-                        "width": relative_coords[1] - relative_coords[0],
+                        "height": relative_coords[3] - relative_coords[1],
+                        "width": relative_coords[2] - relative_coords[0],
                         "relative_x1": relative_coords[0],
                         "relative_y1": relative_coords[1],
                         "relative_x2": relative_coords[2],
