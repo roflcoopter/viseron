@@ -1,10 +1,12 @@
 import logging
 import signal
 import sys
-import threading
+from threading import Thread
+from queue import Queue
 
 sys.path.append("/config")
 from lib.cleanup import Cleanup
+from lib.detector import Detector
 from lib.config import ViseronConfig
 from lib.mqtt import MQTT
 from lib.nvr import FFMPEGNVR
@@ -34,9 +36,15 @@ def main():
     # Start MQTT connection
     mqtt = MQTT()
 
+    detector_queue = Queue(maxsize=2)
+    detector = Detector(config)
+    detector_thread = Thread(target=detector.object_detection, args=(detector_queue,))
+    detector_thread.daemon = True
+    detector_thread.start()
+
     threads = []
     for camera in config.cameras:
-        threads.append(FFMPEGNVR(mqtt, ViseronConfig(camera)))
+        threads.append(FFMPEGNVR(mqtt, ViseronConfig(camera), detector_queue))
 
     for thread in threads:
         thread.start()
@@ -61,7 +69,6 @@ def main():
             thread.join()
 
     LOGGER.info("Exiting")
-    return
 
 
 def schedule_cleanup(config):

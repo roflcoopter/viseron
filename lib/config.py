@@ -5,8 +5,9 @@ import json
 import logging
 from collections import namedtuple
 
-import slugify as unicode_slug
 import yaml
+
+import slugify as unicode_slug
 from voluptuous import (
     All,
     Any,
@@ -21,8 +22,8 @@ from voluptuous import (
 
 LOGGER = logging.getLogger(__name__)
 
-with open("/config/config.yaml", "r") as f:
-    RAW_CONFIG = yaml.safe_load(f)
+with open("/config/config.yaml", "r") as config_file:
+    RAW_CONFIG = yaml.safe_load(config_file)
 # with open("/workspace/viseron/config/config.yaml", "r") as f:
 #    RAW_CONFIG = yaml.safe_load(f)
 
@@ -44,8 +45,8 @@ def ensure_label(detector: dict) -> dict:
     if detector["type"] in ["darknet", "edgetpu"] and detector["label_path"] is None:
         raise Invalid("Detector type {} requires a label file".format(detector["type"]))
     if detector["label_path"]:
-        with open(detector["label_path"], "rt") as f:
-            labels_file = f.read().rstrip("\n").split("\n")
+        with open(detector["label_path"], "rt") as label_file:
+            labels_file = label_file.read().rstrip("\n").split("\n")
         for label in detector["labels"]:
             if label not in labels_file:
                 raise Invalid("Provided label doesn't exist in label file")

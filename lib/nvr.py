@@ -3,7 +3,6 @@ from queue import Empty, Queue
 from threading import Event, Thread
 
 from lib.camera import FFMPEGCamera
-from lib.detector import Detector
 from lib.helpers import draw_bounding_box_relative
 from lib.motion import MotionDetection
 from lib.recorder import FFMPEGRecorder
@@ -12,7 +11,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class FFMPEGNVR(Thread):
-    def __init__(self, mqtt, config):
+    def __init__(self, mqtt, config, detector_queue):
         LOGGER.info("Initializing NVR thread")
         Thread.__init__(self)
         self.kill_received = False
@@ -36,20 +35,12 @@ class FFMPEGNVR(Thread):
         object_decoder_queue = Queue(maxsize=2)
         motion_decoder_queue = Queue(maxsize=2)
         motion_queue = Queue(maxsize=2)
-        detector_queue = Queue(maxsize=2)
         self.object_return_queue = Queue(maxsize=20)
 
         # Use FFMPEG to read from camera. Used for reading/recording
         # Maxsize changes later based on config option LOOKBACK_SECONDS
         frame_buffer = Queue(maxsize=1)
         self.ffmpeg = FFMPEGCamera(self.config, frame_buffer)
-
-        # Object detector class. Called every config.OBJECT_DETECTION_INTERVAL
-        self.detector = Detector(config)
-        self.detector_thread = Thread(
-            target=self.detector.object_detection, args=(detector_queue,)
-        )
-        self.detector_thread.daemon = True
 
         # Motion detector class.
         if self.config.motion_detection.timeout or self.config.motion_detection.trigger:
@@ -107,7 +98,6 @@ class FFMPEGNVR(Thread):
 
         self.ffmpeg_grabber.start()
         self.ffmpeg_decoder.start()
-        self.detector_thread.start()
 
         # Initialize recorder
         self.Recorder = FFMPEGRecorder(self.config, frame_buffer)
