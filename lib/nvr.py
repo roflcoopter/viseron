@@ -1,7 +1,8 @@
 import logging
 from queue import Empty, Queue
 from threading import Event, Thread
-
+from typing import List
+import json
 from lib.camera import FFMPEGCamera
 from lib.helpers import draw_bounding_box_relative
 from lib.motion import MotionDetection
@@ -11,16 +12,18 @@ LOGGER = logging.getLogger(__name__)
 
 
 class FFMPEGNVR(Thread):
+    nvr_list: List[object] = []
+
     def __init__(self, mqtt, config, detector_queue):
-        LOGGER.info("Initializing NVR thread")
         Thread.__init__(self)
+        self.nvr_list.append({config.camera.mqtt_name: self})
+        LOGGER.info("Initializing NVR thread")
         self.kill_received = False
         self.frame_ready = Event()
         self.object_event = Event()  # Triggered when object detected
         self.scan_for_objects = Event()  # Set when frame should be scanned
         self.motion_event = Event()  # Triggered when motion detected
         self.scan_for_motion = Event()  # Set when frame should be scanned
-        self.recorder_thread = None
         self.mqtt = mqtt
         self.config = config
         self.idle_frames = 0
@@ -100,6 +103,7 @@ class FFMPEGNVR(Thread):
         self.ffmpeg_decoder.start()
 
         # Initialize recorder
+        self.recorder_thread = None
         self.Recorder = FFMPEGRecorder(self.config, frame_buffer)
         LOGGER.info("NVR thread initialized")
 
@@ -149,16 +153,20 @@ class FFMPEGNVR(Thread):
         try:
             returned_objects = self.object_return_queue.get_nowait()
             frame = returned_objects["frame"]
-            for obj in returned_objects["objects"]:
-                frame = draw_bounding_box_relative(
-                    frame,
-                    (
-                        int(obj["unscaled_x1"]),
-                        int(obj["unscaled_y1"]),
-                        int(obj["unscaled_x2"]),
-                        int(obj["unscaled_y2"]),
-                    ),
-                )
+            try:
+                for obj in returned_objects["objects"]:
+                    frame = draw_bounding_box_relative(
+                        frame,
+                        (
+                            obj["relative_x1"],
+                            obj["relative_y1"],
+                            obj["relative_x2"],
+                            obj["relative_y2"],
+                        ),
+                        self.ffmpeg.resolution,
+                    )
+            except Exception as exc:
+                LOGGER.error(exc)
             self.mqtt.publish_image(frame)
         except Empty:
             pass
@@ -209,6 +217,37 @@ class FFMPEGNVR(Thread):
                 self.stop_recording()
 
         LOGGER.info("Exiting NVR thread")
+
+    def on_connect(self, client):
+        client.publish(
+            self.mqtt_switch_config_topic,
+            payload=self.mqtt_switch_config_payload,
+            retain=True,
+        )
+
+    def on_message(self):
+        return
+
+    @property
+    def mqtt_switch_config_payload(self):
+        payload = {}
+        payload["name"] = self.config.camera.mqtt_name
+        payload["command_topic"] = self.mqtt_switch_command_topic
+        payload["state_topic"] = self.mqtt_switch_state_topic
+        payload["retain"] = True
+        return json.dumps(payload, indent=3)
+
+    @property
+    def mqtt_switch_command_topic(self):
+        return f"{self.config.mqtt.discovery_prefix}/switch/{self.config.camera.mqtt_name}/set"
+
+    @property
+    def mqtt_switch_state_topic(self):
+        return f"{self.config.mqtt.discovery_prefix}/switch/{self.config.camera.mqtt_name}/state"
+
+    @property
+    def mqtt_switch_config_topic(self):
+        return f"{self.config.mqtt.discovery_prefix}/switch/{self.config.camera.mqtt_name}/config"
 
     def stop(self):
         LOGGER.info("Stopping NVR thread")
