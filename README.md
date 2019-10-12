@@ -14,3 +14,8 @@ Ideas
 
 - Properties:
   All public vars should be exposed by property
+
+- Decouple MQTT
+  - One client object.
+  - Start all camera threads, which need to expose an on_message function
+  - Pass list of camera objects to MQTT
