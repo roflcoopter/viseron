@@ -386,6 +386,35 @@ class RecorderConfig:
         return self._extension
 
 
+class MQTTConfig:
+    def __init__(self, mqtt):
+        self._broker = mqtt.broker
+        self._port = mqtt.port
+        self._username = mqtt.username
+        self._password = mqtt.password
+        self._discovery_prefix = mqtt.discovery_prefix
+
+    @property
+    def broker(self):
+        return self._broker
+
+    @property
+    def port(self):
+        return self._port
+
+    @property
+    def username(self):
+        return self._username
+
+    @property
+    def password(self):
+        return self._password
+
+    @property
+    def discovery_prefix(self):
+        return self._discovery_prefix
+
+
 class ViseronConfig:
     config = CONFIG
 
@@ -394,6 +423,7 @@ class ViseronConfig:
         self._object_detection = ObjectDetectionConfig(self.config.object_detection)
         self._motion_detection = MotionDetectionConfig(self.config.motion_detection)
         self._recorder = RecorderConfig(self.config.recorder)
+        self._mqtt = MQTTConfig(self.config.mqtt)
 
     @property
     def camera(self):
@@ -410,6 +440,10 @@ class ViseronConfig:
     @property
     def recorder(self):
         return self._recorder
+
+    @property
+    def mqtt(self):
+        return self._mqtt
 
 
 def main():
