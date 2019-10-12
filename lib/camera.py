@@ -40,7 +40,7 @@ class FFMPEGCamera(object):
                 self.config.stream_url
             )
 
-        self.camera_resolution = self.stream_width, self.stream_height
+        self.resolution = self.stream_width, self.stream_height
         frame_buffer.maxsize = self.stream_fps * self.config.recorder.lookback
 
         LOGGER.info(
