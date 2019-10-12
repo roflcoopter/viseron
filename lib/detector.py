@@ -75,7 +75,6 @@ class Detector:
 
             objects = self.ObjectDetection.return_objects(frame["frame"])
 
-            LOGGER.debug(objects)
             self.filtered_objects = list(filter(self.filter_objects, objects))
 
             if self.filtered_objects:
