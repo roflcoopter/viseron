@@ -1,5 +1,7 @@
-from queue import Full
-from typing import Tuple
+import math
+from queue import Full, Queue
+from typing import Any, Tuple
+
 import cv2
 
 
@@ -14,8 +16,14 @@ def calculate_relative_coords(
 
 
 def draw_bounding_box_relative(frame, bounding_box, frame_res):
-    topleft = (int(bounding_box[0]), int(bounding_box[1])) * frame_res
-    bottomright = (int(bounding_box[2]), int(bounding_box[3])) * frame_res
+    topleft = (
+        math.floor(bounding_box[0] * frame_res[0]),
+        math.floor(bounding_box[1] * frame_res[1]),
+    )
+    bottomright = (
+        math.floor(bounding_box[2] * frame_res[0]),
+        math.floor(bounding_box[3] * frame_res[1]),
+    )
     return cv2.rectangle(frame, topleft, bottomright, (255, 0, 0), 5)
 
 
@@ -33,7 +41,7 @@ def scale_bounding_box(image_size, bounding_box, target_size):
     )
 
 
-def pop_if_full(queue, item):
+def pop_if_full(queue: Queue, item: Any):
     """If queue is full, pop oldest item and put the new item"""
     try:
         queue.put_nowait(item)
