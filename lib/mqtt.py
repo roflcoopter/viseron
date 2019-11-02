@@ -1,10 +1,11 @@
-import paho.mqtt.client as mqtt
-from datetime import datetime
-from lib.nvr import FFMPEGNVR
-import logging
-import config
 import json
+import logging
+from datetime import datetime
+
+import config
 import cv2
+import paho.mqtt.client as mqtt
+from lib.nvr import FFMPEGNVR
 
 LOGGER = logging.getLogger(__name__)
 
@@ -106,4 +107,4 @@ class MQTT:
         ret, jpg = cv2.imencode(".jpg", frame)
         if ret:
             jpg_bytes = jpg.tobytes()
-            self.client.publish(MQTT_CAMERA_IMAGE, jpg_bytes, retain=True)
+            self.client.publish(MQTT_CAMERA_IMAGE, jpg_bytes, retain=False)
