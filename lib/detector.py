@@ -77,6 +77,11 @@ class Detector:
 
             self.filtered_objects = list(filter(self.filter_objects, objects))
 
+            pop_if_full(
+                frame["object_return_queue"],
+                {"frame": frame["frame"], "objects": self.filtered_objects},
+            )
+
             if self.filtered_objects:
                 LOGGER.info(self.filtered_objects)
                 pop_if_full(
