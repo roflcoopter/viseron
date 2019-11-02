@@ -1,4 +1,5 @@
 # python3 object_detection.py --input=test.jpg --model=/src/app/bin/yolov3.weights --config=/src/app/cfg/yolov3-tiny.cfg --classes=/src/app/cfg/coco.names --scale=0.00392 --width=416 --height=416
+# https://github.com/iArunava/YOLOv3-Object-Detection-with-OpenCV
 import argparse
 import time
 
