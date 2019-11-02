@@ -103,7 +103,7 @@ class FFMPEGCamera(object):
             " 8",
         ]
 
-        ffmpeg_output_args = ["-an", "-f", "rawvideo", "-pix_fmt", "nv12", "pipe:1"]
+        ffmpeg_output_args = ["-f", "rawvideo", "-pix_fmt", "nv12", "pipe:1"]
 
         ffmpeg_cmd = (
             ["/root/bin/ffmpeg"]
