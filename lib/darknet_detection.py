@@ -1,17 +1,22 @@
 # python3 object_detection.py --input=test.jpg --model=/src/app/bin/yolov3.weights --config=/src/app/cfg/yolov3-tiny.cfg --classes=/src/app/cfg/coco.names --scale=0.00392 --width=416 --height=416
 # https://github.com/iArunava/YOLOv3-Object-Detection-with-OpenCV
+import logging
 import argparse
 import time
 
 import cv2 as cv
 import numpy as np
+from lib.helpers import calculate_relative_coords
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ObjectDetection:
-    def __init__(self, input, model, config, classes, thr, nms):
+    def __init__(self, input, model, config, classes, thr, nms, model_res):
         self.input = input
         self.confThreshold = thr
         self.nmsThreshold = nms
+        self.model_res = model_res
 
         # Activate OpenCL
         if cv.ocl.haveOpenCL():
@@ -50,12 +55,12 @@ class ObjectDetection:
                 classId = np.argmax(scores)
                 confidence = scores[classId]
                 if confidence > self.confThreshold:
-                    center_x = detection[0]
-                    center_y = detection[1]
-                    width = detection[2]
-                    height = detection[3]
-                    left = center_x - width / 2
-                    top = center_y - height / 2
+                    center_x = int(detection[0] * self.model_res[0])
+                    center_y = int(detection[1] * self.model_res[1])
+                    width = int(detection[2] * self.model_res[0])
+                    height = int(detection[3] * self.model_res[1])
+                    left = int(center_x - width / 2)
+                    top = int(center_y - height / 2)
                     classIds.append(classId)
                     confidences.append(float(confidence))
                     boxes.append([left, top, width, height])
@@ -77,21 +82,26 @@ class ObjectDetection:
             if self.classes:
                 label = self.classes[classIds[i]]
 
+            relative_coords = calculate_relative_coords(
+                (left, top, left + width, top + height), self.model_res
+            )
+
             detections.append(
                 {
                     "label": label if label else "Unknown",
                     "confidence": confidences[i],
-                    "height": int((top + height) - top),
-                    "width": int((left + width) - left),
-                    "x1": left,
-                    "y1": top,
-                    "x2": left + width,
-                    "y2": top + height,
+                    "height": relative_coords[3] - relative_coords[1],
+                    "width": relative_coords[2] - relative_coords[0],
+                    "relative_x1": relative_coords[0],
+                    "relative_y1": relative_coords[1],
+                    "relative_x2": relative_coords[2],
+                    "relative_y2": relative_coords[3],
                 }
             )
 
         return detections
 
+    # @profile
     def return_objects(self, frame):
         # Create a 4D blob from a frame.
         inpWidth = 320

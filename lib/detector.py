@@ -35,6 +35,10 @@ class Detector:
                 classes=self.config.object_detection.label_path,
                 thr=self.config.object_detection.threshold,
                 nms=self.config.object_detection.suppression,
+                model_res=(
+                    self.config.object_detection.model_width,
+                    self.config.object_detection.model_height,
+                ),
             )
         elif self.config.object_detection.type == "posenet":
             from lib.posenet_detection import ObjectDetection
@@ -75,6 +79,8 @@ class Detector:
 
             objects = self.ObjectDetection.return_objects(frame["frame"])
 
+            if objects:
+                LOGGER.debug(objects)
             self.filtered_objects = list(filter(self.filter_objects, objects))
 
             pop_if_full(
