@@ -21,3 +21,8 @@ Ideas
   - Pass list of camera objects to MQTT
 
 - Refactor Darknet
+
+- Add OpenVINO
+
+- Confidence hard threshold
+  Allow specified confidence to override height/width thresholds
