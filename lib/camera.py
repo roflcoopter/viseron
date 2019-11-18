@@ -36,9 +36,11 @@ class FFMPEGCamera(object):
                 self.config.camera.fps,
             )
         else:
-            self.stream_width, self.stream_height, self.stream_fps = self.get_stream_characteristics(
-                self.config.stream_url
-            )
+            (
+                self.stream_width,
+                self.stream_height,
+                self.stream_fps,
+            ) = self.get_stream_characteristics(self.config.stream_url)
 
         self.resolution = self.stream_width, self.stream_height
         frame_buffer.maxsize = self.stream_fps * self.config.recorder.lookback
@@ -132,7 +134,7 @@ class FFMPEGCamera(object):
                     pop_if_full(
                         object_decoder_queue,
                         {
-                            "frame": self.raw_image,
+                            "raw_frame": self.raw_image,
                             "object_event": object_event,
                             "object_return_queue": object_return_queue,
                         },
@@ -145,7 +147,7 @@ class FFMPEGCamera(object):
             if scan_for_motion.is_set():
                 if motion_frame_number % motion_decoder_interval == 0:
                     motion_frame_number = 0
-                    pop_if_full(motion_decoder_queue, {"frame": self.raw_image})
+                    pop_if_full(motion_decoder_queue, {"raw_frame": self.raw_image})
 
                 motion_frame_number += 1
             else:
@@ -184,7 +186,7 @@ class FFMPEGCamera(object):
         LOGGER.info("Starting decoder thread")
         while True:
             input_item = input_queue.get()
-            ret, frame = self.decode_frame(input_item["frame"])
+            ret, frame = self.decode_frame(input_item["raw_frame"])
             if ret:
                 input_item["frame"] = cv2.resize(
                     cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21),

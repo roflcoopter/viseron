@@ -33,8 +33,12 @@ def main():
     LOGGER.info("Initializing...")
 
     schedule_cleanup(config)
-    # Start MQTT connection
+
+    mqtt_queue = Queue(maxsize=50)
     mqtt = MQTT(config)
+    mqtt_publisher = Thread(target=mqtt.publisher, args=(mqtt_queue,))
+    mqtt_publisher.daemon = True
+    mqtt_publisher.start()
 
     detector_queue = Queue(maxsize=2)
     detector = Detector(config)
@@ -44,7 +48,9 @@ def main():
 
     threads = []
     for camera in config.cameras:
-        threads.append(FFMPEGNVR(mqtt, ViseronConfig(camera), detector_queue))
+        threads.append(
+            FFMPEGNVR(mqtt, mqtt_queue, ViseronConfig(camera), detector_queue)
+        )
 
     mqtt.connect()
 
