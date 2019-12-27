@@ -1,4 +1,5 @@
-README.md
-.gitignore
-*.pyc
-recordings/
+*
+!lib/
+!app.py
+!benchmarks/
+!script/
