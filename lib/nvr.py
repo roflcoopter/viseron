@@ -245,11 +245,6 @@ class FFMPEGNVR(Thread):
         subscriptions.append(
             {"topic": self.mqtt_switch_command_topic, "callback": self.on_message}
         )
-
-        # Send initial alive message
-        self.mqtt_queue.put(
-            {"topic": self.mqtt_sensor_availability_topic, "payload": "alive"}
-        )
         self.publish_sensor(False)
 
         return subscriptions
@@ -290,7 +285,7 @@ class FFMPEGNVR(Thread):
         payload["name"] = self.config.camera.mqtt_name
         payload["state_topic"] = self.mqtt_sensor_state_topic
         payload["value_template"] = "{{ value_json.state }}"
-        payload["availability_topic"] = self.mqtt_sensor_availability_topic
+        payload["availability_topic"] = self.config.mqtt.last_will_topic
         payload["payload_available"] = "alive"
         payload["payload_not_available"] = "dead"
         payload["json_attributes_topic"] = self.mqtt_sensor_state_topic
@@ -299,10 +294,6 @@ class FFMPEGNVR(Thread):
     @property
     def mqtt_sensor_state_topic(self):
         return f"{self.config.mqtt.discovery_prefix}/sensor/{self.config.camera.mqtt_name}/state"
-
-    @property
-    def mqtt_sensor_availability_topic(self):
-        return f"{self.config.mqtt.discovery_prefix}/sensor/{self.config.camera.mqtt_name}/lwt"
 
     @property
     def mqtt_sensor_config_topic(self):
