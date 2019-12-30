@@ -1,16 +1,13 @@
 import logging
 import signal
-import sys
-from threading import Thread
 from queue import Queue
+from threading import Thread
 
-sys.path.append("/config")
 from lib.cleanup import Cleanup
-from lib.detector import Detector
 from lib.config import ViseronConfig
+from lib.detector import Detector
 from lib.mqtt import MQTT
 from lib.nvr import FFMPEGNVR
-
 
 LOGGER = logging.getLogger()
 
