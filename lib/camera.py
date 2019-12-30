@@ -8,8 +8,6 @@ import numpy as np
 from lib.helpers import pop_if_full
 
 LOGGER = logging.getLogger(__name__)
-# kernprof -v -l app.py
-# python3 -m line_profiler app.py.lprof
 
 
 class FFMPEGCamera(object):
@@ -22,7 +20,7 @@ class FFMPEGCamera(object):
             cv2.ocl.setUseOpenCL(True)
 
         self.connected = False
-        self.connection_error = True
+        self.connection_error = False
         self.raw_image = None
 
         if (
@@ -46,7 +44,8 @@ class FFMPEGCamera(object):
         frame_buffer.maxsize = self.stream_fps * self.config.recorder.lookback
 
         LOGGER.info(
-            f"Resolution = {self.stream_width}x{self.stream_height} @ {self.stream_fps} FPS"
+            f"Resolution = {self.stream_width}x{self.stream_height} "
+            f"@ {self.stream_fps} FPS"
         )
 
     @staticmethod
@@ -59,6 +58,46 @@ class FFMPEGCamera(object):
         fps = int(stream.get(cv2.CAP_PROP_FPS))
         stream.release()
         return width, height, fps
+
+    def rtsp_pipe(self):
+        ffmpeg_global_args = ["-hide_banner", "-loglevel", "panic"]
+
+        ffmpeg_input_args = [
+            "-avoid_negative_ts",
+            "make_zero",
+            "-fflags",
+            "nobuffer",
+            "-flags",
+            "low_delay",
+            "-strict",
+            "experimental",
+            "-fflags",
+            "+genpts",
+            "-stimeout",
+            "5000000",
+            "-use_wallclock_as_timestamps",
+            "1",
+            "-vsync",
+            "0",
+        ]
+
+        ffmpeg_input_hwaccel_args = [
+            "-c:v",
+            "h264_cuvid",
+        ]
+
+        ffmpeg_cmd = (
+            ["ffmpeg"]
+            + self.config.camera.global_args
+            + self.config.camera.input_args
+            + self.config.camera.hwaccel_args
+            + ["-rtsp_transport", "tcp", "-i", self.config.camera.stream_url]
+            + self.config.camera.filter_args
+            + self.config.camera.output_args
+            + ["pipe:1"]
+        )
+        LOGGER.debug("FFMPEG command: {}".format(" ".join(ffmpeg_cmd)))
+        return sp.Popen(ffmpeg_cmd, stdout=sp.PIPE, bufsize=10 ** 8)
 
     def capture_pipe(
         self,
@@ -75,48 +114,7 @@ class FFMPEGCamera(object):
     ):
         LOGGER.info("Starting capture process")
 
-        ffmpeg_global_args = ["-hide_banner", "-loglevel", "panic"]
-
-        ffmpeg_input_args = [
-            "-avoid_negative_ts",
-            "make_zero",
-            "-fflags",
-            "nobuffer",
-            "-flags",
-            "low_delay",
-            "-strict",
-            "experimental",
-            "-fflags",
-            "+genpts",
-            "-rtsp_transport",
-            "tcp",
-            "-stimeout",
-            "5000000",
-            "-use_wallclock_as_timestamps",
-            "1",
-        ]
-
-        ffmpeg_input_hwaccel_args = [
-            "-hwaccel",
-            "vaapi",
-            "-vaapi_device",
-            "/dev/dri/renderD128",
-            "-threads",
-            " 8",
-        ]
-
-        ffmpeg_output_args = ["-f", "rawvideo", "-pix_fmt", "nv12", "pipe:1"]
-
-        ffmpeg_cmd = (
-            ["/root/bin/ffmpeg"]
-            + ffmpeg_global_args
-            + ffmpeg_input_args
-            + ffmpeg_input_hwaccel_args
-            + ["-rtsp_transport", "tcp", "-i", self.config.camera.stream_url]
-            + ffmpeg_output_args
-        )
-        LOGGER.debug("FFMPEG command: {}".format(" ".join(ffmpeg_cmd)))
-        pipe = sp.Popen(ffmpeg_cmd, stdout=sp.PIPE, bufsize=10 ** 8)
+        pipe = self.rtsp_pipe()
 
         self.connected = True
         object_frame_number = 0
@@ -125,6 +123,13 @@ class FFMPEGCamera(object):
         bytes_to_read = int(self.stream_width * self.stream_height * 1.5)
 
         while self.connected:
+            if self.connection_error:
+                LOGGER.error("Restarting frame pipe")
+                pipe.terminate()
+                pipe.communicate()
+                pipe = self.rtsp_pipe()
+                self.connection_error = False
+
             self.raw_image = pipe.stdout.read(bytes_to_read)
             pop_if_full(frame_buffer, {"frame": self.raw_image})
 

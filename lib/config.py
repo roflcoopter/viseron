@@ -18,6 +18,7 @@ from voluptuous import (
     Range,
     Required,
     Schema,
+    List
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -65,6 +66,28 @@ def upper_case(data: dict) -> dict:
     data["level"] = data["level"].upper()
     return data
 
+CAMERA_GLOBAL_ARGS = ["-hide_banner", "-loglevel", "panic"]
+
+CAMERA_INPUT_ARGS = [
+    "-avoid_negative_ts",
+    "make_zero",
+    "-fflags",
+    "nobuffer",
+    "-flags",
+    "low_delay",
+    "-strict",
+    "experimental",
+    "-fflags",
+    "+genpts",
+    "-stimeout",
+    "5000000",
+    "-use_wallclock_as_timestamps",
+    "1",
+    "-vsync",
+    "0",
+]
+
+CAMERA_OUTPUT_ARGS = ["-f", "rawvideo", "-pix_fmt", "nv12"]
 
 CAMERA_CONFIG = Schema(
     All(
@@ -80,6 +103,10 @@ CAMERA_CONFIG = Schema(
                 Optional("width", default=None): Any(int, None),
                 Optional("height", default=None): Any(int, None),
                 Optional("fps", default=None): Any(All(int, Range(min=1)), None),
+                Optional("global_args", default=CAMERA_GLOBAL_ARGS): list,
+                Optional("input_args", default=CAMERA_INPUT_ARGS): list,
+                Optional("hwaccel_args", default=[]): list,
+                Optional("filter_args", default=[]): list,
             }
         ],
         ensure_mqtt_name,
@@ -155,6 +182,7 @@ MQTT_CONFIG = Schema(
         Optional("username", default=None): Any(str, None),
         Optional("password", default=None): Any(str, None),
         Optional("discovery_prefix", default="homeassistant"): str,
+        Optional("last_will_topic", default="viseron/lwt"): str,
     }
 )
 
@@ -201,6 +229,11 @@ class CameraConfig:
         self._width = camera.width
         self._height = camera.height
         self._fps = camera.fps
+        self._global_args = camera.global_args
+        self._input_args = camera.input_args
+        self._hwaccel_args = camera.hwaccel_args
+        self._filter_args = camera.filter_args
+        self._output_args = camera.output_args
 
     @property
     def name(self):
@@ -248,6 +281,25 @@ class CameraConfig:
             f"rtsp://{self.username}:{self.password}@{self.host}:{self.port}{self.path}"
         )
 
+    @property
+    def global_args(self):
+        return self._global_args
+
+    @property
+    def input_args(self):
+        return self._input_args
+
+    @property
+    def hwaccel_args(self):
+        return self._hwaccel_args
+
+    @property
+    def filter_args(self):
+        return self._input_args
+
+    @property
+    def output_args(self):
+        return CAMERA_OUTPUT_ARGS
 
 class ObjectDetectionConfig:
     def __init__(self, object_detection):
@@ -393,6 +445,7 @@ class MQTTConfig:
         self._username = mqtt.username
         self._password = mqtt.password
         self._discovery_prefix = mqtt.discovery_prefix
+        self._last_will_topic = mqtt.last_will_topic
 
     @property
     def broker(self):
@@ -413,6 +466,10 @@ class MQTTConfig:
     @property
     def discovery_prefix(self):
         return self._discovery_prefix
+
+    @property
+    def last_will_topic(self):
+        return self._last_will_topic
 
 
 class ViseronConfig:
