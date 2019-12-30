@@ -26,3 +26,5 @@ Ideas
 
 - Confidence hard threshold
   Allow specified confidence to override height/width thresholds
+
+https://devblogs.nvidia.com/object-detection-pipeline-gpus/
