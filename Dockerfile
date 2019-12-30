@@ -53,8 +53,6 @@ RUN apt-get update && \
         # Coral dependencies
         libusb-1.0-0 \
         python3-pip \
-        python3-pil \
-        python3-numpy \
         libc++1 \
         libc++abi1 \
         libunwind8 \
@@ -102,18 +100,16 @@ RUN mkdir /opencl &&\
     dpkg -i *.deb && \
     rm -R /opencl
 
-
-RUN export MAKEFLAGS="-j4" && \
-    mkdir ~/ffmpeg; cd ~/ffmpeg && \
+RUN mkdir ~/ffmpeg; cd ~/ffmpeg && \
     hg clone https://bitbucket.org/multicoreware/x265 && \
     cd x265/build/linux && \
     PATH="$HOME/bin:$PATH" cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DENABLE_SHARED:bool=off ../../source && PATH="$HOME/bin:$PATH" && \
-    make && make install && \
+    make -j"$(nproc)" && make install && \
     cd ~/ffmpeg && \
     wget -O- http://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 --progress=bar:force:noscroll | tar xj && \
     cd ~/ffmpeg/ffmpeg && \
     PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" \
-       ./configure \
+      ./configure \
       --prefix="$HOME/ffmpeg_build" \
       --pkg-config-flags="--static" \
       --extra-cflags="-I$HOME/ffmpeg_build/include" \
@@ -139,7 +135,7 @@ RUN export MAKEFLAGS="-j4" && \
       --enable-libx265 \
 #      --enable-omx \
       --enable-gpl && \
-    PATH="$HOME/bin:$PATH" make && make install
+    PATH="$HOME/bin:$PATH" make -j"$(nproc)" && make install
 
 WORKDIR /
 
@@ -156,27 +152,26 @@ RUN cd ~ \
 && cmake -D CMAKE_BUILD_TYPE=RELEASE \
   -DBUILD_TIFF=ON \
   -DBUILD_opencv_java=OFF \
-  -DWITH_CUDA=OFF \
-  -DWITH_OPENGL=ON \
-  -DWITH_OPENCL=ON \
-  -DWITH_OPENMP=ON \
-  -DWITH_IPP=ON \
-  -DWITH_TBB=ON \
-  -DWITH_EIGEN=ON \
-  -DWITH_V4L=ON \
-  -DWITH_GTK=OFF \
-  -DWITH_GTK_2_X=OFF \
-  -DWITH_FFMPEG=ON \
-  -DWITH_GSTREAMER=ON \
-  -DWITH_GSTREAMER_0_10=OFF \
-  -DWITH_LIBV4L=ON \
-  -DWITH_NVCUVID=ON \
-  -DWITH_CSTRIPES=ON \
-  -DBUILD_TESTS=OFF \
-  -DBUILD_PERF_TESTS=OFF \
-  -DBUILD_opencv_python2=OFF \
-  -DBUILD_opencv_python3=ON \
-  -DCMAKE_BUILD_TYPE=RELEASE \
+  -D WITH_OPENGL=ON \
+  -D WITH_OPENCL=ON \
+  -D WITH_OPENMP=ON \
+  -D WITH_IPP=ON \
+  -D WITH_TBB=ON \
+  -D WITH_EIGEN=ON \
+  -D WITH_V4L=ON \
+  -D WITH_GTK=OFF \
+  -D WITH_GTK_2_X=OFF \
+  -D WITH_FFMPEG=ON \
+  -D WITH_GSTREAMER=ON \
+  -D WITH_GSTREAMER_0_10=OFF \
+  -D WITH_LIBV4L=ON \
+  -D WITH_NVCUVID=ON \
+  -D WITH_CSTRIPES=ON \
+  -D BUILD_TESTS=OFF \
+  -D BUILD_PERF_TESTS=OFF \
+  -D BUILD_opencv_python2=OFF \
+  -D BUILD_opencv_python3=ON \
+  -D CMAKE_BUILD_TYPE=RELEASE \
 	-D CMAKE_INSTALL_PREFIX=/usr/local \
 	-D INSTALL_PYTHON_EXAMPLES=OFF \
 	-D INSTALL_C_EXAMPLES=OFF \
@@ -184,7 +179,7 @@ RUN cd ~ \
 	-D PYTHON_EXECUTABLE=~/.virtualenvs/cv/bin/python \
   -D BUILD_DOCS=OFF \
 	-D BUILD_EXAMPLES=OFF .. \
-&& make -j4 \
+&& make -j"$(nproc)" \
 && make install
 
 #ENV OPENCV_OCL4DNN_CONFIG_PATH=/root/.cache/opencv/4.0/opencl_cache/
@@ -230,7 +225,7 @@ RUN mkdir -p /detectors/models/edgetpu/classification && \
     # EfficientNet-EdgeTpu (L)
     wget https://dl.google.com/coral/canned-models/efficientnet-edgetpu-L_quant_edgetpu.tflite -O /detectors/models/edgetpu/classification/efficientnet_large.tflite --trust-server-names --progress=bar:force:noscroll && \
     wget https://dl.google.com/coral/canned_models/imagenet_labels.txt -O /detectors/models/edgetpu/classification/imagenet_labels.txt --trust-server-names --progress=bar:force:noscroll && \
-# Fetch models for YOLO darknet
+    # Fetch models for YOLO darknet
     mkdir -p /detectors/models/darknet && \
     wget https://pjreddie.com/media/files/yolov3.weights -O /detectors/models/darknet/yolov3.weights --progress=bar:force:noscroll && \
     wget https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg -O /detectors/models/darknet/yolov3.cfg --progress=bar:force:noscroll && \
@@ -250,6 +245,8 @@ RUN apt-get autoremove -y && \
     apt-get clean && \
     rm -rf /libva /intel-vaapi-driver /libva-utils && \
     rm -rf /edgetpu_api.tar.gz /root/opencv.zip /root/opencv_contrib.zip /var/lib/apt/lists/*
+
+ENV PATH=/root/bin:$PATH
 
 #CMD ["/bin/bash"]
 #CMD ["/usr/local/bin/kernprof", "-l", "app.py", "-o", "/src/app/"]
