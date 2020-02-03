@@ -3,3 +3,4 @@ docker-compose.yaml
 /config/config.py
 config.yaml
 __pycache__
+docker/docker-gpu/Video_Codec_SDK*.zip
