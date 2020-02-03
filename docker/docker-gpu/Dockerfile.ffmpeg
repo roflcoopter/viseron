@@ -1,0 +1,60 @@
+# docker build -t ffmpeg-gpu . --file Dockerfile.ffmpeg
+# docker build -t ffmpeg-gpu /mnt/cache/appdata/viseron --file /mnt/cache/appdata/viseron/docker/docker-gpu/Dockerfile.ffmpeg
+# docker run --runtime=nvidia -ti --rm --tmpfs /tmp ffmpeg-gpu bash
+FROM nvidia/cuda:10.2-devel as ffmpeg
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        libgl1-mesa-glx \
+        make \
+        pkgconf \
+        nasm && \
+    rm -rf /var/lib/apt/lists/*
+
+# NVIDIA Codec Headers are not included since FFMPEG version 4.0
+WORKDIR /usr/local/src
+RUN git clone https://git.videolan.org/git/ffmpeg/nv-codec-headers.git \
+    && cd nv-codec-headers \
+    && make \
+    && make install \
+    && cd .. \
+    && rm -rf nv-codec-headers
+
+RUN git clone --depth 1 --branch n4.2.1 https://github.com/ffmpeg/ffmpeg ffmpeg && \
+    cd ffmpeg && \
+    ./configure --enable-cuda --enable-cuvid --enable-nvenc --enable-nonfree --enable-libnpp --enable-cuda-sdk --enable-filter=scale_cuda --enable-filter=thumbnail_cuda \
+                --extra-cflags=-I/usr/local/cuda/include \
+                --extra-ldflags=-L/usr/local/cuda/lib64 \
+                --prefix=/usr/local/ffmpeg --enable-shared --disable-static \
+                --disable-manpages --disable-doc --disable-podpages && \
+                make -j"$(nproc)" install && \
+                ldconfig
+# ENV NVIDIA_DRIVER_CAPABILITIES all
+# ADD /docker/docker-gpu/Video_Codec_SDK_9.1.23.zip /
+# RUN apt-get update &&  apt-get install -y --no-install-recommends unzip cmake git python3-dev         libjpeg-dev libpng-dev libtiff-dev \
+#         # OpenCV video I/O
+#         libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
+#         libxvidcore-dev libx264-dev && \
+#     unzip -q Video_Codec_SDK_9.1.23.zip -d /usr/local/lib/ && \
+#     rm Video_Codec_SDK_9.1.23.zip && \
+#     cd / && \
+#         git clone https://github.com/NVIDIA/VideoProcessingFramework.git && \
+#         cd VideoProcessingFramework && \
+#         # Currently the CMake file is incorrect for UNIX
+#         #sed -i 's/nvidia-encode/libnvidia-encode/' ./PyNvCodec/TC/CMakeLists.txt && \
+#         mkdir build && \
+#         cd build && \
+#         cmake \
+#             -DFFMPEG_DIR:PATH="/usr/local/ffmpeg/bin" \
+#             -DVIDEO_CODEC_SDK_DIR:PATH="/usr/local/lib/Video_Codec_SDK_9.1.23" \
+#             #-DNVCUVID_LIBRARY="/usr/local/lib/NvCodec/NvDecoder/cuviddec.h" \
+#             #-DNVENCODE_LIBRARY="/usr/lib/x86_64-linux-gnu/libnvidia-encode.so.1" \
+#             #-DVIDEO_CODEC_SDK_INCLUDE_DIR="/usr/local/lib/NvCodec/NvEncoder" \
+#             -DGENERATE_PYTHON_BINDINGS:BOOL="1" \
+#             -DCMAKE_INSTALL_PREFIX:PATH="/usr/local/vpf"\ 
+#             .. &&\
+#         make -j$(nproc) && \
+#         make install && \
+#     apt-get purge --autoremove -y unzip curl git
+# ENV PYTHONPATH="${PYTHONPATH}:/usr/local/vpf/bin"
