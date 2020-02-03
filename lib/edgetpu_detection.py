@@ -32,13 +32,13 @@ class ObjectDetection:
             processed_objects.append(
                 {
                     "label": str(self.labels[obj.label_id]),
-                    "confidence": float(obj.score),
-                    "height": obj.bounding_box[1][1] - obj.bounding_box[0][1],
-                    "width": obj.bounding_box[1][0] - obj.bounding_box[0][0],
-                    "relative_x1": obj.bounding_box[0][0],
-                    "relative_y1": obj.bounding_box[0][1],
-                    "relative_x2": obj.bounding_box[1][0],
-                    "relative_y2": obj.bounding_box[1][1],
+                    "confidence": round(float(obj.score), 3),
+                    "height": round(obj.bounding_box[1][1] - obj.bounding_box[0][1], 3),
+                    "width": round(obj.bounding_box[1][0] - obj.bounding_box[0][0], 3),
+                    "relative_x1": round(obj.bounding_box[0][0], 3),
+                    "relative_y1": round(obj.bounding_box[0][1], 3),
+                    "relative_x2": round(obj.bounding_box[1][0], 3),
+                    "relative_y2": round(obj.bounding_box[1][1], 3),
                 }
             )
         return processed_objects

@@ -61,13 +61,13 @@ class ObjectDetection(object):
                 processed_objects.append(
                     {
                         "label": "person",
-                        "confidence": float(pose.score),
-                        "height": relative_coords[3] - relative_coords[1],
-                        "width": relative_coords[2] - relative_coords[0],
-                        "relative_x1": relative_coords[0],
-                        "relative_y1": relative_coords[1],
-                        "relative_x2": relative_coords[2],
-                        "relative_y2": relative_coords[3],
+                        "confidence": round(float(pose.score), 3),
+                        "height": round(relative_coords[3] - relative_coords[1], 3),
+                        "width": round(relative_coords[2] - relative_coords[0], 3),
+                        "relative_x1": round(relative_coords[0], 3),
+                        "relative_y1": round(relative_coords[1], 3),
+                        "relative_x2": round(relative_coords[2], 3),
+                        "relative_y2": round(relative_coords[3], 3),
                     }
                 )
         return processed_objects
