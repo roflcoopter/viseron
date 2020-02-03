@@ -22,6 +22,7 @@ class FFMPEGCamera(object):
         self.connected = False
         self.connection_error = False
         self.raw_image = None
+        self.current_frame = None
 
         if (
             self.config.camera.width
@@ -60,32 +61,6 @@ class FFMPEGCamera(object):
         return width, height, fps
 
     def rtsp_pipe(self):
-        ffmpeg_global_args = ["-hide_banner", "-loglevel", "panic"]
-
-        ffmpeg_input_args = [
-            "-avoid_negative_ts",
-            "make_zero",
-            "-fflags",
-            "nobuffer",
-            "-flags",
-            "low_delay",
-            "-strict",
-            "experimental",
-            "-fflags",
-            "+genpts",
-            "-stimeout",
-            "5000000",
-            "-use_wallclock_as_timestamps",
-            "1",
-            "-vsync",
-            "0",
-        ]
-
-        ffmpeg_input_hwaccel_args = [
-            "-c:v",
-            "h264_cuvid",
-        ]
-
         ffmpeg_cmd = (
             ["ffmpeg"]
             + self.config.camera.global_args
@@ -166,7 +141,6 @@ class FFMPEGCamera(object):
         pipe.communicate()
         LOGGER.info("FFMPEG frame grabber stopped")
 
-    # @profile
     def decode_frame(self, frame=None):
         # Decode and returns the most recently read frame
         if not frame:
@@ -193,10 +167,10 @@ class FFMPEGCamera(object):
             input_item = input_queue.get()
             ret, frame = self.decode_frame(input_item["raw_frame"])
             if ret:
+                self.current_frame = cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21)
+                input_item["full_frame"] = self.current_frame
                 input_item["frame"] = cv2.resize(
-                    cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_NV21),
-                    (width, height),
-                    interpolation=cv2.INTER_LINEAR,
+                    self.current_frame, (width, height), interpolation=cv2.INTER_LINEAR,
                 )
                 pop_if_full(output_queue, input_item)
 

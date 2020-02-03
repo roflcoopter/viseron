@@ -117,10 +117,11 @@ class FFMPEGNVR(Thread):
             return False
         return True
 
-    def start_recording(self):
+    def start_recording(self, thumbnail):
         self.recorder_thread = Thread(
             target=self.recorder.start_recording,
             args=(
+                thumbnail,
                 self.ffmpeg.stream_width,
                 self.ffmpeg.stream_height,
                 self.ffmpeg.stream_fps,
@@ -145,6 +146,9 @@ class FFMPEGNVR(Thread):
         if self.idle_frames >= (self.ffmpeg.stream_fps * self.config.recorder.timeout):
             self.publish_sensor(False)
             self.recorder.stop()
+            with self.object_return_queue.mutex:  # Clear any objects left in queue
+                self.object_return_queue.queue.clear()
+
             if self.config.motion_detection.trigger:
                 self.scan_for_objects.clear()
                 LOGGER.info("Pausing object detector")
@@ -152,27 +156,29 @@ class FFMPEGNVR(Thread):
                 self.scan_for_motion.clear()
                 LOGGER.info("Pausing motion detector")
 
-    def publish_objects(self):
+    def get_detected_objects(self):
+        """ Returns a frame along with its detections
+        If no frame is in the queue, return the most recently decoded frame """
         try:
-            returned_objects = self.object_return_queue.get_nowait()
-            frame = returned_objects["frame"]
-            try:
-                for obj in returned_objects["objects"]:
-                    frame = draw_bounding_box_relative(
-                        frame,
-                        (
-                            obj["relative_x1"],
-                            obj["relative_y1"],
-                            obj["relative_x2"],
-                            obj["relative_y2"],
-                        ),
-                        self.ffmpeg.resolution,
-                    )
-            except Exception as exc:
-                LOGGER.error(exc)
-            self.publish_image(frame)
+            return self.object_return_queue.get_nowait()
         except Empty:
             pass
+        return {"frame": None, "full_frame": self.ffmpeg.current_frame, "objects": []}
+
+    def draw_objects(self, frame, objects):
+        """ Draws objects on supplied frame """
+        for obj in objects:
+            frame = draw_bounding_box_relative(
+                frame,
+                (
+                    obj["relative_x1"],
+                    obj["relative_y1"],
+                    obj["relative_x2"],
+                    obj["relative_y2"],
+                ),
+                self.ffmpeg.resolution,
+            )
+        return frame
 
     def run(self):
         """ Main thread. It handles starting/stopping of recordings and
@@ -182,9 +188,7 @@ class FFMPEGNVR(Thread):
         self.idle_frames = 0
         # Continue til we get kill command from root thread
         while not self.kill_received:
-            try:
-                self.frame_ready.wait(2)
-            except:
+            if not self.frame_ready.wait(2):
                 LOGGER.error("Timeout waiting for frame")
                 continue
 
@@ -203,16 +207,17 @@ class FFMPEGNVR(Thread):
             ):
                 LOGGER.debug("Not recording, pausing object detector")
                 self.scan_for_objects.clear()
-            self.publish_objects()
 
             # Object Detected
             if self.object_event.is_set():
                 self.idle_frames = 0
                 if not self.recorder.is_recording:
-                    self.publish_sensor(True,)
-                    self.start_recording()
-
-                self.publish_objects()
+                    detected_objects = self.get_detected_objects()
+                    self.publish_sensor(True, [])
+                    thumbnail = self.draw_objects(
+                        detected_objects["full_frame"], detected_objects["objects"]
+                    )
+                    self.start_recording(thumbnail)
                 continue
 
             # If we are recording and no object is detected

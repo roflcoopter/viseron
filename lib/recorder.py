@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess as sp
 from queue import Empty
+import cv2
 
 LOGGER = logging.getLogger(__name__)
 
@@ -14,24 +15,29 @@ class FFMPEGRecorder:
         self.is_recording = False
         self.writer_pipe = None
         self.frame_buffer = frame_buffer
+        self.write_frames("test.mp4", 1920, 1080, 6)
 
     def write_frames(self, file_name, width, height, fps):
-        # fmt: off
-        command = ['/root/bin/ffmpeg',
-                   '-loglevel', 'panic',
-                   '-hwaccel', 'vaapi', '-vaapi_device', '/dev/dri/renderD128',
-                   '-threads', '8',
-                   '-y',
-                   '-f', 'rawvideo', '-pix_fmt', 'nv12', '-s:v',
-                   f'{width}x{height}',
-                   '-r', str(fps), '-i', 'pipe:0',
-                   '-an',
-                   '-movflags', '+faststart',
-                   '-vf', 'format=nv12|vaapi,hwupload',
-                   '-vcodec', 'h264_vaapi',
-                   '-qp', '19', '-bf', '2',
-                   file_name]
-        # fmt: on
+        command = (
+            ["ffmpeg"]
+            + self.config.recorder.global_args
+            + self.config.recorder.hwaccel_args
+            + [
+                "-y",
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "nv12",
+                "-s:v",
+                f"{width}x{height}",
+                "-r",
+                str(fps),
+                "-i",
+                "pipe:0",
+            ]
+            + self.config.recorder.output_args
+            + [file_name]
+        )
         LOGGER.debug(f"FFMPEG command: {' '.join(command)}")
         LOGGER.debug(f"Filename: {file_name}")
 
@@ -54,7 +60,10 @@ class FFMPEGRecorder:
     def subfolder_name(self, today):
         return f"{today.year:04}-{today.month:02}-{today.day:02}"
 
-    def start_recording(self, width, height, fps):
+    def create_thumbnail(self, file_name, frame):
+        cv2.imwrite(file_name, frame)
+
+    def start_recording(self, thumbnail, width, height, fps):
         LOGGER.info("Starting recorder")
         self.is_recording = True
 
@@ -64,7 +73,8 @@ class FFMPEGRecorder:
 
         # Create filename
         now = datetime.datetime.now()
-        file_name = f"{now.strftime('%H:%M:%S')}.{self.config.recorder.extension}"
+        video_name = f"{now.strftime('%H:%M:%S')}.{self.config.recorder.extension}"
+        thumbnail_name = f"{now.strftime('%H:%M:%S')}.jpg"
 
         # Create foldername
         subfolder = self.subfolder_name(now)
@@ -80,7 +90,8 @@ class FFMPEGRecorder:
         except FileExistsError:
             LOGGER.error("Folder already exists")
 
-        self.write_frames(os.path.join(full_path, file_name), width, height, fps)
+        self.create_thumbnail(os.path.join(full_path, thumbnail_name), thumbnail)
+        self.write_frames(os.path.join(full_path, video_name), width, height, fps)
 
     def stop(self):
         LOGGER.info("Stopping recorder")
