@@ -89,7 +89,7 @@ class ObjectDetection:
             detections.append(
                 {
                     "label": label if label else "Unknown",
-                    "confidence": round(confidences[i],
+                    "confidence": round(confidences[i], 3),
                     "height": round(relative_coords[3] - relative_coords[1], 3),
                     "width": round(relative_coords[2] - relative_coords[0], 3),
                     "relative_x1": round(relative_coords[0], 3),
