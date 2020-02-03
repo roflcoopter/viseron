@@ -18,7 +18,6 @@ from voluptuous import (
     Range,
     Required,
     Schema,
-    List
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -165,6 +164,8 @@ MOTION_DETECTION_CONFIG = Schema(
     }
 )
 
+RECORDER_GLOBAL_ARGS = ["-loglevel", "panic"]
+
 RECORDER_CONFIG = Schema(
     {
         Optional("lookback", default=10): All(int, Range(min=0)),
@@ -172,6 +173,9 @@ RECORDER_CONFIG = Schema(
         Optional("retain", default=7): All(int, Range(min=1)),
         Optional("folder", default="/recordings"): str,
         Optional("extension", default="mp4"): str,
+        Optional("global_args", default=RECORDER_GLOBAL_ARGS): list,
+        Optional("hwaccel_args", default=[]): list,
+        Optional("output_args", default=[]): list,
     }
 )
 
@@ -233,7 +237,6 @@ class CameraConfig:
         self._input_args = camera.input_args
         self._hwaccel_args = camera.hwaccel_args
         self._filter_args = camera.filter_args
-        self._output_args = camera.output_args
 
     @property
     def name(self):
@@ -295,7 +298,7 @@ class CameraConfig:
 
     @property
     def filter_args(self):
-        return self._input_args
+        return self._filter_args
 
     @property
     def output_args(self):
@@ -416,6 +419,9 @@ class RecorderConfig:
         self._retain = recorder.retain
         self._folder = recorder.folder
         self._extension = recorder.extension
+        self._global_args = recorder.global_args
+        self._hwaccel_args = recorder.hwaccel_args
+        self._output_args = recorder.output_args
 
     @property
     def lookback(self):
@@ -437,6 +443,17 @@ class RecorderConfig:
     def extension(self):
         return self._extension
 
+    @property
+    def global_args(self):
+        return self._global_args
+
+    @property
+    def hwaccel_args(self):
+        return self._hwaccel_args
+
+    @property
+    def output_args(self):
+        return self._output_args
 
 class MQTTConfig:
     def __init__(self, mqtt):
