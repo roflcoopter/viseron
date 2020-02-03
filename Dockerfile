@@ -39,6 +39,8 @@ RUN apt-get update && \
         nano \
         pkg-config \
         python3-dev \
+        python3-pil \
+        python3-numpy \
         python-setuptools \
         sudo \
         unzip \
@@ -176,7 +178,6 @@ RUN cd ~ \
 	-D INSTALL_PYTHON_EXAMPLES=OFF \
 	-D INSTALL_C_EXAMPLES=OFF \
 	-D OPENCV_EXTRA_MODULES_PATH=~/opencv_contrib-$opencv/modules \
-	-D PYTHON_EXECUTABLE=~/.virtualenvs/cv/bin/python \
   -D BUILD_DOCS=OFF \
 	-D BUILD_EXAMPLES=OFF .. \
 && make -j"$(nproc)" \
@@ -231,15 +232,6 @@ RUN mkdir -p /detectors/models/edgetpu/classification && \
     wget https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg -O /detectors/models/darknet/yolov3.cfg --progress=bar:force:noscroll && \
     wget https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
 
-
-COPY ./lib /src/app/lib
-COPY ./app.py /src/app/
-WORKDIR /src/app
-
-# Symlink GOTURN models
-RUN ln -s /detectors/models/goturn/goturn.prototxt /src/app && \
-    ln -s /detectors/models/goturn/goturn.caffemodel /src/app
-
 # Cleanup
 RUN apt-get autoremove -y && \
     apt-get clean && \
@@ -247,6 +239,10 @@ RUN apt-get autoremove -y && \
     rm -rf /edgetpu_api.tar.gz /root/opencv.zip /root/opencv_contrib.zip /var/lib/apt/lists/*
 
 ENV PATH=/root/bin:$PATH
+
+COPY ./lib /src/app/lib
+COPY ./app.py /src/app/
+WORKDIR /src/app
 
 #CMD ["/bin/bash"]
 #CMD ["/usr/local/bin/kernprof", "-l", "app.py", "-o", "/src/app/"]
