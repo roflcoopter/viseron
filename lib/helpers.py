@@ -3,6 +3,7 @@ from queue import Full, Queue
 from typing import Any, Tuple
 
 import cv2
+import slugify as unicode_slug
 
 
 def calculate_relative_coords(
@@ -48,3 +49,8 @@ def pop_if_full(queue: Queue, item: Any):
     except Full:
         queue.get()
         queue.put_nowait(item)
+
+
+def slugify(text: str) -> str:
+    """Slugify a given text."""
+    return unicode_slug.slugify(text, separator="_")
