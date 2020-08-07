@@ -26,7 +26,7 @@ RUN apt-get clean && apt-get update && apt-get install -y \
 # OpenCV suports CC Arch 5.3 and higher
 ENV CUDA_ARCH_BIN "53 60 61 70"
 ENV CUDA_ARCH_PTX "70"
-ENV OPENCV_VERSION=4.2.0
+ENV OPENCV_VERSION=master
 
 RUN mkdir -p /tmp && \
     cd /tmp && \
