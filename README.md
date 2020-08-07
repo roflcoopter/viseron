@@ -1,7 +1,9 @@
 Ideas
-- Config object
-  Create a proper config object from a yaml file
-  Validate using voluptuous
+- Detector
+  Move detectors to specific folder
+
+- Darknet
+  Choose backend via config
 
 - Watchdog
   Build a watchdog for the camera process
@@ -21,8 +23,6 @@ Ideas
   - Pass list of camera objects to MQTT
 
 - Refactor Darknet
-
-- Add OpenVINO
 
 - Confidence hard threshold
   Allow specified confidence to override height/width thresholds
