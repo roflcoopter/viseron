@@ -1,6 +1,6 @@
 *
 !lib/
-!app.py
+!viseron.py
 !benchmarks/
 !script/
 !docker/docker-gpu/Video_Codec_SDK_9.1.23.zip
