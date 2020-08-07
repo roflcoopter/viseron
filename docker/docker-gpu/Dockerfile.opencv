@@ -1,7 +1,7 @@
 # docker build -t opencv-gpu . --file ./docker/docker-gpu/Dockerfile.opencv
 # docker build -t opencv-gpu /mnt/cache/appdata/viseron --file /mnt/cache/appdata/viseron/docker/docker-gpu/Dockerfile.opencv
 # docker run --runtime=nvidia -ti --rm opencv-gpu bash
-FROM ffmpeg-gpu as ffmpeg
+FROM roflcoopter/ffmpeg-gpu:1.0 as ffmpeg
 
 FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
 
@@ -19,7 +19,7 @@ RUN apt-get clean && apt-get update && apt-get install -y \
     # Python3 deps
     python3-dev \
     python3-numpy \
-        && \
+    && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -39,38 +39,38 @@ RUN mkdir -p /tmp && \
     mkdir -p build && \
     cd build && \
     cmake -D CMAKE_BUILD_TYPE=RELEASE \
-        -D CMAKE_INSTALL_PREFIX=/usr/local \
-        -D BUILD_SHARED_LIBS=ON \
-        # CUDA
-        -D WITH_CUDA=ON \
-        -D WITH_CUDNN=ON \
-        -D CUDA_ARCH_BIN="${CUDA_ARCH_BIN}" \
-        -D CUDA_ARCH_PTX="${CUDA_ARCH_PTX}" \
-        -D CUDA_FAST_MATH=1 \
-        -D WITH_CUBLAS=1 \
-        -D CMAKE_LIBRARY_PATH=/usr/local/cuda/lib64/stubs \
-        -D WITH_TBB=ON \
-        -DWITH_MKL=ON \
-        -DMKL_USE_MULTITHREAD=ON \
-        -DMKL_WITH_TBB=ON \
-        -DWITH_TBB=ON \
-        -D WITH_OPENGL=ON \
-        -D WITH_OPENCL=ON \
-        -D WITH_IPP=ON \
-        -D OPENCV_DNN_CUDA=ON \
-        -D OPENCV_ENABLE_NONFREE=ON \
-        -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib-$OPENCV_VERSION/modules \
-        #-D OPENCV_FFMPEG_SKIP_BUILD_CHECK=ON \
-        # -D PYTHON3_EXECUTABLE=/usr/bin/python3 \
-        # -D PYTHON_INCLUDE_DIR=/usr/include/python3.5 \
-        # -D PYTHON_INCLUDE_DIR2=/usr/include/x86_64-linux-gnu/python3.5m \
-        # -D PYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.5m.so \
-        # -D PYTHON3_NUMPY_INCLUDE_DIRS=/usr/lib/python3/dist-packages/numpy/core/include/ \
-        # Skip building some stuff we dont need
-        -D BUILD_TESTS=ON \
-        -D BUILD_EXAMPLES=OFF \
-        -D BUILD_DOCS=OFF \
-        .. \
+    -D CMAKE_INSTALL_PREFIX=/usr/local \
+    -D BUILD_SHARED_LIBS=ON \
+    # CUDA
+    -D WITH_CUDA=ON \
+    -D WITH_CUDNN=ON \
+    -D CUDA_ARCH_BIN="${CUDA_ARCH_BIN}" \
+    -D CUDA_ARCH_PTX="${CUDA_ARCH_PTX}" \
+    -D CUDA_FAST_MATH=1 \
+    -D WITH_CUBLAS=1 \
+    -D CMAKE_LIBRARY_PATH=/usr/local/cuda/lib64/stubs \
+    -D WITH_TBB=ON \
+    -DWITH_MKL=ON \
+    -DMKL_USE_MULTITHREAD=ON \
+    -DMKL_WITH_TBB=ON \
+    -DWITH_TBB=ON \
+    -D WITH_OPENGL=ON \
+    -D WITH_OPENCL=ON \
+    -D WITH_IPP=ON \
+    -D OPENCV_DNN_CUDA=ON \
+    -D OPENCV_ENABLE_NONFREE=ON \
+    -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib-$OPENCV_VERSION/modules \
+    #-D OPENCV_FFMPEG_SKIP_BUILD_CHECK=ON \
+    # -D PYTHON3_EXECUTABLE=/usr/bin/python3 \
+    # -D PYTHON_INCLUDE_DIR=/usr/include/python3.5 \
+    # -D PYTHON_INCLUDE_DIR2=/usr/include/x86_64-linux-gnu/python3.5m \
+    # -D PYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.5m.so \
+    # -D PYTHON3_NUMPY_INCLUDE_DIRS=/usr/lib/python3/dist-packages/numpy/core/include/ \
+    # Skip building some stuff we dont need
+    -D BUILD_TESTS=ON \
+    -D BUILD_EXAMPLES=OFF \
+    -D BUILD_DOCS=OFF \
+    .. \
     && make -j$(nproc) && \
     make install && \
     echo "/usr/local/lib" > /etc/ld.so.conf.d/opencv.conf && \
