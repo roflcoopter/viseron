@@ -116,7 +116,6 @@ RUN wget https://bootstrap.pypa.io/get-pip.py --progress=bar:force:noscroll && \
 
 COPY viseron.py /src/viseron/
 COPY ./lib /src/viseron/lib
-COPY ./benchmarks /src/viseron/benchmarks
 
 ENTRYPOINT ["python3"]
 
