@@ -38,8 +38,10 @@ class ObjectDetection:
     def load_network(self, model, config):
         # Load a network
         self.net = cv.dnn.readNet(model, config, "darknet")
-        self.net.setPreferableBackend(cv.dnn.DNN_BACKEND_OPENCV)
-        self.net.setPreferableTarget(cv.dnn.DNN_TARGET_OPENCL)
+        # self.net.setPreferableBackend(cv.dnn.DNN_BACKEND_OPENCV)
+        # self.net.setPreferableTarget(cv.dnn.DNN_TARGET_OPENCL)
+        self.net.setPreferableBackend(cv.dnn.DNN_BACKEND_CUDA)
+        self.net.setPreferableTarget(cv.dnn.DNN_TARGET_CUDA)
 
     def getOutputsNames(self, net):
         layersNames = net.getLayerNames()
@@ -101,7 +103,6 @@ class ObjectDetection:
 
         return detections
 
-    # @profile
     def return_objects(self, frame):
         # Create a 4D blob from a frame.
         inpWidth = 320
