@@ -1,11 +1,4 @@
-# docker build -t viseron-gpu . --file ./docker/docker-gpu/Dockerfile
-# docker run --runtime=nvidia -ti --rm --tmpfs /tmp viseron-gpu
-# docker run --runtime=nvidia -ti --rm viseron-gpu bash
-# docker run --runtime=nvidia -ti --rm --device=/dev/dri --privileged=true --entrypoint bash viseron-gpu
-# RUN TESTS
-# docker run --runtime=nvidia -ti --rm --entrypoint kernprof viseron-gpu -l -v /src/viseron/benchmarks/benchmarks.py
-# https://github.com/Borda/docker_python-opencv-ffmpeg/blob/master/gpu/Dockerfile
-FROM opencv-gpu as opencv
+FROM roflcoopter/opencv-gpu:1.0 as opencv
 FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
 
 COPY --from=opencv /usr/local /usr/local
@@ -22,9 +15,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     python3-dev \
     wget \
-    git \
-    # gcc needed for line_profiler
-    gcc \
     # OpenCV runtime deps
     libjpeg-dev libpng-dev libtiff-dev \
     # OpenCV video I/O
@@ -38,10 +28,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Fetch models for YOLOv4 darknet
-# RUN mkdir -p /detectors/models/darknet && \
-#     wget https://pjreddie.com/media/files/yolov3.weights -O /detectors/models/darknet/yolov3.weights --progress=bar:force:noscroll && \
-#     wget https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg -O /detectors/models/darknet/yolov3.cfg --progress=bar:force:noscroll && \
-#     wget https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
 RUN mkdir -p /detectors/models/darknet && \
     wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights -O /detectors/models/darknet/yolov4.weights --progress=bar:force:noscroll && \
     wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4.cfg -O /detectors/models/darknet/yolov4.cfg --progress=bar:force:noscroll && \
@@ -62,57 +48,14 @@ RUN mkdir /opencl &&\
     dpkg -i *.deb && \
     rm -R /opencl
 
-# Install NVIDIA VPF
-ADD /docker/docker-gpu/Video_Codec_SDK_9.1.23.zip /
-RUN apt-get update &&  apt-get install -y --no-install-recommends unzip cmake git && \
-    unzip -q Video_Codec_SDK_9.1.23.zip -d /usr/local/lib/ && \
-    rm Video_Codec_SDK_9.1.23.zip && \
-    cd / && \
-    git clone https://github.com/NVIDIA/VideoProcessingFramework.git && \
-    cd VideoProcessingFramework && \
-    # Currently the CMake file is incorrect for UNIX
-    #sed -i 's/nvidia-encode/libnvidia-encode/' ./PyNvCodec/TC/CMakeLists.txt && \
-    mkdir build && \
-    cd build && \
-    cmake \
-    -DFFMPEG_DIR:PATH="/usr/local/ffmpeg" \
-    -DVIDEO_CODEC_SDK_DIR:PATH="/usr/local/lib/Video_Codec_SDK_9.1.23" \
-    -DGENERATE_PYTHON_BINDINGS:BOOL="1" \
-    -DCMAKE_INSTALL_PREFIX:PATH="/usr/local/vpf"\
-    -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON \
-    -DAVCODEC_INCLUDE_DIR:PATH="/usr/local/ffmpeg/include" \
-    -DAVFORMAT_INCLUDE_DIR:PATH="/usr/local/ffmpeg/include" \
-    -DAVUTIL_INCLUDE_DIR:PATH="/usr/local/ffmpeg/include" \
-    -DSWRESAMPLE_LIBRARY="/usr/local/ffmpeg/lib/libswresample.so" \
-    -DAVFORMAT_LIBRARY="/usr/local/ffmpeg/lib/libavformat.so" \
-    -DAVCODEC_LIBRARY="/usr/local/ffmpeg/lib/libavcodec.so" \
-    -DAVUTIL_LIBRARY="/usr/local/ffmpeg/lib/libavutil.so" \
-    .. &&\
-    make -j$(nproc) && \
-    make install && \
-    apt-get purge --autoremove -y unzip git
-ENV PYTHONPATH="${PYTHONPATH}:/usr/local/vpf/bin"
-
 # Python dependencies
+ADD requirements.txt requirements.txt
 RUN wget https://bootstrap.pypa.io/get-pip.py --progress=bar:force:noscroll && \
     python3 get-pip.py && \
     rm get-pip.py && \
-    pip3 install retrying \
-    apscheduler \
-    imutils \
-    paho-mqtt \
-    numpy \
-    # Cython needed for line_profiler
-    Cython \
-    line_profiler \
-    pyyaml \
-    path.py \
-    voluptuous \
-    python-slugify \
-    tensorflow-gpu \
-    pycocotools>=2.0.1 \
-    torch \
-    torchvision
+    pip3 install --no-cache-dir \
+    -r requirements.txt && \
+    rm requirements.txt
 
 COPY viseron.py /src/viseron/
 COPY ./lib /src/viseron/lib
@@ -121,6 +64,3 @@ ENTRYPOINT ["python3"]
 
 WORKDIR /src/viseron
 CMD ["viseron.py"]
-# CMD ["-y", "-hwaccel", "cuvid", "-c:v", "h264_cuvid", "-vsync", "0", "-i", \
-#      "http://distribution.bbb3d.renderfarming.net/video/mp4/bbb_sunflower_1080p_30fps_normal.mp4", \
-#      "-vf", "scale_npp=1280:720", "-vcodec", "h264_nvenc", "-t", "00:02:00", "output.mp4"]

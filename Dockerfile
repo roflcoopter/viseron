@@ -187,22 +187,14 @@ RUN cd ~ \
 
 WORKDIR /
 
-RUN  wget https://bootstrap.pypa.io/get-pip.py --progress=bar:force:noscroll && \
+# Python dependencies
+ADD requirements.txt requirements.txt
+RUN wget https://bootstrap.pypa.io/get-pip.py --progress=bar:force:noscroll && \
         python3 get-pip.py && \
         rm get-pip.py && \
-        pip3 install retrying \
-        apscheduler \
-        paho-mqtt \
-        path.py \
-        numpy \
-        imutils \
-        Cython \
-        Flask \
-        line_profiler \
-        tenacity \
-        pyyaml \
-        voluptuous \
-        python-slugify
+        pip3 install --no-cache-dir \
+        -r requirements.txt && \
+        rm requirements.txt
 
 
 # Fetch models for Google Coral
