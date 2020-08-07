@@ -10,7 +10,7 @@ from lib.helpers import pop_if_full
 LOGGER = logging.getLogger(__name__)
 
 
-class FFMPEGCamera(object):
+class FFMPEGCamera:
     def __init__(self, config, frame_buffer):
         LOGGER.info("Initializing ffmpeg RTSP pipe")
         self.config = config
