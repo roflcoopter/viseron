@@ -61,10 +61,8 @@ ENV VISERON_CUDA_SUPPORTED=false
 ENV VISERON_OPENCL_SUPPORTED=true
 ENV VISERON_RASPBERRYPI3=false
 
-COPY viseron.py /src/viseron/
-COPY ./lib /src/viseron/lib
+WORKDIR /src/viseron
+COPY ./src /src/viseron/
 
 ENTRYPOINT ["python3"]
-
-WORKDIR /src/viseron
 CMD ["viseron.py"]
