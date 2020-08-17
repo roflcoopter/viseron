@@ -21,8 +21,8 @@ DEFAULTS = {
 SCHEMA = Schema(
     {
         Required("interval"): int,
-        Optional("trigger", default=True): bool,
-        Optional("timeout", default=True): bool,
+        Optional("trigger", default=False): bool,
+        Optional("timeout", default=False): bool,
         Required("width"): int,
         Required("height"): int,
         Required("area"): int,

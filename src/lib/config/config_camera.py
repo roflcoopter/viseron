@@ -52,7 +52,7 @@ SCHEMA = Schema(
                 Required("name"): All(str, Length(min=1)),
                 Required("mqtt_name", default=None): Any(All(str, Length(min=1)), None),
                 Required("host"): All(str, Length(min=1)),
-                Required("port", default=554): All(int, Range(min=1)),
+                Required("port"): All(int, Range(min=1)),
                 Optional("username", default=None): Any(All(str, Length(min=1)), None),
                 Optional("password", default=None): Any(All(str, Length(min=1)), None),
                 Required("path"): All(str, Length(min=1)),
