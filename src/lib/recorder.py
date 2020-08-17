@@ -15,10 +15,10 @@ class FFMPEGRecorder:
         self.is_recording = False
         self.writer_pipe = None
         self.frame_buffer = frame_buffer
-        self.write_frames("test.mp4", 1920, 1080, 6)
+        LOGGER.debug(f"FFMPEG encoder command: {self.build_command("<file_name>")}")
 
-    def write_frames(self, file_name, width, height, fps):
-        command = (
+    def build_command(self, file_name):
+        return (
             ["ffmpeg"]
             + self.config.recorder.global_args
             + self.config.recorder.hwaccel_args
@@ -38,8 +38,10 @@ class FFMPEGRecorder:
             + self.config.recorder.output_args
             + [file_name]
         )
+
+    def write_frames(self, file_name, width, height, fps):
+        command = self.build_command(file_name)
         LOGGER.debug(f"FFMPEG command: {' '.join(command)}")
-        LOGGER.debug(f"Filename: {file_name}")
 
         writer_pipe = sp.Popen(
             command, stdin=sp.PIPE, bufsize=int(width * height * 1.5)
