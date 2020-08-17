@@ -35,7 +35,7 @@ class MQTT:
                 subscription["callback"](msg)
 
     def connect(self):
-        self.client = mqtt.Client("viseron")
+        self.client = mqtt.Client(self.config.mqtt.client_id)
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
         #    self.client.on_publish = MQTT.on_publish

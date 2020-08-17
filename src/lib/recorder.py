@@ -48,7 +48,6 @@ class FFMPEGRecorder:
         while self.is_recording:
             try:
                 frame = self.frame_buffer.get(timeout=1)
-                # LOGGER.debug(f"Writing frame of size {sys.getsizeof(frame)} to file.")
                 writer_pipe.stdin.write(frame["frame"])
             except Empty:
                 LOGGER.error("Timed out")

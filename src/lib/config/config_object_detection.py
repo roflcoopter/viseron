@@ -1,6 +1,16 @@
 import logging
 
-from voluptuous import All, Any, Invalid, Length, Range, Required, Schema, Coerce
+from voluptuous import (
+    All,
+    Any,
+    Invalid,
+    Length,
+    Range,
+    Required,
+    Schema,
+    Coerce,
+    Optional,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +34,7 @@ SCHEMA = Schema(
             Required("label_path", default=None): Any(All(str, Length(min=1)), None),
             Required("model_width"): int,
             Required("model_height"): int,
-            Required("interval", default=1): int,
+            Optional("interval", default=1): int,
             Required("threshold"): All(
                 Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
             ),

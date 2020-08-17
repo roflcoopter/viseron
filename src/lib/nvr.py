@@ -184,6 +184,9 @@ class FFMPEGNVR(Thread):
         """ Main thread. It handles starting/stopping of recordings and
         publishes to MQTT if object is detected. Speed is determined by FPS"""
         LOGGER.info("Starting main loop")
+        LOGGER.debug("Waiting for first frame")
+        self.frame_ready.wait()
+        LOGGER.debug("First frame received")
 
         self.idle_frames = 0
         # Continue til we get kill command from root thread
