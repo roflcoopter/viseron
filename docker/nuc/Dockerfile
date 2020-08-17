@@ -236,10 +236,8 @@ ENV VISERON_CUDA_SUPPORTED=false
 ENV VISERON_OPENCL_SUPPORTED=true
 ENV VISERON_RASPBERRYPI3=false
 
-COPY ./lib /src/app/lib
-COPY ./viseron.py /src/app/
-WORKDIR /src/app
+WORKDIR /src/viseron
+COPY ./src /src/viseron/
 
-#CMD ["/bin/bash"]
-#CMD ["/usr/local/bin/kernprof", "-l", "viseron.py", "-o", "/src/app/"]
-CMD ["python3", "viseron.py"]
+ENTRYPOINT ["python3"]
+CMD ["viseron.py"]
