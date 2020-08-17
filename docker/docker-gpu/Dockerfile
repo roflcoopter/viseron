@@ -57,6 +57,10 @@ RUN wget https://bootstrap.pypa.io/get-pip.py --progress=bar:force:noscroll && \
     -r requirements.txt && \
     rm requirements.txt
 
+ENV VISERON_CUDA_SUPPORTED=false
+ENV VISERON_OPENCL_SUPPORTED=true
+ENV VISERON_RASPBERRYPI3=false
+
 COPY viseron.py /src/viseron/
 COPY ./lib /src/viseron/lib
 
