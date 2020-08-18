@@ -15,9 +15,12 @@ class FFMPEGRecorder:
         self.is_recording = False
         self.writer_pipe = None
         self.frame_buffer = frame_buffer
-        LOGGER.debug(f"FFMPEG encoder command: {self.build_command("<file_name>")}")
+        LOGGER.debug(
+            "FFMPEG encoder command: "
+            f"{' '.join(self.build_command('<file_name>','<width>','<height>','<fps>'))}"
+        )
 
-    def build_command(self, file_name):
+    def build_command(self, file_name, width, height, fps):
         return (
             ["ffmpeg"]
             + self.config.recorder.global_args
@@ -40,7 +43,7 @@ class FFMPEGRecorder:
         )
 
     def write_frames(self, file_name, width, height, fps):
-        command = self.build_command(file_name)
+        command = self.build_command(file_name, width, height, fps)
         LOGGER.debug(f"FFMPEG command: {' '.join(command)}")
 
         writer_pipe = sp.Popen(
@@ -97,4 +100,3 @@ class FFMPEGRecorder:
     def stop(self):
         LOGGER.info("Stopping recorder")
         self.is_recording = False
-        return
