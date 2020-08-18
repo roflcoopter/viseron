@@ -17,6 +17,7 @@ RUN apt-get update && \
   python3-numpy \
   python3-pip \
   wget \
+  usbutils \
   # OpenCV runtime deps
   libjpeg-dev libpng-dev libtiff-dev \
   # OpenCV video I/O
@@ -37,6 +38,13 @@ RUN echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" >
   apt-get autoremove -y && \
   apt-get autoclean -y
 
+# Fetch models
+RUN mkdir -p /detectors/models/edgetpu/classification && \
+  # EdgeTPU MobileNet SSD v2 Object Detection model
+  wget https://dl.google.com/coral/canned_models/mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite -O /detectors/models/edgetpu/model.tflite --progress=bar:force:noscroll && \
+  wget https://github.com/google-coral/edgetpu/raw/master/test_data/ssd_mobilenet_v2_coco_quant_postprocess.tflite -O /detectors/models/edgetpu/cpu_model.tflite --progress=bar:force:noscroll && \
+  wget https://dl.google.com/coral/canned_models/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll
+
 # Python dependencies
 ADD requirements.txt requirements.txt
 RUN wget -q https://bootstrap.pypa.io/get-pip.py && \
@@ -46,17 +54,10 @@ RUN wget -q https://bootstrap.pypa.io/get-pip.py && \
   -r requirements.txt && \
   rm requirements.txt
 
-# Fetch models
-RUN mkdir -p /detectors/models/edgetpu/classification && \
-  # EdgeTPU MobileNet SSD v2 Object Detection model
-  wget https://dl.google.com/coral/canned_models/mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite -O /detectors/models/edgetpu/model.tflite --progress=bar:force:noscroll && \
-  wget https://github.com/google-coral/edgetpu/raw/master/test_data/ssd_mobilenet_v2_coco_quant_postprocess.tflite -O /detectors/models/edgetpu/cpu_model.tflite --progress=bar:force:noscroll && \
-  wget https://dl.google.com/coral/canned_models/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll
-
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/vc/lib
 ENV VISERON_CUDA_SUPPORTED=false
-ENV VISERON_OPENCL_SUPPORTED=true
-ENV VISERON_RASPBERRYPI3=false
+ENV VISERON_OPENCL_SUPPORTED=false
+ENV VISERON_RASPBERRYPI3=true
 
 WORKDIR /src/viseron
 COPY ./src /src/viseron/

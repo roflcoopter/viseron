@@ -26,7 +26,6 @@ RUN PKG_CONFIG_PATH=/opt/vc/lib/pkgconfig ./configure --arch=armel --target-os=l
   --enable-gpl --enable-omx --enable-omx-rpi --enable-nonfree --enable-mmal
 RUN make -j4
 
-# TODO: Use a multi-stage build to pull down that binary
 RUN ln -s `pwd`/ffmpeg /usr/local/bin/ffmpeg
 WORKDIR "/root"
 
