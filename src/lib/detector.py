@@ -29,7 +29,6 @@ class Detector:
             from lib.darknet_detection import ObjectDetection
 
             self.ObjectDetection = ObjectDetection(
-                input=None,
                 model=self.config.object_detection.model_path,
                 config=self.config.object_detection.model_config,
                 classes=self.config.object_detection.label_path,
@@ -39,6 +38,8 @@ class Detector:
                     self.config.object_detection.model_width,
                     self.config.object_detection.model_height,
                 ),
+                backend=self.config.object_detection.dnn_preferable_backend,
+                target=self.config.object_detection.dnn_preferable_target,
             )
         elif self.config.object_detection.type == "posenet":
             from lib.posenet_detection import ObjectDetection
