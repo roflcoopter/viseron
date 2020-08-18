@@ -1,16 +1,20 @@
 import logging
+import os
 
-from voluptuous import (
-    All,
-    Any,
-    Length,
-    Optional,
-    Range,
-    Required,
-    Schema,
+from const import (
+    CAMERA_GLOBAL_ARGS,
+    CAMERA_HWACCEL_ARGS,
+    CAMERA_INPUT_ARGS,
+    CAMERA_OUTPUT_ARGS,
+    ENV_CUDA_SUPPORTED,
+    ENV_OPENCL_SUPPORTED,
+    ENV_RASPBERRYPI3,
+    HWACCEL_CUDA_DECODER,
+    HWACCEL_OPENCL_DECODER,
+    HWACCEL_RPI3_DECODER,
 )
-
 from lib.helpers import slugify
+from voluptuous import All, Any, Length, Optional, Range, Required, Schema
 
 LOGGER = logging.getLogger(__name__)
 
@@ -22,35 +26,25 @@ def ensure_mqtt_name(camera_data: list) -> list:
     return camera_data
 
 
-CAMERA_GLOBAL_ARGS = ["-hide_banner", "-loglevel", "panic"]
+def check_for_hwaccels(hwaccel_args: list) -> list:
+    if hwaccel_args:
+        return hwaccel_args
 
-CAMERA_INPUT_ARGS = [
-    "-avoid_negative_ts",
-    "make_zero",
-    "-fflags",
-    "nobuffer",
-    "-flags",
-    "low_delay",
-    "-strict",
-    "experimental",
-    "-fflags",
-    "+genpts",
-    "-stimeout",
-    "5000000",
-    "-use_wallclock_as_timestamps",
-    "1",
-    "-vsync",
-    "0",
-]
+    if os.getenv(ENV_CUDA_SUPPORTED) == "true":
+        return HWACCEL_CUDA_DECODER
+    if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
+        return HWACCEL_OPENCL_DECODER
+    if os.getenv(ENV_RASPBERRYPI3) == "true":
+        return HWACCEL_RPI3_DECODER
+    return hwaccel_args
 
-CAMERA_OUTPUT_ARGS = ["-f", "rawvideo", "-pix_fmt", "nv12"]
 
 SCHEMA = Schema(
     All(
         [
             {
                 Required("name"): All(str, Length(min=1)),
-                Required("mqtt_name", default=None): Any(All(str, Length(min=1)), None),
+                Optional("mqtt_name", default=None): Any(All(str, Length(min=1)), None),
                 Required("host"): All(str, Length(min=1)),
                 Required("port"): All(int, Range(min=1)),
                 Optional("username", default=None): Any(All(str, Length(min=1)), None),
@@ -61,7 +55,9 @@ SCHEMA = Schema(
                 Optional("fps", default=None): Any(All(int, Range(min=1)), None),
                 Optional("global_args", default=CAMERA_GLOBAL_ARGS): list,
                 Optional("input_args", default=CAMERA_INPUT_ARGS): list,
-                Optional("hwaccel_args", default=[]): list,
+                Optional(
+                    "hwaccel_args", default=CAMERA_HWACCEL_ARGS
+                ): check_for_hwaccels,
                 Optional("filter_args", default=[]): list,
             }
         ],
