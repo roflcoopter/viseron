@@ -2,6 +2,7 @@
 # https://unix.stackexchange.com/questions/233832/merge-two-video-clips-into-one-placing-them-next-to-each-other
 import logging
 import subprocess as sp
+from time import sleep
 
 import cv2
 import numpy as np
@@ -71,7 +72,7 @@ class FFMPEGCamera:
             + self.config.camera.output_args
             + ["pipe:1"]
         )
-        LOGGER.debug("FFMPEG command: {}".format(" ".join(ffmpeg_cmd)))
+        LOGGER.debug(f"FFMPEG decoder command: {' '.join(ffmpeg_cmd)}")
         return sp.Popen(ffmpeg_cmd, stdout=sp.PIPE, bufsize=10 ** 8)
 
     def capture_pipe(
@@ -99,6 +100,7 @@ class FFMPEGCamera:
 
         while self.connected:
             if self.connection_error:
+                sleep(5)
                 LOGGER.error("Restarting frame pipe")
                 pipe.terminate()
                 pipe.communicate()
