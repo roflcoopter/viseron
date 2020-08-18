@@ -22,8 +22,7 @@ LEVELS = {
 
 
 def main():
-    # Initialize logging
-    config = ViseronConfig.config
+    config = ViseronConfig()
 
     log_settings(config)
     LOGGER.info("-------------------------------------------")

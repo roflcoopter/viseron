@@ -1,15 +1,25 @@
 import logging
+import os
 
+from const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
+from cv2.dnn import (
+    DNN_BACKEND_CUDA,
+    DNN_BACKEND_DEFAULT,
+    DNN_BACKEND_OPENCV,
+    DNN_TARGET_CPU,
+    DNN_TARGET_CUDA,
+    DNN_TARGET_OPENCL,
+)
 from voluptuous import (
     All,
     Any,
+    Coerce,
     Invalid,
     Length,
+    Optional,
     Range,
     Required,
     Schema,
-    Coerce,
-    Optional,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -60,6 +70,7 @@ class ObjectDetectionConfig:
     def __init__(self, object_detection):
         self._type = object_detection.type
         self._model_path = object_detection.model_path
+        self._model_config = object_detection.model_config
         self._label_path = object_detection.label_path
         self._model_width = object_detection.model_width
         self._model_height = object_detection.model_height
@@ -79,6 +90,10 @@ class ObjectDetectionConfig:
     @property
     def model_path(self):
         return self._model_path
+
+    @property
+    def model_config(self):
+        return self._model_config
 
     @property
     def label_path(self):
@@ -123,3 +138,19 @@ class ObjectDetectionConfig:
     @property
     def labels(self):
         return self._labels
+
+    @property
+    def dnn_preferable_backend(self):
+        if os.getenv(ENV_CUDA_SUPPORTED) == "true":
+            return DNN_BACKEND_CUDA
+        if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
+            return DNN_BACKEND_OPENCV
+        return DNN_BACKEND_DEFAULT
+
+    @property
+    def dnn_preferable_target(self):
+        if os.getenv(ENV_CUDA_SUPPORTED) == "true":
+            return DNN_TARGET_CUDA
+        if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
+            return DNN_TARGET_OPENCL
+        return DNN_TARGET_CPU

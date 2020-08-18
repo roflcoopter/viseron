@@ -68,8 +68,11 @@ CONFIG = json.loads(
 class ViseronConfig:
     config = CONFIG
 
-    def __init__(self, camera):
-        self._camera = CameraConfig(camera)
+    def __init__(self, camera=None):
+        if camera:
+            self._camera = CameraConfig(camera)
+
+        self._cameras = self.config.cameras
         self._object_detection = ObjectDetectionConfig(self.config.object_detection)
         self._motion_detection = MotionDetectionConfig(self.config.motion_detection)
         self._recorder = RecorderConfig(self.config.recorder)
@@ -79,6 +82,10 @@ class ViseronConfig:
     @property
     def camera(self):
         return self._camera
+
+    @property
+    def cameras(self):
+        return self._cameras
 
     @property
     def object_detection(self):
@@ -104,10 +111,7 @@ class ViseronConfig:
 def main():
     for camera in ViseronConfig.config.cameras:
         config = ViseronConfig(camera)
-        print(config.camera.stream_url)
-        print(config.object_detection.labels)
-        print(config.motion_detection.timeout)
-        print(config.recorder.folder)
+        print(config)
 
 
 if __name__ == "__main__":
