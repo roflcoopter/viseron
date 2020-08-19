@@ -67,10 +67,10 @@ class FFMPEGCamera:
             + self.config.camera.global_args
             + self.config.camera.input_args
             + self.config.camera.hwaccel_args
+            + self.config.camera.codec
             + ["-rtsp_transport", "tcp", "-i", self.config.camera.stream_url]
             + self.config.camera.filter_args
             + self.config.camera.output_args
-            + ["pipe:1"]
         )
         LOGGER.debug(f"FFMPEG decoder command: {' '.join(ffmpeg_cmd)}")
         return sp.Popen(ffmpeg_cmd, stdout=sp.PIPE, bufsize=10 ** 8)

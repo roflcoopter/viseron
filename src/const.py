@@ -1,9 +1,4 @@
-ENV_CUDA_SUPPORTED = "VISERON_CUDA_SUPPORTED"
-ENV_OPENCL_SUPPORTED = "VISERON_OPENCL_SUPPORTED"
-ENV_RASPBERRYPI3 = "VISERON_RASPBERRYPI3"
-
 CAMERA_GLOBAL_ARGS = ["-hide_banner", "-loglevel", "panic"]
-
 CAMERA_INPUT_ARGS = [
     "-avoid_negative_ts",
     "make_zero",
@@ -22,11 +17,23 @@ CAMERA_INPUT_ARGS = [
     "-vsync",
     "0",
 ]
-
 CAMERA_HWACCEL_ARGS = []
+CAMERA_OUTPUT_ARGS = ["-f", "rawvideo", "-pix_fmt", "nv12", "pipe:1"]
 
-CAMERA_OUTPUT_ARGS = ["-f", "rawvideo", "-pix_fmt", "nv12"]
+DECODER_CODEC = []
+ENCODER_CODEC = []
 
-HWACCEL_CUDA_DECODER = ["-c:v", "h264_cuvid"]
-HWACCEL_OPENCL_DECODER = ["-hwaccel", "vaapi", "-vaapi_device", "/dev/dri/renderD128"]
-HWACCEL_RPI3_DECODER = ["-c:v", "h264_mmal"]
+ENV_CUDA_SUPPORTED = "VISERON_CUDA_SUPPORTED"
+ENV_VAAPI_SUPPORTED = "VISERON_VAAPI_SUPPORTED"
+ENV_RASPBERRYPI3 = "VISERON_RASPBERRYPI3"
+
+HWACCEL_VAAPI = ["-hwaccel", "vaapi", "-vaapi_device", "/dev/dri/renderD128"]
+HWACCEL_VAAPI_ENCODER_FILTER = ["-vf", "format=nv12|vaapi,hwupload"]
+HWACCEL_VAAPI_ENCODER_CODEC = ["-vf", "format=nv12|vaapi,hwupload"]
+HWACCEL_CUDA_DECODER_CODEC = ["-c:v", "h264_cuvid"]
+HWACCEL_CUDA_ENCODER_CODEC = ["-c:v", "h264_nvenc"]
+HWACCEL_RPI3_DECODER_CODEC = ["-c:v", "h264_mmal"]
+HWACCEL_RPI3_ENCODER_CODEC = ["-c:v", "h264_omx"]
+
+RECORDER_GLOBAL_ARGS = ["-hide_banner", "-loglevel", "panic"]
+RECORDER_HWACCEL_ARGS = []

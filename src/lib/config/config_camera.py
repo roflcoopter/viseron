@@ -2,16 +2,17 @@ import logging
 import os
 
 from const import (
+    DECODER_CODEC,
     CAMERA_GLOBAL_ARGS,
     CAMERA_HWACCEL_ARGS,
     CAMERA_INPUT_ARGS,
     CAMERA_OUTPUT_ARGS,
     ENV_CUDA_SUPPORTED,
-    ENV_OPENCL_SUPPORTED,
+    ENV_VAAPI_SUPPORTED,
     ENV_RASPBERRYPI3,
-    HWACCEL_CUDA_DECODER,
-    HWACCEL_OPENCL_DECODER,
-    HWACCEL_RPI3_DECODER,
+    HWACCEL_CUDA_DECODER_CODEC,
+    HWACCEL_RPI3_DECODER_CODEC,
+    HWACCEL_VAAPI,
 )
 from lib.helpers import slugify
 from voluptuous import All, Any, Length, Optional, Range, Required, Schema
@@ -30,13 +31,21 @@ def check_for_hwaccels(hwaccel_args: list) -> list:
     if hwaccel_args:
         return hwaccel_args
 
-    if os.getenv(ENV_CUDA_SUPPORTED) == "true":
-        return HWACCEL_CUDA_DECODER
-    if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
-        return HWACCEL_OPENCL_DECODER
-    if os.getenv(ENV_RASPBERRYPI3) == "true":
-        return HWACCEL_RPI3_DECODER
+    # TODO CHANGE THIS ENV TO VAAPI
+    if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
+        return HWACCEL_VAAPI
     return hwaccel_args
+
+
+def get_codec(codec: list) -> list:
+    if codec:
+        return codec
+
+    if os.getenv(ENV_CUDA_SUPPORTED) == "true":
+        return HWACCEL_CUDA_DECODER_CODEC
+    if os.getenv(ENV_RASPBERRYPI3) == "true":
+        return HWACCEL_RPI3_DECODER_CODEC
+    return codec
 
 
 SCHEMA = Schema(
@@ -58,6 +67,8 @@ SCHEMA = Schema(
                 Optional(
                     "hwaccel_args", default=CAMERA_HWACCEL_ARGS
                 ): check_for_hwaccels,
+                # TODO ADD codec TO README
+                Optional("codec", default=DECODER_CODEC): get_codec,
                 Optional("filter_args", default=[]): list,
             }
         ],
@@ -83,6 +94,7 @@ class CameraConfig:
         self._global_args = camera.global_args
         self._input_args = camera.input_args
         self._hwaccel_args = camera.hwaccel_args
+        self._codec = camera.codec
         self._filter_args = camera.filter_args
 
     @property
@@ -142,6 +154,10 @@ class CameraConfig:
     @property
     def hwaccel_args(self):
         return self._hwaccel_args
+
+    @property
+    def codec(self):
+        return self._codec
 
     @property
     def filter_args(self):

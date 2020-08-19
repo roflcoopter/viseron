@@ -1,4 +1,18 @@
 import logging
+import os
+
+from const import (
+    ENCODER_CODEC,
+    RECORDER_GLOBAL_ARGS,
+    RECORDER_HWACCEL_ARGS,
+    ENV_CUDA_SUPPORTED,
+    ENV_VAAPI_SUPPORTED,
+    ENV_RASPBERRYPI3,
+    HWACCEL_CUDA_ENCODER_CODEC,
+    HWACCEL_RPI3_ENCODER_CODEC,
+    HWACCEL_VAAPI,
+    HWACCEL_VAAPI_ENCODER_FILTER,
+)
 
 from voluptuous import (
     All,
@@ -9,7 +23,35 @@ from voluptuous import (
 
 LOGGER = logging.getLogger(__name__)
 
-RECORDER_GLOBAL_ARGS = ["-loglevel", "panic"]
+
+def check_for_hwaccels(hwaccel_args: list) -> list:
+    if hwaccel_args:
+        return hwaccel_args
+
+    if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
+        return HWACCEL_VAAPI
+    return hwaccel_args
+
+
+def get_filter_args(filter_args: list) -> list:
+    if filter_args:
+        return filter_args
+
+    if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
+        return HWACCEL_VAAPI_ENCODER_FILTER
+    return filter_args
+
+
+def get_codec(codec: list) -> list:
+    if codec:
+        return codec
+
+    if os.getenv(ENV_CUDA_SUPPORTED) == "true":
+        return HWACCEL_CUDA_ENCODER_CODEC
+    if os.getenv(ENV_RASPBERRYPI3) == "true":
+        return HWACCEL_RPI3_ENCODER_CODEC
+    return codec
+
 
 SCHEMA = Schema(
     {
@@ -19,8 +61,9 @@ SCHEMA = Schema(
         Optional("folder", default="/recordings"): str,
         Optional("extension", default="mp4"): str,
         Optional("global_args", default=RECORDER_GLOBAL_ARGS): list,
-        Optional("hwaccel_args", default=[]): list,
-        Optional("output_args", default=[]): list,
+        Optional("hwaccel_args", default=RECORDER_HWACCEL_ARGS): list,
+        Optional("filter_args", default=[]): get_filter_args,
+        Optional("codec", default=ENCODER_CODEC): get_codec,
     }
 )
 
@@ -36,7 +79,8 @@ class RecorderConfig:
         self._extension = recorder.extension
         self._global_args = recorder.global_args
         self._hwaccel_args = recorder.hwaccel_args
-        self._output_args = recorder.output_args
+        self._codec = recorder.codec
+        self._filter_args = recorder.filter_args
 
     @property
     def lookback(self):
@@ -67,5 +111,9 @@ class RecorderConfig:
         return self._hwaccel_args
 
     @property
-    def output_args(self):
-        return self._output_args
+    def codec(self):
+        return self._codec
+
+    @property
+    def filter_args(self):
+        return self._filter_args

@@ -56,7 +56,7 @@ RUN wget -q https://bootstrap.pypa.io/get-pip.py && \
 
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/vc/lib
 ENV VISERON_CUDA_SUPPORTED=false
-ENV VISERON_OPENCL_SUPPORTED=false
+ENV VISERON_VAAPI_SUPPORTED=false
 ENV VISERON_RASPBERRYPI3=true
 
 WORKDIR /src/viseron

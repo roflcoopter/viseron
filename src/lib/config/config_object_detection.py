@@ -1,7 +1,7 @@
 import logging
 import os
 
-from const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
+from const import ENV_CUDA_SUPPORTED, ENV_VAAPI_SUPPORTED
 from cv2.dnn import (
     DNN_BACKEND_CUDA,
     DNN_BACKEND_DEFAULT,
@@ -143,7 +143,7 @@ class ObjectDetectionConfig:
     def dnn_preferable_backend(self):
         if os.getenv(ENV_CUDA_SUPPORTED) == "true":
             return DNN_BACKEND_CUDA
-        if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
+        if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
             return DNN_BACKEND_OPENCV
         return DNN_BACKEND_DEFAULT
 
@@ -151,6 +151,6 @@ class ObjectDetectionConfig:
     def dnn_preferable_target(self):
         if os.getenv(ENV_CUDA_SUPPORTED) == "true":
             return DNN_TARGET_CUDA
-        if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
+        if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
             return DNN_TARGET_OPENCL
         return DNN_TARGET_CPU
