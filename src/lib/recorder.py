@@ -17,7 +17,7 @@ class FFMPEGRecorder:
         self.frame_buffer = frame_buffer
         LOGGER.debug(
             "FFMPEG encoder command: "
-            f"{' '.join(self.build_command('<file_name>','<width>','<height>','<fps>'))}"
+            f"{' '.join(self.build_command('<file>', '<width>', '<height>', '<fps>'))}"
         )
 
     def build_command(self, file_name, width, height, fps):
@@ -26,7 +26,6 @@ class FFMPEGRecorder:
             + self.config.recorder.global_args
             + self.config.recorder.hwaccel_args
             + [
-                "-y",
                 "-f",
                 "rawvideo",
                 "-pix_fmt",
@@ -37,8 +36,10 @@ class FFMPEGRecorder:
                 str(fps),
                 "-i",
                 "pipe:0",
+                "-y",
             ]
-            + self.config.recorder.output_args
+            + self.config.recorder.codec
+            + self.config.recorder.filter_args
             + [file_name]
         )
 
