@@ -3,10 +3,13 @@
 # https://www.google.com/search?q=python+dynamic+amount+of+properties&rlz=1C1GCEA_enSE831SE831&oq=python+dynamic+amount+of+properties&aqs=chrome..69i57.5351j0j4&sourceid=chrome&ie=UTF-8
 import json
 import logging
+import os
+import sys
 from collections import namedtuple
 
 import yaml
 
+from const import CONFIG_PATH, DEFAULT_CONFIG, ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
 from voluptuous import (
     All,
     Any,
@@ -20,45 +23,75 @@ from voluptuous import (
 )
 
 from .config_camera import CameraConfig
-from .config_object_detection import ObjectDetectionConfig
-from .config_motion_detection import MotionDetectionConfig
-from .config_recorder import RecorderConfig
-from .config_mqtt import MQTTConfig
 from .config_logging import LoggingConfig
+from .config_motion_detection import MotionDetectionConfig
+from .config_mqtt import MQTTConfig
+from .config_object_detection import ObjectDetectionConfig
+from .config_recorder import RecorderConfig
 
 LOGGER = logging.getLogger(__name__)
 
-with open("/config/config.yaml", "r") as config_file:
-    RAW_CONFIG = yaml.safe_load(config_file)
+DARKNET_DEFAULTS = {
+    "type": "darknet",
+    "model_path": "/detectors/models/darknet/yolo.weights",
+    "model_config": "/detectors/models/darknet/yolo.cfg",
+    "label_path": "/detectors/models/darknet/coco.names",
+}
 
 
-# TODO test this inside docker container
-def ensure_label(detector: dict) -> dict:
-    if detector["type"] in ["darknet", "edgetpu"] and detector["label_path"] is None:
-        raise Invalid("Detector type {} requires a label file".format(detector["type"]))
-    if detector["label_path"]:
-        with open(detector["label_path"], "rt") as label_file:
-            labels_file = label_file.read().rstrip("\n").split("\n")
-        for label in detector["labels"]:
-            if label not in labels_file:
-                raise Invalid("Provided label doesn't exist in label file")
-    return detector
+def get_object_detection_defaults():
+    # TODO add EdgeTPU defaults
+    if (
+        os.getenv(ENV_OPENCL_SUPPORTED) == "true"
+        or os.getenv(ENV_CUDA_SUPPORTED) == "true"
+    ):
+        return DARKNET_DEFAULTS
+
+    return {}
 
 
-VISERON_CONFIG = Schema(
+VISERON_CONFIG_SCHEMA = Schema(
     {
         Required("cameras"): CameraConfig.schema,
-        Required("object_detection"): ObjectDetectionConfig.schema,
+        Optional(
+            "object_detection", default=get_object_detection_defaults()
+        ): ObjectDetectionConfig.schema,
         Optional(
             "motion_detection", default=MotionDetectionConfig.defaults
         ): MotionDetectionConfig.schema,
         Required("recorder", default={}): RecorderConfig.schema,
-        Required("mqtt"): MQTTConfig.schema,
+        Optional("mqtt", default=None): Any(MQTTConfig.schema, None),
         Required("logging", default={}): LoggingConfig.schema,
     }
 )
 
-VALIDATED_CONFIG = VISERON_CONFIG(RAW_CONFIG)
+
+def create_default_config():
+    try:
+        with open(CONFIG_PATH, "wt") as config_file:
+            config_file.write(DEFAULT_CONFIG)
+    except OSError:
+        print("Unable to create default configuration file", CONFIG_PATH)
+        return False
+    return True
+
+
+def load_config():
+    try:
+        with open(CONFIG_PATH, "r") as config_file:
+            return yaml.safe_load(config_file)
+    except FileNotFoundError:
+        print(
+            f"Unable to find configuration. Creating default one in {CONFIG_PATH}\n"
+            f"Please fill in the necessary configuration options and restart Viseron"
+        )
+        create_default_config()
+        sys.exit()
+
+
+raw_config = load_config()
+
+VALIDATED_CONFIG = VISERON_CONFIG_SCHEMA(raw_config)
 CONFIG = json.loads(
     json.dumps(VALIDATED_CONFIG),
     object_hook=lambda d: namedtuple("ViseronConfig", d.keys())(*d.values()),
@@ -69,14 +102,13 @@ class ViseronConfig:
     config = CONFIG
 
     def __init__(self, camera=None):
-        if camera:
-            self._camera = CameraConfig(camera)
+        self._camera = CameraConfig(camera) if camera else None
 
         self._cameras = self.config.cameras
         self._object_detection = ObjectDetectionConfig(self.config.object_detection)
         self._motion_detection = MotionDetectionConfig(self.config.motion_detection)
         self._recorder = RecorderConfig(self.config.recorder)
-        self._mqtt = MQTTConfig(self.config.mqtt)
+        self._mqtt = MQTTConfig(self.config.mqtt) if self.config.mqtt else None
         self._logging = LoggingConfig(self.config.logging)
 
     @property
@@ -106,13 +138,3 @@ class ViseronConfig:
     @property
     def logging(self):
         return self._logging
-
-
-def main():
-    for camera in ViseronConfig.config.cameras:
-        config = ViseronConfig(camera)
-        print(config)
-
-
-if __name__ == "__main__":
-    main()

@@ -16,7 +16,7 @@ LOGGER = logging.getLogger(__name__)
 class FFMPEGNVR(Thread):
     nvr_list: List[object] = []
 
-    def __init__(self, mqtt, mqtt_queue, config, detector_queue):
+    def __init__(self, config, detector_queue, mqtt=None, mqtt_queue=None):
         Thread.__init__(self)
         self.nvr_list.append({config.camera.mqtt_name: self})
         LOGGER.info("Initializing NVR thread")

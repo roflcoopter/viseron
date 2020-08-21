@@ -30,16 +30,14 @@ class Detector:
 
             self.ObjectDetection = ObjectDetection(
                 model=self.config.object_detection.model_path,
-                config=self.config.object_detection.model_config,
+                model_config=self.config.object_detection.model_config,
                 classes=self.config.object_detection.label_path,
                 thr=self.config.object_detection.threshold,
                 nms=self.config.object_detection.suppression,
-                model_res=(
-                    self.config.object_detection.model_width,
-                    self.config.object_detection.model_height,
-                ),
                 backend=self.config.object_detection.dnn_preferable_backend,
                 target=self.config.object_detection.dnn_preferable_target,
+                width=self.config.object_detection.model_width,
+                height=self.config.object_detection.model_height,
             )
         elif self.config.object_detection.type == "posenet":
             from lib.posenet_detection import ObjectDetection

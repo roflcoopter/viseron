@@ -2,7 +2,8 @@ from voluptuous import All, Any, Optional, Schema
 
 
 def upper_case(data: dict) -> dict:
-    data["level"] = data["level"].upper()
+    if data.get("level"):
+        data["level"] = data["level"].upper()
     return data
 
 

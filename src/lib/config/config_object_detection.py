@@ -1,7 +1,7 @@
 import logging
 import os
 
-from const import ENV_CUDA_SUPPORTED, ENV_VAAPI_SUPPORTED
+from const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
 from cv2.dnn import (
     DNN_BACKEND_CUDA,
     DNN_BACKEND_DEFAULT,
@@ -33,6 +33,19 @@ def ensure_min_max(detector: dict) -> dict:
     return detector
 
 
+# TODO test this inside docker container
+def ensure_label(detector: dict) -> dict:
+    if detector["type"] in ["darknet", "edgetpu"] and detector["label_path"] is None:
+        raise Invalid("Detector type {} requires a label file".format(detector["type"]))
+    if detector["label_path"]:
+        with open(detector["label_path"], "rt") as label_file:
+            labels_file = label_file.read().rstrip("\n").split("\n")
+        for label in detector["labels"]:
+            if label not in labels_file:
+                raise Invalid("Provided label doesn't exist in label file")
+    return detector
+
+
 LABELS_SCHEMA = Schema([str])
 
 SCHEMA = Schema(
@@ -41,24 +54,24 @@ SCHEMA = Schema(
             Required("type"): Any("darknet", "edgetpu", "posenet"),
             Required("model_path"): str,
             Required("model_config", default=None): Any(str, None),
-            Required("label_path", default=None): Any(All(str, Length(min=1)), None),
-            Required("model_width"): int,
-            Required("model_height"): int,
+            Required("label_path"): All(str, Length(min=1)),
+            Optional("model_width", default=None): Any(int, None),
+            Optional("model_height", default=None): Any(int, None),
             Optional("interval", default=1): int,
-            Required("threshold"): All(
+            Optional("threshold", default=0.9): All(
                 Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
             ),
-            Required("suppression"): All(
+            Optional("suppression", default=0.4): All(
                 Any(0, 1, All(float, Range(min=0, max=1))), Coerce(float)
             ),
-            Required("height_min"): float,
-            Required("height_max"): float,
-            Required("width_min"): float,
-            Required("width_max"): float,
-            Required("labels"): LABELS_SCHEMA,
+            Optional("height_min", default=0.0): float,
+            Optional("height_max", default=1.0): float,
+            Optional("width_min", default=0.0): float,
+            Optional("width_max", default=1.0): float,
+            Optional("labels", default=["person"]): LABELS_SCHEMA,
         },
         ensure_min_max,
-        # TODO ADD THIS BACK
+        # TODO Add this back
         # ensure_label,
     )
 )
@@ -143,7 +156,7 @@ class ObjectDetectionConfig:
     def dnn_preferable_backend(self):
         if os.getenv(ENV_CUDA_SUPPORTED) == "true":
             return DNN_BACKEND_CUDA
-        if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
+        if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
             return DNN_BACKEND_OPENCV
         return DNN_BACKEND_DEFAULT
 
@@ -151,6 +164,6 @@ class ObjectDetectionConfig:
     def dnn_preferable_target(self):
         if os.getenv(ENV_CUDA_SUPPORTED) == "true":
             return DNN_TARGET_CUDA
-        if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
+        if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
             return DNN_TARGET_OPENCL
         return DNN_TARGET_CPU
