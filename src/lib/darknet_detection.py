@@ -1,8 +1,7 @@
 # python3 object_detection.py --input=test.jpg --model=/src/app/bin/yolov3.weights --config=/src/app/cfg/yolov3-tiny.cfg --classes=/src/app/cfg/coco.names --scale=0.00392 --width=416 --height=416
 # https://github.com/iArunava/YOLOv3-Object-Detection-with-OpenCV
+import configparser
 import logging
-import argparse
-import time
 
 import cv2 as cv
 import numpy as np
@@ -12,20 +11,28 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ObjectDetection:
-    def __init__(self, model, config, classes, thr, nms, model_res, backend, target):
+    def __init__(
+        self,
+        model,
+        model_config,
+        classes,
+        thr,
+        nms,
+        backend,
+        target,
+        width=None,
+        height=None,
+    ):
         self.confThreshold = thr
         self.nmsThreshold = nms
-        self.model_res = model_res
 
         # Activate OpenCL
         if cv.ocl.haveOpenCL():
             cv.ocl.setUseOpenCL(True)
 
-        # Load classes into memory
         self.load_classes(classes)
-
-        # Load and initialize network
-        self.load_network(model, config, backend, target)
+        self.load_network(model, model_config, backend, target)
+        self.get_model_dimensions(model_config, width, height)
 
     def load_classes(self, classes):
         # Load names of classes
@@ -34,11 +41,22 @@ class ObjectDetection:
             with open(classes, "rt") as labels_file:
                 self.classes = labels_file.read().rstrip("\n").split("\n")
 
-    def load_network(self, model, config, backend, target):
+    def load_network(self, model, model_config, backend, target):
         # Load a network
-        self.net = cv.dnn.readNet(model, config, "darknet")
+        self.net = cv.dnn.readNet(model, model_config, "darknet")
         self.net.setPreferableBackend(backend)
         self.net.setPreferableTarget(target)
+
+    def get_model_dimensions(self, model_config, width, height):
+        if width and height:
+            self._width = width
+            self._height = height
+            return
+
+        config = configparser.ConfigParser(strict=False)
+        config.read(model_config)
+        self._width = config.get("net", "width")
+        self._height = config.get("net", "height")
 
     def getOutputsNames(self, net):
         layersNames = net.getLayerNames()
@@ -115,3 +133,15 @@ class ObjectDetection:
         objects = self.postprocess(outs)
 
         return objects
+
+    @property
+    def width(self):
+        return self._width
+
+    @property
+    def height(self):
+        return self._height
+
+    @property
+    def model_res(self):
+        return self.width, self.height

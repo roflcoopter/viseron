@@ -44,8 +44,8 @@ RUN mkdir -p /detectors/models/edgetpu/classification && \
   wget https://dl.google.com/coral/canned_models/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll && \
   # Fetch models for YOLO darknet
   mkdir -p /detectors/models/darknet && \
-  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov3.weights -O /detectors/models/darknet/yolov3.weights --progress=bar:force:noscroll && \
-  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3.cfg -O /detectors/models/darknet/yolov3.cfg --progress=bar:force:noscroll && \
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov3.weights -O /detectors/models/darknet/yolo.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3.cfg -O /detectors/models/darknet/yolo.cfg --progress=bar:force:noscroll && \
   wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
 
 COPY viseron.py /src/viseron/

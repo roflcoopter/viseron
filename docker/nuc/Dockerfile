@@ -220,8 +220,8 @@ RUN mkdir -p /detectors/models/edgetpu/classification && \
         wget https://dl.google.com/coral/canned_models/imagenet_labels.txt -O /detectors/models/edgetpu/classification/imagenet_labels.txt --trust-server-names --progress=bar:force:noscroll && \
         # Fetch models for YOLO darknet
         mkdir -p /detectors/models/darknet && \
-        wget https://pjreddie.com/media/files/yolov3.weights -O /detectors/models/darknet/yolov3.weights --progress=bar:force:noscroll && \
-        wget https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg -O /detectors/models/darknet/yolov3.cfg --progress=bar:force:noscroll && \
+        wget https://pjreddie.com/media/files/yolov3.weights -O /detectors/models/darknet/yolo.weights --progress=bar:force:noscroll && \
+        wget https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg -O /detectors/models/darknet/yolo.cfg --progress=bar:force:noscroll && \
         wget https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
 
 # Cleanup
@@ -234,6 +234,7 @@ ENV PATH=/root/bin:$PATH
 
 ENV VISERON_CUDA_SUPPORTED=false
 ENV VISERON_VAAPI_SUPPORTED=true
+ENV VISERON_OPENCL_SUPPORTED=true
 ENV VISERON_RASPBERRYPI3=false
 
 WORKDIR /src/viseron

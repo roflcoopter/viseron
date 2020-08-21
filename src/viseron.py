@@ -30,11 +30,14 @@ def main():
 
     schedule_cleanup(config)
 
-    mqtt_queue = Queue(maxsize=50)
-    mqtt = MQTT(config)
-    mqtt_publisher = Thread(target=mqtt.publisher, args=(mqtt_queue,))
-    mqtt_publisher.daemon = True
-    mqtt_publisher.start()
+    mqtt_queue = None
+    mqtt = None
+    if config.mqtt:
+        mqtt_queue = Queue(maxsize=50)
+        mqtt = MQTT(config)
+        mqtt_publisher = Thread(target=mqtt.publisher, args=(mqtt_queue,))
+        mqtt_publisher.daemon = True
+        mqtt_publisher.start()
 
     detector_queue = Queue(maxsize=2)
     detector = Detector(config)
@@ -45,10 +48,13 @@ def main():
     threads = []
     for camera in config.cameras:
         threads.append(
-            FFMPEGNVR(mqtt, mqtt_queue, ViseronConfig(camera), detector_queue)
+            FFMPEGNVR(
+                ViseronConfig(camera), detector_queue, mqtt=mqtt, mqtt_queue=mqtt_queue
+            )
         )
 
-    mqtt.connect()
+    if mqtt:
+        mqtt.connect()
 
     for thread in threads:
         thread.start()
