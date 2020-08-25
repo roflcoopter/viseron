@@ -2,5 +2,5 @@
 !src/
 !src/*
 !script/
-!docker/docker-gpu/Video_Codec_SDK_9.1.23.zip
+!docker/cuda/Video_Codec_SDK_9.1.23.zip
 !requirements.txt

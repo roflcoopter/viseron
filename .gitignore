@@ -3,5 +3,5 @@ docker-compose.yaml
 /config/config.py
 config.yaml
 __pycache__
-docker/docker-gpu/Video_Codec_SDK*.zip
+docker/cuda/Video_Codec_SDK*.zip
 /benchmarks
