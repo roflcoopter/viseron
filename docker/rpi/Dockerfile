@@ -62,5 +62,5 @@ ENV VISERON_RASPBERRYPI3=true
 WORKDIR /src/viseron
 COPY ./src /src/viseron/
 
-ENTRYPOINT ["python3"]
+ENTRYPOINT ["python3", "-u"]
 CMD ["viseron.py"]
