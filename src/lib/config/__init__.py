@@ -9,7 +9,13 @@ from collections import namedtuple
 
 import yaml
 
-from const import CONFIG_PATH, DEFAULT_CONFIG, ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
+from const import (
+    CONFIG_PATH,
+    DEFAULT_CONFIG,
+    ENV_CUDA_SUPPORTED,
+    ENV_OPENCL_SUPPORTED,
+    ENV_RASPBERRYPI3,
+)
 from voluptuous import (
     All,
     Any,
@@ -38,14 +44,21 @@ DARKNET_DEFAULTS = {
     "label_path": "/detectors/models/darknet/coco.names",
 }
 
+EDGETPU_DEFAULTS = {
+    "type": "edgetpu",
+    "model_path": "/detectors/models/edgetpu/model.tflite",
+    "label_path": "/detectors/models/edgetpu/labels.txt",
+}
+
 
 def get_object_detection_defaults():
-    # TODO add EdgeTPU defaults
     if (
         os.getenv(ENV_OPENCL_SUPPORTED) == "true"
         or os.getenv(ENV_CUDA_SUPPORTED) == "true"
     ):
         return DARKNET_DEFAULTS
+    if os.getenv(ENV_RASPBERRYPI3) == "true":
+        return EDGETPU_DEFAULTS
 
     return {}
 

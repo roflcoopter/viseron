@@ -29,7 +29,7 @@ Therefore i do not recommend using an RPi unless you have a Google Coral EdgeTPU
 On a generic linux machine:\
 ```TODO INSERT DOCKER COMMAND HERE ```
 
-On a generic linux machine with Intel CPU that supports ```vaapi```:\
+On a Linux machine with Intel CPU that supports ```vaapi``` (Intel NUC for example):\
 ```TODO INSERT DOCKER COMMAND HERE ```
 
 On a Linux machine with Nvidia GPU:\
@@ -38,13 +38,12 @@ On a Linux machine with Nvidia GPU:\
 The ```config.yaml``` has to be mounted to the folder ```/config```.\
 If no config is present, a default minimal one will be created.\
 Here you need to fill in atleast your cameras and you should be good to go.
-TODO CREATE DEFAULT CONFIG
 
 # Configuration Options
 ## Camera
 Used to build the FFMPEG command to decode camera stream.\
 The command is built like this: \
-```"ffmpeg" + global_args + input_args + hwaccel_args + "-rtsp_transport tcp -i " + (stream url) + filter_args + output_args```
+```"ffmpeg" + global_args + input_args + hwaccel_args + codec + "-rtsp_transport tcp -i " + (stream url) + filter_args + output_args```
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | name | str | **required** | any string | Friendly name of the camera |
@@ -60,20 +59,45 @@ The command is built like this: \
 | global_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | input_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG decoder hardware acceleration arguments |
+| codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
 | filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
-TODO INSERT DEFAULT COMMAND HERE IN SPOILER TAG
+
+The default command varies a bit depending on the supported hardware:
+<details>
+  <summary>For Nvidia GPU support</summary>
+
+  ```
+  ffmpeg -hide_banner -loglevel panic -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -stimeout 5000000 -use_wallclock_as_timestamps 1 -vsync 0 -c:v h264_cuvid -rtsp_transport tcp -i rtsp://<username>:<password>@<host>:<port><path> -f rawvideo -pix_fmt nv12 pipe:1
+  ```
+</details>
+
+<details>
+  <summary>For VAAPI support</summary>
+
+  ```
+  ffmpeg -hide_banner -loglevel panic -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -stimeout 5000000 -use_wallclock_as_timestamps 1 -vsync 0 -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -rtsp_transport tcp -i rtsp://<username>:<password>@<host>:<port><path> -f rawvideo -pix_fmt nv12 pipe:1
+  ```
+</details>
+
+<details>
+  <summary>For RPi3</summary>
+
+  ```
+  ffmpeg -hide_banner -loglevel panic -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -stimeout 5000000 -use_wallclock_as_timestamps 1 -vsync 0 -c:v h264_mmal -rtsp_transport tcp -i rtsp://<username>:<password>@<host>:<port><path> -f rawvideo -pix_fmt nv12 pipe:1
+  ```
+</details>
 
 ## Object detection
-TODO this config has to be simplified and use a default config to ease use
+TODO Each field needs defaults in schema so we dont have to specify everything to change one thing
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| type | str | ```darknet``` | ```darknet```, ```edgetpu``` , ```posenet``` | What detection method to use |
-| model_path | str | ```/detectors/models/darknet/yolov.weights``` | any valid path | Path to the object detection model |
-| model_config | str | ```/detectors/models/darknet/yolov.cfg``` | any valid path | Path to the object detection config |
-| label_path | str | ```/detectors/models/darknet/coco.names``` | any valid path | Path to the file containing labels for the model |
-| model_width | int | 320 | any integer | Frames will be resized to this width in order to fit model and save computing power |
-| model_height | int | 320 | any integer | Frames will be resized to this height in order to fit model and save computing power |
-| interval | int | 1 | any integer | Run detection every nth frame.</br>1 = every frame</br>2 = every other frame</br>3 = every third frame</br>etc |
+| type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu``` , ```posenet``` | What detection method to use</br>Defaults to ```edgetpu``` on RPi. If no EdgeTPU is present it will run tensorflow on the CPU.  |
+| model_path | str | RPi: ```/detectors/models/edgetpu/model.tflite``` <br> Other: ```/detectors/models/darknet/yolo.weights``` | any valid path | Path to the object detection model |
+| model_config | str | ```/detectors/models/darknet/yolo.cfg``` | any valid path | Path to the object detection config. Only needed for ```darknet``` |
+| label_path | str | RPI: ```/detectors/models/edgetpu/labels.txt``` <br> Other: ```/detectors/models/darknet/coco.names``` | any valid path | Path to the file containing labels for the model |
+| model_width | int | optional | any integer | Detected from model. Frames will be resized to this width in order to fit model and save computing power. I dont recommend changing this. |
+| model_height | int | 320 | any integer | Detected from model. Frames will be resized to this height in order to fit model and save computing power. I dont recommend changing this. |
+| interval | float | 1.0 | any float | Run object detection at this interval in seconds. |
 | threshold | float | 0.9 | float between 0 and 1 | Lowest confidence allowed for detected objects |
 | suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections |
 | height_min | float | 0 | float between 0 and 1 | Minimum height allowed for detected objects, relative to stream height |
@@ -83,28 +107,53 @@ TODO this config has to be simplified and use a default config to ease use
 | labels | list | ```person``` | any string | Can be any label present in the detection model |
 
 ## Motion detection
-TODO Width height and area need to relative just like object detector
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| interval | int | 0 | any integer | Run motion detection every nth frame.</br>1 = every frame</br>2 = every other frame</br>3 = every third frame</br>etc |
+| interval | float | 1.0 | any float | Run motion detection at this interval in seconds |
 | trigger | bool | False | True/False | If true, detected motion will trigger object detector to start scanning |
 | timeout | bool | False | True/False | If true, recording will continue until no motion is detected |
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
 | area | int | 1000 | any integer | How big the detected area must be in order to trigger motion |
 | frames | int | 1 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
+TODO Future releases will make the motion detection easier to fine tune. Right now its a guessing game
 
 ## Recorder
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-lookback | int | 10 | any integer | Number of seconds to record before a detected object |
-timeout | int | 10 | any integer | Number of seconds to record after all events are over |
-retain | int | 7 | any integer | Number of days to save recordings before deleting them |
-folder | path | ```/recordings``` | What folder to store recordings in |
-extension | str | ```mp4``` | a valid video file extension | The file extension used for recordings. I don't recommend changing this |
+| lookback | int | 10 | any integer | Number of seconds to record before a detected object |
+| timeout | int | 10 | any integer | Number of seconds to record after all events are over |
+| retain | int | 7 | any integer | Number of days to save recordings before deleting them |
+| folder | path | ```/recordings``` | What folder to store recordings in |
+| extension | str | ```mp4``` | a valid video file extension | The file extension used for recordings. I don't recommend changing this |
 | global_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder hardware acceleration arguments |
-| output_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
+| codec | str | optional | any supported decoder codec | FFMPEG video encoder codec, eg ```h264_nvenc``` |
+| filter_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder filter arguments |
+The default command varies a bit depending on the supported hardware:
+<details>
+  <summary>For Nvidia GPU support</summary>
+
+  ```
+  ffmpeg -hide_banner -loglevel panic -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_nvenc <file>
+  ```
+</details>
+
+<details>
+  <summary>For VAAPI support</summary>
+
+  ```
+  ffmpeg -hide_banner -loglevel panic -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -vf "format=nv12|vaapi,hwupload"
+  ```
+</details>
+
+<details>
+  <summary>For RPi3</summary>
+
+  ```
+  ffmpeg -hide_banner -loglevel panic -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_omx <file>
+  ```
+</details>
 
 ## MQTT
 | Name | Type | Default | Supported options | Description |
@@ -117,18 +166,24 @@ extension | str | ```mp4``` | a valid video file extension | The file extension 
 | discovery_prefix | str | ```homeassistant``` | Used to configure sensors in Home Assistant |
 | last_will_topic | str | ```viseron/lwt``` | Last will topic
 
+## Logging
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| level | str | ```INFO``` | ```DEBUG```, ```INFO```, ```WARNING```, ```ERROR```, ```FATAL``` | Log level |
 
 # Ideas and upcoming features
 - UI
   - Create a UI for configuration and viewing of recordings
 
 - Detectors
+  - Pause detection via MQTT
   - Move detectors to specific folder
   - Allow specified confidence to override height/width thresholds
   - Refactor Darknet
   - Darknet Choose backend via config
   - Dynamic detection interval, speed up interval when detection happens for all types of detectors
   - Implement an object tracker for detected objects
+  - Make it easier to implement custom detectors
 
 - Watchdog
   Build a watchdog for the camera process

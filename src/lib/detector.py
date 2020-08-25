@@ -13,6 +13,7 @@ class Detector:
 
         # Activate OpenCL
         if cv2.ocl.haveOpenCL():
+            LOGGER.debug("OpenCL activated")
             cv2.ocl.setUseOpenCL(True)
 
         self.filtered_objects = []
@@ -36,8 +37,8 @@ class Detector:
                 nms=self.config.object_detection.suppression,
                 backend=self.config.object_detection.dnn_preferable_backend,
                 target=self.config.object_detection.dnn_preferable_target,
-                width=self.config.object_detection.model_width,
-                height=self.config.object_detection.model_height,
+                model_width=self.config.object_detection.model_width,
+                model_height=self.config.object_detection.model_height,
             )
         elif self.config.object_detection.type == "posenet":
             from lib.posenet_detection import ObjectDetection
@@ -99,6 +100,22 @@ class Detector:
 
             if object_event.is_set():
                 object_event.clear()
+
+    @property
+    def model_width(self):
+        return (
+            self.config.object_detection.model_width
+            if self.config.object_detection.model_width
+            else self.ObjectDetection.model_width
+        )
+
+    @property
+    def model_height(self):
+        return (
+            self.config.object_detection.model_height
+            if self.config.object_detection.model_height
+            else self.ObjectDetection.model_height
+        )
 
     def stop(self):
         return

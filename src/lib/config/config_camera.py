@@ -31,7 +31,6 @@ def check_for_hwaccels(hwaccel_args: list) -> list:
     if hwaccel_args:
         return hwaccel_args
 
-    # TODO CHANGE THIS ENV TO VAAPI
     if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
         return HWACCEL_VAAPI
     return hwaccel_args
@@ -67,7 +66,6 @@ SCHEMA = Schema(
                 Optional(
                     "hwaccel_args", default=CAMERA_HWACCEL_ARGS
                 ): check_for_hwaccels,
-                # TODO ADD codec TO README
                 Optional("codec", default=DECODER_CODEC): get_codec,
                 Optional("filter_args", default=[]): list,
             }
@@ -157,7 +155,7 @@ class CameraConfig:
 
     @property
     def codec(self):
-        return self._codec
+        return ["-c:v"] + self._codec if self._codec else self._codec
 
     @property
     def filter_args(self):
