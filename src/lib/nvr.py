@@ -16,7 +16,7 @@ LOGGER = logging.getLogger(__name__)
 class FFMPEGNVR(Thread):
     nvr_list: List[object] = []
 
-    def __init__(self, config, detector_queue, mqtt=None, mqtt_queue=None):
+    def __init__(self, config, detector, detector_queue, mqtt_queue=None):
         Thread.__init__(self)
         self.nvr_list.append({config.camera.mqtt_name: self})
         LOGGER.info("Initializing NVR thread")
@@ -26,7 +26,6 @@ class FFMPEGNVR(Thread):
         self.scan_for_objects = Event()  # Set when frame should be scanned
         self.motion_event = Event()  # Triggered when motion detected
         self.scan_for_motion = Event()  # Set when frame should be scanned
-        self.mqtt = mqtt
         self.mqtt_queue = mqtt_queue
         self.config = config
         self.idle_frames = 0
@@ -96,8 +95,8 @@ class FFMPEGNVR(Thread):
             args=(
                 object_decoder_queue,
                 detector_queue,
-                self.config.object_detection.model_width,
-                self.config.object_detection.model_height,
+                detector.model_width,
+                detector.model_height,
             ),
         )
         self.ffmpeg_decoder.daemon = True
@@ -323,21 +322,23 @@ class FFMPEGNVR(Thread):
         return f"{self.config.mqtt.discovery_prefix}/camera/{self.config.camera.mqtt_name}/config"
 
     def publish_sensor(self, object_detected, detections=None):
-        payload = {}
-        payload["state"] = "on" if object_detected else "off"
-        payload["detections"] = detections
-        json_payload = json.dumps(payload, indent=3)
+        if self.mqtt_queue:
+            payload = {}
+            payload["state"] = "on" if object_detected else "off"
+            payload["detections"] = detections
+            json_payload = json.dumps(payload, indent=3)
 
-        self.mqtt_queue.put(
-            {"topic": self.mqtt_sensor_state_topic, "payload": json_payload}
-        )
+            self.mqtt_queue.put(
+                {"topic": self.mqtt_sensor_state_topic, "payload": json_payload}
+            )
 
     def publish_image(self, frame):
-        ret, jpg = cv2.imencode(".jpg", frame)
-        if ret:
-            self.mqtt_queue.put(
-                {"topic": self.mqtt_camera_state_topic, "payload": jpg.tobytes()}
-            )
+        if self.mqtt_queue:
+            ret, jpg = cv2.imencode(".jpg", frame)
+            if ret:
+                self.mqtt_queue.put(
+                    {"topic": self.mqtt_camera_state_topic, "payload": jpg.tobytes()}
+                )
 
     def stop(self):
         LOGGER.info("Stopping NVR thread")

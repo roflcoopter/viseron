@@ -20,8 +20,8 @@ class ObjectDetection:
         nms,
         backend,
         target,
-        width=None,
-        height=None,
+        model_width=None,
+        model_height=None,
     ):
         self.confThreshold = thr
         self.nmsThreshold = nms
@@ -32,7 +32,15 @@ class ObjectDetection:
 
         self.load_classes(classes)
         self.load_network(model, model_config, backend, target)
-        self.get_model_dimensions(model_config, width, height)
+
+        if model_width and model_height:
+            self._model_width = model_width
+            self._model_height = model_height
+        else:
+            config = configparser.ConfigParser(strict=False)
+            config.read(model_config)
+            self._model_width = int(config.get("net", "width"))
+            self._model_height = int(config.get("net", "height"))
 
     def load_classes(self, classes):
         # Load names of classes
@@ -46,17 +54,6 @@ class ObjectDetection:
         self.net = cv.dnn.readNet(model, model_config, "darknet")
         self.net.setPreferableBackend(backend)
         self.net.setPreferableTarget(target)
-
-    def get_model_dimensions(self, model_config, width, height):
-        if width and height:
-            self._width = width
-            self._height = height
-            return
-
-        config = configparser.ConfigParser(strict=False)
-        config.read(model_config)
-        self._width = config.get("net", "width")
-        self._height = config.get("net", "height")
 
     def getOutputsNames(self, net):
         layersNames = net.getLayerNames()
@@ -120,10 +117,13 @@ class ObjectDetection:
 
     def return_objects(self, frame):
         # Create a 4D blob from a frame.
-        inpWidth = 320
-        inpHeight = 320
         blob = cv.dnn.blobFromImage(
-            frame, 0.00392, (inpWidth, inpHeight), [0, 0, 0], True, crop=False
+            frame,
+            0.00392,
+            (self.model_width, self.model_height),
+            [0, 0, 0],
+            True,
+            crop=False,
         )
 
         # Run a model
@@ -135,13 +135,13 @@ class ObjectDetection:
         return objects
 
     @property
-    def width(self):
-        return self._width
+    def model_width(self):
+        return self._model_width
 
     @property
-    def height(self):
-        return self._height
+    def model_height(self):
+        return self._model_height
 
     @property
     def model_res(self):
-        return self.width, self.height
+        return self.model_width, self.model_height
