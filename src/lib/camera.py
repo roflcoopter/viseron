@@ -94,7 +94,13 @@ class FFMPEGCamera:
 
         self.connected = True
         object_frame_number = 0
+        object_decoder_interval_calculated = int(
+            object_decoder_interval * self.stream_fps
+        )
         motion_frame_number = 0
+        motion_decoder_interval_calculated = int(
+            motion_decoder_interval * self.stream_fps
+        )
 
         bytes_to_read = int(self.stream_width * self.stream_height * 1.5)
 
@@ -111,7 +117,7 @@ class FFMPEGCamera:
             pop_if_full(frame_buffer, {"frame": self.raw_image})
 
             if scan_for_objects.is_set():
-                if object_frame_number % object_decoder_interval == 0:
+                if object_frame_number % object_decoder_interval_calculated == 0:
                     object_frame_number = 0
                     pop_if_full(
                         object_decoder_queue,
@@ -127,7 +133,7 @@ class FFMPEGCamera:
                 object_frame_number = 0
 
             if scan_for_motion.is_set():
-                if motion_frame_number % motion_decoder_interval == 0:
+                if motion_frame_number % motion_decoder_interval_calculated == 0:
                     motion_frame_number = 0
                     pop_if_full(motion_decoder_queue, {"raw_frame": self.raw_image})
 

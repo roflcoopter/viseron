@@ -55,15 +55,15 @@ def get_codec(codec: list) -> list:
 
 SCHEMA = Schema(
     {
-        Optional("lookback", default=10): All(int, Range(min=0)),
+        Optional("lookback", default=5): All(int, Range(min=0)),
         Optional("timeout", default=10): All(int, Range(min=0)),
         Optional("retain", default=7): All(int, Range(min=1)),
         Optional("folder", default="/recordings"): str,
         Optional("extension", default="mp4"): str,
         Optional("global_args", default=RECORDER_GLOBAL_ARGS): list,
         Optional("hwaccel_args", default=RECORDER_HWACCEL_ARGS): list,
-        Optional("filter_args", default=[]): get_filter_args,
         Optional("codec", default=ENCODER_CODEC): get_codec,
+        Optional("filter_args", default=[]): get_filter_args,
     }
 )
 
