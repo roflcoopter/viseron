@@ -10,6 +10,7 @@ RUN apt-get update && \
         ca-certificates \
         clinfo \
         cmake \
+        curl \
         gfortran \
         git \
         #        libass-dev \
@@ -60,15 +61,6 @@ RUN apt-get update && \
         libunwind8 \
         libgcc1
 
-# Install Google Coral
-RUN wget https://dl.google.com/coral/edgetpu_api/edgetpu_api_latest.tar.gz -O edgetpu_api.tar.gz --trust-server-names --progress=bar:force:noscroll \
-        && tar xzf edgetpu_api.tar.gz
-
-COPY script/install_edgetpu_cli.sh edgetpu_api/install.sh
-
-RUN cd edgetpu_api \
-        && /bin/bash install.sh
-
 # Install ffmpeg from source
 WORKDIR /
 RUN git clone https://github.com/intel/libva && \
@@ -102,14 +94,8 @@ RUN mkdir /opencl &&\
         dpkg -i *.deb && \
         rm -R /opencl
 
-RUN mkdir ~/ffmpeg; cd ~/ffmpeg && \
-        hg clone https://bitbucket.org/multicoreware/x265 && \
-        cd x265/build/linux && \
-        PATH="$HOME/bin:$PATH" cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="$HOME/ffmpeg_build" -DENABLE_SHARED:bool=off ../../source && PATH="$HOME/bin:$PATH" && \
-        make -j"$(nproc)" && make install && \
-        cd ~/ffmpeg && \
-        wget -O- http://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 --progress=bar:force:noscroll | tar xj && \
-        cd ~/ffmpeg/ffmpeg && \
+RUN git clone --depth 1 --branch n4.3 https://github.com/ffmpeg/ffmpeg ffmpeg && \
+        cd ffmpeg && \
         PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" \
         ./configure \
         --prefix="$HOME/ffmpeg_build" \
@@ -120,29 +106,17 @@ RUN mkdir ~/ffmpeg; cd ~/ffmpeg && \
         --bindir="$HOME/bin" \
         --enable-nonfree \
         --enable-version3 \
-        #      --enable-libass \
-        #      --enable-libmp3lame \
-        #      --enable-libopus \
-        #      --enable-libfdk-aac \
-        #      --enable-libtheora \
-        #      --enable-libvpx \
-        #      --enable-libwebp \
-        #      --enable-libxcb \
         --enable-opengl \
         --cpu=native \
         --enable-vaapi \
-        #      --enable-libspeex \
-        #      --enable-libxvid \
         --enable-libx264 \
-        --enable-libx265 \
-        #      --enable-omx \
         --enable-gpl && \
         PATH="$HOME/bin:$PATH" make -j"$(nproc)" && make install
 
 WORKDIR /
 
 # OpenCV
-ENV opencv=4.1.1
+ENV opencv=master
 RUN cd ~ \
         && wget -O opencv.zip https://github.com/opencv/opencv/archive/$opencv.zip \
         && wget -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/$opencv.zip \
@@ -196,39 +170,17 @@ RUN wget https://bootstrap.pypa.io/get-pip.py --progress=bar:force:noscroll && \
         -r requirements.txt && \
         rm requirements.txt
 
-
-# Fetch models for Google Coral
-RUN mkdir -p /detectors/models/edgetpu/classification && \
-        apt-get update --fix-missing && \
-        apt-get install --no-install-recommends -y curl && \
-        # EdgeTPU MobileNet SSD v2 Object Detection model
-        wget https://dl.google.com/coral/canned_models/mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite -O /detectors/models/edgetpu/model.tflite --trust-server-names --progress=bar:force:noscroll && \
-        wget https://dl.google.com/coral/canned_models/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --trust-server-names --progress=bar:force:noscroll && \
-        # Model based on VOC
-        wget https://raw.githubusercontent.com/PINTO0309/TPU-MobilenetSSD/master/voc_labels.txt -O /detectors/models/edgetpu/voc-labels.txt --trust-server-names --progress=bar:force:noscroll && \
-        wget https://github.com/PINTO0309/TPU-MobilenetSSD/raw/master/mobilenet_ssd_v2_voc_quant_postprocess_edgetpu.tflite -O /detectors/models/edgetpu/voc-model.tflite --trust-server-names --progress=bar:force:noscroll && \
-        # PoseNet model
-        wget https://github.com/google-coral/project-posenet/raw/master/models/posenet_mobilenet_v1_075_721_1281_quant_decoder_edgetpu.tflite -O /detectors/models/edgetpu/posenet.tflite --trust-server-names --progress=bar:force:noscroll && \
-        # Deeplab model
-        curl -sc /tmp/cookie "https://drive.google.com/uc?export=download&id=1mdUKcwFTckmoStQpS4SUihGaz7eUt-Xt" > /dev/null && \
-        CODE="$(awk '/_warning_/ {print $NF}' /tmp/cookie)"  && \
-        curl -Lb /tmp/cookie "https://drive.google.com/uc?export=download&confirm=${CODE}&id=1mdUKcwFTckmoStQpS4SUihGaz7eUt-Xt" -o deeplabv3.zip  && \
-        unzip deeplabv3.zip -d /detectors/models/edgetpu  && \
-        rm deeplabv3.zip  && \
-        # EfficientNet-EdgeTpu (L)
-        wget https://dl.google.com/coral/canned-models/efficientnet-edgetpu-L_quant_edgetpu.tflite -O /detectors/models/edgetpu/classification/efficientnet_large.tflite --trust-server-names --progress=bar:force:noscroll && \
-        wget https://dl.google.com/coral/canned_models/imagenet_labels.txt -O /detectors/models/edgetpu/classification/imagenet_labels.txt --trust-server-names --progress=bar:force:noscroll && \
-        # Fetch models for YOLO darknet
-        mkdir -p /detectors/models/darknet && \
-        wget https://pjreddie.com/media/files/yolov3.weights -O /detectors/models/darknet/yolo.weights --progress=bar:force:noscroll && \
-        wget https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg -O /detectors/models/darknet/yolo.cfg --progress=bar:force:noscroll && \
-        wget https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
+# Fetch models for YOLOv4 darknet
+RUN mkdir -p /detectors/models/darknet && \
+        wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-tiny.weights -O /detectors/models/darknet/yolo.weights --progress=bar:force:noscroll && \
+        wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-tiny.cfg -O /detectors/models/darknet/yolo.cfg --progress=bar:force:noscroll && \
+        wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
 
 # Cleanup
 RUN apt-get autoremove -y && \
         apt-get clean && \
         rm -rf /libva /intel-vaapi-driver /libva-utils && \
-        rm -rf /edgetpu_api.tar.gz /root/opencv.zip /root/opencv_contrib.zip /var/lib/apt/lists/*
+        rm -rf /root/opencv.zip /root/opencv_contrib.zip /var/lib/apt/lists/*
 
 ENV PATH=/root/bin:$PATH
 
@@ -240,5 +192,5 @@ ENV VISERON_RASPBERRYPI3=false
 WORKDIR /src/viseron
 COPY ./src /src/viseron/
 
-ENTRYPOINT ["python3"]
+ENTRYPOINT ["python3", "-u"]
 CMD ["viseron.py"]
