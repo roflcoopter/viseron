@@ -36,7 +36,6 @@ RUN wget -q https://bootstrap.pypa.io/get-pip.py && \
   rm requirements.txt && \
   pip3 install opencv-python-headless
 
-# TODO change all yolov3/yolov4 to just yolo
 # Fetch models
 RUN mkdir -p /detectors/models/edgetpu/classification && \
   # EdgeTPU MobileNet SSD v2 Object Detection model
@@ -51,7 +50,7 @@ RUN mkdir -p /detectors/models/edgetpu/classification && \
 COPY viseron.py /src/viseron/
 COPY ./lib /src/viseron/lib
 
-ENTRYPOINT ["python3"]
+ENTRYPOINT ["python3", "-u"]
 
 WORKDIR /src/viseron
 CMD ["viseron.py"]
