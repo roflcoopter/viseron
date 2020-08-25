@@ -7,19 +7,33 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ObjectDetection:
-    def __init__(self, model, labels, threshold):
+    def __init__(
+        self, model, labels, threshold, model_width=None, model_height=None,
+    ):
         self.threshold = threshold
 
         self.labels = self.read_labels(labels)
-        self.interpreter = tflite.Interpreter(
-            model_path=model,
-            experimental_delegates=[tflite.load_delegate("libedgetpu.so.1.0")],
-        )
-
+        try:
+            self.interpreter = tflite.Interpreter(
+                model_path=model,
+                experimental_delegates=[tflite.load_delegate("libedgetpu.so.1.0")],
+            )
+        except ValueError:
+            LOGGER.warning("EdgeTPU not found. Detection will run on CPU")
+            self.interpreter = tflite.Interpreter(
+                model_path="/detectors/models/edgetpu/cpu_model.tflite",
+            )
         self.interpreter.allocate_tensors()
 
         self.tensor_input_details = self.interpreter.get_input_details()
         self.tensor_output_details = self.interpreter.get_output_details()
+
+        if model_width and model_height:
+            self._model_width = model_width
+            self._model_height = model_height
+        else:
+            self._model_width = self.tensor_input_details[0]["shape"][1]
+            self._model_height = self.tensor_input_details[0]["shape"][2]
 
     def read_labels(self, file_path):
         with open(file_path, "r") as label_file:
@@ -73,3 +87,11 @@ class ObjectDetection:
 
         objects = self.post_process()
         return objects
+
+    @property
+    def model_width(self):
+        return self._model_width
+
+    @property
+    def model_height(self):
+        return self._model_height
