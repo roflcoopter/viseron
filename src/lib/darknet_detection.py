@@ -1,4 +1,3 @@
-# python3 object_detection.py --input=test.jpg --model=/src/app/bin/yolov3.weights --config=/src/app/cfg/yolov3-tiny.cfg --classes=/src/app/cfg/coco.names --scale=0.00392 --width=416 --height=416
 # https://github.com/iArunava/YOLOv3-Object-Detection-with-OpenCV
 import configparser
 import logging
@@ -23,8 +22,8 @@ class ObjectDetection:
         model_width=None,
         model_height=None,
     ):
-        self.confThreshold = thr
-        self.nmsThreshold = nms
+        self.threshold = thr
+        self.nms = nms
 
         # Activate OpenCL
         if cv.ocl.haveOpenCL():
@@ -55,33 +54,31 @@ class ObjectDetection:
         self.net.setPreferableBackend(backend)
         self.net.setPreferableTarget(target)
 
-    def getOutputsNames(self, net):
-        layersNames = net.getLayerNames()
-        return [layersNames[i[0] - 1] for i in net.getUnconnectedOutLayers()]
+    def get_output_names(self, net):
+        layer_names = net.getLayerNames()
+        return [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
     def postprocess(self, outs):
-        classIds = []
+        classes = []
         confidences = []
         boxes = []
         for out in outs:
             for detection in out:
                 scores = detection[5:]
-                classId = np.argmax(scores)
-                confidence = scores[classId]
-                if confidence > self.confThreshold:
+                detected_class = np.argmax(scores)
+                confidence = scores[detected_class]
+                if confidence > self.threshold:
                     center_x = int(detection[0] * self.model_res[0])
                     center_y = int(detection[1] * self.model_res[1])
                     width = int(detection[2] * self.model_res[0])
                     height = int(detection[3] * self.model_res[1])
                     left = int(center_x - width / 2)
                     top = int(center_y - height / 2)
-                    classIds.append(classId)
+                    classes.append(detected_class)
                     confidences.append(float(confidence))
                     boxes.append([left, top, width, height])
 
-        indices = cv.dnn.NMSBoxes(
-            boxes, confidences, self.confThreshold, self.nmsThreshold
-        )
+        indices = cv.dnn.NMSBoxes(boxes, confidences, self.threshold, self.nms)
 
         detections = list()
 
@@ -94,7 +91,7 @@ class ObjectDetection:
             height = box[3]
 
             if self.classes:
-                label = self.classes[classIds[i]]
+                label = self.classes[classes[i]]
 
             relative_coords = calculate_relative_coords(
                 (left, top, left + width, top + height), self.model_res
@@ -128,7 +125,7 @@ class ObjectDetection:
 
         # Run a model
         self.net.setInput(blob)
-        outs = self.net.forward(self.getOutputsNames(self.net))
+        outs = self.net.forward(self.get_output_names(self.net))
 
         objects = self.postprocess(outs)
 
