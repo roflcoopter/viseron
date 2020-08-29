@@ -47,10 +47,10 @@ RUN mkdir -p /detectors/models/edgetpu/classification && \
   wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3.cfg -O /detectors/models/darknet/yolo.cfg --progress=bar:force:noscroll && \
   wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
 
-COPY viseron.py /src/viseron/
-COPY ./lib /src/viseron/lib
-
-ENTRYPOINT ["python3", "-u"]
+VOLUME /recordings
 
 WORKDIR /src/viseron
+COPY ./src /src/viseron/
+
+ENTRYPOINT ["python3", "-u"]
 CMD ["viseron.py"]
