@@ -189,6 +189,8 @@ ENV VISERON_VAAPI_SUPPORTED=true
 ENV VISERON_OPENCL_SUPPORTED=true
 ENV VISERON_RASPBERRYPI3=false
 
+VOLUME /recordings
+
 WORKDIR /src/viseron
 COPY ./src /src/viseron/
 
