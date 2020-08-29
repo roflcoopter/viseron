@@ -59,6 +59,8 @@ ENV VISERON_CUDA_SUPPORTED=false
 ENV VISERON_VAAPI_SUPPORTED=false
 ENV VISERON_RASPBERRYPI3=true
 
+VOLUME /recordings
+
 WORKDIR /src/viseron
 COPY ./src /src/viseron/
 
