@@ -1,6 +1,7 @@
 import logging
 
 from voluptuous import (
+    All,
     Any,
     Required,
     Schema,
@@ -9,16 +10,26 @@ from voluptuous import (
 
 LOGGER = logging.getLogger(__name__)
 
+
+def get_lwt_topic(mqtt: dict) -> dict:
+    if not mqtt["last_will_topic"]:
+        mqtt["last_will_topic"] = f"{mqtt['client_id']}/lwt"
+    return mqtt
+
+
 SCHEMA = Schema(
-    {
-        Required("broker"): str,
-        Required("port", default=1883): int,
-        Optional("username", default=None): Any(str, None),
-        Optional("password", default=None): Any(str, None),
-        Optional("client_id", default="viseron"): Any(str, None),
-        Optional("discovery_prefix", default="homeassistant"): str,
-        Optional("last_will_topic", default="viseron/lwt"): str,
-    }
+    All(
+        {
+            Required("broker"): str,
+            Required("port", default=1883): int,
+            Optional("username", default=None): Any(str, None),
+            Optional("password", default=None): Any(str, None),
+            Optional("client_id", default="viseron"): Any(str, None),
+            Optional("discovery_prefix", default="homeassistant"): str,
+            Optional("last_will_topic", default=None): Any(str, None),
+        },
+        get_lwt_topic,
+    )
 )
 
 
