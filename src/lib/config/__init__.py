@@ -12,6 +12,8 @@ import yaml
 from const import (
     CONFIG_PATH,
     DEFAULT_CONFIG,
+    DARKNET_DEFAULTS,
+    EDGETPU_DEFAULTS,
     ENV_CUDA_SUPPORTED,
     ENV_OPENCL_SUPPORTED,
     ENV_RASPBERRYPI3,
@@ -37,19 +39,6 @@ from .config_recorder import RecorderConfig
 
 LOGGER = logging.getLogger(__name__)
 
-DARKNET_DEFAULTS = {
-    "type": "darknet",
-    "model_path": "/detectors/models/darknet/yolo.weights",
-    "model_config": "/detectors/models/darknet/yolo.cfg",
-    "label_path": "/detectors/models/darknet/coco.names",
-}
-
-EDGETPU_DEFAULTS = {
-    "type": "edgetpu",
-    "model_path": "/detectors/models/edgetpu/model.tflite",
-    "label_path": "/detectors/models/edgetpu/labels.txt",
-}
-
 
 def get_object_detection_defaults():
     if (
@@ -60,7 +49,7 @@ def get_object_detection_defaults():
     if os.getenv(ENV_RASPBERRYPI3) == "true":
         return EDGETPU_DEFAULTS
 
-    return {}
+    return DARKNET_DEFAULTS
 
 
 VISERON_CONFIG_SCHEMA = Schema(
@@ -72,9 +61,9 @@ VISERON_CONFIG_SCHEMA = Schema(
         Optional(
             "motion_detection", default=MotionDetectionConfig.defaults
         ): MotionDetectionConfig.schema,
-        Required("recorder", default={}): RecorderConfig.schema,
+        Optional("recorder", default={}): RecorderConfig.schema,
         Optional("mqtt", default=None): Any(MQTTConfig.schema, None),
-        Required("logging", default={}): LoggingConfig.schema,
+        Optional("logging", default={}): LoggingConfig.schema,
     }
 )
 

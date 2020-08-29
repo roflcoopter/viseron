@@ -1,7 +1,14 @@
 import logging
 import os
+from typing import Union
 
-from const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
+from const import (
+    ENV_CUDA_SUPPORTED,
+    ENV_OPENCL_SUPPORTED,
+    ENV_RASPBERRYPI3,
+    DARKNET_DEFAULTS,
+    EDGETPU_DEFAULTS,
+)
 from cv2.dnn import (
     DNN_BACKEND_CUDA,
     DNN_BACKEND_DEFAULT,
@@ -46,15 +53,76 @@ def ensure_label(detector: dict) -> dict:
     return detector
 
 
+def get_detector_type(detector: str) -> str:
+    if detector:
+        return detector
+
+    if (
+        os.getenv(ENV_OPENCL_SUPPORTED) == "true"
+        or os.getenv(ENV_CUDA_SUPPORTED) == "true"
+    ):
+        return DARKNET_DEFAULTS["type"]
+    if os.getenv(ENV_RASPBERRYPI3) == "true":
+        return EDGETPU_DEFAULTS["type"]
+    return DARKNET_DEFAULTS["type"]
+
+
+def get_model_path(model_path: str) -> str:
+    if model_path:
+        return model_path
+
+    if (
+        os.getenv(ENV_OPENCL_SUPPORTED) == "true"
+        or os.getenv(ENV_CUDA_SUPPORTED) == "true"
+    ):
+        return DARKNET_DEFAULTS["model_path"]
+    if os.getenv(ENV_RASPBERRYPI3) == "true":
+        return EDGETPU_DEFAULTS["model_path"]
+    return DARKNET_DEFAULTS["model_path"]
+
+
+def get_model_config(model_config: str) -> Union[str, None]:
+    if model_config:
+        return model_config
+
+    if (
+        os.getenv(ENV_OPENCL_SUPPORTED) == "true"
+        or os.getenv(ENV_CUDA_SUPPORTED) == "true"
+    ):
+        return DARKNET_DEFAULTS["model_config"]
+    if os.getenv(ENV_RASPBERRYPI3) == "true":
+        return None
+    return DARKNET_DEFAULTS["model_config"]
+
+
+def get_label_path(label_path: str) -> str:
+    if label_path:
+        return label_path
+
+    if (
+        os.getenv(ENV_OPENCL_SUPPORTED) == "true"
+        or os.getenv(ENV_CUDA_SUPPORTED) == "true"
+    ):
+        return DARKNET_DEFAULTS["label_path"]
+    if os.getenv(ENV_RASPBERRYPI3) == "true":
+        return EDGETPU_DEFAULTS["label_path"]
+    return DARKNET_DEFAULTS["label_path"]
+
+
 LABELS_SCHEMA = Schema([str])
 
+# TODO make schema easier by importing the relevant type and extracting defaults
 SCHEMA = Schema(
     All(
         {
-            Required("type"): Any("darknet", "edgetpu", "posenet"),
-            Required("model_path"): str,
-            Required("model_config", default=None): Any(str, None),
-            Required("label_path"): All(str, Length(min=1)),
+            Required("type"): All(
+                get_detector_type, Any("darknet", "edgetpu", "posenet")
+            ),
+            Required("model_path"): All(get_model_path, str),
+            Required("model_config", default=None): All(
+                get_model_config, Any(str, None)
+            ),
+            Required("label_path"): All(get_label_path, str, Length(min=1)),
             Optional("model_width", default=None): Any(int, None),
             Optional("model_height", default=None): Any(int, None),
             Optional("interval", default=1): int,
