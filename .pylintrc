@@ -138,7 +138,10 @@ disable=print-statement,
         missing-docstring,
         invalid-encoded-data,
         logging-format-interpolation,
-        bad-continuation
+        bad-continuation,
+        logging-fstring-interpolation,
+        too-many-arguments,
+        too-many-instance-attributes
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
