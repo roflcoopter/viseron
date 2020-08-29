@@ -1,6 +1,4 @@
-# docker build -t ffmpeg-gpu . --file Dockerfile.ffmpeg
-# docker build -t ffmpeg-gpu /mnt/cache/appdata/viseron --file /mnt/cache/appdata/viseron/docker/cuda/Dockerfile.ffmpeg
-# docker run --runtime=nvidia -ti --rm --tmpfs /tmp ffmpeg-gpu bash
+# docker run --runtime=nvidia -ti --rm --tmpfs /tmp roflcoopter/ffmpeg-cuda:1.0 bash
 FROM nvidia/cuda:10.2-devel as ffmpeg
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -14,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # NVIDIA Codec Headers are not included since FFMPEG version 4.0
 WORKDIR /usr/local/src
-RUN git clone https://git.videolan.org/git/ffmpeg/nv-codec-headers.git \
+RUN git clone --depth 1 --branch n9.1.23.1 https://git.videolan.org/git/ffmpeg/nv-codec-headers.git \
     && cd nv-codec-headers \
     && make \
     && make install \
@@ -30,3 +28,9 @@ RUN git clone --depth 1 --branch n4.3 https://github.com/ffmpeg/ffmpeg ffmpeg &&
     --disable-manpages --disable-doc --disable-podpages && \
     make -j"$(nproc)" install && \
     ldconfig
+
+# Add FFMPEG to PATH
+ENV PATH=/usr/local/ffmpeg/bin:$PATH
+# Specify FFMPEG library folder
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/ffmpeg/lib
+ENV NVIDIA_DRIVER_CAPABILITIES all
