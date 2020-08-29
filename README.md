@@ -20,20 +20,135 @@ Builds are verified on the following platforms:
   - OpenMax and MMAL on the RaspberryPi 3B+
 
 # Getting started
-Choose the appropriate docker container for your machine.\
-On a RaspberryPi 3b+:\
-```TODO INSERT DOCKER COMMAND HERE```\
-Viseron is quite RAM intensive, mostly because of the object detection but also because of the lookback feature.\
-Therefore i do not recommend using an RPi unless you have a Google Coral EdgeTPU.
+Choose the appropriate docker container for your machine.
+TODO test all commands
+<details>
+<summary>On a RaspberryPi 3b+</summary>
+  Example Docker command
 
-On a generic linux machine:\
-```TODO INSERT DOCKER COMMAND HERE ```
+  ```bash
+  docker run --rm \
+  --privileged \
+  -v <recordings path>:/recordings \
+  -v <config path>:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  -v /dev/bus/usb:/dev/bus/usb
+  -v /opt/vc/lib:/opt/vc/lib
+  --name viseron \ 
+  --device /dev/vchiq:/dev/vchiq --device /dev/vcsm:/dev/vcsm \
+  roflcoopter/viseron-rpi:latest
+  ```
+  Example docker-compose
+  ```yaml
+  version: "2.4"
+  services:
+    viseron:
+      image: roflcoopter/viseron-rpi:latest
+      container_name: viseron
+      volumes:
+        - <recordings path>:/recordings
+        - <config path>:/config
+        - /etc/localtime:/etc/localtime:ro
+        - /dev/bus/usb:/dev/bus/usb
+        - /opt/vc/lib:/opt/vc/lib
+      devices:
+        - /dev/vchiq:/dev/vchiq
+        - /dev/vcsm:/dev/vcsm
+      privileged: true
+  ```
+  Note: Viseron is quite RAM intensive, mostly because of the object detection but also because of the lookback feature.\
+  Therefore i do not recommend using an RPi unless you have a Google Coral EdgeTPU.
+</details>
 
-On a Linux machine with Intel CPU that supports ```vaapi``` (Intel NUC for example):\
-```TODO INSERT DOCKER COMMAND HERE ```
 
-On a Linux machine with Nvidia GPU:\
-```TODO INSERT DOCKER COMMAND HERE ```
+<details>
+  <summary>On a generic Linux machine</summary>
+
+  Example Docker command
+
+  ```bash
+  docker run --rm \
+  -v <recordings path>:/recordings \
+  -v <config path>:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  --name viseron \
+  roflcoopter/viseron:latest
+  ```
+  Example docker-compose
+  ```yaml
+  version: "2.4"
+
+  services:
+    viseron:
+      image: roflcoopter/viseron:latest
+      container_name: viseron
+      volumes:
+        - <recordings path>:/recordings
+        - <config path>:/config
+        - /etc/localtime:/etc/localtime:ro
+  ```
+</details>
+
+<details>
+  <summary>On a Linux machine with Intel CPU that supports VAAPI (Intel NUC for example)</summary>
+
+  Example Docker command
+  ```bash
+  docker run --rm \
+  -v <recordings path>:/recordings \
+  -v <config path>:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  --name viseron \
+  --device /dev/dri \
+  roflcoopter/viseron-vaapi:latest
+  ```
+  Example docker-compose
+  ```yaml
+  version: "2.4"
+
+  services:
+    viseron:
+      image: roflcoopter/viseron-vaapi:latest
+      container_name: viseron
+      volumes:
+        - <recordings path>:/recordings
+        - <config path>:/config
+        - /etc/localtime:/etc/localtime:ro
+      devices:
+        - /dev/dri
+  ```
+
+</details>
+
+<details>
+  <summary>On a Linux machine with Nvidia GPU</summary>
+
+  Example Docker command
+  ```bash
+  docker run --rm \
+  -v <recordings path>:/recordings \
+  -v <config path>:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  --name viseron \
+  --gpus all \
+  roflcoopter/viseron-cuda:latest
+  ```
+  Example docker-compose
+  ```yaml
+  version: "2.4"
+
+  services:
+    viseron:
+      image: roflcoopter/viseron-cuda:latest
+      container_name: viseron
+      volumes:
+        - <recordings path>:/recordings
+        - <config path>:/config
+        - /etc/localtime:/etc/localtime:ro
+      runtime: nvidia
+  ```
+
+</details>
 
 The ```config.yaml``` has to be mounted to the folder ```/config```.\
 If no config is present, a default minimal one will be created.\
