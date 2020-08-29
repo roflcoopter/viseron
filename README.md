@@ -280,7 +280,7 @@ The default command varies a bit depending on the supported hardware:
 | password | str | optional | any string | Password for the broker |
 | client_id | str | ```viseron``` | any string | Client ID used when connecting to broker |
 | discovery_prefix | str | ```homeassistant``` | Used to configure sensors in Home Assistant |
-| last_will_topic | str | ```viseron/lwt``` | Last will topic
+| last_will_topic | str | ```{client_id}/lwt``` | Last will topic
 
 ## Logging
 | Name | Type | Default | Supported options | Description |
