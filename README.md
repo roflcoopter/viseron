@@ -214,7 +214,7 @@ TODO Each field needs defaults in schema so we dont have to specify everything t
 | model_width | int | optional | any integer | Detected from model. Frames will be resized to this width in order to fit model and save computing power. I dont recommend changing this. |
 | model_height | int | 320 | any integer | Detected from model. Frames will be resized to this height in order to fit model and save computing power. I dont recommend changing this. |
 | interval | float | 1.0 | any float | Run object detection at this interval in seconds. |
-| threshold | float | 0.9 | float between 0 and 1 | Lowest confidence allowed for detected objects |
+| threshold | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects |
 | suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections |
 | height_min | float | 0 | float between 0 and 1 | Minimum height allowed for detected objects, relative to stream height |
 | height_max | float | 1 | float between 0 and 1 | Maximum height allowed for detected objects, relative to stream height |

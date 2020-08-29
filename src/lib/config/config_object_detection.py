@@ -126,7 +126,7 @@ SCHEMA = Schema(
             Optional("model_width", default=None): Any(int, None),
             Optional("model_height", default=None): Any(int, None),
             Optional("interval", default=1): int,
-            Optional("threshold", default=0.9): All(
+            Optional("threshold", default=0.8): All(
                 Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
             ),
             Optional("suppression", default=0.4): All(
