@@ -40,21 +40,8 @@ class Detector:
                 model_width=self.config.object_detection.model_width,
                 model_height=self.config.object_detection.model_height,
             )
-        elif self.config.object_detection.type == "posenet":
-            from lib.posenet_detection import ObjectDetection
-
-            self.ObjectDetection = ObjectDetection(
-                model=self.config.object_detection.model_path,
-                threshold=self.config.object_detection.threshold,
-                model_res=(
-                    self.config.object_detection.model_width,
-                    self.config.object_detection.model_height,
-                ),
-            )
         else:
-            LOGGER.error(
-                "OBJECT_DETECTION_TYPE has to be either edgetpu, darknet or posenet"
-            )
+            LOGGER.error("OBJECT_DETECTION_TYPE has to be either edgetpu or darknet")
             return
 
     def filter_objects(self, result):
