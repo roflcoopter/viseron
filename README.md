@@ -1,5 +1,6 @@
 # Viseron - Self-hosted NVR with object detection
 Viseron is a self-hosted, local only NVR implemented in python.
+The goal is ease of use while also leveraging hardware acceleration for minimal system load.
 
 # Notable features
 - Records videos on detected objects
@@ -10,9 +11,9 @@ Builds are verified on the following platforms:
   - Ubuntu 18.04 running on an Intel NUC
   - RaspberryPi 3B+
 
-- Supports multiple different object detectors, including but not limited to:
+- Supports multiple different object detectors:
   - Yolo Darknet using OpenCV
-  - Google Coral EdgeTPU
+  - Tensorflow via Google Coral EdgeTPU
 
 - Supports hardware acceleration on different platforms
   - CUDA for systems with a supported GPU
@@ -130,7 +131,7 @@ TODO test all commands
   -v <config path>:/config \
   -v /etc/localtime:/etc/localtime:ro \
   --name viseron \
-  --gpus all \
+  --runtime=nvidia \
   roflcoopter/viseron-cuda:latest
   ```
   Example docker-compose
@@ -206,7 +207,7 @@ The default command varies a bit depending on the supported hardware:
 TODO Each field needs defaults in schema so we dont have to specify everything to change one thing
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu``` , ```posenet``` | What detection method to use</br>Defaults to ```edgetpu``` on RPi. If no EdgeTPU is present it will run tensorflow on the CPU.  |
+| type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu``` | What detection method to use</br>Defaults to ```edgetpu``` on RPi. If no EdgeTPU is present it will run tensorflow on the CPU.  |
 | model_path | str | RPi: ```/detectors/models/edgetpu/model.tflite``` <br> Other: ```/detectors/models/darknet/yolo.weights``` | any valid path | Path to the object detection model |
 | model_config | str | ```/detectors/models/darknet/yolo.cfg``` | any valid path | Path to the object detection config. Only needed for ```darknet``` |
 | label_path | str | RPI: ```/detectors/models/edgetpu/labels.txt``` <br> Other: ```/detectors/models/darknet/coco.names``` | any valid path | Path to the file containing labels for the model |
@@ -258,7 +259,7 @@ The default command varies a bit depending on the supported hardware:
   <summary>For VAAPI support</summary>
 
   ```
-  ffmpeg -hide_banner -loglevel panic -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -vf "format=nv12|vaapi,hwupload"
+  ffmpeg -hide_banner -loglevel panic -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_vaapi -vf "format=nv12|vaapi,hwupload" <file>
   ```
 </details>
 
