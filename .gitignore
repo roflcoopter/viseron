@@ -1,7 +1,24 @@
-docker-compose.yaml
-/recordings
-/config/config.py
-config.yaml
-__pycache__
-docker/cuda/Video_Codec_SDK*.zip
-/benchmarks
+# Ignore everything
+*
+
+# Include
+!docker
+!docker/cuda
+!docker/cuda/*
+!docker/rpi
+!docker/rpi/*
+!docker/vaapi
+!docker/vaapi/*
+!src
+!src/*
+!src/lib
+!src/lib/*
+!.dockerignore
+!.gitignore
+!Dockerfile
+!README.md
+!requirements.txt
+
+# Force ignore
+docker/cuda/Dockerfile.vpf
+docker/cuda/Video_Codec_SDK_9.1.23.zip
