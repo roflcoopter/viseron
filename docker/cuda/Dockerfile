@@ -1,4 +1,4 @@
-FROM roflcoopter/opencv-gpu:1.0 as opencv
+FROM roflcoopter/opencv-cuda:1.0 as opencv
 FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
 
 COPY --from=opencv /usr/local /usr/local
@@ -61,6 +61,8 @@ ENV VISERON_CUDA_SUPPORTED=true
 ENV VISERON_VAAPI_SUPPORTED=false
 ENV VISERON_OPENCL_SUPPORTED=true
 ENV VISERON_RASPBERRYPI3=false
+
+VOLUME /recordings
 
 WORKDIR /src/viseron
 COPY ./src /src/viseron/

@@ -1,7 +1,7 @@
 # docker build -t opencv-gpu . --file ./docker/cuda/Dockerfile.opencv
 # docker build -t opencv-gpu /mnt/cache/appdata/viseron --file /mnt/cache/appdata/viseron/docker/cuda/Dockerfile.opencv
 # docker run --runtime=nvidia -ti --rm opencv-gpu bash
-FROM roflcoopter/ffmpeg-gpu:1.0 as ffmpeg
+FROM roflcoopter/ffmpeg-cuda:1.0 as ffmpeg
 
 FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
 
@@ -67,7 +67,7 @@ RUN mkdir -p /tmp && \
     # -D PYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.5m.so \
     # -D PYTHON3_NUMPY_INCLUDE_DIRS=/usr/lib/python3/dist-packages/numpy/core/include/ \
     # Skip building some stuff we dont need
-    -D BUILD_TESTS=ON \
+    -D BUILD_TESTS=OFF \
     -D BUILD_EXAMPLES=OFF \
     -D BUILD_DOCS=OFF \
     .. \
