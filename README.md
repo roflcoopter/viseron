@@ -208,12 +208,12 @@ The default command varies a bit depending on the supported hardware:
 ## Object detection
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu``` | What detection method to use</br>Defaults to ```edgetpu``` on RPi. If no EdgeTPU is present it will run tensorflow on the CPU.  |
+| type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu``` | What detection method to use.</br>Defaults to ```edgetpu``` on RPi. If no EdgeTPU is present it will run tensorflow on the CPU. |
 | model_path | str | RPi: ```/detectors/models/edgetpu/model.tflite``` <br> Other: ```/detectors/models/darknet/yolo.weights``` | any valid path | Path to the object detection model |
 | model_config | str | ```/detectors/models/darknet/yolo.cfg``` | any valid path | Path to the object detection config. Only needed for ```darknet``` |
 | label_path | str | RPI: ```/detectors/models/edgetpu/labels.txt``` <br> Other: ```/detectors/models/darknet/coco.names``` | any valid path | Path to the file containing labels for the model |
 | model_width | int | optional | any integer | Detected from model. Frames will be resized to this width in order to fit model and save computing power. I dont recommend changing this. |
-| model_height | int | 320 | any integer | Detected from model. Frames will be resized to this height in order to fit model and save computing power. I dont recommend changing this. |
+| model_height | int | optional | any integer | Detected from model. Frames will be resized to this height in order to fit model and save computing power. I dont recommend changing this. |
 | interval | float | 1.0 | any float | Run object detection at this interval in seconds. |
 | threshold | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects |
 | suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections |
@@ -233,6 +233,7 @@ The default command varies a bit depending on the supported hardware:
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
 | area | int | 1000 | any integer | How big the detected area must be in order to trigger motion |
 | frames | int | 1 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
+
 TODO Future releases will make the motion detection easier to fine tune. Right now its a guessing game
 
 ## Recorder
@@ -247,6 +248,7 @@ TODO Future releases will make the motion detection easier to fine tune. Right n
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder hardware acceleration arguments |
 | codec | str | optional | any supported decoder codec | FFMPEG video encoder codec, eg ```h264_nvenc``` |
 | filter_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder filter arguments |
+
 The default command varies a bit depending on the supported hardware:
 <details>
   <summary>For Nvidia GPU support</summary>
