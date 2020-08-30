@@ -61,10 +61,10 @@ class MotionDetection:
 
                 if _motion_found:
                     _motion_frames += 1
-                    # LOGGER.debug(
-                    #     "Motion frames: {}, "
-                    #     "area: {}".format(_motion_frames, max_contour)
-                    # )
+                    LOGGER.debug(
+                        "Motion frames: {}, "
+                        "area: {}".format(_motion_frames, max_contour)
+                    )
 
                     if _motion_frames >= self.motion_frames:
                         if not self.motion_detected:
