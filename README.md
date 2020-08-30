@@ -1,12 +1,12 @@
 # Viseron - Self-hosted NVR with object detection
-Viseron is a self-hosted, local only NVR implemented in python.
+Viseron is a self-hosted, local only NVR implemented in Python.
 The goal is ease of use while also leveraging hardware acceleration for minimal system load.
 
 # Notable features
 - Records videos on detected objects
 - Lookback, buffers frames to record before the event actually happened
-- Multiplatform, should support most linux based machines.\
-Builds are verified on the following platforms:
+- Multiplatform, should support any x86-64 machine running Linux, aswell as RPi3
+Builds are tested and verified on the following platforms:
   - Ubuntu 18.04 with Nvidia GPU
   - Ubuntu 18.04 running on an Intel NUC
   - RaspberryPi 3B+
@@ -22,7 +22,6 @@ Builds are verified on the following platforms:
 
 # Getting started
 Choose the appropriate docker container for your machine.
-TODO test all commands
 <details>
 <summary>On a RaspberryPi 3b+</summary>
   Example Docker command
@@ -33,9 +32,9 @@ TODO test all commands
   -v <recordings path>:/recordings \
   -v <config path>:/config \
   -v /etc/localtime:/etc/localtime:ro \
-  -v /dev/bus/usb:/dev/bus/usb
-  -v /opt/vc/lib:/opt/vc/lib
-  --name viseron \ 
+  -v /dev/bus/usb:/dev/bus/usb \
+  -v /opt/vc/lib:/opt/vc/lib \
+  --name viseron \
   --device /dev/vchiq:/dev/vchiq --device /dev/vcsm:/dev/vcsm \
   roflcoopter/viseron-rpi:latest
   ```
@@ -151,6 +150,9 @@ TODO test all commands
 
 </details>
 
+VAAPI support is built into every container. To utilize it you need to add ```--device /dev/dri``` to your docker command.\
+EdgeTPU support is also included in all containers. To use it, add ```-v /dev/bus/usb:/dev/bus/usb --privileged``` to your docker command.
+
 The ```config.yaml``` has to be mounted to the folder ```/config```.\
 If no config is present, a default minimal one will be created.\
 Here you need to fill in atleast your cameras and you should be good to go.
@@ -204,7 +206,6 @@ The default command varies a bit depending on the supported hardware:
 </details>
 
 ## Object detection
-TODO Each field needs defaults in schema so we dont have to specify everything to change one thing
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu``` | What detection method to use</br>Defaults to ```edgetpu``` on RPi. If no EdgeTPU is present it will run tensorflow on the CPU.  |
