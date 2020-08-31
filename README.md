@@ -21,7 +21,7 @@ Builds are tested and verified on the following platforms:
   - OpenMax and MMAL on the RaspberryPi 3B+
 
 # Getting started
-Choose the appropriate docker container for your machine.
+Choose the appropriate docker container for your machine. Builds are published to [Docker Hub](https://hub.docker.com/repository/docker/roflcoopter/viseron)
 <details>
 <summary>On a RaspberryPi 3b+</summary>
   Example Docker command
@@ -57,7 +57,9 @@ Choose the appropriate docker container for your machine.
       privileged: true
   ```
   Note: Viseron is quite RAM intensive, mostly because of the object detection but also because of the lookback feature.\
-  Therefore i do not recommend using an RPi unless you have a Google Coral EdgeTPU.
+  I do not recommend using an RPi unless you have a Google Coral EdgeTPU, the CPU is not fast enough and you might run out of memory.\
+  To make use of hardware accelerated decoding/encoding you might have to increase the allocated GPU memory.\
+  To do this edit ```/boot/config.txt``` and set ```gpu_mem=256``` and then reboot.
 </details>
 
 
