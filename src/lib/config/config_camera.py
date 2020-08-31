@@ -15,6 +15,7 @@ from const import (
     HWACCEL_VAAPI,
 )
 from lib.helpers import slugify
+from lib.config.config_motion_detection import SCHEMA as motion_detection_scehma
 from voluptuous import All, Any, Length, Optional, Range, Required, Schema
 
 LOGGER = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ SCHEMA = Schema(
                 ): check_for_hwaccels,
                 Optional("codec", default=DECODER_CODEC): get_codec,
                 Optional("filter_args", default=[]): list,
+                Optional("motion_detection", default=None): motion_detection_scehma,
             }
         ],
         ensure_mqtt_name,
@@ -94,6 +96,7 @@ class CameraConfig:
         self._hwaccel_args = camera.hwaccel_args
         self._codec = camera.codec
         self._filter_args = camera.filter_args
+        self._motion_detection = camera.motion_detection
 
     @property
     def name(self):
@@ -164,3 +167,7 @@ class CameraConfig:
     @property
     def output_args(self):
         return CAMERA_OUTPUT_ARGS
+
+    @property
+    def motion_detection(self):
+        return self._motion_detection

@@ -94,10 +94,12 @@ class FFMPEGCamera:
 
         self.connected = True
         object_frame_number = 0
+        LOGGER.debug(f"Running object detection at {object_decoder_interval}s interval")
         object_decoder_interval_calculated = int(
             object_decoder_interval * self.stream_fps
         )
         motion_frame_number = 0
+        LOGGER.debug(f"Running motion detection at {motion_decoder_interval}s interval")
         motion_decoder_interval_calculated = int(
             motion_decoder_interval * self.stream_fps
         )

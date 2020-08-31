@@ -179,6 +179,7 @@ The command is built like this: \
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG decoder hardware acceleration arguments |
 | codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
 | filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
+| motion_detection | dictionary | optional | see [Motion detection](#motion-detection) | Overrides the global ```motion_detection``` config |
 
 The default command varies a bit depending on the supported hardware:
 <details>
