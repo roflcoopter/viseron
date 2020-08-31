@@ -243,7 +243,7 @@ TODO Future releases will make the motion detection easier to fine tune. Right n
 | lookback | int | 10 | any integer | Number of seconds to record before a detected object |
 | timeout | int | 10 | any integer | Number of seconds to record after all events are over |
 | retain | int | 7 | any integer | Number of days to save recordings before deleting them |
-| folder | path | ```/recordings``` | What folder to store recordings in |
+| folder | path | ```/recordings``` | path to existing folder | What folder to store recordings in |
 | extension | str | ```mp4``` | a valid video file extension | The file extension used for recordings. I don't recommend changing this |
 | global_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder hardware acceleration arguments |
