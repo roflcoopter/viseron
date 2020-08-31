@@ -45,12 +45,20 @@ class MotionDetectionConfig:
         self._interval = getattr(
             camera_motion_detection, "interval", motion_detection.interval
         )
-        self._trigger = motion_detection.trigger
-        self._timeout = motion_detection.timeout
-        self._width = motion_detection.width
-        self._height = motion_detection.height
-        self._area = motion_detection.area
-        self._frames = motion_detection.frames
+        self._trigger = getattr(
+            camera_motion_detection, "trigger", motion_detection.trigger
+        )
+        self._timeout = getattr(
+            camera_motion_detection, "timeout", motion_detection.timeout
+        )
+        self._width = getattr(camera_motion_detection, "width", motion_detection.width)
+        self._height = getattr(
+            camera_motion_detection, "height", motion_detection.height
+        )
+        self._area = getattr(camera_motion_detection, "area", motion_detection.area)
+        self._frames = getattr(
+            camera_motion_detection, "frames", motion_detection.frames
+        )
 
     @property
     def interval(self):
