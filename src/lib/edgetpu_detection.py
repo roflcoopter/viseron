@@ -8,11 +8,9 @@ LOGGER = logging.getLogger(__name__)
 
 class ObjectDetection:
     def __init__(
-        self, model, labels, threshold, model_width=None, model_height=None,
+        self, model, label_path, model_width=None, model_height=None,
     ):
-        self.threshold = threshold
-
-        self.labels = self.read_labels(labels)
+        self.labels = self.read_labels(label_path)
         try:
             self.interpreter = tflite.Interpreter(
                 model_path=model,
@@ -63,24 +61,23 @@ class ObjectDetection:
         count = int(self.output_tensor(3))
 
         for i in range(count):
-            if float(scores[i]) >= self.threshold:
-                processed_objects.append(
-                    {
-                        "label": self.labels[int(labels[i])],
-                        "confidence": round(float(scores[i]), 3),
-                        "height": round(boxes[i][2] - boxes[i][0], 3),
-                        "width": round(boxes[i][3] - boxes[i][1], 3),
-                        "relative_x1": round(boxes[i][1], 3),
-                        "relative_y1": round(boxes[i][0], 3),
-                        "relative_x2": round(boxes[i][3], 3),
-                        "relative_y2": round(boxes[i][2], 3),
-                    }
-                )
+            processed_objects.append(
+                {
+                    "label": self.labels[int(labels[i])],
+                    "confidence": round(float(scores[i]), 3),
+                    "height": round(boxes[i][2] - boxes[i][0], 3),
+                    "width": round(boxes[i][3] - boxes[i][1], 3),
+                    "relative_x1": round(boxes[i][1], 3),
+                    "relative_y1": round(boxes[i][0], 3),
+                    "relative_x2": round(boxes[i][3], 3),
+                    "relative_y2": round(boxes[i][2], 3),
+                }
+            )
 
         return processed_objects
 
     def return_objects(self, frame):
-        tensor = self.pre_process(frame)
+        tensor = self.pre_process(frame["frame"])
 
         self.interpreter.set_tensor(self.tensor_input_details[0]["index"], tensor)
         self.interpreter.invoke()

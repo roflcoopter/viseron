@@ -1,22 +1,24 @@
 import logging
 import os
 
+from voluptuous import All, Any, Length, Optional, Range, Required, Schema
+
 from const import (
-    DECODER_CODEC,
     CAMERA_GLOBAL_ARGS,
     CAMERA_HWACCEL_ARGS,
     CAMERA_INPUT_ARGS,
     CAMERA_OUTPUT_ARGS,
+    DECODER_CODEC,
     ENV_CUDA_SUPPORTED,
-    ENV_VAAPI_SUPPORTED,
     ENV_RASPBERRYPI3,
+    ENV_VAAPI_SUPPORTED,
     HWACCEL_CUDA_DECODER_CODEC,
     HWACCEL_RPI3_DECODER_CODEC,
     HWACCEL_VAAPI,
 )
 from lib.helpers import slugify
-from lib.config.config_motion_detection import SCHEMA as motion_detection_scehma
-from voluptuous import All, Any, Length, Optional, Range, Required, Schema
+
+from .config_object_detection import LABELS_SCHEMA
 
 LOGGER = logging.getLogger(__name__)
 
@@ -69,7 +71,19 @@ SCHEMA = Schema(
                 ): check_for_hwaccels,
                 Optional("codec", default=DECODER_CODEC): get_codec,
                 Optional("filter_args", default=[]): list,
-                Optional("motion_detection", default=None): motion_detection_scehma,
+                Optional("motion_detection", default=None): {
+                    Optional("interval"): int,
+                    Optional("trigger"): bool,
+                    Optional("timeout"): bool,
+                    Optional("width"): int,
+                    Optional("height"): int,
+                    Optional("area"): int,
+                    Optional("frames"): int,
+                },
+                Optional("object_detection", default=None): {
+                    Optional("interval"): int,
+                    Optional("labels"): LABELS_SCHEMA,
+                },
             }
         ],
         ensure_mqtt_name,
@@ -97,6 +111,7 @@ class CameraConfig:
         self._codec = camera.codec
         self._filter_args = camera.filter_args
         self._motion_detection = camera.motion_detection
+        self._object_detection = camera.object_detection
 
     @property
     def name(self):
@@ -171,3 +186,7 @@ class CameraConfig:
     @property
     def motion_detection(self):
         return self._motion_detection
+
+    @property
+    def object_detection(self):
+        return self._object_detection

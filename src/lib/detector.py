@@ -16,15 +16,12 @@ class Detector:
             LOGGER.debug("OpenCL activated")
             cv2.ocl.setUseOpenCL(True)
 
-        self.filtered_objects = []
-
         if self.config.object_detection.type == "edgetpu":
             from lib.edgetpu_detection import ObjectDetection
 
             self.ObjectDetection = ObjectDetection(
                 model=self.config.object_detection.model_path,
-                labels=self.config.object_detection.label_path,
-                threshold=self.config.object_detection.threshold,
+                label_path=self.config.object_detection.label_path,
             )
         elif self.config.object_detection.type == "darknet":
             from lib.darknet_detection import ObjectDetection
@@ -32,8 +29,7 @@ class Detector:
             self.ObjectDetection = ObjectDetection(
                 model=self.config.object_detection.model_path,
                 model_config=self.config.object_detection.model_config,
-                classes=self.config.object_detection.label_path,
-                thr=self.config.object_detection.threshold,
+                label_path=self.config.object_detection.label_path,
                 nms=self.config.object_detection.suppression,
                 backend=self.config.object_detection.dnn_preferable_backend,
                 target=self.config.object_detection.dnn_preferable_target,
@@ -41,43 +37,51 @@ class Detector:
                 model_height=self.config.object_detection.model_height,
             )
         else:
-            LOGGER.error("OBJECT_DETECTION_TYPE has to be either edgetpu or darknet")
+            LOGGER.error("Could not import the correct detector")
             return
 
-    def filter_objects(self, result):
+    def filter_objects(self, obj, camera_config):
+        if not obj["label"] in camera_config.object_detection.tracked_labels:
+            return False
+
+        for label in camera_config.object_detection.labels:
+            if label.label == obj["label"]:
+                label_config = label
+                break
+
         if (
-            result["label"] in self.config.object_detection.labels
-            and self.config.object_detection.height_min
-            <= result["height"]
-            <= self.config.object_detection.height_max
-            and self.config.object_detection.width_min
-            <= result["width"]
-            <= self.config.object_detection.width_max
+            label_config.height_min <= obj["height"] <= label_config.height_max
+            and label_config.width_min <= obj["width"] <= label_config.width_max
         ):
             return True
         return False
 
     def object_detection(self, detector_queue):
         while True:
-            self.filtered_objects = []
+            filtered_objects = []
 
             frame = detector_queue.get()
             object_event = frame["object_event"]
 
-            objects = self.ObjectDetection.return_objects(frame["frame"])
+            objects = self.ObjectDetection.return_objects(frame)
 
             if objects:
                 LOGGER.debug(objects)
 
-            self.filtered_objects = list(filter(self.filter_objects, objects))
+            filtered_objects = list(
+                filter(
+                    lambda obj: self.filter_objects(obj, frame["camera_config"]),
+                    objects,
+                )
+            )
 
-            if self.filtered_objects:
+            if filtered_objects:
                 pop_if_full(
                     frame["object_return_queue"],
                     {
                         "frame": frame["frame"],
                         "full_frame": frame["full_frame"],
-                        "objects": self.filtered_objects,
+                        "objects": filtered_objects,
                     },
                 )
 
