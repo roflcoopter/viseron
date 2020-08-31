@@ -104,12 +104,12 @@ class ViseronConfig:
 
     def __init__(self, camera=None):
         self._camera = CameraConfig(camera) if camera else None
-        LOGGER.error(
-            f"CAMERA {getattr(self._camera, 'motion_detection', None) if self._camera else None}"
-        )
 
         self._cameras = self.config.cameras
-        self._object_detection = ObjectDetectionConfig(self.config.object_detection)
+        self._object_detection = ObjectDetectionConfig(
+            self.config.object_detection,
+            getattr(self._camera, "object_detection", None) if self._camera else None,
+        )
         self._motion_detection = MotionDetectionConfig(
             self.config.motion_detection,
             getattr(self._camera, "motion_detection", None) if self._camera else None,

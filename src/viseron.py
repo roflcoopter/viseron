@@ -143,15 +143,18 @@ class DuplicateFilter(logging.Filter):
     # pylint: disable=attribute-defined-outside-init
     def filter(self, record):
         current_log = (record.module, record.levelno, record.msg)
-        if current_log != getattr(self, "last_log", None):
-            self.last_log = current_log
-            self.current_count = 0
-        else:
-            self.current_count += 1
-            if self.current_count > 0:
-                record.msg = "{}, message repeated {} times".format(
-                    record.msg, self.current_count + 1
-                )
+        try:
+            if current_log != getattr(self, "last_log", None):
+                self.last_log = current_log
+                self.current_count = 0
+            else:
+                self.current_count += 1
+                if self.current_count > 0:
+                    record.msg = "{}, message repeated {} times".format(
+                        record.msg, self.current_count + 1
+                    )
+        except ValueError:
+            pass
         return True
 
 

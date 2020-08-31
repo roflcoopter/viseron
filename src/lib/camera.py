@@ -127,6 +127,7 @@ class FFMPEGCamera:
                             "raw_frame": self.raw_image,
                             "object_event": object_event,
                             "object_return_queue": object_return_queue,
+                            "camera_config": self.config,
                         },
                     )
 

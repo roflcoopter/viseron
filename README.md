@@ -57,7 +57,7 @@ Choose the appropriate docker container for your machine. Builds are published t
       privileged: true
   ```
   Note: Viseron is quite RAM intensive, mostly because of the object detection but also because of the lookback feature.\
-  I do not recommend using an RPi unless you have a Google Coral EdgeTPU, the CPU is not fast enough and you might run out of memory.\
+  I do not recommend using an RPi unless you have a Google Coral EdgeTPU, the CPU is not fast enough and you might run out of memory.
   To make use of hardware accelerated decoding/encoding you might have to increase the allocated GPU memory.\
   To do this edit ```/boot/config.txt``` and set ```gpu_mem=256``` and then reboot.
 </details>
@@ -160,7 +160,36 @@ If no config is present, a default minimal one will be created.\
 Here you need to fill in atleast your cameras and you should be good to go.
 
 # Configuration Options
-## Camera
+## Cameras
+
+<details>
+  <summary>Config example</summary>
+
+  ```yaml
+  cameras:
+    - name: Front door
+      mqtt_name: viseron_front_door
+      host: 192.168.30.2
+      port: 554
+      username: user
+      password: pass
+      path: /Streaming/Channels/101/
+      width: 1920
+      height: 1080
+      fps: 6 
+      motion_detection:
+        interval: 1
+        trigger: false
+      object_detection:
+        interval: 1
+        labels:
+          - label: person
+            confidence: 0.9
+          - label: pottedplant
+            confidence: 0.9
+  ```
+</details>
+
 Used to build the FFMPEG command to decode camera stream.\
 The command is built like this: \
 ```"ffmpeg" + global_args + input_args + hwaccel_args + codec + "-rtsp_transport tcp -i " + (stream url) + filter_args + output_args```
@@ -181,7 +210,8 @@ The command is built like this: \
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG decoder hardware acceleration arguments |
 | codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
 | filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
-| motion_detection | dictionary | optional | see [Motion detection](#motion-detection) | Overrides the global ```motion_detection``` config |
+| motion_detection | dictionary | optional | see [Motion detection config](#motion-detection) | Overrides the global ```motion_detection``` config |
+| object_detection | list | optional | see [Camera object detection config](#camera-object-detection) below | Overrides the global ```object_detection``` config |
 
 The default command varies a bit depending on the supported hardware:
 <details>
@@ -208,7 +238,32 @@ The default command varies a bit depending on the supported hardware:
   ```
 </details>
 
+### Camera object detection
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| interval | float | optiona | any float | Run object detection at this interval in seconds. Overrides global [config](#object-detection) |
+| labels | list | optional | any float | A list of [labels](#labels) | 
+
 ## Object detection
+<details>
+  <summary>Config example</summary>
+
+  ```yaml
+  object_detection:
+    type: darknet
+    interval: 6
+    labels:
+      - label: person
+        confidence: 0.9
+        height_min: 0.1481
+        height_max: 0.7
+        width_min: 0.0598
+        width_max: 0.36
+      - label: truck
+        confidence: 0.8
+  ```
+</details>
+
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu``` | What detection method to use.</br>Defaults to ```edgetpu``` on RPi. If no EdgeTPU is present it will run tensorflow on the CPU. |
@@ -218,15 +273,36 @@ The default command varies a bit depending on the supported hardware:
 | model_width | int | optional | any integer | Detected from model. Frames will be resized to this width in order to fit model and save computing power. I dont recommend changing this. |
 | model_height | int | optional | any integer | Detected from model. Frames will be resized to this height in order to fit model and save computing power. I dont recommend changing this. |
 | interval | float | 1.0 | any float | Run object detection at this interval in seconds. |
-| threshold | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects |
+| confidence | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects |
 | suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections |
+| labels | list | optional | any string | A list of [labels](#labels) |
+
+### Labels
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| label | str | person | any string | 	Can be any label present in the detection model |
 | height_min | float | 0 | float between 0 and 1 | Minimum height allowed for detected objects, relative to stream height |
 | height_max | float | 1 | float between 0 and 1 | Maximum height allowed for detected objects, relative to stream height |
 | width_min | float | 0 | float between 0 and 1 | Minimum width allowed for detected objects, relative to stream width |
 | width_max | float | 1 | float between 0 and 1 | Maximum width allowed for detected objects, relative to stream width |
-| labels | list | ```person``` | any string | Can be any label present in the detection model |
+
 
 ## Motion detection
+<details>
+  <summary>Config example</summary>
+
+  ```yaml
+  motion_detection:
+    interval: 1
+    trigger: true
+    timeout: true
+    width: 300
+    height: 300
+    area: 6000
+    frames: 3
+  ```
+</details>
+
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | interval | float | 1.0 | any float | Run motion detection at this interval in seconds |
@@ -240,6 +316,18 @@ The default command varies a bit depending on the supported hardware:
 TODO Future releases will make the motion detection easier to fine tune. Right now its a guessing game
 
 ## Recorder
+<details>
+  <summary>Config example</summary>
+
+  ```yaml
+  recorder:
+    lookback: 10
+    timeout: 10
+    retain: 7
+    folder: /recordings
+  ```
+</details>
+
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | lookback | int | 10 | any integer | Number of seconds to record before a detected object |
@@ -278,6 +366,18 @@ The default command varies a bit depending on the supported hardware:
 </details>
 
 ## MQTT
+<details>
+  <summary>Config example</summary>
+
+  ```yaml
+  mqtt:
+    broker: mqtt_broker.lan
+    port: 1883
+    username: user
+    password: pass
+  ```
+</details>
+
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | broker | str | **required** | IP adress or hostname | IP adress or hostname of MQTT broker |
@@ -289,6 +389,15 @@ The default command varies a bit depending on the supported hardware:
 | last_will_topic | str | ```{client_id}/lwt``` | Last will topic
 
 ## Logging
+<details>
+  <summary>Config example</summary>
+
+  ```yaml
+  logging:
+    level: debug
+  ```
+</details>
+
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | level | str | ```INFO``` | ```DEBUG```, ```INFO```, ```WARNING```, ```ERROR```, ```FATAL``` | Log level |
@@ -301,8 +410,6 @@ The default command varies a bit depending on the supported hardware:
   - Pause detection via MQTT
   - Move detectors to specific folder
   - Allow specified confidence to override height/width thresholds
-  - Refactor Darknet
-  - Darknet Choose backend via config
   - Dynamic detection interval, speed up interval when detection happens for all types of detectors
   - Implement an object tracker for detected objects
   - Make it easier to implement custom detectors
@@ -316,11 +423,6 @@ The default command varies a bit depending on the supported hardware:
 
 - Properties:
   All public vars should be exposed by property
-
-- Decouple MQTT
-  - One client object.
-  - Start all camera threads, which need to expose an on_message function
-  - Pass list of camera objects to MQTT
 
 - Docker
   - Try to reduce container footprint

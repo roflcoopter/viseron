@@ -20,18 +20,15 @@ DEFAULTS = {
 }
 
 SCHEMA = Schema(
-    Any(
-        None,
-        {
-            Optional("interval", default=DEFAULTS["interval"]): int,
-            Optional("trigger", default=DEFAULTS["trigger"]): bool,
-            Optional("timeout", default=DEFAULTS["timeout"]): bool,
-            Optional("width", default=DEFAULTS["width"]): int,
-            Optional("height", default=DEFAULTS["height"]): int,
-            Optional("area", default=DEFAULTS["area"]): int,
-            Optional("frames", default=DEFAULTS["frames"]): int,
-        },
-    )
+    {
+        Optional("interval", default=DEFAULTS["interval"]): int,
+        Optional("trigger", default=DEFAULTS["trigger"]): bool,
+        Optional("timeout", default=DEFAULTS["timeout"]): bool,
+        Optional("width", default=DEFAULTS["width"]): int,
+        Optional("height", default=DEFAULTS["height"]): int,
+        Optional("area", default=DEFAULTS["area"]): int,
+        Optional("frames", default=DEFAULTS["frames"]): int,
+    },
 )
 
 
@@ -40,8 +37,6 @@ class MotionDetectionConfig:
     defaults = DEFAULTS
 
     def __init__(self, motion_detection, camera_motion_detection):
-        LOGGER.error(f"motion_detection{motion_detection}")
-        LOGGER.error(f"camera_motion_detection{camera_motion_detection}")
         self._interval = getattr(
             camera_motion_detection, "interval", motion_detection.interval
         )
