@@ -49,7 +49,10 @@ def main():
     for camera in config.cameras:
         threads.append(
             FFMPEGNVR(
-                ViseronConfig(camera), detector, detector_queue, mqtt_queue=mqtt_queue,
+                ViseronConfig(camera=camera),
+                detector,
+                detector_queue,
+                mqtt_queue=mqtt_queue,
             )
         )
 

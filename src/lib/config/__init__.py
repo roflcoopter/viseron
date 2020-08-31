@@ -52,22 +52,6 @@ def get_object_detection_defaults():
     return DARKNET_DEFAULTS
 
 
-VISERON_CONFIG_SCHEMA = Schema(
-    {
-        Required("cameras"): CameraConfig.schema,
-        Optional(
-            "object_detection", default=get_object_detection_defaults()
-        ): ObjectDetectionConfig.schema,
-        Optional(
-            "motion_detection", default=MotionDetectionConfig.defaults
-        ): MotionDetectionConfig.schema,
-        Optional("recorder", default={}): RecorderConfig.schema,
-        Optional("mqtt", default=None): Any(MQTTConfig.schema, None),
-        Optional("logging", default={}): LoggingConfig.schema,
-    }
-)
-
-
 def create_default_config():
     try:
         with open(CONFIG_PATH, "wt") as config_file:
@@ -91,6 +75,21 @@ def load_config():
         sys.exit()
 
 
+VISERON_CONFIG_SCHEMA = Schema(
+    {
+        Required("cameras"): CameraConfig.schema,
+        Optional(
+            "object_detection", default=get_object_detection_defaults()
+        ): ObjectDetectionConfig.schema,
+        Optional(
+            "motion_detection", default=MotionDetectionConfig.defaults
+        ): MotionDetectionConfig.schema,
+        Optional("recorder", default={}): RecorderConfig.schema,
+        Optional("mqtt", default=None): Any(MQTTConfig.schema, None),
+        Optional("logging", default={}): LoggingConfig.schema,
+    }
+)
+
 raw_config = load_config()
 
 VALIDATED_CONFIG = VISERON_CONFIG_SCHEMA(raw_config)
@@ -105,10 +104,16 @@ class ViseronConfig:
 
     def __init__(self, camera=None):
         self._camera = CameraConfig(camera) if camera else None
+        LOGGER.error(
+            f"CAMERA {getattr(self._camera, 'motion_detection', None) if self._camera else None}"
+        )
 
         self._cameras = self.config.cameras
         self._object_detection = ObjectDetectionConfig(self.config.object_detection)
-        self._motion_detection = MotionDetectionConfig(self.config.motion_detection)
+        self._motion_detection = MotionDetectionConfig(
+            self.config.motion_detection,
+            getattr(self._camera, "motion_detection", None) if self._camera else None,
+        )
         self._recorder = RecorderConfig(self.config.recorder)
         self._mqtt = MQTTConfig(self.config.mqtt) if self.config.mqtt else None
         self._logging = LoggingConfig(self.config.logging)
