@@ -1,25 +1,20 @@
 import logging
 import os
 
+from voluptuous import All, Optional, Range, Schema
+
 from const import (
     ENCODER_CODEC,
-    RECORDER_GLOBAL_ARGS,
-    RECORDER_HWACCEL_ARGS,
     ENV_CUDA_SUPPORTED,
-    ENV_VAAPI_SUPPORTED,
     ENV_RASPBERRYPI3,
+    ENV_VAAPI_SUPPORTED,
     HWACCEL_CUDA_ENCODER_CODEC,
     HWACCEL_RPI3_ENCODER_CODEC,
     HWACCEL_VAAPI,
-    HWACCEL_VAAPI_ENCODER_FILTER,
     HWACCEL_VAAPI_ENCODER_CODEC,
-)
-
-from voluptuous import (
-    All,
-    Range,
-    Schema,
-    Optional,
+    HWACCEL_VAAPI_ENCODER_FILTER,
+    RECORDER_GLOBAL_ARGS,
+    RECORDER_HWACCEL_ARGS,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -43,17 +38,14 @@ def get_filter_args(filter_args: list) -> list:
     return filter_args
 
 
-def get_codec(codec: list) -> list:
-    if codec:
-        return codec
-
+def get_codec() -> str:
     if os.getenv(ENV_CUDA_SUPPORTED) == "true":
         return HWACCEL_CUDA_ENCODER_CODEC
     if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
         return HWACCEL_VAAPI_ENCODER_CODEC
     if os.getenv(ENV_RASPBERRYPI3) == "true":
         return HWACCEL_RPI3_ENCODER_CODEC
-    return codec
+    return ENCODER_CODEC
 
 
 SCHEMA = Schema(
@@ -65,7 +57,7 @@ SCHEMA = Schema(
         Optional("extension", default="mp4"): str,
         Optional("global_args", default=RECORDER_GLOBAL_ARGS): list,
         Optional("hwaccel_args", default=RECORDER_HWACCEL_ARGS): check_for_hwaccels,
-        Optional("codec", default=ENCODER_CODEC): get_codec,
+        Optional("codec", default=get_codec()): str,
         Optional("filter_args", default=[]): get_filter_args,
     }
 )
@@ -115,7 +107,7 @@ class RecorderConfig:
 
     @property
     def codec(self):
-        return ["-c:v"] + self._codec if self._codec else self._codec
+        return ["-c:v", self._codec]
 
     @property
     def filter_args(self):

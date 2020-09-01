@@ -39,15 +39,12 @@ def check_for_hwaccels(hwaccel_args: list) -> list:
     return hwaccel_args
 
 
-def get_codec(codec: list) -> list:
-    if codec:
-        return codec
-
+def get_codec() -> str:
     if os.getenv(ENV_CUDA_SUPPORTED) == "true":
         return HWACCEL_CUDA_DECODER_CODEC
     if os.getenv(ENV_RASPBERRYPI3) == "true":
         return HWACCEL_RPI3_DECODER_CODEC
-    return codec
+    return DECODER_CODEC
 
 
 SCHEMA = Schema(
@@ -69,7 +66,7 @@ SCHEMA = Schema(
                 Optional(
                     "hwaccel_args", default=CAMERA_HWACCEL_ARGS
                 ): check_for_hwaccels,
-                Optional("codec", default=DECODER_CODEC): get_codec,
+                Optional("codec", default=get_codec()): str,
                 Optional("filter_args", default=[]): list,
                 Optional("motion_detection", default=None): {
                     Optional("interval"): int,
@@ -173,7 +170,7 @@ class CameraConfig:
 
     @property
     def codec(self):
-        return ["-c:v"] + self._codec if self._codec else self._codec
+        return ["-c:v", self._codec]
 
     @property
     def filter_args(self):
