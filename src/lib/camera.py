@@ -7,13 +7,13 @@ from time import sleep
 import cv2
 import numpy as np
 from lib.helpers import pop_if_full
-
-LOGGER = logging.getLogger(__name__)
+from const import FFMPEG_ERROR_WHILE_DECODING
 
 
 class FFMPEGCamera:
     def __init__(self, config, frame_buffer):
-        LOGGER.info("Initializing ffmpeg RTSP pipe")
+        self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
+        self._logger.debug("Initializing ffmpeg RTSP pipe")
         self.config = config
 
         # Activate OpenCL
@@ -45,14 +45,14 @@ class FFMPEGCamera:
         self.resolution = self.stream_width, self.stream_height
         frame_buffer.maxsize = self.stream_fps * self.config.recorder.lookback
 
-        LOGGER.info(
+        self._logger.info(
             f"Resolution: {self.stream_width}x{self.stream_height} "
             f"@ {self.stream_fps} FPS"
         )
+        self._logger.debug(f"FFMPEG decoder command: {' '.join(self.build_command())}")
 
-    @staticmethod
-    def get_stream_characteristics(stream_url):
-        LOGGER.debug("Getting stream characteristics for {}".format(stream_url))
+    def get_stream_characteristics(self, stream_url):
+        self._logger.debug("Getting stream characteristics for {}".format(stream_url))
         stream = cv2.VideoCapture(stream_url)
         _, _ = stream.read()
         width = int(stream.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -61,19 +61,31 @@ class FFMPEGCamera:
         stream.release()
         return width, height, fps
 
-    def rtsp_pipe(self):
-        ffmpeg_cmd = (
+    def build_command(self, ffmpeg_loglevel="panic", single_frame=False):
+        return (
             ["ffmpeg"]
             + self.config.camera.global_args
+            + ["-loglevel", ffmpeg_loglevel]
             + self.config.camera.input_args
             + self.config.camera.hwaccel_args
             + self.config.camera.codec
             + ["-rtsp_transport", "tcp", "-i", self.config.camera.stream_url]
             + self.config.camera.filter_args
+            + (["-frames:v", "1"] if single_frame else [])
             + self.config.camera.output_args
         )
-        LOGGER.debug(f"FFMPEG decoder command: {' '.join(ffmpeg_cmd)}")
-        return sp.Popen(ffmpeg_cmd, stdout=sp.PIPE, bufsize=10 ** 8)
+
+    def pipe(self, stderr=False, single_frame=False):
+        if stderr:
+            return sp.Popen(
+                self.build_command(ffmpeg_loglevel="error", single_frame=single_frame),
+                stdout=sp.PIPE,
+                stderr=sp.PIPE,
+                bufsize=10 ** 8,
+            )
+        return sp.Popen(
+            self.build_command(single_frame=False), stdout=sp.PIPE, bufsize=10 ** 8,
+        )
 
     def capture_pipe(
         self,
@@ -88,31 +100,40 @@ class FFMPEGCamera:
         motion_decoder_queue,
         scan_for_motion,
     ):
-        LOGGER.info("Starting capture process")
+        self._logger.debug("Starting capture process")
+        # First read a single frame to make sure the ffmpeg command is correct
+        bytes_to_read = int(self.stream_width * self.stream_height * 1.5)
+        pipe = self.pipe(stderr=True, single_frame=True)
+        _, stderr = pipe.communicate()
+        if stderr and FFMPEG_ERROR_WHILE_DECODING not in stderr.decode():
+            self._logger.error(f"Error starting decoder pipe! {stderr.decode()}")
+            return
 
-        pipe = self.rtsp_pipe()
-
+        pipe = self.pipe()
         self.connected = True
+
         object_frame_number = 0
-        LOGGER.debug(f"Running object detection at {object_decoder_interval}s interval")
+        self._logger.debug(
+            f"Running object detection at {object_decoder_interval}s interval"
+        )
         object_decoder_interval_calculated = int(
             object_decoder_interval * self.stream_fps
         )
         motion_frame_number = 0
-        LOGGER.debug(f"Running motion detection at {motion_decoder_interval}s interval")
+        self._logger.debug(
+            f"Running motion detection at {motion_decoder_interval}s interval"
+        )
         motion_decoder_interval_calculated = int(
             motion_decoder_interval * self.stream_fps
         )
 
-        bytes_to_read = int(self.stream_width * self.stream_height * 1.5)
-
         while self.connected:
             if self.connection_error:
                 sleep(5)
-                LOGGER.error("Restarting frame pipe")
+                self._logger.error("Restarting frame pipe")
                 pipe.terminate()
                 pipe.communicate()
-                pipe = self.rtsp_pipe()
+                pipe = self.pipe()
                 self.connection_error = False
 
             self.raw_image = pipe.stdout.read(bytes_to_read)
@@ -150,7 +171,7 @@ class FFMPEGCamera:
         frame_ready.set()
         pipe.terminate()
         pipe.communicate()
-        LOGGER.info("FFMPEG frame grabber stopped")
+        self._logger.info("FFMPEG frame grabber stopped")
 
     def decode_frame(self, frame=None):
         # Decode and returns the most recently read frame
@@ -166,14 +187,14 @@ class FFMPEGCamera:
         except IndexError:
             return False, None
         except ValueError:
-            LOGGER.error("Unable to fetch frame. FFMPEG pipe seems broken")
+            self._logger.error("Unable to fetch frame. FFMPEG pipe seems broken")
             self.connection_error = True
             return False, None
         return True, cv2.UMat(decoded_frame)
 
     def decoder(self, input_queue, output_queue, width, height):
         """Decodes the frame, leaves any other potential keys in the dict untouched"""
-        LOGGER.info("Starting decoder thread")
+        self._logger.debug("Starting decoder thread")
         while True:
             input_item = input_queue.get()
             ret, frame = self.decode_frame(input_item["raw_frame"])
@@ -185,7 +206,7 @@ class FFMPEGCamera:
                 )
                 pop_if_full(output_queue, input_item)
 
-        LOGGER.info("Exiting decoder thread")
+        self._logger.debug("Exiting decoder thread")
 
     def release(self):
         self.connected = False

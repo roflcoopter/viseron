@@ -93,6 +93,7 @@ class CameraConfig:
 
     def __init__(self, camera):
         self._name = camera.name
+        self._name_slug = slugify(self.name)
         self._mqtt_name = camera.mqtt_name
         self._host = camera.host
         self._port = camera.port
@@ -113,6 +114,10 @@ class CameraConfig:
     @property
     def name(self):
         return self._name
+
+    @property
+    def name_slug(self):
+        return self._name_slug
 
     @property
     def mqtt_name(self):
@@ -170,7 +175,7 @@ class CameraConfig:
 
     @property
     def codec(self):
-        return ["-c:v", self._codec]
+        return ["-c:v", self._codec] if self._codec else []
 
     @property
     def filter_args(self):
