@@ -53,7 +53,7 @@ class ObjectDetection:
         )()
         return np.squeeze(tensor)
 
-    def post_process(self):
+    def post_process(self, confidence):
         processed_objects = []
         boxes = self.output_tensor(0)
         labels = self.output_tensor(1)
@@ -61,18 +61,19 @@ class ObjectDetection:
         count = int(self.output_tensor(3))
 
         for i in range(count):
-            processed_objects.append(
-                {
-                    "label": self.labels[int(labels[i])],
-                    "confidence": round(float(scores[i]), 3),
-                    "height": round(boxes[i][2] - boxes[i][0], 3),
-                    "width": round(boxes[i][3] - boxes[i][1], 3),
-                    "relative_x1": round(boxes[i][1], 3),
-                    "relative_y1": round(boxes[i][0], 3),
-                    "relative_x2": round(boxes[i][3], 3),
-                    "relative_y2": round(boxes[i][2], 3),
-                }
-            )
+            if float(scores[i]) > confidence:
+                processed_objects.append(
+                    {
+                        "label": self.labels[int(labels[i])],
+                        "confidence": round(float(scores[i]), 3),
+                        "height": round(boxes[i][2] - boxes[i][0], 3),
+                        "width": round(boxes[i][3] - boxes[i][1], 3),
+                        "relative_x1": round(boxes[i][1], 3),
+                        "relative_y1": round(boxes[i][0], 3),
+                        "relative_x2": round(boxes[i][3], 3),
+                        "relative_y2": round(boxes[i][2], 3),
+                    }
+                )
 
         return processed_objects
 
@@ -82,7 +83,9 @@ class ObjectDetection:
         self.interpreter.set_tensor(self.tensor_input_details[0]["index"], tensor)
         self.interpreter.invoke()
 
-        objects = self.post_process()
+        objects = self.post_process(
+            frame["camera_config"].object_detection.min_confidence
+        )
         return objects
 
     @property

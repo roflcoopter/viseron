@@ -44,16 +44,16 @@ class Detector:
         if not obj["label"] in camera_config.object_detection.tracked_labels:
             return False
 
-        for label in camera_config.object_detection.labels:
-            if label.label == obj["label"]:
-                label_config = label
-                break
-
-        if (
-            label_config.height_min <= obj["height"] <= label_config.height_max
-            and label_config.width_min <= obj["width"] <= label_config.width_max
-        ):
-            return True
+        for tracked_label in camera_config.object_detection.labels:
+            if (
+                tracked_label.label == obj["label"]
+                and obj["confidence"] > tracked_label.confidence
+                and tracked_label.height_min
+                <= obj["height"]
+                <= tracked_label.height_max
+                and tracked_label.width_min <= obj["width"] <= tracked_label.width_max
+            ):
+                return True
         return False
 
     def object_detection(self, detector_queue):
