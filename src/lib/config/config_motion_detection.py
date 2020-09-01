@@ -1,6 +1,7 @@
 import logging
 
 from voluptuous import (
+    Any,
     Required,
     Schema,
     Optional,
@@ -20,14 +21,14 @@ DEFAULTS = {
 
 SCHEMA = Schema(
     {
-        Required("interval"): int,
-        Optional("trigger", default=False): bool,
-        Optional("timeout", default=False): bool,
-        Required("width"): int,
-        Required("height"): int,
-        Required("area"): int,
-        Required("frames"): int,
-    }
+        Optional("interval", default=DEFAULTS["interval"]): int,
+        Optional("trigger", default=DEFAULTS["trigger"]): bool,
+        Optional("timeout", default=DEFAULTS["timeout"]): bool,
+        Optional("width", default=DEFAULTS["width"]): int,
+        Optional("height", default=DEFAULTS["height"]): int,
+        Optional("area", default=DEFAULTS["area"]): int,
+        Optional("frames", default=DEFAULTS["frames"]): int,
+    },
 )
 
 
@@ -35,14 +36,24 @@ class MotionDetectionConfig:
     schema = SCHEMA
     defaults = DEFAULTS
 
-    def __init__(self, motion_detection):
-        self._interval = motion_detection.interval
-        self._trigger = motion_detection.trigger
-        self._timeout = motion_detection.timeout
-        self._width = motion_detection.width
-        self._height = motion_detection.height
-        self._area = motion_detection.area
-        self._frames = motion_detection.frames
+    def __init__(self, motion_detection, camera_motion_detection):
+        self._interval = getattr(
+            camera_motion_detection, "interval", motion_detection.interval
+        )
+        self._trigger = getattr(
+            camera_motion_detection, "trigger", motion_detection.trigger
+        )
+        self._timeout = getattr(
+            camera_motion_detection, "timeout", motion_detection.timeout
+        )
+        self._width = getattr(camera_motion_detection, "width", motion_detection.width)
+        self._height = getattr(
+            camera_motion_detection, "height", motion_detection.height
+        )
+        self._area = getattr(camera_motion_detection, "area", motion_detection.area)
+        self._frames = getattr(
+            camera_motion_detection, "frames", motion_detection.frames
+        )
 
     @property
     def interval(self):
@@ -71,4 +82,3 @@ class MotionDetectionConfig:
     @property
     def frames(self):
         return self._frames
-
