@@ -8,11 +8,9 @@ LOGGER = logging.getLogger(__name__)
 
 class ObjectDetection:
     def __init__(
-        self, model, labels, threshold, model_width=None, model_height=None,
+        self, model, label_path, model_width=None, model_height=None,
     ):
-        self.threshold = threshold
-
-        self.labels = self.read_labels(labels)
+        self.labels = self.read_labels(label_path)
         try:
             self.interpreter = tflite.Interpreter(
                 model_path=model,
@@ -55,7 +53,7 @@ class ObjectDetection:
         )()
         return np.squeeze(tensor)
 
-    def post_process(self):
+    def post_process(self, confidence):
         processed_objects = []
         boxes = self.output_tensor(0)
         labels = self.output_tensor(1)
@@ -63,7 +61,7 @@ class ObjectDetection:
         count = int(self.output_tensor(3))
 
         for i in range(count):
-            if float(scores[i]) >= self.threshold:
+            if float(scores[i]) > confidence:
                 processed_objects.append(
                     {
                         "label": self.labels[int(labels[i])],
@@ -80,12 +78,14 @@ class ObjectDetection:
         return processed_objects
 
     def return_objects(self, frame):
-        tensor = self.pre_process(frame)
+        tensor = self.pre_process(frame["frame"])
 
         self.interpreter.set_tensor(self.tensor_input_details[0]["index"], tensor)
         self.interpreter.invoke()
 
-        objects = self.post_process()
+        objects = self.post_process(
+            frame["camera_config"].object_detection.min_confidence
+        )
         return objects
 
     @property

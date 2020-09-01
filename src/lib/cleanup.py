@@ -5,6 +5,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from path import Path
 
 LOGGER = logging.getLogger(__name__)
+logging.getLogger("apscheduler.scheduler").setLevel(logging.ERROR)
 
 
 class Cleanup:
