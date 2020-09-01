@@ -107,7 +107,7 @@ class RecorderConfig:
 
     @property
     def codec(self):
-        return ["-c:v", self._codec]
+        return ["-c:v", self._codec] if self._codec else []
 
     @property
     def filter_args(self):
