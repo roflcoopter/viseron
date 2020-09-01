@@ -15,7 +15,7 @@ class MQTT:
 
     # pylint: disable=unused-argument
     def on_connect(self, client, userdata, flags, returncode):
-        LOGGER.info("MQTT connected with result code {}".format(str(returncode)))
+        LOGGER.debug("MQTT connected with result code {}".format(str(returncode)))
 
         self.subscriptions = []
         for nvr in FFMPEGNVR.nvr_list:

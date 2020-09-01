@@ -10,7 +10,7 @@ LOGGER = logging.getLogger(__name__)
 
 class FFMPEGRecorder:
     def __init__(self, config, frame_buffer):
-        LOGGER.info("Initializing ffmpeg recorder")
+        LOGGER.debug("Initializing ffmpeg recorder")
         self.config = config
         self.is_recording = False
         self.writer_pipe = None
@@ -24,6 +24,7 @@ class FFMPEGRecorder:
         return (
             ["ffmpeg"]
             + self.config.recorder.global_args
+            + ["-loglevel", "panic"]
             + self.config.recorder.hwaccel_args
             + [
                 "-f",

@@ -45,6 +45,7 @@ def main():
     detector_thread.daemon = True
     detector_thread.start()
 
+    LOGGER.info("Initializing NVR threads")
     threads = []
     for camera in config.cameras:
         threads.append(
@@ -85,10 +86,10 @@ def main():
 
 
 def schedule_cleanup(config):
-    LOGGER.info("Starting cleanup scheduler")
+    LOGGER.debug("Starting cleanup scheduler")
     cleanup = Cleanup(config)
     cleanup.scheduler.start()
-    LOGGER.info("Running initial cleanup")
+    LOGGER.debug("Running initial cleanup")
     cleanup.cleanup()
 
 
@@ -115,7 +116,7 @@ class MyFormatter(logging.Formatter):
 
     def __init__(self):
         super().__init__(
-            fmt="[%(asctime)s] [%(name)-12s] [%(levelname)-8s] - %(message)s",
+            fmt="[%(asctime)s] [%(name)-24s] [%(levelname)-8s] - %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
             style="%",
         )
