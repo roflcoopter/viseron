@@ -17,6 +17,7 @@ from const import (
     ENV_CUDA_SUPPORTED,
     ENV_OPENCL_SUPPORTED,
     ENV_RASPBERRYPI3,
+    SECRETS_PATH,
 )
 from voluptuous import (
     All,
@@ -62,10 +63,32 @@ def create_default_config():
     return True
 
 
+def load_secrets():
+    try:
+        with open(SECRETS_PATH, "r") as secrets_file:
+            return yaml.load(secrets_file, Loader=yaml.SafeLoader)
+    except FileNotFoundError:
+        return None
+
+
 def load_config():
+    secrets = load_secrets()
+
+    def secret_yaml(loader, node):
+        if secrets is None:
+            raise ValueError(
+                "!secret found in config.yaml, but no secrets.yaml exists. "
+                f"Make sure it exists under {SECRETS_PATH}"
+            )
+        if node.value not in secrets:
+            raise ValueError(f"secret {node.value} does not exist in secrets.yaml")
+        return secrets[node.value]
+
+    yaml.add_constructor("!secret", secret_yaml, Loader=yaml.SafeLoader)
+
     try:
         with open(CONFIG_PATH, "r") as config_file:
-            return yaml.safe_load(config_file)
+            return yaml.load(config_file, Loader=yaml.SafeLoader)
     except FileNotFoundError:
         print(
             f"Unable to find configuration. Creating default one in {CONFIG_PATH}\n"

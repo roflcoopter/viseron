@@ -1,4 +1,5 @@
 CONFIG_PATH = "/config/config.yaml"
+SECRETS_PATH = "/config/secrets.yaml"
 DEFAULT_CONFIG = """
 # See the README for the full list of configuration options.
 cameras:

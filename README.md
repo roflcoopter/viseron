@@ -402,6 +402,29 @@ The default command varies a bit depending on the supported hardware:
 | -----| -----| ------- | ----------------- |------------ |
 | level | str | ```INFO``` | ```DEBUG```, ```INFO```, ```WARNING```, ```ERROR```, ```FATAL``` | Log level |
 
+## Secrets
+Any value in ```config.yaml``` can be substituted with secrets stored in ```secrets.yaml```.\
+This can be used to remove any private information from your ```config.yaml``` to make it easier to share your ```config.yaml``` with others.
+
+The ```secrets.yaml``` is expected to be in the same folder as ```config.yaml```.\
+The full path needs to be ```/config/secrets.yaml```.
+
+Here is a simple usage example.\
+Contents of ```/config/secrets.yaml```:
+```yaml
+camera_ip: 192.168.1.2
+username: coolusername
+password: supersecretpassword
+```
+Contents of ```/config/config.yaml```:
+```yaml
+cameras:
+  - name: Front Door
+    host: !secret camera_ip
+    username: !secret username
+    password: !secret password
+```
+
 # Ideas and upcoming features
 - UI
   - Create a UI for configuration and viewing of recordings
