@@ -19,7 +19,7 @@ cameras:
 """
 
 
-CAMERA_GLOBAL_ARGS = ["-hide_banner", "-loglevel", "error"]
+CAMERA_GLOBAL_ARGS = ["-hide_banner"]
 CAMERA_INPUT_ARGS = [
     "-avoid_negative_ts",
     "make_zero",
