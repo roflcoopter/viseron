@@ -197,6 +197,7 @@ The command is built like this: \
 | -----| -----| ------- | ----------------- |------------ |
 | name | str | **required** | any string | Friendly name of the camera |
 | mqtt_name | str | name given above | any string | Name used in MQTT topics |
+| stream_format | str | ```rtsp``` | ```rtsp```, ```mjpeg``` | FFMPEG stream format  |
 | host | str | **required** | any string | IP or hostname of camera |
 | port | int | **required** | any integer | Port for the camera stream |
 | username | str | optional | any string | Username for the camera stream |
