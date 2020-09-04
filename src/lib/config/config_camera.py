@@ -68,19 +68,22 @@ SCHEMA = Schema(
                 ): check_for_hwaccels,
                 Optional("codec", default=get_codec()): str,
                 Optional("filter_args", default=[]): list,
-                Optional("motion_detection", default=None): {
-                    Optional("interval"): int,
-                    Optional("trigger"): bool,
-                    Optional("timeout"): bool,
-                    Optional("width"): int,
-                    Optional("height"): int,
-                    Optional("area"): int,
-                    Optional("frames"): int,
-                },
-                Optional("object_detection", default=None): {
-                    Optional("interval"): int,
-                    Optional("labels"): LABELS_SCHEMA,
-                },
+                Optional("motion_detection", default=None): Any(
+                    {
+                        Optional("interval"): int,
+                        Optional("trigger"): bool,
+                        Optional("timeout"): bool,
+                        Optional("width"): int,
+                        Optional("height"): int,
+                        Optional("area"): int,
+                        Optional("frames"): int,
+                    },
+                    None,
+                ),
+                Optional("object_detection", default=None): Any(
+                    {Optional("interval"): int, Optional("labels"): LABELS_SCHEMA,},
+                    None,
+                ),
             }
         ],
         ensure_mqtt_name,
