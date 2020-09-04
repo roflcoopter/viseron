@@ -159,6 +159,35 @@ The ```config.yaml``` has to be mounted to the folder ```/config```.\
 If no config is present, a default minimal one will be created.\
 Here you need to fill in atleast your cameras and you should be good to go.
 
+# Benchmarks
+Here I will show you the system load on a few different machines/configs.\
+All examples are with one camera running 1920x1080 at 6 FPS.\
+Motion and object detection running at a 1 second interval.
+
+Intel i3-9350K CPU @ 4.00GHz 4 cores with Nvidia GTX1660 Ti
+| Process | Load on one core | When |
+| -----   | -----| ---- |
+| ffmpeg | ~5-6% | Continously |
+| viseron | ~1.3-3% | Scanning for motion only |
+| viseron | ~7.6-9% | Scanning for objects only |
+| viseron | ~8.6-9.3% | Scanning for motion and objects |
+
+Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) using VAAPI and OpenCL
+| Process | Load on one core | When |
+| -----   | -----| ---- |
+| ffmpeg | ~8% | Continously |
+| viseron | ~3.3% | Scanning for motion only |
+| viseron | ~7.5% | Scanning for objects only |
+| viseron | ~8% | Scanning for motion and objects |
+
+Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or OpenCL
+| Process | Load on one core | When |
+| -----   | -----| ---- |
+| ffmpeg | ~25% | Continously |
+| viseron | ~3.3% | Scanning for motion only |
+| viseron | ~23% | Scanning for objects only |
+| viseron | ~24% | Scanning for motion and objects |
+
 # Configuration Options
 ## Cameras
 
