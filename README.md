@@ -310,8 +310,8 @@ The default command varies a bit depending on the supported hardware:
 | timeout | bool | False | True/False | If true, recording will continue until no motion is detected |
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
-| area | int | 1000 | any integer | How big the detected area must be in order to trigger motion |
-| frames | int | 1 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
+| area | int | 6000 | any integer | How big the detected area must be in order to trigger motion |
+| frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
 
 TODO Future releases will make the motion detection easier to fine tune. Right now its a guessing game
 

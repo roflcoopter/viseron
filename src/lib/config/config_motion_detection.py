@@ -10,13 +10,13 @@ from voluptuous import (
 LOGGER = logging.getLogger(__name__)
 
 DEFAULTS = {
-    "interval": 0,
+    "interval": 1,
     "trigger": False,
     "timeout": False,
-    "width": 0,
-    "height": 0,
-    "area": 0,
-    "frames": 0,
+    "width": 300,
+    "height": 300,
+    "area": 6000,
+    "frames": 3,
 }
 
 SCHEMA = Schema(
