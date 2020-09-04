@@ -69,7 +69,12 @@ class FFMPEGCamera:
             + self.config.camera.input_args
             + self.config.camera.hwaccel_args
             + self.config.camera.codec
-            + ["-rtsp_transport", "tcp", "-i", self.config.camera.stream_url]
+            + (
+                ["-rtsp_transport", "tcp"]
+                if self.config.camera.stream_format == "rtsp"
+                else []
+            )
+            + ["-i", self.config.camera.stream_url]
             + self.config.camera.filter_args
             + (["-frames:v", "1"] if single_frame else [])
             + self.config.camera.output_args

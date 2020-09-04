@@ -39,52 +39,65 @@ def check_for_hwaccels(hwaccel_args: list) -> list:
     return hwaccel_args
 
 
-def get_codec() -> str:
-    if os.getenv(ENV_CUDA_SUPPORTED) == "true":
-        return HWACCEL_CUDA_DECODER_CODEC
-    if os.getenv(ENV_RASPBERRYPI3) == "true":
-        return HWACCEL_RPI3_DECODER_CODEC
-    return DECODER_CODEC
+def get_codec(camera: dict) -> dict:
+    if camera["stream_format"] == "rtsp":
+        if os.getenv(ENV_CUDA_SUPPORTED) == "true":
+            camera["codec"] = HWACCEL_CUDA_DECODER_CODEC
+        elif os.getenv(ENV_RASPBERRYPI3) == "true":
+            camera["codec"] = HWACCEL_RPI3_DECODER_CODEC
+        else:
+            camera["codec"] = DECODER_CODEC
+    return camera
 
 
 SCHEMA = Schema(
     All(
         [
-            {
-                Required("name"): All(str, Length(min=1)),
-                Optional("mqtt_name", default=None): Any(All(str, Length(min=1)), None),
-                Required("host"): All(str, Length(min=1)),
-                Required("port"): All(int, Range(min=1)),
-                Optional("username", default=None): Any(All(str, Length(min=1)), None),
-                Optional("password", default=None): Any(All(str, Length(min=1)), None),
-                Required("path"): All(str, Length(min=1)),
-                Optional("width", default=None): Any(int, None),
-                Optional("height", default=None): Any(int, None),
-                Optional("fps", default=None): Any(All(int, Range(min=1)), None),
-                Optional("global_args", default=CAMERA_GLOBAL_ARGS): list,
-                Optional("input_args", default=CAMERA_INPUT_ARGS): list,
-                Optional(
-                    "hwaccel_args", default=CAMERA_HWACCEL_ARGS
-                ): check_for_hwaccels,
-                Optional("codec", default=get_codec()): str,
-                Optional("filter_args", default=[]): list,
-                Optional("motion_detection", default=None): Any(
-                    {
-                        Optional("interval"): int,
-                        Optional("trigger"): bool,
-                        Optional("timeout"): bool,
-                        Optional("width"): int,
-                        Optional("height"): int,
-                        Optional("area"): int,
-                        Optional("frames"): int,
-                    },
-                    None,
-                ),
-                Optional("object_detection", default=None): Any(
-                    {Optional("interval"): int, Optional("labels"): LABELS_SCHEMA,},
-                    None,
-                ),
-            }
+            All(
+                {
+                    Required("name"): All(str, Length(min=1)),
+                    Optional("mqtt_name", default=None): Any(
+                        All(str, Length(min=1)), None
+                    ),
+                    Required("stream_format", default="rtsp"): Any("rtsp", "mjpeg"),
+                    Required("host"): All(str, Length(min=1)),
+                    Required("port"): All(int, Range(min=1)),
+                    Optional("username", default=None): Any(
+                        All(str, Length(min=1)), None
+                    ),
+                    Optional("password", default=None): Any(
+                        All(str, Length(min=1)), None
+                    ),
+                    Required("path"): All(str, Length(min=1)),
+                    Optional("width", default=None): Any(int, None),
+                    Optional("height", default=None): Any(int, None),
+                    Optional("fps", default=None): Any(All(int, Range(min=1)), None),
+                    Optional("global_args", default=CAMERA_GLOBAL_ARGS): list,
+                    Optional("input_args", default=CAMERA_INPUT_ARGS): list,
+                    Optional(
+                        "hwaccel_args", default=CAMERA_HWACCEL_ARGS
+                    ): check_for_hwaccels,
+                    Optional("codec", default=""): str,
+                    Optional("filter_args", default=[]): list,
+                    Optional("motion_detection", default=None): Any(
+                        {
+                            Optional("interval"): int,
+                            Optional("trigger"): bool,
+                            Optional("timeout"): bool,
+                            Optional("width"): int,
+                            Optional("height"): int,
+                            Optional("area"): int,
+                            Optional("frames"): int,
+                        },
+                        None,
+                    ),
+                    Optional("object_detection", default=None): Any(
+                        {Optional("interval"): int, Optional("labels"): LABELS_SCHEMA,},
+                        None,
+                    ),
+                },
+                get_codec,
+            )
         ],
         ensure_mqtt_name,
     )
@@ -98,6 +111,7 @@ class CameraConfig:
         self._name = camera.name
         self._name_slug = slugify(self.name)
         self._mqtt_name = camera.mqtt_name
+        self._stream_format = camera.stream_format
         self._host = camera.host
         self._port = camera.port
         self._username = camera.username
@@ -125,6 +139,10 @@ class CameraConfig:
     @property
     def mqtt_name(self):
         return self._mqtt_name
+
+    @property
+    def stream_format(self):
+        return self._stream_format
 
     @property
     def host(self):
@@ -159,13 +177,17 @@ class CameraConfig:
         return self._fps
 
     @property
+    def protocol(self):
+        return "rtsp" if self.stream_format == "rtsp" else "http"
+
+    @property
     def stream_url(self):
         if self.username and self.password:
             return (
-                f"rtsp://{self.username}:{self.password}@"
+                f"{self.protocol}://{self.username}:{self.password}@"
                 f"{self.host}:{self.port}{self.path}"
             )
-        return f"rtsp://{self.host}:{self.port}{self.path}"
+        return f"{self.protocol}://{self.host}:{self.port}{self.path}"
 
     @property
     def global_args(self):
