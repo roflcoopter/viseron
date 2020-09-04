@@ -484,3 +484,6 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or 
   - Set loglevel individually for each component
 
 https://devblogs.nvidia.com/object-detection-pipeline-gpus/
+
+---
+<a href="https://www.buymeacoffee.com/roflcoopter" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
