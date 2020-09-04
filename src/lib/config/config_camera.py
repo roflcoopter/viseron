@@ -160,9 +160,12 @@ class CameraConfig:
 
     @property
     def stream_url(self):
-        return (
-            f"rtsp://{self.username}:{self.password}@{self.host}:{self.port}{self.path}"
-        )
+        if self.username and self.password:
+            return (
+                f"rtsp://{self.username}:{self.password}@"
+                f"{self.host}:{self.port}{self.path}"
+            )
+        return f"rtsp://{self.host}:{self.port}{self.path}"
 
     @property
     def global_args(self):
