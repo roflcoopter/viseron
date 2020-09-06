@@ -3,6 +3,7 @@ import os
 
 from voluptuous import All, Any, Length, Optional, Range, Required, Schema
 
+import numpy as np
 from const import (
     CAMERA_GLOBAL_ARGS,
     CAMERA_HWACCEL_ARGS,
@@ -101,6 +102,14 @@ SCHEMA = Schema(
                         },
                         None,
                     ),
+                    Optional("zones", default=[]): [
+                        {
+                            Required("name"): str,
+                            Required("points"): [
+                                {Required("x"): int, Required("y"): int,}
+                            ],
+                        }
+                    ],
                 },
                 get_codec,
             )
@@ -108,6 +117,19 @@ SCHEMA = Schema(
         ensure_mqtt_name,
     )
 )
+
+
+def generate_zones(zones):
+    import cv2
+
+    zone_list = []
+    for zone in zones:
+        point_list = []
+        for point in getattr(zone, "points"):
+            point_list.append([getattr(point, "x"), getattr(point, "y")])
+        zone_list.append(np.array(point_list))
+
+    return zone_list
 
 
 class CameraConfig:
@@ -133,6 +155,7 @@ class CameraConfig:
         self._filter_args = camera.filter_args
         self._motion_detection = camera.motion_detection
         self._object_detection = camera.object_detection
+        self._zones = generate_zones(camera.zones)
 
     @property
     def name(self):
@@ -226,3 +249,7 @@ class CameraConfig:
     @property
     def object_detection(self):
         return self._object_detection
+
+    @property
+    def zones(self):
+        return self._zones
