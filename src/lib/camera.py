@@ -118,18 +118,21 @@ class FFMPEGCamera:
         self.connected = True
 
         object_frame_number = 0
-        self._logger.debug(
-            f"Running object detection at {object_decoder_interval}s interval"
-        )
-        object_decoder_interval_calculated = int(
+        object_decoder_interval_calculated = round(
             object_decoder_interval * self.stream_fps
         )
-        motion_frame_number = 0
         self._logger.debug(
-            f"Running motion detection at {motion_decoder_interval}s interval"
+            f"Running object detection at {object_decoder_interval}s interval, "
+            f"every {object_decoder_interval_calculated} frame(s)"
         )
-        motion_decoder_interval_calculated = int(
+
+        motion_frame_number = 0
+        motion_decoder_interval_calculated = round(
             motion_decoder_interval * self.stream_fps
+        )
+        self._logger.debug(
+            f"Running motion detection at {motion_decoder_interval}s interval, "
+            f"every {motion_decoder_interval_calculated} frame(s)"
         )
 
         while self.connected:

@@ -40,6 +40,9 @@ def check_for_hwaccels(hwaccel_args: list) -> list:
 
 
 def get_codec(camera: dict) -> dict:
+    if camera["codec"]:
+        return camera
+
     if camera["stream_format"] == "rtsp":
         if os.getenv(ENV_CUDA_SUPPORTED) == "true":
             camera["codec"] = HWACCEL_CUDA_DECODER_CODEC
@@ -81,7 +84,7 @@ SCHEMA = Schema(
                     Optional("filter_args", default=[]): list,
                     Optional("motion_detection", default=None): Any(
                         {
-                            Optional("interval"): int,
+                            Optional("interval"): Any(int, float),
                             Optional("trigger"): bool,
                             Optional("timeout"): bool,
                             Optional("width"): int,
@@ -92,7 +95,10 @@ SCHEMA = Schema(
                         None,
                     ),
                     Optional("object_detection", default=None): Any(
-                        {Optional("interval"): int, Optional("labels"): LABELS_SCHEMA,},
+                        {
+                            Optional("interval"): Any(int, float),
+                            Optional("labels"): LABELS_SCHEMA,
+                        },
                         None,
                     ),
                 },
