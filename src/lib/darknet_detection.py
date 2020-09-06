@@ -80,7 +80,7 @@ class ObjectDetection:
 
     def return_objects(self, frame):
         labels, confidences, boxes = self.model.detect(
-            frame["frame"],
+            frame["frame"].get_resized_frame(frame["decoder_name"]),
             frame["camera_config"].object_detection.min_confidence,
             self.nms,
         )

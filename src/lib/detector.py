@@ -67,7 +67,6 @@ class Detector:
 
             if objects:
                 LOGGER.debug(objects)
-
             filtered_objects = list(
                 filter(
                     lambda obj: self.filter_objects(obj, frame["camera_config"]),
@@ -75,16 +74,15 @@ class Detector:
                 )
             )
 
-            if filtered_objects:
-                pop_if_full(
-                    frame["object_return_queue"],
-                    {
-                        "frame": frame["frame"],
-                        "full_frame": frame["full_frame"],
-                        "objects": filtered_objects,
-                    },
-                )
+            frame["frame"].objects = objects
+            frame["frame"].filtered_objects = filtered_objects
 
+            # TODO move filtering to NVR thread instead
+            pop_if_full(
+                frame["object_return_queue"], frame,
+            )
+
+            if filtered_objects:
                 if not object_event.is_set():
                     object_event.set()
                 continue

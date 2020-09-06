@@ -43,6 +43,7 @@ class ObjectDetection:
         return labels
 
     def pre_process(self, frame):
+        # This should be moved to decoder for speed
         frame = frame.get()
         return frame.reshape(1, frame.shape[0], frame.shape[1], frame.shape[2])
 
@@ -78,7 +79,9 @@ class ObjectDetection:
         return processed_objects
 
     def return_objects(self, frame):
-        tensor = self.pre_process(frame["frame"])
+        tensor = self.pre_process(
+            frame["frame"].get_resized_frame(frame["decoder_name"])
+        )
 
         self.interpreter.set_tensor(self.tensor_input_details[0]["index"], tensor)
         self.interpreter.invoke()

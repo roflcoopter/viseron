@@ -16,6 +16,15 @@ def calculate_relative_coords(
     return x1_relative, y1_relative, x2_relative, y2_relative
 
 
+def calculate_absolute_coords(bounding_box, frame_res):
+    return (
+        math.floor(bounding_box[0] * frame_res[0]),
+        math.floor(bounding_box[1] * frame_res[1]),
+        math.floor(bounding_box[2] * frame_res[0]),
+        math.floor(bounding_box[3] * frame_res[1]),
+    )
+
+
 def draw_bounding_box_relative(frame, bounding_box, frame_res):
     topleft = (
         math.floor(bounding_box[0] * frame_res[0]),
