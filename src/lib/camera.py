@@ -43,7 +43,9 @@ class FFMPEGCamera:
             ) = self.get_stream_characteristics(self.config.camera.stream_url)
 
         self.resolution = self.stream_width, self.stream_height
-        frame_buffer.maxsize = self.stream_fps * self.config.recorder.lookback
+        frame_buffer_size = self.stream_fps * self.config.recorder.lookback
+        if frame_buffer_size > 0:
+            frame_buffer.maxsize = self.stream_fps * self.config.recorder.lookback
 
         self._logger.info(
             f"Resolution: {self.stream_width}x{self.stream_height} "
