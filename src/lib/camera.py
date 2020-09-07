@@ -20,21 +20,23 @@ class Frame:
         self._decoded_frame = None
         self._decoded_frame_umat = None
         self._decoded_frame_umat_rgb = None
+        self._decoded_frame_mat_rgb = None
         self._resized_frames = {}
-        self._objects = None
-        self._filtered_objects = None
+        self._objects = []
+        self._filtered_objects = []
         self._motion = False
 
     def decode_frame(self):
-        self._decoded_frame = np.frombuffer(self.raw_frame, np.uint8).reshape(
-            int(self.frame_height * 1.5), self.frame_width
-        )
+        try:
+            self._decoded_frame = np.frombuffer(self.raw_frame, np.uint8).reshape(
+                int(self.frame_height * 1.5), self.frame_width
+            )
         # except AttributeError:
         # return False
         # except IndexError:
         # return False
-        # except ValueError:
-        # return False
+        except ValueError:
+            return False
         return True
 
     def resize(self, decoder_name, width, height):
@@ -67,17 +69,23 @@ class Frame:
 
     @property
     def decoded_frame_umat(self):
-        if not self._decoded_frame_umat:
+        if self._decoded_frame_umat is None:
             self._decoded_frame_umat = cv2.UMat(self.decoded_frame)
         return self._decoded_frame_umat
 
     @property
     def decoded_frame_umat_rgb(self):
-        if not self._decoded_frame_umat_rgb:
+        if self._decoded_frame_umat_rgb is None:
             self._decoded_frame_umat_rgb = cv2.cvtColor(
                 self.decoded_frame_umat, cv2.COLOR_YUV2RGB_NV21
             )
         return self._decoded_frame_umat_rgb
+
+    @property
+    def decoded_frame_mat_rgb(self):
+        if self._decoded_frame_mat_rgb is None:
+            self._decoded_frame_mat_rgb = self.decoded_frame_umat_rgb.get()
+        return self._decoded_frame_mat_rgb
 
     @property
     def objects(self):
