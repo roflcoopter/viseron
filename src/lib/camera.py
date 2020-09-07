@@ -202,7 +202,6 @@ class FFMPEGCamera:
         object_decoder_interval,
         object_decoder_queue,
         scan_for_objects,
-        object_event,
         object_return_queue,
         motion_decoder_interval,
         motion_decoder_queue,
@@ -267,7 +266,6 @@ class FFMPEGCamera:
                         {
                             "decoder_name": "object_detection",
                             "frame": self.frame,
-                            "object_event": object_event,
                             "object_return_queue": object_return_queue,
                             "camera_config": self.config,
                         },

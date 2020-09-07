@@ -40,55 +40,14 @@ class Detector:
             LOGGER.error("Could not import the correct detector")
             return
 
-    def filter_objects(self, obj, camera_config):
-        if not obj["label"] in camera_config.object_detection.tracked_labels:
-            return False
-
-        for tracked_label in camera_config.object_detection.labels:
-            if (
-                tracked_label.label == obj["label"]
-                and obj["confidence"] > tracked_label.confidence
-                and tracked_label.height_min
-                <= obj["height"]
-                <= tracked_label.height_max
-                and tracked_label.width_min <= obj["width"] <= tracked_label.width_max
-            ):
-                return True
-        return False
-
     def object_detection(self, detector_queue):
         while True:
-            filtered_objects = []
-
             frame = detector_queue.get()
-            object_event = frame["object_event"]
 
-            objects = self.ObjectDetection.return_objects(frame)
-
-            if objects:
-                LOGGER.debug(objects)
-            filtered_objects = list(
-                filter(
-                    lambda obj: self.filter_objects(obj, frame["camera_config"]),
-                    objects,
-                )
-            )
-
-            frame["frame"].objects = objects
-            frame["frame"].filtered_objects = filtered_objects
-
-            # TODO move filtering to NVR thread instead
+            frame["frame"].objects = self.ObjectDetection.return_objects(frame)
             pop_if_full(
                 frame["object_return_queue"], frame,
             )
-
-            if filtered_objects:
-                if not object_event.is_set():
-                    object_event.set()
-                continue
-
-            if object_event.is_set():
-                object_event.clear()
 
     @property
     def model_width(self):
