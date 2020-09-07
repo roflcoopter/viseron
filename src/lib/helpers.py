@@ -34,7 +34,7 @@ def draw_bounding_box_relative(frame, bounding_box, frame_res):
         math.floor(bounding_box[2] * frame_res[0]),
         math.floor(bounding_box[3] * frame_res[1]),
     )
-    return cv2.rectangle(frame, topleft, bottomright, (255, 0, 0), 5)
+    return cv2.rectangle(frame, topleft, bottomright, (255, 0, 0), 3)
 
 
 def scale_bounding_box(image_size, bounding_box, target_size):
