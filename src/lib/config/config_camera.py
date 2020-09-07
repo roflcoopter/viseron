@@ -108,6 +108,7 @@ SCHEMA = Schema(
                             Required("points"): [
                                 {Required("x"): int, Required("y"): int,}
                             ],
+                            Optional("labels"): LABELS_SCHEMA,
                         }
                     ],
                 },
@@ -117,19 +118,6 @@ SCHEMA = Schema(
         ensure_mqtt_name,
     )
 )
-
-
-def generate_zones(zones):
-    import cv2
-
-    zone_list = []
-    for zone in zones:
-        point_list = []
-        for point in getattr(zone, "points"):
-            point_list.append([getattr(point, "x"), getattr(point, "y")])
-        zone_list.append(np.array(point_list))
-
-    return zone_list
 
 
 class CameraConfig:
@@ -155,7 +143,26 @@ class CameraConfig:
         self._filter_args = camera.filter_args
         self._motion_detection = camera.motion_detection
         self._object_detection = camera.object_detection
-        self._zones = generate_zones(camera.zones)
+        self._zones = self.generate_zones(camera.zones)
+
+    def generate_zones(self, zones):
+        zone_list = []
+        for zone in zones:
+            zone_dict = {}
+            zone_dict["name"] = zone.name
+
+            zone_labels = getattr(zone, "labels", [])
+            if not zone_labels:
+                zone_labels = getattr(self.object_detection, "labels", [])
+            zone_dict["labels"] = zone_labels
+
+            point_list = []
+            for point in getattr(zone, "points"):
+                point_list.append([getattr(point, "x"), getattr(point, "y")])
+            zone_dict["coordinates"] = np.array(point_list)
+            zone_list.append(zone_dict)
+
+        return zone_list
 
     @property
     def name(self):
