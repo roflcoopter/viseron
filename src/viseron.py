@@ -33,11 +33,10 @@ def main():
     mqtt_queue = None
     mqtt = None
     if config.mqtt:
-        mqtt_queue = Queue(maxsize=50)
+        mqtt_queue = Queue(maxsize=100)
         mqtt = MQTT(config)
         mqtt_publisher = Thread(target=mqtt.publisher, args=(mqtt_queue,))
         mqtt_publisher.daemon = True
-        mqtt_publisher.start()
 
     detector_queue = Queue(maxsize=2)
     detector = Detector(config)
@@ -59,6 +58,7 @@ def main():
 
     if mqtt:
         mqtt.connect()
+        mqtt_publisher.start()
 
     for thread in threads:
         thread.start()
