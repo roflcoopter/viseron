@@ -389,7 +389,7 @@ class FFMPEGNVR(Thread, MQTT):
             # Filter returned objects
             processed_frame = self.get_processed_frame()
             if processed_frame:
-                self._logger.debug(processed_frame.objects)
+                self._logger.debug(f"Objects: {processed_frame.objects}")
                 filtered_objects = self.filter_objects(processed_frame.objects)
 
             # Check if any filtered object is in the FoV
