@@ -8,8 +8,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ZoneLabelBinarySensor(MQTTBinarySensor):
-    def __init__(self, config, name, label):
-        super().__init__(config, f"{name} {label}")
+    def __init__(self, config, mqtt_queue, name, label):
+        super().__init__(config, mqtt_queue, f"{name} {label}")
         self._name = name
         self._label = label
 
@@ -22,8 +22,8 @@ class ZoneLabelBinarySensor(MQTTBinarySensor):
 
 
 class ZoneBinarySensor(MQTTBinarySensor):
-    def __init__(self, config, name):
-        super().__init__(config, name)
+    def __init__(self, config, mqtt_queue, name):
+        super().__init__(config, mqtt_queue, name)
         self._name = name
 
     @property
@@ -35,27 +35,35 @@ class ZoneBinarySensor(MQTTBinarySensor):
 
 
 class Zone:
-    def __init__(self, zone, camera_resolution, config):
+    def __init__(self, zone, camera_resolution, config, mqtt_queue):
         LOGGER.debug(f"Zone: {zone}")
         self._coordinates = zone["coordinates"]
         self._camera_resolution = camera_resolution
         self.config = config
+        self._mqtt_queue = mqtt_queue
+
         self._objects_in_zone = []
+        self._labels_in_zone = []
         self._object_filters = {}
         zone_labels = (
             zone["labels"] if zone["labels"] else config.object_detection.labels
         )
         for object_filter in zone_labels:
             self._object_filters[object_filter.label] = Filter(object_filter)
+
         self._mqtt_devices = {}
-        self._mqtt_devices["zone"] = ZoneBinarySensor(config, zone["name"])
-        for label in zone_labels:
-            self._mqtt_devices[label] = ZoneLabelBinarySensor(
-                config, zone["name"], label.label
+        if self._mqtt_queue:
+            self._mqtt_devices["zone"] = ZoneBinarySensor(
+                config, mqtt_queue, zone["name"]
             )
+            for label in zone_labels:
+                self._mqtt_devices[label] = ZoneLabelBinarySensor(
+                    config, mqtt_queue, zone["name"], label.label
+                )
 
     def filter_zone(self, objects):
-        self._objects_in_zone = []
+        objects_in_zone = []
+        labels_in_zone = []
         for obj in objects:
             if self._object_filters.get(obj["label"]) and self._object_filters[
                 obj["label"]
@@ -71,7 +79,12 @@ class Zone:
                 )
                 middle = ((x2 - x1) / 2) + x1
                 if cv2.pointPolygonTest(self.coordinates, (middle, y2), False) >= 0:
-                    self._objects_in_zone.append(obj)
+                    objects_in_zone.append(obj)
+                    if obj["label"] not in labels_in_zone:
+                        labels_in_zone.append(obj["label"])
+
+        self.objects_in_zone = objects_in_zone
+        self.labels_in_zone = labels_in_zone
 
     def on_connect(self, client):
         for device in self._mqtt_devices.values():
@@ -84,3 +97,26 @@ class Zone:
     @property
     def objects_in_zone(self):
         return self._objects_in_zone
+
+    @objects_in_zone.setter
+    def objects_in_zone(self, value):
+        if value == self._objects_in_zone:
+            return
+
+        self._objects_in_zone = value
+        if self._mqtt_queue:
+            self._mqtt_devices["zone"].publish(True)
+
+    @property
+    def labels_in_zone(self):
+        return self._objects_in_zone
+
+    @labels_in_zone.setter
+    def labels_in_zone(self, value):
+        if value == self._labels_in_zone:
+            return
+
+        self._labels_in_zone = value
+        if self._mqtt_queue:
+            for label in value:
+                self._mqtt_devices[label].publish(True)

@@ -2,8 +2,9 @@ import json
 
 
 class MQTTBinarySensor:
-    def __init__(self, config, name=None):
+    def __init__(self, config, mqtt_queue, name=None):
         self.config = config
+        self.mqtt_queue = mqtt_queue
         self.name = f"{self.config.camera.mqtt_name} {name}" if name else name
 
     @property
@@ -38,3 +39,10 @@ class MQTTBinarySensor:
             self.config_topic, payload=self.config_payload, retain=True,
         )
         client.publish(self.state_topic, payload=json.dumps({"state": "off"}))
+
+    def publish(self, value):
+        payload = {}
+        payload["state"] = "on" if value else "off"
+        self.mqtt_queue.put(
+            {"topic": self.state_topic, "payload": json.dumps(payload, indent=3)}
+        )

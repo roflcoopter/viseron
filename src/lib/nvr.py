@@ -38,7 +38,10 @@ class MQTT:
             draw_objects(
                 frame.decoded_frame_mat_rgb, frame.objects, resolution,
             )
-            ret, jpg = cv2.imencode(".jpg", frame.decoded_frame_mat_rgb)
+            # Write a low quality image to save bandwidth
+            ret, jpg = cv2.imencode(
+                ".jpg", frame.decoded_frame_mat_rgb, [int(cv2.IMWRITE_JPEG_QUALITY), 50]
+            )
             if ret:
                 self.mqtt_queue.put(
                     {"topic": self.mqtt_camera_state_topic, "payload": jpg.tobytes()}
@@ -211,7 +214,9 @@ class FFMPEGNVR(Thread, MQTT):
         self._zones = []
         self._logger.debug(self.config)
         for zone in self.config.camera.zones:
-            self._zones.append(Zone(zone, self.ffmpeg.resolution, self.config))
+            self._zones.append(
+                Zone(zone, self.ffmpeg.resolution, self.config, self.mqtt_queue)
+            )
 
         # Motion detector class.
         if self.config.motion_detection.timeout or self.config.motion_detection.trigger:
