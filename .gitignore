@@ -13,6 +13,8 @@
 !src/*
 !src/lib
 !src/lib/*
+!src/lib/mqtt
+!src/lib/mqtt/*
 !.dockerignore
 !.gitignore
 !Dockerfile
