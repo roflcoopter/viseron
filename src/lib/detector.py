@@ -43,7 +43,6 @@ class Detector:
     def object_detection(self, detector_queue):
         while True:
             frame = detector_queue.get()
-
             frame["frame"].objects = self.ObjectDetection.return_objects(frame)
             pop_if_full(
                 frame["object_return_queue"], frame,
