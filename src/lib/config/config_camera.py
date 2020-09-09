@@ -19,6 +19,7 @@ from const import (
 )
 from lib.helpers import slugify
 
+from .config_logging import SCHEMA as LOGGING_SCHEMA
 from .config_object_detection import LABELS_SCHEMA
 
 LOGGER = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ SCHEMA = Schema(
                     ): check_for_hwaccels,
                     Optional("codec", default=""): str,
                     Optional("filter_args", default=[]): list,
+                    Optional("logging", default={}): LOGGING_SCHEMA,
                     Optional("motion_detection", default=None): Any(
                         {
                             Optional("interval"): Any(int, float),
@@ -144,6 +146,7 @@ class CameraConfig:
         self._motion_detection = camera.motion_detection
         self._object_detection = camera.object_detection
         self._zones = self.generate_zones(camera.zones)
+        self._logging = camera.logging
 
     def generate_zones(self, zones):
         zone_list = []
@@ -260,3 +263,7 @@ class CameraConfig:
     @property
     def zones(self):
         return self._zones
+
+    @property
+    def logging(self):
+        return self._logging

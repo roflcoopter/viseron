@@ -1,22 +1,13 @@
 from voluptuous import All, Any, Optional, Schema
 
-
-def upper_case(data: dict) -> dict:
-    if data.get("level"):
-        data["level"] = data["level"].upper()
-    return data
+LOG_LEVELS = Any("DEBUG", "INFO", "WARNING", "ERROR", "FATAL")
 
 
-SCHEMA = Schema(
-    All(
-        upper_case,
-        {
-            Optional("level", default="INFO"): Any(
-                "DEBUG", "INFO", "WARNING", "ERROR", "FATAL"
-            )
-        },
-    )
-)
+def upper_case(data: str) -> str:
+    return data.upper()
+
+
+SCHEMA = Schema({Optional("level", default="INFO"): All(str, upper_case, LOG_LEVELS)})
 
 
 class LoggingConfig:
