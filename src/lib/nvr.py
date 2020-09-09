@@ -17,6 +17,9 @@ LOGGER = logging.getLogger(__name__)
 class MQTT:
     def __init__(self, config, mqtt_queue):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
+        if getattr(config.camera.logging, "level", None):
+            self._logger.setLevel(config.camera.logging.level)
+
         self.config = config
         self.mqtt_queue = mqtt_queue
         self._zones = []
@@ -67,7 +70,6 @@ class MQTT:
         )
 
         for zone in self._zones:
-            LOGGER.debug(f"Setting up MQTT for {zone}")
             zone.on_connect(client)
 
         subscriptions = []

@@ -115,6 +115,9 @@ class Frame:
 class FFMPEGCamera:
     def __init__(self, config, frame_buffer):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
+        if getattr(config.camera.logging, "level", None):
+            self._logger.setLevel(config.camera.logging.level)
+
         self._logger.debug("Initializing ffmpeg RTSP pipe")
         self.config = config
 
