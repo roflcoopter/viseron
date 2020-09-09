@@ -27,7 +27,7 @@ class MQTTBinarySensor:
         payload = {}
         payload["name"] = self.name if self.name else self.config.camera.mqtt_name
         payload["state_topic"] = self.state_topic
-        payload["value_template"] = "{{ value_json.state }}"
+        payload["value_template"] = "{{ value | upper }}"
         payload["availability_topic"] = self.config.mqtt.last_will_topic
         payload["payload_available"] = "alive"
         payload["payload_not_available"] = "dead"
@@ -38,11 +38,9 @@ class MQTTBinarySensor:
         client.publish(
             self.config_topic, payload=self.config_payload, retain=True,
         )
-        client.publish(self.state_topic, payload=json.dumps({"state": "off"}))
+        client.publish(self.state_topic, payload="off")
 
     def publish(self, value):
-        payload = {}
-        payload["state"] = "on" if value else "off"
         self.mqtt_queue.put(
-            {"topic": self.state_topic, "payload": json.dumps(payload, indent=3)}
+            {"topic": self.state_topic, "payload": ("on" if value else "off")}
         )

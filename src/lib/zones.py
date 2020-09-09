@@ -36,11 +36,11 @@ class ZoneBinarySensor(MQTTBinarySensor):
 
 class Zone:
     def __init__(self, zone, camera_resolution, config, mqtt_queue):
-        LOGGER.debug(f"Zone: {zone}")
         self._coordinates = zone["coordinates"]
         self._camera_resolution = camera_resolution
         self.config = config
         self._mqtt_queue = mqtt_queue
+        self._zone = zone
 
         self._objects_in_zone = []
         self._labels_in_zone = []
@@ -57,7 +57,7 @@ class Zone:
                 config, mqtt_queue, zone["name"]
             )
             for label in zone_labels:
-                self._mqtt_devices[label] = ZoneLabelBinarySensor(
+                self._mqtt_devices[label.label] = ZoneLabelBinarySensor(
                     config, mqtt_queue, zone["name"], label.label
                 )
 
@@ -105,18 +105,24 @@ class Zone:
 
         self._objects_in_zone = value
         if self._mqtt_queue:
-            self._mqtt_devices["zone"].publish(True)
+            self._mqtt_devices["zone"].publish(bool(value))
 
     @property
     def labels_in_zone(self):
         return self._objects_in_zone
 
     @labels_in_zone.setter
-    def labels_in_zone(self, value):
-        if value == self._labels_in_zone:
+    def labels_in_zone(self, labels_in_zone):
+        if labels_in_zone == self._labels_in_zone:
             return
 
-        self._labels_in_zone = value
+        labels_added = list(set(labels_in_zone) - set(self._labels_in_zone))
+        labels_removed = list(set(self._labels_in_zone) - set(labels_in_zone))
+
         if self._mqtt_queue:
-            for label in value:
+            for label in labels_added:
                 self._mqtt_devices[label].publish(True)
+            for label in labels_removed:
+                self._mqtt_devices[label].publish(False)
+
+        self._labels_in_zone = labels_in_zone
