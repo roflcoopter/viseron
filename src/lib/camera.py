@@ -130,21 +130,25 @@ class FFMPEGCamera:
         self.frame = None
 
         if (
-            self.config.camera.width
-            and self.config.camera.height
-            and self.config.camera.fps
+            not self.config.camera.width
+            or not self.config.camera.height
+            or not self.config.camera.fps
         ):
-            self.stream_width, self.stream_height, self.stream_fps = (
-                self.config.camera.width,
-                self.config.camera.height,
-                self.config.camera.fps,
-            )
-        else:
             (
-                self.stream_width,
-                self.stream_height,
-                self.stream_fps,
+                stream_width,
+                stream_height,
+                stream_fps,
             ) = self.get_stream_characteristics(self.config.camera.stream_url)
+
+        self.stream_width = (
+            self.config.camera.width if self.config.camera.width else stream_width
+        )
+        self.stream_height = (
+            self.config.camera.height if self.config.camera.height else stream_height
+        )
+        self.stream_fps = (
+            self.config.camera.fps if self.config.camera.fps else stream_fps
+        )
 
         self.resolution = self.stream_width, self.stream_height
         frame_buffer_size = self.stream_fps * self.config.recorder.lookback
