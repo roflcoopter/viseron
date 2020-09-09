@@ -367,12 +367,12 @@ class FFMPEGNVR(Thread, MQTT):
         if self.object_in_view:
             self.idle_frames = 0
             if not self.recorder.is_recording:
-                thumbnail = draw_objects(
+                draw_objects(
                     frame.decoded_frame_umat_rgb,
                     filtered_objects,
                     self.ffmpeg.resolution,
                 )
-                self.start_recording(thumbnail)
+                self.start_recording(frame)
 
     def run(self):
         """ Main thread. It handles starting/stopping of recordings and
@@ -402,13 +402,13 @@ class FFMPEGNVR(Thread, MQTT):
                 self.object_in_view = False
 
             # Check if any filtered object is in a particular zone
-            if filtered_objects:
+            if processed_frame:
                 self.filter_zones(processed_frame.objects)
 
             self.object_detection(processed_frame, filtered_objects)
             self.motion()
 
-            if processed_frame:
+            if processed_frame and self.config.camera.publish_image:
                 self.publish_image(processed_frame, self._zones, self.ffmpeg.resolution)
 
             # If we are recording and no object is detected
