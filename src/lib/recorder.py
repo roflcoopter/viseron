@@ -69,7 +69,7 @@ class FFMPEGRecorder:
     def create_thumbnail(self, file_name, frame):
         cv2.imwrite(file_name, frame)
 
-    def start_recording(self, thumbnail, width, height, fps):
+    def start_recording(self, frame, width, height, fps):
         LOGGER.info("Starting recorder")
         self.is_recording = True
 
@@ -96,7 +96,9 @@ class FFMPEGRecorder:
         except FileExistsError:
             LOGGER.error("Folder already exists")
 
-        self.create_thumbnail(os.path.join(full_path, thumbnail_name), thumbnail)
+        self.create_thumbnail(
+            os.path.join(full_path, thumbnail_name), frame.decoded_frame_umat_rgb
+        )
         self.write_frames(os.path.join(full_path, video_name), width, height, fps)
 
     def stop(self):
