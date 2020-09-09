@@ -137,24 +137,37 @@ SCHEMA = Schema(
 class ObjectDetectionConfig:
     schema = SCHEMA
 
-    def __init__(self, object_detection, camera_object_detection):
+    def __init__(self, object_detection, camera_config):
         self._type = object_detection.type
         self._model_path = object_detection.model_path
         self._model_config = object_detection.model_config
         self._label_path = object_detection.label_path
         self._model_width = object_detection.model_width
         self._model_height = object_detection.model_height
-        self._interval = getattr(
-            camera_object_detection, "interval", object_detection.interval
-        )
         self._suppression = object_detection.suppression
-        self._labels = getattr(
-            camera_object_detection, "labels", object_detection.labels
+        if getattr(camera_config, "object_detection", None):
+            self._interval = getattr(
+                camera_config.object_detection, "interval", object_detection.interval
+            )
+            self._labels = getattr(
+                camera_config.object_detection, "labels", object_detection.labels
+            )
+        else:
+            self._interval = object_detection.interval
+            self._labels = object_detection.labels
+
+        self._min_confidence = min(
+            label.confidence for label in self.concat_labels(camera_config)
         )
-        self._tracked_labels = list(
-            tracked_label.label for tracked_label in self.labels
-        )
-        self._min_confidence = min(label.confidence for label in self.labels)
+
+    def concat_labels(self, camera_config):
+        """Creates a concatenated list of global labels + all labels in each zone"""
+        zone_labels = []
+        for zone in getattr(camera_config, "zones", []):
+            if zone.get("labels", None):
+                zone_labels += zone["labels"]
+
+        return self.labels + zone_labels
 
     @property
     def type(self):
@@ -195,10 +208,6 @@ class ObjectDetectionConfig:
     @property
     def labels(self):
         return self._labels
-
-    @property
-    def tracked_labels(self):
-        return self._tracked_labels
 
     @property
     def dnn_preferable_backend(self):
