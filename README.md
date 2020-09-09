@@ -5,20 +5,22 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
 # Notable features
 - Records videos on detected objects
 - Lookback, buffers frames to record before the event actually happened
-- Multiplatform, should support any x86-64 machine running Linux, aswell as RPi3
+- Multiplatform, should support any x86-64 machine running Linux, aswell as RPi3.\
 Builds are tested and verified on the following platforms:
   - Ubuntu 18.04 with Nvidia GPU
   - Ubuntu 18.04 running on an Intel NUC
   - RaspberryPi 3B+
-
 - Supports multiple different object detectors:
   - Yolo Darknet using OpenCV
   - Tensorflow via Google Coral EdgeTPU
-
+- Motion detection
+- Native support for RTSP and MJPEG
 - Supports hardware acceleration on different platforms
   - CUDA for systems with a supported GPU
   - OpenCL
   - OpenMax and MMAL on the RaspberryPi 3B+
+- Zones to limit detection to a particular area to reduce false positives
+- Home Assistant integration via MQTT
 
 # Getting started
 Choose the appropriate docker container for your machine. Builds are published to [Docker Hub](https://hub.docker.com/repository/docker/roflcoopter/viseron)
@@ -212,7 +214,10 @@ The command is built like this: \
 | codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
 | filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | motion_detection | dictionary | optional | see [Motion detection config](#motion-detection) | Overrides the global ```motion_detection``` config |
-| object_detection | list | optional | see [Camera object detection config](#camera-object-detection) below | Overrides the global ```object_detection``` config |
+| object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) below | Overrides the global ```object_detection``` config |
+| zones | list | optional | see [Zones config](#zones) below | Allows you to specify zones to further filter detections |
+| publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones/objects |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for this camera |
 
 The default command varies a bit depending on the supported hardware:
 <details>
@@ -242,8 +247,77 @@ The default command varies a bit depending on the supported hardware:
 ### Camera object detection
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| interval | float | optiona | any float | Run object detection at this interval in seconds. Overrides global [config](#object-detection) |
-| labels | list | optional | any float | A list of [labels](#labels) | 
+| interval | float | optional | any float | Run object detection at this interval in seconds. Overrides global [config](#object-detection) |
+| labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). | 
+
+### Zones
+
+<details>
+  <summary>Config example</summary>
+
+  ```yaml
+  cameras:
+    - name: name
+      host: ip
+      port: port
+      path: /Streaming/Channels/101/
+      zones:
+        - name: zone1
+          points:
+            - x: 0
+              y: 500
+            - x: 1920
+              y: 500
+            - x: 1920
+              y: 1080
+            - x: 0
+              y: 1080
+          labels:
+            - label: person
+              confidence: 0.9
+        - name: zone2
+          points:
+            - x: 0
+              y: 0
+            - x: 500
+              y: 0
+            - x: 500
+              y: 500
+            - x: 0
+              y: 500
+          labels:
+            - label: cat
+              confidence: 0.5
+  ```
+</details>
+
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| name | str | **required** | any str | Zone name, used in MQTT topic. Should be unique |
+| points | list | **required** | a list of [points](#points) | Used to draw a polygon of the zone
+| labels | list | optional | any float | A list of [labels](#labels) to track in the zone. Overrides global [config](#labels). | 
+To easily genereate points you can use a tool like [image-map.net](https://www.image-map.net/).\
+Just upload an image from your camera and start drawing your zone.\
+Then click **Show me the code!** and adapt it to the config format.\
+Coordinates ```coords="522,11,729,275,333,603,171,97"``` should be turned into this:
+```yaml
+points:
+  - x: 522
+    y: 11
+  - x: 729
+    y: 275
+  - x: 333
+    y: 603
+  - x: 171
+    y: 97
+```
+
+### Points
+Points are used to form a polygon.
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| x | int | **required** | any int | X-coordinate of point |
+| y | int | **required** | any int | Y-coordinate of point |
 
 ## Object detection
 <details>
@@ -276,7 +350,7 @@ The default command varies a bit depending on the supported hardware:
 | interval | float | 1.0 | any float | Run object detection at this interval in seconds. |
 | confidence | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects |
 | suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections |
-| labels | list | optional | any string | A list of [labels](#labels) |
+| labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
 
 ### Labels
 | Name | Type | Default | Supported options | Description |
@@ -455,6 +529,31 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or 
 | viseron | ~23% | Scanning for objects only |
 | viseron | ~24% | Scanning for motion and objects |
 
+# Home Assistant Integration
+Viseron integrates into Home Assistant using MQTT discovery and is enabled by default if you configure MQTT.\
+Viseron will create a number of entities depending on your configuration.
+
+**Camera entity**\
+A camera entity will be created for each camera\
+Default state topic: ```homeassistant/camera/{mqtt_name from camera config}/image```\
+Images will be published to this topic with drawn objects and zones.
+
+**Binary Sensors**\
+A variable amount of binary sensors will be created based on your configuration.
+1) A binary sensor showing if any tracked object is in view.\
+   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/state```
+2) A binary sensor for each tracked object showing if the label is in view.\
+   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{label}/state```
+3) A binary sensor for each zone showing if any tracked object is in the zone.\
+   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone}/state```
+4) A binary sensor for each tracked object in a zone showing if the label is in the zone.\
+   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone}_{label}/state```
+
+**Switch**\
+A switch entity will be created for each camera.\
+At the moment this does nothing but in the future it will be used to arm/disarm the camera.\
+Default state topic: ```homeassistant/switch/{mqtt_name from camera config}/state```\
+Default command topic: ```homeassistant/switch/{mqtt_name from camera config}/set```\
 
 # Ideas and upcoming features
 - UI
