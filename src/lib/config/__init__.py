@@ -130,8 +130,7 @@ class ViseronConfig:
 
         self._cameras = self.config.cameras
         self._object_detection = ObjectDetectionConfig(
-            self.config.object_detection,
-            getattr(self._camera, "object_detection", None) if self._camera else None,
+            self.config.object_detection, self._camera,
         )
         self._motion_detection = MotionDetectionConfig(
             self.config.motion_detection,
