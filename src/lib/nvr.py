@@ -222,11 +222,7 @@ class FFMPEGNVR(Thread, MQTT):
 
         # Motion detector class.
         if self.config.motion_detection.timeout or self.config.motion_detection.trigger:
-            self.motion_detector = MotionDetection(
-                self.motion_event,
-                self.config.motion_detection.area,
-                self.config.motion_detection.frames,
-            )
+            self.motion_detector = MotionDetection(self.config, self.motion_event)
             self.motion_thread = Thread(
                 target=self.motion_detector.motion_detection, args=(motion_queue,)
             )

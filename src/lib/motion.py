@@ -4,16 +4,18 @@ from queue import Empty
 import cv2
 import imutils
 
-LOGGER = logging.getLogger(__name__)
-
 
 class MotionDetection:
-    def __init__(self, motion_event, min_motion_area, motion_frames):
+    def __init__(self, config, motion_event):
+        self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
+        if getattr(config.camera.logging, "level", None):
+            self._logger.setLevel(config.camera.logging.level)
+
         self.avg = None
         self._motion_detected = False
         self.motion_area = 0
-        self.min_motion_area = min_motion_area
-        self.motion_frames = motion_frames
+        self.min_motion_area = config.motion_detection.area
+        self.motion_frames = config.motion_detection.frames
         self.motion_event = motion_event
 
     def detect(self, frame):
@@ -63,7 +65,7 @@ class MotionDetection:
 
                 if _motion_found:
                     _motion_frames += 1
-                    LOGGER.debug(
+                    self._logger.debug(
                         "Motion frames: {}, "
                         "area: {}".format(_motion_frames, max_contour)
                     )
@@ -77,7 +79,7 @@ class MotionDetection:
                     _motion_frames = 0
 
             except Empty:
-                LOGGER.error("Frame not grabbed for motion detector")
+                self._logger.error("Frame not grabbed for motion detector")
 
             if self.motion_detected:
                 self.motion_detected = False
@@ -94,5 +96,5 @@ class MotionDetection:
             self.motion_event.set()
 
         else:
-            LOGGER.debug("Motion has ended")
+            self._logger.debug("Motion has ended")
             self.motion_event.clear()
