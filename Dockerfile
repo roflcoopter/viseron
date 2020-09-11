@@ -15,10 +15,10 @@ RUN apt-get update && \
   curl \
   # VAAPI drivers for Intel hardware accel
   libva-drm2 libva2 i965-va-driver vainfo && \
+  # Google Coral
   wget -q https://bootstrap.pypa.io/get-pip.py && \
   python3 get-pip.py && \
   rm get-pip.py && \
-  # Google Coral
   echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" > /etc/apt/sources.list.d/coral-edgetpu.list && \
   wget -q -O - https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
   apt-get update && \

@@ -24,11 +24,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libatlas-base-dev gfortran libtbb-dev \
     # OpenCL
     ocl-icd-libopencl1 \
-    clinfo \
-    && rm -rf /var/lib/apt/lists/*
+    clinfo && \
+    # Google Coral
+    wget -q https://bootstrap.pypa.io/get-pip.py && \
+    python3 get-pip.py && \
+    rm get-pip.py && \
+    echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" > /etc/apt/sources.list.d/coral-edgetpu.list && \
+    wget -q -O - https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
+    apt-get update && \
+    echo "libedgetpu1-max libedgetpu/accepted-eula boolean true" | debconf-set-selections && \
+    apt-get install --no-install-recommends -y \
+    libedgetpu1-max && \
+    pip3 install https://dl.google.com/coral/python/tflite_runtime-2.1.0.post1-cp36-cp36m-linux_x86_64.whl && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get autoremove -y && \
+    apt-get autoclean -y
 
 # Fetch models for YOLOv4 darknet
-RUN mkdir -p /detectors/models/darknet && \
+RUN mkdir -p /detectors/models/edgetpu/classification && \
+    # EdgeTPU MobileNet SSD v2 Object Detection model
+    wget https://dl.google.com/coral/canned_models/mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite -O /detectors/models/edgetpu/model.tflite --progress=bar:force:noscroll && \
+    wget https://dl.google.com/coral/canned_models/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll && \
+    mkdir -p /detectors/models/darknet && \
     wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights -O /detectors/models/darknet/yolo.weights --progress=bar:force:noscroll && \
     wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4.cfg -O /detectors/models/darknet/yolo.cfg --progress=bar:force:noscroll && \
     wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
@@ -50,10 +67,7 @@ RUN mkdir /opencl &&\
 
 # Python dependencies
 ADD requirements.txt requirements.txt
-RUN wget https://bootstrap.pypa.io/get-pip.py --progress=bar:force:noscroll && \
-    python3 get-pip.py && \
-    rm get-pip.py && \
-    pip3 install --no-cache-dir \
+RUN pip3 install --no-cache-dir \
     -r requirements.txt && \
     rm requirements.txt
 

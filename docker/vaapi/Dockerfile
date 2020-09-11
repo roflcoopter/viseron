@@ -13,29 +13,22 @@ RUN apt-get update && \
         curl \
         gfortran \
         git \
-        #        libass-dev \
+        gnupg2 \
         libatlas-base-dev \
         libavcodec-dev \
         libavformat-dev \
-        #        libfdk-aac-dev \
         libgtk2.0-dev \
         libgtk-3-dev \
         libjpeg-dev \
-        #        libmp3lame-dev \
-        #        libopus-dev \
         libpng-dev \
         libpq-dev \
         libswscale-dev \
         libtbb2 \
         libtbb-dev \
         libtiff-dev \
-        #        libtheora-dev \
         libv4l-dev \
         libx264-dev \
-        #        libxvidcore-dev \
         libvorbis-dev \
-        #        libvpx-dev \
-        #        libspeex-dev \
         mercurial \
         nano \
         pkg-config \
@@ -50,16 +43,25 @@ RUN apt-get update && \
         yasm \
         libavdevice-dev \
         libavutil-dev libswresample-dev libavfilter-dev \
-        #        libwebp-dev \
         libomxil-bellagio-dev \
         i965-va-driver \
-        # Coral dependencies
+        # Google Coral
         libusb-1.0-0 \
-        python3-pip \
         libc++1 \
         libc++abi1 \
         libunwind8 \
-        libgcc1
+        libgcc1 && \
+        wget -q https://bootstrap.pypa.io/get-pip.py && \
+        python3 get-pip.py && \
+        rm get-pip.py && \
+        echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" > /etc/apt/sources.list.d/coral-edgetpu.list && \
+        wget -q -O - https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
+        apt-get update && \
+        echo "libedgetpu1-max libedgetpu/accepted-eula boolean true" | debconf-set-selections && \
+        apt-get install --no-install-recommends -y \
+        libedgetpu1-max && \
+        pip3 install https://dl.google.com/coral/python/tflite_runtime-2.1.0.post1-cp36-cp36m-linux_x86_64.whl
+
 
 # Install ffmpeg from source
 WORKDIR /
@@ -170,9 +172,14 @@ RUN wget https://bootstrap.pypa.io/get-pip.py --progress=bar:force:noscroll && \
         -r requirements.txt && \
         rm requirements.txt
 
-# Fetch models for YOLOv3 darknet
-# We are using YOLOv3 since YOLOv4 has issues with OopenCL right now https://github.com/opencv/opencv/issues/17762
-RUN mkdir -p /detectors/models/darknet && \
+# Fetch models
+RUN mkdir -p /detectors/models/edgetpu/classification && \
+        # EdgeTPU MobileNet SSD v2 Object Detection model
+        wget https://dl.google.com/coral/canned_models/mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite -O /detectors/models/edgetpu/model.tflite --progress=bar:force:noscroll && \
+        wget https://dl.google.com/coral/canned_models/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll && \
+        # Fetch models for YOLO darknet
+        # We are using YOLOv3 since YOLOv4 has issues with OopenCL right now https://github.com/opencv/opencv/issues/17762
+        mkdir -p /detectors/models/darknet && \
         wget https://pjreddie.com/media/files/yolov3-tiny.weights -O /detectors/models/darknet/yolo.weights --progress=bar:force:noscroll && \
         wget https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg -O /detectors/models/darknet/yolo.cfg --progress=bar:force:noscroll && \
         wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
@@ -181,7 +188,9 @@ RUN mkdir -p /detectors/models/darknet && \
 RUN apt-get autoremove -y && \
         apt-get clean && \
         rm -rf /libva /intel-vaapi-driver /libva-utils && \
-        rm -rf /root/opencv.zip /root/opencv_contrib.zip /var/lib/apt/lists/*
+        rm -rf /root/opencv.zip /root/opencv_contrib.zip /var/lib/apt/lists/* && \
+        apt-get autoremove -y && \
+        apt-get autoclean -y
 
 ENV PATH=/root/bin:$PATH
 
