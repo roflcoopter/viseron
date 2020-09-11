@@ -351,6 +351,7 @@ Points are used to form a polygon.
 | confidence | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects |
 | suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections |
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
+| logging | dictionary | optional | see [Logging](#logging) | Set the log level for the object detector |
 
 ### Labels
 | Name | Type | Default | Supported options | Description |
@@ -387,6 +388,7 @@ Points are used to form a polygon.
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
 | area | int | 6000 | any integer | How big the detected area must be in order to trigger motion |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
+| logging | dictionary | optional | see [Logging](#logging) | Set the log level for the motion detector. Can be set for each camera individually. |
 
 TODO Future releases will make the motion detection easier to fine tune. Right now its a guessing game
 
