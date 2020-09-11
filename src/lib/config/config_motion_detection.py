@@ -1,11 +1,8 @@
 import logging
 
-from voluptuous import (
-    Any,
-    Required,
-    Schema,
-    Optional,
-)
+from voluptuous import Optional, Schema
+
+from .config_logging import SCHEMA as LOGGING_SCHEMA
 
 LOGGER = logging.getLogger(__name__)
 
@@ -28,6 +25,7 @@ SCHEMA = Schema(
         Optional("height", default=DEFAULTS["height"]): int,
         Optional("area", default=DEFAULTS["area"]): int,
         Optional("frames", default=DEFAULTS["frames"]): int,
+        Optional("logging", default={}): LOGGING_SCHEMA,
     },
 )
 
@@ -53,6 +51,9 @@ class MotionDetectionConfig:
         self._area = getattr(camera_motion_detection, "area", motion_detection.area)
         self._frames = getattr(
             camera_motion_detection, "frames", motion_detection.frames
+        )
+        self._logging = getattr(
+            camera_motion_detection, "logging", motion_detection.logging
         )
 
     @property
@@ -82,3 +83,7 @@ class MotionDetectionConfig:
     @property
     def frames(self):
         return self._frames
+
+    @property
+    def logging(self):
+        return self._logging

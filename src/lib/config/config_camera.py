@@ -105,6 +105,7 @@ SCHEMA = Schema(
                             Optional("height"): int,
                             Optional("area"): int,
                             Optional("frames"): int,
+                            Optional("logging", default={}): LOGGING_SCHEMA,
                         },
                         None,
                     ),

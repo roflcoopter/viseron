@@ -8,7 +8,9 @@ import imutils
 class MotionDetection:
     def __init__(self, config, motion_event):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
-        if getattr(config.camera.logging, "level", None):
+        if getattr(config.motion_detection.logging, "level", None):
+            self._logger.setLevel(config.motion_detection.logging.level)
+        elif getattr(config.camera.logging, "level", None):
             self._logger.setLevel(config.camera.logging.level)
 
         self.avg = None
