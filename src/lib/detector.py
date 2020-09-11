@@ -9,6 +9,9 @@ LOGGER = logging.getLogger(__name__)
 class Detector:
     def __init__(self, config):
         LOGGER.info("Initializing detection thread")
+        if getattr(config.object_detection.logging, "level", None):
+            LOGGER.setLevel(config.object_detection.logging.level)
+
         self.config = config
 
         # Activate OpenCL

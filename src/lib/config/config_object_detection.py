@@ -2,21 +2,6 @@ import logging
 import os
 from typing import Union
 
-from const import (
-    ENV_CUDA_SUPPORTED,
-    ENV_OPENCL_SUPPORTED,
-    ENV_RASPBERRYPI3,
-    DARKNET_DEFAULTS,
-    EDGETPU_DEFAULTS,
-)
-from cv2.dnn import (
-    DNN_BACKEND_CUDA,
-    DNN_BACKEND_DEFAULT,
-    DNN_BACKEND_OPENCV,
-    DNN_TARGET_CPU,
-    DNN_TARGET_CUDA,
-    DNN_TARGET_OPENCL,
-)
 from voluptuous import (
     All,
     Any,
@@ -28,6 +13,24 @@ from voluptuous import (
     Required,
     Schema,
 )
+
+from const import (
+    DARKNET_DEFAULTS,
+    EDGETPU_DEFAULTS,
+    ENV_CUDA_SUPPORTED,
+    ENV_OPENCL_SUPPORTED,
+    ENV_RASPBERRYPI3,
+)
+from cv2.dnn import (
+    DNN_BACKEND_CUDA,
+    DNN_BACKEND_DEFAULT,
+    DNN_BACKEND_OPENCV,
+    DNN_TARGET_CPU,
+    DNN_TARGET_CUDA,
+    DNN_TARGET_OPENCL,
+)
+
+from .config_logging import SCHEMA as LOGGING_SCHEMA
 
 LOGGER = logging.getLogger(__name__)
 
@@ -130,6 +133,7 @@ SCHEMA = Schema(
         ),
         Optional("interval", default=1): int,
         Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
+        Optional("logging", default={}): LOGGING_SCHEMA,
     }
 )
 
@@ -145,6 +149,8 @@ class ObjectDetectionConfig:
         self._model_width = object_detection.model_width
         self._model_height = object_detection.model_height
         self._suppression = object_detection.suppression
+        self._logging = object_detection.logging
+
         if getattr(camera_config, "object_detection", None):
             self._interval = getattr(
                 camera_config.object_detection, "interval", object_detection.interval
@@ -224,3 +230,7 @@ class ObjectDetectionConfig:
         if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
             return DNN_TARGET_OPENCL
         return DNN_TARGET_CPU
+
+    @property
+    def logging(self):
+        return self._logging
