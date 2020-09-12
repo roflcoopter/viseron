@@ -216,7 +216,7 @@ The command is built like this: \
 | motion_detection | dictionary | optional | see [Motion detection config](#motion-detection) | Overrides the global ```motion_detection``` config |
 | object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) below | Overrides the global ```object_detection``` config |
 | zones | list | optional | see [Zones config](#zones) below | Allows you to specify zones to further filter detections |
-| publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones/objects |
+| publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones/objects.<br><b>Note: this will use significant amounts of CPU and should only be used for debugging</b> |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for this camera |
 
 The default command varies a bit depending on the supported hardware:
@@ -356,12 +356,12 @@ Points are used to form a polygon.
 ### Labels
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| label | str | person | any string | 	Can be any label present in the detection model |
+| label | str | person | any string | Can be any label present in the detection model |
 | height_min | float | 0 | float between 0 and 1 | Minimum height allowed for detected objects, relative to stream height |
 | height_max | float | 1 | float between 0 and 1 | Maximum height allowed for detected objects, relative to stream height |
 | width_min | float | 0 | float between 0 and 1 | Minimum width allowed for detected objects, relative to stream width |
 | width_max | float | 1 | float between 0 and 1 | Maximum width allowed for detected objects, relative to stream width |
-
+| triggers_recording | bool | True | True/false | If set to True, objects matching this filter will start the recorder and signal over MQTT.<br> If set to False, only signal over MQTT will be sent |
 
 ## Motion detection
 <details>
