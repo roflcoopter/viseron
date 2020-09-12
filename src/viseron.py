@@ -135,7 +135,7 @@ class MyFormatter(logging.Formatter):
 class DuplicateFilter(logging.Filter):
     # pylint: disable=attribute-defined-outside-init
     def filter(self, record):
-        current_log = (record.module, record.levelno, record.msg)
+        current_log = (record.name, record.module, record.levelno, record.msg)
         try:
             if current_log != getattr(self, "last_log", None):
                 self.last_log = current_log
