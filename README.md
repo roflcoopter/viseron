@@ -445,6 +445,9 @@ A default ffmpeg encoder command is generated, which varies a bit depending on t
   ```
 </details>
 
+This means that you do **not** have to set ```hwaccel_args``` *unless* you have a specific need to change the default command (say you need to change ```h264_nvenc``` to ```hevc_nvenc```)
+
+
 ## MQTT
 <details>
   <summary>Config example</summary>
@@ -562,6 +565,9 @@ At the moment this does nothing but in the future it will be used to arm/disarm 
 Default state topic: ```homeassistant/switch/{mqtt_name from camera config}/state```\
 Default command topic: ```homeassistant/switch/{mqtt_name from camera config}/set```\
 
+# Tips
+- If you are experiencing issues with a camera, I suggest you add debug logging to it and examine the logs
+
 # Ideas and upcoming features
 - UI
   - Create a UI for configuration and viewing of recordings
@@ -587,10 +593,8 @@ Default command topic: ```homeassistant/switch/{mqtt_name from camera config}/se
 - Docker
   - Try to reduce container footprint
 
-- Logger
-  - Set loglevel individually for each component
-
 https://devblogs.nvidia.com/object-detection-pipeline-gpus/
 
 ---
-<a href="https://www.buymeacoffee.com/roflcoopter" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+<a href="https://www.buymeacoffee.com/roflcoopter" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a> \
+Donations are very appreciated and will go directly into more hardware for Viseron to support.
