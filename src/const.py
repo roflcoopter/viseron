@@ -74,3 +74,12 @@ EDGETPU_DEFAULTS = {
     "model_path": "/detectors/models/edgetpu/model.tflite",
     "label_path": "/detectors/models/edgetpu/labels.txt",
 }
+
+LOG_LEVELS = {
+    "CRITICAL": 50,
+    "ERROR": 40,
+    "WARNING": 30,
+    "INFO": 20,
+    "DEBUG": 10,
+    "NOTSET": 0,
+}
