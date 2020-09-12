@@ -115,6 +115,7 @@ LABELS_SCHEMA = Schema(
             Optional("height_max", default=1.0): float,
             Optional("width_min", default=0.0): float,
             Optional("width_max", default=1.0): float,
+            Optional("triggers_recording", default=True): bool,
         }
     ]
 )

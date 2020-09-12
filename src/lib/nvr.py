@@ -217,7 +217,6 @@ class FFMPEGNVR(Thread, MQTT):
             self._object_filters[object_filter.label] = Filter(object_filter)
 
         self._zones = []
-        self._logger.debug(self.config)
         for zone in self.config.camera.zones:
             self._zones.append(
                 Zone(zone, self.ffmpeg.resolution, self.config, self._mqtt_queue)
@@ -276,13 +275,14 @@ class FFMPEGNVR(Thread, MQTT):
         self.ffmpeg_decoder.start()
 
         # Initialize recorder
+        self._trigger_recorder = False
         self.recorder_thread = None
         self.recorder = FFMPEGRecorder(self.config, frame_buffer)
         self._logger.debug("NVR thread initialized")
 
     def event_over(self):
-        # if self.object_in_view:
-        #     return False
+        if self._trigger_recorder:
+            return False
         if self.config.motion_detection.timeout and self.motion_event.is_set():
             return False
         return True
@@ -334,6 +334,7 @@ class FFMPEGNVR(Thread, MQTT):
     def filter_fov(self, objects: List[DetectedObject]):
         objects_in_fov = []
         labels_in_fov = []
+        self._trigger_recorder = False
         for obj in objects:
             if self._object_filters.get(obj.label) and self._object_filters[
                 obj.label
@@ -342,6 +343,8 @@ class FFMPEGNVR(Thread, MQTT):
                 objects_in_fov.append(obj)
                 if obj.label not in labels_in_fov:
                     labels_in_fov.append(obj.label)
+                if self._object_filters[obj.label].triggers_recording:
+                    self._trigger_recorder = True
 
         self.objects_in_fov = objects_in_fov
         self.labels_in_fov = labels_in_fov
@@ -383,9 +386,18 @@ class FFMPEGNVR(Thread, MQTT):
         for zone in self._zones:
             zone.filter_zone(objects)
 
-    def motion(self):
+    def process_object_event(self, frame):
+        if self._trigger_recorder or any(zone.trigger_recorder for zone in self._zones):
+            if not self.recorder.is_recording:
+                draw_objects(
+                    frame.decoded_frame_umat_rgb,
+                    self.objects_in_fov,
+                    self.ffmpeg.resolution,
+                )
+                self.start_recording(frame)
+
+    def process_motion_event(self):
         if self.motion_event.is_set():
-            self.idle_frames = 0
             if (
                 self.config.motion_detection.trigger
                 and not self.scan_for_objects.is_set()
@@ -399,17 +411,6 @@ class FFMPEGNVR(Thread, MQTT):
         ):
             self._logger.debug("Not recording, pausing object detector")
             self.scan_for_objects.clear()
-
-    # def object_detection(self, frame, filtered_objects):
-    #     if self.object_in_view:
-    #         self.idle_frames = 0
-    #         if not self.recorder.is_recording:
-    #             draw_objects(
-    #                 frame.decoded_frame_umat_rgb,
-    #                 filtered_objects,
-    #                 self.ffmpeg.resolution,
-    #             )
-    #             self.start_recording(frame)
 
     def run(self):
         """ Main thread. It handles starting/stopping of recordings and
@@ -436,8 +437,8 @@ class FFMPEGNVR(Thread, MQTT):
                 # Filter objects in each zone
                 self.filter_zones(processed_frame.objects)
 
-            # self.object_detection(processed_frame, filtered_objects)
-            self.motion()
+            self.process_object_event(processed_frame)
+            self.process_motion_event()
 
             if processed_frame and self.config.camera.publish_image:
                 self.publish_image(processed_frame, self._zones, self.ffmpeg.resolution)
@@ -446,6 +447,8 @@ class FFMPEGNVR(Thread, MQTT):
             if self.recorder.is_recording and self.event_over():
                 self.idle_frames += 1
                 self.stop_recording()
+                continue
+            self.idle_frames = 0
 
         self._logger.info("Exiting NVR thread")
 

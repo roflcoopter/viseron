@@ -20,6 +20,7 @@ class Zone:
         self._objects_in_zone = []
         self._labels_in_zone = []
         self._object_filters = {}
+        self._trigger_recorder = False
         zone_labels = (
             zone["labels"] if zone["labels"] else config.object_detection.labels
         )
@@ -39,6 +40,7 @@ class Zone:
     def filter_zone(self, objects: List[DetectedObject]):
         objects_in_zone = []
         labels_in_zone = []
+        self._trigger_recorder = False
         for obj in objects:
             if self._object_filters.get(obj.label) and self._object_filters[
                 obj.label
@@ -53,6 +55,8 @@ class Zone:
                     objects_in_zone.append(obj)
                     if obj.label not in labels_in_zone:
                         labels_in_zone.append(obj.label)
+                    if self._object_filters[obj.label].triggers_recording:
+                        self._trigger_recorder = True
 
         self.objects_in_zone = objects_in_zone
         self.labels_in_zone = labels_in_zone
@@ -97,3 +101,7 @@ class Zone:
                 self._mqtt_devices[label].publish(False)
 
         self._labels_in_zone = labels_in_zone
+
+    @property
+    def trigger_recorder(self):
+        return self._trigger_recorder

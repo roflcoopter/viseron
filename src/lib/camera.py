@@ -23,7 +23,6 @@ class Frame:
         self._decoded_frame_mat_rgb = None
         self._resized_frames = {}
         self._objects = []
-        self._filtered_objects = []
         self._motion = False
 
     def decode_frame(self):
@@ -94,14 +93,6 @@ class Frame:
     @objects.setter
     def objects(self, objects):
         self._objects = objects
-
-    @property
-    def filtered_objects(self):
-        return self._objects
-
-    @filtered_objects.setter
-    def filtered_objects(self, filtered_objects):
-        self._filtered_objects = filtered_objects
 
     @property
     def motion(self):

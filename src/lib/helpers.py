@@ -112,6 +112,7 @@ class Filter:
         self._width_max = object_filter.width_max
         self._height_min = object_filter.height_min
         self._height_max = object_filter.height_max
+        self._triggers_recording = object_filter.triggers_recording
 
     def filter_confidence(self, obj):
         if obj.confidence > self._confidence:
@@ -134,3 +135,7 @@ class Filter:
             and self.filter_width(obj)
             and self.filter_height(obj)
         )
+
+    @property
+    def triggers_recording(self):
+        return self._triggers_recording
