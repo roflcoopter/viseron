@@ -416,6 +416,7 @@ TODO Future releases will make the motion detection easier to fine tune. Right n
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder hardware acceleration arguments |
 | codec | str | optional | any supported decoder codec | FFMPEG video encoder codec, eg ```h264_nvenc``` |
 | filter_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder filter arguments |
+| logging | dictionary | optional | see [Logging](#logging) | Set the log level for the recorder |
 
 The default command varies a bit depending on the supported hardware:
 <details>

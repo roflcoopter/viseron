@@ -10,12 +10,17 @@ LOGGER = logging.getLogger(__name__)
 
 class FFMPEGRecorder:
     def __init__(self, config, frame_buffer):
-        LOGGER.debug("Initializing ffmpeg recorder")
+        self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
+        if getattr(config.recorder.logging, "level", None):
+            self._logger.setLevel(config.recorder.logging.level)
+        elif getattr(config.camera.logging, "level", None):
+            self._logger.setLevel(config.camera.logging.level)
+        self._logger.debug("Initializing ffmpeg recorder")
         self.config = config
         self.is_recording = False
         self.writer_pipe = None
         self.frame_buffer = frame_buffer
-        LOGGER.debug(
+        self._logger.debug(
             "FFMPEG encoder command: "
             f"{' '.join(self.build_command('<file>', '<width>', '<height>', '<fps>'))}"
         )
@@ -46,7 +51,7 @@ class FFMPEGRecorder:
 
     def write_frames(self, file_name, width, height, fps):
         command = self.build_command(file_name, width, height, fps)
-        LOGGER.debug(f"FFMPEG command: {' '.join(command)}")
+        self._logger.debug(f"FFMPEG command: {' '.join(command)}")
 
         writer_pipe = sp.Popen(
             command, stdin=sp.PIPE, bufsize=int(width * height * 1.5)
@@ -57,11 +62,11 @@ class FFMPEGRecorder:
                 frame = self.frame_buffer.get(timeout=1)
                 writer_pipe.stdin.write(frame.raw_frame)
             except Empty:
-                LOGGER.error("Timed out")
+                self._logger.error("Timed out")
 
         writer_pipe.stdin.close()
         writer_pipe.wait()
-        LOGGER.info("FFMPEG recorder stopped")
+        self._logger.info("FFMPEG recorder stopped")
 
     def subfolder_name(self, today):
         return f"{today.year:04}-{today.month:02}-{today.day:02}"
@@ -70,11 +75,11 @@ class FFMPEGRecorder:
         cv2.imwrite(file_name, frame)
 
     def start_recording(self, frame, width, height, fps):
-        LOGGER.info("Starting recorder")
+        self._logger.info("Starting recorder")
         self.is_recording = True
 
         if self.config.recorder.folder is None:
-            LOGGER.error("Output directory is not specified")
+            self._logger.error("Output directory is not specified")
             return
 
         # Create filename
@@ -89,12 +94,12 @@ class FFMPEGRecorder:
         )
         try:
             if not os.path.isdir(full_path):
-                LOGGER.info(f"Creating folder {full_path}")
+                self._logger.info(f"Creating folder {full_path}")
                 os.makedirs(full_path)
             else:
-                LOGGER.info("Folder already exists")
+                self._logger.info("Folder already exists")
         except FileExistsError:
-            LOGGER.error("Folder already exists")
+            self._logger.error("Folder already exists")
 
         self.create_thumbnail(
             os.path.join(full_path, thumbnail_name), frame.decoded_frame_umat_rgb
@@ -102,5 +107,5 @@ class FFMPEGRecorder:
         self.write_frames(os.path.join(full_path, video_name), width, height, fps)
 
     def stop(self):
-        LOGGER.info("Stopping recorder")
+        self._logger.info("Stopping recorder")
         self.is_recording = False
