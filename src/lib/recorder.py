@@ -69,7 +69,9 @@ class FFMPEGRecorder:
         self._logger.info("FFMPEG recorder stopped")
 
     def subfolder_name(self, today):
-        return f"{today.year:04}-{today.month:02}-{today.day:02}"
+        return (
+            f"{today.year:04}-{today.month:02}-{today.day:02}/{self.config.camera.name}"
+        )
 
     def create_thumbnail(self, file_name, frame):
         cv2.imwrite(file_name, frame)
