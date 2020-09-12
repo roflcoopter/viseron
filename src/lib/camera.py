@@ -146,7 +146,7 @@ class FFMPEGCamera:
         if frame_buffer_size > 0:
             frame_buffer.maxsize = self.stream_fps * self.config.recorder.lookback
 
-        self._logger.info(
+        self._logger.debug(
             f"Resolution: {self.stream_width}x{self.stream_height} "
             f"@ {self.stream_fps} FPS"
         )
@@ -208,22 +208,27 @@ class FFMPEGCamera:
         self._logger.debug("Starting capture process")
         # First read a single frame to make sure the ffmpeg command is correct
         bytes_to_read = int(self.stream_width * self.stream_height * 1.5)
+        retry = False
         while True:
             pipe = self.pipe(stderr=True, single_frame=True)
             _, stderr = pipe.communicate()
             if stderr and FFMPEG_ERROR_WHILE_DECODING not in stderr.decode():
                 self._logger.error(
-                    f"Error starting decoder pipe! {stderr.decode()}. "
-                    f"Retrying in 10 seconds"
+                    f"Error starting decoder pipe! {stderr.decode()} "
+                    f"Retrying in 5 seconds"
                 )
-                sleep(10)
+                sleep(5)
+                retry = True
                 continue
+            if retry:
+                self._logger.info("Succesful reconnection!")
             break
 
         pipe = self.pipe()
         self.connected = True
 
         object_frame_number = 0
+        object_first_scan = False
         object_decoder_interval_calculated = round(
             object_decoder_interval * self.stream_fps
         )
@@ -255,9 +260,12 @@ class FFMPEGCamera:
             )
             pop_if_full(frame_buffer, self.frame)
 
-            # TODO attempt to synchronize both object and motion detection
             if scan_for_objects.is_set():
                 if object_frame_number % object_decoder_interval_calculated == 0:
+                    if object_first_scan:
+                        # force motion detection on same frame to save computing power
+                        motion_frame_number = 0
+                        object_first_scan = False
                     object_frame_number = 0
                     pop_if_full(
                         object_decoder_queue,
@@ -272,6 +280,7 @@ class FFMPEGCamera:
                 object_frame_number += 1
             else:
                 object_frame_number = 0
+                object_first_scan = True
 
             if scan_for_motion.is_set():
                 if motion_frame_number % motion_decoder_interval_calculated == 0:
