@@ -16,7 +16,9 @@ def calculate_relative_coords(
     return x1_relative, y1_relative, x2_relative, y2_relative
 
 
-def calculate_absolute_coords(bounding_box, frame_res):
+def calculate_absolute_coords(
+    bounding_box: Tuple[int, int, int, int], frame_res: Tuple[int, int]
+) -> Tuple[float, float, float, float]:
     return (
         math.floor(bounding_box[0] * frame_res[0]),
         math.floor(bounding_box[1] * frame_res[1]),
@@ -25,7 +27,11 @@ def calculate_absolute_coords(bounding_box, frame_res):
     )
 
 
-def scale_bounding_box(image_size, bounding_box, target_size):
+def scale_bounding_box(
+    image_size: Tuple[int, int, int, int],
+    bounding_box: Tuple[int, int, int, int],
+    target_size,
+) -> Tuple[float, float, float, float]:
     """Scales a bounding box to target image size"""
     x1p = bounding_box[0] / image_size[0]
     y1p = bounding_box[1] / image_size[1]
