@@ -219,9 +219,9 @@ The command is built like this: \
 | publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones/objects.<br><b>Note: this will use significant amounts of CPU and should only be used for debugging</b> |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for this camera |
 
-The default command varies a bit depending on the supported hardware:
+A default ffmpeg decoder command is generated, which varies a bit depending on the Docker container you use,
 <details>
-  <summary>For Nvidia GPU support</summary>
+  <summary>For Nvidia GPU support in the <b>roflcoopter/viseron-cuda</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -stimeout 5000000 -use_wallclock_as_timestamps 1 -vsync 0 -c:v h264_cuvid -rtsp_transport tcp -i rtsp://<username>:<password>@<host>:<port><path> -f rawvideo -pix_fmt nv12 pipe:1
@@ -229,7 +229,7 @@ The default command varies a bit depending on the supported hardware:
 </details>
 
 <details>
-  <summary>For VAAPI support</summary>
+  <summary>For VAAPI support in the <b>roflcoopter/viseron-vaapi</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -stimeout 5000000 -use_wallclock_as_timestamps 1 -vsync 0 -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -rtsp_transport tcp -i rtsp://<username>:<password>@<host>:<port><path> -f rawvideo -pix_fmt nv12 pipe:1
@@ -237,12 +237,14 @@ The default command varies a bit depending on the supported hardware:
 </details>
 
 <details>
-  <summary>For RPi3</summary>
+  <summary>For RPi3 in the <b>roflcoopter/viseron-rpi</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -stimeout 5000000 -use_wallclock_as_timestamps 1 -vsync 0 -c:v h264_mmal -rtsp_transport tcp -i rtsp://<username>:<password>@<host>:<port><path> -f rawvideo -pix_fmt nv12 pipe:1
   ```
 </details>
+
+This means that you do **not** have to set ```hwaccel_args``` *unless* you have a specific need to change the default command (say you need to change ```h264_cuvid``` to ```hevc_cuvid```)
 
 ### Camera object detection
 | Name | Type | Default | Supported options | Description |
@@ -418,9 +420,9 @@ TODO Future releases will make the motion detection easier to fine tune. Right n
 | filter_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder filter arguments |
 | logging | dictionary | optional | see [Logging](#logging) | Set the log level for the recorder |
 
-The default command varies a bit depending on the supported hardware:
+A default ffmpeg encoder command is generated, which varies a bit depending on the Docker container you use,
 <details>
-  <summary>For Nvidia GPU support</summary>
+  <summary>For Nvidia GPU support in the <b>roflcoopter/viseron-cuda</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_nvenc <file>
@@ -428,7 +430,7 @@ The default command varies a bit depending on the supported hardware:
 </details>
 
 <details>
-  <summary>For VAAPI support</summary>
+  <summary>For VAAPI support in the <b>roflcoopter/viseron-vaapi</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_vaapi -vf "format=nv12|vaapi,hwupload" <file>
@@ -436,7 +438,7 @@ The default command varies a bit depending on the supported hardware:
 </details>
 
 <details>
-  <summary>For RPi3</summary>
+  <summary>For RPi3 in the <b>roflcoopter/viseron-rpi</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_omx <file>
@@ -539,7 +541,9 @@ Viseron will create a number of entities depending on your configuration.
 **Camera entity**\
 A camera entity will be created for each camera\
 Default state topic: ```homeassistant/camera/{mqtt_name from camera config}/image```\
-Images will be published to this topic with drawn objects and zones.
+Images will be published to this topic with drawn objects and zones if ```publish_image: true``` is set in the config.\
+Objects that are discarded by a filter will have blue bounding boxes, while objects who pass the filter will be green.
+Zones are drawn in red. If an object passes its filter and is inside the zone, it will turn green.
 
 **Binary Sensors**\
 A variable amount of binary sensors will be created based on your configuration.
