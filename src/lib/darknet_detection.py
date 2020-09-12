@@ -3,7 +3,7 @@ import configparser
 import logging
 
 import cv2
-from lib.helpers import calculate_relative_coords
+from lib.detector import DetectedObject
 
 LOGGER = logging.getLogger(__name__)
 
@@ -59,21 +59,17 @@ class ObjectDetection:
     def post_process(self, labels, confidences, boxes):
         detections = []
         for (label, confidence, box) in zip(labels, confidences, boxes):
-            relative_coords = calculate_relative_coords(
-                (box[0], box[1], box[0] + box[2], box[1] + box[3]), self.model_res
-            )
-
             detections.append(
-                {
-                    "label": self.labels[int(label[0])],
-                    "confidence": round(confidence[0], 3),
-                    "height": round(relative_coords[3] - relative_coords[1], 3),
-                    "width": round(relative_coords[2] - relative_coords[0], 3),
-                    "relative_x1": round(relative_coords[0], 3),
-                    "relative_y1": round(relative_coords[1], 3),
-                    "relative_x2": round(relative_coords[2], 3),
-                    "relative_y2": round(relative_coords[3], 3),
-                }
+                DetectedObject(
+                    self.labels[int(label[0])],
+                    confidence[0],
+                    box[0],
+                    box[1],
+                    box[0] + box[2],
+                    box[1] + box[3],
+                    relative=False,
+                    model_res=self.model_res,
+                )
             )
 
         return detections
