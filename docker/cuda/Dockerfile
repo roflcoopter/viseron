@@ -47,8 +47,10 @@ RUN mkdir -p /detectors/models/edgetpu/classification && \
     wget https://dl.google.com/coral/canned_models/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll && \
     mkdir -p /detectors/models/darknet && \
     wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights -O /detectors/models/darknet/yolo.weights --progress=bar:force:noscroll && \
-    wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4.cfg -O /detectors/models/darknet/yolo.cfg --progress=bar:force:noscroll && \
+    # wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4.cfg -O /detectors/models/darknet/yolo.cfg --progress=bar:force:noscroll && \
     wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
+
+ADD ./docker/cuda/yolov4.cfg /detectors/models/darknet/yolo.cfg
 
 # Add NVIDIA to OpenCL runtime
 RUN mkdir -p /etc/OpenCL/vendors && \
