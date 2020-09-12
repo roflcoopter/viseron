@@ -247,7 +247,7 @@ The default command varies a bit depending on the supported hardware:
 ### Camera object detection
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| interval | float | optional | any float | Run object detection at this interval in seconds. Overrides global [config](#object-detection) |
+| interval | float | optional | any float | Run object detection at this interval in seconds. Overrides global [config](#object-detection)<br>For optimal performance this should the same as motion detection interval. |
 | labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). | 
 
 ### Zones
@@ -347,7 +347,7 @@ Points are used to form a polygon.
 | label_path | str | RPI: ```/detectors/models/edgetpu/labels.txt``` <br> Other: ```/detectors/models/darknet/coco.names``` | any valid path | Path to the file containing labels for the model |
 | model_width | int | optional | any integer | Detected from model. Frames will be resized to this width in order to fit model and save computing power. I dont recommend changing this. |
 | model_height | int | optional | any integer | Detected from model. Frames will be resized to this height in order to fit model and save computing power. I dont recommend changing this. |
-| interval | float | 1.0 | any float | Run object detection at this interval in seconds. |
+| interval | float | 1.0 | any float | Run object detection at this interval in seconds.<br>For optimal performance this should the same as motion detection interval. |
 | confidence | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects |
 | suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections |
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
@@ -381,7 +381,7 @@ Points are used to form a polygon.
 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| interval | float | 1.0 | any float | Run motion detection at this interval in seconds |
+| interval | float | 1.0 | any float | Run motion detection at this interval in seconds. <br>For optimal performance this should the same as object detection interval. |
 | trigger | bool | False | True/False | If true, detected motion will trigger object detector to start scanning |
 | timeout | bool | False | True/False | If true, recording will continue until no motion is detected |
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
