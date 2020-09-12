@@ -4,6 +4,7 @@ from typing import Any, Tuple
 
 import cv2
 import slugify as unicode_slug
+from const import FONT
 
 
 def calculate_relative_coords(
@@ -59,6 +60,16 @@ def draw_bounding_box_relative(
     return cv2.rectangle(frame, topleft, bottomright, color, thickness)
 
 
+def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)):
+    coordinates = (
+        math.floor(obj.rel_x1 * frame_res[0]),
+        (math.floor(obj.rel_y1 * frame_res[1])) - 5,
+    )
+    cv2.putText(
+        frame, obj.label, coordinates, FONT, 0.75, color, 2,
+    )
+
+
 def draw_object(
     frame, obj, camera_resolution: Tuple[int, int], color=(255, 0, 0), thickness=1
 ):
@@ -73,6 +84,7 @@ def draw_object(
         color=color,
         thickness=thickness,
     )
+    put_object_label_relative(frame, obj, camera_resolution, color=color)
 
 
 def draw_objects(frame, objects, camera_resolution):
@@ -88,6 +100,16 @@ def draw_zones(frame, zones):
         else:
             color = (0, 0, 255)
         cv2.polylines(frame, [zone.coordinates], True, color, 2)
+
+        cv2.putText(
+            frame,
+            zone.name,
+            (zone.coordinates[0][0] + 5, zone.coordinates[0][1] + 15),
+            FONT,
+            0.5,
+            color,
+            1,
+        )
 
 
 def pop_if_full(queue: Queue, item: Any):

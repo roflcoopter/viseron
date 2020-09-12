@@ -1,3 +1,5 @@
+import cv2
+
 CONFIG_PATH = "/config/config.yaml"
 SECRETS_PATH = "/config/secrets.yaml"
 DEFAULT_CONFIG = """
@@ -83,3 +85,5 @@ LOG_LEVELS = {
     "DEBUG": 10,
     "NOTSET": 0,
 }
+
+FONT = cv2.FONT_HERSHEY_SIMPLEX

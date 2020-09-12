@@ -15,7 +15,7 @@ class Zone:
         self._camera_resolution = camera_resolution
         self.config = config
         self._mqtt_queue = mqtt_queue
-        self._zone = zone
+        self._name = zone["name"]
 
         self._objects_in_zone = []
         self._labels_in_zone = []
@@ -105,3 +105,7 @@ class Zone:
     @property
     def trigger_recorder(self):
         return self._trigger_recorder
+
+    @property
+    def name(self):
+        return self._name
