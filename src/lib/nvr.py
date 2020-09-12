@@ -281,7 +281,7 @@ class FFMPEGNVR(Thread, MQTT):
         self._logger.debug("NVR thread initialized")
 
     def event_over(self):
-        if self._trigger_recorder:
+        if self._trigger_recorder or any(zone.trigger_recorder for zone in self._zones):
             return False
         if self.config.motion_detection.timeout and self.motion_event.is_set():
             return False
@@ -315,6 +315,8 @@ class FFMPEGNVR(Thread, MQTT):
 
         if self.idle_frames >= (self.ffmpeg.stream_fps * self.config.recorder.timeout):
             self.recorder.stop()
+            with self.object_return_queue.mutex:  # Clear any objects left in queue
+                self.object_return_queue.queue.clear()
 
             if self.config.motion_detection.trigger:
                 self.scan_for_objects.clear()
