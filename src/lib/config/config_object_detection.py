@@ -2,21 +2,6 @@ import logging
 import os
 from typing import Union
 
-from const import (
-    ENV_CUDA_SUPPORTED,
-    ENV_OPENCL_SUPPORTED,
-    ENV_RASPBERRYPI3,
-    DARKNET_DEFAULTS,
-    EDGETPU_DEFAULTS,
-)
-from cv2.dnn import (
-    DNN_BACKEND_CUDA,
-    DNN_BACKEND_DEFAULT,
-    DNN_BACKEND_OPENCV,
-    DNN_TARGET_CPU,
-    DNN_TARGET_CUDA,
-    DNN_TARGET_OPENCL,
-)
 from voluptuous import (
     All,
     Any,
@@ -28,6 +13,24 @@ from voluptuous import (
     Required,
     Schema,
 )
+
+from const import (
+    DARKNET_DEFAULTS,
+    EDGETPU_DEFAULTS,
+    ENV_CUDA_SUPPORTED,
+    ENV_OPENCL_SUPPORTED,
+    ENV_RASPBERRYPI3,
+)
+from cv2.dnn import (
+    DNN_BACKEND_CUDA,
+    DNN_BACKEND_DEFAULT,
+    DNN_BACKEND_OPENCV,
+    DNN_TARGET_CPU,
+    DNN_TARGET_CUDA,
+    DNN_TARGET_OPENCL,
+)
+
+from .config_logging import SCHEMA as LOGGING_SCHEMA
 
 LOGGER = logging.getLogger(__name__)
 
@@ -112,6 +115,7 @@ LABELS_SCHEMA = Schema(
             Optional("height_max", default=1.0): float,
             Optional("width_min", default=0.0): float,
             Optional("width_max", default=1.0): float,
+            Optional("triggers_recording", default=True): bool,
         }
     ]
 )
@@ -130,6 +134,7 @@ SCHEMA = Schema(
         ),
         Optional("interval", default=1): int,
         Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
+        Optional("logging", default={}): LOGGING_SCHEMA,
     }
 )
 
@@ -137,24 +142,39 @@ SCHEMA = Schema(
 class ObjectDetectionConfig:
     schema = SCHEMA
 
-    def __init__(self, object_detection, camera_object_detection):
+    def __init__(self, object_detection, camera_config):
         self._type = object_detection.type
         self._model_path = object_detection.model_path
         self._model_config = object_detection.model_config
         self._label_path = object_detection.label_path
         self._model_width = object_detection.model_width
         self._model_height = object_detection.model_height
-        self._interval = getattr(
-            camera_object_detection, "interval", object_detection.interval
-        )
         self._suppression = object_detection.suppression
-        self._labels = getattr(
-            camera_object_detection, "labels", object_detection.labels
+        self._logging = object_detection.logging
+
+        if getattr(camera_config, "object_detection", None):
+            self._interval = getattr(
+                camera_config.object_detection, "interval", object_detection.interval
+            )
+            self._labels = getattr(
+                camera_config.object_detection, "labels", object_detection.labels
+            )
+        else:
+            self._interval = object_detection.interval
+            self._labels = object_detection.labels
+
+        self._min_confidence = min(
+            label.confidence for label in self.concat_labels(camera_config)
         )
-        self._tracked_labels = list(
-            tracked_label.label for tracked_label in self.labels
-        )
-        self._min_confidence = min(label.confidence for label in self.labels)
+
+    def concat_labels(self, camera_config):
+        """Creates a concatenated list of global labels + all labels in each zone"""
+        zone_labels = []
+        for zone in getattr(camera_config, "zones", []):
+            if zone.get("labels", None):
+                zone_labels += zone["labels"]
+
+        return self.labels + zone_labels
 
     @property
     def type(self):
@@ -197,10 +217,6 @@ class ObjectDetectionConfig:
         return self._labels
 
     @property
-    def tracked_labels(self):
-        return self._tracked_labels
-
-    @property
     def dnn_preferable_backend(self):
         if os.getenv(ENV_CUDA_SUPPORTED) == "true":
             return DNN_BACKEND_CUDA
@@ -215,3 +231,7 @@ class ObjectDetectionConfig:
         if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
             return DNN_TARGET_OPENCL
         return DNN_TARGET_CPU
+
+    @property
+    def logging(self):
+        return self._logging

@@ -1,8 +1,10 @@
 import logging
 import os
+import re
 
-from voluptuous import All, Any, Length, Optional, Range, Required, Schema
+from voluptuous import All, Any, Length, Optional, Range, Required, Schema, Invalid
 
+import numpy as np
 from const import (
     CAMERA_GLOBAL_ARGS,
     CAMERA_HWACCEL_ARGS,
@@ -18,16 +20,28 @@ from const import (
 )
 from lib.helpers import slugify
 
+from .config_logging import SCHEMA as LOGGING_SCHEMA
 from .config_object_detection import LABELS_SCHEMA
 
 LOGGER = logging.getLogger(__name__)
 
+MQTT_NAME_REGEX = re.compile(r"^[a-zA-Z0-9_\.]+$")
 
-def ensure_mqtt_name(camera_data: list) -> list:
-    for camera in camera_data:
-        if camera["mqtt_name"] is None:
-            camera["mqtt_name"] = slugify(camera["name"])
-    return camera_data
+
+def ensure_mqtt_name(camera: dict) -> dict:
+    if camera["mqtt_name"] is None:
+        camera["mqtt_name"] = slugify(camera["name"])
+
+    match = MQTT_NAME_REGEX.match(camera["mqtt_name"])
+
+    if not match:
+        raise Invalid(
+            f"Error in config for camera {camera['name']}. "
+            f"mqtt_name can only contain the characters [a-zA-Z0-9_], "
+            f"got {camera['mqtt_name']}"
+        )
+
+    return camera
 
 
 def check_for_hwaccels(hwaccel_args: list) -> list:
@@ -91,6 +105,7 @@ SCHEMA = Schema(
                             Optional("height"): int,
                             Optional("area"): int,
                             Optional("frames"): int,
+                            Optional("logging", default={}): LOGGING_SCHEMA,
                         },
                         None,
                     ),
@@ -101,11 +116,22 @@ SCHEMA = Schema(
                         },
                         None,
                     ),
+                    Optional("zones", default=[]): [
+                        {
+                            Required("name"): str,
+                            Required("points"): [
+                                {Required("x"): int, Required("y"): int,}
+                            ],
+                            Optional("labels"): LABELS_SCHEMA,
+                        }
+                    ],
+                    Optional("publish_image", default=False): Any(True, False),
+                    Optional("logging", default={}): LOGGING_SCHEMA,
                 },
                 get_codec,
+                ensure_mqtt_name,
             )
         ],
-        ensure_mqtt_name,
     )
 )
 
@@ -133,6 +159,28 @@ class CameraConfig:
         self._filter_args = camera.filter_args
         self._motion_detection = camera.motion_detection
         self._object_detection = camera.object_detection
+        self._zones = self.generate_zones(camera.zones)
+        self._publish_image = camera.publish_image
+        self._logging = camera.logging
+
+    def generate_zones(self, zones):
+        zone_list = []
+        for zone in zones:
+            zone_dict = {}
+            zone_dict["name"] = zone.name
+
+            zone_labels = getattr(zone, "labels", [])
+            if not zone_labels:
+                zone_labels = getattr(self.object_detection, "labels", [])
+            zone_dict["labels"] = zone_labels
+
+            point_list = []
+            for point in getattr(zone, "points"):
+                point_list.append([getattr(point, "x"), getattr(point, "y")])
+            zone_dict["coordinates"] = np.array(point_list)
+            zone_list.append(zone_dict)
+
+        return zone_list
 
     @property
     def name(self):
@@ -226,3 +274,15 @@ class CameraConfig:
     @property
     def object_detection(self):
         return self._object_detection
+
+    @property
+    def zones(self):
+        return self._zones
+
+    @property
+    def publish_image(self):
+        return self._publish_image
+
+    @property
+    def logging(self):
+        return self._logging

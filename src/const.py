@@ -1,3 +1,5 @@
+import cv2
+
 CONFIG_PATH = "/config/config.yaml"
 SECRETS_PATH = "/config/secrets.yaml"
 DEFAULT_CONFIG = """
@@ -74,3 +76,14 @@ EDGETPU_DEFAULTS = {
     "model_path": "/detectors/models/edgetpu/model.tflite",
     "label_path": "/detectors/models/edgetpu/labels.txt",
 }
+
+LOG_LEVELS = {
+    "CRITICAL": 50,
+    "ERROR": 40,
+    "WARNING": 30,
+    "INFO": 20,
+    "DEBUG": 10,
+    "NOTSET": 0,
+}
+
+FONT = cv2.FONT_HERSHEY_SIMPLEX

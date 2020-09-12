@@ -5,20 +5,22 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
 # Notable features
 - Records videos on detected objects
 - Lookback, buffers frames to record before the event actually happened
-- Multiplatform, should support any x86-64 machine running Linux, aswell as RPi3
+- Multiplatform, should support any x86-64 machine running Linux, aswell as RPi3.\
 Builds are tested and verified on the following platforms:
   - Ubuntu 18.04 with Nvidia GPU
   - Ubuntu 18.04 running on an Intel NUC
   - RaspberryPi 3B+
-
 - Supports multiple different object detectors:
   - Yolo Darknet using OpenCV
   - Tensorflow via Google Coral EdgeTPU
-
+- Motion detection
+- Native support for RTSP and MJPEG
 - Supports hardware acceleration on different platforms
   - CUDA for systems with a supported GPU
   - OpenCL
   - OpenMax and MMAL on the RaspberryPi 3B+
+- Zones to limit detection to a particular area to reduce false positives
+- Home Assistant integration via MQTT
 
 # Getting started
 Choose the appropriate docker container for your machine. Builds are published to [Docker Hub](https://hub.docker.com/repository/docker/roflcoopter/viseron)
@@ -212,11 +214,14 @@ The command is built like this: \
 | codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
 | filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | motion_detection | dictionary | optional | see [Motion detection config](#motion-detection) | Overrides the global ```motion_detection``` config |
-| object_detection | list | optional | see [Camera object detection config](#camera-object-detection) below | Overrides the global ```object_detection``` config |
+| object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) below | Overrides the global ```object_detection``` config |
+| zones | list | optional | see [Zones config](#zones) below | Allows you to specify zones to further filter detections |
+| publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones/objects.<br><b>Note: this will use significant amounts of CPU and should only be used for debugging</b> |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for this camera |
 
-The default command varies a bit depending on the supported hardware:
+A default ffmpeg decoder command is generated, which varies a bit depending on the Docker container you use,
 <details>
-  <summary>For Nvidia GPU support</summary>
+  <summary>For Nvidia GPU support in the <b>roflcoopter/viseron-cuda</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -stimeout 5000000 -use_wallclock_as_timestamps 1 -vsync 0 -c:v h264_cuvid -rtsp_transport tcp -i rtsp://<username>:<password>@<host>:<port><path> -f rawvideo -pix_fmt nv12 pipe:1
@@ -224,7 +229,7 @@ The default command varies a bit depending on the supported hardware:
 </details>
 
 <details>
-  <summary>For VAAPI support</summary>
+  <summary>For VAAPI support in the <b>roflcoopter/viseron-vaapi</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -stimeout 5000000 -use_wallclock_as_timestamps 1 -vsync 0 -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -rtsp_transport tcp -i rtsp://<username>:<password>@<host>:<port><path> -f rawvideo -pix_fmt nv12 pipe:1
@@ -232,18 +237,89 @@ The default command varies a bit depending on the supported hardware:
 </details>
 
 <details>
-  <summary>For RPi3</summary>
+  <summary>For RPi3 in the <b>roflcoopter/viseron-rpi</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -stimeout 5000000 -use_wallclock_as_timestamps 1 -vsync 0 -c:v h264_mmal -rtsp_transport tcp -i rtsp://<username>:<password>@<host>:<port><path> -f rawvideo -pix_fmt nv12 pipe:1
   ```
 </details>
 
+This means that you do **not** have to set ```hwaccel_args``` *unless* you have a specific need to change the default command (say you need to change ```h264_cuvid``` to ```hevc_cuvid```)
+
 ### Camera object detection
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| interval | float | optiona | any float | Run object detection at this interval in seconds. Overrides global [config](#object-detection) |
-| labels | list | optional | any float | A list of [labels](#labels) | 
+| interval | float | optional | any float | Run object detection at this interval in seconds. Overrides global [config](#object-detection)<br>For optimal performance this should the same as motion detection interval. |
+| labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). | 
+
+### Zones
+
+<details>
+  <summary>Config example</summary>
+
+  ```yaml
+  cameras:
+    - name: name
+      host: ip
+      port: port
+      path: /Streaming/Channels/101/
+      zones:
+        - name: zone1
+          points:
+            - x: 0
+              y: 500
+            - x: 1920
+              y: 500
+            - x: 1920
+              y: 1080
+            - x: 0
+              y: 1080
+          labels:
+            - label: person
+              confidence: 0.9
+        - name: zone2
+          points:
+            - x: 0
+              y: 0
+            - x: 500
+              y: 0
+            - x: 500
+              y: 500
+            - x: 0
+              y: 500
+          labels:
+            - label: cat
+              confidence: 0.5
+  ```
+</details>
+
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| name | str | **required** | any str | Zone name, used in MQTT topic. Should be unique |
+| points | list | **required** | a list of [points](#points) | Used to draw a polygon of the zone
+| labels | list | optional | any float | A list of [labels](#labels) to track in the zone. Overrides global [config](#labels). | 
+To easily genereate points you can use a tool like [image-map.net](https://www.image-map.net/).\
+Just upload an image from your camera and start drawing your zone.\
+Then click **Show me the code!** and adapt it to the config format.\
+Coordinates ```coords="522,11,729,275,333,603,171,97"``` should be turned into this:
+```yaml
+points:
+  - x: 522
+    y: 11
+  - x: 729
+    y: 275
+  - x: 333
+    y: 603
+  - x: 171
+    y: 97
+```
+
+### Points
+Points are used to form a polygon.
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| x | int | **required** | any int | X-coordinate of point |
+| y | int | **required** | any int | Y-coordinate of point |
 
 ## Object detection
 <details>
@@ -273,20 +349,21 @@ The default command varies a bit depending on the supported hardware:
 | label_path | str | RPI: ```/detectors/models/edgetpu/labels.txt``` <br> Other: ```/detectors/models/darknet/coco.names``` | any valid path | Path to the file containing labels for the model |
 | model_width | int | optional | any integer | Detected from model. Frames will be resized to this width in order to fit model and save computing power. I dont recommend changing this. |
 | model_height | int | optional | any integer | Detected from model. Frames will be resized to this height in order to fit model and save computing power. I dont recommend changing this. |
-| interval | float | 1.0 | any float | Run object detection at this interval in seconds. |
+| interval | float | 1.0 | any float | Run object detection at this interval in seconds.<br>For optimal performance this should the same as motion detection interval. |
 | confidence | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects |
 | suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections |
-| labels | list | optional | any string | A list of [labels](#labels) |
+| labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
+| logging | dictionary | optional | see [Logging](#logging) | Set the log level for the object detector |
 
 ### Labels
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| label | str | person | any string | 	Can be any label present in the detection model |
+| label | str | person | any string | Can be any label present in the detection model |
 | height_min | float | 0 | float between 0 and 1 | Minimum height allowed for detected objects, relative to stream height |
 | height_max | float | 1 | float between 0 and 1 | Maximum height allowed for detected objects, relative to stream height |
 | width_min | float | 0 | float between 0 and 1 | Minimum width allowed for detected objects, relative to stream width |
 | width_max | float | 1 | float between 0 and 1 | Maximum width allowed for detected objects, relative to stream width |
-
+| triggers_recording | bool | True | True/false | If set to True, objects matching this filter will start the recorder and signal over MQTT.<br> If set to False, only signal over MQTT will be sent |
 
 ## Motion detection
 <details>
@@ -306,13 +383,14 @@ The default command varies a bit depending on the supported hardware:
 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| interval | float | 1.0 | any float | Run motion detection at this interval in seconds |
+| interval | float | 1.0 | any float | Run motion detection at this interval in seconds. <br>For optimal performance this should the same as object detection interval. |
 | trigger | bool | False | True/False | If true, detected motion will trigger object detector to start scanning |
 | timeout | bool | False | True/False | If true, recording will continue until no motion is detected |
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
 | area | int | 6000 | any integer | How big the detected area must be in order to trigger motion |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
+| logging | dictionary | optional | see [Logging](#logging) | Set the log level for the motion detector. Can be set for each camera individually. |
 
 TODO Future releases will make the motion detection easier to fine tune. Right now its a guessing game
 
@@ -340,10 +418,11 @@ TODO Future releases will make the motion detection easier to fine tune. Right n
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder hardware acceleration arguments |
 | codec | str | optional | any supported decoder codec | FFMPEG video encoder codec, eg ```h264_nvenc``` |
 | filter_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder filter arguments |
+| logging | dictionary | optional | see [Logging](#logging) | Set the log level for the recorder |
 
-The default command varies a bit depending on the supported hardware:
+A default ffmpeg encoder command is generated, which varies a bit depending on the Docker container you use,
 <details>
-  <summary>For Nvidia GPU support</summary>
+  <summary>For Nvidia GPU support in the <b>roflcoopter/viseron-cuda</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_nvenc <file>
@@ -351,7 +430,7 @@ The default command varies a bit depending on the supported hardware:
 </details>
 
 <details>
-  <summary>For VAAPI support</summary>
+  <summary>For VAAPI support in the <b>roflcoopter/viseron-vaapi</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_vaapi -vf "format=nv12|vaapi,hwupload" <file>
@@ -359,12 +438,15 @@ The default command varies a bit depending on the supported hardware:
 </details>
 
 <details>
-  <summary>For RPi3</summary>
+  <summary>For RPi3 in the <b>roflcoopter/viseron-rpi</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_omx <file>
   ```
 </details>
+
+This means that you do **not** have to set ```hwaccel_args``` *unless* you have a specific need to change the default command (say you need to change ```h264_nvenc``` to ```hevc_nvenc```)
+
 
 ## MQTT
 <details>
@@ -455,6 +537,36 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or 
 | viseron | ~23% | Scanning for objects only |
 | viseron | ~24% | Scanning for motion and objects |
 
+# Home Assistant Integration
+Viseron integrates into Home Assistant using MQTT discovery and is enabled by default if you configure MQTT.\
+Viseron will create a number of entities depending on your configuration.
+
+**Camera entity**\
+A camera entity will be created for each camera\
+Default state topic: ```homeassistant/camera/{mqtt_name from camera config}/image```\
+Images will be published to this topic with drawn objects and zones if ```publish_image: true``` is set in the config.\
+Objects that are discarded by a filter will have blue bounding boxes, while objects who pass the filter will be green.
+Zones are drawn in red. If an object passes its filter and is inside the zone, it will turn green.
+
+**Binary Sensors**\
+A variable amount of binary sensors will be created based on your configuration.
+1) A binary sensor showing if any tracked object is in view.\
+   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/state```
+2) A binary sensor for each tracked object showing if the label is in view.\
+   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{label}/state```
+3) A binary sensor for each zone showing if any tracked object is in the zone.\
+   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone}/state```
+4) A binary sensor for each tracked object in a zone showing if the label is in the zone.\
+   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone}_{label}/state```
+
+**Switch**\
+A switch entity will be created for each camera.\
+At the moment this does nothing but in the future it will be used to arm/disarm the camera.\
+Default state topic: ```homeassistant/switch/{mqtt_name from camera config}/state```\
+Default command topic: ```homeassistant/switch/{mqtt_name from camera config}/set```\
+
+# Tips
+- If you are experiencing issues with a camera, I suggest you add debug logging to it and examine the logs
 
 # Ideas and upcoming features
 - UI
@@ -481,10 +593,8 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or 
 - Docker
   - Try to reduce container footprint
 
-- Logger
-  - Set loglevel individually for each component
-
 https://devblogs.nvidia.com/object-detection-pipeline-gpus/
 
 ---
-<a href="https://www.buymeacoffee.com/roflcoopter" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+<a href="https://www.buymeacoffee.com/roflcoopter" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a> \
+Donations are very appreciated and will go directly into more hardware for Viseron to support.

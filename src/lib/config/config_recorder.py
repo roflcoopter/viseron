@@ -17,6 +17,8 @@ from const import (
     RECORDER_HWACCEL_ARGS,
 )
 
+from .config_logging import SCHEMA as LOGGING_SCHEMA
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -59,6 +61,7 @@ SCHEMA = Schema(
         Optional("hwaccel_args", default=RECORDER_HWACCEL_ARGS): check_for_hwaccels,
         Optional("codec", default=get_codec()): str,
         Optional("filter_args", default=[]): get_filter_args,
+        Optional("logging", default={}): LOGGING_SCHEMA,
     }
 )
 
@@ -76,6 +79,7 @@ class RecorderConfig:
         self._hwaccel_args = recorder.hwaccel_args
         self._codec = recorder.codec
         self._filter_args = recorder.filter_args
+        self._logging = recorder.logging
 
     @property
     def lookback(self):
@@ -112,3 +116,7 @@ class RecorderConfig:
     @property
     def filter_args(self):
         return self._filter_args
+
+    @property
+    def logging(self):
+        return self._logging

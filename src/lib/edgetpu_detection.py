@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import tflite_runtime.interpreter as tflite
+from lib.detector import DetectedObject
 
 LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class ObjectDetection:
         return labels
 
     def pre_process(self, frame):
+        # This should be moved to decoder for speed
         frame = frame.get()
         return frame.reshape(1, frame.shape[0], frame.shape[1], frame.shape[2])
 
@@ -63,22 +65,22 @@ class ObjectDetection:
         for i in range(count):
             if float(scores[i]) > confidence:
                 processed_objects.append(
-                    {
-                        "label": self.labels[int(labels[i])],
-                        "confidence": round(float(scores[i]), 3),
-                        "height": round(boxes[i][2] - boxes[i][0], 3),
-                        "width": round(boxes[i][3] - boxes[i][1], 3),
-                        "relative_x1": round(boxes[i][1], 3),
-                        "relative_y1": round(boxes[i][0], 3),
-                        "relative_x2": round(boxes[i][3], 3),
-                        "relative_y2": round(boxes[i][2], 3),
-                    }
+                    DetectedObject(
+                        self.labels[int(labels[i])],
+                        float(scores[i]),
+                        boxes[i][1],
+                        boxes[i][0],
+                        boxes[i][3],
+                        boxes[i][2],
+                    )
                 )
 
         return processed_objects
 
     def return_objects(self, frame):
-        tensor = self.pre_process(frame["frame"])
+        tensor = self.pre_process(
+            frame["frame"].get_resized_frame(frame["decoder_name"])
+        )
 
         self.interpreter.set_tensor(self.tensor_input_details[0]["index"], tensor)
         self.interpreter.invoke()
