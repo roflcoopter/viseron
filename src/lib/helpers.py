@@ -9,10 +9,10 @@ import slugify as unicode_slug
 def calculate_relative_coords(
     bounding_box: Tuple[int, int, int, int], resolution: Tuple[int, int]
 ) -> Tuple[float, float, float, float]:
-    x1_relative = bounding_box[0] / resolution[0]
-    y1_relative = bounding_box[1] / resolution[1]
-    x2_relative = bounding_box[2] / resolution[0]
-    y2_relative = bounding_box[3] / resolution[1]
+    x1_relative = round(bounding_box[0] / resolution[0], 3)
+    y1_relative = round(bounding_box[1] / resolution[1], 3)
+    x2_relative = round(bounding_box[2] / resolution[0], 3)
+    y2_relative = round(bounding_box[3] / resolution[1], 3)
     return x1_relative, y1_relative, x2_relative, y2_relative
 
 
@@ -45,7 +45,9 @@ def scale_bounding_box(
     )
 
 
-def draw_bounding_box_relative(frame, bounding_box, frame_res):
+def draw_bounding_box_relative(
+    frame, bounding_box, frame_res, color=(255, 0, 0), thickness=1
+):
     topleft = (
         math.floor(bounding_box[0] * frame_res[0]),
         math.floor(bounding_box[1] * frame_res[1]),
@@ -54,20 +56,22 @@ def draw_bounding_box_relative(frame, bounding_box, frame_res):
         math.floor(bounding_box[2] * frame_res[0]),
         math.floor(bounding_box[3] * frame_res[1]),
     )
-    return cv2.rectangle(frame, topleft, bottomright, (255, 0, 0), 3)
+    return cv2.rectangle(frame, topleft, bottomright, color, thickness)
 
 
-def draw_object(frame, obj, camera_resolution):
-    """ Draws a single pbject on supplied frame """
+def draw_object(
+    frame, obj, camera_resolution: Tuple[int, int], color=(255, 0, 0), thickness=1
+):
+    """ Draws a single object on supplied frame """
+    if obj.relevant:
+        color = (0, 255, 0)
+        thickness = 2
     frame = draw_bounding_box_relative(
         frame,
-        (
-            obj["relative_x1"],
-            obj["relative_y1"],
-            obj["relative_x2"],
-            obj["relative_y2"],
-        ),
+        (obj.rel_x1, obj.rel_y1, obj.rel_x2, obj.rel_y2,),
         camera_resolution,
+        color=color,
+        thickness=thickness,
     )
 
 
@@ -83,7 +87,7 @@ def draw_zones(frame, zones):
             color = (0, 255, 0)
         else:
             color = (0, 0, 255)
-        cv2.polylines(frame, [zone.coordinates], True, color, 3)
+        cv2.polylines(frame, [zone.coordinates], True, color, 2)
 
 
 def pop_if_full(queue: Queue, item: Any):
@@ -110,17 +114,17 @@ class Filter:
         self._height_max = object_filter.height_max
 
     def filter_confidence(self, obj):
-        if obj["confidence"] > self._confidence:
+        if obj.confidence > self._confidence:
             return True
         return False
 
     def filter_width(self, obj):
-        if self._width_max > obj["width"] > self._width_min:
+        if self._width_max > obj.rel_width > self._width_min:
             return True
         return False
 
     def filter_height(self, obj):
-        if self._height_max > obj["height"] > self._height_min:
+        if self._height_max > obj.rel_height > self._height_min:
             return True
         return False
 
