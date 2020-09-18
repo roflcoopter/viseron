@@ -68,8 +68,8 @@ class MotionDetection:
                 if _motion_found:
                     _motion_frames += 1
                     self._logger.debug(
-                        "Motion frames: {}, "
-                        "area: {}".format(_motion_frames, max_contour)
+                        "Consecutive frames with motion: {}, "
+                        "area size: {}".format(_motion_frames, max_contour)
                     )
 
                     if _motion_frames >= self.motion_frames:
@@ -95,6 +95,7 @@ class MotionDetection:
         self._motion_detected = _motion_detected
 
         if _motion_detected:
+            self._logger.debug("Motion detected")
             self.motion_event.set()
 
         else:
