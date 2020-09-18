@@ -59,7 +59,7 @@ class FFMPEGRecorder:
 
         while self.is_recording:
             try:
-                frame = self.frame_buffer.get(timeout=1)
+                frame = self.frame_buffer.get(timeout=5)
                 writer_pipe.stdin.write(frame.raw_frame)
             except Empty:
                 self._logger.error("Timed out")
