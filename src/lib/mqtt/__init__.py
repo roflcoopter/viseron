@@ -29,7 +29,7 @@ class MQTT:
         client.publish(self.config.mqtt.last_will_topic, payload="alive", retain=True)
 
     def on_message(self, client, userdata, msg):
-        LOGGER.debug("Acknowledge state {}".format(str(msg.payload.decode())))
+        LOGGER.debug(f"{msg.topic} acknowledge state {str(msg.payload.decode())}")
         for subscription in self.subscriptions:
             if subscription["topic"] == msg.topic:
                 subscription["callback"](msg)
@@ -38,9 +38,8 @@ class MQTT:
         self.client = mqtt.Client(self.config.mqtt.client_id)
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
-        #    self.client.on_publish = MQTT.on_publish
-        self.client.enable_logger(logger=logging.getLogger("lib.mqtt"))
-        logging.getLogger("lib.mqtt").setLevel(logging.INFO)
+        self.client.enable_logger(logger=logging.getLogger("lib.mqtt_client"))
+        logging.getLogger("lib.mqtt_client").setLevel(logging.INFO)
         if self.config.mqtt.username:
             self.client.username_pw_set(
                 self.config.mqtt.username, self.config.mqtt.password
