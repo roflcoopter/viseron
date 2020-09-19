@@ -19,31 +19,27 @@ LOGGER = logging.getLogger(__name__)
 
 
 class MQTT:
-    def __init__(self, config, mqtt_queue):
-        self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
-        if getattr(config.camera.logging, "level", None):
-            self._logger.setLevel(config.camera.logging.level)
-
+    def __init__(self, logger, config, mqtt_queue):
+        self._logger = logger
         self.config = config
-        self._mqtt_queue = mqtt_queue
-        self._zones = []
+        self.mqtt_queue = mqtt_queue
 
-        self._mqtt_devices = {}
-        if self._mqtt_queue:
-            self._mqtt_devices["motion_detected"] = MQTTBinarySensor(
+        self.devices = {}
+        if self.mqtt_queue:
+            self.devices["motion_detected"] = MQTTBinarySensor(
                 config, mqtt_queue, "motion_detected"
             )
-            self._mqtt_devices["object_detected"] = MQTTBinarySensor(
+            self.devices["object_detected"] = MQTTBinarySensor(
                 config, mqtt_queue, "object_detected"
             )
             for label in config.object_detection.labels:
-                self._mqtt_devices[label.label] = MQTTBinarySensor(
+                self.devices[label.label] = MQTTBinarySensor(
                     config, mqtt_queue, f"object_detected {label.label}",
                 )
-            self._mqtt_devices["switch"] = MQTTSwitch(config, mqtt_queue)
+            self.devices["switch"] = MQTTSwitch(config, mqtt_queue)
 
     def publish_image(self, frame, zones, resolution):
-        if self._mqtt_queue:
+        if self.mqtt_queue:
             draw_zones(frame.decoded_frame_mat_rgb, zones)
             draw_objects(
                 frame.decoded_frame_mat_rgb, frame.objects, resolution,
@@ -53,12 +49,12 @@ class MQTT:
                 ".jpg", frame.decoded_frame_mat_rgb, [int(cv2.IMWRITE_JPEG_QUALITY), 50]
             )
             if ret:
-                self._mqtt_queue.put(
+                self.mqtt_queue.put(
                     {"topic": self.mqtt_camera_state_topic, "payload": jpg.tobytes()}
                 )
 
     def on_connect(self, client):
-        subscriptions = []
+        subscriptions = {}
 
         client.publish(
             self.mqtt_camera_config_topic,
@@ -66,15 +62,10 @@ class MQTT:
             retain=True,
         )
 
-        for device in self._mqtt_devices.values():
+        for device in self.devices.values():
             device.on_connect(client)
             if getattr(device, "on_message", False):
-                subscriptions.append(
-                    {"topic": device.command_topic, "callback": device.on_message}
-                )
-
-        for zone in self._zones:
-            zone.on_connect(client)
+                subscriptions[device.command_topic] = [device.on_message]
 
         # self.publish_sensor(False)
 
@@ -131,25 +122,30 @@ class MQTT:
         )
 
 
-class FFMPEGNVR(Thread, MQTT):
+class FFMPEGNVR(Thread):
     nvr_list: List[object] = []
 
     def __init__(self, config, detector, detector_queue, mqtt_queue=None):
         Thread.__init__(self)
-        MQTT.__init__(self, config, mqtt_queue)
+        self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
+        if getattr(config.camera.logging, "level", None):
+            self._logger.setLevel(config.camera.logging.level)
+
         self.nvr_list.append({config.camera.mqtt_name: self})
         self._logger.debug("Initializing NVR thread")
 
+        self._mqtt = MQTT(self._logger, config, mqtt_queue)
         self.config = config
         self.kill_received = False
+        self.camera_grabber = None
 
         self._objects_in_fov = []
         self._labels_in_fov = []
         self.idle_frames = 0
         self.motion_event = Event()  # Triggered when motion detected
 
-        object_decoder_queue = Queue(maxsize=2)
-        motion_decoder_queue = Queue(maxsize=2)
+        self._object_decoder_queue = Queue(maxsize=2)
+        self._motion_decoder_queue = Queue(maxsize=2)
         motion_queue = Queue(maxsize=2)
         self.object_return_queue = Queue(maxsize=20)
 
@@ -172,7 +168,7 @@ class FFMPEGNVR(Thread, MQTT):
         self._zones = []
         for zone in self.config.camera.zones:
             self._zones.append(
-                Zone(zone, self.camera.resolution, self.config, self._mqtt_queue)
+                Zone(zone, self.camera.resolution, self.config, self._mqtt.mqtt_queue,)
             )
 
         # Motion detector class.
@@ -187,7 +183,7 @@ class FFMPEGNVR(Thread, MQTT):
             self.motion_decoder = Thread(
                 target=self.camera.decoder,
                 args=(
-                    motion_decoder_queue,
+                    self._motion_decoder_queue,
                     motion_queue,
                     self.config.motion_detection.width,
                     self.config.motion_detection.height,
@@ -196,38 +192,70 @@ class FFMPEGNVR(Thread, MQTT):
             self.motion_decoder.daemon = True
             self.motion_decoder.start()
 
-        # Start a Thread to pipe ffmpeg output
-        self.camera_grabber = Thread(
-            target=self.camera.capture_pipe,
-            args=(
-                self.config.object_detection.interval,
-                object_decoder_queue,
-                self.object_return_queue,
-                self.config.motion_detection.interval,
-                motion_decoder_queue,
-            ),
-        )
-        self.camera_grabber.daemon = True
-
         self.camera_decoder = Thread(
             target=self.camera.decoder,
             args=(
-                object_decoder_queue,
+                self._object_decoder_queue,
                 detector_queue,
                 detector.model_width,
                 detector.model_height,
             ),
         )
         self.camera_decoder.daemon = True
-
-        self.camera_grabber.start()
         self.camera_decoder.start()
+
+        self.start_camera()
 
         # Initialize recorder
         self._trigger_recorder = False
         self.recorder_thread = None
         self.recorder = FFMPEGRecorder(self.config, frame_buffer)
+
         self._logger.debug("NVR thread initialized")
+
+    def on_connect(self, client):
+        """Called when MQTT connection is established"""
+        subscriptions = self._mqtt.on_connect(client)
+
+        for zone in self._zones:
+            zone.on_connect(client)
+
+        # We subscribe to the switch topic to toggle camera on/off
+        subscriptions[self._mqtt.devices["switch"].command_topic].append(
+            self.toggle_camera
+        )
+
+        return subscriptions
+
+    def toggle_camera(self, message):
+        self._logger.debug(f"TOGGLING camera {message.payload.decode()}")
+        if message.payload.decode() == "ON":
+            self.start_camera()
+            return
+        if message.payload.decode() == "OFF":
+            self.stop_camera()
+            return
+
+    def start_camera(self):
+        if not self.camera_grabber or not self.camera_grabber.is_alive():
+            self._logger.debug("Starting camera")
+            self.camera_grabber = Thread(
+                target=self.camera.capture_pipe,
+                args=(
+                    self.config.object_detection.interval,
+                    self._object_decoder_queue,
+                    self.object_return_queue,
+                    self.config.motion_detection.interval,
+                    self._motion_decoder_queue,
+                ),
+            )
+            self.camera_grabber.daemon = True
+            self.camera_grabber.start()
+
+    def stop_camera(self):
+        self._logger.debug("Stopping camera")
+        self.camera.release()
+        # self.camera_grabber.join()
 
     def event_over(self):
         if self._trigger_recorder or any(zone.trigger_recorder for zone in self._zones):
@@ -313,8 +341,8 @@ class FFMPEGNVR(Thread, MQTT):
             return
 
         self._objects_in_fov = value
-        if self._mqtt_queue:
-            self._mqtt_devices["object_detected"].publish(bool(value))
+        if self._mqtt.mqtt_queue:
+            self._mqtt.devices["object_detected"].publish(bool(value))
 
     @property
     def labels_in_fov(self):
@@ -328,11 +356,11 @@ class FFMPEGNVR(Thread, MQTT):
         labels_added = list(set(labels_in_fov) - set(self._labels_in_fov))
         labels_removed = list(set(self._labels_in_fov) - set(labels_in_fov))
 
-        if self._mqtt_queue:
+        if self._mqtt.mqtt_queue:
             for label in labels_added:
-                self._mqtt_devices[label].publish(True)
+                self._mqtt.devices[label].publish(True)
             for label in labels_removed:
-                self._mqtt_devices[label].publish(False)
+                self._mqtt.devices[label].publish(False)
 
         self._labels_in_fov = labels_in_fov
 
@@ -393,7 +421,9 @@ class FFMPEGNVR(Thread, MQTT):
             self.process_motion_event()
 
             if processed_frame and self.config.camera.publish_image:
-                self.publish_image(processed_frame, self._zones, self.camera.resolution)
+                self._mqtt.publish_image(
+                    processed_frame, self._zones, self.camera.resolution
+                )
 
             # If we are recording and no object is detected
             if self.recorder.is_recording and self.event_over():

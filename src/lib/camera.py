@@ -305,7 +305,6 @@ class FFMPEGCamera:
             self.frame_ready.set()
             self.frame_ready.clear()
 
-        self.frame_ready.set()
         pipe.terminate()
         pipe.communicate()
         self._logger.info("FFMPEG frame grabber stopped")
