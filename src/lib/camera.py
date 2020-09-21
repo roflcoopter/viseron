@@ -24,7 +24,7 @@ class Frame:
         self._decoded_frame_mat_rgb = None
         self._resized_frames = {}
         self._objects = []
-        self._motion = False
+        self._motion_contours = []
 
     def decode_frame(self):
         try:
@@ -96,12 +96,12 @@ class Frame:
         self._objects = objects
 
     @property
-    def motion(self):
-        return self._motion
+    def motion_contours(self):
+        return self._motion_contours
 
-    @motion.setter
-    def motion(self, motion):
-        self._motion = motion
+    @motion_contours.setter
+    def motion_contours(self, motion_contours):
+        self._motion_contours = motion_contours
 
 
 class FFMPEGCamera:
@@ -212,6 +212,7 @@ class FFMPEGCamera:
         object_return_queue,
         motion_decoder_interval,
         motion_decoder_queue,
+        motion_return_queue,
     ):
         self._logger.debug("Starting capture thread")
         # First read a single frame to make sure the ffmpeg command is correct
@@ -295,7 +296,11 @@ class FFMPEGCamera:
                     motion_frame_number = 0
                     pop_if_full(
                         motion_decoder_queue,
-                        {"decoder_name": "motion_detection", "frame": current_frame},
+                        {
+                            "decoder_name": "motion_detection",
+                            "frame": current_frame,
+                            "motion_return_queue": motion_return_queue,
+                        },
                     )
 
                 motion_frame_number += 1
