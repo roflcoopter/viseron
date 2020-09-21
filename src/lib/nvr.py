@@ -1,16 +1,17 @@
-import json
 import logging
 from queue import Empty, Queue
 from threading import Thread
 from typing import List
 
 import cv2
+
 from const import LOG_LEVELS
 from lib.camera import FFMPEGCamera
 from lib.detector import DetectedObject
 from lib.helpers import Filter, draw_contours, draw_objects, draw_zones
 from lib.motion import MotionDetection
 from lib.mqtt.binary_sensor import MQTTBinarySensor
+from lib.mqtt.camera import MQTTCamera
 from lib.mqtt.switch import MQTTSwitch
 from lib.recorder import FFMPEGRecorder
 from lib.zones import Zone
@@ -37,6 +38,7 @@ class MQTT:
                     config, mqtt_queue, f"object_detected {label.label}",
                 )
             self.devices["switch"] = MQTTSwitch(config, mqtt_queue)
+            self.devices["camera"] = MQTTCamera(config, mqtt_queue)
 
     def publish_image(self, object_frame, motion_frame, zones, resolution):
         if self.mqtt_queue:
@@ -57,25 +59,15 @@ class MQTT:
                 ".jpg", frame.decoded_frame_mat_rgb, [int(cv2.IMWRITE_JPEG_QUALITY), 50]
             )
             if ret:
-                self.mqtt_queue.put(
-                    {"topic": self.mqtt_camera_state_topic, "payload": jpg.tobytes()}
-                )
+                self.devices["camera"].publish(jpg.tobytes())
 
     def on_connect(self, client):
         subscriptions = {}
-
-        client.publish(
-            self.mqtt_camera_config_topic,
-            payload=self.mqtt_camera_config_payload,
-            retain=True,
-        )
 
         for device in self.devices.values():
             device.on_connect(client)
             if getattr(device, "on_message", False):
                 subscriptions[device.command_topic] = [device.on_message]
-
-        # self.publish_sensor(False)
 
         return subscriptions
 
@@ -104,30 +96,6 @@ class MQTT:
     #         f"{self.config.mqtt.discovery_prefix}/sensor/"
     #         f"{self.config.camera.mqtt_name}/config"
     # )
-
-    @property
-    def mqtt_camera_config_payload(self):
-        payload = {}
-        payload["name"] = self.config.camera.mqtt_name
-        payload["topic"] = self.mqtt_camera_state_topic
-        payload["availability_topic"] = self.config.mqtt.last_will_topic
-        payload["payload_available"] = "alive"
-        payload["payload_not_available"] = "dead"
-        return json.dumps(payload, indent=3)
-
-    @property
-    def mqtt_camera_state_topic(self):
-        return (
-            f"{self.config.mqtt.discovery_prefix}/camera/"
-            f"{self.config.camera.mqtt_name}/image"
-        )
-
-    @property
-    def mqtt_camera_config_topic(self):
-        return (
-            f"{self.config.mqtt.discovery_prefix}/camera/"
-            f"{self.config.camera.mqtt_name}/config"
-        )
 
 
 class FFMPEGNVR(Thread):
