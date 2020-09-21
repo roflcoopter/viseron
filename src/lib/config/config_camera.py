@@ -99,7 +99,7 @@ SCHEMA = Schema(
                     Optional("motion_detection", default=None): Any(
                         {
                             Optional("interval"): Any(int, float),
-                            Optional("trigger"): bool,
+                            Optional("trigger_detector"): bool,
                             Optional("timeout"): bool,
                             Optional("width"): int,
                             Optional("height"): int,

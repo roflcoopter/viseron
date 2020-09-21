@@ -181,7 +181,7 @@ Here you need to fill in atleast your cameras and you should be good to go.
       fps: 6 
       motion_detection:
         interval: 1
-        trigger: false
+        trigger_detector: false
       object_detection:
         interval: 1
         labels:
@@ -372,7 +372,7 @@ Points are used to form a polygon.
   ```yaml
   motion_detection:
     interval: 1
-    trigger: true
+    trigger_detector: true
     timeout: true
     width: 300
     height: 300
@@ -384,8 +384,8 @@ Points are used to form a polygon.
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | interval | float | 1.0 | any float | Run motion detection at this interval in seconds on the most recent frame. <br>For optimal performance, this should be divisible with the object detection interval, because then preprocessing will only occur once for each frame. |
-| trigger | bool | False | True/False | If true, detected motion will trigger object detector to start scanning |
-| timeout | bool | False | True/False | If true, recording will continue until no motion is detected |
+| trigger_detector | bool | true | True/False | If true, the object detector will only run while motion is detected. |
+| timeout | bool | true | True/False | If true, recording will continue until no motion is detected |
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
 | area | float | 0.1 | any float | How big the detected area must be in order to trigger motion |

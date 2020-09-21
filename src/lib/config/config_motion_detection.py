@@ -8,7 +8,7 @@ LOGGER = logging.getLogger(__name__)
 
 DEFAULTS = {
     "interval": 1,
-    "trigger": False,
+    "trigger_detector": False,
     "timeout": False,
     "width": 300,
     "height": 300,
@@ -19,7 +19,7 @@ DEFAULTS = {
 SCHEMA = Schema(
     {
         Optional("interval", default=DEFAULTS["interval"]): int,
-        Optional("trigger", default=DEFAULTS["trigger"]): bool,
+        Optional("trigger_detector", default=DEFAULTS["trigger_detector"]): bool,
         Optional("timeout", default=DEFAULTS["timeout"]): bool,
         Optional("width", default=DEFAULTS["width"]): int,
         Optional("height", default=DEFAULTS["height"]): int,
@@ -38,8 +38,10 @@ class MotionDetectionConfig:
         self._interval = getattr(
             camera_motion_detection, "interval", motion_detection.interval
         )
-        self._trigger = getattr(
-            camera_motion_detection, "trigger", motion_detection.trigger
+        self._trigger_detector = getattr(
+            camera_motion_detection,
+            "trigger_detector",
+            motion_detection.trigger_detector,
         )
         self._timeout = getattr(
             camera_motion_detection, "timeout", motion_detection.timeout
@@ -61,8 +63,8 @@ class MotionDetectionConfig:
         return self._interval
 
     @property
-    def trigger(self):
-        return self._trigger
+    def trigger_detector(self):
+        return self._trigger_detector
 
     @property
     def timeout(self):

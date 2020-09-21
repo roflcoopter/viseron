@@ -164,7 +164,7 @@ class FFMPEGNVR(Thread):
         frame_buffer = Queue(maxsize=1)
         self.camera = FFMPEGCamera(config, frame_buffer)
 
-        if config.motion_detection.trigger:
+        if config.motion_detection.trigger_detector:
             self.camera.scan_for_motion.set()
             self.camera.scan_for_objects.clear()
         else:
@@ -182,7 +182,7 @@ class FFMPEGNVR(Thread):
             )
 
         # Motion detector class.
-        if config.motion_detection.timeout or config.motion_detection.trigger:
+        if config.motion_detection.timeout or config.motion_detection.trigger_detector:
             self.motion_detector = MotionDetection(config)
             self.motion_thread = Thread(
                 target=self.motion_detector.motion_detection, args=(motion_queue,)
@@ -308,7 +308,7 @@ class FFMPEGNVR(Thread):
             with self.object_return_queue.mutex:  # Clear any objects left in queue
                 self.object_return_queue.queue.clear()
 
-            if self.config.motion_detection.trigger:
+            if self.config.motion_detection.trigger_detector:
                 self.camera.scan_for_objects.clear()
                 self._logger.info("Pausing object detector")
             else:
@@ -439,7 +439,7 @@ class FFMPEGNVR(Thread):
     def process_motion_event(self):
         if self.motion_detected:
             if (
-                self.config.motion_detection.trigger
+                self.config.motion_detection.trigger_detector
                 and not self.camera.scan_for_objects.is_set()
             ):
                 self.camera.scan_for_objects.set()
@@ -447,7 +447,7 @@ class FFMPEGNVR(Thread):
         elif (
             self.camera.scan_for_objects.is_set()
             and not self.recorder.is_recording
-            and self.config.motion_detection.trigger
+            and self.config.motion_detection.trigger_detector
         ):
             self._logger.debug("Not recording, pausing object detector")
             self.camera.scan_for_objects.clear()
