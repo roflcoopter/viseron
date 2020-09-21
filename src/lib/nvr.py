@@ -1,19 +1,19 @@
 import json
 import logging
 from queue import Empty, Queue
-from threading import Event, Thread
+from threading import Thread
 from typing import List
 
 import cv2
 from const import LOG_LEVELS
 from lib.camera import FFMPEGCamera
-from lib.helpers import Filter, draw_objects, draw_zones
+from lib.detector import DetectedObject
+from lib.helpers import Filter, draw_contours, draw_objects, draw_zones
 from lib.motion import MotionDetection
 from lib.mqtt.binary_sensor import MQTTBinarySensor
 from lib.mqtt.switch import MQTTSwitch
 from lib.recorder import FFMPEGRecorder
 from lib.zones import Zone
-from lib.detector import DetectedObject
 
 LOGGER = logging.getLogger(__name__)
 
@@ -38,11 +38,19 @@ class MQTT:
                 )
             self.devices["switch"] = MQTTSwitch(config, mqtt_queue)
 
-    def publish_image(self, frame, zones, resolution):
+    def publish_image(self, object_frame, motion_frame, zones, resolution):
         if self.mqtt_queue:
+            # Draw on the object frame if it is supplied
+            frame = object_frame if object_frame else motion_frame
             draw_zones(frame.decoded_frame_mat_rgb, zones)
             draw_objects(
                 frame.decoded_frame_mat_rgb, frame.objects, resolution,
+            )
+            draw_contours(
+                frame.decoded_frame_mat_rgb,
+                frame.motion_contours,
+                resolution,
+                self.config.motion_detection.area,
             )
             # Write a low quality image to save bandwidth
             ret, jpg = cv2.imencode(
@@ -142,19 +150,21 @@ class FFMPEGNVR(Thread):
         self._objects_in_fov = []
         self._labels_in_fov = []
         self.idle_frames = 0
-        self.motion_event = Event()  # Triggered when motion detected
+        self._motion_frames = 0
+        self._motion_detected = False
 
         self._object_decoder_queue = Queue(maxsize=2)
         self._motion_decoder_queue = Queue(maxsize=2)
         motion_queue = Queue(maxsize=2)
         self.object_return_queue = Queue(maxsize=20)
+        self.motion_return_queue = Queue(maxsize=20)
 
         # Use FFMPEG to read from camera. Used for reading/recording
         # Maxsize changes later based on config option LOOKBACK_SECONDS
         frame_buffer = Queue(maxsize=1)
-        self.camera = FFMPEGCamera(self.config, frame_buffer)
+        self.camera = FFMPEGCamera(config, frame_buffer)
 
-        if self.config.motion_detection.trigger:
+        if config.motion_detection.trigger:
             self.camera.scan_for_motion.set()
             self.camera.scan_for_objects.clear()
         else:
@@ -162,18 +172,18 @@ class FFMPEGNVR(Thread):
             self.camera.scan_for_motion.clear()
 
         self._object_filters = {}
-        for object_filter in self.config.object_detection.labels:
+        for object_filter in config.object_detection.labels:
             self._object_filters[object_filter.label] = Filter(object_filter)
 
         self._zones = []
-        for zone in self.config.camera.zones:
+        for zone in config.camera.zones:
             self._zones.append(
-                Zone(zone, self.camera.resolution, self.config, self._mqtt.mqtt_queue,)
+                Zone(zone, self.camera.resolution, config, self._mqtt.mqtt_queue,)
             )
 
         # Motion detector class.
-        if self.config.motion_detection.timeout or self.config.motion_detection.trigger:
-            self.motion_detector = MotionDetection(self.config, self.motion_event)
+        if config.motion_detection.timeout or config.motion_detection.trigger:
+            self.motion_detector = MotionDetection(config)
             self.motion_thread = Thread(
                 target=self.motion_detector.motion_detection, args=(motion_queue,)
             )
@@ -185,8 +195,8 @@ class FFMPEGNVR(Thread):
                 args=(
                     self._motion_decoder_queue,
                     motion_queue,
-                    self.config.motion_detection.width,
-                    self.config.motion_detection.height,
+                    config.motion_detection.width,
+                    config.motion_detection.height,
                 ),
             )
             self.motion_decoder.daemon = True
@@ -209,7 +219,7 @@ class FFMPEGNVR(Thread):
         # Initialize recorder
         self._trigger_recorder = False
         self.recorder_thread = None
-        self.recorder = FFMPEGRecorder(self.config, frame_buffer)
+        self.recorder = FFMPEGRecorder(config, frame_buffer)
 
         self._logger.debug("NVR thread initialized")
 
@@ -247,6 +257,7 @@ class FFMPEGNVR(Thread):
                     self.object_return_queue,
                     self.config.motion_detection.interval,
                     self._motion_decoder_queue,
+                    self.motion_return_queue,
                 ),
             )
             self.camera_grabber.daemon = True
@@ -255,12 +266,11 @@ class FFMPEGNVR(Thread):
     def stop_camera(self):
         self._logger.debug("Stopping camera")
         self.camera.release()
-        # self.camera_grabber.join()
 
     def event_over(self):
         if self._trigger_recorder or any(zone.trigger_recorder for zone in self._zones):
             return False
-        if self.config.motion_detection.timeout and self.motion_event.is_set():
+        if self.config.motion_detection.timeout and self.motion_detected:
             return False
         return True
 
@@ -305,7 +315,7 @@ class FFMPEGNVR(Thread):
                 self.camera.scan_for_motion.clear()
                 self._logger.info("Pausing motion detector")
 
-    def get_processed_frame(self):
+    def get_processed_object_frame(self):
         """ Returns a frame along with its detections which has been processed
         by the object detector """
         try:
@@ -368,6 +378,54 @@ class FFMPEGNVR(Thread):
         for zone in self._zones:
             zone.filter_zone(objects)
 
+    def get_processed_motion_frame(self):
+        """ Returns a frame along with its motion contours which has been processed
+        by the motion detector """
+        try:
+            return self.motion_return_queue.get_nowait()["frame"]
+        except Empty:
+            return None
+
+    def filter_motion(self, motion_contours):
+        _motion_found = bool(
+            motion_contours.max_area > self.config.motion_detection.area
+        )
+
+        if _motion_found:
+            self._motion_frames += 1
+            self._logger.debug(
+                "Consecutive frames with motion: {}, "
+                "max area size: {}".format(
+                    self._motion_frames, motion_contours.max_area
+                )
+            )
+
+            if self._motion_frames >= self.config.motion_detection.frames:
+                if not self.motion_detected:
+                    self.motion_detected = True
+                return
+        else:
+            self._motion_frames = 0
+
+        if self.motion_detected:
+            self.motion_detected = False
+
+    @property
+    def motion_detected(self):
+        return self._motion_detected
+
+    @motion_detected.setter
+    def motion_detected(self, motion_detected):
+        self._motion_detected = motion_detected
+
+        if motion_detected:
+            self._logger.debug("Motion detected")
+        else:
+            self._logger.debug("Motion has ended")
+
+        if self._mqtt.mqtt_queue:
+            self._mqtt.devices["motion_detected"].publish(bool(motion_detected))
+
     def process_object_event(self, frame):
         if self._trigger_recorder or any(zone.trigger_recorder for zone in self._zones):
             if not self.recorder.is_recording:
@@ -379,7 +437,7 @@ class FFMPEGNVR(Thread):
                 self.start_recording(frame)
 
     def process_motion_event(self):
-        if self.motion_event.is_set():
+        if self.motion_detected:
             if (
                 self.config.motion_detection.trigger
                 and not self.camera.scan_for_objects.is_set()
@@ -406,23 +464,35 @@ class FFMPEGNVR(Thread):
             self.camera.frame_ready.wait()
 
             # Filter returned objects
-            processed_frame = self.get_processed_frame()
-            if processed_frame:
+            processed_object_frame = self.get_processed_object_frame()
+            if processed_object_frame:
                 if self._logger.level == LOG_LEVELS["DEBUG"]:
                     self._logger.debug(
-                        f"Objects: {[obj.formatted for obj in processed_frame.objects]}"
+                        f"Objects: "
+                        f"{[obj.formatted for obj in processed_object_frame.objects]}"
                     )
                 # Filter objects in the FoV
-                self.filter_fov(processed_frame.objects)
+                self.filter_fov(processed_object_frame.objects)
                 # Filter objects in each zone
-                self.filter_zones(processed_frame.objects)
+                self.filter_zones(processed_object_frame.objects)
 
-            self.process_object_event(processed_frame)
+            # Filter returned motion contours
+            processed_motion_frame = self.get_processed_motion_frame()
+            if processed_motion_frame:
+                # self._logger.debug(processed_motion_frame.motion_contours)
+                self.filter_motion(processed_motion_frame.motion_contours)
+
+            self.process_object_event(processed_object_frame)
             self.process_motion_event()
 
-            if processed_frame and self.config.camera.publish_image:
+            if (
+                processed_object_frame or processed_motion_frame
+            ) and self.config.camera.publish_image:
                 self._mqtt.publish_image(
-                    processed_frame, self._zones, self.camera.resolution
+                    processed_object_frame,
+                    processed_motion_frame,
+                    self._zones,
+                    self.camera.resolution,
                 )
 
             # If we are recording and no object is detected
