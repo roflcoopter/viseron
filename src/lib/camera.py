@@ -183,7 +183,7 @@ class FFMPEGCamera:
             + self._config.camera.hwaccel_args
             + self._config.camera.codec
             + (
-                ["-rtsp_transport", "tcp"]
+                ["-rtsp_transport", self._config.camera.rtsp_transport]
                 if self._config.camera.stream_format == "rtsp"
                 else []
             )

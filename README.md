@@ -212,6 +212,7 @@ The command is built like this: \
 | input_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG decoder hardware acceleration arguments |
 | codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
+| rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesnt support TCP |
 | filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | motion_detection | dictionary | optional | see [Motion detection config](#motion-detection) | Overrides the global ```motion_detection``` config |
 | object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) below | Overrides the global ```object_detection``` config |
