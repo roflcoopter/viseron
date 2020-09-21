@@ -249,7 +249,7 @@ This means that you do **not** have to set ```hwaccel_args``` *unless* you have 
 ### Camera object detection
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| interval | float | optional | any float | Run object detection at this interval in seconds. Overrides global [config](#object-detection)<br>For optimal performance this should the same as motion detection interval. |
+| interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
 | labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). | 
 
 ### Zones
@@ -349,7 +349,7 @@ Points are used to form a polygon.
 | label_path | str | RPI: ```/detectors/models/edgetpu/labels.txt``` <br> Other: ```/detectors/models/darknet/coco.names``` | any valid path | Path to the file containing labels for the model |
 | model_width | int | optional | any integer | Detected from model. Frames will be resized to this width in order to fit model and save computing power. I dont recommend changing this. |
 | model_height | int | optional | any integer | Detected from model. Frames will be resized to this height in order to fit model and save computing power. I dont recommend changing this. |
-| interval | float | 1.0 | any float | Run object detection at this interval in seconds.<br>For optimal performance this should the same as motion detection interval. |
+| interval | float | 1.0 | any float | Run object detection at this interval in seconds on the most recent frame. |
 | confidence | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects |
 | suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections |
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
@@ -383,12 +383,12 @@ Points are used to form a polygon.
 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| interval | float | 1.0 | any float | Run motion detection at this interval in seconds. <br>For optimal performance this should the same as object detection interval. |
+| interval | float | 1.0 | any float | Run motion detection at this interval in seconds on the most recent frame. <br>For optimal performance, this should be divisible with the object detection interval, because then preprocessing will only occur once for each frame. |
 | trigger | bool | False | True/False | If true, detected motion will trigger object detector to start scanning |
 | timeout | bool | False | True/False | If true, recording will continue until no motion is detected |
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
-| area | int | 6000 | any integer | How big the detected area must be in order to trigger motion |
+| area | float | 0.1 | any float | How big the detected area must be in order to trigger motion |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
 | logging | dictionary | optional | see [Logging](#logging) | Set the log level for the motion detector. Can be set for each camera individually. |
 

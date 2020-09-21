@@ -103,7 +103,7 @@ SCHEMA = Schema(
                             Optional("timeout"): bool,
                             Optional("width"): int,
                             Optional("height"): int,
-                            Optional("area"): int,
+                            Optional("area"): float,
                             Optional("frames"): int,
                             Optional("logging", default={}): LOGGING_SCHEMA,
                         },

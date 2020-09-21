@@ -12,7 +12,7 @@ DEFAULTS = {
     "timeout": False,
     "width": 300,
     "height": 300,
-    "area": 6000,
+    "area": 0.1,
     "frames": 3,
 }
 
@@ -23,7 +23,7 @@ SCHEMA = Schema(
         Optional("timeout", default=DEFAULTS["timeout"]): bool,
         Optional("width", default=DEFAULTS["width"]): int,
         Optional("height", default=DEFAULTS["height"]): int,
-        Optional("area", default=DEFAULTS["area"]): int,
+        Optional("area", default=DEFAULTS["area"]): float,
         Optional("frames", default=DEFAULTS["frames"]): int,
         Optional("logging", default={}): LOGGING_SCHEMA,
     },
