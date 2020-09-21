@@ -2,9 +2,19 @@ import math
 from queue import Full, Queue
 from typing import Any, Tuple
 
+import numpy as np
+
 import cv2
 import slugify as unicode_slug
 from const import FONT
+
+
+def calculate_relative_contours(contours, resolution: Tuple[int, int]):
+    relative_contours = []
+    for contour in contours:
+        relative_contours.append(np.divide(contour, resolution))
+
+    return relative_contours
 
 
 def calculate_relative_coords(
@@ -110,6 +120,20 @@ def draw_zones(frame, zones):
             color,
             1,
         )
+
+
+def draw_contours(frame, contours, resolution, threshold):
+    filtered_contours = []
+    relevant_contours = []
+    for relative_contour, area in zip(contours.rel_contours, contours.contour_areas):
+        abs_contour = np.multiply(relative_contour, resolution).astype("int32")
+        if area > threshold:
+            relevant_contours.append(abs_contour)
+            continue
+        filtered_contours.append(abs_contour)
+
+    cv2.drawContours(frame, relevant_contours, -1, (255, 0, 255), thickness=2)
+    cv2.drawContours(frame, filtered_contours, -1, (130, 0, 75), thickness=1)
 
 
 def pop_if_full(queue: Queue, item: Any):
