@@ -374,6 +374,7 @@ Points are used to form a polygon.
     interval: 1
     trigger_detector: true
     timeout: true
+    max_timeout: 30
     width: 300
     height: 300
     area: 0.1
@@ -386,6 +387,7 @@ Points are used to form a polygon.
 | interval | float | 1.0 | any float | Run motion detection at this interval in seconds on the most recent frame. <br>For optimal performance, this should be divisible with the object detection interval, because then preprocessing will only occur once for each frame. |
 | trigger_detector | bool | true | True/False | If true, the object detector will only run while motion is detected. |
 | timeout | bool | true | True/False | If true, recording will continue until no motion is detected |
+| max_timeout | int | 30 | any integer | Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected. <br>This is to prevent never-ending recordings. <br>Only applicable if ```timeout: true```.
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
 | area | float | 0.1 | any float | How big the detected area must be in order to trigger motion |

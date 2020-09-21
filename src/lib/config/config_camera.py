@@ -101,6 +101,7 @@ SCHEMA = Schema(
                             Optional("interval"): Any(int, float),
                             Optional("trigger_detector"): bool,
                             Optional("timeout"): bool,
+                            Optional("max_timeout"): int,
                             Optional("width"): int,
                             Optional("height"): int,
                             Optional("area"): float,

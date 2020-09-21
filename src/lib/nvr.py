@@ -152,6 +152,7 @@ class FFMPEGNVR(Thread):
         self.idle_frames = 0
         self._motion_frames = 0
         self._motion_detected = False
+        self._motion_only_frames = 0
 
         self._object_decoder_queue = Queue(maxsize=2)
         self._motion_decoder_queue = Queue(maxsize=2)
@@ -269,8 +270,19 @@ class FFMPEGNVR(Thread):
 
     def event_over(self):
         if self._trigger_recorder or any(zone.trigger_recorder for zone in self._zones):
+            self._motion_only_frames = 0
             return False
         if self.config.motion_detection.timeout and self.motion_detected:
+            # Only allow motion to keep event active for a specified period of time
+            if self._motion_only_frames >= (
+                self.camera.stream_fps * self.config.motion_detection.max_timeout
+            ):
+                self._logger.debug(
+                    "Motion has stalled recorder for too long, "
+                    "event considered over anyway"
+                )
+                return True
+            self._motion_only_frames += 0
             return False
         return True
 
@@ -417,14 +429,10 @@ class FFMPEGNVR(Thread):
     @motion_detected.setter
     def motion_detected(self, motion_detected):
         self._motion_detected = motion_detected
-
-        if motion_detected:
-            self._logger.debug("Motion detected")
-        else:
-            self._logger.debug("Motion has ended")
+        self._logger.debug("Motion detected" if motion_detected else "Motion stopped")
 
         if self._mqtt.mqtt_queue:
-            self._mqtt.devices["motion_detected"].publish(bool(motion_detected))
+            self._mqtt.devices["motion_detected"].publish(motion_detected)
 
     def process_object_event(self, frame):
         if self._trigger_recorder or any(zone.trigger_recorder for zone in self._zones):

@@ -10,6 +10,7 @@ DEFAULTS = {
     "interval": 1,
     "trigger_detector": False,
     "timeout": False,
+    "max_timeout": 30,
     "width": 300,
     "height": 300,
     "area": 0.1,
@@ -21,6 +22,7 @@ SCHEMA = Schema(
         Optional("interval", default=DEFAULTS["interval"]): int,
         Optional("trigger_detector", default=DEFAULTS["trigger_detector"]): bool,
         Optional("timeout", default=DEFAULTS["timeout"]): bool,
+        Optional("max_timeout", default=DEFAULTS["timeout"]): int,
         Optional("width", default=DEFAULTS["width"]): int,
         Optional("height", default=DEFAULTS["height"]): int,
         Optional("area", default=DEFAULTS["area"]): float,
@@ -46,6 +48,9 @@ class MotionDetectionConfig:
         self._timeout = getattr(
             camera_motion_detection, "timeout", motion_detection.timeout
         )
+        self._max_timeout = getattr(
+            camera_motion_detection, "max_timeout", motion_detection.max_timeout
+        )
         self._width = getattr(camera_motion_detection, "width", motion_detection.width)
         self._height = getattr(
             camera_motion_detection, "height", motion_detection.height
@@ -69,6 +74,10 @@ class MotionDetectionConfig:
     @property
     def timeout(self):
         return self._timeout
+
+    @property
+    def max_timeout(self):
+        return self._max_timeout
 
     @property
     def width(self):
