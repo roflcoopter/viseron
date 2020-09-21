@@ -376,7 +376,7 @@ Points are used to form a polygon.
     timeout: true
     width: 300
     height: 300
-    area: 6000
+    area: 0.1
     frames: 3
   ```
 </details>
