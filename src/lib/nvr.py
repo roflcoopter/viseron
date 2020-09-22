@@ -203,10 +203,8 @@ class FFMPEGNVR(Thread):
         )
 
         if getattr(config.motion_detection.logging, "level", None):
-            print("Motion Loglevel based on local/global setting")
             self._motion_logger.setLevel(config.motion_detection.logging.level)
         elif getattr(config.camera.logging, "level", None):
-            print("Motion Loglevel based on camera setting")
             self._motion_logger.setLevel(config.camera.logging.level)
 
         self._object_logger = logging.getLogger(
@@ -214,15 +212,9 @@ class FFMPEGNVR(Thread):
         )
 
         if getattr(config.object_detection.logging, "level", None):
-            print("Object Loglevel based on local/global setting")
             self._object_logger.setLevel(config.object_detection.logging.level)
         elif getattr(config.camera.logging, "level", None):
             self._object_logger.setLevel(config.camera.logging.level)
-            print("Object Loglevel based on camera setting")
-
-        print(f"Default log level {self._logger.level}")
-        print(f"Motion  log level {self._motion_logger.level}")
-        print(f"Object  log level {self._object_logger.level}")
 
     def on_connect(self, client):
         """Called when MQTT connection is established"""
