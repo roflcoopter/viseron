@@ -6,7 +6,7 @@ import numpy as np
 
 import cv2
 import slugify as unicode_slug
-from const import FONT
+from const import FONT, FONT_SIZE
 
 
 def calculate_relative_contours(contours, resolution: Tuple[int, int]):
@@ -75,8 +75,16 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)):
         math.floor(obj.rel_x1 * frame_res[0]),
         (math.floor(obj.rel_y1 * frame_res[1])) - 5,
     )
+
+    # If label is outside the top of the frame, put it below the bounding box
+    if coordinates[1] < 10:
+        coordinates = (
+            math.floor(obj.rel_x1 * frame_res[0]),
+            (math.floor(obj.rel_y2 * frame_res[1])) + 5,
+        )
+
     cv2.putText(
-        frame, obj.label, coordinates, FONT, 0.75, color, 2,
+        frame, obj.label, coordinates, FONT, FONT_SIZE, color, 2,
     )
 
 
@@ -116,7 +124,7 @@ def draw_zones(frame, zones):
             zone.name,
             (zone.coordinates[0][0] + 5, zone.coordinates[0][1] + 15),
             FONT,
-            0.75,
+            FONT_SIZE,
             color,
             2,
         )
@@ -148,6 +156,19 @@ def draw_mask(frame, mask_points):
     )
     # Draw polygon outline in orange
     cv2.polylines(frame, mask_points, True, (0, 140, 255), 2)
+    for mask in mask_points:
+        image_moment = cv2.moments(mask)
+        center_x = int(image_moment["m10"] / image_moment["m00"])
+        center_y = int(image_moment["m01"] / image_moment["m00"])
+        cv2.putText(
+            frame,
+            "Mask",
+            (center_x - 20, center_y + 5),
+            FONT,
+            FONT_SIZE,
+            (255, 255, 255),
+            2,
+        )
 
 
 def pop_if_full(queue: Queue, item: Any):
