@@ -28,7 +28,7 @@ SCHEMA = Schema(
         Optional("height", default=DEFAULTS["height"]): int,
         Optional("area", default=DEFAULTS["area"]): float,
         Optional("frames", default=DEFAULTS["frames"]): int,
-        Optional("logging", default={}): LOGGING_SCHEMA,
+        Optional("logging"): LOGGING_SCHEMA,
     },
 )
 
@@ -62,7 +62,9 @@ class MotionDetectionConfig:
         )
         self._mask = self.generate_mask(getattr(camera_motion_detection, "mask", []))
         self._logging = getattr(
-            camera_motion_detection, "logging", motion_detection.logging
+            camera_motion_detection,
+            "logging",
+            (getattr(motion_detection, "logging", None)),
         )
 
     @staticmethod

@@ -39,6 +39,7 @@ class MotionDetection:
             self._logger.setLevel(config.motion_detection.logging.level)
         elif getattr(config.camera.logging, "level", None):
             self._logger.setLevel(config.camera.logging.level)
+        self._logger.debug("Initializing motion detector")
 
         self._config = config
 
@@ -50,6 +51,7 @@ class MotionDetection:
 
         self._mask = None
         if config.motion_detection.mask:
+            self._logger.debug("Creating mask")
             # Scale mask to fit resized frame
             scaled_mask = []
             for point_list in config.motion_detection.mask:
@@ -66,6 +68,7 @@ class MotionDetection:
 
             cv2.fillPoly(mask, pts=scaled_mask, color=(0, 0, 0))
             self._mask = np.where(mask[:, :, 0] == [0])
+        self._logger.debug("Motion detector initialized")
 
     def detect(self, frame):
         gray = cv2.cvtColor(

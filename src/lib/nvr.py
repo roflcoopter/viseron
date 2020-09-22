@@ -20,8 +20,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class MQTT:
-    def __init__(self, logger, config, mqtt_queue):
-        self._logger = logger
+    def __init__(self, config, mqtt_queue):
         self.config = config
         self.mqtt_queue = mqtt_queue
 
@@ -107,14 +106,11 @@ class FFMPEGNVR(Thread):
 
     def __init__(self, config, detector, detector_queue, mqtt_queue=None):
         Thread.__init__(self)
-        self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
-        if getattr(config.camera.logging, "level", None):
-            self._logger.setLevel(config.camera.logging.level)
-
         self.nvr_list.append({config.camera.mqtt_name: self})
+        self.setup_loggers(config)
         self._logger.debug("Initializing NVR thread")
 
-        self._mqtt = MQTT(self._logger, config, mqtt_queue)
+        self._mqtt = MQTT(config, mqtt_queue)
         self.config = config
         self.kill_received = False
         self.camera_grabber = None
@@ -125,6 +121,7 @@ class FFMPEGNVR(Thread):
         self._motion_frames = 0
         self._motion_detected = False
         self._motion_only_frames = 0
+        self.detector = detector
 
         self._object_decoder_queue = Queue(maxsize=2)
         self._motion_decoder_queue = Queue(maxsize=2)
@@ -195,6 +192,37 @@ class FFMPEGNVR(Thread):
         self.recorder = FFMPEGRecorder(config, frame_buffer)
 
         self._logger.debug("NVR thread initialized")
+
+    def setup_loggers(self, config):
+        self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
+        if getattr(config.camera.logging, "level", None):
+            self._logger.setLevel(config.camera.logging.level)
+
+        self._motion_logger = logging.getLogger(
+            __name__ + "." + config.camera.name_slug + ".motion"
+        )
+
+        if getattr(config.motion_detection.logging, "level", None):
+            print("Motion Loglevel based on local/global setting")
+            self._motion_logger.setLevel(config.motion_detection.logging.level)
+        elif getattr(config.camera.logging, "level", None):
+            print("Motion Loglevel based on camera setting")
+            self._motion_logger.setLevel(config.camera.logging.level)
+
+        self._object_logger = logging.getLogger(
+            __name__ + "." + config.camera.name_slug + ".object"
+        )
+
+        if getattr(config.object_detection.logging, "level", None):
+            print("Object Loglevel based on local/global setting")
+            self._object_logger.setLevel(config.object_detection.logging.level)
+        elif getattr(config.camera.logging, "level", None):
+            self._object_logger.setLevel(config.camera.logging.level)
+            print("Object Loglevel based on camera setting")
+
+        print(f"Default log level {self._logger.level}")
+        print(f"Motion  log level {self._motion_logger.level}")
+        print(f"Object  log level {self._object_logger.level}")
 
     def on_connect(self, client):
         """Called when MQTT connection is established"""
@@ -377,7 +405,7 @@ class FFMPEGNVR(Thread):
 
         if _motion_found:
             self._motion_frames += 1
-            self._logger.debug(
+            self._motion_logger.debug(
                 "Consecutive frames with motion: {}, "
                 "max area size: {}".format(
                     self._motion_frames, motion_contours.max_area
@@ -401,7 +429,9 @@ class FFMPEGNVR(Thread):
     @motion_detected.setter
     def motion_detected(self, motion_detected):
         self._motion_detected = motion_detected
-        self._logger.debug("Motion detected" if motion_detected else "Motion stopped")
+        self._motion_logger.debug(
+            "Motion detected" if motion_detected else "Motion stopped"
+        )
 
         if self._mqtt.mqtt_queue:
             self._mqtt.devices["motion_detected"].publish(motion_detected)
@@ -423,7 +453,7 @@ class FFMPEGNVR(Thread):
                 and not self.camera.scan_for_objects.is_set()
             ):
                 self.camera.scan_for_objects.set()
-                self._logger.debug("Motion detected! Starting object detector")
+                self._logger.debug("Starting object detector")
         elif (
             self.camera.scan_for_objects.is_set()
             and not self.recorder.is_recording
@@ -446,8 +476,8 @@ class FFMPEGNVR(Thread):
             # Filter returned objects
             processed_object_frame = self.get_processed_object_frame()
             if processed_object_frame:
-                if self._logger.level == LOG_LEVELS["DEBUG"]:
-                    self._logger.debug(
+                if self._object_logger.level == LOG_LEVELS["DEBUG"]:
+                    self._object_logger.debug(
                         f"Objects: "
                         f"{[obj.formatted for obj in processed_object_frame.objects]}"
                     )

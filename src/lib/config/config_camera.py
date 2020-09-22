@@ -116,7 +116,7 @@ SCHEMA = Schema(
                                     ],
                                 }
                             ],
-                            Optional("logging", default={}): LOGGING_SCHEMA,
+                            Optional("logging"): LOGGING_SCHEMA,
                         },
                         None,
                     ),
@@ -124,6 +124,7 @@ SCHEMA = Schema(
                         {
                             Optional("interval"): Any(int, float),
                             Optional("labels"): LABELS_SCHEMA,
+                            Optional("logging"): LOGGING_SCHEMA,
                         },
                         None,
                     ),
@@ -137,7 +138,7 @@ SCHEMA = Schema(
                         }
                     ],
                     Optional("publish_image", default=False): Any(True, False),
-                    Optional("logging", default={}): LOGGING_SCHEMA,
+                    Optional("logging"): LOGGING_SCHEMA,
                 },
                 get_codec,
                 ensure_mqtt_name,
@@ -173,7 +174,7 @@ class CameraConfig:
         self._object_detection = camera.object_detection
         self._zones = self.generate_zones(camera.zones)
         self._publish_image = camera.publish_image
-        self._logging = camera.logging
+        self._logging = getattr(camera, "logging", None)
 
     def generate_zones(self, zones):
         zone_list = []

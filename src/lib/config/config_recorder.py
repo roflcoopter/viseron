@@ -61,7 +61,7 @@ SCHEMA = Schema(
         Optional("hwaccel_args", default=RECORDER_HWACCEL_ARGS): check_for_hwaccels,
         Optional("codec", default=get_codec()): str,
         Optional("filter_args", default=[]): get_filter_args,
-        Optional("logging", default={}): LOGGING_SCHEMA,
+        Optional("logging"): LOGGING_SCHEMA,
     }
 )
 
@@ -79,7 +79,7 @@ class RecorderConfig:
         self._hwaccel_args = recorder.hwaccel_args
         self._codec = recorder.codec
         self._filter_args = recorder.filter_args
-        self._logging = recorder.logging
+        self._logging = getattr(recorder, "logging", None)
 
     @property
     def lookback(self):
