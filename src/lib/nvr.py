@@ -8,7 +8,7 @@ import cv2
 from const import LOG_LEVELS
 from lib.camera import FFMPEGCamera
 from lib.detector import DetectedObject
-from lib.helpers import Filter, draw_contours, draw_objects, draw_zones
+from lib.helpers import Filter, draw_contours, draw_mask, draw_objects, draw_zones
 from lib.motion import MotionDetection
 from lib.mqtt.binary_sensor import MQTTBinarySensor
 from lib.mqtt.camera import MQTTCamera
@@ -44,15 +44,19 @@ class MQTT:
         if self.mqtt_queue:
             # Draw on the object frame if it is supplied
             frame = object_frame if object_frame else motion_frame
-            draw_zones(frame.decoded_frame_mat_rgb, zones)
-            draw_objects(
-                frame.decoded_frame_mat_rgb, frame.objects, resolution,
-            )
+            if self.config.motion_detection.mask:
+                draw_mask(
+                    frame.decoded_frame_mat_rgb, self.config.motion_detection.mask,
+                )
             draw_contours(
                 frame.decoded_frame_mat_rgb,
                 frame.motion_contours,
                 resolution,
                 self.config.motion_detection.area,
+            )
+            draw_zones(frame.decoded_frame_mat_rgb, zones)
+            draw_objects(
+                frame.decoded_frame_mat_rgb, frame.objects, resolution,
             )
             # Write a low quality image to save bandwidth
             ret, jpg = cv2.imencode(
@@ -152,7 +156,7 @@ class FFMPEGNVR(Thread):
 
         # Motion detector class.
         if config.motion_detection.timeout or config.motion_detection.trigger_detector:
-            self.motion_detector = MotionDetection(config)
+            self.motion_detector = MotionDetection(config, self.camera.resolution)
             self.motion_thread = Thread(
                 target=self.motion_detector.motion_detection, args=(motion_queue,)
             )

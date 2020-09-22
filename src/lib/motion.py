@@ -1,7 +1,9 @@
 import logging
 
 import cv2
-from lib.helpers import pop_if_full, calculate_relative_contours
+import numpy as np
+
+from lib.helpers import calculate_relative_contours, pop_if_full
 
 
 class Contours:
@@ -31,12 +33,14 @@ class Contours:
 
 
 class MotionDetection:
-    def __init__(self, config):
+    def __init__(self, config, camera_resolution):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         if getattr(config.motion_detection.logging, "level", None):
             self._logger.setLevel(config.motion_detection.logging.level)
         elif getattr(config.camera.logging, "level", None):
             self._logger.setLevel(config.camera.logging.level)
+
+        self._config = config
 
         self._resolution = (
             config.motion_detection.width,
@@ -44,12 +48,33 @@ class MotionDetection:
         )
         self._avg = None
 
+        self._mask = None
+        if config.motion_detection.mask:
+            # Scale mask to fit resized frame
+            scaled_mask = []
+            for point_list in config.motion_detection.mask:
+                rel_mask = np.divide((point_list), camera_resolution)
+                scaled_mask.append(
+                    np.multiply(rel_mask, self._resolution).astype("int32")
+                )
+
+            mask = np.zeros(
+                (config.motion_detection.width, config.motion_detection.height, 3),
+                np.uint8,
+            )
+            mask[:] = 255
+
+            cv2.fillPoly(mask, pts=scaled_mask, color=(0, 0, 0))
+            self._mask = np.where(mask[:, :, 0] == [0])
+
     def detect(self, frame):
         gray = cv2.cvtColor(
             frame["frame"].get_resized_frame(frame["decoder_name"]), cv2.COLOR_RGB2GRAY
         )
         gray = cv2.GaussianBlur(gray, (21, 21), 0)
         gray = gray.get()  # Convert from UMat to Mat
+        if self._mask:
+            gray[self._mask] = [0]
 
         # if the average frame is None, initialize it
         if self._avg is None:

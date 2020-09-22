@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 from voluptuous import Optional, Schema
 
 from .config_logging import SCHEMA as LOGGING_SCHEMA
@@ -8,8 +9,8 @@ LOGGER = logging.getLogger(__name__)
 
 DEFAULTS = {
     "interval": 1,
-    "trigger_detector": False,
-    "timeout": False,
+    "trigger_detector": True,
+    "timeout": True,
     "max_timeout": 30,
     "width": 300,
     "height": 300,
@@ -59,9 +60,20 @@ class MotionDetectionConfig:
         self._frames = getattr(
             camera_motion_detection, "frames", motion_detection.frames
         )
+        self._mask = self.generate_mask(getattr(camera_motion_detection, "mask", []))
         self._logging = getattr(
             camera_motion_detection, "logging", motion_detection.logging
         )
+
+    @staticmethod
+    def generate_mask(coordinates):
+        mask = []
+        for mask_coordinates in coordinates:
+            point_list = []
+            for point in getattr(mask_coordinates, "points"):
+                point_list.append([getattr(point, "x"), getattr(point, "y")])
+            mask.append(np.array(point_list))
+        return mask
 
     @property
     def interval(self):
@@ -94,6 +106,10 @@ class MotionDetectionConfig:
     @property
     def frames(self):
         return self._frames
+
+    @property
+    def mask(self):
+        return self._mask
 
     @property
     def logging(self):

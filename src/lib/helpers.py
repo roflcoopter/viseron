@@ -116,9 +116,9 @@ def draw_zones(frame, zones):
             zone.name,
             (zone.coordinates[0][0] + 5, zone.coordinates[0][1] + 15),
             FONT,
-            0.5,
+            0.75,
             color,
-            1,
+            2,
         )
 
 
@@ -134,6 +134,20 @@ def draw_contours(frame, contours, resolution, threshold):
 
     cv2.drawContours(frame, relevant_contours, -1, (255, 0, 255), thickness=2)
     cv2.drawContours(frame, filtered_contours, -1, (130, 0, 75), thickness=1)
+
+
+def draw_mask(frame, mask_points):
+    mask_overlay = frame.copy()
+    # Draw polygon filled with black color
+    cv2.fillPoly(
+        mask_overlay, pts=mask_points, color=(0),
+    )
+    # Apply overlay on frame with 70% opacity
+    cv2.addWeighted(
+        mask_overlay, 0.7, frame, 1 - 0.7, 0, frame,
+    )
+    # Draw polygon outline in orange
+    cv2.polylines(frame, mask_points, True, (0, 140, 255), 2)
 
 
 def pop_if_full(queue: Queue, item: Any):

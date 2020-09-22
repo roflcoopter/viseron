@@ -214,10 +214,10 @@ The command is built like this: \
 | codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
 | rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesnt support TCP |
 | filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
-| motion_detection | dictionary | optional | see [Motion detection config](#motion-detection) | Overrides the global ```motion_detection``` config |
+| motion_detection | dictionary | optional | see [Camera motion detection config](#camera-motion-detection) | Overrides the global ```motion_detection``` config |
 | object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) below | Overrides the global ```object_detection``` config |
 | zones | list | optional | see [Zones config](#zones) below | Allows you to specify zones to further filter detections |
-| publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones/objects.<br><b>Note: this will use significant amounts of CPU and should only be used for debugging</b> |
+| publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones, objects, motion and masks.<br><b>Note: this will use significant amounts of CPU and should only be used for debugging</b> |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for this camera |
 
 A default ffmpeg decoder command is generated, which varies a bit depending on the Docker container you use,
@@ -247,11 +247,76 @@ A default ffmpeg decoder command is generated, which varies a bit depending on t
 
 This means that you do **not** have to set ```hwaccel_args``` *unless* you have a specific need to change the default command (say you need to change ```h264_cuvid``` to ```hevc_cuvid```)
 
+---
+
+### Camera motion detection
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| interval | float | 1.0 | any float | Run motion detection at this interval in seconds on the most recent frame. <br>For optimal performance, this should be divisible with the object detection interval, because then preprocessing will only occur once for each frame. |
+| trigger_detector | bool | true | True/False | If true, the object detector will only run while motion is detected. |
+| timeout | bool | true | True/False | If true, recording will continue until no motion is detected |
+| max_timeout | int | 30 | any integer | Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected. <br>This is to prevent never-ending recordings. <br>Only applicable if ```timeout: true```.
+| width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
+| height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
+| area | float | 0.1 | any float | How big the detected area must be in order to trigger motion |
+| frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
+| mask | list | optional | see [Mask config](#mask) | Allows you to specify masks in the shape of polygons. <br>Use this to ignore motion in certain areas of the image |
+| logging | dictionary | optional | see [Logging](#logging) | Set the log level for the motion detector. Can be set for each camera individually. |
+
+---
+
+### Mask
+
+<details>
+  <summary>Config example</summary>
+
+  ```yaml
+  cameras:
+    - name: name
+      host: ip
+      port: port
+      path: /Streaming/Channels/101/
+      motion_detection:
+        area: 0.07
+        mask:
+          - points:
+              - x: 0
+                y: 0
+              - x: 250
+                y: 0
+              - x: 250
+                y: 250
+              - x: 0
+                y: 250
+          - points:
+              - x: 500
+                y: 500
+              - x: 1000
+                y: 500
+              - x: 1000
+                y: 750
+              - x: 300
+                y: 750
+  ```
+</details>
+
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| points | list | **required** | a list of [points](#points) | Used to draw a polygon of the mask
+
+Masks are used to exclude certain areas in the image from triggering motion.\
+Say you have a camera which is filming some trees. When the wind is blowing, motion will probably be detected.\
+Draw a mask over these trees and they will no longer trigger said motion.
+
+---
+
 ### Camera object detection
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
 | labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). | 
+
+---
 
 ### Zones
 
@@ -299,6 +364,15 @@ This means that you do **not** have to set ```hwaccel_args``` *unless* you have 
 | name | str | **required** | any str | Zone name, used in MQTT topic. Should be unique |
 | points | list | **required** | a list of [points](#points) | Used to draw a polygon of the zone
 | labels | list | optional | any float | A list of [labels](#labels) to track in the zone. Overrides global [config](#labels). | 
+
+---
+
+### Points
+Points are used to form a polygon.
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| x | int | **required** | any int | X-coordinate of point |
+| y | int | **required** | any int | Y-coordinate of point |
 To easily genereate points you can use a tool like [image-map.net](https://www.image-map.net/).\
 Just upload an image from your camera and start drawing your zone.\
 Then click **Show me the code!** and adapt it to the config format.\
@@ -315,12 +389,7 @@ points:
     y: 97
 ```
 
-### Points
-Points are used to form a polygon.
-| Name | Type | Default | Supported options | Description |
-| -----| -----| ------- | ----------------- |------------ |
-| x | int | **required** | any int | X-coordinate of point |
-| y | int | **required** | any int | Y-coordinate of point |
+---
 
 ## Object detection
 <details>
@@ -356,6 +425,8 @@ Points are used to form a polygon.
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
 | logging | dictionary | optional | see [Logging](#logging) | Set the log level for the object detector |
 
+---
+
 ### Labels
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
@@ -365,6 +436,8 @@ Points are used to form a polygon.
 | width_min | float | 0 | float between 0 and 1 | Minimum width allowed for detected objects, relative to stream width |
 | width_max | float | 1 | float between 0 and 1 | Maximum width allowed for detected objects, relative to stream width |
 | triggers_recording | bool | True | True/false | If set to True, objects matching this filter will start the recorder and signal over MQTT.<br> If set to False, only signal over MQTT will be sent |
+
+---
 
 ## Motion detection
 <details>
@@ -396,6 +469,8 @@ Points are used to form a polygon.
 | logging | dictionary | optional | see [Logging](#logging) | Set the log level for the motion detector. Can be set for each camera individually. |
 
 TODO Future releases will make the motion detection easier to fine tune. Right now its a guessing game
+
+---
 
 ## Recorder
 <details>
@@ -450,6 +525,7 @@ A default ffmpeg encoder command is generated, which varies a bit depending on t
 
 This means that you do **not** have to set ```hwaccel_args``` *unless* you have a specific need to change the default command (say you need to change ```h264_nvenc``` to ```hevc_nvenc```)
 
+---
 
 ## MQTT
 <details>
@@ -474,6 +550,8 @@ This means that you do **not** have to set ```hwaccel_args``` *unless* you have 
 | discovery_prefix | str | ```homeassistant``` | Used to configure sensors in Home Assistant |
 | last_will_topic | str | ```{client_id}/lwt``` | Last will topic
 
+---
+
 ## Logging
 <details>
   <summary>Config example</summary>
@@ -487,6 +565,8 @@ This means that you do **not** have to set ```hwaccel_args``` *unless* you have 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | level | str | ```INFO``` | ```DEBUG```, ```INFO```, ```WARNING```, ```ERROR```, ```FATAL``` | Log level |
+
+---
 
 ## Secrets
 Any value in ```config.yaml``` can be substituted with secrets stored in ```secrets.yaml```.\
@@ -510,6 +590,8 @@ cameras:
     username: !secret username
     password: !secret password
 ```
+
+---
 
 # Benchmarks
 Here I will show you the system load on a few different machines/configs.\
@@ -540,36 +622,46 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or 
 | viseron | ~23% | Scanning for objects only |
 | viseron | ~24% | Scanning for motion and objects |
 
+---
+
 # Home Assistant Integration
 Viseron integrates into Home Assistant using MQTT discovery and is enabled by default if you configure MQTT.\
 Viseron will create a number of entities depending on your configuration.
 
 **Camera entity**\
-A camera entity will be created for each camera\
+A camera entity will be created for each camera.\
 Default state topic: ```homeassistant/camera/{mqtt_name from camera config}/image```\
 Images will be published to this topic with drawn objects and zones if ```publish_image: true``` is set in the config.\
-Objects that are discarded by a filter will have blue bounding boxes, while objects who pass the filter will be green.
-Zones are drawn in red. If an object passes its filter and is inside the zone, it will turn green.
+Objects that are discarded by a filter will have blue bounding boxes, while objects who pass the filter will be green.\
+Zones are drawn in red. If an object passes its filter and is inside the zone, it will turn green.\
+Motion contours that are smaller than configured ```area``` are drawn in dark purple, while bigger contours are drawn in pink.\
+Masks are drawn with an orange border and black background with 70% opacity.
 
 **Binary Sensors**\
 A variable amount of binary sensors will be created based on your configuration.
 1) A binary sensor showing if any tracked object is in view.\
-   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/state```
+   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/object_detected/state```
 2) A binary sensor for each tracked object showing if the label is in view.\
    Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{label}/state```
 3) A binary sensor for each zone showing if any tracked object is in the zone.\
    Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone}/state```
 4) A binary sensor for each tracked object in a zone showing if the label is in the zone.\
    Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone}_{label}/state```
+4) A binary sensor showing if motion is detected.\
+   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/motion_detected/state```
 
 **Switch**\
 A switch entity will be created for each camera.\
-At the moment this does nothing but in the future it will be used to arm/disarm the camera.\
+The switch is used to arm/disarm a camera. When disarmed, no system resources are used for the camera.\
 Default state topic: ```homeassistant/switch/{mqtt_name from camera config}/state```\
 Default command topic: ```homeassistant/switch/{mqtt_name from camera config}/set```\
 
+---
+
 # Tips
 - If you are experiencing issues with a camera, I suggest you add debug logging to it and examine the logs
+
+---
 
 # Ideas and upcoming features
 - UI

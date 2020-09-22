@@ -109,6 +109,13 @@ SCHEMA = Schema(
                             Optional("height"): int,
                             Optional("area"): float,
                             Optional("frames"): int,
+                            Optional("mask", default=[]): [
+                                {
+                                    Required("points"): [
+                                        {Required("x"): int, Required("y"): int,}
+                                    ],
+                                }
+                            ],
                             Optional("logging", default={}): LOGGING_SCHEMA,
                         },
                         None,
