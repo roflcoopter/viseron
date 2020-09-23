@@ -121,6 +121,8 @@ class FFMPEGNVR(Thread):
         self._motion_frames = 0
         self._motion_detected = False
         self._motion_only_frames = 0
+        self._motion_max_timeout_reached = False
+
         self.detector = detector
 
         self._object_decoder_queue = Queue(maxsize=2)
@@ -262,6 +264,7 @@ class FFMPEGNVR(Thread):
 
     def event_over(self):
         if self._trigger_recorder or any(zone.trigger_recorder for zone in self._zones):
+            self._motion_max_timeout_reached = False
             self._motion_only_frames = 0
             return False
         if self.config.motion_detection.timeout and self.motion_detected:
@@ -269,12 +272,14 @@ class FFMPEGNVR(Thread):
             if self._motion_only_frames >= (
                 self.camera.stream_fps * self.config.motion_detection.max_timeout
             ):
-                self._logger.debug(
-                    "Motion has stalled recorder for too long, "
-                    "event considered over anyway"
-                )
+                if not self._motion_max_timeout_reached:
+                    self._motion_max_timeout_reached = True
+                    self._logger.debug(
+                        "Motion has stalled recorder for longer than max_timeout, "
+                        "event considered over anyway"
+                    )
                 return True
-            self._motion_only_frames += 0
+            self._motion_only_frames += 1
             return False
         return True
 
