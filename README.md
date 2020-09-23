@@ -20,6 +20,8 @@ Builds are tested and verified on the following platforms:
   - OpenCL
   - OpenMax and MMAL on the RaspberryPi 3B+
 - Zones to limit detection to a particular area to reduce false positives
+- Masks to limit where motion detection occurs
+- Stop/start cameras on-demand over MQTT
 - Home Assistant integration via MQTT
 
 # Getting started
@@ -217,8 +219,8 @@ The command is built like this: \
 | motion_detection | dictionary | optional | see [Camera motion detection config](#camera-motion-detection) | Overrides the global ```motion_detection``` config |
 | object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) below | Overrides the global ```object_detection``` config |
 | zones | list | optional | see [Zones config](#zones) below | Allows you to specify zones to further filter detections |
-| publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones, objects, motion and masks.<br><b>Note: this will use significant amounts of CPU and should only be used for debugging</b> |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for this camera |
+| publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones, objects, motion and masks.<br><b>Note: this will use some extra CPU and should probably only be used for debugging</b> |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for this camera.<br>This affects all logs named ```lib.nvr.<camera name>.*``` and ```lib.*.<camera name>``` |
 
 A default ffmpeg decoder command is generated, which varies a bit depending on the Docker container you use,
 <details>
@@ -261,7 +263,7 @@ This means that you do **not** have to set ```hwaccel_args``` *unless* you have 
 | area | float | 0.1 | any float | How big the detected area must be in order to trigger motion |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
 | mask | list | optional | see [Mask config](#mask) | Allows you to specify masks in the shape of polygons. <br>Use this to ignore motion in certain areas of the image |
-| logging | dictionary | optional | see [Logging](#logging) | Set the log level for the motion detector. Can be set for each camera individually. |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the motion detector.<br>This affects all logs named ```lib.motion.<camera name>``` and  ```lib.nvr.<camera name>.motion``` |
 
 ---
 
@@ -315,7 +317,7 @@ Draw a mask over these trees and they will no longer trigger said motion.
 | -----| -----| ------- | ----------------- |------------ |
 | interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
 | labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). | 
-
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the object detector.<br>This affects all logs named ```lib.nvr.<camera name>.object``` |
 ---
 
 ### Zones
@@ -423,7 +425,7 @@ points:
 | confidence | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects |
 | suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections |
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
-| logging | dictionary | optional | see [Logging](#logging) | Set the log level for the object detector |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the object detector.<br>This affects all logs named ```lib.detector``` and  ```lib.nvr.<camera name>.object``` |
 
 ---
 
@@ -431,11 +433,26 @@ points:
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | label | str | person | any string | Can be any label present in the detection model |
+| confidence | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects.<br>The lower the value, the more sensitive the detector will be, and the risk of false positives will increase |
 | height_min | float | 0 | float between 0 and 1 | Minimum height allowed for detected objects, relative to stream height |
 | height_max | float | 1 | float between 0 and 1 | Maximum height allowed for detected objects, relative to stream height |
 | width_min | float | 0 | float between 0 and 1 | Minimum width allowed for detected objects, relative to stream width |
 | width_max | float | 1 | float between 0 and 1 | Maximum width allowed for detected objects, relative to stream width |
 | triggers_recording | bool | True | True/false | If set to True, objects matching this filter will start the recorder and signal over MQTT.<br> If set to False, only signal over MQTT will be sent |
+
+Labels are used to tell Viseron what objects to look for and keep recordings of.\
+The available labels depends on what detection model you are using.\
+For the built in models you can check the ```label_path``` file to see which labels that are available, see commands below.
+<details>
+  <summary>Darknet</summary>
+  ```docker exec -it viseron cat /detectors/models/darknet/coco.names```
+</details>
+<details>
+  <summary>EdgeTPU</summary>
+  ```docker exec -it viseron cat /detectors/models/edgetpu/labels.txt```
+</details>
+
+The max/min width/height is used to filter out any unreasonably large/small objects to reduce false positives.
 
 ---
 
@@ -466,7 +483,7 @@ points:
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
 | area | float | 0.1 | any float | How big the detected area must be in order to trigger motion |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
-| logging | dictionary | optional | see [Logging](#logging) | Set the log level for the motion detector. Can be set for each camera individually. |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the motion detector. <br>This affects all logs named ```lib.motion.<camera name>``` and  ```lib.nvr.<camera name>.motion``` |
 
 TODO Future releases will make the motion detection easier to fine tune. Right now its a guessing game
 
@@ -496,7 +513,7 @@ TODO Future releases will make the motion detection easier to fine tune. Right n
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder hardware acceleration arguments |
 | codec | str | optional | any supported decoder codec | FFMPEG video encoder codec, eg ```h264_nvenc``` |
 | filter_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder filter arguments |
-| logging | dictionary | optional | see [Logging](#logging) | Set the log level for the recorder |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the recorder. <br>This affects all logs named ```lib.recorder.<camera name>``` |
 
 A default ffmpeg encoder command is generated, which varies a bit depending on the Docker container you use,
 <details>
