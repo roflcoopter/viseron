@@ -11,21 +11,33 @@ ENV PATH=/usr/local/ffmpeg/bin:$PATH
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/ffmpeg/lib
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    autoconf \
+    autogen \
+    automake \
+    libtool \
+    libdrm-dev \
+    pkgconf \
     cuda-npp-10-2 \
     curl \
     python3-dev \
+    git \
     wget \
     # OpenCV runtime deps
     libjpeg-dev libpng-dev libtiff-dev \
-    # OpenCV video I/O
-    libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
+    # # OpenCV video I/O
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev libv4l-dev \
     libxvidcore-dev libx264-dev \
     # OpenCV Optimizations
     libatlas-base-dev gfortran libtbb-dev \
     # OpenCL
     ocl-icd-libopencl1 \
-    clinfo && \
-    # Google Coral
+    clinfo \
+    # VA-API 
+    i965-va-driver \
+    vainfo && \
+    # # Google Coral
     wget -q https://bootstrap.pypa.io/get-pip.py && \
     python3 get-pip.py && \
     rm get-pip.py && \
@@ -35,10 +47,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     echo "libedgetpu1-max libedgetpu/accepted-eula boolean true" | debconf-set-selections && \
     apt-get install --no-install-recommends -y \
     libedgetpu1-max && \
-    pip3 install https://dl.google.com/coral/python/tflite_runtime-2.1.0.post1-cp36-cp36m-linux_x86_64.whl && \
-    rm -rf /var/lib/apt/lists/* && \
-    apt-get autoremove -y && \
-    apt-get autoclean -y
+    pip3 install https://dl.google.com/coral/python/tflite_runtime-2.1.0.post1-cp36-cp36m-linux_x86_64.whl
+
 
 # Fetch models for YOLOv4 darknet
 RUN mkdir -p /detectors/models/edgetpu/classification && \
@@ -67,11 +77,49 @@ RUN mkdir /opencl &&\
     dpkg -i *.deb && \
     rm -R /opencl
 
+# Install VA-API
+WORKDIR /
+RUN git clone https://github.com/intel/libva && \
+    git clone https://github.com/intel/intel-vaapi-driver && \
+    git clone https://github.com/intel/libva-utils && \
+    cd /libva && \
+    bash autogen.sh && \
+    ./configure && \
+    make && \
+    make install && \
+    cd /intel-vaapi-driver && \
+    bash autogen.sh && \
+    ./configure && \
+    make && \
+    make install && \
+    cd /libva-utils && \
+    bash autogen.sh && \
+    ./configure && \
+    make && \
+    make install && \
+    ldconfig
+
 # Python dependencies
 ADD requirements.txt requirements.txt
 RUN pip3 install --no-cache-dir \
     -r requirements.txt && \
     rm requirements.txt
+
+# Cleanup
+RUN apt-get remove -y \
+    autoconf \
+    autogen \
+    automake \
+    curl \
+    git \
+    libtool \
+    pkgconf \
+    wget && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get autoremove -y && \
+    apt-get autoclean -y
+
+RUN useradd -u 1000 -U abc
 
 ENV VISERON_CUDA_SUPPORTED=true
 ENV VISERON_VAAPI_SUPPORTED=false
