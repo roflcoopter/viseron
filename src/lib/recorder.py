@@ -29,7 +29,7 @@ class FFMPEGRecorder:
         return (
             ["ffmpeg"]
             + self.config.recorder.global_args
-            + ["-loglevel", "panic"]
+            + ["-loglevel", "error"]
             + self.config.recorder.hwaccel_args
             + [
                 "-f",
