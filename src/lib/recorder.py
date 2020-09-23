@@ -29,7 +29,7 @@ class FFMPEGRecorder:
         return (
             ["ffmpeg"]
             + self.config.recorder.global_args
-            + ["-loglevel", "panic"]
+            + ["-loglevel", "error"]
             + self.config.recorder.hwaccel_args
             + [
                 "-f",
@@ -59,7 +59,7 @@ class FFMPEGRecorder:
 
         while self.is_recording:
             try:
-                frame = self.frame_buffer.get(timeout=1)
+                frame = self.frame_buffer.get(timeout=5)
                 writer_pipe.stdin.write(frame.raw_frame)
             except Empty:
                 self._logger.error("Timed out")

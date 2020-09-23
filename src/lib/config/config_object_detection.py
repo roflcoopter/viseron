@@ -134,7 +134,7 @@ SCHEMA = Schema(
         ),
         Optional("interval", default=1): int,
         Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
-        Optional("logging", default={}): LOGGING_SCHEMA,
+        Optional("logging"): LOGGING_SCHEMA,
     }
 )
 
@@ -150,7 +150,6 @@ class ObjectDetectionConfig:
         self._model_width = object_detection.model_width
         self._model_height = object_detection.model_height
         self._suppression = object_detection.suppression
-        self._logging = object_detection.logging
 
         if getattr(camera_config, "object_detection", None):
             self._interval = getattr(
@@ -159,9 +158,15 @@ class ObjectDetectionConfig:
             self._labels = getattr(
                 camera_config.object_detection, "labels", object_detection.labels
             )
+            self._logging = getattr(
+                camera_config.object_detection,
+                "logging",
+                (getattr(object_detection, "logging", None)),
+            )
         else:
             self._interval = object_detection.interval
             self._labels = object_detection.labels
+            self._logging = getattr(object_detection, "logging", None)
 
         self._min_confidence = min(
             label.confidence for label in self.concat_labels(camera_config)

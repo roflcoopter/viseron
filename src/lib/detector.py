@@ -89,9 +89,9 @@ class DetectedObject:
 
 class Detector:
     def __init__(self, config):
-        LOGGER.info("Initializing detection thread")
         if getattr(config.object_detection.logging, "level", None):
             LOGGER.setLevel(config.object_detection.logging.level)
+        LOGGER.debug("Initializing object detector")
 
         self.config = config
 
@@ -123,6 +123,7 @@ class Detector:
         else:
             LOGGER.error("Could not import the correct detector")
             return
+        LOGGER.debug("Object detector initialized")
 
     def object_detection(self, detector_queue):
         while True:
@@ -147,6 +148,3 @@ class Detector:
             if self.config.object_detection.model_height
             else self.ObjectDetection.model_height
         )
-
-    def stop(self):
-        return

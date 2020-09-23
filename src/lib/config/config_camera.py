@@ -95,17 +95,28 @@ SCHEMA = Schema(
                         "hwaccel_args", default=CAMERA_HWACCEL_ARGS
                     ): check_for_hwaccels,
                     Optional("codec", default=""): str,
+                    Optional("rtsp_transport", default="tcp"): Any(
+                        "tcp", "udp", "udp_multicast", "http"
+                    ),
                     Optional("filter_args", default=[]): list,
                     Optional("motion_detection", default=None): Any(
                         {
                             Optional("interval"): Any(int, float),
-                            Optional("trigger"): bool,
+                            Optional("trigger_detector"): bool,
                             Optional("timeout"): bool,
+                            Optional("max_timeout"): int,
                             Optional("width"): int,
                             Optional("height"): int,
-                            Optional("area"): int,
+                            Optional("area"): float,
                             Optional("frames"): int,
-                            Optional("logging", default={}): LOGGING_SCHEMA,
+                            Optional("mask", default=[]): [
+                                {
+                                    Required("points"): [
+                                        {Required("x"): int, Required("y"): int,}
+                                    ],
+                                }
+                            ],
+                            Optional("logging"): LOGGING_SCHEMA,
                         },
                         None,
                     ),
@@ -113,6 +124,7 @@ SCHEMA = Schema(
                         {
                             Optional("interval"): Any(int, float),
                             Optional("labels"): LABELS_SCHEMA,
+                            Optional("logging"): LOGGING_SCHEMA,
                         },
                         None,
                     ),
@@ -126,7 +138,7 @@ SCHEMA = Schema(
                         }
                     ],
                     Optional("publish_image", default=False): Any(True, False),
-                    Optional("logging", default={}): LOGGING_SCHEMA,
+                    Optional("logging"): LOGGING_SCHEMA,
                 },
                 get_codec,
                 ensure_mqtt_name,
@@ -156,12 +168,13 @@ class CameraConfig:
         self._input_args = camera.input_args
         self._hwaccel_args = camera.hwaccel_args
         self._codec = camera.codec
+        self._rtsp_transport = camera.rtsp_transport
         self._filter_args = camera.filter_args
         self._motion_detection = camera.motion_detection
         self._object_detection = camera.object_detection
         self._zones = self.generate_zones(camera.zones)
         self._publish_image = camera.publish_image
-        self._logging = camera.logging
+        self._logging = getattr(camera, "logging", None)
 
     def generate_zones(self, zones):
         zone_list = []
@@ -258,6 +271,10 @@ class CameraConfig:
     @property
     def codec(self):
         return ["-c:v", self._codec] if self._codec else []
+
+    @property
+    def rtsp_transport(self):
+        return self._rtsp_transport
 
     @property
     def filter_args(self):

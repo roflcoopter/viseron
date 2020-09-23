@@ -3,6 +3,7 @@
 import logging
 import subprocess as sp
 from time import sleep
+from threading import Event
 
 import cv2
 import numpy as np
@@ -23,7 +24,7 @@ class Frame:
         self._decoded_frame_mat_rgb = None
         self._resized_frames = {}
         self._objects = []
-        self._motion = False
+        self._motion_contours = []
 
     def decode_frame(self):
         try:
@@ -95,56 +96,67 @@ class Frame:
         self._objects = objects
 
     @property
-    def motion(self):
-        return self._motion
+    def motion_contours(self):
+        return self._motion_contours
 
-    @motion.setter
-    def motion(self, motion):
-        self._motion = motion
+    @motion_contours.setter
+    def motion_contours(self, motion_contours):
+        self._motion_contours = motion_contours
 
 
 class FFMPEGCamera:
     def __init__(self, config, frame_buffer):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
-        if getattr(config.camera.logging, "level", None):
-            self._logger.setLevel(config.camera.logging.level)
-
-        self._logger.debug("Initializing ffmpeg RTSP pipe")
-        self.config = config
+        self._config = config
+        self._frame_buffer = frame_buffer
+        self._connected = False
+        self._connection_error = False
+        self.stream_width = None
+        self.stream_height = None
+        self.stream_fps = None
+        self.resolution = None
+        self.frame_ready = Event()
+        self.scan_for_objects = Event()  # Set when frame should be scanned
+        self.scan_for_motion = Event()  # Set when frame should be scanned
 
         # Activate OpenCL
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
 
-        self.connected = False
-        self.connection_error = False
-        self.frame = None
+        self.start_decoder()
+
+    def start_decoder(self):
+        self._logger = logging.getLogger(__name__ + "." + self._config.camera.name_slug)
+        if getattr(self._config.camera.logging, "level", None):
+            self._logger.setLevel(self._config.camera.logging.level)
+
+        self._logger.debug("Initializing ffmpeg RTSP pipe")
 
         if (
-            not self.config.camera.width
-            or not self.config.camera.height
-            or not self.config.camera.fps
+            not self._config.camera.width
+            or not self._config.camera.height
+            or not self._config.camera.fps
         ):
             (
                 stream_width,
                 stream_height,
                 stream_fps,
-            ) = self.get_stream_characteristics(self.config.camera.stream_url)
+            ) = self.get_stream_characteristics(self._config.camera.stream_url)
 
         self.stream_width = (
-            self.config.camera.width if self.config.camera.width else stream_width
+            self._config.camera.width if self._config.camera.width else stream_width
         )
         self.stream_height = (
-            self.config.camera.height if self.config.camera.height else stream_height
+            self._config.camera.height if self._config.camera.height else stream_height
         )
         self.stream_fps = (
-            self.config.camera.fps if self.config.camera.fps else stream_fps
+            self._config.camera.fps if self._config.camera.fps else stream_fps
         )
 
         self.resolution = self.stream_width, self.stream_height
-        frame_buffer_size = self.stream_fps * self.config.recorder.lookback
+        frame_buffer_size = self.stream_fps * self._config.recorder.lookback
         if frame_buffer_size > 0:
-            frame_buffer.maxsize = self.stream_fps * self.config.recorder.lookback
+            self._frame_buffer.maxsize = frame_buffer_size
 
         self._logger.debug(
             f"Resolution: {self.stream_width}x{self.stream_height} "
@@ -165,20 +177,20 @@ class FFMPEGCamera:
     def build_command(self, ffmpeg_loglevel="panic", single_frame=False):
         return (
             ["ffmpeg"]
-            + self.config.camera.global_args
+            + self._config.camera.global_args
             + ["-loglevel", ffmpeg_loglevel]
-            + self.config.camera.input_args
-            + self.config.camera.hwaccel_args
-            + self.config.camera.codec
+            + self._config.camera.input_args
+            + self._config.camera.hwaccel_args
+            + self._config.camera.codec
             + (
-                ["-rtsp_transport", "tcp"]
-                if self.config.camera.stream_format == "rtsp"
+                ["-rtsp_transport", self._config.camera.rtsp_transport]
+                if self._config.camera.stream_format == "rtsp"
                 else []
             )
-            + ["-i", self.config.camera.stream_url]
-            + self.config.camera.filter_args
+            + ["-i", self._config.camera.stream_url]
+            + self._config.camera.filter_args
             + (["-frames:v", "1"] if single_frame else [])
-            + self.config.camera.output_args
+            + self._config.camera.output_args
         )
 
     def pipe(self, stderr=False, single_frame=False):
@@ -195,17 +207,14 @@ class FFMPEGCamera:
 
     def capture_pipe(
         self,
-        frame_buffer,
-        frame_ready,
         object_decoder_interval,
         object_decoder_queue,
-        scan_for_objects,
         object_return_queue,
         motion_decoder_interval,
         motion_decoder_queue,
-        scan_for_motion,
+        motion_return_queue,
     ):
-        self._logger.debug("Starting capture process")
+        self._logger.debug("Starting capture thread")
         # First read a single frame to make sure the ffmpeg command is correct
         bytes_to_read = int(self.stream_width * self.stream_height * 1.5)
         retry = False
@@ -225,7 +234,7 @@ class FFMPEGCamera:
             break
 
         pipe = self.pipe()
-        self.connected = True
+        self._connected = True
 
         object_frame_number = 0
         object_first_scan = False
@@ -246,21 +255,21 @@ class FFMPEGCamera:
             f"every {motion_decoder_interval_calculated} frame(s)"
         )
 
-        while self.connected:
-            if self.connection_error:
+        while self._connected:
+            if self._connection_error:
                 sleep(5)
                 self._logger.error("Restarting frame pipe")
                 pipe.terminate()
                 pipe.communicate()
                 pipe = self.pipe()
-                self.connection_error = False
+                self._connection_error = False
 
-            self.frame = Frame(
+            current_frame = Frame(
                 pipe.stdout.read(bytes_to_read), self.stream_width, self.stream_height
             )
-            pop_if_full(frame_buffer, self.frame)
+            pop_if_full(self._frame_buffer, current_frame)
 
-            if scan_for_objects.is_set():
+            if self.scan_for_objects.is_set():
                 if object_frame_number % object_decoder_interval_calculated == 0:
                     if object_first_scan:
                         # force motion detection on same frame to save computing power
@@ -271,9 +280,9 @@ class FFMPEGCamera:
                         object_decoder_queue,
                         {
                             "decoder_name": "object_detection",
-                            "frame": self.frame,
+                            "frame": current_frame,
                             "object_return_queue": object_return_queue,
-                            "camera_config": self.config,
+                            "camera_config": self._config,
                         },
                     )
 
@@ -282,22 +291,25 @@ class FFMPEGCamera:
                 object_frame_number = 0
                 object_first_scan = True
 
-            if scan_for_motion.is_set():
+            if self.scan_for_motion.is_set():
                 if motion_frame_number % motion_decoder_interval_calculated == 0:
                     motion_frame_number = 0
                     pop_if_full(
                         motion_decoder_queue,
-                        {"decoder_name": "motion_detection", "frame": self.frame},
+                        {
+                            "decoder_name": "motion_detection",
+                            "frame": current_frame,
+                            "motion_return_queue": motion_return_queue,
+                        },
                     )
 
                 motion_frame_number += 1
             else:
                 motion_frame_number = 0
 
-            frame_ready.set()
-            frame_ready.clear()
+            self.frame_ready.set()
+            self.frame_ready.clear()
 
-        frame_ready.set()
         pipe.terminate()
         pipe.communicate()
         self._logger.info("FFMPEG frame grabber stopped")
@@ -313,9 +325,9 @@ class FFMPEGCamera:
                 continue
 
             self._logger.error("Unable to decode frame. FFMPEG pipe seems broken")
-            self.connection_error = True
+            self._connection_error = True
 
         self._logger.debug("Exiting decoder thread")
 
     def release(self):
-        self.connected = False
+        self._connected = False

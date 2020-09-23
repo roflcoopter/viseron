@@ -2,9 +2,19 @@ import math
 from queue import Full, Queue
 from typing import Any, Tuple
 
+import numpy as np
+
 import cv2
 import slugify as unicode_slug
-from const import FONT
+from const import FONT, FONT_SIZE
+
+
+def calculate_relative_contours(contours, resolution: Tuple[int, int]):
+    relative_contours = []
+    for contour in contours:
+        relative_contours.append(np.divide(contour, resolution))
+
+    return relative_contours
 
 
 def calculate_relative_coords(
@@ -65,8 +75,16 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)):
         math.floor(obj.rel_x1 * frame_res[0]),
         (math.floor(obj.rel_y1 * frame_res[1])) - 5,
     )
+
+    # If label is outside the top of the frame, put it below the bounding box
+    if coordinates[1] < 10:
+        coordinates = (
+            math.floor(obj.rel_x1 * frame_res[0]),
+            (math.floor(obj.rel_y2 * frame_res[1])) + 5,
+        )
+
     cv2.putText(
-        frame, obj.label, coordinates, FONT, 0.75, color, 2,
+        frame, obj.label, coordinates, FONT, FONT_SIZE, color, 2,
     )
 
 
@@ -106,9 +124,50 @@ def draw_zones(frame, zones):
             zone.name,
             (zone.coordinates[0][0] + 5, zone.coordinates[0][1] + 15),
             FONT,
-            0.5,
+            FONT_SIZE,
             color,
-            1,
+            2,
+        )
+
+
+def draw_contours(frame, contours, resolution, threshold):
+    filtered_contours = []
+    relevant_contours = []
+    for relative_contour, area in zip(contours.rel_contours, contours.contour_areas):
+        abs_contour = np.multiply(relative_contour, resolution).astype("int32")
+        if area > threshold:
+            relevant_contours.append(abs_contour)
+            continue
+        filtered_contours.append(abs_contour)
+
+    cv2.drawContours(frame, relevant_contours, -1, (255, 0, 255), thickness=2)
+    cv2.drawContours(frame, filtered_contours, -1, (130, 0, 75), thickness=1)
+
+
+def draw_mask(frame, mask_points):
+    mask_overlay = frame.copy()
+    # Draw polygon filled with black color
+    cv2.fillPoly(
+        mask_overlay, pts=mask_points, color=(0),
+    )
+    # Apply overlay on frame with 70% opacity
+    cv2.addWeighted(
+        mask_overlay, 0.7, frame, 1 - 0.7, 0, frame,
+    )
+    # Draw polygon outline in orange
+    cv2.polylines(frame, mask_points, True, (0, 140, 255), 2)
+    for mask in mask_points:
+        image_moment = cv2.moments(mask)
+        center_x = int(image_moment["m10"] / image_moment["m00"])
+        center_y = int(image_moment["m01"] / image_moment["m00"])
+        cv2.putText(
+            frame,
+            "Mask",
+            (center_x - 20, center_y + 5),
+            FONT,
+            FONT_SIZE,
+            (255, 255, 255),
+            2,
         )
 
 

@@ -2,6 +2,11 @@
 FROM nvidia/cuda:10.2-devel as ffmpeg
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    autoconf \
+    autogen \
+    automake \
+    libtool \
+    libdrm-dev \
     ca-certificates \
     git \
     libgl1-mesa-glx \
@@ -9,6 +14,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pkgconf \
     nasm && \
     rm -rf /var/lib/apt/lists/*
+
+# Install VA-API
+WORKDIR /
+RUN git clone https://github.com/intel/libva && \
+    git clone https://github.com/intel/intel-vaapi-driver && \
+    git clone https://github.com/intel/libva-utils && \
+    cd /libva && \
+    bash autogen.sh && \
+    ./configure --prefix=/usr && \
+    make && \
+    make install && \
+    cd /intel-vaapi-driver && \
+    bash autogen.sh && \
+    ./configure --prefix=/usr && \
+    make && \
+    make install && \
+    cd /libva-utils && \
+    bash autogen.sh && \
+    ./configure --prefix=/usr && \
+    make && \
+    make install
 
 # NVIDIA Codec Headers are not included since FFMPEG version 4.0
 WORKDIR /usr/local/src
@@ -21,7 +47,16 @@ RUN git clone --depth 1 --branch n9.1.23.1 https://git.videolan.org/git/ffmpeg/n
 
 RUN git clone --depth 1 --branch n4.3 https://github.com/ffmpeg/ffmpeg ffmpeg && \
     cd ffmpeg && \
-    ./configure --enable-cuda --enable-cuvid --enable-nvenc --enable-nonfree --enable-libnpp --enable-cuda-sdk --enable-filter=scale_cuda --enable-filter=thumbnail_cuda \
+    ./configure \
+    --enable-cuda \
+    --enable-cuvid \
+    --enable-nvenc \
+    --enable-nonfree \
+    --enable-libnpp \
+    --enable-cuda-sdk \
+    --enable-filter=scale_cuda \
+    --enable-filter=thumbnail_cuda \
+    --enable-vaapi \
     --extra-cflags=-I/usr/local/cuda/include \
     --extra-ldflags=-L/usr/local/cuda/lib64 \
     --prefix=/usr/local/ffmpeg --enable-shared --disable-static \
