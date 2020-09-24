@@ -14,6 +14,7 @@ from const import (
     ENV_CUDA_SUPPORTED,
     ENV_RASPBERRYPI3,
     ENV_VAAPI_SUPPORTED,
+    FFMPEG_RECOVERABLE_ERRORS,
     HWACCEL_CUDA_DECODER_CODEC,
     HWACCEL_RPI3_DECODER_CODEC,
     HWACCEL_VAAPI,
@@ -138,6 +139,20 @@ SCHEMA = Schema(
                         }
                     ],
                     Optional("publish_image", default=False): Any(True, False),
+                    Optional("ffmpeg_loglevel", default="fatal"): Any(
+                        "quiet",
+                        "panic",
+                        "fatal",
+                        "error",
+                        "warning",
+                        "info",
+                        "verbose",
+                        "debug",
+                        "trace",
+                    ),
+                    Optional(
+                        "ffmpeg_recoverable_errors", default=FFMPEG_RECOVERABLE_ERRORS
+                    ): [str],
                     Optional("logging"): LOGGING_SCHEMA,
                 },
                 get_codec,
@@ -174,6 +189,8 @@ class CameraConfig:
         self._object_detection = camera.object_detection
         self._zones = self.generate_zones(camera.zones)
         self._publish_image = camera.publish_image
+        self._ffmpeg_loglevel = camera.ffmpeg_loglevel
+        self._ffmpeg_recoverable_errors = camera.ffmpeg_recoverable_errors
         self._logging = getattr(camera, "logging", None)
 
     def generate_zones(self, zones):
@@ -299,6 +316,14 @@ class CameraConfig:
     @property
     def publish_image(self):
         return self._publish_image
+
+    @property
+    def ffmpeg_loglevel(self):
+        return self._ffmpeg_loglevel
+
+    @property
+    def ffmpeg_recoverable_errors(self):
+        return self._ffmpeg_recoverable_errors
 
     @property
     def logging(self):

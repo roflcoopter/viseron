@@ -51,7 +51,7 @@ ENV_VAAPI_SUPPORTED = "VISERON_VAAPI_SUPPORTED"
 ENV_OPENCL_SUPPORTED = "VISERON_OPENCL_SUPPORTED"
 ENV_RASPBERRYPI3 = "VISERON_RASPBERRYPI3"
 
-FFMPEG_ERROR_WHILE_DECODING = "error while decoding MB"
+FFMPEG_RECOVERABLE_ERRORS = ["error while decoding MB"]
 
 HWACCEL_VAAPI = ["-hwaccel", "vaapi", "-vaapi_device", "/dev/dri/renderD128"]
 HWACCEL_VAAPI_ENCODER_FILTER = ["-vf", "format=nv12|vaapi,hwupload"]

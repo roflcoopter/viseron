@@ -8,7 +8,7 @@ from threading import Event
 import cv2
 import numpy as np
 from lib.helpers import pop_if_full
-from const import FFMPEG_ERROR_WHILE_DECODING
+from const import FFMPEG_RECOVERABLE_ERRORS
 
 LOGGER = logging.getLogger(__name__)
 
@@ -174,11 +174,16 @@ class FFMPEGCamera:
         stream.release()
         return width, height, fps
 
-    def build_command(self, ffmpeg_loglevel="panic", single_frame=False):
+    def build_command(self, ffmpeg_loglevel=None, single_frame=False):
         return (
             ["ffmpeg"]
             + self._config.camera.global_args
-            + ["-loglevel", ffmpeg_loglevel]
+            + ["-loglevel"]
+            + (
+                [ffmpeg_loglevel]
+                if ffmpeg_loglevel
+                else [self._config.camera.ffmpeg_loglevel]
+            )
             + self._config.camera.input_args
             + self._config.camera.hwaccel_args
             + self._config.camera.codec
@@ -196,14 +201,12 @@ class FFMPEGCamera:
     def pipe(self, stderr=False, single_frame=False):
         if stderr:
             return sp.Popen(
-                self.build_command(ffmpeg_loglevel="error", single_frame=single_frame),
+                self.build_command(ffmpeg_loglevel="fatal", single_frame=single_frame),
                 stdout=sp.PIPE,
                 stderr=sp.PIPE,
                 bufsize=10 ** 8,
             )
-        return sp.Popen(
-            self.build_command(single_frame=False), stdout=sp.PIPE, bufsize=10 ** 8,
-        )
+        return sp.Popen(self.build_command(), stdout=sp.PIPE, bufsize=10 ** 8,)
 
     def capture_pipe(
         self,
@@ -218,10 +221,14 @@ class FFMPEGCamera:
         # First read a single frame to make sure the ffmpeg command is correct
         bytes_to_read = int(self.stream_width * self.stream_height * 1.5)
         retry = False
+        self._logger.debug("Performing a sanity check on the ffmpeg command")
         while True:
             pipe = self.pipe(stderr=True, single_frame=True)
             _, stderr = pipe.communicate()
-            if stderr and FFMPEG_ERROR_WHILE_DECODING not in stderr.decode():
+            if stderr and not any(
+                err in stderr.decode()
+                for err in self._config.camera.ffmpeg_recoverable_errors
+            ):
                 self._logger.error(
                     f"Error starting decoder pipe! {stderr.decode()} "
                     f"Retrying in 5 seconds"
@@ -230,7 +237,7 @@ class FFMPEGCamera:
                 retry = True
                 continue
             if retry:
-                self._logger.info("Succesful reconnection!")
+                self._logger.error("Succesful reconnection!")
             break
 
         pipe = self.pipe()
@@ -263,6 +270,7 @@ class FFMPEGCamera:
                 pipe.communicate()
                 pipe = self.pipe()
                 self._connection_error = False
+                self._logger.error("Successful reconnection!")
 
             current_frame = Frame(
                 pipe.stdout.read(bytes_to_read), self.stream_width, self.stream_height

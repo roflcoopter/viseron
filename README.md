@@ -220,8 +220,11 @@ The command is built like this: \
 | object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) below | Overrides the global ```object_detection``` config |
 | zones | list | optional | see [Zones config](#zones) below | Allows you to specify zones to further filter detections |
 | publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones, objects, motion and masks.<br><b>Note: this will use some extra CPU and should probably only be used for debugging</b> |
+| ffmpeg_loglevel | str | optional | ```quiet```, ```panic```, ```fatal```, ```error```, ```warning```, ```info```, ```verbose```, ```debug```, ```trace``` | Sets the loglevel for ffmpeg.<br> Should only be used in debugging purposes. |
+| ffmpeg_recoverable_errors | list | optional | a list of strings | ffmpeg sometimes print errors that are not fatal.<br>If you get errors like ```Error starting decoder pipe!```, see below for details. |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for this camera.<br>This affects all logs named ```lib.nvr.<camera name>.*``` and ```lib.*.<camera name>``` |
 
+#### Default ffmpeg decoder command
 A default ffmpeg decoder command is generated, which varies a bit depending on the Docker container you use,
 <details>
   <summary>For Nvidia GPU support in the <b>roflcoopter/viseron-cuda</b> image</summary>
@@ -248,6 +251,17 @@ A default ffmpeg decoder command is generated, which varies a bit depending on t
 </details>
 
 This means that you do **not** have to set ```hwaccel_args``` *unless* you have a specific need to change the default command (say you need to change ```h264_cuvid``` to ```hevc_cuvid```)
+
+
+#### ffmpeg recoverable errors
+Sometimes ffmpeg prints errors which are not fatal, such as ```[h264 @ 0x55b1e115d400] error while decoding MB 0 12, bytestream 114567```.\
+Viseron always performs a sanity check on the ffmpeg decoder command with ```-loglevel fatal```.\
+If Viseron gets stuck on an error that you believe is **not** fatal, you can add a subset of that error to ```ffmpeg_recoverable_errors```. \
+So to ignore the error above you would add this to your configuration:
+```yaml
+ffmpeg_recoverable_errors:
+  - error while decoding MB
+```
 
 ---
 
