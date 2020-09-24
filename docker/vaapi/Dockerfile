@@ -28,6 +28,8 @@ RUN apt-get update && \
         libtiff-dev \
         libv4l-dev \
         libx264-dev \
+        libx265-dev \
+        libnuma-dev \
         libvorbis-dev \
         mercurial \
         nano \
@@ -63,7 +65,7 @@ RUN apt-get update && \
         pip3 install https://dl.google.com/coral/python/tflite_runtime-2.1.0.post1-cp36-cp36m-linux_x86_64.whl
 
 
-# Install ffmpeg from source
+# Install VA-API
 WORKDIR /
 RUN git clone https://github.com/intel/libva && \
         git clone https://github.com/intel/intel-vaapi-driver && \
@@ -96,6 +98,7 @@ RUN mkdir /opencl &&\
         dpkg -i *.deb && \
         rm -R /opencl
 
+# Install ffmpeg
 RUN git clone --depth 1 --branch n4.3 https://github.com/ffmpeg/ffmpeg ffmpeg && \
         cd ffmpeg && \
         PATH="$HOME/bin:$PATH" PKG_CONFIG_PATH="$HOME/ffmpeg_build/lib/pkgconfig" \
@@ -112,6 +115,7 @@ RUN git clone --depth 1 --branch n4.3 https://github.com/ffmpeg/ffmpeg ffmpeg &&
         --cpu=native \
         --enable-vaapi \
         --enable-libx264 \
+        --enable-libx265 \
         --enable-gpl && \
         PATH="$HOME/bin:$PATH" make -j"$(nproc)" && make install
 
