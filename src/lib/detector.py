@@ -1,11 +1,13 @@
 import importlib
 import logging
-from voluptuous import Schema, Optional
-import cv2
 
-from lib.helpers import calculate_relative_coords, pop_if_full
-from lib.config.config_logging import LoggingConfig, SCHEMA as LOGGING_SCHEMA
+import cv2
+from voluptuous import Any, Optional, Required, Schema
+
+from lib.config.config_logging import SCHEMA as LOGGING_SCHEMA
+from lib.config.config_logging import LoggingConfig
 from lib.config.config_object_detection import LABELS_SCHEMA
+from lib.helpers import calculate_relative_coords, pop_if_full
 
 LOGGER = logging.getLogger(__name__)
 
@@ -14,6 +16,14 @@ BASE_SCEHMA = Schema(
         Optional("interval", default=1): int,
         Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
         Optional("logging"): LOGGING_SCHEMA,
+    }
+)
+
+SCHEMA = BASE_SCEHMA.extend(
+    {
+        Required("type"): str,
+        Optional("model_width", default=None): Any(int, None),
+        Optional("model_height", default=None): Any(int, None),
     }
 )
 
@@ -100,9 +110,11 @@ class DetectedObject:
 
 
 class Detector:
-    def __init__(self, detector_type, detector_config):
-        detector = importlib.import_module("lib.detectors." + detector_type)
-        config = detector.Config(detector.SCHEMA(detector_config))
+    def __init__(self, object_detection_config):
+        detector = importlib.import_module(
+            "lib.detectors." + object_detection_config["type"]
+        )
+        config = detector.Config(detector.SCHEMA(object_detection_config))
         if getattr(config.logging, "level", None):
             LOGGER.setLevel(config.logging.level)
 

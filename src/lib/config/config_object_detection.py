@@ -39,15 +39,15 @@ def ensure_label(detector: dict) -> dict:
     return detector
 
 
-def get_default_detector() -> dict:
+def get_detector_type() -> str:
     if (
         os.getenv(ENV_OPENCL_SUPPORTED) == "true"
         or os.getenv(ENV_CUDA_SUPPORTED) == "true"
     ):
-        return {"darknet": {}}
+        return "darknet"
     if os.getenv(ENV_RASPBERRYPI3) == "true":
-        return {"edgetpu": {}}
-    return {"darknet": {}}
+        return "edgetpu"
+    return "darknet"
 
 
 LABELS_SCHEMA = Schema(
@@ -73,6 +73,7 @@ LABELS_SCHEMA = Schema(
 
 SCHEMA = Schema(
     {
+        Optional("type", default=get_detector_type()): str,
         Optional("interval", default=1): int,
         Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
         Optional("logging"): LOGGING_SCHEMA,
@@ -124,6 +125,7 @@ class ObjectDetectionConfig:
     schema = SCHEMA
 
     def __init__(self, object_detection, camera_object_detection, camera_zones):
+        self._type = object_detection["type"]
         self._interval = camera_object_detection.get(
             "interval", object_detection["interval"]
         )
@@ -147,6 +149,10 @@ class ObjectDetectionConfig:
             zone_labels += zone["labels"]
 
         return self.labels + zone_labels
+
+    @property
+    def type(self):
+        return self._type
 
     @property
     def interval(self):

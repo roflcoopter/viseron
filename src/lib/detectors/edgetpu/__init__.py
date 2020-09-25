@@ -4,18 +4,16 @@ import numpy as np
 from voluptuous import Any, Optional, Required
 
 import tflite_runtime.interpreter as tflite
-from lib.detector import BASE_SCEHMA, DetectedObject, DetectorConfig
+import lib.detector as detector
 
 from .defaults import LABEL_PATH, MODEL_PATH
 
 LOGGER = logging.getLogger(__name__)
 
-SCHEMA = BASE_SCEHMA.extend(
+SCHEMA = detector.SCEHMA.extend(
     {
         Required("model_path", default=MODEL_PATH): str,
         Required("label_path", default=LABEL_PATH): str,
-        Optional("model_width", default=None): Any(int, None),
-        Optional("model_height", default=None): Any(int, None),
     }
 )
 
@@ -76,7 +74,7 @@ class ObjectDetection:
         for i in range(count):
             if float(scores[i]) > confidence:
                 processed_objects.append(
-                    DetectedObject(
+                    detector.DetectedObject(
                         self.labels[int(labels[i])],
                         float(scores[i]),
                         boxes[i][1],
@@ -110,6 +108,6 @@ class ObjectDetection:
         return self._model_height
 
 
-class Config(DetectorConfig):
+class Config(detector.DetectorConfig):
     def __init__(self, detector_config):
         super().__init__(detector_config)

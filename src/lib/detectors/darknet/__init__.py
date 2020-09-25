@@ -16,17 +16,15 @@ from voluptuous import All, Any, Coerce, Optional, Range, Required
 from const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
 from lib.config.config_logging import SCHEMA as LOGGING_SCHEMA
 from lib.config.config_object_detection import LABELS_SCHEMA
-from lib.detector import BASE_SCEHMA, DetectedObject, DetectorConfig
+import lib.detector as detector
 
 from .defaults import LABEL_PATH, MODEL_CONFIG, MODEL_PATH
 
-SCHEMA = BASE_SCEHMA.extend(
+SCHEMA = detector.SCHEMA.extend(
     {
         Required("model_path", default=MODEL_PATH): str,
         Required("model_config", default=MODEL_CONFIG): str,
         Required("label_path", default=LABEL_PATH): str,
-        Optional("model_width", default=None): Any(int, None),
-        Optional("model_height", default=None): Any(int, None),
         Optional("suppression", default=0.4): All(
             Any(0, 1, All(float, Range(min=0, max=1))), Coerce(float)
         ),
@@ -83,7 +81,7 @@ class ObjectDetection:
         detections = []
         for (label, confidence, box) in zip(labels, confidences, boxes):
             detections.append(
-                DetectedObject(
+                detector.DetectedObject(
                     self.labels[int(label[0])],
                     confidence[0],
                     box[0],
@@ -120,7 +118,7 @@ class ObjectDetection:
         return self.model_width, self.model_height
 
 
-class Config(DetectorConfig):
+class Config(detector.DetectorConfig):
     def __init__(self, detector_config):
         super().__init__(detector_config)
         self._model_config = detector_config["model_config"]

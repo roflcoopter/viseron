@@ -31,8 +31,7 @@ def main():
         mqtt_publisher.daemon = True
 
     detector_queue = Queue(maxsize=2)
-    detector_type = list(config.object_detection.keys())[0]
-    detector = Detector(detector_type, config.object_detection[detector_type])
+    detector = Detector(config.object_detection)
     detector_thread = Thread(target=detector.object_detection, args=(detector_queue,))
     detector_thread.daemon = True
     detector_thread.start()

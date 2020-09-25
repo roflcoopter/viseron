@@ -32,7 +32,7 @@ from .config_camera import CameraConfig
 from .config_logging import LoggingConfig
 from .config_motion_detection import MotionDetectionConfig
 from .config_mqtt import MQTTConfig
-from .config_object_detection import ObjectDetectionConfig, get_default_detector
+from .config_object_detection import ObjectDetectionConfig
 from .config_recorder import RecorderConfig
 
 
@@ -57,7 +57,7 @@ def load_secrets():
 def load_config():
     secrets = load_secrets()
 
-    def secret_yaml(loader, node):
+    def secret_yaml(_, node):
         if secrets is None:
             raise ValueError(
                 "!secret found in config.yaml, but no secrets.yaml exists. "
@@ -84,9 +84,7 @@ def load_config():
 VISERON_CONFIG_SCHEMA = Schema(
     {
         Required("cameras"): CameraConfig.schema,
-        Optional(
-            "object_detection", default=get_default_detector()
-        ): ObjectDetectionConfig.schema,
+        Optional("object_detection", default={}): ObjectDetectionConfig.schema,
         Optional(
             "motion_detection", default=MotionDetectionConfig.defaults
         ): MotionDetectionConfig.schema,
