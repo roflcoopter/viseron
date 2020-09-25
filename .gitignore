@@ -13,6 +13,12 @@
 !src/*
 !src/lib
 !src/lib/*
+!src/lib/detectors
+!src/lib/detectors/*
+!src/lib/detectors/darknet
+!src/lib/detectors/darknet/*
+!src/lib/detectors/edgetpu
+!src/lib/detectors/edgetpu/*
 !src/lib/mqtt
 !src/lib/mqtt/*
 !.dockerignore

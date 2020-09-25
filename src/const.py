@@ -64,19 +64,6 @@ HWACCEL_RPI3_ENCODER_CODEC = "h264_omx"
 RECORDER_GLOBAL_ARGS = ["-hide_banner"]
 RECORDER_HWACCEL_ARGS = []
 
-DARKNET_DEFAULTS = {
-    "type": "darknet",
-    "model_path": "/detectors/models/darknet/yolo.weights",
-    "model_config": "/detectors/models/darknet/yolo.cfg",
-    "label_path": "/detectors/models/darknet/coco.names",
-}
-
-EDGETPU_DEFAULTS = {
-    "type": "edgetpu",
-    "model_path": "/detectors/models/edgetpu/model.tflite",
-    "label_path": "/detectors/models/edgetpu/labels.txt",
-}
-
 LOG_LEVELS = {
     "CRITICAL": 50,
     "ERROR": 40,

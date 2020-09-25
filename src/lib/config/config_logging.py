@@ -14,7 +14,7 @@ class LoggingConfig:
     schema = SCHEMA
 
     def __init__(self, logging):
-        self._level = logging.level
+        self._level = logging["level"]
 
     @property
     def level(self):

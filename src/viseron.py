@@ -5,7 +5,7 @@ from threading import Thread
 
 from const import LOG_LEVELS
 from lib.cleanup import Cleanup
-from lib.config import ViseronConfig
+from lib.config import ViseronConfig, NVRConfig, CONFIG
 from lib.detector import Detector
 from lib.mqtt import MQTT
 from lib.nvr import FFMPEGNVR
@@ -14,7 +14,7 @@ LOGGER = logging.getLogger()
 
 
 def main():
-    config = ViseronConfig()
+    config = ViseronConfig(CONFIG)
 
     log_settings(config)
     LOGGER.info("-------------------------------------------")
@@ -31,7 +31,8 @@ def main():
         mqtt_publisher.daemon = True
 
     detector_queue = Queue(maxsize=2)
-    detector = Detector(config)
+    detector_type = list(config.object_detection.keys())[0]
+    detector = Detector(detector_type, config.object_detection[detector_type])
     detector_thread = Thread(target=detector.object_detection, args=(detector_queue,))
     detector_thread.daemon = True
     detector_thread.start()
@@ -39,13 +40,16 @@ def main():
     LOGGER.info("Initializing NVR threads")
     threads = []
     for camera in config.cameras:
+        camera_config = NVRConfig(
+            camera,
+            config.object_detection,
+            config.motion_detection,
+            config.recorder,
+            config.mqtt,
+            config.logging,
+        )
         threads.append(
-            FFMPEGNVR(
-                ViseronConfig(camera=camera),
-                detector,
-                detector_queue,
-                mqtt_queue=mqtt_queue,
-            )
+            FFMPEGNVR(camera_config, detector, detector_queue, mqtt_queue=mqtt_queue,)
         )
 
     if mqtt:

@@ -1,9 +1,21 @@
+import importlib
 import logging
-
+from voluptuous import Schema, Optional
 import cv2
+
 from lib.helpers import calculate_relative_coords, pop_if_full
+from lib.config.config_logging import LoggingConfig, SCHEMA as LOGGING_SCHEMA
+from lib.config.config_object_detection import LABELS_SCHEMA
 
 LOGGER = logging.getLogger(__name__)
+
+BASE_SCEHMA = Schema(
+    {
+        Optional("interval", default=1): int,
+        Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
+        Optional("logging"): LOGGING_SCHEMA,
+    }
+)
 
 
 class DetectedObject:
@@ -88,9 +100,12 @@ class DetectedObject:
 
 
 class Detector:
-    def __init__(self, config):
-        if getattr(config.object_detection.logging, "level", None):
-            LOGGER.setLevel(config.object_detection.logging.level)
+    def __init__(self, detector_type, detector_config):
+        detector = importlib.import_module("lib.detectors." + detector_type)
+        config = detector.Config(detector.SCHEMA(detector_config))
+        if getattr(config.logging, "level", None):
+            LOGGER.setLevel(config.logging.level)
+
         LOGGER.debug("Initializing object detector")
 
         self.config = config
@@ -100,35 +115,13 @@ class Detector:
             LOGGER.debug("OpenCL activated")
             cv2.ocl.setUseOpenCL(True)
 
-        if self.config.object_detection.type == "edgetpu":
-            from lib.edgetpu_detection import ObjectDetection
-
-            self.ObjectDetection = ObjectDetection(
-                model=self.config.object_detection.model_path,
-                label_path=self.config.object_detection.label_path,
-            )
-        elif self.config.object_detection.type == "darknet":
-            from lib.darknet_detection import ObjectDetection
-
-            self.ObjectDetection = ObjectDetection(
-                model=self.config.object_detection.model_path,
-                model_config=self.config.object_detection.model_config,
-                label_path=self.config.object_detection.label_path,
-                nms=self.config.object_detection.suppression,
-                backend=self.config.object_detection.dnn_preferable_backend,
-                target=self.config.object_detection.dnn_preferable_target,
-                model_width=self.config.object_detection.model_width,
-                model_height=self.config.object_detection.model_height,
-            )
-        else:
-            LOGGER.error("Could not import the correct detector")
-            return
+        self.object_detector = detector.ObjectDetection(config)
         LOGGER.debug("Object detector initialized")
 
     def object_detection(self, detector_queue):
         while True:
             frame = detector_queue.get()
-            frame["frame"].objects = self.ObjectDetection.return_objects(frame)
+            frame["frame"].objects = self.object_detector.return_objects(frame)
             pop_if_full(
                 frame["object_return_queue"], frame,
             )
@@ -136,15 +129,46 @@ class Detector:
     @property
     def model_width(self):
         return (
-            self.config.object_detection.model_width
-            if self.config.object_detection.model_width
-            else self.ObjectDetection.model_width
+            self.config.model_width
+            if self.config.model_width
+            else self.object_detector.model_width
         )
 
     @property
     def model_height(self):
         return (
-            self.config.object_detection.model_height
-            if self.config.object_detection.model_height
-            else self.ObjectDetection.model_height
+            self.config.model_height
+            if self.config.model_height
+            else self.object_detector.model_height
         )
+
+
+class DetectorConfig:
+    def __init__(self, object_detection):
+        self._model_path = object_detection["model_path"]
+        self._label_path = object_detection["label_path"]
+        self._model_width = object_detection["model_width"]
+        self._model_height = object_detection["model_height"]
+        self._logging = None
+        if object_detection.get("logging", None):
+            self._logging = LoggingConfig(object_detection["logging"])
+
+    @property
+    def model_path(self):
+        return self._model_path
+
+    @property
+    def label_path(self):
+        return self._label_path
+
+    @property
+    def model_width(self):
+        return self._model_width
+
+    @property
+    def model_height(self):
+        return self._model_height
+
+    @property
+    def logging(self):
+        return self._logging

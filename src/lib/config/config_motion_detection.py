@@ -1,11 +1,7 @@
-import logging
-
 import numpy as np
 from voluptuous import Optional, Schema
 
-from .config_logging import SCHEMA as LOGGING_SCHEMA
-
-LOGGER = logging.getLogger(__name__)
+from .config_logging import LoggingConfig, SCHEMA as LOGGING_SCHEMA
 
 DEFAULTS = {
     "interval": 1,
@@ -38,42 +34,35 @@ class MotionDetectionConfig:
     defaults = DEFAULTS
 
     def __init__(self, motion_detection, camera_motion_detection):
-        self._interval = getattr(
-            camera_motion_detection, "interval", motion_detection.interval
+        self._interval = camera_motion_detection.get(
+            "interval", motion_detection["interval"]
         )
-        self._trigger_detector = getattr(
-            camera_motion_detection,
-            "trigger_detector",
-            motion_detection.trigger_detector,
+        self._trigger_detector = camera_motion_detection.get(
+            "trigger_detector", motion_detection["trigger_detector"],
         )
-        self._timeout = getattr(
-            camera_motion_detection, "timeout", motion_detection.timeout
+        self._timeout = camera_motion_detection.get(
+            "timeout", motion_detection["timeout"]
         )
-        self._max_timeout = getattr(
-            camera_motion_detection, "max_timeout", motion_detection.max_timeout
+        self._max_timeout = camera_motion_detection.get(
+            "max_timeout", motion_detection["max_timeout"]
         )
-        self._width = getattr(camera_motion_detection, "width", motion_detection.width)
-        self._height = getattr(
-            camera_motion_detection, "height", motion_detection.height
+        self._width = camera_motion_detection.get("width", motion_detection["width"])
+        self._height = camera_motion_detection.get("height", motion_detection["height"])
+        self._area = camera_motion_detection.get("area", motion_detection["area"])
+        self._frames = camera_motion_detection.get("frames", motion_detection["frames"])
+        self._mask = self.generate_mask(camera_motion_detection.get("mask", []))
+        logging = camera_motion_detection.get(
+            "logging", (motion_detection.get("logging", None)),
         )
-        self._area = getattr(camera_motion_detection, "area", motion_detection.area)
-        self._frames = getattr(
-            camera_motion_detection, "frames", motion_detection.frames
-        )
-        self._mask = self.generate_mask(getattr(camera_motion_detection, "mask", []))
-        self._logging = getattr(
-            camera_motion_detection,
-            "logging",
-            (getattr(motion_detection, "logging", None)),
-        )
+        self._logging = LoggingConfig(logging) if logging else logging
 
     @staticmethod
     def generate_mask(coordinates):
         mask = []
         for mask_coordinates in coordinates:
             point_list = []
-            for point in getattr(mask_coordinates, "points"):
-                point_list.append([getattr(point, "x"), getattr(point, "y")])
+            for point in mask_coordinates["points"]:
+                point_list.append([point["x"], point["y"]])
             mask.append(np.array(point_list))
         return mask
 

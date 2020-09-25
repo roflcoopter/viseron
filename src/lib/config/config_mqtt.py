@@ -37,13 +37,13 @@ class MQTTConfig:
     schema = SCHEMA
 
     def __init__(self, mqtt):
-        self._broker = mqtt.broker
-        self._port = mqtt.port
-        self._username = mqtt.username
-        self._password = mqtt.password
-        self._client_id = mqtt.client_id
-        self._discovery_prefix = mqtt.discovery_prefix
-        self._last_will_topic = mqtt.last_will_topic
+        self._broker = mqtt["broker"]
+        self._port = mqtt["port"]
+        self._username = mqtt["username"]
+        self._password = mqtt["password"]
+        self._client_id = mqtt["client_id"]
+        self._discovery_prefix = mqtt["discovery_prefix"]
+        self._last_will_topic = mqtt["last_will_topic"]
 
     @property
     def broker(self):
