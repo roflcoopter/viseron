@@ -118,7 +118,7 @@ class Detector:
         if getattr(config.logging, "level", None):
             LOGGER.setLevel(config.logging.level)
 
-        LOGGER.debug("Initializing object detector")
+        LOGGER.debug(f"Initializing object detector {object_detection_config['type']}")
 
         self.config = config
 

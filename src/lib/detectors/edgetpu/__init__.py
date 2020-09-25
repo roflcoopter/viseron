@@ -10,7 +10,7 @@ from .defaults import LABEL_PATH, MODEL_PATH
 
 LOGGER = logging.getLogger(__name__)
 
-SCHEMA = detector.SCEHMA.extend(
+SCHEMA = detector.SCHEMA.extend(
     {
         Required("model_path", default=MODEL_PATH): str,
         Required("label_path", default=LABEL_PATH): str,
