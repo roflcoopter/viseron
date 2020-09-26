@@ -389,6 +389,7 @@ Points are used to form a polygon.
 | -----| -----| ------- | ----------------- |------------ |
 | x | int | **required** | any int | X-coordinate of point |
 | y | int | **required** | any int | Y-coordinate of point |
+
 To easily genereate points you can use a tool like [image-map.net](https://www.image-map.net/).\
 Just upload an image from your camera and start drawing your zone.\
 Then click **Show me the code!** and adapt it to the config format.\
