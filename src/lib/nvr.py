@@ -104,7 +104,9 @@ class MQTT:
 class FFMPEGNVR(Thread):
     nvr_list: List[object] = []
 
-    def __init__(self, config, detector, detector_queue, mqtt_queue=None):
+    def __init__(
+        self, config, detector, detector_queue, post_processors, mqtt_queue=None
+    ):
         Thread.__init__(self)
         self.nvr_list.append({config.camera.mqtt_name: self})
         self.setup_loggers(config)

@@ -7,6 +7,7 @@ from const import LOG_LEVELS
 from lib.cleanup import Cleanup
 from lib.config import ViseronConfig, NVRConfig, CONFIG
 from lib.detector import Detector
+from lib.post_processors import PostProcessor
 from lib.mqtt import MQTT
 from lib.nvr import FFMPEGNVR
 
@@ -36,6 +37,12 @@ def main():
     detector_thread.daemon = True
     detector_thread.start()
 
+    post_processors = {}
+    for post_processor_type, post_processor_config in config.post_processors.items():
+        post_processors[post_processor_type] = PostProcessor(
+            post_processor_type, post_processor_config
+        )
+
     LOGGER.info("Initializing NVR threads")
     threads = []
     for camera in config.cameras:
@@ -48,7 +55,13 @@ def main():
             config.logging,
         )
         threads.append(
-            FFMPEGNVR(camera_config, detector, detector_queue, mqtt_queue=mqtt_queue,)
+            FFMPEGNVR(
+                camera_config,
+                detector,
+                detector_queue,
+                post_processors,
+                mqtt_queue=mqtt_queue,
+            )
         )
 
     if mqtt:
