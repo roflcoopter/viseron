@@ -23,6 +23,7 @@ Builds are tested and verified on the following platforms:
 - Masks to limit where motion detection occurs
 - Stop/start cameras on-demand over MQTT
 - Home Assistant integration via MQTT
+- unRAID Community Application
 
 # Getting started
 Choose the appropriate docker container for your machine. Builds are published to [Docker Hub](https://hub.docker.com/repository/docker/roflcoopter/viseron)
