@@ -47,16 +47,20 @@ class MQTT:
                 draw_mask(
                     frame.decoded_frame_mat_rgb, self.config.motion_detection.mask,
                 )
-            draw_contours(
-                frame.decoded_frame_mat_rgb,
-                frame.motion_contours,
-                resolution,
-                self.config.motion_detection.area,
-            )
+
+            if motion_frame:
+                draw_contours(
+                    frame.decoded_frame_mat_rgb,
+                    frame.motion_contours,
+                    resolution,
+                    self.config.motion_detection.area,
+                )
+
             draw_zones(frame.decoded_frame_mat_rgb, zones)
             draw_objects(
                 frame.decoded_frame_mat_rgb, frame.objects, resolution,
             )
+
             # Write a low quality image to save bandwidth
             ret, jpg = cv2.imencode(
                 ".jpg", frame.decoded_frame_mat_rgb, [int(cv2.IMWRITE_JPEG_QUALITY), 50]
