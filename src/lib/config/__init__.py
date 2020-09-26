@@ -88,6 +88,7 @@ VISERON_CONFIG_SCHEMA = Schema(
         Optional(
             "motion_detection", default=MotionDetectionConfig.defaults
         ): MotionDetectionConfig.schema,
+        Optional("post_processors", default={}): dict,
         Optional("recorder", default={}): RecorderConfig.schema,
         Optional("mqtt", default=None): Any(MQTTConfig.schema, None),
         Optional("logging", default={}): LoggingConfig.schema,
@@ -103,6 +104,7 @@ class BaseConfig:
     def __init__(self):
         self._object_detection = None
         self._motion_detection = None
+        self._post_processors = None
         self._recorder = None
         self._mqtt = None
         self._logging = None
@@ -114,6 +116,10 @@ class BaseConfig:
     @property
     def motion_detection(self):
         return self._motion_detection
+
+    @property
+    def post_processors(self):
+        return self._post_processors
 
     @property
     def recorder(self):
@@ -134,6 +140,7 @@ class ViseronConfig(BaseConfig):
         self._cameras = config["cameras"]
         self._object_detection = config["object_detection"]
         self._motion_detection = config["motion_detection"]
+        self._post_processors = config["post_processors"]
         self._recorder = RecorderConfig(config["recorder"])
         self._mqtt = MQTTConfig(config["mqtt"]) if config.get("mqtt", None) else None
         self._logging = LoggingConfig(config["logging"])
