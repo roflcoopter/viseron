@@ -73,7 +73,7 @@ LABELS_SCHEMA = Schema(
 
 SCHEMA = Schema(
     {
-        Optional("type", default=get_detector_type()): ("darknet, edgetpu"),
+        Optional("type", default=get_detector_type()): str,
         Optional("interval", default=1): int,
         Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
         Optional("logging"): LOGGING_SCHEMA,
