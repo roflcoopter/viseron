@@ -8,7 +8,6 @@ from threading import Event
 import cv2
 import numpy as np
 from lib.helpers import pop_if_full
-from const import FFMPEG_RECOVERABLE_ERRORS
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +23,7 @@ class Frame:
         self._decoded_frame_mat_rgb = None
         self._resized_frames = {}
         self._objects = []
-        self._motion_contours = []
+        self._motion_contours = None
 
     def decode_frame(self):
         try:
