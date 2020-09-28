@@ -382,14 +382,36 @@ Draw a mask over these trees and they will no longer trigger said motion.
 | points | list | **required** | a list of [points](#points) | Used to draw a polygon of the zone
 | labels | list | optional | any float | A list of [labels](#labels) to track in the zone. Overrides global [config](#labels). | 
 
+Zones are used to define areas in the cameras field of view where you want to look for certain objects(labels).
+
+Say you have a camera facing the sidewalk and have ```labels``` setup to look for and record a ```person```.\
+This would cause Viseron to start recording people who are walking past the camera on the sidewalk. Not ideal.\
+To remedy this you define a zone which covers **only** the area that you are actually interested in, excluding the sidewalk.
+
+You can name two zones the same, which will result in only one MQTT topic for both zones.
+
+The state of a zone will be published over MQTT.\
+The topics are:\
+**```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone name}/state```**\
+```on``` will be published to this topic when the bottom center of any configured labels bounding box is within the zone.\
+```off``` will be published to this topic when the above is no longer true.
+
+**```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone name}_{label}/state```**
+```on``` will be published to this topic when the bottom center of a **specific** configured labels bounding box is within the zone.\
+```off``` will be published to this topic when the above is no longer true.
+
+The MQTT topics follows [Home Assistants MQTT discovery format](https://www.home-assistant.io/docs/mqtt/discovery/), but you can still use these for other purposes not being Home Assistant.
+
 ---
 
 ### Points
-Points are used to form a polygon.
+
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | x | int | **required** | any int | X-coordinate of point |
 | y | int | **required** | any int | Y-coordinate of point |
+
+Points are used to form a polygon for an object detection zone or a motion detection mask.
 
 To easily genereate points you can use a tool like [image-map.net](https://www.image-map.net/).\
 Just upload an image from your camera and start drawing your zone.\
