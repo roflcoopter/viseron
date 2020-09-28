@@ -59,12 +59,19 @@ LABELS_SCHEMA = Schema(
                     Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
                 ),
                 Optional("height_min", default=0.0): All(
-                    Any(float, int), Coerce(float)
+                    Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
                 ),
-                Optional("height_max", default=1.0): All(Any(float), Coerce(float)),
-                Optional("width_min", default=0.0): All(Any(float), Coerce(float)),
-                Optional("width_max", default=1.0): All(Any(float), Coerce(float)),
+                Optional("height_max", default=1.0): All(
+                    Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
+                ),
+                Optional("width_min", default=0.0): All(
+                    Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
+                ),
+                Optional("width_max", default=1.0): All(
+                    Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
+                ),
                 Optional("triggers_recording", default=True): bool,
+                Optional("post_processor", default=None): Any(str, None),
             },
             ensure_min_max,
         )
@@ -74,7 +81,9 @@ LABELS_SCHEMA = Schema(
 SCHEMA = Schema(
     {
         Optional("type", default=get_detector_type()): str,
-        Optional("interval", default=1): int,
+        Optional("interval", default=1): All(
+            Any(float, int), Coerce(float), Range(min=0.0)
+        ),
         Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
         Optional("logging"): LOGGING_SCHEMA,
     },
@@ -91,6 +100,7 @@ class LabelConfig:
         self._width_min = label["width_min"]
         self._width_max = label["width_max"]
         self._triggers_recording = label["triggers_recording"]
+        self._post_processor = label["post_processor"]
 
     @property
     def label(self):
@@ -119,6 +129,10 @@ class LabelConfig:
     @property
     def triggers_recording(self):
         return self._triggers_recording
+
+    @property
+    def post_processor(self):
+        return self._post_processor
 
 
 class ObjectDetectionConfig:

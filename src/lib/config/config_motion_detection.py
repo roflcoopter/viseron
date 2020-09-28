@@ -1,5 +1,5 @@
 import numpy as np
-from voluptuous import Optional, Schema
+from voluptuous import Any, All, Coerce, Optional, Range, Schema
 
 from .config_logging import LoggingConfig, SCHEMA as LOGGING_SCHEMA
 
@@ -16,13 +16,17 @@ DEFAULTS = {
 
 SCHEMA = Schema(
     {
-        Optional("interval", default=DEFAULTS["interval"]): int,
+        Optional("interval", default=DEFAULTS["interval"]): All(
+            Any(float, int), Coerce(float), Range(min=0.0)
+        ),
         Optional("trigger_detector", default=DEFAULTS["trigger_detector"]): bool,
         Optional("timeout", default=DEFAULTS["timeout"]): bool,
         Optional("max_timeout", default=DEFAULTS["max_timeout"]): int,
         Optional("width", default=DEFAULTS["width"]): int,
         Optional("height", default=DEFAULTS["height"]): int,
-        Optional("area", default=DEFAULTS["area"]): float,
+        Optional("area", default=DEFAULTS["area"]): All(
+            Any(All(float, Range(min=0.0, max=1.0)), 1, 0), Coerce(float),
+        ),
         Optional("frames", default=DEFAULTS["frames"]): int,
         Optional("logging"): LOGGING_SCHEMA,
     },

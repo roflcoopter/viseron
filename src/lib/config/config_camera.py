@@ -2,9 +2,19 @@ import logging
 import os
 import re
 
-from voluptuous import All, Any, Length, Optional, Range, Required, Schema, Invalid
-
 import numpy as np
+from voluptuous import (
+    All,
+    Any,
+    Coerce,
+    Invalid,
+    Length,
+    Optional,
+    Range,
+    Required,
+    Schema,
+)
+
 from const import (
     CAMERA_GLOBAL_ARGS,
     CAMERA_HWACCEL_ARGS,
@@ -21,8 +31,9 @@ from const import (
 )
 from lib.helpers import slugify
 
-from .config_logging import LoggingConfig, SCHEMA as LOGGING_SCHEMA
-from .config_object_detection import LabelConfig, LABELS_SCHEMA
+from .config_logging import SCHEMA as LOGGING_SCHEMA
+from .config_logging import LoggingConfig
+from .config_object_detection import LABELS_SCHEMA, LabelConfig
 
 LOGGER = logging.getLogger(__name__)
 
@@ -108,7 +119,10 @@ SCHEMA = Schema(
                             Optional("max_timeout"): int,
                             Optional("width"): int,
                             Optional("height"): int,
-                            Optional("area"): float,
+                            Optional("area"): All(
+                                Any(All(float, Range(min=0.0, max=1.0)), 1, 0),
+                                Coerce(float),
+                            ),
                             Optional("frames"): int,
                             Optional("mask", default=[]): [
                                 {
