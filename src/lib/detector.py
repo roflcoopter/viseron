@@ -2,7 +2,7 @@ import importlib
 import logging
 
 import cv2
-from voluptuous import Any, Optional, Required, Schema
+from voluptuous import All, Any, Coerce, Optional, Range, Required, Schema
 
 from lib.config.config_logging import SCHEMA as LOGGING_SCHEMA
 from lib.config.config_logging import LoggingConfig
@@ -13,7 +13,9 @@ LOGGER = logging.getLogger(__name__)
 
 BASE_SCEHMA = Schema(
     {
-        Optional("interval", default=1): int,
+        Optional("interval", default=1): All(
+            Any(float, int), Coerce(float), Range(min=0.0)
+        ),
         Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
         Optional("logging"): LOGGING_SCHEMA,
     }
