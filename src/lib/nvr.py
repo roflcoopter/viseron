@@ -7,7 +7,6 @@ import cv2
 
 from const import LOG_LEVELS
 from lib.camera import FFMPEGCamera
-from lib.detector import DetectedObject
 from lib.helpers import Filter, draw_contours, draw_mask, draw_objects, draw_zones
 from lib.motion import MotionDetection
 from lib.mqtt.binary_sensor import MQTTBinarySensor
@@ -48,7 +47,7 @@ class MQTT:
                     frame.decoded_frame_mat_rgb, self.config.motion_detection.mask,
                 )
 
-            if motion_frame:
+            if motion_frame and frame.motion_contours:
                 draw_contours(
                     frame.decoded_frame_mat_rgb,
                     frame.motion_contours,
@@ -131,6 +130,8 @@ class FFMPEGNVR(Thread):
 
         self.detector = detector
 
+        self._post_processors = post_processors
+
         self._object_decoder_queue = Queue(maxsize=2)
         self._motion_decoder_queue = Queue(maxsize=2)
         motion_queue = Queue(maxsize=2)
@@ -156,7 +157,13 @@ class FFMPEGNVR(Thread):
         self._zones = []
         for zone in config.camera.zones:
             self._zones.append(
-                Zone(zone, self.camera.resolution, config, self._mqtt.mqtt_queue,)
+                Zone(
+                    zone,
+                    self.camera.resolution,
+                    config,
+                    self._mqtt.mqtt_queue,
+                    post_processors,
+                )
             )
 
         # Motion detector class.
@@ -338,11 +345,11 @@ class FFMPEGNVR(Thread):
         except Empty:
             return None
 
-    def filter_fov(self, objects: List[DetectedObject]):
+    def filter_fov(self, frame):
         objects_in_fov = []
         labels_in_fov = []
         self._trigger_recorder = False
-        for obj in objects:
+        for obj in frame.objects:
             if self._object_filters.get(obj.label) and self._object_filters[
                 obj.label
             ].filter_object(obj):
@@ -350,8 +357,15 @@ class FFMPEGNVR(Thread):
                 objects_in_fov.append(obj)
                 if obj.label not in labels_in_fov:
                     labels_in_fov.append(obj.label)
+
                 if self._object_filters[obj.label].triggers_recording:
                     self._trigger_recorder = True
+
+                # Send detection to configured post processors
+                if self._object_filters[obj.label].post_processor:
+                    self._post_processors[
+                        self._object_filters[obj.label].post_processor
+                    ].input_queue.put({"frame": frame, "object": obj})
 
         self.objects_in_fov = objects_in_fov
         self.labels_in_fov = labels_in_fov
@@ -389,9 +403,9 @@ class FFMPEGNVR(Thread):
 
         self._labels_in_fov = labels_in_fov
 
-    def filter_zones(self, objects: List[DetectedObject]):
+    def filter_zones(self, frame):
         for zone in self._zones:
-            zone.filter_zone(objects)
+            zone.filter_zone(frame)
 
     def get_processed_motion_frame(self):
         """ Returns a frame along with its motion contours which has been processed
@@ -485,9 +499,9 @@ class FFMPEGNVR(Thread):
                         f"{[obj.formatted for obj in processed_object_frame.objects]}"
                     )
                 # Filter objects in the FoV
-                self.filter_fov(processed_object_frame.objects)
+                self.filter_fov(processed_object_frame)
                 # Filter objects in each zone
-                self.filter_zones(processed_object_frame.objects)
+                self.filter_zones(processed_object_frame)
 
             # Filter returned motion contours
             processed_motion_frame = self.get_processed_motion_frame()

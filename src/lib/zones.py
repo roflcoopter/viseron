@@ -1,8 +1,6 @@
 import logging
-from typing import List
 
 import cv2
-from lib.detector import DetectedObject
 from lib.helpers import Filter, calculate_absolute_coords
 from lib.mqtt.binary_sensor import MQTTBinarySensor
 
@@ -10,13 +8,14 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Zone:
-    def __init__(self, zone, camera_resolution, config, mqtt_queue):
+    def __init__(self, zone, camera_resolution, config, mqtt_queue, post_processors):
         self._coordinates = zone["coordinates"]
         self._camera_resolution = camera_resolution
         self.config = config
         self._mqtt_queue = mqtt_queue
-        self._name = zone["name"]
+        self._post_processors = post_processors
 
+        self._name = zone["name"]
         self._objects_in_zone = []
         self._labels_in_zone = []
         self._object_filters = {}
@@ -37,11 +36,11 @@ class Zone:
                     config, mqtt_queue, f"{zone['name']} {label.label}"
                 )
 
-    def filter_zone(self, objects: List[DetectedObject]):
+    def filter_zone(self, frame):
         objects_in_zone = []
         labels_in_zone = []
         self._trigger_recorder = False
-        for obj in objects:
+        for obj in frame.objects:
             if self._object_filters.get(obj.label) and self._object_filters[
                 obj.label
             ].filter_object(obj):
@@ -53,10 +52,18 @@ class Zone:
                 if cv2.pointPolygonTest(self.coordinates, (middle, y2), False) >= 0:
                     obj.relevant = True
                     objects_in_zone.append(obj)
+
                     if obj.label not in labels_in_zone:
                         labels_in_zone.append(obj.label)
+
                     if self._object_filters[obj.label].triggers_recording:
                         self._trigger_recorder = True
+
+                    # Send detection to configured post processors
+                    if self._object_filters[obj.label].post_processor:
+                        self._post_processors[
+                            self._object_filters[obj.label].post_processor
+                        ].input_queue.put({"frame": frame, "object": obj})
 
         self.objects_in_zone = objects_in_zone
         self.labels_in_zone = labels_in_zone

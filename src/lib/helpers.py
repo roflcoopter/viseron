@@ -194,6 +194,7 @@ class Filter:
         self._height_min = object_filter.height_min
         self._height_max = object_filter.height_max
         self._triggers_recording = object_filter.triggers_recording
+        self._post_processor = object_filter.post_processor
 
     def filter_confidence(self, obj):
         if obj.confidence > self._confidence:
@@ -220,3 +221,7 @@ class Filter:
     @property
     def triggers_recording(self):
         return self._triggers_recording
+
+    @property
+    def post_processor(self):
+        return self._post_processor

@@ -29,7 +29,8 @@ class PostProcessor:
 
     def post_process(self):
         while True:
-            self._post_processor.process(self.input_queue.get())
+            frame = self.input_queue.get()
+            self._post_processor.process(frame["frame"], frame["object"])
 
 
 class PostProcessorConfig:
