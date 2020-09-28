@@ -26,7 +26,7 @@ SCHEMA = detector.SCHEMA.extend(
         Required("model_config", default=MODEL_CONFIG): str,
         Required("label_path", default=LABEL_PATH): str,
         Optional("suppression", default=0.4): All(
-            Any(0, 1, All(float, Range(min=0, max=1))), Coerce(float)
+            Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
         ),
     }
 )
