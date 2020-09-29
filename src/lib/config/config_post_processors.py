@@ -10,7 +10,7 @@ from .config_logging import LoggingConfig
 SCHEMA = Schema({Optional("logging"): LOGGING_SCHEMA,}, extra=ALLOW_EXTRA,)
 
 
-class PostProcessorConfig:
+class PostProcessorsConfig:
     schema = SCHEMA
 
     def __init__(self, post_processors):

@@ -2,8 +2,11 @@ import importlib
 import logging
 from queue import Queue
 from threading import Thread
+from typing import Dict
+
 
 from lib.config.config_logging import LoggingConfig
+from lib.config.config_post_processors import PostProcessorsConfig
 
 LOGGER = logging.getLogger(__name__)
 
@@ -15,13 +18,14 @@ class PostProcessor:
 
         LOGGER.debug(f"Initializing post processor {processor_type}")
         processor = self.import_processor(processor_type, processor_config)
-        config = processor.Config(processor.SCHEMA(processor_config))
+        config = processor.Config(config, processor.SCHEMA(processor_config))
         self.input_queue = Queue(maxsize=10)
         self._post_processor = processor.Processor(config)
 
         processor_thread = Thread(target=self.post_process)
         processor_thread.daemon = True
         processor_thread.start()
+
         LOGGER.debug(f"Post processor {processor_type} initialized")
 
     @staticmethod
@@ -38,12 +42,15 @@ class PostProcessor:
 
 class PostProcessorConfig:
     """Base config class for all post processors.
-    Each post processor has to have a Config class which inherits this class"""
+    Each post processor has to have a Config class which inherits this class
+    """
 
-    def __init__(self, post_processor):
-        self._logging = None
-        if post_processor.get("logging", None):
-            self._logging = LoggingConfig(post_processor["logging"])
+    def __init__(
+        self, post_processors_config: PostProcessorsConfig, processor_config: Dict
+    ):
+        self._logging = getattr(post_processors_config, "logging", None)
+        if processor_config.get("logging", None):
+            self._logging = LoggingConfig(processor_config["logging"])
 
     @property
     def logging(self):

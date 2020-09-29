@@ -62,7 +62,6 @@ RUN mkdir -p /detectors/models/edgetpu/classification && \
   wget https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg -O /detectors/models/darknet/yolov3-tiny.cfg --progress=bar:force:noscroll
 
 VOLUME /recordings
-VOLUME /faces
 
 WORKDIR /src/viseron
 COPY ./src /src/viseron/

@@ -71,7 +71,6 @@ ENV VISERON_VAAPI_SUPPORTED=false
 ENV VISERON_RASPBERRYPI3=true
 
 VOLUME /recordings
-VOLUME /faces
 
 WORKDIR /src/viseron
 COPY ./src /src/viseron/
