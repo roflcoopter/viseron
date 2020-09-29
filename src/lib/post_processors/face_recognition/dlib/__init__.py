@@ -6,23 +6,34 @@ import pickle
 from threading import Thread, Timer
 from time import sleep
 
-from voluptuous import All, Optional, Range
+from voluptuous import All, Any, Coerce, Optional, Range
 
 import face_recognition
 from apscheduler.schedulers.background import BackgroundScheduler
+from const import ENV_CUDA_SUPPORTED
 from face_recognition.face_recognition_cli import image_files_in_folder
 from lib.helpers import calculate_absolute_coords
 from lib.post_processors import PostProcessorConfig
 from lib.post_processors.schema import SCHEMA as BASE_SCHEMA
-from sklearn import neighbors
 from PIL import UnidentifiedImageError
+from sklearn import neighbors
 
-from .defaults import FACE_RECOGNITION_PATH, EXPIRE_AFTER
+from .defaults import EXPIRE_AFTER, FACE_RECOGNITION_PATH
+
+
+def get_default_model() -> str:
+    if os.getenv(ENV_CUDA_SUPPORTED) == "true":
+        return "cnn"
+    return "hog"
+
 
 SCHEMA = BASE_SCHEMA.extend(
     {
         Optional("face_recognition_path", default=FACE_RECOGNITION_PATH): str,
-        Optional("expire_after", default=EXPIRE_AFTER): All(int, Range(min=1)),
+        Optional("expire_after", default=EXPIRE_AFTER): All(
+            Any(All(int, Range(min=0)), All(float, Range(min=0.0))), Coerce(float)
+        ),
+        Optional("model", default=get_default_model()): Any("hog", "cnn"),
     }
 )
 
@@ -34,6 +45,7 @@ class Config(PostProcessorConfig):
         super().__init__(post_processors_config, processor_config)
         self._face_recognition_path = processor_config["face_recognition_path"]
         self._expire_after = processor_config["expire_after"]
+        self._model = processor_config["model"]
 
     @property
     def face_recognition_path(self):
@@ -43,12 +55,17 @@ class Config(PostProcessorConfig):
     def expire_after(self):
         return self._expire_after
 
+    @property
+    def model(self):
+        return self._model
+
 
 class Processor:
     def __init__(self, config: Config):
         if getattr(config.logging, "level", None):
             LOGGER.setLevel(config.logging.level)
         LOGGER.debug("Initializing dlib")
+        self._config = config
 
         self._faces: dict = {}
         self._classifier = train(config.face_recognition_path)
@@ -69,7 +86,7 @@ class Processor:
         )
         cropped_frame = frame.decoded_frame_mat_rgb[y1:y2, x1:x2].copy()
 
-        faces = predict(cropped_frame, self._classifier)
+        faces = predict(cropped_frame, self._classifier, model=self._config.model)
         LOGGER.debug(f"Found faces: {faces}")
 
         for face in faces:
@@ -82,7 +99,7 @@ class Processor:
             # Adds a detected face and schedules an expiry timer
             self._faces[name] = {
                 "coordinates": coordinates,
-                "timer": Timer(3.0, self.expire_face, [name]),
+                "timer": Timer(self._config.expire_after, self.expire_face, [name]),
             }
             self._faces[name]["timer"].start()
 
@@ -225,12 +242,16 @@ def train(
     return knn_clf
 
 
-def predict(frame, knn_clf, distance_threshold=0.6):
+def predict(frame, knn_clf, model="hog", distance_threshold=0.6):
     """
     Recognizes faces in given image using a trained KNN classifier
 
     :param frame: frame to run prediction on
     :param knn_clf: (optional) a knn classifier object.
+    :param model: Which face detection model to use.
+        "hog" is less accurate but faster on CPUs.
+        "cnn" is a more accurate deep-learning model which is
+        GPU/CUDA accelerated (if available). The default is “hog”.
     :param distance_threshold: (optional) distance threshold for face classification.
         The chance of classifying an unknown person as a known one
         increases with this value.
@@ -240,7 +261,7 @@ def predict(frame, knn_clf, distance_threshold=0.6):
     """
 
     # Load image file and find face locations
-    face_locations = face_recognition.face_locations(frame, model="cnn")
+    face_locations = face_recognition.face_locations(frame, model=model)
 
     # If no faces are found in the image, return an empty result.
     if len(face_locations) == 0:
