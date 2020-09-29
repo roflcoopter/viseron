@@ -11,7 +11,7 @@ Builds are tested and verified on the following platforms:
   - Ubuntu 18.04 running on an Intel NUC
   - RaspberryPi 3B+
 - Supports multiple different object detectors:
-  - Yolo Darknet using OpenCV
+  - YOLOv3/4 Darknet using OpenCV
   - Tensorflow via Google Coral EdgeTPU
 - Motion detection
 - Native support for RTSP and MJPEG
@@ -19,6 +19,7 @@ Builds are tested and verified on the following platforms:
   - CUDA for systems with a supported GPU
   - OpenCL
   - OpenMax and MMAL on the RaspberryPi 3B+
+  - Intel QuickSync with VA-API
 - Zones to limit detection to a particular area to reduce false positives
 - Masks to limit where motion detection occurs
 - Stop/start cameras on-demand over MQTT
@@ -461,7 +462,7 @@ points:
 | model_height | int | optional | any integer | Detected from model. Frames will be resized to this height in order to fit model and save computing power. I dont recommend changing this. |
 | interval | float | 1.0 | any float | Run object detection at this interval in seconds on the most recent frame. |
 | confidence | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects |
-| suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections |
+| suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections.<br>You can read more about how this works [here](https://towardsdatascience.com/non-maximum-suppression-nms-93ce178e177c). |
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the object detector.<br>This affects all logs named ```lib.detector``` and  ```lib.nvr.<camera name>.object``` |
 
