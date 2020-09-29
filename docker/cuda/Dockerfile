@@ -11,9 +11,15 @@ ENV PATH=/usr/local/ffmpeg/bin:$PATH
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/ffmpeg/lib
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget gnupg2 ca-certificates && \
+    wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB && \
+    apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB && \
+    sh -c 'echo deb https://apt.repos.intel.com/mkl all main > /etc/apt/sources.list.d/intel-mkl.list' && \
+    apt-get update && apt-get install -y --no-install-recommends \
     autoconf \
     autogen \
     automake \
+    cmake \
     libtool \
     libdrm-dev \
     pkgconf \
@@ -29,8 +35,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libavformat-dev \
     libswscale-dev libv4l-dev \
     libxvidcore-dev libx264-dev \
+    # dlib Optimizations
+    libatlas3-base libgfortran3 \
     # OpenCV Optimizations
-    libatlas-base-dev gfortran libtbb-dev \
+    libatlas-base-dev libtbb-dev \
     # OpenCL
     ocl-icd-libopencl1 \
     clinfo \
@@ -48,19 +56,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     apt-get install --no-install-recommends -y \
     libedgetpu1-max && \
     pip3 install https://dl.google.com/coral/python/tflite_runtime-2.1.0.post1-cp36-cp36m-linux_x86_64.whl
-
-
-# Fetch models for YOLOv4 darknet
-RUN mkdir -p /detectors/models/edgetpu/classification && \
-    # EdgeTPU MobileNet SSD v2 Object Detection model
-    wget https://dl.google.com/coral/canned_models/mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite -O /detectors/models/edgetpu/model.tflite --progress=bar:force:noscroll && \
-    wget https://dl.google.com/coral/canned_models/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll && \
-    mkdir -p /detectors/models/darknet && \
-    wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights -O /detectors/models/darknet/yolo.weights --progress=bar:force:noscroll && \
-    # wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4.cfg -O /detectors/models/darknet/yolo.cfg --progress=bar:force:noscroll && \
-    wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
-
-ADD ./docker/cuda/yolov4.cfg /detectors/models/darknet/yolo.cfg
 
 # Add NVIDIA to OpenCL runtime
 RUN mkdir -p /etc/OpenCL/vendors && \
@@ -99,6 +94,23 @@ RUN git clone https://github.com/intel/libva && \
     make install && \
     ldconfig
 
+# Install dlib 
+RUN git clone https://github.com/davisking/dlib.git && \
+    cd /dlib; python3 /dlib/setup.py install
+
+# Fetch models for YOLOv4 darknet
+RUN mkdir -p /detectors/models/edgetpu/classification && \
+    # EdgeTPU MobileNet SSD v2 Object Detection model
+    wget https://dl.google.com/coral/canned_models/mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite -O /detectors/models/edgetpu/model.tflite --progress=bar:force:noscroll && \
+    wget https://github.com/google-coral/edgetpu/raw/master/test_data/ssd_mobilenet_v2_coco_quant_postprocess.tflite -O /detectors/models/edgetpu/cpu_model.tflite --progress=bar:force:noscroll && \
+    wget https://dl.google.com/coral/canned_models/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll && \
+    mkdir -p /detectors/models/darknet && \
+    wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov4.weights -O /detectors/models/darknet/yolo.weights --progress=bar:force:noscroll && \
+    # wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4.cfg -O /detectors/models/darknet/yolo.cfg --progress=bar:force:noscroll && \
+    wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
+
+ADD ./docker/cuda/yolov4.cfg /detectors/models/darknet/yolo.cfg
+
 # Python dependencies
 ADD requirements.txt requirements.txt
 RUN pip3 install --no-cache-dir \
@@ -110,6 +122,7 @@ RUN apt-get remove -y \
     autoconf \
     autogen \
     automake \
+    cmake \
     curl \
     git \
     libtool \
@@ -117,7 +130,9 @@ RUN apt-get remove -y \
     wget && \
     rm -rf /var/lib/apt/lists/* && \
     apt-get autoremove -y && \
-    apt-get autoclean -y
+    apt-get autoclean -y && \
+    rm -rf /libva /intel-vaapi-driver /libva-utils && \
+    rm -rf /root/opencv.zip /root/opencv_contrib.zip
 
 RUN useradd -u 1000 -U abc
 
@@ -127,6 +142,7 @@ ENV VISERON_OPENCL_SUPPORTED=true
 ENV VISERON_RASPBERRYPI3=false
 
 VOLUME /recordings
+VOLUME /faces
 
 WORKDIR /src/viseron
 COPY ./src /src/viseron/
