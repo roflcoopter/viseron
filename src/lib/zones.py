@@ -4,14 +4,15 @@ import cv2
 from lib.helpers import Filter, calculate_absolute_coords
 from lib.mqtt.binary_sensor import MQTTBinarySensor
 
-LOGGER = logging.getLogger(__name__)
-
 
 class Zone:
     def __init__(self, zone, camera_resolution, config, mqtt_queue, post_processors):
+        self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
+        if getattr(config.camera.logging, "level", None):
+            self._logger.setLevel(config.camera.logging.level)
+
         self._coordinates = zone["coordinates"]
         self._camera_resolution = camera_resolution
-        self.config = config
         self._mqtt_queue = mqtt_queue
         self._post_processors = post_processors
 
@@ -61,9 +62,16 @@ class Zone:
 
                     # Send detection to configured post processors
                     if self._object_filters[obj.label].post_processor:
-                        self._post_processors[
-                            self._object_filters[obj.label].post_processor
-                        ].input_queue.put({"frame": frame, "object": obj})
+                        try:
+                            self._post_processors[
+                                self._object_filters[obj.label].post_processor
+                            ].input_queue.put({"frame": frame, "object": obj})
+                        except KeyError:
+                            self._logger.error(
+                                "Configured post_processor "
+                                f"{self._object_filters[obj.label].post_processor} "
+                                "does not exist. Please check your configuration"
+                            )
 
         self.objects_in_zone = objects_in_zone
         self.labels_in_zone = labels_in_zone

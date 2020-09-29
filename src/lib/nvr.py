@@ -363,9 +363,16 @@ class FFMPEGNVR(Thread):
 
                 # Send detection to configured post processors
                 if self._object_filters[obj.label].post_processor:
-                    self._post_processors[
-                        self._object_filters[obj.label].post_processor
-                    ].input_queue.put({"frame": frame, "object": obj})
+                    try:
+                        self._post_processors[
+                            self._object_filters[obj.label].post_processor
+                        ].input_queue.put({"frame": frame, "object": obj})
+                    except KeyError:
+                        self._logger.error(
+                            "Configured post_processor "
+                            f"{self._object_filters[obj.label].post_processor} "
+                            "does not exist. Please check your configuration"
+                        )
 
         self.objects_in_fov = objects_in_fov
         self.labels_in_fov = labels_in_fov
