@@ -9,7 +9,10 @@ LOGGER = logging.getLogger(__name__)
 
 
 class PostProcessor:
-    def __init__(self, processor_type, processor_config):
+    def __init__(self, config, processor_type, processor_config):
+        if getattr(config.logging, "level", None):
+            LOGGER.setLevel(config.logging.level)
+
         LOGGER.debug(f"Initializing post processor {processor_type}")
         processor = self.import_processor(processor_type, processor_config)
         config = processor.Config(processor.SCHEMA(processor_config))

@@ -44,9 +44,9 @@ class Viseron:
         for (
             post_processor_type,
             post_processor_config,
-        ) in config.post_processors.items():
+        ) in config.post_processors.post_processors.items():
             post_processors[post_processor_type] = PostProcessor(
-                post_processor_type, post_processor_config
+                config.post_processors, post_processor_type, post_processor_config
             )
 
         LOGGER.info("Initializing NVR threads")
