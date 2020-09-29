@@ -454,17 +454,60 @@ points:
 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu``` | What detection method to use.</br>Defaults to ```edgetpu``` on RPi. If no EdgeTPU is present it will run tensorflow on the CPU. |
-| model_path | str | RPi: ```/detectors/models/edgetpu/model.tflite``` <br> Other: ```/detectors/models/darknet/yolo.weights``` | any valid path | Path to the object detection model |
-| model_config | str | ```/detectors/models/darknet/yolo.cfg``` | any valid path | Path to the object detection config. Only needed for ```darknet``` |
-| label_path | str | RPI: ```/detectors/models/edgetpu/labels.txt``` <br> Other: ```/detectors/models/darknet/coco.names``` | any valid path | Path to the file containing labels for the model |
-| model_width | int | optional | any integer | Detected from model. Frames will be resized to this width in order to fit model and save computing power. I dont recommend changing this. |
-| model_height | int | optional | any integer | Detected from model. Frames will be resized to this height in order to fit model and save computing power. I dont recommend changing this. |
+| type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu``` | What detection method to use.<br>Each detector has its own configuration options explained here:<br>[darknet](#darknet)<br>[edgetpu](#edgetpu) |
+| model_width | int | optional | any integer | Detected from model.<br>Frames will be resized to this width in order to fit model and save computing power.<br>I dont recommend changing this. |
+| model_height | int | optional | any integer | Detected from model.<br>Frames will be resized to this height in order to fit model and save computing power.<br>I dont recommend changing this. |
 | interval | float | 1.0 | any float | Run object detection at this interval in seconds on the most recent frame. |
-| confidence | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects |
-| suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections.<br>You can read more about how this works [here](https://towardsdatascience.com/non-maximum-suppression-nms-93ce178e177c). |
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the object detector.<br>This affects all logs named ```lib.detector``` and  ```lib.nvr.<camera name>.object``` |
+
+The above options are global for all types of detectors.\
+If loglevel is set to ```DEBUG```, all detected objects will be printed in a statement like this:
+<details>
+  <summary>Debug log</summary>
+
+  ```
+[2020-09-29 07:57:23] [lib.nvr.<camera name>.object ] [DEBUG   ] - Objects: [{'label': 'chair', 'confidence': 0.618, 'rel_width': 0.121, 'rel_height': 0.426, 'rel_x1': 0.615, 'rel_y1': 0.423, 'rel_x2': 0.736, 'rel_y2': 0.849}, {'label': 'pottedplant', 'confidence': 0.911, 'rel_width': 0.193, 'rel_height': 0.339, 'rel_x1': 0.805, 'rel_y1': 0.466, 'rel_x2': 0.998, 'rel_y2': 0.805}, {'label': 'pottedplant', 'confidence': 0.786, 'rel_width': 0.065, 'rel_height': 0.168, 'rel_x1': 0.522, 'rel_y1': 0.094, 'rel_x2': 0.587, 'rel_y2': 0.262}, {'label': 'pottedplant', 'confidence': 0.532, 'rel_width': 0.156, 'rel_height': 0.159, 'rel_x1': 0.644, 'rel_y1': 0.317, 'rel_x2': 0.8, 'rel_y2': 0.476}]
+  ```
+</details>
+
+### Darknet
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| model_path | str | ```/detectors/models/darknet/yolo.weights``` | any valid path | Path to the object detection model |
+| model_config | str | ```/detectors/models/darknet/yolo.cfg``` | any valid path | Path to the object detection config. Only needed for ```darknet``` |
+| label_path | str | ```/detectors/models/darknet/coco.names``` | any valid path | Path to the file containing labels for the model |
+| suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections.<br>You can read more about how this works [here](https://towardsdatascience.com/non-maximum-suppression-nms-93ce178e177c). |
+
+The above options are specific to the ```type: darknet``` detector.
+The included models are placed inside ```/detectors/models/darknet``` folder.\
+The default model differs a bit per container:
+- ```roflcoopter/viseron-cuda```: This one uses YOLOv4 by default.
+- ```roflcoopter/viseron-vaapi```: This one uses YOLOv3 by default.
+- ```roflcoopter/viseron```: This one uses YOLOv3 by default.
+
+The reason why not all containers are using YOLOv4 is that there are currently some issues with OpenCVs implementation of it.\
+As soon as this is fixed for the versions of OpenCV that Viseron is using, YOLOv4 will be the standard for all.
+
+The containers using YOLOv3 also has YOLOv3-tiny included in the image.\
+YOLOv3-tiny can be used to reduce CPU usage, but will hav **significantly** worse accuracy.
+If you want to swap to YOLOv3-tiny you can change these configuration options:
+  ```yaml
+  object_detection:
+    model_path: /detectors/models/darknet/yolov3-tiny.weights
+    model_config: /detectors/models/darknet/yolov3-tiny.cfg
+  ```
+
+### EdgeTPU
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| model_path | str | ```/detectors/models/edgetpu/model.tflite``` | any valid path | Path to the object detection model |
+| label_path | str | ```/detectors/models/edgetpu/labels.txt``` | any valid path | Path to the file containing labels for the model |
+
+The above options are specific to the ```type: edgetpu``` detector.\
+The included models are placed inside ```/detectors/models/edgetpu``` folder.\
+There are two models available, one that runs on the EdgeTPU and one the runs on the CPU.
+If no EdgeTPU is found, Viseron will fallback to use the CPU model instead.
 
 ---
 
