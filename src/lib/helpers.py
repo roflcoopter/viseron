@@ -171,6 +171,7 @@ def draw_mask(frame, mask_points):
         )
 
 
+# TODO make a saturationwarning configurable
 def pop_if_full(queue: Queue, item: Any):
     """If queue is full, pop oldest item and put the new item"""
     try:
@@ -183,6 +184,26 @@ def pop_if_full(queue: Queue, item: Any):
 def slugify(text: str) -> str:
     """Slugify a given text."""
     return unicode_slug.slugify(text, separator="_")
+
+
+def send_to_post_processor(
+    logger, camera_config, post_processors, post_processor, frame, obj, zone=None
+):
+    try:
+        post_processors[post_processor].input_queue.put(
+            {
+                "camera_config": camera_config,
+                "frame": frame,
+                "object": obj,
+                "zone": zone,
+            }
+        )
+    except KeyError:
+        logger.error(
+            "Configured post_processor "
+            f"{post_processor} "
+            "does not exist. Please check your configuration"
+        )
 
 
 class Filter:

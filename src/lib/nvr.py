@@ -7,7 +7,14 @@ import cv2
 
 from const import LOG_LEVELS
 from lib.camera import FFMPEGCamera
-from lib.helpers import Filter, draw_contours, draw_mask, draw_objects, draw_zones
+from lib.helpers import (
+    Filter,
+    draw_contours,
+    draw_mask,
+    draw_objects,
+    draw_zones,
+    send_to_post_processor,
+)
 from lib.motion import MotionDetection
 from lib.mqtt.binary_sensor import MQTTBinarySensor
 from lib.mqtt.camera import MQTTCamera
@@ -363,16 +370,14 @@ class FFMPEGNVR(Thread):
 
                 # Send detection to configured post processors
                 if self._object_filters[obj.label].post_processor:
-                    try:
-                        self._post_processors[
-                            self._object_filters[obj.label].post_processor
-                        ].input_queue.put({"frame": frame, "object": obj})
-                    except KeyError:
-                        self._logger.error(
-                            "Configured post_processor "
-                            f"{self._object_filters[obj.label].post_processor} "
-                            "does not exist. Please check your configuration"
-                        )
+                    send_to_post_processor(
+                        self._logger,
+                        self.config,
+                        self._post_processors,
+                        self._object_filters[obj.label].post_processor,
+                        frame,
+                        obj,
+                    )
 
         self.objects_in_fov = objects_in_fov
         self.labels_in_fov = labels_in_fov
