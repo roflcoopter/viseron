@@ -12,7 +12,9 @@ import face_recognition
 from apscheduler.schedulers.background import BackgroundScheduler
 from const import ENV_CUDA_SUPPORTED
 from face_recognition.face_recognition_cli import image_files_in_folder
-from lib.helpers import calculate_absolute_coords
+from lib.config import ViseronConfig
+from lib.helpers import calculate_absolute_coords, slugify
+from lib.mqtt.binary_sensor import MQTTBinarySensor
 from lib.post_processors import PostProcessorConfig
 from lib.post_processors.schema import SCHEMA as BASE_SCHEMA
 from PIL import UnidentifiedImageError
@@ -61,18 +63,27 @@ class Config(PostProcessorConfig):
 
 
 class Processor:
-    def __init__(self, config: Config):
-        if getattr(config.logging, "level", None):
-            LOGGER.setLevel(config.logging.level)
+    def __init__(self, config: ViseronConfig, processor_config: Config, mqtt_queue):
+        if getattr(processor_config.logging, "level", None):
+            LOGGER.setLevel(processor_config.logging.level)
         LOGGER.debug("Initializing dlib")
-        self._config = config
+        self._processor_config = processor_config
 
         self._faces: dict = {}
-        self._classifier = train(config.face_recognition_path)
+        self._classifier, tracked_faces = train(processor_config.face_recognition_path)
+
+        # Create one MQTT binary sensor per tracked face
+        self._mqtt_devices = {}
+        if mqtt_queue:
+            for face in tracked_faces:
+                LOGGER.debug(f"Creating MQTT binary sensor for face {face}")
+                self._mqtt_devices[face] = FaceMQTTBinarySensor(
+                    config, mqtt_queue, face
+                )
 
         LOGGER.debug("dlib initialized")
 
-    def process(self, frame, obj):
+    def process(self, camera_config, frame, obj, zone):
         if not self._classifier:
             LOGGER.error(
                 "Classifier has not been trained, "
@@ -86,7 +97,9 @@ class Processor:
         )
         cropped_frame = frame.decoded_frame_mat_rgb[y1:y2, x1:x2].copy()
 
-        faces = predict(cropped_frame, self._classifier, model=self._config.model)
+        faces = predict(
+            cropped_frame, self._classifier, model=self._processor_config.model
+        )
         LOGGER.debug(f"Found faces: {faces}")
 
         for face in faces:
@@ -99,13 +112,19 @@ class Processor:
             # Adds a detected face and schedules an expiry timer
             self._faces[name] = {
                 "coordinates": coordinates,
-                "timer": Timer(self._config.expire_after, self.expire_face, [name]),
+                "timer": Timer(
+                    self._processor_config.expire_after, self.expire_face, [name]
+                ),
             }
             self._faces[name]["timer"].start()
 
     def expire_face(self, face):
         LOGGER.debug(f"Expiring face {face}")
         del self._faces[face]
+
+    def on_connect(self, client):
+        for device in self._mqtt_devices.values():
+            device.on_connect(client)
 
 
 def train(
@@ -239,7 +258,7 @@ def train(
     #     pickle.dump(knn_clf, model_file)
 
     LOGGER.debug("Training complete")
-    return knn_clf
+    return knn_clf, face_names
 
 
 def predict(frame, knn_clf, model="hog", distance_threshold=0.6):
@@ -286,3 +305,19 @@ def predict(frame, knn_clf, model="hog", distance_threshold=0.6):
             knn_clf.predict(faces_encodings), face_locations, are_matches
         )
     ]
+
+
+class FaceMQTTBinarySensor(MQTTBinarySensor):
+    def __init__(self, config, mqtt_queue, face):
+        self._config = config
+        self._mqtt_queue = mqtt_queue
+        self._node_id = slugify(config.mqtt.client_id)
+        self._object_id = f"face_detected_{slugify(face)}"
+        self._name = f"{config.mqtt.client_id} Face detected {face}"
+
+    @property
+    def base_topic(self):
+        return (
+            f"{self._config.mqtt.discovery_prefix}/binary_sensor/"
+            f"{self._node_id}/{self._object_id}"
+        )

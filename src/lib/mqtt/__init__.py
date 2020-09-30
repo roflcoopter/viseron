@@ -2,6 +2,7 @@ import logging
 
 import paho.mqtt.client as mqtt
 from lib.nvr import FFMPEGNVR
+from lib.post_processors import PostProcessor
 
 LOGGER = logging.getLogger(__name__)
 
@@ -22,6 +23,9 @@ class MQTT:
             for name in list(nvr):
                 subscriptions = nvr[name].on_connect(client)
                 self.subscribe(subscriptions)
+
+        for post_processor in PostProcessor.post_processor_list:
+            post_processor.on_connect(client)
 
         # Send initial alive message
         client.publish(self.config.mqtt.last_will_topic, payload="alive", retain=True)

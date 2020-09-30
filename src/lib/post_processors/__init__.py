@@ -4,7 +4,7 @@ from queue import Queue
 from threading import Thread
 from typing import Dict
 
-
+from lib.config import ViseronConfig
 from lib.config.config_logging import LoggingConfig
 from lib.config.config_post_processors import PostProcessorsConfig
 
@@ -12,15 +12,25 @@ LOGGER = logging.getLogger(__name__)
 
 
 class PostProcessor:
-    def __init__(self, config, processor_type, processor_config):
-        if getattr(config.logging, "level", None):
-            LOGGER.setLevel(config.logging.level)
+    post_processor_list: list = []
+
+    def __init__(
+        self, config: ViseronConfig, processor_type, processor_config, mqtt_queue
+    ):
+        self.post_processor_list.append(self)
+        if getattr(config.post_processors.logging, "level", None):
+            LOGGER.setLevel(config.post_processors.logging.level)
 
         LOGGER.debug(f"Initializing post processor {processor_type}")
         processor = self.import_processor(processor_type, processor_config)
-        config = processor.Config(config, processor.SCHEMA(processor_config))
-        self.input_queue = Queue(maxsize=10)
-        self._post_processor = processor.Processor(config)
+        self.input_queue: Queue = Queue(maxsize=10)
+        self._post_processor = processor.Processor(
+            config,
+            processor.Config(
+                config.post_processors, processor.SCHEMA(processor_config)
+            ),
+            mqtt_queue,
+        )
 
         processor_thread = Thread(target=self.post_process)
         processor_thread.daemon = True
@@ -36,8 +46,14 @@ class PostProcessor:
 
     def post_process(self):
         while True:
-            frame = self.input_queue.get()
-            self._post_processor.process(frame["frame"], frame["object"])
+            item = self.input_queue.get()
+            self._post_processor.process(
+                item["camera_config"], item["frame"], item["object"], item["zone"]
+            )
+
+    def on_connect(self, client):
+        if getattr(self._post_processor, "on_connect", None):
+            self._post_processor.on_connect(client)
 
 
 class PostProcessorConfig:
