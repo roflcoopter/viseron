@@ -38,12 +38,12 @@ class DetectedObject:
         self, label, confidence, x1, y1, x2, y2, relative=True, model_res=None
     ):
         self._label = label
-        self._confidence = round(confidence, 3)
+        self._confidence = round(float(confidence), 3)
         if relative:
-            self._rel_x1 = round(x1, 3)
-            self._rel_y1 = round(y1, 3)
-            self._rel_x2 = round(x2, 3)
-            self._rel_y2 = round(y2, 3)
+            self._rel_x1 = float(round(x1, 3))
+            self._rel_y1 = float(round(y1, 3))
+            self._rel_x2 = float(round(x2, 3))
+            self._rel_y2 = float(round(y2, 3))
         else:
             (
                 self._rel_x1,
@@ -52,8 +52,8 @@ class DetectedObject:
                 self._rel_y2,
             ) = calculate_relative_coords((x1, y1, x2, y2), model_res)
 
-        self._rel_width = round(self._rel_x2 - self._rel_x1, 3)
-        self._rel_height = round(self._rel_y2 - self._rel_y1, 3)
+        self._rel_width = float(round(self._rel_x2 - self._rel_x1, 3))
+        self._rel_height = float(round(self._rel_y2 - self._rel_y1, 3))
         self._relevant = False
 
     @property
@@ -98,7 +98,7 @@ class DetectedObject:
         payload["rel_x1"] = self.rel_x1
         payload["rel_y1"] = self.rel_y1
         payload["rel_x2"] = self.rel_x2
-        payload["rel_y2"] = self._rel_y2
+        payload["rel_y2"] = self.rel_y2
         return payload
 
     @property
