@@ -13,6 +13,7 @@ from lib.helpers import (
     draw_mask,
     draw_objects,
     draw_zones,
+    report_labels,
     send_to_post_processor,
 )
 from lib.motion import MotionDetection
@@ -129,6 +130,7 @@ class FFMPEGNVR(Thread):
 
         self._objects_in_fov = []
         self._labels_in_fov = []
+        self._reported_label_count = {}
         self.idle_frames = 0
         self._motion_frames = 0
         self._motion_detected = False
@@ -362,8 +364,7 @@ class FFMPEGNVR(Thread):
             ].filter_object(obj):
                 obj.relevant = True
                 objects_in_fov.append(obj)
-                if obj.label not in labels_in_fov:
-                    labels_in_fov.append(obj.label)
+                labels_in_fov.append(obj.label)
 
                 if self._object_filters[obj.label].triggers_recording:
                     self._trigger_recorder = True
@@ -387,33 +388,30 @@ class FFMPEGNVR(Thread):
         return self._objects_in_fov
 
     @objects_in_fov.setter
-    def objects_in_fov(self, value):
-        if value == self._objects_in_fov:
+    def objects_in_fov(self, objects):
+        if objects == self._objects_in_fov:
             return
 
-        self._objects_in_fov = value
         if self._mqtt.mqtt_queue:
-            self._mqtt.devices["object_detected"].publish(bool(value))
+            attributes = {}
+            attributes["objects"] = [obj.formatted for obj in objects]
+            self._mqtt.devices["object_detected"].publish(bool(objects), attributes)
+
+        self._objects_in_fov = objects
 
     @property
     def labels_in_fov(self):
-        return self._objects_in_fov
+        return self._labels_in_fov
 
     @labels_in_fov.setter
-    def labels_in_fov(self, labels_in_fov):
-        if labels_in_fov == self._labels_in_fov:
-            return
-
-        labels_added = list(set(labels_in_fov) - set(self._labels_in_fov))
-        labels_removed = list(set(self._labels_in_fov) - set(labels_in_fov))
-
-        if self._mqtt.mqtt_queue:
-            for label in labels_added:
-                self._mqtt.devices[label].publish(True)
-            for label in labels_removed:
-                self._mqtt.devices[label].publish(False)
-
-        self._labels_in_fov = labels_in_fov
+    def labels_in_fov(self, labels):
+        self._labels_in_fov, self._reported_label_count = report_labels(
+            labels,
+            self._labels_in_fov,
+            self._reported_label_count,
+            self._mqtt.mqtt_queue,
+            self._mqtt.devices,
+        )
 
     def filter_zones(self, frame):
         for zone in self._zones:

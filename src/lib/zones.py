@@ -1,7 +1,12 @@
 import logging
 
 import cv2
-from lib.helpers import Filter, calculate_absolute_coords, send_to_post_processor
+from lib.helpers import (
+    Filter,
+    calculate_absolute_coords,
+    report_labels,
+    send_to_post_processor,
+)
 from lib.mqtt.binary_sensor import MQTTBinarySensor
 
 
@@ -20,6 +25,7 @@ class Zone:
         self._name = zone["name"]
         self._objects_in_zone = []
         self._labels_in_zone = []
+        self._reported_label_count = {}
         self._object_filters = {}
         self._trigger_recorder = False
         zone_labels = (
@@ -88,33 +94,29 @@ class Zone:
         return self._objects_in_zone
 
     @objects_in_zone.setter
-    def objects_in_zone(self, value):
-        if value == self._objects_in_zone:
+    def objects_in_zone(self, objects):
+        if objects == self._objects_in_zone:
             return
 
-        self._objects_in_zone = value
+        self._objects_in_zone = objects
         if self._mqtt_queue:
-            self._mqtt_devices["zone"].publish(bool(value))
+            attributes = {}
+            attributes["objects"] = [obj.formatted for obj in objects]
+            self._mqtt_devices["zone"].publish(bool(objects), attributes)
 
     @property
     def labels_in_zone(self):
         return self._objects_in_zone
 
     @labels_in_zone.setter
-    def labels_in_zone(self, labels_in_zone):
-        if labels_in_zone == self._labels_in_zone:
-            return
-
-        labels_added = list(set(labels_in_zone) - set(self._labels_in_zone))
-        labels_removed = list(set(self._labels_in_zone) - set(labels_in_zone))
-
-        if self._mqtt_queue:
-            for label in labels_added:
-                self._mqtt_devices[label].publish(True)
-            for label in labels_removed:
-                self._mqtt_devices[label].publish(False)
-
-        self._labels_in_zone = labels_in_zone
+    def labels_in_zone(self, labels):
+        self._labels_in_fov, self._reported_label_count = report_labels(
+            labels,
+            self._labels_in_fov,
+            self._reported_label_count,
+            self._mqtt_queue,
+            self._mqtt_devices,
+        )
 
     @property
     def trigger_recorder(self):

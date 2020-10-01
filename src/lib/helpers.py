@@ -1,10 +1,11 @@
 import math
+from collections import Counter
 from queue import Full, Queue
 from typing import Any, Tuple
 
+import cv2
 import numpy as np
 
-import cv2
 import slugify as unicode_slug
 from const import FONT, FONT_SIZE
 
@@ -204,6 +205,39 @@ def send_to_post_processor(
             f"{post_processor} "
             "does not exist. Please check your configuration"
         )
+
+
+def report_labels(
+    labels, labels_in_fov, reported_label_count, mqtt_queue, mqtt_devices
+):
+    labels = sorted(labels)
+    if labels == labels_in_fov:
+        return labels_in_fov, reported_label_count
+
+    labels_added = list(set(labels) - set(labels_in_fov))
+    labels_removed = list(set(labels_in_fov) - set(labels))
+
+    # Count occurences of each label
+    counter = Counter(labels)
+
+    if mqtt_queue:
+        for label in labels_added:
+            attributes = {}
+            attributes["count"] = counter[label]
+            mqtt_devices[label].publish(True, attributes)
+            reported_label_count[label] = counter[label]  # Save reported count
+
+        for label in labels_removed:
+            mqtt_devices[label].publish(False)
+
+    for label, count in counter.items():
+        if reported_label_count.get(label, 0) != count:
+            attributes = {}
+            attributes["count"] = count
+            mqtt_devices[label].publish(True, attributes)
+            reported_label_count[label] = count
+
+    return labels, reported_label_count
 
 
 class Filter:
