@@ -291,6 +291,9 @@ class FFMPEGCamera:
                             "object_return_queue": object_return_queue,
                             "camera_config": self._config,
                         },
+                        logger=self._logger,
+                        name="object_decoder_queue",
+                        warn=True,
                     )
 
                 object_frame_number += 1
@@ -308,6 +311,9 @@ class FFMPEGCamera:
                             "frame": current_frame,
                             "motion_return_queue": motion_return_queue,
                         },
+                        logger=self._logger,
+                        name="motion_decoder_queue",
+                        warn=True,
                     )
 
                 motion_frame_number += 1
@@ -328,7 +334,13 @@ class FFMPEGCamera:
             input_item = input_queue.get()
             if input_item["frame"].decode_frame():
                 input_item["frame"].resize(input_item["decoder_name"], width, height)
-                pop_if_full(output_queue, input_item)
+                pop_if_full(
+                    output_queue,
+                    input_item,
+                    logger=self._logger,
+                    name=f"{input_item['decoder_name']} input",
+                    warn=True,
+                )
                 continue
 
             self._logger.error("Unable to decode frame. FFMPEG pipe seems broken")

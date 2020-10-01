@@ -1,3 +1,4 @@
+import logging
 import math
 from collections import Counter
 from queue import Full, Queue
@@ -8,6 +9,8 @@ import numpy as np
 
 import slugify as unicode_slug
 from const import FONT, FONT_SIZE
+
+LOGGER = logging.getLogger(__name__)
 
 
 def calculate_relative_contours(contours, resolution: Tuple[int, int]):
@@ -172,12 +175,13 @@ def draw_mask(frame, mask_points):
         )
 
 
-# TODO make a saturationwarning configurable
-def pop_if_full(queue: Queue, item: Any):
+def pop_if_full(queue: Queue, item: Any, logger=LOGGER, name="unknown", warn=False):
     """If queue is full, pop oldest item and put the new item"""
     try:
         queue.put_nowait(item)
     except Full:
+        if warn:
+            logger.warning(f"{name} queue is full. Removing oldest entry.")
         queue.get()
         queue.put_nowait(item)
 
