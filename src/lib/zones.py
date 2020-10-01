@@ -110,9 +110,9 @@ class Zone:
 
     @labels_in_zone.setter
     def labels_in_zone(self, labels):
-        self._labels_in_fov, self._reported_label_count = report_labels(
+        self._labels_in_zone, self._reported_label_count = report_labels(
             labels,
-            self._labels_in_fov,
+            self._labels_in_zone,
             self._reported_label_count,
             self._mqtt_queue,
             self._mqtt_devices,
