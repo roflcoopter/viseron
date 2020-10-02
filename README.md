@@ -1,5 +1,5 @@
 # Viseron - Self-hosted NVR with object detection
-Viseron is a self-hosted, local only NVR implemented in Python.
+Viseron is a self-hosted, local only NVR implemented in Python.\
 The goal is ease of use while also leveraging hardware acceleration for minimal system load.
 
 # Notable features
@@ -209,9 +209,9 @@ The command is built like this: \
 | username | str | optional | any string | Username for the camera stream |
 | password | str | optional | any string | Password for the camera stream |
 | path | str | optional | any string | Path to the camera stream, eg ```/Streaming/Channels/101/``` |
-| width | int | detected from stream | any integer | Width of the stream. Will use OpenCV to get this information if not given |
-| height | int | detected from stream | any integer | Height of the stream. Will use OpenCV to get this information if not given |
-| fps | int | detected from stream | any integer | FPS of the stream. Will use OpenCV to get this information if not given |
+| width | int | optional | any integer | Width of the stream. Will use OpenCV to get this information if not given |
+| height | int | optional | any integer | Height of the stream. Will use OpenCV to get this information if not given |
+| fps | int | optional | any integer | FPS of the stream. Will use OpenCV to get this information if not given |
 | global_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | input_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG decoder hardware acceleration arguments |
@@ -521,17 +521,18 @@ If no EdgeTPU is found, Viseron will fallback to use the CPU model instead.
 | width_min | float | 0 | float between 0 and 1 | Minimum width allowed for detected objects, relative to stream width |
 | width_max | float | 1 | float between 0 and 1 | Maximum width allowed for detected objects, relative to stream width |
 | triggers_recording | bool | True | True/false | If set to True, objects matching this filter will start the recorder and signal over MQTT.<br> If set to False, only signal over MQTT will be sent |
+| post_processor | str | optional | any configured post processor | Send this detected object to the specified [post processor](#post-processors).
 
 Labels are used to tell Viseron what objects to look for and keep recordings of.\
 The available labels depends on what detection model you are using.\
 For the built in models you can check the ```label_path``` file to see which labels that are available, see commands below.
 <details>
   <summary>Darknet</summary>
-  ```docker exec -it viseron cat /detectors/models/darknet/coco.names```
+  <code>docker exec -it viseron cat /detectors/models/darknet/coco.names</code>
 </details>
 <details>
   <summary>EdgeTPU</summary>
-  ```docker exec -it viseron cat /detectors/models/edgetpu/labels.txt```
+  <code>docker exec -it viseron cat /detectors/models/edgetpu/labels.txt</code>
 </details>
 
 The max/min width/height is used to filter out any unreasonably large/small objects to reduce false positives.
@@ -623,6 +624,63 @@ A default ffmpeg encoder command is generated, which varies a bit depending on t
 </details>
 
 This means that you do **not** have to set ```hwaccel_args``` *unless* you have a specific need to change the default command (say you need to change ```h264_nvenc``` to ```hevc_nvenc```)
+
+---
+
+## Post Processors
+<details>
+  <summary>Config example</summary>
+
+  ```yaml
+  post_processors:
+    face_recognition:
+      type: dlib
+      expire_after: 10
+    logging:
+      level: info
+  ```
+</details>
+
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| face_recognition | dict | optional | see [Face Recognition](#face-recognition) | Configuration for face recognition. |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the ```post_processors```. <br>This affects all logs named ```lib.post_processors.*``` |
+
+Post processors are used when you want to perform some kind of action when a specific object is detected.\
+Right now the only implemented post processor is face recognition. In the future more of these post processors will be added (ALPR) along with the ability to create your own custom post processors.
+
+### Face Recognition
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| type | str | ```dlib``` | ```dlib``` | What face recognition method to use.<br>As of right now, only one method is implemented. |
+| face_recognition_path | str | ```/config/face_recognition``` | path to folder | Path to folder which contains subdirectories with images for each face to track |
+| expire_after | int | 5 | any int | Time in seconds before a detected face is no longer considered detected |
+| model | str | CUDA: ```cnn```<br>Other: ```hog``` | ```cnn```, ```hog``` | Which face detection model to use.<br>```hog``` is less accurate but faster on CPUs.<br>```cnn``` is a more accurate deep-learning model which is GPU/CUDA accelerated (if available). |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the post processor. <br>This affects all logs named ```lib.post_processors.<type>*``` |
+
+On startup images are read from ```face_recognition_path``` and a model is trained to recognize these faces.\
+The folder structure of the faces folder is very strict. Here is an example of the default one:
+```
+/config
+|-- face_recognition
+|   `-- faces
+|       |-- person1
+|       |   |-- image_of_person1_1.jpg
+|       |   |-- image_of_person1_2.png
+|       |   `-- image_of_person1_3.jpg
+|       `-- person2
+|       |   |-- image_of_person2_1.jpeg
+|       |   `-- image_of_person2_2.jpg
+```
+The state of a tracked face is published over MQTT.\
+The topic is:\
+**```homeassistant/binary_sensor/{client_id from MQTT config}/face_detected{person name}/state```**\
+```on``` will be published to this topic when the face is detected.\
+```off``` will be published to this topic when the face has not been detected for ```expire_after``` seconds.
+
+So the default topics, given the folder structure above, would look like this:\
+**```homeassistant/binary_sensor/viseron/face_detected_person1/state```**\
+**```homeassistant/binary_sensor/viseron/face_detected_person2/state```**
 
 ---
 
@@ -746,8 +804,10 @@ A variable amount of binary sensors will be created based on your configuration.
    Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone}/state```
 4) A binary sensor for each tracked object in a zone showing if the label is in the zone.\
    Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone}_{label}/state```
-4) A binary sensor showing if motion is detected.\
+5) A binary sensor showing if motion is detected.\
    Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/motion_detected/state```
+5) A binary sensor showing if motion is detected.\
+   Default state topic: ```homeassistant/binary_sensor/{client_id from MQTT config}/face_detected{person name}/state```
 
 **Switch**\
 A switch entity will be created for each camera.\

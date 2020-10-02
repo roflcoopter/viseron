@@ -17,7 +17,7 @@ from lib.helpers import calculate_absolute_coords, slugify
 from lib.mqtt.binary_sensor import MQTTBinarySensor
 from lib.post_processors import PostProcessorConfig
 from lib.post_processors.schema import SCHEMA as BASE_SCHEMA
-from PIL import UnidentifiedImageError
+import PIL
 from sklearn import neighbors
 
 from .defaults import EXPIRE_AFTER, FACE_RECOGNITION_PATH
@@ -75,7 +75,7 @@ class Processor:
         # Create one MQTT binary sensor per tracked face
         self._mqtt_devices = {}
         if mqtt_queue:
-            for face in tracked_faces:
+            for face in list(set(tracked_faces)):
                 LOGGER.debug(f"Creating MQTT binary sensor for face {face}")
                 self._mqtt_devices[face] = FaceMQTTBinarySensor(
                     config, mqtt_queue, face
@@ -100,26 +100,29 @@ class Processor:
         faces = predict(
             cropped_frame, self._classifier, model=self._processor_config.model
         )
-        LOGGER.debug(f"Found faces: {faces}")
+        LOGGER.debug(f"Faces found: {faces}")
 
-        for face in faces:
+        for face, coordinates in [
+            (face, coordinates) for face, coordinates in faces if face != "unknown"
+        ]:
             # Cancel the expiry timer if face has already been detected
-            name = face[0]
-            coordinates = face[1]
-            if self._faces.get(name, None):
-                self._faces[name]["timer"].cancel()
+            if self._faces.get(face, None):
+                self._faces[face]["timer"].cancel()
+
+            self._mqtt_devices[face].publish(True)
 
             # Adds a detected face and schedules an expiry timer
-            self._faces[name] = {
+            self._faces[face] = {
                 "coordinates": coordinates,
                 "timer": Timer(
-                    self._processor_config.expire_after, self.expire_face, [name]
+                    self._processor_config.expire_after, self.expire_face, [face]
                 ),
             }
-            self._faces[name]["timer"].start()
+            self._faces[face]["timer"].start()
 
     def expire_face(self, face):
         LOGGER.debug(f"Expiring face {face}")
+        self._mqtt_devices[face].publish(False)
         del self._faces[face]
 
     def on_connect(self, client):
@@ -206,7 +209,7 @@ def train(
         for img_path in img_paths:
             try:
                 image = face_recognition.load_image_file(img_path)
-            except UnidentifiedImageError as error:
+            except PIL.UnidentifiedImageError as error:
                 LOGGER.error(f"Error loading image: {error}")
                 continue
 
@@ -311,13 +314,9 @@ class FaceMQTTBinarySensor(MQTTBinarySensor):
     def __init__(self, config, mqtt_queue, face):
         self._config = config
         self._mqtt_queue = mqtt_queue
+        self._name = f"{config.mqtt.client_id} Face detected {face}"
+        self._friendly_name = f"Face detected {face}"
+        self._device_name = config.mqtt.client_id
+        self._unique_id = self._name
         self._node_id = slugify(config.mqtt.client_id)
         self._object_id = f"face_detected_{slugify(face)}"
-        self._name = f"{config.mqtt.client_id} Face detected {face}"
-
-    @property
-    def base_topic(self):
-        return (
-            f"{self._config.mqtt.discovery_prefix}/binary_sensor/"
-            f"{self._node_id}/{self._object_id}"
-        )
