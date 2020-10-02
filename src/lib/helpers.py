@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 
 import slugify as unicode_slug
-from const import FONT, FONT_SIZE
+from const import FONT, FONT_SIZE, FONT_THICKNESS
 
 LOGGER = logging.getLogger(__name__)
 
@@ -87,18 +87,33 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)):
             (math.floor(obj.rel_y2 * frame_res[1])) + 5,
         )
 
+    text = f"{obj.label} {int(obj.confidence * 100)}%"
+
+    (text_width, text_height) = cv2.getTextSize(
+        text=text, fontFace=FONT, fontScale=FONT_SIZE, thickness=FONT_THICKNESS,
+    )[0]
+    box_coords = (
+        (coordinates[0], coordinates[1] + 5),
+        (coordinates[0] + text_width + 2, coordinates[1] - text_height - 3),
+    )
+    cv2.rectangle(frame, box_coords[0], box_coords[1], color, cv2.FILLED)
     cv2.putText(
-        frame, obj.label, coordinates, FONT, FONT_SIZE, color, 2,
+        img=frame,
+        text=text,
+        org=coordinates,
+        fontFace=FONT,
+        fontScale=FONT_SIZE,
+        color=(255, 255, 255),
+        thickness=FONT_THICKNESS,
     )
 
 
 def draw_object(
-    frame, obj, camera_resolution: Tuple[int, int], color=(255, 0, 0), thickness=1
+    frame, obj, camera_resolution: Tuple[int, int], color=(150, 0, 0), thickness=1
 ):
     """ Draws a single object on supplied frame """
     if obj.relevant:
-        color = (0, 255, 0)
-        thickness = 2
+        color = (0, 150, 0)
     frame = draw_bounding_box_relative(
         frame,
         (obj.rel_x1, obj.rel_y1, obj.rel_x2, obj.rel_y2,),
@@ -130,7 +145,7 @@ def draw_zones(frame, zones):
             FONT,
             FONT_SIZE,
             color,
-            2,
+            FONT_THICKNESS,
         )
 
 
@@ -171,7 +186,7 @@ def draw_mask(frame, mask_points):
             FONT,
             FONT_SIZE,
             (255, 255, 255),
-            2,
+            FONT_THICKNESS,
         )
 
 
@@ -181,7 +196,7 @@ def pop_if_full(queue: Queue, item: Any, logger=LOGGER, name="unknown", warn=Fal
         queue.put_nowait(item)
     except Full:
         if warn:
-            logger.warning(f"{name} queue is full. Removing oldest entry.")
+            logger.warning(f"{name} queue is full. Removing oldest entry")
         queue.get()
         queue.put_nowait(item)
 

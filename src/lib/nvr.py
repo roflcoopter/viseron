@@ -70,7 +70,7 @@ class MQTT:
 
             # Write a low quality image to save bandwidth
             ret, jpg = cv2.imencode(
-                ".jpg", frame.decoded_frame_mat_rgb, [int(cv2.IMWRITE_JPEG_QUALITY), 50]
+                ".jpg", frame.decoded_frame_mat_rgb, [int(cv2.IMWRITE_JPEG_QUALITY), 75]
             )
             if ret:
                 self.devices["camera"].publish(jpg.tobytes())
