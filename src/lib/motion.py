@@ -86,13 +86,14 @@ class MotionDetection:
         # accumulate the weighted average between the current frame and
         # previous frames, then compute the difference between the current
         # frame and running average.
-        # Lower value makes the motion detection more sensitive.
-        cv2.accumulateWeighted(gray, self._avg, 0.1)
+        cv2.accumulateWeighted(gray, self._avg, self._config.motion_detection.alpha)
         frame_delta = cv2.absdiff(gray, cv2.convertScaleAbs(self._avg))
 
         # threshold the delta image, dilate the thresholded image to fill
         # in holes, then find contours on thresholded image
-        thresh = cv2.threshold(frame_delta, 5, 255, cv2.THRESH_BINARY)[1]
+        thresh = cv2.threshold(
+            frame_delta, self._config.motion_detection.threshold, 255, cv2.THRESH_BINARY
+        )[1]
         thresh = cv2.dilate(thresh, None, iterations=2)
         return Contours(
             cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0],

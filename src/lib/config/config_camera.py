@@ -123,6 +123,11 @@ SCHEMA = Schema(
                                 Any(All(float, Range(min=0.0, max=1.0)), 1, 0),
                                 Coerce(float),
                             ),
+                            Optional("threshold"): All(int, Range(min=0, max=255)),
+                            Optional("alpha"): All(
+                                Any(All(float, Range(min=0.0, max=1.0)), 1, 0),
+                                Coerce(float),
+                            ),
                             Optional("frames"): int,
                             Optional("mask", default=[]): [
                                 {

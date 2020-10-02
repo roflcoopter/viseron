@@ -11,6 +11,8 @@ DEFAULTS = {
     "width": 300,
     "height": 300,
     "area": 0.1,
+    "threshold": 15,
+    "alpha": 0.1,
     "frames": 3,
 }
 
@@ -25,6 +27,12 @@ SCHEMA = Schema(
         Optional("width", default=DEFAULTS["width"]): int,
         Optional("height", default=DEFAULTS["height"]): int,
         Optional("area", default=DEFAULTS["area"]): All(
+            Any(All(float, Range(min=0.0, max=1.0)), 1, 0), Coerce(float),
+        ),
+        Optional("threshold", default=DEFAULTS["threshold"]): All(
+            int, Range(min=0, max=255)
+        ),
+        Optional("alpha", default=DEFAULTS["alpha"]): All(
             Any(All(float, Range(min=0.0, max=1.0)), 1, 0), Coerce(float),
         ),
         Optional("frames", default=DEFAULTS["frames"]): int,
@@ -53,6 +61,10 @@ class MotionDetectionConfig:
         self._width = camera_motion_detection.get("width", motion_detection["width"])
         self._height = camera_motion_detection.get("height", motion_detection["height"])
         self._area = camera_motion_detection.get("area", motion_detection["area"])
+        self._threshold = camera_motion_detection.get(
+            "threshold", motion_detection["threshold"]
+        )
+        self._alpha = camera_motion_detection.get("alpha", motion_detection["alpha"])
         self._frames = camera_motion_detection.get("frames", motion_detection["frames"])
         self._mask = self.generate_mask(camera_motion_detection.get("mask", []))
         logging = camera_motion_detection.get(
@@ -97,6 +109,14 @@ class MotionDetectionConfig:
     @property
     def area(self):
         return self._area
+
+    @property
+    def threshold(self):
+        return self._threshold
+
+    @property
+    def alpha(self):
+        return self._alpha
 
     @property
     def frames(self):

@@ -276,7 +276,9 @@ ffmpeg_recoverable_errors:
 | max_timeout | int | 30 | any integer | Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected. <br>This is to prevent never-ending recordings. <br>Only applicable if ```timeout: true```.
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
-| area | float | 0.1 | any float | How big the detected area must be in order to trigger motion |
+| area | float | 0.0 - 1.0 | any float | How big the detected area must be in order to trigger motion |
+| threshold | int | 25 | 0 - 255 | The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. Smaller leads to higher sensitivity, larger values lead to lower sensitivity |
+| alpha | float | 0.2 | 0.0 - 1.0 | How much the current image impacts the moving average.<br>Higher values impacts the average frame a lot and very small changes may trigger motion.<br>Lower value impacts the average less, and fast objects may not trigger motion |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
 | mask | list | optional | see [Mask config](#mask) | Allows you to specify masks in the shape of polygons. <br>Use this to ignore motion in certain areas of the image |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the motion detector.<br>This affects all logs named ```lib.motion.<camera name>``` and  ```lib.nvr.<camera name>.motion``` |
@@ -564,7 +566,9 @@ The max/min width/height is used to filter out any unreasonably large/small obje
 | max_timeout | int | 30 | any integer | Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected. <br>This is to prevent never-ending recordings. <br>Only applicable if ```timeout: true```.
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
-| area | float | 0.1 | any float | How big the detected area must be in order to trigger motion |
+| area | float | 0.0 - 1.0 | any float | How big the detected area must be in order to trigger motion |
+| threshold | int | 25 | 0 - 255 | The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. Smaller leads to higher sensitivity, larger values lead to lower sensitivity |
+| alpha | float | 0.2 | 0.0 - 1.0 | How much the current image impacts the moving average.<br>Higher values impacts the average frame a lot and very small changes may trigger motion.<br>Lower value impacts the average less, and fast objects may not trigger motion. More can be read [here](https://docs.opencv.org/3.4/d7/df3/group__imgproc__motion.html#ga4f9552b541187f61f6818e8d2d826bc7). |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the motion detector. <br>This affects all logs named ```lib.motion.<camera name>``` and  ```lib.nvr.<camera name>.motion``` |
 
