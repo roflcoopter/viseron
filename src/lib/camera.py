@@ -217,6 +217,7 @@ class FFMPEGCamera:
         motion_return_queue,
     ):
         self._logger.debug("Starting capture thread")
+        self._connected = True
         # First read a single frame to make sure the ffmpeg command is correct
         bytes_to_read = int(self.stream_width * self.stream_height * 1.5)
         retry = False
@@ -240,7 +241,6 @@ class FFMPEGCamera:
             break
 
         pipe = self.pipe()
-        self._connected = True
 
         object_frame_number = 0
         object_first_scan = False
