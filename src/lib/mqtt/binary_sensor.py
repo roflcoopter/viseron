@@ -7,7 +7,6 @@ class MQTTBinarySensor:
         self._config = config
         self._mqtt_queue = mqtt_queue
         self._name = f"{config.mqtt.client_id} {config.camera.name} {name}"
-        self._friendly_name = f"{config.camera.name} {name}"
         self._device_name = f"{config.mqtt.client_id} {config.camera.name}"
         self._unique_id = slugify(self._name)
         self._node_id = self._config.camera.mqtt_name
@@ -33,10 +32,6 @@ class MQTTBinarySensor:
         return self._name
 
     @property
-    def friendly_name(self):
-        return self._friendly_name
-
-    @property
     def device_name(self):
         return self._device_name
 
@@ -55,10 +50,9 @@ class MQTTBinarySensor:
     @property
     def device_info(self):
         return {
-            "identifiers": [self._config.mqtt.client_id],
+            "identifiers": [self.device_name],
             "name": self.device_name,
             "manufacturer": "Viseron",
-            "via_device": self._config.mqtt.client_id,
         }
 
     @property
