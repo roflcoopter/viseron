@@ -4,16 +4,17 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
 
 # Notable features
 - Records videos on detected objects
+- Supports multiple different object detectors:
+  - YOLOv3/4 Darknet using OpenCV
+  - Tensorflow via Google Coral EdgeTPU
+- Motion detection
+- Face recognition
 - Lookback, buffers frames to record before the event actually happened
 - Multiplatform, should support any x86-64 machine running Linux, aswell as RPi3.\
 Builds are tested and verified on the following platforms:
   - Ubuntu 18.04 with Nvidia GPU
   - Ubuntu 18.04 running on an Intel NUC
   - RaspberryPi 3B+
-- Supports multiple different object detectors:
-  - YOLOv3/4 Darknet using OpenCV
-  - Tensorflow via Google Coral EdgeTPU
-- Motion detection
 - Native support for RTSP and MJPEG
 - Supports hardware acceleration on different platforms
   - CUDA for systems with a supported GPU
@@ -25,6 +26,31 @@ Builds are tested and verified on the following platforms:
 - Stop/start cameras on-demand over MQTT
 - Home Assistant integration via MQTT
 - unRAID Community Application
+
+# Table of Contents
+- [Getting started](#getting-started)
+- [Configuration Options](#configuration-options)
+  - [Cameras](#cameras)
+    - [Camera motion detection](#camera-motion-detection)
+    - [Mask](#mask)
+    - [Camera object detection](#camera-object-detection)
+    - [Zones](#zones)
+    - [Points](#points)
+  - [Object detection](#object-detection)
+    - [Darknet](#darknet)
+    - [EdgeTPU](#edgetpu)
+    - [Labels](#labels)
+  - [Motion detection](#motion-detection)
+  - [Recorder](#recorder)
+  - [Post Processors](#post-processors)
+    - [Face Recognition](#face-recognition)
+  - [MQTT](#mqtt)
+    - [Topics for each camera](#topics-for-each-camera)
+    - [Topics for each Viseron instance](#topics-for-each-viseron-instance)
+    - [Home Assistant MQTT Discovery](#home-assistant-mqtt-discovery)
+  - [Logging](#logging)
+  - [Secrets](#secrets)
+- [Benchmarks](#benchmarks)
 
 # Getting started
 Choose the appropriate docker container for your machine. Builds are published to [Docker Hub](https://hub.docker.com/repository/docker/roflcoopter/viseron)
@@ -334,7 +360,7 @@ Draw a mask over these trees and they will no longer trigger said motion.
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
-| labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). | 
+| labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the object detector.<br>This affects all logs named ```lib.nvr.<camera name>.object``` |
 ---
 
@@ -949,7 +975,6 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or 
 
 - Detectors
   - Pause detection via MQTT
-  - Move detectors to specific folder
   - Allow specified confidence to override height/width thresholds
   - Dynamic detection interval, speed up interval when detection happens for all types of detectors
   - Implement an object tracker for detected objects
@@ -961,9 +986,6 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or 
 - Recorder
   - Weaving, If detection is triggered close to previous detection, send silent alarm and "weave" the videos together.
   - Dynamic lookback based on motion
-
-- Properties:
-  All public vars should be exposed by property
 
 - Docker
   - Try to reduce container footprint
