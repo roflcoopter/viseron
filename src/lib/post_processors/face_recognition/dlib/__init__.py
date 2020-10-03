@@ -320,3 +320,7 @@ class FaceMQTTBinarySensor(MQTTBinarySensor):
         self._unique_id = self._name
         self._node_id = slugify(config.mqtt.client_id)
         self._object_id = f"face_detected_{slugify(face)}"
+
+    @property
+    def state_topic(self):
+        return f"{self._config.mqtt.client_id}/binary_sensor/{self.object_id}/state"

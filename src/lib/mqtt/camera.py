@@ -14,16 +14,15 @@ class MQTTCamera:
         self._unique_id = self.name
 
     @property
-    def base_topic(self):
-        return f"{self._config.mqtt.discovery_prefix}/camera/" f"{self.name}"
-
-    @property
     def state_topic(self):
-        return f"{self.base_topic}/image"
+        return f"{self._config.mqtt.client_id}/{self.name}/camera/image"
 
     @property
     def config_topic(self):
-        return f"{self.base_topic}/config"
+        return (
+            f"{self._config.mqtt.home_assistant.discovery_prefix}/camera/"
+            f"{self.name}/config"
+        )
 
     @property
     def name(self):
@@ -58,9 +57,10 @@ class MQTTCamera:
         return json.dumps(payload, indent=3)
 
     def on_connect(self, client):
-        client.publish(
-            self.config_topic, payload=self.config_payload, retain=True,
-        )
+        if self._config.mqtt.home_assistant.enable:
+            client.publish(
+                self.config_topic, payload=self.config_payload, retain=True,
+            )
         client.publish(self.state_topic, payload="off")
 
     def publish(self, image):

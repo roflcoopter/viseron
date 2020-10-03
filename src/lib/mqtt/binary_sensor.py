@@ -13,19 +13,18 @@ class MQTTBinarySensor:
         self._object_id = slugify(name)
 
     @property
-    def base_topic(self):
+    def state_topic(self):
         return (
-            f"{self._config.mqtt.discovery_prefix}/binary_sensor/"
-            f"{self.node_id}/{self.object_id}"
+            f"{self._config.mqtt.client_id}/{self._node_id}/"
+            f"binary_sensor/{self.object_id}/state"
         )
 
     @property
-    def state_topic(self):
-        return f"{self.base_topic}/state"
-
-    @property
     def config_topic(self):
-        return f"{self.base_topic}/config"
+        return (
+            f"{self._config.mqtt.home_assistant.discovery_prefix}/binary_sensor/"
+            f"{self.node_id}/{self.object_id}/config"
+        )
 
     @property
     def name(self):
@@ -70,7 +69,8 @@ class MQTTBinarySensor:
         payload["device"] = self.device_info
         return json.dumps(payload)
 
-    def state_payload(self, state, attributes=None):
+    @staticmethod
+    def state_payload(state, attributes=None):
         payload = {}
         payload["state"] = "on" if state else "off"
         payload["attributes"] = {}
@@ -79,9 +79,10 @@ class MQTTBinarySensor:
         return json.dumps(payload)
 
     def on_connect(self, client):
-        client.publish(
-            self.config_topic, payload=self.config_payload, retain=True,
-        )
+        if self._config.mqtt.home_assistant.enable:
+            client.publish(
+                self.config_topic, payload=self.config_payload, retain=True,
+            )
         client.publish(self.state_topic, payload=self.state_payload(False))
 
     def publish(self, state, attributes=None):

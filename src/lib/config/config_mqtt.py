@@ -21,16 +21,33 @@ SCHEMA = Schema(
     All(
         {
             Required("broker"): str,
-            Required("port", default=1883): int,
+            Optional("port", default=1883): int,
             Optional("username", default=None): Any(str, None),
             Optional("password", default=None): Any(str, None),
             Optional("client_id", default="viseron"): Any(str, None),
-            Optional("discovery_prefix", default="homeassistant"): str,
+            Optional("home_assistant", default={}): {
+                Optional("enable", default=True): bool,
+                Optional("discovery_prefix", default="homeassistant"): str,
+            },
             Optional("last_will_topic", default=None): Any(str, None),
         },
         get_lwt_topic,
     )
 )
+
+
+class HomeAssistant:
+    def __init__(self, home_assistant):
+        self._enable = home_assistant["enable"]
+        self._discovery_prefix = home_assistant["discovery_prefix"]
+
+    @property
+    def enable(self):
+        return self._enable
+
+    @property
+    def discovery_prefix(self):
+        return self._discovery_prefix
 
 
 class MQTTConfig:
@@ -42,7 +59,7 @@ class MQTTConfig:
         self._username = mqtt["username"]
         self._password = mqtt["password"]
         self._client_id = mqtt["client_id"]
-        self._discovery_prefix = mqtt["discovery_prefix"]
+        self._home_assistant = HomeAssistant(mqtt["home_assistant"])
         self._last_will_topic = mqtt["last_will_topic"]
 
     @property
@@ -66,8 +83,8 @@ class MQTTConfig:
         return self._client_id
 
     @property
-    def discovery_prefix(self):
-        return self._discovery_prefix
+    def home_assistant(self):
+        return self._home_assistant
 
     @property
     def last_will_topic(self):
