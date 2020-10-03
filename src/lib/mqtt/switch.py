@@ -52,6 +52,7 @@ class MQTTSwitch:
     def config_payload(self):
         payload = {}
         payload["name"] = self._config.camera.mqtt_name
+        payload["unique_id"] = self.unique_id
         payload["command_topic"] = self.command_topic
         payload["state_topic"] = self.state_topic
         payload["value_template"] = "{{ value_json.state | upper }}"
