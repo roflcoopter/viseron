@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from typing import Dict, List
 
 import numpy as np
 from voluptuous import (
@@ -40,7 +41,7 @@ LOGGER = logging.getLogger(__name__)
 MQTT_NAME_REGEX = re.compile(r"^[a-zA-Z0-9_\.]+$")
 
 
-def ensure_mqtt_name(camera: dict) -> dict:
+def ensure_mqtt_name(camera: Dict[str, str]) -> Dict[str, str]:
     if camera["mqtt_name"] is None:
         camera["mqtt_name"] = slugify(camera["name"])
 
@@ -56,7 +57,7 @@ def ensure_mqtt_name(camera: dict) -> dict:
     return camera
 
 
-def check_for_hwaccels(hwaccel_args: list) -> list:
+def check_for_hwaccels(hwaccel_args: List[str]) -> List[str]:
     if hwaccel_args:
         return hwaccel_args
 
@@ -65,7 +66,7 @@ def check_for_hwaccels(hwaccel_args: list) -> list:
     return hwaccel_args
 
 
-def get_codec(camera: dict) -> dict:
+def get_codec(camera: Dict[str, str]) -> Dict[str, str]:
     if camera["codec"]:
         return camera
 
