@@ -196,7 +196,7 @@ class FFMPEGNVR(Thread):
             self.motion_decoder.daemon = True
             self.motion_decoder.start()
 
-        self.camera_decoder = Thread(
+        self.object_decoder = Thread(
             target=self.camera.decoder,
             args=(
                 self._object_decoder_queue,
@@ -205,8 +205,8 @@ class FFMPEGNVR(Thread):
                 detector.model_height,
             ),
         )
-        self.camera_decoder.daemon = True
-        self.camera_decoder.start()
+        self.object_decoder.daemon = True
+        self.object_decoder.start()
 
         self.start_camera()
 
@@ -255,7 +255,6 @@ class FFMPEGNVR(Thread):
         return subscriptions
 
     def toggle_camera(self, message):
-        self._logger.debug(f"TOGGLING camera {message.payload.decode()}")
         if message.payload.decode() == "ON":
             self.start_camera()
             return
