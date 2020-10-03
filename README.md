@@ -391,20 +391,6 @@ Say you have a camera facing the sidewalk and have ```labels``` setup to look fo
 This would cause Viseron to start recording people who are walking past the camera on the sidewalk. Not ideal.\
 To remedy this you define a zone which covers **only** the area that you are actually interested in, excluding the sidewalk.
 
-You can name two zones the same, which will result in only one MQTT topic for both zones.
-
-The state of a zone will be published over MQTT.\
-The topics are:\
-**```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone name}/state```**\
-```on``` will be published to this topic when the bottom center of any configured labels bounding box is within the zone.\
-```off``` will be published to this topic when the above is no longer true.
-
-**```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone name}_{label}/state```**
-```on``` will be published to this topic when the bottom center of a **specific** configured labels bounding box is within the zone.\
-```off``` will be published to this topic when the above is no longer true.
-
-The MQTT topics follows [Home Assistants MQTT discovery format](https://www.home-assistant.io/docs/mqtt/discovery/), but you can still use these for other purposes not being Home Assistant.
-
 ---
 
 ### Points
@@ -676,15 +662,6 @@ The folder structure of the faces folder is very strict. Here is an example of t
 |       |   |-- image_of_person2_1.jpeg
 |       |   `-- image_of_person2_2.jpg
 ```
-The state of a tracked face is published over MQTT.\
-The topic is:\
-**```homeassistant/binary_sensor/{client_id from MQTT config}/face_detected{person name}/state```**\
-```on``` will be published to this topic when the face is detected.\
-```off``` will be published to this topic when the face has not been detected for ```expire_after``` seconds.
-
-So the default topics, given the folder structure above, would look like this:\
-**```homeassistant/binary_sensor/viseron/face_detected_person1/state```**\
-**```homeassistant/binary_sensor/viseron/face_detected_person2/state```**
 
 ---
 
@@ -708,8 +685,184 @@ So the default topics, given the folder structure above, would look like this:\
 | username | str | optional | any string | Username for the broker |
 | password | str | optional | any string | Password for the broker |
 | client_id | str | ```viseron``` | any string | Client ID used when connecting to broker |
-| discovery_prefix | str | ```homeassistant``` | Used to configure sensors in Home Assistant |
+| home_assistant | dict | Optional | Home Assistant MQTT discovery. Enabled by default |
 | last_will_topic | str | ```{client_id}/lwt``` | Last will topic
+
+
+### Topics for each camera
+<div style="margin-left: 1em;">
+
+#### Camera control:
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/switch/set</b></code></summary>
+  <div style="margin-left: 1em;">
+
+  ```ON```: Turns camera on\
+  ```OFF```: Turns camera off
+
+  </div>
+</details>
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/switch/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when a camera turns on/off.
+
+  ```json
+  {"state": "on", "attributes": {}}
+  ```
+
+  ```state```: on/off
+
+  </div>
+</details>
+</div>
+
+#### Images:
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/camera/image</b></code></summary>
+  <div style="margin-left: 1em;">
+
+  Images will be published with drawn objects, motion contours, zones and masks if ```publish_image: true``` is set in the config.\
+  Objects that are discarded by a filter will have blue bounding boxes, while objects who pass the filter will be green.\
+  Zones are drawn in red. If an object passes its filter and is inside the zone, the zone will turn green.\
+  Motion contours that are smaller than configured ```area``` are drawn in dark purple, while bigger contours are drawn in pink.\
+  Masks are drawn with an orange border and black background with 70% opacity.
+  </div>
+</details>
+</div>
+
+#### [Object detection](#camera-object-detection):
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/binary_sensor/object_detected/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when <b>any</b> configured label is in the field of view.
+
+  ```json
+  {"state": "on", "attributes": {"objects": [{"label": "person", "confidence": 0.961, "rel_width": 0.196, "rel_height": 0.359, "rel_x1": 0.804, "rel_y1": 0.47, "rel_x2": 1.0, "rel_y2": 0.829}]}}
+  ```
+
+  ```state```: on/off\
+  ```objects```: A list of all found objects that passes its filters
+  </div>
+</details>
+
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/binary_sensor/object_detected_{label}/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when a <b>specific</b> configured label is in the field of view.
+
+  ```json
+  {"state": "on", "attributes": {"count": 2}}
+  ```
+  ```state```: on/off\
+  ```count```: The amount of the specific label found
+  </div>
+</details>
+</div>
+
+#### [Motion detection](#camera-motion-detection):
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/binary_sensor/motion_detected/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when motion is detected.
+
+  ```json
+  {"state": "on", "attributes": {}}
+  ```
+
+  ```state```: on/off
+  </div>
+</details>
+</div>
+
+#### [Zones](#zones):
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/binary_sensor/{zone name}/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when <b>any</b> configured label is in the specific zone.
+
+  ```json
+  {"state": "on", "attributes": {"objects": [{"label": "person", "confidence": 0.961, "rel_width": 0.196, "rel_height": 0.359, "rel_x1": 0.804, "rel_y1": 0.47, "rel_x2": 1.0, "rel_y2": 0.829}]}}
+  ```
+
+  ```state```: on/off\
+  ```objects```: A list of all found objects that passes its filters
+  </div>
+</details>
+
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/binary_sensor/{zone name}_{label}/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when a <b>specific</b> configured label is in the specific zone.
+
+  ```json
+  {"state": "on", "attributes": {"count": 2}}
+  ```
+  ```state```: on/off\
+  ```count```: The amount of the specific label found
+  </div>
+</details>
+</div>
+</div>
+
+
+### Topics for each Viseron instance
+<div style="margin-left: 1em;">
+
+#### [Face recognition](#face-recognition)
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/binary_sensor/face_detected{person name}/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when a tracked face is detected.
+
+  ```json
+  {"state": "on", "attributes": {}}
+  ```
+
+  ```on``` will be published to this topic when the face is detected.\
+  ```off``` will be published to this topic when the face has not been detected for ```expire_after``` seconds.
+
+  </div>
+</details>
+</div>
+</div>
+
+
+All MQTT topics are largely inspired by Home Assistants way of organizing entities.
+
+---
+
+### Home Assistant MQTT Discovery
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| enable | bool | true | true/false | Enable or disable [Home Assistant MQTT discovery(https://www.home-assistant.io/docs/mqtt/discovery/)] |
+| discovery_prefix | str | ```homeassistant``` | any string | [Discovery prefix](https://www.home-assistant.io/docs/mqtt/discovery/#discovery_prefix) |
+
+Viseron integrates into Home Assistant using MQTT discovery and is enabled by default if you configure MQTT.\
+Viseron will create a number of entities depending on your configuration.
+
+**Camera entity**\
+A camera entity will be created for each camera.\
+Used to debug zones, masks, objects and motion.
+
+**Binary Sensors**\
+A variable amount of binary sensors will be created based on your configuration.
+1) A binary sensor showing if any tracked object is in view.
+2) A binary sensor for each tracked object showing if the label is in view.
+3) A binary sensor for each zone showing if any tracked object is in the zone.
+4) A binary sensor for each tracked object in a zone showing if the label is in the zone.
+5) A binary sensor showing if motion is detected.
+6) A binary sensor showing if a face is detected.
+
+**Switch**\
+A switch entity will be created for each camera.\
+The switch is used to arm/disarm a camera. When disarmed, no system resources are used for the camera.
 
 ---
 
@@ -782,42 +935,6 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or 
 | viseron | ~3.3% | Scanning for motion only |
 | viseron | ~23% | Scanning for objects only |
 | viseron | ~24% | Scanning for motion and objects |
-
----
-
-# Home Assistant Integration
-Viseron integrates into Home Assistant using MQTT discovery and is enabled by default if you configure MQTT.\
-Viseron will create a number of entities depending on your configuration.
-
-**Camera entity**\
-A camera entity will be created for each camera.\
-Default state topic: ```homeassistant/camera/{mqtt_name from camera config}/image```\
-Images will be published to this topic with drawn objects and zones if ```publish_image: true``` is set in the config.\
-Objects that are discarded by a filter will have blue bounding boxes, while objects who pass the filter will be green.\
-Zones are drawn in red. If an object passes its filter and is inside the zone, it will turn green.\
-Motion contours that are smaller than configured ```area``` are drawn in dark purple, while bigger contours are drawn in pink.\
-Masks are drawn with an orange border and black background with 70% opacity.
-
-**Binary Sensors**\
-A variable amount of binary sensors will be created based on your configuration.
-1) A binary sensor showing if any tracked object is in view.\
-   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/object_detected/state```
-2) A binary sensor for each tracked object showing if the label is in view.\
-   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{label}/state```
-3) A binary sensor for each zone showing if any tracked object is in the zone.\
-   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone}/state```
-4) A binary sensor for each tracked object in a zone showing if the label is in the zone.\
-   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone}_{label}/state```
-5) A binary sensor showing if motion is detected.\
-   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/motion_detected/state```
-5) A binary sensor showing if motion is detected.\
-   Default state topic: ```homeassistant/binary_sensor/{client_id from MQTT config}/face_detected{person name}/state```
-
-**Switch**\
-A switch entity will be created for each camera.\
-The switch is used to arm/disarm a camera. When disarmed, no system resources are used for the camera.\
-Default state topic: ```homeassistant/switch/{mqtt_name from camera config}/state```\
-Default command topic: ```homeassistant/switch/{mqtt_name from camera config}/set```\
 
 ---
 
