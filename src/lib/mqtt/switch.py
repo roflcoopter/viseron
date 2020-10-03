@@ -54,11 +54,23 @@ class MQTTSwitch:
         payload["name"] = self._config.camera.mqtt_name
         payload["command_topic"] = self.command_topic
         payload["state_topic"] = self.state_topic
+        payload["value_template"] = "{{ value_json.state | upper }}"
         payload["retain"] = True
         payload["availability_topic"] = self._config.mqtt.last_will_topic
         payload["payload_available"] = "alive"
         payload["payload_not_available"] = "dead"
+        payload["json_attributes_topic"] = self.state_topic
+        payload["json_attributes_template"] = "{{ value_json.attributes | tojson }}"
         payload["device"] = self.device_info
+        return json.dumps(payload)
+
+    @staticmethod
+    def state_payload(state, attributes=None):
+        payload = {}
+        payload["state"] = state
+        payload["attributes"] = {}
+        if attributes:
+            payload["attributes"] = attributes
         return json.dumps(payload)
 
     def on_connect(self, client):
@@ -66,9 +78,11 @@ class MQTTSwitch:
             client.publish(
                 self.config_topic, payload=self.config_payload, retain=True,
             )
-        client.publish(self.state_topic, payload="off")
 
     def on_message(self, message):
         self._mqtt_queue.put(
-            {"topic": self.state_topic, "payload": str(message.payload.decode()),}
+            {
+                "topic": self.state_topic,
+                "payload": self.state_payload(str(message.payload.decode())),
+            }
         )
