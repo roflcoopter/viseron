@@ -1,12 +1,14 @@
 # https://trac.ffmpeg.org/wiki/Concatenate
 # https://unix.stackexchange.com/questions/233832/merge-two-video-clips-into-one-placing-them-next-to-each-other
+import json
 import logging
 import subprocess as sp
-from time import sleep
 from threading import Event
+from time import sleep
 
 import cv2
 import numpy as np
+
 from lib.helpers import pop_if_full
 
 LOGGER = logging.getLogger(__name__)
@@ -140,7 +142,8 @@ class FFMPEGCamera:
                 stream_width,
                 stream_height,
                 stream_fps,
-            ) = self.get_stream_characteristics(self._config.camera.stream_url)
+                stream_codec,
+            ) = self.get_stream_information(self._config.camera.stream_url)
 
         self.stream_width = (
             self._config.camera.width if self._config.camera.width else stream_width
@@ -151,6 +154,7 @@ class FFMPEGCamera:
         self.stream_fps = (
             self._config.camera.fps if self._config.camera.fps else stream_fps
         )
+        self.stream_codec = stream_codec
 
         self.resolution = self.stream_width, self.stream_height
         frame_buffer_size = self.stream_fps * self._config.recorder.lookback
@@ -163,8 +167,49 @@ class FFMPEGCamera:
         )
         self._logger.debug(f"FFMPEG decoder command: {' '.join(self.build_command())}")
 
-    def get_stream_characteristics(self, stream_url):
-        self._logger.debug("Getting stream characteristics for {}".format(stream_url))
+    @staticmethod
+    def ffprobe_stream_information(stream_url):
+        width, height, fps, codec = 0, 0, 0, None
+        ffprobe_command = [
+            "ffprobe",
+            "-hide_banner",
+            "-loglevel",
+            "quiet",
+            "-print_format",
+            "json",
+            "-show_error",
+            "-show_streams",
+            "-select_streams",
+            "v",
+        ] + [stream_url]
+
+        pipe = sp.Popen(ffprobe_command, stdout=sp.PIPE, stderr=sp.STDOUT)
+        output, _ = pipe.communicate()
+        pipe.wait()
+
+        stream_information = json.loads(output)["streams"][0]
+        numerator = int(stream_information["avg_frame_rate"].split("/")[0])
+        denominator = int(stream_information["avg_frame_rate"].split("/")[1])
+
+        try:
+            fps = numerator / denominator
+        except ZeroDivisionError:
+            pass
+
+        width = stream_information.get("width", 0)
+        height = stream_information.get("height", 0)
+        codec = stream_information.get("codec_name", None)
+
+        return (
+            width,
+            height,
+            fps,
+            codec,
+        )
+
+    @staticmethod
+    def opencv_stream_information(stream_url):
+        width, height, fps = 0, 0, 0
         stream = cv2.VideoCapture(stream_url)
         _, _ = stream.read()
         width = int(stream.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -172,6 +217,29 @@ class FFMPEGCamera:
         fps = int(stream.get(cv2.CAP_PROP_FPS))
         stream.release()
         return width, height, fps
+
+    def get_stream_information(self, stream_url):
+        self._logger.debug("Getting stream information for {}".format(stream_url))
+        width, height, fps, codec = self.ffprobe_stream_information(stream_url)
+
+        if width == 0 or height == 0 or fps == 0:
+            self._logger.warning(
+                "ffprobe failed to get stream information. Using OpenCV instead"
+            )
+            width, height, fps = self.opencv_stream_information(stream_url)
+
+        return width, height, fps, codec
+
+    def get_codec(self):
+        if self._config.camera.codec:
+            return self._config.camera.codec
+
+        if self.stream_codec:
+            codec = self._config.camera.codec_map.get(self.stream_codec, None)
+            if codec:
+                return ["-c:v", codec]
+
+        return []
 
     def build_command(self, ffmpeg_loglevel=None, single_frame=False):
         return (
@@ -185,7 +253,7 @@ class FFMPEGCamera:
             )
             + self._config.camera.input_args
             + self._config.camera.hwaccel_args
-            + self._config.camera.codec
+            + self.get_codec()
             + (
                 ["-rtsp_transport", self._config.camera.rtsp_transport]
                 if self._config.camera.stream_format == "rtsp"

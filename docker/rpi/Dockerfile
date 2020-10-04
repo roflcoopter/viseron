@@ -5,6 +5,7 @@ FROM debian:buster
 
 COPY --from=opencv /usr/local /usr/local
 COPY --from=ffmpeg /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg
+COPY --from=ffmpeg /usr/local/bin/ffprobe /usr/local/bin/ffprobe
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \

@@ -21,13 +21,12 @@ from const import (
     CAMERA_HWACCEL_ARGS,
     CAMERA_INPUT_ARGS,
     CAMERA_OUTPUT_ARGS,
-    DECODER_CODEC,
     ENV_CUDA_SUPPORTED,
     ENV_RASPBERRYPI3,
     ENV_VAAPI_SUPPORTED,
     FFMPEG_RECOVERABLE_ERRORS,
-    HWACCEL_CUDA_DECODER_CODEC,
-    HWACCEL_RPI3_DECODER_CODEC,
+    HWACCEL_CUDA_DECODER_CODEC_MAP,
+    HWACCEL_RPI3_DECODER_CODEC_MAP,
     HWACCEL_VAAPI,
 )
 from lib.helpers import slugify
@@ -64,20 +63,6 @@ def check_for_hwaccels(hwaccel_args: List[str]) -> List[str]:
     if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
         return HWACCEL_VAAPI
     return hwaccel_args
-
-
-def get_codec(camera: Dict[str, str]) -> Dict[str, str]:
-    if camera["codec"]:
-        return camera
-
-    if camera["stream_format"] == "rtsp":
-        if os.getenv(ENV_CUDA_SUPPORTED) == "true":
-            camera["codec"] = HWACCEL_CUDA_DECODER_CODEC
-        elif os.getenv(ENV_RASPBERRYPI3) == "true":
-            camera["codec"] = HWACCEL_RPI3_DECODER_CODEC
-        else:
-            camera["codec"] = DECODER_CODEC
-    return camera
 
 
 SCHEMA = Schema(
@@ -176,7 +161,6 @@ SCHEMA = Schema(
                     ): [str],
                     Optional("logging"): LOGGING_SCHEMA,
                 },
-                get_codec,
                 ensure_mqtt_name,
             )
         ],
@@ -237,6 +221,14 @@ class CameraConfig:
             zone_list.append(zone_dict)
 
         return zone_list
+
+    def get_codec_map(self):
+        if self.stream_format == "rtsp":
+            if os.getenv(ENV_CUDA_SUPPORTED) == "true":
+                return HWACCEL_CUDA_DECODER_CODEC_MAP
+            if os.getenv(ENV_RASPBERRYPI3) == "true":
+                return HWACCEL_RPI3_DECODER_CODEC_MAP
+        return {}
 
     @property
     def name(self):
@@ -314,6 +306,10 @@ class CameraConfig:
     @property
     def codec(self):
         return ["-c:v", self._codec] if self._codec else []
+
+    @property
+    def codec_map(self):
+        return self.get_codec_map()
 
     @property
     def rtsp_transport(self):
