@@ -176,14 +176,14 @@ def train(
             "Make sure its created properly. "
             "See the documentation for the proper folder structure"
         )
-        return None
+        return None, []
 
     if not faces_dirs:
         LOGGER.warning(
             f"face_recognition is configured, "
             f"but no subfolders in {train_dir} could be found"
         )
-        return None
+        return None, []
 
     for face_dir in faces_dirs:
         LOGGER.debug(f"Training face {face_dir}")
@@ -236,7 +236,7 @@ def train(
 
     if not face_encodings:
         LOGGER.error(f"No faces found for training in {train_dir}")
-        return None
+        return None, []
 
     # model_path = os.path.join(train_dir, model_dir)
 
