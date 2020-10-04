@@ -1,20 +1,29 @@
 import logging
 
 import numpy as np
+from voluptuous import Any, Optional, Required
+
 import tflite_runtime.interpreter as tflite
-from lib.detector import DetectedObject
+import lib.detector as detector
+
+from .defaults import LABEL_PATH, MODEL_PATH
 
 LOGGER = logging.getLogger(__name__)
 
+SCHEMA = detector.SCHEMA.extend(
+    {
+        Required("model_path", default=MODEL_PATH): str,
+        Required("label_path", default=LABEL_PATH): str,
+    }
+)
+
 
 class ObjectDetection:
-    def __init__(
-        self, model, label_path, model_width=None, model_height=None,
-    ):
-        self.labels = self.read_labels(label_path)
+    def __init__(self, config):
+        self.labels = self.read_labels(config.label_path)
         try:
             self.interpreter = tflite.Interpreter(
-                model_path=model,
+                model_path=config.model_path,
                 experimental_delegates=[tflite.load_delegate("libedgetpu.so.1.0")],
             )
         except ValueError:
@@ -27,9 +36,9 @@ class ObjectDetection:
         self.tensor_input_details = self.interpreter.get_input_details()
         self.tensor_output_details = self.interpreter.get_output_details()
 
-        if model_width and model_height:
-            self._model_width = model_width
-            self._model_height = model_height
+        if config.model_width and config.model_height:
+            self._model_width = config.model_width
+            self._model_height = config.model_height
         else:
             self._model_width = self.tensor_input_details[0]["shape"][1]
             self._model_height = self.tensor_input_details[0]["shape"][2]
@@ -65,7 +74,7 @@ class ObjectDetection:
         for i in range(count):
             if float(scores[i]) > confidence:
                 processed_objects.append(
-                    DetectedObject(
+                    detector.DetectedObject(
                         self.labels[int(labels[i])],
                         float(scores[i]),
                         boxes[i][1],
@@ -97,3 +106,8 @@ class ObjectDetection:
     @property
     def model_height(self):
         return self._model_height
+
+
+class Config(detector.DetectorConfig):
+    def __init__(self, detector_config):
+        super().__init__(detector_config)

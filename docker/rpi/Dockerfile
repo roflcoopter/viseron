@@ -17,17 +17,19 @@ RUN apt-get update && \
   python3-numpy \
   python3-pip \
   wget \
-  usbutils \
+  cmake \
+  git \
   # OpenCV runtime deps
   libjpeg-dev libpng-dev libtiff-dev \
   # OpenCV video I/O
   libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
   libxvidcore-dev libx264-dev \
   # OpenCV Optimizations
-  libatlas-base-dev gfortran libtbb-dev
-
-# Google Coral
-RUN echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" > /etc/apt/sources.list.d/coral-edgetpu.list && \
+  libatlas-base-dev gfortran libtbb-dev \
+  # dlib Optimizations
+  libatlas3-base libopenblas-dev liblapack-dev && \
+  # Google Coral
+  echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" > /etc/apt/sources.list.d/coral-edgetpu.list && \
   wget -O - https://packages.cloud.google.com/apt/doc/apt-key.gpg --no-check-certificate | apt-key add - && \
   apt-get update && \
   echo "libedgetpu1-max libedgetpu/accepted-eula boolean true" | debconf-set-selections && \
@@ -37,6 +39,15 @@ RUN echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" >
   rm -rf /var/lib/apt/lists/* && \
   apt-get autoremove -y && \
   apt-get autoclean -y
+
+# Install dlib 
+RUN apt-get update && \
+  apt-get install --no-install-recommends -y python3-setuptools \
+  libatlas-base-dev \
+  libboost-all-dev \
+  liblapack-dev && \
+  git clone https://github.com/davisking/dlib.git && \
+  cd /dlib; python3 /dlib/setup.py install --compiler-flags "-mfpu=neon"
 
 # Fetch models
 RUN mkdir -p /detectors/models/edgetpu/classification && \

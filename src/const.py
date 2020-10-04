@@ -51,7 +51,7 @@ ENV_VAAPI_SUPPORTED = "VISERON_VAAPI_SUPPORTED"
 ENV_OPENCL_SUPPORTED = "VISERON_OPENCL_SUPPORTED"
 ENV_RASPBERRYPI3 = "VISERON_RASPBERRYPI3"
 
-FFMPEG_ERROR_WHILE_DECODING = "error while decoding MB"
+FFMPEG_RECOVERABLE_ERRORS = ["error while decoding MB"]
 
 HWACCEL_VAAPI = ["-hwaccel", "vaapi", "-vaapi_device", "/dev/dri/renderD128"]
 HWACCEL_VAAPI_ENCODER_FILTER = ["-vf", "format=nv12|vaapi,hwupload"]
@@ -64,19 +64,6 @@ HWACCEL_RPI3_ENCODER_CODEC = "h264_omx"
 RECORDER_GLOBAL_ARGS = ["-hide_banner"]
 RECORDER_HWACCEL_ARGS = []
 
-DARKNET_DEFAULTS = {
-    "type": "darknet",
-    "model_path": "/detectors/models/darknet/yolo.weights",
-    "model_config": "/detectors/models/darknet/yolo.cfg",
-    "label_path": "/detectors/models/darknet/coco.names",
-}
-
-EDGETPU_DEFAULTS = {
-    "type": "edgetpu",
-    "model_path": "/detectors/models/edgetpu/model.tflite",
-    "label_path": "/detectors/models/edgetpu/labels.txt",
-}
-
 LOG_LEVELS = {
     "CRITICAL": 50,
     "ERROR": 40,
@@ -87,4 +74,5 @@ LOG_LEVELS = {
 }
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
-FONT_SIZE = 0.75
+FONT_SIZE = 0.6
+FONT_THICKNESS = 1
