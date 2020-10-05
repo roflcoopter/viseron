@@ -146,6 +146,7 @@ SCHEMA = Schema(
                             Optional("interval"): Any(int, float),
                             Optional("labels"): LABELS_SCHEMA,
                             Optional("logging"): LOGGING_SCHEMA,
+                            Optional("log_all_objects"): bool,
                         },
                         None,
                     ),

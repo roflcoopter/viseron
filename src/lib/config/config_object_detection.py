@@ -85,6 +85,7 @@ SCHEMA = Schema(
             Any(float, int), Coerce(float), Range(min=0.0)
         ),
         Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
+        Optional("log_all_objects", default=False): bool,
         Optional("logging"): LOGGING_SCHEMA,
     },
     extra=ALLOW_EXTRA,
@@ -147,6 +148,10 @@ class ObjectDetectionConfig:
         for label in camera_object_detection.get("labels", object_detection["labels"]):
             self._labels.append(LabelConfig(label))
 
+        self._log_all_objects = camera_object_detection.get(
+            "log_all_objects", object_detection["log_all_objects"]
+        )
+
         logging = camera_object_detection.get(
             "logging", (object_detection.get("logging", None)),
         )
@@ -179,6 +184,10 @@ class ObjectDetectionConfig:
     @property
     def labels(self):
         return self._labels
+
+    @property
+    def log_all_objects(self):
+        return self._log_all_objects
 
     @property
     def logging(self):

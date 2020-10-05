@@ -309,6 +309,8 @@ ffmpeg_recoverable_errors:
 | mask | list | optional | see [Mask config](#mask) | Allows you to specify masks in the shape of polygons. <br>Use this to ignore motion in certain areas of the image |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the motion detector.<br>This affects all logs named ```lib.motion.<camera name>``` and  ```lib.nvr.<camera name>.motion``` |
 
+Each setting set here overrides the global [motion detection config](#motion-detection).
+
 ---
 
 ### Mask
@@ -361,6 +363,7 @@ Draw a mask over these trees and they will no longer trigger said motion.
 | -----| -----| ------- | ----------------- |------------ |
 | interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
 | labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). |
+| log_all_objects | bool | false | true/false | When set to true, **all** found objects will be logged. Can be quite noisy. Overrides global [config](#object-detection) |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the object detector.<br>This affects all logs named ```lib.nvr.<camera name>.object``` |
 ---
 
@@ -473,6 +476,7 @@ points:
 | model_height | int | optional | any integer | Detected from model.<br>Frames will be resized to this height in order to fit model and save computing power.<br>I dont recommend changing this. |
 | interval | float | 1.0 | any float | Run object detection at this interval in seconds on the most recent frame. |
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
+| log_all_objects | bool | false | true/false | When set to true, **all** found objects will be logged. Can be quite noisy |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the object detector.<br>This affects all logs named ```lib.detector``` and  ```lib.nvr.<camera name>.object``` |
 
 The above options are global for all types of detectors.\
@@ -584,7 +588,10 @@ The max/min width/height is used to filter out any unreasonably large/small obje
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the motion detector. <br>This affects all logs named ```lib.motion.<camera name>``` and  ```lib.nvr.<camera name>.motion``` |
 
-TODO Future releases will make the motion detection easier to fine tune. Right now its a guessing game
+Motion detection works by creating a running average of frames, and then comparing the current frame to this average.\
+If enough changes have occured, motion will be detected.\
+By using a running average, the "background" image will adjust to daylight, stationary objects etc.\
+[This](https://www.pyimagesearch.com/2015/06/01/home-surveillance-and-motion-detection-with-the-raspberry-pi-python-and-opencv/) blogpost from PyImageSearch explains this procedure quite well.
 
 ---
 
