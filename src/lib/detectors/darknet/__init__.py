@@ -15,7 +15,6 @@ from voluptuous import All, Any, Coerce, Optional, Range, Required
 
 import lib.detector as detector
 from const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
-from lib.config.config_logging import SCHEMA as LOGGING_SCHEMA
 from lib.config.config_object_detection import LABELS_SCHEMA
 
 from .defaults import LABEL_PATH, MODEL_CONFIG, MODEL_PATH

@@ -502,15 +502,17 @@ class FFMPEGNVR(Thread):
             # Filter returned objects
             processed_object_frame = self.get_processed_object_frame()
             if processed_object_frame:
-                if self._object_logger.level == LOG_LEVELS["DEBUG"]:
-                    self._object_logger.debug(
-                        f"Objects: "
-                        f"{[obj.formatted for obj in processed_object_frame.objects]}"
-                    )
                 # Filter objects in the FoV
                 self.filter_fov(processed_object_frame)
                 # Filter objects in each zone
                 self.filter_zones(processed_object_frame)
+
+                if self._object_logger.level == LOG_LEVELS["DEBUG"]:
+                    if self.config.object_detection.log_all_objects:
+                        objs = [obj.formatted for obj in processed_object_frame.objects]
+                    else:
+                        objs = [obj.formatted for obj in self.objects_in_fov]
+                    self._object_logger.debug(f"Objects: {objs}")
 
             # Filter returned motion contours
             processed_motion_frame = self.get_processed_motion_frame()

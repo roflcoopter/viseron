@@ -2,24 +2,13 @@ import importlib
 import logging
 
 import cv2
-from voluptuous import All, Any, Coerce, Optional, Range, Required, Schema
+from voluptuous import Any, Optional, Required
 
-from lib.config.config_logging import SCHEMA as LOGGING_SCHEMA
+from lib.config.config_object_detection import SCHEMA as BASE_SCEHMA
 from lib.config.config_logging import LoggingConfig
-from lib.config.config_object_detection import LABELS_SCHEMA
 from lib.helpers import calculate_relative_coords, pop_if_full
 
 LOGGER = logging.getLogger(__name__)
-
-BASE_SCEHMA = Schema(
-    {
-        Optional("interval", default=1): All(
-            Any(float, int), Coerce(float), Range(min=0.0)
-        ),
-        Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
-        Optional("logging"): LOGGING_SCHEMA,
-    }
-)
 
 SCHEMA = BASE_SCEHMA.extend(
     {
