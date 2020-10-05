@@ -1,0 +1,8 @@
+apscheduler==3.6.3
+imutils==0.5.3
+paho-mqtt==1.5.0
+path.py==12.4.0
+python-slugify==4.0.1
+PyYAML==5.3.1
+voluptuous==0.11.7
+face_recognition

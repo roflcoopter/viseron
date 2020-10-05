@@ -16,6 +16,8 @@ RUN apt-get update && \
   python3-dev \
   python3-numpy \
   python3-pip \
+  python3-sklearn \
+  python3-setuptools \
   wget \
   cmake \
   git \
@@ -27,7 +29,7 @@ RUN apt-get update && \
   # OpenCV Optimizations
   libatlas-base-dev gfortran libtbb-dev \
   # dlib Optimizations
-  libatlas3-base libopenblas-dev liblapack-dev && \
+  libatlas3-base libopenblas-dev liblapack-dev libboost-all-dev && \
   # Google Coral
   echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" > /etc/apt/sources.list.d/coral-edgetpu.list && \
   wget -O - https://packages.cloud.google.com/apt/doc/apt-key.gpg --no-check-certificate | apt-key add - && \
@@ -41,12 +43,7 @@ RUN apt-get update && \
   apt-get autoclean -y
 
 # Install dlib 
-RUN apt-get update && \
-  apt-get install --no-install-recommends -y python3-setuptools \
-  libatlas-base-dev \
-  libboost-all-dev \
-  liblapack-dev && \
-  git clone https://github.com/davisking/dlib.git && \
+RUN git clone https://github.com/davisking/dlib.git && \
   cd /dlib; python3 /dlib/setup.py install --compiler-flags "-mfpu=neon"
 
 # Fetch models
@@ -57,7 +54,7 @@ RUN mkdir -p /detectors/models/edgetpu/classification && \
   wget https://dl.google.com/coral/canned_models/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll
 
 # Python dependencies
-ADD requirements.txt requirements.txt
+ADD rpi_requirements.txt requirements.txt
 RUN wget -q https://bootstrap.pypa.io/get-pip.py && \
   python3 get-pip.py && \
   rm get-pip.py && \
