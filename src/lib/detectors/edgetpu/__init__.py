@@ -24,13 +24,28 @@ class ObjectDetection:
         try:
             self.interpreter = tflite.Interpreter(
                 model_path=config.model_path,
-                experimental_delegates=[tflite.load_delegate("libedgetpu.so.1.0")],
+                experimental_delegates=[
+                    tflite.load_delegate("libedgetpu.so.1.0"),
+                    {"device": "usb"},
+                ],
             )
+            LOGGER.debug("Using USB EdgeTPU")
         except ValueError:
-            LOGGER.warning("EdgeTPU not found. Detection will run on CPU")
-            self.interpreter = tflite.Interpreter(
-                model_path="/detectors/models/edgetpu/cpu_model.tflite",
-            )
+            try:
+                self.interpreter = tflite.Interpreter(
+                    model_path=config.model_path,
+                    experimental_delegates=[
+                        tflite.load_delegate("libedgetpu.so.1.0"),
+                        {"device": "pci:0"},
+                    ],
+                )
+                LOGGER.debug("Using PCIe EdgeTPU")
+            except ValueError:
+                LOGGER.warning("EdgeTPU not found. Detection will run on CPU")
+                self.interpreter = tflite.Interpreter(
+                    model_path="/detectors/models/edgetpu/cpu_model.tflite",
+                )
+
         self.interpreter.allocate_tensors()
 
         self.tensor_input_details = self.interpreter.get_input_details()
