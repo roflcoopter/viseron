@@ -363,7 +363,7 @@ Draw a mask over these trees and they will no longer trigger said motion.
 | -----| -----| ------- | ----------------- |------------ |
 | interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
 | labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). |
-| log_all_objects | bool | false | true/false | When set to true, **all** found objects will be logged. Can be quite noisy. Overrides global [config](#object-detection) |
+| log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy. Overrides global [config](#object-detection) |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the object detector.<br>This affects all logs named ```lib.nvr.<camera name>.object``` |
 ---
 
@@ -476,7 +476,7 @@ points:
 | model_height | int | optional | any integer | Detected from model.<br>Frames will be resized to this height in order to fit model and save computing power.<br>I dont recommend changing this. |
 | interval | float | 1.0 | any float | Run object detection at this interval in seconds on the most recent frame. |
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
-| log_all_objects | bool | false | true/false | When set to true, **all** found objects will be logged. Can be quite noisy |
+| log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the object detector.<br>This affects all logs named ```lib.detector``` and  ```lib.nvr.<camera name>.object``` |
 
 The above options are global for all types of detectors.\
