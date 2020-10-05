@@ -35,6 +35,7 @@
 !LICENSE
 !README.md
 !requirements.txt
+!rpi_requirements.txt
 
 # Force ignore
 docker/cuda/Dockerfile.vpf
