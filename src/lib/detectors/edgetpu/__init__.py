@@ -25,8 +25,7 @@ class ObjectDetection:
             self.interpreter = tflite.Interpreter(
                 model_path=config.model_path,
                 experimental_delegates=[
-                    tflite.load_delegate("libedgetpu.so.1.0"),
-                    {"device": "usb"},
+                    tflite.load_delegate("libedgetpu.so.1", {"device": "usb"})
                 ],
             )
             LOGGER.debug("Using USB EdgeTPU")
@@ -35,8 +34,7 @@ class ObjectDetection:
                 self.interpreter = tflite.Interpreter(
                     model_path=config.model_path,
                     experimental_delegates=[
-                        tflite.load_delegate("libedgetpu.so.1.0"),
-                        {"device": "pci:0"},
+                        tflite.load_delegate("libedgetpu.so.1", {"device": "pci:0"})
                     ],
                 )
                 LOGGER.debug("Using PCIe EdgeTPU")
