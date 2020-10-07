@@ -102,7 +102,7 @@ class Viseron:
 def schedule_cleanup(config):
     LOGGER.debug("Starting cleanup scheduler")
     cleanup = Cleanup(config)
-    cleanup.scheduler.start()
+    cleanup.start()
     LOGGER.debug("Running initial cleanup")
     cleanup.cleanup()
 

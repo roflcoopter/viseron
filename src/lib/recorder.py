@@ -3,7 +3,10 @@ import logging
 import os
 import subprocess as sp
 from queue import Empty
+
 import cv2
+
+from lib.cleanup import SegmentCleanup
 
 LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +30,7 @@ class FFMPEGRecorder:
         self.create_directory(
             os.path.join(config.recorder.segments_folder, config.camera.name)
         )
+        self._segment_cleanup = SegmentCleanup(config)
 
     def build_command(self, file_name, width, height, fps):
         return (
