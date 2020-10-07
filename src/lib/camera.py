@@ -1,5 +1,3 @@
-# https://trac.ffmpeg.org/wiki/Concatenate
-# https://unix.stackexchange.com/questions/233832/merge-two-video-clips-into-one-placing-them-next-to-each-other
 import json
 import logging
 import subprocess as sp
@@ -124,14 +122,14 @@ class FFMPEGCamera:
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
 
-        self.start_decoder()
+        self.initialize_camera()
 
-    def start_decoder(self):
+    def initialize_camera(self):
         self._logger = logging.getLogger(__name__ + "." + self._config.camera.name_slug)
         if getattr(self._config.camera.logging, "level", None):
             self._logger.setLevel(self._config.camera.logging.level)
 
-        self._logger.debug("Initializing ffmpeg RTSP pipe")
+        self._logger.debug("Initializing camera {self._config.camera.name}")
 
         if (
             not self._config.camera.width
@@ -166,6 +164,7 @@ class FFMPEGCamera:
             f"@ {self.stream_fps} FPS"
         )
         self._logger.debug(f"FFMPEG decoder command: {' '.join(self.build_command())}")
+        self._logger.debug("Camera {self._config.camera.name} initialized")
 
     @staticmethod
     def ffprobe_stream_information(stream_url):
