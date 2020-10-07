@@ -58,6 +58,7 @@ SCHEMA = Schema(
         Optional("hwaccel_args", default=RECORDER_HWACCEL_ARGS): check_for_hwaccels,
         Optional("codec", default=get_codec()): str,
         Optional("filter_args", default=[]): get_filter_args,
+        Optional("segments_folder", default="/segments"): str,
         Optional("logging"): LOGGING_SCHEMA,
     }
 )
@@ -76,6 +77,7 @@ class RecorderConfig:
         self._hwaccel_args = recorder["hwaccel_args"]
         self._codec = recorder["codec"]
         self._filter_args = recorder["filter_args"]
+        self._segments_folder = recorder["segments_folder"]
         self._logging = None
         if recorder.get("logging", None):
             self._logging = LoggingConfig(recorder["logging"])
@@ -115,6 +117,10 @@ class RecorderConfig:
     @property
     def filter_args(self):
         return self._filter_args
+
+    @property
+    def segments_folder(self):
+        return self._segments_folder
 
     @property
     def logging(self):
