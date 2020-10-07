@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import subprocess as sp
 from threading import Event
 from time import sleep
@@ -7,6 +8,7 @@ from time import sleep
 import cv2
 import numpy as np
 
+from const import CAMERA_SEGMENT_ARGS
 from lib.helpers import pop_if_full
 
 LOGGER = logging.getLogger(__name__)
@@ -129,7 +131,7 @@ class FFMPEGCamera:
         if getattr(self._config.camera.logging, "level", None):
             self._logger.setLevel(self._config.camera.logging.level)
 
-        self._logger.debug("Initializing camera {self._config.camera.name}")
+        self._logger.debug(f"Initializing camera {self._config.camera.name}")
 
         if (
             not self._config.camera.width
@@ -164,7 +166,7 @@ class FFMPEGCamera:
             f"@ {self.stream_fps} FPS"
         )
         self._logger.debug(f"FFMPEG decoder command: {' '.join(self.build_command())}")
-        self._logger.debug("Camera {self._config.camera.name} initialized")
+        self._logger.debug(f"Camera {self._config.camera.name} initialized")
 
     @staticmethod
     def ffprobe_stream_information(stream_url):
@@ -241,6 +243,16 @@ class FFMPEGCamera:
         return []
 
     def build_command(self, ffmpeg_loglevel=None, single_frame=False):
+        camera_segment_args = []
+        if not single_frame:
+            camera_segment_args = CAMERA_SEGMENT_ARGS + [
+                os.path.join(
+                    self._config.recorder.segments_folder,
+                    self._config.camera.name,
+                    "%Y%m%d%H%M%S.mp4",
+                )
+            ]
+
         return (
             ["ffmpeg"]
             + self._config.camera.global_args
@@ -259,7 +271,7 @@ class FFMPEGCamera:
                 else []
             )
             + ["-i", self._config.camera.stream_url]
-            + self._config.camera.filter_args
+            + camera_segment_args
             + (["-frames:v", "1"] if single_frame else [])
             + self._config.camera.output_args
         )

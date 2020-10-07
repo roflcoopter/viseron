@@ -42,6 +42,23 @@ CAMERA_INPUT_ARGS = [
 ]
 CAMERA_HWACCEL_ARGS = []
 CAMERA_OUTPUT_ARGS = ["-f", "rawvideo", "-pix_fmt", "nv12", "pipe:1"]
+CAMERA_SEGMENT_ARGS = [
+    "-f",
+    "segment",
+    "-segment_time",
+    "10",
+    "-segment_format",
+    "mp4",
+    "-reset_timestamps",
+    "1",
+    "-strftime",
+    "1",
+    "-c",
+    "copy",
+    "-an",
+    "-map",
+    "0",
+]
 
 ENCODER_CODEC = ""
 

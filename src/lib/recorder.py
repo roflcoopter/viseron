@@ -24,6 +24,9 @@ class FFMPEGRecorder:
             "FFMPEG encoder command: "
             f"{' '.join(self.build_command('<file>', '<width>', '<height>', '<fps>'))}"
         )
+        self.create_directory(
+            os.path.join(config.recorder.segments_folder, config.camera.name)
+        )
 
     def build_command(self, file_name, width, height, fps):
         return (
@@ -76,6 +79,16 @@ class FFMPEGRecorder:
     def create_thumbnail(self, file_name, frame):
         cv2.imwrite(file_name, frame)
 
+    def create_directory(self, path):
+        try:
+            if not os.path.isdir(path):
+                self._logger.info(f"Creating folder {path}")
+                os.makedirs(path)
+            else:
+                self._logger.info("Folder already exists")
+        except FileExistsError:
+            self._logger.error("Folder already exists")
+
     def start_recording(self, frame, width, height, fps):
         self._logger.info("Starting recorder")
         self.is_recording = True
@@ -91,17 +104,8 @@ class FFMPEGRecorder:
 
         # Create foldername
         subfolder = self.subfolder_name(now)
-        full_path = os.path.normpath(
-            os.path.join(self.config.recorder.folder, f"./{subfolder}")
-        )
-        try:
-            if not os.path.isdir(full_path):
-                self._logger.info(f"Creating folder {full_path}")
-                os.makedirs(full_path)
-            else:
-                self._logger.info("Folder already exists")
-        except FileExistsError:
-            self._logger.error("Folder already exists")
+        full_path = os.path.join(self.config.recorder.folder, subfolder)
+        self.create_directory(full_path)
 
         self.create_thumbnail(
             os.path.join(full_path, thumbnail_name), frame.decoded_frame_umat_rgb
