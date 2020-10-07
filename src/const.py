@@ -43,7 +43,6 @@ CAMERA_INPUT_ARGS = [
 CAMERA_HWACCEL_ARGS = []
 CAMERA_OUTPUT_ARGS = ["-f", "rawvideo", "-pix_fmt", "nv12", "pipe:1"]
 
-DECODER_CODEC = ""
 ENCODER_CODEC = ""
 
 ENV_CUDA_SUPPORTED = "VISERON_CUDA_SUPPORTED"
@@ -56,9 +55,11 @@ FFMPEG_RECOVERABLE_ERRORS = ["error while decoding MB"]
 HWACCEL_VAAPI = ["-hwaccel", "vaapi", "-vaapi_device", "/dev/dri/renderD128"]
 HWACCEL_VAAPI_ENCODER_FILTER = ["-vf", "format=nv12|vaapi,hwupload"]
 HWACCEL_VAAPI_ENCODER_CODEC = "h264_vaapi"
-HWACCEL_CUDA_DECODER_CODEC = "h264_cuvid"
+
+HWACCEL_CUDA_DECODER_CODEC_MAP = {"h264": "h264_cuvid", "h265": "hevc_cuvid"}
 HWACCEL_CUDA_ENCODER_CODEC = "h264_nvenc"
-HWACCEL_RPI3_DECODER_CODEC = "h264_mmal"
+
+HWACCEL_RPI3_DECODER_CODEC_MAP = {"h264": "h264_mmal"}
 HWACCEL_RPI3_ENCODER_CODEC = "h264_omx"
 
 RECORDER_GLOBAL_ARGS = ["-hide_banner"]
