@@ -84,10 +84,8 @@ class FFMPEGRecorder:
             if not os.path.isdir(path):
                 self._logger.info(f"Creating folder {path}")
                 os.makedirs(path)
-            else:
-                self._logger.info("Folder already exists")
         except FileExistsError:
-            self._logger.error("Folder already exists")
+            self._logger.error(f"{path} already exists")
 
     def start_recording(self, frame, width, height, fps):
         self._logger.info("Starting recorder")
