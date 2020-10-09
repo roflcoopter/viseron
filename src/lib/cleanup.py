@@ -37,18 +37,26 @@ class Cleanup:
             files = dirs.walkfiles(extension)
             for file in files:
                 if file.mtime <= retention_period:
-                    LOGGER.debug(f"Removing {file}")
+                    LOGGER.debug(f"Removing file {file}")
                     file.remove()
 
         folders = dirs.walkdirs("*-*-*")
         for folder in folders:
             LOGGER.debug(f"Items in {folder}: {len(folder.listdir())}")
+            for subdir in folder.listdir():
+                if os.path.isdir(subdir) and len(subdir.listdir()) == 0:
+                    try:
+                        os.rmdir(subdir)
+                        LOGGER.debug(f"Removing directory {subdir}")
+                    except OSError:
+                        LOGGER.error(f"Could not remove directory {subdir}")
+
             if len(folder.listdir()) == 0:
                 try:
                     folder.rmdir()
-                    LOGGER.debug(f"Removing {folder}")
+                    LOGGER.debug(f"Removing directory {folder}")
                 except OSError:
-                    LOGGER.error(f"Could not remove {folder}")
+                    LOGGER.error(f"Could not remove directory {folder}")
 
     def start(self):
         self._scheduler.start()
@@ -65,7 +73,10 @@ class SegmentCleanup:
         )
         self._scheduler = BackgroundScheduler(timezone="UTC")
         self._scheduler.add_job(
-            self.cleanup, "interval", seconds=10, id="segment_cleanup"
+            self.cleanup,
+            "interval",
+            seconds=CAMERA_SEGMENT_DURATION,
+            id="segment_cleanup",
         )
         self._scheduler.start()
 
@@ -79,10 +90,13 @@ class SegmentCleanup:
                 os.remove(os.path.join(self._directory, segment))
 
     def start(self):
+        LOGGER.debug("Starting segment cleanup")
         self._scheduler.start()
 
     def pause(self):
+        LOGGER.debug("Pausing segment cleanup")
         self._scheduler.pause_job("segment_cleanup")
 
     def resume(self):
+        LOGGER.debug("Resuming segment cleanup")
         self._scheduler.resume_job("segment_cleanup")
