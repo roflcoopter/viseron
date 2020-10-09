@@ -7,6 +7,7 @@ from queue import Empty
 import cv2
 
 from lib.cleanup import SegmentCleanup
+from lib.segments import Segments
 
 LOGGER = logging.getLogger(__name__)
 
@@ -27,9 +28,12 @@ class FFMPEGRecorder:
             "FFMPEG encoder command: "
             f"{' '.join(self.build_command('<file>', '<width>', '<height>', '<fps>'))}"
         )
-        self.create_directory(
-            os.path.join(config.recorder.segments_folder, config.camera.name)
+
+        segments_folder = os.path.join(
+            config.recorder.segments_folder, config.camera.name
         )
+        self.create_directory(segments_folder)
+        self._segmenter = Segments(self._logger, segments_folder)
         self._segment_cleanup = SegmentCleanup(config)
 
     def build_command(self, file_name, width, height, fps):
@@ -93,6 +97,8 @@ class FFMPEGRecorder:
 
     def start_recording(self, frame, width, height, fps):
         self._logger.info("Starting recorder")
+        self._segment_cleanup.pause()
+        self._event_start = datetime.datetime.now().timestamp()
         self.is_recording = True
 
         if self.config.recorder.folder is None:
@@ -112,8 +118,16 @@ class FFMPEGRecorder:
         self.create_thumbnail(
             os.path.join(full_path, thumbnail_name), frame.decoded_frame_umat_rgb
         )
-        self.write_frames(os.path.join(full_path, video_name), width, height, fps)
+        self._recording_name = os.path.join(full_path, video_name)
+        self._recording_name2 = os.path.join(full_path, f"seg-{video_name}")
+        self.write_frames(self._recording_name, width, height, fps)
 
     def stop(self):
         self._logger.info("Stopping recorder")
         self.is_recording = False
+        self._segmenter.concat_segments(
+            self._event_start - self.config.recorder.lookback,
+            datetime.datetime.now().timestamp(),
+            self._recording_name2,
+        )
+        self._segment_cleanup.resume()
