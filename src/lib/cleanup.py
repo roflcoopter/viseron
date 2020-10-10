@@ -68,9 +68,7 @@ class SegmentCleanup:
             config.recorder.segments_folder, config.camera.name
         )
         # Make sure we dont delete a segment which is needed by recorder
-        self._max_age = (
-            (int(config.recorder.lookback / 2) * 3) + CAMERA_SEGMENT_DURATION + 1
-        )
+        self._max_age = config.recorder.lookback + (CAMERA_SEGMENT_DURATION * 3)
         self._scheduler = BackgroundScheduler(timezone="UTC")
         self._scheduler.add_job(
             self.cleanup,
