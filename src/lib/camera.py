@@ -106,10 +106,9 @@ class Frame:
 
 
 class FFMPEGCamera:
-    def __init__(self, config, frame_buffer):
+    def __init__(self, config):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         self._config = config
-        self._frame_buffer = frame_buffer
         self._connected = False
         self._connection_error = False
         self.stream_width = None
@@ -157,9 +156,6 @@ class FFMPEGCamera:
         self.stream_codec = stream_codec
 
         self.resolution = self.stream_width, self.stream_height
-        frame_buffer_size = self.stream_fps * self._config.recorder.lookback
-        if frame_buffer_size > 0:
-            self._frame_buffer.maxsize = frame_buffer_size
 
         self._logger.debug(
             f"Resolution: {self.stream_width}x{self.stream_height} "
@@ -353,7 +349,6 @@ class FFMPEGCamera:
             current_frame = Frame(
                 pipe.stdout.read(bytes_to_read), self.stream_width, self.stream_height
             )
-            pop_if_full(self._frame_buffer, current_frame)
 
             if self.scan_for_objects.is_set():
                 if object_frame_number % object_decoder_interval_calculated == 0:

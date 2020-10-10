@@ -148,9 +148,7 @@ class FFMPEGNVR(Thread):
         self.motion_return_queue = Queue(maxsize=20)
 
         # Use FFMPEG to read from camera. Used for reading/recording
-        # Maxsize changes later based on config option LOOKBACK_SECONDS
-        frame_buffer = Queue(maxsize=1)
-        self.camera = FFMPEGCamera(config, frame_buffer)
+        self.camera = FFMPEGCamera(config)
 
         if config.motion_detection.trigger_detector:
             self.camera.scan_for_motion.set()
@@ -213,7 +211,7 @@ class FFMPEGNVR(Thread):
         # Initialize recorder
         self._trigger_recorder = False
         self.recorder_thread = None
-        self.recorder = FFMPEGRecorder(config, frame_buffer)
+        self.recorder = FFMPEGRecorder(config)
 
         self._logger.debug("NVR thread initialized")
 
@@ -306,13 +304,7 @@ class FFMPEGNVR(Thread):
 
     def start_recording(self, thumbnail):
         self.recorder_thread = Thread(
-            target=self.recorder.start_recording,
-            args=(
-                thumbnail,
-                self.camera.stream_width,
-                self.camera.stream_height,
-                self.camera.stream_fps,
-            ),
+            target=self.recorder.start_recording, args=(thumbnail,),
         )
         self.recorder_thread.start()
         if (

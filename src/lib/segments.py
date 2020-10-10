@@ -15,7 +15,8 @@ class Segments:
         """Returns the duration of a specified segment"""
         ffprobe_cmd = [
             "ffprobe",
-            "-v",
+            "-hide_banner",
+            "-loglevel",
             "error",
             "-show_entries",
             "format=duration",
@@ -65,7 +66,6 @@ class Segments:
     def get_segment_information(self):
         """Gets information for all available segments"""
         segment_files = os.listdir(self._segment_folder)
-        self._logger.debug(f"Files in {self._segment_folder}: {segment_files}")
         segment_information: dict = {}
         for segment in segment_files:
             duration = self.segment_duration(
@@ -87,7 +87,6 @@ class Segments:
         """Returns all segments between start_segment and end_segment"""
         segment_list = list(segments.keys())
         segment_list.sort()
-        self._logger.debug(f"Sorted segments: {segment_list}")
         try:
             return segment_list[
                 len(segment_list)
@@ -152,7 +151,7 @@ class Segments:
         ]
 
         self._logger.debug(f"Concatenation command: {ffmpeg_cmd}")
-        self._logger.debug(f"Segment script: {segment_script}")
+        self._logger.debug(f"Segment script: \n{segment_script}")
 
         pipe = sp.run(ffmpeg_cmd, input=segment_script, encoding="ascii", check=True)
 
@@ -187,7 +186,6 @@ class Segments:
             segment_information, start_segment, end_segment
         )
 
-        self._logger.debug(f"Segments to concatenate: {segments_to_concat}")
         if not segments_to_concat:
             return
 
