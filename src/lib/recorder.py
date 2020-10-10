@@ -73,7 +73,7 @@ class FFMPEGRecorder:
         )
         self._recording_name = os.path.join(full_path, video_name)
 
-    def stop(self):
+    def stop_recording(self):
         self._logger.info("Stopping recorder")
         self.is_recording = False
         self._segmenter.concat_segments(

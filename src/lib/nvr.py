@@ -280,6 +280,10 @@ class FFMPEGNVR(Thread):
     def stop_camera(self):
         self._logger.debug("Stopping camera")
         self.camera.release()
+        self.camera_grabber.join()
+        if self.recorder.is_recording:
+            self.recorder_thread = Thread(target=self.recorder.stop_recording)
+            self.recorder_thread.start()
 
     def event_over(self):
         if self._trigger_recorder or any(zone.trigger_recorder for zone in self._zones):
@@ -326,7 +330,8 @@ class FFMPEGNVR(Thread):
             )
 
         if self.idle_frames >= (self.camera.stream_fps * self.config.recorder.timeout):
-            self.recorder.stop()
+            self.recorder_thread = Thread(target=self.recorder.stop_recording)
+            self.recorder_thread.start()
             with self.object_return_queue.mutex:  # Clear any objects left in queue
                 self.object_return_queue.queue.clear()
 
@@ -498,6 +503,7 @@ class FFMPEGNVR(Thread):
                 self.filter_fov(processed_object_frame)
                 # Filter objects in each zone
                 self.filter_zones(processed_object_frame)
+                self.process_object_event(processed_object_frame)
 
                 if self._object_logger.level == LOG_LEVELS["DEBUG"]:
                     if self.config.object_detection.log_all_objects:
@@ -512,7 +518,6 @@ class FFMPEGNVR(Thread):
                 # self._logger.debug(processed_motion_frame.motion_contours)
                 self.filter_motion(processed_motion_frame.motion_contours)
 
-            self.process_object_event(processed_object_frame)
             self.process_motion_event()
 
             if (
@@ -538,11 +543,12 @@ class FFMPEGNVR(Thread):
         self._logger.info("Stopping NVR thread")
         self.kill_received = True
 
-        # Stop potential recording
-        if self.recorder.is_recording:
-            self.recorder.stop()
-            self.recorder_thread.join()
-
         # Stop frame grabber
         self.camera.release()
         self.camera_grabber.join()
+
+        # Stop potential recording
+        if self.recorder.is_recording:
+            self.recorder_thread = Thread(target=self.recorder.stop_recording)
+            self.recorder_thread.start()
+            self.recorder_thread.join()

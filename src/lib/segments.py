@@ -136,9 +136,12 @@ class Segments:
     def ffmpeg_concat(self, segment_script, file_name):
         ffmpeg_cmd = [
             "ffmpeg",
+            "-hide_banner",
+            "-loglevel",
+            "error",
             "-y",
             "-protocol_whitelist",
-            "pipe,file",
+            "file,pipe",
             "-f",
             "concat",
             "-safe",
