@@ -98,7 +98,7 @@ class FFMPEGRecorder:
     def start_recording(self, frame, width, height, fps):
         self._logger.info("Starting recorder")
         self._segment_cleanup.pause()
-        self._event_start = datetime.datetime.now().timestamp()
+        self._event_start = int(datetime.datetime.now().timestamp())
         self.is_recording = True
 
         if self.config.recorder.folder is None:
@@ -127,7 +127,7 @@ class FFMPEGRecorder:
         self.is_recording = False
         self._segmenter.concat_segments(
             self._event_start - self.config.recorder.lookback,
-            datetime.datetime.now().timestamp(),
+            int(datetime.datetime.now().timestamp()),
             self._recording_name2,
         )
         self._segment_cleanup.resume()

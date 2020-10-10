@@ -35,10 +35,10 @@ class Segments:
 
             if (
                 "moov atom not found" in stderr.decode()
-                and tries <= CAMERA_SEGMENT_DURATION + 1
+                and tries <= CAMERA_SEGMENT_DURATION + 5
             ):
                 self._logger.debug(
-                    f"{segment_file} is locked. Trying again in 1 second."
+                    f"{segment_file} is locked. Trying again in 1 second"
                 )
                 tries += 1
                 time.sleep(1)
@@ -168,9 +168,21 @@ class Segments:
             return
 
         start_segment = self.find_segment(segment_information, event_start)
+        if not start_segment:
+            self._logger.warning(
+                "Could not find matching start segment. Using earliest possible"
+            )
+            start_segment = min(segment_information.keys())
+
         end_segment = self.find_segment(segment_information, event_end)
-        self._logger.debug(f"Start segment: {start_segment}")
-        self._logger.debug(f"End segment: {end_segment}")
+        if not end_segment:
+            self._logger.warning(
+                "Could not find matching end segment. Using latest possible"
+            )
+            end_segment = max(segment_information.keys())
+
+        self._logger.debug(f"Start event: {event_start}, segment: {start_segment}")
+        self._logger.debug(f"End event: {event_end}, segment: {end_segment}")
         segments_to_concat = self.get_concat_segments(
             segment_information, start_segment, end_segment
         )
