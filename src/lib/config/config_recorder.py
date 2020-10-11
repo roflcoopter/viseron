@@ -1,4 +1,3 @@
-import logging
 import os
 
 from voluptuous import All, Optional, Range, Schema
@@ -17,9 +16,7 @@ from const import (
     RECORDER_HWACCEL_ARGS,
 )
 
-from .config_logging import SCHEMA as LOGGING_SCHEMA
-
-LOGGER = logging.getLogger(__name__)
+from .config_logging import LoggingConfig, SCHEMA as LOGGING_SCHEMA
 
 
 def check_for_hwaccels(hwaccel_args: list) -> list:
@@ -70,16 +67,18 @@ class RecorderConfig:
     schema = SCHEMA
 
     def __init__(self, recorder):
-        self._lookback = recorder.lookback
-        self._timeout = recorder.timeout
-        self._retain = recorder.retain
-        self._folder = recorder.folder
-        self._extension = recorder.extension
-        self._global_args = recorder.global_args
-        self._hwaccel_args = recorder.hwaccel_args
-        self._codec = recorder.codec
-        self._filter_args = recorder.filter_args
-        self._logging = getattr(recorder, "logging", None)
+        self._lookback = recorder["lookback"]
+        self._timeout = recorder["timeout"]
+        self._retain = recorder["retain"]
+        self._folder = recorder["folder"]
+        self._extension = recorder["extension"]
+        self._global_args = recorder["global_args"]
+        self._hwaccel_args = recorder["hwaccel_args"]
+        self._codec = recorder["codec"]
+        self._filter_args = recorder["filter_args"]
+        self._logging = None
+        if recorder.get("logging", None):
+            self._logging = LoggingConfig(recorder["logging"])
 
     @property
     def lookback(self):

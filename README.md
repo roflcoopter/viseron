@@ -1,28 +1,56 @@
 # Viseron - Self-hosted NVR with object detection
-Viseron is a self-hosted, local only NVR implemented in Python.
+Viseron is a self-hosted, local only NVR implemented in Python.\
 The goal is ease of use while also leveraging hardware acceleration for minimal system load.
 
 # Notable features
 - Records videos on detected objects
+- Supports multiple different object detectors:
+  - YOLOv3/4 Darknet using OpenCV
+  - Tensorflow via Google Coral EdgeTPU
+- Motion detection
+- Face recognition
 - Lookback, buffers frames to record before the event actually happened
 - Multiplatform, should support any x86-64 machine running Linux, aswell as RPi3.\
 Builds are tested and verified on the following platforms:
   - Ubuntu 18.04 with Nvidia GPU
   - Ubuntu 18.04 running on an Intel NUC
   - RaspberryPi 3B+
-- Supports multiple different object detectors:
-  - Yolo Darknet using OpenCV
-  - Tensorflow via Google Coral EdgeTPU
-- Motion detection
 - Native support for RTSP and MJPEG
 - Supports hardware acceleration on different platforms
   - CUDA for systems with a supported GPU
   - OpenCL
   - OpenMax and MMAL on the RaspberryPi 3B+
+  - Intel QuickSync with VA-API
 - Zones to limit detection to a particular area to reduce false positives
 - Masks to limit where motion detection occurs
 - Stop/start cameras on-demand over MQTT
 - Home Assistant integration via MQTT
+- unRAID Community Application
+
+# Table of Contents
+- [Getting started](#getting-started)
+- [Configuration Options](#configuration-options)
+  - [Cameras](#cameras)
+    - [Camera motion detection](#camera-motion-detection)
+    - [Mask](#mask)
+    - [Camera object detection](#camera-object-detection)
+    - [Zones](#zones)
+    - [Points](#points)
+  - [Object detection](#object-detection)
+    - [Darknet](#darknet)
+    - [EdgeTPU](#edgetpu)
+    - [Labels](#labels)
+  - [Motion detection](#motion-detection)
+  - [Recorder](#recorder)
+  - [Post Processors](#post-processors)
+    - [Face Recognition](#face-recognition)
+  - [MQTT](#mqtt)
+    - [Topics for each camera](#topics-for-each-camera)
+    - [Topics for each Viseron instance](#topics-for-each-viseron-instance)
+    - [Home Assistant MQTT Discovery](#home-assistant-mqtt-discovery)
+  - [Logging](#logging)
+  - [Secrets](#secrets)
+- [Benchmarks](#benchmarks)
 
 # Getting started
 Choose the appropriate docker container for your machine. Builds are published to [Docker Hub](https://hub.docker.com/repository/docker/roflcoopter/viseron)
@@ -207,9 +235,9 @@ The command is built like this: \
 | username | str | optional | any string | Username for the camera stream |
 | password | str | optional | any string | Password for the camera stream |
 | path | str | optional | any string | Path to the camera stream, eg ```/Streaming/Channels/101/``` |
-| width | int | detected from stream | any integer | Width of the stream. Will use OpenCV to get this information if not given |
-| height | int | detected from stream | any integer | Height of the stream. Will use OpenCV to get this information if not given |
-| fps | int | detected from stream | any integer | FPS of the stream. Will use OpenCV to get this information if not given |
+| width | int | optional | any integer | Width of the stream. Will use OpenCV to get this information if not given |
+| height | int | optional | any integer | Height of the stream. Will use OpenCV to get this information if not given |
+| fps | int | optional | any integer | FPS of the stream. Will use OpenCV to get this information if not given |
 | global_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | input_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG decoder hardware acceleration arguments |
@@ -220,8 +248,11 @@ The command is built like this: \
 | object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) below | Overrides the global ```object_detection``` config |
 | zones | list | optional | see [Zones config](#zones) below | Allows you to specify zones to further filter detections |
 | publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones, objects, motion and masks.<br><b>Note: this will use some extra CPU and should probably only be used for debugging</b> |
+| ffmpeg_loglevel | str | optional | ```quiet```, ```panic```, ```fatal```, ```error```, ```warning```, ```info```, ```verbose```, ```debug```, ```trace``` | Sets the loglevel for ffmpeg.<br> Should only be used in debugging purposes. |
+| ffmpeg_recoverable_errors | list | optional | a list of strings | ffmpeg sometimes print errors that are not fatal.<br>If you get errors like ```Error starting decoder pipe!```, see below for details. |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for this camera.<br>This affects all logs named ```lib.nvr.<camera name>.*``` and ```lib.*.<camera name>``` |
 
+#### Default ffmpeg decoder command
 A default ffmpeg decoder command is generated, which varies a bit depending on the Docker container you use,
 <details>
   <summary>For Nvidia GPU support in the <b>roflcoopter/viseron-cuda</b> image</summary>
@@ -249,6 +280,17 @@ A default ffmpeg decoder command is generated, which varies a bit depending on t
 
 This means that you do **not** have to set ```hwaccel_args``` *unless* you have a specific need to change the default command (say you need to change ```h264_cuvid``` to ```hevc_cuvid```)
 
+
+#### ffmpeg recoverable errors
+Sometimes ffmpeg prints errors which are not fatal, such as ```[h264 @ 0x55b1e115d400] error while decoding MB 0 12, bytestream 114567```.\
+Viseron always performs a sanity check on the ffmpeg decoder command with ```-loglevel fatal```.\
+If Viseron gets stuck on an error that you believe is **not** fatal, you can add a subset of that error to ```ffmpeg_recoverable_errors```. \
+So to ignore the error above you would add this to your configuration:
+```yaml
+ffmpeg_recoverable_errors:
+  - error while decoding MB
+```
+
 ---
 
 ### Camera motion detection
@@ -260,10 +302,14 @@ This means that you do **not** have to set ```hwaccel_args``` *unless* you have 
 | max_timeout | int | 30 | any integer | Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected. <br>This is to prevent never-ending recordings. <br>Only applicable if ```timeout: true```.
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
-| area | float | 0.1 | any float | How big the detected area must be in order to trigger motion |
+| area | float | 0.0 - 1.0 | any float | How big the detected area must be in order to trigger motion |
+| threshold | int | 25 | 0 - 255 | The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. Smaller leads to higher sensitivity, larger values lead to lower sensitivity |
+| alpha | float | 0.2 | 0.0 - 1.0 | How much the current image impacts the moving average.<br>Higher values impacts the average frame a lot and very small changes may trigger motion.<br>Lower value impacts the average less, and fast objects may not trigger motion |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
 | mask | list | optional | see [Mask config](#mask) | Allows you to specify masks in the shape of polygons. <br>Use this to ignore motion in certain areas of the image |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the motion detector.<br>This affects all logs named ```lib.motion.<camera name>``` and  ```lib.nvr.<camera name>.motion``` |
+
+Each setting set here overrides the global [motion detection config](#motion-detection).
 
 ---
 
@@ -316,7 +362,8 @@ Draw a mask over these trees and they will no longer trigger said motion.
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
-| labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). | 
+| labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). |
+| log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy. Overrides global [config](#object-detection) |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the object detector.<br>This affects all logs named ```lib.nvr.<camera name>.object``` |
 ---
 
@@ -367,14 +414,23 @@ Draw a mask over these trees and they will no longer trigger said motion.
 | points | list | **required** | a list of [points](#points) | Used to draw a polygon of the zone
 | labels | list | optional | any float | A list of [labels](#labels) to track in the zone. Overrides global [config](#labels). | 
 
+Zones are used to define areas in the cameras field of view where you want to look for certain objects(labels).
+
+Say you have a camera facing the sidewalk and have ```labels``` setup to look for and record a ```person```.\
+This would cause Viseron to start recording people who are walking past the camera on the sidewalk. Not ideal.\
+To remedy this you define a zone which covers **only** the area that you are actually interested in, excluding the sidewalk.
+
 ---
 
 ### Points
-Points are used to form a polygon.
+
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | x | int | **required** | any int | X-coordinate of point |
 | y | int | **required** | any int | Y-coordinate of point |
+
+Points are used to form a polygon for an object detection zone or a motion detection mask.
+
 To easily genereate points you can use a tool like [image-map.net](https://www.image-map.net/).\
 Just upload an image from your camera and start drawing your zone.\
 Then click **Show me the code!** and adapt it to the config format.\
@@ -415,17 +471,61 @@ points:
 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu``` | What detection method to use.</br>Defaults to ```edgetpu``` on RPi. If no EdgeTPU is present it will run tensorflow on the CPU. |
-| model_path | str | RPi: ```/detectors/models/edgetpu/model.tflite``` <br> Other: ```/detectors/models/darknet/yolo.weights``` | any valid path | Path to the object detection model |
-| model_config | str | ```/detectors/models/darknet/yolo.cfg``` | any valid path | Path to the object detection config. Only needed for ```darknet``` |
-| label_path | str | RPI: ```/detectors/models/edgetpu/labels.txt``` <br> Other: ```/detectors/models/darknet/coco.names``` | any valid path | Path to the file containing labels for the model |
-| model_width | int | optional | any integer | Detected from model. Frames will be resized to this width in order to fit model and save computing power. I dont recommend changing this. |
-| model_height | int | optional | any integer | Detected from model. Frames will be resized to this height in order to fit model and save computing power. I dont recommend changing this. |
+| type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu``` | What detection method to use.<br>Each detector has its own configuration options explained here:<br>[darknet](#darknet)<br>[edgetpu](#edgetpu) |
+| model_width | int | optional | any integer | Detected from model.<br>Frames will be resized to this width in order to fit model and save computing power.<br>I dont recommend changing this. |
+| model_height | int | optional | any integer | Detected from model.<br>Frames will be resized to this height in order to fit model and save computing power.<br>I dont recommend changing this. |
 | interval | float | 1.0 | any float | Run object detection at this interval in seconds on the most recent frame. |
-| confidence | float | 0.8 | float between 0 and 1 | Lowest confidence allowed for detected objects |
-| suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections |
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
+| log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the object detector.<br>This affects all logs named ```lib.detector``` and  ```lib.nvr.<camera name>.object``` |
+
+The above options are global for all types of detectors.\
+If loglevel is set to ```DEBUG```, all detected objects will be printed in a statement like this:
+<details>
+  <summary>Debug log</summary>
+
+  ```
+[2020-09-29 07:57:23] [lib.nvr.<camera name>.object ] [DEBUG   ] - Objects: [{'label': 'chair', 'confidence': 0.618, 'rel_width': 0.121, 'rel_height': 0.426, 'rel_x1': 0.615, 'rel_y1': 0.423, 'rel_x2': 0.736, 'rel_y2': 0.849}, {'label': 'pottedplant', 'confidence': 0.911, 'rel_width': 0.193, 'rel_height': 0.339, 'rel_x1': 0.805, 'rel_y1': 0.466, 'rel_x2': 0.998, 'rel_y2': 0.805}, {'label': 'pottedplant', 'confidence': 0.786, 'rel_width': 0.065, 'rel_height': 0.168, 'rel_x1': 0.522, 'rel_y1': 0.094, 'rel_x2': 0.587, 'rel_y2': 0.262}, {'label': 'pottedplant', 'confidence': 0.532, 'rel_width': 0.156, 'rel_height': 0.159, 'rel_x1': 0.644, 'rel_y1': 0.317, 'rel_x2': 0.8, 'rel_y2': 0.476}]
+  ```
+</details>
+
+### Darknet
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| model_path | str | ```/detectors/models/darknet/yolo.weights``` | any valid path | Path to the object detection model |
+| model_config | str | ```/detectors/models/darknet/yolo.cfg``` | any valid path | Path to the object detection config. Only needed for ```darknet``` |
+| label_path | str | ```/detectors/models/darknet/coco.names``` | any valid path | Path to the file containing labels for the model |
+| suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections.<br>You can read more about how this works [here](https://towardsdatascience.com/non-maximum-suppression-nms-93ce178e177c). |
+
+The above options are specific to the ```type: darknet``` detector.
+The included models are placed inside ```/detectors/models/darknet``` folder.\
+The default model differs a bit per container:
+- ```roflcoopter/viseron-cuda```: This one uses YOLOv4 by default.
+- ```roflcoopter/viseron-vaapi```: This one uses YOLOv3 by default.
+- ```roflcoopter/viseron```: This one uses YOLOv3 by default.
+
+The reason why not all containers are using YOLOv4 is that there are currently some issues with OpenCVs implementation of it.\
+As soon as this is fixed for the versions of OpenCV that Viseron is using, YOLOv4 will be the standard for all.
+
+The containers using YOLOv3 also has YOLOv3-tiny included in the image.\
+YOLOv3-tiny can be used to reduce CPU usage, but will hav **significantly** worse accuracy.
+If you want to swap to YOLOv3-tiny you can change these configuration options:
+  ```yaml
+  object_detection:
+    model_path: /detectors/models/darknet/yolov3-tiny.weights
+    model_config: /detectors/models/darknet/yolov3-tiny.cfg
+  ```
+
+### EdgeTPU
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| model_path | str | ```/detectors/models/edgetpu/model.tflite``` | any valid path | Path to the object detection model |
+| label_path | str | ```/detectors/models/edgetpu/labels.txt``` | any valid path | Path to the file containing labels for the model |
+
+The above options are specific to the ```type: edgetpu``` detector.\
+The included models are placed inside ```/detectors/models/edgetpu``` folder.\
+There are two models available, one that runs on the EdgeTPU and one the runs on the CPU.
+If no EdgeTPU is found, Viseron will fallback to use the CPU model instead.
 
 ---
 
@@ -439,17 +539,18 @@ points:
 | width_min | float | 0 | float between 0 and 1 | Minimum width allowed for detected objects, relative to stream width |
 | width_max | float | 1 | float between 0 and 1 | Maximum width allowed for detected objects, relative to stream width |
 | triggers_recording | bool | True | True/false | If set to True, objects matching this filter will start the recorder and signal over MQTT.<br> If set to False, only signal over MQTT will be sent |
+| post_processor | str | optional | any configured post processor | Send this detected object to the specified [post processor](#post-processors).
 
 Labels are used to tell Viseron what objects to look for and keep recordings of.\
 The available labels depends on what detection model you are using.\
 For the built in models you can check the ```label_path``` file to see which labels that are available, see commands below.
 <details>
   <summary>Darknet</summary>
-  ```docker exec -it viseron cat /detectors/models/darknet/coco.names```
+  <code>docker exec -it viseron cat /detectors/models/darknet/coco.names</code>
 </details>
 <details>
   <summary>EdgeTPU</summary>
-  ```docker exec -it viseron cat /detectors/models/edgetpu/labels.txt```
+  <code>docker exec -it viseron cat /detectors/models/edgetpu/labels.txt</code>
 </details>
 
 The max/min width/height is used to filter out any unreasonably large/small objects to reduce false positives.
@@ -481,11 +582,16 @@ The max/min width/height is used to filter out any unreasonably large/small obje
 | max_timeout | int | 30 | any integer | Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected. <br>This is to prevent never-ending recordings. <br>Only applicable if ```timeout: true```.
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
-| area | float | 0.1 | any float | How big the detected area must be in order to trigger motion |
+| area | float | 0.0 - 1.0 | any float | How big the detected area must be in order to trigger motion |
+| threshold | int | 25 | 0 - 255 | The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. Smaller leads to higher sensitivity, larger values lead to lower sensitivity |
+| alpha | float | 0.2 | 0.0 - 1.0 | How much the current image impacts the moving average.<br>Higher values impacts the average frame a lot and very small changes may trigger motion.<br>Lower value impacts the average less, and fast objects may not trigger motion. More can be read [here](https://docs.opencv.org/3.4/d7/df3/group__imgproc__motion.html#ga4f9552b541187f61f6818e8d2d826bc7). |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the motion detector. <br>This affects all logs named ```lib.motion.<camera name>``` and  ```lib.nvr.<camera name>.motion``` |
 
-TODO Future releases will make the motion detection easier to fine tune. Right now its a guessing game
+Motion detection works by creating a running average of frames, and then comparing the current frame to this average.\
+If enough changes have occured, motion will be detected.\
+By using a running average, the "background" image will adjust to daylight, stationary objects etc.\
+[This](https://www.pyimagesearch.com/2015/06/01/home-surveillance-and-motion-detection-with-the-raspberry-pi-python-and-opencv/) blogpost from PyImageSearch explains this procedure quite well.
 
 ---
 
@@ -544,6 +650,54 @@ This means that you do **not** have to set ```hwaccel_args``` *unless* you have 
 
 ---
 
+## Post Processors
+<details>
+  <summary>Config example</summary>
+
+  ```yaml
+  post_processors:
+    face_recognition:
+      type: dlib
+      expire_after: 10
+    logging:
+      level: info
+  ```
+</details>
+
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| face_recognition | dict | optional | see [Face Recognition](#face-recognition) | Configuration for face recognition. |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the ```post_processors```. <br>This affects all logs named ```lib.post_processors.*``` |
+
+Post processors are used when you want to perform some kind of action when a specific object is detected.\
+Right now the only implemented post processor is face recognition. In the future more of these post processors will be added (ALPR) along with the ability to create your own custom post processors.
+
+### Face Recognition
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| type | str | ```dlib``` | ```dlib``` | What face recognition method to use.<br>As of right now, only one method is implemented. |
+| face_recognition_path | str | ```/config/face_recognition``` | path to folder | Path to folder which contains subdirectories with images for each face to track |
+| expire_after | int | 5 | any int | Time in seconds before a detected face is no longer considered detected |
+| model | str | CUDA: ```cnn```<br>Other: ```hog``` | ```cnn```, ```hog``` | Which face detection model to use.<br>```hog``` is less accurate but faster on CPUs.<br>```cnn``` is a more accurate deep-learning model which is GPU/CUDA accelerated (if available). |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the post processor. <br>This affects all logs named ```lib.post_processors.<type>*``` |
+
+On startup images are read from ```face_recognition_path``` and a model is trained to recognize these faces.\
+The folder structure of the faces folder is very strict. Here is an example of the default one:
+```
+/config
+|-- face_recognition
+|   `-- faces
+|       |-- person1
+|       |   |-- image_of_person1_1.jpg
+|       |   |-- image_of_person1_2.png
+|       |   `-- image_of_person1_3.jpg
+|       `-- person2
+|       |   |-- image_of_person2_1.jpeg
+|       |   `-- image_of_person2_2.jpg
+```
+
+---
+
 ## MQTT
 <details>
   <summary>Config example</summary>
@@ -564,8 +718,184 @@ This means that you do **not** have to set ```hwaccel_args``` *unless* you have 
 | username | str | optional | any string | Username for the broker |
 | password | str | optional | any string | Password for the broker |
 | client_id | str | ```viseron``` | any string | Client ID used when connecting to broker |
-| discovery_prefix | str | ```homeassistant``` | Used to configure sensors in Home Assistant |
+| home_assistant | dict | Optional | Home Assistant MQTT discovery. Enabled by default |
 | last_will_topic | str | ```{client_id}/lwt``` | Last will topic
+
+
+### Topics for each camera
+<div style="margin-left: 1em;">
+
+#### Camera control:
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/switch/set</b></code></summary>
+  <div style="margin-left: 1em;">
+
+  ```ON```: Turns camera on\
+  ```OFF```: Turns camera off
+
+  </div>
+</details>
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/switch/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when a camera turns on/off.
+
+  ```json
+  {"state": "on", "attributes": {}}
+  ```
+
+  ```state```: on/off
+
+  </div>
+</details>
+</div>
+
+#### Images:
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/camera/image</b></code></summary>
+  <div style="margin-left: 1em;">
+
+  Images will be published with drawn objects, motion contours, zones and masks if ```publish_image: true``` is set in the config.\
+  Objects that are discarded by a filter will have blue bounding boxes, while objects who pass the filter will be green.\
+  Zones are drawn in red. If an object passes its filter and is inside the zone, the zone will turn green.\
+  Motion contours that are smaller than configured ```area``` are drawn in dark purple, while bigger contours are drawn in pink.\
+  Masks are drawn with an orange border and black background with 70% opacity.
+  </div>
+</details>
+</div>
+
+#### [Object detection](#camera-object-detection):
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/binary_sensor/object_detected/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when <b>any</b> configured label is in the field of view.
+
+  ```json
+  {"state": "on", "attributes": {"objects": [{"label": "person", "confidence": 0.961, "rel_width": 0.196, "rel_height": 0.359, "rel_x1": 0.804, "rel_y1": 0.47, "rel_x2": 1.0, "rel_y2": 0.829}]}}
+  ```
+
+  ```state```: on/off\
+  ```objects```: A list of all found objects that passes its filters
+  </div>
+</details>
+
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/binary_sensor/object_detected_{label}/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when a <b>specific</b> configured label is in the field of view.
+
+  ```json
+  {"state": "on", "attributes": {"count": 2}}
+  ```
+  ```state```: on/off\
+  ```count```: The amount of the specific label found
+  </div>
+</details>
+</div>
+
+#### [Motion detection](#camera-motion-detection):
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/binary_sensor/motion_detected/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when motion is detected.
+
+  ```json
+  {"state": "on", "attributes": {}}
+  ```
+
+  ```state```: on/off
+  </div>
+</details>
+</div>
+
+#### [Zones](#zones):
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/binary_sensor/{zone name}/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when <b>any</b> configured label is in the specific zone.
+
+  ```json
+  {"state": "on", "attributes": {"objects": [{"label": "person", "confidence": 0.961, "rel_width": 0.196, "rel_height": 0.359, "rel_x1": 0.804, "rel_y1": 0.47, "rel_x2": 1.0, "rel_y2": 0.829}]}}
+  ```
+
+  ```state```: on/off\
+  ```objects```: A list of all found objects that passes its filters
+  </div>
+</details>
+
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/binary_sensor/{zone name}_{label}/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when a <b>specific</b> configured label is in the specific zone.
+
+  ```json
+  {"state": "on", "attributes": {"count": 2}}
+  ```
+  ```state```: on/off\
+  ```count```: The amount of the specific label found
+  </div>
+</details>
+</div>
+</div>
+
+
+### Topics for each Viseron instance
+<div style="margin-left: 1em;">
+
+#### [Face recognition](#face-recognition)
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/binary_sensor/face_detected{person name}/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic when a tracked face is detected.
+
+  ```json
+  {"state": "on", "attributes": {}}
+  ```
+
+  ```on``` will be published to this topic when the face is detected.\
+  ```off``` will be published to this topic when the face has not been detected for ```expire_after``` seconds.
+
+  </div>
+</details>
+</div>
+</div>
+
+
+All MQTT topics are largely inspired by Home Assistants way of organizing entities.
+
+---
+
+### Home Assistant MQTT Discovery
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| enable | bool | true | true/false | Enable or disable [Home Assistant MQTT discovery(https://www.home-assistant.io/docs/mqtt/discovery/)] |
+| discovery_prefix | str | ```homeassistant``` | any string | [Discovery prefix](https://www.home-assistant.io/docs/mqtt/discovery/#discovery_prefix) |
+
+Viseron integrates into Home Assistant using MQTT discovery and is enabled by default if you configure MQTT.\
+Viseron will create a number of entities depending on your configuration.
+
+**Camera entity**\
+A camera entity will be created for each camera.\
+Used to debug zones, masks, objects and motion.
+
+**Binary Sensors**\
+A variable amount of binary sensors will be created based on your configuration.
+1) A binary sensor showing if any tracked object is in view.
+2) A binary sensor for each tracked object showing if the label is in view.
+3) A binary sensor for each zone showing if any tracked object is in the zone.
+4) A binary sensor for each tracked object in a zone showing if the label is in the zone.
+5) A binary sensor showing if motion is detected.
+6) A binary sensor showing if a face is detected.
+
+**Switch**\
+A switch entity will be created for each camera.\
+The switch is used to arm/disarm a camera. When disarmed, no system resources are used for the camera.
 
 ---
 
@@ -641,40 +971,6 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or 
 
 ---
 
-# Home Assistant Integration
-Viseron integrates into Home Assistant using MQTT discovery and is enabled by default if you configure MQTT.\
-Viseron will create a number of entities depending on your configuration.
-
-**Camera entity**\
-A camera entity will be created for each camera.\
-Default state topic: ```homeassistant/camera/{mqtt_name from camera config}/image```\
-Images will be published to this topic with drawn objects and zones if ```publish_image: true``` is set in the config.\
-Objects that are discarded by a filter will have blue bounding boxes, while objects who pass the filter will be green.\
-Zones are drawn in red. If an object passes its filter and is inside the zone, it will turn green.\
-Motion contours that are smaller than configured ```area``` are drawn in dark purple, while bigger contours are drawn in pink.\
-Masks are drawn with an orange border and black background with 70% opacity.
-
-**Binary Sensors**\
-A variable amount of binary sensors will be created based on your configuration.
-1) A binary sensor showing if any tracked object is in view.\
-   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/object_detected/state```
-2) A binary sensor for each tracked object showing if the label is in view.\
-   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{label}/state```
-3) A binary sensor for each zone showing if any tracked object is in the zone.\
-   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone}/state```
-4) A binary sensor for each tracked object in a zone showing if the label is in the zone.\
-   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/{zone}_{label}/state```
-4) A binary sensor showing if motion is detected.\
-   Default state topic: ```homeassistant/binary_sensor/{mqtt_name from camera config}/motion_detected/state```
-
-**Switch**\
-A switch entity will be created for each camera.\
-The switch is used to arm/disarm a camera. When disarmed, no system resources are used for the camera.\
-Default state topic: ```homeassistant/switch/{mqtt_name from camera config}/state```\
-Default command topic: ```homeassistant/switch/{mqtt_name from camera config}/set```\
-
----
-
 # Tips
 - If you are experiencing issues with a camera, I suggest you add debug logging to it and examine the logs
 
@@ -686,7 +982,6 @@ Default command topic: ```homeassistant/switch/{mqtt_name from camera config}/se
 
 - Detectors
   - Pause detection via MQTT
-  - Move detectors to specific folder
   - Allow specified confidence to override height/width thresholds
   - Dynamic detection interval, speed up interval when detection happens for all types of detectors
   - Implement an object tracker for detected objects
@@ -698,9 +993,6 @@ Default command topic: ```homeassistant/switch/{mqtt_name from camera config}/se
 - Recorder
   - Weaving, If detection is triggered close to previous detection, send silent alarm and "weave" the videos together.
   - Dynamic lookback based on motion
-
-- Properties:
-  All public vars should be exposed by property
 
 - Docker
   - Try to reduce container footprint

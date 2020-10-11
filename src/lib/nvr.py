@@ -7,8 +7,15 @@ import cv2
 
 from const import LOG_LEVELS
 from lib.camera import FFMPEGCamera
-from lib.detector import DetectedObject
-from lib.helpers import Filter, draw_contours, draw_mask, draw_objects, draw_zones
+from lib.helpers import (
+    Filter,
+    draw_contours,
+    draw_mask,
+    draw_objects,
+    draw_zones,
+    report_labels,
+    send_to_post_processor,
+)
 from lib.motion import MotionDetection
 from lib.mqtt.binary_sensor import MQTTBinarySensor
 from lib.mqtt.camera import MQTTCamera
@@ -47,19 +54,23 @@ class MQTT:
                 draw_mask(
                     frame.decoded_frame_mat_rgb, self.config.motion_detection.mask,
                 )
-            draw_contours(
-                frame.decoded_frame_mat_rgb,
-                frame.motion_contours,
-                resolution,
-                self.config.motion_detection.area,
-            )
+
+            if motion_frame and frame.motion_contours:
+                draw_contours(
+                    frame.decoded_frame_mat_rgb,
+                    frame.motion_contours,
+                    resolution,
+                    self.config.motion_detection.area,
+                )
+
             draw_zones(frame.decoded_frame_mat_rgb, zones)
             draw_objects(
                 frame.decoded_frame_mat_rgb, frame.objects, resolution,
             )
+
             # Write a low quality image to save bandwidth
             ret, jpg = cv2.imencode(
-                ".jpg", frame.decoded_frame_mat_rgb, [int(cv2.IMWRITE_JPEG_QUALITY), 50]
+                ".jpg", frame.decoded_frame_mat_rgb, [int(cv2.IMWRITE_JPEG_QUALITY), 75]
             )
             if ret:
                 self.devices["camera"].publish(jpg.tobytes())
@@ -104,7 +115,9 @@ class MQTT:
 class FFMPEGNVR(Thread):
     nvr_list: List[object] = []
 
-    def __init__(self, config, detector, detector_queue, mqtt_queue=None):
+    def __init__(
+        self, config, detector, detector_queue, post_processors, mqtt_queue=None
+    ):
         Thread.__init__(self)
         self.nvr_list.append({config.camera.mqtt_name: self})
         self.setup_loggers(config)
@@ -117,6 +130,7 @@ class FFMPEGNVR(Thread):
 
         self._objects_in_fov = []
         self._labels_in_fov = []
+        self._reported_label_count = {}
         self.idle_frames = 0
         self._motion_frames = 0
         self._motion_detected = False
@@ -124,6 +138,8 @@ class FFMPEGNVR(Thread):
         self._motion_max_timeout_reached = False
 
         self.detector = detector
+
+        self._post_processors = post_processors
 
         self._object_decoder_queue = Queue(maxsize=2)
         self._motion_decoder_queue = Queue(maxsize=2)
@@ -150,7 +166,13 @@ class FFMPEGNVR(Thread):
         self._zones = []
         for zone in config.camera.zones:
             self._zones.append(
-                Zone(zone, self.camera.resolution, config, self._mqtt.mqtt_queue,)
+                Zone(
+                    zone,
+                    self.camera.resolution,
+                    config,
+                    self._mqtt.mqtt_queue,
+                    post_processors,
+                )
             )
 
         # Motion detector class.
@@ -174,7 +196,7 @@ class FFMPEGNVR(Thread):
             self.motion_decoder.daemon = True
             self.motion_decoder.start()
 
-        self.camera_decoder = Thread(
+        self.object_decoder = Thread(
             target=self.camera.decoder,
             args=(
                 self._object_decoder_queue,
@@ -183,8 +205,8 @@ class FFMPEGNVR(Thread):
                 detector.model_height,
             ),
         )
-        self.camera_decoder.daemon = True
-        self.camera_decoder.start()
+        self.object_decoder.daemon = True
+        self.object_decoder.start()
 
         self.start_camera()
 
@@ -233,7 +255,6 @@ class FFMPEGNVR(Thread):
         return subscriptions
 
     def toggle_camera(self, message):
-        self._logger.debug(f"TOGGLING camera {message.payload.decode()}")
         if message.payload.decode() == "ON":
             self.start_camera()
             return
@@ -332,20 +353,31 @@ class FFMPEGNVR(Thread):
         except Empty:
             return None
 
-    def filter_fov(self, objects: List[DetectedObject]):
+    def filter_fov(self, frame):
         objects_in_fov = []
         labels_in_fov = []
         self._trigger_recorder = False
-        for obj in objects:
+        for obj in frame.objects:
             if self._object_filters.get(obj.label) and self._object_filters[
                 obj.label
             ].filter_object(obj):
                 obj.relevant = True
                 objects_in_fov.append(obj)
-                if obj.label not in labels_in_fov:
-                    labels_in_fov.append(obj.label)
+                labels_in_fov.append(obj.label)
+
                 if self._object_filters[obj.label].triggers_recording:
                     self._trigger_recorder = True
+
+                # Send detection to configured post processors
+                if self._object_filters[obj.label].post_processor:
+                    send_to_post_processor(
+                        self._logger,
+                        self.config,
+                        self._post_processors,
+                        self._object_filters[obj.label].post_processor,
+                        frame,
+                        obj,
+                    )
 
         self.objects_in_fov = objects_in_fov
         self.labels_in_fov = labels_in_fov
@@ -355,37 +387,34 @@ class FFMPEGNVR(Thread):
         return self._objects_in_fov
 
     @objects_in_fov.setter
-    def objects_in_fov(self, value):
-        if value == self._objects_in_fov:
+    def objects_in_fov(self, objects):
+        if objects == self._objects_in_fov:
             return
 
-        self._objects_in_fov = value
         if self._mqtt.mqtt_queue:
-            self._mqtt.devices["object_detected"].publish(bool(value))
+            attributes = {}
+            attributes["objects"] = [obj.formatted for obj in objects]
+            self._mqtt.devices["object_detected"].publish(bool(objects), attributes)
+
+        self._objects_in_fov = objects
 
     @property
     def labels_in_fov(self):
-        return self._objects_in_fov
+        return self._labels_in_fov
 
     @labels_in_fov.setter
-    def labels_in_fov(self, labels_in_fov):
-        if labels_in_fov == self._labels_in_fov:
-            return
+    def labels_in_fov(self, labels):
+        self._labels_in_fov, self._reported_label_count = report_labels(
+            labels,
+            self._labels_in_fov,
+            self._reported_label_count,
+            self._mqtt.mqtt_queue,
+            self._mqtt.devices,
+        )
 
-        labels_added = list(set(labels_in_fov) - set(self._labels_in_fov))
-        labels_removed = list(set(self._labels_in_fov) - set(labels_in_fov))
-
-        if self._mqtt.mqtt_queue:
-            for label in labels_added:
-                self._mqtt.devices[label].publish(True)
-            for label in labels_removed:
-                self._mqtt.devices[label].publish(False)
-
-        self._labels_in_fov = labels_in_fov
-
-    def filter_zones(self, objects: List[DetectedObject]):
+    def filter_zones(self, frame):
         for zone in self._zones:
-            zone.filter_zone(objects)
+            zone.filter_zone(frame)
 
     def get_processed_motion_frame(self):
         """ Returns a frame along with its motion contours which has been processed
@@ -473,15 +502,17 @@ class FFMPEGNVR(Thread):
             # Filter returned objects
             processed_object_frame = self.get_processed_object_frame()
             if processed_object_frame:
-                if self._object_logger.level == LOG_LEVELS["DEBUG"]:
-                    self._object_logger.debug(
-                        f"Objects: "
-                        f"{[obj.formatted for obj in processed_object_frame.objects]}"
-                    )
                 # Filter objects in the FoV
-                self.filter_fov(processed_object_frame.objects)
+                self.filter_fov(processed_object_frame)
                 # Filter objects in each zone
-                self.filter_zones(processed_object_frame.objects)
+                self.filter_zones(processed_object_frame)
+
+                if self._object_logger.level == LOG_LEVELS["DEBUG"]:
+                    if self.config.object_detection.log_all_objects:
+                        objs = [obj.formatted for obj in processed_object_frame.objects]
+                    else:
+                        objs = [obj.formatted for obj in self.objects_in_fov]
+                    self._object_logger.debug(f"Objects: {objs}")
 
             # Filter returned motion contours
             processed_motion_frame = self.get_processed_motion_frame()

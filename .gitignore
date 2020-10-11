@@ -13,14 +13,29 @@
 !src/*
 !src/lib
 !src/lib/*
+!src/lib/config
+!src/lib/config/*
+!src/lib/detectors
+!src/lib/detectors/*
+!src/lib/detectors/darknet
+!src/lib/detectors/darknet/*
+!src/lib/detectors/edgetpu
+!src/lib/detectors/edgetpu/*
 !src/lib/mqtt
 !src/lib/mqtt/*
+!src/lib/post_processors
+!src/lib/post_processors/*
+!src/lib/post_processors/face_recognition
+!src/lib/post_processors/face_recognition/*
+!src/lib/post_processors/face_recognition/dlib
+!src/lib/post_processors/face_recognition/dlib/*
 !.dockerignore
 !.gitignore
 !Dockerfile
 !LICENSE
 !README.md
 !requirements.txt
+!rpi_requirements.txt
 
 # Force ignore
 docker/cuda/Dockerfile.vpf

@@ -33,7 +33,7 @@ class Cleanup:
             files = dirs.walkfiles(extension)
             for file in files:
                 if file.mtime <= retention_period:
-                    LOGGER.info(f"Removing {file}")
+                    LOGGER.debug(f"Removing {file}")
                     file.remove()
 
         folders = dirs.walkdirs("*-*-*")
@@ -42,6 +42,6 @@ class Cleanup:
             if len(folder.listdir()) == 0:
                 try:
                     folder.rmdir()
-                    LOGGER.info(f"Removing {folder}")
+                    LOGGER.debug(f"Removing {folder}")
                 except OSError:
                     LOGGER.error(f"Could not remove {folder}")

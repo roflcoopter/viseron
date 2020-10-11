@@ -5,76 +5,98 @@ from threading import Thread
 
 from const import LOG_LEVELS
 from lib.cleanup import Cleanup
-from lib.config import ViseronConfig
+from lib.config import ViseronConfig, NVRConfig, CONFIG
 from lib.detector import Detector
+from lib.post_processors import PostProcessor
 from lib.mqtt import MQTT
 from lib.nvr import FFMPEGNVR
 
 LOGGER = logging.getLogger()
 
 
-def main():
-    config = ViseronConfig()
+class Viseron:
+    def __init__(self):
+        config = ViseronConfig(CONFIG)
 
-    log_settings(config)
-    LOGGER.info("-------------------------------------------")
-    LOGGER.info("Initializing...")
+        log_settings(config)
+        LOGGER.info("-------------------------------------------")
+        LOGGER.info("Initializing...")
 
-    schedule_cleanup(config)
+        schedule_cleanup(config)
 
-    mqtt_queue = None
-    mqtt = None
-    if config.mqtt:
-        mqtt_queue = Queue(maxsize=100)
-        mqtt = MQTT(config)
-        mqtt_publisher = Thread(target=mqtt.publisher, args=(mqtt_queue,))
-        mqtt_publisher.daemon = True
+        mqtt_queue = None
+        mqtt = None
+        if config.mqtt:
+            mqtt_queue = Queue(maxsize=100)
+            mqtt = MQTT(config)
+            mqtt_publisher = Thread(target=mqtt.publisher, args=(mqtt_queue,))
+            mqtt_publisher.daemon = True
 
-    detector_queue = Queue(maxsize=2)
-    detector = Detector(config)
-    detector_thread = Thread(target=detector.object_detection, args=(detector_queue,))
-    detector_thread.daemon = True
-    detector_thread.start()
-
-    LOGGER.info("Initializing NVR threads")
-    threads = []
-    for camera in config.cameras:
-        threads.append(
-            FFMPEGNVR(
-                ViseronConfig(camera=camera),
-                detector,
-                detector_queue,
-                mqtt_queue=mqtt_queue,
-            )
+        detector_queue = Queue(maxsize=2)
+        detector = Detector(config.object_detection)
+        detector_thread = Thread(
+            target=detector.object_detection, args=(detector_queue,)
         )
+        detector_thread.daemon = True
+        detector_thread.start()
 
-    if mqtt:
-        mqtt.connect()
-        mqtt_publisher.start()
+        post_processors = {}
+        for (
+            post_processor_type,
+            post_processor_config,
+        ) in config.post_processors.post_processors.items():
+            post_processors[post_processor_type] = PostProcessor(
+                config, post_processor_type, post_processor_config, mqtt_queue
+            )
 
-    for thread in threads:
-        thread.start()
+        LOGGER.info("Initializing NVR threads")
+        threads = []
+        for camera in config.cameras:
+            camera_config = NVRConfig(
+                camera,
+                config.object_detection,
+                config.motion_detection,
+                config.recorder,
+                config.mqtt,
+                config.logging,
+            )
+            threads.append(
+                FFMPEGNVR(
+                    camera_config,
+                    detector,
+                    detector_queue,
+                    post_processors,
+                    mqtt_queue=mqtt_queue,
+                )
+            )
 
-    LOGGER.info("Initialization complete")
+        if mqtt:
+            mqtt.connect()
+            mqtt_publisher.start()
 
-    def signal_term(*_):
-        LOGGER.info("Kill received! Sending kill to threads..")
         for thread in threads:
-            thread.stop()
-            thread.join()
+            thread.start()
 
-    # Listen to sigterm
-    signal.signal(signal.SIGTERM, signal_term)
+        LOGGER.info("Initialization complete")
 
-    try:
-        threads[0].join()
-    except KeyboardInterrupt:
-        LOGGER.info("Ctrl-C received! Sending kill to threads..")
-        for thread in threads:
-            thread.stop()
-            thread.join()
+        def signal_term(*_):
+            LOGGER.info("Kill received! Sending kill to threads..")
+            for thread in threads:
+                thread.stop()
+                thread.join()
 
-    LOGGER.info("Exiting")
+        # Listen to sigterm
+        signal.signal(signal.SIGTERM, signal_term)
+
+        try:
+            threads[0].join()
+        except KeyboardInterrupt:
+            LOGGER.info("Ctrl-C received! Sending kill to threads..")
+            for thread in threads:
+                thread.stop()
+                thread.join()
+
+        LOGGER.info("Exiting")
 
 
 def schedule_cleanup(config):
@@ -152,4 +174,4 @@ class DuplicateFilter(logging.Filter):
 
 
 if __name__ == "__main__":
-    main()
+    Viseron()

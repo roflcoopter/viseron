@@ -5,6 +5,7 @@ FROM debian:buster
 
 COPY --from=opencv /usr/local /usr/local
 COPY --from=ffmpeg /usr/local/bin/ffmpeg /usr/local/bin/ffmpeg
+COPY --from=ffmpeg /usr/local/bin/ffprobe /usr/local/bin/ffprobe
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
@@ -16,27 +17,35 @@ RUN apt-get update && \
   python3-dev \
   python3-numpy \
   python3-pip \
+  python3-sklearn \
+  python3-setuptools \
   wget \
-  usbutils \
+  cmake \
+  git \
   # OpenCV runtime deps
   libjpeg-dev libpng-dev libtiff-dev \
   # OpenCV video I/O
   libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
   libxvidcore-dev libx264-dev \
   # OpenCV Optimizations
-  libatlas-base-dev gfortran libtbb-dev
-
-# Google Coral
-RUN echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" > /etc/apt/sources.list.d/coral-edgetpu.list && \
+  libatlas-base-dev gfortran libtbb-dev \
+  # dlib Optimizations
+  libatlas3-base libopenblas-dev liblapack-dev libboost-all-dev && \
+  # Google Coral
+  echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" > /etc/apt/sources.list.d/coral-edgetpu.list && \
   wget -O - https://packages.cloud.google.com/apt/doc/apt-key.gpg --no-check-certificate | apt-key add - && \
   apt-get update && \
   echo "libedgetpu1-max libedgetpu/accepted-eula boolean true" | debconf-set-selections && \
   apt-get install --no-install-recommends -y \
-  libedgetpu1-max && \
+  libedgetpu1-max usbutils python3-edgetpu && \
   pip3 install https://dl.google.com/coral/python/tflite_runtime-2.1.0.post1-cp37-cp37m-linux_armv7l.whl && \
   rm -rf /var/lib/apt/lists/* && \
   apt-get autoremove -y && \
   apt-get autoclean -y
+
+# Install dlib 
+RUN git clone https://github.com/davisking/dlib.git && \
+  cd /dlib; python3 /dlib/setup.py install --compiler-flags "-mfpu=neon"
 
 # Fetch models
 RUN mkdir -p /detectors/models/edgetpu/classification && \
@@ -46,7 +55,7 @@ RUN mkdir -p /detectors/models/edgetpu/classification && \
   wget https://dl.google.com/coral/canned_models/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll
 
 # Python dependencies
-ADD requirements.txt requirements.txt
+ADD rpi_requirements.txt requirements.txt
 RUN wget -q https://bootstrap.pypa.io/get-pip.py && \
   python3 get-pip.py && \
   rm get-pip.py && \

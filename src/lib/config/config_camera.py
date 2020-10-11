@@ -1,34 +1,46 @@
 import logging
 import os
 import re
-
-from voluptuous import All, Any, Length, Optional, Range, Required, Schema, Invalid
+from typing import Dict, List
 
 import numpy as np
+from voluptuous import (
+    All,
+    Any,
+    Coerce,
+    Invalid,
+    Length,
+    Optional,
+    Range,
+    Required,
+    Schema,
+)
+
 from const import (
     CAMERA_GLOBAL_ARGS,
     CAMERA_HWACCEL_ARGS,
     CAMERA_INPUT_ARGS,
     CAMERA_OUTPUT_ARGS,
-    DECODER_CODEC,
     ENV_CUDA_SUPPORTED,
     ENV_RASPBERRYPI3,
     ENV_VAAPI_SUPPORTED,
-    HWACCEL_CUDA_DECODER_CODEC,
-    HWACCEL_RPI3_DECODER_CODEC,
+    FFMPEG_RECOVERABLE_ERRORS,
+    HWACCEL_CUDA_DECODER_CODEC_MAP,
+    HWACCEL_RPI3_DECODER_CODEC_MAP,
     HWACCEL_VAAPI,
 )
 from lib.helpers import slugify
 
 from .config_logging import SCHEMA as LOGGING_SCHEMA
-from .config_object_detection import LABELS_SCHEMA
+from .config_logging import LoggingConfig
+from .config_object_detection import LABELS_SCHEMA, LabelConfig
 
 LOGGER = logging.getLogger(__name__)
 
 MQTT_NAME_REGEX = re.compile(r"^[a-zA-Z0-9_\.]+$")
 
 
-def ensure_mqtt_name(camera: dict) -> dict:
+def ensure_mqtt_name(camera: Dict[str, str]) -> Dict[str, str]:
     if camera["mqtt_name"] is None:
         camera["mqtt_name"] = slugify(camera["name"])
 
@@ -44,27 +56,13 @@ def ensure_mqtt_name(camera: dict) -> dict:
     return camera
 
 
-def check_for_hwaccels(hwaccel_args: list) -> list:
+def check_for_hwaccels(hwaccel_args: List[str]) -> List[str]:
     if hwaccel_args:
         return hwaccel_args
 
     if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
         return HWACCEL_VAAPI
     return hwaccel_args
-
-
-def get_codec(camera: dict) -> dict:
-    if camera["codec"]:
-        return camera
-
-    if camera["stream_format"] == "rtsp":
-        if os.getenv(ENV_CUDA_SUPPORTED) == "true":
-            camera["codec"] = HWACCEL_CUDA_DECODER_CODEC
-        elif os.getenv(ENV_RASPBERRYPI3) == "true":
-            camera["codec"] = HWACCEL_RPI3_DECODER_CODEC
-        else:
-            camera["codec"] = DECODER_CODEC
-    return camera
 
 
 SCHEMA = Schema(
@@ -99,7 +97,7 @@ SCHEMA = Schema(
                         "tcp", "udp", "udp_multicast", "http"
                     ),
                     Optional("filter_args", default=[]): list,
-                    Optional("motion_detection", default=None): Any(
+                    Optional("motion_detection"): Any(
                         {
                             Optional("interval"): Any(int, float),
                             Optional("trigger_detector"): bool,
@@ -107,7 +105,15 @@ SCHEMA = Schema(
                             Optional("max_timeout"): int,
                             Optional("width"): int,
                             Optional("height"): int,
-                            Optional("area"): float,
+                            Optional("area"): All(
+                                Any(All(float, Range(min=0.0, max=1.0)), 1, 0),
+                                Coerce(float),
+                            ),
+                            Optional("threshold"): All(int, Range(min=0, max=255)),
+                            Optional("alpha"): All(
+                                Any(All(float, Range(min=0.0, max=1.0)), 1, 0),
+                                Coerce(float),
+                            ),
                             Optional("frames"): int,
                             Optional("mask", default=[]): [
                                 {
@@ -120,11 +126,12 @@ SCHEMA = Schema(
                         },
                         None,
                     ),
-                    Optional("object_detection", default=None): Any(
+                    Optional("object_detection"): Any(
                         {
                             Optional("interval"): Any(int, float),
                             Optional("labels"): LABELS_SCHEMA,
                             Optional("logging"): LOGGING_SCHEMA,
+                            Optional("log_all_objects"): bool,
                         },
                         None,
                     ),
@@ -138,9 +145,22 @@ SCHEMA = Schema(
                         }
                     ],
                     Optional("publish_image", default=False): Any(True, False),
+                    Optional("ffmpeg_loglevel", default="fatal"): Any(
+                        "quiet",
+                        "panic",
+                        "fatal",
+                        "error",
+                        "warning",
+                        "info",
+                        "verbose",
+                        "debug",
+                        "trace",
+                    ),
+                    Optional(
+                        "ffmpeg_recoverable_errors", default=FFMPEG_RECOVERABLE_ERRORS
+                    ): [str],
                     Optional("logging"): LOGGING_SCHEMA,
                 },
-                get_codec,
                 ensure_mqtt_name,
             )
         ],
@@ -152,48 +172,63 @@ class CameraConfig:
     schema = SCHEMA
 
     def __init__(self, camera):
-        self._name = camera.name
+        self._name = camera["name"]
         self._name_slug = slugify(self.name)
-        self._mqtt_name = camera.mqtt_name
-        self._stream_format = camera.stream_format
-        self._host = camera.host
-        self._port = camera.port
-        self._username = camera.username
-        self._password = camera.password
-        self._path = camera.path
-        self._width = camera.width
-        self._height = camera.height
-        self._fps = camera.fps
-        self._global_args = camera.global_args
-        self._input_args = camera.input_args
-        self._hwaccel_args = camera.hwaccel_args
-        self._codec = camera.codec
-        self._rtsp_transport = camera.rtsp_transport
-        self._filter_args = camera.filter_args
-        self._motion_detection = camera.motion_detection
-        self._object_detection = camera.object_detection
-        self._zones = self.generate_zones(camera.zones)
-        self._publish_image = camera.publish_image
-        self._logging = getattr(camera, "logging", None)
+        self._mqtt_name = camera["mqtt_name"]
+        self._stream_format = camera["stream_format"]
+        self._host = camera["host"]
+        self._port = camera["port"]
+        self._username = camera["username"]
+        self._password = camera["password"]
+        self._path = camera["path"]
+        self._width = camera["width"]
+        self._height = camera["height"]
+        self._fps = camera["fps"]
+        self._global_args = camera["global_args"]
+        self._input_args = camera["input_args"]
+        self._hwaccel_args = camera["hwaccel_args"]
+        self._codec = camera["codec"]
+        self._rtsp_transport = camera["rtsp_transport"]
+        self._filter_args = camera["filter_args"]
+        self._motion_detection = camera.get("motion_detection", {})
+        self._object_detection = camera.get("object_detection", {})
+        self._zones = self.generate_zones(camera["zones"])
+        self._publish_image = camera["publish_image"]
+        self._ffmpeg_loglevel = camera["ffmpeg_loglevel"]
+        self._ffmpeg_recoverable_errors = camera["ffmpeg_recoverable_errors"]
+        self._logging = None
+        if camera.get("logging", None):
+            self._logging = LoggingConfig(camera["logging"])
 
     def generate_zones(self, zones):
         zone_list = []
         for zone in zones:
             zone_dict = {}
-            zone_dict["name"] = zone.name
+            zone_dict["name"] = zone["name"]
 
-            zone_labels = getattr(zone, "labels", [])
+            zone_labels = zone.get("labels", [])
             if not zone_labels:
-                zone_labels = getattr(self.object_detection, "labels", [])
-            zone_dict["labels"] = zone_labels
+                zone_labels = self.object_detection.get("labels", [])
+            labels = []
+            for label in zone_labels:
+                labels.append(LabelConfig(label))
+            zone_dict["labels"] = labels
 
             point_list = []
-            for point in getattr(zone, "points"):
-                point_list.append([getattr(point, "x"), getattr(point, "y")])
+            for point in zone["points"]:
+                point_list.append([point["x"], point["y"]])
             zone_dict["coordinates"] = np.array(point_list)
             zone_list.append(zone_dict)
 
         return zone_list
+
+    def get_codec_map(self):
+        if self.stream_format == "rtsp":
+            if os.getenv(ENV_CUDA_SUPPORTED) == "true":
+                return HWACCEL_CUDA_DECODER_CODEC_MAP
+            if os.getenv(ENV_RASPBERRYPI3) == "true":
+                return HWACCEL_RPI3_DECODER_CODEC_MAP
+        return {}
 
     @property
     def name(self):
@@ -273,6 +308,10 @@ class CameraConfig:
         return ["-c:v", self._codec] if self._codec else []
 
     @property
+    def codec_map(self):
+        return self.get_codec_map()
+
+    @property
     def rtsp_transport(self):
         return self._rtsp_transport
 
@@ -299,6 +338,14 @@ class CameraConfig:
     @property
     def publish_image(self):
         return self._publish_image
+
+    @property
+    def ffmpeg_loglevel(self):
+        return self._ffmpeg_loglevel
+
+    @property
+    def ffmpeg_recoverable_errors(self):
+        return self._ffmpeg_recoverable_errors
 
     @property
     def logging(self):

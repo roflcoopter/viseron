@@ -1,12 +1,16 @@
+import logging
 import math
+from collections import Counter
 from queue import Full, Queue
 from typing import Any, Tuple
 
+import cv2
 import numpy as np
 
-import cv2
 import slugify as unicode_slug
-from const import FONT, FONT_SIZE
+from const import FONT, FONT_SIZE, FONT_THICKNESS
+
+LOGGER = logging.getLogger(__name__)
 
 
 def calculate_relative_contours(contours, resolution: Tuple[int, int]):
@@ -83,18 +87,33 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)):
             (math.floor(obj.rel_y2 * frame_res[1])) + 5,
         )
 
+    text = f"{obj.label} {int(obj.confidence * 100)}%"
+
+    (text_width, text_height) = cv2.getTextSize(
+        text=text, fontFace=FONT, fontScale=FONT_SIZE, thickness=FONT_THICKNESS,
+    )[0]
+    box_coords = (
+        (coordinates[0], coordinates[1] + 5),
+        (coordinates[0] + text_width + 2, coordinates[1] - text_height - 3),
+    )
+    cv2.rectangle(frame, box_coords[0], box_coords[1], color, cv2.FILLED)
     cv2.putText(
-        frame, obj.label, coordinates, FONT, FONT_SIZE, color, 2,
+        img=frame,
+        text=text,
+        org=coordinates,
+        fontFace=FONT,
+        fontScale=FONT_SIZE,
+        color=(255, 255, 255),
+        thickness=FONT_THICKNESS,
     )
 
 
 def draw_object(
-    frame, obj, camera_resolution: Tuple[int, int], color=(255, 0, 0), thickness=1
+    frame, obj, camera_resolution: Tuple[int, int], color=(150, 0, 0), thickness=1
 ):
     """ Draws a single object on supplied frame """
     if obj.relevant:
-        color = (0, 255, 0)
-        thickness = 2
+        color = (0, 150, 0)
     frame = draw_bounding_box_relative(
         frame,
         (obj.rel_x1, obj.rel_y1, obj.rel_x2, obj.rel_y2,),
@@ -126,7 +145,7 @@ def draw_zones(frame, zones):
             FONT,
             FONT_SIZE,
             color,
-            2,
+            FONT_THICKNESS,
         )
 
 
@@ -167,15 +186,17 @@ def draw_mask(frame, mask_points):
             FONT,
             FONT_SIZE,
             (255, 255, 255),
-            2,
+            FONT_THICKNESS,
         )
 
 
-def pop_if_full(queue: Queue, item: Any):
+def pop_if_full(queue: Queue, item: Any, logger=LOGGER, name="unknown", warn=False):
     """If queue is full, pop oldest item and put the new item"""
     try:
         queue.put_nowait(item)
     except Full:
+        if warn:
+            logger.warning(f"{name} queue is full. Removing oldest entry")
         queue.get()
         queue.put_nowait(item)
 
@@ -183,6 +204,59 @@ def pop_if_full(queue: Queue, item: Any):
 def slugify(text: str) -> str:
     """Slugify a given text."""
     return unicode_slug.slugify(text, separator="_")
+
+
+def send_to_post_processor(
+    logger, camera_config, post_processors, post_processor, frame, obj, zone=None
+):
+    try:
+        post_processors[post_processor].input_queue.put(
+            {
+                "camera_config": camera_config,
+                "frame": frame,
+                "object": obj,
+                "zone": zone,
+            }
+        )
+    except KeyError:
+        logger.error(
+            "Configured post_processor "
+            f"{post_processor} "
+            "does not exist. Please check your configuration"
+        )
+
+
+def report_labels(
+    labels, labels_in_fov, reported_label_count, mqtt_queue, mqtt_devices
+):
+    labels = sorted(labels)
+    if labels == labels_in_fov:
+        return labels_in_fov, reported_label_count
+
+    labels_added = list(set(labels) - set(labels_in_fov))
+    labels_removed = list(set(labels_in_fov) - set(labels))
+
+    # Count occurences of each label
+    counter = Counter(labels)
+
+    if mqtt_queue:
+        for label in labels_added:
+            attributes = {}
+            attributes["count"] = counter[label]
+            mqtt_devices[label].publish(True, attributes)
+            reported_label_count[label] = counter[label]  # Save reported count
+
+        for label in labels_removed:
+            mqtt_devices[label].publish(False)
+
+    for label, count in counter.items():
+        if reported_label_count.get(label, 0) != count:
+            attributes = {}
+            attributes["count"] = count
+            mqtt_devices[label].publish(True, attributes)
+            reported_label_count[label] = count
+
+    return labels, reported_label_count
 
 
 class Filter:
@@ -194,6 +268,7 @@ class Filter:
         self._height_min = object_filter.height_min
         self._height_max = object_filter.height_max
         self._triggers_recording = object_filter.triggers_recording
+        self._post_processor = object_filter.post_processor
 
     def filter_confidence(self, obj):
         if obj.confidence > self._confidence:
@@ -220,3 +295,7 @@ class Filter:
     @property
     def triggers_recording(self):
         return self._triggers_recording
+
+    @property
+    def post_processor(self):
+        return self._post_processor

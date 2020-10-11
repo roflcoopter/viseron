@@ -13,8 +13,12 @@ RUN apt-get update && \
   ffmpeg \
   wget \
   curl \
+  git \
+  cmake \
   # VAAPI drivers for Intel hardware accel
-  libva-drm2 libva2 i965-va-driver vainfo && \
+  libva-drm2 libva2 i965-va-driver vainfo \
+  # dlib Optimizations
+  libatlas3-base libgfortran3 libopenblas-dev liblapack-dev && \
   # Google Coral
   wget -q https://bootstrap.pypa.io/get-pip.py && \
   python3 get-pip.py && \
@@ -30,6 +34,10 @@ RUN apt-get update && \
   apt-get autoremove -y && \
   apt-get autoclean -y
 
+# Install dlib 
+RUN git clone https://github.com/davisking/dlib.git && \
+  cd /dlib; python3 /dlib/setup.py install
+
 # Python dependencies
 ADD requirements.txt requirements.txt
 RUN pip3 install --no-cache-dir \
@@ -41,13 +49,17 @@ RUN pip3 install --no-cache-dir \
 RUN mkdir -p /detectors/models/edgetpu/classification && \
   # EdgeTPU MobileNet SSD v2 Object Detection model
   wget https://dl.google.com/coral/canned_models/mobilenet_ssd_v2_coco_quant_postprocess_edgetpu.tflite -O /detectors/models/edgetpu/model.tflite --progress=bar:force:noscroll && \
+  wget https://github.com/google-coral/edgetpu/raw/master/test_data/ssd_mobilenet_v2_coco_quant_postprocess.tflite -O /detectors/models/edgetpu/cpu_model.tflite --progress=bar:force:noscroll && \
   wget https://dl.google.com/coral/canned_models/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll && \
   # Fetch models for YOLO darknet
   # We are using YOLOv3 since YOLOv4 has issues with OopenCL right now https://github.com/opencv/opencv/issues/17762
   mkdir -p /detectors/models/darknet && \
-  wget https://pjreddie.com/media/files/yolov3-tiny.weights -O /detectors/models/darknet/yolo.weights --progress=bar:force:noscroll && \
-  wget https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg -O /detectors/models/darknet/yolo.cfg --progress=bar:force:noscroll && \
-  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov3.weights -O /detectors/models/darknet/yolo.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3.cfg -O /detectors/models/darknet/yolo.cfg --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll && \
+  # Also supply tiny version
+  wget https://pjreddie.com/media/files/yolov3-tiny.weights -O /detectors/models/darknet/yolov3-tiny.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg -O /detectors/models/darknet/yolov3-tiny.cfg --progress=bar:force:noscroll
 
 VOLUME /recordings
 

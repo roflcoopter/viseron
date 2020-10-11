@@ -1,14 +1,15 @@
 # https://trac.ffmpeg.org/wiki/Concatenate
 # https://unix.stackexchange.com/questions/233832/merge-two-video-clips-into-one-placing-them-next-to-each-other
+import json
 import logging
 import subprocess as sp
-from time import sleep
 from threading import Event
+from time import sleep
 
 import cv2
 import numpy as np
+
 from lib.helpers import pop_if_full
-from const import FFMPEG_ERROR_WHILE_DECODING
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class Frame:
         self._decoded_frame_mat_rgb = None
         self._resized_frames = {}
         self._objects = []
-        self._motion_contours = []
+        self._motion_contours = None
 
     def decode_frame(self):
         try:
@@ -141,7 +142,8 @@ class FFMPEGCamera:
                 stream_width,
                 stream_height,
                 stream_fps,
-            ) = self.get_stream_characteristics(self._config.camera.stream_url)
+                stream_codec,
+            ) = self.get_stream_information(self._config.camera.stream_url)
 
         self.stream_width = (
             self._config.camera.width if self._config.camera.width else stream_width
@@ -152,6 +154,7 @@ class FFMPEGCamera:
         self.stream_fps = (
             self._config.camera.fps if self._config.camera.fps else stream_fps
         )
+        self.stream_codec = stream_codec
 
         self.resolution = self.stream_width, self.stream_height
         frame_buffer_size = self.stream_fps * self._config.recorder.lookback
@@ -164,8 +167,49 @@ class FFMPEGCamera:
         )
         self._logger.debug(f"FFMPEG decoder command: {' '.join(self.build_command())}")
 
-    def get_stream_characteristics(self, stream_url):
-        self._logger.debug("Getting stream characteristics for {}".format(stream_url))
+    @staticmethod
+    def ffprobe_stream_information(stream_url):
+        width, height, fps, codec = 0, 0, 0, None
+        ffprobe_command = [
+            "ffprobe",
+            "-hide_banner",
+            "-loglevel",
+            "quiet",
+            "-print_format",
+            "json",
+            "-show_error",
+            "-show_streams",
+            "-select_streams",
+            "v",
+        ] + [stream_url]
+
+        pipe = sp.Popen(ffprobe_command, stdout=sp.PIPE, stderr=sp.STDOUT)
+        output, _ = pipe.communicate()
+        pipe.wait()
+
+        stream_information = json.loads(output)["streams"][0]
+        numerator = int(stream_information["avg_frame_rate"].split("/")[0])
+        denominator = int(stream_information["avg_frame_rate"].split("/")[1])
+
+        try:
+            fps = numerator / denominator
+        except ZeroDivisionError:
+            pass
+
+        width = stream_information.get("width", 0)
+        height = stream_information.get("height", 0)
+        codec = stream_information.get("codec_name", None)
+
+        return (
+            width,
+            height,
+            fps,
+            codec,
+        )
+
+    @staticmethod
+    def opencv_stream_information(stream_url):
+        width, height, fps = 0, 0, 0
         stream = cv2.VideoCapture(stream_url)
         _, _ = stream.read()
         width = int(stream.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -174,14 +218,42 @@ class FFMPEGCamera:
         stream.release()
         return width, height, fps
 
-    def build_command(self, ffmpeg_loglevel="panic", single_frame=False):
+    def get_stream_information(self, stream_url):
+        self._logger.debug("Getting stream information for {}".format(stream_url))
+        width, height, fps, codec = self.ffprobe_stream_information(stream_url)
+
+        if width == 0 or height == 0 or fps == 0:
+            self._logger.warning(
+                "ffprobe failed to get stream information. Using OpenCV instead"
+            )
+            width, height, fps = self.opencv_stream_information(stream_url)
+
+        return width, height, fps, codec
+
+    def get_codec(self):
+        if self._config.camera.codec:
+            return self._config.camera.codec
+
+        if self.stream_codec:
+            codec = self._config.camera.codec_map.get(self.stream_codec, None)
+            if codec:
+                return ["-c:v", codec]
+
+        return []
+
+    def build_command(self, ffmpeg_loglevel=None, single_frame=False):
         return (
             ["ffmpeg"]
             + self._config.camera.global_args
-            + ["-loglevel", ffmpeg_loglevel]
+            + ["-loglevel"]
+            + (
+                [ffmpeg_loglevel]
+                if ffmpeg_loglevel
+                else [self._config.camera.ffmpeg_loglevel]
+            )
             + self._config.camera.input_args
             + self._config.camera.hwaccel_args
-            + self._config.camera.codec
+            + self.get_codec()
             + (
                 ["-rtsp_transport", self._config.camera.rtsp_transport]
                 if self._config.camera.stream_format == "rtsp"
@@ -196,14 +268,12 @@ class FFMPEGCamera:
     def pipe(self, stderr=False, single_frame=False):
         if stderr:
             return sp.Popen(
-                self.build_command(ffmpeg_loglevel="error", single_frame=single_frame),
+                self.build_command(ffmpeg_loglevel="fatal", single_frame=single_frame),
                 stdout=sp.PIPE,
                 stderr=sp.PIPE,
                 bufsize=10 ** 8,
             )
-        return sp.Popen(
-            self.build_command(single_frame=False), stdout=sp.PIPE, bufsize=10 ** 8,
-        )
+        return sp.Popen(self.build_command(), stdout=sp.PIPE, bufsize=10 ** 8,)
 
     def capture_pipe(
         self,
@@ -215,13 +285,18 @@ class FFMPEGCamera:
         motion_return_queue,
     ):
         self._logger.debug("Starting capture thread")
+        self._connected = True
         # First read a single frame to make sure the ffmpeg command is correct
         bytes_to_read = int(self.stream_width * self.stream_height * 1.5)
         retry = False
+        self._logger.debug("Performing a sanity check on the ffmpeg command")
         while True:
             pipe = self.pipe(stderr=True, single_frame=True)
             _, stderr = pipe.communicate()
-            if stderr and FFMPEG_ERROR_WHILE_DECODING not in stderr.decode():
+            if stderr and not any(
+                err in stderr.decode()
+                for err in self._config.camera.ffmpeg_recoverable_errors
+            ):
                 self._logger.error(
                     f"Error starting decoder pipe! {stderr.decode()} "
                     f"Retrying in 5 seconds"
@@ -230,11 +305,10 @@ class FFMPEGCamera:
                 retry = True
                 continue
             if retry:
-                self._logger.info("Succesful reconnection!")
+                self._logger.error("Succesful reconnection!")
             break
 
         pipe = self.pipe()
-        self._connected = True
 
         object_frame_number = 0
         object_first_scan = False
@@ -263,6 +337,7 @@ class FFMPEGCamera:
                 pipe.communicate()
                 pipe = self.pipe()
                 self._connection_error = False
+                self._logger.error("Successful reconnection!")
 
             current_frame = Frame(
                 pipe.stdout.read(bytes_to_read), self.stream_width, self.stream_height
@@ -284,6 +359,9 @@ class FFMPEGCamera:
                             "object_return_queue": object_return_queue,
                             "camera_config": self._config,
                         },
+                        logger=self._logger,
+                        name="object_decoder_queue",
+                        warn=True,
                     )
 
                 object_frame_number += 1
@@ -301,6 +379,9 @@ class FFMPEGCamera:
                             "frame": current_frame,
                             "motion_return_queue": motion_return_queue,
                         },
+                        logger=self._logger,
+                        name="motion_decoder_queue",
+                        warn=True,
                     )
 
                 motion_frame_number += 1
@@ -321,7 +402,13 @@ class FFMPEGCamera:
             input_item = input_queue.get()
             if input_item["frame"].decode_frame():
                 input_item["frame"].resize(input_item["decoder_name"], width, height)
-                pop_if_full(output_queue, input_item)
+                pop_if_full(
+                    output_queue,
+                    input_item,
+                    logger=self._logger,
+                    name=f"{input_item['decoder_name']} input",
+                    warn=True,
+                )
                 continue
 
             self._logger.error("Unable to decode frame. FFMPEG pipe seems broken")

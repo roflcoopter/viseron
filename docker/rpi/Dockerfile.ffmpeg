@@ -27,10 +27,12 @@ RUN PKG_CONFIG_PATH=/opt/vc/lib/pkgconfig ./configure --arch=armel --target-os=l
 RUN make -j4
 
 RUN ln -s `pwd`/ffmpeg /usr/local/bin/ffmpeg
+RUN ln -s `pwd`/ffprobe /usr/local/bin/ffprobe
 WORKDIR "/root"
 
 FROM debian:buster
 COPY --from=0 /root/userland/ffmpeg-4.0.2/ffmpeg /usr/local/bin/ffmpeg
+COPY --from=0 /root/userland/ffmpeg-4.0.2/ffprobe /usr/local/bin/ffprobe
 COPY --from=0 /opt/vc /opt/vc
 
 # Required to link deps
