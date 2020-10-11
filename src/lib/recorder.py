@@ -28,7 +28,7 @@ class FFMPEGRecorder:
             config.recorder.segments_folder, config.camera.name
         )
         self.create_directory(segments_folder)
-        self._segmenter = Segments(self._logger, segments_folder)
+        self._segmenter = Segments(self._logger, config, segments_folder)
         self._segment_cleanup = SegmentCleanup(config)
 
     def subfolder_name(self, today):
@@ -43,7 +43,7 @@ class FFMPEGRecorder:
     def create_directory(self, path):
         try:
             if not os.path.isdir(path):
-                self._logger.info(f"Creating folder {path}")
+                self._logger.debug(f"Creating folder {path}")
                 os.makedirs(path)
         except FileExistsError:
             self._logger.error(f"{path} already exists")

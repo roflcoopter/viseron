@@ -7,9 +7,10 @@ from const import CAMERA_SEGMENT_DURATION
 
 
 class Segments:
-    def __init__(self, logger, segment_folder):
+    def __init__(self, logger, config, segments_folder):
         self._logger = logger
-        self._segment_folder = segment_folder
+        self._config = config
+        self._segments_folder = segments_folder
 
     def segment_duration(self, segment_file):
         """Returns the duration of a specified segment"""
@@ -65,11 +66,11 @@ class Segments:
 
     def get_segment_information(self):
         """Gets information for all available segments"""
-        segment_files = os.listdir(self._segment_folder)
+        segment_files = os.listdir(self._segments_folder)
         segment_information: dict = {}
         for segment in segment_files:
             duration = self.segment_duration(
-                os.path.join(self._segment_folder, segment)
+                os.path.join(self._segments_folder, segment)
             )
             if not duration:
                 continue
@@ -106,7 +107,7 @@ class Segments:
         """Returns a script string with information of each segment to concatenate"""
         segment_iterable = iter(segments_to_concat)
         segment = next(segment_iterable)
-        concat_script = f"file '{os.path.join(self._segment_folder, segment)}'"
+        concat_script = f"file '{os.path.join(self._segments_folder, segment)}'"
         concat_script += (
             f"\ninpoint {int(event_start-segment_information[segment]['start_time'])}"
         )
@@ -123,7 +124,7 @@ class Segments:
         while True:
             try:
                 concat_script += (
-                    f"\nfile '{os.path.join(self._segment_folder, segment)}'"
+                    "\nfile " f"'{os.path.join(self._segments_folder, segment)}'"
                 )
                 segment = next(segment_iterable)
             except StopIteration:
@@ -134,24 +135,23 @@ class Segments:
                 return concat_script
 
     def ffmpeg_concat(self, segment_script, file_name):
-        ffmpeg_cmd = [
-            "ffmpeg",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-y",
-            "-protocol_whitelist",
-            "file,pipe",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            "-",
-            "-c",
-            "copy",
-            file_name,
-        ]
+        ffmpeg_cmd = (
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",]
+            + self._config.recorder.hwaccel_args
+            + [
+                "-protocol_whitelist",
+                "file,pipe",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                "-",
+            ]
+            + self._config.recorder.codec
+            + self._config.recorder.filter_args
+            + [file_name]
+        )
 
         self._logger.debug(f"Concatenation command: {ffmpeg_cmd}")
         self._logger.debug(f"Segment script: \n{segment_script}")
