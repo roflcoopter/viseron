@@ -133,10 +133,13 @@ class FFMPEGCamera:
 
         self._logger.debug("Initializing ffmpeg RTSP pipe")
 
+        stream_codec = None
+
         if (
             not self._config.camera.width
             or not self._config.camera.height
             or not self._config.camera.fps
+            or not self._config.camera.codec
         ):
             (
                 stream_width,
