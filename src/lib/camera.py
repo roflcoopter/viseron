@@ -132,10 +132,13 @@ class FFMPEGCamera:
 
         self._logger.debug(f"Initializing camera {self._config.camera.name}")
 
+        stream_codec = None
+
         if (
             not self._config.camera.width
             or not self._config.camera.height
             or not self._config.camera.fps
+            or not self._config.camera.codec
         ):
             (
                 stream_width,
