@@ -123,16 +123,12 @@ def log_settings(config):
 
 class MyFormatter(logging.Formatter):
     # pylint: disable=protected-access
-    overwrite_fmt = (
-        "\x1b[80D\x1b[1A\x1b[K[%(asctime)s] "
-        "[%(name)-12s] [%(levelname)-8s] - %(message)s"
-    )
+    base_format = "[%(asctime)s] [%(name)-24s] [%(levelname)-8s] - %(message)s"
+    overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K" + base_format
 
     def __init__(self):
         super().__init__(
-            fmt="[%(asctime)s] [%(name)-24s] [%(levelname)-8s] - %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-            style="%",
+            fmt=self.base_format, datefmt="%Y-%m-%d %H:%M:%S", style="%",
         )
         self.current_count = 0
 
@@ -143,7 +139,7 @@ class MyFormatter(logging.Formatter):
 
         # Replace the original format with one customized by logging level
         if "message repeated" in str(record.msg):
-            self._style._fmt = MyFormatter.overwrite_fmt
+            self._style._fmt = self.overwrite_fmt
 
         # Call the original formatter class to do the grunt work
         result = logging.Formatter.format(self, record)
