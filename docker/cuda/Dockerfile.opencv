@@ -3,10 +3,11 @@
 # docker run --runtime=nvidia -ti --rm opencv-gpu bash
 FROM roflcoopter/ffmpeg-cuda:1.0 as ffmpeg
 
-FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
+FROM nvidia/cuda:11.1-cudnn8-devel-ubuntu18.04
 
 COPY --from=ffmpeg /usr/local/ffmpeg /usr/local/ffmpeg
 
+ENV DEBIAN_FRONTEND="noninteractive"
 RUN apt-get clean && apt-get update && apt-get install -y \
     # Basic deps
     build-essential cmake unzip pkg-config wget \
@@ -26,7 +27,7 @@ RUN apt-get clean && apt-get update && apt-get install -y \
 # OpenCV suports CC Arch 5.3 and higher
 ENV CUDA_ARCH_BIN "53 60 61 70"
 ENV CUDA_ARCH_PTX "70"
-ENV OPENCV_VERSION=master
+ENV OPENCV_VERSION="4.5.0"
 
 RUN mkdir -p /tmp && \
     cd /tmp && \
