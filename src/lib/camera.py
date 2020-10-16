@@ -174,7 +174,7 @@ class FFMPEGCamera:
             "ffprobe",
             "-hide_banner",
             "-loglevel",
-            "quiet",
+            "fatal",
             "-print_format",
             "json",
             "-show_error",
@@ -183,7 +183,7 @@ class FFMPEGCamera:
             "v",
         ] + [stream_url]
 
-        pipe = sp.Popen(ffprobe_command, stdout=sp.PIPE, stderr=sp.STDOUT)
+        pipe = sp.Popen(ffprobe_command, stdout=sp.PIPE)
         output, _ = pipe.communicate()
         pipe.wait()
 
