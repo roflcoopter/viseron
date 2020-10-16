@@ -7,10 +7,11 @@ from const import CAMERA_SEGMENT_DURATION
 
 
 class Segments:
-    def __init__(self, logger, config, segments_folder):
+    def __init__(self, logger, config, segments_folder, detection_lock):
         self._logger = logger
         self._config = config
         self._segments_folder = segments_folder
+        self._detection_lock = detection_lock
 
     def segment_duration(self, segment_file):
         """Returns the duration of a specified segment"""
@@ -28,9 +29,11 @@ class Segments:
 
         tries = 0
         while True:
+            self._detection_lock.acquire()
             pipe = sp.Popen(ffprobe_cmd, stdout=sp.PIPE, stderr=sp.PIPE)
             (output, stderr) = pipe.communicate()
             p_status = pipe.wait()
+            self._detection_lock.release()
 
             if p_status == 0:
                 return float(output.decode("utf-8").strip())
@@ -156,8 +159,9 @@ class Segments:
         self._logger.debug(f"Concatenation command: {ffmpeg_cmd}")
         self._logger.debug(f"Segment script: \n{segment_script}")
 
+        self._detection_lock.acquire()
         pipe = sp.run(ffmpeg_cmd, input=segment_script, encoding="ascii", check=True)
-
+        self._detection_lock.release()
         if pipe.returncode != 0:
             self._logger.error(f"Error concatenating segments: {pipe.stderr}")
 

@@ -144,8 +144,8 @@ class FFMPEGNVR(Thread):
         self._object_decoder_queue = Queue(maxsize=2)
         self._motion_decoder_queue = Queue(maxsize=2)
         motion_queue = Queue(maxsize=2)
-        self.object_return_queue = Queue(maxsize=20)
-        self.motion_return_queue = Queue(maxsize=20)
+        self.object_return_queue = Queue(maxsize=2)
+        self.motion_return_queue = Queue(maxsize=2)
 
         # Use FFMPEG to read from camera. Used for reading/recording
         self.camera = FFMPEGCamera(config)
@@ -210,8 +210,8 @@ class FFMPEGNVR(Thread):
 
         # Initialize recorder
         self._trigger_recorder = False
-        self.recorder_thread = None
-        self.recorder = FFMPEGRecorder(config)
+        self._start_recorder = False
+        self.recorder = FFMPEGRecorder(config, self.detector.detection_lock)
 
         self._logger.debug("NVR thread initialized")
 
@@ -306,11 +306,11 @@ class FFMPEGNVR(Thread):
         return True
 
     def start_recording(self, frame):
-        self.recorder_thread = Thread(
+        recorder_thread = Thread(
             target=self.recorder.start_recording,
             args=(frame, self.objects_in_fov, self.camera.resolution),
         )
-        self.recorder_thread.start()
+        recorder_thread.start()
         if (
             self.config.motion_detection.timeout
             and not self.camera.scan_for_motion.is_set()
@@ -330,21 +330,11 @@ class FFMPEGNVR(Thread):
             )
 
         if self.idle_frames >= (self.camera.stream_fps * self.config.recorder.timeout):
-            self.recorder.stop_recording()
-            # Clear any objects left in queue
-            while not self.object_return_queue.empty():
-                try:
-                    self.object_return_queue.get(False)
-                except Empty:
-                    continue
-                self.object_return_queue.task_done()
-
-            if self.config.motion_detection.trigger_detector:
-                self.camera.scan_for_objects.clear()
-                self._logger.info("Pausing object detector")
-            else:
+            if not self.config.motion_detection.trigger_detector:
                 self.camera.scan_for_motion.clear()
                 self._logger.info("Pausing motion detector")
+
+            self.recorder.stop_recording()
 
     def get_processed_object_frame(self):
         """ Returns a frame along with its detections which has been processed
@@ -382,9 +372,6 @@ class FFMPEGNVR(Thread):
 
         self.objects_in_fov = objects_in_fov
         self.labels_in_fov = labels_in_fov
-        self._logger.debug(
-            f"frame: {frame} is_recording: {self.recorder.is_recording}, trigger: {self._trigger_recorder}, event_over: {self.event_over()}"
-        )
 
     @property
     def objects_in_fov(self):
@@ -466,10 +453,10 @@ class FFMPEGNVR(Thread):
         if self._mqtt.mqtt_queue:
             self._mqtt.devices["motion_detected"].publish(motion_detected)
 
-    def process_object_event(self, frame):
+    def process_object_event(self):
         if self._trigger_recorder or any(zone.trigger_recorder for zone in self._zones):
             if not self.recorder.is_recording:
-                self.start_recording(frame)
+                self._start_recorder = True
 
     def process_motion_event(self):
         if self.motion_detected:
@@ -501,7 +488,6 @@ class FFMPEGNVR(Thread):
             # Filter returned objects
             processed_object_frame = self.get_processed_object_frame()
             if processed_object_frame:
-                self._logger.debug(processed_object_frame.objects)
                 # Filter objects in the FoV
                 self.filter_fov(processed_object_frame)
                 # Filter objects in each zone
@@ -521,7 +507,7 @@ class FFMPEGNVR(Thread):
                 # self._logger.debug(processed_motion_frame.motion_contours)
                 self.filter_motion(processed_motion_frame.motion_contours)
 
-            self.process_object_event(processed_object_frame)
+            self.process_object_event()
             self.process_motion_event()
 
             if (
@@ -535,7 +521,10 @@ class FFMPEGNVR(Thread):
                 )
 
             # If we are recording and no object is detected
-            if self.recorder.is_recording and self.event_over():
+            if self._start_recorder:
+                self._start_recorder = False
+                self.start_recording(processed_object_frame)
+            elif self.recorder.is_recording and self.event_over():
                 self.idle_frames += 1
                 self.stop_recording()
                 continue

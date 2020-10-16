@@ -13,7 +13,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class FFMPEGRecorder:
-    def __init__(self, config):
+    def __init__(self, config, detection_lock):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         if getattr(config.recorder.logging, "level", None):
             self._logger.setLevel(config.recorder.logging.level)
@@ -30,7 +30,9 @@ class FFMPEGRecorder:
             config.recorder.segments_folder, config.camera.name
         )
         self.create_directory(segments_folder)
-        self._segmenter = Segments(self._logger, config, segments_folder)
+        self._segmenter = Segments(
+            self._logger, config, segments_folder, detection_lock
+        )
         self._segment_cleanup = SegmentCleanup(config)
 
     def subfolder_name(self, today):
@@ -86,7 +88,9 @@ class FFMPEGRecorder:
             int(datetime.datetime.now().timestamp()),
             self._recording_name,
         )
-        self._segment_cleanup.resume()
+        # Dont resume cleanup if new recording started during encoding
+        if not self.is_recording:
+            self._segment_cleanup.resume()
 
     def stop_recording(self):
         self._logger.info("Stopping recorder")
