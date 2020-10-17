@@ -1,6 +1,7 @@
 # docker run --runtime=nvidia -ti --rm --tmpfs /tmp roflcoopter/ffmpeg-cuda:1.0 bash
-FROM nvidia/cuda:10.2-devel as ffmpeg
+FROM nvidia/cuda:11.1-devel-ubuntu18.04
 
+ENV DEBIAN_FRONTEND="noninteractive"
 RUN apt-get update && apt-get install -y --no-install-recommends \
     autoconf \
     autogen \
@@ -38,22 +39,27 @@ RUN git clone https://github.com/intel/libva && \
 
 # NVIDIA Codec Headers are not included since FFMPEG version 4.0
 WORKDIR /usr/local/src
-RUN git clone --depth 1 --branch n9.1.23.1 https://git.videolan.org/git/ffmpeg/nv-codec-headers.git \
+RUN git clone --depth 1 --branch n10.0.26.1 https://git.videolan.org/git/ffmpeg/nv-codec-headers.git \
     && cd nv-codec-headers \
     && make \
     && make install \
     && cd .. \
     && rm -rf nv-codec-headers
 
+# ffmpeg checks for nvcc using compute_30, which is not supported in CUDA 11.
+# Lowest supported compute architecture is compute_52 so we patch this here.
+# Architecture information is found here: https://en.wikipedia.org/wiki/CUDA (5.2=compute_52)
 RUN git clone --depth 1 --branch n4.3 https://github.com/ffmpeg/ffmpeg ffmpeg && \
     cd ffmpeg && \
+    sed -i -e 's/compute_30/compute_52/g' ./configure && \
+    sed -i -e 's/sm_30/sm_52/g' ./configure && \
     ./configure \
     --enable-cuda \
     --enable-cuvid \
     --enable-nvenc \
     --enable-nonfree \
     --enable-libnpp \
-    --enable-cuda-sdk \
+    --enable-cuda-nvcc \
     --enable-filter=scale_cuda \
     --enable-filter=thumbnail_cuda \
     --enable-vaapi \

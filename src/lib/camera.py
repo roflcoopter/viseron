@@ -1,7 +1,6 @@
-# https://trac.ffmpeg.org/wiki/Concatenate
-# https://unix.stackexchange.com/questions/233832/merge-two-video-clips-into-one-placing-them-next-to-each-other
 import json
 import logging
+import os
 import subprocess as sp
 from threading import Event
 from time import sleep
@@ -9,6 +8,7 @@ from time import sleep
 import cv2
 import numpy as np
 
+from const import CAMERA_SEGMENT_ARGS
 from lib.helpers import pop_if_full
 
 LOGGER = logging.getLogger(__name__)
@@ -106,10 +106,9 @@ class Frame:
 
 
 class FFMPEGCamera:
-    def __init__(self, config, frame_buffer):
+    def __init__(self, config):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         self._config = config
-        self._frame_buffer = frame_buffer
         self._connected = False
         self._connection_error = False
         self.stream_width = None
@@ -124,14 +123,16 @@ class FFMPEGCamera:
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
 
-        self.start_decoder()
+        self.initialize_camera()
 
-    def start_decoder(self):
+    def initialize_camera(self):
         self._logger = logging.getLogger(__name__ + "." + self._config.camera.name_slug)
         if getattr(self._config.camera.logging, "level", None):
             self._logger.setLevel(self._config.camera.logging.level)
 
-        self._logger.debug("Initializing ffmpeg RTSP pipe")
+        self._logger.debug(f"Initializing camera {self._config.camera.name}")
+
+        stream_codec = None
 
         stream_codec = None
 
@@ -160,15 +161,13 @@ class FFMPEGCamera:
         self.stream_codec = stream_codec
 
         self.resolution = self.stream_width, self.stream_height
-        frame_buffer_size = self.stream_fps * self._config.recorder.lookback
-        if frame_buffer_size > 0:
-            self._frame_buffer.maxsize = frame_buffer_size
 
         self._logger.debug(
             f"Resolution: {self.stream_width}x{self.stream_height} "
             f"@ {self.stream_fps} FPS"
         )
         self._logger.debug(f"FFMPEG decoder command: {' '.join(self.build_command())}")
+        self._logger.debug(f"Camera {self._config.camera.name} initialized")
 
     @staticmethod
     def ffprobe_stream_information(stream_url):
@@ -177,7 +176,7 @@ class FFMPEGCamera:
             "ffprobe",
             "-hide_banner",
             "-loglevel",
-            "quiet",
+            "fatal",
             "-print_format",
             "json",
             "-show_error",
@@ -186,7 +185,7 @@ class FFMPEGCamera:
             "v",
         ] + [stream_url]
 
-        pipe = sp.Popen(ffprobe_command, stdout=sp.PIPE, stderr=sp.STDOUT)
+        pipe = sp.Popen(ffprobe_command, stdout=sp.PIPE)
         output, _ = pipe.communicate()
         pipe.wait()
 
@@ -245,6 +244,16 @@ class FFMPEGCamera:
         return []
 
     def build_command(self, ffmpeg_loglevel=None, single_frame=False):
+        camera_segment_args = []
+        if not single_frame:
+            camera_segment_args = CAMERA_SEGMENT_ARGS + [
+                os.path.join(
+                    self._config.recorder.segments_folder,
+                    self._config.camera.name,
+                    "%Y%m%d%H%M%S.mp4",
+                )
+            ]
+
         return (
             ["ffmpeg"]
             + self._config.camera.global_args
@@ -263,7 +272,7 @@ class FFMPEGCamera:
                 else []
             )
             + ["-i", self._config.camera.stream_url]
-            + self._config.camera.filter_args
+            + camera_segment_args
             + (["-frames:v", "1"] if single_frame else [])
             + self._config.camera.output_args
         )
@@ -345,7 +354,6 @@ class FFMPEGCamera:
             current_frame = Frame(
                 pipe.stdout.read(bytes_to_read), self.stream_width, self.stream_height
             )
-            pop_if_full(self._frame_buffer, current_frame)
 
             if self.scan_for_objects.is_set():
                 if object_frame_number % object_decoder_interval_calculated == 0:

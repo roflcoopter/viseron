@@ -144,13 +144,11 @@ class FFMPEGNVR(Thread):
         self._object_decoder_queue = Queue(maxsize=2)
         self._motion_decoder_queue = Queue(maxsize=2)
         motion_queue = Queue(maxsize=2)
-        self.object_return_queue = Queue(maxsize=20)
-        self.motion_return_queue = Queue(maxsize=20)
+        self.object_return_queue = Queue(maxsize=2)
+        self.motion_return_queue = Queue(maxsize=2)
 
         # Use FFMPEG to read from camera. Used for reading/recording
-        # Maxsize changes later based on config option LOOKBACK_SECONDS
-        frame_buffer = Queue(maxsize=1)
-        self.camera = FFMPEGCamera(config, frame_buffer)
+        self.camera = FFMPEGCamera(config)
 
         if config.motion_detection.trigger_detector:
             self.camera.scan_for_motion.set()
@@ -212,8 +210,8 @@ class FFMPEGNVR(Thread):
 
         # Initialize recorder
         self._trigger_recorder = False
-        self.recorder_thread = None
-        self.recorder = FFMPEGRecorder(config, frame_buffer)
+        self._start_recorder = False
+        self.recorder = FFMPEGRecorder(config, self.detector.detection_lock)
 
         self._logger.debug("NVR thread initialized")
 
@@ -282,6 +280,9 @@ class FFMPEGNVR(Thread):
     def stop_camera(self):
         self._logger.debug("Stopping camera")
         self.camera.release()
+        self.camera_grabber.join()
+        if self.recorder.is_recording:
+            self.recorder.stop_recording()
 
     def event_over(self):
         if self._trigger_recorder or any(zone.trigger_recorder for zone in self._zones):
@@ -304,17 +305,12 @@ class FFMPEGNVR(Thread):
             return False
         return True
 
-    def start_recording(self, thumbnail):
-        self.recorder_thread = Thread(
+    def start_recording(self, frame):
+        recorder_thread = Thread(
             target=self.recorder.start_recording,
-            args=(
-                thumbnail,
-                self.camera.stream_width,
-                self.camera.stream_height,
-                self.camera.stream_fps,
-            ),
+            args=(frame, self.objects_in_fov, self.camera.resolution),
         )
-        self.recorder_thread.start()
+        recorder_thread.start()
         if (
             self.config.motion_detection.timeout
             and not self.camera.scan_for_motion.is_set()
@@ -334,16 +330,11 @@ class FFMPEGNVR(Thread):
             )
 
         if self.idle_frames >= (self.camera.stream_fps * self.config.recorder.timeout):
-            self.recorder.stop()
-            with self.object_return_queue.mutex:  # Clear any objects left in queue
-                self.object_return_queue.queue.clear()
-
-            if self.config.motion_detection.trigger_detector:
-                self.camera.scan_for_objects.clear()
-                self._logger.info("Pausing object detector")
-            else:
+            if not self.config.motion_detection.trigger_detector:
                 self.camera.scan_for_motion.clear()
                 self._logger.info("Pausing motion detector")
+
+            self.recorder.stop_recording()
 
     def get_processed_object_frame(self):
         """ Returns a frame along with its detections which has been processed
@@ -462,15 +453,10 @@ class FFMPEGNVR(Thread):
         if self._mqtt.mqtt_queue:
             self._mqtt.devices["motion_detected"].publish(motion_detected)
 
-    def process_object_event(self, frame):
+    def process_object_event(self):
         if self._trigger_recorder or any(zone.trigger_recorder for zone in self._zones):
             if not self.recorder.is_recording:
-                draw_objects(
-                    frame.decoded_frame_umat_rgb,
-                    self.objects_in_fov,
-                    self.camera.resolution,
-                )
-                self.start_recording(frame)
+                self._start_recorder = True
 
     def process_motion_event(self):
         if self.motion_detected:
@@ -510,9 +496,10 @@ class FFMPEGNVR(Thread):
                 if self._object_logger.level == LOG_LEVELS["DEBUG"]:
                     if self.config.object_detection.log_all_objects:
                         objs = [obj.formatted for obj in processed_object_frame.objects]
+                        self._object_logger.debug(f"All objects: {objs}")
                     else:
                         objs = [obj.formatted for obj in self.objects_in_fov]
-                    self._object_logger.debug(f"Objects: {objs}")
+                        self._object_logger.debug(f"Objects: {objs}")
 
             # Filter returned motion contours
             processed_motion_frame = self.get_processed_motion_frame()
@@ -520,7 +507,7 @@ class FFMPEGNVR(Thread):
                 # self._logger.debug(processed_motion_frame.motion_contours)
                 self.filter_motion(processed_motion_frame.motion_contours)
 
-            self.process_object_event(processed_object_frame)
+            self.process_object_event()
             self.process_motion_event()
 
             if (
@@ -534,10 +521,14 @@ class FFMPEGNVR(Thread):
                 )
 
             # If we are recording and no object is detected
-            if self.recorder.is_recording and self.event_over():
+            if self._start_recorder:
+                self._start_recorder = False
+                self.start_recording(processed_object_frame)
+            elif self.recorder.is_recording and self.event_over():
                 self.idle_frames += 1
                 self.stop_recording()
                 continue
+
             self.idle_frames = 0
 
         self._logger.info("Exiting NVR thread")
@@ -546,11 +537,10 @@ class FFMPEGNVR(Thread):
         self._logger.info("Stopping NVR thread")
         self.kill_received = True
 
-        # Stop potential recording
-        if self.recorder.is_recording:
-            self.recorder.stop()
-            self.recorder_thread.join()
-
         # Stop frame grabber
         self.camera.release()
         self.camera_grabber.join()
+
+        # Stop potential recording
+        if self.recorder.is_recording:
+            self.recorder.stop_recording()

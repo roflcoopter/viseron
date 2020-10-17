@@ -614,39 +614,62 @@ By using a running average, the "background" image will adjust to daylight, stat
 | timeout | int | 10 | any integer | Number of seconds to record after all events are over |
 | retain | int | 7 | any integer | Number of days to save recordings before deleting them |
 | folder | path | ```/recordings``` | path to existing folder | What folder to store recordings in |
+| segments_folder | path | ```/segments``` | any path | What folder to store ffmpeg segments in |
 | extension | str | ```mp4``` | a valid video file extension | The file extension used for recordings. I don't recommend changing this |
-| global_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder hardware acceleration arguments |
 | codec | str | optional | any supported decoder codec | FFMPEG video encoder codec, eg ```h264_nvenc``` |
 | filter_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder filter arguments |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the recorder. <br>This affects all logs named ```lib.recorder.<camera name>``` |
 
-A default ffmpeg encoder command is generated, which varies a bit depending on the Docker container you use,
+Viseron uses [ffmpeg segments](https://www.ffmpeg.org/ffmpeg-formats.html#segment_002c-stream_005fsegment_002c-ssegment) to handle recordings.\
+This means Viseron will write small 5 second segments of the stream to disk, and in case of any recording starting, Viseron will find the appropriate segments and concatenate them together.\
+The reason for using segments instead of just starting the recorder on an event, is to support to the ```lookback``` feature which makes it possible to record *before* an event actually happened.
+
 <details>
-  <summary>For Nvidia GPU support in the <b>roflcoopter/viseron-cuda</b> image</summary>
+  <summary>The default concatenation command</summary>
 
   ```
-  ffmpeg -hide_banner -loglevel panic -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_nvenc <file>
+  ffmpeg -hide_banner -loglevel error -y -protocol_whitelist file,pipe -f concat -safe 0 -i - -c:v copy <outfile.mp4>
   ```
 </details>
 
+If you want to re-encode the video you can choose ```codec```, ```filter_args``` and optionally ```hwaccel_args```.\
+To place the segments in memory instead of writing to disk, you can mount a tmpfs disk in the container.
 <details>
-  <summary>For VAAPI support in the <b>roflcoopter/viseron-vaapi</b> image</summary>
+  <summary>Example tmpfs configuration</summary>
 
+  Example Docker command
+
+  ```bash
+  docker run --rm \
+  -v <recordings path>:/recordings \
+  -v <config path>:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  --tmpfs /tmp \
+  --name viseron \
+  roflcoopter/viseron:latest
   ```
-  ffmpeg -hide_banner -loglevel panic -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_vaapi -vf "format=nv12|vaapi,hwupload" <file>
+  Example docker-compose
+  ```yaml
+  version: "2.4"
+
+  services:
+    viseron:
+      image: roflcoopter/viseron:latest
+      container_name: viseron
+      volumes:
+        - <recordings path>:/recordings
+        - <config path>:/config
+        - /etc/localtime:/etc/localtime:ro
+      tmpfs:
+        - /tmp
+  ```
+  config.yaml
+  ```yaml
+  recorder:
+    segments_folder: /tmp
   ```
 </details>
-
-<details>
-  <summary>For RPi3 in the <b>roflcoopter/viseron-rpi</b> image</summary>
-
-  ```
-  ffmpeg -hide_banner -loglevel panic -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_omx <file>
-  ```
-</details>
-
-This means that you do **not** have to set ```hwaccel_args``` *unless* you have a specific need to change the default command (say you need to change ```h264_nvenc``` to ```hevc_nvenc```)
 
 ---
 
