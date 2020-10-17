@@ -1,5 +1,5 @@
 FROM roflcoopter/opencv-cuda:1.0 as opencv
-FROM nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
+FROM nvidia/cuda:11.1-cudnn8-devel-ubuntu18.04
 
 COPY --from=opencv /usr/local /usr/local
 
@@ -10,6 +10,7 @@ ENV PATH=/usr/local/ffmpeg/bin:$PATH
 # Specify FFMPEG library folder
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/ffmpeg/lib
 
+ENV DEBIAN_FRONTEND="noninteractive"
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget gnupg2 ca-certificates && \
     wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2019.PUB && \
@@ -142,6 +143,7 @@ ENV VISERON_OPENCL_SUPPORTED=true
 ENV VISERON_RASPBERRYPI3=false
 
 VOLUME /recordings
+RUN mkdir /segments && chmod a+rwx /segments
 
 WORKDIR /src/viseron
 COPY ./src /src/viseron/

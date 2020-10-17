@@ -9,7 +9,6 @@ from time import sleep
 from voluptuous import All, Any, Coerce, Optional, Range
 
 import face_recognition
-from apscheduler.schedulers.background import BackgroundScheduler
 from const import ENV_CUDA_SUPPORTED
 from face_recognition.face_recognition_cli import image_files_in_folder
 from lib.config import ViseronConfig
