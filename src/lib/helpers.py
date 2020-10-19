@@ -249,12 +249,12 @@ def report_labels(
         for label in labels_removed:
             mqtt_devices[label].publish(False)
 
-    for label, count in counter.items():
-        if reported_label_count.get(label, 0) != count:
-            attributes = {}
-            attributes["count"] = count
-            mqtt_devices[label].publish(True, attributes)
-            reported_label_count[label] = count
+        for label, count in counter.items():
+            if reported_label_count.get(label, 0) != count:
+                attributes = {}
+                attributes["count"] = count
+                mqtt_devices[label].publish(True, attributes)
+                reported_label_count[label] = count
 
     return labels, reported_label_count
 
