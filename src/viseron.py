@@ -5,11 +5,12 @@ from threading import Thread
 
 from const import LOG_LEVELS
 from lib.cleanup import Cleanup
-from lib.config import ViseronConfig, NVRConfig, CONFIG
+from lib.config import CONFIG, NVRConfig, ViseronConfig
 from lib.detector import Detector
-from lib.post_processors import PostProcessor
 from lib.mqtt import MQTT
 from lib.nvr import FFMPEGNVR
+from lib.post_processors import PostProcessor
+from viseron_exceptions import FFprobeError
 
 LOGGER = logging.getLogger()
 
@@ -60,15 +61,17 @@ class Viseron:
                 config.mqtt,
                 config.logging,
             )
-            threads.append(
-                FFMPEGNVR(
+            try:
+                nvr = FFMPEGNVR(
                     camera_config,
                     detector,
                     detector_queue,
                     post_processors,
                     mqtt_queue=mqtt_queue,
                 )
-            )
+                threads.append(nvr)
+            except FFprobeError:
+                LOGGER.error(f"Failed to initialize camera {camera_config.camera.name}")
 
         if mqtt:
             mqtt.connect()
@@ -89,7 +92,8 @@ class Viseron:
         signal.signal(signal.SIGTERM, signal_term)
 
         try:
-            threads[0].join()
+            for thread in threads:
+                thread.join()
         except KeyboardInterrupt:
             LOGGER.info("Ctrl-C received! Sending kill to threads..")
             for thread in threads:

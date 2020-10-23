@@ -119,9 +119,11 @@ class FFMPEGNVR(Thread):
         self, config, detector, detector_queue, post_processors, mqtt_queue=None
     ):
         Thread.__init__(self)
-        self.nvr_list.append({config.camera.mqtt_name: self})
         self.setup_loggers(config)
         self._logger.debug("Initializing NVR thread")
+
+        # Use FFMPEG to read from camera. Used for reading/recording
+        self.camera = FFMPEGCamera(config)
 
         self._mqtt = MQTT(config, mqtt_queue)
         self.config = config
@@ -146,9 +148,6 @@ class FFMPEGNVR(Thread):
         motion_queue = Queue(maxsize=2)
         self.object_return_queue = Queue(maxsize=2)
         self.motion_return_queue = Queue(maxsize=2)
-
-        # Use FFMPEG to read from camera. Used for reading/recording
-        self.camera = FFMPEGCamera(config)
 
         if config.motion_detection.trigger_detector:
             self.camera.scan_for_motion.set()
@@ -213,6 +212,7 @@ class FFMPEGNVR(Thread):
         self._start_recorder = False
         self.recorder = FFMPEGRecorder(config, self.detector.detection_lock)
 
+        self.nvr_list.append({config.camera.mqtt_name: self})
         self._logger.debug("NVR thread initialized")
 
     def setup_loggers(self, config):
@@ -292,7 +292,7 @@ class FFMPEGNVR(Thread):
         if self.config.motion_detection.timeout and self.motion_detected:
             # Only allow motion to keep event active for a specified period of time
             if self._motion_only_frames >= (
-                self.camera.stream_fps * self.config.motion_detection.max_timeout
+                self.camera.stream.fps * self.config.motion_detection.max_timeout
             ):
                 if not self._motion_max_timeout_reached:
                     self._motion_max_timeout_reached = True
@@ -319,17 +319,17 @@ class FFMPEGNVR(Thread):
             self._logger.info("Starting motion detector")
 
     def stop_recording(self):
-        if self.idle_frames % self.camera.stream_fps == 0:
+        if self.idle_frames % self.camera.stream.fps == 0:
             self._logger.info(
                 "Stopping recording in: {}".format(
                     int(
                         self.config.recorder.timeout
-                        - (self.idle_frames / self.camera.stream_fps)
+                        - (self.idle_frames / self.camera.stream.fps)
                     )
                 )
             )
 
-        if self.idle_frames >= (self.camera.stream_fps * self.config.recorder.timeout):
+        if self.idle_frames >= (self.camera.stream.fps * self.config.recorder.timeout):
             if not self.config.motion_detection.trigger_detector:
                 self.camera.scan_for_motion.clear()
                 self._logger.info("Pausing motion detector")
