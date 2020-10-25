@@ -93,6 +93,8 @@ Choose the appropriate docker container for your machine. Builds are published t
   I do not recommend using an RPi unless you have a Google Coral EdgeTPU, the CPU is not fast enough and you might run out of memory.
   To make use of hardware accelerated decoding/encoding you might have to increase the allocated GPU memory.\
   To do this edit ```/boot/config.txt``` and set ```gpu_mem=256``` and then reboot.
+
+  I also recommend configuring a [substream](#substream) if you plan on running Viseron on an RPi.
 </details>
 
 
