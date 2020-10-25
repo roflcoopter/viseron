@@ -31,6 +31,7 @@ Builds are tested and verified on the following platforms:
 - [Getting started](#getting-started)
 - [Configuration Options](#configuration-options)
   - [Cameras](#cameras)
+    - [Substream](#substream)
     - [Camera motion detection](#camera-motion-detection)
     - [Mask](#mask)
     - [Camera object detection](#camera-object-detection)
@@ -234,7 +235,7 @@ The command is built like this: \
 | port | int | **required** | any integer | Port for the camera stream |
 | username | str | optional | any string | Username for the camera stream |
 | password | str | optional | any string | Password for the camera stream |
-| path | str | optional | any string | Path to the camera stream, eg ```/Streaming/Channels/101/``` |
+| path | str | **optional** | any string | Path to the camera stream, eg ```/Streaming/Channels/101/``` |
 | width | int | optional | any integer | Width of the stream. Will use OpenCV to get this information if not given |
 | height | int | optional | any integer | Height of the stream. Will use OpenCV to get this information if not given |
 | fps | int | optional | any integer | FPS of the stream. Will use OpenCV to get this information if not given |
@@ -244,9 +245,10 @@ The command is built like this: \
 | codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
 | rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesnt support TCP |
 | filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
+| substream | dictionary | optional | see [Substream config](#substream) | Substream to perform image processing on |
 | motion_detection | dictionary | optional | see [Camera motion detection config](#camera-motion-detection) | Overrides the global ```motion_detection``` config |
-| object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) below | Overrides the global ```object_detection``` config |
-| zones | list | optional | see [Zones config](#zones) below | Allows you to specify zones to further filter detections |
+| object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) | Overrides the global ```object_detection``` config |
+| zones | list | optional | see [Zones config](#zones) | Allows you to specify zones to further filter detections |
 | publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones, objects, motion and masks.<br><b>Note: this will use some extra CPU and should probably only be used for debugging</b> |
 | ffmpeg_loglevel | str | optional | ```quiet```, ```panic```, ```fatal```, ```error```, ```warning```, ```info```, ```verbose```, ```debug```, ```trace``` | Sets the loglevel for ffmpeg.<br> Should only be used in debugging purposes. |
 | ffmpeg_recoverable_errors | list | optional | a list of strings | ffmpeg sometimes print errors that are not fatal.<br>If you get errors like ```Error starting decoder pipe!```, see below for details. |
@@ -290,6 +292,38 @@ So to ignore the error above you would add this to your configuration:
 ffmpeg_recoverable_errors:
   - error while decoding MB
 ```
+
+---
+
+### Substream
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| path | str | **required** | any string | Path to the camera substream, eg ```/Streaming/Channels/102/``` |
+| width | int | optional | any integer | Width of the stream. Will use FFprobe to get this information if not given |
+| height | int | optional | any integer | Height of the stream. Will use FFprobe to get this information if not given |
+| fps | int | optional | any integer | FPS of the stream. Will use FFprobe to get this information if not given |
+| input_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
+| hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG decoder hardware acceleration arguments |
+| codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
+| rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesnt support TCP |
+| filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
+
+Using the substream is a great way to reduce the system load from FFmpeg.\
+When configured, two FFmpeg processes will spawn:\
+\- One that reads the main stream and creates segments for recordings. Codec ```-c:v copy``` is used so practically no resources are used.\
+\- One that reads the substream and pipes frames to Viseron for motion/object detection.
+
+To really benefit from this you should reduce the framerate of the substream to match the lowest interval set for either motion or object detection.\
+As an example:
+```yaml
+motion_detection:
+  interval: 0.5
+object_detection:
+  interval: 1
+```
+The optimal FPS for this config would be 2, since it would output a frame every 0.5 seconds for the motion detector to consume.
+
+You should also change the resolution to something lower than the main stream to benefit from this.
 
 ---
 
