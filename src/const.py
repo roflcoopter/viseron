@@ -57,8 +57,6 @@ CAMERA_SEGMENT_ARGS = [
     "-c",
     "copy",
     "-an",
-    "-map",
-    "0",
 ]
 
 ENCODER_CODEC = ""
