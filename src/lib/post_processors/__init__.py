@@ -23,6 +23,7 @@ class PostProcessor:
 
         LOGGER.debug(f"Initializing post processor {processor_type}")
         processor = self.import_processor(processor_type, processor_config)
+        LOGGER.debug("Successfully imported post processor")
         self.input_queue: Queue = Queue(maxsize=10)
         self._post_processor = processor.Processor(
             config,
@@ -41,7 +42,7 @@ class PostProcessor:
     @staticmethod
     def import_processor(processor_type, processor_config):
         return importlib.import_module(
-            "lib.post_processors." + processor_type + "." + processor_config["type"]
+            f"lib.post_processors.{processor_type}.{processor_config['type']}"
         )
 
     def post_process(self):
