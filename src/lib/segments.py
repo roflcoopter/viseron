@@ -1,5 +1,6 @@
 import datetime
 import os
+import shutil
 import subprocess as sp
 import time
 
@@ -196,10 +197,13 @@ class Segments:
         if not segments_to_concat:
             return
 
+        temp_file = os.path.join("/tmp", file_name)
+
         self.ffmpeg_concat(
             self.generate_segment_script(
                 segments_to_concat, segment_information, event_start, event_end
             ),
-            file_name,
+            temp_file,
         )
+        shutil.move(temp_file, file_name)
         self._logger.debug("Segments concatenated")
