@@ -204,7 +204,7 @@ class Stream:
         if stream_config.codec:
             return stream_config.codec
 
-        if stream_codec:  # TODO NEED ONE FOR EACH STREAM. OR MAYBE JUST FOR SUBSTREAM?
+        if stream_codec:
             codec = stream_config.codec_map.get(stream_codec, None)
             if codec:
                 return ["-c:v", codec]
