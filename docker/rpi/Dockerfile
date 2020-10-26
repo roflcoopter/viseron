@@ -22,6 +22,7 @@ RUN apt-get update && \
   wget \
   cmake \
   git \
+  tzdata \
   # OpenCV runtime deps
   libjpeg-dev libpng-dev libtiff-dev \
   # OpenCV video I/O
