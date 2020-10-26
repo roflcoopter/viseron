@@ -15,6 +15,7 @@ RUN apt-get update && \
   curl \
   git \
   cmake \
+  tzdata \
   # VAAPI drivers for Intel hardware accel
   libva-drm2 libva2 i965-va-driver vainfo \
   # dlib Optimizations
