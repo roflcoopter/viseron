@@ -256,17 +256,15 @@ class Stream:
                 self.build_command(ffmpeg_loglevel="fatal", single_frame=single_frame),
                 stdout=sp.PIPE,
                 stderr=sp.PIPE,
-                # bufsize=10 ** 8,
             )
-        return sp.Popen(self.build_command(), stdout=sp.PIPE)
+        if self._pipe_frames:
+            return sp.Popen(self.build_command(), stdout=sp.PIPE)
+        return sp.Popen(self.build_command())
 
     def check_command(self):
         self._logger.debug("Performing a sanity check on the ffmpeg command")
         retry = False
         while True:
-            # print(
-            #     " ".join(self.build_command(ffmpeg_loglevel="fatal", single_frame=True))
-            # )
             pipe = self.pipe(stderr=True, single_frame=True)
             _, stderr = pipe.communicate()
             if stderr and not any(
@@ -303,11 +301,11 @@ class FFMPEGCamera:
         self._connected = False
         self._connection_error = False
         self.resolution = None
+        self._segments = None
         self.frame_ready = Event()
         self.scan_for_objects = Event()  # Set when frame should be scanned
         self.scan_for_motion = Event()  # Set when frame should be scanned
 
-        # Activate OpenCL
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
 
@@ -328,7 +326,7 @@ class FFMPEGCamera:
                 write_segments=False,
                 pipe_frames=True,
             )
-            Stream(
+            self._segments = Stream(
                 self._logger,
                 self._config,
                 self._config.camera,
@@ -364,6 +362,8 @@ class FFMPEGCamera:
         self._connected = True
 
         self.stream.start_pipe()
+        if self._segments:
+            self._segments.start_pipe()
 
         object_frame_number = 0
         object_first_scan = False
@@ -442,6 +442,8 @@ class FFMPEGCamera:
             self.frame_ready.clear()
 
         self.stream.close_pipe()
+        if self._segments:
+            self._segments.close_pipe()
         self._logger.info("FFMPEG frame grabber stopped")
 
     def decoder(self, input_queue, output_queue, width, height):
