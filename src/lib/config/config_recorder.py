@@ -14,9 +14,27 @@ SCHEMA = Schema(
         Optional("codec", default="copy"): str,
         Optional("filter_args", default=[]): [str],
         Optional("segments_folder", default="/segments"): str,
+        Optional("thumbnail", default={}): {
+            Optional("save_to_disk", default=False): bool,
+            Optional("send_to_mqtt", default=False): bool,
+        },
         Optional("logging"): LOGGING_SCHEMA,
     }
 )
+
+
+class Thumbnail:
+    def __init__(self, thumbnail):
+        self._save_to_disk = thumbnail["save_to_disk"]
+        self._send_to_mqtt = thumbnail["send_to_mqtt"]
+
+    @property
+    def save_to_disk(self):
+        return self._save_to_disk
+
+    @property
+    def send_to_mqtt(self):
+        return self._send_to_mqtt
 
 
 class RecorderConfig:
@@ -32,6 +50,7 @@ class RecorderConfig:
         self._codec = recorder["codec"]
         self._filter_args = recorder["filter_args"]
         self._segments_folder = recorder["segments_folder"]
+        self._thumbnail = Thumbnail(recorder["thumbnail"])
         self._logging = None
         if recorder.get("logging", None):
             self._logging = LoggingConfig(recorder["logging"])
@@ -71,6 +90,10 @@ class RecorderConfig:
     @property
     def segments_folder(self):
         return self._segments_folder
+
+    @property
+    def thumbnail(self):
+        return self._thumbnail
 
     @property
     def logging(self):

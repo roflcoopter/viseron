@@ -210,7 +210,7 @@ class FFMPEGNVR(Thread):
         # Initialize recorder
         self._trigger_recorder = False
         self._start_recorder = False
-        self.recorder = FFMPEGRecorder(config, self.detector.detection_lock)
+        self.recorder = FFMPEGRecorder(config, self.detector.detection_lock, mqtt_queue)
 
         self.nvr_list.append({config.camera.mqtt_name: self})
         self._logger.debug("NVR thread initialized")
@@ -241,6 +241,7 @@ class FFMPEGNVR(Thread):
     def on_connect(self, client):
         """Called when MQTT connection is established"""
         subscriptions = self._mqtt.on_connect(client)
+        self.recorder.on_connect(client)
 
         for zone in self._zones:
             zone.on_connect(client)
