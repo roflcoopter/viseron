@@ -655,6 +655,7 @@ By using a running average, the "background" image will adjust to daylight, stat
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder hardware acceleration arguments |
 | codec | str | optional | any supported decoder codec | FFMPEG video encoder codec, eg ```h264_nvenc``` |
 | filter_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder filter arguments |
+| thumbnail | dictionary | optional | see [Thumbnail](#thumbnail) | Options for the thumbnail created on start of a recording |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the recorder. <br>This affects all logs named ```lib.recorder.<camera name>``` |
 
 Viseron uses [ffmpeg segments](https://www.ffmpeg.org/ffmpeg-formats.html#segment_002c-stream_005fsegment_002c-ssegment) to handle recordings.\
@@ -706,6 +707,14 @@ To place the segments in memory instead of writing to disk, you can mount a tmpf
     segments_folder: /tmp
   ```
 </details>
+
+### Thumbnail
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| save_to_disk | boolean | False | True/False | If set to true, the thumbnail that is created on start of recording is saved to ```{folder}/{camera_name}/latest_thumbnail.jpg``` |
+| send_to_mqtt | boolean | False | True/False | If set to true, the thumbnail that is created on start of recording is sent over MQTT. |
+
+The default location for the thumbnail if ```save_to_disk: true``` is ```/recordings/{camera_name}/latest_thumbnail.jpg```
 
 ---
 
@@ -825,6 +834,17 @@ The folder structure of the faces folder is very strict. Here is an example of t
 </details>
 </div>
 
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/camera/latest_thumbnail/image</b></code></summary>
+  <div style="margin-left: 1em;">
+
+  An image is published to this topic on the start of a recording if ```send_to_mqtt``` under ```recorder``` is set to ```true```.\
+  The image is the same as the thumbnail saved along with the recording.
+  </div>
+</details>
+</div>
+
 #### [Object detection](#camera-object-detection):
 <div style="margin-left: 1em;">
 <details>
@@ -939,9 +959,11 @@ All MQTT topics are largely inspired by Home Assistants way of organizing entiti
 Viseron integrates into Home Assistant using MQTT discovery and is enabled by default if you configure MQTT.\
 Viseron will create a number of entities depending on your configuration.
 
-**Camera entity**\
-A camera entity will be created for each camera.\
-Used to debug zones, masks, objects and motion.
+**Cameras**\
+A variable amount of cameras will be created based on your configuration.
+1) A camera entity to debug zones, masks, objects and motion.\
+   Images are only sent to this topic if ```publish_image: true```
+2) If ```send_to_mqtt``` under ```recorder``` is set to ```true``` , a camera entity named ```camera.{client_id from mqtt config}_{mqtt_name from camera config}_latest_thumbnail``` is created
 
 **Binary Sensors**\
 A variable amount of binary sensors will be created based on your configuration.

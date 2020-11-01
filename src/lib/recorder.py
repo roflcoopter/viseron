@@ -7,13 +7,14 @@ import cv2
 
 from lib.cleanup import SegmentCleanup
 from lib.helpers import draw_objects
+from lib.mqtt.camera import MQTTCamera
 from lib.segments import Segments
 
 LOGGER = logging.getLogger(__name__)
 
 
 class FFMPEGRecorder:
-    def __init__(self, config, detection_lock):
+    def __init__(self, config, detection_lock, mqtt_queue):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         if getattr(config.recorder.logging, "level", None):
             self._logger.setLevel(config.recorder.logging.level)
@@ -21,6 +22,8 @@ class FFMPEGRecorder:
             self._logger.setLevel(config.camera.logging.level)
         self._logger.debug("Initializing ffmpeg recorder")
         self.config = config
+        self._mqtt_queue = mqtt_queue
+
         self.is_recording = False
         self.writer_pipe = None
         self._event_start = None
@@ -35,17 +38,40 @@ class FFMPEGRecorder:
         )
         self._segment_cleanup = SegmentCleanup(config)
 
+        self._mqtt_devices = {}
+        if self.config.recorder.thumbnail.send_to_mqtt:
+            self._mqtt_devices["latest_thumbnail"] = MQTTCamera(
+                config, mqtt_queue, object_id="latest_thumbnail"
+            )
+
+    def on_connect(self, client):
+        for device in self._mqtt_devices.values():
+            device.on_connect(client)
+
     def subfolder_name(self, today):
         return (
             f"{today.year:04}-{today.month:02}-{today.day:02}/{self.config.camera.name}"
         )
 
-    @staticmethod
-    def create_thumbnail(file_name, frame, objects, resolution):
+    def create_thumbnail(self, file_name, frame, objects, resolution):
         draw_objects(
             frame.decoded_frame_umat_rgb, objects, resolution,
         )
         cv2.imwrite(file_name, frame.decoded_frame_umat_rgb)
+
+        if self.config.recorder.thumbnail.save_to_disk:
+            cv2.imwrite(
+                os.path.join(
+                    self.config.recorder.folder,
+                    f"{self.config.camera.name}/latest_thumbnail.jpg",
+                ),
+                frame.decoded_frame_umat_rgb,
+            )
+
+        if self.config.recorder.thumbnail.send_to_mqtt and self._mqtt_devices:
+            ret, jpg = cv2.imencode(".jpg", frame.decoded_frame_umat_rgb)
+            if ret:
+                self._mqtt_devices["latest_thumbnail"].publish(jpg.tobytes())
 
     def create_directory(self, path):
         try:
