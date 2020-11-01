@@ -6,3 +6,4 @@
 !docker/cuda/yolov4.cfg
 !requirements.txt
 !rpi_requirements.txt
+!rootfs/
