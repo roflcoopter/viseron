@@ -79,8 +79,9 @@ class Viseron:
             for thread in self.nvr_threads:
                 thread.join()
 
-        # Listen to sigterm
+        # Listen to signals
         signal.signal(signal.SIGTERM, signal_term)
+        signal.signal(signal.SIGINT, signal_term)
 
         try:
             for thread in self.nvr_threads:
