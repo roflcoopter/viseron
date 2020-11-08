@@ -20,6 +20,7 @@ from lib.motion import MotionDetection
 from lib.mqtt.binary_sensor import MQTTBinarySensor
 from lib.mqtt.camera import MQTTCamera
 from lib.mqtt.switch import MQTTSwitch
+from lib.mqtt.sensor import MQTTSensor
 from lib.recorder import FFMPEGRecorder
 from lib.zones import Zone
 
@@ -30,6 +31,9 @@ class MQTT:
     def __init__(self, config, mqtt_queue):
         self.config = config
         self.mqtt_queue = mqtt_queue
+
+        self._status_state = None
+        self.status_attributes = {}
 
         self.devices = {}
         if self.mqtt_queue:
@@ -45,6 +49,7 @@ class MQTT:
                 )
             self.devices["switch"] = MQTTSwitch(config, mqtt_queue)
             self.devices["camera"] = MQTTCamera(config, mqtt_queue)
+            self.devices["sensor"] = MQTTSensor(config, mqtt_queue, "status")
 
     def publish_image(self, object_frame, motion_frame, zones, resolution):
         if self.mqtt_queue:
@@ -75,6 +80,15 @@ class MQTT:
             if ret:
                 self.devices["camera"].publish(jpg.tobytes())
 
+    @property
+    def status_state(self):
+        return self._status_state
+
+    @status_state.setter
+    def status_state(self, state):
+        self._status_state = state
+        self.devices["sensor"].publish(state, attributes=self.status_attributes)
+
     def on_connect(self, client):
         subscriptions = {}
 
@@ -84,32 +98,6 @@ class MQTT:
                 subscriptions[device.command_topic] = [device.on_message]
 
         return subscriptions
-
-    # @property
-    # def mqtt_sensor_config_payload(self):
-    #     payload = {}
-    #     payload["name"] = self.config.camera.mqtt_name
-    #     payload["state_topic"] = self.mqtt_sensor_state_topic
-    #     payload["value_template"] = "{{ value_json.state }}"
-    #     payload["availability_topic"] = self.config.mqtt.last_will_topic
-    #     payload["payload_available"] = "alive"
-    #     payload["payload_not_available"] = "dead"
-    #     payload["json_attributes_topic"] = self.mqtt_sensor_state_topic
-    #     return json.dumps(payload, indent=3)
-
-    # @property
-    # def mqtt_sensor_state_topic(self):
-    #     return (
-    #         f"{self.config.mqtt.discovery_prefix}/sensor/"
-    #         f"{self.config.camera.mqtt_name}/state"
-    #     )
-
-    # @property
-    # def mqtt_sensor_config_topic(self):
-    #     return (
-    #         f"{self.config.mqtt.discovery_prefix}/sensor/"
-    #         f"{self.config.camera.mqtt_name}/config"
-    # )
 
 
 class FFMPEGNVR(Thread):
@@ -475,6 +463,26 @@ class FFMPEGNVR(Thread):
             self._logger.debug("Not recording, pausing object detector")
             self.camera.scan_for_objects.clear()
 
+    def update_status_sensor(self):
+        status = "unknown"
+        if self.recorder.is_recording:
+            status = "recording"
+        elif self.camera.scan_for_objects.is_set():
+            status = "scanning_for_objects"
+        elif self.camera.scan_for_motion.is_set():
+            status = "scanning_for_motion"
+
+        attributes = {}
+        attributes["last_recording_start"] = self.recorder.last_recording_start
+        attributes["last_recording_end"] = self.recorder.last_recording_end
+
+        if (
+            status != self._mqtt.status_state
+            or attributes != self._mqtt.status_attributes
+        ):
+            self._mqtt.status_attributes = attributes
+            self._mqtt.status_state = status
+
     def run(self):
         """ Main thread. It handles starting/stopping of recordings and
         publishes to MQTT if object is detected. Speed is determined by FPS"""
@@ -484,6 +492,7 @@ class FFMPEGNVR(Thread):
 
         self.idle_frames = 0
         while not self.kill_received:
+            self.update_status_sensor()
             self.camera.frame_ready.wait()
 
             # Filter returned objects
