@@ -87,9 +87,10 @@ class FFMPEGRecorder:
         self._logger.info("Starting recorder")
         self.is_recording = True
         self._segment_cleanup.pause()
-        self.last_recording_start = datetime.datetime.now()
+        now = datetime.datetime.now()
+        self.last_recording_start = now.isoformat()
         self.last_recording_end = None
-        self._event_start = int(self.last_recording_start.timestamp())
+        self._event_start = int(now.timestamp())
 
         if self.config.recorder.folder is None:
             self._logger.error("Output directory is not specified")
@@ -125,7 +126,8 @@ class FFMPEGRecorder:
     def stop_recording(self):
         self._logger.info("Stopping recorder")
         self.is_recording = False
-        self.last_recording_end = datetime.datetime.now()
-        self._event_end = int(self.last_recording_end.timestamp())
+        now = datetime.datetime.now()
+        self.last_recording_end = now.isoformat()
+        self._event_end = int(now.timestamp())
         concat_thread = Thread(target=self.concat_segments)
         concat_thread.start()
