@@ -28,7 +28,8 @@ class MQTT:
         LOGGER.debug(f"MQTT connected with returncode {str(returncode)}")
         if returncode != 0:
             LOGGER.error(
-                f"Could not connect to broker. Returncode: {returncode}: {MQTT_RC.get(returncode, 'Unknown error')}"
+                f"Could not connect to broker. Returncode: {returncode}: "
+                f"{MQTT_RC.get(returncode, 'Unknown error')}"
             )
 
         self.subscriptions = {}
