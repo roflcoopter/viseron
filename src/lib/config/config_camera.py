@@ -70,7 +70,11 @@ def check_for_hwaccels(hwaccel_args: List[str]) -> List[str]:
     if hwaccel_args:
         return hwaccel_args
 
-    if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
+    # Dont enable VA-API if CUDA is available
+    if (
+        os.getenv(ENV_VAAPI_SUPPORTED) == "true"
+        and os.getenv(ENV_CUDA_SUPPORTED) != "true"
+    ):
         return HWACCEL_VAAPI
     return hwaccel_args
 
