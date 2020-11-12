@@ -154,6 +154,7 @@ class Segments:
             ]
             + self._config.recorder.codec
             + self._config.recorder.filter_args
+            + ["-movflags", "+faststart"]
             + [file_name]
         )
 
