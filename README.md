@@ -793,6 +793,24 @@ The folder structure of the faces folder is very strict. Here is an example of t
 ### Topics for each camera
 <div style="margin-left: 1em;">
 
+#### Camera status:
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/sensor/status/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic to indicate the current status of the camera
+
+  ```json
+  {"state": "scanning_for_objects", "attributes": {"last_recording_start": <timestamp>, "last_recording_end": <timestamp>}}
+  ```
+
+  Possible values in ```state```: ```recording/scanning_for_motion/scanning_for_objects```
+
+  </div>
+</details>
+</details>
+</div>
+
 #### Camera control:
 <div style="margin-left: 1em;">
 <details>
@@ -964,6 +982,10 @@ A variable amount of cameras will be created based on your configuration.
 1) A camera entity to debug zones, masks, objects and motion.\
    Images are only sent to this topic if ```publish_image: true```
 2) If ```send_to_mqtt``` under ```recorder``` is set to ```true``` , a camera entity named ```camera.{client_id from mqtt config}_{mqtt_name from camera config}_latest_thumbnail``` is created
+
+**Sensor**\
+A sensor entity is created for each camera which indicates the status of Viseron.
+The state is set to ```recording```, ```scanning_for_motion``` or ```scanning_for_objects``` depending on the situation.
 
 **Binary Sensors**\
 A variable amount of binary sensors will be created based on your configuration.

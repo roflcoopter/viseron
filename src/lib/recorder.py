@@ -25,8 +25,10 @@ class FFMPEGRecorder:
         self._mqtt_queue = mqtt_queue
 
         self.is_recording = False
-        self.writer_pipe = None
+        self.last_recording_start = None
+        self.last_recording_end = None
         self._event_start = None
+        self._event_end = None
         self._recording_name = None
 
         segments_folder = os.path.join(
@@ -85,7 +87,10 @@ class FFMPEGRecorder:
         self._logger.info("Starting recorder")
         self.is_recording = True
         self._segment_cleanup.pause()
-        self._event_start = int(datetime.datetime.now().timestamp())
+        now = datetime.datetime.now()
+        self.last_recording_start = now.isoformat()
+        self.last_recording_end = None
+        self._event_start = int(now.timestamp())
 
         if self.config.recorder.folder is None:
             self._logger.error("Output directory is not specified")
@@ -111,7 +116,7 @@ class FFMPEGRecorder:
     def concat_segments(self):
         self._segmenter.concat_segments(
             self._event_start - self.config.recorder.lookback,
-            int(datetime.datetime.now().timestamp()),
+            self._event_end,
             self._recording_name,
         )
         # Dont resume cleanup if new recording started during encoding
@@ -121,5 +126,8 @@ class FFMPEGRecorder:
     def stop_recording(self):
         self._logger.info("Stopping recorder")
         self.is_recording = False
+        now = datetime.datetime.now()
+        self.last_recording_end = now.isoformat()
+        self._event_end = int(now.timestamp())
         concat_thread = Thread(target=self.concat_segments)
         concat_thread.start()
