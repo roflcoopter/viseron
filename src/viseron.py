@@ -51,56 +51,78 @@ class Viseron:
             )
 
         LOGGER.info("Initializing NVR threads")
-        threads = []
+        self.setup_threads = []
+        self.nvr_threads = []
         for camera in config.cameras:
-            camera_config = NVRConfig(
-                camera,
-                config.object_detection,
-                config.motion_detection,
-                config.recorder,
-                config.mqtt,
-                config.logging,
-            )
-            try:
-                nvr = FFMPEGNVR(
-                    camera_config,
+            setup_thread = Thread(
+                target=self.setup_nvr,
+                args=(
+                    config,
+                    camera,
                     detector,
                     detector_queue,
                     post_processors,
-                    mqtt_queue=mqtt_queue,
-                )
-                threads.append(nvr)
-            except FFprobeError:
-                LOGGER.error(f"Failed to initialize camera {camera_config.camera.name}")
+                    mqtt_queue,
+                ),
+            )
+            setup_thread.start()
+            self.setup_threads.append(setup_thread)
+        for thread in self.setup_threads:
+            thread.join()
 
         if mqtt:
             mqtt.connect()
             mqtt_publisher.start()
 
-        for thread in threads:
+        for thread in self.nvr_threads:
             thread.start()
 
         LOGGER.info("Initialization complete")
 
         def signal_term(*_):
             LOGGER.info("Kill received! Sending kill to threads..")
-            for thread in threads:
+            for thread in self.nvr_threads:
                 thread.stop()
+            for thread in self.nvr_threads:
                 thread.join()
 
         # Listen to sigterm
         signal.signal(signal.SIGTERM, signal_term)
 
         try:
-            for thread in threads:
+            for thread in self.nvr_threads:
                 thread.join()
         except KeyboardInterrupt:
             LOGGER.info("Ctrl-C received! Sending kill to threads..")
-            for thread in threads:
+            for thread in self.nvr_threads:
                 thread.stop()
+            for thread in self.nvr_threads:
                 thread.join()
 
         LOGGER.info("Exiting")
+
+    def setup_nvr(
+        self, config, camera, detector, detector_queue, post_processors, mqtt_queue,
+    ):
+        camera_config = NVRConfig(
+            camera,
+            config.object_detection,
+            config.motion_detection,
+            config.recorder,
+            config.mqtt,
+            config.logging,
+        )
+        try:
+            nvr = FFMPEGNVR(
+                camera_config,
+                detector,
+                detector_queue,
+                post_processors,
+                mqtt_queue=mqtt_queue,
+            )
+            self.nvr_threads.append(nvr)
+        except FFprobeError:
+            LOGGER.error(f"Failed to initialize camera {camera_config.camera.name}")
 
 
 def schedule_cleanup(config):
