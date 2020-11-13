@@ -38,8 +38,9 @@ class ObjectDetection:
                     ],
                 )
                 LOGGER.debug("Using PCIe EdgeTPU")
-            except ValueError:
+            except ValueError as err:
                 LOGGER.warning("EdgeTPU not found. Detection will run on CPU")
+                LOGGER.error(err)
                 self.interpreter = tflite.Interpreter(
                     model_path="/detectors/models/edgetpu/cpu_model.tflite",
                 )
