@@ -11,6 +11,7 @@ from lib.detector import Detector
 from lib.mqtt import MQTT
 from lib.nvr import FFMPEGNVR
 from lib.post_processors import PostProcessor
+from lib.webserver import WebServer
 from viseron_exceptions import FFprobeError
 
 LOGGER = logging.getLogger()
@@ -25,6 +26,9 @@ class Viseron:
         LOGGER.info("Initializing...")
 
         data_stream = DataStream()
+
+        webserver = WebServer()
+        webserver.start()
 
         schedule_cleanup(config)
 

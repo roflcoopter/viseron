@@ -1,7 +1,7 @@
 import logging
 from queue import Empty, Queue
 from threading import Thread
-from typing import List
+from typing import Dict
 
 import cv2
 
@@ -78,6 +78,7 @@ class MQTT:
                 ".jpg", frame.decoded_frame_mat_rgb, [int(cv2.IMWRITE_JPEG_QUALITY), 75]
             )
             if ret:
+                self.published_frame = jpg
                 self.devices["camera"].publish(jpg.tobytes())
 
     @property
@@ -101,7 +102,7 @@ class MQTT:
 
 
 class FFMPEGNVR(Thread):
-    nvr_list: List[object] = []
+    nvr_list: Dict[str, object] = {}
 
     def __init__(self, config, detector, mqtt_queue=None):
         Thread.__init__(self)
@@ -164,7 +165,7 @@ class FFMPEGNVR(Thread):
         self._start_recorder = False
         self.recorder = FFMPEGRecorder(config, detector.detection_lock, mqtt_queue)
 
-        self.nvr_list.append({config.camera.mqtt_name: self})
+        self.nvr_list[config.camera.mqtt_name] = self
         self._logger.debug("NVR thread initialized")
 
     def setup_loggers(self, config):
