@@ -6,6 +6,7 @@ from threading import Thread
 from const import LOG_LEVELS
 from lib.cleanup import Cleanup
 from lib.config import CONFIG, NVRConfig, ViseronConfig
+from lib.data_stream import DataStream
 from lib.detector import Detector
 from lib.mqtt import MQTT
 from lib.nvr import FFMPEGNVR
@@ -22,6 +23,8 @@ class Viseron:
         log_settings(config)
         LOGGER.info("-------------------------------------------")
         LOGGER.info("Initializing...")
+
+        data_stream = DataStream()
 
         schedule_cleanup(config)
 
