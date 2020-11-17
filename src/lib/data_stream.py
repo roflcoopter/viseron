@@ -4,6 +4,8 @@ from queue import Queue
 from threading import Thread
 from typing import Any, Callable, Dict, Union
 
+from lib.helpers import pop_if_full
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -41,11 +43,13 @@ class DataStream:
     def run_callbacks(callbacks, data_item):
         for callback in callbacks:
             if callable(callback):
-                Thread(target=callback, args=(data_item["data"],)).start()
+                thread = Thread(target=callback, args=(data_item["data"],))
+                thread.daemon = True
+                thread.start()
                 continue
 
             if isinstance(callback, Queue):
-                callback.put(data_item["data"])
+                pop_if_full(callback, data_item["data"])
                 continue
 
             LOGGER.error(
