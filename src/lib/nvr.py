@@ -5,8 +5,9 @@ from typing import List
 
 import cv2
 
-from const import LOG_LEVELS
+from const import LOG_LEVELS, TOPIC_FRAME_PROCESSED_OBJECT
 from lib.camera import FFMPEGCamera
+from lib.data_stream import DataStream
 from lib.helpers import (
     Filter,
     draw_contours,
@@ -19,11 +20,10 @@ from lib.helpers import (
 from lib.motion import MotionDetection
 from lib.mqtt.binary_sensor import MQTTBinarySensor
 from lib.mqtt.camera import MQTTCamera
-from lib.mqtt.switch import MQTTSwitch
 from lib.mqtt.sensor import MQTTSensor
+from lib.mqtt.switch import MQTTSwitch
 from lib.recorder import FFMPEGRecorder
 from lib.zones import Zone
-from lib.data_stream import DataStream
 
 LOGGER = logging.getLogger(__name__)
 
@@ -104,43 +104,32 @@ class MQTT:
 class FFMPEGNVR(Thread):
     nvr_list: List[object] = []
 
-    def __init__(
-        self, config, detector, detector_queue, post_processors, mqtt_queue=None
-    ):
+    def __init__(self, config, detector, post_processors, mqtt_queue=None):
         Thread.__init__(self)
         self.setup_loggers(config)
         self._logger.debug("Initializing NVR thread")
 
         # Use FFMPEG to read from camera. Used for reading/recording
-        self.camera = FFMPEGCamera(config)
+        self.camera = FFMPEGCamera(config, detector)
 
         self._mqtt = MQTT(config, mqtt_queue)
         self.config = config
         self.kill_received = False
         self.camera_grabber = None
 
+        self._post_processors = post_processors
+
         self._objects_in_fov = []
         self._labels_in_fov = []
         self._reported_label_count = {}
-        self.idle_frames = 0
-
-        self.detector = detector
-
-        self._post_processors = post_processors
-
-        self._object_decoder_queue = Queue(maxsize=2)
-        self.object_return_queue = Queue(maxsize=2)
-
-        if config.motion_detection.trigger_detector:
-            self.camera.decoders["motion"].scan.set()
-            self.camera.scan_for_objects.clear()
-        else:
-            self.camera.scan_for_objects.set()
-            self.camera.decoders["motion"].scan.clear()
-
+        self._object_return_queue = Queue(maxsize=10)
         self._object_filters = {}
         for object_filter in config.object_detection.labels:
             self._object_filters[object_filter.label] = Filter(object_filter)
+        DataStream.subscribe_data(
+            f"{config.camera.name_slug}/{TOPIC_FRAME_PROCESSED_OBJECT}",
+            self._object_return_queue,
+        )
 
         self._zones = []
         for zone in config.camera.zones:
@@ -158,31 +147,27 @@ class FFMPEGNVR(Thread):
         self._motion_detected = False
         self._motion_only_frames = 0
         self._motion_max_timeout_reached = False
-        self.motion_return_queue = Queue(maxsize=5)
+        self._motion_return_queue = Queue(maxsize=5)
         if config.motion_detection.timeout or config.motion_detection.trigger_detector:
             self.motion_detector = MotionDetection(config, self.camera.resolution)
             DataStream.subscribe_data(
-                self.motion_detector.topic_processed_motion, self.motion_return_queue
+                self.motion_detector.topic_processed_motion, self._motion_return_queue
             )
 
-        self.object_decoder = Thread(
-            target=self.camera.decoder,
-            args=(
-                self._object_decoder_queue,
-                detector_queue,
-                detector.model_width,
-                detector.model_height,
-            ),
-        )
-        self.object_decoder.daemon = True
-        self.object_decoder.start()
+        if config.motion_detection.trigger_detector:
+            self.camera.decoders["motion_detection"].scan.set()
+            self.camera.decoders["object_detection"].scan.clear()
+        else:
+            self.camera.decoders["object_detection"].scan.set()
+            self.camera.decoders["motion_detection"].scan.clear()
+        self.idle_frames = 0
 
         self.start_camera()
 
         # Initialize recorder
         self._trigger_recorder = False
         self._start_recorder = False
-        self.recorder = FFMPEGRecorder(config, self.detector.detection_lock, mqtt_queue)
+        self.recorder = FFMPEGRecorder(config, detector.detection_lock, mqtt_queue)
 
         self.nvr_list.append({config.camera.mqtt_name: self})
         self._logger.debug("NVR thread initialized")
@@ -236,14 +221,7 @@ class FFMPEGNVR(Thread):
     def start_camera(self):
         if not self.camera_grabber or not self.camera_grabber.is_alive():
             self._logger.debug("Starting camera")
-            self.camera_grabber = Thread(
-                target=self.camera.capture_pipe,
-                args=(
-                    self.config.object_detection.interval,
-                    self._object_decoder_queue,
-                    self.object_return_queue,
-                ),
-            )
+            self.camera_grabber = Thread(target=self.camera.capture_pipe,)
             self.camera_grabber.daemon = True
             self.camera_grabber.start()
 
@@ -283,9 +261,9 @@ class FFMPEGNVR(Thread):
         recorder_thread.start()
         if (
             self.config.motion_detection.timeout
-            and not self.camera.decoders["motion"].scan.is_set()
+            and not self.camera.decoders["motion_detection"].scan.is_set()
         ):
-            self.camera.decoders["motion"].scan.set()
+            self.camera.decoders["motion_detection"].scan.set()
             self._logger.info("Starting motion detector")
 
     def stop_recording(self):
@@ -301,7 +279,7 @@ class FFMPEGNVR(Thread):
 
         if self.idle_frames >= (self.camera.stream.fps * self.config.recorder.timeout):
             if not self.config.motion_detection.trigger_detector:
-                self.camera.decoders["motion"].scan.clear()
+                self.camera.decoders["motion_detection"].scan.clear()
                 self._logger.info("Pausing motion detector")
 
             self.recorder.stop_recording()
@@ -310,7 +288,7 @@ class FFMPEGNVR(Thread):
         """ Returns a frame along with its detections which has been processed
         by the object detector """
         try:
-            return self.object_return_queue.get_nowait()["frame"]
+            return self._object_return_queue.get_nowait()["frame"]
         except Empty:
             return None
 
@@ -381,7 +359,7 @@ class FFMPEGNVR(Thread):
         """ Returns a frame along with its motion contours which has been processed
         by the motion detector """
         try:
-            return self.motion_return_queue.get_nowait()
+            return self._motion_return_queue.get_nowait()
         except Empty:
             return None
 
@@ -432,25 +410,25 @@ class FFMPEGNVR(Thread):
         if self.motion_detected:
             if (
                 self.config.motion_detection.trigger_detector
-                and not self.camera.scan_for_objects.is_set()
+                and not self.camera.decoders["object_detection"].scan.is_set()
             ):
-                self.camera.scan_for_objects.set()
+                self.camera.decoders["object_detection"].scan.set()
                 self._logger.debug("Starting object detector")
         elif (
-            self.camera.scan_for_objects.is_set()
+            self.camera.decoders["object_detection"].scan.is_set()
             and not self.recorder.is_recording
             and self.config.motion_detection.trigger_detector
         ):
             self._logger.debug("Not recording, pausing object detector")
-            self.camera.scan_for_objects.clear()
+            self.camera.decoders["object_detection"].scan.clear()
 
     def update_status_sensor(self):
         status = "unknown"
         if self.recorder.is_recording:
             status = "recording"
-        elif self.camera.scan_for_objects.is_set():
+        elif self.camera.decoders["object_detection"].scan.is_set():
             status = "scanning_for_objects"
-        elif self.camera.decoders["motion"].scan.is_set():
+        elif self.camera.decoders["motion_detection"].scan.is_set():
             status = "scanning_for_motion"
 
         attributes = {}

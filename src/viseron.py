@@ -36,13 +36,7 @@ class Viseron:
             mqtt_publisher = Thread(target=mqtt.publisher, args=(mqtt_queue,))
             mqtt_publisher.daemon = True
 
-        detector_queue = Queue(maxsize=2)
         detector = Detector(config.object_detection)
-        detector_thread = Thread(
-            target=detector.object_detection, args=(detector_queue,)
-        )
-        detector_thread.daemon = True
-        detector_thread.start()
 
         post_processors = {}
         for (
@@ -59,14 +53,7 @@ class Viseron:
         for camera in config.cameras:
             setup_thread = Thread(
                 target=self.setup_nvr,
-                args=(
-                    config,
-                    camera,
-                    detector,
-                    detector_queue,
-                    post_processors,
-                    mqtt_queue,
-                ),
+                args=(config, camera, detector, post_processors, mqtt_queue,),
             )
             setup_thread.start()
             self.setup_threads.append(setup_thread)
@@ -105,7 +92,7 @@ class Viseron:
         LOGGER.info("Exiting")
 
     def setup_nvr(
-        self, config, camera, detector, detector_queue, post_processors, mqtt_queue,
+        self, config, camera, detector, post_processors, mqtt_queue,
     ):
         camera_config = NVRConfig(
             camera,
@@ -117,11 +104,7 @@ class Viseron:
         )
         try:
             nvr = FFMPEGNVR(
-                camera_config,
-                detector,
-                detector_queue,
-                post_processors,
-                mqtt_queue=mqtt_queue,
+                camera_config, detector, post_processors, mqtt_queue=mqtt_queue,
             )
             self.nvr_threads.append(nvr)
         except FFprobeError:
