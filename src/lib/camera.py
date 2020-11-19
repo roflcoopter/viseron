@@ -17,7 +17,6 @@ from const import (
     TOPIC_FRAME_SCAN_OBJECT,
 )
 from lib.data_stream import DataStream
-from lib.helpers import pop_if_full
 from viseron_exceptions import FFprobeError
 
 LOGGER = logging.getLogger(__name__)
@@ -303,14 +302,13 @@ class Stream:
 
 
 class FrameDecoder:
-    decode_error = False
-
     def __init__(
         self,
         logger,
         config,
         interval,
         stream: Stream,
+        decode_error,
         width,
         height,
         topic_decode,
@@ -321,8 +319,10 @@ class FrameDecoder:
         self.interval = interval
         self.interval_calculated = round(interval * stream.fps)
 
+        self.decode_error = False
         self.scan = Event()
         self._frame_number = 0
+        self._decode_error = decode_error
         self._width = width
         self._height = height
         self._decoder_queue: Queue = Queue(maxsize=5)
@@ -366,8 +366,8 @@ class FrameDecoder:
                 DataStream.publish_data(self._topic_scan, frame)
                 continue
 
+            self._decode_error.set()
             self._logger.error("Unable to decode frame. FFmpeg pipe seems broken")
-            self.decode_error = True
 
 
 class FFMPEGCamera:
@@ -378,6 +378,7 @@ class FFMPEGCamera:
         self.resolution = None
         self._segments = None
         self.frame_ready = Event()
+        self.decode_error = Event()
 
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
@@ -427,6 +428,7 @@ class FFMPEGCamera:
             self._config,
             self._config.object_detection.interval,
             self.stream,
+            self.decode_error,
             detector.model_width,
             detector.model_height,
             TOPIC_FRAME_DECODE_OBJECT,
@@ -441,6 +443,7 @@ class FFMPEGCamera:
                 self._config,
                 self._config.motion_detection.interval,
                 self.stream,
+                self.decode_error,
                 self._config.motion_detection.width,
                 self._config.motion_detection.height,
                 TOPIC_FRAME_DECODE_MOTION,
@@ -458,31 +461,30 @@ class FFMPEGCamera:
     def capture_pipe(self):
         self._logger.debug("Starting capture thread")
         self._connected = True
-        current_frame = True
 
         self.stream.start_pipe()
         if self._segments:
             self._segments.start_pipe()
 
         while self._connected:
-            if FrameDecoder.decode_error or not current_frame:
+            if self.decode_error.is_set():
                 sleep(5)
                 self._logger.error("Restarting frame pipe")
                 self.stream.close_pipe()
                 self.stream.check_command()
                 self.stream.start_pipe()
-                FrameDecoder.decode_error = False
+                if self._segments:
+                    self._segments.close_pipe()
+                    self._segments.start_pipe()
+
+                self.decode_error.clear()
 
             current_frame = self.stream.read()
-            if current_frame:
-                for decoder in self.decoders.values():
-                    decoder.scan_frame(current_frame)
+            for decoder in self.decoders.values():
+                decoder.scan_frame(current_frame)
 
-                self.frame_ready.set()
-                self.frame_ready.clear()
-                continue
-
-            self._logger.error("Unable to fetch frame, FFmpeg pipe seems broken")
+            self.frame_ready.set()
+            self.frame_ready.clear()
 
         self.stream.close_pipe()
         if self._segments:
