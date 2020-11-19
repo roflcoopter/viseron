@@ -7,6 +7,8 @@ from typing import Dict
 from lib.config import ViseronConfig
 from lib.config.config_logging import LoggingConfig
 from lib.config.config_post_processors import PostProcessorsConfig
+from lib.data_stream import DataStream
+from const import TOPIC_FRAME_SCAN_POSTPROC_FACEREC
 
 LOGGER = logging.getLogger(__name__)
 
@@ -24,7 +26,6 @@ class PostProcessor:
         LOGGER.debug(f"Initializing post processor {processor_type}")
         processor = self.import_processor(processor_type, processor_config)
         LOGGER.debug("Successfully imported post processor")
-        self.input_queue: Queue = Queue(maxsize=10)
         self._post_processor = processor.Processor(
             config,
             processor.Config(
@@ -33,9 +34,12 @@ class PostProcessor:
             mqtt_queue,
         )
 
+        self._topic_scan = f"*/{TOPIC_FRAME_SCAN_POSTPROC_FACEREC}"
+        self._post_processor_queue: Queue = Queue(maxsize=10)
         processor_thread = Thread(target=self.post_process)
         processor_thread.daemon = True
         processor_thread.start()
+        DataStream.subscribe_data(self._topic_scan, self._post_processor_queue)
 
         LOGGER.debug(f"Post processor {processor_type} initialized")
 
@@ -47,9 +51,9 @@ class PostProcessor:
 
     def post_process(self):
         while True:
-            item = self.input_queue.get()
+            data = self._post_processor_queue.get()
             self._post_processor.process(
-                item["camera_config"], item["frame"], item["object"], item["zone"]
+                data["camera_config"], data["frame"], data["object"], data["zone"]
             )
 
     def on_connect(self, client):

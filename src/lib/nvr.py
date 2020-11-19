@@ -5,7 +5,7 @@ from typing import List
 
 import cv2
 
-from const import LOG_LEVELS, TOPIC_FRAME_PROCESSED_OBJECT
+from const import LOG_LEVELS, TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_POSTPROC
 from lib.camera import FFMPEGCamera
 from lib.data_stream import DataStream
 from lib.helpers import (
@@ -15,7 +15,6 @@ from lib.helpers import (
     draw_objects,
     draw_zones,
     report_labels,
-    send_to_post_processor,
 )
 from lib.motion import MotionDetection
 from lib.mqtt.binary_sensor import MQTTBinarySensor
@@ -104,7 +103,7 @@ class MQTT:
 class FFMPEGNVR(Thread):
     nvr_list: List[object] = []
 
-    def __init__(self, config, detector, post_processors, mqtt_queue=None):
+    def __init__(self, config, detector, mqtt_queue=None):
         Thread.__init__(self)
         self.setup_loggers(config)
         self._logger.debug("Initializing NVR thread")
@@ -117,30 +116,22 @@ class FFMPEGNVR(Thread):
         self.kill_received = False
         self.camera_grabber = None
 
-        self._post_processors = post_processors
-
         self._objects_in_fov = []
         self._labels_in_fov = []
         self._reported_label_count = {}
         self._object_return_queue = Queue(maxsize=10)
         self._object_filters = {}
-        for object_filter in config.object_detection.labels:
-            self._object_filters[object_filter.label] = Filter(object_filter)
         DataStream.subscribe_data(
             f"{config.camera.name_slug}/{TOPIC_FRAME_PROCESSED_OBJECT}",
             self._object_return_queue,
         )
+        for object_filter in config.object_detection.labels:
+            self._object_filters[object_filter.label] = Filter(object_filter)
 
         self._zones = []
         for zone in config.camera.zones:
             self._zones.append(
-                Zone(
-                    zone,
-                    self.camera.resolution,
-                    config,
-                    self._mqtt.mqtt_queue,
-                    post_processors,
-                )
+                Zone(zone, self.camera.resolution, config, self._mqtt.mqtt_queue,)
             )
 
         self._motion_frames = 0
@@ -161,6 +152,10 @@ class FFMPEGNVR(Thread):
             self.camera.decoders["object_detection"].scan.set()
             self.camera.decoders["motion_detection"].scan.clear()
         self.idle_frames = 0
+
+        self._post_processor_topic = (
+            f"{config.camera.name_slug}/{TOPIC_FRAME_SCAN_POSTPROC}"
+        )
 
         self.start_camera()
 
@@ -307,15 +302,18 @@ class FFMPEGNVR(Thread):
                 if self._object_filters[obj.label].triggers_recording:
                     self._trigger_recorder = True
 
-                # Send detection to configured post processors
                 if self._object_filters[obj.label].post_processor:
-                    send_to_post_processor(
-                        self._logger,
-                        self.config,
-                        self._post_processors,
-                        self._object_filters[obj.label].post_processor,
-                        frame,
-                        obj,
+                    DataStream.publish_data(
+                        (
+                            f"{self._post_processor_topic}/"
+                            f"{self._object_filters[obj.label].post_processor}"
+                        ),
+                        {
+                            "camera_config": self.config,
+                            "frame": frame,
+                            "object": obj,
+                            "zone": None,
+                        },
                     )
 
         self.objects_in_fov = objects_in_fov
