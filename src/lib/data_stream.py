@@ -27,12 +27,12 @@ class DataStream:
 
     @staticmethod
     def publish_data(data_topic, data):
-        LOGGER.debug(f"Publishing to data topic {data_topic}, {data}")
+        # LOGGER.debug(f"Publishing to data topic {data_topic}, {data}")
         DataStream._data_queue.put({"data_topic": data_topic, "data": data})
 
     @staticmethod
     def subscribe_data(data_topic, callback: Union[Callable, Queue]):
-        LOGGER.debug(f"Subscribing to data topic {data_topic}, {callback}")
+        # LOGGER.debug(f"Subscribing to data topic {data_topic}, {callback}")
         if "*" in data_topic:
             DataStream._wildcard_subscribers.setdefault(data_topic, []).append(callback)
             return
@@ -65,10 +65,10 @@ class DataStream:
     def wildcard_subscriptions(self, data_item):
         for data_topic, callbacks in self._wildcard_subscribers.items():
             if fnmatch.fnmatch(data_item["data_topic"], data_topic):
-                LOGGER.debug(
-                    f"Got data on topic {data_item['data_topic']} "
-                    f"matching with subscriber on topic {data_topic}"
-                )
+                # LOGGER.debug(
+                #     f"Got data on topic {data_item['data_topic']} "
+                #     f"matching with subscriber on topic {data_topic}"
+                # )
 
                 self.run_callbacks(callbacks, data_item)
 
