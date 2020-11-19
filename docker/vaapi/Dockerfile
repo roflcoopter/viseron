@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         sudo \
         unzip \
         xz-utils \
+        tzdata \
         # Intel MKL
         intel-mkl-64bit-2020.3-111 \
         # ffmpeg

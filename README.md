@@ -31,6 +31,7 @@ Builds are tested and verified on the following platforms:
 - [Getting started](#getting-started)
 - [Configuration Options](#configuration-options)
   - [Cameras](#cameras)
+    - [Substream](#substream)
     - [Camera motion detection](#camera-motion-detection)
     - [Mask](#mask)
     - [Camera object detection](#camera-object-detection)
@@ -92,6 +93,8 @@ Choose the appropriate docker container for your machine. Builds are published t
   I do not recommend using an RPi unless you have a Google Coral EdgeTPU, the CPU is not fast enough and you might run out of memory.
   To make use of hardware accelerated decoding/encoding you might have to increase the allocated GPU memory.\
   To do this edit ```/boot/config.txt``` and set ```gpu_mem=256``` and then reboot.
+
+  I also recommend configuring a [substream](#substream) if you plan on running Viseron on an RPi.
 </details>
 
 
@@ -234,7 +237,7 @@ The command is built like this: \
 | port | int | **required** | any integer | Port for the camera stream |
 | username | str | optional | any string | Username for the camera stream |
 | password | str | optional | any string | Password for the camera stream |
-| path | str | optional | any string | Path to the camera stream, eg ```/Streaming/Channels/101/``` |
+| path | str | **optional** | any string | Path to the camera stream, eg ```/Streaming/Channels/101/``` |
 | width | int | optional | any integer | Width of the stream. Will use OpenCV to get this information if not given |
 | height | int | optional | any integer | Height of the stream. Will use OpenCV to get this information if not given |
 | fps | int | optional | any integer | FPS of the stream. Will use OpenCV to get this information if not given |
@@ -244,9 +247,10 @@ The command is built like this: \
 | codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
 | rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesnt support TCP |
 | filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
+| substream | dictionary | optional | see [Substream config](#substream) | Substream to perform image processing on |
 | motion_detection | dictionary | optional | see [Camera motion detection config](#camera-motion-detection) | Overrides the global ```motion_detection``` config |
-| object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) below | Overrides the global ```object_detection``` config |
-| zones | list | optional | see [Zones config](#zones) below | Allows you to specify zones to further filter detections |
+| object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) | Overrides the global ```object_detection``` config |
+| zones | list | optional | see [Zones config](#zones) | Allows you to specify zones to further filter detections |
 | publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones, objects, motion and masks.<br><b>Note: this will use some extra CPU and should probably only be used for debugging</b> |
 | ffmpeg_loglevel | str | optional | ```quiet```, ```panic```, ```fatal```, ```error```, ```warning```, ```info```, ```verbose```, ```debug```, ```trace``` | Sets the loglevel for ffmpeg.<br> Should only be used in debugging purposes. |
 | ffmpeg_recoverable_errors | list | optional | a list of strings | ffmpeg sometimes print errors that are not fatal.<br>If you get errors like ```Error starting decoder pipe!```, see below for details. |
@@ -290,6 +294,38 @@ So to ignore the error above you would add this to your configuration:
 ffmpeg_recoverable_errors:
   - error while decoding MB
 ```
+
+---
+
+### Substream
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| path | str | **required** | any string | Path to the camera substream, eg ```/Streaming/Channels/102/``` |
+| width | int | optional | any integer | Width of the stream. Will use FFprobe to get this information if not given |
+| height | int | optional | any integer | Height of the stream. Will use FFprobe to get this information if not given |
+| fps | int | optional | any integer | FPS of the stream. Will use FFprobe to get this information if not given |
+| input_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
+| hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG decoder hardware acceleration arguments |
+| codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
+| rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesnt support TCP |
+| filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
+
+Using the substream is a great way to reduce the system load from FFmpeg.\
+When configured, two FFmpeg processes will spawn:\
+\- One that reads the main stream and creates segments for recordings. Codec ```-c:v copy``` is used so practically no resources are used.\
+\- One that reads the substream and pipes frames to Viseron for motion/object detection.
+
+To really benefit from this you should reduce the framerate of the substream to match the lowest interval set for either motion or object detection.\
+As an example:
+```yaml
+motion_detection:
+  interval: 0.5
+object_detection:
+  interval: 1
+```
+The optimal FPS for this config would be 2, since it would output a frame every 0.5 seconds for the motion detector to consume.
+
+You should also change the resolution to something lower than the main stream to benefit from this.
 
 ---
 
@@ -614,39 +650,71 @@ By using a running average, the "background" image will adjust to daylight, stat
 | timeout | int | 10 | any integer | Number of seconds to record after all events are over |
 | retain | int | 7 | any integer | Number of days to save recordings before deleting them |
 | folder | path | ```/recordings``` | path to existing folder | What folder to store recordings in |
+| segments_folder | path | ```/segments``` | any path | What folder to store ffmpeg segments in |
 | extension | str | ```mp4``` | a valid video file extension | The file extension used for recordings. I don't recommend changing this |
-| global_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder hardware acceleration arguments |
 | codec | str | optional | any supported decoder codec | FFMPEG video encoder codec, eg ```h264_nvenc``` |
 | filter_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder filter arguments |
+| thumbnail | dictionary | optional | see [Thumbnail](#thumbnail) | Options for the thumbnail created on start of a recording |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the recorder. <br>This affects all logs named ```lib.recorder.<camera name>``` |
 
-A default ffmpeg encoder command is generated, which varies a bit depending on the Docker container you use,
+Viseron uses [ffmpeg segments](https://www.ffmpeg.org/ffmpeg-formats.html#segment_002c-stream_005fsegment_002c-ssegment) to handle recordings.\
+This means Viseron will write small 5 second segments of the stream to disk, and in case of any recording starting, Viseron will find the appropriate segments and concatenate them together.\
+The reason for using segments instead of just starting the recorder on an event, is to support to the ```lookback``` feature which makes it possible to record *before* an event actually happened.
+
 <details>
-  <summary>For Nvidia GPU support in the <b>roflcoopter/viseron-cuda</b> image</summary>
+  <summary>The default concatenation command</summary>
 
   ```
-  ffmpeg -hide_banner -loglevel panic -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_nvenc <file>
+  ffmpeg -hide_banner -loglevel error -y -protocol_whitelist file,pipe -f concat -safe 0 -i - -c:v copy <outfile.mp4>
   ```
 </details>
 
+If you want to re-encode the video you can choose ```codec```, ```filter_args``` and optionally ```hwaccel_args```.\
+To place the segments in memory instead of writing to disk, you can mount a tmpfs disk in the container.
 <details>
-  <summary>For VAAPI support in the <b>roflcoopter/viseron-vaapi</b> image</summary>
+  <summary>Example tmpfs configuration</summary>
 
+  Example Docker command
+
+  ```bash
+  docker run --rm \
+  -v <recordings path>:/recordings \
+  -v <config path>:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  --tmpfs /tmp \
+  --name viseron \
+  roflcoopter/viseron:latest
   ```
-  ffmpeg -hide_banner -loglevel panic -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_vaapi -vf "format=nv12|vaapi,hwupload" <file>
+  Example docker-compose
+  ```yaml
+  version: "2.4"
+
+  services:
+    viseron:
+      image: roflcoopter/viseron:latest
+      container_name: viseron
+      volumes:
+        - <recordings path>:/recordings
+        - <config path>:/config
+        - /etc/localtime:/etc/localtime:ro
+      tmpfs:
+        - /tmp
+  ```
+  config.yaml
+  ```yaml
+  recorder:
+    segments_folder: /tmp
   ```
 </details>
 
-<details>
-  <summary>For RPi3 in the <b>roflcoopter/viseron-rpi</b> image</summary>
+### Thumbnail
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| save_to_disk | boolean | False | True/False | If set to true, the thumbnail that is created on start of recording is saved to ```{folder}/{camera_name}/latest_thumbnail.jpg``` |
+| send_to_mqtt | boolean | False | True/False | If set to true, the thumbnail that is created on start of recording is sent over MQTT. |
 
-  ```
-  ffmpeg -hide_banner -loglevel panic -f rawvideo -pix_fmt nv12 -s:v <width>x<height> -r <fps> -i pipe:0 -y -c:v h264_omx <file>
-  ```
-</details>
-
-This means that you do **not** have to set ```hwaccel_args``` *unless* you have a specific need to change the default command (say you need to change ```h264_nvenc``` to ```hevc_nvenc```)
+The default location for the thumbnail if ```save_to_disk: true``` is ```/recordings/{camera_name}/latest_thumbnail.jpg```
 
 ---
 
@@ -725,6 +793,24 @@ The folder structure of the faces folder is very strict. Here is an example of t
 ### Topics for each camera
 <div style="margin-left: 1em;">
 
+#### Camera status:
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/sensor/status/state</b></code></summary>
+  <div style="margin-left: 1em;">
+  A JSON formatted payload is published to this topic to indicate the current status of the camera
+
+  ```json
+  {"state": "scanning_for_objects", "attributes": {"last_recording_start": <timestamp>, "last_recording_end": <timestamp>}}
+  ```
+
+  Possible values in ```state```: ```recording/scanning_for_motion/scanning_for_objects```
+
+  </div>
+</details>
+</details>
+</div>
+
 #### Camera control:
 <div style="margin-left: 1em;">
 <details>
@@ -762,6 +848,17 @@ The folder structure of the faces folder is very strict. Here is an example of t
   Zones are drawn in red. If an object passes its filter and is inside the zone, the zone will turn green.\
   Motion contours that are smaller than configured ```area``` are drawn in dark purple, while bigger contours are drawn in pink.\
   Masks are drawn with an orange border and black background with 70% opacity.
+  </div>
+</details>
+</div>
+
+<div style="margin-left: 1em;">
+<details>
+  <summary>Topic: <b><code>{client_id}/{mqtt_name from camera config}/camera/latest_thumbnail/image</b></code></summary>
+  <div style="margin-left: 1em;">
+
+  An image is published to this topic on the start of a recording if ```send_to_mqtt``` under ```recorder``` is set to ```true```.\
+  The image is the same as the thumbnail saved along with the recording.
   </div>
 </details>
 </div>
@@ -880,9 +977,15 @@ All MQTT topics are largely inspired by Home Assistants way of organizing entiti
 Viseron integrates into Home Assistant using MQTT discovery and is enabled by default if you configure MQTT.\
 Viseron will create a number of entities depending on your configuration.
 
-**Camera entity**\
-A camera entity will be created for each camera.\
-Used to debug zones, masks, objects and motion.
+**Cameras**\
+A variable amount of cameras will be created based on your configuration.
+1) A camera entity to debug zones, masks, objects and motion.\
+   Images are only sent to this topic if ```publish_image: true```
+2) If ```send_to_mqtt``` under ```recorder``` is set to ```true``` , a camera entity named ```camera.{client_id from mqtt config}_{mqtt_name from camera config}_latest_thumbnail``` is created
+
+**Sensor**\
+A sensor entity is created for each camera which indicates the status of Viseron.
+The state is set to ```recording```, ```scanning_for_motion``` or ```scanning_for_objects``` depending on the situation.
 
 **Binary Sensors**\
 A variable amount of binary sensors will be created based on your configuration.

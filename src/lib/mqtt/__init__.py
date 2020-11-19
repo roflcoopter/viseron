@@ -6,6 +6,15 @@ from lib.post_processors import PostProcessor
 
 LOGGER = logging.getLogger(__name__)
 
+MQTT_RC = {
+    0: "Connection successful",
+    1: "Connection refused - incorrect protocol version",
+    2: "Connection refused - invalid client identifier",
+    3: "Connection refused - server unavailable",
+    4: "Connection refused - bad username or password",
+    5: "Connection refused - not authorised",
+}
+
 
 class MQTT:
     def __init__(self, config):
@@ -16,7 +25,12 @@ class MQTT:
 
     # pylint: disable=unused-argument
     def on_connect(self, client, userdata, flags, returncode):
-        LOGGER.debug("MQTT connected with result code {}".format(str(returncode)))
+        LOGGER.debug(f"MQTT connected with returncode {str(returncode)}")
+        if returncode != 0:
+            LOGGER.error(
+                f"Could not connect to broker. Returncode: {returncode}: "
+                f"{MQTT_RC.get(returncode, 'Unknown error')}"
+            )
 
         self.subscriptions = {}
         for nvr in FFMPEGNVR.nvr_list:

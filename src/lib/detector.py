@@ -1,11 +1,12 @@
 import importlib
 import logging
+from threading import Lock
 
 import cv2
 from voluptuous import Any, Optional, Required
 
-from lib.config.config_object_detection import SCHEMA as BASE_SCEHMA
 from lib.config.config_logging import LoggingConfig
+from lib.config.config_object_detection import SCHEMA as BASE_SCEHMA
 from lib.helpers import calculate_relative_coords, pop_if_full
 
 LOGGER = logging.getLogger(__name__)
@@ -112,6 +113,7 @@ class Detector:
         LOGGER.debug(f"Initializing object detector {object_detection_config['type']}")
 
         self.config = config
+        self.detection_lock = Lock()
 
         # Activate OpenCL
         if cv2.ocl.haveOpenCL():
@@ -124,7 +126,9 @@ class Detector:
     def object_detection(self, detector_queue):
         while True:
             frame = detector_queue.get()
+            self.detection_lock.acquire()
             frame["frame"].objects = self.object_detector.return_objects(frame)
+            self.detection_lock.release()
             pop_if_full(
                 frame["object_return_queue"], frame,
             )

@@ -5,11 +5,12 @@ from threading import Thread
 
 from const import LOG_LEVELS
 from lib.cleanup import Cleanup
-from lib.config import ViseronConfig, NVRConfig, CONFIG
+from lib.config import CONFIG, NVRConfig, ViseronConfig
 from lib.detector import Detector
-from lib.post_processors import PostProcessor
 from lib.mqtt import MQTT
 from lib.nvr import FFMPEGNVR
+from lib.post_processors import PostProcessor
+from viseron_exceptions import FFprobeError
 
 LOGGER = logging.getLogger()
 
@@ -50,59 +51,84 @@ class Viseron:
             )
 
         LOGGER.info("Initializing NVR threads")
-        threads = []
+        self.setup_threads = []
+        self.nvr_threads = []
         for camera in config.cameras:
-            camera_config = NVRConfig(
-                camera,
-                config.object_detection,
-                config.motion_detection,
-                config.recorder,
-                config.mqtt,
-                config.logging,
-            )
-            threads.append(
-                FFMPEGNVR(
-                    camera_config,
+            setup_thread = Thread(
+                target=self.setup_nvr,
+                args=(
+                    config,
+                    camera,
                     detector,
                     detector_queue,
                     post_processors,
-                    mqtt_queue=mqtt_queue,
-                )
+                    mqtt_queue,
+                ),
             )
+            setup_thread.start()
+            self.setup_threads.append(setup_thread)
+        for thread in self.setup_threads:
+            thread.join()
 
         if mqtt:
             mqtt.connect()
             mqtt_publisher.start()
 
-        for thread in threads:
+        for thread in self.nvr_threads:
             thread.start()
 
         LOGGER.info("Initialization complete")
 
         def signal_term(*_):
             LOGGER.info("Kill received! Sending kill to threads..")
-            for thread in threads:
+            for thread in self.nvr_threads:
                 thread.stop()
+            for thread in self.nvr_threads:
                 thread.join()
 
         # Listen to sigterm
         signal.signal(signal.SIGTERM, signal_term)
 
         try:
-            threads[0].join()
+            for thread in self.nvr_threads:
+                thread.join()
         except KeyboardInterrupt:
             LOGGER.info("Ctrl-C received! Sending kill to threads..")
-            for thread in threads:
+            for thread in self.nvr_threads:
                 thread.stop()
+            for thread in self.nvr_threads:
                 thread.join()
 
         LOGGER.info("Exiting")
+
+    def setup_nvr(
+        self, config, camera, detector, detector_queue, post_processors, mqtt_queue,
+    ):
+        camera_config = NVRConfig(
+            camera,
+            config.object_detection,
+            config.motion_detection,
+            config.recorder,
+            config.mqtt,
+            config.logging,
+        )
+        try:
+            nvr = FFMPEGNVR(
+                camera_config,
+                detector,
+                detector_queue,
+                post_processors,
+                mqtt_queue=mqtt_queue,
+            )
+            self.nvr_threads.append(nvr)
+        except FFprobeError:
+            LOGGER.error(f"Failed to initialize camera {camera_config.camera.name}")
 
 
 def schedule_cleanup(config):
     LOGGER.debug("Starting cleanup scheduler")
     cleanup = Cleanup(config)
-    cleanup.scheduler.start()
+    cleanup.start()
     LOGGER.debug("Running initial cleanup")
     cleanup.cleanup()
 
@@ -123,16 +149,12 @@ def log_settings(config):
 
 class MyFormatter(logging.Formatter):
     # pylint: disable=protected-access
-    overwrite_fmt = (
-        "\x1b[80D\x1b[1A\x1b[K[%(asctime)s] "
-        "[%(name)-12s] [%(levelname)-8s] - %(message)s"
-    )
+    base_format = "[%(asctime)s] [%(name)-24s] [%(levelname)-8s] - %(message)s"
+    overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K" + base_format
 
     def __init__(self):
         super().__init__(
-            fmt="[%(asctime)s] [%(name)-24s] [%(levelname)-8s] - %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-            style="%",
+            fmt=self.base_format, datefmt="%Y-%m-%d %H:%M:%S", style="%",
         )
         self.current_count = 0
 
@@ -143,7 +165,7 @@ class MyFormatter(logging.Formatter):
 
         # Replace the original format with one customized by logging level
         if "message repeated" in str(record.msg):
-            self._style._fmt = MyFormatter.overwrite_fmt
+            self._style._fmt = self.overwrite_fmt
 
         # Call the original formatter class to do the grunt work
         result = logging.Formatter.format(self, record)

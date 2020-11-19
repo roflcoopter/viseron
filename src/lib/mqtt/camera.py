@@ -1,31 +1,46 @@
 import json
-
 import logging
+
+from lib.helpers import slugify
 
 LOGGER = logging.getLogger(__name__)
 
 
 class MQTTCamera:
-    def __init__(self, config, mqtt_queue):
+    def __init__(self, config, mqtt_queue, object_id=""):
         self._config = config
         self._mqtt_queue = mqtt_queue
+        self._object_id = object_id
+        self._node_id = config.camera.mqtt_name
         self._name = config.camera.mqtt_name
         self._device_name = f"{config.mqtt.client_id} {config.camera.name}"
-        self._unique_id = self.name
+        self._unique_id = slugify(self.name)
 
     @property
     def state_topic(self):
-        return f"{self._config.mqtt.client_id}/{self.name}/camera/image"
+        if self._object_id:
+            return (
+                f"{self._config.mqtt.client_id}/{self.node_id}/camera/"
+                f"{self._object_id}/image"
+            )
+        return f"{self._config.mqtt.client_id}/{self.node_id}/camera/image"
 
     @property
     def config_topic(self):
+        if self._object_id:
+            return (
+                f"{self._config.mqtt.home_assistant.discovery_prefix}/camera/"
+                f"{self.node_id}/{self._object_id}/config"
+            )
         return (
             f"{self._config.mqtt.home_assistant.discovery_prefix}/camera/"
-            f"{self.name}/config"
+            f"{self.node_id}/config"
         )
 
     @property
     def name(self):
+        if self._object_id:
+            return f"{self._name} {self._object_id}"
         return self._name
 
     @property
@@ -35,6 +50,10 @@ class MQTTCamera:
     @property
     def unique_id(self):
         return self._unique_id
+
+    @property
+    def node_id(self):
+        return self._node_id
 
     @property
     def device_info(self):
@@ -61,7 +80,6 @@ class MQTTCamera:
             client.publish(
                 self.config_topic, payload=self.config_payload, retain=True,
             )
-        client.publish(self.state_topic, payload="off")
 
     def publish(self, image):
         self._mqtt_queue.put({"topic": self.state_topic, "payload": image})
