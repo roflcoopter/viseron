@@ -1,9 +1,13 @@
 import logging
+from queue import Queue
+from threading import Thread
 
 import cv2
 import numpy as np
 
-from lib.helpers import calculate_relative_contours, pop_if_full
+from const import TOPIC_FRAME_PROCESSED_MOTION, TOPIC_FRAME_SCAN_MOTION
+from lib.data_stream import DataStream
+from lib.helpers import calculate_relative_contours
 
 
 class Contours:
@@ -68,6 +72,18 @@ class MotionDetection:
 
             cv2.fillPoly(mask, pts=scaled_mask, color=(0, 0, 0))
             self._mask = np.where(mask[:, :, 0] == [0])
+
+        self._topic_scan_motion = f"{config.camera.name_slug}/{TOPIC_FRAME_SCAN_MOTION}"
+        self.topic_processed_motion = (
+            f"{config.camera.name_slug}/{TOPIC_FRAME_PROCESSED_MOTION}"
+        )
+
+        self._motion_detection_queue = Queue(maxsize=5)
+        motion_detection_thread = Thread(target=self.motion_detection)
+        motion_detection_thread.daemon = True
+        motion_detection_thread.start()
+
+        DataStream.subscribe_data(self._topic_scan_motion, self._motion_detection_queue)
         self._logger.debug("Motion detector initialized")
 
     def detect(self, frame):
@@ -100,10 +116,8 @@ class MotionDetection:
             self._resolution,
         )
 
-    def motion_detection(self, motion_queue):
+    def motion_detection(self):
         while True:
-            frame = motion_queue.get()
+            frame = self._motion_detection_queue.get()
             frame["frame"].motion_contours = self.detect(frame)
-            pop_if_full(
-                frame["motion_return_queue"], frame,
-            )
+            DataStream.publish_data(self.topic_processed_motion, frame["frame"])

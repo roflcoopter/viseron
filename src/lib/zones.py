@@ -1,17 +1,15 @@
 import logging
 
 import cv2
-from lib.helpers import (
-    Filter,
-    calculate_absolute_coords,
-    report_labels,
-    send_to_post_processor,
-)
+
+from const import TOPIC_FRAME_SCAN_POSTPROC
+from lib.data_stream import DataStream
+from lib.helpers import Filter, calculate_absolute_coords, report_labels
 from lib.mqtt.binary_sensor import MQTTBinarySensor
 
 
 class Zone:
-    def __init__(self, zone, camera_resolution, config, mqtt_queue, post_processors):
+    def __init__(self, zone, camera_resolution, config, mqtt_queue):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         if getattr(config.camera.logging, "level", None):
             self._logger.setLevel(config.camera.logging.level)
@@ -20,7 +18,6 @@ class Zone:
         self._camera_resolution = camera_resolution
         self._config = config
         self._mqtt_queue = mqtt_queue
-        self._post_processors = post_processors
 
         self._name = zone["name"]
         self._objects_in_zone = []
@@ -43,6 +40,10 @@ class Zone:
                 self._mqtt_devices[label.label] = MQTTBinarySensor(
                     config, mqtt_queue, f"{zone['name']} {label.label}"
                 )
+
+        self._post_processor_topic = (
+            f"{config.camera.name_slug}/{TOPIC_FRAME_SCAN_POSTPROC}",
+        )
 
     def filter_zone(self, frame):
         objects_in_zone = []
@@ -67,15 +68,18 @@ class Zone:
                     if self._object_filters[obj.label].triggers_recording:
                         self._trigger_recorder = True
 
-                    # Send detection to configured post processors
                     if self._object_filters[obj.label].post_processor:
-                        send_to_post_processor(
-                            self._logger,
-                            self._config,
-                            self._post_processors,
-                            self._object_filters[obj.label].post_processor,
-                            frame,
-                            obj,
+                        DataStream.publish_data(
+                            (
+                                f"{self._post_processor_topic}/"
+                                f"{self._object_filters[obj.label].post_processor}"
+                            ),
+                            {
+                                "camera_config": self._config,
+                                "frame": frame,
+                                "object": obj,
+                                "zone": self._name,
+                            },
                         )
 
         self.objects_in_zone = objects_in_zone

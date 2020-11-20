@@ -6,6 +6,7 @@ from threading import Thread
 from const import LOG_LEVELS
 from lib.cleanup import Cleanup
 from lib.config import CONFIG, NVRConfig, ViseronConfig
+from lib.data_stream import DataStream
 from lib.detector import Detector
 from lib.mqtt import MQTT
 from lib.nvr import FFMPEGNVR
@@ -23,6 +24,8 @@ class Viseron:
         LOGGER.info("-------------------------------------------")
         LOGGER.info("Initializing...")
 
+        data_stream = DataStream()
+
         schedule_cleanup(config)
 
         mqtt_queue = None
@@ -33,13 +36,7 @@ class Viseron:
             mqtt_publisher = Thread(target=mqtt.publisher, args=(mqtt_queue,))
             mqtt_publisher.daemon = True
 
-        detector_queue = Queue(maxsize=2)
         detector = Detector(config.object_detection)
-        detector_thread = Thread(
-            target=detector.object_detection, args=(detector_queue,)
-        )
-        detector_thread.daemon = True
-        detector_thread.start()
 
         post_processors = {}
         for (
@@ -55,15 +52,7 @@ class Viseron:
         self.nvr_threads = []
         for camera in config.cameras:
             setup_thread = Thread(
-                target=self.setup_nvr,
-                args=(
-                    config,
-                    camera,
-                    detector,
-                    detector_queue,
-                    post_processors,
-                    mqtt_queue,
-                ),
+                target=self.setup_nvr, args=(config, camera, detector, mqtt_queue,),
             )
             setup_thread.start()
             self.setup_threads.append(setup_thread)
@@ -102,7 +91,7 @@ class Viseron:
         LOGGER.info("Exiting")
 
     def setup_nvr(
-        self, config, camera, detector, detector_queue, post_processors, mqtt_queue,
+        self, config, camera, detector, mqtt_queue,
     ):
         camera_config = NVRConfig(
             camera,
@@ -113,13 +102,7 @@ class Viseron:
             config.logging,
         )
         try:
-            nvr = FFMPEGNVR(
-                camera_config,
-                detector,
-                detector_queue,
-                post_processors,
-                mqtt_queue=mqtt_queue,
-            )
+            nvr = FFMPEGNVR(camera_config, detector, mqtt_queue=mqtt_queue,)
             self.nvr_threads.append(nvr)
         except FFprobeError:
             LOGGER.error(f"Failed to initialize camera {camera_config.camera.name}")

@@ -2,14 +2,21 @@ import json
 import logging
 import os
 import subprocess as sp
-from threading import Event
+from queue import Queue
+from threading import Event, Thread
 from time import sleep
 
 import cv2
 import numpy as np
 
-from const import CAMERA_SEGMENT_ARGS
-from lib.helpers import pop_if_full
+from const import (
+    CAMERA_SEGMENT_ARGS,
+    TOPIC_FRAME_DECODE_MOTION,
+    TOPIC_FRAME_DECODE_OBJECT,
+    TOPIC_FRAME_SCAN_MOTION,
+    TOPIC_FRAME_SCAN_OBJECT,
+)
+from lib.data_stream import DataStream
 from viseron_exceptions import FFprobeError
 
 LOGGER = logging.getLogger(__name__)
@@ -294,24 +301,91 @@ class Stream:
         return Frame(self._pipe.stdout.read(self._frame_bytes), self.width, self.height)
 
 
+class FrameDecoder:
+    def __init__(
+        self,
+        logger,
+        config,
+        interval,
+        stream: Stream,
+        decode_error,
+        width,
+        height,
+        topic_decode,
+        topic_scan,
+    ):
+        self._logger = logger
+        self._config = config
+        self.interval = interval
+        self.interval_calculated = round(interval * stream.fps)
+
+        self.decode_error = False
+        self.scan = Event()
+        self._frame_number = 0
+        self._decode_error = decode_error
+        self._width = width
+        self._height = height
+        self._decoder_queue: Queue = Queue(maxsize=5)
+
+        self._topic_scan = f"{config.camera.name_slug}/{topic_scan}"
+        self._topic_decode = f"{config.camera.name_slug}/{topic_decode}"
+        DataStream.subscribe_data(self._topic_decode, self._decoder_queue)
+
+        decode_thread = Thread(target=self.decode_frame)
+        decode_thread.daemon = True
+        decode_thread.start()
+
+    def scan_frame(self, current_frame):
+        if self.scan.is_set():
+            if self._frame_number % self.interval_calculated == 0:
+                self._frame_number = 0
+                DataStream.publish_data(
+                    self._topic_decode,
+                    {
+                        "decoder_name": self,
+                        "frame": current_frame,
+                        "width": self._width,
+                        "height": self._height,
+                        "camera_config": self._config,
+                    },
+                )
+
+            self._frame_number += 1
+        else:
+            self._frame_number = 0
+
+    def decode_frame(self):
+        """Decodes the frame, leaves any other potential keys in the dict untouched"""
+        self._logger.debug("Starting decoder thread")
+        while True:
+            frame = self._decoder_queue.get()
+            if frame["frame"].decode_frame():
+                frame["frame"].resize(
+                    frame["decoder_name"], frame["width"], frame["height"]
+                )
+                DataStream.publish_data(self._topic_scan, frame)
+                continue
+
+            self._decode_error.set()
+            self._logger.error("Unable to decode frame. FFmpeg pipe seems broken")
+
+
 class FFMPEGCamera:
-    def __init__(self, config):
+    def __init__(self, config, detector):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         self._config = config
         self._connected = False
-        self._connection_error = False
         self.resolution = None
         self._segments = None
         self.frame_ready = Event()
-        self.scan_for_objects = Event()  # Set when frame should be scanned
-        self.scan_for_motion = Event()  # Set when frame should be scanned
+        self.decode_error = Event()
 
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
 
-        self.initialize_camera()
+        self.initialize_camera(detector)
 
-    def initialize_camera(self):
+    def initialize_camera(self, detector):
         self._logger = logging.getLogger(__name__ + "." + self._config.camera.name_slug)
         if getattr(self._config.camera.logging, "level", None):
             self._logger.setLevel(self._config.camera.logging.level)
@@ -347,17 +421,44 @@ class FFMPEGCamera:
             f"Resolution: {self.resolution[0]}x{self.resolution[1]} "
             f"@ {self.stream.fps} FPS"
         )
+
+        self.decoders = {}
+        self.decoders["object_detection"] = FrameDecoder(
+            self._logger,
+            self._config,
+            self._config.object_detection.interval,
+            self.stream,
+            self.decode_error,
+            detector.model_width,
+            detector.model_height,
+            TOPIC_FRAME_DECODE_OBJECT,
+            TOPIC_FRAME_SCAN_OBJECT,
+        )
+        if (
+            self._config.motion_detection.timeout
+            or self._config.motion_detection.trigger_detector
+        ):
+            self.decoders["motion_detection"] = FrameDecoder(
+                self._logger,
+                self._config,
+                self._config.motion_detection.interval,
+                self.stream,
+                self.decode_error,
+                self._config.motion_detection.width,
+                self._config.motion_detection.height,
+                TOPIC_FRAME_DECODE_MOTION,
+                TOPIC_FRAME_SCAN_MOTION,
+            )
+
+        for name, decoder in self.decoders.items():
+            self._logger.debug(
+                f"Running {name} detection at {decoder.interval}s interval, "
+                f"every {decoder.interval_calculated} frame(s)"
+            )
+
         self._logger.debug(f"Camera {self._config.camera.name} initialized")
 
-    def capture_pipe(
-        self,
-        object_decoder_interval,
-        object_decoder_queue,
-        object_return_queue,
-        motion_decoder_interval,
-        motion_decoder_queue,
-        motion_return_queue,
-    ):
+    def capture_pipe(self):
         self._logger.debug("Starting capture thread")
         self._connected = True
 
@@ -365,78 +466,22 @@ class FFMPEGCamera:
         if self._segments:
             self._segments.start_pipe()
 
-        object_frame_number = 0
-        object_first_scan = False
-        object_decoder_interval_calculated = round(
-            object_decoder_interval * self.stream.fps
-        )
-        self._logger.debug(
-            f"Running object detection at {object_decoder_interval}s interval, "
-            f"every {object_decoder_interval_calculated} frame(s)"
-        )
-
-        motion_frame_number = 0
-        motion_decoder_interval_calculated = round(
-            motion_decoder_interval * self.stream.fps
-        )
-        self._logger.debug(
-            f"Running motion detection at {motion_decoder_interval}s interval, "
-            f"every {motion_decoder_interval_calculated} frame(s)"
-        )
-
         while self._connected:
-            if self._connection_error:
+            if self.decode_error.is_set():
                 sleep(5)
                 self._logger.error("Restarting frame pipe")
                 self.stream.close_pipe()
                 self.stream.check_command()
                 self.stream.start_pipe()
-                self._connection_error = False
+                if self._segments:
+                    self._segments.close_pipe()
+                    self._segments.start_pipe()
+
+                self.decode_error.clear()
 
             current_frame = self.stream.read()
-            if self.scan_for_objects.is_set():
-                if object_frame_number % object_decoder_interval_calculated == 0:
-                    if object_first_scan:
-                        # force motion detection on same frame to save computing power
-                        motion_frame_number = 0
-                        object_first_scan = False
-                    object_frame_number = 0
-                    pop_if_full(
-                        object_decoder_queue,
-                        {
-                            "decoder_name": "object_detection",
-                            "frame": current_frame,
-                            "object_return_queue": object_return_queue,
-                            "camera_config": self._config,
-                        },
-                        logger=self._logger,
-                        name="object_decoder_queue",
-                        warn=True,
-                    )
-
-                object_frame_number += 1
-            else:
-                object_frame_number = 0
-                object_first_scan = True
-
-            if self.scan_for_motion.is_set():
-                if motion_frame_number % motion_decoder_interval_calculated == 0:
-                    motion_frame_number = 0
-                    pop_if_full(
-                        motion_decoder_queue,
-                        {
-                            "decoder_name": "motion_detection",
-                            "frame": current_frame,
-                            "motion_return_queue": motion_return_queue,
-                        },
-                        logger=self._logger,
-                        name="motion_decoder_queue",
-                        warn=True,
-                    )
-
-                motion_frame_number += 1
-            else:
-                motion_frame_number = 0
+            for decoder in self.decoders.values():
+                decoder.scan_frame(current_frame)
 
             self.frame_ready.set()
             self.frame_ready.clear()
@@ -445,27 +490,6 @@ class FFMPEGCamera:
         if self._segments:
             self._segments.close_pipe()
         self._logger.info("FFMPEG frame grabber stopped")
-
-    def decoder(self, input_queue, output_queue, width, height):
-        """Decodes the frame, leaves any other potential keys in the dict untouched"""
-        self._logger.debug("Starting decoder thread")
-        while True:
-            input_item = input_queue.get()
-            if input_item["frame"].decode_frame():
-                input_item["frame"].resize(input_item["decoder_name"], width, height)
-                pop_if_full(
-                    output_queue,
-                    input_item,
-                    logger=self._logger,
-                    name=f"{input_item['decoder_name']} input",
-                    warn=True,
-                )
-                continue
-
-            self._logger.error("Unable to decode frame. FFMPEG pipe seems broken")
-            self._connection_error = True
-
-        self._logger.debug("Exiting decoder thread")
 
     def release(self):
         self._connected = False
