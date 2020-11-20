@@ -1,13 +1,16 @@
 import importlib
 import logging
-from threading import Lock
+from queue import Queue
+from threading import Lock, Thread
 
 import cv2
 from voluptuous import Any, Optional, Required
 
+from const import TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_OBJECT
 from lib.config.config_logging import LoggingConfig
 from lib.config.config_object_detection import SCHEMA as BASE_SCEHMA
-from lib.helpers import calculate_relative_coords, pop_if_full
+from lib.data_stream import DataStream
+from lib.helpers import calculate_relative_coords
 
 LOGGER = logging.getLogger(__name__)
 
@@ -121,16 +124,28 @@ class Detector:
             cv2.ocl.setUseOpenCL(True)
 
         self.object_detector = detector.ObjectDetection(config)
+
+        self._topic_scan_object = f"*/{TOPIC_FRAME_SCAN_OBJECT}"
+        self._object_detection_queue = Queue()
+        object_detection_thread = Thread(target=self.object_detection)
+        object_detection_thread.daemon = True
+        object_detection_thread.start()
+        DataStream.subscribe_data(self._topic_scan_object, self._object_detection_queue)
+
         LOGGER.debug("Object detector initialized")
 
-    def object_detection(self, detector_queue):
+    def object_detection(self):
         while True:
-            frame = detector_queue.get()
+            frame = self._object_detection_queue.get()
             self.detection_lock.acquire()
             frame["frame"].objects = self.object_detector.return_objects(frame)
             self.detection_lock.release()
-            pop_if_full(
-                frame["object_return_queue"], frame,
+            DataStream.publish_data(
+                (
+                    f"{frame['camera_config'].camera.name_slug}/"
+                    f"{TOPIC_FRAME_PROCESSED_OBJECT}"
+                ),
+                frame,
             )
 
     @property

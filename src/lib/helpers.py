@@ -206,26 +206,6 @@ def slugify(text: str) -> str:
     return unicode_slug.slugify(text, separator="_")
 
 
-def send_to_post_processor(
-    logger, camera_config, post_processors, post_processor, frame, obj, zone=None
-):
-    try:
-        post_processors[post_processor].input_queue.put(
-            {
-                "camera_config": camera_config,
-                "frame": frame,
-                "object": obj,
-                "zone": zone,
-            }
-        )
-    except KeyError:
-        logger.error(
-            "Configured post_processor "
-            f"{post_processor} "
-            "does not exist. Please check your configuration"
-        )
-
-
 def report_labels(
     labels, labels_in_fov, reported_label_count, mqtt_queue, mqtt_devices
 ):
