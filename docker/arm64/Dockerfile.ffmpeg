@@ -27,7 +27,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y -qq install \
   texinfo \
   wget \
   yasm \
-  zlib1g-dev
+  zlib1g-dev \
+  sudo \
+  curl
 
 # Build rpi userland
 WORKDIR "/root"
