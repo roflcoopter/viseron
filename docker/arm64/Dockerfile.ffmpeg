@@ -1,0 +1,99 @@
+# Taken from here: https://www.willusher.io/general/2020/11/15/hw-accel-encoding-rpi4
+FROM debian:buster
+ARG FFMPEG_VERSION=4.3.1
+
+RUN echo "Building FFMPEG (${FFMPEG_VERSION})"
+
+# Setup
+RUN DEBIAN_FRONTEND=noninteractive sudo apt-get update -qq && sudo apt-get -y install \
+  autoconf \
+  automake \
+  build-essential \
+  cmake \
+  git-core \
+  libass-dev \
+  libfreetype6-dev \
+  libgnutls28-dev \
+  libsdl2-dev \
+  libtool \
+  libva-dev \
+  libvdpau-dev \
+  libvorbis-dev \
+  libxcb1-dev \
+  libxcb-shm0-dev \
+  libxcb-xfixes0-dev \
+  pkg-config \
+  texinfo \
+  wget \
+  yasm \
+  zlib1g-dev
+  autoconf \
+  automake \
+  build-essential \
+  cmake \
+  git-core \
+  libass-dev \
+  libfreetype6-dev \
+  libgnutls28-dev \
+  libsdl2-dev \
+  libtool \
+  libva-dev \
+  libvdpau-dev \
+  libvorbis-dev \
+  libxcb1-dev \
+  libxcb-shm0-dev \
+  libxcb-xfixes0-dev \
+  pkg-config \
+  texinfo \
+  wget \
+  yasm \
+  zlib1g-dev
+
+# Build rpi userland
+WORKDIR "/root"
+RUN git clone --depth 1 https://github.com/raspberrypi/userland.git
+WORKDIR "/root/userland"
+RUN ./buildme
+
+# Required to link deps
+RUN echo "/opt/vc/lib" > /etc/ld.so.conf.d/00-vmcs.conf
+RUN ldconfig
+
+# Build FFMPEG
+RUN curl https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz -o ffmpeg.tar.xz
+RUN tar xf ffmpeg.tar.xz
+WORKDIR "ffmpeg-${FFMPEG_VERSION}"
+RUN PKG_CONFIG_PATH=/opt/vc/lib/pkgconfig ./configure \
+    --arch=aarch64 \
+    --target-os=linux \
+    --enable-gpl \
+    --enable-nonfree \
+    --enable-mmal \
+    --enable-libaom \
+    --enable-libass \
+    --enable-libfdk-aac \
+    --enable-libfreetype \
+    --enable-libmp3lame \
+    --enable-libopus \
+    --enable-libvorbis \
+    --enable-libvpx \
+    --enable-libx264 \
+    --enable-libx265 \
+    --enable-libxml2 \
+    --enable-libwebp \
+    --enable-libdrm
+
+RUN make -j4
+
+RUN ln -s `pwd`/ffmpeg /usr/local/bin/ffmpeg
+RUN ln -s `pwd`/ffprobe /usr/local/bin/ffprobe
+WORKDIR "/root"
+
+FROM debian:buster
+COPY --from=0 /root/userland/ffmpeg-${FFMPEG_VERSION}/ffmpeg /usr/local/bin/ffmpeg
+COPY --from=0 /root/userland/ffmpeg-${FFMPEG_VERSION}/ffprobe /usr/local/bin/ffprobe
+COPY --from=0 /opt/vc /opt/vc
+
+# Required to link deps
+RUN echo "/opt/vc/lib" > /etc/ld.so.conf.d/00-vmcs.conf
+RUN ldconfig
