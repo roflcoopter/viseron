@@ -5,7 +5,8 @@ ARG FFMPEG_VERSION=4.3.1
 RUN echo "Building FFMPEG (${FFMPEG_VERSION})"
 
 # Setup
-RUN DEBIAN_FRONTEND=noninteractive sudo apt-get update -qq && sudo apt-get -y install \
+RUN DEBIAN_FRONTEND=noninteractive apt-get -qq update
+RUN DEBIAN_FRONTEND=noninteractive apt-get -y -qq install \
   autoconf \
   automake \
   build-essential \
