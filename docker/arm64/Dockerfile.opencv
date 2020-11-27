@@ -1,0 +1,46 @@
+FROM balenalib/raspberry-pi:buster
+
+RUN apt-get clean && apt-get update && apt-get install -y \
+  # Basic deps
+  build-essential cmake unzip pkg-config wget \
+  # Video and I/O
+  libjpeg-dev libpng-dev libtiff-dev \
+  libavcodec-dev libavformat-dev libswscale-dev libv4l-dev \
+  libxvidcore-dev libx264-dev \
+  # Optimizations
+  libatlas-base-dev gfortran \
+  # Python3 deps
+  python3-dev \
+  python3-numpy \
+  && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
+
+ENV OPENCV_VERSION=master
+
+RUN mkdir -p /tmp && \
+  cd /tmp && \
+  wget -O opencv.zip https://github.com/opencv/opencv/archive/$OPENCV_VERSION.zip --progress=bar:force:noscroll && \
+  wget -O opencv_contrib.zip https://github.com/opencv/opencv_contrib/archive/$OPENCV_VERSION.zip --progress=bar:force:noscroll && \
+  unzip -q opencv.zip && \
+  unzip -q opencv_contrib.zip && \
+  cd opencv-$OPENCV_VERSION/ && \
+  ls -al && \
+  mkdir -p build && \
+  cd build && \
+  cmake -D CMAKE_BUILD_TYPE=RELEASE \
+  -D CMAKE_INSTALL_PREFIX=/usr/local \
+  -D BUILD_SHARED_LIBS=ON \
+  -D OPENCV_ENABLE_NONFREE=ON \
+  -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib-$OPENCV_VERSION/modules \
+  -D BUILD_TESTS=OFF \
+  -D BUILD_EXAMPLES=OFF \
+  -D BUILD_DOCS=OFF \
+  .. \
+  && make && \
+  make install && \
+  echo "/usr/local/lib" > /etc/ld.so.conf.d/opencv.conf && \
+  ldconfig && \
+  cd /tmp && \
+  rm -rf $OPENCV_VERSION opencv.zip && rm -rf opencv_contrib.zip && \
+  cd /
