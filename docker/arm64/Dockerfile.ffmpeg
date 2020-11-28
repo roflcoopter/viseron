@@ -23,6 +23,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y -qq install \
   libxcb1-dev \
   libxcb-shm0-dev \
   libxcb-xfixes0-dev \
+  libaom-dev \
   pkg-config \
   texinfo \
   wget \
