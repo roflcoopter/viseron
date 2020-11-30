@@ -36,7 +36,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y -qq install \
 WORKDIR "/root"
 RUN git clone --depth 1 https://github.com/raspberrypi/userland.git
 WORKDIR "/root/userland"
-RUN ./buildme
+RUN ./buildme --aarch64
 
 # Required to link deps
 RUN echo "/opt/vc/lib" > /etc/ld.so.conf.d/00-vmcs.conf
@@ -51,20 +51,8 @@ RUN PKG_CONFIG_PATH=/opt/vc/lib/pkgconfig ./configure \
     --target-os=linux \
     --enable-gpl \
     --enable-nonfree \
-    --enable-mmal \
-    --enable-libaom \
     --enable-libass \
-    --enable-libfdk-aac \
-    --enable-libfreetype \
-    --enable-libmp3lame \
-    --enable-libopus \
-    --enable-libvorbis \
-    --enable-libvpx \
-    --enable-libx264 \
-    --enable-libx265 \
-    --enable-libxml2 \
-    --enable-libwebp \
-    --enable-libdrm
+    --enable-libx264
 
 RUN make -j4
 
@@ -73,8 +61,8 @@ RUN ln -s `pwd`/ffprobe /usr/local/bin/ffprobe
 WORKDIR "/root"
 
 FROM debian:buster
-COPY --from=0 /root/userland/ffmpeg-${FFMPEG_VERSION}/ffmpeg /usr/local/bin/ffmpeg
-COPY --from=0 /root/userland/ffmpeg-${FFMPEG_VERSION}/ffprobe /usr/local/bin/ffprobe
+COPY --from=0 /root/userland/ffmpeg-4.3.1/ffmpeg /usr/local/bin/ffmpeg
+COPY --from=0 /root/userland/ffmpeg-4.3.1/ffprobe /usr/local/bin/ffprobe
 COPY --from=0 /opt/vc /opt/vc
 
 # Required to link deps
