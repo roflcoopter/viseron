@@ -1,5 +1,5 @@
-FROM alceasan/opencv-arm64:1.0 as opencv
-FROM alceasan/ffmpeg-arm64:1.0 as ffmpeg
+FROM alceasan/opencv-arm64:latest as opencv
+FROM alceasan/ffmpeg-arm64:latest as ffmpeg
 
 FROM debian:buster
 
