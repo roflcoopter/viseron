@@ -1,4 +1,4 @@
-FROM balenalib/raspberry-pi:buster
+FROM balenalib/raspberrypi4-64:buster
 
 RUN apt-get clean && apt-get update && apt-get install -y \
   # Basic deps
