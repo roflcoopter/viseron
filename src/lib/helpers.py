@@ -6,9 +6,9 @@ from typing import Any, Tuple
 
 import cv2
 import numpy as np
-
 import slugify as unicode_slug
 from const import FONT, FONT_SIZE, FONT_THICKNESS
+import tornado.queues
 
 LOGGER = logging.getLogger(__name__)
 
@@ -194,7 +194,7 @@ def pop_if_full(queue: Queue, item: Any, logger=LOGGER, name="unknown", warn=Fal
     """If queue is full, pop oldest item and put the new item"""
     try:
         queue.put_nowait(item)
-    except Full:
+    except (Full, tornado.queues.QueueFull):
         if warn:
             logger.warning(f"{name} queue is full. Removing oldest entry")
         queue.get()
