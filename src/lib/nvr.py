@@ -78,7 +78,6 @@ class MQTT:
                 ".jpg", frame.decoded_frame_mat_rgb, [int(cv2.IMWRITE_JPEG_QUALITY), 75]
             )
             if ret:
-                self.published_frame = jpg
                 self.devices["camera"].publish(jpg.tobytes())
 
     @property
