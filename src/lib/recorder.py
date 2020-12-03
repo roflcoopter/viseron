@@ -63,10 +63,7 @@ class FFMPEGRecorder:
 
         if self.config.recorder.thumbnail.save_to_disk:
             thumbnail_folder = os.path.join(
-                self.config.recorder.folder,
-                "thumbnails",
-                self.config.camera.name,
-                "latest_thumbnail.jpg",
+                self.config.recorder.folder, "thumbnails", self.config.camera.name
             )
             self.create_directory(thumbnail_folder)
 
