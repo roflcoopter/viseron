@@ -39,7 +39,7 @@ RUN apt-get update && \
   echo "libedgetpu1-max libedgetpu/accepted-eula boolean true" | debconf-set-selections && \
   apt-get install --no-install-recommends -y \
   libedgetpu1-max usbutils python3-pycoral && \
-  pip3 install https://dl.google.com/coral/python/tflite_runtime-2.1.0.post1-cp37-cp37m-linux_aarch64.whl && \
+  pip3 install https://github.com/google-coral/pycoral/releases/download/release-frogfish/tflite_runtime-2.5.0-cp37-cp37m-linux_aarch64.whl && \
   rm -rf /var/lib/apt/lists/* && \
   apt-get autoremove -y && \
   apt-get autoclean -y
