@@ -23,6 +23,12 @@ RUN apt-get update && \
   cmake \
   git \
   tzdata \
+  libxcb-shape0 \
+  libxcb-xfixes0 \
+  libasound2 \
+  libsdl2-2.0-0 \
+  libxv1 \
+  libass9 \
   # OpenCV runtime deps
   libjpeg-dev libpng-dev libtiff-dev \
   # OpenCV video I/O
