@@ -97,6 +97,47 @@ Choose the appropriate docker container for your machine. Builds are published t
   I also recommend configuring a [substream](#substream) if you plan on running Viseron on an RPi.
 </details>
 
+<details>
+<summary>On a RaspberryPi 4 / ARM64</summary>
+  Example Docker command
+
+  ```bash
+  docker run --rm \
+  --privileged \
+  -v <recordings path>:/recordings \
+  -v <config path>:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  -v /dev/bus/usb:/dev/bus/usb \
+  -v /usr/lib:/opt/vc/lib \
+  --name viseron \
+  --device /dev/vchiq:/dev/vchiq --device /dev/vcsm:/dev/vcsm \
+  roflcoopter/viseron-arm64:latest
+  ```
+  Example docker-compose
+  ```yaml
+  version: "2.4"
+  services:
+    viseron:
+      image: roflcoopter/viseron-arm64:latest
+      container_name: viseron
+      volumes:
+        - <recordings path>:/recordings
+        - <config path>:/config
+        - /etc/localtime:/etc/localtime:ro
+        - /dev/bus/usb:/dev/bus/usb
+        - /usr/lib:/opt/vc/lib
+      devices:
+        - /dev/vchiq:/dev/vchiq
+        - /dev/vcsm:/dev/vcsm
+      privileged: true
+  ```
+  Note: Viseron is quite RAM intensive, mostly because of the object detection but also because of the lookback feature.\
+  I do not recommend using an RPi unless you have a Google Coral EdgeTPU, the CPU is not fast enough and you might run out of memory.
+  To make use of hardware accelerated decoding/encoding you might have to increase the allocated GPU memory.\
+  To do this edit ```/boot/config.txt``` and set ```gpu_mem=256``` and then reboot.
+
+  I also recommend configuring a [substream](#substream) if you plan on running Viseron on an RPi.
+</details>
 
 <details>
   <summary>On a generic Linux machine</summary>
