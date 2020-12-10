@@ -62,13 +62,17 @@ class FFMPEGRecorder:
         cv2.imwrite(file_name, frame.decoded_frame_umat_rgb)
 
         if self.config.recorder.thumbnail.save_to_disk:
-            cv2.imwrite(
-                os.path.join(
-                    self.config.recorder.folder,
-                    f"{self.config.camera.name}/latest_thumbnail.jpg",
-                ),
-                frame.decoded_frame_umat_rgb,
+            thumbnail_folder = os.path.join(
+                self.config.recorder.folder, "thumbnails", self.config.camera.name
             )
+            self.create_directory(thumbnail_folder)
+
+            self._logger.debug(f"Saving thumbnail in {thumbnail_folder}")
+            if not cv2.imwrite(
+                os.path.join(thumbnail_folder, "latest_thumbnail.jpg"),
+                frame.decoded_frame_umat_rgb,
+            ):
+                self._logger.error("Failed saving thumbnail to disk")
 
         if self.config.recorder.thumbnail.send_to_mqtt and self._mqtt_devices:
             ret, jpg = cv2.imencode(".jpg", frame.decoded_frame_umat_rgb)
@@ -81,7 +85,7 @@ class FFMPEGRecorder:
                 self._logger.debug(f"Creating folder {path}")
                 os.makedirs(path)
         except FileExistsError:
-            self._logger.error(f"{path} already exists")
+            pass
 
     def start_recording(self, frame, objects, resolution):
         self._logger.info("Starting recorder")

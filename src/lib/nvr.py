@@ -464,6 +464,9 @@ class FFMPEGNVR(Thread):
             self.camera.scan_for_objects.clear()
 
     def update_status_sensor(self):
+        if not self._mqtt.mqtt_queue:
+            return
+
         status = "unknown"
         if self.recorder.is_recording:
             status = "recording"
