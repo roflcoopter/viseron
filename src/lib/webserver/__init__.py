@@ -1,5 +1,6 @@
 import base64
 import datetime
+import logging
 import threading
 import time
 
@@ -9,6 +10,8 @@ import tornado.web
 import tornado.websocket
 from lib.webserver.stream_handler import StreamHandler
 
+LOGGER = logging.getLogger(__name__)
+
 
 class WebSocketHandler(tornado.websocket.WebSocketHandler):
     def check_origin(self, origin):
@@ -17,7 +20,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
     @tornado.gen.coroutine
     def get_data(self):
         while True:
-            print("Write time")
+            LOGGER.debug("Write time")
             try:
                 yield self.write_message(
                     {
@@ -31,7 +34,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
                 break
 
     def open(self):
-        print("WebSocket opened")
+        LOGGER.debug("WebSocket opened")
         tornado.ioloop.IOLoop.current().add_future(
             self.get_data(), lambda f: self.close()
         )
@@ -40,7 +43,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
         self.write_message(u"You said: " + message)
 
     def on_close(self):
-        print("WebSocket closed")
+        LOGGER.debug("WebSocket closed")
 
 
 class RegularSocketHandler(tornado.web.RequestHandler):
