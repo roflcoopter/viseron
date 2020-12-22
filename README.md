@@ -43,6 +43,7 @@ Builds are tested and verified on the following platforms:
     - [Labels](#labels)
   - [Motion detection](#motion-detection)
   - [Recorder](#recorder)
+  - [User Interface](#user-interface)
   - [Post Processors](#post-processors)
     - [Face Recognition](#face-recognition)
   - [MQTT](#mqtt)
@@ -716,6 +717,32 @@ To place the segments in memory instead of writing to disk, you can mount a tmpf
 
 The default location for the thumbnail if ```save_to_disk: true``` is ```/recordings/{camera_name}/latest_thumbnail.jpg```
 
+---
+
+## User Interface
+The user interface can be reached by default on port 8888 inside the container.
+
+### MJPEG Streams
+Viseron will serve MJPEG streams of all cameras. \
+The stream can be reached on a [slugified](https://github.com/un33k/python-slugify) version of the configured camera name with ```_``` as separator.\
+If you are unsure on your camera name in this format you can run this snippet:\
+```docker exec -it viseron python3 -c "from lib.config import CONFIG; from lib.helpers import print_slugs; print_slugs(CONFIG);"```
+
+Example URL: ```http://localhost:8888/<camera name slug>/stream```
+
+#### Query parameters
+A number of query parameters are available to instruct Viseron to resize the stream or draw different things in the image.\
+To utilize a parameter you append it to the URL after a ```?```. To add multiple parameters you separate them with ```&``` like this:\
+```http://localhost:8888/<camera name slug>/stream?<parameter1>=<value>&<parameter2>=<value>```
+
+| Parameter | Type | Description |
+| --------- | ---- | ----------- |
+| width | int | frame will be resized to this width |
+| height | int | frame will be resized to this height |
+| draw_objects | any | If this query parameter is present, found objects will be drawn |
+| draw_motion | any | If this query parameter is present, detected motion will be drawn |
+| draw_motion_mask | any | If this query parameter is present, configured motion masks will be drawn |
+| draw_zones | any | If this query parameter is present, configured zones will be drawn |
 ---
 
 ## Post Processors

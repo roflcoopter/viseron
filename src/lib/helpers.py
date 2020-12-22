@@ -206,6 +206,16 @@ def slugify(text: str) -> str:
     return unicode_slug.slugify(text, separator="_")
 
 
+def print_slugs(config: dict):
+    """Prints all camera names as slugs."""
+    cameras = config["cameras"]
+    for camera in cameras:
+        print(
+            f"Name: {camera['name']}, "
+            f"slug: {unicode_slug.slugify(camera['name'], separator='_')}"
+        )
+
+
 def report_labels(
     labels, labels_in_fov, reported_label_count, mqtt_queue, mqtt_devices
 ):

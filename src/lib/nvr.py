@@ -164,7 +164,7 @@ class FFMPEGNVR(Thread):
         self._start_recorder = False
         self.recorder = FFMPEGRecorder(config, detector.detection_lock, mqtt_queue)
 
-        self.nvr_list[config.camera.mqtt_name] = self
+        self.nvr_list[config.camera.name_slug] = self
         self._logger.debug("NVR thread initialized")
 
     def setup_loggers(self, config):

@@ -1,4 +1,5 @@
 import copy
+import logging
 
 import cv2
 import tornado.ioloop
@@ -8,6 +9,8 @@ from lib.data_stream import DataStream
 from lib.helpers import draw_contours, draw_mask, draw_objects, draw_zones
 from lib.nvr import FFMPEGNVR
 from tornado.queues import Queue
+
+LOGGER = logging.getLogger(__name__)
 
 
 class StreamHandler(tornado.web.RequestHandler):
@@ -88,5 +91,5 @@ class StreamHandler(tornado.web.RequestHandler):
                     await self.flush()
             except tornado.iostream.StreamClosedError:
                 DataStream.unsubscribe_data(frame_topic, unique_id)
-                print("Stream Closed")
+                LOGGER.debug(f"Stream closed for camera {nvr.config.camera.name_slug}")
                 break
