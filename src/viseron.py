@@ -25,10 +25,10 @@ class Viseron:
         LOGGER.info("-------------------------------------------")
         LOGGER.info("Initializing...")
 
-        data_stream = DataStream()
-
         webserver = WebServer()
         webserver.start()
+
+        data_stream = DataStream(webserver.ioloop)
 
         schedule_cleanup(config)
 
