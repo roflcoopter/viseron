@@ -33,10 +33,9 @@ class MQTT:
             )
 
         self.subscriptions = {}
-        for nvr in FFMPEGNVR.nvr_list:
-            for name in list(nvr):
-                subscriptions = nvr[name].on_connect(client)
-                self.subscribe(subscriptions)
+        for nvr in FFMPEGNVR.nvr_list.values():
+            subscriptions = nvr.on_connect(client)
+            self.subscribe(subscriptions)
 
         for post_processor in PostProcessor.post_processor_list:
             post_processor.on_connect(client)

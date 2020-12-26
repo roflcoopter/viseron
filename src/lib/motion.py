@@ -120,4 +120,4 @@ class MotionDetection:
         while True:
             frame = self._motion_detection_queue.get()
             frame["frame"].motion_contours = self.detect(frame)
-            DataStream.publish_data(self.topic_processed_motion, frame["frame"])
+            DataStream.publish_data(self.topic_processed_motion, frame)

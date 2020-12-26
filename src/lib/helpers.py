@@ -4,9 +4,10 @@ from collections import Counter
 from queue import Full, Queue
 from typing import Any, Tuple
 
+import tornado.queues as tq
+
 import cv2
 import numpy as np
-
 import slugify as unicode_slug
 from const import FONT, FONT_SIZE, FONT_THICKNESS
 
@@ -194,7 +195,7 @@ def pop_if_full(queue: Queue, item: Any, logger=LOGGER, name="unknown", warn=Fal
     """If queue is full, pop oldest item and put the new item"""
     try:
         queue.put_nowait(item)
-    except Full:
+    except (Full, tq.QueueFull):
         if warn:
             logger.warning(f"{name} queue is full. Removing oldest entry")
         queue.get()
@@ -204,6 +205,16 @@ def pop_if_full(queue: Queue, item: Any, logger=LOGGER, name="unknown", warn=Fal
 def slugify(text: str) -> str:
     """Slugify a given text."""
     return unicode_slug.slugify(text, separator="_")
+
+
+def print_slugs(config: dict):
+    """Prints all camera names as slugs."""
+    cameras = config["cameras"]
+    for camera in cameras:
+        print(
+            f"Name: {camera['name']}, "
+            f"slug: {unicode_slug.slugify(camera['name'], separator='_')}"
+        )
 
 
 def report_labels(
