@@ -5,8 +5,9 @@ from queue import Queue
 from threading import Thread
 from typing import Any, Callable, Dict, Union
 
-from lib.helpers import pop_if_full
 from tornado.queues import Queue as tornado_queue
+
+from lib.helpers import pop_if_full
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,9 +24,10 @@ class DataStream:
     _wildcard_subscribers: Dict[str, Any] = {}
     _data_queue: Queue = Queue(maxsize=100)
 
-    def __init__(self):
+    def __init__(self, ioloop):
         data_consumer = Thread(target=self.consume_data)
         data_consumer.start()
+        self.ioloop = ioloop
 
     @staticmethod
     def publish_data(data_topic, data):
@@ -57,8 +59,7 @@ class DataStream:
 
         DataStream._subscribers[data_topic].pop(unique_id)
 
-    @staticmethod
-    def run_callbacks(callbacks, data):
+    def run_callbacks(self, callbacks, data):
         for callback in callbacks.values():
             if callable(callback):
                 thread = Thread(target=callback, args=(data,))
@@ -71,7 +72,7 @@ class DataStream:
                 continue
 
             if isinstance(callback, tornado_queue):
-                pop_if_full(callback, data)
+                self.ioloop.add_callback(pop_if_full, callback, data)
                 continue
 
             LOGGER.error(
