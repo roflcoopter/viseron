@@ -10,11 +10,12 @@ steps:
   - script: docker run --rm --privileged multiarch/qemu-user-static:register --reset
     displayName: Register QEMU for cross-builds
   - script: |
-      cd $(Agent.BuildDirectory)/s
+      cd $(Agent.BuildDirectory)/s/docker
       ls -al
 
       architectures="amd64 rpi3"
       for architecture in ${architectures}; do
-        docker-compose --file docker-compose-build.yaml build ${architectures}-ffmpeg
+        echo Building FFmpeg for ${architecture}
+        docker-compose --file ../azure-pipelines/docker-compose-build.yaml build ${architecture}-ffmpeg
       done
-    displayName: "Run a one-line script"
+    displayName: Build FFmpeg
