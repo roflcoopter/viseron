@@ -4,7 +4,6 @@ trigger:
       - docker_revamp
 
 jobs:
-- template: templates/build.yaml
-  parameters:
-    architecture: amd64
-    image: ffmpeg
+  - template: templates/build.yaml
+    parameters:
+      image: ffmpeg
