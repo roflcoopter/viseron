@@ -16,6 +16,6 @@ steps:
       architectures="amd64 rpi3"
       for architecture in ${architectures}; do
         echo Building FFmpeg for ${architecture}
-        docker-compose --file ../azure-pipelines/docker-compose-build.yaml build ${architecture}-ffmpeg
+        docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build ${architecture}-ffmpeg
       done
     displayName: Build FFmpeg
