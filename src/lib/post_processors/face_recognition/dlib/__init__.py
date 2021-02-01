@@ -1,3 +1,4 @@
+import datetime
 import logging
 import math
 import os
@@ -5,10 +6,11 @@ import os.path
 import pickle
 from threading import Thread, Timer
 from time import sleep
+from uuid import uuid4
 
-from voluptuous import All, Any, Coerce, Optional, Range
-
+import cv2
 import face_recognition
+import PIL
 from const import ENV_CUDA_SUPPORTED
 from face_recognition.face_recognition_cli import image_files_in_folder
 from lib.config import ViseronConfig
@@ -16,10 +18,15 @@ from lib.helpers import calculate_absolute_coords, slugify
 from lib.mqtt.binary_sensor import MQTTBinarySensor
 from lib.post_processors import PostProcessorConfig
 from lib.post_processors.schema import SCHEMA as BASE_SCHEMA
-import PIL
 from sklearn import neighbors
+from voluptuous import All, Any, Coerce, Optional, Range
 
-from .defaults import EXPIRE_AFTER, FACE_RECOGNITION_PATH
+from .defaults import (
+    EXPIRE_AFTER,
+    FACE_RECOGNITION_PATH,
+    UNKNOWN_FACES_PATH,
+    SAVE_UNKNOWN_FACES,
+)
 
 
 def get_default_model() -> str:
@@ -31,6 +38,8 @@ def get_default_model() -> str:
 SCHEMA = BASE_SCHEMA.extend(
     {
         Optional("face_recognition_path", default=FACE_RECOGNITION_PATH): str,
+        Optional("save_unknown_faces", default=SAVE_UNKNOWN_FACES): bool,
+        Optional("unknown_faces_path", default=UNKNOWN_FACES_PATH): str,
         Optional("expire_after", default=EXPIRE_AFTER): All(
             Any(All(int, Range(min=0)), All(float, Range(min=0.0))), Coerce(float)
         ),
@@ -45,12 +54,22 @@ class Config(PostProcessorConfig):
     def __init__(self, post_processors_config, processor_config):
         super().__init__(post_processors_config, processor_config)
         self._face_recognition_path = processor_config["face_recognition_path"]
+        self._save_unknown_faces = processor_config["save_unknown_faces"]
+        self._unknown_faces_path = processor_config["unknown_faces_path"]
         self._expire_after = processor_config["expire_after"]
         self._model = processor_config["model"]
 
     @property
     def face_recognition_path(self):
         return self._face_recognition_path
+
+    @property
+    def save_unknown_faces(self):
+        return self._save_unknown_faces
+
+    @property
+    def unknown_faces_path(self):
+        return self._unknown_faces_path
 
     @property
     def expire_after(self):
@@ -80,7 +99,34 @@ class Processor:
                     config, mqtt_queue, face
                 )
 
+        if processor_config.save_unknown_faces:
+            create_directory(processor_config.unknown_faces_path)
+
         LOGGER.debug("dlib initialized")
+
+    def known_face_found(self, face, coordinates):
+        # Cancel the expiry timer if face has already been detected
+        if self._faces.get(face, None):
+            self._faces[face]["timer"].cancel()
+
+        self._mqtt_devices[face].publish(True)
+
+        # Adds a detected face and schedules an expiry timer
+        self._faces[face] = {
+            "coordinates": coordinates,
+            "timer": Timer(
+                self._processor_config.expire_after, self.expire_face, [face]
+            ),
+        }
+        self._faces[face]["timer"].start()
+
+    def unknown_face_found(self, frame):
+        unique_id = f"{datetime.datetime.now().strftime('%H:%M:%S-')}{str(uuid4())}.jpg"
+        file_name = os.path.join(self._processor_config.unknown_faces_path, unique_id)
+        LOGGER.debug(f"Unknown face found, saving to {file_name}")
+
+        if not cv2.imwrite(file_name, frame):
+            LOGGER.error("Failed saving unknown face image to disk")
 
     def process(self, camera_config, frame, obj, zone):
         if not self._classifier:
@@ -101,23 +147,11 @@ class Processor:
         )
         LOGGER.debug(f"Faces found: {faces}")
 
-        for face, coordinates in [
-            (face, coordinates) for face, coordinates in faces if face != "unknown"
-        ]:
-            # Cancel the expiry timer if face has already been detected
-            if self._faces.get(face, None):
-                self._faces[face]["timer"].cancel()
-
-            self._mqtt_devices[face].publish(True)
-
-            # Adds a detected face and schedules an expiry timer
-            self._faces[face] = {
-                "coordinates": coordinates,
-                "timer": Timer(
-                    self._processor_config.expire_after, self.expire_face, [face]
-                ),
-            }
-            self._faces[face]["timer"].start()
+        for face, coordinates in faces:
+            if face != "unkown":
+                self.known_face_found(face, coordinates)
+            elif self._processor_config.save_unknown_faces:
+                self.unknown_face_found(cropped_frame)
 
     def expire_face(self, face):
         LOGGER.debug(f"Expiring face {face}")
@@ -127,6 +161,15 @@ class Processor:
     def on_connect(self, client):
         for device in self._mqtt_devices.values():
             device.on_connect(client)
+
+
+def create_directory(path):
+    try:
+        if not os.path.isdir(path):
+            LOGGER.debug(f"Creating folder {path}")
+            os.makedirs(path)
+    except FileExistsError:
+        pass
 
 
 def train(
@@ -185,6 +228,9 @@ def train(
         return None, []
 
     for face_dir in faces_dirs:
+        if face_dir == "unknown":
+            continue
+
         LOGGER.debug(f"Training face {face_dir}")
 
         # Loop through each training image for the current person
