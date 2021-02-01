@@ -44,6 +44,8 @@
 # Azure Pipelines
 !/azure-pipelines
 !/azure-pipelines/*
+!/azure-pipelines/templates
+!/azure-pipelines/templates/*
 
 # Dockerstuff
 !/docker/
