@@ -1,4 +1,4 @@
-# Ignore everything
+## Ignore everything
 *
 
 # Include
@@ -41,6 +41,50 @@
 !requirements.txt
 !rpi_requirements.txt
 
-# Force ignore
-docker/cuda/Dockerfile.vpf
-docker/cuda/Video_Codec_SDK_9.1.23.zip
+# Azure Pipelines
+!/azure-pipelines*
+
+# Dockerstuff
+!/docker/
+!/docker/Dockerfile*
+!/docker/aarch64
+!/docker/aarch64/Dockerfile*
+!/docker/amd64
+!/docker/amd64/Dockerfile*
+!/docker/amd64-cuda
+!/docker/amd64-cuda/Dockerfile*
+!/docker/rpi3
+!/docker/rpi3/Dockerfile*
+!/docker/yolov4*.cfg
+!/rootfs/
+!/rootfs/etc/
+!/rootfs/etc/**
+!/.dockerignore
+
+# Source
+!/src
+!/src/*
+!/src/lib
+!/src/lib/*
+!/src/lib/config
+!/src/lib/config/*
+!/src/lib/detectors
+!/src/lib/detectors/*
+!/src/lib/detectors/darknet
+!/src/lib/detectors/darknet/*
+!/src/lib/detectors/edgetpu
+!/src/lib/detectors/edgetpu/*
+!/src/lib/mqtt
+!/src/lib/mqtt/*
+!/src/lib/post_processors
+!/src/lib/post_processors/*
+!/src/lib/post_processors/face_recognition
+!/src/lib/post_processors/face_recognition/*
+!/src/lib/post_processors/face_recognition/dlib
+!/src/lib/post_processors/face_recognition/dlib/*
+!/requirements.txt
+
+# Repo
+!/.gitignore
+!/LICENSE
+!/README.md

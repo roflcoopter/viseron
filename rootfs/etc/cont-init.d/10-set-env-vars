@@ -1,0 +1,40 @@
+#!/usr/bin/with-contenv bash
+
+mkdir -p /var/run/environment
+echo "****** Checking for hardware acceleration platforms ******"
+# Check for OpenCL
+OUTPUT=$(clinfo 2>&1)
+if [[ $OUTPUT =~ ("Number of platforms"[ \t]+[1-9]) ]]; then
+    export VISERON_OPENCL_SUPPORTED=true
+    printf "true" > /var/run/environment/VISERON_OPENCL_SUPPORTED
+    echo OpenCL is available!
+else
+    export VISERON_OPENCL_SUPPORTED=false
+    printf "false" > /var/run/environment/VISERON_OPENCL_SUPPORTED
+    echo OpenCL cannot be used
+fi
+
+# Check for VA-API
+OUTPUT=$(vainfo 2>&1)
+if [[ $OUTPUT =~ ("VAProfileH264") ]]; then
+    export VISERON_VAAPI_SUPPORTED=true
+    printf "true" > /var/run/environment/VISERON_VAAPI_SUPPORTED
+    echo VA-API is available!
+else
+    export VISERON_VAAPI_SUPPORTED=false
+    printf "false" > /var/run/environment/VISERON_VAAPI_SUPPORTED
+    echo VA-API cannot be used
+fi
+
+# Check for CUDA
+OUTPUT=$(/etc/cuda/test_cuda_availability.out > /dev/null 2>&1)
+if [[ $? -eq 0 ]] ; then
+    export VISERON_CUDA_SUPPORTED=true
+    printf "true" > /var/run/environment/VISERON_CUDA_SUPPORTED
+    echo CUDA is available!
+else
+    export VISERON_CUDA_SUPPORTED=false
+    printf "false" > /var/run/environment/VISERON_CUDA_SUPPORTED
+    echo CUDA cannot be used
+fi
+echo "*********************** Done *****************************"

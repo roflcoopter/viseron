@@ -1,0 +1,42 @@
+ARG UBUNTU_VERSION
+FROM nvidia/cuda:11.1-cudnn8-devel-ubuntu${UBUNTU_VERSION} AS build
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PIP_IGNORE_INSTALLED=0
+
+ARG DLIB_VERSION
+ARG MAKEFLAGS="-j2"
+
+RUN buildDeps="autoconf \
+  automake \
+  ca-certificates \
+  cmake \
+  g++ \
+  gcc \
+  git \
+  libopenblas-dev \
+  liblapack-dev \
+  make \
+  python3-dev \
+  python3-pip \
+  python3-setuptools \
+  python3-numpy \
+  python3-wheel" && \
+  apt-get -yqq update && \
+  apt-get install -yq --no-install-recommends ${buildDeps}
+
+# Create dlib wheel
+RUN \
+  mkdir -p /dlib-wheels && \
+  DIR=/tmp && mkdir -p ${DIR} && cd ${DIR} && \
+  git clone --branch v${DLIB_VERSION} --depth 1 https://github.com/davisking/dlib.git && \
+  cd dlib; python3 setup.py bdist_wheel --dist-dir=/dlib-wheels
+
+RUN \
+  pip3 wheel face_recognition --wheel-dir=/wheels --find-links=/dlib-wheels && \
+  # Remove numpy to solve version issues between numpy/sklearn/scipy
+  rm -r /wheels/numpy* && \
+  ls -al /wheels
+
+FROM scratch as scratch
+COPY --from=build /wheels /wheels/
