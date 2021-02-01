@@ -42,7 +42,8 @@
 !rpi_requirements.txt
 
 # Azure Pipelines
-!/azure-pipelines*
+!/azure-pipelines
+!/azure-pipelines/*
 
 # Dockerstuff
 !/docker/
