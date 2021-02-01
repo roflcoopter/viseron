@@ -1,0 +1,3 @@
+#!/usr/bin/execlineb
+
+justc-envdir /var/run/environment exec python3 -u /src/viseron/viseron.py

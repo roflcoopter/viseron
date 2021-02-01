@@ -1,0 +1,35 @@
+ARG UBUNTU_VERSION
+FROM roflcoopter/viseron-models:latest as models
+FROM ubuntu:${UBUNTU_VERSION} as base
+
+ENV LIBVA_DRIVER_NAME=i965
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates \
+  wget \
+  # VA-API
+  vainfo \
+  # intel-media-va-driver \
+  libva-drm2 \
+  libva2 \
+  i965-va-driver \
+  # OpenCL
+  clinfo \
+  # FFmpeg
+  libnuma1
+
+# OpenCL
+RUN mkdir /opencl &&\
+  cd /opencl && \
+  wget https://github.com/intel/compute-runtime/releases/download/19.31.13700/intel-gmmlib_19.2.3_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/compute-runtime/releases/download/19.31.13700/intel-igc-core_1.0.10-2364_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/compute-runtime/releases/download/19.31.13700/intel-igc-opencl_1.0.10-2364_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/compute-runtime/releases/download/19.31.13700/intel-opencl_19.31.13700_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/compute-runtime/releases/download/19.31.13700/intel-ocloc_19.31.13700_amd64.deb --progress=bar:force:noscroll && \
+  dpkg -i *.deb && \
+  rm -R /opencl
+
+COPY --from=models /detectors/models/darknet/yolov4-tiny.weights /detectors/models/darknet/yolo.weights
+COPY --from=models /detectors/models/darknet/yolov4-tiny.cfg /detectors/models/darknet/yolo.cfg
+COPY --from=models /detectors/models/darknet/yolov4-tiny.cfg /detectors/models/darknet/coco.names
+COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu

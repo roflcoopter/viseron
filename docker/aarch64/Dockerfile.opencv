@@ -1,0 +1,91 @@
+ARG FFMPEG_VERSION
+ARG DEBIAN_VERSION
+FROM roflcoopter/rpi3-ffmpeg:${FFMPEG_VERSION} as ffmpeg
+FROM balenalib/aarch64-debian:${DEBIAN_VERSION}-build as build
+RUN [ "cross-build-start" ]
+WORKDIR /tmp/workdir
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+ARG OPENCV_VERSION
+
+COPY --from=ffmpeg /usr/local /usr/local/
+
+
+ARG         LD_LIBRARY_PATH=/opt/opencv/lib
+ARG         MAKEFLAGS="-j2"
+ARG         PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig"
+ARG         PREFIX=/opt/opencv
+ARG         LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib"
+
+
+RUN buildDeps="autoconf \
+  automake \
+  ca-certificates \
+  cmake \
+  curl \
+  clinfo \
+  bzip2 \
+  expat \
+  libexpat1-dev \
+  g++ \
+  gcc \
+  git \
+  gperf \
+  libtool \
+  make \
+  nasm \
+  perl \
+  pkg-config \
+  python3 \
+  python3-dev \
+  python3-numpy \
+  libssl-dev \
+  yasm \
+  libgomp1 \
+  # Optimizations for RPi
+  libatlas-base-dev liblapacke-dev gfortran libhdf5-dev libhdf5-103 libv4l-dev \
+  zlib1g-dev" && \
+  apt-get -yqq update && \
+  apt-get install -yq --no-install-recommends ${buildDeps}
+
+## OpenCV
+RUN  \
+  DIR=/tmp/opencv && mkdir -p ${DIR} && cd ${DIR} && \
+  curl -sL -o opencv-${OPENCV_VERSION}.tar.gz https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.tar.gz && \
+  tar -x --strip-components=1 -f opencv-${OPENCV_VERSION}.tar.gz
+RUN  \
+  DIR=/tmp/opencv_contrib && mkdir -p ${DIR} && cd ${DIR} && \
+  curl -sL -o opencv_contrib-${OPENCV_VERSION}.tar.gz https://github.com/opencv/opencv_contrib/archive/${OPENCV_VERSION}.tar.gz && \
+  tar -x --strip-components=1 -f opencv_contrib-${OPENCV_VERSION}.tar.gz
+
+RUN \
+  DIR=/tmp/opencv/build && mkdir -p ${DIR} && cd ${DIR} && \
+  cmake -D CMAKE_BUILD_TYPE=RELEASE \
+  -DBUILD_TIFF=ON \
+  -DBUILD_opencv_java=OFF \
+  -D BUILD_SHARED_LIBS=ON \
+  -D ENABLE_NEON=ON \
+  -D WITH_LIBV4L=ON \
+  -D WITH_V4L=OFF \
+  -D WITH_CSTRIPES=ON \
+  -D BUILD_TESTS=OFF \
+  -D BUILD_PERF_TESTS=OFF \
+  -D BUILD_opencv_python2=OFF \
+  -D BUILD_opencv_python3=ON \
+  -D CMAKE_INSTALL_PREFIX=${PREFIX} \
+  -D INSTALL_PYTHON_EXAMPLES=OFF \
+  -D INSTALL_C_EXAMPLES=OFF \
+  -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib/modules \
+  -D OPENCV_ENABLE_NONFREE=ON \
+  -D CMAKE_SHARED_LINKER_FLAGS=-latomic \
+  -D BUILD_DOCS=OFF \
+  -D BUILD_EXAMPLES=OFF /tmp/opencv && \
+  make && \
+  make install
+
+RUN [ "cross-build-end" ]
+
+FROM scratch
+
+COPY --from=build /opt/opencv /opt/opencv/
