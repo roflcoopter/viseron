@@ -6,5 +6,4 @@
 !docker2/yolov4.cfg
 !docker2/yolov4-tiny.cfg
 !requirements.txt
-!rpi_requirements.txt
 !rootfs/
