@@ -6,9 +6,13 @@ parameters:
       - rpi3
   - name: image
     type: string
+  - name: timeoutJob
+    type: number
+    default: 360
 
 jobs:
   - job: "build_${{ parameters.image }}"
+    timeoutInMinutes: ${{ parameters.timeoutJob }}
     strategy:
       matrix:
         ${{ each architecture in parameters.architectures }}:
