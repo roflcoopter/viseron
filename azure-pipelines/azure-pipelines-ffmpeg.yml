@@ -9,6 +9,9 @@ pool:
 steps:
   - script: |
       docker run --rm --privileged multiarch/qemu-user-static:register --reset
+
+      cd $(Agent.BuildDirectory)/s
+
       architectures="amd64 rpi3"
       for architecture in ${architectures}; do
         docker-compose --file docker-compose-build.yaml build ${architectures}-ffmpeg
