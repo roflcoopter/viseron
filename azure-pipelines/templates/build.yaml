@@ -5,7 +5,7 @@ parameters:
     type: string
 
 jobs:
-  - job: "Build FFmpeg for ${{ parameters.architecture }}"
+  - job: "build_${{ parameters.architecture }}_${{ parameters.image }}"
     pool:
       vmImage: "ubuntu-latest"
     steps:
