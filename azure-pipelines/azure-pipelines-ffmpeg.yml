@@ -7,5 +7,9 @@ pool:
   vmImage: "ubuntu-latest"
 
 steps:
-  - script: echo Hello, world!
+  - script: |
+      architectures="amd64 rpi3"
+      for architecture in ${architectures}; do
+        echo ${architecture}
+      done
     displayName: "Run a one-line script"
