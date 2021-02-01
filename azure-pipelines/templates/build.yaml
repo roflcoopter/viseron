@@ -4,12 +4,16 @@ parameters:
   - name: image
     type: string
 
-steps:
-  - script: docker run --rm --privileged multiarch/qemu-user-static:register --reset
-    displayName: Register QEMU for cross-builds
-  - script: |
-      cd $(Agent.BuildDirectory)/s/docker
-      echo Building FFmpeg for ${{ parameters.architecture }}
-      docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build ${{ parameters.architecture }}-${{ parameters.image }}
-      done
-    displayName: Build FFmpeg
+jobs:
+  - job: "Build FFmpeg for ${{ parameters.architecture }}"
+    pool:
+      vmImage: "ubuntu-latest"
+    steps:
+      - script: docker run --rm --privileged multiarch/qemu-user-static:register --reset
+        displayName: Register QEMU for cross-builds
+      - script: |
+          cd $(Agent.BuildDirectory)/s/docker
+          echo Building FFmpeg for ${{ parameters.architecture }}
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build ${{ parameters.architecture }}-${{ parameters.image }}
+          done
+        displayName: Build FFmpeg
