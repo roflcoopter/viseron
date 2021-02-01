@@ -3,9 +3,6 @@ trigger:
     include:
       - docker_revamp
 
-pool:
-  vmImage: "ubuntu-latest"
-
 jobs:
 - template: templates/build.yaml
   parameters:
