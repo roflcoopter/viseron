@@ -7,10 +7,11 @@ pool:
   vmImage: "ubuntu-latest"
 
 steps:
+  - script: docker run --rm --privileged multiarch/qemu-user-static:register --reset
+    displayName: Register QEMU for cross-builds
   - script: |
-      docker run --rm --privileged multiarch/qemu-user-static:register --reset
-
       cd $(Agent.BuildDirectory)/s
+      ls -al
 
       architectures="amd64 rpi3"
       for architecture in ${architectures}; do
