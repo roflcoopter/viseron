@@ -1,0 +1,279 @@
+version: "2.4"
+
+services:
+  ################ amd64 #######################################¤
+  amd64-ffmpeg:
+    build:
+      context: ..
+      dockerfile: ./docker/amd64/Dockerfile.ffmpeg
+      args:
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+    image: roflcoopter/amd64-ffmpeg:$FFMPEG_VERSION
+
+  amd64-opencv:
+    build:
+      context: ..
+      dockerfile: ./docker/amd64/Dockerfile.opencv
+      args:
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+        OPENCV_VERSION: "$OPENCV_VERSION"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+    image: roflcoopter/amd64-opencv:$OPENCV_VERSION
+
+  amd64-dlib:
+    build:
+      context: ..
+      dockerfile: ./docker/amd64/Dockerfile.dlib
+      args:
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+        DLIB_VERSION: "$DLIB_VERSION"
+    image: roflcoopter/amd64-dlib:$DLIB_VERSION
+
+  amd64-wheels:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.wheels
+      args:
+        ARCH: amd64
+        BUILD_FROM: ubuntu:$UBUNTU_VERSION
+        DLIB_VERSION: "$DLIB_VERSION"
+    image: roflcoopter/amd64-wheels:$WHEELS_VERSION
+
+  amd64-base:
+    build:
+      args:
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
+      context: ..
+      dockerfile: ./docker/amd64/Dockerfile.base
+    image: roflcoopter/amd64-base:$BASE_VERSION
+
+  amd64-viseron:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+      args:
+        ARCH: amd64
+        BASE_VERSION: "$BASE_VERSION"
+        OPENCV_VERSION: "$OPENCV_VERSION"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+        WHEELS_VERSION: "$WHEELS_VERSION"
+        S6_OVERLAY_ARCH: amd64
+        S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+    image: roflcoopter/amd64-viseron:dev
+
+  ################ amd64 CUDA ###################################
+  amd64-cuda-ffmpeg:
+    build:
+      context: ..
+      dockerfile: ./docker/amd64-cuda/Dockerfile.ffmpeg
+      args:
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+    image: roflcoopter/amd64-cuda-ffmpeg:$FFMPEG_VERSION
+
+  amd64-cuda-opencv:
+    build:
+      context: ..
+      dockerfile: ./docker/amd64-cuda/Dockerfile.opencv
+      args:
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+        OPENCV_VERSION: "$OPENCV_VERSION"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+    image: roflcoopter/amd64-cuda-opencv:$OPENCV_VERSION
+
+  amd64-cuda-dlib:
+    build:
+      context: ..
+      dockerfile: ./docker/amd64-cuda/Dockerfile.dlib
+      args:
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+        DLIB_VERSION: "$DLIB_VERSION"
+    image: roflcoopter/amd64-cuda-dlib:$DLIB_VERSION
+
+  amd64-cuda-wheels:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.wheels
+      args:
+        ARCH: amd64-cuda
+        BUILD_FROM: ubuntu:$UBUNTU_VERSION
+        DLIB_VERSION: "$DLIB_VERSION"
+    image: roflcoopter/amd64-cuda-wheels:$WHEELS_VERSION
+
+  amd64-cuda-base:
+    build:
+      context: ..
+      dockerfile: ./docker/amd64-cuda/Dockerfile.base
+      args:
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
+    image: roflcoopter/amd64-cuda-base:$BASE_VERSION
+
+  amd64-cuda-viseron:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+      args:
+        ARCH: amd64-cuda
+        BASE_VERSION: "$BASE_VERSION"
+        OPENCV_VERSION: "$OPENCV_VERSION"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+        WHEELS_VERSION: "$WHEELS_VERSION"
+        S6_OVERLAY_ARCH: amd64
+        S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+    image: roflcoopter/amd64-cuda-viseron:dev
+
+  ################ RPi3 #######################################¤¤
+  rpi3-ffmpeg:
+    build:
+      context: ..
+      dockerfile: ./docker/rpi3/Dockerfile.ffmpeg
+      args:
+        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+    image: roflcoopter/rpi3-ffmpeg:$FFMPEG_VERSION
+
+  rpi3-python:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.python
+      args:
+        MAKEFLAGS: "$MAKEFLAGS"
+        PYTHON_VERSION: "$PYTHON_VERSION"
+    image: roflcoopter/rpi3-python:$PYTHON_VERSION
+
+  rpi3-opencv:
+    build:
+      context: ..
+      dockerfile: ./docker/rpi3/Dockerfile.opencv
+      args:
+        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+        OPENCV_VERSION: "$OPENCV_VERSION"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+    image: roflcoopter/rpi3-opencv:$OPENCV_VERSION
+
+  rpi3-dlib:
+    build:
+      context: ..
+      dockerfile: ./docker/rpi3/Dockerfile.dlib
+      args:
+        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+        DLIB_VERSION: "$DLIB_VERSION"
+    image: roflcoopter/rpi3-dlib:$DLIB_VERSION
+
+  rpi3-wheels:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.wheels
+      args:
+        ARCH: rpi3
+        BUILD_FROM: balenalib/raspberrypi3-debian:$DEBIAN_VERSION-build
+        DLIB_VERSION: "$DLIB_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+    image: roflcoopter/rpi3-wheels:$WHEELS_VERSION
+
+  rpi3-base:
+    build:
+      context: ..
+      dockerfile: ./docker/rpi3/Dockerfile.base
+      args:
+        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+    image: roflcoopter/rpi3-base:$BASE_VERSION
+
+  rpi3-viseron:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+      args:
+        ARCH: rpi3
+        BASE_VERSION: "$BASE_VERSION"
+        OPENCV_VERSION: "$OPENCV_VERSION"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+        WHEELS_VERSION: "$WHEELS_VERSION"
+        S6_OVERLAY_ARCH: armhf
+        S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+    image: roflcoopter/rpi3-viseron:dev
+
+  ################ aarch64 #######################################
+  aarch64-ffmpeg:
+    build:
+      context: ..
+      dockerfile: ./docker/aarch64/Dockerfile.ffmpeg
+      args:
+        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+    image: roflcoopter/aarch64-ffmpeg:$FFMPEG_VERSION
+
+  aarch64-opencv:
+    build:
+      context: ..
+      dockerfile: ./docker/aarch64/Dockerfile.opencv
+      args:
+        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+        OPENCV_VERSION: "$OPENCV_VERSION"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+    image: roflcoopter/aarch64-opencv:$OPENCV_VERSION
+
+  aarch64-dlib:
+    build:
+      context: ..
+      dockerfile: ./docker/aarch64/Dockerfile.dlib
+      args:
+        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+        DLIB_VERSION: "$DLIB_VERSION"
+    image: roflcoopter/aarch64-dlib:$DLIB_VERSION
+
+  aarch64-wheels:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.wheels
+      args:
+        ARCH: aarch64
+        BUILD_FROM: balenalib/aarch64-debian:$DEBIAN_VERSION-build
+        DLIB_VERSION: "$DLIB_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+    image: roflcoopter/aarch64-wheels:$WHEELS_VERSION
+
+  aarch64-base:
+    build:
+      context: ..
+      dockerfile: ./docker/aarch64/Dockerfile.base
+      args:
+        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+    image: roflcoopter/aarch64-base:$BASE_VERSION
+
+  aarch64-viseron:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+      args:
+        ARCH: aarch64
+        BASE_VERSION: "$BASE_VERSION"
+        OPENCV_VERSION: "$OPENCV_VERSION"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+        WHEELS_VERSION: "$WHEELS_VERSION"
+        S6_OVERLAY_ARCH: aarch64
+        S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+    image: roflcoopter/aarch64-viseron:dev
+
+  models:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.models
+      args:
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
+    image: roflcoopter/viseron-models:latest
