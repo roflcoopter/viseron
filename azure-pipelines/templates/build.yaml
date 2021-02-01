@@ -1,11 +1,18 @@
 parameters:
-  - name: architecture
-    type: string
+  - name: architectures
+    type: object
+    default:
+      - amd64
+      - rpi3
   - name: image
     type: string
 
 jobs:
-  - job: "build_${{ parameters.architecture }}_${{ parameters.image }}"
+  - job: "build_${{ parameters.image }}"
+    strategy:
+      matrix:
+        ${{ each architecture in parameters.architectures }}:
+          architecture: ${{ architecture }}
     pool:
       vmImage: "ubuntu-latest"
     steps:
@@ -13,7 +20,7 @@ jobs:
         displayName: Register QEMU for cross-builds
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
-          echo Building FFmpeg for ${{ parameters.architecture }}
-          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build ${{ parameters.architecture }}-${{ parameters.image }}
+          echo Building ${{ parameters.image }} for $(architecture)
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build $(architecture)-${{ parameters.image }}
           done
-        displayName: Build FFmpeg
+        displayName: Build ${{ parameters.image }}
