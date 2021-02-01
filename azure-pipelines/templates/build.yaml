@@ -12,7 +12,8 @@ jobs:
     strategy:
       matrix:
         ${{ each architecture in parameters.architectures }}:
-          architecture: ${{ architecture }}
+          ${{ architecture }}:
+            arch: ${{ architecture }}
     pool:
       vmImage: "ubuntu-latest"
     steps:
@@ -20,7 +21,6 @@ jobs:
         displayName: Register QEMU for cross-builds
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
-          echo Building ${{ parameters.image }} for $(architecture)
-          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build $(architecture)-${{ parameters.image }}
-          done
+          echo Building ${{ parameters.image }} for $(arch)
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build $(arch)-${{ parameters.image }}
         displayName: Build ${{ parameters.image }}
