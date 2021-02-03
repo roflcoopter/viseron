@@ -7,7 +7,7 @@ parameters:
   - name: image
     type: string
   - name: crossBuild
-    type: bool
+    type: boolean
     default: true
   - name: timeoutJob
     type: number
