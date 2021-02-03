@@ -21,6 +21,11 @@ jobs:
     pool:
       vmImage: "ubuntu-latest"
     steps:
+      - task: Docker@2
+        displayName: Login to Docker Hub
+        inputs:
+          command: login
+          containerRegistry: "Docker Hub"
       - script: docker run --rm --privileged multiarch/qemu-user-static:register --reset
         displayName: Register QEMU for cross-builds
       - script: |
@@ -28,3 +33,11 @@ jobs:
           echo Building ${{ parameters.image }} for $(arch)
           docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build $(arch)-${{ parameters.image }}
         displayName: Build ${{ parameters.image }}
+      - script: |
+          docker image push roflcoopter/${{ parameters.image }}:dev
+        displayName: Push ${{ parameters.image }}
+      - task: Docker@2
+        displayName: Logout of ACR
+        inputs:
+          command: logout
+          containerRegistry: "Docker Hub"
