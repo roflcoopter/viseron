@@ -6,6 +6,9 @@ parameters:
       - rpi3
   - name: image
     type: string
+  - name: crossBuild
+    type: bool
+    default: true
   - name: timeoutJob
     type: number
     default: 360
@@ -28,16 +31,17 @@ jobs:
           containerRegistry: "Docker Hub"
       - script: docker run --rm --privileged multiarch/qemu-user-static:register --reset
         displayName: Register QEMU for cross-builds
+        condition: and(succeeded(), eq('${{ parameters.crossBuild }}', true))
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
-          echo Building ${{ parameters.image }} for $(arch)
           docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build $(arch)-${{ parameters.image }}
-        displayName: Build ${{ parameters.image }}
+        displayName: Build $(arch)-${{ parameters.image }}
       - script: |
-          docker image push roflcoopter/${{ parameters.image }}:dev
-        displayName: Push ${{ parameters.image }}
+          docker image push $(arch)-${{ parameters.image }}:dev
+        displayName: Push $(arch)-${{ parameters.image }}
       - task: Docker@2
-        displayName: Logout of ACR
+        displayName: Logoff Docker Hub
         inputs:
           command: logout
           containerRegistry: "Docker Hub"
+          condition: always()
