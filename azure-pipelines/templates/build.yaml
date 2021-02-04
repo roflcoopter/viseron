@@ -47,7 +47,7 @@ jobs:
           docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build $(arch)-${{ parameters.image }}
         displayName: Build $(arch)-${{ parameters.image }}
       - script: |
-          docker image push ${{ parameters.namespace }}/$(arch)-${{ parameters.image }}:dev
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env push $(arch)-${{ parameters.image }}
         displayName: Push $(arch)-${{ parameters.image }}
       - task: Docker@2
         displayName: Logoff Docker Hub
