@@ -29,8 +29,10 @@ jobs:
     steps:
       - script: |
           cd $(Agent.BuildDirectory)/s/azure-pipelines
-          export $(grep -v '^#' .env | xargs -d '\n')
-          echo $(FFMPEG_VERSION)
+          set -a
+          source .env
+          set +a
+          echo $FFMPEG_VERSION
         displayName: Read env vars from file
       - task: Docker@2
         displayName: Login to Docker Hub
