@@ -27,13 +27,12 @@ jobs:
     pool:
       vmImage: "ubuntu-latest"
     steps:
-      - script: |
-          cd $(Agent.BuildDirectory)/s/azure-pipelines
-          set -a
-          source .env
-          set +a
-          echo $FFMPEG_VERSION
-        displayName: Read env vars from file
+      # - script: |
+      #     cd $(Agent.BuildDirectory)/s/azure-pipelines
+      #     set -a
+      #     source .env
+      #     set +a
+      #   displayName: Read env vars from file
       - task: Docker@2
         displayName: Login to Docker Hub
         inputs:
@@ -47,6 +46,7 @@ jobs:
           docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build $(arch)-${{ parameters.image }}
         displayName: Build $(arch)-${{ parameters.image }}
       - script: |
+          cd $(Agent.BuildDirectory)/s/docker
           docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env push $(arch)-${{ parameters.image }}
         displayName: Push $(arch)-${{ parameters.image }}
       - task: Docker@2
