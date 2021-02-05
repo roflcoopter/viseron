@@ -54,7 +54,7 @@ jobs:
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
           docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build ${{ parameters.image }}
-        displayName: Build $(arch)-${{ parameters.image }}
+        displayName: Build ${{ parameters.image }}
         condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true))
 
       - script: |
@@ -65,7 +65,7 @@ jobs:
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
           docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env push ${{ parameters.image }}
-        displayName: Push $(arch)-${{ parameters.image }}
+        displayName: Push ${{ parameters.image }}
         condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true))
 
       - task: Docker@2
