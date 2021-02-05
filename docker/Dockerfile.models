@@ -35,8 +35,8 @@ RUN \
   wget https://pjreddie.com/media/files/yolov3-tiny.weights -O /detectors/models/darknet/yolov3-tiny.weights --progress=bar:force:noscroll && \
   wget https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg -O /detectors/models/darknet/yolov3-tiny.cfg --progress=bar:force:noscroll
 
-ADD ./docker2/yolov4.cfg /detectors/models/darknet/yolov4.cfg
-ADD ./docker2/yolov4-tiny.cfg /detectors/models/darknet/yolov4-tiny.cfg
+ADD ./docker/yolov4.cfg /detectors/models/darknet/yolov4.cfg
+ADD ./docker/yolov4-tiny.cfg /detectors/models/darknet/yolov4-tiny.cfg
 
 FROM scratch
 
