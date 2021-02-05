@@ -9,6 +9,9 @@ parameters:
     default: roflcoopter
   - name: image
     type: string
+  - name: imageNameOnly
+    type: boolean
+    default: false
   - name: crossBuild
     type: boolean
     default: true
@@ -38,17 +41,33 @@ jobs:
         inputs:
           command: login
           containerRegistry: "Docker Hub"
+
       - script: docker run --rm --privileged multiarch/qemu-user-static:register --reset
         displayName: Register QEMU for cross-builds
         condition: and(succeeded(), eq('${{ parameters.crossBuild }}', true))
+
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
           docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build $(arch)-${{ parameters.image }}
         displayName: Build $(arch)-${{ parameters.image }}
+        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false))
+      - script: |
+          cd $(Agent.BuildDirectory)/s/docker
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build ${{ parameters.image }}
+        displayName: Build $(arch)-${{ parameters.image }}
+        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true))
+
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
           docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env push $(arch)-${{ parameters.image }}
         displayName: Push $(arch)-${{ parameters.image }}
+        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false))
+      - script: |
+          cd $(Agent.BuildDirectory)/s/docker
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env push ${{ parameters.image }}
+        displayName: Push $(arch)-${{ parameters.image }}
+        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true))
+
       - task: Docker@2
         displayName: Logoff Docker Hub
         inputs:
