@@ -7,3 +7,5 @@ jobs:
   - template: templates/build.yaml
     parameters:
       image: models
+      architectures:
+        - amd64
