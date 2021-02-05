@@ -1,0 +1,9 @@
+trigger:
+  branches:
+    include:
+      - docker_revamp
+
+jobs:
+  - template: templates/build.yaml
+    parameters:
+      image: dlib
