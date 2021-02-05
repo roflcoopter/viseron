@@ -3,7 +3,7 @@
 !src/*
 !script/
 !docker/cuda/Video_Codec_SDK_9.1.23.zip
-!docker2/yolov4.cfg
-!docker2/yolov4-tiny.cfg
+!docker/yolov4.cfg
+!docker/yolov4-tiny.cfg
 !requirements.txt
 !rootfs/
