@@ -5,9 +5,9 @@ resources:
     - pipeline: Viseron Pipeline
       source: Viseron
       trigger:
-      branches:
-        include:
-          - dev
+        branches:
+          include:
+            - dev
 jobs:
   - template: templates/build.yaml
     parameters:
