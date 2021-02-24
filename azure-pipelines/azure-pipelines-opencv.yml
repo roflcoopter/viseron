@@ -1,7 +1,4 @@
-trigger:
-  branches:
-    include:
-      - docker_revamp
+trigger: none
 
 jobs:
   - template: templates/build.yaml
