@@ -8,6 +8,7 @@ resources:
         branches:
           include:
             - dev
+            - docker_revamp
 jobs:
   - template: templates/build.yaml
     parameters:
