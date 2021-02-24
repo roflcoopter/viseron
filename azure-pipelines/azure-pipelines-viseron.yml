@@ -2,6 +2,7 @@ trigger:
   branches:
     include:
       - docker_revamp
+      - dev
 
 jobs:
   - template: templates/build.yaml
