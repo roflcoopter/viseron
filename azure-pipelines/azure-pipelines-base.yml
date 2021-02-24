@@ -1,3 +1,5 @@
+trigger: none
+
 jobs:
   - template: templates/build.yaml
     parameters:
