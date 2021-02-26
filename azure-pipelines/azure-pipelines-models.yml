@@ -1,5 +1,15 @@
 trigger: none
 
+resources:
+  pipelines:
+    - source: Viseron Pipelines
+      pipeline: Viseron Base
+      trigger:
+        branches:
+          include:
+            - dev
+            - docker_revamp
+
 jobs:
   - template: templates/build.yaml
     parameters:
