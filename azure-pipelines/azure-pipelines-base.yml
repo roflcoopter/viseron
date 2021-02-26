@@ -8,7 +8,9 @@ resources:
     - pipeline: viseronModels
       source: "Viseron Models"
       trigger:
-        enabled: true
+        branches:
+          - dev
+          - docker_revamp
 
 jobs:
   - template: templates/build.yaml
