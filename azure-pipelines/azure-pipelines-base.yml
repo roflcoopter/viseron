@@ -3,7 +3,7 @@ trigger: none
 resources:
   pipelines:
     - pipeline: viseron_models
-      source: Viseron Pipelines
+      source: viseron_models
       trigger:
         branches:
           include:
