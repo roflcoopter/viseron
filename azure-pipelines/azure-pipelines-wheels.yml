@@ -8,6 +8,18 @@ trigger:
     include:
       - requirements.txt
 
+pool:
+  vmImage: "ubuntu-latest"
+
+resources:
+  pipelines:
+    - pipeline: viserondlib
+      source: "Viseron dlib"
+      trigger:
+        branches:
+          - dev
+          - docker_revamp
+
 jobs:
   - template: templates/build.yaml
     parameters:
