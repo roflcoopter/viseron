@@ -1,15 +1,5 @@
 trigger: none
 
-resources:
-  pipelines:
-    - pipeline: viseron_models
-      source: viseron_models
-      trigger:
-        branches:
-          include:
-            - dev
-            - docker_revamp
-
 jobs:
   - template: templates/build.yaml
     parameters:
