@@ -2,13 +2,14 @@ trigger: none
 
 resources:
   pipelines:
-    - pipeline: Viseron Pipeline
-      source: Viseron
+    - pipeline: viseron_models
+      source: Viseron Pipelines
       trigger:
         branches:
           include:
             - dev
             - docker_revamp
+
 jobs:
   - template: templates/build.yaml
     parameters:
