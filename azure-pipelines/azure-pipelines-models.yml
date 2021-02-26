@@ -2,8 +2,8 @@ trigger: none
 
 resources:
   pipelines:
-    - source: Viseron Pipelines
-      pipeline: Viseron Base
+    - pipeline: Viseron Base
+      source: Viseron Pipelines
       trigger:
         branches:
           include:
