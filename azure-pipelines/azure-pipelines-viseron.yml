@@ -47,43 +47,47 @@ stages:
 
   - stage: Publish manifest
     jobs:
-      - template: templates/release_version.yaml
-        parameters:
-          release: true
-      - task: Docker@2
-        displayName: Login to Docker Hub
-        inputs:
-          command: login
-          containerRegistry: "Docker Hub"
-      - script: |
-          set -e
-          export DOCKER_CLI_EXPERIMENTAL=enabled
+      - job: "Release Viseron"
+        pool:
+          vmImage: "ubuntu-latest"
+        steps:
+          - template: templates/release_version.yaml
+            parameters:
+              release: true
+          - task: Docker@2
+            displayName: Login to Docker Hub
+            inputs:
+              command: login
+              containerRegistry: "Docker Hub"
+          - script: |
+              set -e
+              export DOCKER_CLI_EXPERIMENTAL=enabled
 
-          function create_manifest() {
-            local release_version
+              function create_manifest() {
+                local release_version
 
-            docker manifest create roflcoopter/viseron-new:${release_version} \
-              roflcoopter/amd64-viseron:${release_version} \
-              roflcoopter/rpi3-viseron:${release_version}
+                docker manifest create roflcoopter/viseron-new:${release_version} \
+                  roflcoopter/amd64-viseron:${release_version} \
+                  roflcoopter/rpi3-viseron:${release_version}
 
-            docker manifest annotate roflcoopter/viseron-new:${release_version} \
-              roflcoopter/amd64-viseron:${release_version} \
-              --os linux --arch amd64
+                docker manifest annotate roflcoopter/viseron-new:${release_version} \
+                  roflcoopter/amd64-viseron:${release_version} \
+                  --os linux --arch amd64
 
-            docker manifest annotate roflcoopter/viseron-new:${release_version} \
-              roflcoopter/rpi3-viseron:${release_version} \
-              --os linux --arch arm --variant=v7
-          }
+                docker manifest annotate roflcoopter/viseron-new:${release_version} \
+                  roflcoopter/rpi3-viseron:${release_version} \
+                  --os linux --arch arm --variant=v7
+              }
 
-          docker pull roflcoopter/amd64-viseron:$(viseronVersion)
-          docker pull roflcoopter/rpi3-viseron:$(viseronVersion)
+              docker pull roflcoopter/amd64-viseron:$(viseronVersion)
+              docker pull roflcoopter/rpi3-viseron:$(viseronVersion)
 
-          # Create version tag
-          create_manifest "$(viseronVersion)
-        displayName: "Create multi-arch image"
-      - task: Docker@2
-        displayName: Logoff Docker Hub
-        inputs:
-          command: logout
-          containerRegistry: "Docker Hub"
-          condition: always()
+              # Create version tag
+              create_manifest "$(viseronVersion)
+            displayName: "Create multi-arch image"
+          - task: Docker@2
+            displayName: Logoff Docker Hub
+            inputs:
+              command: logout
+              containerRegistry: "Docker Hub"
+              condition: always()
