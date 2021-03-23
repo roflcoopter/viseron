@@ -83,7 +83,8 @@ stages:
               docker pull roflcoopter/rpi3-viseron:$(viseronVersion)
 
               # Create version tag
-              create_manifest "$(viseronVersion)
+              create_manifest "$(viseronVersion)"
+              docker manifest inspect roflcoopter/viseron-new:$(viseronVersion)
             displayName: "Create multi-arch image"
           - task: Docker@2
             displayName: Logoff Docker Hub
