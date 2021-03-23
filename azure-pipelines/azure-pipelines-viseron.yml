@@ -64,7 +64,7 @@ stages:
               export DOCKER_CLI_EXPERIMENTAL=enabled
 
               function create_manifest() {
-                local release_version
+                local release_version=$1
 
                 docker manifest create roflcoopter/viseron-new:${release_version} \
                   roflcoopter/amd64-viseron:${release_version} \
