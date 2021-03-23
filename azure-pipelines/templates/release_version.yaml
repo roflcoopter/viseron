@@ -20,6 +20,6 @@ steps:
       fi
 
       echo Extracted version is $version
-      echo '##vso[task.setvariable variable=viseronVersion]$version'
+      echo "##vso[task.setvariable variable=viseronVersion;]$version"
     condition: ${{ parameters.release }}
     displayName: Extract version from branch name
