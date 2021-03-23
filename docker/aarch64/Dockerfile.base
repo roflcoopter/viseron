@@ -1,10 +1,7 @@
 ARG FFMPEG_VERSION
 ARG DEBIAN_VERSION
 FROM roflcoopter/viseron-models:latest as models
-FROM roflcoopter/rpi3-ffmpeg:${FFMPEG_VERSION} as ffmpeg
 FROM balenalib/aarch64-debian:${DEBIAN_VERSION}-run
-
-COPY --from=ffmpeg /opt/vc/lib /opt/vc/lib
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \
@@ -25,8 +22,5 @@ RUN \
   libx265-165 \
   libopenjp2-7 \
   libpng16-16
-
-RUN echo "/opt/vc/lib" > /etc/ld.so.conf.d/00-vmcs.conf
-RUN ldconfig
 
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
