@@ -73,7 +73,7 @@ jobs:
         condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true), eq('${{ parameters.release }}', false))
 
       # Runs only for release triggers
-      - template: templates/release_version.yaml
+      - template: release_version.yaml
         parameters:
           release: ${{ parameters.release }}
       - script: |
