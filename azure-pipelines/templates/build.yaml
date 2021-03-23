@@ -74,7 +74,7 @@ jobs:
 
       # Runs only for release triggers
       - template: templates/release_version.yaml
-        parameteres:
+        parameters:
           release: ${{ parameters.release }}
       - script: |
           echo tagging roflcoopter/$(arch)-${{ parameters.image }}:$viseronVersion
