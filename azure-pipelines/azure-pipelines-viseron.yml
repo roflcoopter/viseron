@@ -45,9 +45,9 @@ stages:
           image: viseron
           release: true
 
-  - stage: Publish manifest
+  - stage: "Publish"
     jobs:
-      - job: "Release Viseron"
+      - job: "ReleaseViseron"
         pool:
           vmImage: "ubuntu-latest"
         steps:
