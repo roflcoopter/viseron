@@ -79,12 +79,12 @@ jobs:
       - script: |
           echo tagging roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
           docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
-          # docker image push roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
+          docker image push roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
 
           if [[ $viseronVersion =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo tagging roflcoopter/$(arch)-${{ parameters.image }}:latest
             docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:latest
-            # docker image push roflcoopter/$(arch)-${{ parameters.image }}:latest
+            docker image push roflcoopter/$(arch)-${{ parameters.image }}:latest
           fi
         displayName: Push $(arch)-${{ parameters.image }}
         condition: and(succeeded(), eq('${{ parameters.release }}', true))
