@@ -77,9 +77,9 @@ jobs:
         parameters:
           release: ${{ parameters.release }}
       - script: |
-          echo tagging roflcoopter/$(arch)-${{ parameters.image }}:$viseronVersion
-          docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:$viseronVersion
-          # docker image push roflcoopter/$(arch)-${{ parameters.image }}:$viseronVersion
+          echo tagging roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
+          docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
+          # docker image push roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
 
           if [ "$viseronVersion" != "dev" ] && [[ "$viseronVersion" != *"b"* ]] ; then
             echo tagging roflcoopter/$(arch)-${{ parameters.image }}:latest
