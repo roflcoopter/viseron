@@ -1,5 +1,17 @@
 trigger: none
 
+pool:
+  vmImage: "ubuntu-latest"
+
+resources:
+  pipelines:
+    - pipeline: viseronOpenCV
+      source: "Viseron OpenCV"
+      trigger:
+        branches:
+          - dev
+          - docker_revamp
+
 jobs:
   - template: templates/build.yaml
     parameters:
