@@ -77,6 +77,8 @@ stages:
                 docker manifest annotate roflcoopter/viseron-new:${release_version} \
                   roflcoopter/rpi3-viseron:${release_version} \
                   --os linux --arch arm --variant=v7
+
+                docker manifest push --purge roflcoopter/viseron-new:${release_version}
               }
 
               docker pull roflcoopter/amd64-viseron:$(viseronVersion)
