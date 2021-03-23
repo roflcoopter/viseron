@@ -81,7 +81,7 @@ jobs:
           docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
           # docker image push roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
 
-          if [ "$viseronVersion" != "dev" ] && [[ "$viseronVersion" != *"b"* ]] ; then
+          if [ "$viseronVersion" != "dev" ] && [[ "$viseronVersion" != *"b"* ]] [ "$viseronVersion" != "docker_revamp" ] ; then
             echo tagging roflcoopter/$(arch)-${{ parameters.image }}:latest
             docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:latest
             # docker image push roflcoopter/$(arch)-${{ parameters.image }}:latest
