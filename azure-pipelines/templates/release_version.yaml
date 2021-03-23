@@ -1,0 +1,21 @@
+parameters:
+  - name: release
+    type: boolean
+    default: false
+
+steps:
+  - script: |
+      branch="$(Build.SourceBranchName)"
+
+      if [ "$version" == "dev" ] ; then
+        version="dev"
+      elif [ "$version" == "docker_revamp" ] ; then
+        version="docker_revamp"
+      else
+        version=$([[ $branch =~ refs/tags/v(.*) ]] && echo "${BASH_REMATCH[1]}")
+      fi
+
+      echo Extracted version is $version
+      echo '##vso[task.setvariable variable=viseronVersion]$version'
+    condition: ${{ parameters.release }}
+    displayName: Extract version from branch name
