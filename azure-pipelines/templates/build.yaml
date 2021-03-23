@@ -18,6 +18,9 @@ parameters:
   - name: timeoutJob
     type: number
     default: 360
+  - name: release
+    type: boolean
+    default: false
 
 jobs:
   - job: "build_${{ parameters.image }}"
@@ -57,16 +60,34 @@ jobs:
         displayName: Build ${{ parameters.image }}
         condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true))
 
+      # Runs only for non-release triggers
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
           docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env push $(arch)-${{ parameters.image }}
         displayName: Push $(arch)-${{ parameters.image }}
-        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false))
+        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false), eq('${{ parameters.release }}', false))
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
           docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env push ${{ parameters.image }}
         displayName: Push ${{ parameters.image }}
-        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true))
+        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true), eq('${{ parameters.release }}', false))
+
+      # Runs only for release triggers
+      - template: templates/release_version.yaml
+        parameteres:
+          release: ${{ parameters.release }}
+      - script: |
+          echo tagging roflcoopter/$(arch)-${{ parameters.image }}:$viseronVersion
+          docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:$viseronVersion
+          # docker image push roflcoopter/$(arch)-${{ parameters.image }}:$viseronVersion
+
+          if [ "$viseronVersion" != "dev" ] && [[ "$viseronVersion" != *"b"* ]] ; then
+            echo tagging roflcoopter/$(arch)-${{ parameters.image }}:latest
+            docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:latest
+            # docker image push roflcoopter/$(arch)-${{ parameters.image }}:latest
+          fi
+        displayName: Push $(arch)-${{ parameters.image }}:$(viseronVersion)
+        condition: and(succeeded(), eq('${{ parameters.release }}', true))
 
       - task: Docker@2
         displayName: Logoff Docker Hub
