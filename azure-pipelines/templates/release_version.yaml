@@ -5,14 +5,18 @@ parameters:
 
 steps:
   - script: |
+      set -e
       branch="$(Build.SourceBranchName)"
 
-      if [ "$version" == "dev" ] ; then
+      if [ "$branch" == "dev" ] ; then
         version="dev"
-      elif [ "$version" == "docker_revamp" ] ; then
+      elif [ "$branch" == "docker_revamp" ] ; then
         version="docker_revamp"
-      else
+      elif [[ "$branch" == *"refs/tags/v"* ]] ; then
         version=$([[ $branch =~ refs/tags/v(.*) ]] && echo "${BASH_REMATCH[1]}")
+      else
+        echo "Failed to extract version from branch $branch"
+        exit 255
       fi
 
       echo Extracted version is $version
