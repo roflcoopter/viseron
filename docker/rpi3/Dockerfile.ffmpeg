@@ -429,7 +429,24 @@ RUN \
 #   make install && \
 #   rm -rf ${DIR}
 
-## libzmq https://github.com/zeromq/libzmq/
+## Cant build libzmq or userland without compiling CMake with the flags below.
+## Related to https://gitlab.kitware.com/cmake/cmake/-/issues/20568
+ENV PATH=/usr/local/bin:$PATH
+ENV CMAKE_VERSION=3.20.0
+ENV CFLAGS="-D_FILE_OFFSET_BITS=64" \
+  CXXFLAGS="-D_FILE_OFFSET_BITS=64"
+
+## CMake, the distributed version is too old
+RUN \
+  DIR=/tmp/cmake && \
+  mkdir -p ${DIR} && \
+  cd ${DIR} && \
+  git clone --depth 1 --single-branch --branch v${CMAKE_VERSION} https://gitlab.kitware.com/cmake/cmake.git/ . && \
+  ./bootstrap && \
+  make && \
+  make install && \
+  rm -rf ${DIR}
+
 RUN \
   DIR=/tmp/libzmq && \
   mkdir -p ${DIR} && \
