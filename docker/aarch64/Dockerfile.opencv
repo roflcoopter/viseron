@@ -1,6 +1,6 @@
 ARG FFMPEG_VERSION
 ARG DEBIAN_VERSION
-FROM roflcoopter/rpi3-ffmpeg:${FFMPEG_VERSION} as ffmpeg
+FROM roflcoopter/aarch64-ffmpeg:${FFMPEG_VERSION} as ffmpeg
 FROM balenalib/aarch64-debian:${DEBIAN_VERSION}-build as build
 RUN [ "cross-build-start" ]
 WORKDIR /tmp/workdir
