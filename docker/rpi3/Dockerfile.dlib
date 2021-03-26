@@ -10,7 +10,6 @@ ARG MAKEFLAGS="-j2"
 RUN buildDeps="autoconf \
   automake \
   ca-certificates \
-  cmake \
   g++ \
   gcc \
   git \
@@ -25,6 +24,24 @@ RUN buildDeps="autoconf \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps}
 
+## Cant build dlib without compiling CMake with the flags below.
+## Related to https://gitlab.kitware.com/cmake/cmake/-/issues/20568
+ENV PATH=/usr/local/bin:$PATH \
+  CMAKE_VERSION=3.20.0 \
+  CFLAGS="-D_FILE_OFFSET_BITS=64" \
+  CXXFLAGS="-D_FILE_OFFSET_BITS=64"
+
+## CMake, the distributed version is too old
+RUN \
+  DIR=/tmp/cmake && \
+  mkdir -p ${DIR} && \
+  cd ${DIR} && \
+  git clone --depth 1 --single-branch --branch v${CMAKE_VERSION} https://gitlab.kitware.com/cmake/cmake.git/ . && \
+  ./bootstrap && \
+  make && \
+  make install && \
+  rm -rf ${DIR}
+
 # Create dlib wheel
 RUN \
   mkdir -p /dlib-wheels && \
@@ -33,6 +50,8 @@ RUN \
   cd dlib; python3 setup.py bdist_wheel --dist-dir=/dlib-wheels --compiler-flags "-mfpu=neon"
 
 RUN pip3 wheel face_recognition --wheel-dir=/wheels --find-links=/dlib-wheels
+
+RUN [ "cross-build-end" ]
 
 FROM scratch as scratch
 COPY --from=build /wheels /wheels/
