@@ -47,7 +47,7 @@ jobs:
           command: login
           containerRegistry: "Docker Hub"
 
-      - script: docker run --rm --privileged multiarch/qemu-user-static:register --reset
+      - script: docker run --rm --privileged tonistiigi/binfmt --install all
         displayName: Register QEMU for cross-builds
         condition: and(succeeded(), eq('${{ parameters.crossBuild }}', true))
 
