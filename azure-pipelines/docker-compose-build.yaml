@@ -159,6 +159,7 @@ services:
         MAKEFLAGS: "$MAKEFLAGS"
         OPENCV_VERSION: "$OPENCV_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
+        CMAKE_VERSION: "$CMAKE_VERSION"
     image: roflcoopter/rpi3-opencv:$OPENCV_VERSION
 
   rpi3-dlib:

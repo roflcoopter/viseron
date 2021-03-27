@@ -1,11 +1,19 @@
+ARG CMAKE_VERSION
 ARG FFMPEG_VERSION
 ARG DEBIAN_VERSION
+FROM roflcoopter/rpi3-cmake:${CMAKE_VERSION} as cmake
 FROM roflcoopter/rpi3-ffmpeg:${FFMPEG_VERSION} as ffmpeg
 FROM balenalib/raspberrypi3-debian:${DEBIAN_VERSION}-build as build
 RUN [ "cross-build-start" ]
+
+COPY --from=cmake /usr/custom_cmake/bin /usr/custom_cmake/bin/
+COPY --from=cmake /usr/custom_cmake/share /usr/custom_cmake/share/
+
 WORKDIR /tmp/workdir
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+  PATH=/usr/custom_cmake/bin:$PATH
+
 
 ARG OPENCV_VERSION
 
