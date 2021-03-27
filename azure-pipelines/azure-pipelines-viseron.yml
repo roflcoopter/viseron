@@ -68,7 +68,8 @@ stages:
 
                 docker manifest create roflcoopter/viseron-new:${release_version} \
                   roflcoopter/amd64-viseron:${release_version} \
-                  roflcoopter/rpi3-viseron:${release_version}
+                  roflcoopter/rpi3-viseron:${release_version} \
+                  roflcoopter/aarch64-viseron:${release_version}
 
                 docker manifest annotate roflcoopter/viseron-new:${release_version} \
                   roflcoopter/amd64-viseron:${release_version} \
@@ -78,11 +79,16 @@ stages:
                   roflcoopter/rpi3-viseron:${release_version} \
                   --os linux --arch arm --variant=v7
 
+                docker manifest annotate roflcoopter/viseron-new:${release_version} \
+                  roflcoopter/aarch64-viseron:${release_version} \
+                  --os linux --arch arm64 --variant=v8
+
                 docker manifest push --purge roflcoopter/viseron-new:${release_version}
               }
 
               docker pull roflcoopter/amd64-viseron:$(viseronVersion)
               docker pull roflcoopter/rpi3-viseron:$(viseronVersion)
+              docker pull roflcoopter/aarch64-viseron:$(viseronVersion)
 
               # Create version tag
               create_manifest "$(viseronVersion)"
