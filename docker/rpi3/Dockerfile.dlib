@@ -1,8 +1,15 @@
+ARG CMAKE_VERSION
 ARG DEBIAN_VERSION
+FROM roflcoopter/rpi3-cmake:${CMAKE_VERSION} as cmake
 FROM balenalib/raspberrypi3-debian:${DEBIAN_VERSION}-build as build
 RUN [ "cross-build-start" ]
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PIP_IGNORE_INSTALLED=0
+
+COPY --from=cmake /usr/custom_cmake/bin /usr/custom_cmake/bin/
+COPY --from=cmake /usr/custom_cmake/share /usr/custom_cmake/share/
+
+ENV DEBIAN_FRONTEND=noninteractive \
+  PIP_IGNORE_INSTALLED=0 \
+  PATH=/usr/custom_cmake/bin:$PATH
 
 ARG DLIB_VERSION
 ARG MAKEFLAGS="-j2"
@@ -23,24 +30,6 @@ RUN buildDeps="autoconf \
   python3-wheel" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps}
-
-## Cant build dlib without compiling CMake with the flags below.
-## Related to https://gitlab.kitware.com/cmake/cmake/-/issues/20568
-ENV PATH=/usr/local/bin:$PATH \
-  CMAKE_VERSION=3.20.0 \
-  CFLAGS="-D_FILE_OFFSET_BITS=64" \
-  CXXFLAGS="-D_FILE_OFFSET_BITS=64"
-
-## CMake, the distributed version is too old
-RUN \
-  DIR=/tmp/cmake && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  git clone --depth 1 --single-branch --branch v${CMAKE_VERSION} https://gitlab.kitware.com/cmake/cmake.git/ . && \
-  ./bootstrap && \
-  make && \
-  make install && \
-  rm -rf ${DIR}
 
 # Create dlib wheel
 RUN \

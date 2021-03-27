@@ -1,7 +1,13 @@
 # Shameless copy of https://github.com/jrottenberg/ffmpeg/
+ARG CMAKE_VERSION
 ARG DEBIAN_VERSION
+FROM roflcoopter/rpi3-cmake:${CMAKE_VERSION} as cmake
 FROM balenalib/raspberrypi3-debian:${DEBIAN_VERSION}-build as build
 RUN [ "cross-build-start" ]
+
+COPY --from=cmake /usr/custom_cmake/bin /usr/custom_cmake/bin/
+COPY --from=cmake /usr/custom_cmake/share /usr/custom_cmake/share/
+
 WORKDIR /tmp/workdir
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -37,7 +43,8 @@ ENV AOM_VERSION=v1.0.0 \
   LIBXML2_VERSION=2.9.10 \
   # LIBBLURAY_VERSION=1.1.2 \
   LIBZMQ_VERSION=4.3.2 \
-  SRC=/usr/local
+  SRC=/usr/local \
+  PATH=/usr/custom_cmake/bin:$PATH
 
 ARG         FREETYPE_SHA256SUM="5d03dd76c2171a7601e9ce10551d52d4471cf92cd205948e60289251daddffa8 freetype-2.5.5.tar.gz"
 ARG         FRIBIDI_SHA256SUM="3fc96fa9473bd31dcb5500bdf1aa78b337ba13eb8c301e7c28923fea982453a8 0.19.7.tar.gz"
@@ -61,7 +68,6 @@ ARG         LD_LIBRARY_PATH="/opt/ffmpeg/lib:/opt/ffmpeg/lib64:/usr/lib64:/usr/l
 RUN buildDeps="autoconf \
   automake \
   ca-certificates \
-  cmake \
   curl \
   expat \
   bzip2 \
@@ -429,24 +435,7 @@ RUN \
 #   make install && \
 #   rm -rf ${DIR}
 
-## Cant build libzmq or userland without compiling CMake with the flags below.
-## Related to https://gitlab.kitware.com/cmake/cmake/-/issues/20568
-ENV PATH=/usr/local/bin:$PATH
-ENV CMAKE_VERSION=3.20.0
-ENV CFLAGS="-D_FILE_OFFSET_BITS=64" \
-  CXXFLAGS="-D_FILE_OFFSET_BITS=64"
-
-## CMake, the distributed version is too old
-RUN \
-  DIR=/tmp/cmake && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  git clone --depth 1 --single-branch --branch v${CMAKE_VERSION} https://gitlab.kitware.com/cmake/cmake.git/ . && \
-  ./bootstrap && \
-  make && \
-  make install && \
-  rm -rf ${DIR}
-
+## libzmq https://github.com/zeromq/libzmq
 RUN \
   DIR=/tmp/libzmq && \
   mkdir -p ${DIR} && \

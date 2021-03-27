@@ -138,6 +138,7 @@ services:
         DEBIAN_VERSION: "$DEBIAN_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
+        CMAKE_VERSION: "$CMAKE_VERSION"
     image: roflcoopter/rpi3-ffmpeg:$FFMPEG_VERSION
 
   rpi3-python:
@@ -168,6 +169,7 @@ services:
         DEBIAN_VERSION: "$DEBIAN_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
         DLIB_VERSION: "$DLIB_VERSION"
+        CMAKE_VERSION: "$CMAKE_VERSION"
     image: roflcoopter/rpi3-dlib:$DLIB_VERSION
 
   rpi3-wheels:
@@ -203,6 +205,15 @@ services:
         S6_OVERLAY_ARCH: armhf
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
     image: roflcoopter/rpi3-viseron:dev
+
+  rpi3-cmake:
+    build:
+      context: ..
+      dockerfile: ./docker/rpi3/Dockerfile.cmake
+      args:
+        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        CMAKE_VERSION: "$CMAKE_VERSION"
+    image: roflcoopter/rpi3-cmake:$CMAKE_VERSION
 
   ################ aarch64 #######################################
   aarch64-ffmpeg:
