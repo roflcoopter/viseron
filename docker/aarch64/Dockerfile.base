@@ -15,8 +15,9 @@ RUN \
   # OpenCV
   libatlas3-base \
   libhdf5-103 \
-  liblapacke \ 
+  liblapacke \
   libopenexr23 \
+  libatomic1 \
   ## FFmpeg
   libaom0 \
   libx265-165 \
