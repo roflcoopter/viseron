@@ -1,46 +1,7 @@
 ## Ignore everything
 *
 
-# Include
-!docker
-!docker/cuda
-!docker/cuda/*
-!docker/rpi
-!docker/rpi/*
-!docker/vaapi
-!docker/vaapi/*
-!src
-!src/*
-!src/lib
-!src/lib/*
-!src/lib/config
-!src/lib/config/*
-!src/lib/detectors
-!src/lib/detectors/*
-!src/lib/detectors/darknet
-!src/lib/detectors/darknet/*
-!src/lib/detectors/edgetpu
-!src/lib/detectors/edgetpu/*
-!src/lib/mqtt
-!src/lib/mqtt/*
-!src/lib/post_processors
-!src/lib/post_processors/*
-!src/lib/post_processors/face_recognition
-!src/lib/post_processors/face_recognition/*
-!src/lib/post_processors/face_recognition/dlib
-!src/lib/post_processors/face_recognition/dlib/*
-!src/lib/webserver
-!src/lib/webserver/*
-!src/lib/webserver/assets
-!src/lib/webserver/assets/*
-!.dockerignore
-!.gitignore
-!Dockerfile
-!LICENSE
-!README.md
-!requirements.txt
-!rpi_requirements.txt
-
+## Include
 # Azure Pipelines
 !/azure-pipelines
 !/azure-pipelines/*
