@@ -301,6 +301,8 @@ ffmpeg_recoverable_errors:
 ### Substream
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
+| stream_format | str | ```rtsp``` | ```rtsp```, ```mjpeg``` | FFMPEG stream format |
+| port | int | **required** | any integer | Port for the camera stream |
 | path | str | **required** | any string | Path to the camera substream, eg ```/Streaming/Channels/102/``` |
 | width | int | optional | any integer | Width of the stream. Will use FFprobe to get this information if not given |
 | height | int | optional | any integer | Height of the stream. Will use FFprobe to get this information if not given |
