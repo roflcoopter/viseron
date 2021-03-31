@@ -67,7 +67,9 @@ def check_for_hwaccels(hwaccel_args: List[str]) -> List[str]:
 
 STREAM_SCEHMA = Schema(
     {
+        Required("stream_format", default="rtsp"): Any("rtsp", "mjpeg"),
         Required("path"): All(str, Length(min=1)),
+        Required("port"): All(int, Range(min=1)),
         Optional("width", default=None): Any(int, None),
         Optional("height", default=None): Any(int, None),
         Optional("fps", default=None): Any(All(int, Range(min=1)), None),
@@ -85,9 +87,7 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
     {
         Required("name"): All(str, Length(min=1)),
         Optional("mqtt_name", default=None): Any(All(str, Length(min=1)), None),
-        Required("stream_format", default="rtsp"): Any("rtsp", "mjpeg"),
         Required("host"): All(str, Length(min=1)),
-        Required("port"): All(int, Range(min=1)),
         Optional("username", default=None): Any(All(str, Length(min=1)), None),
         Optional("password", default=None): Any(All(str, Length(min=1)), None),
         Optional("global_args", default=CAMERA_GLOBAL_ARGS): list,
@@ -248,6 +248,8 @@ class Stream:
 class Substream(Stream):
     def __init__(self, camera):
         super().__init__(camera)
+        self._stream_format = camera["substream"]["stream_format"]
+        self._port = camera["substream"]["port"]
         self._path = camera["substream"]["path"]
         self._width = camera["substream"]["width"]
         self._height = camera["substream"]["height"]
