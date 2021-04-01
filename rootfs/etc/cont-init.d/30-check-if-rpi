@@ -16,5 +16,8 @@ case "$OUTPUT" in
         printf "true" > /var/run/environment/VISERON_RASPBERRYPI4
         echo Running on an RPi4
         ;;
+
+    *)
+        echo Not running on any supported RPi
 esac
 echo "*********************** Done *****************************"
