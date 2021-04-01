@@ -6,6 +6,10 @@ trigger:
   tags:
     include:
       - "*"
+  paths:
+    include:
+      - src/*
+      - rootfs/*
 pr: none
 
 pool:
