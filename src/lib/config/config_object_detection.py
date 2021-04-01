@@ -12,7 +12,12 @@ from voluptuous import (
     Schema,
 )
 
-from const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED, ENV_RASPBERRYPI3
+from const import (
+    ENV_CUDA_SUPPORTED,
+    ENV_OPENCL_SUPPORTED,
+    ENV_RASPBERRYPI3,
+    ENV_RASPBERRYPI4,
+)
 
 from .config_logging import SCHEMA as LOGGING_SCHEMA
 from .config_logging import LoggingConfig
@@ -46,6 +51,8 @@ def get_detector_type() -> str:
     ):
         return "darknet"
     if os.getenv(ENV_RASPBERRYPI3) == "true":
+        return "edgetpu"
+    if os.getenv(ENV_RASPBERRYPI4) == "true":
         return "edgetpu"
     return "darknet"
 
