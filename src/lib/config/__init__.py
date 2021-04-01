@@ -19,14 +19,7 @@ from voluptuous import (
     Schema,
 )
 
-from const import (
-    CONFIG_PATH,
-    DEFAULT_CONFIG,
-    ENV_CUDA_SUPPORTED,
-    ENV_OPENCL_SUPPORTED,
-    ENV_RASPBERRYPI3,
-    SECRETS_PATH,
-)
+from const import CONFIG_PATH, DEFAULT_CONFIG, SECRETS_PATH
 
 from .config_camera import CameraConfig
 from .config_logging import LoggingConfig

@@ -24,10 +24,12 @@ from const import (
     CAMERA_OUTPUT_ARGS,
     ENV_CUDA_SUPPORTED,
     ENV_RASPBERRYPI3,
+    ENV_RASPBERRYPI4,
     ENV_VAAPI_SUPPORTED,
     FFMPEG_RECOVERABLE_ERRORS,
     HWACCEL_CUDA_DECODER_CODEC_MAP,
     HWACCEL_RPI3_DECODER_CODEC_MAP,
+    HWACCEL_RPI4_DECODER_CODEC_MAP,
     HWACCEL_VAAPI,
 )
 from lib.helpers import slugify
@@ -203,6 +205,8 @@ class Stream:
                 return HWACCEL_CUDA_DECODER_CODEC_MAP
             if os.getenv(ENV_RASPBERRYPI3) == "true":
                 return HWACCEL_RPI3_DECODER_CODEC_MAP
+            if os.getenv(ENV_RASPBERRYPI4) == "true":
+                return HWACCEL_RPI4_DECODER_CODEC_MAP
         return {}
 
     @property
