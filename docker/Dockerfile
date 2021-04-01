@@ -54,6 +54,9 @@ RUN \
 VOLUME /config
 VOLUME /recordings
 
+RUN useradd -u 911 -U abc && \
+  mkdir -p /segments
+
 WORKDIR /src/viseron
 COPY src /src/viseron/
 COPY rootfs/ /
