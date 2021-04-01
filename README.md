@@ -55,6 +55,7 @@ Builds are tested and verified on the following platforms:
   - [Logging](#logging)
   - [Secrets](#secrets)
 - [Benchmarks](#benchmarks)
+- [User and Group Identifiers](#user-and-group-identifiers)
 
 # Getting started
 Choose the appropriate docker container for your machine. Builds are published to [Docker Hub](https://hub.docker.com/repository/docker/roflcoopter/viseron)
@@ -1119,6 +1120,57 @@ cameras:
     username: !secret username
     password: !secret password
 ```
+
+---
+
+# User and Group Identifiers
+When using volumes (`-v` flags) permissions issues can happen between the host and the container.
+To solve this, you can specify the user `PUID` and group `PGID` as environment variables to the container.
+
+<details>
+  <summary>Docker command</summary>
+
+  ```bash
+  docker run --rm \
+  -v <recordings path>:/recordings \
+  -v <config path>:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  --name viseron \
+  -e PUID=1000 \
+  -e PGID=1000 \
+  roflcoopter/viseron:latest
+  ```
+</details>
+<details>
+  <summary>Docker Compose</summary>
+
+  Example docker-compose
+  ```yaml
+  version: "2.4"
+
+  services:
+    viseron:
+      image: roflcoopter/viseron:latest
+      container_name: viseron
+      volumes:
+        - <recordings path>:/recordings
+        - <config path>:/config
+        - /etc/localtime:/etc/localtime:ro
+      environment:
+        - PUID=1000
+        - PGID=1000
+  ```
+</details>
+
+Ensure the volumes are owned on the host by the user you specify.
+In this example `PUID=1000` and `PGID=1000`.
+
+To find the UID and GID of your current user you can run this command on the host:
+```
+  $ id your_username_here
+```
+
+The default values are `PUID=911` and `PGID=911`, username `abc`
 
 ---
 
