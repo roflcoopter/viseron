@@ -1,13 +1,15 @@
+""" General helper functions """
 import logging
 import math
 from collections import Counter
 from queue import Full, Queue
-from typing import Any, Tuple
+from typing import Any, Callable, Dict, Hashable, Tuple
 
+import numpy as np
 import tornado.queues as tq
+import voluptuous as vol
 
 import cv2
-import numpy as np
 import slugify as unicode_slug
 from const import FONT, FONT_SIZE, FONT_THICKNESS
 
@@ -290,3 +292,23 @@ class Filter:
     @property
     def post_processor(self):
         return self._post_processor
+
+
+def key_dependency(
+    key: Hashable, dependency: Hashable
+) -> Callable[[Dict[Hashable, Any]], Dict[Hashable, Any]]:
+    """Validate that all dependencies exist for key."""
+
+    def validator(value: Dict[Hashable, Any]) -> Dict[Hashable, Any]:
+        """Test dependencies."""
+        if not isinstance(value, dict):
+            raise vol.Invalid("key dependencies require a dict")
+        if key in value and dependency not in value:
+            raise vol.Invalid(
+                f'dependency violation - key "{key}" requires '
+                f'key "{dependency}" to exist'
+            )
+
+        return value
+
+    return validator

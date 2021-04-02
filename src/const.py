@@ -1,3 +1,4 @@
+""" Constants """
 import cv2
 
 CONFIG_PATH = "/config/config.yaml"
@@ -94,6 +95,8 @@ FONT = cv2.FONT_HERSHEY_SIMPLEX
 FONT_SIZE = 0.6
 FONT_THICKNESS = 1
 
+
+TOPIC_STATIC_MJPEG_STREAMS = "static_mjepg_streams"
 
 TOPIC_DECODE = "decode"
 TOPIC_FRAME = "frame"

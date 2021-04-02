@@ -37,6 +37,7 @@ Builds are tested and verified on the following platforms:
     - [Camera object detection](#camera-object-detection)
     - [Zones](#zones)
     - [Points](#points)
+    - [Static MJPEG streams](#static-mjpeg-streams)
   - [Object detection](#object-detection)
     - [Darknet](#darknet)
     - [EdgeTPU](#edgetpu)
@@ -44,6 +45,7 @@ Builds are tested and verified on the following platforms:
   - [Motion detection](#motion-detection)
   - [Recorder](#recorder)
   - [User Interface](#user-interface)
+    - [Dynamic MJPEG streams](#dynamic-mjpeg-streams)
   - [Post Processors](#post-processors)
     - [Face Recognition](#face-recognition)
   - [MQTT](#mqtt)
@@ -486,6 +488,52 @@ points:
 
 ---
 
+### Static MJPEG Streams
+<details>
+  <summary>Config example</summary>
+
+  ```yaml
+  cameras:
+    - name: Front door
+      host: 192.168.30.2
+      port: 554
+      username: user
+      password: pass
+      path: /Streaming/Channels/101/
+      static_mjpeg_streams:
+        my-big-front-door-stream:
+          width: 1920
+          height: 1080
+          draw_objects: True
+        my-small-front-door-stream:
+          width: 100
+          height: 100
+          draw_objects: True
+  ```
+</details>
+
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| width | int | optional | any int | Frame will be rezied to this width. Required if height is set |
+| height | int | optional | any int | Frame will be rezied to this height. Required if width is set |
+| draw_objects | bool | optional | true/false | If set, found objects will be drawn |
+| draw_motion | bool | optional | true/false | If set, detected motion will be drawn |
+| draw_motion_mask | bool | optional | true/false | If set, configured motion masks will be drawn |
+| draw_zones | bool | optional | true/false | If set, configured zones will be drawn |
+| rotate | int | optional | any int | Degrees to rotate the image. Positive/negative values rotate clockwise/counter clockwise respectively |
+| mirror | bool | optional | true/false | If set, mirror the image horizontally |
+
+Viseron can serve predefined MJPEG streams.\
+This is useful for debugging, but also if you want to view your camera on a Chromecast for instance.
+
+The MJPEG streams work exactly as the [dynamic streams](#dynamic-mjpeg-streams) which uses query parameters.\
+The benefit of using these predefined streams instead is that frame processing happens only once.\
+This means that you can theoretically have as many streams open as you want without increased load on your machine.
+
+The config example above would give you two streams, available at these endpoints:\
+```http://localhost:8888/front_door/static-mjpeg-streams/my-big-front-door-stream```\
+```http://localhost:8888/front_door/static-mjpeg-streams/my-small-front-door-stream```
+
 ## Object detection
 <details>
   <summary>Config example</summary>
@@ -722,13 +770,15 @@ The default location for the thumbnail if ```save_to_disk: true``` is ```/record
 ## User Interface
 The user interface can be reached by default on port 8888 inside the container.
 
-### MJPEG Streams
+### Dynamic MJPEG Streams
 Viseron will serve MJPEG streams of all cameras. \
 The stream can be reached on a [slugified](https://github.com/un33k/python-slugify) version of the configured camera name with ```_``` as separator.\
 If you are unsure on your camera name in this format you can run this snippet:\
 ```docker exec -it viseron python3 -c "from lib.config import CONFIG; from lib.helpers import print_slugs; print_slugs(CONFIG);"```
 
 Example URL: ```http://localhost:8888/<camera name slug>/stream```
+
+To increase performance it is recommended to use [static streams](#static-mjpeg-streams) instead. 
 
 #### Query parameters
 A number of query parameters are available to instruct Viseron to resize the stream or draw different things in the image.\
