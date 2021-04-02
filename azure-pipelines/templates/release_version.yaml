@@ -8,12 +8,17 @@ steps:
       set -e
       branch="$(Build.SourceBranchName)"
 
+      latestRelease=false
       if [ "$branch" == "dev" ] ; then
         version="dev"
       elif [ "$branch" == "docker_revamp" ] ; then
         version="docker_revamp"
       elif [[ "$branch" == *"refs/tags/v"* ]] ; then
         version=$([[ $branch =~ refs/tags/v(.*) ]] && echo "${BASH_REMATCH[1]}")
+        if [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "latest tag should also be pushed"
+          latestRelease=true
+        fi
       else
         echo "Failed to extract version from branch $branch"
         exit 255
@@ -21,5 +26,6 @@ steps:
 
       echo Extracted version is $version
       echo "##vso[task.setvariable variable=viseronVersion;]$version"
+      echo "##vso[task.setvariable variable=latestRelease;]$latestRelease"
     condition: ${{ parameters.release }}
     displayName: Extract version from branch name
