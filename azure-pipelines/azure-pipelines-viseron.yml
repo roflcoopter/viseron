@@ -89,7 +89,7 @@ stages:
                   --os linux --arch arm64 --variant=v8
 
                 docker manifest push --purge roflcoopter/viseron:${release_version}
-                docker manifest inspect roflcoopter/viseron:$(release_version)
+                docker manifest inspect roflcoopter/viseron:${release_version}
               }
 
               docker pull roflcoopter/amd64-viseron:$(viseronVersion)
