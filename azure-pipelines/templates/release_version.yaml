@@ -7,6 +7,7 @@ steps:
   - script: |
       set -e
       branch="$(Build.SourceBranchName)"
+      echo Source branch is $branch
 
       latestRelease=false
       if [ "$branch" == "dev" ] ; then
@@ -15,6 +16,12 @@ steps:
         version="docker_revamp"
       elif [[ "$branch" == *"refs/tags/v"* ]] ; then
         version=$([[ $branch =~ refs/tags/v(.*) ]] && echo "${BASH_REMATCH[1]}")
+        if [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "latest tag should also be pushed"
+          latestRelease=true
+        fi
+      elif [[ "$branch" =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]] ; then
+        version=$([[ $branch =~ v(.*) ]] && echo "${BASH_REMATCH[1]}")
         if [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
           echo "latest tag should also be pushed"
           latestRelease=true
