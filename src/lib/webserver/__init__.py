@@ -1,14 +1,12 @@
-import base64
 import datetime
 import logging
 import threading
-import time
 
 import tornado.gen
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
-from lib.webserver.stream_handler import StreamHandler
+from lib.webserver.stream_handler import DynamicStreamHandler, StaticStreamHandler
 
 LOGGER = logging.getLogger(__name__)
 
@@ -61,7 +59,14 @@ class WebServer(threading.Thread):
     def create_application(self):
         return tornado.web.Application(
             [
-                (r"/(?P<camera>[A-Za-z0-9_]+)/stream", StreamHandler),
+                (r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-stream", DynamicStreamHandler),
+                (
+                    (
+                        r"/(?P<camera>[A-Za-z0-9_]+)/static-mjpeg-streams/"
+                        r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)"
+                    ),
+                    StaticStreamHandler,
+                ),
                 (r"/ws-stream", RegularSocketHandler),
                 (r"/websocket", WebSocketHandler),
             ],
