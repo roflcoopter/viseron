@@ -71,24 +71,25 @@ stages:
               function create_manifest() {
                 local release_version=$1
 
-                docker manifest create roflcoopter/viseron-new:${release_version} \
+                docker manifest create roflcoopter/viseron:${release_version} \
                   roflcoopter/amd64-viseron:${release_version} \
                   roflcoopter/rpi3-viseron:${release_version} \
                   roflcoopter/aarch64-viseron:${release_version}
 
-                docker manifest annotate roflcoopter/viseron-new:${release_version} \
+                docker manifest annotate roflcoopter/viseron:${release_version} \
                   roflcoopter/amd64-viseron:${release_version} \
                   --os linux --arch amd64
 
-                docker manifest annotate roflcoopter/viseron-new:${release_version} \
+                docker manifest annotate roflcoopter/viseron:${release_version} \
                   roflcoopter/rpi3-viseron:${release_version} \
                   --os linux --arch arm --variant=v7
 
-                docker manifest annotate roflcoopter/viseron-new:${release_version} \
+                docker manifest annotate roflcoopter/viseron:${release_version} \
                   roflcoopter/aarch64-viseron:${release_version} \
                   --os linux --arch arm64 --variant=v8
 
-                docker manifest push --purge roflcoopter/viseron-new:${release_version}
+                docker manifest push --purge roflcoopter/viseron:${release_version}
+                docker manifest inspect roflcoopter/viseron:$(release_version)
               }
 
               docker pull roflcoopter/amd64-viseron:$(viseronVersion)
@@ -97,7 +98,9 @@ stages:
 
               # Create version tag
               create_manifest "$(viseronVersion)"
-              docker manifest inspect roflcoopter/viseron-new:$(viseronVersion)
+              if [ $(latestRelease) = true ] ; then
+                create_manifest "latest"
+              fi
             displayName: "Create multi-arch image"
           - task: Docker@2
             displayName: Logoff Docker Hub
