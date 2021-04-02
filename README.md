@@ -10,7 +10,8 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
 - Motion detection
 - Face recognition
 - Lookback, buffers frames to record before the event actually happened
-- Multiplatform, should support any x86-64 machine running Linux, aswell as RPi3.\
+- Multiarch Docker containers for ease of use.
+- Multiplatform, should support any amd64, aarch64 or armhf machine running Linux, aswell as RPi3/4.\
 Builds are tested and verified on the following platforms:
   - Ubuntu 18.04 with Nvidia GPU
   - Ubuntu 18.04 running on an Intel NUC
@@ -28,6 +29,7 @@ Builds are tested and verified on the following platforms:
 - unRAID Community Application
 
 # Table of Contents
+- [Supported architectures](#supported-architectures)
 - [Getting started](#getting-started)
 - [Configuration Options](#configuration-options)
   - [Cameras](#cameras)
@@ -57,6 +59,23 @@ Builds are tested and verified on the following platforms:
 - [Benchmarks](#benchmarks)
 - [User and Group Identifiers](#user-and-group-identifiers)
 
+# Supported architectures
+Viserons images support multiple architectures such as `amd64`, `aarch64` and `armhf`.\
+Pulling `roflcoopter/viseorn:latest` should automatically pull the correct image for you.
+An exception to this is if you have the need for a specific container, eg the CUDA version.\
+Then you will need to specify your desired image.
+
+The images available are:
+| Image | Architecture | Description |
+| ------------ | ----- | ----------- |
+| `roflcoopter/viseron` | multiarch | Multiarch image |
+| `roflcoopter/aarch64-viseron` | `aarch64` | Generic image |
+| `roflcoopter/amd64-viseron` | `amd64` | Generic image |
+| `roflcoopter/amd64-cuda-viseron` | `amd64` | Image with CUDA support |
+| `roflcoopter/rpi3-viseron` | `armhf` | built specifically for the RPi3 |
+
+---
+
 # Getting started
 Choose the appropriate docker container for your machine. Builds are published to [Docker Hub](https://hub.docker.com/repository/docker/roflcoopter/viseron)
 <details>
@@ -73,14 +92,14 @@ Choose the appropriate docker container for your machine. Builds are published t
   -v /opt/vc/lib:/opt/vc/lib \
   --name viseron \
   --device /dev/vchiq:/dev/vchiq --device /dev/vcsm:/dev/vcsm \
-  roflcoopter/viseron-rpi:latest
+  roflcoopter/viseron:latest
   ```
   Example docker-compose
   ```yaml
   version: "2.4"
   services:
     viseron:
-      image: roflcoopter/viseron-rpi:latest
+      image: roflcoopter/viseron:latest
       container_name: viseron
       volumes:
         - <recordings path>:/recordings
@@ -101,6 +120,47 @@ Choose the appropriate docker container for your machine. Builds are published t
   I also recommend configuring a [substream](#substream) if you plan on running Viseron on an RPi.
 </details>
 
+<details>
+<summary>On a RaspberryPi 4</summary>
+  Example Docker command
+
+  ```bash
+  docker run --rm \
+  --privileged \
+  -v <recordings path>:/recordings \
+  -v <config path>:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  -v /dev/bus/usb:/dev/bus/usb \
+  -v /opt/vc/lib:/opt/vc/lib \
+  --name viseron \
+  --device /dev/vchiq:/dev/vchiq --device /dev/vcsm:/dev/vcsm \
+  roflcoopter/viseron:latest
+  ```
+  Example docker-compose
+  ```yaml
+  version: "2.4"
+  services:
+    viseron:
+      image: roflcoopter/viseron:latest
+      container_name: viseron
+      volumes:
+        - <recordings path>:/recordings
+        - <config path>:/config
+        - /etc/localtime:/etc/localtime:ro
+        - /dev/bus/usb:/dev/bus/usb
+        - /opt/vc/lib:/opt/vc/lib
+      devices:
+        - /dev/vchiq:/dev/vchiq
+        - /dev/vcsm:/dev/vcsm
+      privileged: true
+  ```
+  Note: Viseron is quite RAM intensive, mostly because of the object detection but also because of the lookback feature.\
+  I do not recommend using an RPi unless you have a Google Coral EdgeTPU, the CPU is not fast enough and you might run out of memory.
+  To make use of hardware accelerated decoding/encoding you might have to increase the allocated GPU memory.\
+  To do this edit ```/boot/config.txt``` and set ```gpu_mem=256``` and then reboot.
+
+  I also recommend configuring a [substream](#substream) if you plan on running Viseron on an RPi.
+</details>
 
 <details>
   <summary>On a generic Linux machine</summary>
@@ -141,7 +201,7 @@ Choose the appropriate docker container for your machine. Builds are published t
   -v /etc/localtime:/etc/localtime:ro \
   --name viseron \
   --device /dev/dri \
-  roflcoopter/viseron-vaapi:latest
+  roflcoopter/viseron:latest
   ```
   Example docker-compose
   ```yaml
@@ -149,7 +209,7 @@ Choose the appropriate docker container for your machine. Builds are published t
 
   services:
     viseron:
-      image: roflcoopter/viseron-vaapi:latest
+      image: roflcoopter/viseron:latest
       container_name: viseron
       volumes:
         - <recordings path>:/recordings
@@ -172,7 +232,7 @@ Choose the appropriate docker container for your machine. Builds are published t
   -v /etc/localtime:/etc/localtime:ro \
   --name viseron \
   --runtime=nvidia \
-  roflcoopter/viseron-cuda:latest
+  roflcoopter/amd64-cuda-viseron:latest
   ```
   Example docker-compose
   ```yaml
@@ -180,7 +240,7 @@ Choose the appropriate docker container for your machine. Builds are published t
 
   services:
     viseron:
-      image: roflcoopter/viseron-cuda:latest
+      image: roflcoopter/amd64-cuda-viseron:latest
       container_name: viseron
       volumes:
         - <recordings path>:/recordings
