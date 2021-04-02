@@ -1,3 +1,4 @@
+""" Camera config """
 import logging
 import os
 import re
@@ -38,6 +39,15 @@ from .config_object_detection import LABELS_SCHEMA, LabelConfig
 LOGGER = logging.getLogger(__name__)
 
 MQTT_NAME_REGEX = re.compile(r"^[a-zA-Z0-9_\.]+$")
+SLUG_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
+
+
+def ensure_slug(value: str) -> str:
+    """Validate an string to only consist of certain characters """
+    regex = re.compile(SLUG_REGEX)
+    if not regex.match(value):
+        raise Invalid("Invalid string")
+    return value
 
 
 def ensure_mqtt_name(camera: Dict[str, str]) -> Dict[str, str]:
@@ -80,6 +90,19 @@ STREAM_SCEHMA = Schema(
             "tcp", "udp", "udp_multicast", "http"
         ),
         Optional("filter_args", default=[]): list,
+    }
+)
+
+MJPEG_STREAM_SCHEMA = Schema(
+    {
+        Optional("width", default=0): All(Any(int, str), Coerce(int)),
+        Optional("height", default=0): All(Any(int, str), Coerce(int)),
+        Optional("draw_objects", default=False): Any(str, bool, bytes),
+        Optional("draw_motion", default=False): Any(str, bool, bytes),
+        Optional("draw_motion_mask", default=False): Any(str, bool, bytes),
+        Optional("draw_zones", default=False): Any(str, bool, bytes),
+        Optional("rotate", default=0): All(Any(int, str), Coerce(int)),
+        Optional("mirror", default=False): Any(str, bool, bytes),
     }
 )
 
@@ -144,6 +167,9 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
             "trace",
         ),
         Optional("ffmpeg_recoverable_errors", default=FFMPEG_RECOVERABLE_ERRORS): [str],
+        Optional("static_mjpeg_streams", default={}): {
+            All(str, ensure_slug): MJPEG_STREAM_SCHEMA
+        },
         Optional("logging"): LOGGING_SCHEMA,
     },
 )
@@ -279,6 +305,7 @@ class CameraConfig(Stream):
         self._publish_image = camera["publish_image"]
         self._ffmpeg_loglevel = camera["ffmpeg_loglevel"]
         self._ffmpeg_recoverable_errors = camera["ffmpeg_recoverable_errors"]
+        self._static_mjpeg_streams = camera["static_mjpeg_streams"]
         self._logging = None
         if camera.get("logging", None):
             self._logging = LoggingConfig(camera["logging"])
@@ -356,6 +383,10 @@ class CameraConfig(Stream):
     @property
     def ffmpeg_recoverable_errors(self):
         return self._ffmpeg_recoverable_errors
+
+    @property
+    def static_mjpeg_streams(self):
+        return self._static_mjpeg_streams
 
     @property
     def logging(self):
