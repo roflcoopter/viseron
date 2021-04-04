@@ -687,6 +687,7 @@ If no EdgeTPU is found, Viseron will fallback to use the CPU model instead.
 | width_min | float | 0 | float between 0 and 1 | Minimum width allowed for detected objects, relative to stream width |
 | width_max | float | 1 | float between 0 and 1 | Maximum width allowed for detected objects, relative to stream width |
 | triggers_recording | bool | True | True/false | If set to True, objects matching this filter will start the recorder and signal over MQTT.<br> If set to False, only signal over MQTT will be sent |
+| require_motion | bool | False | True/false | If set, the recorder will stop as soon as motion is no longer detected, even if the object still is. This is useful to avoid never ending recordings of stationary objects, such as a car on a driveway |
 | post_processor | str | optional | any configured post processor | Send this detected object to the specified [post processor](#post-processors).
 
 Labels are used to tell Viseron what objects to look for and keep recordings of.\
