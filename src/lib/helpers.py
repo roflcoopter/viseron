@@ -252,6 +252,14 @@ def report_labels(
     return labels, reported_label_count
 
 
+def combined_objects(frame, zones):
+    """ Combine the object lists of a frame and all zones """
+    all_objects = frame.objects if frame else []
+    for zone in zones:
+        all_objects += zone.objects_in_zone
+    return all_objects
+
+
 class Filter:
     def __init__(self, object_filter):
         self._label = object_filter.label
@@ -261,6 +269,7 @@ class Filter:
         self._height_min = object_filter.height_min
         self._height_max = object_filter.height_max
         self._triggers_recording = object_filter.triggers_recording
+        self._require_motion = object_filter.require_motion
         self._post_processor = object_filter.post_processor
 
     def filter_confidence(self, obj):
@@ -288,6 +297,9 @@ class Filter:
     @property
     def triggers_recording(self):
         return self._triggers_recording
+
+    def require_motion(self):
+        return self._require_motion
 
     @property
     def post_processor(self):

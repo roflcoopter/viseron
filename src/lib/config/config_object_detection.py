@@ -78,6 +78,7 @@ LABELS_SCHEMA = Schema(
                     Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
                 ),
                 Optional("triggers_recording", default=True): bool,
+                Optional("require_motion", default=False): bool,
                 Optional("post_processor", default=None): Any(str, None),
             },
             ensure_min_max,
@@ -108,6 +109,7 @@ class LabelConfig:
         self._width_min = label["width_min"]
         self._width_max = label["width_max"]
         self._triggers_recording = label["triggers_recording"]
+        self._require_motion = label["require_motion"]
         self._post_processor = label["post_processor"]
 
     @property
@@ -137,6 +139,10 @@ class LabelConfig:
     @property
     def triggers_recording(self):
         return self._triggers_recording
+
+    @property
+    def require_motion(self):
+        return self._require_motion
 
     @property
     def post_processor(self):

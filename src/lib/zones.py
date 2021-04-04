@@ -24,7 +24,6 @@ class Zone:
         self._labels_in_zone = []
         self._reported_label_count = {}
         self._object_filters = {}
-        self._trigger_recorder = False
         zone_labels = (
             zone["labels"] if zone["labels"] else config.object_detection.labels
         )
@@ -48,7 +47,6 @@ class Zone:
     def filter_zone(self, frame):
         objects_in_zone = []
         labels_in_zone = []
-        self._trigger_recorder = False
         for obj in frame.objects:
             if self._object_filters.get(obj.label) and self._object_filters[
                 obj.label
@@ -66,7 +64,7 @@ class Zone:
                         labels_in_zone.append(obj.label)
 
                     if self._object_filters[obj.label].triggers_recording:
-                        self._trigger_recorder = True
+                        obj.trigger_recorder = True
 
                     if self._object_filters[obj.label].post_processor:
                         DataStream.publish_data(
@@ -121,10 +119,6 @@ class Zone:
             self._mqtt_queue,
             self._mqtt_devices,
         )
-
-    @property
-    def trigger_recorder(self):
-        return self._trigger_recorder
 
     @property
     def name(self):
