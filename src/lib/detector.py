@@ -47,6 +47,7 @@ class DetectedObject:
 
         self._rel_width = float(round(self._rel_x2 - self._rel_x1, 3))
         self._rel_height = float(round(self._rel_y2 - self._rel_y1, 3))
+        self._trigger_recorder = False
         self._relevant = False
 
     @property
@@ -93,6 +94,14 @@ class DetectedObject:
         payload["rel_x2"] = self.rel_x2
         payload["rel_y2"] = self.rel_y2
         return payload
+
+    @property
+    def trigger_recorder(self):
+        return self._trigger_recorder
+
+    @trigger_recorder.setter
+    def trigger_recorder(self, value):
+        self._trigger_recorder = value
 
     @property
     def relevant(self):

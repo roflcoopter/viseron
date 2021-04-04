@@ -4,12 +4,12 @@ from threading import Thread
 from typing import Dict
 
 import cv2
-
 from const import LOG_LEVELS, TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_POSTPROC
 from lib.camera import FFMPEGCamera
 from lib.data_stream import DataStream
 from lib.helpers import (
     Filter,
+    combined_objects,
     draw_contours,
     draw_mask,
     draw_objects,
@@ -160,7 +160,6 @@ class FFMPEGNVR(Thread):
         self.start_camera()
 
         # Initialize recorder
-        self._trigger_recorder = False
         self._start_recorder = False
         self.recorder = FFMPEGRecorder(config, detector.detection_lock, mqtt_queue)
 
@@ -227,11 +226,21 @@ class FFMPEGNVR(Thread):
         if self.recorder.is_recording:
             self.recorder.stop_recording()
 
-    def event_over(self):
-        if self._trigger_recorder or any(zone.trigger_recorder for zone in self.zones):
-            self._motion_max_timeout_reached = False
-            self._motion_only_frames = 0
-            return False
+    def event_over(self, frame):
+        all_objects = combined_objects(frame, self.zones)
+
+        for obj in all_objects:
+            if obj.trigger_recorder:
+                if self._object_filters[obj.label].require_motion:
+                    if self.motion_detected:
+                        self._motion_max_timeout_reached = False
+                        self._motion_only_frames = 0
+                        return False
+                else:
+                    self._motion_max_timeout_reached = False
+                    self._motion_only_frames = 0
+                    return False
+
         if self.config.motion_detection.timeout and self.motion_detected:
             # Only allow motion to keep event active for a specified period of time
             if self._motion_only_frames >= (
@@ -288,9 +297,9 @@ class FFMPEGNVR(Thread):
             return None
 
     def filter_fov(self, frame):
+        """ Filter field of view """
         objects_in_fov = []
         labels_in_fov = []
-        self._trigger_recorder = False
         for obj in frame.objects:
             if self._object_filters.get(obj.label) and self._object_filters[
                 obj.label
@@ -300,7 +309,7 @@ class FFMPEGNVR(Thread):
                 labels_in_fov.append(obj.label)
 
                 if self._object_filters[obj.label].triggers_recording:
-                    self._trigger_recorder = True
+                    obj.trigger_recorder = True
 
                 if self._object_filters[obj.label].post_processor:
                     DataStream.publish_data(
@@ -321,6 +330,7 @@ class FFMPEGNVR(Thread):
 
     @property
     def objects_in_fov(self):
+        """ Return all objects in field of view """
         return self._objects_in_fov
 
     @objects_in_fov.setter
@@ -337,6 +347,7 @@ class FFMPEGNVR(Thread):
 
     @property
     def labels_in_fov(self):
+        """ Return all labels in field of view """
         return self._labels_in_fov
 
     @labels_in_fov.setter
@@ -399,8 +410,10 @@ class FFMPEGNVR(Thread):
         if self._mqtt.mqtt_queue:
             self._mqtt.devices["motion_detected"].publish(motion_detected)
 
-    def process_object_event(self):
-        if self._trigger_recorder or any(zone.trigger_recorder for zone in self.zones):
+    def process_object_event(self, frame):
+        all_objects = combined_objects(frame, self.zones)
+
+        if any(obj.trigger_recorder for obj in all_objects):
             if not self.recorder.is_recording:
                 self._start_recorder = True
 
@@ -477,7 +490,7 @@ class FFMPEGNVR(Thread):
                 # self._logger.debug(processed_motion_frame.motion_contours)
                 self.filter_motion(processed_motion_frame.motion_contours)
 
-            self.process_object_event()
+            self.process_object_event(processed_object_frame)
             self.process_motion_event()
 
             if (
@@ -494,7 +507,7 @@ class FFMPEGNVR(Thread):
             if self._start_recorder:
                 self._start_recorder = False
                 self.start_recording(processed_object_frame)
-            elif self.recorder.is_recording and self.event_over():
+            elif self.recorder.is_recording and self.event_over(processed_object_frame):
                 self.idle_frames += 1
                 self.stop_recording()
                 continue
