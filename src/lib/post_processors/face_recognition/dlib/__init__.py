@@ -3,10 +3,10 @@ import logging
 import math
 import os
 import os.path
-import pickle
-from threading import Thread, Timer
-from time import sleep
+from threading import Timer
 from uuid import uuid4
+
+from voluptuous import All, Any, Coerce, Optional, Range
 
 import cv2
 import face_recognition
@@ -19,13 +19,12 @@ from lib.mqtt.binary_sensor import MQTTBinarySensor
 from lib.post_processors import PostProcessorConfig
 from lib.post_processors.schema import SCHEMA as BASE_SCHEMA
 from sklearn import neighbors
-from voluptuous import All, Any, Coerce, Optional, Range
 
 from .defaults import (
     EXPIRE_AFTER,
     FACE_RECOGNITION_PATH,
-    UNKNOWN_FACES_PATH,
     SAVE_UNKNOWN_FACES,
+    UNKNOWN_FACES_PATH,
 )
 
 
@@ -148,7 +147,7 @@ class Processor:
         LOGGER.debug(f"Faces found: {faces}")
 
         for face, coordinates in faces:
-            if face != "unkown":
+            if face != "unknown":
                 self.known_face_found(face, coordinates)
             elif self._processor_config.save_unknown_faces:
                 self.unknown_face_found(cropped_frame)
