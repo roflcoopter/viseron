@@ -18,12 +18,6 @@ ARG S6_OVERLAY_VERSION
 ENV S6_SERVICES_GRACETIME=10000
 ENV S6_KEEP_ENV=1
 
-ARG ARCH
-RUN \
-  if [ "$ARCH" = "armhf" ] || \
-  [ "$ARCH" = "rpi3" ] || \
-  [ "$ARCH" = "aarch64" ] ; then echo "Crossbuilding!" && cross-build-start; fi
-
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \
   gnupg \
@@ -66,10 +60,5 @@ RUN useradd -u 911 -U abc && \
 WORKDIR /src/viseron
 COPY src /src/viseron/
 COPY rootfs/ /
-
-RUN \
-  if [ "$ARCH" = "armhf" ] || \
-  [ "$ARCH" = "rpi3" ] || \
-  [ "$ARCH" = "aarch64" ] ; then echo "End crossbuild" && cross-build-end; fi
 
 ENTRYPOINT ["/init"]
