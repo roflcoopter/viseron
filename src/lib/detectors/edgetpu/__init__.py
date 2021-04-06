@@ -1,9 +1,10 @@
 import logging
+import traceback
 
 import numpy as np
-from voluptuous import Any, Optional, Required
-
 import tflite_runtime.interpreter as tflite
+from voluptuous import Required
+
 import lib.detector as detector
 
 from .defaults import LABEL_PATH, MODEL_PATH
@@ -39,8 +40,11 @@ class ObjectDetection:
                 )
                 LOGGER.debug("Using PCIe EdgeTPU")
             except ValueError:
-                LOGGER.error(
-                    "EdgeTPU not found. Detection will run on CPU", exc_info=True
+                LOGGER.error("EdgeTPU not found. Detection will run on CPU")
+                LOGGER.debug(
+                    "Traceback when trying to load EdgeTPU: \n"
+                    f"{traceback.format_exc()}\n"
+                    f"-------------- End of printed Traceback --------------"
                 )
                 self.interpreter = tflite.Interpreter(
                     model_path="/detectors/models/edgetpu/cpu_model.tflite",

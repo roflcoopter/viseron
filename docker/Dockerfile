@@ -18,6 +18,12 @@ ARG S6_OVERLAY_VERSION
 ENV S6_SERVICES_GRACETIME=10000
 ENV S6_KEEP_ENV=1
 
+ARG ARCH
+RUN \
+  if [ "$ARCH" = "armhf" ] || \
+  [ "$ARCH" = "rpi3" ] || \
+  [ "$ARCH" = "aarch64" ] ; then echo "Crossbuilding!" && cross-build-start; fi
+
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \
   gnupg \
@@ -36,10 +42,10 @@ RUN \
   && rm -r /wheels \
   \
   && APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key adv --fetch-keys https://packages.cloud.google.com/apt/doc/apt-key.gpg \
-  && echo "deb https://packages.cloud.google.com/apt coral-edgetpu-unstable main" > /etc/apt/sources.list.d/coral-edgetpu.list \
+  && echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" > /etc/apt/sources.list.d/coral-edgetpu.list \
   && echo "libedgetpu1-max libedgetpu/accepted-eula select true" | debconf-set-selections \
   && apt-get -qq update && apt-get -qq install --no-install-recommends -y \
-  libedgetpu1-max \
+  libedgetpu1-max=15.0 \
   \
   && apt-get autoremove -y \
   && apt-get clean -y \
@@ -60,5 +66,10 @@ RUN useradd -u 911 -U abc && \
 WORKDIR /src/viseron
 COPY src /src/viseron/
 COPY rootfs/ /
+
+RUN \
+  if [ "$ARCH" = "armhf" ] || \
+  [ "$ARCH" = "rpi3" ] || \
+  [ "$ARCH" = "aarch64" ] ; then echo "End crossbuild" && cross-build-end; fi
 
 ENTRYPOINT ["/init"]
