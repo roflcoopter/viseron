@@ -4,9 +4,9 @@ from queue import Queue
 from threading import Lock, Thread
 
 import cv2
+from const import TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_OBJECT
 from voluptuous import Any, Optional, Required
 
-from const import TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_OBJECT
 from lib.config.config_logging import LoggingConfig
 from lib.config.config_object_detection import SCHEMA as BASE_SCEHMA
 from lib.data_stream import DataStream
