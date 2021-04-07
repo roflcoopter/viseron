@@ -1,3 +1,4 @@
+"""Recorder config."""
 from voluptuous import All, Optional, Range, Schema
 
 from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
@@ -23,20 +24,26 @@ SCHEMA = Schema(
 
 
 class Thumbnail:
+    """Thumbnail config."""
+
     def __init__(self, thumbnail):
         self._save_to_disk = thumbnail["save_to_disk"]
         self._send_to_mqtt = thumbnail["send_to_mqtt"]
 
     @property
     def save_to_disk(self):
+        """Return if thumbnail should be saved to disk."""
         return self._save_to_disk
 
     @property
     def send_to_mqtt(self):
+        """Return if thumbnail should be sent to MQTT."""
         return self._send_to_mqtt
 
 
 class RecorderConfig:
+    """Recorder config."""
+
     schema = SCHEMA
 
     def __init__(self, recorder):
@@ -56,44 +63,55 @@ class RecorderConfig:
 
     @property
     def lookback(self):
+        """Return lookback."""
         return self._lookback
 
     @property
     def timeout(self):
+        """Return timeout."""
         return self._timeout
 
     @property
     def retain(self):
+        """Return days to retain."""
         return self._retain
 
     @property
     def folder(self):
+        """Return folder where recordings are stored."""
         return self._folder
 
     @property
     def extension(self):
+        """Return recording file extension."""
         return self._extension
 
     @property
     def hwaccel_args(self):
+        """Return FFmpeg hwaccel args."""
         return self._hwaccel_args
 
     @property
     def codec(self):
+        """Return codec for FFmpeg command."""
         return ["-c:v", self._codec]
 
     @property
     def filter_args(self):
+        """Return FFmpeg filter args."""
         return self._filter_args
 
     @property
     def segments_folder(self):
+        """Return folder where segments are stored."""
         return self._segments_folder
 
     @property
     def thumbnail(self):
+        """Return thumbnail config."""
         return self._thumbnail
 
     @property
     def logging(self):
+        """Return logging config."""
         return self._logging

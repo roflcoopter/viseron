@@ -1,3 +1,4 @@
+"""Object Detection config."""
 import os
 
 from voluptuous import (
@@ -23,6 +24,7 @@ from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 
 
 def ensure_min_max(label: dict) -> dict:
+    """Ensure min values are not larger than max values."""
     if label["height_min"] > label["height_max"]:
         raise Invalid("height_min may not be larger than height_max")
     if label["width_min"] > label["width_max"]:
@@ -32,6 +34,7 @@ def ensure_min_max(label: dict) -> dict:
 
 # TODO test this inside docker container
 def ensure_label(detector: dict) -> dict:
+    """Ensure label exists in label file."""
     if detector["type"] in ["darknet", "edgetpu"] and detector["label_path"] is None:
         raise Invalid("Detector type {} requires a label file".format(detector["type"]))
     if detector["label_path"]:
@@ -44,6 +47,7 @@ def ensure_label(detector: dict) -> dict:
 
 
 def get_detector_type() -> str:
+    """Return default detector."""
     if (
         os.getenv(ENV_OPENCL_SUPPORTED) == "true"
         or os.getenv(ENV_CUDA_SUPPORTED) == "true"
@@ -100,6 +104,8 @@ SCHEMA = Schema(
 
 
 class LabelConfig:
+    """Label config."""
+
     def __init__(self, label):
         self._label = label["label"]
         self._confidence = label["confidence"]
@@ -113,42 +119,53 @@ class LabelConfig:
 
     @property
     def label(self):
+        """Return label name."""
         return self._label
 
     @property
     def confidence(self):
+        """Return minimun confidence."""
         return self._confidence
 
     @property
     def height_min(self):
+        """Return minimum height."""
         return self._height_min
 
     @property
     def height_max(self):
+        """Return maximum height."""
         return self._height_max
 
     @property
     def width_min(self):
+        """Return minimum width."""
         return self._width_min
 
     @property
     def width_max(self):
+        """Return maximum width."""
         return self._width_max
 
     @property
     def triggers_recording(self):
+        """Return if label triggers recorder."""
         return self._triggers_recording
 
     @property
     def require_motion(self):
+        """Return if label requires motion to trigger recorder."""
         return self._require_motion
 
     @property
     def post_processor(self):
+        """Return post processors."""
         return self._post_processor
 
 
 class ObjectDetectionConfig:
+    """Object detection config."""
+
     schema = SCHEMA
 
     def __init__(self, object_detection, camera_object_detection, camera_zones):
@@ -184,24 +201,30 @@ class ObjectDetectionConfig:
 
     @property
     def type(self):
+        """Return detector type."""
         return self._type
 
     @property
     def interval(self):
+        """Return interval."""
         return self._interval
 
     @property
     def min_confidence(self):
+        """Return lowest configured confidence between all labels."""
         return self._min_confidence
 
     @property
     def labels(self):
+        """Return label configs."""
         return self._labels
 
     @property
     def log_all_objects(self):
+        """Return if all labels should be logged, not only configured labels."""
         return self._log_all_objects
 
     @property
     def logging(self):
+        """Return logging config."""
         return self._logging

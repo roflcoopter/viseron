@@ -1,3 +1,4 @@
+"""Home Assistant MQTT switch."""
 import json
 import logging
 
@@ -5,6 +6,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class MQTTSwitch:
+    """Representation of a Home Assistant switch."""
+
     def __init__(self, config, mqtt_queue):
         self._config = config
         self._mqtt_queue = mqtt_queue
@@ -14,10 +17,12 @@ class MQTTSwitch:
 
     @property
     def state_topic(self):
+        """Return state topic."""
         return f"{self._config.mqtt.client_id}/{self.name}/switch/state"
 
     @property
     def config_topic(self):
+        """Return config topic."""
         return (
             f"{self._config.mqtt.home_assistant.discovery_prefix}/switch/"
             f"{self.name}/config"
@@ -25,22 +30,27 @@ class MQTTSwitch:
 
     @property
     def command_topic(self):
+        """Return command topic."""
         return f"{self._config.mqtt.client_id}/{self.name}/switch/set"
 
     @property
     def name(self):
+        """Return name."""
         return self._name
 
     @property
     def device_name(self):
+        """Return device name."""
         return self._device_name
 
     @property
     def unique_id(self):
+        """Return unique ID."""
         return self._unique_id
 
     @property
     def device_info(self):
+        """Return device info."""
         return {
             "identifiers": [self.device_name],
             "name": self.device_name,
@@ -49,6 +59,7 @@ class MQTTSwitch:
 
     @property
     def config_payload(self):
+        """Return config payload."""
         payload = {}
         payload["name"] = self._config.camera.mqtt_name
         payload["unique_id"] = self.unique_id
@@ -66,6 +77,7 @@ class MQTTSwitch:
 
     @staticmethod
     def state_payload(state, attributes=None):
+        """Return state payload."""
         payload = {}
         payload["state"] = state
         payload["attributes"] = {}
@@ -74,6 +86,7 @@ class MQTTSwitch:
         return json.dumps(payload)
 
     def on_connect(self, client):
+        """Called when MQTT connection is established."""
         if self._config.mqtt.home_assistant.enable:
             client.publish(
                 self.config_topic,
@@ -82,6 +95,7 @@ class MQTTSwitch:
             )
 
     def on_message(self, message):
+        """Publish state."""
         self._mqtt_queue.put(
             {
                 "topic": self.state_topic,

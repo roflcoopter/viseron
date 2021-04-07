@@ -1,9 +1,12 @@
+"""Home Assistant MQTT sensor."""
 import json
 
 from viseron.helpers import slugify
 
 
 class MQTTSensor:
+    """Representation of a Home Assistant sensor."""
+
     def __init__(self, config, mqtt_queue, name):
         self._config = config
         self._mqtt_queue = mqtt_queue
@@ -15,6 +18,7 @@ class MQTTSensor:
 
     @property
     def state_topic(self):
+        """Return state topic."""
         return (
             f"{self._config.mqtt.client_id}/{self._node_id}/"
             f"sensor/{self.object_id}/state"
@@ -22,6 +26,7 @@ class MQTTSensor:
 
     @property
     def config_topic(self):
+        """Return config topic."""
         return (
             f"{self._config.mqtt.home_assistant.discovery_prefix}/sensor/"
             f"{self.node_id}/{self.object_id}/config"
@@ -29,26 +34,32 @@ class MQTTSensor:
 
     @property
     def name(self):
+        """Return name."""
         return self._name
 
     @property
     def device_name(self):
+        """Return device name."""
         return self._device_name
 
     @property
     def unique_id(self):
+        """Return unique ID."""
         return self._unique_id
 
     @property
     def node_id(self):
+        """Return node ID."""
         return self._node_id
 
     @property
     def object_id(self):
+        """Return object ID."""
         return self._object_id
 
     @property
     def device_info(self):
+        """Return device info."""
         return {
             "identifiers": [self.device_name],
             "name": self.device_name,
@@ -57,6 +68,7 @@ class MQTTSensor:
 
     @property
     def config_payload(self):
+        """Return config payload."""
         payload = {}
         payload["name"] = self.name  # entitu_id
         payload["unique_id"] = self.unique_id
@@ -72,6 +84,7 @@ class MQTTSensor:
 
     @staticmethod
     def state_payload(state, attributes=None):
+        """Return state payload."""
         payload = {}
         payload["state"] = state
         payload["attributes"] = {}
@@ -80,6 +93,7 @@ class MQTTSensor:
         return json.dumps(payload)
 
     def on_connect(self, client):
+        """Called when MQTT connection is established."""
         if self._config.mqtt.home_assistant.enable:
             client.publish(
                 self.config_topic,
@@ -88,6 +102,7 @@ class MQTTSensor:
             )
 
     def publish(self, state, attributes=None):
+        """Publish state."""
         self._mqtt_queue.put(
             {
                 "topic": self.state_topic,

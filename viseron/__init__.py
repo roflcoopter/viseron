@@ -1,3 +1,4 @@
+"""Viseron init file."""
 import logging
 import signal
 from queue import Queue
@@ -8,16 +9,18 @@ from viseron.config import CONFIG, NVRConfig, ViseronConfig
 from viseron.const import LOG_LEVELS
 from viseron.data_stream import DataStream
 from viseron.detector import Detector
+from viseron.exceptions import FFprobeError
 from viseron.mqtt import MQTT
 from viseron.nvr import FFMPEGNVR
 from viseron.post_processors import PostProcessor
-from viseron.viseron_exceptions import FFprobeError
 from viseron.webserver import WebServer
 
 LOGGER = logging.getLogger(__name__)
 
 
 class Viseron:
+    """Viseron."""
+
     def __init__(self):
         config = ViseronConfig(CONFIG)
 
@@ -101,13 +104,8 @@ class Viseron:
 
         LOGGER.info("Exiting")
 
-    def setup_nvr(
-        self,
-        config,
-        camera,
-        detector,
-        mqtt_queue,
-    ):
+    def setup_nvr(self, config, camera, detector, mqtt_queue):
+        """Setup NVR for each configured camera."""
         camera_config = NVRConfig(
             camera,
             config.object_detection,
@@ -128,6 +126,7 @@ class Viseron:
 
 
 def schedule_cleanup(config):
+    """Start timed cleanup of old recordings."""
     LOGGER.debug("Starting cleanup scheduler")
     cleanup = Cleanup(config)
     cleanup.start()
@@ -136,4 +135,5 @@ def schedule_cleanup(config):
 
 
 def log_settings(config):
+    """Sets log level."""
     LOGGER.setLevel(LOG_LEVELS[config.logging.level])

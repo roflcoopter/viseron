@@ -1,4 +1,4 @@
-""" Camera config """
+"""Camera config."""
 import logging
 import os
 import re
@@ -44,7 +44,7 @@ SLUG_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
 
 
 def ensure_slug(value: str) -> str:
-    """Validate an string to only consist of certain characters """
+    """Validate an string to only consist of certain characters."""
     regex = re.compile(SLUG_REGEX)
     if not regex.match(value):
         raise Invalid("Invalid string")
@@ -52,6 +52,7 @@ def ensure_slug(value: str) -> str:
 
 
 def ensure_mqtt_name(camera: Dict[str, str]) -> Dict[str, str]:
+    """Ensure name is compatible with MQTT."""
     if camera["mqtt_name"] is None:
         camera["mqtt_name"] = slugify(camera["name"])
 
@@ -68,6 +69,7 @@ def ensure_mqtt_name(camera: Dict[str, str]) -> Dict[str, str]:
 
 
 def check_for_hwaccels(hwaccel_args: List[str]) -> List[str]:
+    """Return hardware acceleration args for FFmpeg."""
     if hwaccel_args:
         return hwaccel_args
 
@@ -206,6 +208,8 @@ SCHEMA = Schema(
 
 
 class Stream:
+    """Stream config."""
+
     def __init__(self, camera):
         self._host = camera["host"]
         self._port = camera["port"]
@@ -222,6 +226,7 @@ class Stream:
         self._rtsp_transport = camera["rtsp_transport"]
 
     def get_codec_map(self):
+        """Return codec for specific hardware."""
         if self.stream_format == "rtsp":
             if os.getenv(ENV_CUDA_SUPPORTED) == "true":
                 return HWACCEL_CUDA_DECODER_CODEC_MAP
@@ -233,66 +238,82 @@ class Stream:
 
     @property
     def stream_format(self):
+        """Return stream format."""
         return self._stream_format
 
     @property
     def host(self):
+        """Return host."""
         return self._host
 
     @property
     def port(self):
+        """Return port."""
         return self._port
 
     @property
     def username(self):
+        """Return username."""
         return self._username
 
     @property
     def password(self):
+        """Return password."""
         return self._password
 
     @property
     def path(self):
+        """Return path."""
         return self._path
 
     @property
     def width(self):
+        """Return width."""
         return self._width
 
     @property
     def height(self):
+        """Return height."""
         return self._height
 
     @property
     def fps(self):
+        """Return fps."""
         return self._fps
 
     @property
     def input_args(self):
+        """Return input_args."""
         return self._input_args
 
     @property
     def hwaccel_args(self):
+        """Return hwaccel_args."""
         return self._hwaccel_args
 
     @property
     def codec(self):
+        """Return codec for FFmpeg command."""
         return ["-c:v", self._codec] if self._codec else []
 
     @property
     def codec_map(self):
+        """Return predefined codec map."""
         return self.get_codec_map()
 
     @property
     def rtsp_transport(self):
+        """Return host."""
         return self._rtsp_transport
 
     @property
     def protocol(self):
+        """Return protocol."""
         return "rtsp" if self.stream_format == "rtsp" else "http"
 
     @property
     def stream_url(self):
+        """Return stream url."""
         if self.username and self.password:
             return (
                 f"{self.protocol}://{self.username}:{self.password}@"
@@ -302,6 +323,8 @@ class Stream:
 
 
 class Substream(Stream):
+    """Substream config."""
+
     def __init__(self, camera):
         super().__init__(camera)
         self._stream_format = camera["substream"]["stream_format"]
@@ -317,6 +340,8 @@ class Substream(Stream):
 
 
 class CameraConfig(Stream):
+    """Camera config."""
+
     schema = SCHEMA
 
     def __init__(self, camera):
@@ -341,6 +366,7 @@ class CameraConfig(Stream):
             self._logging = LoggingConfig(camera["logging"])
 
     def generate_zones(self, zones):
+        """Return a list of zones converted to numpy arrays."""
         zone_list = []
         for zone in zones:
             zone_dict = {}
@@ -364,60 +390,75 @@ class CameraConfig(Stream):
 
     @property
     def name(self):
+        """Return name."""
         return self._name
 
     @property
     def name_slug(self):
+        """Return name in slug format."""
         return self._name_slug
 
     @property
     def mqtt_name(self):
+        """Return MQTT name."""
         return self._mqtt_name
 
     @property
     def global_args(self):
+        """Return FFmpeg global args."""
         return self._global_args
 
     @property
     def filter_args(self):
+        """Return FFmpeg filter args."""
         return self._filter_args
 
     @property
     def output_args(self):
+        """Return FFmpeg output args."""
         return CAMERA_OUTPUT_ARGS
 
     @property
     def substream(self):
+        """Return substream config."""
         return self._substream
 
     @property
     def motion_detection(self):
+        """Return motion detection config."""
         return self._motion_detection
 
     @property
     def object_detection(self):
+        """Return object detection config."""
         return self._object_detection
 
     @property
     def zones(self):
+        """Return zones."""
         return self._zones
 
     @property
     def publish_image(self):
+        """Return publish_image."""
         return self._publish_image
 
     @property
     def ffmpeg_loglevel(self):
+        """Return FFmpeg log level."""
         return self._ffmpeg_loglevel
 
     @property
     def ffmpeg_recoverable_errors(self):
+        """Return FFmpeg recoverable errors."""
         return self._ffmpeg_recoverable_errors
 
     @property
     def static_mjpeg_streams(self):
+        """Return static mjpeg streams."""
         return self._static_mjpeg_streams
 
     @property
     def logging(self):
+        """Return logging config."""
         return self._logging

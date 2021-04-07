@@ -1,3 +1,6 @@
+"""Exceptions used by Home Viseron."""
+
+
 class Error(Exception):
     """Base class for other exceptions"""
 

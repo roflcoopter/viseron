@@ -1,3 +1,4 @@
+"""Home Assistant MQTT camera."""
 import json
 import logging
 
@@ -7,6 +8,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class MQTTCamera:
+    """Representation of a Home Assistant camera."""
+
     def __init__(self, config, mqtt_queue, object_id=""):
         self._config = config
         self._mqtt_queue = mqtt_queue
@@ -18,6 +21,7 @@ class MQTTCamera:
 
     @property
     def state_topic(self):
+        """Return state topic."""
         if self._object_id:
             return (
                 f"{self._config.mqtt.client_id}/{self.node_id}/camera/"
@@ -27,6 +31,7 @@ class MQTTCamera:
 
     @property
     def config_topic(self):
+        """Return config topic."""
         if self._object_id:
             return (
                 f"{self._config.mqtt.home_assistant.discovery_prefix}/camera/"
@@ -39,24 +44,29 @@ class MQTTCamera:
 
     @property
     def name(self):
+        """Return name."""
         if self._object_id:
             return f"{self._name} {self._object_id}"
         return self._name
 
     @property
     def device_name(self):
+        """Return device name."""
         return self._device_name
 
     @property
     def unique_id(self):
+        """Return unique ID."""
         return self._unique_id
 
     @property
     def node_id(self):
+        """Return node ID."""
         return self._node_id
 
     @property
     def device_info(self):
+        """Return object ID."""
         return {
             "identifiers": [self.device_name],
             "name": self.device_name,
@@ -65,6 +75,7 @@ class MQTTCamera:
 
     @property
     def config_payload(self):
+        """Return config payload."""
         payload = {}
         payload["name"] = self.name
         payload["unique_id"] = self.unique_id
@@ -76,6 +87,7 @@ class MQTTCamera:
         return json.dumps(payload, indent=3)
 
     def on_connect(self, client):
+        """Called when MQTT connection is established."""
         if self._config.mqtt.home_assistant.enable:
             client.publish(
                 self.config_topic,
@@ -84,4 +96,5 @@ class MQTTCamera:
             )
 
     def publish(self, image):
+        """Publish state."""
         self._mqtt_queue.put({"topic": self.state_topic, "payload": image})

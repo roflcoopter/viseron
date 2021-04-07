@@ -1,3 +1,4 @@
+"""Handling of Zones within a cameras field of view."""
 import logging
 
 import cv2
@@ -9,6 +10,9 @@ from viseron.mqtt.binary_sensor import MQTTBinarySensor
 
 
 class Zone:
+    """Representation of a zone used to limit object detection to certain areas of a
+    cameras field of view. Different objects can be searched for in different zones."""
+
     def __init__(self, zone, camera_resolution, config, mqtt_queue):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         if getattr(config.camera.logging, "level", None):
@@ -45,6 +49,7 @@ class Zone:
         )
 
     def filter_zone(self, frame):
+        """Filter out objects to see if they are within the zone."""
         objects_in_zone = []
         labels_in_zone = []
         for obj in frame.objects:
@@ -89,15 +94,18 @@ class Zone:
         self.labels_in_zone = labels_in_zone
 
     def on_connect(self, client):
+        """Called when MQTT connection is established."""
         for device in self._mqtt_devices.values():
             device.on_connect(client)
 
     @property
     def coordinates(self):
+        """Return zone coordinates."""
         return self._coordinates
 
     @property
     def objects_in_zone(self):
+        """Return all present objects in the zone."""
         return self._objects_in_zone
 
     @objects_in_zone.setter
@@ -113,6 +121,7 @@ class Zone:
 
     @property
     def labels_in_zone(self):
+        """Return all present labels in the zone."""
         return self._objects_in_zone
 
     @labels_in_zone.setter
@@ -127,4 +136,5 @@ class Zone:
 
     @property
     def name(self):
+        """Return name of zone."""
         return self._name
