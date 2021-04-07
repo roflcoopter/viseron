@@ -15,7 +15,7 @@ COPY --from=ffmpeg /usr/local /usr/local/
 ARG         MAKEFLAGS="-j2"
 ARG         PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig"
 ARG         PREFIX=/opt/opencv
-# OpenCV suports CC Arch 5.3 and higher
+# OpenCV supports CC Arch 5.3 and higher
 ARG         CUDA_ARCH_BIN="53 60 61 70"
 ARG         CUDA_ARCH_PTX="70"
 

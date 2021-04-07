@@ -30,7 +30,7 @@ class MQTT:
     # pylint: disable=unused-argument
     def on_connect(self, client, userdata, flags, returncode):
         """Called when MQTT connection is established.
-        Calls on_connect methods in all dependant components."""
+        Calls on_connect methods in all dependent components."""
         LOGGER.debug(f"MQTT connected with returncode {str(returncode)}")
         if returncode != 0:
             LOGGER.error(

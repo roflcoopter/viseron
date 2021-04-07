@@ -254,7 +254,7 @@ def report_labels(
     labels_added = list(set(labels) - set(labels_in_fov))
     labels_removed = list(set(labels_in_fov) - set(labels))
 
-    # Count occurences of each label
+    # Count occurrences of each label
     counter = Counter(labels)
 
     if mqtt_queue:
