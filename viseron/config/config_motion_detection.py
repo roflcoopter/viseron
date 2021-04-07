@@ -1,7 +1,7 @@
 import numpy as np
-from voluptuous import Any, All, Coerce, Optional, Range, Schema
+from voluptuous import All, Any, Coerce, Optional, Range, Schema
 
-from .config_logging import LoggingConfig, SCHEMA as LOGGING_SCHEMA
+from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 
 DEFAULTS = {
     "interval": 1,
@@ -27,13 +27,15 @@ SCHEMA = Schema(
         Optional("width", default=DEFAULTS["width"]): int,
         Optional("height", default=DEFAULTS["height"]): int,
         Optional("area", default=DEFAULTS["area"]): All(
-            Any(All(float, Range(min=0.0, max=1.0)), 1, 0), Coerce(float),
+            Any(All(float, Range(min=0.0, max=1.0)), 1, 0),
+            Coerce(float),
         ),
         Optional("threshold", default=DEFAULTS["threshold"]): All(
             int, Range(min=0, max=255)
         ),
         Optional("alpha", default=DEFAULTS["alpha"]): All(
-            Any(All(float, Range(min=0.0, max=1.0)), 1, 0), Coerce(float),
+            Any(All(float, Range(min=0.0, max=1.0)), 1, 0),
+            Coerce(float),
         ),
         Optional("frames", default=DEFAULTS["frames"]): int,
         Optional("logging"): LOGGING_SCHEMA,
@@ -50,7 +52,8 @@ class MotionDetectionConfig:
             "interval", motion_detection["interval"]
         )
         self._trigger_detector = camera_motion_detection.get(
-            "trigger_detector", motion_detection["trigger_detector"],
+            "trigger_detector",
+            motion_detection["trigger_detector"],
         )
         self._timeout = camera_motion_detection.get(
             "timeout", motion_detection["timeout"]
@@ -68,7 +71,8 @@ class MotionDetectionConfig:
         self._frames = camera_motion_detection.get("frames", motion_detection["frames"])
         self._mask = self.generate_mask(camera_motion_detection.get("mask", []))
         logging = camera_motion_detection.get(
-            "logging", (motion_detection.get("logging", None)),
+            "logging",
+            (motion_detection.get("logging", None)),
         )
         self._logging = LoggingConfig(logging) if logging else logging
 

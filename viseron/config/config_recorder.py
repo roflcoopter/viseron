@@ -1,7 +1,6 @@
 from voluptuous import All, Optional, Range, Schema
 
-from .config_logging import LoggingConfig, SCHEMA as LOGGING_SCHEMA
-
+from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 
 SCHEMA = Schema(
     {

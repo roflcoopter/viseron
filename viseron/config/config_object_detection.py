@@ -19,8 +19,7 @@ from viseron.const import (
     ENV_RASPBERRYPI4,
 )
 
-from .config_logging import SCHEMA as LOGGING_SCHEMA
-from .config_logging import LoggingConfig
+from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 
 
 def ensure_min_max(label: dict) -> dict:

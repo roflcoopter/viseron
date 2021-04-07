@@ -1,13 +1,13 @@
-from voluptuous import (
-    ALLOW_EXTRA,
-    Optional,
-    Schema,
+from voluptuous import ALLOW_EXTRA, Optional, Schema
+
+from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
+
+SCHEMA = Schema(
+    {
+        Optional("logging"): LOGGING_SCHEMA,
+    },
+    extra=ALLOW_EXTRA,
 )
-
-from .config_logging import SCHEMA as LOGGING_SCHEMA
-from .config_logging import LoggingConfig
-
-SCHEMA = Schema({Optional("logging"): LOGGING_SCHEMA,}, extra=ALLOW_EXTRA,)
 
 
 class PostProcessorsConfig:

@@ -4,14 +4,14 @@ import copy
 import logging
 from typing import Dict
 
+import cv2
+import imutils
 import tornado.ioloop
 import tornado.web
 from tornado.queues import Queue
 
-import cv2
-import imutils
-from viseron.const import TOPIC_FRAME_PROCESSED, TOPIC_STATIC_MJPEG_STREAMS
 from viseron.config.config_camera import MJPEG_STREAM_SCHEMA
+from viseron.const import TOPIC_FRAME_PROCESSED, TOPIC_STATIC_MJPEG_STREAMS
 from viseron.data_stream import DataStream
 from viseron.helpers import draw_contours, draw_mask, draw_objects, draw_zones
 from viseron.nvr import FFMPEGNVR
