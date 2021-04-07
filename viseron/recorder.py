@@ -1,3 +1,4 @@
+"""Recorder."""
 import datetime
 import logging
 import os
@@ -14,6 +15,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class FFMPEGRecorder:
+    """Creates thumbnails and recordings."""
+
     def __init__(self, config, detection_lock, mqtt_queue):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         if getattr(config.recorder.logging, "level", None):
@@ -47,15 +50,18 @@ class FFMPEGRecorder:
             )
 
     def on_connect(self, client):
+        """Called when MQTT connection is established."""
         for device in self._mqtt_devices.values():
             device.on_connect(client)
 
     def subfolder_name(self, today):
+        """Generate name of folder for recording."""
         return (
             f"{today.year:04}-{today.month:02}-{today.day:02}/{self.config.camera.name}"
         )
 
     def create_thumbnail(self, file_name, frame, objects, resolution):
+        """Create thumbnails, sent to MQTT and/or saved to disk based on config."""
         draw_objects(
             frame.decoded_frame_umat_rgb,
             objects,
@@ -82,6 +88,7 @@ class FFMPEGRecorder:
                 self._mqtt_devices["latest_thumbnail"].publish(jpg.tobytes())
 
     def create_directory(self, path):
+        """Create a directory."""
         try:
             if not os.path.isdir(path):
                 self._logger.debug(f"Creating folder {path}")
@@ -90,6 +97,7 @@ class FFMPEGRecorder:
             pass
 
     def start_recording(self, frame, objects, resolution):
+        """Start recording."""
         self._logger.info("Starting recorder")
         self.is_recording = True
         self._segment_cleanup.pause()
@@ -120,6 +128,7 @@ class FFMPEGRecorder:
         self._recording_name = os.path.join(full_path, video_name)
 
     def concat_segments(self):
+        """Concatenate FFmpeg segments to a single video."""
         self._segmenter.concat_segments(
             self._event_start - self.config.recorder.lookback,
             self._event_end,
@@ -130,6 +139,7 @@ class FFMPEGRecorder:
             self._segment_cleanup.resume()
 
     def stop_recording(self):
+        """Stop recording."""
         self._logger.info("Stopping recorder")
         self.is_recording = False
         now = datetime.datetime.now()

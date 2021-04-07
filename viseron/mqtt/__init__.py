@@ -1,3 +1,4 @@
+"""MQTT interface."""
 import logging
 
 import paho.mqtt.client as mqtt
@@ -18,6 +19,8 @@ MQTT_RC = {
 
 
 class MQTT:
+    """MQTT interface."""
+
     def __init__(self, config):
         LOGGER.info("Initializing MQTT connection")
         self.config = config
@@ -26,6 +29,8 @@ class MQTT:
 
     # pylint: disable=unused-argument
     def on_connect(self, client, userdata, flags, returncode):
+        """Called when MQTT connection is established.
+        Calls on_connect methods in all dependant components."""
         LOGGER.debug(f"MQTT connected with returncode {str(returncode)}")
         if returncode != 0:
             LOGGER.error(
@@ -45,11 +50,13 @@ class MQTT:
         client.publish(self.config.mqtt.last_will_topic, payload="alive", retain=True)
 
     def on_message(self, client, userdata, msg):
+        """Called on receiving a message."""
         LOGGER.debug(f"Got topic {msg.topic}, message {str(msg.payload.decode())}")
         for callback in self.subscriptions[msg.topic]:
             callback(msg)
 
     def connect(self):
+        """Connect to broker."""
         self.client = mqtt.Client(self.config.mqtt.client_id)
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
@@ -70,12 +77,14 @@ class MQTT:
         self.client.loop_start()
 
     def subscribe(self, subscription):
+        """Subscribe to a topic."""
         for topic, _ in subscription.items():
             self.client.subscribe(topic)
 
         self.subscriptions.update(subscription)
 
     def publisher(self, mqtt_queue):
+        """Publishing thread."""
         while True:
             message = mqtt_queue.get()
             self.client.publish(

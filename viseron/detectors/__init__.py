@@ -1,1 +1,1 @@
-""" Object detectors """
+"""Object detectors."""

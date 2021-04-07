@@ -1,6 +1,4 @@
-# https://stackoverflow.com/questions/6198372/most-pythonic-way-to-provide-global-configuration-variables-in-config-py
-# https://www.hackerearth.com/practice/notes/samarthbhargav/a-design-pattern-for-configuration-management-in-python/
-# https://www.google.com/search?q=python+dynamic+amount+of+properties&rlz=1C1GCEA_enSE831SE831&oq=python+dynamic+amount+of+properties&aqs=chrome..69i57.5351j0j4&sourceid=chrome&ie=UTF-8
+"""Create base configs for Viseron."""
 import json
 import os
 import sys
@@ -31,6 +29,7 @@ from .config_recorder import RecorderConfig
 
 
 def create_default_config():
+    """Create default configuration."""
     try:
         with open(CONFIG_PATH, "wt") as config_file:
             config_file.write(DEFAULT_CONFIG)
@@ -41,6 +40,7 @@ def create_default_config():
 
 
 def load_secrets():
+    """Return secrets from secrets.yaml."""
     try:
         with open(SECRETS_PATH, "r") as secrets_file:
             return yaml.load(secrets_file, Loader=yaml.SafeLoader)
@@ -49,6 +49,7 @@ def load_secrets():
 
 
 def load_config():
+    """Return contents of config.yaml."""
     secrets = load_secrets()
 
     def secret_yaml(_, node):
@@ -95,6 +96,8 @@ CONFIG = VISERON_CONFIG_SCHEMA(raw_config)
 
 
 class BaseConfig:
+    """Contains config properties common for Viseron and each NVR thread."""
+
     def __init__(self):
         self._object_detection = None
         self._motion_detection = None
@@ -105,30 +108,38 @@ class BaseConfig:
 
     @property
     def object_detection(self):
+        """Return object detection config."""
         return self._object_detection
 
     @property
     def motion_detection(self):
+        """Return motion detection config."""
         return self._motion_detection
 
     @property
     def post_processors(self):
+        """Return post processors config."""
         return self._post_processors
 
     @property
     def recorder(self):
+        """Return recorder config."""
         return self._recorder
 
     @property
     def mqtt(self):
+        """Return MQTT config."""
         return self._mqtt
 
     @property
     def logging(self):
+        """Return logging config."""
         return self._logging
 
 
 class ViseronConfig(BaseConfig):
+    """Config Viseron specifically."""
+
     def __init__(self, config):
         super().__init__()
         self._cameras = config["cameras"]
@@ -141,10 +152,13 @@ class ViseronConfig(BaseConfig):
 
     @property
     def cameras(self):
+        """Return cameras config."""
         return self._cameras
 
 
 class NVRConfig(BaseConfig):
+    """Config that is created for each NVR instance, eg one per camera."""
+
     def __init__(
         self, camera, object_detection, motion_detection, recorder, mqtt, logging
     ):
@@ -163,4 +177,5 @@ class NVRConfig(BaseConfig):
 
     @property
     def camera(self):
+        """Return camera config."""
         return self._camera

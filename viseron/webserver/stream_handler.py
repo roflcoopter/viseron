@@ -1,4 +1,4 @@
-""" Handles different kind of browser streams """
+"""Handles different kind of browser streams."""
 
 import copy
 import logging
@@ -20,9 +20,10 @@ LOGGER = logging.getLogger(__name__)
 
 
 class StreamHandler(tornado.web.RequestHandler):
-    """ Represents a stream """
+    """Represents a stream."""
 
     async def process_frame(self, nvr: FFMPEGNVR, frame, mjpeg_stream_config):
+        """Return JPG with drawn objects, zones etc."""
         if mjpeg_stream_config["width"] and mjpeg_stream_config["height"]:
             resolution = mjpeg_stream_config["width"], mjpeg_stream_config["height"]
             frame.resize(
@@ -74,9 +75,10 @@ class StreamHandler(tornado.web.RequestHandler):
 
 
 class DynamicStreamHandler(StreamHandler):
-    """ Represents a dynamic stream using query parameters """
+    """Represents a dynamic stream using query parameters."""
 
     async def get(self, camera):
+        """Handle a GET request."""
         request_arguments = {k: self.get_argument(k) for k in self.request.arguments}
         LOGGER.debug(request_arguments)
         mjpeg_stream_config = MJPEG_STREAM_SCHEMA(request_arguments)
@@ -116,12 +118,13 @@ class DynamicStreamHandler(StreamHandler):
 
 
 class StaticStreamHandler(StreamHandler):
-    """ Represents a static stream defined in config.yaml """
+    """Represents a static stream defined in config.yaml."""
 
     active_streams: Dict[str, object] = {}
 
     @tornado.gen.coroutine
     def stream(self, nvr, mjpeg_stream, mjpeg_stream_config, publish_frame_topic):
+        """Subscribe to frames, draw on them, then publish processed frame."""
         frame_queue = Queue(maxsize=10)
         subscribe_frame_topic = (
             f"{nvr.config.camera.name_slug}/{TOPIC_FRAME_PROCESSED}/*"
@@ -140,6 +143,7 @@ class StaticStreamHandler(StreamHandler):
         LOGGER.debug(f"Closing stream {mjpeg_stream}")
 
     async def get(self, camera, mjpeg_stream):
+        """Handle GET request."""
         nvr = FFMPEGNVR.nvr_list.get(camera, None)
         if not nvr:
             self.set_status(404)

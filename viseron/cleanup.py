@@ -1,3 +1,4 @@
+"""Cleanup no longer needed files."""
 import datetime
 import logging
 import os
@@ -14,6 +15,8 @@ logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)
 
 
 class Cleanup:
+    """Removes old recordings on a schedule."""
+
     def __init__(self, config):
         self.directory = config.recorder.folder
 
@@ -29,6 +32,7 @@ class Cleanup:
         self._scheduler.add_job(self.cleanup, "cron", hour="1")
 
     def cleanup(self):
+        """Delete all recordings that have past the configured days to retain."""
         LOGGER.debug("Running cleanup")
         retention_period = time.time() - (self.days_to_retain * 24 * 60 * 60)
         dirs = Path(self.directory)
@@ -60,10 +64,13 @@ class Cleanup:
                     LOGGER.error(f"Could not remove directory {folder}")
 
     def start(self):
+        """Start the scheduler."""
         self._scheduler.start()
 
 
 class SegmentCleanup:
+    """Clean up segments created by FFmpeg."""
+
     def __init__(self, config):
         self._directory = os.path.join(
             config.recorder.segments_folder, config.camera.name
@@ -80,6 +87,7 @@ class SegmentCleanup:
         self._scheduler.start()
 
     def cleanup(self):
+        """Delete all segments that are no longer needed."""
         now = datetime.datetime.now().timestamp()
         for segment in os.listdir(self._directory):
             start_time = datetime.datetime.strptime(
@@ -89,13 +97,16 @@ class SegmentCleanup:
                 os.remove(os.path.join(self._directory, segment))
 
     def start(self):
+        """Start the scheduler."""
         LOGGER.debug("Starting segment cleanup")
         self._scheduler.start()
 
     def pause(self):
+        """Pauise the scheduler."""
         LOGGER.debug("Pausing segment cleanup")
         self._scheduler.pause_job("segment_cleanup")
 
     def resume(self):
+        """Resume the scheduler."""
         LOGGER.debug("Resuming segment cleanup")
         self._scheduler.resume_job("segment_cleanup")

@@ -1,3 +1,4 @@
+"""Viseron webserver."""
 import datetime
 import logging
 import threading
@@ -13,11 +14,15 @@ LOGGER = logging.getLogger(__name__)
 
 
 class WebSocketHandler(tornado.websocket.WebSocketHandler):
-    def check_origin(self, origin):
+    """Websocket handler."""
+
+    def check_origin(self, origin):  # pylint: disable=unused-argument,no-self-use
+        """Check request origin."""
         return True
 
     @tornado.gen.coroutine
     def get_data(self):
+        """Get data."""
         while True:
             LOGGER.debug("Write time")
             try:
@@ -33,31 +38,41 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
                 break
 
     def open(self):
+        """Called on websocket open."""
         LOGGER.debug("WebSocket opened")
         tornado.ioloop.IOLoop.current().add_future(
             self.get_data(), lambda f: self.close()
         )
 
     def on_message(self, message):
+        """Called on websocket message."""
         self.write_message("You said: " + message)
 
-    def on_close(self):
+    def on_close(self):  # pylint: disable=no-self-use
+        """Called on websocket close."""
         LOGGER.debug("WebSocket closed")
 
 
 class RegularSocketHandler(tornado.web.RequestHandler):
+    """Socket handler."""
+
     def get(self):
+        """GET rquest."""
         self.render("assets/index.html")
 
 
 class WebServer(threading.Thread):
+    """Webserver."""
+
     def __init__(self):
-        super(WebServer, self).__init__(name="WebServer")
+        super().__init__(name="WebServer")
         self.application = self.create_application()
         self.application.listen(8888)
         self.ioloop = tornado.ioloop.IOLoop.current()
 
-    def create_application(self):
+    @staticmethod
+    def create_application():
+        """Return tornado web app."""
         return tornado.web.Application(
             [
                 (r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-stream", DynamicStreamHandler),
@@ -75,4 +90,5 @@ class WebServer(threading.Thread):
         )
 
     def run(self):
+        """Start ioloop."""
         self.ioloop.start()

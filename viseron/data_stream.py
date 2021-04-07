@@ -1,9 +1,10 @@
+"""Used to publish/subscribe to data between different parts of Viseron."""
 import fnmatch
 import logging
 import uuid
 from queue import Queue
 from threading import Thread
-from typing import Any, Callable, Dict, Union
+from typing import Any, Callable, Dict, List, Union
 
 from tornado.queues import Queue as tornado_queue
 
@@ -18,7 +19,8 @@ class DataStream:
 
     A data topic can have any value.
     You can subscribe to wildcard topics using '*', eg topic/*/event_name
-    """
+
+    Data is published to topics using a thread."""
 
     _subscribers: Dict[str, Any] = {}
     _wildcard_subscribers: Dict[str, Any] = {}
@@ -31,6 +33,7 @@ class DataStream:
 
     @staticmethod
     def publish_data(data_topic, data):
+        """Publish data to topic."""
         # LOGGER.debug(f"Publishing to data topic {data_topic}, {data}")
         DataStream._data_queue.put({"data_topic": data_topic, "data": data})
 
@@ -38,6 +41,8 @@ class DataStream:
     def subscribe_data(
         data_topic, callback: Union[Callable, Queue, tornado_queue]
     ) -> uuid.UUID:
+        """Subscribe to data on a topic.
+        Returns a Unique ID which can be used to unsubscribe later."""
         LOGGER.debug(f"Subscribing to data topic {data_topic}, {callback}")
         unique_id = uuid.uuid4()
 
@@ -52,6 +57,7 @@ class DataStream:
 
     @staticmethod
     def unsubscribe_data(data_topic, unique_id: uuid.UUID):
+        """Unsubscribe from a topic using the Unique ID returned from subscribe_data."""
         LOGGER.debug(f"Unsubscribing from data topic {data_topic}, {unique_id}")
         if "*" in data_topic:
             DataStream._wildcard_subscribers[data_topic].pop(unique_id)
@@ -59,7 +65,10 @@ class DataStream:
 
         DataStream._subscribers[data_topic].pop(unique_id)
 
-    def run_callbacks(self, callbacks, data):
+    def run_callbacks(
+        self, callbacks: List[Union[Callable, Queue, tornado_queue]], data
+    ):
+        """Run callbacks or put to queues."""
         for callback in callbacks.values():
             if callable(callback):
                 thread = Thread(target=callback, args=(data,))
@@ -81,11 +90,13 @@ class DataStream:
             )
 
     def static_subscriptions(self, data_item):
+        """Run callbacks for static subscriptions."""
         self.run_callbacks(
             DataStream._subscribers.get(data_item["data_topic"], {}), data_item["data"]
         )
 
     def wildcard_subscriptions(self, data_item):
+        """Run callbacks for wildcard subscriptions."""
         for data_topic, callbacks in DataStream._wildcard_subscribers.items():
             if fnmatch.fnmatch(data_item["data_topic"], data_topic):
                 # LOGGER.debug(
@@ -96,6 +107,7 @@ class DataStream:
                 self.run_callbacks(callbacks, data_item["data"])
 
     def consume_data(self):
+        """Publish data to topics."""
         while True:
             data_item = self._data_queue.get()
             self.static_subscriptions(data_item)

@@ -17,6 +17,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def calculate_relative_contours(contours, resolution: Tuple[int, int]):
+    """Convert contours with absolute coords to relative."""
     relative_contours = []
     for contour in contours:
         relative_contours.append(np.divide(contour, resolution))
@@ -27,6 +28,7 @@ def calculate_relative_contours(contours, resolution: Tuple[int, int]):
 def calculate_relative_coords(
     bounding_box: Tuple[int, int, int, int], resolution: Tuple[int, int]
 ) -> Tuple[float, float, float, float]:
+    """Convert absolute coords to relative."""
     x1_relative = round(bounding_box[0] / resolution[0], 3)
     y1_relative = round(bounding_box[1] / resolution[1], 3)
     x2_relative = round(bounding_box[2] / resolution[0], 3)
@@ -37,6 +39,7 @@ def calculate_relative_coords(
 def calculate_absolute_coords(
     bounding_box: Tuple[int, int, int, int], frame_res: Tuple[int, int]
 ) -> Tuple[float, float, float, float]:
+    """Convert relative coords to absolute."""
     return (
         math.floor(bounding_box[0] * frame_res[0]),
         math.floor(bounding_box[1] * frame_res[1]),
@@ -50,7 +53,7 @@ def scale_bounding_box(
     bounding_box: Tuple[int, int, int, int],
     target_size,
 ) -> Tuple[float, float, float, float]:
-    """Scales a bounding box to target image size"""
+    """Scale a bounding box to target image size."""
     x1p = bounding_box[0] / image_size[0]
     y1p = bounding_box[1] / image_size[1]
     x2p = bounding_box[2] / image_size[0]
@@ -66,6 +69,7 @@ def scale_bounding_box(
 def draw_bounding_box_relative(
     frame, bounding_box, frame_res, color=(255, 0, 0), thickness=1
 ):
+    """Draw a bounding box using relative coordinates."""
     topleft = (
         math.floor(bounding_box[0] * frame_res[0]),
         math.floor(bounding_box[1] * frame_res[1]),
@@ -78,6 +82,7 @@ def draw_bounding_box_relative(
 
 
 def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)):
+    """Draw a label using relative coordinates."""
     coordinates = (
         math.floor(obj.rel_x1 * frame_res[0]),
         (math.floor(obj.rel_y1 * frame_res[1])) - 5,
@@ -117,7 +122,7 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)):
 def draw_object(
     frame, obj, camera_resolution: Tuple[int, int], color=(150, 0, 0), thickness=1
 ):
-    """ Draws a single object on supplied frame """
+    """Draw a single object on supplied frame."""
     if obj.relevant:
         color = (0, 150, 0)
     frame = draw_bounding_box_relative(
@@ -136,12 +141,13 @@ def draw_object(
 
 
 def draw_objects(frame, objects, camera_resolution):
-    """ Draws objects on supplied frame """
+    """Draw objects on supplied frame."""
     for obj in objects:
         draw_object(frame, obj, camera_resolution)
 
 
 def draw_zones(frame, zones):
+    """Draw zones on supplied frame."""
     for zone in zones:
         if zone.objects_in_zone:
             color = (0, 255, 0)
@@ -161,6 +167,7 @@ def draw_zones(frame, zones):
 
 
 def draw_contours(frame, contours, resolution, threshold):
+    """Draw contours on supplied frame."""
     filtered_contours = []
     relevant_contours = []
     for relative_contour, area in zip(contours.rel_contours, contours.contour_areas):
@@ -175,6 +182,7 @@ def draw_contours(frame, contours, resolution, threshold):
 
 
 def draw_mask(frame, mask_points):
+    """Draw mask on supplied frame."""
     mask_overlay = frame.copy()
     # Draw polygon filled with black color
     cv2.fillPoly(
@@ -209,7 +217,7 @@ def draw_mask(frame, mask_points):
 
 
 def pop_if_full(queue: Queue, item: Any, logger=LOGGER, name="unknown", warn=False):
-    """If queue is full, pop oldest item and put the new item"""
+    """If queue is full, pop oldest item and put the new item."""
     try:
         queue.put_nowait(item)
     except (Full, tq.QueueFull):
@@ -237,6 +245,8 @@ def print_slugs(config: dict):
 def report_labels(
     labels, labels_in_fov, reported_label_count, mqtt_queue, mqtt_devices
 ):
+    """Send on/off to MQTT for labels.
+    Only if state has changed since last report."""
     labels = sorted(labels)
     if labels == labels_in_fov:
         return labels_in_fov, reported_label_count
@@ -268,7 +278,7 @@ def report_labels(
 
 
 def combined_objects(frame, zones):
-    """ Combine the object lists of a frame and all zones """
+    """Combine the object lists of a frame and all zones."""
     all_objects = frame.objects if frame else []
     for zone in zones:
         all_objects += zone.objects_in_zone
@@ -276,6 +286,8 @@ def combined_objects(frame, zones):
 
 
 class Filter:
+    """Filter a recorded object against a configured label."""
+
     def __init__(self, object_filter):
         self._label = object_filter.label
         self._confidence = object_filter.confidence
@@ -288,21 +300,25 @@ class Filter:
         self._post_processor = object_filter.post_processor
 
     def filter_confidence(self, obj):
+        """Return if confidence filter is met."""
         if obj.confidence > self._confidence:
             return True
         return False
 
     def filter_width(self, obj):
+        """Return if width filter is met."""
         if self._width_max > obj.rel_width > self._width_min:
             return True
         return False
 
     def filter_height(self, obj):
+        """Return if height filter is met."""
         if self._height_max > obj.rel_height > self._height_min:
             return True
         return False
 
     def filter_object(self, obj):
+        """Return if filters are met."""
         return (
             self.filter_confidence(obj)
             and self.filter_width(obj)
@@ -311,13 +327,16 @@ class Filter:
 
     @property
     def triggers_recording(self):
+        """Return if label triggers recorder."""
         return self._triggers_recording
 
     def require_motion(self):
+        """Return if label requires motion to trigger recorder."""
         return self._require_motion
 
     @property
     def post_processor(self):
+        """Return post processor for label."""
         return self._post_processor
 
 

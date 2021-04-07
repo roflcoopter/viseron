@@ -1,3 +1,4 @@
+"""Motion detection config."""
 import numpy as np
 from voluptuous import All, Any, Coerce, Optional, Range, Schema
 
@@ -44,6 +45,8 @@ SCHEMA = Schema(
 
 
 class MotionDetectionConfig:
+    """Motion detection config."""
+
     schema = SCHEMA
     defaults = DEFAULTS
 
@@ -78,6 +81,7 @@ class MotionDetectionConfig:
 
     @staticmethod
     def generate_mask(coordinates):
+        """Return a mask used to limit motion detection to specific areas."""
         mask = []
         for mask_coordinates in coordinates:
             point_list = []
@@ -88,48 +92,60 @@ class MotionDetectionConfig:
 
     @property
     def interval(self):
+        """Return interval."""
         return self._interval
 
     @property
     def trigger_detector(self):
+        """Return if motion triggers detector."""
         return self._trigger_detector
 
     @property
     def timeout(self):
+        """Return motion timeout."""
         return self._timeout
 
     @property
     def max_timeout(self):
+        """Return max motion timeout."""
         return self._max_timeout
 
     @property
     def width(self):
+        """Return the width every frame will be resized to before detection."""
         return self._width
 
     @property
     def height(self):
+        """Return the height every frame will be resized to before detection."""
         return self._height
 
     @property
     def area(self):
+        """Return minimum area size allowed for motion detection."""
         return self._area
 
     @property
     def threshold(self):
+        """Return threshold used in cv2.threshold."""
         return self._threshold
 
     @property
     def alpha(self):
+        """Return alpha used in cv2.accumulateWeighted."""
         return self._alpha
 
     @property
     def frames(self):
+        """Return number of consecutive frames before motion is considered detected."""
         return self._frames
 
     @property
     def mask(self):
+        """Return mask."""
         return self._mask
 
     @property
     def logging(self):
+        """Return logging config."""
         return self._logging
