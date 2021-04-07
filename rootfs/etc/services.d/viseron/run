@@ -1,3 +1,4 @@
 #!/usr/bin/execlineb
 
-justc-envdir /var/run/environment exec s6-setuidgid abc python3 -u /src/viseron/viseron.py
+cd /src
+justc-envdir /var/run/environment exec s6-setuidgid abc python3 -u -m viseron

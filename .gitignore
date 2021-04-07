@@ -26,26 +26,28 @@
 !/.dockerignore
 
 # Source
-!/src
-!/src/*
-!/src/lib
-!/src/lib/*
-!/src/lib/config
-!/src/lib/config/*
-!/src/lib/detectors
-!/src/lib/detectors/*
-!/src/lib/detectors/darknet
-!/src/lib/detectors/darknet/*
-!/src/lib/detectors/edgetpu
-!/src/lib/detectors/edgetpu/*
-!/src/lib/mqtt
-!/src/lib/mqtt/*
-!/src/lib/post_processors
-!/src/lib/post_processors/*
-!/src/lib/post_processors/face_recognition
-!/src/lib/post_processors/face_recognition/*
-!/src/lib/post_processors/face_recognition/dlib
-!/src/lib/post_processors/face_recognition/dlib/*
+!/viseron
+!/viseron/*
+!/viseron/config
+!/viseron/config/*
+!/viseron/detectors
+!/viseron/detectors/*
+!/viseron/detectors/darknet
+!/viseron/detectors/darknet/*
+!/viseron/detectors/edgetpu
+!/viseron/detectors/edgetpu/*
+!/viseron/mqtt
+!/viseron/mqtt/*
+!/viseron/post_processors
+!/viseron/post_processors/*
+!/viseron/post_processors/face_recognition
+!/viseron/post_processors/face_recognition/*
+!/viseron/post_processors/face_recognition/dlib
+!/viseron/post_processors/face_recognition/dlib/*
+!/viseron/webserver
+!/viseron/webserver/*
+!/viseron/webserver/assets
+!/viseron/webserver/assets/*
 !/requirements.txt
 
 # Repo

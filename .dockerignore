@@ -1,6 +1,6 @@
 *
-!src/
-!src/*
+!viseron/
+!viseron/*
 !script/
 !docker/cuda/Video_Codec_SDK_9.1.23.zip
 !docker/yolov4.cfg
