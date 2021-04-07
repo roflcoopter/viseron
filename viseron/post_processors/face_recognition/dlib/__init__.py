@@ -1,3 +1,4 @@
+"""dlib face recognition."""
 import datetime
 import logging
 import math
@@ -29,6 +30,7 @@ from .defaults import (
 
 
 def get_default_model() -> str:
+    """Return default model."""
     if os.getenv(ENV_CUDA_SUPPORTED) == "true":
         return "cnn"
     return "hog"
@@ -50,6 +52,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Config(PostProcessorConfig):
+    """dlib config."""
+
     def __init__(self, post_processors_config, processor_config):
         super().__init__(post_processors_config, processor_config)
         self._face_recognition_path = processor_config["face_recognition_path"]
@@ -60,26 +64,33 @@ class Config(PostProcessorConfig):
 
     @property
     def face_recognition_path(self):
+        """Return path to folders with faces."""
         return self._face_recognition_path
 
     @property
     def save_unknown_faces(self):
+        """Return if unknown faces should be saved."""
         return self._save_unknown_faces
 
     @property
     def unknown_faces_path(self):
+        """Return path to folder where unknown faces are saved."""
         return self._unknown_faces_path
 
     @property
     def expire_after(self):
+        """Return number of seconds after a face is no longer detected to expire it."""
         return self._expire_after
 
     @property
     def model(self):
+        """Return model."""
         return self._model
 
 
 class Processor:
+    """dlib face recognition processor."""
+
     def __init__(self, config: ViseronConfig, processor_config: Config, mqtt_queue):
         if getattr(processor_config.logging, "level", None):
             LOGGER.setLevel(processor_config.logging.level)
@@ -104,6 +115,7 @@ class Processor:
         LOGGER.debug("dlib initialized")
 
     def known_face_found(self, face, coordinates):
+        """Adds/expires known faces."""
         # Cancel the expiry timer if face has already been detected
         if self._faces.get(face, None):
             self._faces[face]["timer"].cancel()
@@ -120,6 +132,7 @@ class Processor:
         self._faces[face]["timer"].start()
 
     def unknown_face_found(self, frame):
+        """Saves unknown faces."""
         unique_id = f"{datetime.datetime.now().strftime('%H:%M:%S-')}{str(uuid4())}.jpg"
         file_name = os.path.join(self._processor_config.unknown_faces_path, unique_id)
         LOGGER.debug(f"Unknown face found, saving to {file_name}")
@@ -127,7 +140,9 @@ class Processor:
         if not cv2.imwrite(file_name, frame):
             LOGGER.error("Failed saving unknown face image to disk")
 
+    # pylint: disable=unused-argument
     def process(self, camera_config, frame, obj, zone):
+        """Run face detection."""
         if not self._classifier:
             LOGGER.error(
                 "Classifier has not been trained, "
@@ -159,16 +174,19 @@ class Processor:
                 self.unknown_face_found(cropped_frame)
 
     def expire_face(self, face):
+        """Expire no longer found face."""
         LOGGER.debug(f"Expiring face {face}")
         self._mqtt_devices[face].publish(False)
         del self._faces[face]
 
     def on_connect(self, client):
+        """Called when MQTT connection is established."""
         for device in self._mqtt_devices.values():
             device.on_connect(client)
 
 
 def create_directory(path):
+    """Create a directory."""
     try:
         if not os.path.isdir(path):
             LOGGER.debug(f"Creating folder {path}")
@@ -179,8 +197,8 @@ def create_directory(path):
 
 def train(
     face_recognition_path,
-    model_dir="model",
-    model_name="trained_faces.clf",
+    # model_dir="model",
+    # model_name="trained_faces.clf",
     n_neighbors=None,
 ):
     """
@@ -361,6 +379,8 @@ def predict(frame, knn_clf, model="hog", distance_threshold=0.6):
 
 
 class FaceMQTTBinarySensor(MQTTBinarySensor):
+    """MQTT binary sensor representing a face."""
+
     def __init__(self, config, mqtt_queue, face):
         self._config = config
         self._mqtt_queue = mqtt_queue
@@ -373,4 +393,5 @@ class FaceMQTTBinarySensor(MQTTBinarySensor):
 
     @property
     def state_topic(self):
+        """Return state topic."""
         return f"{self._config.mqtt.client_id}/binary_sensor/{self.object_id}/state"
