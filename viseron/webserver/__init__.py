@@ -57,7 +57,7 @@ class RegularSocketHandler(tornado.web.RequestHandler):
     """Socket handler."""
 
     def get(self):
-        """GET rquest."""
+        """GET request."""
         self.render("assets/index.html")
 
 
