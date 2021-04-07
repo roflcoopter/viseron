@@ -11,8 +11,8 @@ from viseron.detector import Detector
 from viseron.mqtt import MQTT
 from viseron.nvr import FFMPEGNVR
 from viseron.post_processors import PostProcessor
-from viseron.webserver import WebServer
 from viseron.viseron_exceptions import FFprobeError
+from viseron.webserver import WebServer
 
 LOGGER = logging.getLogger(__name__)
 

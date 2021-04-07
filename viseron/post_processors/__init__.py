@@ -7,8 +7,8 @@ from typing import Dict
 from viseron.config import ViseronConfig
 from viseron.config.config_logging import LoggingConfig
 from viseron.config.config_post_processors import PostProcessorsConfig
-from viseron.data_stream import DataStream
 from viseron.const import TOPIC_FRAME_SCAN_POSTPROC_FACEREC
+from viseron.data_stream import DataStream
 
 LOGGER = logging.getLogger(__name__)
 

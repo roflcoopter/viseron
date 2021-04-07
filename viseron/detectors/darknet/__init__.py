@@ -3,8 +3,6 @@ import logging
 import os
 
 import cv2
-import viseron.detector as detector
-from viseron.const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
 from cv2.dnn import (
     DNN_BACKEND_CUDA,
     DNN_BACKEND_DEFAULT,
@@ -14,6 +12,9 @@ from cv2.dnn import (
     DNN_TARGET_OPENCL,
 )
 from voluptuous import All, Any, Coerce, Optional, Range, Required
+
+import viseron.detector as detector
+from viseron.const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
 
 from .defaults import LABEL_PATH, MODEL_CONFIG, MODEL_PATH
 

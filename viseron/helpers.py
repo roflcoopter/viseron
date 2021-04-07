@@ -5,12 +5,12 @@ from collections import Counter
 from queue import Full, Queue
 from typing import Any, Callable, Dict, Hashable, Tuple
 
+import cv2
 import numpy as np
+import slugify as unicode_slug
 import tornado.queues as tq
 import voluptuous as vol
 
-import cv2
-import slugify as unicode_slug
 from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
 
 LOGGER = logging.getLogger(__name__)

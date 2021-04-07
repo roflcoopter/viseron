@@ -4,12 +4,13 @@ from threading import Thread
 from typing import Dict
 
 import cv2
+
+from viseron.camera import FFMPEGCamera
 from viseron.const import (
     LOG_LEVELS,
     TOPIC_FRAME_PROCESSED_OBJECT,
     TOPIC_FRAME_SCAN_POSTPROC,
 )
-from viseron.camera import FFMPEGCamera
 from viseron.data_stream import DataStream
 from viseron.helpers import (
     Filter,
