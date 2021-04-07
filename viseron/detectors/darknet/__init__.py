@@ -141,7 +141,7 @@ class Config(detector.DetectorConfig):
 
     @property
     def suppression(self):
-        """Retun threshold for non maximum suppression."""
+        """Return threshold for non maximum suppression."""
         return self._suppression
 
     @property

@@ -339,7 +339,7 @@ def predict(frame, knn_clf, model="hog", distance_threshold=0.6):
     if len(face_locations) == 0:
         return []
 
-    # Find encodings for faces in the test iamge
+    # Find encodings for faces in the test image
     faces_encodings = face_recognition.face_encodings(
         frame, known_face_locations=face_locations
     )

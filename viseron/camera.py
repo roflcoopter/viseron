@@ -316,7 +316,7 @@ class Stream:
                 retry = True
                 continue
             if retry:
-                self._logger.error("Succesful reconnection!")
+                self._logger.error("Successful reconnection!")
             break
 
     def start_pipe(self):
@@ -337,7 +337,7 @@ class Stream:
 class FrameDecoder:
     """Subscribes to raw frames and decodes them.
     Frames are then published to subsribers, object/motion detector.
-    This makes it possible to decode frames in parallell with detection."""
+    This makes it possible to decode frames in parallel with detection."""
 
     def __init__(
         self,
