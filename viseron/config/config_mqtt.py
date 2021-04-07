@@ -1,12 +1,6 @@
 import logging
 
-from voluptuous import (
-    All,
-    Any,
-    Required,
-    Schema,
-    Optional,
-)
+from voluptuous import All, Any, Optional, Required, Schema
 
 LOGGER = logging.getLogger(__name__)
 

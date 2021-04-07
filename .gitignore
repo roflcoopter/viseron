@@ -52,5 +52,7 @@
 
 # Repo
 !/.gitignore
+!/.isort.cfg
+!/.pylintrc
 !/LICENSE
 !/README.md

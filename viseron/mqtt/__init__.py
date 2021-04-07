@@ -1,6 +1,7 @@
 import logging
 
 import paho.mqtt.client as mqtt
+
 from viseron.nvr import FFMPEGNVR
 from viseron.post_processors import PostProcessor
 

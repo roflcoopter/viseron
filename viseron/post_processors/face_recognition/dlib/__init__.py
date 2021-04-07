@@ -6,19 +6,19 @@ import os.path
 from threading import Timer
 from uuid import uuid4
 
-from voluptuous import All, Any, Coerce, Optional, Range
-
 import cv2
 import face_recognition
 import PIL
-from viseron.const import ENV_CUDA_SUPPORTED
 from face_recognition.face_recognition_cli import image_files_in_folder
+from sklearn import neighbors
+from voluptuous import All, Any, Coerce, Optional, Range
+
 from viseron.config import ViseronConfig
+from viseron.const import ENV_CUDA_SUPPORTED
 from viseron.helpers import calculate_absolute_coords, slugify
 from viseron.mqtt.binary_sensor import MQTTBinarySensor
 from viseron.post_processors import PostProcessorConfig
 from viseron.post_processors.schema import SCHEMA as BASE_SCHEMA
-from sklearn import neighbors
 
 from .defaults import (
     EXPIRE_AFTER,

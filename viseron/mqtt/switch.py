@@ -1,5 +1,4 @@
 import json
-
 import logging
 
 LOGGER = logging.getLogger(__name__)
@@ -77,7 +76,9 @@ class MQTTSwitch:
     def on_connect(self, client):
         if self._config.mqtt.home_assistant.enable:
             client.publish(
-                self.config_topic, payload=self.config_payload, retain=True,
+                self.config_topic,
+                payload=self.config_payload,
+                retain=True,
             )
 
     def on_message(self, message):

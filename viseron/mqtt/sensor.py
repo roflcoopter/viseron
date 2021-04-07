@@ -1,4 +1,5 @@
 import json
+
 from viseron.helpers import slugify
 
 

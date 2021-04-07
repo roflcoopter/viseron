@@ -5,6 +5,7 @@ import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from path import Path
+
 from viseron.const import CAMERA_SEGMENT_DURATION
 
 LOGGER = logging.getLogger(__name__)

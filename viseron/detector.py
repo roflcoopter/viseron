@@ -4,12 +4,13 @@ from queue import Queue
 from threading import Lock, Thread
 
 import cv2
+from voluptuous import Any, Optional, Required
+
 from viseron.config.config_logging import LoggingConfig
 from viseron.config.config_object_detection import SCHEMA as BASE_SCEHMA
 from viseron.const import TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_OBJECT
 from viseron.data_stream import DataStream
 from viseron.helpers import calculate_relative_coords
-from voluptuous import Any, Optional, Required
 
 LOGGER = logging.getLogger(__name__)
 

@@ -34,8 +34,7 @@ from viseron.const import (
 )
 from viseron.helpers import slugify
 
-from .config_logging import SCHEMA as LOGGING_SCHEMA
-from .config_logging import LoggingConfig
+from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 from .config_object_detection import LABELS_SCHEMA, LabelConfig
 
 LOGGER = logging.getLogger(__name__)
