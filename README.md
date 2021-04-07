@@ -11,7 +11,7 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
 - Face recognition
 - Lookback, buffers frames to record before the event actually happened
 - Multiarch Docker containers for ease of use.
-- Multiplatform, should support any amd64, aarch64 or armhf machine running Linux, aswell as RPi3/4.\
+- Multiplatform, should support any amd64, aarch64 or armhf machine running Linux, as well as RPi3/4.\
 Builds are tested and verified on the following platforms:
   - Ubuntu 18.04 with Nvidia GPU
   - Ubuntu 18.04 running on an Intel NUC
@@ -256,7 +256,7 @@ EdgeTPU support is also included in all containers. To use it, add ```-v /dev/bu
 
 The ```config.yaml``` has to be mounted to the folder ```/config```.\
 If no config is present, a default minimal one will be created.\
-Here you need to fill in atleast your cameras and you should be good to go.
+Here you need to fill in at least your cameras and you should be good to go.
 
 # Configuration Options
 ## Cameras
@@ -533,7 +533,7 @@ To remedy this you define a zone which covers **only** the area that you are act
 
 Points are used to form a polygon for an object detection zone or a motion detection mask.
 
-To easily genereate points you can use a tool like [image-map.net](https://www.image-map.net/).\
+To easily generate points you can use a tool like [image-map.net](https://www.image-map.net/).\
 Just upload an image from your camera and start drawing your zone.\
 Then click **Show me the code!** and adapt it to the config format.\
 Coordinates ```coords="522,11,729,275,333,603,171,97"``` should be turned into this:
@@ -738,7 +738,7 @@ The max/min width/height is used to filter out any unreasonably large/small obje
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the motion detector. <br>This affects all logs named ```lib.motion.<camera name>``` and  ```lib.nvr.<camera name>.motion``` |
 
 Motion detection works by creating a running average of frames, and then comparing the current frame to this average.\
-If enough changes have occured, motion will be detected.\
+If enough changes have occurred, motion will be detected.\
 By using a running average, the "background" image will adjust to daylight, stationary objects etc.\
 [This](https://www.pyimagesearch.com/2015/06/01/home-surveillance-and-motion-detection-with-the-raspberry-pi-python-and-opencv/) blogpost from PyImageSearch explains this procedure quite well.
 
@@ -922,7 +922,7 @@ The folder structure of the faces folder is very strict. Here is an example of t
 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| broker | str | **required** | IP adress or hostname | IP adress or hostname of MQTT broker |
+| broker | str | **required** | IP address or hostname | IP address or hostname of MQTT broker |
 | port | int | 1883 | any integer | Port the broker is listening on |
 | username | str | optional | any string | Username for the broker |
 | password | str | optional | any string | Password for the broker |
@@ -1243,7 +1243,7 @@ Motion and object detection running at a 1 second interval.
 Intel i3-9350K CPU @ 4.00GHz 4 cores with Nvidia GTX1660 Ti
 | Process | Load on one core | When |
 | -----   | -----| ---- |
-| ffmpeg | ~5-6% | Continously |
+| ffmpeg | ~5-6% | Continuously |
 | viseron | ~1.3-3% | Scanning for motion only |
 | viseron | ~7.6-9% | Scanning for objects only |
 | viseron | ~8.6-9.3% | Scanning for motion and objects |
@@ -1251,7 +1251,7 @@ Intel i3-9350K CPU @ 4.00GHz 4 cores with Nvidia GTX1660 Ti
 Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) using VAAPI and OpenCL
 | Process | Load on one core | When |
 | -----   | -----| ---- |
-| ffmpeg | ~8% | Continously |
+| ffmpeg | ~8% | Continuously |
 | viseron | ~3.3% | Scanning for motion only |
 | viseron | ~7.5% | Scanning for objects only |
 | viseron | ~8% | Scanning for motion and objects |
@@ -1259,7 +1259,7 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) using VAAPI and OpenC
 Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or OpenCL
 | Process | Load on one core | When |
 | -----   | -----| ---- |
-| ffmpeg | ~25% | Continously |
+| ffmpeg | ~25% | Continuously |
 | viseron | ~3.3% | Scanning for motion only |
 | viseron | ~23% | Scanning for objects only |
 | viseron | ~24% | Scanning for motion and objects |

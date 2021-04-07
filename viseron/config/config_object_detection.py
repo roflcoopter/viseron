@@ -124,7 +124,7 @@ class LabelConfig:
 
     @property
     def confidence(self):
-        """Return minimun confidence."""
+        """Return minimum confidence."""
         return self._confidence
 
     @property

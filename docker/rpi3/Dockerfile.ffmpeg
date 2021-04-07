@@ -118,7 +118,7 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ## x265 http://x265.org/
-## Cant succesfully build this on armv7, will install from apt 
+## Can't successfully build this on armv7, will install from apt 
 # RUN \
 #   DIR=/tmp/x265 && \
 #   mkdir -p ${DIR} && \
@@ -242,7 +242,7 @@ RUN \
 #   make install && \
 #   rm -rf ${DIR}
 ## openjpeg https://github.com/uclouvain/openjpeg
-## Cant succesfully build this on armv7, will install from apt 
+## Can't successfully build this on armv7, will install from apt 
 # RUN \
 #   DIR=/tmp/openjpeg && \
 #   mkdir -p ${DIR} && \
