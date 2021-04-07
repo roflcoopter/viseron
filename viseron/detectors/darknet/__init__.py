@@ -1,3 +1,4 @@
+"""Darknet object detector."""
 import configparser
 import logging
 import os
@@ -33,6 +34,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ObjectDetection:
+    """Performs object detection."""
+
     def __init__(self, config):
         self.nms = config.suppression
 
@@ -63,6 +66,7 @@ class ObjectDetection:
         )
 
     def load_labels(self, labels):
+        """Load labels from file."""
         # Load names of labels
         self.labels = None
         if labels:
@@ -70,12 +74,14 @@ class ObjectDetection:
                 self.labels = labels_file.read().rstrip("\n").split("\n")
 
     def load_network(self, model, model_config, backend, target):
+        """Load network."""
         # Load a network
         self.net = cv2.dnn.readNet(model, model_config, "darknet")
         self.net.setPreferableBackend(backend)
         self.net.setPreferableTarget(target)
 
     def post_process(self, labels, confidences, boxes):
+        """Post process detections."""
         detections = []
         for (label, confidence, box) in zip(labels, confidences, boxes):
             detections.append(
@@ -94,6 +100,7 @@ class ObjectDetection:
         return detections
 
     def return_objects(self, frame):
+        """Perform object detection."""
         labels, confidences, boxes = self.model.detect(
             frame["frame"].get_resized_frame(frame["decoder_name"]),
             frame["camera_config"].object_detection.min_confidence,
@@ -105,18 +112,23 @@ class ObjectDetection:
 
     @property
     def model_width(self):
+        """Return trained model width."""
         return self._model_width
 
     @property
     def model_height(self):
+        """Return trained model height."""
         return self._model_height
 
     @property
     def model_res(self):
+        """Return trained model resolution."""
         return self.model_width, self.model_height
 
 
 class Config(detector.DetectorConfig):
+    """Darknet object detection config."""
+
     def __init__(self, detector_config):
         super().__init__(detector_config)
         self._model_config = detector_config["model_config"]
@@ -124,14 +136,17 @@ class Config(detector.DetectorConfig):
 
     @property
     def model_config(self):
+        """Return model config path."""
         return self._model_config
 
     @property
     def suppression(self):
+        """Retun threshold for non maximum suppression."""
         return self._suppression
 
     @property
     def dnn_preferable_backend(self):
+        """Return DNN backend."""
         if os.getenv(ENV_CUDA_SUPPORTED) == "true":
             return DNN_BACKEND_CUDA
         if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
@@ -140,6 +155,7 @@ class Config(detector.DetectorConfig):
 
     @property
     def dnn_preferable_target(self):
+        """Return DNN target."""
         if os.getenv(ENV_CUDA_SUPPORTED) == "true":
             return DNN_TARGET_CUDA
         if os.getenv(ENV_OPENCL_SUPPORTED) == "true":

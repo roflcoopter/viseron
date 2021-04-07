@@ -1,3 +1,4 @@
+"""Interface to different post processors."""
 import importlib
 import logging
 from queue import Queue
@@ -14,6 +15,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class PostProcessor:
+    """Subscribe to frames and run post processor using the configured processor."""
+
     post_processor_list: list = []
 
     def __init__(
@@ -45,11 +48,13 @@ class PostProcessor:
 
     @staticmethod
     def import_processor(processor_type, processor_config):
+        """Import processor dynamically."""
         return importlib.import_module(
             f"viseron.post_processors.{processor_type}.{processor_config['type']}"
         )
 
     def post_process(self):
+        """Post processor loop."""
         while True:
             data = self._post_processor_queue.get()
             self._post_processor.process(
@@ -57,14 +62,14 @@ class PostProcessor:
             )
 
     def on_connect(self, client):
+        """Called when MQTT connection is established."""
         if getattr(self._post_processor, "on_connect", None):
             self._post_processor.on_connect(client)
 
 
 class PostProcessorConfig:
     """Base config class for all post processors.
-    Each post processor has to have a Config class which inherits this class
-    """
+    Each post processor has to have a Config class which inherits this class"""
 
     def __init__(
         self, post_processors_config: PostProcessorsConfig, processor_config: Dict
@@ -75,4 +80,5 @@ class PostProcessorConfig:
 
     @property
     def logging(self):
+        """Return logging config."""
         return self._logging

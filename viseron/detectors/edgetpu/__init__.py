@@ -1,3 +1,4 @@
+"""EdgeTPU object detection."""
 import logging
 import traceback
 
@@ -20,6 +21,8 @@ SCHEMA = detector.SCHEMA.extend(
 
 
 class ObjectDetection:
+    """Performs object detection."""
+
     def __init__(self, config):
         self.labels = self.read_labels(config.label_path)
         try:
@@ -62,7 +65,9 @@ class ObjectDetection:
             self._model_width = self.tensor_input_details[0]["shape"][1]
             self._model_height = self.tensor_input_details[0]["shape"][2]
 
-    def read_labels(self, file_path):
+    @staticmethod
+    def read_labels(file_path):
+        """Read labels from file."""
         with open(file_path, "r") as label_file:
             lines = label_file.readlines()
         labels = {}
@@ -71,19 +76,22 @@ class ObjectDetection:
             labels[int(pair[0])] = pair[1].strip()
         return labels
 
-    def pre_process(self, frame):
+    @staticmethod
+    def pre_process(frame):
+        """Return preprocessed frame before performing object detection."""
         # This should be moved to decoder for speed
         frame = frame.get()
         return frame.reshape(1, frame.shape[0], frame.shape[1], frame.shape[2])
 
     def output_tensor(self, i):
-        """Returns output tensor view."""
+        """Return output tensor view."""
         tensor = self.interpreter.tensor(
             self.interpreter.get_output_details()[i]["index"]
         )()
         return np.squeeze(tensor)
 
     def post_process(self, confidence):
+        """Post process detections."""
         processed_objects = []
         boxes = self.output_tensor(0)
         labels = self.output_tensor(1)
@@ -106,6 +114,7 @@ class ObjectDetection:
         return processed_objects
 
     def return_objects(self, frame):
+        """Perform object detection."""
         tensor = self.pre_process(
             frame["frame"].get_resized_frame(frame["decoder_name"])
         )
@@ -120,13 +129,14 @@ class ObjectDetection:
 
     @property
     def model_width(self):
+        """Return trained model width."""
         return self._model_width
 
     @property
     def model_height(self):
+        """Return trained model height."""
         return self._model_height
 
 
 class Config(detector.DetectorConfig):
-    def __init__(self, detector_config):
-        super().__init__(detector_config)
+    """EdgeTPU object detection config."""

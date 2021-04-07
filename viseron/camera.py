@@ -1,3 +1,4 @@
+"""Camera communication."""
 import json
 import logging
 import os
@@ -17,12 +18,14 @@ from viseron.const import (
     TOPIC_FRAME_SCAN_OBJECT,
 )
 from viseron.data_stream import DataStream
-from viseron.viseron_exceptions import FFprobeError
+from viseron.exceptions import FFprobeError
 
 LOGGER = logging.getLogger(__name__)
 
 
 class Frame:
+    """Represents a frame read from FFMpeg."""
+
     def __init__(self, raw_frame, frame_width, frame_height):
         self._raw_frame = raw_frame
         self._frame_width = frame_width
@@ -36,6 +39,7 @@ class Frame:
         self._motion_contours = None
 
     def decode_frame(self):
+        """Decode raw frame to numpy array."""
         try:
             self._decoded_frame = np.frombuffer(self.raw_frame, np.uint8).reshape(
                 int(self.frame_height * 1.5), self.frame_width
@@ -49,6 +53,7 @@ class Frame:
         return True
 
     def resize(self, decoder_name, width, height):
+        """Resize and store frame."""
         self._resized_frames[decoder_name] = cv2.resize(
             self.decoded_frame_umat_rgb,
             (width, height),
@@ -56,34 +61,42 @@ class Frame:
         )
 
     def get_resized_frame(self, decoder_name):
+        """Fetch a stored frame."""
         return self._resized_frames.get(decoder_name)
 
     @property
     def raw_frame(self):
+        """Return raw frame."""
         return self._raw_frame
 
     @property
     def frame_width(self):
+        """Return frame width."""
         return self._frame_width
 
     @property
     def frame_height(self):
+        """Return frame height."""
         return self._frame_height
 
     @property
     def decoded_frame(self):
+        """Return decoded frame. Decodes frame if not already done."""
         if self._decoded_frame is None:
             self._decoded_frame = self.decode_frame()
         return self._decoded_frame
 
     @property
     def decoded_frame_umat(self):
+        """Return decoded frame in UMat format. Decodes frame if not already done."""
         if self._decoded_frame_umat is None:
             self._decoded_frame_umat = cv2.UMat(self.decoded_frame)
         return self._decoded_frame_umat
 
     @property
     def decoded_frame_umat_rgb(self):
+        """Return decoded frame in RGB UMat format.
+        Decodes frame if not already done."""
         if self._decoded_frame_umat_rgb is None:
             self._decoded_frame_umat_rgb = cv2.cvtColor(
                 self.decoded_frame_umat, cv2.COLOR_YUV2RGB_NV21
@@ -92,12 +105,15 @@ class Frame:
 
     @property
     def decoded_frame_mat_rgb(self):
+        """Return decoded frame in RGB Mat format.
+        Decodes frame if not already done."""
         if self._decoded_frame_mat_rgb is None:
             self._decoded_frame_mat_rgb = self.decoded_frame_umat_rgb.get()
         return self._decoded_frame_mat_rgb
 
     @property
     def objects(self):
+        """Return all detected objects in frame."""
         return self._objects
 
     @objects.setter
@@ -106,6 +122,7 @@ class Frame:
 
     @property
     def motion_contours(self):
+        """Return all motion contours in frame."""
         return self._motion_contours
 
     @motion_contours.setter
@@ -114,13 +131,10 @@ class Frame:
 
 
 class Stream:
+    """Represents a stream of frames from a camera."""
+
     def __init__(
-        self,
-        logger,
-        config,
-        stream_config,
-        write_segments=True,
-        pipe_frames=True,
+        self, logger, config, stream_config, write_segments=True, pipe_frames=True
     ):
         self._logger = logger
         self._config = config
@@ -152,6 +166,7 @@ class Stream:
         self._frame_bytes = int(self.width * self.height * 1.5)
 
     def ffprobe_stream_information(self, stream_url):
+        """Return stream information using FFProbe."""
         width, height, fps, codec = 0, 0, 0, None
         ffprobe_command = [
             "ffprobe",
@@ -207,6 +222,7 @@ class Stream:
         )
 
     def get_stream_information(self, stream_url):
+        """Return stream information."""
         self._logger.debug("Getting stream information for {}".format(stream_url))
         width, height, fps, codec = self.ffprobe_stream_information(stream_url)
 
@@ -215,7 +231,9 @@ class Stream:
 
         return width, height, fps, codec
 
-    def get_codec(self, stream_config, stream_codec):
+    @staticmethod
+    def get_codec(stream_config, stream_codec):
+        """Return codec set in config or from predefined codec map."""
         if stream_config.codec:
             return stream_config.codec
 
@@ -227,6 +245,7 @@ class Stream:
         return []
 
     def stream_command(self, stream_config, stream_codec):
+        """Return FFmpeg input stream."""
         return (
             stream_config.input_args
             + stream_config.hwaccel_args
@@ -240,6 +259,7 @@ class Stream:
         )
 
     def build_command(self, ffmpeg_loglevel=None, single_frame=False):
+        """Return full FFmpeg command."""
         camera_segment_args = []
         if not single_frame and self._write_segments:
             camera_segment_args = CAMERA_SEGMENT_ARGS + [
@@ -267,6 +287,7 @@ class Stream:
         )
 
     def pipe(self, stderr=False, single_frame=False):
+        """Return subprocess pipe for FFmpeg."""
         if stderr:
             return sp.Popen(
                 self.build_command(ffmpeg_loglevel="fatal", single_frame=single_frame),
@@ -278,6 +299,7 @@ class Stream:
         return sp.Popen(self.build_command())
 
     def check_command(self):
+        """Check if generated FFmpeg command works."""
         self._logger.debug("Performing a sanity check on the ffmpeg command")
         retry = False
         while True:
@@ -299,18 +321,25 @@ class Stream:
             break
 
     def start_pipe(self):
+        """Start piping frames from FFmpeg."""
         self._logger.debug(f"FFMPEG decoder command: {' '.join(self.build_command())}")
         self._pipe = self.pipe()
 
     def close_pipe(self):
+        """Close FFmpeg pipe."""
         self._pipe.terminate()
         self._pipe.communicate()
 
     def read(self):
+        """Return a single frame from FFmpeg pipe."""
         return Frame(self._pipe.stdout.read(self._frame_bytes), self.width, self.height)
 
 
 class FrameDecoder:
+    """Subscribes to raw frames and decodes them.
+    Frames are then published to subsribers, object/motion detector.
+    This makes it possible to decode frames in parallell with detection."""
+
     def __init__(
         self,
         logger,
@@ -345,6 +374,7 @@ class FrameDecoder:
         decode_thread.start()
 
     def scan_frame(self, current_frame):
+        """Publish frame if marked for scanning."""
         if self.scan.is_set():
             if self._frame_number % self.interval_calculated == 0:
                 self._frame_number = 0
@@ -364,7 +394,7 @@ class FrameDecoder:
             self._frame_number = 0
 
     def decode_frame(self):
-        """Decodes the frame, leaves any other potential keys in the dict untouched"""
+        """Decodes the frame, leaves any other potential keys in the dict untouched."""
         self._logger.debug("Starting decoder thread")
         while True:
             frame = self._decoder_queue.get()
@@ -380,6 +410,8 @@ class FrameDecoder:
 
 
 class FFMPEGCamera:
+    """Represents a camera which is consumed via FFmpeg."""
+
     def __init__(self, config, detector):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         self._config = config
@@ -395,6 +427,7 @@ class FFMPEGCamera:
         self.initialize_camera(detector)
 
     def initialize_camera(self, detector):
+        """Start processing of camera frames."""
         self._logger = logging.getLogger(__name__ + "." + self._config.camera.name_slug)
         if getattr(self._config.camera.logging, "level", None):
             self._logger.setLevel(self._config.camera.logging.level)
@@ -468,6 +501,7 @@ class FFMPEGCamera:
         self._logger.debug(f"Camera {self._config.camera.name} initialized")
 
     def capture_pipe(self):
+        """Start capturing frames from camera."""
         self._logger.debug("Starting capture thread")
         self._connected = True
 
@@ -501,4 +535,5 @@ class FFMPEGCamera:
         self._logger.info("FFMPEG frame grabber stopped")
 
     def release(self):
+        """Release the connection to the camera."""
         self._connected = False

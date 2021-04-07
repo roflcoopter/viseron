@@ -1,3 +1,4 @@
+"""Concatenate FFmpeg segments to a single video file."""
 import datetime
 import os
 import shutil
@@ -8,6 +9,8 @@ from viseron.const import CAMERA_SEGMENT_DURATION
 
 
 class Segments:
+    """Concatenate segments between two timestamps on-demand."""
+
     def __init__(self, logger, config, segments_folder, detection_lock):
         self._logger = logger
         self._config = config
@@ -15,7 +18,7 @@ class Segments:
         self._detection_lock = detection_lock
 
     def segment_duration(self, segment_file):
-        """Returns the duration of a specified segment"""
+        """Return the duration of a specified segment."""
         ffprobe_cmd = [
             "ffprobe",
             "-hide_banner",
@@ -58,7 +61,7 @@ class Segments:
 
     @staticmethod
     def find_segment(segments, timestamp):
-        """Finds a segment which includes the given timestamp"""
+        """Finds a segment which includes the given timestamp."""
         return next(
             (
                 key
@@ -69,7 +72,7 @@ class Segments:
         )
 
     def get_segment_information(self):
-        """Gets information for all available segments"""
+        """Gets information for all available segments."""
         segment_files = os.listdir(self._segments_folder)
         segment_information: dict = {}
         for segment in segment_files:
@@ -89,7 +92,7 @@ class Segments:
         return segment_information
 
     def get_concat_segments(self, segments, start_segment, end_segment):
-        """Returns all segments between start_segment and end_segment"""
+        """Return all segments between start_segment and end_segment."""
         segment_list = list(segments.keys())
         segment_list.sort()
         try:
@@ -108,7 +111,7 @@ class Segments:
     def generate_segment_script(
         self, segments_to_concat, segment_information, event_start, event_end
     ):
-        """Returns a script string with information of each segment to concatenate"""
+        """Return a script string with information of each segment to concatenate."""
         segment_iterable = iter(segments_to_concat)
         segment = next(segment_iterable)
         concat_script = f"file '{os.path.join(self._segments_folder, segment)}'"
@@ -139,6 +142,7 @@ class Segments:
                 return concat_script
 
     def ffmpeg_concat(self, segment_script, file_name):
+        """Generate and run FFmpeg command to concatenate segments."""
         ffmpeg_cmd = (
             [
                 "ffmpeg",
@@ -174,7 +178,7 @@ class Segments:
             self._logger.error(f"Error concatenating segments: {pipe.stderr}")
 
     def concat_segments(self, event_start, event_end, file_name):
-        """Concatenates segments between event_start and event_end"""
+        """Concatenate segments between event_start and event_end."""
         self._logger.debug("Concatenating segments")
         segment_information = self.get_segment_information()
         if not segment_information:

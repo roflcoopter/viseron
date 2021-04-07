@@ -7,6 +7,7 @@ LOGGER = logging.getLogger()
 
 
 def log_settings():
+    """Set custom log settings."""
     formatter = logging.Formatter(
         "[%(asctime)s] [%(name)-12s] [%(levelname)-8s] - %(message)s",
         "%Y-%m-%d %H:%M:%S",
@@ -19,6 +20,8 @@ def log_settings():
 
 
 class MyFormatter(logging.Formatter):
+    """Log formatter."""
+
     # pylint: disable=protected-access
     base_format = "[%(asctime)s] [%(name)-24s] [%(levelname)-8s] - %(message)s"
     overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K" + base_format
@@ -50,6 +53,8 @@ class MyFormatter(logging.Formatter):
 
 
 class DuplicateFilter(logging.Filter):
+    """Formats identical log entries to overwrite the last."""
+
     # pylint: disable=attribute-defined-outside-init
     def filter(self, record):
         current_log = (record.name, record.module, record.levelno, record.msg)

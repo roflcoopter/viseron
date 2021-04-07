@@ -1,3 +1,4 @@
+"""NVR that setups all components for a camera."""
 import logging
 from queue import Empty, Queue
 from threading import Thread
@@ -33,6 +34,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class MQTT:
+    """Handles MQTT connection."""
+
     def __init__(self, config, mqtt_queue):
         self.config = config
         self.mqtt_queue = mqtt_queue
@@ -59,6 +62,7 @@ class MQTT:
             self.devices["sensor"] = MQTTSensor(config, mqtt_queue, "status")
 
     def publish_image(self, object_frame, motion_frame, zones, resolution):
+        """Publish image to MQTT."""
         if self.mqtt_queue:
             # Draw on the object frame if it is supplied
             frame = object_frame if object_frame else motion_frame
@@ -92,6 +96,7 @@ class MQTT:
 
     @property
     def status_state(self):
+        """Return status state."""
         return self._status_state
 
     @status_state.setter
@@ -100,6 +105,7 @@ class MQTT:
         self.devices["sensor"].publish(state, attributes=self.status_attributes)
 
     def on_connect(self, client):
+        """Called when MQTT connection is established."""
         subscriptions = {}
 
         for device in self.devices.values():
@@ -111,6 +117,10 @@ class MQTT:
 
 
 class FFMPEGNVR(Thread):
+    """Performs setup of all needed components for recording.
+    Controls starting/stopping of motion detection, object detection, camera, recording.
+    Also handles publishing to MQTT."""
+
     nvr_list: Dict[str, object] = {}
 
     def __init__(self, config, detector, mqtt_queue=None):
@@ -182,6 +192,7 @@ class FFMPEGNVR(Thread):
         self._logger.debug("NVR thread initialized")
 
     def setup_loggers(self, config):
+        """Setup custom log names and levels."""
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         if getattr(config.camera.logging, "level", None):
             self._logger.setLevel(config.camera.logging.level)
@@ -205,7 +216,7 @@ class FFMPEGNVR(Thread):
             self._object_logger.setLevel(config.camera.logging.level)
 
     def on_connect(self, client):
-        """Called when MQTT connection is established"""
+        """Called when MQTT connection is established."""
         subscriptions = self._mqtt.on_connect(client)
         self.recorder.on_connect(client)
 
@@ -220,6 +231,7 @@ class FFMPEGNVR(Thread):
         return subscriptions
 
     def toggle_camera(self, message):
+        """Toggle reading from camera on/off."""
         if message.payload.decode() == "ON":
             self.start_camera()
             return
@@ -228,6 +240,7 @@ class FFMPEGNVR(Thread):
             return
 
     def start_camera(self):
+        """Start reading from camera."""
         if not self.camera_grabber or not self.camera_grabber.is_alive():
             self._logger.debug("Starting camera")
             self.camera_grabber = Thread(
@@ -237,6 +250,7 @@ class FFMPEGNVR(Thread):
             self.camera_grabber.start()
 
     def stop_camera(self):
+        """Stop reading from camera."""
         self._logger.debug("Stopping camera")
         self.camera.release()
         self.camera_grabber.join()
@@ -244,6 +258,7 @@ class FFMPEGNVR(Thread):
             self.recorder.stop_recording()
 
     def event_over(self, frame):
+        """Return if ongoing motion and/or object detection is over."""
         all_objects = combined_objects(frame, self.zones)
 
         for obj in all_objects:
@@ -275,6 +290,7 @@ class FFMPEGNVR(Thread):
         return True
 
     def start_recording(self, frame):
+        """Start recorder."""
         recorder_thread = Thread(
             target=self.recorder.start_recording,
             args=(frame, self.objects_in_fov, self.camera.resolution),
@@ -288,6 +304,7 @@ class FFMPEGNVR(Thread):
             self._logger.info("Starting motion detector")
 
     def stop_recording(self):
+        """Stop recorder."""
         if self.idle_frames % self.camera.stream.fps == 0:
             self._logger.info(
                 "Stopping recording in: {}".format(
@@ -306,15 +323,15 @@ class FFMPEGNVR(Thread):
             self.recorder.stop_recording()
 
     def get_processed_object_frame(self):
-        """Returns a frame along with its detections which has been processed
-        by the object detector"""
+        """Return a frame along with its detections which has been processed
+        by the object detector."""
         try:
             return self._object_return_queue.get_nowait()["frame"]
         except Empty:
             return None
 
     def filter_fov(self, frame):
-        """ Filter field of view """
+        """Filter field of view."""
         objects_in_fov = []
         labels_in_fov = []
         for obj in frame.objects:
@@ -347,7 +364,7 @@ class FFMPEGNVR(Thread):
 
     @property
     def objects_in_fov(self):
-        """ Return all objects in field of view """
+        """Return all objects in field of view."""
         return self._objects_in_fov
 
     @objects_in_fov.setter
@@ -364,7 +381,7 @@ class FFMPEGNVR(Thread):
 
     @property
     def labels_in_fov(self):
-        """ Return all labels in field of view """
+        """Return all labels in field of view."""
         return self._labels_in_fov
 
     @labels_in_fov.setter
@@ -378,11 +395,12 @@ class FFMPEGNVR(Thread):
         )
 
     def filter_zones(self, frame):
+        """Filter all zones."""
         for zone in self.zones:
             zone.filter_zone(frame)
 
     def get_processed_motion_frame(self):
-        """Returns a frame along with its motion contours which has been processed
+        """Return a frame along with its motion contours which has been processed
         by the motion detector"""
         try:
             return self._motion_return_queue.get_nowait()["frame"]
@@ -390,6 +408,7 @@ class FFMPEGNVR(Thread):
             return None
 
     def filter_motion(self, motion_contours):
+        """Filter motion."""
         _motion_found = bool(
             motion_contours.max_area > self.config.motion_detection.area
         )
@@ -415,6 +434,7 @@ class FFMPEGNVR(Thread):
 
     @property
     def motion_detected(self):
+        """Return if motion is detected."""
         return self._motion_detected
 
     @motion_detected.setter
@@ -428,6 +448,7 @@ class FFMPEGNVR(Thread):
             self._mqtt.devices["motion_detected"].publish(motion_detected)
 
     def process_object_event(self, frame):
+        """Process any detected objects to see if recorder should start."""
         all_objects = combined_objects(frame, self.zones)
 
         if any(obj.trigger_recorder for obj in all_objects):
@@ -435,6 +456,7 @@ class FFMPEGNVR(Thread):
                 self._start_recorder = True
 
     def process_motion_event(self):
+        """Process motion to see if it has started or stopped."""
         if self.motion_detected:
             if (
                 self.config.motion_detection.trigger_detector
@@ -451,6 +473,7 @@ class FFMPEGNVR(Thread):
             self.camera.decoders["object_detection"].scan.clear()
 
     def update_status_sensor(self):
+        """Update MQTT status sensor."""
         if not self._mqtt.mqtt_queue:
             return
 
@@ -534,6 +557,7 @@ class FFMPEGNVR(Thread):
         self._logger.info("Exiting NVR thread")
 
     def stop(self):
+        """Stop processing of events."""
         self._logger.info("Stopping NVR thread")
         self.kill_received = True
 

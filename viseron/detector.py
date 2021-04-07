@@ -1,3 +1,4 @@
+"""Interface to different object detectors."""
 import importlib
 import logging
 from queue import Queue
@@ -25,7 +26,7 @@ SCHEMA = BASE_SCEHMA.extend(
 
 class DetectedObject:
     """Object that holds a detected object. All coordinates and metrics are relative
-    to make it easier to do calculations on different image resolutions"""
+    to make it easier to do calculations on different image resolutions."""
 
     def __init__(
         self, label, confidence, x1, y1, x2, y2, relative=True, model_res=None
@@ -52,38 +53,47 @@ class DetectedObject:
 
     @property
     def label(self):
+        """Return label of the object."""
         return self._label
 
     @property
     def confidence(self):
+        """Return confidence of the object."""
         return self._confidence
 
     @property
     def rel_width(self):
+        """Return relative width of the object."""
         return self._rel_width
 
     @property
     def rel_height(self):
+        """Return relative height of the object."""
         return self._rel_height
 
     @property
     def rel_x1(self):
+        """Return relative x1 of the object."""
         return self._rel_x1
 
     @property
     def rel_y1(self):
+        """Return relative y1 of the object."""
         return self._rel_y1
 
     @property
     def rel_x2(self):
+        """Return relative x2 of the object."""
         return self._rel_x2
 
     @property
     def rel_y2(self):
+        """Return relative y2 of the object."""
         return self._rel_y2
 
     @property
     def formatted(self):
+        """Return object data in a single dictionary."""
         payload = {}
         payload["label"] = self.label
         payload["confidence"] = self.confidence
@@ -97,6 +107,7 @@ class DetectedObject:
 
     @property
     def trigger_recorder(self):
+        """Return if object should trigger the recorder."""
         return self._trigger_recorder
 
     @trigger_recorder.setter
@@ -105,7 +116,8 @@ class DetectedObject:
 
     @property
     def relevant(self):
-        """Returns if object is relevant, which means it passed through all filters"""
+        """Return if object is relevant, which means it passed through all filters.
+        This does not mean the object will trigger the recorder."""
         return self._relevant
 
     @relevant.setter
@@ -114,6 +126,8 @@ class DetectedObject:
 
 
 class Detector:
+    """Subscribe to frames and run object detection using the configured detector."""
+
     def __init__(self, object_detection_config):
         detector = importlib.import_module(
             "viseron.detectors." + object_detection_config["type"]
@@ -144,6 +158,7 @@ class Detector:
         LOGGER.debug("Object detector initialized")
 
     def object_detection(self):
+        """Perform object detection and publish the results."""
         while True:
             frame = self._object_detection_queue.get()
             self.detection_lock.acquire()
@@ -159,6 +174,7 @@ class Detector:
 
     @property
     def model_width(self):
+        """Return width of the object detection model."""
         return (
             self.config.model_width
             if self.config.model_width
@@ -167,6 +183,7 @@ class Detector:
 
     @property
     def model_height(self):
+        """Return height of the object detection model."""
         return (
             self.config.model_height
             if self.config.model_height
@@ -175,6 +192,9 @@ class Detector:
 
 
 class DetectorConfig:
+    """Config object for a detector. All object detector configs must inherit
+    from this class."""
+
     def __init__(self, object_detection):
         self._model_path = object_detection["model_path"]
         self._label_path = object_detection["label_path"]
@@ -186,20 +206,25 @@ class DetectorConfig:
 
     @property
     def model_path(self):
+        """Return path to object detection model."""
         return self._model_path
 
     @property
     def label_path(self):
+        """Return path to object detection labels."""
         return self._label_path
 
     @property
     def model_width(self):
+        """Return width of the object detection model."""
         return self._model_width
 
     @property
     def model_height(self):
+        """Return height of the object detection model."""
         return self._model_height
 
     @property
     def logging(self):
+        """Return log settings."""
         return self._logging
