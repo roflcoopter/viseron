@@ -5,7 +5,8 @@ import cv2
 
 from viseron.const import TOPIC_FRAME_SCAN_POSTPROC
 from viseron.data_stream import DataStream
-from viseron.helpers import Filter, calculate_absolute_coords, report_labels
+from viseron.helpers import calculate_absolute_coords, report_labels
+from viseron.helpers.filter import Filter
 from viseron.mqtt.binary_sensor import MQTTBinarySensor
 
 

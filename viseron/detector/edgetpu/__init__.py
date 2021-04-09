@@ -6,13 +6,14 @@ import numpy as np
 import tflite_runtime.interpreter as tflite
 from voluptuous import Required
 
-import viseron.detector as detector
+from viseron.detector import SCHEMA, DetectorConfig
+from viseron.detector.detected_object import DetectedObject
 
 from .defaults import LABEL_PATH, MODEL_PATH
 
 LOGGER = logging.getLogger(__name__)
 
-SCHEMA = detector.SCHEMA.extend(
+SCHEMA = SCHEMA.extend(
     {
         Required("model_path", default=MODEL_PATH): str,
         Required("label_path", default=LABEL_PATH): str,
@@ -42,13 +43,9 @@ class ObjectDetection:
                     ],
                 )
                 LOGGER.debug("Using PCIe EdgeTPU")
-            except ValueError:
+            except ValueError as error:
                 LOGGER.error("EdgeTPU not found. Detection will run on CPU")
-                LOGGER.debug(
-                    "Traceback when trying to load EdgeTPU: \n"
-                    f"{traceback.format_exc()}\n"
-                    f"-------------- End of printed Traceback --------------"
-                )
+                LOGGER.debug(f"Error when trying to load EdgeTPU: {error}")
                 self.interpreter = tflite.Interpreter(
                     model_path="/detectors/models/edgetpu/cpu_model.tflite",
                 )
@@ -101,7 +98,7 @@ class ObjectDetection:
         for i in range(count):
             if float(scores[i]) > confidence:
                 processed_objects.append(
-                    detector.DetectedObject(
+                    DetectedObject(
                         self.labels[int(labels[i])],
                         float(scores[i]),
                         boxes[i][1],
@@ -138,5 +135,5 @@ class ObjectDetection:
         return self._model_height
 
 
-class Config(detector.DetectorConfig):
+class Config(DetectorConfig):
     """EdgeTPU object detection config."""
