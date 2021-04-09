@@ -6,6 +6,7 @@ import subprocess as sp
 from queue import Queue
 from threading import Event, Thread
 from time import sleep
+from typing import List
 
 import cv2
 import numpy as np
@@ -18,6 +19,7 @@ from viseron.const import (
     TOPIC_FRAME_SCAN_OBJECT,
 )
 from viseron.data_stream import DataStream
+from viseron.detector.detected_object import DetectedObject
 from viseron.exceptions import FFprobeError
 
 LOGGER = logging.getLogger(__name__)
@@ -35,7 +37,7 @@ class Frame:
         self._decoded_frame_umat_rgb = None
         self._decoded_frame_mat_rgb = None
         self._resized_frames = {}
-        self._objects = []
+        self._objects: List[DetectedObject] = []
         self._motion_contours = None
 
     def decode_frame(self):
@@ -112,7 +114,7 @@ class Frame:
         return self._decoded_frame_mat_rgb
 
     @property
-    def objects(self):
+    def objects(self) -> List[DetectedObject]:
         """Return all detected objects in frame."""
         return self._objects
 
