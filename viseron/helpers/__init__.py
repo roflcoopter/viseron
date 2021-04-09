@@ -3,7 +3,7 @@ import logging
 import math
 from collections import Counter
 from queue import Full, Queue
-from typing import Any, Callable, Dict, Hashable, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Hashable, List, Tuple
 
 import cv2
 import numpy as np
@@ -12,6 +12,12 @@ import tornado.queues as tq
 import voluptuous as vol
 
 from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
+
+if TYPE_CHECKING:
+    from viseron.camera import Frame
+    from viseron.config.config_object_detection import LabelConfig
+    from viseron.detector.detected_object import DetectedObject
+    from viseron.zones import Zone
 
 LOGGER = logging.getLogger(__name__)
 
@@ -68,7 +74,7 @@ def scale_bounding_box(
 
 def draw_bounding_box_relative(
     frame, bounding_box, frame_res, color=(255, 0, 0), thickness=1
-):
+) -> Any:
     """Draw a bounding box using relative coordinates."""
     topleft = (
         math.floor(bounding_box[0] * frame_res[0]),
@@ -81,7 +87,7 @@ def draw_bounding_box_relative(
     return cv2.rectangle(frame, topleft, bottomright, color, thickness)
 
 
-def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)):
+def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)) -> None:
     """Draw a label using relative coordinates."""
     coordinates = (
         math.floor(obj.rel_x1 * frame_res[0]),
@@ -140,13 +146,13 @@ def draw_object(
     put_object_label_relative(frame, obj, camera_resolution, color=color)
 
 
-def draw_objects(frame, objects, camera_resolution):
+def draw_objects(frame, objects, camera_resolution) -> None:
     """Draw objects on supplied frame."""
     for obj in objects:
         draw_object(frame, obj, camera_resolution)
 
 
-def draw_zones(frame, zones):
+def draw_zones(frame, zones) -> None:
     """Draw zones on supplied frame."""
     for zone in zones:
         if zone.objects_in_zone:
@@ -166,7 +172,7 @@ def draw_zones(frame, zones):
         )
 
 
-def draw_contours(frame, contours, resolution, threshold):
+def draw_contours(frame, contours, resolution, threshold) -> None:
     """Draw contours on supplied frame."""
     filtered_contours = []
     relevant_contours = []
@@ -181,7 +187,7 @@ def draw_contours(frame, contours, resolution, threshold):
     cv2.drawContours(frame, filtered_contours, -1, (130, 0, 75), thickness=1)
 
 
-def draw_mask(frame, mask_points):
+def draw_mask(frame, mask_points) -> None:
     """Draw mask on supplied frame."""
     mask_overlay = frame.copy()
     # Draw polygon filled with black color
@@ -243,8 +249,12 @@ def print_slugs(config: dict):
 
 
 def report_labels(
-    labels, labels_in_fov, reported_label_count, mqtt_queue, mqtt_devices
-):
+    labels,
+    labels_in_fov: List[str],
+    reported_label_count: Dict[str, int],
+    mqtt_queue,
+    mqtt_devices,
+) -> Tuple[List[str], Dict[str, int]]:
     """Send on/off to MQTT for labels.
     Only if state has changed since last report."""
     labels = sorted(labels)
@@ -255,7 +265,7 @@ def report_labels(
     labels_removed = list(set(labels_in_fov) - set(labels))
 
     # Count occurrences of each label
-    counter = Counter(labels)
+    counter: Counter = Counter(labels)
 
     if mqtt_queue:
         for label in labels_added:
@@ -277,67 +287,12 @@ def report_labels(
     return labels, reported_label_count
 
 
-def combined_objects(frame, zones):
+def combined_objects(frame: "Frame", zones: List["Zone"]) -> List["DetectedObject"]:
     """Combine the object lists of a frame and all zones."""
     all_objects = frame.objects if frame else []
     for zone in zones:
         all_objects += zone.objects_in_zone
     return all_objects
-
-
-class Filter:
-    """Filter a recorded object against a configured label."""
-
-    def __init__(self, object_filter):
-        self._label = object_filter.label
-        self._confidence = object_filter.confidence
-        self._width_min = object_filter.width_min
-        self._width_max = object_filter.width_max
-        self._height_min = object_filter.height_min
-        self._height_max = object_filter.height_max
-        self._triggers_recording = object_filter.triggers_recording
-        self._require_motion = object_filter.require_motion
-        self._post_processor = object_filter.post_processor
-
-    def filter_confidence(self, obj):
-        """Return if confidence filter is met."""
-        if obj.confidence > self._confidence:
-            return True
-        return False
-
-    def filter_width(self, obj):
-        """Return if width filter is met."""
-        if self._width_max > obj.rel_width > self._width_min:
-            return True
-        return False
-
-    def filter_height(self, obj):
-        """Return if height filter is met."""
-        if self._height_max > obj.rel_height > self._height_min:
-            return True
-        return False
-
-    def filter_object(self, obj):
-        """Return if filters are met."""
-        return (
-            self.filter_confidence(obj)
-            and self.filter_width(obj)
-            and self.filter_height(obj)
-        )
-
-    @property
-    def triggers_recording(self):
-        """Return if label triggers recorder."""
-        return self._triggers_recording
-
-    def require_motion(self):
-        """Return if label requires motion to trigger recorder."""
-        return self._require_motion
-
-    @property
-    def post_processor(self):
-        """Return post processor for label."""
-        return self._post_processor
 
 
 def key_dependency(

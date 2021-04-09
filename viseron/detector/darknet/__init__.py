@@ -14,12 +14,13 @@ from cv2.dnn import (
 )
 from voluptuous import All, Any, Coerce, Optional, Range, Required
 
-import viseron.detector as detector
 from viseron.const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
+from viseron.detector import SCHEMA, DetectorConfig
+from viseron.detector.detected_object import DetectedObject
 
 from .defaults import LABEL_PATH, MODEL_CONFIG, MODEL_PATH
 
-SCHEMA = detector.SCHEMA.extend(
+SCHEMA = SCHEMA.extend(
     {
         Required("model_path", default=MODEL_PATH): str,
         Required("model_config", default=MODEL_CONFIG): str,
@@ -85,7 +86,7 @@ class ObjectDetection:
         detections = []
         for (label, confidence, box) in zip(labels, confidences, boxes):
             detections.append(
-                detector.DetectedObject(
+                DetectedObject(
                     self.labels[int(label[0])],
                     confidence[0],
                     box[0],
@@ -126,7 +127,7 @@ class ObjectDetection:
         return self.model_width, self.model_height
 
 
-class Config(detector.DetectorConfig):
+class Config(DetectorConfig):
     """Darknet object detection config."""
 
     def __init__(self, detector_config):

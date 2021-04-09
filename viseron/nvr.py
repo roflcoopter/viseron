@@ -14,7 +14,6 @@ from viseron.const import (
 )
 from viseron.data_stream import DataStream
 from viseron.helpers import (
-    Filter,
     combined_objects,
     draw_contours,
     draw_mask,
@@ -22,6 +21,7 @@ from viseron.helpers import (
     draw_zones,
     report_labels,
 )
+from viseron.helpers.filter import Filter
 from viseron.motion import MotionDetection
 from viseron.mqtt.binary_sensor import MQTTBinarySensor
 from viseron.mqtt.camera import MQTTCamera

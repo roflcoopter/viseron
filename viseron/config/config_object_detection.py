@@ -107,58 +107,58 @@ class LabelConfig:
     """Label config."""
 
     def __init__(self, label):
-        self._label = label["label"]
-        self._confidence = label["confidence"]
-        self._height_min = label["height_min"]
-        self._height_max = label["height_max"]
-        self._width_min = label["width_min"]
-        self._width_max = label["width_max"]
-        self._triggers_recording = label["triggers_recording"]
-        self._require_motion = label["require_motion"]
-        self._post_processor = label["post_processor"]
+        self._label: str = label["label"]
+        self._confidence: float = label["confidence"]
+        self._height_min: float = label["height_min"]
+        self._height_max: float = label["height_max"]
+        self._width_min: float = label["width_min"]
+        self._width_max: float = label["width_max"]
+        self._triggers_recording: bool = label["triggers_recording"]
+        self._require_motion: bool = label["require_motion"]
+        self._post_processor: str = label["post_processor"]
 
     @property
-    def label(self):
+    def label(self) -> str:
         """Return label name."""
         return self._label
 
     @property
-    def confidence(self):
+    def confidence(self) -> float:
         """Return minimum confidence."""
         return self._confidence
 
     @property
-    def height_min(self):
+    def height_min(self) -> float:
         """Return minimum height."""
         return self._height_min
 
     @property
-    def height_max(self):
+    def height_max(self) -> float:
         """Return maximum height."""
         return self._height_max
 
     @property
-    def width_min(self):
+    def width_min(self) -> float:
         """Return minimum width."""
         return self._width_min
 
     @property
-    def width_max(self):
+    def width_max(self) -> float:
         """Return maximum width."""
         return self._width_max
 
     @property
-    def triggers_recording(self):
+    def triggers_recording(self) -> bool:
         """Return if label triggers recorder."""
         return self._triggers_recording
 
     @property
-    def require_motion(self):
+    def require_motion(self) -> bool:
         """Return if label requires motion to trigger recorder."""
         return self._require_motion
 
     @property
-    def post_processor(self):
+    def post_processor(self) -> str:
         """Return post processors."""
         return self._post_processor
 
