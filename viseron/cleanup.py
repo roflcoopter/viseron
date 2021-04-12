@@ -81,11 +81,14 @@ class SegmentCleanup:
         """Delete all segments that are no longer needed."""
         now = datetime.datetime.now().timestamp()
         for segment in os.listdir(self._directory):
-            start_time = datetime.datetime.strptime(
-                segment.split(".")[0], "%Y%m%d%H%M%S"
-            ).timestamp()
-            if now - start_time > self._max_age:
-                os.remove(os.path.join(self._directory, segment))
+            try:
+                start_time = datetime.datetime.strptime(
+                    segment.split(".")[0], "%Y%m%d%H%M%S"
+                ).timestamp()
+                if now - start_time > self._max_age:
+                    os.remove(os.path.join(self._directory, segment))
+            except ValueError as error:
+                LOGGER.error(f"Could not remove segment {segment}: {error}")
 
     def start(self):
         """Start the scheduler."""
