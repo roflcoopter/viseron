@@ -1,5 +1,6 @@
 """Viseron init file."""
 import logging
+import os
 import signal
 from queue import Queue
 from threading import Thread
@@ -103,6 +104,7 @@ class Viseron:
                 thread.join()
 
         LOGGER.info("Exiting")
+        os._exit(1)
 
     def setup_nvr(self, config, camera, detector, mqtt_queue):
         """Setup NVR for each configured camera."""
@@ -121,8 +123,10 @@ class Viseron:
                 mqtt_queue=mqtt_queue,
             )
             self.nvr_threads.append(nvr)
-        except FFprobeError:
-            LOGGER.error(f"Failed to initialize camera {camera_config.camera.name}")
+        except FFprobeError as error:
+            LOGGER.error(
+                f"Failed to initialize camera {camera_config.camera.name}: {error}"
+            )
 
 
 def schedule_cleanup(config):

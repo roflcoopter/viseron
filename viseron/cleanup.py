@@ -18,26 +18,17 @@ class Cleanup:
     """Removes old recordings on a schedule."""
 
     def __init__(self, config):
-        self.directory = config.recorder.folder
-
-        if config.recorder.retain is None:
-            self.days_to_retain = 7
-            LOGGER.error(
-                "Number of days to retain recordings is not specified. Defaulting to 7"
-            )
-        else:
-            self.days_to_retain = config.recorder.retain
-
+        self._config = config
         self._scheduler = BackgroundScheduler(timezone="UTC")
         self._scheduler.add_job(self.cleanup, "cron", hour="1")
 
     def cleanup(self):
         """Delete all recordings that have past the configured days to retain."""
         LOGGER.debug("Running cleanup")
-        retention_period = time.time() - (self.days_to_retain * 24 * 60 * 60)
-        dirs = Path(self.directory)
+        retention_period = time.time() - (self._config.recorder.retain * 24 * 60 * 60)
+        dirs = Path(self._config.recorder.folder)
 
-        extensions = ["*.mp4", "*.jpg"]
+        extensions = [f"*.{self._config.recorder.extension}", "*.jpg"]
         for extension in extensions:
             files = dirs.walkfiles(extension)
             for file in files:

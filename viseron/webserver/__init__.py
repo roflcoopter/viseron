@@ -37,7 +37,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             except tornado.websocket.WebSocketClosedError:
                 break
 
-    def open(self):
+    def open(self, *args: str, **kwargs: str):
         """Called on websocket open."""
         LOGGER.debug("WebSocket opened")
         tornado.ioloop.IOLoop.current().add_future(
@@ -92,3 +92,7 @@ class WebServer(threading.Thread):
     def run(self):
         """Start ioloop."""
         self.ioloop.start()
+
+    def stop(self):
+        """Stop ioloop."""
+        self.ioloop.stop()
