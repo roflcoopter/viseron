@@ -196,7 +196,8 @@ class StaticStreamHandler(StreamHandler):
             except tornado.iostream.StreamClosedError:
                 DataStream.unsubscribe_data(frame_topic, unique_id)
                 LOGGER.debug(
-                    f"Stream {mjpeg_stream} closed for camera {nvr.config.camera.name_slug}"
+                    f"Stream {mjpeg_stream} closed for camera "
+                    f"{nvr.config.camera.name_slug}"
                 )
                 break
         self.active_streams[mjpeg_stream] -= 1

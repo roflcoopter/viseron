@@ -40,12 +40,15 @@ class Segments:
             self._detection_lock.release()
 
             if p_status == 0:
-                return float(output.decode("utf-8").strip())
+                try:
+                    return float(output.decode("utf-8").strip())
+                except ValueError:
+                    pass
 
             if (
                 "moov atom not found" in stderr.decode()
-                and tries <= CAMERA_SEGMENT_DURATION + 5
-            ):
+                or output.decode("utf-8").strip() == "N/A"
+            ) and tries <= CAMERA_SEGMENT_DURATION + 5:
                 self._logger.debug(
                     f"{segment_file} is locked. Trying again in 1 second"
                 )
@@ -163,6 +166,7 @@ class Segments:
                 "-",
             ]
             + self._config.recorder.codec
+            + self._config.recorder.audio_codec
             + self._config.recorder.filter_args
             + ["-movflags", "+faststart"]
             + [file_name]

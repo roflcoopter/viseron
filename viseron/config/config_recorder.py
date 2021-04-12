@@ -12,6 +12,7 @@ SCHEMA = Schema(
         Optional("extension", default="mp4"): str,
         Optional("hwaccel_args", default=[]): [str],
         Optional("codec", default="copy"): str,
+        Optional("audio_codec", default=""): str,
         Optional("filter_args", default=[]): [str],
         Optional("segments_folder", default="/segments"): str,
         Optional("thumbnail", default={}): {
@@ -54,6 +55,7 @@ class RecorderConfig:
         self._extension = recorder["extension"]
         self._hwaccel_args = recorder["hwaccel_args"]
         self._codec = recorder["codec"]
+        self._audio_codec = recorder["audio_codec"]
         self._filter_args = recorder["filter_args"]
         self._segments_folder = recorder["segments_folder"]
         self._thumbnail = Thumbnail(recorder["thumbnail"])
@@ -95,6 +97,11 @@ class RecorderConfig:
     def codec(self):
         """Return codec for FFmpeg command."""
         return ["-c:v", self._codec]
+
+    @property
+    def audio_codec(self):
+        """Return audio codec for FFmpeg command."""
+        return ["-c:a", self._audio_codec] if self._audio_codec else []
 
     @property
     def filter_args(self):
