@@ -1,4 +1,6 @@
 """ Constants """
+from typing import List
+
 from cv2 import FONT_HERSHEY_SIMPLEX
 
 CONFIG_PATH = "/config/config.yaml"
@@ -41,7 +43,7 @@ CAMERA_INPUT_ARGS = [
     "-vsync",
     "0",
 ]
-CAMERA_HWACCEL_ARGS = []
+CAMERA_HWACCEL_ARGS: List["str"] = []
 CAMERA_OUTPUT_ARGS = ["-f", "rawvideo", "-pix_fmt", "nv12", "pipe:1"]
 CAMERA_SEGMENT_DURATION = 5
 CAMERA_SEGMENT_ARGS = [
@@ -49,15 +51,12 @@ CAMERA_SEGMENT_ARGS = [
     "segment",
     "-segment_time",
     str(CAMERA_SEGMENT_DURATION),
-    "-segment_format",
-    "mp4",
     "-reset_timestamps",
     "1",
     "-strftime",
     "1",
-    "-c",
+    "-c:v",
     "copy",
-    "-an",
 ]
 
 ENCODER_CODEC = ""
@@ -86,7 +85,7 @@ HWACCEL_RPI4_ENCODER_CODEC = "h264_v4l2m2m"
 
 
 RECORDER_GLOBAL_ARGS = ["-hide_banner"]
-RECORDER_HWACCEL_ARGS = []
+RECORDER_HWACCEL_ARGS: List[str] = []
 
 LOG_LEVELS = {
     "CRITICAL": 50,

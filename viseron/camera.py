@@ -20,7 +20,7 @@ from viseron.const import (
 )
 from viseron.data_stream import DataStream
 from viseron.detector.detected_object import DetectedObject
-from viseron.exceptions import FFprobeError
+from viseron.exceptions import FFprobeError, StreamInformationError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -51,6 +51,7 @@ class Frame:
         # except IndexError:
         # return False
         except ValueError:
+            LOGGER.error(self.raw_frame)
             return False
         return True
 
@@ -152,24 +153,32 @@ class Stream:
             or not self.stream_config.height
             or not self.stream_config.fps
             or not self.stream_config.codec
+            or not self.stream_config.audio_codec
         ):
             (
                 width,
                 height,
                 fps,
                 stream_codec,
+                audio_codec,
             ) = self.get_stream_information(self.stream_config.stream_url)
 
         self.width = self.stream_config.width if self.stream_config.width else width
         self.height = self.stream_config.height if self.stream_config.height else height
         self.fps = self.stream_config.fps if self.stream_config.fps else fps
         self.stream_codec = stream_codec
+        self.audio_codec = audio_codec
+
+        if self.width and self.height and self.fps:
+            pass
+        else:
+            raise StreamInformationError(self.width, self.height, self.fps)
 
         self._frame_bytes = int(self.width * self.height * 1.5)
 
-    def ffprobe_stream_information(self, stream_url):
-        """Return stream information using FFProbe."""
-        width, height, fps, codec = 0, 0, 0, None
+    @staticmethod
+    def run_ffprobe(stream_url: str, stream_type: str) -> dict:
+        """Run FFprobe command."""
         ffprobe_command = [
             "ffprobe",
             "-hide_banner",
@@ -180,32 +189,34 @@ class Stream:
             "-show_error",
             "-show_streams",
             "-select_streams",
-            "v",
+            stream_type,
         ] + [stream_url]
 
         pipe = sp.Popen(ffprobe_command, stdout=sp.PIPE)
         stdout, _ = pipe.communicate()
         pipe.wait()
-        output = json.loads(stdout)
+        output: dict = json.loads(stdout)
 
         if output.get("error", None):
-            self._logger.error(
-                f"Failed to connect to stream: "
-                f"{output['error'].get('string', 'Unknown error')}"
-            )
-            raise FFprobeError
+            raise FFprobeError(output)
+
+        return output
+
+    def ffprobe_stream_information(self, stream_url):
+        """Return stream information using FFprobe."""
+        width, height, fps, codec, audio_codec = 0, 0, 0, None, None
+        video_streams = self.run_ffprobe(stream_url, "v")
+        audio_streams = self.run_ffprobe(stream_url, "a")
+
+        for stream in audio_streams["streams"]:
+            audio_codec = stream.get("codec_name", None)
 
         try:
-            stream_information = output["streams"][0]
+            stream_information = video_streams["streams"][0]
             numerator = int(stream_information.get("avg_frame_rate", 0).split("/")[0])
             denominator = int(stream_information.get("avg_frame_rate", 0).split("/")[1])
         except KeyError:
-            return (
-                width,
-                height,
-                fps,
-                codec,
-            )
+            return (width, height, fps, codec, audio_codec)
 
         try:
             fps = numerator / denominator
@@ -216,22 +227,24 @@ class Stream:
         height = stream_information.get("height", 0)
         codec = stream_information.get("codec_name", None)
 
-        return (
-            width,
-            height,
-            fps,
-            codec,
-        )
+        return (width, height, fps, codec, audio_codec)
 
     def get_stream_information(self, stream_url):
         """Return stream information."""
         self._logger.debug("Getting stream information for {}".format(stream_url))
-        width, height, fps, codec = self.ffprobe_stream_information(stream_url)
+        width, height, fps, codec, audio_codec = self.ffprobe_stream_information(
+            stream_url
+        )
 
-        if width == 0 or height == 0 or fps == 0:
-            self._logger.warning("ffprobe failed to get stream information")
-
-        return width, height, fps, codec
+        self._logger.debug(
+            "Stream information from FFprobe: "
+            f"Width: {width} "
+            f"Height: {height} "
+            f"FPS: {fps} "
+            f"Video Codec: {codec} "
+            f"Audio Codec: {audio_codec}"
+        )
+        return width, height, fps, codec, audio_codec
 
     @staticmethod
     def get_codec(stream_config, stream_codec):
@@ -264,13 +277,17 @@ class Stream:
         """Return full FFmpeg command."""
         camera_segment_args = []
         if not single_frame and self._write_segments:
-            camera_segment_args = CAMERA_SEGMENT_ARGS + [
-                os.path.join(
-                    self._config.recorder.segments_folder,
-                    self._config.camera.name,
-                    "%Y%m%d%H%M%S.mp4",
-                )
-            ]
+            camera_segment_args = (
+                CAMERA_SEGMENT_ARGS
+                + (["-c:a", "copy"] if self.audio_codec else [])
+                + [
+                    os.path.join(
+                        self._config.recorder.segments_folder,
+                        self._config.camera.name,
+                        f"%Y%m%d%H%M%S.{self._config.recorder.extension}",
+                    )
+                ]
+            )
 
         return (
             ["ffmpeg"]
