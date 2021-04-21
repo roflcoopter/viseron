@@ -301,6 +301,7 @@ class Stream:
             + self.stream_command(self.stream_config, self.stream_codec)
             + (["-frames:v", "1"] if single_frame else [])
             + camera_segment_args
+            + (self._config.camera.filter_args if self._pipe_frames else [])
             + (self._config.camera.output_args if self._pipe_frames else [])
         )
 
