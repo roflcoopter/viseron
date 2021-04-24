@@ -3,19 +3,18 @@ ARG FFMPEG_VERSION
 FROM roflcoopter/amd64-ffmpeg:${FFMPEG_VERSION} as ffmpeg
 FROM ubuntu:${UBUNTU_VERSION} AS build
 
-WORKDIR /tmp/workdir
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-ARG OPENCV_VERSION
-
 COPY --from=ffmpeg /usr/local /usr/local/
 
+WORKDIR /tmp/workdir
 
-ARG         MAKEFLAGS="-j2"
-ARG         PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig"
-ARG         PREFIX=/opt/opencv
+ARG OPENCV_VERSION
+ARG MAKEFLAGS="-j2"
 
+ENV \
+  DEBIAN_FRONTEND=noninteractive \
+  PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig" \
+  PREFIX=/opt/opencv \
+  LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib"
 
 RUN buildDeps="autoconf \
   automake \
@@ -45,8 +44,6 @@ RUN buildDeps="autoconf \
   zlib1g-dev" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps}
-
-ARG LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib"
 
 ## OpenCV
 RUN  \
