@@ -6,10 +6,51 @@ services:
     build:
       context: ..
       dockerfile: ./docker/amd64/Dockerfile.ffmpeg
-      args:
+      args:  &ffmpeg_args
         UBUNTU_VERSION: "$UBUNTU_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
+        AOM_VERSION: "$AOM_VERSION"
+        FDKAAC_VERSION: "$FDKAAC_VERSION"
+        FONTCONFIG_VERSION: "$FONTCONFIG_VERSION"
+        FREETYPE_VERSION: "$FREETYPE_VERSION"
+        FRIBIDI_VERSION: "$FRIBIDI_VERSION"
+        KVAZAAR_VERSION: "$KVAZAAR_VERSION"
+        LAME_VERSION: "$LAME_VERSION"
+        LIBASS_VERSION: "$LIBASS_VERSION"
+        LIBPTHREAD_STUBS_VERSION: "$LIBPTHREAD_STUBS_VERSION"
+        LIBVIDSTAB_VERSION: "$LIBVIDSTAB_VERSION"
+        LIBXCB_VERSION: "$LIBXCB_VERSION"
+        XCBPROTO_VERSION: "$XCBPROTO_VERSION"
+        OGG_VERSION: "$OGG_VERSION"
+        OPENCOREAMR_VERSION: "$OPENCOREAMR_VERSION"
+        OPUS_VERSION: "$OPUS_VERSION"
+        OPENJPEG_VERSION: "$OPENJPEG_VERSION"
+        THEORA_VERSION: "$THEORA_VERSION"
+        VORBIS_VERSION: "$VORBIS_VERSION"
+        VPX_VERSION: "$VPX_VERSION"
+        WEBP_VERSION: "$WEBP_VERSION"
+        X264_VERSION: "$X264_VERSION"
+        X265_VERSION: "$X265_VERSION"
+        XAU_VERSION: "$XAU_VERSION"
+        XORG_MACROS_VERSION: "$XORG_MACROS_VERSION"
+        XPROTO_VERSION: "$XPROTO_VERSION"
+        XVID_VERSION: "$XVID_VERSION"
+        LIBXML2_VERSION: "$LIBXML2_VERSION"
+        LIBBLURAY_VERSION: "$LIBBLURAY_VERSION"
+        LIBZMQ_VERSION: "$LIBZMQ_VERSION"
+        FREETYPE_SHA256SUM: "$FREETYPE_SHA256SUM"
+        FRIBIDI_SHA256SUM: "$FRIBIDI_SHA256SUM"
+        LIBASS_SHA256SUM: "$LIBASS_SHA256SUM"
+        LIBVIDSTAB_SHA256SUM: "$LIBVIDSTAB_SHA256SUM"
+        OGG_SHA256SUM: "$OGG_SHA256SUM"
+        OPUS_SHA256SUM: "$OPUS_SHA256SUM"
+        THEORA_SHA256SUM: "$THEORA_SHA256SUM"
+        VORBIS_SHA256SUM: "$VORBIS_SHA256SUM"
+        XVID_SHA256SUM: "$XVID_SHA256SUM"
+        LIBXML2_SHA256SUM: "$LIBXML2_SHA256SUM"
+        LIBBLURAY_SHA256SUM: "$LIBBLURAY_SHA256SUM"
+        LIBZMQ_SHA256SUM: "$LIBZMQ_SHA256SUM"
     image: roflcoopter/amd64-ffmpeg:$FFMPEG_VERSION
 
   amd64-opencv:
@@ -71,9 +112,9 @@ services:
       context: ..
       dockerfile: ./docker/amd64-cuda/Dockerfile.ffmpeg
       args:
-        UBUNTU_VERSION: "$UBUNTU_VERSION"
-        MAKEFLAGS: "$MAKEFLAGS"
-        FFMPEG_VERSION: "$FFMPEG_VERSION"
+        <<: *ffmpeg_args
+        UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
+        VIDEO_CODEC_SDK_VERSION: "$VIDEO_CODEC_SDK_VERSION"
     image: roflcoopter/amd64-cuda-ffmpeg:$FFMPEG_VERSION
 
   amd64-cuda-opencv:
@@ -135,9 +176,7 @@ services:
       context: ..
       dockerfile: ./docker/rpi3/Dockerfile.ffmpeg
       args:
-        DEBIAN_VERSION: "$DEBIAN_VERSION"
-        MAKEFLAGS: "$MAKEFLAGS"
-        FFMPEG_VERSION: "$FFMPEG_VERSION"
+        <<: *ffmpeg_args
         CMAKE_VERSION: "$CMAKE_VERSION"
     image: roflcoopter/rpi3-ffmpeg:$FFMPEG_VERSION
 
@@ -155,7 +194,7 @@ services:
       context: ..
       dockerfile: ./docker/rpi3/Dockerfile.opencv
       args:
-        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
         OPENCV_VERSION: "$OPENCV_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
@@ -167,7 +206,7 @@ services:
       context: ..
       dockerfile: ./docker/rpi3/Dockerfile.dlib
       args:
-        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
         DLIB_VERSION: "$DLIB_VERSION"
         CMAKE_VERSION: "$CMAKE_VERSION"
@@ -179,7 +218,7 @@ services:
       dockerfile: ./docker/Dockerfile.wheels
       args:
         ARCH: rpi3
-        BUILD_FROM: balenalib/raspberrypi3-debian:$DEBIAN_VERSION-build
+        BUILD_FROM: balenalib/raspberrypi3-debian:$UBUNTU_VERSION-build
         DLIB_VERSION: "$DLIB_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
     image: roflcoopter/rpi3-wheels:$WHEELS_VERSION
@@ -189,7 +228,7 @@ services:
       context: ..
       dockerfile: ./docker/rpi3/Dockerfile.base
       args:
-        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
     image: roflcoopter/rpi3-base:$BASE_VERSION
 
@@ -212,7 +251,7 @@ services:
       context: ..
       dockerfile: ./docker/rpi3/Dockerfile.cmake
       args:
-        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
         CMAKE_VERSION: "$CMAKE_VERSION"
     image: roflcoopter/rpi3-cmake:$CMAKE_VERSION
 
@@ -222,9 +261,7 @@ services:
       context: ..
       dockerfile: ./docker/aarch64/Dockerfile.ffmpeg
       args:
-        DEBIAN_VERSION: "$DEBIAN_VERSION"
-        MAKEFLAGS: "$MAKEFLAGS"
-        FFMPEG_VERSION: "$FFMPEG_VERSION"
+        <<: *ffmpeg_args
     image: roflcoopter/aarch64-ffmpeg:$FFMPEG_VERSION
 
   aarch64-opencv:
@@ -232,7 +269,7 @@ services:
       context: ..
       dockerfile: ./docker/aarch64/Dockerfile.opencv
       args:
-        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
         OPENCV_VERSION: "$OPENCV_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
@@ -243,7 +280,7 @@ services:
       context: ..
       dockerfile: ./docker/aarch64/Dockerfile.dlib
       args:
-        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
         DLIB_VERSION: "$DLIB_VERSION"
     image: roflcoopter/aarch64-dlib:$DLIB_VERSION
@@ -254,7 +291,7 @@ services:
       dockerfile: ./docker/Dockerfile.wheels
       args:
         ARCH: aarch64
-        BUILD_FROM: balenalib/aarch64-debian:$DEBIAN_VERSION-build
+        BUILD_FROM: balenalib/aarch64-debian:$UBUNTU_VERSION-build
         DLIB_VERSION: "$DLIB_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
     image: roflcoopter/aarch64-wheels:$WHEELS_VERSION
@@ -264,7 +301,7 @@ services:
       context: ..
       dockerfile: ./docker/aarch64/Dockerfile.base
       args:
-        DEBIAN_VERSION: "$DEBIAN_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
     image: roflcoopter/aarch64-base:$BASE_VERSION
 
