@@ -88,6 +88,10 @@ services:
     build:
       args:
         UBUNTU_VERSION: "$UBUNTU_VERSION"
+        OPENCL_VERSION: "$OPENCL_VERSION"
+        GMMLIB_VERSION: "$GMMLIB_VERSION"
+        IGC_VERSION: "$IGC_VERSION"
+        LEVEL_ZERO_GPU: "$LEVEL_ZERO_GPU"
       context: ..
       dockerfile: ./docker/amd64/Dockerfile.base
     image: roflcoopter/amd64-base:$BASE_VERSION
@@ -153,7 +157,11 @@ services:
       context: ..
       dockerfile: ./docker/amd64-cuda/Dockerfile.base
       args:
-        UBUNTU_VERSION: "$UBUNTU_VERSION"
+        UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
+        OPENCL_VERSION: "$OPENCL_VERSION"
+        GMMLIB_VERSION: "$GMMLIB_VERSION"
+        IGC_VERSION: "$IGC_VERSION"
+        LEVEL_ZERO_GPU: "$LEVEL_ZERO_GPU"
     image: roflcoopter/amd64-cuda-base:$BASE_VERSION
 
   amd64-cuda-viseron:

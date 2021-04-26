@@ -1,13 +1,15 @@
 ARG FFMPEG_VERSION
-ARG DEBIAN_VERSION
+ARG UBUNTU_VERSION
 FROM roflcoopter/viseron-models:latest as models
-FROM balenalib/aarch64-debian:${DEBIAN_VERSION}-run
+FROM balenalib/aarch64-ubuntu:${UBUNTU_VERSION}-run
+
+COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \
   # face_recognition/dlib
   libtiff5 \
-  libjpeg62-turbo \
+  libjpeg62 \
   libxcb1 \
   libx11-6 \
   libxext6 \
@@ -16,12 +18,5 @@ RUN \
   libatlas3-base \
   libhdf5-103 \
   liblapacke \
-  libopenexr23 \
-  libatomic1 \
-  ## FFmpeg
-  libaom0 \
-  libx265-165 \
-  libopenjp2-7 \
-  libpng16-16
-
-COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
+  libopenexr24 \
+  libatomic1
