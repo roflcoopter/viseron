@@ -133,7 +133,7 @@ services:
       context: ..
       dockerfile: ./docker/amd64-cuda/Dockerfile.dlib
       args:
-        UBUNTU_VERSION: "$UBUNTU_VERSION"
+        UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         MAKEFLAGS: "$MAKEFLAGS"
         DLIB_VERSION: "$DLIB_VERSION"
     image: roflcoopter/amd64-cuda-dlib:$DLIB_VERSION
