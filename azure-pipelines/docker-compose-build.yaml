@@ -218,9 +218,8 @@ services:
       dockerfile: ./docker/Dockerfile.wheels
       args:
         ARCH: rpi3
-        BUILD_FROM: balenalib/raspberrypi3-debian:$UBUNTU_VERSION-build
+        BUILD_FROM: balenalib/raspberrypi3-ubuntu:$UBUNTU_VERSION-build
         DLIB_VERSION: "$DLIB_VERSION"
-        MAKEFLAGS: "$MAKEFLAGS"
     image: roflcoopter/rpi3-wheels:$WHEELS_VERSION
 
   rpi3-base:
@@ -291,9 +290,8 @@ services:
       dockerfile: ./docker/Dockerfile.wheels
       args:
         ARCH: aarch64
-        BUILD_FROM: balenalib/aarch64-debian:$UBUNTU_VERSION-build
+        BUILD_FROM: balenalib/aarch64-ubuntu:$UBUNTU_VERSION-build
         DLIB_VERSION: "$DLIB_VERSION"
-        MAKEFLAGS: "$MAKEFLAGS"
     image: roflcoopter/aarch64-wheels:$WHEELS_VERSION
 
   aarch64-base:
