@@ -1,6 +1,6 @@
 # No CI setup for this image, build locally
-ARG DEBIAN_VERSION
-FROM balenalib/raspberrypi3-debian:${DEBIAN_VERSION}-build as build
+ARG UBUNTU_VERSION
+FROM balenalib/raspberrypi3-ubuntu:${UBUNTU_VERSION}-build as build
 RUN [ "cross-build-start" ]
 ENV DEBIAN_FRONTEND=noninteractive
 
