@@ -21,6 +21,7 @@ RUN \
   libhdf5-103 \
   liblapacke \ 
   libopenexr24 \
+  libpng16-16 \
   ## FFmpeg
   libx265-179 && \
   echo "/opt/vc/lib" > /etc/ld.so.conf.d/00-vmcs.conf && \

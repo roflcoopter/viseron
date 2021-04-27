@@ -19,4 +19,5 @@ RUN \
   libhdf5-103 \
   liblapacke \
   libopenexr24 \
+  libpng16-16 \
   libatomic1
