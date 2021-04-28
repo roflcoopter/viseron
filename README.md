@@ -323,7 +323,7 @@ The command is built like this: \
 #### Default ffmpeg decoder command
 A default ffmpeg decoder command is generated, which varies a bit depending on the Docker container you use,
 <details>
-  <summary>For Nvidia GPU support in the <b>roflcoopter/viseron-cuda</b> image</summary>
+  <summary>For Nvidia GPU support in the <b>roflcoopter/amd64-cuda-viseron</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -stimeout 5000000 -use_wallclock_as_timestamps 1 -vsync 0 -c:v h264_cuvid -rtsp_transport tcp -i rtsp://<username>:<password>@<host>:<port><path> -f rawvideo -pix_fmt nv12 pipe:1
@@ -331,7 +331,7 @@ A default ffmpeg decoder command is generated, which varies a bit depending on t
 </details>
 
 <details>
-  <summary>For VAAPI support in the <b>roflcoopter/viseron-vaapi</b> image</summary>
+  <summary>For VAAPI support in the <b>roflcoopter/viseron</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -stimeout 5000000 -use_wallclock_as_timestamps 1 -vsync 0 -hwaccel vaapi -vaapi_device /dev/dri/renderD128 -rtsp_transport tcp -i rtsp://<username>:<password>@<host>:<port><path> -f rawvideo -pix_fmt nv12 pipe:1
@@ -339,7 +339,7 @@ A default ffmpeg decoder command is generated, which varies a bit depending on t
 </details>
 
 <details>
-  <summary>For RPi3 in the <b>roflcoopter/viseron-rpi</b> image</summary>
+  <summary>For RPi3 in the <b>roflcoopter/rpi3-viseron</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -stimeout 5000000 -use_wallclock_as_timestamps 1 -vsync 0 -c:v h264_mmal -rtsp_transport tcp -i rtsp://<username>:<password>@<host>:<port><path> -f rawvideo -pix_fmt nv12 pipe:1
@@ -648,15 +648,15 @@ If loglevel is set to ```DEBUG```, all detected objects will be printed in a sta
 The above options are specific to the ```type: darknet``` detector.
 The included models are placed inside ```/detectors/models/darknet``` folder.\
 The default model differs a bit per container:
-- ```roflcoopter/viseron-cuda```: This one uses YOLOv4 by default.
-- ```roflcoopter/viseron-vaapi```: This one uses YOLOv3 by default.
 - ```roflcoopter/viseron```: This one uses YOLOv3 by default.
+- ```roflcoopter/amd64-viseron```: This one uses YOLOv3 by default.
+- ```roflcoopter/amd64-cuda-viseron```: This one uses YOLOv4 by default.
 
 The reason why not all containers are using YOLOv4 is that there are currently some issues with OpenCVs implementation of it.\
 As soon as this is fixed for the versions of OpenCV that Viseron is using, YOLOv4 will be the standard for all.
 
 The containers using YOLOv3 also has YOLOv3-tiny included in the image.\
-YOLOv3-tiny can be used to reduce CPU usage, but will hav **significantly** worse accuracy.
+YOLOv3-tiny can be used to reduce CPU usage, but will have **significantly** worse accuracy.
 If you want to swap to YOLOv3-tiny you can change these configuration options:
   ```yaml
   object_detection:
