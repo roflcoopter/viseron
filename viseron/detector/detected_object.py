@@ -7,7 +7,7 @@ class DetectedObject:
     to make it easier to do calculations on different image resolutions."""
 
     def __init__(
-        self, label, confidence, x1, y1, x2, y2, relative=True, model_res=None
+        self, label, confidence, x1, y1, x2, y2, relative=True, image_res=None
     ):
         self._label = label
         self._confidence = round(float(confidence), 3)
@@ -22,7 +22,7 @@ class DetectedObject:
                 self._rel_y1,
                 self._rel_x2,
                 self._rel_y2,
-            ) = calculate_relative_coords((x1, y1, x2, y2), model_res)
+            ) = calculate_relative_coords((x1, y1, x2, y2), image_res)
 
         self._rel_width = float(round(self._rel_x2 - self._rel_x1, 3))
         self._rel_height = float(round(self._rel_y2 - self._rel_y1, 3))

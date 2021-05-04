@@ -29,7 +29,10 @@ class StreamHandler(tornado.web.RequestHandler):
             frame.resize(
                 "tornado", mjpeg_stream_config["width"], mjpeg_stream_config["height"]
             )
-            processed_frame = frame.get_resized_frame("tornado").get()  # Convert to Mat
+            # TODO move this to a preprocess
+            processed_frame = frame.get_preprocessed_frame(
+                "tornado"
+            ).get()  # Convert to Mat
         else:
             resolution = nvr.camera.resolution
             processed_frame = frame.decoded_frame_mat_rgb

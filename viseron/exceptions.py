@@ -37,3 +37,64 @@ class StreamInformationError(ViseronError):
             f"Height: {self.height} "
             f"FPS: {self.fps} "
         )
+
+
+class DuplicateDecoderName(ViseronError):
+    """Raised when a decoder is instantiated with a duplicate name."""
+
+    def __init__(self, decoder_name: str) -> None:
+        """Initialize error."""
+        super().__init__(self)
+        self.decoder_name = decoder_name
+
+    def __str__(self) -> str:
+        """Return string representation."""
+        return f"A decoder with name {self.decoder_name} already exist"
+
+
+class DetectorImportError(ViseronError):
+    """Raised when a detector cannot be imported properly."""
+
+    def __init__(self, detector: str) -> None:
+        """Initialize error."""
+        super().__init__(self)
+        self.detector = detector
+
+    def __str__(self) -> str:
+        """Return string representation."""
+        return (
+            f"Could not import {self.detector}. A class named "
+            "ObjectDetection which inherits from AbstractObjectDetection is required"
+        )
+
+
+class DetectorConfigError(ViseronError):
+    """Raised when a detectors config cannot be imported properly."""
+
+    def __init__(self, detector: str) -> None:
+        """Initialize error."""
+        super().__init__(self)
+        self.detector = detector
+
+    def __str__(self) -> str:
+        """Return string representation."""
+        return (
+            f"Could not import {self.detector}. A class named "
+            "Config which inherits from AbstractDetectorConfig is required"
+        )
+
+
+class DetectorConfigSchemaError(ViseronError):
+    """Raised when a detectors schema cannot be found."""
+
+    def __init__(self, detector: str) -> None:
+        """Initialize error."""
+        super().__init__(self)
+        self.detector = detector
+
+    def __str__(self) -> str:
+        """Return string representation."""
+        return (
+            f"Could not import {self.detector}.config. A constant named "
+            "SCHEMA which extends from AbstractDetectorConfig.schema is required"
+        )

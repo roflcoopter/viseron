@@ -1,27 +1,32 @@
 """EdgeTPU object detection."""
 import logging
 import traceback
+from os import PathLike
+from typing import List, Union
 
 import numpy as np
 import tflite_runtime.interpreter as tflite
-from voluptuous import Required
+from voluptuous import Maybe, Optional, Required
 
-from viseron.detector import SCHEMA, DetectorConfig
+from viseron.camera.frame_decoder import FrameToScan
+from viseron.detector import AbstractDetectorConfig, AbstractObjectDetection
 from viseron.detector.detected_object import DetectedObject
 
-from .defaults import LABEL_PATH, MODEL_PATH
+from .defaults import LABEL_PATH, MODEL_HEIGHT, MODEL_PATH, MODEL_WIDTH
 
 LOGGER = logging.getLogger(__name__)
 
-SCHEMA = SCHEMA.extend(
+SCHEMA = AbstractDetectorConfig.schema.extend(
     {
         Required("model_path", default=MODEL_PATH): str,
+        Optional("model_width", default=MODEL_WIDTH): Maybe(int),
+        Optional("model_height", default=MODEL_HEIGHT): Maybe(int),
         Required("label_path", default=LABEL_PATH): str,
     }
 )
 
 
-class ObjectDetection:
+class ObjectDetection(AbstractObjectDetection):
     """Performs object detection."""
 
     def __init__(self, config):
@@ -73,12 +78,18 @@ class ObjectDetection:
             labels[int(pair[0])] = pair[1].strip()
         return labels
 
-    @staticmethod
-    def pre_process(frame):
+    def preprocess(self, frame_to_scan: FrameToScan):
         """Return preprocessed frame before performing object detection."""
-        # This should be moved to decoder for speed
-        frame = frame.get()
-        return frame.reshape(1, frame.shape[0], frame.shape[1], frame.shape[2])
+        frame_to_scan.frame.resize(
+            frame_to_scan.decoder_name,
+            self._model_width,
+            self._model_height,
+        )
+        frame = frame_to_scan.frame.get_resized_frame(frame_to_scan.decoder_name).get()
+        frame_to_scan.frame.save_preprocessed_frame(
+            frame_to_scan.decoder_name,
+            frame.reshape(1, frame.shape[0], frame.shape[1], frame.shape[2]),
+        )
 
     def output_tensor(self, i):
         """Return output tensor view."""
@@ -110,30 +121,55 @@ class ObjectDetection:
 
         return processed_objects
 
-    def return_objects(self, frame):
+    def return_objects(self, frame_to_scan: FrameToScan) -> List[DetectedObject]:
         """Perform object detection."""
-        tensor = self.pre_process(
-            frame["frame"].get_resized_frame(frame["decoder_name"])
-        )
+        tensor = frame_to_scan.frame.get_preprocessed_frame(frame_to_scan.decoder_name)
 
         self.interpreter.set_tensor(self.tensor_input_details[0]["index"], tensor)
         self.interpreter.invoke()
 
         objects = self.post_process(
-            frame["camera_config"].object_detection.min_confidence
+            frame_to_scan.camera_config.object_detection.min_confidence
         )
         return objects
 
     @property
-    def model_width(self):
+    def model_width(self) -> int:
         """Return trained model width."""
         return self._model_width
 
     @property
-    def model_height(self):
+    def model_height(self) -> int:
         """Return trained model height."""
         return self._model_height
 
 
-class Config(DetectorConfig):
+class Config(AbstractDetectorConfig):
     """EdgeTPU object detection config."""
+
+    def __init__(self, detector_config):
+        super().__init__(detector_config)
+        self._model_path = detector_config["model_path"]
+        self._model_width = detector_config["model_width"]
+        self._model_height = detector_config["model_height"]
+        self._label_path = detector_config["label_path"]
+
+    @property
+    def model_path(self) -> PathLike:
+        """Return path to object detection model."""
+        return self._model_path
+
+    @property
+    def model_width(self) -> Union[int, None]:
+        """Return width that images will be resized to before running detection."""
+        return self._model_width
+
+    @property
+    def model_height(self) -> Union[int, None]:
+        """Return height that images will be resized to before running detection."""
+        return self._model_height
+
+    @property
+    def label_path(self) -> PathLike:
+        """Return path to object detection labels."""
+        return self._label_path

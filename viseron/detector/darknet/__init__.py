@@ -1,43 +1,22 @@
 """Darknet object detector."""
 import configparser
 import logging
-import os
 
 import cv2
-from cv2.dnn import (
-    DNN_BACKEND_CUDA,
-    DNN_BACKEND_DEFAULT,
-    DNN_BACKEND_OPENCV,
-    DNN_TARGET_CPU,
-    DNN_TARGET_CUDA,
-    DNN_TARGET_OPENCL,
-)
-from voluptuous import All, Any, Coerce, Optional, Range, Required
 
-from viseron.const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
-from viseron.detector import SCHEMA, DetectorConfig
+from viseron.camera.frame_decoder import FrameToScan
+from viseron.detector import AbstractObjectDetection
 from viseron.detector.detected_object import DetectedObject
 
-from .defaults import LABEL_PATH, MODEL_CONFIG, MODEL_PATH
-
-SCHEMA = SCHEMA.extend(
-    {
-        Required("model_path", default=MODEL_PATH): str,
-        Required("model_config", default=MODEL_CONFIG): str,
-        Required("label_path", default=LABEL_PATH): str,
-        Optional("suppression", default=0.4): All(
-            Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
-        ),
-    }
-)
+from .config import Config
 
 LOGGER = logging.getLogger(__name__)
 
 
-class ObjectDetection:
+class ObjectDetection(AbstractObjectDetection):
     """Performs object detection."""
 
-    def __init__(self, config):
+    def __init__(self, config: Config):
         self.nms = config.suppression
 
         # Activate OpenCL
@@ -81,6 +60,17 @@ class ObjectDetection:
         self.net.setPreferableBackend(backend)
         self.net.setPreferableTarget(target)
 
+    def preprocess(self, frame_to_scan: FrameToScan):
+        frame_to_scan.frame.resize(
+            frame_to_scan.decoder_name,
+            self._model_width,
+            self._model_height,
+        )
+        frame_to_scan.frame.save_preprocessed_frame(
+            frame_to_scan.decoder_name,
+            frame_to_scan.frame.get_resized_frame(frame_to_scan.decoder_name),
+        )
+
     def post_process(self, labels, confidences, boxes):
         """Post process detections."""
         detections = []
@@ -94,17 +84,17 @@ class ObjectDetection:
                     box[0] + box[2],
                     box[1] + box[3],
                     relative=False,
-                    model_res=self.model_res,
+                    image_res=self.model_res,
                 )
             )
 
         return detections
 
-    def return_objects(self, frame):
+    def return_objects(self, frame_to_scan: FrameToScan):
         """Perform object detection."""
         labels, confidences, boxes = self.model.detect(
-            frame["frame"].get_resized_frame(frame["decoder_name"]),
-            frame["camera_config"].object_detection.min_confidence,
+            frame_to_scan.frame.get_preprocessed_frame(frame_to_scan.decoder_name),
+            frame_to_scan.camera_config.object_detection.min_confidence,
             self.nms,
         )
 
@@ -125,40 +115,3 @@ class ObjectDetection:
     def model_res(self):
         """Return trained model resolution."""
         return self.model_width, self.model_height
-
-
-class Config(DetectorConfig):
-    """Darknet object detection config."""
-
-    def __init__(self, detector_config):
-        super().__init__(detector_config)
-        self._model_config = detector_config["model_config"]
-        self._suppression = detector_config["suppression"]
-
-    @property
-    def model_config(self):
-        """Return model config path."""
-        return self._model_config
-
-    @property
-    def suppression(self):
-        """Return threshold for non maximum suppression."""
-        return self._suppression
-
-    @property
-    def dnn_preferable_backend(self):
-        """Return DNN backend."""
-        if os.getenv(ENV_CUDA_SUPPORTED) == "true":
-            return DNN_BACKEND_CUDA
-        if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
-            return DNN_BACKEND_OPENCV
-        return DNN_BACKEND_DEFAULT
-
-    @property
-    def dnn_preferable_target(self):
-        """Return DNN target."""
-        if os.getenv(ENV_CUDA_SUPPORTED) == "true":
-            return DNN_TARGET_CUDA
-        if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
-            return DNN_TARGET_OPENCL
-        return DNN_TARGET_CPU
