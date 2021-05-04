@@ -7,6 +7,7 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
 - Supports multiple different object detectors:
   - YOLOv3/4 Darknet using OpenCV
   - Tensorflow via Google Coral EdgeTPU
+  - [DeepStack](https://docs.deepstack.cc/) 
 - Motion detection
 - Face recognition
 - Lookback, buffers frames to record before the event actually happened
@@ -43,6 +44,7 @@ Builds are tested and verified on the following platforms:
   - [Object detection](#object-detection)
     - [Darknet](#darknet)
     - [EdgeTPU](#edgetpu)
+    - [DeepStack](#deepstack)
     - [Labels](#labels)
   - [Motion detection](#motion-detection)
   - [Recorder](#recorder)
@@ -619,7 +621,7 @@ The config example above would give you two streams, available at these endpoint
 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu``` | What detection method to use.<br>Each detector has its own configuration options explained here:<br>[darknet](#darknet)<br>[edgetpu](#edgetpu) |
+| type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu```, ```deepstack``` | What detection method to use.<br>Each detector has its own configuration options explained here:<br>[darknet](#darknet)<br>[edgetpu](#edgetpu)<br>[deepstack](#deepstack)|
 | model_width | int | optional | any integer | Detected from model.<br>Frames will be resized to this width in order to fit model and save computing power.<br>I dont recommend changing this. |
 | model_height | int | optional | any integer | Detected from model.<br>Frames will be resized to this height in order to fit model and save computing power.<br>I dont recommend changing this. |
 | interval | float | 1.0 | any float | Run object detection at this interval in seconds on the most recent frame. |
@@ -641,7 +643,7 @@ If loglevel is set to ```DEBUG```, all detected objects will be printed in a sta
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | model_path | str | ```/detectors/models/darknet/yolo.weights``` | any valid path | Path to the object detection model |
-| model_config | str | ```/detectors/models/darknet/yolo.cfg``` | any valid path | Path to the object detection config. Only needed for ```darknet``` |
+| model_config | str | ```/detectors/models/darknet/yolo.cfg``` | any valid path | Path to the object detection config |
 | label_path | str | ```/detectors/models/darknet/coco.names``` | any valid path | Path to the file containing labels for the model |
 | suppression | float | 0.4 | float between 0 and 1 | Non-maxima suppression, used to remove overlapping detections.<br>You can read more about how this works [here](https://towardsdatascience.com/non-maximum-suppression-nms-93ce178e177c). |
 
@@ -674,6 +676,28 @@ The above options are specific to the ```type: edgetpu``` detector.\
 The included models are placed inside ```/detectors/models/edgetpu``` folder.\
 There are two models available, one that runs on the EdgeTPU and one the runs on the CPU.
 If no EdgeTPU is found, Viseron will fallback to use the CPU model instead.
+
+---
+
+### DeepStack
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| host | str | **required** | any IP or hostname | IP address or hostname to your DeepStack server |
+| port | int | **required** | any port | Port to your DeepStack server |
+| image_width | int | optional | any int | Frames will be resized to this width to save computing power |
+| image_height | int | optional | any int | Frames will be resized to this height to save computing power |
+| custom_model | str | optional | any str | Name of a custom DeepStack model. More information [here](https://docs.deepstack.cc/custom-models/index.html) |
+| api_key | str | optional | any str | API key to your DeepStack server, if you have set one |
+| timeout | int | 10 | any port | Timeout for requests to your DeepStack server |
+
+The above options are specific to the ```type: deepstack``` detector.
+
+DeepStack is a self-hosted, free and open source AI server that provides, among other functions, object detection.\
+It is highly optimized and runs on a pleathora of devices and platforms.\
+Below is quoted from DeepStacks [documentation](https://docs.deepstack.cc/index.html):
+> DeepStack is an AI server that empowers every developer in the world to easily build state-of-the-art AI systems both on premise and in the cloud. The promises of Artificial Intelligence are huge but becoming a machine learning engineer is hard. DeepStack is device and language agnostic. You can run it on Windows, Mac OS, Linux, Raspberry PI and use it with any programming language. \
+DeepStack’s source code is available on GitHub via https://github.com/johnolafenwa/DeepStack\
+DeepStack is developed and maintained by [DeepQuest AI](https://deepquestai.com/)
 
 ---
 
