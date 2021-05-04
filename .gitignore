@@ -36,6 +36,8 @@
 !/viseron/detector/camera/*
 !/viseron/detector/darknet
 !/viseron/detector/darknet/*
+!/viseron/detector/deepstack
+!/viseron/detector/deepstack/*
 !/viseron/detector/edgetpu
 !/viseron/detector/edgetpu/*
 !/viseron/helpers
