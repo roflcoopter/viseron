@@ -2,16 +2,14 @@
 import logging
 from queue import Empty, Queue
 from threading import Thread
-from typing import Dict
+from typing import Dict, Union
 
 import cv2
 
 from viseron.camera import FFMPEGCamera
-from viseron.const import (
-    LOG_LEVELS,
-    TOPIC_FRAME_PROCESSED_OBJECT,
-    TOPIC_FRAME_SCAN_POSTPROC,
-)
+from viseron.camera.frame import Frame
+from viseron.camera.frame_decoder import FrameDecoder
+from viseron.const import TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_POSTPROC
 from viseron.data_stream import DataStream
 from viseron.helpers import (
     combined_objects,
@@ -165,17 +163,17 @@ class FFMPEGNVR(Thread):
         self._motion_max_timeout_reached = False
         self._motion_return_queue = Queue(maxsize=5)
         if config.motion_detection.timeout or config.motion_detection.trigger_detector:
-            self.motion_detector = MotionDetection(config, self.camera.resolution)
+            self.motion_detector = MotionDetection(config, self.camera)
             DataStream.subscribe_data(
                 self.motion_detector.topic_processed_motion, self._motion_return_queue
             )
 
         if config.motion_detection.trigger_detector:
-            self.camera.decoders["motion_detection"].scan.set()
-            self.camera.decoders["object_detection"].scan.clear()
+            FrameDecoder.decoders["motion_detection"].scan.set()
+            FrameDecoder.decoders["object_detection"].scan.clear()
         else:
-            self.camera.decoders["object_detection"].scan.set()
-            self.camera.decoders["motion_detection"].scan.clear()
+            FrameDecoder.decoders["object_detection"].scan.set()
+            FrameDecoder.decoders["motion_detection"].scan.clear()
         self.idle_frames = 0
 
         self._post_processor_topic = (
@@ -209,7 +207,6 @@ class FFMPEGNVR(Thread):
         self._object_logger = logging.getLogger(
             __name__ + "." + config.camera.name_slug + ".object"
         )
-
         if getattr(config.object_detection.logging, "level", None):
             self._object_logger.setLevel(config.object_detection.logging.level)
         elif getattr(config.camera.logging, "level", None):
@@ -298,9 +295,9 @@ class FFMPEGNVR(Thread):
         recorder_thread.start()
         if (
             self.config.motion_detection.timeout
-            and not self.camera.decoders["motion_detection"].scan.is_set()
+            and not FrameDecoder.decoders["motion_detection"].scan.is_set()
         ):
-            self.camera.decoders["motion_detection"].scan.set()
+            FrameDecoder.decoders["motion_detection"].scan.set()
             self._logger.info("Starting motion detector")
 
     def stop_recording(self):
@@ -317,16 +314,16 @@ class FFMPEGNVR(Thread):
 
         if self.idle_frames >= (self.camera.stream.fps * self.config.recorder.timeout):
             if not self.config.motion_detection.trigger_detector:
-                self.camera.decoders["motion_detection"].scan.clear()
+                FrameDecoder.decoders["motion_detection"].scan.clear()
                 self._logger.info("Pausing motion detector")
 
             self.recorder.stop_recording()
 
-    def get_processed_object_frame(self):
+    def get_processed_object_frame(self) -> Union[None, Frame]:
         """Return a frame along with its detections which has been processed
         by the object detector."""
         try:
-            return self._object_return_queue.get_nowait()["frame"]
+            return self._object_return_queue.get_nowait().frame
         except Empty:
             return None
 
@@ -399,11 +396,11 @@ class FFMPEGNVR(Thread):
         for zone in self.zones:
             zone.filter_zone(frame)
 
-    def get_processed_motion_frame(self):
+    def get_processed_motion_frame(self) -> Union[None, Frame]:
         """Return a frame along with its motion contours which has been processed
         by the motion detector"""
         try:
-            return self._motion_return_queue.get_nowait()["frame"]
+            return self._motion_return_queue.get_nowait().frame
         except Empty:
             return None
 
@@ -460,17 +457,17 @@ class FFMPEGNVR(Thread):
         if self.motion_detected:
             if (
                 self.config.motion_detection.trigger_detector
-                and not self.camera.decoders["object_detection"].scan.is_set()
+                and not FrameDecoder.decoders["object_detection"].scan.is_set()
             ):
-                self.camera.decoders["object_detection"].scan.set()
+                FrameDecoder.decoders["object_detection"].scan.set()
                 self._logger.debug("Starting object detector")
         elif (
-            self.camera.decoders["object_detection"].scan.is_set()
+            FrameDecoder.decoders["object_detection"].scan.is_set()
             and not self.recorder.is_recording
             and self.config.motion_detection.trigger_detector
         ):
             self._logger.debug("Not recording, pausing object detector")
-            self.camera.decoders["object_detection"].scan.clear()
+            FrameDecoder.decoders["object_detection"].scan.clear()
 
     def update_status_sensor(self):
         """Update MQTT status sensor."""
@@ -480,9 +477,9 @@ class FFMPEGNVR(Thread):
         status = "unknown"
         if self.recorder.is_recording:
             status = "recording"
-        elif self.camera.decoders["object_detection"].scan.is_set():
+        elif FrameDecoder.decoders["object_detection"].scan.is_set():
             status = "scanning_for_objects"
-        elif self.camera.decoders["motion_detection"].scan.is_set():
+        elif FrameDecoder.decoders["motion_detection"].scan.is_set():
             status = "scanning_for_motion"
 
         attributes = {}
@@ -516,13 +513,15 @@ class FFMPEGNVR(Thread):
                 # Filter objects in each zone
                 self.filter_zones(processed_object_frame)
 
-                if self._object_logger.level == LOG_LEVELS["DEBUG"]:
-                    if self.config.object_detection.log_all_objects:
-                        objs = [obj.formatted for obj in processed_object_frame.objects]
-                        self._object_logger.debug(f"All objects: {objs}")
-                    else:
-                        objs = [obj.formatted for obj in self.objects_in_fov]
-                        self._object_logger.debug(f"Objects: {objs}")
+                if self.config.object_detection.log_all_objects:
+                    self._object_logger.debug(
+                        "All objects: %s",
+                        [obj.formatted for obj in processed_object_frame.objects],
+                    )
+                else:
+                    self._object_logger.debug(
+                        "Objects: %s", [obj.formatted for obj in self.objects_in_fov]
+                    )
 
             # Filter returned motion contours
             processed_motion_frame = self.get_processed_motion_frame()

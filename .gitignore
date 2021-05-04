@@ -32,6 +32,8 @@
 !/viseron/config/*
 !/viseron/detector
 !/viseron/detector/*
+!/viseron/detector/camera
+!/viseron/detector/camera/*
 !/viseron/detector/darknet
 !/viseron/detector/darknet/*
 !/viseron/detector/edgetpu
