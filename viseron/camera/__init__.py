@@ -9,6 +9,7 @@ from time import sleep
 import cv2
 
 from viseron.const import TOPIC_FRAME_DECODE_OBJECT, TOPIC_FRAME_SCAN_OBJECT
+from viseron.helpers.log_filter import SensitiveInformationFilter
 
 from .frame_decoder import FrameDecoder
 from .stream import Stream
@@ -19,6 +20,7 @@ class FFMPEGCamera:
 
     def __init__(self, config, detector):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
+        self._logger.addFilter(SensitiveInformationFilter())
         self._config = config
         self._connected = False
         self.resolution = None
@@ -37,7 +39,7 @@ class FFMPEGCamera:
         if getattr(self._config.camera.logging, "level", None):
             self._logger.setLevel(self._config.camera.logging.level)
 
-        self._logger.debug(f"Initializing camera {self._config.camera.name}")
+        self._logger.debug("Initializing camera {}".format(self._config.camera.name))
 
         if self._config.camera.substream:
             self.stream = Stream(
