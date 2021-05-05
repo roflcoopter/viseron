@@ -38,5 +38,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   sha256sum -c ww15.sum && \
   dpkg -i *.deb && \
   rm -R /opencl && \
-  ln -s /detectors/models/darknet/yolov4.weights /detectors/models/darknet/default.weights && \
-  ln -s /detectors/models/darknet/yolov4.cfg /detectors/models/darknet/default.cfg
+  ln -s /detectors/models/darknet/yolov3.weights /detectors/models/darknet/default.weights && \
+  ln -s /detectors/models/darknet/yolov3.cfg /detectors/models/darknet/default.cfg
