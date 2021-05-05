@@ -28,7 +28,7 @@ class Cleanup:
         retention_period = time.time() - (self._config.recorder.retain * 24 * 60 * 60)
         dirs = Path(self._config.recorder.folder)
 
-        extensions = [f"*.{self._config.recorder.extension}", "*.jpg"]
+        extensions = [f"*.{self._config.recorder.extension}", ".mp4", "mkv", "*.jpg"]
         for extension in extensions:
             files = dirs.walkfiles(extension)
             for file in files:

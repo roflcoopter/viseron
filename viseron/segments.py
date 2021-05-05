@@ -33,11 +33,10 @@ class Segments:
 
         tries = 0
         while True:
-            self._detection_lock.acquire()
-            pipe = sp.Popen(ffprobe_cmd, stdout=sp.PIPE, stderr=sp.PIPE)
-            (output, stderr) = pipe.communicate()
-            p_status = pipe.wait()
-            self._detection_lock.release()
+            with self._detection_lock:
+                pipe = sp.Popen(ffprobe_cmd, stdout=sp.PIPE, stderr=sp.PIPE)
+                (output, stderr) = pipe.communicate()
+                p_status = pipe.wait()
 
             if p_status == 0:
                 try:
@@ -117,7 +116,7 @@ class Segments:
         """Return a script string with information of each segment to concatenate."""
         segment_iterable = iter(segments_to_concat)
         segment = next(segment_iterable)
-        concat_script = f"file '{os.path.join(self._segments_folder, segment)}'"
+        concat_script = f"file 'file:{os.path.join(self._segments_folder, segment)}'"
         concat_script += (
             f"\ninpoint {int(event_start-segment_information[segment]['start_time'])}"
         )
@@ -134,7 +133,7 @@ class Segments:
         while True:
             try:
                 concat_script += (
-                    "\nfile " f"'{os.path.join(self._segments_folder, segment)}'"
+                    "\nfile " f"'file:{os.path.join(self._segments_folder, segment)}'"
                 )
                 segment = next(segment_iterable)
             except StopIteration:
@@ -175,9 +174,10 @@ class Segments:
         self._logger.debug(f"Concatenation command: {ffmpeg_cmd}")
         self._logger.debug(f"Segment script: \n{segment_script}")
 
-        self._detection_lock.acquire()
-        pipe = sp.run(ffmpeg_cmd, input=segment_script, encoding="ascii", check=True)
-        self._detection_lock.release()
+        with self._detection_lock:
+            pipe = sp.run(
+                ffmpeg_cmd, input=segment_script, encoding="ascii", check=True
+            )
         if pipe.returncode != 0:
             self._logger.error(f"Error concatenating segments: {pipe.stderr}")
 
@@ -214,11 +214,16 @@ class Segments:
 
         temp_file = os.path.join("/tmp", file_name)
 
-        self.ffmpeg_concat(
-            self.generate_segment_script(
-                segments_to_concat, segment_information, event_start, event_end
-            ),
-            temp_file,
-        )
-        shutil.move(temp_file, file_name)
+        try:
+            self.ffmpeg_concat(
+                self.generate_segment_script(
+                    segments_to_concat, segment_information, event_start, event_end
+                ),
+                temp_file,
+            )
+            shutil.move(temp_file, file_name)
+        except sp.CalledProcessError as error:
+            self._logger.error("Failed to concatenate segments: %s", error)
+            return
+
         self._logger.debug("Segments concatenated")
