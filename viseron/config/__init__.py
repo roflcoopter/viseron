@@ -107,32 +107,32 @@ class BaseConfig:
         self._logging = None
 
     @property
-    def object_detection(self):
+    def object_detection(self) -> ObjectDetectionConfig:
         """Return object detection config."""
         return self._object_detection
 
     @property
-    def motion_detection(self):
+    def motion_detection(self) -> MotionDetectionConfig:
         """Return motion detection config."""
         return self._motion_detection
 
     @property
-    def post_processors(self):
+    def post_processors(self) -> PostProcessorsConfig:
         """Return post processors config."""
         return self._post_processors
 
     @property
-    def recorder(self):
+    def recorder(self) -> RecorderConfig:
         """Return recorder config."""
         return self._recorder
 
     @property
-    def mqtt(self):
+    def mqtt(self) -> MQTTConfig:
         """Return MQTT config."""
         return self._mqtt
 
     @property
-    def logging(self):
+    def logging(self) -> LoggingConfig:
         """Return logging config."""
         return self._logging
 
@@ -151,7 +151,7 @@ class ViseronConfig(BaseConfig):
         self._logging = LoggingConfig(config["logging"])
 
     @property
-    def cameras(self):
+    def cameras(self) -> dict:
         """Return cameras config."""
         return self._cameras
 
@@ -176,6 +176,6 @@ class NVRConfig(BaseConfig):
         self._logging = logging
 
     @property
-    def camera(self):
+    def camera(self) -> CameraConfig:
         """Return camera config."""
         return self._camera
