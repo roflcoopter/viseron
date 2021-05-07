@@ -25,6 +25,7 @@ from viseron.mqtt.binary_sensor import MQTTBinarySensor
 from viseron.mqtt.camera import MQTTCamera
 from viseron.mqtt.sensor import MQTTSensor
 from viseron.mqtt.switch import MQTTSwitch
+from viseron.post_processors import PostProcessorFrame
 from viseron.recorder import FFMPEGRecorder
 from viseron.zones import Zone
 
@@ -348,12 +349,7 @@ class FFMPEGNVR(Thread):
                             f"{self._post_processor_topic}/"
                             f"{self._object_filters[obj.label].post_processor}"
                         ),
-                        {
-                            "camera_config": self.config,
-                            "frame": frame,
-                            "object": obj,
-                            "zone": None,
-                        },
+                        PostProcessorFrame(self.config, frame, obj),
                     )
 
         self.objects_in_fov = objects_in_fov

@@ -8,7 +8,7 @@ from viseron.detector import AbstractDetectorConfig
 
 from .defaults import TIMEOUT
 
-SCHEMA = AbstractDetectorConfig.schema.extend(
+SCHEMA = AbstractDetectorConfig.SCHEMA.extend(
     {
         Required("host"): str,
         Required("port"): int,
@@ -23,8 +23,6 @@ SCHEMA = AbstractDetectorConfig.schema.extend(
 
 class Config(AbstractDetectorConfig):
     """Deepstack object detection config."""
-
-    schema = SCHEMA
 
     def __init__(self, detector_config):
         super().__init__(detector_config)
