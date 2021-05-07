@@ -1,6 +1,7 @@
 """ General helper functions """
 import logging
 import math
+import os
 from collections import Counter
 from queue import Full, Queue
 from typing import TYPE_CHECKING, Any, Callable, Dict, Hashable, List, Tuple
@@ -14,7 +15,7 @@ import voluptuous as vol
 from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
 
 if TYPE_CHECKING:
-    from viseron.camera import Frame
+    from viseron.camera.frame import Frame
     from viseron.config.config_object_detection import LabelConfig
     from viseron.detector.detected_object import DetectedObject
     from viseron.zones import Zone
@@ -44,7 +45,7 @@ def calculate_relative_coords(
 
 def calculate_absolute_coords(
     bounding_box: Tuple[int, int, int, int], frame_res: Tuple[int, int]
-) -> Tuple[float, float, float, float]:
+) -> Tuple[int, int, int, int]:
     """Convert relative coords to absolute."""
     return (
         math.floor(bounding_box[0] * frame_res[0]),
@@ -313,3 +314,13 @@ def key_dependency(
         return value
 
     return validator
+
+
+def create_directory(path):
+    """Create a directory."""
+    try:
+        if not os.path.isdir(path):
+            LOGGER.debug(f"Creating folder {path}")
+            os.makedirs(path)
+    except FileExistsError:
+        pass

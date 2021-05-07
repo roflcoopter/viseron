@@ -10,7 +10,11 @@ from viseron.config import CONFIG, NVRConfig, ViseronConfig
 from viseron.const import LOG_LEVELS
 from viseron.data_stream import DataStream
 from viseron.detector import Detector
-from viseron.exceptions import FFprobeError
+from viseron.exceptions import (
+    FFprobeError,
+    PostProcessorImportError,
+    PostProcessorStructureError,
+)
 from viseron.mqtt import MQTT
 from viseron.nvr import FFMPEGNVR
 from viseron.post_processors import PostProcessor
@@ -51,9 +55,16 @@ class Viseron:
             post_processor_type,
             post_processor_config,
         ) in config.post_processors.post_processors.items():
-            post_processors[post_processor_type] = PostProcessor(
-                config, post_processor_type, post_processor_config, mqtt_queue
-            )
+            try:
+                post_processors[post_processor_type] = PostProcessor(
+                    config, post_processor_type, post_processor_config, mqtt_queue
+                )
+            except (PostProcessorImportError, PostProcessorStructureError) as error:
+                LOGGER.error(
+                    "Error loading post processor {}. {}".format(
+                        post_processor_type, error
+                    )
+                )
 
         LOGGER.info("Initializing NVR threads")
         self.setup_threads = []
