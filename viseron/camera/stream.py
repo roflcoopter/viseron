@@ -1,3 +1,4 @@
+"""Class to interact with an FFmpeog stream."""
 import json
 import os
 import subprocess as sp
