@@ -36,8 +36,6 @@ CAMERA_INPUT_ARGS = [
     "experimental",
     "-fflags",
     "+genpts",
-    "-stimeout",
-    "5000000",
     "-use_wallclock_as_timestamps",
     "1",
     "-vsync",

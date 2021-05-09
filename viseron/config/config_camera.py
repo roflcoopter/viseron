@@ -11,6 +11,7 @@ from voluptuous import (
     Coerce,
     Invalid,
     Length,
+    Maybe,
     Optional,
     Range,
     Required,
@@ -41,6 +42,12 @@ LOGGER = logging.getLogger(__name__)
 
 MQTT_NAME_REGEX = re.compile(r"^[a-zA-Z0-9_\.]+$")
 SLUG_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
+
+STREAM_FORMAT_MAP = {
+    "rtsp": {"protocol": "rtsp", "timeout_option": ["-stimeout", "5000000"]},
+    "rtmp": {"protocol": "rtmp", "timeout_option": ["-rw_timeout", "5000000"]},
+    "mjpeg": {"protocol": "http", "timeout_option": ["-stimeout", "5000000"]},
+}
 
 
 def ensure_slug(value: str) -> str:
@@ -84,13 +91,13 @@ def check_for_hwaccels(hwaccel_args: List[str]) -> List[str]:
 
 STREAM_SCEHMA = Schema(
     {
-        Required("stream_format", default="rtsp"): Any("rtsp", "mjpeg"),
+        Required("stream_format", default="rtsp"): Any("rtsp", "rtmp", "mjpeg"),
         Required("path"): All(str, Length(min=1)),
         Required("port"): All(int, Range(min=1)),
-        Optional("width", default=None): Any(int, None),
-        Optional("height", default=None): Any(int, None),
-        Optional("fps", default=None): Any(All(int, Range(min=1)), None),
-        Optional("input_args", default=CAMERA_INPUT_ARGS): list,
+        Optional("width", default=None): Maybe(int),
+        Optional("height", default=None): Maybe(int),
+        Optional("fps", default=None): Maybe(All(int, Range(min=1))),
+        Optional("input_args", default=None): Maybe(list),
         Optional("hwaccel_args", default=CAMERA_HWACCEL_ARGS): check_for_hwaccels,
         Optional("codec", default=""): str,
         Optional("rtsp_transport", default="tcp"): Any(
@@ -116,13 +123,13 @@ MJPEG_STREAM_SCHEMA = Schema(
 CAMERA_SCHEMA = STREAM_SCEHMA.extend(
     {
         Required("name"): All(str, Length(min=1)),
-        Optional("mqtt_name", default=None): Any(All(str, Length(min=1)), None),
+        Optional("mqtt_name", default=None): Maybe(All(str, Length(min=1))),
         Required("host"): All(str, Length(min=1)),
-        Optional("username", default=None): Any(All(str, Length(min=1)), None),
-        Optional("password", default=None): Any(All(str, Length(min=1)), None),
+        Optional("username", default=None): Maybe(All(str, Length(min=1))),
+        Optional("password", default=None): Maybe(All(str, Length(min=1))),
         Optional("global_args", default=CAMERA_GLOBAL_ARGS): list,
         Optional("substream"): STREAM_SCEHMA,
-        Optional("motion_detection"): Any(
+        Optional("motion_detection"): Maybe(
             {
                 Optional("interval"): Any(int, float),
                 Optional("trigger_detector"): bool,
@@ -152,16 +159,14 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
                 ],
                 Optional("logging"): LOGGING_SCHEMA,
             },
-            None,
         ),
-        Optional("object_detection"): Any(
+        Optional("object_detection"): Maybe(
             {
                 Optional("interval"): Any(int, float),
                 Optional("labels"): LABELS_SCHEMA,
                 Optional("logging"): LOGGING_SCHEMA,
                 Optional("log_all_objects"): bool,
             },
-            None,
         ),
         Optional("zones", default=[]): [
             {
@@ -175,7 +180,7 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
                 Optional("labels"): LABELS_SCHEMA,
             }
         ],
-        Optional("publish_image", default=False): Any(True, False),
+        Optional("publish_image", default=False): bool,
         Optional("ffmpeg_loglevel", default="fatal"): Any(
             "quiet",
             "panic",
@@ -227,7 +232,7 @@ class Stream:
 
     def get_codec_map(self):
         """Return codec for specific hardware."""
-        if self.stream_format == "rtsp":
+        if self.stream_format in ["rtsp", "rtmp"]:
             if os.getenv(ENV_CUDA_SUPPORTED) == "true":
                 return HWACCEL_CUDA_DECODER_CODEC_MAP
             if os.getenv(ENV_RASPBERRYPI3) == "true":
@@ -284,7 +289,9 @@ class Stream:
     @property
     def input_args(self):
         """Return input_args."""
-        return self._input_args
+        if self._input_args:
+            return self._input_args
+        return CAMERA_INPUT_ARGS + self.timeout_option
 
     @property
     def hwaccel_args(self):
@@ -303,13 +310,18 @@ class Stream:
 
     @property
     def rtsp_transport(self):
-        """Return host."""
+        """Return RTSP transport."""
         return self._rtsp_transport
 
     @property
     def protocol(self):
         """Return protocol."""
-        return "rtsp" if self.stream_format == "rtsp" else "http"
+        return STREAM_FORMAT_MAP[self.stream_format]["protocol"]
+
+    @property
+    def timeout_option(self):
+        """Return timeout option."""
+        return STREAM_FORMAT_MAP[self.stream_format]["timeout_option"]
 
     @property
     def stream_url(self):
