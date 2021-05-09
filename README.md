@@ -9,7 +9,9 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
   - Tensorflow via Google Coral EdgeTPU
   - [DeepStack](https://docs.deepstack.cc/) 
 - Motion detection
-- Face recognition
+- Face recognition via:
+  - dlib
+  - [DeepStack](https://docs.deepstack.cc/) 
 - Lookback, buffers frames to record before the event actually happened
 - Multiarch Docker containers for ease of use.
 - Multiplatform, should support any amd64, aarch64 or armhf machine running Linux, as well as RPi3/4.\
@@ -44,7 +46,7 @@ Builds are tested and verified on the following platforms:
   - [Object detection](#object-detection)
     - [Darknet](#darknet)
     - [EdgeTPU](#edgetpu)
-    - [DeepStack](#deepstack)
+    - [DeepStack](#deepstack-objects)
     - [Labels](#labels)
   - [Motion detection](#motion-detection)
   - [Recorder](#recorder)
@@ -52,6 +54,8 @@ Builds are tested and verified on the following platforms:
     - [Dynamic MJPEG streams](#dynamic-mjpeg-streams)
   - [Post Processors](#post-processors)
     - [Face Recognition](#face-recognition)
+      - [dlib](#dlib)
+      - [DeepStack](#deepstack-faces)
   - [MQTT](#mqtt)
     - [Topics for each camera](#topics-for-each-camera)
     - [Topics for each Viseron instance](#topics-for-each-viseron-instance)
@@ -320,7 +324,7 @@ The command is built like this: \
 | publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones, objects, motion and masks.<br><b>Note: this will use some extra CPU and should probably only be used for debugging</b> |
 | ffmpeg_loglevel | str | optional | ```quiet```, ```panic```, ```fatal```, ```error```, ```warning```, ```info```, ```verbose```, ```debug```, ```trace``` | Sets the loglevel for ffmpeg.<br> Should only be used in debugging purposes. |
 | ffmpeg_recoverable_errors | list | optional | a list of strings | ffmpeg sometimes print errors that are not fatal.<br>If you get errors like ```Error starting decoder pipe!```, see below for details. |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for this camera.<br>This affects all logs named ```lib.nvr.<camera name>.*``` and ```lib.*.<camera name>``` |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for this camera.<br>This affects all logs named ```viseron.nvr.<camera name>.*``` and ```viseron.*.<camera name>``` |
 
 #### Default ffmpeg decoder command
 A default ffmpeg decoder command is generated, which varies a bit depending on the Docker container you use,
@@ -411,7 +415,7 @@ You should also change the resolution to something lower than the main stream to
 | alpha | float | 0.2 | 0.0 - 1.0 | How much the current image impacts the moving average.<br>Higher values impacts the average frame a lot and very small changes may trigger motion.<br>Lower value impacts the average less, and fast objects may not trigger motion |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
 | mask | list | optional | see [Mask config](#mask) | Allows you to specify masks in the shape of polygons. <br>Use this to ignore motion in certain areas of the image |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the motion detector.<br>This affects all logs named ```lib.motion.<camera name>``` and  ```lib.nvr.<camera name>.motion``` |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the motion detector.<br>This affects all logs named ```viseron.motion.<camera name>``` and  ```viseron.nvr.<camera name>.motion``` |
 
 Each setting set here overrides the global [motion detection config](#motion-detection).
 
@@ -468,7 +472,7 @@ Draw a mask over these trees and they will no longer trigger said motion.
 | interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
 | labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). |
 | log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy. Overrides global [config](#object-detection) |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the object detector.<br>This affects all logs named ```lib.nvr.<camera name>.object``` |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the object detector.<br>This affects all logs named ```viseron.nvr.<camera name>.object``` |
 ---
 
 ### Zones
@@ -621,13 +625,13 @@ The config example above would give you two streams, available at these endpoint
 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu```, ```deepstack``` | What detection method to use.<br>Each detector has its own configuration options explained here:<br>[darknet](#darknet)<br>[edgetpu](#edgetpu)<br>[deepstack](#deepstack)|
+| type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu```, ```deepstack``` | What detection method to use.<br>Each detector has its own configuration options explained here:<br>[darknet](#darknet)<br>[edgetpu](#edgetpu)<br>[deepstack](#deepstack-objects)|
 | model_width | int | optional | any integer | Detected from model.<br>Frames will be resized to this width in order to fit model and save computing power.<br>I dont recommend changing this. |
 | model_height | int | optional | any integer | Detected from model.<br>Frames will be resized to this height in order to fit model and save computing power.<br>I dont recommend changing this. |
 | interval | float | 1.0 | any float | Run object detection at this interval in seconds on the most recent frame. |
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
 | log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the object detector.<br>This affects all logs named ```lib.detector``` and  ```lib.nvr.<camera name>.object``` |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the object detector.<br>This affects all logs named ```viseron.detector``` and  ```viseron.nvr.<camera name>.object``` |
 
 The above options are global for all types of detectors.\
 If loglevel is set to ```DEBUG```, all detected objects will be printed in a statement like this:
@@ -635,7 +639,7 @@ If loglevel is set to ```DEBUG```, all detected objects will be printed in a sta
   <summary>Debug log</summary>
 
   ```
-[2020-09-29 07:57:23] [lib.nvr.<camera name>.object ] [DEBUG   ] - Objects: [{'label': 'chair', 'confidence': 0.618, 'rel_width': 0.121, 'rel_height': 0.426, 'rel_x1': 0.615, 'rel_y1': 0.423, 'rel_x2': 0.736, 'rel_y2': 0.849}, {'label': 'pottedplant', 'confidence': 0.911, 'rel_width': 0.193, 'rel_height': 0.339, 'rel_x1': 0.805, 'rel_y1': 0.466, 'rel_x2': 0.998, 'rel_y2': 0.805}, {'label': 'pottedplant', 'confidence': 0.786, 'rel_width': 0.065, 'rel_height': 0.168, 'rel_x1': 0.522, 'rel_y1': 0.094, 'rel_x2': 0.587, 'rel_y2': 0.262}, {'label': 'pottedplant', 'confidence': 0.532, 'rel_width': 0.156, 'rel_height': 0.159, 'rel_x1': 0.644, 'rel_y1': 0.317, 'rel_x2': 0.8, 'rel_y2': 0.476}]
+[2020-09-29 07:57:23] [viseron.nvr.<camera name>.object ] [DEBUG   ] - Objects: [{'label': 'chair', 'confidence': 0.618, 'rel_width': 0.121, 'rel_height': 0.426, 'rel_x1': 0.615, 'rel_y1': 0.423, 'rel_x2': 0.736, 'rel_y2': 0.849}, {'label': 'pottedplant', 'confidence': 0.911, 'rel_width': 0.193, 'rel_height': 0.339, 'rel_x1': 0.805, 'rel_y1': 0.466, 'rel_x2': 0.998, 'rel_y2': 0.805}, {'label': 'pottedplant', 'confidence': 0.786, 'rel_width': 0.065, 'rel_height': 0.168, 'rel_x1': 0.522, 'rel_y1': 0.094, 'rel_x2': 0.587, 'rel_y2': 0.262}, {'label': 'pottedplant', 'confidence': 0.532, 'rel_width': 0.156, 'rel_height': 0.159, 'rel_x1': 0.644, 'rel_y1': 0.317, 'rel_x2': 0.8, 'rel_y2': 0.476}]
   ```
 </details>
 
@@ -679,7 +683,7 @@ If no EdgeTPU is found, Viseron will fallback to use the CPU model instead.
 
 ---
 
-### DeepStack
+### DeepStack Objects
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | host | str | **required** | any IP or hostname | IP address or hostname to your DeepStack server |
@@ -759,7 +763,7 @@ The max/min width/height is used to filter out any unreasonably large/small obje
 | threshold | int | 25 | 0 - 255 | The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. Smaller leads to higher sensitivity, larger values lead to lower sensitivity |
 | alpha | float | 0.2 | 0.0 - 1.0 | How much the current image impacts the moving average.<br>Higher values impacts the average frame a lot and very small changes may trigger motion.<br>Lower value impacts the average less, and fast objects may not trigger motion. More can be read [here](https://docs.opencv.org/3.4/d7/df3/group__imgproc__motion.html#ga4f9552b541187f61f6818e8d2d826bc7). |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the motion detector. <br>This affects all logs named ```lib.motion.<camera name>``` and  ```lib.nvr.<camera name>.motion``` |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the motion detector. <br>This affects all logs named ```viseron.motion.<camera name>``` and  ```viseron.nvr.<camera name>.motion``` |
 
 Motion detection works by creating a running average of frames, and then comparing the current frame to this average.\
 If enough changes have occurred, motion will be detected.\
@@ -790,10 +794,11 @@ By using a running average, the "background" image will adjust to daylight, stat
 | segments_folder | path | ```/segments``` | any path | What folder to store ffmpeg segments in |
 | extension | str | ```mp4``` | a valid video file extension | The file extension used for recordings. I don't recommend changing this |
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder hardware acceleration arguments |
-| codec | str | optional | any supported decoder codec | FFMPEG video encoder codec, eg ```h264_nvenc``` |
+| codec | str | optional | any supported encoder codec | FFMPEG video encoder codec, eg ```h264_nvenc``` |
+| audio_codec | str | optional | any supported audio encoder codec | FFMPEG audio encoder codec, eg ```aac``` |
 | filter_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder filter arguments |
 | thumbnail | dictionary | optional | see [Thumbnail](#thumbnail) | Options for the thumbnail created on start of a recording |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the recorder. <br>This affects all logs named ```lib.recorder.<camera name>``` |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the recorder. <br>This affects all logs named ```viseron.recorder.<camera name>``` |
 
 Viseron uses [ffmpeg segments](https://www.ffmpeg.org/ffmpeg-formats.html#segment_002c-stream_005fsegment_002c-ssegment) to handle recordings.\
 This means Viseron will write small 5 second segments of the stream to disk, and in case of any recording starting, Viseron will find the appropriate segments and concatenate them together.\
@@ -862,7 +867,7 @@ The user interface can be reached by default on port 8888 inside the container.
 Viseron will serve MJPEG streams of all cameras. \
 The stream can be reached on a [slugified](https://github.com/un33k/python-slugify) version of the configured camera name with ```_``` as separator.\
 If you are unsure on your camera name in this format you can run this snippet:\
-```docker exec -it viseron python3 -c "from lib.config import CONFIG; from lib.helpers import print_slugs; print_slugs(CONFIG);"```
+```docker exec -it viseron python3 -c "from viseron.config import CONFIG; from viseron.helpers import print_slugs; print_slugs(CONFIG);"```
 
 Example URL: ```http://localhost:8888/<camera name slug>/stream```
 
@@ -900,7 +905,7 @@ To utilize a parameter you append it to the URL after a ```?```. To add multiple
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | face_recognition | dict | optional | see [Face Recognition](#face-recognition) | Configuration for face recognition. |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the ```post_processors```. <br>This affects all logs named ```lib.post_processors.*``` |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the ```post_processors```. <br>This affects all logs named ```viseron.post_processors.*``` |
 
 Post processors are used when you want to perform some kind of action when a specific object is detected.\
 Right now the only implemented post processor is face recognition. In the future more of these post processors will be added (ALPR) along with the ability to create your own custom post processors.
@@ -908,11 +913,12 @@ Right now the only implemented post processor is face recognition. In the future
 ### Face Recognition
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| type | str | ```dlib``` | ```dlib``` | What face recognition method to use.<br>As of right now, only one method is implemented. |
+| type | str | ```dlib``` | ```dlib```, `deepstack` | What face recognition method to use.<br>Each recognizer has its own configuration options explained here:<br>[dlib](#dlib)<br>[deepstack](#deepstack-faces) |
 | face_recognition_path | str | ```/config/face_recognition``` | path to folder | Path to folder which contains subdirectories with images for each face to track |
 | expire_after | int | 5 | any int | Time in seconds before a detected face is no longer considered detected |
-| model | str | CUDA: ```cnn```<br>Other: ```hog``` | ```cnn```, ```hog``` | Which face detection model to use.<br>```hog``` is less accurate but faster on CPUs.<br>```cnn``` is a more accurate deep-learning model which is GPU/CUDA accelerated (if available). |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the post processor. <br>This affects all logs named ```lib.post_processors.<type>*``` |
+| save_unknown_faces | bool | True | True/False | If true, any unrecognized face will be saved to the folder specified in `unknown_faces_path`. You can then move this image to the folder of the correct person to improve accuracy |
+| unknown_faces_path | str | ```/config/face_recognition/faces/unknown``` | path to folder | Path to folder where unknown faces will be stored |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the post processor. <br>This affects all logs named ```viseron.post_processors.face_recognition.*``` |
 
 On startup images are read from ```face_recognition_path``` and a model is trained to recognize these faces.\
 The folder structure of the faces folder is very strict. Here is an example of the default one:
@@ -928,6 +934,36 @@ The folder structure of the faces folder is very strict. Here is an example of t
 |       |   |-- image_of_person2_1.jpeg
 |       |   `-- image_of_person2_2.jpg
 ```
+The above options are global for all types of face recognition. 
+
+#### **dlib**
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| model | str | CUDA: ```cnn```<br>Other: ```hog``` | ```cnn```, ```hog``` | Which face detection model to use.<br>```hog``` is less accurate but faster on CPUs.<br>```cnn``` is a more accurate deep-learning model which is GPU/CUDA accelerated (if available). |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the post processor. <br>This affects all logs named ```viseron.post_processors.face_recognition.dlib``` |
+
+The above options are specific to ```type: dlib``` face recognition.
+
+#### **DeepStack Faces**
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| host | str | **required** | any IP or hostname | IP address or hostname to your DeepStack server |
+| port | int | **required** | any port | Port to your DeepStack server |
+| api_key | str | optional | any str | API key to your DeepStack server, if you have set one |
+| timeout | int | 10 | any port | Timeout for requests to your DeepStack server |
+| train | bool | True | True/False | If true, DeepStack will be trained on startup to recognize faces. If you already have DeepStack trained you can set this to false. |
+| min_confidence | float | 0.5 | 0.0 - 1.0 | Discard any face with confidence lower than this value |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the post processor. <br>This affects all logs named ```viseron.post_processors.face_recognition.deepstack``` |
+
+The above options are specific to ```type: deepstack``` face recognition.
+
+DeepStack is a self-hosted, free and open source AI server that provides, among other functions, face recognition.\
+It is highly optimized and runs on a pleathora of devices and platforms.\
+Below is quoted from DeepStacks [documentation](https://docs.deepstack.cc/index.html):
+> DeepStack is an AI server that empowers every developer in the world to easily build state-of-the-art AI systems both on premise and in the cloud. The promises of Artificial Intelligence are huge but becoming a machine learning engineer is hard. DeepStack is device and language agnostic. You can run it on Windows, Mac OS, Linux, Raspberry PI and use it with any programming language. \
+DeepStack’s source code is available on GitHub via https://github.com/johnolafenwa/DeepStack\
+DeepStack is developed and maintained by [DeepQuest AI](https://deepquestai.com/)
+
 
 ---
 
