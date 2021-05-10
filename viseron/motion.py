@@ -104,7 +104,7 @@ class MotionDetection:
         FrameDecoder(
             self._logger,
             self._config,
-            "motion_detection",
+            f"{config.camera.name_slug}.motion_detection",
             config.motion_detection.interval,
             camera.stream,
             camera.decode_error,

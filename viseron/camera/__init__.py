@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from threading import Event
 from time import sleep
 
@@ -74,7 +73,7 @@ class FFMPEGCamera:
         FrameDecoder(
             self._logger,
             self._config,
-            "object_detection",
+            f"{self._config.camera.name_slug}.object_detection",
             self._config.object_detection.interval,
             self.stream,
             self.decode_error,
