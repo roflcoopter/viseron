@@ -140,6 +140,7 @@ class FFMPEGNVR(Thread):
         self._reported_label_count = {}
         self._object_return_queue = Queue(maxsize=10)
         self._object_filters = {}
+        self._object_decoder = f"{config.camera.name_slug}.object_detection"
         DataStream.subscribe_data(
             f"{config.camera.name_slug}/{TOPIC_FRAME_PROCESSED_OBJECT}",
             self._object_return_queue,
@@ -163,6 +164,7 @@ class FFMPEGNVR(Thread):
         self._motion_only_frames = 0
         self._motion_max_timeout_reached = False
         self._motion_return_queue = Queue(maxsize=5)
+        self._motion_decoder = f"{config.camera.name_slug}.motion_detection"
         if config.motion_detection.timeout or config.motion_detection.trigger_detector:
             self.motion_detector = MotionDetection(config, self.camera)
             DataStream.subscribe_data(
@@ -170,11 +172,11 @@ class FFMPEGNVR(Thread):
             )
 
         if config.motion_detection.trigger_detector:
-            FrameDecoder.decoders["motion_detection"].scan.set()
-            FrameDecoder.decoders["object_detection"].scan.clear()
+            FrameDecoder.decoders[self._motion_decoder].scan.set()
+            FrameDecoder.decoders[self._object_decoder].scan.clear()
         else:
-            FrameDecoder.decoders["object_detection"].scan.set()
-            FrameDecoder.decoders["motion_detection"].scan.clear()
+            FrameDecoder.decoders[self._object_decoder].scan.set()
+            FrameDecoder.decoders[self._motion_decoder].scan.clear()
         self.idle_frames = 0
 
         self._post_processor_topic = (
@@ -296,9 +298,9 @@ class FFMPEGNVR(Thread):
         recorder_thread.start()
         if (
             self.config.motion_detection.timeout
-            and not FrameDecoder.decoders["motion_detection"].scan.is_set()
+            and not FrameDecoder.decoders[self._motion_decoder].scan.is_set()
         ):
-            FrameDecoder.decoders["motion_detection"].scan.set()
+            FrameDecoder.decoders[self._motion_decoder].scan.set()
             self._logger.info("Starting motion detector")
 
     def stop_recording(self):
@@ -315,7 +317,7 @@ class FFMPEGNVR(Thread):
 
         if self.idle_frames >= (self.camera.stream.fps * self.config.recorder.timeout):
             if not self.config.motion_detection.trigger_detector:
-                FrameDecoder.decoders["motion_detection"].scan.clear()
+                FrameDecoder.decoders[self._motion_decoder].scan.clear()
                 self._logger.info("Pausing motion detector")
 
             self.recorder.stop_recording()
@@ -453,17 +455,17 @@ class FFMPEGNVR(Thread):
         if self.motion_detected:
             if (
                 self.config.motion_detection.trigger_detector
-                and not FrameDecoder.decoders["object_detection"].scan.is_set()
+                and not FrameDecoder.decoders[self._object_decoder].scan.is_set()
             ):
-                FrameDecoder.decoders["object_detection"].scan.set()
+                FrameDecoder.decoders[self._object_decoder].scan.set()
                 self._logger.debug("Starting object detector")
         elif (
-            FrameDecoder.decoders["object_detection"].scan.is_set()
+            FrameDecoder.decoders[self._object_decoder].scan.is_set()
             and not self.recorder.is_recording
             and self.config.motion_detection.trigger_detector
         ):
             self._logger.debug("Not recording, pausing object detector")
-            FrameDecoder.decoders["object_detection"].scan.clear()
+            FrameDecoder.decoders[self._object_decoder].scan.clear()
 
     def update_status_sensor(self):
         """Update MQTT status sensor."""
@@ -473,9 +475,9 @@ class FFMPEGNVR(Thread):
         status = "unknown"
         if self.recorder.is_recording:
             status = "recording"
-        elif FrameDecoder.decoders["object_detection"].scan.is_set():
+        elif FrameDecoder.decoders[self._object_decoder].scan.is_set():
             status = "scanning_for_objects"
-        elif FrameDecoder.decoders["motion_detection"].scan.is_set():
+        elif FrameDecoder.decoders[self._motion_decoder].scan.is_set():
             status = "scanning_for_motion"
 
         attributes = {}
