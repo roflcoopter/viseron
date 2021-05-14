@@ -3,7 +3,9 @@ import json
 import os
 import subprocess as sp
 from time import sleep
+from typing import Dict, Optional
 
+from viseron.camera.frame_decoder import FrameDecoder
 from viseron.const import CAMERA_SEGMENT_ARGS
 from viseron.exceptions import FFprobeError, StreamInformationError
 
@@ -43,6 +45,7 @@ class Stream:
         self.width = self.stream_config.width if self.stream_config.width else width
         self.height = self.stream_config.height if self.stream_config.height else height
         self.fps = self.stream_config.fps if self.stream_config.fps else fps
+        self.output_fps = self.fps
         self.stream_codec = stream_codec
         self.audio_codec = audio_codec
 
@@ -52,6 +55,14 @@ class Stream:
             raise StreamInformationError(self.width, self.height, self.fps)
 
         self._frame_bytes = int(self.width * self.height * 1.5)
+        self.decoders: Dict[str, FrameDecoder] = {}
+
+    def calculate_output_fps(self):
+        """Calculate FFmpeg output FPS."""
+        max_interval_fps = 1 / min(
+            [decoder.interval for decoder in self.decoders.values()]
+        )
+        self.output_fps = round(min([max_interval_fps, self.fps]))
 
     @staticmethod
     def run_ffprobe(stream_url: str, stream_type: str) -> dict:
@@ -179,6 +190,11 @@ class Stream:
             + (["-frames:v", "1"] if single_frame else [])
             + camera_segment_args
             + (self._config.camera.filter_args if self._pipe_frames else [])
+            + (
+                ["-filter:v", f"fps={self.output_fps}"]
+                if self.output_fps < self.fps
+                else []
+            )
             + (self._config.camera.output_args if self._pipe_frames else [])
         )
 
@@ -224,8 +240,21 @@ class Stream:
     def close_pipe(self):
         """Close FFmpeg pipe."""
         self._pipe.terminate()
-        self._pipe.communicate()
+        try:
+            self._pipe.communicate(timeout=5)
+        except sp.TimeoutExpired:
+            self._logger.debug("FFmpeg did not terminate, killing instead.")
+            self._pipe.kill()
+            self._pipe.communicate()
 
-    def read(self):
+    def poll(self):
+        """Poll pipe."""
+        return self._pipe.poll()
+
+    def read(self) -> Optional[Frame]:
         """Return a single frame from FFmpeg pipe."""
-        return Frame(self._pipe.stdout.read(self._frame_bytes), self.width, self.height)
+        frame_bytes = self._pipe.stdout.read(self._frame_bytes)
+
+        if len(frame_bytes) == self._frame_bytes:
+            return Frame(frame_bytes, self.width, self.height)
+        return None

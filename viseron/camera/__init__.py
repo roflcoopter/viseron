@@ -1,6 +1,7 @@
 """Camera communication."""
 from __future__ import annotations
 
+import datetime
 import logging
 from threading import Event
 from time import sleep
@@ -34,6 +35,7 @@ class FFMPEGCamera:
 
     def initialize_camera(self, detector):
         """Start processing of camera frames."""
+        self._poll_timer = [None]
         self._logger = logging.getLogger(__name__ + "." + self._config.camera.name_slug)
         if getattr(self._config.camera.logging, "level", None):
             self._logger.setLevel(self._config.camera.logging.level)
@@ -88,6 +90,9 @@ class FFMPEGCamera:
         """Start capturing frames from camera."""
         self._logger.debug("Starting capture thread")
         self._connected = True
+        self.decode_error.clear()
+        self._poll_timer[0] = datetime.datetime.now().timestamp()
+        empty_frames = 0
 
         self.stream.start_pipe()
         if self._segments:
@@ -105,19 +110,39 @@ class FFMPEGCamera:
                     self._segments.start_pipe()
 
                 self.decode_error.clear()
+                empty_frames = 0
 
             current_frame = self.stream.read()
-            for decoder in FrameDecoder.decoders.values():
-                decoder.scan_frame(current_frame)
+            if current_frame:
+                empty_frames = 0
+                self._poll_timer[0] = datetime.datetime.now().timestamp()
+                for decoder in self.stream.decoders.values():
+                    decoder.scan_frame(current_frame)
 
-            self.frame_ready.set()
-            self.frame_ready.clear()
+                self.frame_ready.set()
+                self.frame_ready.clear()
+                continue
 
-        self.stream.close_pipe()
-        if self._segments:
-            self._segments.close_pipe()
+            if self.stream.poll is not None:
+                self._logger.error("FFmpeg process has exited")
+                self.decode_error.set()
+                continue
+
+            empty_frames += 1
+            if empty_frames >= 10:
+                self._logger.error("Did not receive a frame")
+                self.decode_error.set()
+
         self._logger.info("FFMPEG frame grabber stopped")
+
+    @property
+    def poll_timer(self):
+        """Return poll timer."""
+        return self._poll_timer
 
     def release(self):
         """Release the connection to the camera."""
         self._connected = False
+        self.stream.close_pipe()
+        if self._segments:
+            self._segments.close_pipe()

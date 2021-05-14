@@ -3,14 +3,12 @@ import importlib
 import logging
 from abc import ABC, abstractmethod
 from queue import Queue
-from threading import Lock, Thread
-from typing import TYPE_CHECKING
+from threading import Lock
 
 import cv2
-from voluptuous import PREVENT_EXTRA, Any, Optional, Required
+from voluptuous import PREVENT_EXTRA
 
 from viseron.camera.frame_decoder import FrameToScan
-from viseron.config.config_logging import LoggingConfig
 from viseron.config.config_object_detection import ObjectDetectionConfig
 from viseron.const import TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_OBJECT
 from viseron.data_stream import DataStream
@@ -19,7 +17,7 @@ from viseron.exceptions import (
     DetectorConfigSchemaError,
     DetectorImportError,
 )
-from viseron.helpers import calculate_relative_coords
+from viseron.thread_watchdog import RestartableThread
 
 LOGGER = logging.getLogger(__name__)
 
@@ -96,7 +94,12 @@ class Detector:
         self._object_detection_queue: Queue[  # pylint: disable=unsubscriptable-object
             FrameToScan
         ] = Queue()
-        object_detection_thread = Thread(target=self.object_detection)
+        object_detection_thread = RestartableThread(
+            target=self.object_detection,
+            name="object_detection",
+            register=True,
+            daemon=True,
+        )
         object_detection_thread.daemon = True
         object_detection_thread.start()
         DataStream.subscribe_data(self._topic_scan_object, self._object_detection_queue)

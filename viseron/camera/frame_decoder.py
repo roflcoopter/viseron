@@ -1,17 +1,21 @@
 """Frame decoder."""
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from queue import Queue
-from threading import Event, Thread
-from typing import Dict
+from threading import Event
+from typing import TYPE_CHECKING, Callable
 
 from viseron.config import NVRConfig
 from viseron.data_stream import DataStream
 from viseron.exceptions import DuplicateDecoderName
+from viseron.thread_watchdog import RestartableThread
 
 from .frame import Frame
-from .stream import Stream
+
+if TYPE_CHECKING:
+    from .stream import Stream
 
 
 @dataclass
@@ -30,24 +34,23 @@ class FrameDecoder:
     Frames are then published to subsribers, object/motion detector.
     This makes it possible to decode frames in parallel with detection."""
 
-    decoders: Dict[str, FrameDecoder] = {}
-
     def __init__(
         self,
-        logger,
-        config,
-        name,
-        interval,
+        logger: logging.Logger,
+        config: NVRConfig,
+        name: str,
+        interval: float,
         stream: Stream,
-        decode_error,
-        topic_decode,
-        topic_scan,
-        preprocess_callback=None,
+        decode_error: Event,
+        topic_decode: str,
+        topic_scan: str,
+        preprocess_callback: Callable = None,
     ):
         self._logger = logger
         self._config = config
+        self.name = name
         self.interval = interval
-        self.interval_calculated = round(interval * stream.fps)
+        self._interval_fps = None
         self._stream = stream
 
         self.decode_error = False
@@ -61,23 +64,34 @@ class FrameDecoder:
         self._topic_decode = f"{config.camera.name_slug}/{topic_decode}"
         DataStream.subscribe_data(self._topic_decode, self._decoder_queue)
 
-        decode_thread = Thread(target=self.decode_frame)
-        decode_thread.daemon = True
+        decode_thread = RestartableThread(
+            name=__name__ + "." + config.camera.name_slug,
+            target=self.decode_frame,
+            daemon=True,
+            register=True,
+        )
         decode_thread.start()
-        if self.decoders.get(name, None):
+
+        if stream.decoders.get(name, None):
             raise DuplicateDecoderName(name)
+        stream.decoders[name] = self
+        stream.calculate_output_fps()
+        for decoder in stream.decoders.values():
+            decoder.calculate_interval()  # Re-calculate interval for all decoders
 
         self._logger.debug(
-            f"Running decoder {name} at {self.interval}s interval, "
-            f"every {self.interval_calculated} frame(s)"
+            f"Running decoder {name} at {interval}s interval, "
+            f"every {interval * stream.fps} frame(s)"
         )
 
-        self.decoders[name] = self
+    def calculate_interval(self):
+        """Convert interval from seconds to FPS."""
+        self._interval_fps = round(self.interval * self._stream.output_fps)
 
     def scan_frame(self, current_frame):
         """Publish frame if marked for scanning."""
         if self.scan.is_set():
-            if self._frame_number % self.interval_calculated == 0:
+            if self._frame_number % self._interval_fps == 0:
                 self._frame_number = 0
                 DataStream.publish_data(
                     self._topic_decode,
@@ -87,12 +101,7 @@ class FrameDecoder:
                         self._stream.width,
                         self._stream.height,
                         self._config,
-                    )
-                    # {
-                    #     "decoder_name": self,
-                    #     "frame": current_frame,
-                    #     "camera_config": self._config,
-                    # },
+                    ),
                 )
 
             self._frame_number += 1

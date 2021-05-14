@@ -8,7 +8,6 @@ import cv2
 
 from viseron.camera import FFMPEGCamera
 from viseron.camera.frame import Frame
-from viseron.camera.frame_decoder import FrameDecoder
 from viseron.const import TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_POSTPROC
 from viseron.data_stream import DataStream
 from viseron.helpers import (
@@ -27,6 +26,7 @@ from viseron.mqtt.sensor import MQTTSensor
 from viseron.mqtt.switch import MQTTSwitch
 from viseron.post_processors import PostProcessorFrame
 from viseron.recorder import FFMPEGRecorder
+from viseron.thread_watchdog import RestartableThread
 from viseron.zones import Zone
 
 LOGGER = logging.getLogger(__name__)
@@ -115,7 +115,7 @@ class MQTT:
         return subscriptions
 
 
-class FFMPEGNVR(Thread):
+class FFMPEGNVR:
     """Performs setup of all needed components for recording.
     Controls starting/stopping of motion detection, object detection, camera, recording.
     Also handles publishing to MQTT."""
@@ -123,7 +123,6 @@ class FFMPEGNVR(Thread):
     nvr_list: Dict[str, object] = {}
 
     def __init__(self, config, detector, mqtt_queue=None):
-        Thread.__init__(self)
         self.setup_loggers(config)
         self._logger.debug("Initializing NVR thread")
 
@@ -172,11 +171,11 @@ class FFMPEGNVR(Thread):
             )
 
         if config.motion_detection.trigger_detector:
-            FrameDecoder.decoders[self._motion_decoder].scan.set()
-            FrameDecoder.decoders[self._object_decoder].scan.clear()
+            self.camera.stream.decoders[self._motion_decoder].scan.set()
+            self.camera.stream.decoders[self._object_decoder].scan.clear()
         else:
-            FrameDecoder.decoders[self._object_decoder].scan.set()
-            FrameDecoder.decoders[self._motion_decoder].scan.clear()
+            self.camera.stream.decoders[self._object_decoder].scan.set()
+            self.camera.stream.decoders[self._motion_decoder].scan.clear()
         self.idle_frames = 0
 
         self._post_processor_topic = (
@@ -191,6 +190,9 @@ class FFMPEGNVR(Thread):
 
         self.nvr_list[config.camera.name_slug] = self
         self._logger.debug("NVR thread initialized")
+
+    def __repr__(self):
+        return __name__ + "." + self.config.camera.name_slug
 
     def setup_loggers(self, config):
         """Setup custom log names and levels."""
@@ -243,16 +245,22 @@ class FFMPEGNVR(Thread):
         """Start reading from camera."""
         if not self.camera_grabber or not self.camera_grabber.is_alive():
             self._logger.debug("Starting camera")
-            self.camera_grabber = Thread(
+            self.camera_grabber = RestartableThread(
+                name="viseron.camera." + self.config.camera.name_slug,
                 target=self.camera.capture_pipe,
+                poll_timer=self.camera.poll_timer,
+                poll_timeout=self.config.camera.frame_timeout,
+                poll_target=self.camera.release,
+                daemon=True,
+                register=True,
             )
-            self.camera_grabber.daemon = True
             self.camera_grabber.start()
 
     def stop_camera(self):
         """Stop reading from camera."""
         self._logger.debug("Stopping camera")
         self.camera.release()
+        self.camera_grabber.stop()
         self.camera_grabber.join()
         if self.recorder.is_recording:
             self.recorder.stop_recording()
@@ -298,9 +306,9 @@ class FFMPEGNVR(Thread):
         recorder_thread.start()
         if (
             self.config.motion_detection.timeout
-            and not FrameDecoder.decoders[self._motion_decoder].scan.is_set()
+            and not self.camera.stream.decoders[self._motion_decoder].scan.is_set()
         ):
-            FrameDecoder.decoders[self._motion_decoder].scan.set()
+            self.camera.stream.decoders[self._motion_decoder].scan.set()
             self._logger.info("Starting motion detector")
 
     def stop_recording(self):
@@ -317,7 +325,7 @@ class FFMPEGNVR(Thread):
 
         if self.idle_frames >= (self.camera.stream.fps * self.config.recorder.timeout):
             if not self.config.motion_detection.trigger_detector:
-                FrameDecoder.decoders[self._motion_decoder].scan.clear()
+                self.camera.stream.decoders[self._motion_decoder].scan.clear()
                 self._logger.info("Pausing motion detector")
 
             self.recorder.stop_recording()
@@ -455,17 +463,17 @@ class FFMPEGNVR(Thread):
         if self.motion_detected:
             if (
                 self.config.motion_detection.trigger_detector
-                and not FrameDecoder.decoders[self._object_decoder].scan.is_set()
+                and not self.camera.stream.decoders[self._object_decoder].scan.is_set()
             ):
-                FrameDecoder.decoders[self._object_decoder].scan.set()
+                self.camera.stream.decoders[self._object_decoder].scan.set()
                 self._logger.debug("Starting object detector")
         elif (
-            FrameDecoder.decoders[self._object_decoder].scan.is_set()
+            self.camera.stream.decoders[self._object_decoder].scan.is_set()
             and not self.recorder.is_recording
             and self.config.motion_detection.trigger_detector
         ):
             self._logger.debug("Not recording, pausing object detector")
-            FrameDecoder.decoders[self._object_decoder].scan.clear()
+            self.camera.stream.decoders[self._object_decoder].scan.clear()
 
     def update_status_sensor(self):
         """Update MQTT status sensor."""
@@ -475,9 +483,9 @@ class FFMPEGNVR(Thread):
         status = "unknown"
         if self.recorder.is_recording:
             status = "recording"
-        elif FrameDecoder.decoders[self._object_decoder].scan.is_set():
+        elif self.camera.stream.decoders[self._object_decoder].scan.is_set():
             status = "scanning_for_objects"
-        elif FrameDecoder.decoders[self._motion_decoder].scan.is_set():
+        elif self.camera.stream.decoders[self._motion_decoder].scan.is_set():
             status = "scanning_for_motion"
 
         attributes = {}
