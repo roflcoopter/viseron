@@ -94,10 +94,11 @@ Choose the appropriate docker container for your machine. Builds are published t
   -v <recordings path>:/recordings \
   -v <config path>:/config \
   -v /etc/localtime:/etc/localtime:ro \
-  -v /dev/bus/usb:/dev/bus/usb \
   -v /opt/vc/lib:/opt/vc/lib \
   --name viseron \
-  --device /dev/vchiq:/dev/vchiq --device /dev/vcsm:/dev/vcsm \
+  --device /dev/vchiq:/dev/vchiq \
+  --device /dev/vcsm:/dev/vcsm \
+  --device /dev/bus/usb:/dev/bus/usb \
   roflcoopter/viseron:latest
   ```
   Example docker-compose
@@ -111,11 +112,11 @@ Choose the appropriate docker container for your machine. Builds are published t
         - <recordings path>:/recordings
         - <config path>:/config
         - /etc/localtime:/etc/localtime:ro
-        - /dev/bus/usb:/dev/bus/usb
         - /opt/vc/lib:/opt/vc/lib
       devices:
         - /dev/vchiq:/dev/vchiq
         - /dev/vcsm:/dev/vcsm
+        - /dev/bus/usb:/dev/bus/usb
       privileged: true
   ```
   Note: Viseron is quite RAM intensive, mostly because of the object detection but also because of the lookback feature.\
@@ -139,7 +140,10 @@ Choose the appropriate docker container for your machine. Builds are published t
   -v /dev/bus/usb:/dev/bus/usb \
   -v /opt/vc/lib:/opt/vc/lib \
   --name viseron \
-  --device /dev/vchiq:/dev/vchiq --device /dev/vcsm:/dev/vcsm \
+  --device=/dev/video10:/dev/video10 \
+  --device=/dev/video11:/dev/video11 \
+  --device=/dev/video12:/dev/video12 \
+  --device /dev/bus/usb:/dev/bus/usb \
   roflcoopter/viseron:latest
   ```
   Example docker-compose
@@ -153,11 +157,11 @@ Choose the appropriate docker container for your machine. Builds are published t
         - <recordings path>:/recordings
         - <config path>:/config
         - /etc/localtime:/etc/localtime:ro
-        - /dev/bus/usb:/dev/bus/usb
-        - /opt/vc/lib:/opt/vc/lib
       devices:
-        - /dev/vchiq:/dev/vchiq
-        - /dev/vcsm:/dev/vcsm
+        - /dev/video10:/dev/video10
+        - /dev/video11:/dev/video11
+        - /dev/video12:/dev/video12
+        - /dev/bus/usb:/dev/bus/usb
       privileged: true
   ```
   Note: Viseron is quite RAM intensive, mostly because of the object detection but also because of the lookback feature.\

@@ -1,0 +1,19 @@
+#!/usr/bin/with-contenv bash
+
+DEVICES=$(lsusb | grep "Google Inc")
+
+while read -r i;
+do
+  BUS=`echo $i | grep -Po 'Bus \K[0-9]+'`
+  DEVICE=`echo $i | grep -Po 'Device \K[0-9]+'`
+  USB_GID=$(stat -c '%g' "/dev/bus/usb/$BUS/$DEVICE")
+  if ! id -G abc | grep -qw "$USB_GID"; then
+    USB_NAME=$(getent group "${USB_GID}" | awk -F: '{print $1}')
+    if [ -z "${USB_NAME}" ]; then
+      USB_NAME="video$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c8)"
+      groupadd "$USB_NAME"
+      groupmod -g "$USB_GID" "$USB_NAME"
+    fi
+    usermod -a -G "$USB_NAME" abc
+  fi
+done <<< "$DEVICES"
