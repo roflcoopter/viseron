@@ -65,7 +65,7 @@ class WebServer(threading.Thread):
     """Webserver."""
 
     def __init__(self):
-        super().__init__(name="WebServer")
+        super().__init__(name="Tornado WebServer", daemon=True)
         self.application = self.create_application()
         self.application.listen(8888)
         self.ioloop = tornado.ioloop.IOLoop.current()
@@ -92,6 +92,7 @@ class WebServer(threading.Thread):
     def run(self):
         """Start ioloop."""
         self.ioloop.start()
+        self.ioloop.close()
 
     def stop(self):
         """Stop ioloop."""

@@ -1,3 +1,4 @@
+"""Frame read from FFmpeg."""
 import logging
 from typing import List
 
@@ -32,7 +33,6 @@ class Frame:
                 int(self.frame_height * 1.5), self.frame_width
             )
         except ValueError:
-            LOGGER.error(self.raw_frame)
             return False
         return True
 

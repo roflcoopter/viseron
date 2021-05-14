@@ -104,6 +104,7 @@ STREAM_SCEHMA = Schema(
             "tcp", "udp", "udp_multicast", "http"
         ),
         Optional("filter_args", default=[]): list,
+        Optional("frame_timeout", default=30): int,
     }
 )
 
@@ -216,6 +217,7 @@ class Stream:
     """Stream config."""
 
     def __init__(self, camera):
+        self._stream_format = camera["stream_format"]
         self._host = camera["host"]
         self._port = camera["port"]
         self._username = camera["username"]
@@ -224,11 +226,12 @@ class Stream:
         self._width = camera["width"]
         self._height = camera["height"]
         self._fps = camera["fps"]
-        self._stream_format = camera["stream_format"]
         self._input_args = camera["input_args"]
         self._hwaccel_args = camera["hwaccel_args"]
         self._codec = camera["codec"]
         self._rtsp_transport = camera["rtsp_transport"]
+        self._filter_args = camera["filter_args"]
+        self._frame_timeout = camera["frame_timeout"]
 
     def get_codec_map(self):
         """Return codec for specific hardware."""
@@ -314,6 +317,16 @@ class Stream:
         return self._rtsp_transport
 
     @property
+    def filter_args(self):
+        """Return FFmpeg filter args."""
+        return self._filter_args
+
+    @property
+    def frame_timeout(self):
+        """Return frame timeout."""
+        return self._frame_timeout
+
+    @property
     def protocol(self):
         """Return protocol."""
         return STREAM_FORMAT_MAP[self.stream_format]["protocol"]
@@ -349,6 +362,7 @@ class Substream(Stream):
         self._hwaccel_args = camera["substream"]["hwaccel_args"]
         self._codec = camera["substream"]["codec"]
         self._rtsp_transport = camera["substream"]["rtsp_transport"]
+        self._filter_args = camera["substream"]["filter_args"]
 
 
 class CameraConfig(Stream):
@@ -362,7 +376,6 @@ class CameraConfig(Stream):
         self._name_slug = slugify(self.name)
         self._mqtt_name = camera["mqtt_name"]
         self._global_args = camera["global_args"]
-        self._filter_args = camera["filter_args"]
         self._substream = None
         if camera.get("substream", None):
             self._substream = Substream(camera)
@@ -419,11 +432,6 @@ class CameraConfig(Stream):
     def global_args(self):
         """Return FFmpeg global args."""
         return self._global_args
-
-    @property
-    def filter_args(self):
-        """Return FFmpeg filter args."""
-        return self._filter_args
 
     @property
     def output_args(self):

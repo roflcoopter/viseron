@@ -1,13 +1,12 @@
 """Viseron init file."""
 import logging
-import os
 import signal
+import threading
 from queue import Queue
-from threading import Thread
 
 from viseron.cleanup import Cleanup
 from viseron.config import CONFIG, NVRConfig, ViseronConfig
-from viseron.const import LOG_LEVELS
+from viseron.const import LOG_LEVELS, THREAD_STORE_CATEGORY_NVR
 from viseron.data_stream import DataStream
 from viseron.detector import Detector
 from viseron.exceptions import (
@@ -18,6 +17,7 @@ from viseron.exceptions import (
 from viseron.mqtt import MQTT
 from viseron.nvr import FFMPEGNVR
 from viseron.post_processors import PostProcessor
+from viseron.thread_watchdog import RestartableThread, ThreadWatchDog
 from viseron.webserver import WebServer
 
 LOGGER = logging.getLogger(__name__)
@@ -33,6 +33,7 @@ class Viseron:
         LOGGER.info("-------------------------------------------")
         LOGGER.info("Initializing...")
 
+        thread_watchdog = ThreadWatchDog()
         webserver = WebServer()
         webserver.start()
 
@@ -45,8 +46,13 @@ class Viseron:
         if config.mqtt:
             mqtt_queue = Queue(maxsize=100)
             mqtt = MQTT(config)
-            mqtt_publisher = Thread(target=mqtt.publisher, args=(mqtt_queue,))
-            mqtt_publisher.daemon = True
+            mqtt_publisher = RestartableThread(
+                name="mqtt_publisher",
+                target=mqtt.publisher,
+                args=(mqtt_queue,),
+                daemon=True,
+                register=True,
+            )
 
         detector = Detector(config.object_detection)
 
@@ -68,9 +74,8 @@ class Viseron:
 
         LOGGER.info("Initializing NVR threads")
         self.setup_threads = []
-        self.nvr_threads = []
         for camera in config.cameras:
-            setup_thread = Thread(
+            setup_thread = threading.Thread(
                 target=self.setup_nvr,
                 args=(
                     config,
@@ -88,36 +93,29 @@ class Viseron:
             mqtt.connect()
             mqtt_publisher.start()
 
-        for thread in self.nvr_threads:
+        for thread in RestartableThread.thread_store[THREAD_STORE_CATEGORY_NVR]:
             thread.start()
 
         LOGGER.info("Initialization complete")
 
         def signal_term(*_):
             LOGGER.info("Kill received! Sending kill to threads..")
-            for thread in self.nvr_threads:
+            thread_watchdog.stop()
+            for thread in RestartableThread.thread_store[THREAD_STORE_CATEGORY_NVR]:
+                LOGGER.debug(thread)
                 thread.stop()
-            for thread in self.nvr_threads:
+            for thread in RestartableThread.thread_store[THREAD_STORE_CATEGORY_NVR]:
                 thread.join()
+            webserver.stop()
+            webserver.join()
+            LOGGER.info("Exiting")
 
         # Listen to signals
         signal.signal(signal.SIGTERM, signal_term)
         signal.signal(signal.SIGINT, signal_term)
 
-        try:
-            for thread in self.nvr_threads:
-                thread.join()
-        except KeyboardInterrupt:
-            LOGGER.info("Ctrl-C received! Sending kill to threads..")
-            for thread in self.nvr_threads:
-                thread.stop()
-            for thread in self.nvr_threads:
-                thread.join()
-
-        LOGGER.info("Exiting")
-        os._exit(1)
-
-    def setup_nvr(self, config, camera, detector, mqtt_queue):
+    @staticmethod
+    def setup_nvr(config, camera, detector, mqtt_queue):
         """Setup NVR for each configured camera."""
         camera_config = NVRConfig(
             camera,
@@ -133,7 +131,13 @@ class Viseron:
                 detector,
                 mqtt_queue=mqtt_queue,
             )
-            self.nvr_threads.append(nvr)
+            RestartableThread(
+                name=str(nvr),
+                target=nvr.run,
+                stop_target=nvr.stop,
+                thread_store_category=THREAD_STORE_CATEGORY_NVR,
+                register=True,
+            )
         except FFprobeError as error:
             LOGGER.error(
                 f"Failed to initialize camera {camera_config.camera.name}: {error}"
@@ -152,3 +156,5 @@ def schedule_cleanup(config):
 def log_settings(config):
     """Sets log level."""
     LOGGER.setLevel(LOG_LEVELS[config.logging.level])
+    logging.getLogger("apscheduler.scheduler").setLevel(logging.ERROR)
+    logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)

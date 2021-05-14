@@ -1,7 +1,6 @@
 """Handles motion detection."""
 import logging
 from queue import Queue
-from threading import Thread
 
 import cv2
 import numpy as np
@@ -16,6 +15,7 @@ from viseron.const import (
 )
 from viseron.data_stream import DataStream
 from viseron.helpers import calculate_relative_contours
+from viseron.thread_watchdog import RestartableThread
 
 
 class Contours:
@@ -97,8 +97,12 @@ class MotionDetection:
         self._motion_detection_queue: Queue[  # pylint: disable=unsubscriptable-object
             FrameToScan
         ] = Queue(maxsize=5)
-        motion_detection_thread = Thread(target=self.motion_detection)
-        motion_detection_thread.daemon = True
+        motion_detection_thread = RestartableThread(
+            name=__name__ + "." + config.camera.name_slug,
+            target=self.motion_detection,
+            daemon=True,
+            register=True,
+        )
         motion_detection_thread.start()
 
         FrameDecoder(

@@ -6,7 +6,6 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from queue import Queue
-from threading import Thread
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Dict, Union
 
@@ -16,6 +15,7 @@ from viseron.config.config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfi
 from viseron.const import TOPIC_FRAME_SCAN_POSTPROC
 from viseron.data_stream import DataStream
 from viseron.exceptions import PostProcessorImportError, PostProcessorStructureError
+from viseron.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from viseron.camera.frame import Frame
@@ -105,8 +105,9 @@ class PostProcessor:
 
         self._topic_scan = f"*/{TOPIC_FRAME_SCAN_POSTPROC}/{processor_type}"
         self._post_processor_queue: Queue = Queue(maxsize=10)
-        processor_thread = Thread(target=self.post_process)
-        processor_thread.daemon = True
+        processor_thread = RestartableThread(
+            name=__name__, target=self.post_process, daemon=True, register=True
+        )
         processor_thread.start()
         DataStream.subscribe_data(self._topic_scan, self._post_processor_queue)
 

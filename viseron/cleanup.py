@@ -10,8 +10,6 @@ from path import Path
 from viseron.const import CAMERA_SEGMENT_DURATION
 
 LOGGER = logging.getLogger(__name__)
-logging.getLogger("apscheduler.scheduler").setLevel(logging.ERROR)
-logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)
 
 
 class Cleanup:
@@ -19,7 +17,7 @@ class Cleanup:
 
     def __init__(self, config):
         self._config = config
-        self._scheduler = BackgroundScheduler(timezone="UTC")
+        self._scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
         self._scheduler.add_job(self.cleanup, "cron", hour="1")
 
     def cleanup(self):
@@ -28,7 +26,7 @@ class Cleanup:
         retention_period = time.time() - (self._config.recorder.retain * 24 * 60 * 60)
         dirs = Path(self._config.recorder.folder)
 
-        extensions = [f"*.{self._config.recorder.extension}", ".mp4", "mkv", "*.jpg"]
+        extensions = [f"*.{self._config.recorder.extension}", "*.mp4", "*.mkv", "*.jpg"]
         for extension in extensions:
             files = dirs.walkfiles(extension)
             for file in files:
@@ -38,8 +36,8 @@ class Cleanup:
 
         folders = dirs.walkdirs("*-*-*")
         for folder in folders:
-            LOGGER.debug(f"Items in {folder}: {len(folder.listdir())}")
             for subdir in folder.listdir():
+                LOGGER.debug(f"Items in {subdir}: {len(subdir.listdir())}")
                 if os.path.isdir(subdir) and len(subdir.listdir()) == 0:
                     try:
                         os.rmdir(subdir)
@@ -68,7 +66,7 @@ class SegmentCleanup:
         )
         # Make sure we dont delete a segment which is needed by recorder
         self._max_age = config.recorder.lookback + (CAMERA_SEGMENT_DURATION * 3)
-        self._scheduler = BackgroundScheduler(timezone="UTC")
+        self._scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
         self._scheduler.add_job(
             self.cleanup,
             "interval",
