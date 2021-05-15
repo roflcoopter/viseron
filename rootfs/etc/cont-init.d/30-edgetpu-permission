@@ -6,6 +6,9 @@ while read -r i;
 do
   BUS=`echo $i | grep -Po 'Bus \K[0-9]+'`
   DEVICE=`echo $i | grep -Po 'Device \K[0-9]+'`
+  if [ -z "$BUS" ] || [ -z "$DEVICE" ] ; then
+    continue
+  fi
   USB_GID=$(stat -c '%g' "/dev/bus/usb/$BUS/$DEVICE")
   if ! id -G abc | grep -qw "$USB_GID"; then
     USB_NAME=$(getent group "${USB_GID}" | awk -F: '{print $1}')

@@ -19,7 +19,8 @@ ARG S6_OVERLAY_VERSION
 
 ENV \
   DEBIAN_FRONTEND=noninteractive \
-  S6_KEEP_ENV=1
+  S6_KEEP_ENV=1 \
+  S6_SERVICES_GRACETIME=10000
 
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}.tar.gz /tmp/s6-overlay.tar.gz
 
@@ -30,6 +31,7 @@ RUN \
   python3 \
   python3-pip \
   python3-sklearn \
+  usbutils \
   # OpenCV and FFmpeg Dependencies
   libgomp1 \
   # dlib Dependencies
