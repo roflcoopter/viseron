@@ -105,7 +105,7 @@ class DynamicStreamHandler(StreamHandler):
         while True:
             try:
                 item = await frame_queue.get()
-                frame = copy.copy(item["frame"])
+                frame = copy.copy(item.frame)
                 ret, jpg = await self.process_frame(nvr, frame, mjpeg_stream_config)
 
                 if ret:
@@ -136,7 +136,7 @@ class StaticStreamHandler(StreamHandler):
 
         while self.active_streams[mjpeg_stream]:
             item = yield frame_queue.get()
-            frame = copy.copy(item["frame"])
+            frame = copy.copy(item.frame)
             ret, jpg = yield self.process_frame(nvr, frame, mjpeg_stream_config)
 
             if ret:
