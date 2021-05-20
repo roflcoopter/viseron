@@ -993,8 +993,8 @@ DeepStack is developed and maintained by [DeepQuest AI](https://deepquestai.com/
 | username | str | optional | any string | Username for the broker |
 | password | str | optional | any string | Password for the broker |
 | client_id | str | ```viseron``` | any string | Client ID used when connecting to broker |
-| home_assistant | dict | Optional | Home Assistant MQTT discovery. Enabled by default |
-| last_will_topic | str | ```{client_id}/lwt``` | Last will topic
+| home_assistant | dict | optional | See [Home Assistant MQTT Discovery](#Home-Assistant-MQTT-Discovery) |  Home Assistant MQTT discovery. Enabled by default |
+| last_will_topic | str | ```{client_id}/lwt``` | any valid MQTT topic | Last will topic
 
 
 ### Topics for each camera
