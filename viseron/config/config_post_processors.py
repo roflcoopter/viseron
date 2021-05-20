@@ -20,10 +20,11 @@ class PostProcessorsConfig:
         self._logging = None
         # Pop all known configuration options to save a dictionary
         # which only contains the post processors
-        if post_processors.get("logging", None):
-            self._logging = LoggingConfig(post_processors.pop("logging"))
+        _post_processors = post_processors.copy()
+        if _post_processors.get("logging", None):
+            self._logging = LoggingConfig(_post_processors.pop("logging"))
 
-        self._post_processors = post_processors
+        self._post_processors = _post_processors
 
     @property
     def post_processors(self) -> list:

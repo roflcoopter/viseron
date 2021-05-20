@@ -1,4 +1,6 @@
 *
+!tests/
+!tests/*
 !viseron/
 !viseron/*
 !script/

@@ -1,17 +1,12 @@
 """Logging config."""
-from voluptuous import All, Any, Optional, Schema
+from voluptuous import All, Any, Optional, Schema, Upper
 
 LOG_LEVELS = Any("DEBUG", "INFO", "WARNING", "ERROR", "FATAL")
 
 
-def upper_case(data: str) -> str:
-    """Return data as upper case."""
-    return data.upper()
-
-
 SCHEMA = Schema(
     {
-        Optional("level", default="INFO"): All(str, upper_case, LOG_LEVELS),
+        Optional("level", default="INFO"): All(Upper, LOG_LEVELS),
         Optional("color_log", default=True): bool,
     }
 )

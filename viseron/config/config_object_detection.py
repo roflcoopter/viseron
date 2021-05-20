@@ -27,25 +27,11 @@ from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 
 def ensure_min_max(label: dict) -> dict:
     """Ensure min values are not larger than max values."""
-    if label["height_min"] > label["height_max"]:
-        raise Invalid("height_min may not be larger than height_max")
-    if label["width_min"] > label["width_max"]:
-        raise Invalid("width_min may not be larger than width_max")
+    if label["height_min"] >= label["height_max"]:
+        raise Invalid("height_min may not be larger or equal to height_max")
+    if label["width_min"] >= label["width_max"]:
+        raise Invalid("width_min may not be larger or equal to width_max")
     return label
-
-
-# TODO test this inside docker container
-def ensure_label(detector: dict) -> dict:
-    """Ensure label exists in label file."""
-    if detector["type"] in ["darknet", "edgetpu"] and detector["label_path"] is None:
-        raise Invalid("Detector type {} requires a label file".format(detector["type"]))
-    if detector["label_path"]:
-        with open(detector["label_path"], "rt") as label_file:
-            labels_file = label_file.read().rstrip("\n").split("\n")
-        for label in detector["labels"]:
-            if label not in labels_file:
-                raise Invalid("Provided label doesn't exist in label file")
-    return detector
 
 
 def get_detector_type() -> str:

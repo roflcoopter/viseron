@@ -1,0 +1,14 @@
+ARG ARCH
+ARG VISERON_VERSION
+FROM roflcoopter/${ARCH}-viseron:${VISERON_VERSION}
+
+WORKDIR /src
+
+ENV VISERON_TESTS=true
+
+RUN \
+  pip3 install pytest pytest-cov pytest-timeout pytest-mock
+
+COPY tests /src/tests/
+
+ENTRYPOINT ["/init"]

@@ -28,15 +28,21 @@
 !/rootfs/etc/**
 !/.dockerignore
 
+# Tests
+!/tests
+!/tests/*
+!/tests/config
+!/tests/config/*
+
 # Source
 !/viseron
 !/viseron/*
+!/viseron/camera
+!/viseron/camera/*
 !/viseron/config
 !/viseron/config/*
 !/viseron/detector
 !/viseron/detector/*
-!/viseron/camera
-!/viseron/camera/*
 !/viseron/detector/darknet
 !/viseron/detector/darknet/*
 !/viseron/detector/deepstack

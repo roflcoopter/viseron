@@ -122,6 +122,15 @@ services:
         - roflcoopter/amd64-viseron:dev
     image: roflcoopter/amd64-viseron:dev
 
+  amd64-viseron-tests:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.tests
+      args:
+        ARCH: amd64
+        VISERON_VERSION: dev
+    image: roflcoopter/amd64-viseron-tests:dev
+
   ################ amd64 CUDA ###################################
   amd64-cuda-ffmpeg:
     build:
