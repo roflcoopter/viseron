@@ -1297,7 +1297,10 @@ To find the UID and GID of your current user you can run this command on the hos
   $ id your_username_here
 ```
 
-The default values are `PUID=911` and `PGID=911`, username `abc`
+Viseron runs as root (`PUID=0` and `PGID=0`) by default.\
+This is because it can be problematic to get hardware acceleration and/or EdgeTPUs to work properly for everyone.\
+The `s6-overlay` init scripts do a good job at fixing permissions for other users, but you may still face some issues if you choose to not run as root.\
+If you do have issues, please open an issue and i will do my best to fix them.
 
 ---
 
@@ -1348,15 +1351,9 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or 
   - Implement an object tracker for detected objects
   - Make it easier to implement custom detectors
 
-- Watchdog
-  Build a watchdog for the camera process
-
 - Recorder
   - Weaving, If detection is triggered close to previous detection, send silent alarm and "weave" the videos together.
   - Dynamic lookback based on motion
-
-- Docker
-  - Try to reduce container footprint
 
 https://devblogs.nvidia.com/object-detection-pipeline-gpus/
 
