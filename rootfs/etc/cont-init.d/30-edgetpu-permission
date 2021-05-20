@@ -1,22 +1,30 @@
 #!/usr/bin/with-contenv bash
 
-DEVICES=$(lsusb | grep "Google Inc")
+echo "************** Setting EdgeTPU permissions ***************"
+CORAL_VENDOR_IDS=$(dpkg -L libedgetpu1-max | grep "\.rules" | xargs cat | sed -n "s/^.*ATTRS{idVendor}==\(.*\),.*/\1/p")
+COMMAND=$(echo $CORAL_VENDOR_IDS | xargs printf -- '-e %s\n' | xargs -t echo 'lsusb | grep -e "Google Inc" -e "Global Unichip Corp"' 2>/dev/null)
+DEVICES=$(eval "$COMMAND")
 
-while read -r i;
-do
-  BUS=`echo $i | grep -Po 'Bus \K[0-9]+'`
-  DEVICE=`echo $i | grep -Po 'Device \K[0-9]+'`
-  if [ -z "$BUS" ] || [ -z "$DEVICE" ] ; then
-    continue
-  fi
-  USB_GID=$(stat -c '%g' "/dev/bus/usb/$BUS/$DEVICE")
-  if ! id -G abc | grep -qw "$USB_GID"; then
-    USB_NAME=$(getent group "${USB_GID}" | awk -F: '{print $1}')
-    if [ -z "${USB_NAME}" ]; then
-      USB_NAME="video$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c8)"
-      groupadd "$USB_NAME"
-      groupmod -g "$USB_GID" "$USB_NAME"
+echo -e "Coral Vendor IDs:\n$CORAL_VENDOR_IDS"
+if [ -z "$DEVICES" ]; then
+  echo "No EdgeTPU USB device was found"
+else
+  echo -e "Matching USB devices:\n$DEVICES"
+  while read -r i;
+  do
+    BUS=`echo $i | grep -Po 'Bus \K[0-9]+'`
+    DEVICE=`echo $i | grep -Po 'Device \K[0-9]+'`
+    USB_PATH="/dev/bus/usb/$BUS/$DEVICE"
+    if [ ! -e "$USB_PATH" ]; then
+        echo "$USB_PATH is missing. Make sure to add --device /dev/bus/usb to your docker run command"
+        continue
     fi
-    usermod -a -G "$USB_NAME" abc
-  fi
-done <<< "$DEVICES"
+    USB_GID=$(stat -c '%g' "/dev/bus/usb/$BUS/$DEVICE")
+    if ! id -G abc | grep -qw "$USB_GID"; then
+      GROUP_NAME=$(getent group "${USB_GID}" | awk -F: '{print $1}')
+      echo "Adding user to group $GROUP_NAME"
+      usermod -a -G "$GROUP_NAME" abc
+    fi
+  done <<< "$DEVICES"
+fi
+echo "************************** Done **************************"
