@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Callable
 from viseron.config import NVRConfig
 from viseron.data_stream import DataStream
 from viseron.exceptions import DuplicateDecoderName
-from viseron.thread_watchdog import RestartableThread
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .frame import Frame
 

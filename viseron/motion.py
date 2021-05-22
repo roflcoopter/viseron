@@ -15,7 +15,7 @@ from viseron.const import (
 )
 from viseron.data_stream import DataStream
 from viseron.helpers import calculate_relative_contours
-from viseron.thread_watchdog import RestartableThread
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 
 class Contours:

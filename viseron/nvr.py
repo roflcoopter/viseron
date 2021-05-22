@@ -26,7 +26,7 @@ from viseron.mqtt.sensor import MQTTSensor
 from viseron.mqtt.switch import MQTTSwitch
 from viseron.post_processors import PostProcessorFrame
 from viseron.recorder import FFMPEGRecorder
-from viseron.thread_watchdog import RestartableThread
+from viseron.watchdog.thread_watchdog import RestartableThread
 from viseron.zones import Zone
 
 LOGGER = logging.getLogger(__name__)

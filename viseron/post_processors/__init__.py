@@ -15,7 +15,7 @@ from viseron.config.config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfi
 from viseron.const import TOPIC_FRAME_SCAN_POSTPROC
 from viseron.data_stream import DataStream
 from viseron.exceptions import PostProcessorImportError, PostProcessorStructureError
-from viseron.thread_watchdog import RestartableThread
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from viseron.camera.frame import Frame

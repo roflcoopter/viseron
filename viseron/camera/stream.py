@@ -1,13 +1,16 @@
 """Class to interact with an FFmpeog stream."""
 import json
+import logging
 import os
 import subprocess as sp
 from time import sleep
 from typing import Dict, Optional
 
 from viseron.camera.frame_decoder import FrameDecoder
-from viseron.const import CAMERA_SEGMENT_ARGS
+from viseron.const import CAMERA_SEGMENT_ARGS, FFMPEG_LOG_LEVELS
 from viseron.exceptions import FFprobeError, StreamInformationError
+from viseron.helpers.logs import FFmpegFilter, LogPipe, SensitiveInformationFilter
+from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 from .frame import Frame
 
@@ -15,16 +18,24 @@ from .frame import Frame
 class Stream:
     """Represents a stream of frames from a camera."""
 
-    def __init__(
-        self, logger, config, stream_config, write_segments=True, pipe_frames=True
-    ):
-        self._logger = logger
+    def __init__(self, config, stream_config, write_segments=True, pipe_frames=True):
+        if write_segments and not pipe_frames:
+            self._logger = logging.getLogger(
+                __name__ + "_segments." + config.camera.name_slug
+            )
+        else:
+            self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
+        self._logger.addFilter(SensitiveInformationFilter())
+        self._logger.addFilter(FFmpegFilter(config.camera.ffmpeg_recoverable_errors))
         self._config = config
         self.stream_config = stream_config
         self._write_segments = write_segments
         self._pipe_frames = pipe_frames
 
         self._pipe = None
+        self._log_pipe = LogPipe(
+            self._logger, FFMPEG_LOG_LEVELS[config.camera.ffmpeg_loglevel]
+        )
 
         stream_codec = None
         if (
@@ -56,6 +67,20 @@ class Stream:
 
         self._frame_bytes = int(self.width * self.height * 1.5)
         self.decoders: Dict[str, FrameDecoder] = {}
+        self.create_symlink()
+
+    @property
+    def alias(self):
+        """Return ffmpeg executable alias."""
+        alias = self._config.camera.name_slug
+        if self._write_segments and not self._pipe_frames:
+            alias = f"{alias}_segments"
+        return alias
+
+    def create_symlink(self):
+        """Creates a symlink to ffmpeg executable to know which ffmpeg command
+        belongs to which camera."""
+        os.symlink("/usr/local/bin/ffmpeg", f"/home/abc/bin/{self.alias}")
 
     def calculate_output_fps(self):
         """Calculate FFmpeg output FPS."""
@@ -178,7 +203,7 @@ class Stream:
             )
 
         return (
-            ["ffmpeg"]
+            [self.alias]
             + self._config.camera.global_args
             + ["-loglevel"]
             + (
@@ -198,24 +223,33 @@ class Stream:
             + (self._config.camera.output_args if self._pipe_frames else [])
         )
 
-    def pipe(self, stderr=False, single_frame=False):
+    def pipe(self, single_frame=False):
         """Return subprocess pipe for FFmpeg."""
-        if stderr:
+        if single_frame:
             return sp.Popen(
                 self.build_command(ffmpeg_loglevel="fatal", single_frame=single_frame),
                 stdout=sp.PIPE,
                 stderr=sp.PIPE,
             )
-        if self._pipe_frames:
-            return sp.Popen(self.build_command(), stdout=sp.PIPE)
-        return sp.Popen(self.build_command())
+        if self._write_segments and not self._pipe_frames:
+            return RestartablePopen(
+                self.build_command(),
+                stdout=sp.PIPE,
+                stderr=self._log_pipe,
+                name=self.alias,
+            )
+        return sp.Popen(
+            self.build_command(),
+            stdout=sp.PIPE,
+            stderr=self._log_pipe,
+        )
 
     def check_command(self):
         """Check if generated FFmpeg command works."""
         self._logger.debug("Performing a sanity check on the ffmpeg command")
         retry = False
         while True:
-            pipe = self.pipe(stderr=True, single_frame=True)
+            pipe = self.pipe(single_frame=True)
             _, stderr = pipe.communicate()
             if stderr and not any(
                 err in stderr.decode()

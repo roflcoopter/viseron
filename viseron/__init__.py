@@ -17,7 +17,8 @@ from viseron.exceptions import (
 from viseron.mqtt import MQTT
 from viseron.nvr import FFMPEGNVR
 from viseron.post_processors import PostProcessor
-from viseron.thread_watchdog import RestartableThread, ThreadWatchDog
+from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
+from viseron.watchdog.thread_watchdog import RestartableThread, ThreadWatchDog
 from viseron.webserver import WebServer
 
 LOGGER = logging.getLogger(__name__)
@@ -34,6 +35,7 @@ class Viseron:
         LOGGER.info("Initializing...")
 
         thread_watchdog = ThreadWatchDog()
+        subprocess_watchdog = SubprocessWatchDog()
         webserver = WebServer()
         webserver.start()
 
@@ -93,7 +95,7 @@ class Viseron:
             mqtt.connect()
             mqtt_publisher.start()
 
-        for thread in RestartableThread.thread_store[THREAD_STORE_CATEGORY_NVR]:
+        for thread in RestartableThread.thread_store.get(THREAD_STORE_CATEGORY_NVR, []):
             thread.start()
 
         LOGGER.info("Initialization complete")
@@ -101,10 +103,14 @@ class Viseron:
         def signal_term(*_):
             LOGGER.info("Kill received! Sending kill to threads..")
             thread_watchdog.stop()
-            for thread in RestartableThread.thread_store[THREAD_STORE_CATEGORY_NVR]:
+            subprocess_watchdog.stop()
+            nvr_threads = RestartableThread.thread_store.get(
+                THREAD_STORE_CATEGORY_NVR, []
+            ).copy()
+            for thread in nvr_threads:
                 LOGGER.debug(thread)
                 thread.stop()
-            for thread in RestartableThread.thread_store[THREAD_STORE_CATEGORY_NVR]:
+            for thread in nvr_threads:
                 thread.join()
             webserver.stop()
             webserver.join()

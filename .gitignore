@@ -53,6 +53,8 @@
 !/viseron/post_processors/face_recognition/dlib/*
 !/viseron/post_processors/face_recognition/deepstack
 !/viseron/post_processors/face_recognition/deepstack/*
+!/viseron/watchdog
+!/viseron/watchdog/*
 !/viseron/webserver
 !/viseron/webserver/*
 !/viseron/webserver/assets

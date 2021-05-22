@@ -10,7 +10,7 @@ from tornado.ioloop import IOLoop
 from tornado.queues import Queue as tornado_queue
 
 from viseron.helpers import pop_if_full
-from viseron.thread_watchdog import RestartableThread
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 LOGGER = logging.getLogger(__name__)
 
