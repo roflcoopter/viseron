@@ -4,7 +4,7 @@ import logging
 import threading
 from typing import Callable, Dict, List, Optional
 
-from apscheduler.schedulers.background import BackgroundScheduler
+from viseron.watchdog import WatchDog
 
 LOGGER = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class RestartableThread(threading.Thread):
         poll_timeout=None,
         poll_target=None,
         thread_store_category=None,
-        register=True
+        register=True,
     ):
         super().__init__(
             group=group,
@@ -112,8 +112,7 @@ class RestartableThread(threading.Thread):
         """Calls given stop target method."""
         if self._thread_store_category:
             self.thread_store[self._thread_store_category].remove(self)
-        if self._register:
-            ThreadWatchDog.unregister(self)
+        ThreadWatchDog.unregister(self)
         return self._stop_target() if self._stop_target else True
 
     def clone(self):
@@ -134,35 +133,18 @@ class RestartableThread(threading.Thread):
         )
 
 
-class ThreadWatchDog:
+class ThreadWatchDog(WatchDog):
     """A watchdog for long running threads."""
 
-    registered_threads: List[RestartableThread] = []
+    registered_items: List[RestartableThread] = []
 
     def __init__(self):
-        self._scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
-        self._scheduler.add_job(self.watchdog, "interval", seconds=30)
-        self._scheduler.start()
-
-    @classmethod
-    def register(
-        cls,
-        thread: RestartableThread,
-    ):
-        """Register a thread in the watchdog."""
-        cls.registered_threads.append(thread)
-
-    @classmethod
-    def unregister(
-        cls,
-        thread: RestartableThread,
-    ):
-        """Unregister a thread in the watchdog."""
-        cls.registered_threads.remove(thread)
+        super().__init__()
+        self._scheduler.add_job(self.watchdog, "interval", seconds=15)
 
     def watchdog(self):
         """Check for stopped threads and restart them."""
-        for index, registered_thread in enumerate(self.registered_threads):
+        for index, registered_thread in enumerate(self.registered_items):
             if not registered_thread.started:
                 continue
 
@@ -185,9 +167,5 @@ class ThreadWatchDog:
                 RestartableThread.thread_store[
                     registered_thread.thread_store_category
                 ].remove(registered_thread)
-            self.registered_threads[index] = registered_thread.clone()
-            self.registered_threads[index].start()
-
-    def stop(self):
-        """Stop the watchdog."""
-        self._scheduler.shutdown()
+            self.registered_items[index] = registered_thread.clone()
+            self.registered_items[index].start()

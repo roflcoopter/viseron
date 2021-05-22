@@ -20,7 +20,8 @@ ARG S6_OVERLAY_VERSION
 ENV \
   DEBIAN_FRONTEND=noninteractive \
   S6_KEEP_ENV=1 \
-  S6_SERVICES_GRACETIME=10000
+  S6_SERVICES_GRACETIME=10000 \
+  PATH=$PATH:/home/abc/bin
 
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}.tar.gz /tmp/s6-overlay.tar.gz
 
@@ -54,13 +55,13 @@ RUN \
   && rm -rf /var/lib/apt/lists/* \
   && rm -rf /wheels \
   && rm -r /tmp/s6-overlay.tar.gz \
-  && useradd -u 911 -U abc \
-  && mkdir -p /segments
-
-COPY viseron /src/viseron/
-COPY rootfs/ /
+  && useradd --uid 911 --user-group --create-home abc \
+  && mkdir -p /home/abc/bin /segments
 
 VOLUME /config
 VOLUME /recordings
+
+COPY viseron /src/viseron/
+COPY rootfs/ /
 
 ENTRYPOINT ["/init"]

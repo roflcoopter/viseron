@@ -9,7 +9,7 @@ from time import sleep
 import cv2
 
 from viseron.const import TOPIC_FRAME_DECODE_OBJECT, TOPIC_FRAME_SCAN_OBJECT
-from viseron.helpers.log_filter import SensitiveInformationFilter
+from viseron.helpers.logs import SensitiveInformationFilter
 
 from .frame_decoder import FrameDecoder
 from .stream import Stream
@@ -44,14 +44,12 @@ class FFMPEGCamera:
 
         if self._config.camera.substream:
             self.stream = Stream(
-                self._logger,
                 self._config,
                 self._config.camera.substream,
                 write_segments=False,
                 pipe_frames=True,
             )
             self._segments = Stream(
-                self._logger,
                 self._config,
                 self._config.camera,
                 write_segments=True,
@@ -59,7 +57,6 @@ class FFMPEGCamera:
             )
         else:
             self.stream = Stream(
-                self._logger,
                 self._config,
                 self._config.camera,
                 write_segments=True,
@@ -105,10 +102,6 @@ class FFMPEGCamera:
                 self.stream.close_pipe()
                 self.stream.check_command()
                 self.stream.start_pipe()
-                if self._segments:
-                    self._segments.close_pipe()
-                    self._segments.start_pipe()
-
                 self.decode_error.clear()
                 empty_frames = 0
 
@@ -133,6 +126,9 @@ class FFMPEGCamera:
                 self._logger.error("Did not receive a frame")
                 self.decode_error.set()
 
+        self.stream.close_pipe()
+        if self._segments:
+            self._segments.close_pipe()
         self._logger.info("FFMPEG frame grabber stopped")
 
     @property
@@ -143,6 +139,3 @@ class FFMPEGCamera:
     def release(self):
         """Release the connection to the camera."""
         self._connected = False
-        self.stream.close_pipe()
-        if self._segments:
-            self._segments.close_pipe()

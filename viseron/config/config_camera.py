@@ -104,7 +104,7 @@ STREAM_SCEHMA = Schema(
             "tcp", "udp", "udp_multicast", "http"
         ),
         Optional("filter_args", default=[]): list,
-        Optional("frame_timeout", default=30): int,
+        Optional("frame_timeout", default=60): int,
     }
 )
 
@@ -182,7 +182,7 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
             }
         ],
         Optional("publish_image", default=False): bool,
-        Optional("ffmpeg_loglevel", default="fatal"): Any(
+        Optional("ffmpeg_loglevel", default="error"): Any(
             "quiet",
             "panic",
             "fatal",

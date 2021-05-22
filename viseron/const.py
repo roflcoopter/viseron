@@ -65,7 +65,10 @@ ENV_OPENCL_SUPPORTED = "VISERON_OPENCL_SUPPORTED"
 ENV_RASPBERRYPI3 = "VISERON_RASPBERRYPI3"
 ENV_RASPBERRYPI4 = "VISERON_RASPBERRYPI4"
 
-FFMPEG_RECOVERABLE_ERRORS = ["error while decoding MB"]
+FFMPEG_RECOVERABLE_ERRORS = [
+    "error while decoding MB",
+    "Application provided invalid, non monotonically increasing dts to muxer in stream",
+]
 
 
 HWACCEL_VAAPI = ["-hwaccel", "vaapi", "-vaapi_device", "/dev/dri/renderD128"]
@@ -92,6 +95,18 @@ LOG_LEVELS = {
     "INFO": 20,
     "DEBUG": 10,
     "NOTSET": 0,
+}
+
+FFMPEG_LOG_LEVELS = {
+    "quiet": 50,
+    "panic": 50,
+    "fatal": 50,
+    "error": 40,
+    "warning": 30,
+    "info": 20,
+    "verbose": 10,
+    "debug": 10,
+    "trace": 10,
 }
 
 FONT = FONT_HERSHEY_SIMPLEX

@@ -17,7 +17,7 @@ from viseron.exceptions import (
     DetectorConfigSchemaError,
     DetectorImportError,
 )
-from viseron.thread_watchdog import RestartableThread
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 LOGGER = logging.getLogger(__name__)
 
