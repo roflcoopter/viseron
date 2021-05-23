@@ -1,20 +1,20 @@
 """Home Assistant MQTT sensor."""
 import json
 
-from viseron.helpers import slugify
+import viseron.helpers as helpers
+import viseron.mqtt
 
 
 class MQTTSensor:
     """Representation of a Home Assistant sensor."""
 
-    def __init__(self, config, mqtt_queue, name):
+    def __init__(self, config, name):
         self._config = config
-        self._mqtt_queue = mqtt_queue
         self._name = f"{config.mqtt.client_id} {config.camera.name} {name}"
         self._device_name = f"{config.mqtt.client_id} {config.camera.name}"
-        self._unique_id = slugify(self._name)
+        self._unique_id = helpers.slugify(self._name)
         self._node_id = self._config.camera.mqtt_name
-        self._object_id = slugify(name)
+        self._object_id = helpers.slugify(name)
 
     @property
     def state_topic(self):
@@ -92,20 +92,22 @@ class MQTTSensor:
             payload["attributes"] = attributes
         return json.dumps(payload)
 
-    def on_connect(self, client):
+    def on_connect(self):
         """Called when MQTT connection is established."""
         if self._config.mqtt.home_assistant.enable:
-            client.publish(
-                self.config_topic,
-                payload=self.config_payload,
-                retain=True,
+            viseron.mqtt.MQTT.publish(
+                viseron.mqtt.PublishPayload(
+                    topic=self.config_topic,
+                    payload=self.config_payload,
+                    retain=True,
+                )
             )
 
     def publish(self, state, attributes=None):
         """Publish state."""
-        self._mqtt_queue.put(
-            {
-                "topic": self.state_topic,
-                "payload": self.state_payload(state, attributes),
-            }
+        viseron.mqtt.MQTT.publish(
+            viseron.mqtt.PublishPayload(
+                topic=self.state_topic,
+                payload=self.state_payload(state, attributes),
+            )
         )

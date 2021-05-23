@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Union
 from tornado.ioloop import IOLoop
 from tornado.queues import Queue as tornado_queue
 
-from viseron.helpers import pop_if_full
+import viseron.helpers as helpers
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 LOGGER = logging.getLogger(__name__)
@@ -82,11 +82,11 @@ class DataStream:
                 continue
 
             if isinstance(callback, Queue):
-                pop_if_full(callback, data)
+                helpers.pop_if_full(callback, data)
                 continue
 
             if isinstance(callback, tornado_queue):
-                self.ioloop.add_callback(pop_if_full, callback, data)
+                self.ioloop.add_callback(helpers.pop_if_full, callback, data)
                 continue
 
             LOGGER.error(

@@ -1,21 +1,26 @@
 """Handles motion detection."""
+from __future__ import annotations
+
 import logging
 from queue import Queue
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
 
+import viseron.helpers as helpers
 from viseron.camera import FFMPEGCamera, FrameDecoder
 from viseron.camera.frame_decoder import FrameToScan
-from viseron.config import NVRConfig
 from viseron.const import (
     TOPIC_FRAME_DECODE_MOTION,
     TOPIC_FRAME_PROCESSED_MOTION,
     TOPIC_FRAME_SCAN_MOTION,
 )
 from viseron.data_stream import DataStream
-from viseron.helpers import calculate_relative_contours
 from viseron.watchdog.thread_watchdog import RestartableThread
+
+if TYPE_CHECKING:
+    from viseron.config import NVRConfig
 
 
 class Contours:
@@ -23,7 +28,7 @@ class Contours:
 
     def __init__(self, contours, resolution):
         self._contours = contours
-        self._rel_contours = calculate_relative_contours(contours, resolution)
+        self._rel_contours = helpers.calculate_relative_contours(contours, resolution)
 
         scale_factor = resolution[0] * resolution[1]
         self._contour_areas = [cv2.contourArea(c) / scale_factor for c in contours]

@@ -2,22 +2,16 @@
 import logging
 from queue import Empty, Queue
 from threading import Thread
-from typing import Dict, Union
+from typing import Dict, List, Union
 
 import cv2
 
+import viseron.helpers as helpers
+import viseron.mqtt
 from viseron.camera import FFMPEGCamera
 from viseron.camera.frame import Frame
 from viseron.const import TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_POSTPROC
 from viseron.data_stream import DataStream
-from viseron.helpers import (
-    combined_objects,
-    draw_contours,
-    draw_mask,
-    draw_objects,
-    draw_zones,
-    report_labels,
-)
 from viseron.helpers.filter import Filter
 from viseron.motion import MotionDetection
 from viseron.mqtt.binary_sensor import MQTTBinarySensor
@@ -32,55 +26,53 @@ from viseron.zones import Zone
 LOGGER = logging.getLogger(__name__)
 
 
-class MQTT:
+class MQTTInterface:
     """Handles MQTT connection."""
 
-    def __init__(self, config, mqtt_queue):
+    def __init__(self, config):
         self.config = config
-        self.mqtt_queue = mqtt_queue
 
         self._status_state = None
         self.status_attributes = {}
 
         self.devices = {}
-        if self.mqtt_queue:
+        if viseron.mqtt.MQTT.client:
             self.devices["motion_detected"] = MQTTBinarySensor(
-                config, mqtt_queue, "motion_detected"
+                config, "motion_detected"
             )
             self.devices["object_detected"] = MQTTBinarySensor(
-                config, mqtt_queue, "object_detected"
+                config, "object_detected"
             )
             for label in config.object_detection.labels:
                 self.devices[label.label] = MQTTBinarySensor(
                     config,
-                    mqtt_queue,
                     f"object_detected {label.label}",
                 )
-            self.devices["switch"] = MQTTSwitch(config, mqtt_queue)
-            self.devices["camera"] = MQTTCamera(config, mqtt_queue)
-            self.devices["sensor"] = MQTTSensor(config, mqtt_queue, "status")
+            self.devices["switch"] = MQTTSwitch(config)
+            self.devices["camera"] = MQTTCamera(config)
+            self.devices["sensor"] = MQTTSensor(config, "status")
 
     def publish_image(self, object_frame, motion_frame, zones, resolution):
         """Publish image to MQTT."""
-        if self.mqtt_queue:
+        if viseron.mqtt.MQTT.client:
             # Draw on the object frame if it is supplied
             frame = object_frame if object_frame else motion_frame
             if self.config.motion_detection.mask:
-                draw_mask(
+                helpers.draw_mask(
                     frame.decoded_frame_mat_rgb,
                     self.config.motion_detection.mask,
                 )
 
             if motion_frame and frame.motion_contours:
-                draw_contours(
+                helpers.draw_contours(
                     frame.decoded_frame_mat_rgb,
                     frame.motion_contours,
                     resolution,
                     self.config.motion_detection.area,
                 )
 
-            draw_zones(frame.decoded_frame_mat_rgb, zones)
-            draw_objects(
+            helpers.draw_zones(frame.decoded_frame_mat_rgb, zones)
+            helpers.draw_objects(
                 frame.decoded_frame_mat_rgb,
                 frame.objects,
                 resolution,
@@ -103,12 +95,12 @@ class MQTT:
         self._status_state = state
         self.devices["sensor"].publish(state, attributes=self.status_attributes)
 
-    def on_connect(self, client):
+    def on_connect(self):
         """Called when MQTT connection is established."""
         subscriptions = {}
 
         for device in self.devices.values():
-            device.on_connect(client)
+            device.on_connect()
             if getattr(device, "on_message", False):
                 subscriptions[device.command_topic] = [device.on_message]
 
@@ -122,14 +114,14 @@ class FFMPEGNVR:
 
     nvr_list: Dict[str, object] = {}
 
-    def __init__(self, config, detector, mqtt_queue=None):
+    def __init__(self, config, detector):
         self.setup_loggers(config)
         self._logger.debug("Initializing NVR thread")
 
         # Use FFMPEG to read from camera. Used for reading/recording
         self.camera = FFMPEGCamera(config, detector)
 
-        self._mqtt = MQTT(config, mqtt_queue)
+        self._mqtt = MQTTInterface(config)
         self.config = config
         self.kill_received = False
         self.camera_grabber = None
@@ -147,14 +139,13 @@ class FFMPEGNVR:
         for object_filter in config.object_detection.labels:
             self._object_filters[object_filter.label] = Filter(object_filter)
 
-        self.zones = []
+        self.zones: List[Zone] = []
         for zone in config.camera.zones:
             self.zones.append(
                 Zone(
                     zone,
                     self.camera.resolution,
                     config,
-                    self._mqtt.mqtt_queue,
                 )
             )
 
@@ -186,7 +177,7 @@ class FFMPEGNVR:
 
         # Initialize recorder
         self._start_recorder = False
-        self.recorder = FFMPEGRecorder(config, detector.detection_lock, mqtt_queue)
+        self.recorder = FFMPEGRecorder(config, detector.detection_lock)
 
         self.nvr_list[config.camera.name_slug] = self
         self._logger.debug("NVR thread initialized")
@@ -217,13 +208,13 @@ class FFMPEGNVR:
         elif getattr(config.camera.logging, "level", None):
             self._object_logger.setLevel(config.camera.logging.level)
 
-    def on_connect(self, client):
+    def on_connect(self):
         """Called when MQTT connection is established."""
-        subscriptions = self._mqtt.on_connect(client)
-        self.recorder.on_connect(client)
+        subscriptions = self._mqtt.on_connect()
+        self.recorder.on_connect()
 
         for zone in self.zones:
-            zone.on_connect(client)
+            zone.on_connect()
 
         # We subscribe to the switch topic to toggle camera on/off
         subscriptions[self._mqtt.devices["switch"].command_topic].append(
@@ -267,7 +258,7 @@ class FFMPEGNVR:
 
     def event_over(self, frame):
         """Return if ongoing motion and/or object detection is over."""
-        all_objects = combined_objects(frame, self.zones)
+        all_objects = helpers.combined_objects(frame, self.zones)
 
         for obj in all_objects:
             if obj.trigger_recorder:
@@ -375,7 +366,7 @@ class FFMPEGNVR:
         if objects == self._objects_in_fov:
             return
 
-        if self._mqtt.mqtt_queue:
+        if viseron.mqtt.MQTT.client:
             attributes = {}
             attributes["objects"] = [obj.formatted for obj in objects]
             self._mqtt.devices["object_detected"].publish(bool(objects), attributes)
@@ -389,11 +380,10 @@ class FFMPEGNVR:
 
     @labels_in_fov.setter
     def labels_in_fov(self, labels):
-        self._labels_in_fov, self._reported_label_count = report_labels(
+        self._labels_in_fov, self._reported_label_count = helpers.report_labels(
             labels,
             self._labels_in_fov,
             self._reported_label_count,
-            self._mqtt.mqtt_queue,
             self._mqtt.devices,
         )
 
@@ -447,12 +437,12 @@ class FFMPEGNVR:
             "Motion detected" if motion_detected else "Motion stopped"
         )
 
-        if self._mqtt.mqtt_queue:
+        if viseron.mqtt.MQTT.client:
             self._mqtt.devices["motion_detected"].publish(motion_detected)
 
     def process_object_event(self, frame):
         """Process any detected objects to see if recorder should start."""
-        all_objects = combined_objects(frame, self.zones)
+        all_objects = helpers.combined_objects(frame, self.zones)
 
         if any(obj.trigger_recorder for obj in all_objects):
             if not self.recorder.is_recording:
@@ -477,7 +467,7 @@ class FFMPEGNVR:
 
     def update_status_sensor(self):
         """Update MQTT status sensor."""
-        if not self._mqtt.mqtt_queue:
+        if not viseron.mqtt.MQTT.client:
             return
 
         status = "unknown"

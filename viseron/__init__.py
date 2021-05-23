@@ -43,18 +43,17 @@ class Viseron:
 
         schedule_cleanup(config)
 
-        mqtt_queue = None
         mqtt = None
         if config.mqtt:
-            mqtt_queue = Queue(maxsize=100)
             mqtt = MQTT(config)
             mqtt_publisher = RestartableThread(
                 name="mqtt_publisher",
                 target=mqtt.publisher,
-                args=(mqtt_queue,),
                 daemon=True,
                 register=True,
             )
+            mqtt.connect()
+            mqtt_publisher.start()
 
         detector = Detector(config.object_detection)
 
@@ -65,7 +64,9 @@ class Viseron:
         ) in config.post_processors.post_processors.items():
             try:
                 post_processors[post_processor_type] = PostProcessor(
-                    config, post_processor_type, post_processor_config, mqtt_queue
+                    config,
+                    post_processor_type,
+                    post_processor_config,
                 )
             except (PostProcessorImportError, PostProcessorStructureError) as error:
                 LOGGER.error(
@@ -83,17 +84,12 @@ class Viseron:
                     config,
                     camera,
                     detector,
-                    mqtt_queue,
                 ),
             )
             setup_thread.start()
             self.setup_threads.append(setup_thread)
         for thread in self.setup_threads:
             thread.join()
-
-        if mqtt:
-            mqtt.connect()
-            mqtt_publisher.start()
 
         for thread in RestartableThread.thread_store.get(THREAD_STORE_CATEGORY_NVR, []):
             thread.start()
@@ -121,7 +117,7 @@ class Viseron:
         signal.signal(signal.SIGINT, signal_term)
 
     @staticmethod
-    def setup_nvr(config, camera, detector, mqtt_queue):
+    def setup_nvr(config, camera, detector):
         """Setup NVR for each configured camera."""
         camera_config = NVRConfig(
             camera,
@@ -135,7 +131,6 @@ class Viseron:
             nvr = FFMPEGNVR(
                 camera_config,
                 detector,
-                mqtt_queue=mqtt_queue,
             )
             RestartableThread(
                 name=str(nvr),

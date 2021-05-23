@@ -1,5 +1,5 @@
 """Represents a detected object."""
-from viseron.helpers import calculate_relative_coords
+import viseron.helpers as helpers
 
 
 class DetectedObject:
@@ -22,7 +22,7 @@ class DetectedObject:
                 self._rel_y1,
                 self._rel_x2,
                 self._rel_y2,
-            ) = calculate_relative_coords((x1, y1, x2, y2), image_res)
+            ) = helpers.calculate_relative_coords((x1, y1, x2, y2), image_res)
 
         self._rel_width = float(round(self._rel_x2 - self._rel_x1, 3))
         self._rel_height = float(round(self._rel_y2 - self._rel_y1, 3))

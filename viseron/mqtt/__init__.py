@@ -1,9 +1,12 @@
 """MQTT interface."""
 import logging
+from dataclasses import dataclass
+from queue import Queue
+from typing import Any, Optional
 
 import paho.mqtt.client as mqtt
 
-from viseron.nvr import FFMPEGNVR
+import viseron.nvr
 from viseron.post_processors import PostProcessor
 
 LOGGER = logging.getLogger(__name__)
@@ -18,14 +21,26 @@ MQTT_RC = {
 }
 
 
+@dataclass
+class PublishPayload:
+    """Payload to publish to MQTT."""
+
+    topic: str
+    payload: Any
+    retain: bool = False
+
+
 class MQTT:
     """MQTT interface."""
+
+    client: mqtt.Client = None
+    publish_queue: Optional[Queue] = None
 
     def __init__(self, config):
         LOGGER.info("Initializing MQTT connection")
         self.config = config
-        self.client = None
         self.subscriptions = []
+        self.publish_queue = Queue(maxsize=1000)
 
     # pylint: disable=unused-argument
     def on_connect(self, client, userdata, flags, returncode):
@@ -39,13 +54,12 @@ class MQTT:
             )
 
         self.subscriptions = {}
-        for nvr in FFMPEGNVR.nvr_list.values():
-            subscriptions = nvr.on_connect(client)
+        for nvr in viseron.nvr.FFMPEGNVR.nvr_list.values():
+            subscriptions = nvr.on_connect()
             self.subscribe(subscriptions)
 
         for post_processor in PostProcessor.post_processor_list:
-            post_processor.on_connect(client)
-
+            post_processor.on_connect()
         # Send initial alive message
         client.publish(self.config.mqtt.last_will_topic, payload="alive", retain=True)
 
@@ -83,10 +97,20 @@ class MQTT:
 
         self.subscriptions.update(subscription)
 
-    def publisher(self, mqtt_queue):
+    @classmethod
+    def publish(cls, payload: PublishPayload):
+        """Put payload in publish queue."""
+        if cls.publish_queue:
+            cls.publish_queue.put(payload)
+        else:
+            LOGGER.error("Trying to publish when MQTT has not been initialized")
+
+    def publisher(self):
         """Publishing thread."""
         while True:
-            message = mqtt_queue.get()
+            message: PublishPayload = self.publish_queue.get()
             self.client.publish(
-                message["topic"], payload=message["payload"], retain=True
+                message.topic,
+                payload=message.payload,
+                retain=message.retain,
             )

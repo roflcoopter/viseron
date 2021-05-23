@@ -12,6 +12,7 @@ import slugify as unicode_slug
 import tornado.queues as tq
 import voluptuous as vol
 
+import viseron.mqtt
 from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
 
 if TYPE_CHECKING:
@@ -253,7 +254,6 @@ def report_labels(
     labels,
     labels_in_fov: List[str],
     reported_label_count: Dict[str, int],
-    mqtt_queue,
     mqtt_devices,
 ) -> Tuple[List[str], Dict[str, int]]:
     """Send on/off to MQTT for labels.
@@ -268,7 +268,7 @@ def report_labels(
     # Count occurrences of each label
     counter: Counter = Counter(labels)
 
-    if mqtt_queue:
+    if viseron.mqtt.MQTT.client:
         for label in labels_added:
             attributes = {}
             attributes["count"] = counter[label]
