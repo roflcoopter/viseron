@@ -7,15 +7,14 @@ from queue import Queue
 from threading import Event
 from typing import TYPE_CHECKING, Callable
 
-from viseron.config import NVRConfig
+from viseron.camera.frame import Frame
 from viseron.data_stream import DataStream
 from viseron.exceptions import DuplicateDecoderName
 from viseron.watchdog.thread_watchdog import RestartableThread
 
-from .frame import Frame
-
 if TYPE_CHECKING:
-    from .stream import Stream
+    from viseron.camera.stream import Stream
+    from viseron.config import NVRConfig
 
 
 @dataclass

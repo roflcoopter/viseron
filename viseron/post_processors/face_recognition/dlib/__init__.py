@@ -11,6 +11,7 @@ from face_recognition.face_recognition_cli import image_files_in_folder
 from sklearn import neighbors
 from voluptuous import Any, Optional
 
+import viseron.mqtt
 from viseron.config import ViseronConfig
 from viseron.const import ENV_CUDA_SUPPORTED
 from viseron.helpers import calculate_absolute_coords
@@ -57,20 +58,18 @@ class Config(AbstractFaceRecognitionConfig):
 class Processor(AbstractFaceRecognition):
     """dlib face recognition processor."""
 
-    def __init__(self, config: ViseronConfig, processor_config: Config, mqtt_queue):
-        super().__init__(config, processor_config, mqtt_queue, LOGGER)
+    def __init__(self, config: ViseronConfig, processor_config: Config):
+        super().__init__(config, processor_config, LOGGER)
         LOGGER.debug("Initializing dlib")
         self._processor_config: Config = processor_config
         self._classifier, tracked_faces = train(processor_config.face_recognition_path)
 
         # Create one MQTT binary sensor per tracked face
         self._mqtt_devices = {}
-        if mqtt_queue:
+        if viseron.mqtt.MQTT.publish_queue:
             for face in list(set(tracked_faces)):
                 LOGGER.debug(f"Creating MQTT binary sensor for face {face}")
-                self._mqtt_devices[face] = FaceMQTTBinarySensor(
-                    config, mqtt_queue, face
-                )
+                self._mqtt_devices[face] = FaceMQTTBinarySensor(config, face)
 
         LOGGER.debug("dlib initialized")
 

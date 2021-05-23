@@ -8,6 +8,7 @@ import deepstack.core as ds
 import voluptuous as vol
 from face_recognition.face_recognition_cli import image_files_in_folder
 
+import viseron.mqtt
 from viseron.config import ViseronConfig
 from viseron.helpers import calculate_absolute_coords
 from viseron.post_processors import PostProcessorFrame
@@ -85,8 +86,8 @@ class Config(AbstractFaceRecognitionConfig):
 class Processor(AbstractFaceRecognition):
     """DeepSTack face recognition processor."""
 
-    def __init__(self, config: ViseronConfig, processor_config: Config, mqtt_queue):
-        super().__init__(config, processor_config, mqtt_queue, LOGGER)
+    def __init__(self, config: ViseronConfig, processor_config: Config):
+        super().__init__(config, processor_config, LOGGER)
         self._ds = DeepstackFace(
             ip=processor_config.host,
             port=processor_config.port,
@@ -100,12 +101,10 @@ class Processor(AbstractFaceRecognition):
         trained_faces = self._ds.list_faces()
         # Create one MQTT binary sensor per tracked face
         self._mqtt_devices = {}
-        if mqtt_queue:
+        if viseron.mqtt.MQTT.publish_queue:
             for face in trained_faces["faces"]:
                 LOGGER.debug(f"Creating MQTT binary sensor for face {face}")
-                self._mqtt_devices[face] = FaceMQTTBinarySensor(
-                    config, mqtt_queue, face
-                )
+                self._mqtt_devices[face] = FaceMQTTBinarySensor(config, face)
 
     def process(self, frame_to_process: PostProcessorFrame):
         height, width, _ = frame_to_process.frame.decoded_frame_mat_rgb.shape

@@ -91,10 +91,9 @@ class AbstractFaceRecognition(AbstractProcessor):
         self,
         config: ViseronConfig,
         processor_config: AbstractFaceRecognitionConfig,
-        mqtt_queue: Queue,
         logger: logging.Logger,
     ):
-        super().__init__(config, processor_config, mqtt_queue, logger)
+        super().__init__(config, processor_config, logger)
         self._faces: Dict[str, FaceDict] = {}
         self._mqtt_devices: Dict[str, FaceMQTTBinarySensor] = {}
         self._processor_config = processor_config
@@ -138,19 +137,18 @@ class AbstractFaceRecognition(AbstractProcessor):
         self._mqtt_devices[face].publish(False)
         del self._faces[face]
 
-    def on_connect(self, client):
+    def on_connect(self):
         """Called when MQTT connection is established."""
         for device in self._mqtt_devices.values():
-            device.on_connect(client)
+            device.on_connect()
 
 
 class FaceMQTTBinarySensor(MQTTBinarySensor):
     """MQTT binary sensor representing a face."""
 
     # pylint: disable=super-init-not-called
-    def __init__(self, config, mqtt_queue, face):
+    def __init__(self, config, face):
         self._config = config
-        self._mqtt_queue = mqtt_queue
         self._name = f"{config.mqtt.client_id} Face detected {face}"
         self._friendly_name = f"Face detected {face}"
         self._device_name = config.mqtt.client_id

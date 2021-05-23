@@ -68,7 +68,6 @@ class AbstractProcessor(ABC):
         self,
         config: ViseronConfig,  # pylint: disable=unused-argument
         processor_config: AbstractProcessorConfig,
-        mqtt_queue: Queue,  # pylint: disable=unused-argument
         logger: logging.Logger,
     ):
         if processor_config.logging:
@@ -89,7 +88,6 @@ class PostProcessor:
         config: ViseronConfig,
         processor_type: str,
         processor_config: Dict[str, Any],
-        mqtt_queue: Queue,
     ):
         if getattr(config.post_processors.logging, "level", None):
             LOGGER.setLevel(config.post_processors.logging.level)
@@ -100,7 +98,6 @@ class PostProcessor:
             processor.Config(  # type: ignore
                 processor.SCHEMA(processor_config),  # type: ignore
             ),
-            mqtt_queue,
         )
 
         self._topic_scan = f"*/{TOPIC_FRAME_SCAN_POSTPROC}/{processor_type}"
@@ -143,7 +140,7 @@ class PostProcessor:
             frame_to_process: PostProcessorFrame = self._post_processor_queue.get()
             self._post_processor.process(frame_to_process)
 
-    def on_connect(self, client):
+    def on_connect(self):
         """Called when MQTT connection is established."""
         if getattr(self._post_processor, "on_connect", None):
-            self._post_processor.on_connect(client)
+            self._post_processor.on_connect()

@@ -1,14 +1,16 @@
 """Interface to different object detectors."""
+from __future__ import annotations
+
 import importlib
 import logging
 from abc import ABC, abstractmethod
 from queue import Queue
 from threading import Lock
+from typing import TYPE_CHECKING
 
 import cv2
 from voluptuous import PREVENT_EXTRA
 
-from viseron.camera.frame_decoder import FrameToScan
 from viseron.config.config_object_detection import ObjectDetectionConfig
 from viseron.const import TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_OBJECT
 from viseron.data_stream import DataStream
@@ -18,6 +20,9 @@ from viseron.exceptions import (
     DetectorImportError,
 )
 from viseron.watchdog.thread_watchdog import RestartableThread
+
+if TYPE_CHECKING:
+    from viseron.camera.frame_decoder import FrameToScan
 
 LOGGER = logging.getLogger(__name__)
 
