@@ -321,7 +321,7 @@ The command is built like this: \
 | codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
 | rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesn't support TCP |
 | filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
-| frame_timeout | int | 30 | any int | A timeout in seconds. If a frame has not been received in this time period FFMpeg will be restarted |
+| frame_timeout | int | 60 | any int | A timeout in seconds. If a frame has not been received in this time period FFMpeg will be restarted |
 | substream | dictionary | optional | see [Substream config](#substream) | Substream to perform image processing on |
 | motion_detection | dictionary | optional | see [Camera motion detection config](#camera-motion-detection) | Overrides the global ```motion_detection``` config |
 | object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) | Overrides the global ```object_detection``` config |

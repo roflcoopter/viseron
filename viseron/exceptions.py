@@ -18,6 +18,20 @@ class FFprobeError(ViseronError):
         return f"FFprobe could not connect to stream: {self.ffprobe_output}"
 
 
+class FFprobeTimeout(ViseronError):
+    """Raised when FFprobe times out."""
+
+    def __init__(self, ffprobe_command, timeout) -> None:
+        """Initialize error."""
+        super().__init__(self)
+        self.ffprobe_command = ffprobe_command
+        self.timeout = timeout
+
+    def __str__(self) -> str:
+        """Return string representation."""
+        return f"FFprobe command {self.ffprobe_command} timed out after {self.timeout}s"
+
+
 class StreamInformationError(ViseronError):
     """Raised when FFprobe fails to get stream information."""
 

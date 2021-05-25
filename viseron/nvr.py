@@ -10,7 +10,11 @@ import viseron.helpers as helpers
 import viseron.mqtt
 from viseron.camera import FFMPEGCamera
 from viseron.camera.frame import Frame
-from viseron.const import TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_POSTPROC
+from viseron.const import (
+    THREAD_STORE_CATEGORY_NVR,
+    TOPIC_FRAME_PROCESSED_OBJECT,
+    TOPIC_FRAME_SCAN_POSTPROC,
+)
 from viseron.data_stream import DataStream
 from viseron.helpers.filter import Filter
 from viseron.motion import MotionDetection
@@ -180,6 +184,14 @@ class FFMPEGNVR:
         self.recorder = FFMPEGRecorder(config, detector.detection_lock)
 
         self.nvr_list[config.camera.name_slug] = self
+        RestartableThread(
+            name=str(self),
+            target=self.run,
+            stop_target=self.stop,
+            thread_store_category=THREAD_STORE_CATEGORY_NVR,
+            daemon=False,
+            register=True,
+        ).start()
         self._logger.debug("NVR thread initialized")
 
     def __repr__(self):

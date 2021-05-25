@@ -6,9 +6,17 @@ import subprocess as sp
 from time import sleep
 from typing import Dict, Optional
 
+from tenacity import (
+    Retrying,
+    before_sleep_log,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
+
 from viseron.camera.frame_decoder import FrameDecoder
-from viseron.const import CAMERA_SEGMENT_ARGS, FFMPEG_LOG_LEVELS
-from viseron.exceptions import FFprobeError, StreamInformationError
+from viseron.const import CAMERA_SEGMENT_ARGS, FFMPEG_LOG_LEVELS, FFPROBE_TIMEOUT
+from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
 from viseron.helpers.logs import FFmpegFilter, LogPipe, SensitiveInformationFilter
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
@@ -37,6 +45,7 @@ class Stream:
             self._logger, FFMPEG_LOG_LEVELS[config.camera.ffmpeg_loglevel]
         )
 
+        self._ffprobe_timeout = FFPROBE_TIMEOUT
         stream_codec = None
         if (
             not self.stream_config.width
@@ -89,8 +98,10 @@ class Stream:
         )
         self.output_fps = round(min([max_interval_fps, self.fps]))
 
-    @staticmethod
-    def run_ffprobe(stream_url: str, stream_type: str) -> dict:
+    def run_ffprobe(
+        self,
+        stream_url: str,
+    ) -> dict:
         """Run FFprobe command."""
         ffprobe_command = [
             "ffprobe",
@@ -101,13 +112,29 @@ class Stream:
             "json",
             "-show_error",
             "-show_streams",
-            "-select_streams",
-            stream_type,
         ] + [stream_url]
 
-        pipe = sp.Popen(ffprobe_command, stdout=sp.PIPE)
-        stdout, _ = pipe.communicate()
-        pipe.wait()
+        for attempt in Retrying(
+            retry=retry_if_exception_type((sp.TimeoutExpired, FFprobeTimeout)),
+            stop=stop_after_attempt(10),
+            wait=wait_exponential(multiplier=2, min=1, max=30),
+            before_sleep=before_sleep_log(self._logger, logging.ERROR),
+            reraise=True,
+        ):
+            with attempt:
+                pipe = sp.Popen(ffprobe_command, stdout=sp.PIPE)
+                try:
+                    stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
+                    pipe.wait(timeout=FFPROBE_TIMEOUT)
+                except sp.TimeoutExpired as error:
+                    pipe.terminate()
+                    pipe.wait(timeout=FFPROBE_TIMEOUT)
+                    ffprobe_timeout = self._ffprobe_timeout
+                    self._ffprobe_timeout += FFPROBE_TIMEOUT
+                    raise FFprobeTimeout(ffprobe_command, ffprobe_timeout) from error
+                else:
+                    self._ffprobe_timeout = FFPROBE_TIMEOUT
+
         output: dict = json.loads(stdout)
 
         if output.get("error", None):
@@ -118,16 +145,24 @@ class Stream:
     def ffprobe_stream_information(self, stream_url):
         """Return stream information using FFprobe."""
         width, height, fps, codec, audio_codec = 0, 0, 0, None, None
-        video_streams = self.run_ffprobe(stream_url, "v")
-        audio_streams = self.run_ffprobe(stream_url, "a")
+        streams = self.run_ffprobe(stream_url)
 
-        for stream in audio_streams["streams"]:
-            audio_codec = stream.get("codec_name", None)
+        video_stream = None
+        audio_stream = None
+        for stream in streams["streams"]:
+            if video_stream and audio_stream:
+                break
+            if stream["codec_type"] == "video":
+                video_stream = stream
+            elif stream["codec_type"] == "audio":
+                audio_stream = stream
+
+        if audio_stream:
+            audio_codec = audio_stream.get("codec_name", None)
 
         try:
-            stream_information = video_streams["streams"][0]
-            numerator = int(stream_information.get("avg_frame_rate", 0).split("/")[0])
-            denominator = int(stream_information.get("avg_frame_rate", 0).split("/")[1])
+            numerator = int(video_stream.get("avg_frame_rate", 0).split("/")[0])
+            denominator = int(video_stream.get("avg_frame_rate", 0).split("/")[1])
         except KeyError:
             return (width, height, fps, codec, audio_codec)
 
@@ -136,9 +171,9 @@ class Stream:
         except ZeroDivisionError:
             pass
 
-        width = stream_information.get("width", 0)
-        height = stream_information.get("height", 0)
-        codec = stream_information.get("codec_name", None)
+        width = video_stream.get("width", 0)
+        height = video_stream.get("height", 0)
+        codec = video_stream.get("codec_name", None)
 
         return (width, height, fps, codec, audio_codec)
 
