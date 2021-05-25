@@ -46,6 +46,8 @@ class RestartableThread(threading.Thread):
         poll_target=None,
         thread_store_category=None,
         register=True,
+        base_class=None,
+        base_class_args=(),
     ):
         super().__init__(
             group=group,
@@ -82,6 +84,8 @@ class RestartableThread(threading.Thread):
         self._register = register
         if register:
             ThreadWatchDog.register(self)
+        self._base_class = base_class
+        self._base_class_args = base_class_args
 
     @property
     def started(self):
@@ -117,6 +121,9 @@ class RestartableThread(threading.Thread):
 
     def clone(self):
         """Return a clone of the thread to restart it."""
+        if self._base_class:
+            return self._base_class(*self._base_class_args, register=False)
+
         return RestartableThread(
             group=self._restartable_group,
             target=self._restartable_target,
@@ -130,6 +137,8 @@ class RestartableThread(threading.Thread):
             poll_target=self._poll_target,
             thread_store_category=self._thread_store_category,
             register=False,
+            base_class=self._base_class,
+            base_class_args=self._base_class_args,
         )
 
 
@@ -168,4 +177,5 @@ class ThreadWatchDog(WatchDog):
                     registered_thread.thread_store_category
                 ].remove(registered_thread)
             self.registered_items[index] = registered_thread.clone()
-            self.registered_items[index].start()
+            if not self.registered_items[index].started:
+                self.registered_items[index].start()

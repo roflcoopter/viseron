@@ -11,6 +11,7 @@ from viseron.data_stream import DataStream
 from viseron.detector import Detector
 from viseron.exceptions import (
     FFprobeError,
+    FFprobeTimeout,
     PostProcessorImportError,
     PostProcessorStructureError,
 )
@@ -78,21 +79,14 @@ class Viseron:
         LOGGER.info("Initializing NVR threads")
         self.setup_threads = []
         for camera in config.cameras:
-            setup_thread = threading.Thread(
-                target=self.setup_nvr,
-                args=(
-                    config,
-                    camera,
-                    detector,
-                ),
+            setup_thread = SetupNVR(
+                config,
+                camera,
+                detector,
             )
-            setup_thread.start()
             self.setup_threads.append(setup_thread)
         for thread in self.setup_threads:
             thread.join()
-
-        for thread in RestartableThread.thread_store.get(THREAD_STORE_CATEGORY_NVR, []):
-            thread.start()
 
         LOGGER.info("Initialization complete")
 
@@ -104,7 +98,6 @@ class Viseron:
                 THREAD_STORE_CATEGORY_NVR, []
             ).copy()
             for thread in nvr_threads:
-                LOGGER.debug(thread)
                 thread.stop()
             for thread in nvr_threads:
                 thread.join()
@@ -116,33 +109,46 @@ class Viseron:
         signal.signal(signal.SIGTERM, signal_term)
         signal.signal(signal.SIGINT, signal_term)
 
-    @staticmethod
-    def setup_nvr(config, camera, detector):
-        """Setup NVR for each configured camera."""
+
+class SetupNVR(RestartableThread):
+    """Thread to setup NVR."""
+
+    def __init__(self, config, camera, detector, register=True):
+        super().__init__(
+            name=f"setup.{camera['name']}",
+            daemon=True,
+            register=register,
+            base_class=SetupNVR,
+            base_class_args=(
+                config,
+                camera,
+                detector,
+            ),
+        )
+        self._config = config
+        self._camera = camera
+        self._detector = detector
+        self.start()
+
+    def run(self):
+        """Validate config and setup NVR."""
         camera_config = NVRConfig(
-            camera,
-            config.object_detection,
-            config.motion_detection,
-            config.recorder,
-            config.mqtt,
-            config.logging,
+            self._camera,
+            self._config.object_detection,
+            self._config.motion_detection,
+            self._config.recorder,
+            self._config.mqtt,
+            self._config.logging,
         )
         try:
-            nvr = FFMPEGNVR(
-                camera_config,
-                detector,
-            )
-            RestartableThread(
-                name=str(nvr),
-                target=nvr.run,
-                stop_target=nvr.stop,
-                thread_store_category=THREAD_STORE_CATEGORY_NVR,
-                register=True,
-            )
-        except FFprobeError as error:
+            FFMPEGNVR(camera_config, self._detector)
+        except (FFprobeError, FFprobeTimeout) as error:
             LOGGER.error(
                 f"Failed to initialize camera {camera_config.camera.name}: {error}"
             )
+        else:
+            # Unregister thread from watchdog only if it succeeds
+            self.stop()
 
 
 def schedule_cleanup(config):
