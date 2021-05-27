@@ -89,7 +89,10 @@ class Stream:
     def create_symlink(self):
         """Creates a symlink to ffmpeg executable to know which ffmpeg command
         belongs to which camera."""
-        os.symlink("/usr/local/bin/ffmpeg", f"/home/abc/bin/{self.alias}")
+        try:
+            os.symlink("/usr/local/bin/ffmpeg", f"/home/abc/bin/{self.alias}")
+        except FileExistsError:
+            pass
 
     def calculate_output_fps(self):
         """Calculate FFmpeg output FPS."""
