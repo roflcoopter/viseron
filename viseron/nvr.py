@@ -101,14 +101,8 @@ class MQTTInterface:
 
     def on_connect(self):
         """Called when MQTT connection is established."""
-        subscriptions = {}
-
         for device in self.devices.values():
             device.on_connect()
-            if getattr(device, "on_message", False):
-                subscriptions[device.command_topic] = [device.on_message]
-
-        return subscriptions
 
 
 class FFMPEGNVR:
@@ -192,6 +186,8 @@ class FFMPEGNVR:
             daemon=False,
             register=True,
         ).start()
+
+        self.setup_mqtt()
         self._logger.debug("NVR thread initialized")
 
     def __repr__(self):
@@ -220,29 +216,27 @@ class FFMPEGNVR:
         elif getattr(config.camera.logging, "level", None):
             self._object_logger.setLevel(config.camera.logging.level)
 
-    def on_connect(self):
-        """Called when MQTT connection is established."""
-        subscriptions = self._mqtt.on_connect()
+    def setup_mqtt(self):
+        """Setup various MQTT elements."""
+        self._mqtt.on_connect()
         self.recorder.on_connect()
 
         for zone in self.zones:
             zone.on_connect()
 
         # We subscribe to the switch topic to toggle camera on/off
-        subscriptions[self._mqtt.devices["switch"].command_topic].append(
-            self.toggle_camera
+        viseron.mqtt.MQTT.subscribe(
+            viseron.mqtt.SubscribeTopic(
+                self._mqtt.devices["switch"].command_topic, self.toggle_camera
+            )
         )
-
-        return subscriptions
 
     def toggle_camera(self, message):
         """Toggle reading from camera on/off."""
         if message.payload.decode() == "ON":
             self.start_camera()
-            return
-        if message.payload.decode() == "OFF":
+        elif message.payload.decode() == "OFF":
             self.stop_camera()
-            return
 
     def start_camera(self):
         """Start reading from camera."""

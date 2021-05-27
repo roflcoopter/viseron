@@ -96,6 +96,12 @@ class MQTTSwitch:
                     retain=True,
                 )
             )
+        viseron.mqtt.MQTT.subscribe(
+            viseron.mqtt.SubscribeTopic(
+                self.command_topic,
+                self.on_message,
+            )
+        )
 
     def on_message(self, message):
         """Publish state."""

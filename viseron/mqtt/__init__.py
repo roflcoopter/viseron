@@ -2,7 +2,7 @@
 import logging
 from dataclasses import dataclass
 from queue import Queue
-from typing import Any, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import paho.mqtt.client as mqtt
 
@@ -30,20 +30,26 @@ class PublishPayload:
     retain: bool = False
 
 
+@dataclass
+class SubscribeTopic:
+    """Subscribe to a topic."""
+
+    topic: str
+    callback: Callable
+
+
 class MQTT:
     """MQTT interface."""
 
     client: mqtt.Client = None
-    publish_queue: Optional[Queue] = None
+    publish_queue: Queue = Queue(maxsize=1000)
+    subscriptions: Dict[str, List[Callable]] = {}
 
     def __init__(self, config):
         LOGGER.info("Initializing MQTT connection")
         self.config = config
-        self.subscriptions = []
-        self.publish_queue = Queue(maxsize=1000)
 
-    # pylint: disable=unused-argument
-    def on_connect(self, client, userdata, flags, returncode):
+    def on_connect(self, client, _userdata, _flags, returncode):
         """Called when MQTT connection is established.
         Calls on_connect methods in all dependent components."""
         LOGGER.debug(f"MQTT connected with returncode {str(returncode)}")
@@ -53,17 +59,10 @@ class MQTT:
                 f"{MQTT_RC.get(returncode, 'Unknown error')}"
             )
 
-        self.subscriptions = {}
-        for nvr in viseron.nvr.FFMPEGNVR.nvr_list.values():
-            subscriptions = nvr.on_connect()
-            self.subscribe(subscriptions)
-
-        for post_processor in PostProcessor.post_processor_list:
-            post_processor.on_connect()
         # Send initial alive message
         client.publish(self.config.mqtt.last_will_topic, payload="alive", retain=True)
 
-    def on_message(self, client, userdata, msg):
+    def on_message(self, _client, _userdata, msg):
         """Called on receiving a message."""
         LOGGER.debug(f"Got topic {msg.topic}, message {str(msg.payload.decode())}")
         for callback in self.subscriptions[msg.topic]:
@@ -71,45 +70,46 @@ class MQTT:
 
     def connect(self):
         """Connect to broker."""
-        self.client = mqtt.Client(self.config.mqtt.client_id)
-        self.client.on_connect = self.on_connect
-        self.client.on_message = self.on_message
-        self.client.enable_logger(logger=logging.getLogger("viseron.mqtt_client"))
+        MQTT.client = mqtt.Client(self.config.mqtt.client_id)
+        MQTT.client.on_connect = self.on_connect
+        MQTT.client.on_message = self.on_message
+        MQTT.client.enable_logger(logger=logging.getLogger("viseron.mqtt_client"))
         logging.getLogger("viseron.mqtt_client").setLevel(logging.INFO)
         if self.config.mqtt.username:
-            self.client.username_pw_set(
+            MQTT.client.username_pw_set(
                 self.config.mqtt.username, self.config.mqtt.password
             )
 
         # Set a Last Will message
-        self.client.will_set(
+        MQTT.client.will_set(
             self.config.mqtt.last_will_topic, payload="dead", retain=True
         )
-        self.client.connect(self.config.mqtt.broker, self.config.mqtt.port, 10)
+        MQTT.client.connect(self.config.mqtt.broker, self.config.mqtt.port, 10)
 
         # Start threaded loop to read/publish messages
-        self.client.loop_start()
+        MQTT.client.loop_start()
 
-    def subscribe(self, subscription):
+    @classmethod
+    def subscribe(cls, subscription: SubscribeTopic):
         """Subscribe to a topic."""
-        for topic, _ in subscription.items():
-            self.client.subscribe(topic)
-
-        self.subscriptions.update(subscription)
+        cls.subscriptions.setdefault(subscription.topic, [])
+        cls.subscriptions[subscription.topic].append(subscription.callback)
+        cls.client.subscribe(subscription.topic)
 
     @classmethod
     def publish(cls, payload: PublishPayload):
         """Put payload in publish queue."""
-        if cls.publish_queue:
+        if cls.client:
             cls.publish_queue.put(payload)
         else:
             LOGGER.error("Trying to publish when MQTT has not been initialized")
 
-    def publisher(self):
+    @staticmethod
+    def publisher():
         """Publishing thread."""
         while True:
-            message: PublishPayload = self.publish_queue.get()
-            self.client.publish(
+            message: PublishPayload = MQTT.publish_queue.get()
+            MQTT.client.publish(
                 message.topic,
                 payload=message.payload,
                 retain=message.retain,
