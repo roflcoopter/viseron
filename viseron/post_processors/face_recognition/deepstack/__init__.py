@@ -101,7 +101,7 @@ class Processor(AbstractFaceRecognition):
         trained_faces = self._ds.list_faces()
         # Create one MQTT binary sensor per tracked face
         self._mqtt_devices = {}
-        if viseron.mqtt.MQTT.publish_queue:
+        if viseron.mqtt.MQTT.client:
             for face in trained_faces["faces"]:
                 LOGGER.debug(f"Creating MQTT binary sensor for face {face}")
                 self._mqtt_devices[face] = FaceMQTTBinarySensor(config, face)
