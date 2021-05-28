@@ -111,8 +111,13 @@ class FFMPEGRecorder:
 
         # Create filename
         now = datetime.datetime.now()
-        video_name = f"{now.strftime('%H:%M:%S')}.{self.config.recorder.extension}"
-        thumbnail_name = f"{now.strftime('%H:%M:%S')}.jpg"
+        video_name = (
+            f"{now.strftime(self.config.recorder.filename_pattern)}"
+            f".{self.config.recorder.extension}"
+        )
+        thumbnail_name = (
+            f"{now.strftime(self.config.recorder.thumbnail.filename_pattern)}.jpg"
+        )
 
         # Create foldername
         subfolder = self.subfolder_name(now)
