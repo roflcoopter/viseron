@@ -92,9 +92,11 @@ class MQTT:
     @classmethod
     def subscribe(cls, subscription: SubscribeTopic):
         """Subscribe to a topic."""
+        if subscription.topic not in cls.subscriptions:
+            cls.client.subscribe(subscription.topic)
+
         cls.subscriptions.setdefault(subscription.topic, [])
         cls.subscriptions[subscription.topic].append(subscription.callback)
-        cls.client.subscribe(subscription.topic)
 
     @classmethod
     def publish(cls, payload: PublishPayload):
