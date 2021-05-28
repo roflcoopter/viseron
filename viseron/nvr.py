@@ -281,7 +281,7 @@ class FFMPEGNVR:
         if self.config.motion_detection.timeout and self.motion_detected:
             # Only allow motion to keep event active for a specified period of time
             if self._motion_only_frames >= (
-                self.camera.stream.fps * self.config.motion_detection.max_timeout
+                self.camera.stream.output_fps * self.config.motion_detection.max_timeout
             ):
                 if not self._motion_max_timeout_reached:
                     self._motion_max_timeout_reached = True
@@ -310,17 +310,19 @@ class FFMPEGNVR:
 
     def stop_recording(self):
         """Stop recorder."""
-        if self.idle_frames % self.camera.stream.fps == 0:
+        if self.idle_frames % self.camera.stream.output_fps == 0:
             self._logger.info(
                 "Stopping recording in: {}".format(
                     int(
                         self.config.recorder.timeout
-                        - (self.idle_frames / self.camera.stream.fps)
+                        - (self.idle_frames / self.camera.stream.output_fps)
                     )
                 )
             )
 
-        if self.idle_frames >= (self.camera.stream.fps * self.config.recorder.timeout):
+        if self.idle_frames >= (
+            self.camera.stream.output_fps * self.config.recorder.timeout
+        ):
             if not self.config.motion_detection.trigger_detector:
                 self.camera.stream.decoders[self._motion_decoder].scan.clear()
                 self._logger.info("Pausing motion detector")

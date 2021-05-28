@@ -65,7 +65,7 @@ class Stream:
         self.width = self.stream_config.width if self.stream_config.width else width
         self.height = self.stream_config.height if self.stream_config.height else height
         self.fps = self.stream_config.fps if self.stream_config.fps else fps
-        self.output_fps = self.fps
+        self._output_fps = self.fps
         self.stream_codec = stream_codec
         self.audio_codec = audio_codec
 
@@ -93,6 +93,15 @@ class Stream:
             os.symlink("/usr/local/bin/ffmpeg", f"/home/abc/bin/{self.alias}")
         except FileExistsError:
             pass
+
+    @property
+    def output_fps(self):
+        """Return stream output FPS."""
+        return self._output_fps
+
+    @output_fps.setter
+    def output_fps(self, value: bool):
+        self._output_fps = value
 
     def calculate_output_fps(self):
         """Calculate FFmpeg output FPS."""
