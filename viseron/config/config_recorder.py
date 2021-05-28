@@ -9,6 +9,7 @@ SCHEMA = Schema(
         Optional("timeout", default=10): All(int, Range(min=0)),
         Optional("retain", default=7): All(int, Range(min=1)),
         Optional("folder", default="/recordings"): str,
+        Optional("filename_pattern", default="%H:%M:%S"): str,
         Optional("extension", default="mp4"): str,
         Optional("hwaccel_args", default=[]): [str],
         Optional("codec", default="copy"): str,
@@ -17,6 +18,7 @@ SCHEMA = Schema(
         Optional("segments_folder", default="/segments"): str,
         Optional("thumbnail", default={}): {
             Optional("save_to_disk", default=False): bool,
+            Optional("filename_pattern", default="%H:%M:%S"): str,
             Optional("send_to_mqtt", default=False): bool,
         },
         Optional("logging"): LOGGING_SCHEMA,
@@ -29,12 +31,18 @@ class Thumbnail:
 
     def __init__(self, thumbnail):
         self._save_to_disk = thumbnail["save_to_disk"]
+        self._filename_pattern = thumbnail["filename_pattern"]
         self._send_to_mqtt = thumbnail["send_to_mqtt"]
 
     @property
     def save_to_disk(self):
         """Return if thumbnail should be saved to disk."""
         return self._save_to_disk
+
+    @property
+    def filename_pattern(self):
+        """Return thumbnail filename strftime pattern."""
+        return self._filename_pattern
 
     @property
     def send_to_mqtt(self):
@@ -52,6 +60,7 @@ class RecorderConfig:
         self._timeout = recorder["timeout"]
         self._retain = recorder["retain"]
         self._folder = recorder["folder"]
+        self._filename_pattern = recorder["filename_pattern"]
         self._extension = recorder["extension"]
         self._hwaccel_args = recorder["hwaccel_args"]
         self._codec = recorder["codec"]
@@ -82,6 +91,11 @@ class RecorderConfig:
     def folder(self):
         """Return folder where recordings are stored."""
         return self._folder
+
+    @property
+    def filename_pattern(self):
+        """Return filename strftime pattern."""
+        return self._filename_pattern
 
     @property
     def extension(self):

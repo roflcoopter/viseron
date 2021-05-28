@@ -797,6 +797,7 @@ By using a running average, the "background" image will adjust to daylight, stat
 | timeout | int | 10 | any integer | Number of seconds to record after all events are over |
 | retain | int | 7 | any integer | Number of days to save recordings before deleting them |
 | folder | path | ```/recordings``` | path to existing folder | What folder to store recordings in |
+| filename_pattern | str | ```%H:%M:%S``` | strftime pattern | [strftime](https://strftime.org/) pattern for recordings.<br>Default pattern results in filenames like: `23:59:59.mp4` |
 | segments_folder | path | ```/segments``` | any path | What folder to store ffmpeg segments in |
 | extension | str | ```mp4``` | a valid video file extension | The file extension used for recordings. I don't recommend changing this |
 | hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder hardware acceleration arguments |
@@ -860,6 +861,7 @@ To place the segments in memory instead of writing to disk, you can mount a tmpf
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | save_to_disk | boolean | False | True/False | If set to true, the thumbnail that is created on start of recording is saved to ```{folder}/{camera_name}/latest_thumbnail.jpg``` |
+| filename_pattern | str | ```%H:%M:%S``` | strftime pattern | [strftime](https://strftime.org/) pattern for saved thumbnails.<br>Default pattern results in filenames like: `23:59:59.jpg` |
 | send_to_mqtt | boolean | False | True/False | If set to true, the thumbnail that is created on start of recording is sent over MQTT. |
 
 The default location for the thumbnail if ```save_to_disk: true``` is ```/recordings/{camera_name}/latest_thumbnail.jpg```
