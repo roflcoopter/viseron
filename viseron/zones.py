@@ -112,6 +112,11 @@ class Zone:
         return self._coordinates
 
     @property
+    def object_filters(self):
+        """Return zone object filters."""
+        return self._object_filters
+
+    @property
     def objects_in_zone(self):
         """Return all present objects in the zone."""
         return self._objects_in_zone

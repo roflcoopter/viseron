@@ -288,9 +288,11 @@ def report_labels(
     return labels, reported_label_count
 
 
-def combined_objects(frame: "Frame", zones: List["Zone"]) -> List["DetectedObject"]:
+def combined_objects(
+    objects_in_fov: List["DetectedObject"], zones: List["Zone"]
+) -> List["DetectedObject"]:
     """Combine the object lists of a frame and all zones."""
-    all_objects = frame.objects if frame else []
+    all_objects = objects_in_fov
     for zone in zones:
         all_objects += zone.objects_in_zone
     return all_objects

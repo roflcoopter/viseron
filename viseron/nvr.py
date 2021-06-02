@@ -262,20 +262,35 @@ class FFMPEGNVR:
         if self.recorder.is_recording:
             self.recorder.stop_recording()
 
-    def event_over(self, frame):
-        """Return if ongoing motion and/or object detection is over."""
-        all_objects = helpers.combined_objects(frame, self.zones)
+    def event_over_check_motion(self, obj, object_filters):
+        """Check if motion should stop the recorder."""
+        if object_filters.get(obj.label) and object_filters[obj.label].require_motion:
+            if self.motion_detected:
+                self._motion_max_timeout_reached = False
+                self._motion_only_frames = 0
+                return False
+        else:
+            self._motion_max_timeout_reached = False
+            self._motion_only_frames = 0
+            return False
+        return True
 
-        for obj in all_objects:
-            if obj.trigger_recorder:
-                if self._object_filters[obj.label].require_motion:
-                    if self.motion_detected:
-                        self._motion_max_timeout_reached = False
-                        self._motion_only_frames = 0
-                        return False
-                else:
-                    self._motion_max_timeout_reached = False
-                    self._motion_only_frames = 0
+    def event_over_check_object(self, obj, object_filters):
+        """Check if object should stop the recorder."""
+        if obj.trigger_recorder:
+            if not self.event_over_check_motion(obj, object_filters):
+                return False
+        return True
+
+    def event_over(self):
+        """Return if ongoing motion and/or object detection is over."""
+        for obj in self.objects_in_fov:
+            if not self.event_over_check_object(obj, self._object_filters):
+                return False
+
+        for zone in self.zones:
+            for obj in zone.objects_in_zone:
+                if not self.event_over_check_object(obj, zone.object_filters):
                     return False
 
         if self.config.motion_detection.timeout and self.motion_detected:
@@ -450,7 +465,7 @@ class FFMPEGNVR:
 
     def process_object_event(self, frame):
         """Process any detected objects to see if recorder should start."""
-        all_objects = helpers.combined_objects(frame, self.zones)
+        all_objects = helpers.combined_objects(self.objects_in_fov, self.zones)
 
         if any(obj.trigger_recorder for obj in all_objects):
             if not self.recorder.is_recording:
@@ -550,7 +565,7 @@ class FFMPEGNVR:
             if self._start_recorder:
                 self._start_recorder = False
                 self.start_recording(processed_object_frame)
-            elif self.recorder.is_recording and self.event_over(processed_object_frame):
+            elif self.recorder.is_recording and self.event_over():
                 self.idle_frames += 1
                 self.stop_recording()
                 continue
