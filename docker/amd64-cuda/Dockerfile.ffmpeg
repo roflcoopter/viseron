@@ -444,11 +444,11 @@ RUN  \
   curl -sLO https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2 && \
   tar -jx --strip-components=1 -f ffmpeg-${FFMPEG_VERSION}.tar.bz2 && \
   # ffmpeg checks for nvcc using compute_30, which is not supported in CUDA 11.
-  # Lowest supported compute architecture is compute_52 so we patch this here.
+  # Lowest supported compute architecture is compute_35 so we patch this here.
   # Architecture information is found here: https://en.wikipedia.org/wiki/CUDA (5.2=compute_52)
   DIR=/tmp/ffmpeg && mkdir -p ${DIR} && cd ${DIR} && \
-  sed -i -e 's/compute_30/compute_52/g' ./configure && \
-  sed -i -e 's/sm_30/sm_52/g' ./configure && \
+  sed -i -e 's/compute_30/compute_35/g' ./configure && \
+  sed -i -e 's/sm_30/sm_35/g' ./configure && \
   ./configure \
   --disable-debug \
   --disable-doc \
