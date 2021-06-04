@@ -1,8 +1,10 @@
 """NVR that setups all components for a camera."""
+from __future__ import annotations
+
 import logging
 from queue import Empty, Queue
 from threading import Thread
-from typing import Dict, List, Union
+from typing import TYPE_CHECKING, Dict, List, Union
 
 import cv2
 
@@ -26,6 +28,9 @@ from viseron.post_processors import PostProcessorFrame
 from viseron.recorder import FFMPEGRecorder
 from viseron.watchdog.thread_watchdog import RestartableThread
 from viseron.zones import Zone
+
+if TYPE_CHECKING:
+    from viseron.detector.detected_object import DetectedObject
 
 LOGGER = logging.getLogger(__name__)
 
@@ -262,7 +267,9 @@ class FFMPEGNVR:
         if self.recorder.is_recording:
             self.recorder.stop_recording()
 
-    def event_over_check_motion(self, obj, object_filters):
+    def event_over_check_motion(
+        self, obj: DetectedObject, object_filters: Dict[str, Filter]
+    ):
         """Check if motion should stop the recorder."""
         if object_filters.get(obj.label) and object_filters[obj.label].require_motion:
             if self.motion_detected:
@@ -275,7 +282,9 @@ class FFMPEGNVR:
             return False
         return True
 
-    def event_over_check_object(self, obj, object_filters):
+    def event_over_check_object(
+        self, obj: DetectedObject, object_filters: Dict[str, Filter]
+    ):
         """Check if object should stop the recorder."""
         if obj.trigger_recorder:
             if not self.event_over_check_motion(obj, object_filters):
@@ -463,13 +472,35 @@ class FFMPEGNVR:
         if viseron.mqtt.MQTT.client:
             self._mqtt.devices["motion_detected"].publish(motion_detected)
 
-    def process_object_event(self, frame):
-        """Process any detected objects to see if recorder should start."""
-        all_objects = helpers.combined_objects(self.objects_in_fov, self.zones)
+    def trigger_recorder(self, obj: DetectedObject, object_filters: Dict[str, Filter]):
+        """Check if object should start the recorder."""
+        # Discard object if it requires motion but motion is not detected
+        if (
+            obj.trigger_recorder
+            and object_filters.get(obj.label)
+            and object_filters.get(obj.label).require_motion  # type: ignore
+            and not self.motion_detected
+        ):
+            return False
 
-        if any(obj.trigger_recorder for obj in all_objects):
-            if not self.recorder.is_recording:
-                self._start_recorder = True
+        if obj.trigger_recorder:
+            return True
+
+        return False
+
+    def process_object_event(self):
+        """Process any detected objects to see if recorder should start."""
+        if not self.recorder.is_recording:
+            for obj in self.objects_in_fov:
+                if self.trigger_recorder(obj, self._object_filters):
+                    self._start_recorder = True
+                    return
+
+            for zone in self.zones:
+                for obj in zone.objects_in_zone:
+                    if self.trigger_recorder(obj, zone.object_filters):
+                        self._start_recorder = True
+                        return
 
     def process_motion_event(self):
         """Process motion to see if it has started or stopped."""
@@ -548,7 +579,7 @@ class FFMPEGNVR:
                 # self._logger.debug(processed_motion_frame.motion_contours)
                 self.filter_motion(processed_motion_frame.motion_contours)
 
-            self.process_object_event(processed_object_frame)
+            self.process_object_event()
             self.process_motion_event()
 
             if (
