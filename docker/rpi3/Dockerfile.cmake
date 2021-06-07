@@ -18,7 +18,7 @@ RUN \
   mkdir -p ${DIR} && \
   cd ${DIR} && \
   git clone --depth 1 --single-branch --branch v${CMAKE_VERSION} https://gitlab.kitware.com/cmake/cmake.git/ . && \
-  ./bootstrap && \
+  ./bootstrap -- -DCMAKE_BUILD_TYPE:STRING=Release && \
   make && \
   make install && \
   rm -rf ${DIR}
