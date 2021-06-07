@@ -192,7 +192,8 @@ class FFMPEGNVR:
             register=True,
         ).start()
 
-        self.setup_mqtt()
+        if viseron.mqtt.MQTT.client:
+            self.setup_mqtt()
         self._logger.debug("NVR thread initialized")
 
     def __repr__(self):
