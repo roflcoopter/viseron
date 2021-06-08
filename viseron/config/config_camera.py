@@ -194,6 +194,17 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
             "trace",
         ),
         Optional("ffmpeg_recoverable_errors", default=FFMPEG_RECOVERABLE_ERRORS): [str],
+        Optional("ffprobe_loglevel", default="error"): Any(
+            "quiet",
+            "panic",
+            "fatal",
+            "error",
+            "warning",
+            "info",
+            "verbose",
+            "debug",
+            "trace",
+        ),
         Optional("static_mjpeg_streams", default={}): {
             All(str, ensure_slug): MJPEG_STREAM_SCHEMA
         },
@@ -385,6 +396,7 @@ class CameraConfig(Stream):
         self._publish_image = camera["publish_image"]
         self._ffmpeg_loglevel = camera["ffmpeg_loglevel"]
         self._ffmpeg_recoverable_errors = camera["ffmpeg_recoverable_errors"]
+        self._ffprobe_loglevel = camera["ffprobe_loglevel"]
         self._static_mjpeg_streams = camera["static_mjpeg_streams"]
         self._logging = None
         if camera.get("logging", None):
@@ -472,6 +484,11 @@ class CameraConfig(Stream):
     def ffmpeg_recoverable_errors(self):
         """Return FFmpeg recoverable errors."""
         return self._ffmpeg_recoverable_errors
+
+    @property
+    def ffprobe_loglevel(self):
+        """Return ffprobe log level."""
+        return self._ffprobe_loglevel
 
     @property
     def static_mjpeg_streams(self):

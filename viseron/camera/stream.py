@@ -45,6 +45,9 @@ class Stream:
             self._logger, FFMPEG_LOG_LEVELS[config.camera.ffmpeg_loglevel]
         )
 
+        self._ffprobe_log_pipe = LogPipe(
+            self._logger, FFMPEG_LOG_LEVELS[config.camera.ffprobe_loglevel]
+        )
         self._ffprobe_timeout = FFPROBE_TIMEOUT
         stream_codec = None
         if (
@@ -115,16 +118,21 @@ class Stream:
         stream_url: str,
     ) -> dict:
         """Run FFprobe command."""
-        ffprobe_command = [
-            "ffprobe",
-            "-hide_banner",
-            "-loglevel",
-            "fatal",
-            "-print_format",
-            "json",
-            "-show_error",
-            "-show_streams",
-        ] + [stream_url]
+        ffprobe_command = (
+            [
+                "ffprobe",
+                "-hide_banner",
+                "-loglevel",
+            ]
+            + [self._config.camera.ffprobe_loglevel]
+            + [
+                "-print_format",
+                "json",
+                "-show_error",
+                "-show_streams",
+            ]
+            + [stream_url]
+        )
 
         for attempt in Retrying(
             retry=retry_if_exception_type((sp.TimeoutExpired, FFprobeTimeout)),
@@ -134,7 +142,7 @@ class Stream:
             reraise=True,
         ):
             with attempt:
-                pipe = sp.Popen(ffprobe_command, stdout=sp.PIPE)
+                pipe = sp.Popen(ffprobe_command, stdout=sp.PIPE, stderr=self._log_pipe)
                 try:
                     stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
                     pipe.wait(timeout=FFPROBE_TIMEOUT)
@@ -147,10 +155,21 @@ class Stream:
                 else:
                     self._ffprobe_timeout = FFPROBE_TIMEOUT
 
-        output: dict = json.loads(stdout)
+        try:
+            # Trim away any text before start of JSON object
+            trimmed_stdout = stdout[stdout.find(b"{") :]
+            output: dict = json.loads(trimmed_stdout)
+        except json.decoder.JSONDecodeError as error:
+            raise FFprobeError(
+                stdout,
+                ffprobe_command,
+            ) from error
 
         if output.get("error", None):
-            raise FFprobeError(output)
+            raise FFprobeError(
+                output,
+                ffprobe_command,
+            )
 
         return output
 

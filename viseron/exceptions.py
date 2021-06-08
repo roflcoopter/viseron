@@ -1,4 +1,5 @@
 """Exceptions used by Viseron."""
+from typing import Union
 
 
 class ViseronError(Exception):
@@ -8,14 +9,21 @@ class ViseronError(Exception):
 class FFprobeError(ViseronError):
     """Raised when FFprobe returns an error."""
 
-    def __init__(self, ffprobe_output: dict) -> None:
+    def __init__(
+        self, ffprobe_output: Union[bytes, str, dict], ffprobe_command: list
+    ) -> None:
         """Initialize error."""
         super().__init__(self)
         self.ffprobe_output = ffprobe_output
+        self.ffprobe_command = ffprobe_command
 
     def __str__(self) -> str:
         """Return string representation."""
-        return f"FFprobe could not connect to stream: {self.ffprobe_output}"
+        return (
+            f"FFprobe could not connect to stream. "
+            f"Output: {self.ffprobe_output}, "
+            f"Command: {' '.join(self.ffprobe_command)}"
+        )
 
 
 class FFprobeTimeout(ViseronError):
@@ -29,7 +37,10 @@ class FFprobeTimeout(ViseronError):
 
     def __str__(self) -> str:
         """Return string representation."""
-        return f"FFprobe command {self.ffprobe_command} timed out after {self.timeout}s"
+        return (
+            f"FFprobe command {' '.join(self.ffprobe_command)} "
+            f"timed out after {self.timeout}s"
+        )
 
 
 class StreamInformationError(ViseronError):
