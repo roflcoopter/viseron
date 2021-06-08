@@ -48,6 +48,7 @@ class Filter:
         """Return if label triggers recorder."""
         return self._triggers_recording
 
+    @property
     def require_motion(self) -> bool:
         """Return if label requires motion to trigger recorder."""
         return self._require_motion
