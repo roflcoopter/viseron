@@ -4,6 +4,7 @@ FROM balenalib/raspberrypi3-ubuntu:${UBUNTU_VERSION}-build as build
 RUN [ "cross-build-start" ]
 ENV DEBIAN_FRONTEND=noninteractive
 
+ARG MAKEFLAGS="-j2"
 ARG CMAKE_VERSION
 
 ## Some libraries fail to compile using the distributed CMake
