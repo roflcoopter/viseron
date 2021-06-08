@@ -1,0 +1,60 @@
+ARG UBUNTU_VERSION
+ARG PYTHON_VERSION
+ARG ARCH
+ARG DLIB_VERSION
+FROM roflcoopter/${ARCH}-dlib:${DLIB_VERSION} as dlib
+FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
+FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as build
+
+COPY --from=dlib /wheels /wheels
+
+COPY --from=python /usr/local /usr/local/
+RUN \
+  cd /usr/local/bin && \
+  ln -s idle3 idle && \
+  ln -s pydoc3 pydoc && \
+  ln -s python3 python
+
+ARG ARCH
+
+ENV \
+  DEBIAN_FRONTEND=noninteractive \
+  PIP_IGNORE_INSTALLED=0
+
+RUN \
+  if [ "$ARCH" = "armhf" ] || \
+  [ "$ARCH" = "rpi3" ] || \
+  [ "$ARCH" = "aarch64" ] || \
+  [ "$ARCH" = "jetson-nano" ]; then echo "Crossbuilding!" && cross-build-start; fi
+
+RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
+  curl \
+  python3 \
+  python3-dev \
+  python3-pip \
+  python3-setuptools \
+  python3-wheel \
+  && apt-get autoremove -y && apt-get clean -y
+
+ADD requirements.txt requirements.txt
+RUN \
+  mkdir -p /wheels \
+  && if [ "$ARCH" = "amd64" ] || [ "$ARCH" = "amd64-cuda" ]; then export PLATFORM="x86_64"; \
+  elif [ "$ARCH" = "armhf" ] || [ "$ARCH" = "rpi3" ]; then export PLATFORM="armv7l"; \
+  elif [ "$ARCH" = "jetson-nano" ] ; then export PLATFORM="aarch64"; \
+  else export PLATFORM="$ARCH"; fi \
+  \
+  # EdgeTPU
+  && echo "Downloading tflite runtime https://github.com/google-coral/pycoral/releases/download/release-frogfish/tflite_runtime-2.5.0-cp38-cp38-linux_$PLATFORM.whl" \
+  && cd /wheels \
+  && curl -sOL https://github.com/google-coral/pycoral/releases/download/release-frogfish/tflite_runtime-2.5.0-cp38-cp38-linux_$PLATFORM.whl \
+  \
+  && pip3 wheel --wheel-dir=/wheels --find-links=/wheels -r /requirements.txt \
+  # We need to install sklearn from pip since we are using self supplied Python3 and not the one from apt
+  && pip3 wheel --wheel-dir=/wheels --find-links=/wheels sklearn \
+  \
+  && ls -al /wheels/
+
+FROM scratch
+
+COPY --from=build /wheels /wheels

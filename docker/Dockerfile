@@ -23,7 +23,7 @@ ENV \
   S6_SERVICES_GRACETIME=10000 \
   PATH=$PATH:/home/abc/bin
 
-ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}.tar.gz /tmp/s6-overlay.tar.gz
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}-installer /tmp/s6-overlay-installer
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \
@@ -48,13 +48,12 @@ RUN \
   && apt-get -qq update && apt-get -qq install --no-install-recommends -y \
   libedgetpu1-max=15.0 \
   \
-  && tar xzf /tmp/s6-overlay.tar.gz -C / --exclude="./bin" \
-  && tar xzf /tmp/s6-overlay.tar.gz -C /usr ./bin  \
+  && chmod +x /tmp/s6-overlay-installer && /tmp/s6-overlay-installer / \
   && apt-get autoremove -y \
   && apt-get clean -y \
   && rm -rf /var/lib/apt/lists/* \
   && rm -rf /wheels \
-  && rm -r /tmp/s6-overlay.tar.gz \
+  && rm -r /tmp/s6-overlay-installer \
   && useradd --uid 911 --user-group --create-home abc \
   && mkdir -p /home/abc/bin /segments
 

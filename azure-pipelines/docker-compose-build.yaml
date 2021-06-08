@@ -259,6 +259,7 @@ services:
       dockerfile: ./docker/rpi3/Dockerfile.cmake
       args:
         UBUNTU_VERSION: "$UBUNTU_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
         CMAKE_VERSION: "$CMAKE_VERSION"
     image: roflcoopter/rpi3-cmake:$CMAKE_VERSION
 
@@ -324,6 +325,84 @@ services:
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
     image: roflcoopter/aarch64-viseron:dev
+
+  ################ Jetson Nano #######################################
+  jetson-nano-python:
+    build:
+      context: ..
+      dockerfile: ./docker/jetson-nano/Dockerfile.python
+      args:
+        UBUNTU_VERSION: bionic
+        PYTHON_VERSION: "$PYTHON_VERSION"
+        PYTHON_PIP_VERSION: "$PYTHON_PIP_VERSION"
+    image: roflcoopter/jetson-nano-python:$PYTHON_VERSION
+
+  jetson-nano-ffmpeg:
+    build:
+      context: ..
+      dockerfile: ./docker/jetson-nano/Dockerfile.ffmpeg
+      args:
+        <<: *ffmpeg_args
+        UBUNTU_VERSION: bionic
+    image: roflcoopter/jetson-nano-ffmpeg:$FFMPEG_VERSION
+
+  jetson-nano-opencv:
+    build:
+      context: ..
+      dockerfile: ./docker/jetson-nano/Dockerfile.opencv
+      args:
+        UBUNTU_VERSION: bionic
+        MAKEFLAGS: "$MAKEFLAGS"
+        PYTHON_VERSION: "$PYTHON_VERSION"
+        OPENCV_VERSION: "$OPENCV_VERSION"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+    image: roflcoopter/jetson-nano-opencv:$OPENCV_VERSION
+
+  jetson-nano-dlib:
+    build:
+      context: ..
+      dockerfile: ./docker/jetson-nano/Dockerfile.dlib
+      args:
+        UBUNTU_VERSION: bionic
+        PYTHON_VERSION: "$PYTHON_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+        DLIB_VERSION: "$DLIB_VERSION"
+    image: roflcoopter/jetson-nano-dlib:$DLIB_VERSION
+
+  jetson-nano-wheels:
+    build:
+      context: ..
+      dockerfile: ./docker/jetson-nano/Dockerfile.wheels
+      args:
+        ARCH: jetson-nano
+        DLIB_VERSION: "$DLIB_VERSION"
+        UBUNTU_VERSION: bionic
+        PYTHON_VERSION: "$PYTHON_VERSION"
+    image: roflcoopter/jetson-nano-wheels:$WHEELS_VERSION
+
+  jetson-nano-base:
+    build:
+      context: ..
+      dockerfile: ./docker/jetson-nano/Dockerfile.base
+      args:
+        UBUNTU_VERSION: bionic
+        PYTHON_VERSION: "$PYTHON_VERSION"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+    image: roflcoopter/jetson-nano-base:$BASE_VERSION
+
+  jetson-nano-viseron:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile
+      args:
+        ARCH: jetson-nano
+        BASE_VERSION: "$BASE_VERSION"
+        OPENCV_VERSION: "$OPENCV_VERSION"
+        FFMPEG_VERSION: "$FFMPEG_VERSION"
+        WHEELS_VERSION: "$WHEELS_VERSION"
+        S6_OVERLAY_ARCH: aarch64
+        S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+    image: roflcoopter/jetson-nano-viseron:dev
 
   models:
     build:
