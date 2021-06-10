@@ -12,8 +12,6 @@ steps:
       latestRelease=false
       if [ "$branch" == "dev" ] ; then
         version="dev"
-      elif [ "$branch" == "docker_revamp" ] ; then
-        version="docker_revamp"
       elif [[ "$branch" == *"refs/tags/v"* ]] ; then
         version=$([[ $branch =~ refs/tags/v(.*) ]] && echo "${BASH_REMATCH[1]}")
         if [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
