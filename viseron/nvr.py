@@ -512,6 +512,13 @@ class FFMPEGNVR:
             ):
                 self.camera.stream.decoders[self._object_decoder].scan.set()
                 self._logger.debug("Starting object detector")
+
+            if (
+                not self.recorder.is_recording
+                and self.config.motion_detection.trigger_recorder
+            ):
+                self._start_recorder = True
+
         elif (
             self.camera.stream.decoders[self._object_decoder].scan.is_set()
             and not self.recorder.is_recording
