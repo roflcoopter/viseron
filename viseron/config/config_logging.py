@@ -9,7 +9,12 @@ def upper_case(data: str) -> str:
     return data.upper()
 
 
-SCHEMA = Schema({Optional("level", default="INFO"): All(str, upper_case, LOG_LEVELS)})
+SCHEMA = Schema(
+    {
+        Optional("level", default="INFO"): All(str, upper_case, LOG_LEVELS),
+        Optional("color_log", default=True): bool,
+    }
+)
 
 
 class LoggingConfig:
@@ -19,8 +24,14 @@ class LoggingConfig:
 
     def __init__(self, logging):
         self._level = logging["level"]
+        self._color_log = logging["color_log"]
 
     @property
     def level(self):
         """Return log level."""
         return self._level
+
+    @property
+    def color_log(self):
+        """Return if log should be colored."""
+        return self._color_log
