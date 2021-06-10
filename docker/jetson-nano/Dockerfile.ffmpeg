@@ -1,50 +1,6 @@
 ARG UBUNTU_VERSION
-FROM balenalib/jetson-nano-ubuntu:20210201 as l4t
-RUN [ "cross-build-start" ]
-
-ARG MAKEFLAGS="-j2"
-
-ENV \
-  DEBIAN_FRONTEND=noninteractive \
-  PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig" \
-  LD_LIBRARY_PATH="/l4t/usr/lib/aarch64-linux-gnu/tegra:/l4t/usr/lib/aarch64-linux-gnu/tegra-egl:/usr/local/lib"
-
-RUN \
-  apt-get update && apt-get install -y \
-  lbzip2 git wget tar python3 libegl1 make cmake build-essential g++ pkg-config nvidia-l4t-jetson-multimedia-api libv4l-dev && \
-  wget https://developer.nvidia.com/embedded/L4T/r32_Release_v4.2/t210ref_release_aarch64/Tegra210_Linux_R32.4.2_aarch64.tbz2 && \
-  tar xf Tegra210_Linux_R32.4.2_aarch64.tbz2 && \
-  mkdir -p /l4t/etc && \
-  cp -r /etc/passwd /l4t/etc/ && \
-  cp -r /etc/group /l4t/etc/ && \
-  cd Linux_for_Tegra && \
-  sed -i 's/config.tbz2\"/config.tbz2\" --exclude=etc\/hosts --exclude=etc\/hostname/g' apply_binaries.sh && \
-  sed -i 's/install --owner=root --group=root \"${QEMU_BIN}\" \"${L4T_ROOTFS_DIR}\/usr\/bin\/\"/#install --owner=root --group=root \"${QEMU_BIN}\" \"${L4T_ROOTFS_DIR}\/usr\/bin\/\"/g' nv_tegra/nv-apply-debs.sh && \
-  sed -i 's/LC_ALL=C chroot . mount -t proc none \/proc/ /g' nv_tegra/nv-apply-debs.sh && \
-  sed -i 's/umount ${L4T_ROOTFS_DIR}\/proc/ /g' nv_tegra/nv-apply-debs.sh && \
-  sed -i 's/chroot . \//  /g' nv_tegra/nv-apply-debs.sh && \
-  ./apply_binaries.sh -d -r /l4t --target-overlay && cd .. && \
-  rm -rf Tegra210_Linux_R32.4.2_aarch64.tbz2 && \
-  rm -rf Linux_for_Tegra && \
-  echo "/l4t/usr/lib/aarch64-linux-gnu/tegra" > /etc/ld.so.conf.d/nvidia-tegra.conf && \
-  echo "/l4t/usr/lib/aarch64-linux-gnu/tegra-egl" > /etc/ld.so.conf.d/nvidia-tegra-egl.conf && ldconfig
-
-RUN git clone https://github.com/HunterAP23/jetson-ffmpeg && \
-  cd jetson-ffmpeg && \
-  mkdir build && \
-  cd build && \
-  cmake .. -DLIB_NVBUF=/l4t/usr/lib/aarch64-linux-gnu/tegra/libnvbuf_utils.so && \
-  make && \
-  make install && \
-  ldconfig
-
-RUN \
-  ldd /usr/local/lib/libnvmpi.so | grep /l4t/usr/lib | cut -d ' ' -f 3 | xargs -i cp {} /usr/local/lib/
-
 FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as build
 RUN [ "cross-build-start" ]
-
-COPY --from=l4t /usr/local /usr/local
 
 WORKDIR /tmp/workdir
 
@@ -56,7 +12,7 @@ ENV \
   PATH=/usr/custom_cmake/bin:$PATH \
   PKG_CONFIG_PATH="/opt/ffmpeg/share/pkgconfig:/opt/ffmpeg/lib/pkgconfig:/opt/ffmpeg/lib64/pkgconfig" \
   PREFIX=/opt/ffmpeg \
-  LD_LIBRARY_PATH="/opt/ffmpeg/lib:/opt/ffmpeg/lib64:/usr/lib64:/usr/lib:/lib64:/lib"
+  LD_LIBRARY_PATH="/opt/ffmpeg/lib:/opt/ffmpeg/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra-egl"
 
 RUN buildDeps="autoconf \
   automake \
@@ -80,7 +36,9 @@ RUN buildDeps="autoconf \
   libgomp1 \
   zlib1g-dev \
   libv4l-dev \
-  libegl1" && \
+  nvidia-l4t-kernel \
+  nvidia-l4t-kernel-headers \
+  nvidia-l4t-jetson-multimedia-api" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps}
 
@@ -546,6 +504,15 @@ RUN \
   make && \
   make install && \
   rm -rf ${DIR}
+# Jetson Nano hwaccel decoder/encoder
+RUN git clone https://github.com/HunterAP23/jetson-ffmpeg && \
+  cd jetson-ffmpeg && \
+  mkdir build && \
+  cd build && \
+  cmake -DCMAKE_INSTALL_PREFIX=${PREFIX} .. && \
+  make && \
+  make install && \
+  ldconfig
 ### ffmpeg https://ffmpeg.org/
 ADD docker/jetson-nano/patch_ffmpeg.sh /
 ARG FFMPEG_VERSION
@@ -631,3 +598,27 @@ RUN [ "cross-build-end" ]
 
 FROM scratch
 COPY --from=build /usr/local /usr/local/
+
+# FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-run
+
+# COPY --from=build /usr/local /usr/local/
+
+# ENV LD_LIBRARY_PATH="/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra-egl"
+
+# RUN \
+#   apt-get -yqq update && \
+#   apt-get install -yq --no-install-recommends \
+#   # L4T
+#   nvidia-l4t-kernel \
+#   nvidia-l4t-kernel-headers \
+#   nvidia-l4t-jetson-multimedia-api \
+#   # CUDA
+#   cuda-minimal-build-10-2 \
+#   cuda-libraries-10-2 \
+#   libcudnn8 \
+#   # ffmpeg
+#   libv4l-dev \
+#   libharfbuzz-bin \
+#   libegl1 \
+#   libfreetype6 && \
+#   ln -s /usr/local/cuda-10.2 /usr/local/cuda
