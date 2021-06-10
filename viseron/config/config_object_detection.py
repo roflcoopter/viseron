@@ -20,6 +20,7 @@ from viseron.const import (
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
+from viseron.helpers.validators import deprecated
 
 from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 
@@ -64,6 +65,7 @@ def get_detector_type() -> str:
 LABELS_SCHEMA = Schema(
     [
         All(
+            deprecated("triggers_recording", replacement="trigger_recorder"),
             {
                 Required("label"): str,
                 Optional("confidence", default=0.8): All(
@@ -81,7 +83,7 @@ LABELS_SCHEMA = Schema(
                 Optional("width_max", default=1.0): All(
                     Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
                 ),
-                Optional("triggers_recording", default=True): bool,
+                Optional("trigger_recorder", default=True): bool,
                 Optional("require_motion", default=False): bool,
                 Optional("post_processor", default=None): Any(str, None),
             },
@@ -101,7 +103,7 @@ class LabelConfig:
         self._height_max: float = label["height_max"]
         self._width_min: float = label["width_min"]
         self._width_max: float = label["width_max"]
-        self._triggers_recording: bool = label["triggers_recording"]
+        self._trigger_recorder: bool = label["trigger_recorder"]
         self._require_motion: bool = label["require_motion"]
         self._post_processor: str = label["post_processor"]
 
@@ -136,9 +138,9 @@ class LabelConfig:
         return self._width_max
 
     @property
-    def triggers_recording(self) -> bool:
+    def trigger_recorder(self) -> bool:
         """Return if label triggers recorder."""
-        return self._triggers_recording
+        return self._trigger_recorder
 
     @property
     def require_motion(self) -> bool:
