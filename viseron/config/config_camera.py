@@ -100,6 +100,7 @@ STREAM_SCEHMA = Schema(
         Optional("input_args", default=None): Maybe(list),
         Optional("hwaccel_args", default=CAMERA_HWACCEL_ARGS): check_for_hwaccels,
         Optional("codec", default=""): str,
+        Optional("audio_codec", default="unset"): Maybe(str),
         Optional("rtsp_transport", default="tcp"): Any(
             "tcp", "udp", "udp_multicast", "http"
         ),
@@ -240,6 +241,7 @@ class Stream:
         self._input_args = camera["input_args"]
         self._hwaccel_args = camera["hwaccel_args"]
         self._codec = camera["codec"]
+        self._audio_codec = camera["audio_codec"]
         self._rtsp_transport = camera["rtsp_transport"]
         self._filter_args = camera["filter_args"]
         self._frame_timeout = camera["frame_timeout"]
@@ -321,6 +323,11 @@ class Stream:
     def codec_map(self):
         """Return predefined codec map."""
         return self.get_codec_map()
+
+    @property
+    def audio_codec(self):
+        """Return audio_codec for FFmpeg command."""
+        return self._audio_codec
 
     @property
     def rtsp_transport(self):

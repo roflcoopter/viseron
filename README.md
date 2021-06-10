@@ -299,41 +299,42 @@ Here you need to fill in at least your cameras and you should be good to go.
   ```
 </details>
 
-Used to build the FFMPEG command to decode camera stream.\
+Used to build the FFmpeg command to decode camera stream.\
 The command is built like this: \
 ```"ffmpeg" + global_args + input_args + hwaccel_args + codec + "-rtsp_transport tcp -i " + (stream url) + filter_args + output_args```
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | name | str | **required** | any string | Friendly name of the camera |
 | mqtt_name | str | name given above | any string | Name used in MQTT topics |
-| stream_format | str | ```rtsp``` | ```rtsp```, ```rtmp```, ```mjpeg``` | FFMPEG stream format  |
+| stream_format | str | ```rtsp``` | ```rtsp```, ```rtmp```, ```mjpeg``` | FFmpeg stream format  |
 | host | str | **required** | any string | IP or hostname of camera |
 | port | int | **required** | any integer | Port for the camera stream |
 | username | str | optional | any string | Username for the camera stream |
 | password | str | optional | any string | Password for the camera stream |
 | path | str | **optional** | any string | Path to the camera stream, eg ```/Streaming/Channels/101/``` |
-| width | int | optional | any integer | Width of the stream. Will use OpenCV to get this information if not given |
-| height | int | optional | any integer | Height of the stream. Will use OpenCV to get this information if not given |
-| fps | int | optional | any integer | FPS of the stream. Will use OpenCV to get this information if not given |
-| global_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
-| input_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
-| hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG decoder hardware acceleration arguments |
-| codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
+| width | int | optional | any integer | Width of the stream. Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information)  |
+| height | int | optional | any integer | Height of the stream. Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information)  |
+| fps | int | optional | any integer | FPS of the stream. Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information)  |
+| global_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
+| input_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
+| hwaccel_args | list | optional | a valid list of FFmpeg arguments | FFmpeg decoder hardware acceleration arguments |
+| codec | str | optional | any supported decoder codec | FFmpeg video decoder codec, eg ```h264_cuvid```<br>Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information) |
+| audio_codec | str | `copy` | any supported audio encoder codec | FFmpeg audio encoder codec for the generated segments, eg ```aac```.<br>Note that if you set this, FFmpeg will have to reencode your stream which increases system load.<br>Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information) |
 | rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesn't support TCP |
-| filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
-| frame_timeout | int | 60 | any int | A timeout in seconds. If a frame has not been received in this time period FFMpeg will be restarted |
+| filter_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
+| frame_timeout | int | 60 | any int | A timeout in seconds. If a frame has not been received in this time period FFmpeg will be restarted |
 | substream | dictionary | optional | see [Substream config](#substream) | Substream to perform image processing on |
 | motion_detection | dictionary | optional | see [Camera motion detection config](#camera-motion-detection) | Overrides the global ```motion_detection``` config |
 | object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) | Overrides the global ```object_detection``` config |
 | zones | list | optional | see [Zones config](#zones) | Allows you to specify zones to further filter detections |
 | publish_image | bool | false | true/false | If enabled, Viseron will publish an image to MQTT with drawn zones, objects, motion and masks.<br><b>Note: this will use some extra CPU and should probably only be used for debugging</b> |
-| ffmpeg_loglevel | str | optional | ```quiet```, ```panic```, ```fatal```, ```error```, ```warning```, ```info```, ```verbose```, ```debug```, ```trace``` | Sets the loglevel for ffmpeg.<br> Should only be used in debugging purposes. |
-| ffmpeg_recoverable_errors | list | optional | a list of strings | ffmpeg sometimes print errors that are not fatal.<br>If you get errors like ```Error starting decoder pipe!```, see below for details. |
-| ffprobe_loglevel | str | optional | ```quiet```, ```panic```, ```fatal```, ```error```, ```warning```, ```info```, ```verbose```, ```debug```, ```trace``` | Sets the loglevel for ffprobe.<br> Should only be used in debugging purposes. |
+| ffmpeg_loglevel | str | optional | ```quiet```, ```panic```, ```fatal```, ```error```, ```warning```, ```info```, ```verbose```, ```debug```, ```trace``` | Sets the loglevel for FFmpeg.<br> Should only be used in debugging purposes. |
+| ffmpeg_recoverable_errors | list | optional | a list of strings | FFmpeg sometimes print errors that are not fatal.<br>If you get errors like ```Error starting decoder pipe!```, see below for details. |
+| ffprobe_loglevel | str | optional | ```quiet```, ```panic```, ```fatal```, ```error```, ```warning```, ```info```, ```verbose```, ```debug```, ```trace``` | Sets the loglevel for FFprobe.<br> Should only be used in debugging purposes. |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for this camera.<br>This affects all logs named ```viseron.nvr.<camera name>.*``` and ```viseron.*.<camera name>``` |
 
-#### Default ffmpeg decoder command
-A default ffmpeg decoder command is generated, which varies a bit depending on the Docker container you use,
+#### Default FFmpeg decoder command
+A default FFmpeg decoder command is generated, which varies a bit depending on the Docker container you use,
 <details>
   <summary>For Nvidia GPU support in the <b>roflcoopter/amd64-cuda-viseron</b> image</summary>
 
@@ -361,9 +362,9 @@ A default ffmpeg decoder command is generated, which varies a bit depending on t
 This means that you do **not** have to set ```hwaccel_args``` *unless* you have a specific need to change the default command (say you need to change ```h264_cuvid``` to ```hevc_cuvid```)
 
 
-#### ffmpeg recoverable errors
-Sometimes ffmpeg prints errors which are not fatal, such as ```[h264 @ 0x55b1e115d400] error while decoding MB 0 12, bytestream 114567```.\
-Viseron always performs a sanity check on the ffmpeg decoder command with ```-loglevel fatal```.\
+#### FFmpeg recoverable errors
+Sometimes FFmpeg prints errors which are not fatal, such as ```[h264 @ 0x55b1e115d400] error while decoding MB 0 12, bytestream 114567```.\
+Viseron always performs a sanity check on the FFmpeg decoder command with ```-loglevel fatal```.\
 If Viseron gets stuck on an error that you believe is **not** fatal, you can add a subset of that error to ```ffmpeg_recoverable_errors```. \
 So to ignore the error above you would add this to your configuration:
 ```yaml
@@ -371,23 +372,33 @@ ffmpeg_recoverable_errors:
   - error while decoding MB
 ```
 
+#### FFprobe stream information
+Viseron needs to know the width, height, FPS and audio/video codecs of your stream.\
+FFprobe is used on initialization to figure all this information out.
+
+Some cameras dont play nice with this and fail to report some information.\
+To circumvent this you can manually specify all these options.
+
+If you specify all of `width`, `height`, `fps`, `codec` and `audio_codec`, Viseron will not need to call FFprobe and startup will be significantly faster.
+
 ---
 
 ### Substream
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| stream_format | str | ```rtsp``` | ```rtsp```, ```mjpeg``` | FFMPEG stream format |
+| stream_format | str | ```rtsp``` | ```rtsp```, ```mjpeg``` | FFmpeg stream format |
 | port | int | **required** | any integer | Port for the camera stream |
 | path | str | **required** | any string | Path to the camera substream, eg ```/Streaming/Channels/102/``` |
 | width | int | optional | any integer | Width of the stream. Will use FFprobe to get this information if not given |
 | height | int | optional | any integer | Height of the stream. Will use FFprobe to get this information if not given |
 | fps | int | optional | any integer | FPS of the stream. Will use FFprobe to get this information if not given |
-| input_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
-| hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG decoder hardware acceleration arguments |
-| codec | str | optional | any supported decoder codec | FFMPEG video decoder codec, eg ```h264_cuvid``` |
+| input_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
+| hwaccel_args | list | optional | a valid list of FFmpeg arguments | FFmpeg decoder hardware acceleration arguments |
+| codec | str | optional | any supported decoder codec | FFmpeg video decoder codec, eg ```h264_cuvid``` |
+| audio_codec | str | `copy` | any supported audio encoder codec | FFmpeg audio encoder codec, eg ```aac```.<br>The only reason why you would set this on a substream is to speed up the initialization, see [FFprobe stream information](#FFprobe-stream-information) |
 | rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesn't support TCP |
-| filter_args | list | optional | a valid list of FFMPEG arguments | See source code for default arguments |
-| frame_timeout | int | 30 | any int | A timeout in seconds. If a frame has not been received in this time period FFMpeg will be restarted |
+| filter_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
+| frame_timeout | int | 30 | any int | A timeout in seconds. If a frame has not been received in this time period FFmpeg will be restarted |
 
 Using the substream is a great way to reduce the system load from FFmpeg.\
 When configured, two FFmpeg processes will spawn:\
@@ -799,16 +810,16 @@ By using a running average, the "background" image will adjust to daylight, stat
 | retain | int | 7 | any integer | Number of days to save recordings before deleting them |
 | folder | path | ```/recordings``` | path to existing folder | What folder to store recordings in |
 | filename_pattern | str | ```%H:%M:%S``` | strftime pattern | [strftime](https://strftime.org/) pattern for recordings.<br>Default pattern results in filenames like: `23:59:59.mp4` |
-| segments_folder | path | ```/segments``` | any path | What folder to store ffmpeg segments in |
+| segments_folder | path | ```/segments``` | any path | What folder to store FFmpeg segments in |
 | extension | str | ```mp4``` | a valid video file extension | The file extension used for recordings. I don't recommend changing this |
-| hwaccel_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder hardware acceleration arguments |
-| codec | str | optional | any supported encoder codec | FFMPEG video encoder codec, eg ```h264_nvenc``` |
-| audio_codec | str | optional | any supported audio encoder codec | FFMPEG audio encoder codec, eg ```aac``` |
-| filter_args | list | optional | a valid list of FFMPEG arguments | FFMPEG encoder filter arguments |
+| hwaccel_args | list | optional | a valid list of FFmpeg arguments | FFmpeg encoder hardware acceleration arguments |
+| codec | str | `copy` | any supported encoder codec | FFmpeg video encoder codec, eg ```h264_nvenc``` |
+| audio_codec | str | `copy` | any supported audio encoder codec | FFmpeg audio encoder codec, eg ```aac``` |
+| filter_args | list | optional | a valid list of FFmpeg arguments | FFmpeg encoder filter arguments |
 | thumbnail | dictionary | optional | see [Thumbnail](#thumbnail) | Options for the thumbnail created on start of a recording |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the recorder. <br>This affects all logs named ```viseron.recorder.<camera name>``` |
 
-Viseron uses [ffmpeg segments](https://www.ffmpeg.org/ffmpeg-formats.html#segment_002c-stream_005fsegment_002c-ssegment) to handle recordings.\
+Viseron uses [FFmpeg segments](https://www.ffmpeg.org/ffmpeg-formats.html#segment_002c-stream_005fsegment_002c-ssegment) to handle recordings.\
 This means Viseron will write small 5 second segments of the stream to disk, and in case of any recording starting, Viseron will find the appropriate segments and concatenate them together.\
 The reason for using segments instead of just starting the recorder on an event, is to support to the ```lookback``` feature which makes it possible to record *before* an event actually happened.
 
