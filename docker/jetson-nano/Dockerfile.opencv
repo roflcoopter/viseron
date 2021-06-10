@@ -26,9 +26,10 @@ ENV \
   PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig" \
   PREFIX=/opt/opencv \
   LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib" \
-  # OpenCV supports CC Arch 3.0 and higher. https://github.com/opencv/opencv/blob/master/cmake/OpenCVDetectCUDA.cmake
-  # However, CUDA 11 only supports >= 3.5 
-  CUDA_ARCH_BIN="35 53 60 61 70 72" \
+  # This is needed to get NVCC into the path
+  PATH=$PATH:/usr/local/cuda/bin \
+  # Jetson Nano uses compute capability 5.3
+  CUDA_ARCH_BIN="53" \
   CUDA_ARCH_PTX="70"
 
 RUN buildDeps="autoconf \
@@ -58,6 +59,7 @@ RUN buildDeps="autoconf \
   libnuma-dev \
   zlib1g-dev \
   cuda-compiler-10-2 \
+  cuda-nvcc-10-2 \
   cuda-minimal-build-10-2 \
   cuda-libraries-dev-10-2 \
   libcudnn8-dev" && \
