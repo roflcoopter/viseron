@@ -1,13 +1,16 @@
 ARG PYTHON_VERSION
 ARG FFMPEG_VERSION
 ARG UBUNTU_VERSION
+ARG OPENCV_VERSION
 FROM roflcoopter/viseron-models:latest as models
 FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
+FROM roflcoopter/jetson-nano-opencv:${OPENCV_VERSION} as opencv
 FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-run
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
 COPY --from=python /usr/local /usr/local/
+COPY --from=opencv /etc/cuda/test_cuda_availability.out /etc/cuda/test_cuda_availability.out
 
 RUN \
   cd /usr/local/bin && \
@@ -29,16 +32,20 @@ RUN \
   libopenexr22 \
   libpng16-16 \
   libatomic1 \
+  # L4T
+  nvidia-l4t-kernel \
+  nvidia-l4t-kernel-headers \
+  nvidia-l4t-jetson-multimedia-api \
   # CUDA
   cuda-minimal-build-10-2 \
   cuda-libraries-10-2 \
   libcudnn8 \
   # ffmpeg
-  libv4l-0 \
+  libv4l-dev \
   libharfbuzz-bin \
   libegl1 \
   libfreetype6 && \
-  ln -s /detectors/models/darknet/yolov3.weights /detectors/models/darknet/default.weights && \
-  ln -s /detectors/models/darknet/yolov3.cfg /detectors/models/darknet/default.cfg && \
+  ln -s /detectors/models/darknet/yolov4-tiny.weights /detectors/models/darknet/default.weights && \
+  ln -s /detectors/models/darknet/yolov4-tiny.cfg /detectors/models/darknet/default.cfg && \
   # Minimal cuda install does not create symlink so we do it manually
   ln -s /usr/local/cuda-10.2 /usr/local/cuda

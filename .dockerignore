@@ -3,6 +3,7 @@
 !viseron/*
 !script/
 !docker/jetson-nano/patch_ffmpeg.sh
+!docker/test_cuda_availability.cu
 !docker/yolov4.cfg
 !docker/yolov4-tiny.cfg
 !requirements.txt

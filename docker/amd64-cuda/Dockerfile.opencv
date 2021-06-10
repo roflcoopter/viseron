@@ -104,6 +104,14 @@ RUN \
   make && \
   make install
 
+COPY docker/test_cuda_availability.cu /etc/cuda/test_cuda_availability.cu
+RUN \
+  NVCC_EXTRA_FLAGS="" && \
+  for arch in $CUDA_ARCH_BIN; do NVCC_EXTRA_FLAGS="$NVCC_EXTRA_FLAGS -gencode arch=compute_$arch,code=sm_$arch"; done && \
+  echo "CUDA NVCC target flags: $NVCC_EXTRA_FLAGS" && \
+  nvcc $NVCC_EXTRA_FLAGS -o /etc/cuda/test_cuda_availability.out /etc/cuda/test_cuda_availability.cu
+
 FROM scratch
 
 COPY --from=build /opt/opencv /opt/opencv/
+COPY --from=build /etc/cuda/test_cuda_availability.out /etc/cuda/test_cuda_availability.out

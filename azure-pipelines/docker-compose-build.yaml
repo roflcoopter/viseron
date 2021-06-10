@@ -157,6 +157,7 @@ services:
       context: ..
       dockerfile: ./docker/amd64-cuda/Dockerfile.base
       args:
+        OPENCV_VERSION: "$OPENCV_VERSION"
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         OPENCL_VERSION: "$OPENCL_VERSION"
         GMMLIB_VERSION: "$GMMLIB_VERSION"
@@ -385,6 +386,7 @@ services:
       context: ..
       dockerfile: ./docker/jetson-nano/Dockerfile.base
       args:
+        OPENCV_VERSION: "$OPENCV_VERSION"
         UBUNTU_VERSION: bionic
         PYTHON_VERSION: "$PYTHON_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"

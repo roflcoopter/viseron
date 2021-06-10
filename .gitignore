@@ -22,6 +22,7 @@
 !/docker/jetson-nano/patch_ffmpeg.sh
 !/docker/rpi3
 !/docker/rpi3/Dockerfile*
+!/docker/test_cuda_availability.cu
 !/docker/yolov4*.cfg
 !/rootfs/
 !/rootfs/etc/
