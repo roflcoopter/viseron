@@ -1,10 +1,12 @@
 """Class to interact with an FFmpeog stream."""
+from __future__ import annotations
+
 import json
 import logging
 import os
 import subprocess as sp
 from time import sleep
-from typing import Dict, Optional
+from typing import TYPE_CHECKING, Dict, Optional, Union
 
 from tenacity import (
     Retrying,
@@ -22,11 +24,20 @@ from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 from .frame import Frame
 
+if TYPE_CHECKING:
+    from viseron.config.config_camera import CameraConfig, Substream
+
 
 class Stream:
     """Represents a stream of frames from a camera."""
 
-    def __init__(self, config, stream_config, write_segments=True, pipe_frames=True):
+    def __init__(
+        self,
+        config,
+        stream_config: Union[CameraConfig, Substream],
+        write_segments=True,
+        pipe_frames=True,
+    ):
         if write_segments and not pipe_frames:
             self._logger = logging.getLogger(
                 __name__ + "_segments." + config.camera.name_slug
@@ -49,20 +60,23 @@ class Stream:
             self._logger, FFMPEG_LOG_LEVELS[config.camera.ffprobe_loglevel]
         )
         self._ffprobe_timeout = FFPROBE_TIMEOUT
+
         stream_codec = None
+        stream_audio_codec = None
+        # If any of the parameters are unset we need to fetch them using FFprobe
         if (
             not self.stream_config.width
             or not self.stream_config.height
             or not self.stream_config.fps
             or not self.stream_config.codec
-            or not self.stream_config.audio_codec
+            or self.stream_config.audio_codec == "unset"
         ):
             (
                 width,
                 height,
                 fps,
                 stream_codec,
-                audio_codec,
+                stream_audio_codec,
             ) = self.get_stream_information(self.stream_config.stream_url)
 
         self.width = self.stream_config.width if self.stream_config.width else width
@@ -70,7 +84,7 @@ class Stream:
         self.fps = self.stream_config.fps if self.stream_config.fps else fps
         self._output_fps = self.fps
         self.stream_codec = stream_codec
-        self.audio_codec = audio_codec
+        self.stream_audio_codec = stream_audio_codec
 
         if self.width and self.height and self.fps:
             pass
@@ -142,7 +156,11 @@ class Stream:
             reraise=True,
         ):
             with attempt:
-                pipe = sp.Popen(ffprobe_command, stdout=sp.PIPE, stderr=self._log_pipe)
+                pipe = sp.Popen(  # type: ignore
+                    ffprobe_command,
+                    stdout=sp.PIPE,
+                    stderr=self._log_pipe,
+                )
                 try:
                     stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
                     pipe.wait(timeout=FFPROBE_TIMEOUT)
@@ -252,13 +270,26 @@ class Stream:
             + ["-i", stream_config.stream_url]
         )
 
+    @staticmethod
+    def get_audio_codec(
+        stream_config: Union[CameraConfig, Substream], stream_audio_codec
+    ):
+        """Return audio codec used for saving segments."""
+        if stream_config.audio_codec and stream_config.audio_codec != "unset":
+            return ["-c:a", stream_config.audio_codec]
+
+        if stream_audio_codec and stream_config.audio_codec == "unset":
+            return ["-c:a", "copy"]
+
+        return []
+
     def build_command(self, ffmpeg_loglevel=None, single_frame=False):
         """Return full FFmpeg command."""
         camera_segment_args = []
         if not single_frame and self._write_segments:
             camera_segment_args = (
                 CAMERA_SEGMENT_ARGS
-                + (["-c:a", "copy"] if self.audio_codec else [])
+                + self.get_audio_codec(self.stream_config, self.stream_audio_codec)
                 + [
                     os.path.join(
                         self._config.recorder.segments_folder,
@@ -353,8 +384,9 @@ class Stream:
 
     def read(self) -> Optional[Frame]:
         """Return a single frame from FFmpeg pipe."""
-        frame_bytes = self._pipe.stdout.read(self._frame_bytes)
+        if self._pipe:
+            frame_bytes = self._pipe.stdout.read(self._frame_bytes)
 
-        if len(frame_bytes) == self._frame_bytes:
-            return Frame(frame_bytes, self.width, self.height)
+            if len(frame_bytes) == self._frame_bytes:
+                return Frame(frame_bytes, self.width, self.height)
         return None
