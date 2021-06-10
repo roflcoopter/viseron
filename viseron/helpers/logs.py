@@ -88,6 +88,7 @@ class ViseronLogFormat(ColoredFormatter):
         self.current_count = 0
 
     def format(self, record):
+        """Format log record."""
         # Save the original format configured by the user
         # when the logger formatter was instantiated
         format_orig = self._style._fmt

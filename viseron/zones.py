@@ -86,7 +86,7 @@ class Zone:
                     if obj.label not in labels_in_zone:
                         labels_in_zone.append(obj.label)
 
-                    if self._object_filters[obj.label].triggers_recording:
+                    if self._object_filters[obj.label].trigger_recorder:
                         obj.trigger_recorder = True
 
                     if self._object_filters[obj.label].post_processor:

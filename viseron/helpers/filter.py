@@ -13,7 +13,7 @@ class Filter:
         self._width_max = object_filter.width_max
         self._height_min = object_filter.height_min
         self._height_max = object_filter.height_max
-        self._triggers_recording = object_filter.triggers_recording
+        self._trigger_recorder = object_filter.trigger_recorder
         self._require_motion = object_filter.require_motion
         self._post_processor = object_filter.post_processor
 
@@ -44,9 +44,9 @@ class Filter:
         )
 
     @property
-    def triggers_recording(self) -> bool:
+    def trigger_recorder(self) -> bool:
         """Return if label triggers recorder."""
-        return self._triggers_recording
+        return self._trigger_recorder
 
     @property
     def require_motion(self) -> bool:

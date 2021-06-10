@@ -374,7 +374,7 @@ class FFMPEGNVR:
                 objects_in_fov.append(obj)
                 labels_in_fov.append(obj.label)
 
-                if self._object_filters[obj.label].triggers_recording:
+                if self._object_filters[obj.label].trigger_recorder:
                     obj.trigger_recorder = True
 
                 if self._object_filters[obj.label].post_processor:
