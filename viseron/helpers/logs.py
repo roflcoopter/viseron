@@ -4,6 +4,10 @@ import os
 import re
 import threading
 
+from colorlog import ColoredFormatter
+
+from viseron.config.config_logging import LoggingConfig
+
 
 class DuplicateFilter(logging.Filter):
     """Formats identical log entries to overwrite the last."""
@@ -53,18 +57,33 @@ class FFmpegFilter(logging.Filter):
         return True
 
 
-class ViseronLogFormat(logging.Formatter):
+class ViseronLogFormat(ColoredFormatter):
     """Log formatter."""
 
     # pylint: disable=protected-access
-    base_format = "[%(asctime)s] [%(levelname)-8s] [%(name)-24s] - %(message)s"
+    base_format = (
+        "%(log_color)s[%(asctime)s] [%(levelname)-8s] [%(name)-24s] - %(message)s"
+    )
     overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K" + base_format
 
-    def __init__(self):
+    def __init__(self, config: LoggingConfig):
+
+        log_colors = {}
+        if config.color_log:
+            log_colors = {
+                "DEBUG": "cyan",
+                "INFO": "green",
+                "WARNING": "yellow",
+                "ERROR": "red",
+                "CRITICAL": "red",
+            }
+
         super().__init__(
             fmt=self.base_format,
             datefmt="%Y-%m-%d %H:%M:%S",
             style="%",
+            reset=True,
+            log_colors=log_colors,
         )
         self.current_count = 0
 
@@ -78,7 +97,7 @@ class ViseronLogFormat(logging.Formatter):
             self._style._fmt = self.overwrite_fmt
 
         # Call the original formatter class to do the grunt work
-        result = logging.Formatter.format(self, record)
+        result = ColoredFormatter.format(self, record)
 
         # Restore the original format configured by the user
         self._style._fmt = format_orig

@@ -1236,6 +1236,7 @@ The switch is used to arm/disarm a camera. When disarmed, no system resources ar
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | level | str | ```INFO``` | ```DEBUG```, ```INFO```, ```WARNING```, ```ERROR```, ```FATAL``` | Log level |
+| color_log | bool | True | True/False | Controls wether the log is colored or not |
 
 ---
 

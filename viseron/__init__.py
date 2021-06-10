@@ -15,6 +15,7 @@ from viseron.exceptions import (
     PostProcessorImportError,
     PostProcessorStructureError,
 )
+from viseron.helpers.logs import DuplicateFilter, ViseronLogFormat
 from viseron.mqtt import MQTT
 from viseron.nvr import FFMPEGNVR
 from viseron.post_processors import PostProcessor
@@ -161,7 +162,14 @@ def schedule_cleanup(config):
 
 
 def log_settings(config):
-    """Sets log level."""
+    """Set custom log settings."""
+    LOGGER.propagate = False
+    formatter = ViseronLogFormat(config.logging)
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    handler.addFilter(DuplicateFilter())
+    LOGGER.addHandler(handler)
+
     LOGGER.setLevel(LOG_LEVELS[config.logging.level])
     logging.getLogger("apscheduler.scheduler").setLevel(logging.ERROR)
     logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)
