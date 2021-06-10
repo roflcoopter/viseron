@@ -135,6 +135,7 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
             {
                 Optional("interval"): Any(int, float),
                 Optional("trigger_detector"): bool,
+                Optional("trigger_recorder"): bool,
                 Optional("timeout"): bool,
                 Optional("max_timeout"): int,
                 Optional("width"): int,
