@@ -157,6 +157,7 @@ class LabelConfig:
 SCHEMA = Schema(
     {
         Optional("type", default=get_detector_type()): str,
+        Optional("enable", default=True): bool,
         Optional("interval", default=1): All(
             Any(float, int), Coerce(float), Range(min=0.0)
         ),
@@ -183,6 +184,7 @@ class ObjectDetectionConfig:
     # pylint: disable=dangerous-default-value
     def __init__(self, object_detection, camera_object_detection={}, camera_zones={}):
         self._type = object_detection["type"]
+        self._enable = camera_object_detection.get("enable", object_detection["enable"])
         self._interval = camera_object_detection.get(
             "interval", object_detection["interval"]
         )
@@ -201,7 +203,8 @@ class ObjectDetectionConfig:
         self._logging = LoggingConfig(logging) if logging else logging
 
         self._min_confidence = min(
-            label.confidence for label in self.concat_labels(camera_zones)
+            (label.confidence for label in self.concat_labels(camera_zones)),
+            default=1.0,
         )
 
     def concat_labels(self, camera_zones) -> List[LabelConfig]:
@@ -216,6 +219,11 @@ class ObjectDetectionConfig:
     def type(self) -> str:
         """Return detector type."""
         return self._type
+
+    @property
+    def enable(self) -> bool:
+        """Return if detector is enabled."""
+        return self._enable
 
     @property
     def interval(self) -> float:

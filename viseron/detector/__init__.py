@@ -49,6 +49,11 @@ class Detector:
     """Subscribe to frames and run object detection using the configured detector."""
 
     def __init__(self, object_detection_config):
+        self.detection_lock = Lock()
+        # Config is not validated yet so we need to access the dictionary value
+        if not object_detection_config["enable"]:
+            return
+
         detector_module = importlib.import_module(
             "viseron.detector." + object_detection_config["type"]
         )
@@ -85,8 +90,6 @@ class Detector:
             LOGGER.setLevel(config.logging.level)
 
         LOGGER.debug(f"Initializing object detector {config.type}")
-
-        self.detection_lock = Lock()
 
         # Activate OpenCL
         if cv2.ocl.haveOpenCL():
