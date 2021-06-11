@@ -27,7 +27,7 @@ else
 fi
 
 # Check for CUDA
-OUTPUT=$(/etc/cuda/test_cuda_availability.out > /dev/null 2>&1)
+OUTPUT=$(/etc/cuda/deviceQuery > /dev/null 2>&1)
 if [[ $? -eq 0 ]] ; then
     export VISERON_CUDA_SUPPORTED=true
     printf "true" > /var/run/environment/VISERON_CUDA_SUPPORTED

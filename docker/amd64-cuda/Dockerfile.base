@@ -6,7 +6,7 @@ FROM nvidia/cuda:11.1-cudnn8-runtime-ubuntu${UBUNTU_VERSION_NUMBER}
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
-COPY --from=opencv /etc/cuda/test_cuda_availability.out /etc/cuda/test_cuda_availability.out
+COPY --from=opencv /etc/cuda/deviceQuery /etc/cuda/deviceQuery
 
 ARG OPENCL_VERSION
 ARG GMMLIB_VERSION

@@ -23,11 +23,13 @@ from viseron.const import (
     CAMERA_HWACCEL_ARGS,
     CAMERA_INPUT_ARGS,
     ENV_CUDA_SUPPORTED,
+    ENV_JETSON_NANO,
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
     ENV_VAAPI_SUPPORTED,
     FFMPEG_RECOVERABLE_ERRORS,
     HWACCEL_CUDA_DECODER_CODEC_MAP,
+    HWACCEL_JETSON_NANO_DECODER_CODEC_MAP,
     HWACCEL_RPI3_DECODER_CODEC_MAP,
     HWACCEL_RPI4_DECODER_CODEC_MAP,
     HWACCEL_VAAPI,
@@ -258,6 +260,8 @@ class Stream:
                 return HWACCEL_RPI3_DECODER_CODEC_MAP
             if os.getenv(ENV_RASPBERRYPI4) == "true":
                 return HWACCEL_RPI4_DECODER_CODEC_MAP
+            if os.getenv(ENV_JETSON_NANO) == "true":
+                return HWACCEL_JETSON_NANO_DECODER_CODEC_MAP
         return {}
 
     @property

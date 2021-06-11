@@ -10,7 +10,7 @@ FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-run
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
 COPY --from=python /usr/local /usr/local/
-COPY --from=opencv /etc/cuda/test_cuda_availability.out /etc/cuda/test_cuda_availability.out
+COPY --from=opencv /etc/cuda/deviceQuery /etc/cuda/deviceQuery
 
 ENV \
   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:"/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra-egl" \
