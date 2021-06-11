@@ -423,6 +423,7 @@ You should also change the resolution to something lower than the main stream to
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | interval | float | 1.0 | any float | Run motion detection at this interval in seconds on the most recent frame. <br>For optimal performance, this should be divisible with the object detection interval, because then preprocessing will only occur once for each frame. |
+| trigger_recorder | bool | true | True/False | If true, detected motion will start the recorder |
 | trigger_detector | bool | true | True/False | If true, the object detector will only run while motion is detected. |
 | timeout | bool | true | True/False | If true, recording will continue until no motion is detected |
 | max_timeout | int | 30 | any integer | Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected. <br>This is to prevent never-ending recordings. <br>Only applicable if ```timeout: true```.
@@ -487,6 +488,7 @@ Draw a mask over these trees and they will no longer trigger said motion.
 ### Camera object detection
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
+| enable | bool | True | true/false | If set to false, object detection is disabled for this camera |
 | interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
 | labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). |
 | log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy. Overrides global [config](#object-detection) |
@@ -643,6 +645,7 @@ The config example above would give you two streams, available at these endpoint
 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
+| enable | bool | True | true/false | If set to false, object detection is disabled |
 | type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu```, ```deepstack``` | What detection method to use.<br>Each detector has its own configuration options explained here:<br>[darknet](#darknet)<br>[edgetpu](#edgetpu)<br>[deepstack](#deepstack-objects)|
 | model_width | int | optional | any integer | Detected from model.<br>Frames will be resized to this width in order to fit model and save computing power.<br>I dont recommend changing this. |
 | model_height | int | optional | any integer | Detected from model.<br>Frames will be resized to this height in order to fit model and save computing power.<br>I dont recommend changing this. |
@@ -732,7 +735,7 @@ DeepStack is developed and maintained by [DeepQuest AI](https://deepquestai.com/
 | height_max | float | 1 | float between 0 and 1 | Maximum height allowed for detected objects, relative to stream height |
 | width_min | float | 0 | float between 0 and 1 | Minimum width allowed for detected objects, relative to stream width |
 | width_max | float | 1 | float between 0 and 1 | Maximum width allowed for detected objects, relative to stream width |
-| triggers_recording | bool | True | True/false | If set to True, objects matching this filter will start the recorder and signal over MQTT.<br> If set to False, only signal over MQTT will be sent |
+| trigger_recorder | bool | True | True/false | If set to True, objects matching this filter will start the recorder and signal over MQTT.<br> If set to False, only signal over MQTT will be sent |
 | require_motion | bool | False | True/false | If set, the recorder will stop as soon as motion is no longer detected, even if the object still is. This is useful to avoid never ending recordings of stationary objects, such as a car on a driveway |
 | post_processor | str | optional | any configured post processor | Send this detected object to the specified [post processor](#post-processors).
 
@@ -773,6 +776,7 @@ The max/min width/height is used to filter out any unreasonably large/small obje
 | -----| -----| ------- | ----------------- |------------ |
 | interval | float | 1.0 | any float | Run motion detection at this interval in seconds on the most recent frame. <br>For optimal performance, this should be divisible with the object detection interval, because then preprocessing will only occur once for each frame. |
 | trigger_detector | bool | true | True/False | If true, the object detector will only run while motion is detected. |
+| trigger_recorder | bool | true | True/False | If true, detected motion will start the recorder |
 | timeout | bool | true | True/False | If true, recording will continue until no motion is detected |
 | max_timeout | int | 30 | any integer | Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected. <br>This is to prevent never-ending recordings. <br>Only applicable if ```timeout: true```.
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
