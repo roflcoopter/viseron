@@ -69,17 +69,18 @@ class FFMPEGCamera:
             f"@ {self.stream.fps} FPS"
         )
 
-        FrameDecoder(
-            self._logger,
-            self._config,
-            f"{self._config.camera.name_slug}.object_detection",
-            self._config.object_detection.interval,
-            self.stream,
-            self.decode_error,
-            TOPIC_FRAME_DECODE_OBJECT,
-            TOPIC_FRAME_SCAN_OBJECT,
-            preprocess_callback=detector.object_detector.preprocess,
-        )
+        if self._config.object_detection.enable:
+            FrameDecoder(
+                self._logger,
+                self._config,
+                f"{self._config.camera.name_slug}.object_detection",
+                self._config.object_detection.interval,
+                self.stream,
+                self.decode_error,
+                TOPIC_FRAME_DECODE_OBJECT,
+                TOPIC_FRAME_SCAN_OBJECT,
+                preprocess_callback=detector.object_detector.preprocess,
+            )
 
         self._logger.debug(f"Camera {self._config.camera.name} initialized")
 

@@ -76,18 +76,37 @@ def load_config():
         sys.exit()
 
 
+def detector_enabled_check(config):
+    if not config["object_detection"]["enable"]:
+        for camera in config["cameras"]:
+            if (
+                camera.get("object_detection")
+                and camera["object_detection"].get("enable")
+                and camera["object_detection"]["enable"]
+            ):
+                raise Invalid(
+                    f"You have disabled object detection globally, "
+                    f"but have enabled object detection for camera {camera['name']}. "
+                    "This is not supported."
+                )
+    return config
+
+
 VISERON_CONFIG_SCHEMA = Schema(
-    {
-        Required("cameras"): CameraConfig.schema,
-        Optional("object_detection", default={}): ObjectDetectionConfig.schema,
-        Optional(
-            "motion_detection", default=MotionDetectionConfig.defaults
-        ): MotionDetectionConfig.schema,
-        Optional("post_processors", default={}): PostProcessorsConfig.schema,
-        Optional("recorder", default={}): RecorderConfig.schema,
-        Optional("mqtt", default=None): Any(MQTTConfig.schema, None),
-        Optional("logging", default={}): LoggingConfig.schema,
-    }
+    All(
+        {
+            Required("cameras"): CameraConfig.schema,
+            Optional("object_detection", default={}): ObjectDetectionConfig.schema,
+            Optional(
+                "motion_detection", default=MotionDetectionConfig.defaults
+            ): MotionDetectionConfig.schema,
+            Optional("post_processors", default={}): PostProcessorsConfig.schema,
+            Optional("recorder", default={}): RecorderConfig.schema,
+            Optional("mqtt", default=None): Any(MQTTConfig.schema, None),
+            Optional("logging", default={}): LoggingConfig.schema,
+        },
+        detector_enabled_check,
+    )
 )
 
 raw_config = load_config()

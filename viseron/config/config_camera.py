@@ -165,6 +165,7 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
         ),
         Optional("object_detection"): Maybe(
             {
+                Optional("enable"): bool,
                 Optional("interval"): Any(int, float),
                 Optional("labels"): LABELS_SCHEMA,
                 Optional("logging"): LOGGING_SCHEMA,

@@ -166,9 +166,11 @@ class FFMPEGNVR:
 
         if config.motion_detection.trigger_detector:
             self.camera.stream.decoders[self._motion_decoder].scan.set()
-            self.camera.stream.decoders[self._object_decoder].scan.clear()
+            if config.object_detection.enable:
+                self.camera.stream.decoders[self._object_decoder].scan.clear()
         else:
-            self.camera.stream.decoders[self._object_decoder].scan.set()
+            if config.object_detection.enable:
+                self.camera.stream.decoders[self._object_decoder].scan.set()
             self.camera.stream.decoders[self._motion_decoder].scan.clear()
         self.idle_frames = 0
 
@@ -508,6 +510,7 @@ class FFMPEGNVR:
         if self.motion_detected:
             if (
                 self.config.motion_detection.trigger_detector
+                and self.config.object_detection.enable
                 and not self.camera.stream.decoders[self._object_decoder].scan.is_set()
             ):
                 self.camera.stream.decoders[self._object_decoder].scan.set()
@@ -520,7 +523,8 @@ class FFMPEGNVR:
                 self._start_recorder = True
 
         elif (
-            self.camera.stream.decoders[self._object_decoder].scan.is_set()
+            self.config.object_detection.enable
+            and self.camera.stream.decoders[self._object_decoder].scan.is_set()
             and not self.recorder.is_recording
             and self.config.motion_detection.trigger_detector
         ):
@@ -535,7 +539,10 @@ class FFMPEGNVR:
         status = "unknown"
         if self.recorder.is_recording:
             status = "recording"
-        elif self.camera.stream.decoders[self._object_decoder].scan.is_set():
+        elif (
+            self.config.object_detection.enable
+            and self.camera.stream.decoders[self._object_decoder].scan.is_set()
+        ):
             status = "scanning_for_objects"
         elif self.camera.stream.decoders[self._motion_decoder].scan.is_set():
             status = "scanning_for_motion"
