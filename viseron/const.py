@@ -42,7 +42,6 @@ CAMERA_INPUT_ARGS = [
     "0",
 ]
 CAMERA_HWACCEL_ARGS: List["str"] = []
-CAMERA_OUTPUT_ARGS = ["-f", "rawvideo", "-pix_fmt", "nv12", "pipe:1"]
 CAMERA_SEGMENT_DURATION = 5
 CAMERA_SEGMENT_ARGS = [
     "-f",

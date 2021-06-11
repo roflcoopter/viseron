@@ -8,6 +8,7 @@ import subprocess as sp
 from time import sleep
 from typing import TYPE_CHECKING, Dict, Optional, Union
 
+import cv2
 from tenacity import (
     Retrying,
     before_sleep_log,
@@ -96,9 +97,19 @@ class Stream:
         else:
             raise StreamInformationError(self.width, self.height, self.fps)
 
-        self._frame_bytes = int(self.width * self.height * 1.5)
         self.decoders: Dict[str, FrameDecoder] = {}
         self.create_symlink()
+
+        if stream_config.pix_fmt == "nv12":
+            self._color_converter = cv2.COLOR_YUV2RGB_NV21
+            self._color_plane_width = self.width
+            self._color_plane_height = int(self.height * 1.5)
+            self._frame_bytes = int(self.width * self.height * 1.5)
+        elif stream_config.pix_fmt == "yuv420p":
+            self._color_converter = cv2.COLOR_YUV2BGR_I420
+            self._color_plane_width = self.width
+            self._color_plane_height = int(self.height * 1.5)
+            self._frame_bytes = int(self.width * self.height * 1.5)
 
     @property
     def alias(self):
@@ -393,5 +404,12 @@ class Stream:
             frame_bytes = self._pipe.stdout.read(self._frame_bytes)
 
             if len(frame_bytes) == self._frame_bytes:
-                return Frame(frame_bytes, self.width, self.height)
+                return Frame(
+                    self._color_converter,
+                    self._color_plane_width,
+                    self._color_plane_height,
+                    frame_bytes,
+                    self.width,
+                    self.height,
+                )
         return None

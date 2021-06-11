@@ -13,7 +13,18 @@ LOGGER = logging.getLogger(__name__)
 class Frame:
     """Represents a frame read from FFMpeg."""
 
-    def __init__(self, raw_frame, frame_width, frame_height):
+    def __init__(
+        self,
+        cvt_color,
+        color_plane_width,
+        color_plane_height,
+        raw_frame,
+        frame_width,
+        frame_height,
+    ):
+        self._cvt_color = cvt_color
+        self._color_plane_width = color_plane_width
+        self._color_plane_height = color_plane_height
         self._raw_frame = raw_frame
         self._frame_width = frame_width
         self._frame_height = frame_height
@@ -30,9 +41,10 @@ class Frame:
         """Decode raw frame to numpy array."""
         try:
             self._decoded_frame = np.frombuffer(self.raw_frame, np.uint8).reshape(
-                int(self.frame_height * 1.5), self.frame_width
+                self._color_plane_height, self._color_plane_width
             )
         except ValueError:
+            LOGGER.warning("Failed to decode frame")
             return False
         return True
 
@@ -93,7 +105,7 @@ class Frame:
         Decodes frame if not already done."""
         if self._decoded_frame_umat_rgb is None:
             self._decoded_frame_umat_rgb = cv2.cvtColor(
-                self.decoded_frame_umat, cv2.COLOR_YUV2RGB_NV21
+                self.decoded_frame_umat, self._cvt_color
             )
         return self._decoded_frame_umat_rgb
 

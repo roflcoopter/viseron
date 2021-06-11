@@ -22,7 +22,6 @@ from viseron.const import (
     CAMERA_GLOBAL_ARGS,
     CAMERA_HWACCEL_ARGS,
     CAMERA_INPUT_ARGS,
-    CAMERA_OUTPUT_ARGS,
     ENV_CUDA_SUPPORTED,
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
@@ -105,6 +104,7 @@ STREAM_SCEHMA = Schema(
             "tcp", "udp", "udp_multicast", "http"
         ),
         Optional("filter_args", default=[]): list,
+        Optional("pix_fmt", default="nv12"): Any("nv12", "yuv420p"),
         Optional("frame_timeout", default=60): int,
     }
 )
@@ -246,6 +246,7 @@ class Stream:
         self._audio_codec = camera["audio_codec"]
         self._rtsp_transport = camera["rtsp_transport"]
         self._filter_args = camera["filter_args"]
+        self._pix_fmt = camera["pix_fmt"]
         self._frame_timeout = camera["frame_timeout"]
 
     def get_codec_map(self):
@@ -345,6 +346,11 @@ class Stream:
     def frame_timeout(self):
         """Return frame timeout."""
         return self._frame_timeout
+
+    @property
+    def pix_fmt(self):
+        """Return FFmpeg pix fmt."""
+        return self._pix_fmt
 
     @property
     def protocol(self):
@@ -457,7 +463,7 @@ class CameraConfig(Stream):
     @property
     def output_args(self):
         """Return FFmpeg output args."""
-        return CAMERA_OUTPUT_ARGS
+        return ["-f", "rawvideo", "-pix_fmt", self.pix_fmt, "pipe:1"]
 
     @property
     def substream(self):

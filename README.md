@@ -323,6 +323,7 @@ The command is built like this: \
 | rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesn't support TCP |
 | filter_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
 | frame_timeout | int | 60 | any int | A timeout in seconds. If a frame has not been received in this time period FFmpeg will be restarted |
+| pix_fmt | str | `nv12` | `nv12`, `yuv420p` | Only change this if the decoder you are using does not support `nv12`, as `nv12` is more efficient |
 | substream | dictionary | optional | see [Substream config](#substream) | Substream to perform image processing on |
 | motion_detection | dictionary | optional | see [Camera motion detection config](#camera-motion-detection) | Overrides the global ```motion_detection``` config |
 | object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) | Overrides the global ```object_detection``` config |
@@ -399,6 +400,7 @@ If you specify all of `width`, `height`, `fps`, `codec` and `audio_codec`, Viser
 | rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesn't support TCP |
 | filter_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
 | frame_timeout | int | 30 | any int | A timeout in seconds. If a frame has not been received in this time period FFmpeg will be restarted |
+| pix_fmt | str | `nv12` | `nv12`, `yuv420p` | Only change this if the decoder you are using does not support `nv12`, as `nv12` is more efficient |
 
 Using the substream is a great way to reduce the system load from FFmpeg.\
 When configured, two FFmpeg processes will spawn:\
