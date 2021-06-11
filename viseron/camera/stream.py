@@ -17,7 +17,12 @@ from tenacity import (
 )
 
 from viseron.camera.frame_decoder import FrameDecoder
-from viseron.const import CAMERA_SEGMENT_ARGS, FFMPEG_LOG_LEVELS, FFPROBE_TIMEOUT
+from viseron.const import (
+    CAMERA_SEGMENT_ARGS,
+    ENV_FFMPEG_PATH,
+    FFMPEG_LOG_LEVELS,
+    FFPROBE_TIMEOUT,
+)
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
 from viseron.helpers.logs import FFmpegFilter, LogPipe, SensitiveInformationFilter
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
@@ -107,7 +112,7 @@ class Stream:
         """Creates a symlink to ffmpeg executable to know which ffmpeg command
         belongs to which camera."""
         try:
-            os.symlink("/usr/local/bin/ffmpeg", f"/home/abc/bin/{self.alias}")
+            os.symlink(os.getenv(ENV_FFMPEG_PATH), f"/home/abc/bin/{self.alias}")
         except FileExistsError:
             pass
 
