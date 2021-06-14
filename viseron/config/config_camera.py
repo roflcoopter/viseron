@@ -254,14 +254,14 @@ class Stream:
     def get_codec_map(self):
         """Return codec for specific hardware."""
         if self.stream_format in ["rtsp", "rtmp"]:
-            if os.getenv(ENV_CUDA_SUPPORTED) == "true":
-                return HWACCEL_CUDA_DECODER_CODEC_MAP
             if os.getenv(ENV_RASPBERRYPI3) == "true":
                 return HWACCEL_RPI3_DECODER_CODEC_MAP
             if os.getenv(ENV_RASPBERRYPI4) == "true":
                 return HWACCEL_RPI4_DECODER_CODEC_MAP
             if os.getenv(ENV_JETSON_NANO) == "true":
                 return HWACCEL_JETSON_NANO_DECODER_CODEC_MAP
+            if os.getenv(ENV_CUDA_SUPPORTED) == "true":
+                return HWACCEL_CUDA_DECODER_CODEC_MAP
         return {}
 
     @property
