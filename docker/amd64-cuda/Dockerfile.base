@@ -1,12 +1,10 @@
 ARG OPENCV_VERSION
 ARG UBUNTU_VERSION_NUMBER
 FROM roflcoopter/viseron-models:latest as models
-FROM roflcoopter/amd64-cuda-opencv:${OPENCV_VERSION} as opencv
 FROM nvidia/cuda:11.1-cudnn8-runtime-ubuntu${UBUNTU_VERSION_NUMBER}
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
-COPY --from=opencv /etc/cuda/deviceQuery /etc/cuda/deviceQuery
 
 ARG OPENCL_VERSION
 ARG GMMLIB_VERSION

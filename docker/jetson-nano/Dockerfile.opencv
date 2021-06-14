@@ -2,9 +2,18 @@
 ARG PYTHON_VERSION
 ARG UBUNTU_VERSION
 ARG FFMPEG_VERSION
+ARG JETPACK_VERSION
 FROM roflcoopter/jetson-nano-ffmpeg:${FFMPEG_VERSION} as ffmpeg
 FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
-FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as build
+FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as qemu
+FROM nvcr.io/nvidia/l4t-base:${JETPACK_VERSION} as build
+
+COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
+COPY --from=qemu /bin/sh /bin/sh
+COPY --from=qemu /bin/sh.real /bin/sh.real
+COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
+COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
+COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
 
 COPY --from=ffmpeg /usr/local /usr/local/
 
@@ -25,12 +34,18 @@ ENV \
   DEBIAN_FRONTEND=noninteractive \
   PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig" \
   PREFIX=/opt/opencv \
-  LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib" \
-  # This is needed to get NVCC into the path
-  PATH=$PATH:/usr/local/cuda/bin \
   # Jetson Nano uses compute capability 5.3
   CUDA_ARCH_BIN="53" \
   CUDA_ARCH_PTX="70"
+
+RUN \
+  apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates \
+  gnupg && \
+  echo "deb https://repo.download.nvidia.com/jetson/common r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list \
+  && echo "deb https://repo.download.nvidia.com/jetson/t210 r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list \
+  && apt-key adv --fetch-key http://repo.download.nvidia.com/jetson/jetson-ota-public.asc \
+  && mkdir -p /opt/nvidia/l4t-packages/ && touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall
 
 RUN buildDeps="autoconf \
   automake \
@@ -58,11 +73,8 @@ RUN buildDeps="autoconf \
   libgomp1 \
   libnuma-dev \
   zlib1g-dev \
-  cuda-compiler-10-2 \
-  cuda-nvcc-10-2 \
-  cuda-minimal-build-10-2 \
-  cuda-libraries-dev-10-2 \
-  libcudnn8-dev" && \
+  libcudnn8-dev \
+  libcublas-dev" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps} && \
   pip3 install numpy
@@ -123,20 +135,11 @@ RUN \
   -D MKL_WITH_TBB=ON \
   -D OPENCV_DNN_CUDA=ON \
   -D ENABLE_NEON=ON \
+  # Turn off some unnecessary modules that only take extra time to build
+  -D BUILD_opencv_face=OFF \
   /tmp/opencv && \
   make && \
   make install
 
-RUN \
-  DIR=/tmp/cuda-samples && mkdir -p ${DIR} && cd ${DIR} && \
-  git clone https://github.com/NVIDIA/cuda-samples . && \
-  git checkout tags/v10.2 && \
-  cd Samples/deviceQuery && \
-  make && \
-  mkdir -p /etc/cuda && \
-  cp deviceQuery /etc/cuda/deviceQuery
-
-FROM scratch
-
+FROM scratch as opencv
 COPY --from=build /opt/opencv /opt/opencv/
-COPY --from=build /etc/cuda/deviceQuery /etc/cuda/deviceQuery

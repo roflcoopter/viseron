@@ -157,7 +157,6 @@ services:
       context: ..
       dockerfile: ./docker/amd64-cuda/Dockerfile.base
       args:
-        OPENCV_VERSION: "$OPENCV_VERSION"
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         OPENCL_VERSION: "$OPENCL_VERSION"
         GMMLIB_VERSION: "$GMMLIB_VERSION"
@@ -357,6 +356,7 @@ services:
         PYTHON_VERSION: "$PYTHON_VERSION"
         OPENCV_VERSION: "$OPENCV_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
+        JETPACK_VERSION: "$JETPACK_VERSION"
     image: roflcoopter/jetson-nano-opencv:$OPENCV_VERSION
 
   jetson-nano-dlib:
@@ -368,6 +368,7 @@ services:
         PYTHON_VERSION: "$PYTHON_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
         DLIB_VERSION: "$DLIB_VERSION"
+        JETPACK_VERSION: "$JETPACK_VERSION"
     image: roflcoopter/jetson-nano-dlib:$DLIB_VERSION
 
   jetson-nano-wheels:
@@ -386,10 +387,10 @@ services:
       context: ..
       dockerfile: ./docker/jetson-nano/Dockerfile.base
       args:
-        OPENCV_VERSION: "$OPENCV_VERSION"
         UBUNTU_VERSION: bionic
         PYTHON_VERSION: "$PYTHON_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
+        JETPACK_VERSION: "$JETPACK_VERSION"
     image: roflcoopter/jetson-nano-base:$BASE_VERSION
 
   jetson-nano-viseron:
