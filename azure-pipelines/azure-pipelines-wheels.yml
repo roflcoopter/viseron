@@ -1,9 +1,7 @@
 trigger:
   branches:
     include:
-      - docker_revamp
       - dev
-      - master
   paths:
     include:
       - requirements.txt
@@ -19,7 +17,6 @@ resources:
       trigger:
         branches:
           - dev
-          - docker_revamp
 
 jobs:
   - template: templates/build.yaml

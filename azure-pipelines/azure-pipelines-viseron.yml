@@ -1,7 +1,6 @@
 trigger:
   branches:
     include:
-      - docker_revamp
       - dev
   tags:
     include:
@@ -10,6 +9,8 @@ trigger:
     include:
       - viseron/*
       - rootfs/*
+    exclude:
+      - requirements.txt
 pr: none
 
 pool:
@@ -22,25 +23,21 @@ resources:
       trigger:
         branches:
           - dev
-          - docker_revamp
     - pipeline: viseronOpenCV
       source: "Viseron OpenCV"
       trigger:
         branches:
           - dev
-          - docker_revamp
     - pipeline: viseronWheels
       source: "Viseron Wheels"
       trigger:
         branches:
           - dev
-          - docker_revamp
     - pipeline: viseronBase
       source: "Viseron Base"
       trigger:
         branches:
           - dev
-          - docker_revamp
 
 stages:
   - stage: Build

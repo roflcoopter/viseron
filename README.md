@@ -14,17 +14,24 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
   - [DeepStack](https://docs.deepstack.cc/) 
 - Lookback, buffers frames to record before the event actually happened
 - Multiarch Docker containers for ease of use.
-- Multiplatform, should support any amd64, aarch64 or armhf machine running Linux, as well as RPi3/4.\
-Builds are tested and verified on the following platforms:
-  - Ubuntu 18.04 with Nvidia GPU
-  - Ubuntu 18.04 running on an Intel NUC
-  - RaspberryPi 3B+
-- Native support for RTSP and MJPEG
 - Supports hardware acceleration on different platforms
   - CUDA for systems with a supported GPU
   - OpenCL
   - OpenMax and MMAL on the RaspberryPi 3B+
+  - video4linux on the RaspberryPi 4
   - Intel QuickSync with VA-API
+  - NVIDIA video4linux2 on Jetson Nano
+- Multiplatform, should support any amd64, aarch64 or armhf machine running Linux.\
+  Specific images are built to support:
+  - RaspberryPi 3B+
+  - RaspberryPi 4
+  - NVIDIA Jetson Nano
+
+  Builds are tested and verified on the following platforms:
+  - Ubuntu 18.04 with NVIDIA GPU
+  - Ubuntu 18.04 running on an Intel NUC
+  - RaspberryPi 3B+
+- Native support for RTSP and MJPEG
 - Zones to limit detection to a particular area to reduce false positives
 - Masks to limit where motion detection occurs
 - Stop/start cameras on-demand over MQTT
@@ -75,10 +82,11 @@ The images available are:
 | Image | Architecture | Description |
 | ------------ | ----- | ----------- |
 | `roflcoopter/viseron` | multiarch | Multiarch image |
-| `roflcoopter/aarch64-viseron` | `aarch64` | Generic image |
+| `roflcoopter/aarch64-viseron` | `aarch64` | Generic aarch64 image, with RPi4 hardware accelerated decoding/encoding |
 | `roflcoopter/amd64-viseron` | `amd64` | Generic image |
 | `roflcoopter/amd64-cuda-viseron` | `amd64` | Image with CUDA support |
-| `roflcoopter/rpi3-viseron` | `armhf` | built specifically for the RPi3 |
+| `roflcoopter/rpi3-viseron` | `armhf` | Built specifically for the RPi3 with hardware accelerated decoding/encoding |
+| `roflcoopter/jetson-nano-viseron` | `aarch64` | Built specifically for the Jetson Nano with FFmpeg hardware accelerated deocoding and CUDA support |
 
 ---
 
@@ -232,7 +240,7 @@ Choose the appropriate docker container for your machine. Builds are published t
 </details>
 
 <details>
-  <summary>On a Linux machine with Nvidia GPU</summary>
+  <summary>On a Linux machine with NVIDIA GPU</summary>
 
   Example Docker command
   ```bash
@@ -261,7 +269,44 @@ Choose the appropriate docker container for your machine. Builds are published t
 
 </details>
 
-VAAPI support is built into every container. To utilize it you need to add ```--device /dev/dri``` to your docker command.\
+<details>
+  <summary>On a Jetson Nano</summary>
+
+  Example Docker command
+  ```bash
+  docker run --rm \
+  -v <recordings path>:/recordings \
+  -v <config path>:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  --name viseron \
+  --runtime=nvidia \
+  --privileged \
+  roflcoopter/jetson-nano-viseron:latest
+  ```
+  Example docker-compose
+  ```yaml
+  version: "2.4"
+
+  services:
+    viseron:
+      image: roflcoopter/jetson-nano-viseron:latest
+      container_name: viseron
+      volumes:
+        - <recordings path>:/recordings
+        - <config path>:/config
+        - /etc/localtime:/etc/localtime:ro
+      runtime: nvidia
+      privileged: true
+  ```
+
+  It is a must to run with `--privileged` so the container gets access to all the needed devices for hardware acceleration.\
+  You can probably get around this by manually mounting all the needed devices but this is not something I have looked into.
+
+</details>
+
+</br>
+
+VAAPI support is built into every `amd64` container. To utilize it you need to add ```--device /dev/dri``` to your docker command.\
 EdgeTPU support is also included in all containers. To use it, add ```-v /dev/bus/usb:/dev/bus/usb --privileged``` to your docker command.
 
 The ```config.yaml``` has to be mounted to the folder ```/config```.\
@@ -323,6 +368,7 @@ The command is built like this: \
 | rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesn't support TCP |
 | filter_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
 | frame_timeout | int | 60 | any int | A timeout in seconds. If a frame has not been received in this time period FFmpeg will be restarted |
+| pix_fmt | str | `nv12` | `nv12`, `yuv420p` | Only change this if the decoder you are using does not support `nv12`, as `nv12` is more efficient |
 | substream | dictionary | optional | see [Substream config](#substream) | Substream to perform image processing on |
 | motion_detection | dictionary | optional | see [Camera motion detection config](#camera-motion-detection) | Overrides the global ```motion_detection``` config |
 | object_detection | dictionary | optional | see [Camera object detection config](#camera-object-detection) | Overrides the global ```object_detection``` config |
@@ -336,7 +382,7 @@ The command is built like this: \
 #### Default FFmpeg decoder command
 A default FFmpeg decoder command is generated, which varies a bit depending on the Docker container you use,
 <details>
-  <summary>For Nvidia GPU support in the <b>roflcoopter/amd64-cuda-viseron</b> image</summary>
+  <summary>For NVIDIA GPU support in the <b>roflcoopter/amd64-cuda-viseron</b> image</summary>
 
   ```
   ffmpeg -hide_banner -loglevel panic -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -stimeout 5000000 -use_wallclock_as_timestamps 1 -vsync 0 -c:v h264_cuvid -rtsp_transport tcp -i rtsp://<username>:<password>@<host>:<port><path> -f rawvideo -pix_fmt nv12 pipe:1
@@ -399,6 +445,7 @@ If you specify all of `width`, `height`, `fps`, `codec` and `audio_codec`, Viser
 | rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesn't support TCP |
 | filter_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
 | frame_timeout | int | 30 | any int | A timeout in seconds. If a frame has not been received in this time period FFmpeg will be restarted |
+| pix_fmt | str | `nv12` | `nv12`, `yuv420p` | Only change this if the decoder you are using does not support `nv12`, as `nv12` is more efficient |
 
 Using the substream is a great way to reduce the system load from FFmpeg.\
 When configured, two FFmpeg processes will spawn:\
@@ -893,14 +940,14 @@ The stream can be reached on a [slugified](https://github.com/un33k/python-slugi
 If you are unsure on your camera name in this format you can run this snippet:\
 ```docker exec -it viseron python3 -c "from viseron.config import CONFIG; from viseron.helpers import print_slugs; print_slugs(CONFIG);"```
 
-Example URL: ```http://localhost:8888/<camera name slug>/stream```
+Example URL: ```http://localhost:8888/<camera name slug>/mjpeg-stream```
 
 To increase performance it is recommended to use [static streams](#static-mjpeg-streams) instead. 
 
 #### Query parameters
 A number of query parameters are available to instruct Viseron to resize the stream or draw different things in the image.\
 To utilize a parameter you append it to the URL after a ```?```. To add multiple parameters you separate them with ```&``` like this:\
-```http://localhost:8888/<camera name slug>/stream?<parameter1>=<value>&<parameter2>=<value>```
+```http://localhost:8888/<camera name slug>/mjpeg-stream?<parameter1>=<value>&<parameter2>=<value>```
 
 | Parameter | Type | Description |
 | --------- | ---- | ----------- |
@@ -1328,7 +1375,7 @@ Here I will show you the system load on a few different machines/configs.\
 All examples are with one camera running 1920x1080 at 6 FPS.\
 Motion and object detection running at a 1 second interval.
 
-Intel i3-9350K CPU @ 4.00GHz 4 cores with Nvidia GTX1660 Ti
+Intel i3-9350K CPU @ 4.00GHz 4 cores with NVIDIA GTX1660 Ti
 | Process | Load on one core | When |
 | -----   | -----| ---- |
 | ffmpeg | ~5-6% | Continuously |

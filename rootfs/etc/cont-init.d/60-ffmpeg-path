@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bash
+
+echo "****************** Getting FFmpeg path *******************"
+export VISERON_FFMPEG_PATH=$(which ffmpeg)
+printf "$VISERON_FFMPEG_PATH" > /var/run/environment/VISERON_FFMPEG_PATH
+echo FFmpeg path: $VISERON_FFMPEG_PATH
+echo "*********************** Done *****************************"

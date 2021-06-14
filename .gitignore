@@ -17,6 +17,9 @@
 !/docker/amd64/Dockerfile*
 !/docker/amd64-cuda
 !/docker/amd64-cuda/Dockerfile*
+!/docker/jetson-nano
+!/docker/jetson-nano/Dockerfile*
+!/docker/jetson-nano/patch_ffmpeg.sh
 !/docker/rpi3
 !/docker/rpi3/Dockerfile*
 !/docker/yolov4*.cfg

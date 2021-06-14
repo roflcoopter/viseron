@@ -1,3 +1,4 @@
+ARG OPENCV_VERSION
 ARG UBUNTU_VERSION_NUMBER
 FROM roflcoopter/viseron-models:latest as models
 FROM nvidia/cuda:11.1-cudnn8-runtime-ubuntu${UBUNTU_VERSION_NUMBER}

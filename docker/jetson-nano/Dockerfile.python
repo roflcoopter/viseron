@@ -1,0 +1,90 @@
+# Based on https://github.com/eht16/python3-docker
+ARG UBUNTU_VERSION
+FROM balenalib/aarch64-ubuntu:${UBUNTU_VERSION}-build as build
+RUN [ "cross-build-start" ]
+
+ARG PYTHON_VERSION
+ARG PYTHON_PIP_VERSION
+
+ENV GPG_KEY E3FF2839C048B25C084DEBE9B26995E310250568
+ENV LANG=C.UTF-8
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PIP_URL=https://bootstrap.pypa.io/get-pip.py
+ENV PIP_SHA256=b3153ec0cf7b7bbf9556932aa37e4981c35dc2a2c501d70d91d2795aa532be79
+
+RUN \
+  apt-get -yqq update && apt-get install -yq --no-install-recommends \
+  ca-certificates \
+  dirmngr \
+  dpkg-dev \
+  gcc \
+  gnupg \
+  libbz2-dev \
+  libc6-dev \
+  libexpat1-dev \
+  libffi-dev \
+  liblzma-dev \
+  libsqlite3-dev \
+  libssl-dev \
+  make \
+  netbase \
+  uuid-dev \
+  wget \
+  xz-utils \
+  zlib1g-dev
+
+RUN \
+  wget --no-verbose --output-document=python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" \
+  && wget --no-verbose --output-document=python.tar.xz.asc "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc" \
+  && export GNUPGHOME="$(mktemp -d)" \
+  && gpg --batch --keyserver ha.pool.sks-keyservers.net --recv-keys "$GPG_KEY" \
+  && gpg --batch --verify python.tar.xz.asc python.tar.xz \
+  && { command -v gpgconf > /dev/null && gpgconf --kill all || :; } \
+  && rm -rf "$GNUPGHOME" python.tar.xz.asc \
+  && mkdir -p /usr/src/python \
+  && tar -xJC /usr/src/python --strip-components=1 -f python.tar.xz \
+  && rm python.tar.xz
+
+RUN \
+  cd /usr/src/python \
+  && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+  && ./configure --help \
+  && ./configure \
+  --build="$gnuArch" \
+  --prefix="/usr/local" \
+  --enable-loadable-sqlite-extensions \
+  --enable-optimizations \
+  # --enable-ipv6 \
+  --disable-shared \
+  --with-system-expat \
+  --without-ensurepip \
+  && make \
+  && make install
+
+RUN \
+  strip /usr/local/bin/python3.8
+
+# install pip
+RUN \
+  wget --no-verbose --output-document=get-pip.py "$PIP_URL"; \
+  \
+  /usr/local/bin/python3 get-pip.py \
+  --disable-pip-version-check \
+  --no-cache-dir \
+  "pip==$PYTHON_PIP_VERSION" "wheel"
+
+# cleanup
+RUN \
+  find /usr/local/lib -type d -a \( \
+  -name test -o \
+  -name tests -o \
+  -name idlelib -o \
+  -name turtledemo -o \
+  -name pydoc_data -o \
+  -name tkinter \) -exec rm -rf {} +
+
+RUN [ "cross-build-end" ]
+
+FROM scratch
+
+COPY --from=build /usr/local /usr/local
