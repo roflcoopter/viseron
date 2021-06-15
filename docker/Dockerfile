@@ -60,7 +60,7 @@ RUN \
 VOLUME /config
 VOLUME /recordings
 
-COPY viseron /src/viseron/
-COPY rootfs/ /
-
 ENTRYPOINT ["/init"]
+
+COPY rootfs/ /
+COPY viseron /src/viseron/
