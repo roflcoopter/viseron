@@ -1,4 +1,4 @@
-version: "2.4"
+version: "3.2"
 
 services:
   ################ amd64 #######################################¤
@@ -51,6 +51,8 @@ services:
         LIBXML2_SHA256SUM: "$LIBXML2_SHA256SUM"
         LIBBLURAY_SHA256SUM: "$LIBBLURAY_SHA256SUM"
         LIBZMQ_SHA256SUM: "$LIBZMQ_SHA256SUM"
+      cache_from: 
+        - roflcoopter/amd64-ffmpeg:$FFMPEG_VERSION
     image: roflcoopter/amd64-ffmpeg:$FFMPEG_VERSION
 
   amd64-opencv:
@@ -62,6 +64,8 @@ services:
         MAKEFLAGS: "$MAKEFLAGS"
         OPENCV_VERSION: "$OPENCV_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
+      cache_from: 
+        - roflcoopter/amd64-opencv:$OPENCV_VERSION
     image: roflcoopter/amd64-opencv:$OPENCV_VERSION
 
   amd64-dlib:
@@ -72,6 +76,8 @@ services:
         UBUNTU_VERSION: "$UBUNTU_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
         DLIB_VERSION: "$DLIB_VERSION"
+      cache_from: 
+        - roflcoopter/amd64-dlib:$DLIB_VERSION
     image: roflcoopter/amd64-dlib:$DLIB_VERSION
 
   amd64-wheels:
@@ -82,6 +88,8 @@ services:
         ARCH: amd64
         BUILD_FROM: ubuntu:$UBUNTU_VERSION
         DLIB_VERSION: "$DLIB_VERSION"
+      cache_from: 
+        - roflcoopter/amd64-wheels:$WHEELS_VERSION
     image: roflcoopter/amd64-wheels:$WHEELS_VERSION
 
   amd64-base:
@@ -94,6 +102,8 @@ services:
         LEVEL_ZERO_GPU: "$LEVEL_ZERO_GPU"
       context: ..
       dockerfile: ./docker/amd64/Dockerfile.base
+      cache_from: 
+        - roflcoopter/amd64-base:$BASE_VERSION
     image: roflcoopter/amd64-base:$BASE_VERSION
 
   amd64-viseron:
@@ -108,6 +118,8 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: amd64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+      cache_from: 
+        - roflcoopter/amd64-viseron:dev
     image: roflcoopter/amd64-viseron:dev
 
   ################ amd64 CUDA ###################################
@@ -119,6 +131,8 @@ services:
         <<: *ffmpeg_args
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         VIDEO_CODEC_SDK_VERSION: "$VIDEO_CODEC_SDK_VERSION"
+      cache_from: 
+        - roflcoopter/amd64-cuda-ffmpeg:$FFMPEG_VERSION
     image: roflcoopter/amd64-cuda-ffmpeg:$FFMPEG_VERSION
 
   amd64-cuda-opencv:
@@ -130,6 +144,8 @@ services:
         MAKEFLAGS: "$MAKEFLAGS"
         OPENCV_VERSION: "$OPENCV_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
+      cache_from: 
+        - roflcoopter/amd64-cuda-opencv:$OPENCV_VERSION
     image: roflcoopter/amd64-cuda-opencv:$OPENCV_VERSION
 
   amd64-cuda-dlib:
@@ -140,6 +156,8 @@ services:
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         MAKEFLAGS: "$MAKEFLAGS"
         DLIB_VERSION: "$DLIB_VERSION"
+      cache_from: 
+        - roflcoopter/amd64-cuda-dlib:$DLIB_VERSION
     image: roflcoopter/amd64-cuda-dlib:$DLIB_VERSION
 
   amd64-cuda-wheels:
@@ -150,6 +168,8 @@ services:
         ARCH: amd64-cuda
         BUILD_FROM: ubuntu:$UBUNTU_VERSION
         DLIB_VERSION: "$DLIB_VERSION"
+      cache_from: 
+        - roflcoopter/amd64-cuda-wheels:$WHEELS_VERSION
     image: roflcoopter/amd64-cuda-wheels:$WHEELS_VERSION
 
   amd64-cuda-base:
@@ -162,6 +182,8 @@ services:
         GMMLIB_VERSION: "$GMMLIB_VERSION"
         IGC_VERSION: "$IGC_VERSION"
         LEVEL_ZERO_GPU: "$LEVEL_ZERO_GPU"
+      cache_from: 
+        - roflcoopter/amd64-cuda-base:$BASE_VERSION
     image: roflcoopter/amd64-cuda-base:$BASE_VERSION
 
   amd64-cuda-viseron:
@@ -176,6 +198,8 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: amd64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+      cache_from: 
+        - roflcoopter/amd64-cuda-viseron:dev
     image: roflcoopter/amd64-cuda-viseron:dev
 
   ################ RPi3 #######################################¤¤
@@ -186,6 +210,8 @@ services:
       args:
         <<: *ffmpeg_args
         CMAKE_VERSION: "$CMAKE_VERSION"
+      cache_from: 
+        - roflcoopter/rpi3-ffmpeg:$FFMPEG_VERSION
     image: roflcoopter/rpi3-ffmpeg:$FFMPEG_VERSION
 
   rpi3-python:
@@ -195,6 +221,8 @@ services:
       args:
         MAKEFLAGS: "$MAKEFLAGS"
         PYTHON_VERSION: "$PYTHON_VERSION"
+      cache_from: 
+        - roflcoopter/rpi3-python:$PYTHON_VERSION
     image: roflcoopter/rpi3-python:$PYTHON_VERSION
 
   rpi3-opencv:
@@ -207,6 +235,8 @@ services:
         OPENCV_VERSION: "$OPENCV_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
         CMAKE_VERSION: "$CMAKE_VERSION"
+      cache_from: 
+        - roflcoopter/rpi3-opencv:$OPENCV_VERSION
     image: roflcoopter/rpi3-opencv:$OPENCV_VERSION
 
   rpi3-dlib:
@@ -218,6 +248,8 @@ services:
         MAKEFLAGS: "$MAKEFLAGS"
         DLIB_VERSION: "$DLIB_VERSION"
         CMAKE_VERSION: "$CMAKE_VERSION"
+      cache_from: 
+        - roflcoopter/rpi3-dlib:$DLIB_VERSION
     image: roflcoopter/rpi3-dlib:$DLIB_VERSION
 
   rpi3-wheels:
@@ -228,6 +260,8 @@ services:
         ARCH: rpi3
         BUILD_FROM: balenalib/raspberrypi3-ubuntu:$UBUNTU_VERSION-build
         DLIB_VERSION: "$DLIB_VERSION"
+      cache_from: 
+        - roflcoopter/rpi3-wheels:$WHEELS_VERSION
     image: roflcoopter/rpi3-wheels:$WHEELS_VERSION
 
   rpi3-base:
@@ -237,6 +271,8 @@ services:
       args:
         UBUNTU_VERSION: "$UBUNTU_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
+      cache_from: 
+        - roflcoopter/rpi3-base:$BASE_VERSION
     image: roflcoopter/rpi3-base:$BASE_VERSION
 
   rpi3-viseron:
@@ -251,6 +287,8 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: armhf
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+      cache_from: 
+        - roflcoopter/rpi3-viseron:dev
     image: roflcoopter/rpi3-viseron:dev
 
   rpi3-cmake:
@@ -261,6 +299,8 @@ services:
         UBUNTU_VERSION: "$UBUNTU_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
         CMAKE_VERSION: "$CMAKE_VERSION"
+      cache_from: 
+        - roflcoopter/rpi3-cmake:$CMAKE_VERSION
     image: roflcoopter/rpi3-cmake:$CMAKE_VERSION
 
   ################ aarch64 #######################################
@@ -270,6 +310,8 @@ services:
       dockerfile: ./docker/aarch64/Dockerfile.ffmpeg
       args:
         <<: *ffmpeg_args
+      cache_from: 
+        - roflcoopter/aarch64-ffmpeg:$FFMPEG_VERSION
     image: roflcoopter/aarch64-ffmpeg:$FFMPEG_VERSION
 
   aarch64-opencv:
@@ -281,6 +323,8 @@ services:
         MAKEFLAGS: "$MAKEFLAGS"
         OPENCV_VERSION: "$OPENCV_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
+      cache_from: 
+        - roflcoopter/aarch64-opencv:$OPENCV_VERSION
     image: roflcoopter/aarch64-opencv:$OPENCV_VERSION
 
   aarch64-dlib:
@@ -291,6 +335,8 @@ services:
         UBUNTU_VERSION: "$UBUNTU_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
         DLIB_VERSION: "$DLIB_VERSION"
+      cache_from: 
+        - roflcoopter/aarch64-dlib:$DLIB_VERSION
     image: roflcoopter/aarch64-dlib:$DLIB_VERSION
 
   aarch64-wheels:
@@ -301,6 +347,8 @@ services:
         ARCH: aarch64
         BUILD_FROM: balenalib/aarch64-ubuntu:$UBUNTU_VERSION-build
         DLIB_VERSION: "$DLIB_VERSION"
+      cache_from: 
+        - roflcoopter/aarch64-wheels:$WHEELS_VERSION
     image: roflcoopter/aarch64-wheels:$WHEELS_VERSION
 
   aarch64-base:
@@ -310,6 +358,8 @@ services:
       args:
         UBUNTU_VERSION: "$UBUNTU_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
+      cache_from: 
+        - roflcoopter/aarch64-base:$BASE_VERSION
     image: roflcoopter/aarch64-base:$BASE_VERSION
 
   aarch64-viseron:
@@ -324,6 +374,8 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+      cache_from: 
+        - roflcoopter/aarch64-viseron:dev
     image: roflcoopter/aarch64-viseron:dev
 
   ################ Jetson Nano #######################################
@@ -335,6 +387,8 @@ services:
         UBUNTU_VERSION: bionic
         PYTHON_VERSION: "$PYTHON_VERSION"
         PYTHON_PIP_VERSION: "$PYTHON_PIP_VERSION"
+      cache_from: 
+        - roflcoopter/jetson-nano-python:$PYTHON_VERSION
     image: roflcoopter/jetson-nano-python:$PYTHON_VERSION
 
   jetson-nano-ffmpeg:
@@ -344,6 +398,8 @@ services:
       args:
         <<: *ffmpeg_args
         UBUNTU_VERSION: bionic
+      cache_from: 
+        - roflcoopter/jetson-nano-ffmpeg:$FFMPEG_VERSION
     image: roflcoopter/jetson-nano-ffmpeg:$FFMPEG_VERSION
 
   jetson-nano-opencv:
@@ -357,6 +413,8 @@ services:
         OPENCV_VERSION: "$OPENCV_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
         JETPACK_VERSION: "$JETPACK_VERSION"
+      cache_from: 
+        - roflcoopter/jetson-nano-opencv:$OPENCV_VERSION
     image: roflcoopter/jetson-nano-opencv:$OPENCV_VERSION
 
   jetson-nano-dlib:
@@ -369,6 +427,8 @@ services:
         MAKEFLAGS: "$MAKEFLAGS"
         DLIB_VERSION: "$DLIB_VERSION"
         JETPACK_VERSION: "$JETPACK_VERSION"
+      cache_from: 
+        - roflcoopter/jetson-nano-dlib:$DLIB_VERSION
     image: roflcoopter/jetson-nano-dlib:$DLIB_VERSION
 
   jetson-nano-wheels:
@@ -380,6 +440,8 @@ services:
         DLIB_VERSION: "$DLIB_VERSION"
         UBUNTU_VERSION: bionic
         PYTHON_VERSION: "$PYTHON_VERSION"
+      cache_from: 
+        - roflcoopter/jetson-nano-wheels:$WHEELS_VERSION
     image: roflcoopter/jetson-nano-wheels:$WHEELS_VERSION
 
   jetson-nano-base:
@@ -391,6 +453,8 @@ services:
         PYTHON_VERSION: "$PYTHON_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
         JETPACK_VERSION: "$JETPACK_VERSION"
+      cache_from: 
+        - roflcoopter/jetson-nano-base:$BASE_VERSION
     image: roflcoopter/jetson-nano-base:$BASE_VERSION
 
   jetson-nano-viseron:
@@ -405,6 +469,8 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+      cache_from: 
+        - roflcoopter/jetson-nano-viseron:dev
     image: roflcoopter/jetson-nano-viseron:dev
 
   models:
@@ -413,4 +479,6 @@ services:
       dockerfile: ./docker/Dockerfile.models
       args:
         UBUNTU_VERSION: "$UBUNTU_VERSION"
+      cache_from: 
+        - roflcoopter/viseron-models:latest
     image: roflcoopter/viseron-models:latest

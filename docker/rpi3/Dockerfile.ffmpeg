@@ -1,6 +1,7 @@
-# Shameless copy of https://github.com/jrottenberg/ffmpeg/
+# Inspired by https://github.com/jrottenberg/ffmpeg/
 ARG CMAKE_VERSION
 ARG UBUNTU_VERSION
+ARG PREFIX=/opt/ffmpeg
 FROM roflcoopter/rpi3-cmake:${CMAKE_VERSION} as cmake
 FROM balenalib/raspberrypi3-ubuntu:${UBUNTU_VERSION}-build as build
 RUN [ "cross-build-start" ]
@@ -17,8 +18,7 @@ ENV \
   SRC=/usr/local \
   PATH=/usr/custom_cmake/bin:$PATH \
   PKG_CONFIG_PATH="/opt/ffmpeg/share/pkgconfig:/opt/ffmpeg/lib/pkgconfig:/opt/ffmpeg/lib64/pkgconfig" \
-  PREFIX=/opt/ffmpeg \
-  LD_LIBRARY_PATH="/opt/ffmpeg/lib:/opt/ffmpeg/lib64:/usr/lib64:/usr/lib:/lib64:/lib"
+  LD_LIBRARY_PATH="/opt/ffmpeg/lib:/opt/ffmpeg/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/opt/vc/lib"
 
 RUN buildDeps="autoconf \
   automake \
@@ -46,6 +46,8 @@ RUN buildDeps="autoconf \
   apt-get install -yq --no-install-recommends ${buildDeps}
 
 ### opencore-amr https://sourceforge.net/projects/opencore-amr/
+FROM build as opencoreamr
+ARG PREFIX
 ARG OPENCOREAMR_VERSION
 RUN \
   DIR=/tmp/opencore-amr && \
@@ -153,6 +155,8 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ### libvpx https://www.webmproject.org/code/
+FROM build as vpx
+ARG PREFIX
 ARG VPX_VERSION
 RUN \
   DIR=/tmp/vpx && \
@@ -166,9 +170,11 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ### libwebp https://developers.google.com/speed/webp/
+FROM build as webp
+ARG PREFIX
 ARG WEBP_VERSION
 RUN \
-  DIR=/tmp/vebp && \
+  DIR=/tmp/webp && \
   mkdir -p ${DIR} && \
   cd ${DIR} && \
   curl -sL https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-${WEBP_VERSION}.tar.gz | \
@@ -205,6 +211,8 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ### fdk-aac https://github.com/mstorsjo/fdk-aac
+FROM build as fdkaac
+ARG PREFIX
 ARG FDKAAC_VERSION
 RUN \
   DIR=/tmp/fdk-aac && \
@@ -266,7 +274,7 @@ RUN  \
   make && \
   make install && \
   rm -rf ${DIR}
-### fridibi https://www.fribidi.org/
+### fribidi https://www.fribidi.org/
 ARG FRIBIDI_VERSION
 ARG FRIBIDI_SHA256SUM
 RUN  \
@@ -348,6 +356,8 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ### aom https://aomedia.googlesource.com/aom
+FROM build as aom
+ARG PREFIX
 ARG AOM_VERSION
 RUN \
   DIR=/tmp/aom && \
@@ -480,6 +490,8 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ### libzmq https://github.com/zeromq/libzmq/
+FROM build as zmq
+ARG PREFIX
 ARG LIBZMQ_VERSION
 ARG LIBZMQ_SHA256SUM
 RUN \
@@ -503,6 +515,14 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ### userland https://github.com/raspberrypi/userland
+FROM build as ffmpeg
+ARG PREFIX
+COPY --from=opencoreamr /opt/ffmpeg /opt/ffmpeg
+COPY --from=vpx /opt/ffmpeg /opt/ffmpeg
+COPY --from=webp /opt/ffmpeg /opt/ffmpeg
+COPY --from=fdkaac /opt/ffmpeg /opt/ffmpeg
+COPY --from=aom /opt/ffmpeg /opt/ffmpeg
+COPY --from=zmq /opt/ffmpeg /opt/ffmpeg
 RUN \
   DIR=/tmp/userland && \
   mkdir -p ${DIR} && \
@@ -515,6 +535,7 @@ RUN \
 ### ffmpeg https://ffmpeg.org/
 ARG FFMPEG_VERSION
 RUN  \
+  ls -al /opt/ffmpeg && \
   DIR=/tmp/ffmpeg && mkdir -p ${DIR} && cd ${DIR} && \
   curl -sLO https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2 && \
   tar -jx --strip-components=1 -f ffmpeg-${FFMPEG_VERSION}.tar.bz2 && \
@@ -587,5 +608,5 @@ RUN \
 RUN [ "cross-build-end" ]
 
 FROM scratch
-COPY --from=build /usr/local /usr/local/
-COPY --from=build /opt/vc/lib /opt/vc/lib
+COPY --from=ffmpeg /usr/local /usr/local/
+COPY --from=ffmpeg /opt/vc/lib /opt/vc/lib
