@@ -80,7 +80,7 @@ jobs:
         uses: actions/cache@v2.1.6
         with:
           path: venv
-          key: ${{ runner.os }}-prepare-pre-commit-cache-venv-${{ hashFiles('.pre-commit-config.yaml') }}
+          key: ${{ runner.os }}-prepare-pre-commit-cache-python-venv-${{ hashFiles('.pre-commit-config.yaml') }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
