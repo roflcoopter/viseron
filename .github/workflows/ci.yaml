@@ -75,12 +75,23 @@ jobs:
         id: python
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+      - name: Restore base Python virtual environment
+        id: cache-venv
+        uses: actions/cache@v2.1.6
+        with:
+          path: venv
+          key: ${{ runner.os }}-prepare-pre-commit-cache-venv-${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: Fail job if Python cache restore failed
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          echo "Failed to restore Python virtual environment from cache"
+          exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
         uses: actions/cache@v2.1.6
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
-          key: ${{ runner.os }}-prepare-pre-commit-${{ env.cache-name }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          key: ${{ runner.os }}-prepare-pre-commit-cache-pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
       - name: Fail job if pre-commit cache restore failed
         if: steps.cache-pre-commit.outputs.cache-hit != 'true'
         run: |
