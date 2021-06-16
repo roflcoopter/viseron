@@ -75,6 +75,7 @@
 !/viseron/webserver/assets
 !/viseron/webserver/assets/*
 !/requirements.txt
+!/requirements_test.txt
 
 # Repo
 !/.gitignore

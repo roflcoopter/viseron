@@ -37,11 +37,12 @@ jobs:
             ${{ runner.os }}-prepare-pre-commit-${{ env.cache-name }}-
             ${{ runner.os }}-prepare-pre-commit-
             ${{ runner.os }}-
-      - name: Install pre-commit dependencies
+      - name: Install pre-commit and its dependencies
         if: steps.cache-pre-commit.outputs.cache-hit != 'true'
         run: |
           python -m venv venv
           . venv/bin/activate
+          pip install -r requirements_test.txt
           pre-commit install-hooks
 
   run-isort:
