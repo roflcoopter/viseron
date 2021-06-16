@@ -61,6 +61,26 @@ class RegularSocketHandler(tornado.web.RequestHandler):
         self.render("assets/index.html")
 
 
+class DeprecatedStreamHandler(tornado.web.RequestHandler):
+    """Socket handler."""
+
+    def get(self, camera):
+        """GET request."""
+        LOGGER.warning(
+            f"The endpoint /{camera}/stream is deprecated. "
+            f"Please use /{camera}/mjpeg-stream instead."
+        )
+        self.redirect(f"/{camera}/mjpeg-stream")
+
+
+class NotFoundHandler(tornado.web.RequestHandler):
+    """Default handler."""
+
+    def prepare(self):  # pylint: disable=no-self-use
+        """Catch all methods."""
+        raise tornado.web.HTTPError(404)
+
+
 class WebServer(threading.Thread):
     """Webserver."""
 
@@ -85,7 +105,9 @@ class WebServer(threading.Thread):
                 ),
                 (r"/ws-stream", RegularSocketHandler),
                 (r"/websocket", WebSocketHandler),
+                (r"/(?P<camera>[A-Za-z0-9_]+)/stream", DeprecatedStreamHandler),
             ],
+            default_handler_class=NotFoundHandler,
             debug=True,
         )
 
