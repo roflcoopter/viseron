@@ -37,6 +37,14 @@ jobs:
       - name: Build Docker test image
         run: |
           docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron-tests
+      - name: Save Docker test image to cache
+        run: |
+          docker save roflcoopter/amd64-viseron-tests:dev -o /tmp/amd64-viseron-tests
+      - name: Upload Docker test image
+        uses: actions/upload-artifact@v2
+        with:
+          name: amd64-viseron-tests
+          path: /tmp/amd64-viseron-tests
 
   prepare-pre-commit:
     name: Prepare pre-commit
@@ -130,3 +138,18 @@ jobs:
         run: |
           . venv/bin/activate
           pre-commit run --hook-stage manual isort --all-files --show-diff-on-failure
+
+  run-pytest:
+    name: Run Pytest
+    runs-on: ubuntu-latest
+    needs: prepare-tests
+    steps:
+      - name: Download Docker test image
+        uses: actions/download-artifact@v2
+        with:
+          name: amd64-viseron-tests
+          path: /tmp
+      - name: Load Docker image
+        run: |
+          docker load --input /tmp/amd64-viseron-tests
+          docker image ls -a
