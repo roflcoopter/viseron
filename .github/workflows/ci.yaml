@@ -13,7 +13,7 @@ env:
 
 jobs:
   prepare-pre-commit:
-    name: Prepare base dependencies
+    name: Prepare pre-commit
     runs-on: ubuntu-latest
     steps:
       # Create Python virtual env used for linters
@@ -24,6 +24,26 @@ jobs:
         uses: actions/setup-python@v2.2.2
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
+      # Create a virtual environment and cache it 
+      - name: Restore Python virtual environment
+        id: cache-venv
+        uses: actions/cache@v2.1.6
+        env:
+          cache-name: cache-python-venv
+        with:
+          path: venv
+          key: >-
+            ${{ runner.os }}-prepare-pre-commit-${{ env.cache-name }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-prepare-pre-commit-${{ env.cache-name }}-
+            ${{ runner.os }}-prepare-pre-commit-
+            ${{ runner.os }}-
+      - name: Create Python virtual environment
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          python -m venv venv
+          . venv/bin/activate
+      # Install pre-commit into the cached virtual environment
       - name: Cache pre-commit Python virtual env
         id: cache-pre-commit
         uses: actions/cache@v2.1.6
@@ -40,8 +60,6 @@ jobs:
       - name: Install pre-commit and its dependencies
         if: steps.cache-pre-commit.outputs.cache-hit != 'true'
         run: |
-          python -m venv venv
-          . venv/bin/activate
           pip install -r requirements_test.txt
           pre-commit install-hooks
 
