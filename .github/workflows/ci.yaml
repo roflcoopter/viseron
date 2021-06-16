@@ -11,8 +11,33 @@ env:
   CACHE_VERSION: 1
   PYTHON_VERSION: 3.8
   PRE_COMMIT_CACHE: ~/.cache/pre-commit
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  BUILDKIT_PROGRESS: plain
 
 jobs:
+  prepare-tests:
+    name: Prepare tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull current Docker dev tag 
+        run: |
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull amd64-viseron
+      - name: Check out code from GitHub
+        uses: actions/checkout@v2.3.4
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v7
+      - name: Re-build wheels if requirements.txt has changed
+        if: contains(steps.changed-files.outputs.modified_files, 'requirements.txt')
+        run: |
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull amd64-wheels
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron-wheels
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron
+      - name: Build Docker test image
+        run: |
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron-tests
+
   prepare-pre-commit:
     name: Prepare pre-commit
     runs-on: ubuntu-latest
