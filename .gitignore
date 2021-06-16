@@ -2,6 +2,12 @@
 *
 
 ## Include
+# GitHub Workflows
+!/.github
+!/.github/*
+!/.github/workflows
+!/.github/workflows/*
+
 # Azure Pipelines
 !/azure-pipelines
 !/azure-pipelines/*
@@ -73,6 +79,7 @@
 # Repo
 !/.gitignore
 !/.isort.cfg
+!/.pre-commit-config.yaml
 !/.pylintrc
 !/LICENSE
 !/README.md

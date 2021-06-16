@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+      - master
+  pull_request: ~
+
+env:
+  PYTHON_VERSION: 3.8
+  PRE_COMMIT_CACHE: ~/.cache/pre-commit
+
+jobs:
+  prepare-pre-commit:
+    name: Prepare base dependencies
+    runs-on: ubuntu-latest
+    steps:
+      # Create Python virtual env used for linters
+      - name: Check out code from GitHub
+        uses: actions/checkout@v2.3.4
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        id: python
+        uses: actions/setup-python@v2.2.2
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+      - name: Cache pre-commit Python virtual env
+        id: cache-pre-commit
+        uses: actions/cache@v2.1.6
+        env:
+          cache-name: cache-pre-commit
+        with:
+          path: ${{ env.PRE_COMMIT_CACHE }}
+          key: >-
+            ${{ runner.os }}-prepare-pre-commit-${{ env.cache-name }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-prepare-pre-commit-${{ env.cache-name }}-
+            ${{ runner.os }}-prepare-pre-commit-
+            ${{ runner.os }}-
+      - name: Install pre-commit dependencies
+        if: steps.cache-pre-commit.outputs.cache-hit != 'true'
+        run: |
+          python -m venv venv
+          . venv/bin/activate
+          pre-commit install-hooks
+
+  run-isort:
+    name: Run isort
+    runs-on: ubuntu-latest
+    needs: prepare-pre-commit
+    steps:
+      - name: Check out code from GitHub
+        uses: actions/checkout@v2.3.4
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v2.2.2
+        id: python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Restore pre-commit environment from cache
+        id: cache-pre-commit
+        uses: actions/cache@v2.1.6
+        with:
+          path: ${{ env.PRE_COMMIT_CACHE }}
+          key: ${{ runner.os }}-prepare-pre-commit-${{ env.cache-name }}-${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: Fail job if pre-commit cache restore failed
+        if: steps.cache-pre-commit.outputs.cache-hit != 'true'
+        run: |
+          echo "Failed to restore pre-commit environment from cache"
+          exit 1
+      - name: Run isort
+        run: |
+          . venv/bin/activate
+          pre-commit run --hook-stage manual isort --all-files --show-diff-on-failure
