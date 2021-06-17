@@ -136,7 +136,13 @@ class TestCameraConfig:
             + config.timeout_option
         )
         assert config.name_slug == config_camera.slugify(camera_config_dict["name"])
-        assert config.output_args == config_camera.CAMERA_OUTPUT_ARGS
+        assert config.output_args == [
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            camera_config_dict["pix_fmt"],
+            "pipe:1",
+        ]
 
     def test_generate_zones_labels_inherited(self, camera_config_dict, config):
         """Test that zone labels are inherited from object_detection."""
@@ -156,17 +162,32 @@ class TestCameraConfig:
             (
                 "rtsp",
                 "VISERON_CUDA_SUPPORTED",
-                {"h264": "h264_cuvid", "h265": "hevc_cuvid"},
+                {
+                    "h264": "h264_cuvid",
+                    "h265": "hevc_cuvid",
+                },
             ),
             (
                 "rtmp",
                 "VISERON_RASPBERRYPI3",
-                {"h264": "h264_mmal"},
+                {
+                    "h264": "h264_mmal",
+                },
             ),
             (
                 "rtmp",
                 "VISERON_RASPBERRYPI4",
-                {"h264": "h264_v4l2m2m"},
+                {
+                    "h264": "h264_v4l2m2m",
+                },
+            ),
+            (
+                "rtmp",
+                "VISERON_JETSON_NANO",
+                {
+                    "h264": "h264_nvv4l2dec",
+                    "h265": "hevc_nvv4l2dec",
+                },
             ),
         ],
     )

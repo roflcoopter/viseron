@@ -10,6 +10,7 @@ from tests.helpers import assert_config_instance_config_dict
 
 OBJECT_DETECTION_CONFIG = {
     "type": "darknet",
+    "enable": True,
     "interval": 1,
     "labels": [
         {
@@ -19,7 +20,7 @@ OBJECT_DETECTION_CONFIG = {
             "height_max": 0.5,
             "width_min": 0.5,
             "width_max": 0.5,
-            "triggers_recording": True,
+            "trigger_recorder": True,
             "require_motion": True,
             "post_processor": "face_recognition",
         }
@@ -27,10 +28,12 @@ OBJECT_DETECTION_CONFIG = {
     "log_all_objects": True,
     "logging": {
         "level": "debug",
+        "color_log": True,
     },
 }
 CAMERA_OBJECT_DETECTION_CONFIG = {
     "type": "edgetpu",
+    "enable": False,
     "interval": 2,
     "labels": [
         {
@@ -40,7 +43,7 @@ CAMERA_OBJECT_DETECTION_CONFIG = {
             "height_max": 0.7,
             "width_min": 0.7,
             "width_max": 0.7,
-            "triggers_recording": False,
+            "trigger_recorder": False,
             "require_motion": False,
             "post_processor": "",
         }
@@ -48,6 +51,7 @@ CAMERA_OBJECT_DETECTION_CONFIG = {
     "log_all_objects": False,
     "logging": {
         "level": "fatal",
+        "color_log": False,
     },
 }
 
@@ -63,7 +67,7 @@ CAMERA_ZONES_CONFIG = [
                     "height_max": 0.7,
                     "width_min": 0.7,
                     "width_max": 0.7,
-                    "triggers_recording": False,
+                    "trigger_recorder": False,
                     "require_motion": False,
                     "post_processor": "",
                 }

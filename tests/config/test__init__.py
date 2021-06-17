@@ -3,11 +3,13 @@ import os
 from unittest.mock import patch
 
 import pytest
+import voluptuous
 
 from viseron.config import (
     NVRConfig,
     ViseronConfig,
     create_default_config,
+    detector_enabled_check,
     load_config,
     load_secrets,
 )
@@ -22,6 +24,25 @@ def teardown():
         os.remove(CONFIG_PATH)
     if os.path.isfile(SECRETS_PATH):
         os.remove(SECRETS_PATH)
+
+
+def test_detector_enabled_check():
+    """Test that detector cant be enabled per camera if disabled globally."""
+    config = {
+        "object_detection": {
+            "enable": False,
+        },
+        "cameras": [
+            {
+                "name": "Test camera",
+                "object_detection": {
+                    "enable": True,
+                },
+            }
+        ],
+    }
+    with pytest.raises(voluptuous.error.Invalid):
+        detector_enabled_check(config)
 
 
 @patch("viseron.config.CONFIG_PATH", "")

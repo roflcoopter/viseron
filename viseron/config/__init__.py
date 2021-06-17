@@ -2,7 +2,7 @@
 import sys
 
 import yaml
-from voluptuous import Any, Optional, Required, Schema
+from voluptuous import All, Any, Invalid, Optional, Required, Schema
 
 from viseron.const import CONFIG_PATH, DEFAULT_CONFIG, SECRETS_PATH
 
