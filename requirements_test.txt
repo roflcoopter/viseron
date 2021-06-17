@@ -1,1 +1,6 @@
-pre-commit==2.13.0
+pytest
+pytest-cov
+pytest-timeout
+pytest-mock
+pytest-sugar
+coverage==5.5

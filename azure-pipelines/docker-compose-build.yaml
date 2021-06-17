@@ -130,6 +130,10 @@ services:
         ARCH: amd64
         VISERON_VERSION: dev
     image: roflcoopter/amd64-viseron-tests:dev
+    container_name: amd64-viseron-tests
+    command: >
+        bash -c "pytest --cov=viseron/ --cov-report term-missing -s tests
+        && coverage xml"
 
   ################ amd64 CUDA ###################################
   amd64-cuda-ffmpeg:

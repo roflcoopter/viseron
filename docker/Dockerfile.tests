@@ -6,9 +6,15 @@ WORKDIR /src
 
 ENV VISERON_TESTS=true
 
+ADD requirements_test.txt requirements_test.txt
 RUN \
-  pip3 install pytest pytest-cov pytest-timeout pytest-mock
+  pip3 install -r requirements_test.txt
 
+VOLUME /src/viseron
+VOLUME /src/tests
+
+ENTRYPOINT []
+CMD []
+
+COPY viseron /src/viseron/
 COPY tests /src/tests/
-
-ENTRYPOINT ["/init"]
