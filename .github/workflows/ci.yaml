@@ -19,6 +19,8 @@ jobs:
   prepare-python-venv:
     name: Prepare Python venv
     runs-on: ubuntu-latest
+    outputs:
+      python-venv-cache-key: ${{ steps.python-venv-cache-key.outputs.key }}
     steps: 
       # Create Python virtual env used for linters
       - name: Check out code from GitHub
@@ -29,20 +31,18 @@ jobs:
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
       # Create a virtual environment and cache it 
+      - name: Generate Python virtual environment restore key
+        id: python-venv-cache-key
+        env:
+          cache-name: cache-python-venv
+        run: >-
+          echo "::set-output name=key::${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_ci.txt') }}"
       - name: Restore Python virtual environment
         id: cache-venv
         uses: actions/cache@v2.1.6
-        env:
-          cache-name: cache-python-venv
         with:
           path: venv
-          key: >-
-            ${{ runner.os }}-prepare-python-venv-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_ci.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-prepare-python-venv-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-
-            ${{ runner.os }}-prepare-python-venv-${{ env.cache-name }}-
-            ${{ runner.os }}-prepare-python-venv-
-            ${{ runner.os }}-
+          key: ${{ steps.python-venv-cache-key.outputs.key }}
       - name: Create Python virtual environment
         if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
@@ -54,6 +54,8 @@ jobs:
     name: Prepare pre-commit
     runs-on: ubuntu-latest
     needs: prepare-python-venv
+    outputs:
+      pre-commit-cache-key: ${{ steps.pre-commit-cache-key.outputs.key }}
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2.3.4
@@ -67,28 +69,26 @@ jobs:
         uses: actions/cache@v2.1.6
         with:
           path: venv
-          key: ${{ runner.os }}-prepare-python-venv-cache-python-venv-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_ci.txt') }}
+          key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
           echo "Failed to restore Python virtual environment from cache"
           exit 1
-      # Install pre-commit hooks into the cached virtual environment
-      - name: Cache pre-commit Python virtual env
-        id: cache-pre-commit
-        uses: actions/cache@v2.1.6
+      - name: Generate pre-commit restore key
+        id: pre-commit-cache-key
         env:
           cache-name: cache-pre-commit
+        run: >-
+          echo "::set-output name=key::${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_ci.txt') }}"
+      # Install pre-commit hooks into the cached virtual environment
+      - name: Restore pre-commit hooks
+        id: cache-pre-commit
+        uses: actions/cache@v2.1.6
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
-          key: >-
-            ${{ runner.os }}-prepare-pre-commit-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_ci.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-prepare-pre-commit-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-
-            ${{ runner.os }}-prepare-pre-commit-${{ env.cache-name }}-
-            ${{ runner.os }}-prepare-pre-commit-
-            ${{ runner.os }}-
-      - name: Install pre-commit hooks
+          key: ${{ steps.pre-commit-cache-key.outputs.key }}
+      - name: Create pre-commit hooks
         if: steps.cache-pre-commit.outputs.cache-hit != 'true'
         run: |
           . venv/bin/activate
@@ -97,7 +97,7 @@ jobs:
   run-isort:
     name: Run isort
     runs-on: ubuntu-latest
-    needs: prepare-pre-commit
+    needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
         uses: actions/checkout@v2.3.4
@@ -111,7 +111,7 @@ jobs:
         uses: actions/cache@v2.1.6
         with:
           path: venv
-          key: ${{ runner.os }}-prepare-python-venv-cache-python-venv-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_ci.txt') }}
+          key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
@@ -122,7 +122,7 @@ jobs:
         uses: actions/cache@v2.1.6
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
-          key: ${{ runner.os }}-prepare-pre-commit-cache-pre-commit-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_ci.txt') }}
+          key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
       - name: Fail job if pre-commit cache restore failed
         if: steps.cache-pre-commit.outputs.cache-hit != 'true'
         run: |
@@ -151,7 +151,7 @@ jobs:
         uses: actions/cache@v2.1.6
         with:
           path: venv
-          key: ${{ runner.os }}-prepare-python-venv-cache-python-venv-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_ci.txt') }}
+          key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
       - name: Fail job if Python cache restore failed
         if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
