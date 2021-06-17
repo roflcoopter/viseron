@@ -3,3 +3,11 @@ repos:
     rev: 5.8.0
     hooks:
       - id: isort
+  - repo: https://github.com/psf/black
+    rev: 21.6b0
+    hooks:
+      - id: black
+        args:
+          - --safe
+          - --quiet
+        files: ^((viseron|tests)/.+)?[^/]+\.py$
