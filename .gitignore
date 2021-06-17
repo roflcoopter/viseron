@@ -83,5 +83,6 @@
 !/.isort.cfg
 !/.pre-commit-config.yaml
 !/.pylintrc
+!/codecov.yaml
 !/LICENSE
 !/README.md
