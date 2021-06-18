@@ -79,6 +79,7 @@
 !/requirements_test.txt
 
 # Repo
+!/.flake8
 !/.gitignore
 !/.isort.cfg
 !/.pre-commit-config.yaml
