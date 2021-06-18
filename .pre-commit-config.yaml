@@ -11,3 +11,12 @@ repos:
           - --safe
           - --quiet
         files: ^((viseron|tests)/.+)?[^/]+\.py$
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.0.0
+    hooks:
+      - id: codespell
+        args:
+          - --skip="./.*,*.csv,*.json"
+          - --quiet-level=2
+        exclude_types: [csv, json]
+        exclude: ^tests/fixtures/

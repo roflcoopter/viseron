@@ -172,6 +172,45 @@ jobs:
           . venv/bin/activate
           pre-commit run --hook-stage manual black --all-files --show-diff-on-failure
 
+  run-codespell:
+    name: Run codespell
+    runs-on: ubuntu-latest
+    needs: [prepare-python-venv, prepare-pre-commit]
+    steps:
+      - name: Check out code from GitHub
+        uses: actions/checkout@v2.3.4
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v2.2.2
+        id: python
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Restore base Python virtual environment
+        id: cache-venv
+        uses: actions/cache@v2.1.6
+        with:
+          path: venv
+          key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
+      - name: Fail job if Python cache restore failed
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          echo "Failed to restore Python virtual environment from cache"
+          exit 1
+      - name: Restore pre-commit environment from cache
+        id: cache-pre-commit
+        uses: actions/cache@v2.1.6
+        with:
+          path: ${{ env.PRE_COMMIT_CACHE }}
+          key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
+      - name: Fail job if pre-commit cache restore failed
+        if: steps.cache-pre-commit.outputs.cache-hit != 'true'
+        run: |
+          echo "Failed to restore pre-commit environment from cache"
+          exit 1
+      - name: Run codespell
+        run: |
+          . venv/bin/activate
+          pre-commit run --hook-stage manual codespell --all-files --show-diff-on-failure
+
   run-pytest:
     name: Run Pytest
     runs-on: ubuntu-latest
