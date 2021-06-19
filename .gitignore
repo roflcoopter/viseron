@@ -17,6 +17,9 @@
 !/docker/amd64/Dockerfile*
 !/docker/amd64-cuda
 !/docker/amd64-cuda/Dockerfile*
+!/docker/jetson-nano
+!/docker/jetson-nano/Dockerfile*
+!/docker/jetson-nano/patch_ffmpeg.sh
 !/docker/rpi3
 !/docker/rpi3/Dockerfile*
 !/docker/yolov4*.cfg
@@ -32,8 +35,12 @@
 !/viseron/config/*
 !/viseron/detector
 !/viseron/detector/*
+!/viseron/camera
+!/viseron/camera/*
 !/viseron/detector/darknet
 !/viseron/detector/darknet/*
+!/viseron/detector/deepstack
+!/viseron/detector/deepstack/*
 !/viseron/detector/edgetpu
 !/viseron/detector/edgetpu/*
 !/viseron/helpers
@@ -47,6 +54,10 @@
 !/viseron/post_processors/face_recognition/*
 !/viseron/post_processors/face_recognition/dlib
 !/viseron/post_processors/face_recognition/dlib/*
+!/viseron/post_processors/face_recognition/deepstack
+!/viseron/post_processors/face_recognition/deepstack/*
+!/viseron/watchdog
+!/viseron/watchdog/*
 !/viseron/webserver
 !/viseron/webserver/*
 !/viseron/webserver/assets

@@ -1,0 +1,78 @@
+ARG PYTHON_VERSION
+ARG UBUNTU_VERSION
+ARG JETPACK_VERSION
+FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
+FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as qemu
+FROM nvcr.io/nvidia/l4t-base:${JETPACK_VERSION} as build
+
+COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
+COPY --from=qemu /bin/sh /bin/sh
+COPY --from=qemu /bin/sh.real /bin/sh.real
+COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
+COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
+COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
+
+COPY --from=python /usr/local /usr/local/
+RUN \
+  cd /usr/local/bin && \
+  ln -s idle3 idle && \
+  ln -s pydoc3 pydoc && \
+  ln -s python3 python
+
+RUN [ "cross-build-start" ]
+
+ARG DLIB_VERSION
+ARG MAKEFLAGS="-j2"
+
+ENV \
+  DEBIAN_FRONTEND=noninteractive \
+  PIP_IGNORE_INSTALLED=0
+
+# NVIDIA repos use HTTPS so we need som additional libraries first
+RUN \
+  apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates \
+  gnupg && \
+  echo "deb https://repo.download.nvidia.com/jetson/common r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list \
+  && echo "deb https://repo.download.nvidia.com/jetson/t210 r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list \
+  && apt-key adv --fetch-key http://repo.download.nvidia.com/jetson/jetson-ota-public.asc \
+  && mkdir -p /opt/nvidia/l4t-packages/ && touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall
+
+RUN buildDeps="autoconf \
+  automake \
+  ca-certificates \
+  cmake \
+  g++ \
+  gcc \
+  git \
+  libopenblas-dev \
+  liblapack-dev \
+  make \
+  python3-dev \
+  python3-pip \
+  python3-setuptools \
+  python3-wheel \
+  libcudnn8-dev \
+  libcublas-dev \
+  cuda-libraries-dev-10-2" && \
+  apt-get -yqq update && \
+  apt-get install -yq --no-install-recommends ${buildDeps}
+
+# Minimal cuda install does not create symlink so we do it manually
+RUN ln -s /usr/local/cuda-10.2 /usr/local/cuda
+
+# Create dlib wheel
+RUN \
+  DIR=/tmp && mkdir -p ${DIR} && cd ${DIR} && \
+  git clone --branch v${DLIB_VERSION} --depth 1 https://github.com/davisking/dlib.git && \
+  # Fix bug, explained here https://medium.com/@ageitgey/build-a-hardware-based-face-recognition-system-for-150-with-the-nvidia-jetson-nano-and-python-a25cb8c891fd
+  sed -i -e 's/forward_algo = forward_best_algo;/\/\/forward_algo = forward_best_algo;/' dlib/dlib/cuda/cudnn_dlibapi.cpp && \
+  cd dlib; python3 setup.py bdist_wheel --dist-dir=/wheels
+
+RUN \
+  pip3 wheel face_recognition dlib==${DLIB_VERSION} --wheel-dir=/wheels/ --find-links=/wheels/
+
+RUN [ "cross-build-end" ]
+
+FROM scratch as scratch
+COPY --from=build /wheels /wheels/

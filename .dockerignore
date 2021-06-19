@@ -2,7 +2,7 @@
 !viseron/
 !viseron/*
 !script/
-!docker/cuda/Video_Codec_SDK_9.1.23.zip
+!docker/jetson-nano/patch_ffmpeg.sh
 !docker/yolov4.cfg
 !docker/yolov4-tiny.cfg
 !requirements.txt

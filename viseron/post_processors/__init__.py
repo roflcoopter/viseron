@@ -1,17 +1,81 @@
 """Interface to different post processors."""
+from __future__ import annotations
+
 import importlib
 import logging
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from queue import Queue
-from threading import Thread
-from typing import Dict
+from types import ModuleType
+from typing import TYPE_CHECKING, Any, Dict, Union
 
-from viseron.config import ViseronConfig
-from viseron.config.config_logging import LoggingConfig
-from viseron.config.config_post_processors import PostProcessorsConfig
-from viseron.const import TOPIC_FRAME_SCAN_POSTPROC_FACEREC
+from voluptuous import Optional, Required, Schema
+
+from viseron.config.config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
+from viseron.const import TOPIC_FRAME_SCAN_POSTPROC
 from viseron.data_stream import DataStream
+from viseron.exceptions import PostProcessorImportError, PostProcessorStructureError
+from viseron.watchdog.thread_watchdog import RestartableThread
+
+if TYPE_CHECKING:
+    from viseron.camera.frame import Frame
+    from viseron.config import NVRConfig, ViseronConfig
+    from viseron.detector.detected_object import DetectedObject
+    from viseron.zones import Zone
+
+
+SCHEMA = Schema(
+    {
+        Required("type"): str,
+        Optional("logging"): LOGGING_SCHEMA,
+    }
+)
+
 
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class PostProcessorFrame:
+    """Object representing a frame that is passed to post processors."""
+
+    camera_config: NVRConfig
+    frame: Frame
+    detected_object: DetectedObject
+    zone: Union[Zone, None] = None
+
+
+class AbstractProcessorConfig(ABC):
+    """Abstract Processor Config."""
+
+    SCHEMA = SCHEMA
+
+    def __init__(self, processor_config: Dict[str, Any]):
+        self._logging = None
+        if processor_config.get("logging", None):
+            self._logging = LoggingConfig(processor_config["logging"])
+
+    @property
+    def logging(self) -> Union[LoggingConfig, None]:
+        """Return logging config."""
+        return self._logging
+
+
+class AbstractProcessor(ABC):
+    """Abstract Processor."""
+
+    def __init__(
+        self,
+        config: ViseronConfig,  # pylint: disable=unused-argument
+        processor_config: AbstractProcessorConfig,
+        logger: logging.Logger,
+    ):
+        if processor_config.logging:
+            logger.setLevel(processor_config.logging.level)
+
+    @abstractmethod
+    def process(self, frame_to_process: PostProcessorFrame):
+        """Process frame."""
 
 
 class PostProcessor:
@@ -20,65 +84,63 @@ class PostProcessor:
     post_processor_list: list = []
 
     def __init__(
-        self, config: ViseronConfig, processor_type, processor_config, mqtt_queue
+        self,
+        config: ViseronConfig,
+        processor_type: str,
+        processor_config: Dict[str, Any],
     ):
-        self.post_processor_list.append(self)
         if getattr(config.post_processors.logging, "level", None):
             LOGGER.setLevel(config.post_processors.logging.level)
 
-        LOGGER.debug(f"Initializing post processor {processor_type}")
         processor = self.import_processor(processor_type, processor_config)
-        LOGGER.debug("Successfully imported post processor")
-        self._post_processor = processor.Processor(
+        self._post_processor = processor.Processor(  # type: ignore
             config,
-            processor.Config(
-                config.post_processors, processor.SCHEMA(processor_config)
+            processor.Config(  # type: ignore
+                processor.SCHEMA(processor_config),  # type: ignore
             ),
-            mqtt_queue,
         )
 
-        self._topic_scan = f"*/{TOPIC_FRAME_SCAN_POSTPROC_FACEREC}"
+        self._topic_scan = f"*/{TOPIC_FRAME_SCAN_POSTPROC}/{processor_type}"
         self._post_processor_queue: Queue = Queue(maxsize=10)
-        processor_thread = Thread(target=self.post_process)
-        processor_thread.daemon = True
+        processor_thread = RestartableThread(
+            name=__name__, target=self.post_process, daemon=True, register=True
+        )
         processor_thread.start()
         DataStream.subscribe_data(self._topic_scan, self._post_processor_queue)
 
+        self.post_processor_list.append(self)
         LOGGER.debug(f"Post processor {processor_type} initialized")
 
     @staticmethod
-    def import_processor(processor_type, processor_config):
+    def import_processor(
+        processor_type: str, processor_config: Dict[str, Any]
+    ) -> ModuleType:
         """Import processor dynamically."""
-        return importlib.import_module(
-            f"viseron.post_processors.{processor_type}.{processor_config['type']}"
-        )
+        LOGGER.debug(f"Initializing post processor {processor_type}")
+        try:
+            post_processor_module = importlib.import_module(
+                f"viseron.post_processors.{processor_type}.{processor_config['type']}"
+            )
+        except ModuleNotFoundError as error:
+            raise PostProcessorImportError(processor_config["type"]) from error
+        LOGGER.debug("Successfully imported post processor")
+
+        if hasattr(post_processor_module, "Processor") and issubclass(
+            post_processor_module.Processor, AbstractProcessor  # type: ignore
+        ):
+            pass
+        else:
+            raise PostProcessorStructureError(processor_config["type"])
+
+        return post_processor_module
 
     def post_process(self):
         """Post processor loop."""
         while True:
-            data = self._post_processor_queue.get()
-            self._post_processor.process(
-                data["camera_config"], data["frame"], data["object"], data["zone"]
-            )
+            frame_to_process: PostProcessorFrame = self._post_processor_queue.get()
+            self._post_processor.process(frame_to_process)
 
-    def on_connect(self, client):
+    def on_connect(self):
         """Called when MQTT connection is established."""
         if getattr(self._post_processor, "on_connect", None):
-            self._post_processor.on_connect(client)
-
-
-class PostProcessorConfig:
-    """Base config class for all post processors.
-    Each post processor has to have a Config class which inherits this class"""
-
-    def __init__(
-        self, post_processors_config: PostProcessorsConfig, processor_config: Dict
-    ):
-        self._logging = getattr(post_processors_config, "logging", None)
-        if processor_config.get("logging", None):
-            self._logging = LoggingConfig(processor_config["logging"])
-
-    @property
-    def logging(self):
-        """Return logging config."""
-        return self._logging
+            self._post_processor.on_connect()

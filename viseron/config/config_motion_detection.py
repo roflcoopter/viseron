@@ -7,6 +7,7 @@ from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 DEFAULTS = {
     "interval": 1,
     "trigger_detector": True,
+    "trigger_recorder": False,
     "timeout": True,
     "max_timeout": 30,
     "width": 300,
@@ -23,6 +24,7 @@ SCHEMA = Schema(
             Any(float, int), Coerce(float), Range(min=0.0)
         ),
         Optional("trigger_detector", default=DEFAULTS["trigger_detector"]): bool,
+        Optional("trigger_recorder", default=DEFAULTS["trigger_recorder"]): bool,
         Optional("timeout", default=DEFAULTS["timeout"]): bool,
         Optional("max_timeout", default=DEFAULTS["max_timeout"]): int,
         Optional("width", default=DEFAULTS["width"]): int,
@@ -57,6 +59,10 @@ class MotionDetectionConfig:
         self._trigger_detector = camera_motion_detection.get(
             "trigger_detector",
             motion_detection["trigger_detector"],
+        )
+        self._trigger_recorder = camera_motion_detection.get(
+            "trigger_recorder",
+            motion_detection["trigger_recorder"],
         )
         self._timeout = camera_motion_detection.get(
             "timeout", motion_detection["timeout"]
@@ -99,6 +105,11 @@ class MotionDetectionConfig:
     def trigger_detector(self):
         """Return if motion triggers detector."""
         return self._trigger_detector
+
+    @property
+    def trigger_recorder(self):
+        """Return if motion starts the recorder."""
+        return self._trigger_recorder
 
     @property
     def timeout(self):

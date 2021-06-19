@@ -1,12 +1,12 @@
 #!/usr/bin/with-contenv bash
 
-PUID=${PUID:-911}
-PGID=${PGID:-911}
+PUID=${PUID:-0}
+PGID=${PGID:-0}
 
 groupmod -o -g "$PGID" abc
 usermod -o -u "$PUID" abc
 
-chown -R abc:abc /config
+chown -R abc:abc /home/abc/bin
 chown -R abc:abc /recordings
 chown -R abc:abc /segments
 

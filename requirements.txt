@@ -1,8 +1,11 @@
 apscheduler==3.6.3
+deepstack-python==0.8
+colorlog==5.0.1
 imutils==0.5.3
 paho-mqtt==1.5.0
 path.py==12.4.0
 python-slugify==4.0.1
 PyYAML==5.3.1
-voluptuous==0.11.7
+tenacity==7.0.0
 tornado
+voluptuous==0.11.7

@@ -12,7 +12,7 @@ SCHEMA = Schema(
 
 
 class PostProcessorsConfig:
-    """Base config class for all post processors."""
+    """Post processors config."""
 
     schema = SCHEMA
 
@@ -26,11 +26,11 @@ class PostProcessorsConfig:
         self._post_processors = post_processors
 
     @property
-    def post_processors(self):
+    def post_processors(self) -> list:
         """Return all post processor configs."""
         return self._post_processors
 
     @property
-    def logging(self):
+    def logging(self) -> LoggingConfig:
         """Return logging config."""
         return self._logging

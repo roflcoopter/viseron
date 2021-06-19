@@ -22,7 +22,7 @@ cameras:
 #  username: <if auth is enabled>
 #  password: <if auth is enabled>
 """
-
+THREAD_STORE_CATEGORY_NVR = "nvr"
 
 CAMERA_GLOBAL_ARGS = ["-hide_banner"]
 CAMERA_INPUT_ARGS = [
@@ -36,15 +36,12 @@ CAMERA_INPUT_ARGS = [
     "experimental",
     "-fflags",
     "+genpts",
-    "-stimeout",
-    "5000000",
     "-use_wallclock_as_timestamps",
     "1",
     "-vsync",
     "0",
 ]
 CAMERA_HWACCEL_ARGS: List["str"] = []
-CAMERA_OUTPUT_ARGS = ["-f", "rawvideo", "-pix_fmt", "nv12", "pipe:1"]
 CAMERA_SEGMENT_DURATION = 5
 CAMERA_SEGMENT_ARGS = [
     "-f",
@@ -66,8 +63,13 @@ ENV_VAAPI_SUPPORTED = "VISERON_VAAPI_SUPPORTED"
 ENV_OPENCL_SUPPORTED = "VISERON_OPENCL_SUPPORTED"
 ENV_RASPBERRYPI3 = "VISERON_RASPBERRYPI3"
 ENV_RASPBERRYPI4 = "VISERON_RASPBERRYPI4"
+ENV_JETSON_NANO = "VISERON_JETSON_NANO"
+ENV_FFMPEG_PATH = "VISERON_FFMPEG_PATH"
 
-FFMPEG_RECOVERABLE_ERRORS = ["error while decoding MB"]
+FFMPEG_RECOVERABLE_ERRORS = [
+    "error while decoding MB",
+    "Application provided invalid, non monotonically increasing dts to muxer in stream",
+]
 
 
 HWACCEL_VAAPI = ["-hwaccel", "vaapi", "-vaapi_device", "/dev/dri/renderD128"]
@@ -83,6 +85,10 @@ HWACCEL_RPI3_ENCODER_CODEC = "h264_omx"
 HWACCEL_RPI4_DECODER_CODEC_MAP = {"h264": "h264_v4l2m2m"}
 HWACCEL_RPI4_ENCODER_CODEC = "h264_v4l2m2m"
 
+HWACCEL_JETSON_NANO_DECODER_CODEC_MAP = {
+    "h264": "h264_nvv4l2dec",
+    "h265": "hevc_nvv4l2dec",
+}
 
 RECORDER_GLOBAL_ARGS = ["-hide_banner"]
 RECORDER_HWACCEL_ARGS: List[str] = []
@@ -95,6 +101,20 @@ LOG_LEVELS = {
     "DEBUG": 10,
     "NOTSET": 0,
 }
+
+FFMPEG_LOG_LEVELS = {
+    "quiet": 50,
+    "panic": 50,
+    "fatal": 50,
+    "error": 40,
+    "warning": 30,
+    "info": 20,
+    "verbose": 10,
+    "debug": 10,
+    "trace": 10,
+}
+
+FFPROBE_TIMEOUT = 15
 
 FONT = FONT_HERSHEY_SIMPLEX
 FONT_SIZE = 0.6
@@ -153,8 +173,4 @@ TOPIC_FRAME_PROCESSED_OBJECT = "/".join(
 )
 
 TOPIC_POST_PROCESSOR = "post_processor"
-TOPIC_FACE_RECOGNITION = "face_recognition"
 TOPIC_FRAME_SCAN_POSTPROC = "/".join([TOPIC_FRAME_SCAN, TOPIC_POST_PROCESSOR])
-TOPIC_FRAME_SCAN_POSTPROC_FACEREC = "/".join(
-    [TOPIC_FRAME_SCAN_POSTPROC, TOPIC_FACE_RECOGNITION]
-)

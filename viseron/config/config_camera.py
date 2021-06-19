@@ -11,6 +11,7 @@ from voluptuous import (
     Coerce,
     Invalid,
     Length,
+    Maybe,
     Optional,
     Range,
     Required,
@@ -21,13 +22,14 @@ from viseron.const import (
     CAMERA_GLOBAL_ARGS,
     CAMERA_HWACCEL_ARGS,
     CAMERA_INPUT_ARGS,
-    CAMERA_OUTPUT_ARGS,
     ENV_CUDA_SUPPORTED,
+    ENV_JETSON_NANO,
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
     ENV_VAAPI_SUPPORTED,
     FFMPEG_RECOVERABLE_ERRORS,
     HWACCEL_CUDA_DECODER_CODEC_MAP,
+    HWACCEL_JETSON_NANO_DECODER_CODEC_MAP,
     HWACCEL_RPI3_DECODER_CODEC_MAP,
     HWACCEL_RPI4_DECODER_CODEC_MAP,
     HWACCEL_VAAPI,
@@ -41,6 +43,12 @@ LOGGER = logging.getLogger(__name__)
 
 MQTT_NAME_REGEX = re.compile(r"^[a-zA-Z0-9_\.]+$")
 SLUG_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
+
+STREAM_FORMAT_MAP = {
+    "rtsp": {"protocol": "rtsp", "timeout_option": ["-stimeout", "5000000"]},
+    "rtmp": {"protocol": "rtmp", "timeout_option": ["-rw_timeout", "5000000"]},
+    "mjpeg": {"protocol": "http", "timeout_option": ["-stimeout", "5000000"]},
+}
 
 
 def ensure_slug(value: str) -> str:
@@ -84,19 +92,22 @@ def check_for_hwaccels(hwaccel_args: List[str]) -> List[str]:
 
 STREAM_SCEHMA = Schema(
     {
-        Required("stream_format", default="rtsp"): Any("rtsp", "mjpeg"),
+        Required("stream_format", default="rtsp"): Any("rtsp", "rtmp", "mjpeg"),
         Required("path"): All(str, Length(min=1)),
         Required("port"): All(int, Range(min=1)),
-        Optional("width", default=None): Any(int, None),
-        Optional("height", default=None): Any(int, None),
-        Optional("fps", default=None): Any(All(int, Range(min=1)), None),
-        Optional("input_args", default=CAMERA_INPUT_ARGS): list,
+        Optional("width", default=None): Maybe(int),
+        Optional("height", default=None): Maybe(int),
+        Optional("fps", default=None): Maybe(All(int, Range(min=1))),
+        Optional("input_args", default=None): Maybe(list),
         Optional("hwaccel_args", default=CAMERA_HWACCEL_ARGS): check_for_hwaccels,
         Optional("codec", default=""): str,
+        Optional("audio_codec", default="unset"): Maybe(str),
         Optional("rtsp_transport", default="tcp"): Any(
             "tcp", "udp", "udp_multicast", "http"
         ),
         Optional("filter_args", default=[]): list,
+        Optional("pix_fmt", default="nv12"): Any("nv12", "yuv420p"),
+        Optional("frame_timeout", default=60): int,
     }
 )
 
@@ -116,16 +127,17 @@ MJPEG_STREAM_SCHEMA = Schema(
 CAMERA_SCHEMA = STREAM_SCEHMA.extend(
     {
         Required("name"): All(str, Length(min=1)),
-        Optional("mqtt_name", default=None): Any(All(str, Length(min=1)), None),
+        Optional("mqtt_name", default=None): Maybe(All(str, Length(min=1))),
         Required("host"): All(str, Length(min=1)),
-        Optional("username", default=None): Any(All(str, Length(min=1)), None),
-        Optional("password", default=None): Any(All(str, Length(min=1)), None),
+        Optional("username", default=None): Maybe(All(str, Length(min=1))),
+        Optional("password", default=None): Maybe(All(str, Length(min=1))),
         Optional("global_args", default=CAMERA_GLOBAL_ARGS): list,
         Optional("substream"): STREAM_SCEHMA,
-        Optional("motion_detection"): Any(
+        Optional("motion_detection"): Maybe(
             {
                 Optional("interval"): Any(int, float),
                 Optional("trigger_detector"): bool,
+                Optional("trigger_recorder"): bool,
                 Optional("timeout"): bool,
                 Optional("max_timeout"): int,
                 Optional("width"): int,
@@ -152,16 +164,15 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
                 ],
                 Optional("logging"): LOGGING_SCHEMA,
             },
-            None,
         ),
-        Optional("object_detection"): Any(
+        Optional("object_detection"): Maybe(
             {
+                Optional("enable"): bool,
                 Optional("interval"): Any(int, float),
                 Optional("labels"): LABELS_SCHEMA,
                 Optional("logging"): LOGGING_SCHEMA,
                 Optional("log_all_objects"): bool,
             },
-            None,
         ),
         Optional("zones", default=[]): [
             {
@@ -175,8 +186,8 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
                 Optional("labels"): LABELS_SCHEMA,
             }
         ],
-        Optional("publish_image", default=False): Any(True, False),
-        Optional("ffmpeg_loglevel", default="fatal"): Any(
+        Optional("publish_image", default=False): bool,
+        Optional("ffmpeg_loglevel", default="error"): Any(
             "quiet",
             "panic",
             "fatal",
@@ -188,6 +199,17 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
             "trace",
         ),
         Optional("ffmpeg_recoverable_errors", default=FFMPEG_RECOVERABLE_ERRORS): [str],
+        Optional("ffprobe_loglevel", default="error"): Any(
+            "quiet",
+            "panic",
+            "fatal",
+            "error",
+            "warning",
+            "info",
+            "verbose",
+            "debug",
+            "trace",
+        ),
         Optional("static_mjpeg_streams", default={}): {
             All(str, ensure_slug): MJPEG_STREAM_SCHEMA
         },
@@ -211,6 +233,7 @@ class Stream:
     """Stream config."""
 
     def __init__(self, camera):
+        self._stream_format = camera["stream_format"]
         self._host = camera["host"]
         self._port = camera["port"]
         self._username = camera["username"]
@@ -219,21 +242,26 @@ class Stream:
         self._width = camera["width"]
         self._height = camera["height"]
         self._fps = camera["fps"]
-        self._stream_format = camera["stream_format"]
         self._input_args = camera["input_args"]
         self._hwaccel_args = camera["hwaccel_args"]
         self._codec = camera["codec"]
+        self._audio_codec = camera["audio_codec"]
         self._rtsp_transport = camera["rtsp_transport"]
+        self._filter_args = camera["filter_args"]
+        self._pix_fmt = camera["pix_fmt"]
+        self._frame_timeout = camera["frame_timeout"]
 
     def get_codec_map(self):
         """Return codec for specific hardware."""
-        if self.stream_format == "rtsp":
-            if os.getenv(ENV_CUDA_SUPPORTED) == "true":
-                return HWACCEL_CUDA_DECODER_CODEC_MAP
+        if self.stream_format in ["rtsp", "rtmp"]:
             if os.getenv(ENV_RASPBERRYPI3) == "true":
                 return HWACCEL_RPI3_DECODER_CODEC_MAP
             if os.getenv(ENV_RASPBERRYPI4) == "true":
                 return HWACCEL_RPI4_DECODER_CODEC_MAP
+            if os.getenv(ENV_JETSON_NANO) == "true":
+                return HWACCEL_JETSON_NANO_DECODER_CODEC_MAP
+            if os.getenv(ENV_CUDA_SUPPORTED) == "true":
+                return HWACCEL_CUDA_DECODER_CODEC_MAP
         return {}
 
     @property
@@ -284,7 +312,9 @@ class Stream:
     @property
     def input_args(self):
         """Return input_args."""
-        return self._input_args
+        if self._input_args:
+            return self._input_args
+        return CAMERA_INPUT_ARGS + self.timeout_option
 
     @property
     def hwaccel_args(self):
@@ -302,14 +332,39 @@ class Stream:
         return self.get_codec_map()
 
     @property
+    def audio_codec(self):
+        """Return audio_codec for FFmpeg command."""
+        return self._audio_codec
+
+    @property
     def rtsp_transport(self):
-        """Return host."""
+        """Return RTSP transport."""
         return self._rtsp_transport
+
+    @property
+    def filter_args(self):
+        """Return FFmpeg filter args."""
+        return self._filter_args
+
+    @property
+    def frame_timeout(self):
+        """Return frame timeout."""
+        return self._frame_timeout
+
+    @property
+    def pix_fmt(self):
+        """Return FFmpeg pix fmt."""
+        return self._pix_fmt
 
     @property
     def protocol(self):
         """Return protocol."""
-        return "rtsp" if self.stream_format == "rtsp" else "http"
+        return STREAM_FORMAT_MAP[self.stream_format]["protocol"]
+
+    @property
+    def timeout_option(self):
+        """Return timeout option."""
+        return STREAM_FORMAT_MAP[self.stream_format]["timeout_option"]
 
     @property
     def stream_url(self):
@@ -337,6 +392,7 @@ class Substream(Stream):
         self._hwaccel_args = camera["substream"]["hwaccel_args"]
         self._codec = camera["substream"]["codec"]
         self._rtsp_transport = camera["substream"]["rtsp_transport"]
+        self._filter_args = camera["substream"]["filter_args"]
 
 
 class CameraConfig(Stream):
@@ -350,7 +406,6 @@ class CameraConfig(Stream):
         self._name_slug = slugify(self.name)
         self._mqtt_name = camera["mqtt_name"]
         self._global_args = camera["global_args"]
-        self._filter_args = camera["filter_args"]
         self._substream = None
         if camera.get("substream", None):
             self._substream = Substream(camera)
@@ -360,6 +415,7 @@ class CameraConfig(Stream):
         self._publish_image = camera["publish_image"]
         self._ffmpeg_loglevel = camera["ffmpeg_loglevel"]
         self._ffmpeg_recoverable_errors = camera["ffmpeg_recoverable_errors"]
+        self._ffprobe_loglevel = camera["ffprobe_loglevel"]
         self._static_mjpeg_streams = camera["static_mjpeg_streams"]
         self._logging = None
         if camera.get("logging", None):
@@ -409,14 +465,9 @@ class CameraConfig(Stream):
         return self._global_args
 
     @property
-    def filter_args(self):
-        """Return FFmpeg filter args."""
-        return self._filter_args
-
-    @property
     def output_args(self):
         """Return FFmpeg output args."""
-        return CAMERA_OUTPUT_ARGS
+        return ["-f", "rawvideo", "-pix_fmt", self.pix_fmt, "pipe:1"]
 
     @property
     def substream(self):
@@ -452,6 +503,11 @@ class CameraConfig(Stream):
     def ffmpeg_recoverable_errors(self):
         """Return FFmpeg recoverable errors."""
         return self._ffmpeg_recoverable_errors
+
+    @property
+    def ffprobe_loglevel(self):
+        """Return ffprobe log level."""
+        return self._ffprobe_loglevel
 
     @property
     def static_mjpeg_streams(self):

@@ -1,23 +1,22 @@
 ARG FFMPEG_VERSION
-ARG DEBIAN_VERSION
+ARG UBUNTU_VERSION
 FROM roflcoopter/aarch64-ffmpeg:${FFMPEG_VERSION} as ffmpeg
-FROM balenalib/aarch64-debian:${DEBIAN_VERSION}-build as build
+FROM balenalib/aarch64-ubuntu:${UBUNTU_VERSION}-build as build
 RUN [ "cross-build-start" ]
-WORKDIR /tmp/workdir
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-ARG OPENCV_VERSION
 
 COPY --from=ffmpeg /usr/local /usr/local/
 
+WORKDIR /tmp/workdir
 
-ARG         LD_LIBRARY_PATH=/opt/opencv/lib
-ARG         MAKEFLAGS="-j2"
-ARG         PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig"
-ARG         PREFIX=/opt/opencv
-ARG         LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib"
+ARG OPENCV_VERSION
+ARG MAKEFLAGS="-j2"
 
+ENV \
+  DEBIAN_FRONTEND=noninteractive \
+  LD_LIBRARY_PATH=/opt/opencv/lib \
+  PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig" \
+  PREFIX=/opt/opencv \
+  LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib"
 
 RUN buildDeps="autoconf \
   automake \

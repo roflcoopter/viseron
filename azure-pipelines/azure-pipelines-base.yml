@@ -11,13 +11,11 @@ resources:
       trigger:
         branches:
           - dev
-          - docker_revamp
     - pipeline: viseronWheels
       source: "Viseron Wheels"
       trigger:
         branches:
           - dev
-          - docker_revamp
 jobs:
   - template: templates/build.yaml
     parameters:

@@ -76,18 +76,37 @@ def load_config():
         sys.exit()
 
 
+def detector_enabled_check(config):
+    if not config["object_detection"]["enable"]:
+        for camera in config["cameras"]:
+            if (
+                camera.get("object_detection")
+                and camera["object_detection"].get("enable")
+                and camera["object_detection"]["enable"]
+            ):
+                raise Invalid(
+                    f"You have disabled object detection globally, "
+                    f"but have enabled object detection for camera {camera['name']}. "
+                    "This is not supported."
+                )
+    return config
+
+
 VISERON_CONFIG_SCHEMA = Schema(
-    {
-        Required("cameras"): CameraConfig.schema,
-        Optional("object_detection", default={}): ObjectDetectionConfig.schema,
-        Optional(
-            "motion_detection", default=MotionDetectionConfig.defaults
-        ): MotionDetectionConfig.schema,
-        Optional("post_processors", default={}): PostProcessorsConfig.schema,
-        Optional("recorder", default={}): RecorderConfig.schema,
-        Optional("mqtt", default=None): Any(MQTTConfig.schema, None),
-        Optional("logging", default={}): LoggingConfig.schema,
-    }
+    All(
+        {
+            Required("cameras"): CameraConfig.schema,
+            Optional("object_detection", default={}): ObjectDetectionConfig.schema,
+            Optional(
+                "motion_detection", default=MotionDetectionConfig.defaults
+            ): MotionDetectionConfig.schema,
+            Optional("post_processors", default={}): PostProcessorsConfig.schema,
+            Optional("recorder", default={}): RecorderConfig.schema,
+            Optional("mqtt", default=None): Any(MQTTConfig.schema, None),
+            Optional("logging", default={}): LoggingConfig.schema,
+        },
+        detector_enabled_check,
+    )
 )
 
 raw_config = load_config()
@@ -107,32 +126,32 @@ class BaseConfig:
         self._logging = None
 
     @property
-    def object_detection(self):
+    def object_detection(self) -> ObjectDetectionConfig:
         """Return object detection config."""
         return self._object_detection
 
     @property
-    def motion_detection(self):
+    def motion_detection(self) -> MotionDetectionConfig:
         """Return motion detection config."""
         return self._motion_detection
 
     @property
-    def post_processors(self):
+    def post_processors(self) -> PostProcessorsConfig:
         """Return post processors config."""
         return self._post_processors
 
     @property
-    def recorder(self):
+    def recorder(self) -> RecorderConfig:
         """Return recorder config."""
         return self._recorder
 
     @property
-    def mqtt(self):
+    def mqtt(self) -> MQTTConfig:
         """Return MQTT config."""
         return self._mqtt
 
     @property
-    def logging(self):
+    def logging(self) -> LoggingConfig:
         """Return logging config."""
         return self._logging
 
@@ -151,7 +170,7 @@ class ViseronConfig(BaseConfig):
         self._logging = LoggingConfig(config["logging"])
 
     @property
-    def cameras(self):
+    def cameras(self) -> dict:
         """Return cameras config."""
         return self._cameras
 
@@ -176,6 +195,6 @@ class NVRConfig(BaseConfig):
         self._logging = logging
 
     @property
-    def camera(self):
+    def camera(self) -> CameraConfig:
         """Return camera config."""
         return self._camera

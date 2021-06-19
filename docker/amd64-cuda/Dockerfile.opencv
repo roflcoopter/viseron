@@ -1,23 +1,23 @@
-ARG UBUNTU_VERSION
+ARG UBUNTU_VERSION_NUMBER
 ARG FFMPEG_VERSION
-FROM roflcoopter/amd64-ffmpeg:${FFMPEG_VERSION} as ffmpeg
-FROM nvidia/cuda:11.1-cudnn8-devel-ubuntu${UBUNTU_VERSION} AS build
-
-WORKDIR /tmp/workdir
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-ARG OPENCV_VERSION
+FROM roflcoopter/amd64-cuda-ffmpeg:${FFMPEG_VERSION} as ffmpeg
+FROM nvidia/cuda:11.1-cudnn8-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
 
 COPY --from=ffmpeg /usr/local /usr/local/
 
+WORKDIR /tmp/workdir
 
-ARG         MAKEFLAGS="-j2"
-ARG         PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig"
-ARG         PREFIX=/opt/opencv
-# OpenCV supports CC Arch 5.3 and higher
-ARG         CUDA_ARCH_BIN="53 60 61 70"
-ARG         CUDA_ARCH_PTX="70"
+ARG OPENCV_VERSION
+ARG MAKEFLAGS="-j2"
+ENV \
+  DEBIAN_FRONTEND=noninteractive \
+  PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig" \
+  PREFIX=/opt/opencv \
+  LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib" \
+  # OpenCV supports CC Arch 3.0 and higher. https://github.com/opencv/opencv/blob/master/cmake/OpenCVDetectCUDA.cmake
+  # However, CUDA 11 only supports >= 3.5 
+  CUDA_ARCH_BIN="35 53 60 61 70 72 75 80 86" \
+  CUDA_ARCH_PTX="70"
 
 RUN buildDeps="autoconf \
   automake \
@@ -48,7 +48,6 @@ RUN buildDeps="autoconf \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps}
 
-ARG LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib"
 
 ## OpenCV
 RUN  \

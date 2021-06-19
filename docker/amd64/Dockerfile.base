@@ -2,6 +2,14 @@ ARG UBUNTU_VERSION
 FROM roflcoopter/viseron-models:latest as models
 FROM ubuntu:${UBUNTU_VERSION} as base
 
+COPY --from=models /detectors/models/darknet /detectors/models/darknet
+COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
+
+ARG OPENCL_VERSION
+ARG GMMLIB_VERSION
+ARG IGC_VERSION
+ARG LEVEL_ZERO_GPU
+
 ENV LIBVA_DRIVER_NAME=i965
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -16,22 +24,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   # OpenCL
   clinfo \
   # FFmpeg
-  libnuma1
-
-# OpenCL
-RUN mkdir /opencl &&\
+  libnuma1 && \
+  # OpenCL
+  mkdir /opencl &&\
   cd /opencl && \
-  wget https://github.com/intel/compute-runtime/releases/download/19.31.13700/intel-gmmlib_19.2.3_amd64.deb --progress=bar:force:noscroll && \
-  wget https://github.com/intel/compute-runtime/releases/download/19.31.13700/intel-igc-core_1.0.10-2364_amd64.deb --progress=bar:force:noscroll && \
-  wget https://github.com/intel/compute-runtime/releases/download/19.31.13700/intel-igc-opencl_1.0.10-2364_amd64.deb --progress=bar:force:noscroll && \
-  wget https://github.com/intel/compute-runtime/releases/download/19.31.13700/intel-opencl_19.31.13700_amd64.deb --progress=bar:force:noscroll && \
-  wget https://github.com/intel/compute-runtime/releases/download/19.31.13700/intel-ocloc_19.31.13700_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-gmmlib_${GMMLIB_VERSION}_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-${IGC_VERSION}/intel-igc-core_${IGC_VERSION}_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-${IGC_VERSION}/intel-igc-opencl_${IGC_VERSION}_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-opencl_${OPENCL_VERSION}_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-ocloc_${OPENCL_VERSION}_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-level-zero-gpu_${LEVEL_ZERO_GPU}_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/ww15.sum && \
+  sha256sum -c ww15.sum && \
   dpkg -i *.deb && \
-  rm -R /opencl
-
-COPY --from=models /detectors/models/darknet /detectors/models/darknet
-COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
-
-RUN \
-  ln -s /detectors/models/darknet/yolov4.weights /detectors/models/darknet/default.weights && \
-  ln -s /detectors/models/darknet/yolov4.cfg /detectors/models/darknet/default.cfg
+  rm -R /opencl && \
+  ln -s /detectors/models/darknet/yolov3.weights /detectors/models/darknet/default.weights && \
+  ln -s /detectors/models/darknet/yolov3.cfg /detectors/models/darknet/default.cfg

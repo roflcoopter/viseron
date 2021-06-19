@@ -1,14 +1,26 @@
 """Handles motion detection."""
+from __future__ import annotations
+
 import logging
 from queue import Queue
-from threading import Thread
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
 
-from viseron.const import TOPIC_FRAME_PROCESSED_MOTION, TOPIC_FRAME_SCAN_MOTION
+import viseron.helpers as helpers
+from viseron.camera import FFMPEGCamera, FrameDecoder
+from viseron.camera.frame_decoder import FrameToScan
+from viseron.const import (
+    TOPIC_FRAME_DECODE_MOTION,
+    TOPIC_FRAME_PROCESSED_MOTION,
+    TOPIC_FRAME_SCAN_MOTION,
+)
 from viseron.data_stream import DataStream
-from viseron.helpers import calculate_relative_contours
+from viseron.watchdog.thread_watchdog import RestartableThread
+
+if TYPE_CHECKING:
+    from viseron.config import NVRConfig
 
 
 class Contours:
@@ -16,7 +28,7 @@ class Contours:
 
     def __init__(self, contours, resolution):
         self._contours = contours
-        self._rel_contours = calculate_relative_contours(contours, resolution)
+        self._rel_contours = helpers.calculate_relative_contours(contours, resolution)
 
         scale_factor = resolution[0] * resolution[1]
         self._contour_areas = [cv2.contourArea(c) / scale_factor for c in contours]
@@ -46,7 +58,7 @@ class Contours:
 class MotionDetection:
     """Subscribe to frames and run motion detection."""
 
-    def __init__(self, config, camera_resolution):
+    def __init__(self, config: NVRConfig, camera: FFMPEGCamera):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         if getattr(config.motion_detection.logging, "level", None):
             self._logger.setLevel(config.motion_detection.logging.level)
@@ -68,7 +80,7 @@ class MotionDetection:
             # Scale mask to fit resized frame
             scaled_mask = []
             for point_list in config.motion_detection.mask:
-                rel_mask = np.divide((point_list), camera_resolution)
+                rel_mask = np.divide((point_list), camera.resolution)
                 scaled_mask.append(
                     np.multiply(rel_mask, self._resolution).astype("int32")
                 )
@@ -87,18 +99,49 @@ class MotionDetection:
             f"{config.camera.name_slug}/{TOPIC_FRAME_PROCESSED_MOTION}"
         )
 
-        self._motion_detection_queue = Queue(maxsize=5)
-        motion_detection_thread = Thread(target=self.motion_detection)
-        motion_detection_thread.daemon = True
+        self._motion_detection_queue: Queue[  # pylint: disable=unsubscriptable-object
+            FrameToScan
+        ] = Queue(maxsize=5)
+        motion_detection_thread = RestartableThread(
+            name=__name__ + "." + config.camera.name_slug,
+            target=self.motion_detection,
+            daemon=True,
+            register=True,
+        )
         motion_detection_thread.start()
+
+        FrameDecoder(
+            self._logger,
+            self._config,
+            f"{config.camera.name_slug}.motion_detection",
+            config.motion_detection.interval,
+            camera.stream,
+            camera.decode_error,
+            TOPIC_FRAME_DECODE_MOTION,
+            TOPIC_FRAME_SCAN_MOTION,
+            preprocess_callback=self.preprocess,
+        )
 
         DataStream.subscribe_data(self._topic_scan_motion, self._motion_detection_queue)
         self._logger.debug("Motion detector initialized")
 
-    def detect(self, frame):
+    def preprocess(self, frame_to_scan: FrameToScan):
+        """Resize the frame to the desired width and height."""
+        frame_to_scan.frame.resize(
+            frame_to_scan.decoder_name,
+            self._config.motion_detection.width,
+            self._config.motion_detection.height,
+        )
+        frame_to_scan.frame.save_preprocessed_frame(
+            frame_to_scan.decoder_name,
+            frame_to_scan.frame.get_resized_frame(frame_to_scan.decoder_name),
+        )
+
+    def detect(self, frame_to_scan: FrameToScan) -> Contours:
         """Perform motion detection and return Contours."""
         gray = cv2.cvtColor(
-            frame["frame"].get_resized_frame(frame["decoder_name"]), cv2.COLOR_RGB2GRAY
+            frame_to_scan.frame.get_preprocessed_frame(frame_to_scan.decoder_name),
+            cv2.COLOR_RGB2GRAY,
         )
         gray = cv2.GaussianBlur(gray, (21, 21), 0)
         gray = gray.get()  # Convert from UMat to Mat
@@ -129,6 +172,6 @@ class MotionDetection:
     def motion_detection(self):
         """Perform motion detection and publish the results."""
         while True:
-            frame = self._motion_detection_queue.get()
-            frame["frame"].motion_contours = self.detect(frame)
-            DataStream.publish_data(self.topic_processed_motion, frame)
+            frame_to_scan: FrameToScan = self._motion_detection_queue.get()
+            frame_to_scan.frame.motion_contours = self.detect(frame_to_scan)
+            DataStream.publish_data(self.topic_processed_motion, frame_to_scan)

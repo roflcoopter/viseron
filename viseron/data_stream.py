@@ -1,15 +1,16 @@
 """Used to publish/subscribe to data between different parts of Viseron."""
 import fnmatch
 import logging
+import threading
 import uuid
 from queue import Queue
-from threading import Thread
 from typing import Any, Callable, Dict, Union
 
 from tornado.ioloop import IOLoop
 from tornado.queues import Queue as tornado_queue
 
-from viseron.helpers import pop_if_full
+import viseron.helpers as helpers
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 LOGGER = logging.getLogger(__name__)
 
@@ -28,7 +29,9 @@ class DataStream:
     _data_queue: Queue = Queue(maxsize=100)
 
     def __init__(self, ioloop: IOLoop) -> None:
-        data_consumer = Thread(target=self.consume_data)
+        data_consumer = RestartableThread(
+            name="data_stream", target=self.consume_data, daemon=True, register=True
+        )
         data_consumer.start()
         self.ioloop = ioloop
 
@@ -74,17 +77,16 @@ class DataStream:
         """Run callbacks or put to queues."""
         for callback in callbacks.values():
             if callable(callback):
-                thread = Thread(target=callback, args=(data,))
-                thread.daemon = True
+                thread = threading.Thread(target=callback, args=(data,), daemon=True)
                 thread.start()
                 continue
 
             if isinstance(callback, Queue):
-                pop_if_full(callback, data)
+                helpers.pop_if_full(callback, data)
                 continue
 
             if isinstance(callback, tornado_queue):
-                self.ioloop.add_callback(pop_if_full, callback, data)
+                self.ioloop.add_callback(helpers.pop_if_full, callback, data)
                 continue
 
             LOGGER.error(

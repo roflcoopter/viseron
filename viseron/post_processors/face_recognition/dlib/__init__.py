@@ -1,31 +1,25 @@
 """dlib face recognition."""
-import datetime
 import logging
 import math
 import os
 import os.path
-from threading import Timer
-from uuid import uuid4
+from typing import Any as TypeAny, Dict
 
-import cv2
 import face_recognition
 import PIL
 from face_recognition.face_recognition_cli import image_files_in_folder
 from sklearn import neighbors
-from voluptuous import All, Any, Coerce, Optional, Range
+from voluptuous import Any, Optional
 
+import viseron.mqtt
 from viseron.config import ViseronConfig
 from viseron.const import ENV_CUDA_SUPPORTED
-from viseron.helpers import calculate_absolute_coords, slugify
-from viseron.mqtt.binary_sensor import MQTTBinarySensor
-from viseron.post_processors import PostProcessorConfig
-from viseron.post_processors.schema import SCHEMA as BASE_SCHEMA
-
-from .defaults import (
-    EXPIRE_AFTER,
-    FACE_RECOGNITION_PATH,
-    SAVE_UNKNOWN_FACES,
-    UNKNOWN_FACES_PATH,
+from viseron.helpers import calculate_absolute_coords
+from viseron.post_processors import PostProcessorFrame
+from viseron.post_processors.face_recognition import (
+    AbstractFaceRecognition,
+    AbstractFaceRecognitionConfig,
+    FaceMQTTBinarySensor,
 )
 
 
@@ -36,14 +30,8 @@ def get_default_model() -> str:
     return "hog"
 
 
-SCHEMA = BASE_SCHEMA.extend(
+SCHEMA = AbstractFaceRecognitionConfig.SCHEMA.extend(
     {
-        Optional("face_recognition_path", default=FACE_RECOGNITION_PATH): str,
-        Optional("save_unknown_faces", default=SAVE_UNKNOWN_FACES): bool,
-        Optional("unknown_faces_path", default=UNKNOWN_FACES_PATH): str,
-        Optional("expire_after", default=EXPIRE_AFTER): All(
-            Any(All(int, Range(min=0)), All(float, Range(min=0.0))), Coerce(float)
-        ),
         Optional("model", default=get_default_model()): Any("hog", "cnn"),
     }
 )
@@ -51,36 +39,15 @@ SCHEMA = BASE_SCHEMA.extend(
 LOGGER = logging.getLogger(__name__)
 
 
-class Config(PostProcessorConfig):
+class Config(AbstractFaceRecognitionConfig):
     """dlib config."""
 
-    def __init__(self, post_processors_config, processor_config):
-        super().__init__(post_processors_config, processor_config)
-        self._face_recognition_path = processor_config["face_recognition_path"]
-        self._save_unknown_faces = processor_config["save_unknown_faces"]
-        self._unknown_faces_path = processor_config["unknown_faces_path"]
-        self._expire_after = processor_config["expire_after"]
+    def __init__(
+        self,
+        processor_config: Dict[str, TypeAny],
+    ):
+        super().__init__(processor_config)
         self._model = processor_config["model"]
-
-    @property
-    def face_recognition_path(self):
-        """Return path to folders with faces."""
-        return self._face_recognition_path
-
-    @property
-    def save_unknown_faces(self):
-        """Return if unknown faces should be saved."""
-        return self._save_unknown_faces
-
-    @property
-    def unknown_faces_path(self):
-        """Return path to folder where unknown faces are saved."""
-        return self._unknown_faces_path
-
-    @property
-    def expire_after(self):
-        """Return number of seconds after a face is no longer detected to expire it."""
-        return self._expire_after
 
     @property
     def model(self):
@@ -88,60 +55,25 @@ class Config(PostProcessorConfig):
         return self._model
 
 
-class Processor:
+class Processor(AbstractFaceRecognition):
     """dlib face recognition processor."""
 
-    def __init__(self, config: ViseronConfig, processor_config: Config, mqtt_queue):
-        if getattr(processor_config.logging, "level", None):
-            LOGGER.setLevel(processor_config.logging.level)
+    def __init__(self, config: ViseronConfig, processor_config: Config):
+        super().__init__(config, processor_config, LOGGER)
         LOGGER.debug("Initializing dlib")
-        self._processor_config = processor_config
-
-        self._faces: dict = {}
+        self._processor_config: Config = processor_config
         self._classifier, tracked_faces = train(processor_config.face_recognition_path)
 
         # Create one MQTT binary sensor per tracked face
         self._mqtt_devices = {}
-        if mqtt_queue:
+        if viseron.mqtt.MQTT.client:
             for face in list(set(tracked_faces)):
                 LOGGER.debug(f"Creating MQTT binary sensor for face {face}")
-                self._mqtt_devices[face] = FaceMQTTBinarySensor(
-                    config, mqtt_queue, face
-                )
-
-        if processor_config.save_unknown_faces:
-            create_directory(processor_config.unknown_faces_path)
+                self._mqtt_devices[face] = FaceMQTTBinarySensor(config, face)
 
         LOGGER.debug("dlib initialized")
 
-    def known_face_found(self, face, coordinates):
-        """Adds/expires known faces."""
-        # Cancel the expiry timer if face has already been detected
-        if self._faces.get(face, None):
-            self._faces[face]["timer"].cancel()
-
-        self._mqtt_devices[face].publish(True)
-
-        # Adds a detected face and schedules an expiry timer
-        self._faces[face] = {
-            "coordinates": coordinates,
-            "timer": Timer(
-                self._processor_config.expire_after, self.expire_face, [face]
-            ),
-        }
-        self._faces[face]["timer"].start()
-
-    def unknown_face_found(self, frame):
-        """Saves unknown faces."""
-        unique_id = f"{datetime.datetime.now().strftime('%H:%M:%S-')}{str(uuid4())}.jpg"
-        file_name = os.path.join(self._processor_config.unknown_faces_path, unique_id)
-        LOGGER.debug(f"Unknown face found, saving to {file_name}")
-
-        if not cv2.imwrite(file_name, frame):
-            LOGGER.error("Failed saving unknown face image to disk")
-
-    # pylint: disable=unused-argument
-    def process(self, camera_config, frame, obj, zone):
+    def process(self, frame_to_process: PostProcessorFrame):
         """Run face detection."""
         if not self._classifier:
             LOGGER.error(
@@ -150,17 +82,19 @@ class Processor:
             )
             return
 
-        height, width, _ = frame.decoded_frame_mat_rgb.shape
+        height, width, _ = frame_to_process.frame.decoded_frame_mat_rgb.shape
         x1, y1, x2, y2 = calculate_absolute_coords(
             (
-                obj.rel_x1,
-                obj.rel_y1,
-                obj.rel_x2,
-                obj.rel_y2,
+                frame_to_process.detected_object.rel_x1,
+                frame_to_process.detected_object.rel_y1,
+                frame_to_process.detected_object.rel_x2,
+                frame_to_process.detected_object.rel_y2,
             ),
             (width, height),
         )
-        cropped_frame = frame.decoded_frame_mat_rgb[y1:y2, x1:x2].copy()
+        cropped_frame = frame_to_process.frame.decoded_frame_mat_rgb[
+            y1:y2, x1:x2
+        ].copy()
 
         faces = predict(
             cropped_frame, self._classifier, model=self._processor_config.model
@@ -172,27 +106,6 @@ class Processor:
                 self.known_face_found(face, coordinates)
             elif self._processor_config.save_unknown_faces:
                 self.unknown_face_found(cropped_frame)
-
-    def expire_face(self, face):
-        """Expire no longer found face."""
-        LOGGER.debug(f"Expiring face {face}")
-        self._mqtt_devices[face].publish(False)
-        del self._faces[face]
-
-    def on_connect(self, client):
-        """Called when MQTT connection is established."""
-        for device in self._mqtt_devices.values():
-            device.on_connect(client)
-
-
-def create_directory(path):
-    """Create a directory."""
-    try:
-        if not os.path.isdir(path):
-            LOGGER.debug(f"Creating folder {path}")
-            os.makedirs(path)
-    except FileExistsError:
-        pass
 
 
 def train(
@@ -376,22 +289,3 @@ def predict(frame, knn_clf, model="hog", distance_threshold=0.6):
             knn_clf.predict(faces_encodings), face_locations, are_matches
         )
     ]
-
-
-class FaceMQTTBinarySensor(MQTTBinarySensor):
-    """MQTT binary sensor representing a face."""
-
-    def __init__(self, config, mqtt_queue, face):
-        self._config = config
-        self._mqtt_queue = mqtt_queue
-        self._name = f"{config.mqtt.client_id} Face detected {face}"
-        self._friendly_name = f"Face detected {face}"
-        self._device_name = config.mqtt.client_id
-        self._unique_id = self._name
-        self._node_id = slugify(config.mqtt.client_id)
-        self._object_id = f"face_detected_{slugify(face)}"
-
-    @property
-    def state_topic(self):
-        """Return state topic."""
-        return f"{self._config.mqtt.client_id}/binary_sensor/{self.object_id}/state"

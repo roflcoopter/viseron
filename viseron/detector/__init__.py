@@ -1,55 +1,113 @@
 """Interface to different object detectors."""
+from __future__ import annotations
+
 import importlib
 import logging
+from abc import ABC, abstractmethod
 from queue import Queue
-from threading import Lock, Thread
+from threading import Lock
+from typing import TYPE_CHECKING
 
 import cv2
-from voluptuous import Any, Optional, Required
+from voluptuous import PREVENT_EXTRA
 
-from viseron.config.config_logging import LoggingConfig
-from viseron.config.config_object_detection import SCHEMA as BASE_SCEHMA
+from viseron.config.config_object_detection import ObjectDetectionConfig
 from viseron.const import TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_OBJECT
 from viseron.data_stream import DataStream
-from viseron.helpers import calculate_relative_coords
+from viseron.exceptions import (
+    DetectorConfigError,
+    DetectorConfigSchemaError,
+    DetectorImportError,
+)
+from viseron.watchdog.thread_watchdog import RestartableThread
+
+if TYPE_CHECKING:
+    from viseron.camera.frame_decoder import FrameToScan
 
 LOGGER = logging.getLogger(__name__)
 
-SCHEMA = BASE_SCEHMA.extend(
-    {
-        Required("type"): str,
-        Optional("model_width", default=None): Any(int, None),
-        Optional("model_height", default=None): Any(int, None),
-    }
-)
+
+class AbstractObjectDetection(ABC):
+    """Abstract Object Detection."""
+
+    def preprocess(self, frame_to_scan: FrameToScan):  # pylint: disable=no-self-use
+        """Optional preprocessor function that runs before detection."""
+        return frame_to_scan
+
+    @abstractmethod
+    def return_objects(self, frame_to_scan: FrameToScan):
+        """Perform object detection."""
+
+
+class AbstractDetectorConfig(ABC, ObjectDetectionConfig):
+    """Abstract Object Detector Config."""
+
+    SCHEMA = ObjectDetectionConfig.schema.extend({}, extra=PREVENT_EXTRA)
 
 
 class Detector:
     """Subscribe to frames and run object detection using the configured detector."""
 
     def __init__(self, object_detection_config):
-        detector = importlib.import_module(
+        self.detection_lock = Lock()
+        # Config is not validated yet so we need to access the dictionary value
+        if not object_detection_config["enable"]:
+            return
+
+        detector_module = importlib.import_module(
             "viseron.detector." + object_detection_config["type"]
         )
-        config = detector.Config(detector.SCHEMA(object_detection_config))
+        if hasattr(detector_module, "ObjectDetection") and issubclass(
+            detector_module.ObjectDetection, AbstractObjectDetection
+        ):
+            pass
+        else:
+            raise DetectorImportError(object_detection_config["type"])
+
+        detector_config_module = None
+        try:
+            detector_config_module = importlib.import_module(
+                "viseron.detector." + object_detection_config["type"] + ".config"
+            )
+        except ModuleNotFoundError:
+            pass
+
+        config_module = (
+            detector_config_module if detector_config_module else detector_module
+        )
+        if hasattr(config_module, "Config") and issubclass(
+            config_module.Config, AbstractDetectorConfig
+        ):
+            pass
+        else:
+            raise DetectorConfigError(object_detection_config["type"])
+
+        if not hasattr(config_module, "SCHEMA"):
+            raise DetectorConfigSchemaError(object_detection_config["type"])
+
+        config = config_module.Config(config_module.SCHEMA(object_detection_config))
         if getattr(config.logging, "level", None):
             LOGGER.setLevel(config.logging.level)
 
-        LOGGER.debug(f"Initializing object detector {object_detection_config['type']}")
-
-        self.config = config
-        self.detection_lock = Lock()
+        LOGGER.debug(f"Initializing object detector {config.type}")
 
         # Activate OpenCL
         if cv2.ocl.haveOpenCL():
             LOGGER.debug("OpenCL activated")
             cv2.ocl.setUseOpenCL(True)
 
-        self.object_detector = detector.ObjectDetection(config)
+        self.object_detector = detector_module.ObjectDetection(config)
 
         self._topic_scan_object = f"*/{TOPIC_FRAME_SCAN_OBJECT}"
-        self._object_detection_queue = Queue()
-        object_detection_thread = Thread(target=self.object_detection)
+        self._object_detection_queue: Queue[  # pylint: disable=unsubscriptable-object
+            FrameToScan
+        ] = Queue()
+        object_detection_thread = RestartableThread(
+            target=self.object_detection,
+            name="object_detection",
+            register=True,
+            daemon=True,
+        )
         object_detection_thread.daemon = True
         object_detection_thread.start()
         DataStream.subscribe_data(self._topic_scan_object, self._object_detection_queue)
@@ -59,71 +117,15 @@ class Detector:
     def object_detection(self):
         """Perform object detection and publish the results."""
         while True:
-            frame = self._object_detection_queue.get()
-            self.detection_lock.acquire()
-            frame["frame"].objects = self.object_detector.return_objects(frame)
-            self.detection_lock.release()
+            frame_to_scan: FrameToScan = self._object_detection_queue.get()
+            with self.detection_lock:
+                frame_to_scan.frame.objects = self.object_detector.return_objects(
+                    frame_to_scan
+                )
             DataStream.publish_data(
                 (
-                    f"{frame['camera_config'].camera.name_slug}/"
+                    f"{frame_to_scan.camera_config.camera.name_slug}/"
                     f"{TOPIC_FRAME_PROCESSED_OBJECT}"
                 ),
-                frame,
+                frame_to_scan,
             )
-
-    @property
-    def model_width(self):
-        """Return width of the object detection model."""
-        return (
-            self.config.model_width
-            if self.config.model_width
-            else self.object_detector.model_width
-        )
-
-    @property
-    def model_height(self):
-        """Return height of the object detection model."""
-        return (
-            self.config.model_height
-            if self.config.model_height
-            else self.object_detector.model_height
-        )
-
-
-class DetectorConfig:
-    """Config object for a detector. All object detector configs must inherit
-    from this class."""
-
-    def __init__(self, object_detection):
-        self._model_path = object_detection["model_path"]
-        self._label_path = object_detection["label_path"]
-        self._model_width = object_detection["model_width"]
-        self._model_height = object_detection["model_height"]
-        self._logging = None
-        if object_detection.get("logging", None):
-            self._logging = LoggingConfig(object_detection["logging"])
-
-    @property
-    def model_path(self):
-        """Return path to object detection model."""
-        return self._model_path
-
-    @property
-    def label_path(self):
-        """Return path to object detection labels."""
-        return self._label_path
-
-    @property
-    def model_width(self):
-        """Return width of the object detection model."""
-        return self._model_width
-
-    @property
-    def model_height(self):
-        """Return height of the object detection model."""
-        return self._model_height
-
-    @property
-    def logging(self):
-        """Return log settings."""
-        return self._logging

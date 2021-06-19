@@ -1,19 +1,26 @@
 """Viseron init file."""
 import logging
-import os
 import signal
+import threading
 from queue import Queue
-from threading import Thread
 
 from viseron.cleanup import Cleanup
 from viseron.config import CONFIG, NVRConfig, ViseronConfig
-from viseron.const import LOG_LEVELS
+from viseron.const import LOG_LEVELS, THREAD_STORE_CATEGORY_NVR
 from viseron.data_stream import DataStream
 from viseron.detector import Detector
-from viseron.exceptions import FFprobeError
+from viseron.exceptions import (
+    FFprobeError,
+    FFprobeTimeout,
+    PostProcessorImportError,
+    PostProcessorStructureError,
+)
+from viseron.helpers.logs import DuplicateFilter, ViseronLogFormat
 from viseron.mqtt import MQTT
 from viseron.nvr import FFMPEGNVR
 from viseron.post_processors import PostProcessor
+from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
+from viseron.watchdog.thread_watchdog import RestartableThread, ThreadWatchDog
 from viseron.webserver import WebServer
 
 LOGGER = logging.getLogger(__name__)
@@ -29,6 +36,8 @@ class Viseron:
         LOGGER.info("-------------------------------------------")
         LOGGER.info("Initializing...")
 
+        thread_watchdog = ThreadWatchDog()
+        subprocess_watchdog = SubprocessWatchDog()
         webserver = WebServer()
         webserver.start()
 
@@ -36,13 +45,17 @@ class Viseron:
 
         schedule_cleanup(config)
 
-        mqtt_queue = None
         mqtt = None
         if config.mqtt:
-            mqtt_queue = Queue(maxsize=100)
             mqtt = MQTT(config)
-            mqtt_publisher = Thread(target=mqtt.publisher, args=(mqtt_queue,))
-            mqtt_publisher.daemon = True
+            mqtt_publisher = RestartableThread(
+                name="mqtt_publisher",
+                target=mqtt.publisher,
+                daemon=True,
+                register=True,
+            )
+            mqtt.connect()
+            mqtt_publisher.start()
 
         detector = Detector(config.object_detection)
 
@@ -51,82 +64,92 @@ class Viseron:
             post_processor_type,
             post_processor_config,
         ) in config.post_processors.post_processors.items():
-            post_processors[post_processor_type] = PostProcessor(
-                config, post_processor_type, post_processor_config, mqtt_queue
-            )
+            try:
+                post_processors[post_processor_type] = PostProcessor(
+                    config,
+                    post_processor_type,
+                    post_processor_config,
+                )
+            except (PostProcessorImportError, PostProcessorStructureError) as error:
+                LOGGER.error(
+                    "Error loading post processor {}. {}".format(
+                        post_processor_type, error
+                    )
+                )
 
         LOGGER.info("Initializing NVR threads")
         self.setup_threads = []
-        self.nvr_threads = []
         for camera in config.cameras:
-            setup_thread = Thread(
-                target=self.setup_nvr,
-                args=(
-                    config,
-                    camera,
-                    detector,
-                    mqtt_queue,
-                ),
+            setup_thread = SetupNVR(
+                config,
+                camera,
+                detector,
             )
-            setup_thread.start()
             self.setup_threads.append(setup_thread)
         for thread in self.setup_threads:
             thread.join()
-
-        if mqtt:
-            mqtt.connect()
-            mqtt_publisher.start()
-
-        for thread in self.nvr_threads:
-            thread.start()
 
         LOGGER.info("Initialization complete")
 
         def signal_term(*_):
             LOGGER.info("Kill received! Sending kill to threads..")
-            for thread in self.nvr_threads:
+            thread_watchdog.stop()
+            subprocess_watchdog.stop()
+            nvr_threads = RestartableThread.thread_store.get(
+                THREAD_STORE_CATEGORY_NVR, []
+            ).copy()
+            for thread in nvr_threads:
                 thread.stop()
-            for thread in self.nvr_threads:
+            for thread in nvr_threads:
                 thread.join()
+            webserver.stop()
+            webserver.join()
+            LOGGER.info("Exiting")
 
         # Listen to signals
         signal.signal(signal.SIGTERM, signal_term)
         signal.signal(signal.SIGINT, signal_term)
 
-        try:
-            for thread in self.nvr_threads:
-                thread.join()
-        except KeyboardInterrupt:
-            LOGGER.info("Ctrl-C received! Sending kill to threads..")
-            for thread in self.nvr_threads:
-                thread.stop()
-            for thread in self.nvr_threads:
-                thread.join()
 
-        LOGGER.info("Exiting")
-        os._exit(1)
+class SetupNVR(RestartableThread):
+    """Thread to setup NVR."""
 
-    def setup_nvr(self, config, camera, detector, mqtt_queue):
-        """Setup NVR for each configured camera."""
+    def __init__(self, config, camera, detector, register=True):
+        super().__init__(
+            name=f"setup.{camera['name']}",
+            daemon=True,
+            register=register,
+            base_class=SetupNVR,
+            base_class_args=(
+                config,
+                camera,
+                detector,
+            ),
+        )
+        self._config = config
+        self._camera = camera
+        self._detector = detector
+        self.start()
+
+    def run(self):
+        """Validate config and setup NVR."""
         camera_config = NVRConfig(
-            camera,
-            config.object_detection,
-            config.motion_detection,
-            config.recorder,
-            config.mqtt,
-            config.logging,
+            self._camera,
+            self._config.object_detection,
+            self._config.motion_detection,
+            self._config.recorder,
+            self._config.mqtt,
+            self._config.logging,
         )
         try:
-            nvr = FFMPEGNVR(
-                camera_config,
-                detector,
-                mqtt_queue=mqtt_queue,
-            )
-            self.nvr_threads.append(nvr)
-        except FFprobeError as error:
+            FFMPEGNVR(camera_config, self._detector)
+        except (FFprobeError, FFprobeTimeout) as error:
             LOGGER.error(
                 f"Failed to initialize camera {camera_config.camera.name}: {error}"
             )
+        else:
+            # Unregister thread from watchdog only if it succeeds
+            self.stop()
 
 
 def schedule_cleanup(config):
@@ -139,5 +162,14 @@ def schedule_cleanup(config):
 
 
 def log_settings(config):
-    """Sets log level."""
+    """Set custom log settings."""
+    LOGGER.propagate = False
+    formatter = ViseronLogFormat(config.logging)
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    handler.addFilter(DuplicateFilter())
+    LOGGER.addHandler(handler)
+
     LOGGER.setLevel(LOG_LEVELS[config.logging.level])
+    logging.getLogger("apscheduler.scheduler").setLevel(logging.ERROR)
+    logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)

@@ -1,9 +1,10 @@
 # No CI setup for this image, build locally
-ARG DEBIAN_VERSION
-FROM balenalib/raspberrypi3-debian:${DEBIAN_VERSION}-build as build
+ARG UBUNTU_VERSION
+FROM balenalib/raspberrypi3-ubuntu:${UBUNTU_VERSION}-build as build
 RUN [ "cross-build-start" ]
 ENV DEBIAN_FRONTEND=noninteractive
 
+ARG MAKEFLAGS="-j2"
 ARG CMAKE_VERSION
 
 ## Some libraries fail to compile using the distributed CMake
@@ -18,7 +19,7 @@ RUN \
   mkdir -p ${DIR} && \
   cd ${DIR} && \
   git clone --depth 1 --single-branch --branch v${CMAKE_VERSION} https://gitlab.kitware.com/cmake/cmake.git/ . && \
-  ./bootstrap && \
+  ./bootstrap -- -DCMAKE_BUILD_TYPE:STRING=Release && \
   make && \
   make install && \
   rm -rf ${DIR}

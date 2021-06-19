@@ -5,16 +5,18 @@ ARG BUILD_FROM
 FROM roflcoopter/${ARCH}-dlib:${DLIB_VERSION} as dlib
 FROM ${BUILD_FROM} as build
 
+COPY --from=dlib /wheels /wheels
+
 ARG ARCH
+
+ENV \
+  DEBIAN_FRONTEND=noninteractive \
+  PIP_IGNORE_INSTALLED=0
+
 RUN \
   if [ "$ARCH" = "armhf" ] || \
   [ "$ARCH" = "rpi3" ] || \
   [ "$ARCH" = "aarch64" ] ; then echo "Crossbuilding!" && cross-build-start; fi
-
-COPY --from=dlib /wheels /dlib-wheels
-
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PIP_IGNORE_INSTALLED=0
 
 RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
   curl \
@@ -32,19 +34,12 @@ RUN \
   elif [ "$ARCH" = "armhf" ] || [ "$ARCH" = "rpi3" ]; then export PLATFORM="armv7l"; \
   else export PLATFORM="$ARCH"; fi \
   \
-  # Python version
-  && PYTHON_VERSION=$(python3 --version) \
-  && TRIM=$(awk 'BEGIN{gsub(/\./,"",ARGV[1]);print ARGV[1]}' "$PYTHON_VERSION") \
-  && TRIM2=$(awk 'BEGIN{gsub(/\Python /,"",ARGV[1]);print ARGV[1]}' "$TRIM") \
-  && PYTHON_VERSION_SHORT=$(echo $TRIM2 | head -c2) \
   # EdgeTPU
-  && echo "Downloading tflite runtime https://github.com/google-coral/pycoral/releases/download/release-frogfish/tflite_runtime-2.5.0-cp${PYTHON_VERSION_SHORT}-cp${PYTHON_VERSION_SHORT}m-linux_$PLATFORM.whl" \
+  && echo "Downloading tflite runtime https://github.com/google-coral/pycoral/releases/download/release-frogfish/tflite_runtime-2.5.0-cp38-cp38-linux_$PLATFORM.whl" \
   && cd /wheels \
-  && curl -sOL https://github.com/google-coral/pycoral/releases/download/release-frogfish/tflite_runtime-2.5.0-cp${PYTHON_VERSION_SHORT}-cp${PYTHON_VERSION_SHORT}m-linux_$PLATFORM.whl \
+  && curl -sOL https://github.com/google-coral/pycoral/releases/download/release-frogfish/tflite_runtime-2.5.0-cp38-cp38-linux_$PLATFORM.whl \
   \
-  && pip3 wheel --wheel-dir=/wheels --find-links=/dlib-wheels -r /requirements.txt \
-  \
-  && cp /dlib-wheels/*.whl /wheels/ \
+  && pip3 wheel --wheel-dir=/wheels --find-links=/wheels -r /requirements.txt \
   \
   && ls -al /wheels/
 

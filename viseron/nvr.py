@@ -1,87 +1,87 @@
 """NVR that setups all components for a camera."""
+from __future__ import annotations
+
 import logging
 from queue import Empty, Queue
 from threading import Thread
-from typing import Dict
+from typing import TYPE_CHECKING, Dict, List, Union
 
 import cv2
 
+import viseron.helpers as helpers
+import viseron.mqtt
 from viseron.camera import FFMPEGCamera
+from viseron.camera.frame import Frame
 from viseron.const import (
-    LOG_LEVELS,
+    THREAD_STORE_CATEGORY_NVR,
     TOPIC_FRAME_PROCESSED_OBJECT,
     TOPIC_FRAME_SCAN_POSTPROC,
 )
 from viseron.data_stream import DataStream
-from viseron.helpers import (
-    combined_objects,
-    draw_contours,
-    draw_mask,
-    draw_objects,
-    draw_zones,
-    report_labels,
-)
 from viseron.helpers.filter import Filter
 from viseron.motion import MotionDetection
 from viseron.mqtt.binary_sensor import MQTTBinarySensor
 from viseron.mqtt.camera import MQTTCamera
 from viseron.mqtt.sensor import MQTTSensor
 from viseron.mqtt.switch import MQTTSwitch
+from viseron.post_processors import PostProcessorFrame
 from viseron.recorder import FFMPEGRecorder
+from viseron.watchdog.thread_watchdog import RestartableThread
 from viseron.zones import Zone
+
+if TYPE_CHECKING:
+    from viseron.detector.detected_object import DetectedObject
 
 LOGGER = logging.getLogger(__name__)
 
 
-class MQTT:
+class MQTTInterface:
     """Handles MQTT connection."""
 
-    def __init__(self, config, mqtt_queue):
+    def __init__(self, config):
         self.config = config
-        self.mqtt_queue = mqtt_queue
 
         self._status_state = None
         self.status_attributes = {}
 
         self.devices = {}
-        if self.mqtt_queue:
+        if viseron.mqtt.MQTT.client:
             self.devices["motion_detected"] = MQTTBinarySensor(
-                config, mqtt_queue, "motion_detected"
+                config, "motion_detected"
             )
             self.devices["object_detected"] = MQTTBinarySensor(
-                config, mqtt_queue, "object_detected"
+                config, "object_detected"
             )
             for label in config.object_detection.labels:
                 self.devices[label.label] = MQTTBinarySensor(
                     config,
-                    mqtt_queue,
                     f"object_detected {label.label}",
                 )
-            self.devices["switch"] = MQTTSwitch(config, mqtt_queue)
-            self.devices["camera"] = MQTTCamera(config, mqtt_queue)
-            self.devices["sensor"] = MQTTSensor(config, mqtt_queue, "status")
+            self.devices["switch"] = MQTTSwitch(config)
+            self.devices["camera"] = MQTTCamera(config)
+            self.devices["sensor"] = MQTTSensor(config, "status")
 
     def publish_image(self, object_frame, motion_frame, zones, resolution):
         """Publish image to MQTT."""
-        if self.mqtt_queue:
+        if viseron.mqtt.MQTT.client:
             # Draw on the object frame if it is supplied
             frame = object_frame if object_frame else motion_frame
             if self.config.motion_detection.mask:
-                draw_mask(
+                helpers.draw_mask(
                     frame.decoded_frame_mat_rgb,
                     self.config.motion_detection.mask,
                 )
 
             if motion_frame and frame.motion_contours:
-                draw_contours(
+                helpers.draw_contours(
                     frame.decoded_frame_mat_rgb,
                     frame.motion_contours,
                     resolution,
                     self.config.motion_detection.area,
                 )
 
-            draw_zones(frame.decoded_frame_mat_rgb, zones)
-            draw_objects(
+            helpers.draw_zones(frame.decoded_frame_mat_rgb, zones)
+            helpers.draw_objects(
                 frame.decoded_frame_mat_rgb,
                 frame.objects,
                 resolution,
@@ -104,34 +104,27 @@ class MQTT:
         self._status_state = state
         self.devices["sensor"].publish(state, attributes=self.status_attributes)
 
-    def on_connect(self, client):
+    def on_connect(self):
         """Called when MQTT connection is established."""
-        subscriptions = {}
-
         for device in self.devices.values():
-            device.on_connect(client)
-            if getattr(device, "on_message", False):
-                subscriptions[device.command_topic] = [device.on_message]
-
-        return subscriptions
+            device.on_connect()
 
 
-class FFMPEGNVR(Thread):
+class FFMPEGNVR:
     """Performs setup of all needed components for recording.
     Controls starting/stopping of motion detection, object detection, camera, recording.
     Also handles publishing to MQTT."""
 
     nvr_list: Dict[str, object] = {}
 
-    def __init__(self, config, detector, mqtt_queue=None):
-        Thread.__init__(self)
+    def __init__(self, config, detector):
         self.setup_loggers(config)
         self._logger.debug("Initializing NVR thread")
 
         # Use FFMPEG to read from camera. Used for reading/recording
         self.camera = FFMPEGCamera(config, detector)
 
-        self._mqtt = MQTT(config, mqtt_queue)
+        self._mqtt = MQTTInterface(config)
         self.config = config
         self.kill_received = False
         self.camera_grabber = None
@@ -141,6 +134,7 @@ class FFMPEGNVR(Thread):
         self._reported_label_count = {}
         self._object_return_queue = Queue(maxsize=10)
         self._object_filters = {}
+        self._object_decoder = f"{config.camera.name_slug}.object_detection"
         DataStream.subscribe_data(
             f"{config.camera.name_slug}/{TOPIC_FRAME_PROCESSED_OBJECT}",
             self._object_return_queue,
@@ -148,14 +142,13 @@ class FFMPEGNVR(Thread):
         for object_filter in config.object_detection.labels:
             self._object_filters[object_filter.label] = Filter(object_filter)
 
-        self.zones = []
+        self.zones: List[Zone] = []
         for zone in config.camera.zones:
             self.zones.append(
                 Zone(
                     zone,
                     self.camera.resolution,
                     config,
-                    self._mqtt.mqtt_queue,
                 )
             )
 
@@ -164,18 +157,21 @@ class FFMPEGNVR(Thread):
         self._motion_only_frames = 0
         self._motion_max_timeout_reached = False
         self._motion_return_queue = Queue(maxsize=5)
+        self._motion_decoder = f"{config.camera.name_slug}.motion_detection"
         if config.motion_detection.timeout or config.motion_detection.trigger_detector:
-            self.motion_detector = MotionDetection(config, self.camera.resolution)
+            self.motion_detector = MotionDetection(config, self.camera)
             DataStream.subscribe_data(
                 self.motion_detector.topic_processed_motion, self._motion_return_queue
             )
 
         if config.motion_detection.trigger_detector:
-            self.camera.decoders["motion_detection"].scan.set()
-            self.camera.decoders["object_detection"].scan.clear()
+            self.camera.stream.decoders[self._motion_decoder].scan.set()
+            if config.object_detection.enable:
+                self.camera.stream.decoders[self._object_decoder].scan.clear()
         else:
-            self.camera.decoders["object_detection"].scan.set()
-            self.camera.decoders["motion_detection"].scan.clear()
+            if config.object_detection.enable:
+                self.camera.stream.decoders[self._object_decoder].scan.set()
+            self.camera.stream.decoders[self._motion_decoder].scan.clear()
         self.idle_frames = 0
 
         self._post_processor_topic = (
@@ -186,10 +182,24 @@ class FFMPEGNVR(Thread):
 
         # Initialize recorder
         self._start_recorder = False
-        self.recorder = FFMPEGRecorder(config, detector.detection_lock, mqtt_queue)
+        self.recorder = FFMPEGRecorder(config, detector.detection_lock)
 
         self.nvr_list[config.camera.name_slug] = self
+        RestartableThread(
+            name=str(self),
+            target=self.run,
+            stop_target=self.stop,
+            thread_store_category=THREAD_STORE_CATEGORY_NVR,
+            daemon=False,
+            register=True,
+        ).start()
+
+        if viseron.mqtt.MQTT.client:
+            self.setup_mqtt()
         self._logger.debug("NVR thread initialized")
+
+    def __repr__(self):
+        return __name__ + "." + self.config.camera.name_slug
 
     def setup_loggers(self, config):
         """Setup custom log names and levels."""
@@ -209,74 +219,96 @@ class FFMPEGNVR(Thread):
         self._object_logger = logging.getLogger(
             __name__ + "." + config.camera.name_slug + ".object"
         )
-
         if getattr(config.object_detection.logging, "level", None):
             self._object_logger.setLevel(config.object_detection.logging.level)
         elif getattr(config.camera.logging, "level", None):
             self._object_logger.setLevel(config.camera.logging.level)
 
-    def on_connect(self, client):
-        """Called when MQTT connection is established."""
-        subscriptions = self._mqtt.on_connect(client)
-        self.recorder.on_connect(client)
+    def setup_mqtt(self):
+        """Setup various MQTT elements."""
+        self._mqtt.on_connect()
+        self.recorder.on_connect()
 
         for zone in self.zones:
-            zone.on_connect(client)
+            zone.on_connect()
 
         # We subscribe to the switch topic to toggle camera on/off
-        subscriptions[self._mqtt.devices["switch"].command_topic].append(
-            self.toggle_camera
+        viseron.mqtt.MQTT.subscribe(
+            viseron.mqtt.SubscribeTopic(
+                self._mqtt.devices["switch"].command_topic, self.toggle_camera
+            )
         )
-
-        return subscriptions
 
     def toggle_camera(self, message):
         """Toggle reading from camera on/off."""
         if message.payload.decode() == "ON":
             self.start_camera()
-            return
-        if message.payload.decode() == "OFF":
+        elif message.payload.decode() == "OFF":
             self.stop_camera()
-            return
 
     def start_camera(self):
         """Start reading from camera."""
         if not self.camera_grabber or not self.camera_grabber.is_alive():
             self._logger.debug("Starting camera")
-            self.camera_grabber = Thread(
+            self.camera_grabber = RestartableThread(
+                name="viseron.camera." + self.config.camera.name_slug,
                 target=self.camera.capture_pipe,
+                poll_timer=self.camera.poll_timer,
+                poll_timeout=self.config.camera.frame_timeout,
+                poll_target=self.camera.release,
+                daemon=True,
+                register=True,
             )
-            self.camera_grabber.daemon = True
             self.camera_grabber.start()
 
     def stop_camera(self):
         """Stop reading from camera."""
         self._logger.debug("Stopping camera")
         self.camera.release()
+        self.camera_grabber.stop()
         self.camera_grabber.join()
         if self.recorder.is_recording:
             self.recorder.stop_recording()
 
-    def event_over(self, frame):
-        """Return if ongoing motion and/or object detection is over."""
-        all_objects = combined_objects(frame, self.zones)
+    def event_over_check_motion(
+        self, obj: DetectedObject, object_filters: Dict[str, Filter]
+    ):
+        """Check if motion should stop the recorder."""
+        if object_filters.get(obj.label) and object_filters[obj.label].require_motion:
+            if self.motion_detected:
+                self._motion_max_timeout_reached = False
+                self._motion_only_frames = 0
+                return False
+        else:
+            self._motion_max_timeout_reached = False
+            self._motion_only_frames = 0
+            return False
+        return True
 
-        for obj in all_objects:
-            if obj.trigger_recorder:
-                if self._object_filters[obj.label].require_motion:
-                    if self.motion_detected:
-                        self._motion_max_timeout_reached = False
-                        self._motion_only_frames = 0
-                        return False
-                else:
-                    self._motion_max_timeout_reached = False
-                    self._motion_only_frames = 0
+    def event_over_check_object(
+        self, obj: DetectedObject, object_filters: Dict[str, Filter]
+    ):
+        """Check if object should stop the recorder."""
+        if obj.trigger_recorder:
+            if not self.event_over_check_motion(obj, object_filters):
+                return False
+        return True
+
+    def event_over(self):
+        """Return if ongoing motion and/or object detection is over."""
+        for obj in self.objects_in_fov:
+            if not self.event_over_check_object(obj, self._object_filters):
+                return False
+
+        for zone in self.zones:
+            for obj in zone.objects_in_zone:
+                if not self.event_over_check_object(obj, zone.object_filters):
                     return False
 
         if self.config.motion_detection.timeout and self.motion_detected:
             # Only allow motion to keep event active for a specified period of time
             if self._motion_only_frames >= (
-                self.camera.stream.fps * self.config.motion_detection.max_timeout
+                self.camera.stream.output_fps * self.config.motion_detection.max_timeout
             ):
                 if not self._motion_max_timeout_reached:
                     self._motion_max_timeout_reached = True
@@ -298,35 +330,37 @@ class FFMPEGNVR(Thread):
         recorder_thread.start()
         if (
             self.config.motion_detection.timeout
-            and not self.camera.decoders["motion_detection"].scan.is_set()
+            and not self.camera.stream.decoders[self._motion_decoder].scan.is_set()
         ):
-            self.camera.decoders["motion_detection"].scan.set()
+            self.camera.stream.decoders[self._motion_decoder].scan.set()
             self._logger.info("Starting motion detector")
 
     def stop_recording(self):
         """Stop recorder."""
-        if self.idle_frames % self.camera.stream.fps == 0:
+        if self.idle_frames % self.camera.stream.output_fps == 0:
             self._logger.info(
                 "Stopping recording in: {}".format(
                     int(
                         self.config.recorder.timeout
-                        - (self.idle_frames / self.camera.stream.fps)
+                        - (self.idle_frames / self.camera.stream.output_fps)
                     )
                 )
             )
 
-        if self.idle_frames >= (self.camera.stream.fps * self.config.recorder.timeout):
+        if self.idle_frames >= (
+            self.camera.stream.output_fps * self.config.recorder.timeout
+        ):
             if not self.config.motion_detection.trigger_detector:
-                self.camera.decoders["motion_detection"].scan.clear()
+                self.camera.stream.decoders[self._motion_decoder].scan.clear()
                 self._logger.info("Pausing motion detector")
 
             self.recorder.stop_recording()
 
-    def get_processed_object_frame(self):
+    def get_processed_object_frame(self) -> Union[None, Frame]:
         """Return a frame along with its detections which has been processed
         by the object detector."""
         try:
-            return self._object_return_queue.get_nowait()["frame"]
+            return self._object_return_queue.get_nowait().frame
         except Empty:
             return None
 
@@ -342,7 +376,7 @@ class FFMPEGNVR(Thread):
                 objects_in_fov.append(obj)
                 labels_in_fov.append(obj.label)
 
-                if self._object_filters[obj.label].triggers_recording:
+                if self._object_filters[obj.label].trigger_recorder:
                     obj.trigger_recorder = True
 
                 if self._object_filters[obj.label].post_processor:
@@ -351,12 +385,7 @@ class FFMPEGNVR(Thread):
                             f"{self._post_processor_topic}/"
                             f"{self._object_filters[obj.label].post_processor}"
                         ),
-                        {
-                            "camera_config": self.config,
-                            "frame": frame,
-                            "object": obj,
-                            "zone": None,
-                        },
+                        PostProcessorFrame(self.config, frame, obj),
                     )
 
         self.objects_in_fov = objects_in_fov
@@ -372,7 +401,7 @@ class FFMPEGNVR(Thread):
         if objects == self._objects_in_fov:
             return
 
-        if self._mqtt.mqtt_queue:
+        if viseron.mqtt.MQTT.client:
             attributes = {}
             attributes["objects"] = [obj.formatted for obj in objects]
             self._mqtt.devices["object_detected"].publish(bool(objects), attributes)
@@ -386,11 +415,10 @@ class FFMPEGNVR(Thread):
 
     @labels_in_fov.setter
     def labels_in_fov(self, labels):
-        self._labels_in_fov, self._reported_label_count = report_labels(
+        self._labels_in_fov, self._reported_label_count = helpers.report_labels(
             labels,
             self._labels_in_fov,
             self._reported_label_count,
-            self._mqtt.mqtt_queue,
             self._mqtt.devices,
         )
 
@@ -399,11 +427,11 @@ class FFMPEGNVR(Thread):
         for zone in self.zones:
             zone.filter_zone(frame)
 
-    def get_processed_motion_frame(self):
+    def get_processed_motion_frame(self) -> Union[None, Frame]:
         """Return a frame along with its motion contours which has been processed
         by the motion detector"""
         try:
-            return self._motion_return_queue.get_nowait()["frame"]
+            return self._motion_return_queue.get_nowait().frame
         except Empty:
             return None
 
@@ -444,45 +472,79 @@ class FFMPEGNVR(Thread):
             "Motion detected" if motion_detected else "Motion stopped"
         )
 
-        if self._mqtt.mqtt_queue:
+        if viseron.mqtt.MQTT.client:
             self._mqtt.devices["motion_detected"].publish(motion_detected)
 
-    def process_object_event(self, frame):
-        """Process any detected objects to see if recorder should start."""
-        all_objects = combined_objects(frame, self.zones)
+    def trigger_recorder(self, obj: DetectedObject, object_filters: Dict[str, Filter]):
+        """Check if object should start the recorder."""
+        # Discard object if it requires motion but motion is not detected
+        if (
+            obj.trigger_recorder
+            and object_filters.get(obj.label)
+            and object_filters.get(obj.label).require_motion  # type: ignore
+            and not self.motion_detected
+        ):
+            return False
 
-        if any(obj.trigger_recorder for obj in all_objects):
-            if not self.recorder.is_recording:
-                self._start_recorder = True
+        if obj.trigger_recorder:
+            return True
+
+        return False
+
+    def process_object_event(self):
+        """Process any detected objects to see if recorder should start."""
+        if not self.recorder.is_recording:
+            for obj in self.objects_in_fov:
+                if self.trigger_recorder(obj, self._object_filters):
+                    self._start_recorder = True
+                    return
+
+            for zone in self.zones:
+                for obj in zone.objects_in_zone:
+                    if self.trigger_recorder(obj, zone.object_filters):
+                        self._start_recorder = True
+                        return
 
     def process_motion_event(self):
         """Process motion to see if it has started or stopped."""
         if self.motion_detected:
             if (
                 self.config.motion_detection.trigger_detector
-                and not self.camera.decoders["object_detection"].scan.is_set()
+                and self.config.object_detection.enable
+                and not self.camera.stream.decoders[self._object_decoder].scan.is_set()
             ):
-                self.camera.decoders["object_detection"].scan.set()
+                self.camera.stream.decoders[self._object_decoder].scan.set()
                 self._logger.debug("Starting object detector")
+
+            if (
+                not self.recorder.is_recording
+                and self.config.motion_detection.trigger_recorder
+            ):
+                self._start_recorder = True
+
         elif (
-            self.camera.decoders["object_detection"].scan.is_set()
+            self.config.object_detection.enable
+            and self.camera.stream.decoders[self._object_decoder].scan.is_set()
             and not self.recorder.is_recording
             and self.config.motion_detection.trigger_detector
         ):
             self._logger.debug("Not recording, pausing object detector")
-            self.camera.decoders["object_detection"].scan.clear()
+            self.camera.stream.decoders[self._object_decoder].scan.clear()
 
     def update_status_sensor(self):
         """Update MQTT status sensor."""
-        if not self._mqtt.mqtt_queue:
+        if not viseron.mqtt.MQTT.client:
             return
 
         status = "unknown"
         if self.recorder.is_recording:
             status = "recording"
-        elif self.camera.decoders["object_detection"].scan.is_set():
+        elif (
+            self.config.object_detection.enable
+            and self.camera.stream.decoders[self._object_decoder].scan.is_set()
+        ):
             status = "scanning_for_objects"
-        elif self.camera.decoders["motion_detection"].scan.is_set():
+        elif self.camera.stream.decoders[self._motion_decoder].scan.is_set():
             status = "scanning_for_motion"
 
         attributes = {}
@@ -516,13 +578,15 @@ class FFMPEGNVR(Thread):
                 # Filter objects in each zone
                 self.filter_zones(processed_object_frame)
 
-                if self._object_logger.level == LOG_LEVELS["DEBUG"]:
-                    if self.config.object_detection.log_all_objects:
-                        objs = [obj.formatted for obj in processed_object_frame.objects]
-                        self._object_logger.debug(f"All objects: {objs}")
-                    else:
-                        objs = [obj.formatted for obj in self.objects_in_fov]
-                        self._object_logger.debug(f"Objects: {objs}")
+                if self.config.object_detection.log_all_objects:
+                    self._object_logger.debug(
+                        "All objects: %s",
+                        [obj.formatted for obj in processed_object_frame.objects],
+                    )
+                else:
+                    self._object_logger.debug(
+                        "Objects: %s", [obj.formatted for obj in self.objects_in_fov]
+                    )
 
             # Filter returned motion contours
             processed_motion_frame = self.get_processed_motion_frame()
@@ -530,7 +594,7 @@ class FFMPEGNVR(Thread):
                 # self._logger.debug(processed_motion_frame.motion_contours)
                 self.filter_motion(processed_motion_frame.motion_contours)
 
-            self.process_object_event(processed_object_frame)
+            self.process_object_event()
             self.process_motion_event()
 
             if (
@@ -547,7 +611,7 @@ class FFMPEGNVR(Thread):
             if self._start_recorder:
                 self._start_recorder = False
                 self.start_recording(processed_object_frame)
-            elif self.recorder.is_recording and self.event_over(processed_object_frame):
+            elif self.recorder.is_recording and self.event_over():
                 self.idle_frames += 1
                 self.stop_recording()
                 continue
