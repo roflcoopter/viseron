@@ -1,6 +1,5 @@
 """EdgeTPU object detection."""
 import logging
-import traceback
 from os import PathLike
 from typing import List, Union
 
