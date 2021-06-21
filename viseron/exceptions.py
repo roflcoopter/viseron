@@ -57,7 +57,7 @@ class StreamInformationError(ViseronError):
         """Return string representation."""
         return (
             "Could not get needed stream information. "
-            "Missing atleast one of width, height or fps. "
+            "Missing at least one of width, height or fps. "
             f"Width: {self.width} "
             f"Height: {self.height} "
             f"FPS: {self.fps} "

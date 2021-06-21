@@ -236,7 +236,7 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ### Fontconfig installation breaks if Freetyoe is built from source so it is omitted here.
-### Probably has something to do with a version missmatch that i wont investigate
+### Probably has something to do with a version mismatch that i won't investigate
 ### freetype https://www.freetype.org/
 # ARG FREETYPE_VERSION
 # ARG FREETYPE_SHA256SUM
@@ -286,7 +286,7 @@ RUN \
   DIR=/tmp/fribidi && \
   cd ${DIR} && \
   ./configure --prefix="${PREFIX}" --disable-static --enable-shared && \
-  # Use -j1 because fribidi breaks when building in parallell and c2man is not installed
+  # Use -j1 because fribidi breaks when building in parallel and c2man is not installed
   make -j1 && \
   make install && \
   rm -rf ${DIR}
@@ -586,7 +586,7 @@ RUN \
   for lib in /usr/local/lib/*.so.*; do ln -s "${lib##*/}" "${lib%%.so.*}".so; done && \
   cp ${PREFIX}/bin/* /usr/local/bin/ && \
   cp -r ${PREFIX}/share/ffmpeg /usr/local/share/ && \
-  # Cant run this since it errors out on buildphase. FFmpeg for Jetson nano only works when running with --runtime nvidia --privileged
+  # Can't run this since it errors out on buildphase. FFmpeg for Jetson nano only works when running with --runtime nvidia --privileged
   # LD_LIBRARY_PATH=/usr/local/lib ffmpeg -buildconf && \
   cp -r ${PREFIX}/include/libav* ${PREFIX}/include/libpostproc ${PREFIX}/include/libsw* /usr/local/include && \
   mkdir -p /usr/local/lib/pkgconfig && \

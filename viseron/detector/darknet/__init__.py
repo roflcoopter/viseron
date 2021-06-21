@@ -61,6 +61,7 @@ class ObjectDetection(AbstractObjectDetection):
         self.net.setPreferableTarget(target)
 
     def preprocess(self, frame_to_scan: FrameToScan):
+        """Preprocess frame before detection."""
         frame_to_scan.frame.resize(
             frame_to_scan.decoder_name,
             self._model_width,

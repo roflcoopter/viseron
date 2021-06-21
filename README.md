@@ -364,7 +364,7 @@ The command is built like this: \
 | input_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
 | hwaccel_args | list | optional | a valid list of FFmpeg arguments | FFmpeg decoder hardware acceleration arguments |
 | codec | str | optional | any supported decoder codec | FFmpeg video decoder codec, eg ```h264_cuvid```<br>Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information) |
-| audio_codec | str | `copy` | any supported audio encoder codec | FFmpeg audio encoder codec for the generated segments, eg ```aac```.<br>Note that if you set this, FFmpeg will have to reencode your stream which increases system load.<br>Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information) |
+| audio_codec | str | `copy` | any supported audio encoder codec | FFmpeg audio encoder codec for the generated segments, eg ```aac```.<br>Note that if you set this, FFmpeg will have to re-encode your stream which increases system load.<br>Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information) |
 | rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesn't support TCP |
 | filter_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
 | frame_timeout | int | 60 | any int | A timeout in seconds. If a frame has not been received in this time period FFmpeg will be restarted |
@@ -1287,7 +1287,7 @@ The switch is used to arm/disarm a camera. When disarmed, no system resources ar
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | level | str | ```INFO``` | ```DEBUG```, ```INFO```, ```WARNING```, ```ERROR```, ```FATAL``` | Log level |
-| color_log | bool | True | True/False | Controls wether the log is colored or not |
+| color_log | bool | True | True/False | Controls whether the log is colored or not |
 
 ---
 

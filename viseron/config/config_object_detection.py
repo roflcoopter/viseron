@@ -156,14 +156,16 @@ SCHEMA = Schema(
 
 
 class ObjectDetectionConfig:
-    """Object detection config. All object detector config classes must inherit
-    from this one.
+    """Object detection config.
+
+    All object detector config classes must inheritfrom this one.
 
     ALLOW_EXTRA is set in the base schema to allow each detector to have its own
     config options.
     PREVENT_EXTRA is added after the global config is validated.
     The config is validated again in the Detector class, but with each detectors
-    unique schema."""
+    unique schema.
+    """
 
     schema = SCHEMA
 
@@ -194,7 +196,7 @@ class ObjectDetectionConfig:
         )
 
     def concat_labels(self, camera_zones) -> List[LabelConfig]:
-        """Creates a concatenated list of global labels + all labels in each zone"""
+        """Return a concatenated list of global labels + all labels in each zone."""
         zone_labels = []
         for zone in camera_zones:
             zone_labels += zone["labels"]

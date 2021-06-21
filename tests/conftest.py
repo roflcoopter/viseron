@@ -69,13 +69,13 @@ post_processors:
 
 @pytest.fixture
 def simple_config() -> str:
-    """Simple yaml config."""
+    """Return simple yaml config."""
     return YAML_CONFIG
 
 
 @pytest.fixture
 def simple_config_secret() -> str:
-    """Simple yaml config with a secret."""
+    """Return simple yaml config with a secret."""
     return YAML_CONFIG_SECRET
 
 
@@ -87,7 +87,7 @@ def full_config() -> str:
 
 @pytest.fixture
 def raw_config(simple_config) -> dict:
-    """Simple validated config."""
+    """Return simple validated config."""
     mock_open = mock.mock_open(read_data=simple_config)
     with mock.patch("builtins.open", mock_open):
         return load_config()

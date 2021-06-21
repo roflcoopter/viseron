@@ -27,7 +27,7 @@ def teardown():
 
 
 def test_detector_enabled_check():
-    """Test that detector cant be enabled per camera if disabled globally."""
+    """Test that detector can't be enabled per camera if disabled globally."""
     config = {
         "object_detection": {
             "enable": False,

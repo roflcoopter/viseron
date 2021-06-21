@@ -1,5 +1,5 @@
-"""Tests for __mian__.py."""
-import logging
+"""Tests for __main__.py."""
+# import logging
 from unittest.mock import MagicMock, patch
 
 import pytest

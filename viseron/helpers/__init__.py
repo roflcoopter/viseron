@@ -1,4 +1,4 @@
-""" General helper functions """
+"""General helper functions."""
 import logging
 import math
 import os
@@ -16,8 +16,6 @@ import viseron.mqtt
 from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
 
 if TYPE_CHECKING:
-    from viseron.camera.frame import Frame
-    from viseron.config.config_object_detection import LabelConfig
     from viseron.detector.detected_object import DetectedObject
     from viseron.zones import Zone
 
@@ -241,7 +239,7 @@ def slugify(text: str) -> str:
 
 
 def print_slugs(config: dict):
-    """Prints all camera names as slugs."""
+    """Print all camera names as slugs."""
     cameras = config["cameras"]
     for camera in cameras:
         print(
@@ -257,7 +255,9 @@ def report_labels(
     mqtt_devices,
 ) -> Tuple[List[str], Dict[str, int]]:
     """Send on/off to MQTT for labels.
-    Only if state has changed since last report."""
+
+    Only if state has changed since last report.
+    """
     labels = sorted(labels)
     if labels == labels_in_fov:
         return labels_in_fov, reported_label_count

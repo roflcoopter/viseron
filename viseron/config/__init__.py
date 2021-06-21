@@ -16,6 +16,7 @@ from .config_recorder import RecorderConfig
 
 
 def detector_enabled_check(config):
+    """Check if detector is disabled globally but enabled locally for a camera."""
     if not config["object_detection"]["enable"]:
         for camera in config["cameras"]:
             if (

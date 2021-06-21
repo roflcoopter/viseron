@@ -1,7 +1,7 @@
 """Watchdog basclass."""
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List, Optional
+from typing import List
 
 from apscheduler.schedulers import (
     SchedulerAlreadyRunningError,

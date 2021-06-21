@@ -103,6 +103,7 @@ CAMERA_ZONES_CONFIG = [
     ],
 )
 def test_ensure_min_max(label, raises):
+    """Test that min values are smaller than max values."""
     with raises:
         assert config_object_detection.ensure_min_max(label) == label
 
@@ -118,6 +119,7 @@ def test_ensure_min_max(label, raises):
     ],
 )
 def test_get_detector_type(monkeypatch, env_var, env_var_value, expected):
+    """Test that the correct detector type is returned."""
     if env_var:
         monkeypatch.setenv(env_var, env_var_value)
     assert config_object_detection.get_detector_type() == expected

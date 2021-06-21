@@ -30,8 +30,10 @@ class FrameToScan:
 
 class FrameDecoder:
     """Subscribes to raw frames and decodes them.
+
     Frames are then published to subsribers, object/motion detector.
-    This makes it possible to decode frames in parallel with detection."""
+    This makes it possible to decode frames in parallel with detection.
+    """
 
     def __init__(
         self,
@@ -108,7 +110,7 @@ class FrameDecoder:
             self._frame_number = 0
 
     def decode_frame(self):
-        """Decodes received frames from scan_frame."""
+        """Decode received frame from scan_frame."""
         self._logger.debug("Starting decoder thread")
         while True:
             frame_to_scan: FrameToScan = self._decoder_queue.get()

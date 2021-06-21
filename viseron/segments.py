@@ -34,9 +34,9 @@ class Segments:
         tries = 0
         while True:
             with self._detection_lock:
-                pipe = sp.Popen(ffprobe_cmd, stdout=sp.PIPE, stderr=sp.PIPE)
-                (output, stderr) = pipe.communicate()
-                p_status = pipe.wait()
+                with sp.Popen(ffprobe_cmd, stdout=sp.PIPE, stderr=sp.PIPE) as pipe:
+                    (output, stderr) = pipe.communicate()
+                    p_status = pipe.wait()
 
             if p_status == 0:
                 try:
@@ -63,7 +63,7 @@ class Segments:
 
     @staticmethod
     def find_segment(segments, timestamp):
-        """Finds a segment which includes the given timestamp."""
+        """Find a segment which includes the given timestamp."""
         return next(
             (
                 key
@@ -74,7 +74,7 @@ class Segments:
         )
 
     def get_segment_information(self):
-        """Gets information for all available segments."""
+        """Get information for all available segments."""
         segment_files = os.listdir(self._segments_folder)
         segment_information: dict = {}
         for segment in segment_files:

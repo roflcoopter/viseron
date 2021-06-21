@@ -29,7 +29,7 @@ class StreamHandler(tornado.web.RequestHandler):
             frame.resize(
                 "tornado", mjpeg_stream_config["width"], mjpeg_stream_config["height"]
             )
-            # TODO move this to a preprocess
+            # TODO move this to a preprocess pylint: disable=fixme
             processed_frame = frame.get_preprocessed_frame(
                 "tornado"
             ).get()  # Convert to Mat

@@ -4,7 +4,6 @@ import logging
 import os
 from abc import abstractmethod
 from dataclasses import dataclass
-from queue import Queue
 from threading import Timer
 from typing import Any as TypeAny, Dict, Tuple
 from uuid import uuid4
@@ -119,7 +118,7 @@ class AbstractFaceRecognition(AbstractProcessor):
         self._faces[face].timer.start()
 
     def unknown_face_found(self, frame):
-        """Saves unknown faces."""
+        """Save unknown faces."""
         unique_id = f"{datetime.datetime.now().strftime('%H:%M:%S-')}{str(uuid4())}.jpg"
         file_name = os.path.join(self._processor_config.unknown_faces_path, unique_id)
         self._logger.debug(f"Unknown face found, saving to {file_name}")
@@ -138,7 +137,7 @@ class AbstractFaceRecognition(AbstractProcessor):
         del self._faces[face]
 
     def on_connect(self):
-        """Called when MQTT connection is established."""
+        """On established MQTT connection."""
         for device in self._mqtt_devices.values():
             device.on_connect()
 

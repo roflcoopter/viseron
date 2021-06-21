@@ -1,8 +1,6 @@
 """Viseron init file."""
 import logging
 import signal
-import threading
-from queue import Queue
 
 from viseron.cleanup import Cleanup
 from viseron.config import NVRConfig, ViseronConfig, load_config

@@ -1,2 +1,2 @@
-"""Deepstack defaults"""
+"""Deepstack defaults."""
 TIMEOUT = 10
