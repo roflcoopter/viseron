@@ -75,7 +75,6 @@
 !/viseron/webserver/assets
 !/viseron/webserver/assets/*
 !/requirements.txt
-!/requirements_ci.txt
 !/requirements_test.txt
 
 # Repo
