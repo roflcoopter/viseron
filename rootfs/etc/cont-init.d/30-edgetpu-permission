@@ -27,4 +27,21 @@ else
     fi
   done <<< "$DEVICES"
 fi
+
+FILES=$(find /dev/apex_? -type c -print 2>/dev/null)
+
+for i in $FILES
+do
+  PCI_GID=$(stat -c '%g' "$i")
+  if ! id -G abc | grep -qw "$PCI_GID"; then
+    PCI_NAME=$(getent group "${PCI_GID}" | awk -F: '{print $1}')
+    if [ -z "${PCI_NAME}" ]; then
+      PCI_NAME="pci$(head /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c8)"
+      groupadd "$PCI_NAME"
+      groupmod -g "$PCI_GID" "$PCI_NAME"
+    fi
+    usermod -a -G "$PCI_NAME" abc
+  fi
+done
+
 echo "************************** Done **************************"
