@@ -41,6 +41,7 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
 # Table of Contents
 - [Supported architectures](#supported-architectures)
 - [Getting started](#getting-started)
+- [Contributing](#contributing)
 - [Configuration Options](#configuration-options)
   - [Cameras](#cameras)
     - [Substream](#substream)
@@ -312,6 +313,22 @@ EdgeTPU support is also included in all containers. To use it, add ```-v /dev/bu
 The ```config.yaml``` has to be mounted to the folder ```/config```.\
 If no config is present, a default minimal one will be created.\
 Here you need to fill in at least your cameras and you should be good to go.
+
+# Contributing
+Contributors to the project are very much appreciated.
+See the [contribution guidelines](docs/CONTRIBUTING.md) on how to get started.
+
+Some things you can help with:
+- Implement an open feature request or issue from the [issue tracker](https://github.com/roflcoopter/viseron/issues)
+- Improve the documentation
+- Answer questions in issues or [discussions](https://github.com/roflcoopter/viseron/discussions)
+
+You can also use the links below to sponsor Viseron or make a one time donation.
+
+<a href="https://github.com/sponsors/roflcoopter" target="_blank"><img src="docs/img/sponsor_button.png" alt="Sponsor" style="height: 37px !important;width: 170px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5)" ></a>
+<a href="https://www.buymeacoffee.com/roflcoopter" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+
+---
 
 # Configuration Options
 ## Cameras
@@ -1424,5 +1441,6 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or 
 https://devblogs.nvidia.com/object-detection-pipeline-gpus/
 
 ---
+<a href="https://github.com/sponsors/roflcoopter" target="_blank"><img src="docs/img/sponsor_button.png" alt="Sponsor" style="height: 37px !important;width: 170px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5)" ></a>
 <a href="https://www.buymeacoffee.com/roflcoopter" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a> \
 Donations are very appreciated and will go directly into more hardware for Viseron to support.

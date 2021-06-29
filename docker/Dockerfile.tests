@@ -12,6 +12,3 @@ RUN \
 
 COPY viseron /src/viseron/
 COPY tests /src/tests/
-
-ENTRYPOINT []
-CMD []

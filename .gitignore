@@ -78,6 +78,10 @@
 !/requirements_test.txt
 
 # Repo
+!/docs
+!/docs/*
+!/docs/img
+!/docs/img/*
 !/.flake8
 !/.gitignore
 !/.isort.cfg
@@ -86,3 +90,4 @@
 !/codecov.yaml
 !/LICENSE
 !/README.md
+!tox.ini
