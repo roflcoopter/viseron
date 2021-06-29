@@ -252,7 +252,7 @@ RUN  \
   tar -zx --strip-components=1 -f ${FRIBIDI_VERSION}.tar.gz && \
   ./autogen.sh && \
   ./configure --prefix="${PREFIX}" --disable-static --enable-shared && \
-  # Use -j1 because fribidi breaks when building in parallell and c2man is not installed
+  # Use -j1 because fribidi breaks when building in parallel and c2man is not installed
   make -j1 && \
   make install && \
   rm -rf ${DIR}

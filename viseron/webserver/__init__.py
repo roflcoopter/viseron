@@ -37,19 +37,19 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             except tornado.websocket.WebSocketClosedError:
                 break
 
-    def open(self, *args: str, **kwargs: str):
-        """Called on websocket open."""
+    def open(self, *_args: str, **_kwargs: str):
+        """Websocket open."""
         LOGGER.debug("WebSocket opened")
         tornado.ioloop.IOLoop.current().add_future(
             self.get_data(), lambda f: self.close()
         )
 
     def on_message(self, message):
-        """Called on websocket message."""
+        """Websocket message received."""
         self.write_message("You said: " + message)
 
     def on_close(self):  # pylint: disable=no-self-use
-        """Called on websocket close."""
+        """Websocket close."""
         LOGGER.debug("WebSocket closed")
 
 

@@ -2,12 +2,9 @@
 import logging
 from dataclasses import dataclass
 from queue import Queue
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 import paho.mqtt.client as mqtt
-
-import viseron.nvr
-from viseron.post_processors import PostProcessor
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,8 +47,10 @@ class MQTT:
         self.config = config
 
     def on_connect(self, client, _userdata, _flags, returncode):
-        """Called when MQTT connection is established.
-        Calls on_connect methods in all dependent components."""
+        """On established MQTT connection.
+
+        Calls on_connect methods in all dependent components.
+        """
         LOGGER.debug(f"MQTT connected with returncode {str(returncode)}")
         if returncode != 0:
             LOGGER.error(
@@ -63,7 +62,7 @@ class MQTT:
         client.publish(self.config.mqtt.last_will_topic, payload="alive", retain=True)
 
     def on_message(self, _client, _userdata, msg):
-        """Called on receiving a message."""
+        """On message received."""
         LOGGER.debug(f"Got topic {msg.topic}, message {str(msg.payload.decode())}")
         for callback in self.subscriptions[msg.topic]:
             callback(msg)
@@ -108,7 +107,7 @@ class MQTT:
 
     @staticmethod
     def publisher():
-        """Publishing thread."""
+        """Publish thread."""
         while True:
             message: PublishPayload = MQTT.publish_queue.get()
             MQTT.client.publish(

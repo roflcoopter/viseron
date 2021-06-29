@@ -21,8 +21,11 @@ if TYPE_CHECKING:
 
 
 class Zone:
-    """Representation of a zone used to limit object detection to certain areas of a
-    cameras field of view. Different objects can be searched for in different zones."""
+    """Representation of a zone.
+
+    Used to limit object detection to certain areas of a cameras field of view.
+    Different objects can be searched for in different zones.
+    """
 
     def __init__(
         self,
@@ -102,7 +105,7 @@ class Zone:
         self.labels_in_zone = labels_in_zone
 
     def on_connect(self):
-        """Called when MQTT connection is established."""
+        """On established MQTT connection."""
         for device in self._mqtt_devices.values():
             device.on_connect()
 

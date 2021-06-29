@@ -113,15 +113,17 @@ class Stream:
 
     @property
     def alias(self):
-        """Return ffmpeg executable alias."""
+        """Return FFmpeg executable alias."""
         alias = self._config.camera.name_slug
         if self._write_segments and not self._pipe_frames:
             alias = f"{alias}_segments"
         return alias
 
     def create_symlink(self):
-        """Creates a symlink to ffmpeg executable to know which ffmpeg command
-        belongs to which camera."""
+        """Create a symlink to FFmpeg executable.
+
+        This is done to know which FFmpeg command belongs to which camera.
+        """
         try:
             os.symlink(os.getenv(ENV_FFMPEG_PATH), f"/home/abc/bin/{self.alias}")
         except FileExistsError:
@@ -172,22 +174,24 @@ class Stream:
             reraise=True,
         ):
             with attempt:
-                pipe = sp.Popen(  # type: ignore
+                with sp.Popen(  # type: ignore
                     ffprobe_command,
                     stdout=sp.PIPE,
                     stderr=self._log_pipe,
-                )
-                try:
-                    stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
-                    pipe.wait(timeout=FFPROBE_TIMEOUT)
-                except sp.TimeoutExpired as error:
-                    pipe.terminate()
-                    pipe.wait(timeout=FFPROBE_TIMEOUT)
-                    ffprobe_timeout = self._ffprobe_timeout
-                    self._ffprobe_timeout += FFPROBE_TIMEOUT
-                    raise FFprobeTimeout(ffprobe_command, ffprobe_timeout) from error
-                else:
-                    self._ffprobe_timeout = FFPROBE_TIMEOUT
+                ) as pipe:
+                    try:
+                        stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
+                        pipe.wait(timeout=FFPROBE_TIMEOUT)
+                    except sp.TimeoutExpired as error:
+                        pipe.terminate()
+                        pipe.wait(timeout=FFPROBE_TIMEOUT)
+                        ffprobe_timeout = self._ffprobe_timeout
+                        self._ffprobe_timeout += FFPROBE_TIMEOUT
+                        raise FFprobeTimeout(
+                            ffprobe_command, ffprobe_timeout
+                        ) from error
+                    else:
+                        self._ffprobe_timeout = FFPROBE_TIMEOUT
 
         try:
             # Trim away any text before start of JSON object
@@ -339,7 +343,7 @@ class Stream:
     def pipe(self, single_frame=False):
         """Return subprocess pipe for FFmpeg."""
         if single_frame:
-            return sp.Popen(
+            return sp.Popen(  # pylint: disable=consider-using-with
                 self.build_command(ffmpeg_loglevel="fatal", single_frame=single_frame),
                 stdout=sp.PIPE,
                 stderr=sp.PIPE,
@@ -351,7 +355,7 @@ class Stream:
                 stderr=self._log_pipe,
                 name=self.alias,
             )
-        return sp.Popen(
+        return sp.Popen(  # pylint: disable=consider-using-with
             self.build_command(),
             stdout=sp.PIPE,
             stderr=self._log_pipe,

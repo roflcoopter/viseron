@@ -1,10 +1,11 @@
-""" Constants """
+"""Constants."""
 from typing import List
 
 from cv2 import FONT_HERSHEY_SIMPLEX
 
 CONFIG_PATH = "/config/config.yaml"
 SECRETS_PATH = "/config/secrets.yaml"
+RECORDER_PATH = "/recordings"
 DEFAULT_CONFIG = """
 # See the README for the full list of configuration options.
 cameras:

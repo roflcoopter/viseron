@@ -14,6 +14,7 @@ class DuplicateFilter(logging.Filter):
 
     # pylint: disable=attribute-defined-outside-init
     def filter(self, record):
+        """Filter log record."""
         current_log = (
             record.name,
             record.module,
@@ -40,6 +41,7 @@ class SensitiveInformationFilter(logging.Filter):
     """Redacts sensitive information from logs."""
 
     def filter(self, record):
+        """Filter log record."""
         record.msg = re.sub(r":\/\/(.*?)\@", r"://*****:*****@", record.msg)
         return True
 
@@ -52,6 +54,7 @@ class FFmpegFilter(logging.Filter):
         self.errors_to_ignore = errors_to_ignore
 
     def filter(self, record):
+        """Filter log record."""
         if any(error in record.msg for error in self.errors_to_ignore):
             return False
         return True
@@ -119,7 +122,7 @@ class LogPipe(threading.Thread):
         self.start()
 
     def fileno(self):
-        """Return the write file descriptor of the pipe"""
+        """Return the write file descriptor of the pipe."""
         return self._write_filedescriptor
 
     def run(self):

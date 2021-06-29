@@ -1,11 +1,9 @@
 """Viseron init file."""
 import logging
 import signal
-import threading
-from queue import Queue
 
 from viseron.cleanup import Cleanup
-from viseron.config import CONFIG, NVRConfig, ViseronConfig
+from viseron.config import NVRConfig, ViseronConfig, load_config
 from viseron.const import LOG_LEVELS, THREAD_STORE_CATEGORY_NVR
 from viseron.data_stream import DataStream
 from viseron.detector import Detector
@@ -30,7 +28,7 @@ class Viseron:
     """Viseron."""
 
     def __init__(self):
-        config = ViseronConfig(CONFIG)
+        config = ViseronConfig(load_config())
 
         log_settings(config)
         LOGGER.info("-------------------------------------------")

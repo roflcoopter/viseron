@@ -5,6 +5,7 @@ from typing import Any, Dict
 
 import cv2
 import deepstack.core as ds
+import requests
 import voluptuous as vol
 from face_recognition.face_recognition_cli import image_files_in_folder
 
@@ -107,6 +108,7 @@ class Processor(AbstractFaceRecognition):
                 self._mqtt_devices[face] = FaceMQTTBinarySensor(config, face)
 
     def process(self, frame_to_process: PostProcessorFrame):
+        """Process received frame."""
         height, width, _ = frame_to_process.frame.decoded_frame_mat_rgb.shape
         x1, y1, x2, y2 = calculate_absolute_coords(
             (
@@ -127,12 +129,6 @@ class Processor(AbstractFaceRecognition):
             )
         except ds.DeepstackException as error:
             LOGGER.error("Error calling deepstack: %s", error)
-        # detections = self._ds.recognize(
-        #     cv2.imencode(
-        #         ".jpg",
-        #         cv2.imread("/config/face_recognition/faces/testuser/testuser1.jpg"),
-        #     )[1].tobytes()
-        # )
         for detection in detections:
             if detection["userid"] != "unknown":
                 LOGGER.debug("Face found: {}".format(detection))
@@ -153,7 +149,7 @@ class Processor(AbstractFaceRecognition):
         train_dir = os.path.join(self._processor_config.face_recognition_path, "faces")
         try:
             faces_dirs = os.listdir(train_dir)
-        except FileNotFoundError as error:
+        except FileNotFoundError:
             LOGGER.error(
                 f"{train_dir} does not exist. "
                 "Make sure its created properly. "
@@ -203,8 +199,6 @@ class Processor(AbstractFaceRecognition):
                 else:
                     self._ds.register(face_dir, face_image)
 
-
-import requests  # pylint: disable=wrong-import-position,wrong-import-order
 
 HTTP_OK = 200
 BAD_URL = 404

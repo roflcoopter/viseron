@@ -93,7 +93,7 @@ class MQTTBinarySensor:
         return json.dumps(payload)
 
     def on_connect(self):
-        """Called when MQTT connection is established."""
+        """On established MQTT connection."""
         if self._config.mqtt.home_assistant.enable:
             viseron.mqtt.MQTT.publish(
                 viseron.mqtt.PublishPayload(

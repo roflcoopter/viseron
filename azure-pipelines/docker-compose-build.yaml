@@ -1,4 +1,4 @@
-version: "3.2"
+version: "2.4"
 
 services:
   ################ amd64 #######################################¤
@@ -121,6 +121,20 @@ services:
       cache_from: 
         - roflcoopter/amd64-viseron:dev
     image: roflcoopter/amd64-viseron:dev
+
+  amd64-viseron-tests:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.tests
+      args:
+        ARCH: amd64
+        VISERON_VERSION: dev
+    image: roflcoopter/amd64-viseron-tests:dev
+    container_name: amd64-viseron-tests
+    entrypoint: ""
+    command: >
+        bash -c "pytest --cov=viseron/ --cov-report term-missing -s tests
+        && coverage xml"
 
   ################ amd64 CUDA ###################################
   amd64-cuda-ffmpeg:

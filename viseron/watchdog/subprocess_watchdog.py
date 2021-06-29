@@ -10,8 +10,10 @@ LOGGER = logging.getLogger(__name__)
 
 
 class RestartablePopen:
-    """
-    Like subprocess.Popen, but registers itself in a watchdog which monitors the process
+    """A restartable subprocess.
+
+    Like subprocess.Popen, but registers itself in a watchdog which monitors the
+    process.
     """
 
     def __init__(self, *args, name=None, grace_period=20, register=True, **kwargs):
@@ -58,7 +60,10 @@ class RestartablePopen:
 
     def start(self):
         """Start the subprocess."""
-        self._subprocess = sp.Popen(*self._args, **self._kwargs)
+        self._subprocess = sp.Popen(  # pylint: disable=consider-using-with
+            *self._args,
+            **self._kwargs,
+        )
         self._start_time = datetime.datetime.now().timestamp()
         self._started = True
 

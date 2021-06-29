@@ -1,11 +1,9 @@
 """Deepstack object detector."""
 import logging
-from typing import Dict
 
 import cv2
 import deepstack.core as ds
 
-from viseron.camera.frame import Frame
 from viseron.camera.frame_decoder import FrameToScan
 from viseron.detector import AbstractObjectDetection
 from viseron.detector.detected_object import DetectedObject
@@ -30,6 +28,7 @@ class ObjectDetection(AbstractObjectDetection):
         )
 
     def preprocess(self, frame_to_scan: FrameToScan):
+        """Preprocess frame before detection."""
         if self._config.image_width and self._config.image_height:
             frame_to_scan.frame.resize(
                 frame_to_scan.decoder_name,
@@ -70,7 +69,7 @@ class ObjectDetection(AbstractObjectDetection):
         return objects
 
     def return_objects(self, frame_to_scan: FrameToScan):
-        """Perform object detection"""
+        """Perform object detection."""
         try:
             detections = self._detector.detect(
                 frame_to_scan.frame.get_preprocessed_frame(frame_to_scan.decoder_name)

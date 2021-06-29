@@ -1,4 +1,4 @@
-""" Start Viseron """
+"""Start Viseron."""
 from viseron import Viseron
 
 
@@ -7,5 +7,10 @@ def main():
     Viseron()
 
 
-if __name__ == "__main__":
-    main()
+def init():
+    """Initialize."""
+    if __name__ == "__main__":
+        main()
+
+
+init()

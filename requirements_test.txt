@@ -1,0 +1,9 @@
+coverage==5.5
+pre-commit==2.13.0
+pytest==6.2.4
+pytest-cov==2.12.1
+pytest-timeout
+pytest-mock
+pytest-sugar==0.9.4
+pylint-strict-informational==0.1
+pylint-pytest==1.1.2

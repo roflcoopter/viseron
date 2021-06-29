@@ -105,15 +105,17 @@ class MQTTInterface:
         self.devices["sensor"].publish(state, attributes=self.status_attributes)
 
     def on_connect(self):
-        """Called when MQTT connection is established."""
+        """On established MQTT connection."""
         for device in self.devices.values():
             device.on_connect()
 
 
 class FFMPEGNVR:
     """Performs setup of all needed components for recording.
+
     Controls starting/stopping of motion detection, object detection, camera, recording.
-    Also handles publishing to MQTT."""
+    Also handles publishing to MQTT.
+    """
 
     nvr_list: Dict[str, object] = {}
 
@@ -199,10 +201,11 @@ class FFMPEGNVR:
         self._logger.debug("NVR thread initialized")
 
     def __repr__(self):
+        """Insert name_slug in name."""
         return __name__ + "." + self.config.camera.name_slug
 
     def setup_loggers(self, config):
-        """Setup custom log names and levels."""
+        """Set up custom log names and levels."""
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         if getattr(config.camera.logging, "level", None):
             self._logger.setLevel(config.camera.logging.level)
@@ -225,7 +228,7 @@ class FFMPEGNVR:
             self._object_logger.setLevel(config.camera.logging.level)
 
     def setup_mqtt(self):
-        """Setup various MQTT elements."""
+        """Set up various MQTT elements."""
         self._mqtt.on_connect()
         self.recorder.on_connect()
 
@@ -357,8 +360,7 @@ class FFMPEGNVR:
             self.recorder.stop_recording()
 
     def get_processed_object_frame(self) -> Union[None, Frame]:
-        """Return a frame along with its detections which has been processed
-        by the object detector."""
+        """Return a frame along with detections from the object detector."""
         try:
             return self._object_return_queue.get_nowait().frame
         except Empty:
@@ -428,8 +430,7 @@ class FFMPEGNVR:
             zone.filter_zone(frame)
 
     def get_processed_motion_frame(self) -> Union[None, Frame]:
-        """Return a frame along with its motion contours which has been processed
-        by the motion detector"""
+        """Return a frame along with motion contours from the motion detector."""
         try:
             return self._motion_return_queue.get_nowait().frame
         except Empty:
@@ -559,8 +560,16 @@ class FFMPEGNVR:
             self._mqtt.status_state = status
 
     def run(self):
-        """Main thread. It handles starting/stopping of recordings and
-        publishes to MQTT if object is detected. Speed is determined by FPS"""
+        """
+        Collect information from detectors and stop/start recordings.
+
+        Main thread for the NVR.
+        Handles:
+            - Filter motion/object detections
+            - Starting/stopping of recordings
+            - Publishes status information to MQTT.
+        Speed is determined by FPS
+        """
         self._logger.debug("Waiting for first frame")
         self.camera.frame_ready.wait()
         self._logger.debug("First frame received")

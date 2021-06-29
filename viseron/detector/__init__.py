@@ -31,7 +31,7 @@ class AbstractObjectDetection(ABC):
     """Abstract Object Detection."""
 
     def preprocess(self, frame_to_scan: FrameToScan):  # pylint: disable=no-self-use
-        """Optional preprocessor function that runs before detection."""
+        """Preprocessor function that runs before detection."""
         return frame_to_scan
 
     @abstractmethod

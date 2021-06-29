@@ -1,4 +1,6 @@
 *
+!tests/
+!tests/*
 !viseron/
 !viseron/*
 !script/
@@ -6,4 +8,5 @@
 !docker/yolov4.cfg
 !docker/yolov4-tiny.cfg
 !requirements.txt
+!requirements_test.txt
 !rootfs/

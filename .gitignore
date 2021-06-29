@@ -2,6 +2,12 @@
 *
 
 ## Include
+# GitHub Workflows
+!/.github
+!/.github/*
+!/.github/workflows
+!/.github/workflows/*
+
 # Azure Pipelines
 !/azure-pipelines
 !/azure-pipelines/*
@@ -28,15 +34,21 @@
 !/rootfs/etc/**
 !/.dockerignore
 
+# Tests
+!/tests
+!/tests/*
+!/tests/config
+!/tests/config/*
+
 # Source
 !/viseron
 !/viseron/*
+!/viseron/camera
+!/viseron/camera/*
 !/viseron/config
 !/viseron/config/*
 !/viseron/detector
 !/viseron/detector/*
-!/viseron/camera
-!/viseron/camera/*
 !/viseron/detector/darknet
 !/viseron/detector/darknet/*
 !/viseron/detector/deepstack
@@ -63,10 +75,19 @@
 !/viseron/webserver/assets
 !/viseron/webserver/assets/*
 !/requirements.txt
+!/requirements_test.txt
 
 # Repo
+!/docs
+!/docs/*
+!/docs/img
+!/docs/img/*
+!/.flake8
 !/.gitignore
 !/.isort.cfg
+!/.pre-commit-config.yaml
 !/.pylintrc
+!/codecov.yaml
 !/LICENSE
 !/README.md
+!tox.ini

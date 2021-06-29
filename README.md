@@ -41,6 +41,7 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
 # Table of Contents
 - [Supported architectures](#supported-architectures)
 - [Getting started](#getting-started)
+- [Contributing](#contributing)
 - [Configuration Options](#configuration-options)
   - [Cameras](#cameras)
     - [Substream](#substream)
@@ -313,6 +314,22 @@ The ```config.yaml``` has to be mounted to the folder ```/config```.\
 If no config is present, a default minimal one will be created.\
 Here you need to fill in at least your cameras and you should be good to go.
 
+# Contributing
+Contributors to the project are very much appreciated.
+See the [contribution guidelines](docs/CONTRIBUTING.md) on how to get started.
+
+Some things you can help with:
+- Implement an open feature request or issue from the [issue tracker](https://github.com/roflcoopter/viseron/issues)
+- Improve the documentation
+- Answer questions in issues or [discussions](https://github.com/roflcoopter/viseron/discussions)
+
+You can also use the links below to sponsor Viseron or make a one time donation.
+
+<a href="https://github.com/sponsors/roflcoopter" target="_blank"><img src="docs/img/sponsor_button.png" alt="Sponsor" style="height: 37px !important;width: 170px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5)" ></a>
+<a href="https://www.buymeacoffee.com/roflcoopter" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+
+---
+
 # Configuration Options
 ## Cameras
 
@@ -364,7 +381,7 @@ The command is built like this: \
 | input_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
 | hwaccel_args | list | optional | a valid list of FFmpeg arguments | FFmpeg decoder hardware acceleration arguments |
 | codec | str | optional | any supported decoder codec | FFmpeg video decoder codec, eg ```h264_cuvid```<br>Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information) |
-| audio_codec | str | `copy` | any supported audio encoder codec | FFmpeg audio encoder codec for the generated segments, eg ```aac```.<br>Note that if you set this, FFmpeg will have to reencode your stream which increases system load.<br>Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information) |
+| audio_codec | str | `copy` | any supported audio encoder codec | FFmpeg audio encoder codec for the generated segments, eg ```aac```.<br>Note that if you set this, FFmpeg will have to re-encode your stream which increases system load.<br>Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information) |
 | rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesn't support TCP |
 | filter_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
 | frame_timeout | int | 60 | any int | A timeout in seconds. If a frame has not been received in this time period FFmpeg will be restarted |
@@ -1287,7 +1304,7 @@ The switch is used to arm/disarm a camera. When disarmed, no system resources ar
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | level | str | ```INFO``` | ```DEBUG```, ```INFO```, ```WARNING```, ```ERROR```, ```FATAL``` | Log level |
-| color_log | bool | True | True/False | Controls wether the log is colored or not |
+| color_log | bool | True | True/False | Controls whether the log is colored or not |
 
 ---
 
@@ -1424,5 +1441,6 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or 
 https://devblogs.nvidia.com/object-detection-pipeline-gpus/
 
 ---
+<a href="https://github.com/sponsors/roflcoopter" target="_blank"><img src="docs/img/sponsor_button.png" alt="Sponsor" style="height: 37px !important;width: 170px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5)" ></a>
 <a href="https://www.buymeacoffee.com/roflcoopter" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a> \
 Donations are very appreciated and will go directly into more hardware for Viseron to support.

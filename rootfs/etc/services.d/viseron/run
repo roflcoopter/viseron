@@ -1,4 +1,10 @@
-#!/usr/bin/execlineb
+#!/usr/bin/with-contenv bash
 
 cd /src
-justc-envdir /var/run/environment exec s6-setuidgid abc python3 -u -m viseron
+
+if [ "$VISERON_TESTS" = "true" ]; then 
+  echo "Running tests..."
+  pytest --cov=viseron/ --cov-report term-missing -s
+else
+  justc-envdir /var/run/environment exec s6-setuidgid abc python3 -u -m viseron
+fi

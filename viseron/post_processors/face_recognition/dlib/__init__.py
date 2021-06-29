@@ -148,7 +148,7 @@ def train(
     train_dir = os.path.join(face_recognition_path, "faces")
     try:
         faces_dirs = os.listdir(train_dir)
-    except FileNotFoundError as error:
+    except FileNotFoundError:
         LOGGER.error(
             f"{train_dir} does not exist. "
             "Make sure its created properly. "
@@ -247,7 +247,7 @@ def train(
 
 def predict(frame, knn_clf, model="hog", distance_threshold=0.6):
     """
-    Recognizes faces in given image using a trained KNN classifier
+    Recognizes faces in given image using a trained KNN classifier.
 
     :param frame: frame to run prediction on
     :param knn_clf: (optional) a knn classifier object.

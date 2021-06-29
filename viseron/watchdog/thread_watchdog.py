@@ -11,6 +11,7 @@ LOGGER = logging.getLogger(__name__)
 
 class RestartableThread(threading.Thread):
     """Thread which can be reinstantiated with the clone method.
+
     Arguments are the same as a standard Thread, with a few additions:
     :param stop_target: (default=None)
         A callable which is called when stop method is called.
@@ -26,7 +27,7 @@ class RestartableThread(threading.Thread):
         thread_store_category as key.
     :param register: (default=True)
         If true, threads will be registered in the ThreadWatchDog and automatically
-        restart incase of an exception.
+        restart in case of an exception.
     """
 
     thread_store: Dict[str, List[threading.Thread]] = {}
@@ -113,7 +114,7 @@ class RestartableThread(threading.Thread):
         return self._thread_store_category
 
     def stop(self) -> bool:
-        """Calls given stop target method."""
+        """Call given stop target method."""
         if self._thread_store_category:
             self.thread_store[self._thread_store_category].remove(self)
         ThreadWatchDog.unregister(self)

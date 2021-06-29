@@ -49,7 +49,7 @@ class FFMPEGRecorder:
             )
 
     def on_connect(self):
-        """Called when MQTT connection is established."""
+        """On established MQTT connection."""
         for device in self._mqtt_devices.values():
             device.on_connect()
 
