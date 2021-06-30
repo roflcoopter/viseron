@@ -1,5 +1,150 @@
+# This is a monster of a Dockerfile.
+# For some reason the command autoreconf CANNOT be run under QEMU, which breaks cross-building.
+# To work around this, each library that needs autoreconf is downloaded and "autoreconf'd" in a amd64 image 
+# and the result is then copied back into the aarch64 image using multistages to run configure and make.
+
 ARG UBUNTU_VERSION
-FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as build
+ARG JETPACK_VERSION
+FROM ubuntu:${UBUNTU_VERSION} as amd64-build
+ENV \
+  DEBIAN_FRONTEND=noninteractive
+RUN \
+  apt-get update && apt-get install -y --no-install-recommends \
+  autoconf \
+  automake \
+  ca-certificates \
+  curl \
+  libtool \
+  pkg-config
+
+FROM amd64-build as opus
+ARG OPUS_VERSION
+ARG OPUS_SHA256SUM
+RUN \
+  DIR=/tmp/opus && \
+  mkdir -p ${DIR} && \
+  cd ${DIR} && \
+  curl -sLO https://archive.mozilla.org/pub/opus/opus-${OPUS_VERSION}.tar.gz && \
+  echo ${OPUS_SHA256SUM} | sha256sum --check && \
+  tar -zx --strip-components=1 -f opus-${OPUS_VERSION}.tar.gz && \
+  autoreconf -fiv
+
+FROM amd64-build as fdk-aac
+ARG FDKAAC_VERSION
+RUN \
+  DIR=/tmp/fdk-aac && \
+  mkdir -p ${DIR} && \
+  cd ${DIR} && \
+  curl -sL https://github.com/mstorsjo/fdk-aac/archive/v${FDKAAC_VERSION}.tar.gz | \
+  tar -zx --strip-components=1 && \
+  autoreconf -fiv
+
+FROM amd64-build as fribidi
+ARG FRIBIDI_VERSION
+ARG FRIBIDI_SHA256SUM
+RUN  \
+  DIR=/tmp/fribidi && \
+  mkdir -p ${DIR} && \
+  cd ${DIR} && \
+  curl -sLO https://github.com/fribidi/fribidi/archive/${FRIBIDI_VERSION}.tar.gz && \
+  echo ${FRIBIDI_SHA256SUM} | sha256sum --check && \
+  tar -zx --strip-components=1 -f ${FRIBIDI_VERSION}.tar.gz && \
+  export NOCONFIGURE=1 && \
+  DIR=/tmp/fribidi && \
+  cd ${DIR} && \
+  ./autogen.sh
+
+FROM amd64-build as libass
+ARG LIBASS_VERSION
+ARG LIBASS_SHA256SUM
+RUN  \
+  DIR=/tmp/libass && \
+  mkdir -p ${DIR} && \
+  cd ${DIR} && \
+  curl -sLO https://github.com/libass/libass/archive/${LIBASS_VERSION}.tar.gz && \
+  echo ${LIBASS_SHA256SUM} | sha256sum --check && \
+  tar -zx --strip-components=1 -f ${LIBASS_VERSION}.tar.gz && \
+  DIR=/tmp/libass && \
+  cd ${DIR} && \
+  ./autogen.sh
+
+FROM amd64-build as kvazaar
+ARG KVAZAAR_VERSION
+RUN \
+  DIR=/tmp/kvazaar && \
+  mkdir -p ${DIR} && \
+  cd ${DIR} && \
+  curl -sLO https://github.com/ultravideo/kvazaar/archive/v${KVAZAAR_VERSION}.tar.gz && \
+  tar -zx --strip-components=1 -f v${KVAZAAR_VERSION}.tar.gz && \
+  DIR=/tmp/kvazaar && \
+  cd ${DIR} && \
+  ./autogen.sh
+
+FROM amd64-build as libxcb
+ARG XORG_MACROS_VERSION
+RUN \
+  DIR=/tmp/xorg-macros && \
+  mkdir -p ${DIR} && \
+  cd ${DIR} && \
+  curl -sLO https://www.x.org/archive//individual/util/util-macros-${XORG_MACROS_VERSION}.tar.gz && \
+  tar -zx --strip-components=1 -f util-macros-${XORG_MACROS_VERSION}.tar.gz && \
+  ./configure --srcdir=${DIR} --prefix="${PREFIX}" && \
+  make && \
+  make install && \
+  rm -rf ${DIR}
+
+ARG LIBXCB_VERSION
+RUN \
+  DIR=/tmp/libxcb && \
+  mkdir -p ${DIR} && \
+  cd ${DIR} && \
+  curl -sLO https://xcb.freedesktop.org/dist/libxcb-${LIBXCB_VERSION}.tar.gz && \
+  tar -zx --strip-components=1 -f libxcb-${LIBXCB_VERSION}.tar.gz && \
+  export NOCONFIGURE=1 && \
+  DIR=/tmp/libxcb && \
+  cd ${DIR} && \
+  ACLOCAL_PATH="${PREFIX}/share/aclocal" ./autogen.sh
+
+FROM amd64-build as libxml2
+ENV PREFIX=/opt/ffmpeg
+ARG LIBXML2_VERSION
+ARG LIBXML2_SHA256SUM
+RUN \
+  DIR=/tmp/libxml2 && \
+  mkdir -p ${DIR} && \
+  cd ${DIR} && \
+  curl -sLO https://gitlab.gnome.org/GNOME/libxml2/-/archive/v${LIBXML2_VERSION}/libxml2-v${LIBXML2_VERSION}.tar.gz && \
+  echo ${LIBXML2_SHA256SUM} | sha256sum --check && \
+  tar -xz --strip-components=1 -f libxml2-v${LIBXML2_VERSION}.tar.gz && \
+  DIR=/tmp/libxml2 && \
+  cd ${DIR} && \
+  ./autogen.sh --prefix="${PREFIX}" --with-ftp=no --with-http=no --with-python=no
+
+FROM amd64-build as libzmq
+ARG LIBZMQ_VERSION
+ARG LIBZMQ_SHA256SUM
+RUN \
+  DIR=/tmp/libzmq && \
+  mkdir -p ${DIR} && \
+  cd ${DIR} && \
+  curl -sLO https://github.com/zeromq/libzmq/archive/v${LIBZMQ_VERSION}.tar.gz && \
+  echo ${LIBZMQ_SHA256SUM} | sha256sum --check && \
+  tar -xz --strip-components=1 -f v${LIBZMQ_VERSION}.tar.gz && \
+  DIR=/tmp/libzmq && \
+  cd ${DIR} && \
+  ./autogen.sh
+
+
+FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as qemu
+FROM nvcr.io/nvidia/l4t-base:${JETPACK_VERSION} as build
+
+COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
+COPY --from=qemu /bin/sh /bin/sh
+COPY --from=qemu /bin/sh.real /bin/sh.real
+COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
+COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
+COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
+
 RUN [ "cross-build-start" ]
 
 WORKDIR /tmp/workdir
@@ -12,9 +157,20 @@ ENV \
   PATH=/usr/custom_cmake/bin:$PATH \
   PKG_CONFIG_PATH="/opt/ffmpeg/share/pkgconfig:/opt/ffmpeg/lib/pkgconfig:/opt/ffmpeg/lib64/pkgconfig" \
   PREFIX=/opt/ffmpeg \
-  LD_LIBRARY_PATH="/opt/ffmpeg/lib:/opt/ffmpeg/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra-egl"
+  LD_LIBRARY_PATH="/opt/ffmpeg/lib:/opt/ffmpeg/lib64:/usr/lib64:/usr/lib:/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra-egl"
 
-RUN buildDeps="autoconf \
+RUN \
+  apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates \
+  gnupg && \
+  echo "deb https://repo.download.nvidia.com/jetson/common r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list && \
+  echo "deb https://repo.download.nvidia.com/jetson/t210 r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list && \
+  apt-key adv --fetch-key http://repo.download.nvidia.com/jetson/jetson-ota-public.asc && \
+  mkdir -p /opt/nvidia/l4t-packages/ && touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall && \
+  rm -r /etc/ld.so.conf.d/nvidia-tegra.conf && \
+  \
+  apt-get update && apt-get install -y --no-install-recommends && \
+  buildDeps="autoconf \
   automake \
   ca-certificates \
   cmake \
@@ -35,9 +191,8 @@ RUN buildDeps="autoconf \
   yasm \
   libgomp1 \
   zlib1g-dev \
+  libfreetype6-dev \
   libv4l-dev \
-  nvidia-l4t-kernel \
-  nvidia-l4t-kernel-headers \
   nvidia-l4t-jetson-multimedia-api" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps}
@@ -96,23 +251,10 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ### libopus https://www.opus-codec.org/
-ARG OPUS_VERSION
-ARG OPUS_SHA256SUM
+COPY --from=opus /tmp/opus /tmp/opus
 RUN \
   DIR=/tmp/opus && \
   mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sLO https://archive.mozilla.org/pub/opus/opus-${OPUS_VERSION}.tar.gz && \
-  echo ${OPUS_SHA256SUM} | sha256sum --check && \
-  tar -zx --strip-components=1 -f opus-${OPUS_VERSION}.tar.gz
-RUN ["cross-build-end"]
-RUN \
-  DIR=/tmp/opus && \
-  cd ${DIR} && \
-  autoreconf -fiv
-RUN ["cross-build-start"]
-RUN \
-  DIR=/tmp/opus && \
   cd ${DIR} && \
   ./configure --prefix="${PREFIX}" --enable-shared && \
   make && \
@@ -202,19 +344,7 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ### fdk-aac https://github.com/mstorsjo/fdk-aac
-ARG FDKAAC_VERSION
-RUN \
-  DIR=/tmp/fdk-aac && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sL https://github.com/mstorsjo/fdk-aac/archive/v${FDKAAC_VERSION}.tar.gz | \
-  tar -zx --strip-components=1
-RUN ["cross-build-end"]
-RUN \
-  DIR=/tmp/fdk-aac && \
-  cd ${DIR} && \
-  autoreconf -fiv
-RUN ["cross-build-start"]
+COPY --from=fdk-aac /tmp /tmp
 RUN \
   DIR=/tmp/fdk-aac && \
   cd ${DIR} && \
@@ -266,22 +396,7 @@ RUN  \
   make install && \
   rm -rf ${DIR}
 ### fridibi https://www.fribidi.org/
-ARG FRIBIDI_VERSION
-ARG FRIBIDI_SHA256SUM
-RUN  \
-  DIR=/tmp/fribidi && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sLO https://github.com/fribidi/fribidi/archive/${FRIBIDI_VERSION}.tar.gz && \
-  echo ${FRIBIDI_SHA256SUM} | sha256sum --check && \
-  tar -zx --strip-components=1 -f ${FRIBIDI_VERSION}.tar.gz
-RUN ["cross-build-end"]
-RUN \
-  export NOCONFIGURE=1 && \
-  DIR=/tmp/fribidi && \
-  cd ${DIR} && \
-  ./autogen.sh
-RUN ["cross-build-start"]
+COPY --from=fribidi /tmp /tmp
 RUN \
   DIR=/tmp/fribidi && \
   cd ${DIR} && \
@@ -303,21 +418,7 @@ RUN  \
   make install && \
   rm -rf ${DIR}
 ### libass https://github.com/libass/libass
-ARG LIBASS_VERSION
-ARG LIBASS_SHA256SUM
-RUN  \
-  DIR=/tmp/libass && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sLO https://github.com/libass/libass/archive/${LIBASS_VERSION}.tar.gz && \
-  echo ${LIBASS_SHA256SUM} | sha256sum --check && \
-  tar -zx --strip-components=1 -f ${LIBASS_VERSION}.tar.gz
-RUN ["cross-build-end"]
-RUN \
-  DIR=/tmp/libass && \
-  cd ${DIR} && \
-  ./autogen.sh
-RUN ["cross-build-start"]
+COPY --from=libass /tmp /tmp
 RUN \
   DIR=/tmp/libass && \
   cd ${DIR} && \
@@ -326,19 +427,7 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ### kvazaar https://github.com/ultravideo/kvazaar
-ARG KVAZAAR_VERSION
-RUN \
-  DIR=/tmp/kvazaar && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sLO https://github.com/ultravideo/kvazaar/archive/v${KVAZAAR_VERSION}.tar.gz && \
-  tar -zx --strip-components=1 -f v${KVAZAAR_VERSION}.tar.gz
-RUN ["cross-build-end"]
-RUN \
-  DIR=/tmp/kvazaar && \
-  cd ${DIR} && \
-  ./autogen.sh
-RUN ["cross-build-start"]
+COPY --from=kvazaar /tmp /tmp
 RUN \
   DIR=/tmp/kvazaar && \
   cd ${DIR} && \
@@ -424,20 +513,7 @@ RUN \
   make install && \
   rm -rf ${DIR}
 
-ARG LIBXCB_VERSION
-RUN \
-  DIR=/tmp/libxcb && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sLO https://xcb.freedesktop.org/dist/libxcb-${LIBXCB_VERSION}.tar.gz && \
-  tar -zx --strip-components=1 -f libxcb-${LIBXCB_VERSION}.tar.gz
-RUN ["cross-build-end"]
-RUN \
-  export NOCONFIGURE=1 && \
-  DIR=/tmp/libxcb && \
-  cd ${DIR} && \
-  ACLOCAL_PATH="${PREFIX}/share/aclocal" ./autogen.sh
-RUN ["cross-build-start"]
+COPY --from=libxcb /tmp /tmp
 RUN \
   DIR=/tmp/libxcb && \
   cd ${DIR} && \
@@ -446,21 +522,7 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ### libxml2 - for libbluray
-ARG LIBXML2_VERSION
-ARG LIBXML2_SHA256SUM
-RUN \
-  DIR=/tmp/libxml2 && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sLO https://gitlab.gnome.org/GNOME/libxml2/-/archive/v${LIBXML2_VERSION}/libxml2-v${LIBXML2_VERSION}.tar.gz && \
-  echo ${LIBXML2_SHA256SUM} | sha256sum --check && \
-  tar -xz --strip-components=1 -f libxml2-v${LIBXML2_VERSION}.tar.gz
-RUN ["cross-build-end"]
-RUN \
-  DIR=/tmp/libxml2 && \
-  cd ${DIR} && \
-  ./autogen.sh --prefix="${PREFIX}" --with-ftp=no --with-http=no --with-python=no
-RUN ["cross-build-start"]
+COPY --from=libxml2 /tmp /tmp
 RUN \
   DIR=/tmp/libxml2 && \
   cd ${DIR} && \
@@ -482,21 +544,7 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ### libzmq https://github.com/zeromq/libzmq/
-ARG LIBZMQ_VERSION
-ARG LIBZMQ_SHA256SUM
-RUN \
-  DIR=/tmp/libzmq && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sLO https://github.com/zeromq/libzmq/archive/v${LIBZMQ_VERSION}.tar.gz && \
-  echo ${LIBZMQ_SHA256SUM} | sha256sum --check && \
-  tar -xz --strip-components=1 -f v${LIBZMQ_VERSION}.tar.gz
-RUN ["cross-build-end"]
-RUN \
-  DIR=/tmp/libzmq && \
-  cd ${DIR} && \
-  ./autogen.sh
-RUN ["cross-build-start"]
+COPY --from=libzmq /tmp /tmp
 RUN \
   DIR=/tmp/libzmq && \
   cd ${DIR} && \
@@ -505,7 +553,7 @@ RUN \
   make install && \
   rm -rf ${DIR}
 # Jetson Nano hwaccel decoder/encoder
-RUN git clone https://github.com/HunterAP23/jetson-ffmpeg && \
+RUN git clone https://github.com/jocover/jetson-ffmpeg && \
   cd jetson-ffmpeg && \
   mkdir build && \
   cd build && \
@@ -514,18 +562,14 @@ RUN git clone https://github.com/HunterAP23/jetson-ffmpeg && \
   make install && \
   ldconfig
 ### ffmpeg https://ffmpeg.org/
-ADD docker/jetson-nano/patch_ffmpeg.sh /
 ARG FFMPEG_VERSION
 RUN  \
   DIR=/tmp/ffmpeg && mkdir -p ${DIR} && cd ${DIR} && \
   curl -sLO https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2 && \
   tar -jx --strip-components=1 -f ffmpeg-${FFMPEG_VERSION}.tar.bz2 && \
-  # Patch ffmpeg to support nvmpi hardware acceleration
-  cp /patch_ffmpeg.sh ${DIR} && \
-  bash ./patch_ffmpeg.sh && \
-  wget https://github.com/HunterAP23/jetson-ffmpeg/raw/master/ffmpeg_nvmpi.patch && \
+  wget https://github.com/jocover/jetson-ffmpeg/raw/master/ffmpeg_nvmpi.patch && \
   # Apply patch but only to add nvmpi_enc.c and nvmpi_dec.c
-  git apply -vvv --whitespace=fix --include=libavcodec/nvmpi_enc.c --include=libavcodec/nvmpi_dec.c ffmpeg_nvmpi.patch && \
+  git apply ffmpeg_nvmpi.patch && \
   DIR=/tmp/ffmpeg && mkdir -p ${DIR} && cd ${DIR} && \
   ./configure \
   --disable-debug \
@@ -599,26 +643,37 @@ RUN [ "cross-build-end" ]
 FROM scratch
 COPY --from=build /usr/local /usr/local/
 
-# FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-run
+# FROM nvcr.io/nvidia/l4t-base:${JETPACK_VERSION}
 
+# COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
+# COPY --from=qemu /bin/sh /bin/sh
+# COPY --from=qemu /bin/sh.real /bin/sh.real
+# COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
+# COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
+# COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
+
+# RUN [ "cross-build-start" ]
 # COPY --from=build /usr/local /usr/local/
 
 # ENV LD_LIBRARY_PATH="/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra-egl"
 
 # RUN \
+#   apt-get update && apt-get install -y --no-install-recommends \
+#   ca-certificates \
+#   gnupg && \
+#   echo "deb https://repo.download.nvidia.com/jetson/common r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list && \
+#   echo "deb https://repo.download.nvidia.com/jetson/t210 r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list && \
+#   apt-key adv --fetch-key http://repo.download.nvidia.com/jetson/jetson-ota-public.asc && \
+#   mkdir -p /opt/nvidia/l4t-packages/ && touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall && \
+#   rm -r /etc/ld.so.conf.d/nvidia-tegra.conf && \
 #   apt-get -yqq update && \
 #   apt-get install -yq --no-install-recommends \
 #   # L4T
-#   nvidia-l4t-kernel \
-#   nvidia-l4t-kernel-headers \
-#   nvidia-l4t-jetson-multimedia-api \
-#   # CUDA
-#   cuda-minimal-build-10-2 \
-#   cuda-libraries-10-2 \
-#   libcudnn8 \
+#   nvidia-l4t-multimedia-utils \
 #   # ffmpeg
 #   libv4l-dev \
 #   libharfbuzz-bin \
 #   libegl1 \
-#   libfreetype6 && \
-#   ln -s /usr/local/cuda-10.2 /usr/local/cuda
+#   libfreetype6
+
+# RUN [ "cross-build-end" ]

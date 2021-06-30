@@ -412,9 +412,11 @@ services:
       args:
         <<: *ffmpeg_args
         UBUNTU_VERSION: bionic
+        JETPACK_VERSION: "$JETPACK_VERSION"
+        FFMPEG_VERSION: "$JETSON_NANO_FFMPEG_VERSION"
       cache_from: 
-        - roflcoopter/jetson-nano-ffmpeg:$FFMPEG_VERSION
-    image: roflcoopter/jetson-nano-ffmpeg:$FFMPEG_VERSION
+        - roflcoopter/jetson-nano-ffmpeg:$JETSON_NANO_FFMPEG_VERSION
+    image: roflcoopter/jetson-nano-ffmpeg:$JETSON_NANO_FFMPEG_VERSION
 
   jetson-nano-opencv:
     build:
@@ -425,7 +427,7 @@ services:
         MAKEFLAGS: "$MAKEFLAGS"
         PYTHON_VERSION: "$PYTHON_VERSION"
         OPENCV_VERSION: "$OPENCV_VERSION"
-        FFMPEG_VERSION: "$FFMPEG_VERSION"
+        FFMPEG_VERSION: "$JETSON_NANO_FFMPEG_VERSION"
         JETPACK_VERSION: "$JETPACK_VERSION"
       cache_from: 
         - roflcoopter/jetson-nano-opencv:$OPENCV_VERSION
@@ -465,7 +467,6 @@ services:
       args:
         UBUNTU_VERSION: bionic
         PYTHON_VERSION: "$PYTHON_VERSION"
-        FFMPEG_VERSION: "$FFMPEG_VERSION"
         JETPACK_VERSION: "$JETPACK_VERSION"
       cache_from: 
         - roflcoopter/jetson-nano-base:$BASE_VERSION
@@ -479,7 +480,7 @@ services:
         ARCH: jetson-nano
         BASE_VERSION: "$BASE_VERSION"
         OPENCV_VERSION: "$OPENCV_VERSION"
-        FFMPEG_VERSION: "$FFMPEG_VERSION"
+        FFMPEG_VERSION: "$JETSON_NANO_FFMPEG_VERSION"
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
