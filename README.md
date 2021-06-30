@@ -760,11 +760,11 @@ If you want to swap to YOLOv3-tiny you can change these configuration options:
 | -----| -----| ------- | ----------------- |------------ |
 | model_path | str | ```/detectors/models/edgetpu/model.tflite``` | any valid path | Path to the object detection model |
 | label_path | str | ```/detectors/models/edgetpu/labels.txt``` | any valid path | Path to the file containing labels for the model |
+| device | str | `:0` | `:<N>` – use N-th EdgeTPU<br>`usb` – use any USB EdgeTPU<br>`usb:<N>` – use N-th USB EdgeTPU<br>`pci` – use any PCIe EdgeTPU<br>`pci:<N>` – use N-th PCIe EdgeTPU<br>`cpu` – use CPU instead of EdgeTPU | Which EdgeTPU to use.<br>Change this if you have multiple devices and want to use a specific one. |
 
 The above options are specific to the ```type: edgetpu``` detector.\
 The included models are placed inside ```/detectors/models/edgetpu``` folder.\
 There are two models available, one that runs on the EdgeTPU and one the runs on the CPU.
-If no EdgeTPU is found, Viseron will fallback to use the CPU model instead.
 
 ---
 

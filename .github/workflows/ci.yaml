@@ -290,7 +290,7 @@ jobs:
           pre-commit run --hook-stage manual flake8 --all-files --show-diff-on-failure
 
   run-pytest:
-    name: Run Pytest
+    name: Run pytest
     runs-on: ubuntu-latest
     needs: prepare-python-venv
     steps:
@@ -320,21 +320,25 @@ jobs:
       - name: Get changed files
         id: changed-files
         uses: tj-actions/changed-files@v7
+        with:
+          files: |
+            requirements.txt
+            docker/Dockerfile.wheels
       - name: List all modified files
         run: |
           for file in "${{ steps.changed-files.outputs.all_modified_files }}"; do
             echo "$file was modified"
           done
-      - name: Re-build wheels if requirements.txt has changed
-        if: contains(steps.changed-files.outputs.modified_files, 'requirements.txt')
+      - name: Re-build wheels if requirements.txt or Dockerfile.wheels has changed
+        if: steps.changed-files.outputs.any_changed == 'true'
         run: |
           docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-wheels
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron-wheels
+          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-wheels
           docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron
-      - name: Build Pytest Docker image
+      - name: Build pytest Docker image
         run: |
           docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron-tests
-      - name: Run Pytest
+      - name: Run pytest
         run: |
           docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env up amd64-viseron-tests
       - name: Copy .coverage to host
