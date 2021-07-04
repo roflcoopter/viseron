@@ -39,6 +39,10 @@
 !/tests/*
 !/tests/config
 !/tests/config/*
+!/tests/detector
+!/tests/detector/*
+!/tests/detector/edgetpu
+!/tests/detector/edgetpu/*
 
 # Source
 !/viseron

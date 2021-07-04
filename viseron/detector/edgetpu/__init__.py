@@ -1,19 +1,50 @@
 """EdgeTPU object detection."""
 import logging
+import re
 from os import PathLike
 from typing import List, Union
 
 import numpy as np
 import tflite_runtime.interpreter as tflite
-from voluptuous import Maybe, Optional, Required
+
+# from pycoral.adapters import common, detect
+# from pycoral.utils.dataset import read_label_file
+from pycoral.utils.edgetpu import list_edge_tpus, make_interpreter
+from voluptuous import All, Invalid, Maybe, Optional, Required
 
 from viseron.camera.frame_decoder import FrameToScan
 from viseron.detector import AbstractDetectorConfig, AbstractObjectDetection
 from viseron.detector.detected_object import DetectedObject
 
-from .defaults import LABEL_PATH, MODEL_HEIGHT, MODEL_PATH, MODEL_WIDTH
+from .defaults import DEVICE, LABEL_PATH, MODEL_HEIGHT, MODEL_PATH, MODEL_WIDTH
+
+DEVICE_REGEXES = [
+    re.compile(r"^:[0-9]$"),  # match ':<N>'
+    re.compile(r"^(usb|pci|cpu)$"),  # match 'usb', 'pci' and 'cpu'
+    re.compile(r"^(usb|pci):[0-9]$"),  # match 'usb:<N>' and 'pci:<N>'
+]
 
 LOGGER = logging.getLogger(__name__)
+
+
+def edgetpu_device_validator(device):
+    """Check for valid EdgeTPU device name.
+
+    Valid values are:
+        ":<N>" : Use N-th Edge TPU
+        "usb" : Use any USB Edge TPU
+        "usb:<N>" : Use N-th USB Edge TPU
+        "pci" : Use any PCIe Edge TPU
+        "pci:<N>" : Use N-th PCIe Edge TPU
+        "cpu" : Run on the CPU
+    """
+    for regex in DEVICE_REGEXES:
+        if regex.match(device):
+            return device
+    raise Invalid(
+        f"EdgeTPU device {device} is invalid. Please check your configuration"
+    )
+
 
 SCHEMA = AbstractDetectorConfig.schema.extend(
     {
@@ -21,6 +52,7 @@ SCHEMA = AbstractDetectorConfig.schema.extend(
         Optional("model_width", default=MODEL_WIDTH): Maybe(int),
         Optional("model_height", default=MODEL_HEIGHT): Maybe(int),
         Required("label_path", default=LABEL_PATH): str,
+        Optional("device", default=DEVICE): All(str, edgetpu_device_validator),
     }
 )
 
@@ -30,29 +62,18 @@ class ObjectDetection(AbstractObjectDetection):
 
     def __init__(self, config):
         self.labels = self.read_labels(config.label_path)
-        try:
+        LOGGER.debug(f"Available devices: {list_edge_tpus()}")
+        LOGGER.debug(f"Loading interpreter with device {config.device}")
+
+        if config.device == "cpu":
             self.interpreter = tflite.Interpreter(
-                model_path=config.model_path,
-                experimental_delegates=[
-                    tflite.load_delegate("libedgetpu.so.1", {"device": "usb"})
-                ],
+                model_path="/detectors/models/edgetpu/cpu_model.tflite",
             )
-            LOGGER.debug("Using USB EdgeTPU")
-        except ValueError:
-            try:
-                self.interpreter = tflite.Interpreter(
-                    model_path=config.model_path,
-                    experimental_delegates=[
-                        tflite.load_delegate("libedgetpu.so.1", {"device": "pci:0"})
-                    ],
-                )
-                LOGGER.debug("Using PCIe EdgeTPU")
-            except ValueError as error:
-                LOGGER.error("EdgeTPU not found. Detection will run on CPU")
-                LOGGER.debug(f"Error when trying to load EdgeTPU: {error}")
-                self.interpreter = tflite.Interpreter(
-                    model_path="/detectors/models/edgetpu/cpu_model.tflite",
-                )
+        else:
+            self.interpreter = make_interpreter(
+                config.model_path,
+                device=config.device,
+            )
 
         self.interpreter.allocate_tensors()
 
@@ -152,6 +173,7 @@ class Config(AbstractDetectorConfig):
         self._model_width = detector_config["model_width"]
         self._model_height = detector_config["model_height"]
         self._label_path = detector_config["label_path"]
+        self._device = detector_config["device"]
 
     @property
     def model_path(self) -> PathLike:
@@ -172,3 +194,8 @@ class Config(AbstractDetectorConfig):
     def label_path(self) -> PathLike:
         """Return path to object detection labels."""
         return self._label_path
+
+    @property
+    def device(self) -> str:
+        """Return EdgeTPU device."""
+        return self._device
