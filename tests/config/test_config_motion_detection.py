@@ -1,10 +1,9 @@
 """Tests for motion detection config."""
-import numpy as np
 import pytest
 
 from viseron.config import config_motion_detection
 
-from tests.helpers import assert_config_instance_config_dict
+from tests.common import assert_config_instance_config_dict
 
 MOTION_DETECTION_CONFIG = config_motion_detection.SCHEMA(
     {
@@ -39,30 +38,6 @@ CAMERA_MOTION_DETECTION_CONFIG = config_motion_detection.SCHEMA(
     }
 )
 
-MASK_COORDINATES = [
-    {
-        "points": [
-            {"x": 0, "y": 0},
-            {"x": 250, "y": 0},
-            {"x": 250, "y": 250},
-            {"x": 0, "y": 250},
-        ],
-    },
-    {
-        "points": [
-            {"x": 500, "y": 500},
-            {"x": 1000, "y": 500},
-            {"x": 1000, "y": 750},
-            {"x": 300, "y": 750},
-        ],
-    },
-]
-
-MASK_ARRAY = [
-    np.array([[0, 0], [250, 0], [250, 250], [0, 250]]),
-    np.array([[500, 500], [1000, 500], [1000, 750], [300, 750]]),
-]
-
 
 class TestMotionDetectionConfig:
     """Test MotionDetectionCOnfig."""
@@ -73,21 +48,9 @@ class TestMotionDetectionConfig:
         raw_config_full["cameras"][0][
             "motion_detection"
         ] = CAMERA_MOTION_DETECTION_CONFIG
-        raw_config_full["cameras"][0]["motion_detection"]["mask"] = MASK_COORDINATES
         return config_motion_detection.MotionDetectionConfig(
             raw_config_full["motion_detection"],
             raw_config_full["cameras"][0]["motion_detection"],
-        )
-
-    def test_generate_mask(self, config):
-        """Test that mask is generated properly."""
-        np.testing.assert_array_equal(
-            config.generate_mask(MASK_COORDINATES),
-            MASK_ARRAY,
-        )
-        np.testing.assert_array_equal(
-            config.mask,
-            MASK_ARRAY,
         )
 
     @pytest.mark.parametrize(

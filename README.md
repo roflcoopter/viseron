@@ -46,8 +46,8 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
   - [Cameras](#cameras)
     - [Substream](#substream)
     - [Camera motion detection](#camera-motion-detection)
-    - [Mask](#mask)
     - [Camera object detection](#camera-object-detection)
+    - [Mask](#mask)
     - [Zones](#zones)
     - [Points](#points)
     - [Static MJPEG streams](#static-mjpeg-streams)
@@ -504,6 +504,18 @@ Each setting set here overrides the global [motion detection config](#motion-det
 
 ---
 
+### Camera object detection
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| enable | bool | True | true/false | If set to false, object detection is disabled for this camera |
+| interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
+| labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). |
+| mask | list | optional | see [Mask config](#mask) | Allows you to specify masks in the shape of polygons. <br>Use this to ignore objects in certain areas of the image |
+| log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy. Overrides global [config](#object-detection) |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the object detector.<br>This affects all logs named ```viseron.nvr.<camera name>.object``` |
+
+---
+
 ### Mask
 
 <details>
@@ -536,6 +548,27 @@ Each setting set here overrides the global [motion detection config](#motion-det
                 y: 750
               - x: 300
                 y: 750
+      object_detection:
+        area: 0.07
+        mask:
+          - points:
+              - x: 0
+                y: 0
+              - x: 250
+                y: 0
+              - x: 250
+                y: 250
+              - x: 0
+                y: 250
+          - points:
+              - x: 400
+                y: 200
+              - x: 1000
+                y: 200
+              - x: 1000
+                y: 750
+              - x: 400
+                y: 750
   ```
 </details>
 
@@ -543,20 +576,12 @@ Each setting set here overrides the global [motion detection config](#motion-det
 | -----| -----| ------- | ----------------- |------------ |
 | points | list | **required** | a list of [points](#points) | Used to draw a polygon of the mask
 
-Masks are used to exclude certain areas in the image from triggering motion.\
+Masks are used to exclude certain areas in the image from motion or object detection depending on the configuration.\
 Say you have a camera which is filming some trees. When the wind is blowing, motion will probably be detected.\
-Draw a mask over these trees and they will no longer trigger said motion.
+Add a mask under the cameras `motion_detection` block that cover these trees and they will no longer trigger said motion.
 
----
+To ignore all objects in a certain area, add a mask under the cameras `object_detection` block that covers the area.
 
-### Camera object detection
-| Name | Type | Default | Supported options | Description |
-| -----| -----| ------- | ----------------- |------------ |
-| enable | bool | True | true/false | If set to false, object detection is disabled for this camera |
-| interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
-| labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). |
-| log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy. Overrides global [config](#object-detection) |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the object detector.<br>This affects all logs named ```viseron.nvr.<camera name>.object``` |
 ---
 
 ### Zones
@@ -621,7 +646,7 @@ To remedy this you define a zone which covers **only** the area that you are act
 | x | int | **required** | any int | X-coordinate of point |
 | y | int | **required** | any int | Y-coordinate of point |
 
-Points are used to form a polygon for an object detection zone or a motion detection mask.
+Points are used to form a polygon for a zone or a object/motion detection mask.
 
 To easily generate points you can use a tool like [image-map.net](https://www.image-map.net/).\
 Just upload an image from your camera and start drawing your zone.\
@@ -672,6 +697,7 @@ points:
 | draw_objects | bool | optional | true/false | If set, found objects will be drawn |
 | draw_motion | bool | optional | true/false | If set, detected motion will be drawn |
 | draw_motion_mask | bool | optional | true/false | If set, configured motion masks will be drawn |
+| draw_object_mask | bool | optional | true/false | If set, configured object masks will be drawn |
 | draw_zones | bool | optional | true/false | If set, configured zones will be drawn |
 | rotate | int | optional | any int | Degrees to rotate the image. Positive/negative values rotate clockwise/counter clockwise respectively |
 | mirror | bool | optional | true/false | If set, mirror the image horizontally |
@@ -815,7 +841,14 @@ For the built in models you can check the ```label_path``` file to see which lab
   <code>docker exec -it viseron cat /detectors/models/edgetpu/labels.txt</code>
 </details>
 
-The max/min width/height is used to filter out any unreasonably large/small objects to reduce false positives.
+The max/min width/height is used to filter out any unreasonably large/small objects to reduce false positives.\
+Objects can also be filtered out with the use of an optional [mask](#mask).
+
+**Important**: Viseron defaults to track `label: person`. This means that if you want not track any label at all you have to explicitly do so like this:
+```yaml
+object_detection:
+  labels: []
+```
 
 ---
 

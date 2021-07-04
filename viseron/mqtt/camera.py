@@ -2,8 +2,8 @@
 import json
 import logging
 
-import viseron.helpers as helpers
 import viseron.mqtt
+from viseron import helpers
 
 LOGGER = logging.getLogger(__name__)
 

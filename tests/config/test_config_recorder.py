@@ -1,7 +1,7 @@
 """Tests for recorder config."""
 from viseron.config import config_recorder
 
-from tests.helpers import assert_config_instance_config_dict
+from tests.common import assert_config_instance_config_dict
 
 RECORDER_CONFIG = config_recorder.SCHEMA(
     {

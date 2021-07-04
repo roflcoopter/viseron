@@ -6,7 +6,7 @@ from threading import Thread
 
 import cv2
 
-import viseron.helpers as helpers
+from viseron import helpers
 from viseron.cleanup import SegmentCleanup
 from viseron.mqtt.camera import MQTTCamera
 from viseron.segments import Segments

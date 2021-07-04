@@ -15,7 +15,7 @@ from viseron.config import (
 )
 from viseron.const import CONFIG_PATH, SECRETS_PATH
 
-from tests.helpers import assert_config_instance_config_dict
+from tests.common import assert_config_instance_config_dict
 
 
 def teardown():

@@ -1,8 +1,8 @@
 """Home Assistant MQTT sensor."""
 import json
 
-import viseron.helpers as helpers
 import viseron.mqtt
+from viseron import helpers
 
 
 class MQTTSensor:

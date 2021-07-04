@@ -4,7 +4,6 @@ import os
 import re
 from typing import Dict, List
 
-import numpy as np
 from voluptuous import (
     All,
     Any,
@@ -34,7 +33,7 @@ from viseron.const import (
     HWACCEL_RPI4_DECODER_CODEC_MAP,
     HWACCEL_VAAPI,
 )
-from viseron.helpers import slugify
+from viseron.helpers import generate_numpy_from_coordinates, slugify
 
 from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 from .config_object_detection import LABELS_SCHEMA, LabelConfig
@@ -118,6 +117,7 @@ MJPEG_STREAM_SCHEMA = Schema(
         Optional("draw_objects", default=False): Any(str, bool, bytes),
         Optional("draw_motion", default=False): Any(str, bool, bytes),
         Optional("draw_motion_mask", default=False): Any(str, bool, bytes),
+        Optional("draw_object_mask", default=False): Any(str, bool, bytes),
         Optional("draw_zones", default=False): Any(str, bool, bytes),
         Optional("rotate", default=0): All(Any(int, str), Coerce(int)),
         Optional("mirror", default=False): Any(str, bool, bytes),
@@ -170,6 +170,16 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
                 Optional("enable"): bool,
                 Optional("interval"): Any(int, float),
                 Optional("labels"): LABELS_SCHEMA,
+                Optional("mask", default=[]): [
+                    {
+                        Required("points"): [
+                            {
+                                Required("x"): int,
+                                Required("y"): int,
+                            }
+                        ],
+                    }
+                ],
                 Optional("logging"): LOGGING_SCHEMA,
                 Optional("log_all_objects"): bool,
             },
@@ -436,10 +446,7 @@ class CameraConfig(Stream):
                 labels.append(LabelConfig(label))
             zone_dict["labels"] = labels
 
-            point_list = []
-            for point in zone["points"]:
-                point_list.append([point["x"], point["y"]])
-            zone_dict["coordinates"] = np.array(point_list)
+            zone_dict["coordinates"] = generate_numpy_from_coordinates(zone["points"])
             zone_list.append(zone_dict)
 
         return zone_list

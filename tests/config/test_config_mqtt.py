@@ -3,7 +3,7 @@ import pytest
 
 from viseron.config import config_mqtt
 
-from tests.helpers import assert_config_instance_config_dict
+from tests.common import assert_config_instance_config_dict
 
 MQTT_CONFIG = {
     "broker": "broker",

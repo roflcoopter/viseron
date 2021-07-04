@@ -20,6 +20,7 @@ from viseron.const import (
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
+from viseron.helpers import generate_mask
 from viseron.helpers.validators import deprecated
 
 from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
@@ -179,6 +180,7 @@ class ObjectDetectionConfig:
         self._labels = []
         for label in camera_object_detection.get("labels", object_detection["labels"]):
             self._labels.append(LabelConfig(label))
+        self._mask = generate_mask(camera_object_detection.get("mask", []))
 
         self._log_all_objects = camera_object_detection.get(
             "log_all_objects", object_detection["log_all_objects"]
@@ -232,6 +234,11 @@ class ObjectDetectionConfig:
     def log_all_objects(self) -> bool:
         """Return if all labels should be logged, not only configured labels."""
         return self._log_all_objects
+
+    @property
+    def mask(self):
+        """Return mask."""
+        return self._mask
 
     @property
     def logging(self) -> LoggingConfig:

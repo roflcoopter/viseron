@@ -6,7 +6,7 @@ import voluptuous
 
 from viseron.config import config_object_detection
 
-from tests.helpers import assert_config_instance_config_dict
+from tests.common import assert_config_instance_config_dict
 
 OBJECT_DETECTION_CONFIG = {
     "type": "darknet",

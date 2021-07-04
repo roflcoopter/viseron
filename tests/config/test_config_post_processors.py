@@ -1,7 +1,7 @@
 """Tests for post processors config."""
 from viseron.config import config_post_processors
 
-from tests.helpers import assert_config_instance_config_dict
+from tests.common import assert_config_instance_config_dict
 
 POST_PROCESSORS_CONFIG = config_post_processors.SCHEMA(
     {

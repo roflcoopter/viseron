@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import cv2
 import numpy as np
 
-import viseron.helpers as helpers
+from viseron import helpers
 from viseron.camera import FFMPEGCamera, FrameDecoder
 from viseron.camera.frame_decoder import FrameToScan
 from viseron.const import (

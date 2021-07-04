@@ -7,7 +7,7 @@ import voluptuous
 
 from viseron.config import config_camera
 
-from tests.helpers import assert_config_instance_config_dict
+from tests.common import assert_config_instance_config_dict
 
 
 @pytest.mark.parametrize(

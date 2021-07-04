@@ -1,5 +1,5 @@
 """Represents a detected object."""
-import viseron.helpers as helpers
+from viseron import helpers
 
 
 class DetectedObject:
@@ -31,6 +31,7 @@ class DetectedObject:
         self._rel_height = float(round(self._rel_y2 - self._rel_y1, 3))
         self._trigger_recorder = False
         self._relevant = False
+        self._filter_hit = None
 
     @property
     def label(self):
@@ -107,3 +108,12 @@ class DetectedObject:
     @relevant.setter
     def relevant(self, value):
         self._relevant = value
+
+    @property
+    def filter_hit(self):
+        """Return which filter that discarded the object."""
+        return self._filter_hit
+
+    @filter_hit.setter
+    def filter_hit(self, value):
+        self._filter_hit = value

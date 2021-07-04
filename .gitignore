@@ -43,6 +43,8 @@
 !/tests/detector/*
 !/tests/detector/edgetpu
 !/tests/detector/edgetpu/*
+!/tests/helpers
+!/tests/helpers/*
 
 # Source
 !/viseron
