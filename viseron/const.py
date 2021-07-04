@@ -87,8 +87,8 @@ HWACCEL_RPI4_DECODER_CODEC_MAP = {"h264": "h264_v4l2m2m"}
 HWACCEL_RPI4_ENCODER_CODEC = "h264_v4l2m2m"
 
 HWACCEL_JETSON_NANO_DECODER_CODEC_MAP = {
-    "h264": "h264_nvv4l2dec",
-    "h265": "hevc_nvv4l2dec",
+    "h264": "h264_nvmpi",
+    "h265": "hevc_nvmpi",
 }
 
 RECORDER_GLOBAL_ARGS = ["-hide_banner"]

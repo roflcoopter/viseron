@@ -185,8 +185,8 @@ class TestCameraConfig:
                 "rtmp",
                 "VISERON_JETSON_NANO",
                 {
-                    "h264": "h264_nvv4l2dec",
-                    "h265": "hevc_nvv4l2dec",
+                    "h264": "h264_nvmpi",
+                    "h265": "hevc_nvmpi",
                 },
             ),
         ],
