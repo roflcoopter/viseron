@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Union
 from tornado.ioloop import IOLoop
 from tornado.queues import Queue as tornado_queue
 
-import viseron.helpers as helpers
+from viseron import helpers
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 LOGGER = logging.getLogger(__name__)

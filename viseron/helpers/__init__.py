@@ -1,4 +1,6 @@
 """General helper functions."""
+from __future__ import annotations
+
 import logging
 import math
 import os
@@ -102,27 +104,60 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)) -> None:
         )
 
     text = f"{obj.label} {int(obj.confidence * 100)}%"
-
     (text_width, text_height) = cv2.getTextSize(
         text=text,
         fontFace=FONT,
         fontScale=FONT_SIZE,
         thickness=FONT_THICKNESS,
     )[0]
+
+    filter_text = None
+    if obj.filter_hit:
+        filter_text = f"Filter: {obj.filter_hit}"
+        (filter_text_width, filter_text_height) = cv2.getTextSize(
+            text=filter_text,
+            fontFace=FONT,
+            fontScale=FONT_SIZE,
+            thickness=FONT_THICKNESS,
+        )[0]
+        text_width = max(text_width, filter_text_width)
+        text_height += filter_text_height + 6
+
     box_coords = (
         (coordinates[0], coordinates[1] + 5),
         (coordinates[0] + text_width + 2, coordinates[1] - text_height - 3),
     )
+
     cv2.rectangle(frame, box_coords[0], box_coords[1], color, cv2.FILLED)
-    cv2.putText(
-        img=frame,
-        text=text,
-        org=coordinates,
-        fontFace=FONT,
-        fontScale=FONT_SIZE,
-        color=(255, 255, 255),
-        thickness=FONT_THICKNESS,
-    )
+    if obj.filter_hit:
+        cv2.putText(
+            img=frame,
+            text=text,
+            org=(coordinates[0], coordinates[1] - filter_text_height - 6),
+            fontFace=FONT,
+            fontScale=FONT_SIZE,
+            color=(255, 255, 255),
+            thickness=FONT_THICKNESS,
+        )
+        cv2.putText(
+            img=frame,
+            text=filter_text,
+            org=coordinates,
+            fontFace=FONT,
+            fontScale=FONT_SIZE,
+            color=(255, 255, 255),
+            thickness=FONT_THICKNESS,
+        )
+    else:
+        cv2.putText(
+            img=frame,
+            text=text,
+            org=coordinates,
+            fontFace=FONT,
+            fontScale=FONT_SIZE,
+            color=(255, 255, 255),
+            thickness=FONT_THICKNESS,
+        )
 
 
 def draw_object(
@@ -187,7 +222,7 @@ def draw_contours(frame, contours, resolution, threshold) -> None:
     cv2.drawContours(frame, filtered_contours, -1, (130, 0, 75), thickness=1)
 
 
-def draw_mask(frame, mask_points) -> None:
+def draw_mask(text, frame, mask_points, color=(255, 255, 255)) -> None:
     """Draw mask on supplied frame."""
     mask_overlay = frame.copy()
     # Draw polygon filled with black color
@@ -205,21 +240,37 @@ def draw_mask(frame, mask_points) -> None:
         0,
         frame,
     )
-    # Draw polygon outline in orange
-    cv2.polylines(frame, mask_points, True, (0, 140, 255), 2)
+    # Draw polygon outline
+    cv2.polylines(frame, mask_points, True, color, 2)
     for mask in mask_points:
         image_moment = cv2.moments(mask)
         center_x = int(image_moment["m10"] / image_moment["m00"])
         center_y = int(image_moment["m01"] / image_moment["m00"])
+        text_size = cv2.getTextSize(
+            text=text,
+            fontFace=FONT,
+            fontScale=FONT_SIZE,
+            thickness=FONT_THICKNESS,
+        )[0]
         cv2.putText(
             frame,
-            "Mask",
-            (center_x - 20, center_y + 5),
+            text,
+            (center_x - (int(text_size[0] / 2)), center_y + 5),
             FONT,
             FONT_SIZE,
             (255, 255, 255),
             FONT_THICKNESS,
         )
+
+
+def draw_motion_mask(frame, mask_points) -> None:
+    """Draw motion mask."""
+    draw_mask("Motion mask", frame, mask_points, color=(0, 140, 255))
+
+
+def draw_object_mask(frame, mask_points) -> None:
+    """Draw object mask."""
+    draw_mask("Object mask", frame, mask_points, color=(255, 255, 255))
 
 
 def pop_if_full(queue: Queue, item: Any, logger=LOGGER, name="unknown", warn=False):
@@ -326,3 +377,34 @@ def create_directory(path):
             os.makedirs(path)
     except FileExistsError:
         pass
+
+
+def generate_numpy_from_coordinates(points):
+    """Return a numpy array for a list of x+y coordinates."""
+    point_list = []
+    for point in points:
+        point_list.append([point["x"], point["y"]])
+    return np.array(point_list)
+
+
+def generate_mask(coordinates):
+    """Return a mask used to limit motion or object detection to specific areas."""
+    mask = []
+    for mask_coordinates in coordinates:
+        mask.append(generate_numpy_from_coordinates(mask_coordinates["points"]))
+    return mask
+
+
+def object_in_polygon(resolution, obj: DetectedObject, coordinates):
+    """Check if a DetectedObject is within a boundary."""
+    x1, _, x2, y2 = calculate_absolute_coords(
+        (
+            obj.rel_x1,
+            obj.rel_y1,
+            obj.rel_x2,
+            obj.rel_y2,
+        ),
+        resolution,
+    )
+    middle = ((x2 - x1) / 2) + x1
+    return cv2.pointPolygonTest(coordinates, (middle, y2), False) >= 0

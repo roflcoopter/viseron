@@ -1,6 +1,7 @@
 """Motion detection config."""
-import numpy as np
 from voluptuous import All, Any, Coerce, Optional, Range, Schema
+
+from viseron.helpers import generate_mask
 
 from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 
@@ -78,23 +79,12 @@ class MotionDetectionConfig:
         )
         self._alpha = camera_motion_detection.get("alpha", motion_detection["alpha"])
         self._frames = camera_motion_detection.get("frames", motion_detection["frames"])
-        self._mask = self.generate_mask(camera_motion_detection.get("mask", []))
+        self._mask = generate_mask(camera_motion_detection.get("mask", []))
         logging = camera_motion_detection.get(
             "logging",
             (motion_detection.get("logging", None)),
         )
         self._logging = LoggingConfig(logging) if logging else logging
-
-    @staticmethod
-    def generate_mask(coordinates):
-        """Return a mask used to limit motion detection to specific areas."""
-        mask = []
-        for mask_coordinates in coordinates:
-            point_list = []
-            for point in mask_coordinates["points"]:
-                point_list.append([point["x"], point["y"]])
-            mask.append(np.array(point_list))
-        return mask
 
     @property
     def interval(self):

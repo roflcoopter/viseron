@@ -4,10 +4,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
-import cv2
-
-import viseron.helpers as helpers
 import viseron.mqtt
+from viseron import helpers
 from viseron.const import TOPIC_FRAME_SCAN_POSTPROC
 from viseron.data_stream import DataStream
 from viseron.helpers.filter import Filter
@@ -50,7 +48,9 @@ class Zone:
             zone["labels"] if zone["labels"] else config.object_detection.labels
         )
         for object_filter in zone_labels:
-            self._object_filters[object_filter.label] = Filter(object_filter)
+            self._object_filters[object_filter.label] = Filter(
+                config, camera_resolution, object_filter
+            )
 
         self._mqtt_devices = {}
         if viseron.mqtt.MQTT.client:
@@ -72,17 +72,9 @@ class Zone:
             if self._object_filters.get(obj.label) and self._object_filters[
                 obj.label
             ].filter_object(obj):
-                x1, _, x2, y2 = helpers.calculate_absolute_coords(
-                    (
-                        obj.rel_x1,
-                        obj.rel_y1,
-                        obj.rel_x2,
-                        obj.rel_y2,
-                    ),
-                    self._camera_resolution,
-                )
-                middle = ((x2 - x1) / 2) + x1
-                if cv2.pointPolygonTest(self.coordinates, (middle, y2), False) >= 0:
+                if helpers.object_in_polygon(
+                    self._camera_resolution, obj, self.coordinates
+                ):
                     obj.relevant = True
                     objects_in_zone.append(obj)
 

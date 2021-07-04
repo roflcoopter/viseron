@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Dict, List, Union
 
 import cv2
 
-import viseron.helpers as helpers
 import viseron.mqtt
+from viseron import helpers
 from viseron.camera import FFMPEGCamera
 from viseron.camera.frame import Frame
 from viseron.const import (
@@ -67,9 +67,15 @@ class MQTTInterface:
             # Draw on the object frame if it is supplied
             frame = object_frame if object_frame else motion_frame
             if self.config.motion_detection.mask:
-                helpers.draw_mask(
+                helpers.draw_motion_mask(
                     frame.decoded_frame_mat_rgb,
                     self.config.motion_detection.mask,
+                )
+
+            if self.config.object_detection.mask:
+                helpers.draw_object_mask(
+                    frame.decoded_frame_mat_rgb,
+                    self.config.object_detection.mask,
                 )
 
             if motion_frame and frame.motion_contours:
@@ -142,7 +148,9 @@ class FFMPEGNVR:
             self._object_return_queue,
         )
         for object_filter in config.object_detection.labels:
-            self._object_filters[object_filter.label] = Filter(object_filter)
+            self._object_filters[object_filter.label] = Filter(
+                config, self.camera.resolution, object_filter
+            )
 
         self.zones: List[Zone] = []
         for zone in config.camera.zones:
