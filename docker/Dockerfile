@@ -31,7 +31,6 @@ RUN \
   tzdata \
   python3 \
   python3-pip \
-  python3-sklearn \
   usbutils \
   # OpenCV and FFmpeg Dependencies
   libgomp1 \

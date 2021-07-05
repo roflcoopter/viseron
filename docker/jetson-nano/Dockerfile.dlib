@@ -69,9 +69,6 @@ RUN \
   sed -i -e 's/forward_algo = forward_best_algo;/\/\/forward_algo = forward_best_algo;/' dlib/dlib/cuda/cudnn_dlibapi.cpp && \
   cd dlib; python3 setup.py bdist_wheel --dist-dir=/wheels
 
-RUN \
-  pip3 wheel face_recognition dlib==${DLIB_VERSION} --wheel-dir=/wheels/ --find-links=/wheels/
-
 RUN [ "cross-build-end" ]
 
 FROM scratch as scratch
