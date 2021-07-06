@@ -101,7 +101,7 @@ class Detector:
         self._topic_scan_object = f"*/{TOPIC_FRAME_SCAN_OBJECT}"
         self._object_detection_queue: Queue[  # pylint: disable=unsubscriptable-object
             FrameToScan
-        ] = Queue()
+        ] = Queue(maxsize=100)
         object_detection_thread = RestartableThread(
             target=self.object_detection,
             name="object_detection",
