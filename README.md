@@ -74,7 +74,7 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
 
 # Supported architectures
 Viserons images support multiple architectures such as `amd64`, `aarch64` and `armhf`.\
-Pulling `roflcoopter/viseorn:latest` should automatically pull the correct image for you.
+Pulling `roflcoopter/viseron:latest` should automatically pull the correct image for you.
 An exception to this is if you have the need for a specific container, eg the CUDA version.\
 Then you will need to specify your desired image.
 
