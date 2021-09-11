@@ -28,6 +28,7 @@ ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLA
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \
+  curl \
   gnupg \
   tzdata \
   python3 \
@@ -43,11 +44,12 @@ RUN \
   && pip3 install /wheels/*.whl \
   && rm -r /wheels \
   \
-  && APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn apt-key adv --fetch-keys https://packages.cloud.google.com/apt/doc/apt-key.gpg \
-  && echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" > /etc/apt/sources.list.d/coral-edgetpu.list \
+  && echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" | tee /etc/apt/sources.list.d/coral-edgetpu.list \
+  && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
   && echo "libedgetpu1-max libedgetpu/accepted-eula select true" | debconf-set-selections \
   && apt-get -qq update && apt-get -qq install --no-install-recommends -y \
-  libedgetpu1-max=15.0 \
+  libedgetpu1-max \
+  python3-pycoral \
   \
   && chmod +x /tmp/s6-overlay-installer && /tmp/s6-overlay-installer / \
   && apt-get autoremove -y \
