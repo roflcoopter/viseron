@@ -175,3 +175,8 @@ TOPIC_FRAME_PROCESSED_OBJECT = "/".join(
 
 TOPIC_POST_PROCESSOR = "post_processor"
 TOPIC_FRAME_SCAN_POSTPROC = "/".join([TOPIC_FRAME_SCAN, TOPIC_POST_PROCESSOR])
+
+# UI constants
+PREFIX_STATIC = "/ui/static/"
+PATH_STATIC = "/src/viseron/webserver/assets/static"
+PATH_TEMPLATES = "/src/viseron/webserver/assets/templates"
