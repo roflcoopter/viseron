@@ -80,6 +80,14 @@
 !/viseron/webserver/*
 !/viseron/webserver/assets
 !/viseron/webserver/assets/*
+!/viseron/webserver/assets/templates
+!/viseron/webserver/assets/templates/*
+!/viseron/webserver/assets/static
+!/viseron/webserver/assets/static/*
+!/viseron/webserver/assets/static/css
+!/viseron/webserver/assets/static/css/*
+!/viseron/webserver/assets/static/js
+!/viseron/webserver/assets/static/js/*
 !/requirements.txt
 !/requirements_test.txt
 

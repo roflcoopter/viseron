@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+{% block title %}Recordings{% end %}
+{% block custom_head %}
+<link href="/ui/static/css/simple-datatables.css" rel="stylesheet" type="text/css">
+<script src="/ui/static/js/simple-datatables.js" type="text/javascript"></script>
+{% end %}
+{% block content %}
+<h1 class="title">Recordings</h1>
+<table id="recordings" class="table is-bordered is-striped is-hoverable">
+    <thead>
+        <tr>
+            <th>Date</th><th>Camera</th><th>Filename</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for recording in recordings %}
+        <tr>
+            <td>{{ recording['date'] }}</td>
+            <td>{{ recording['camera'] }}</td>
+            <td><a href="/recordings/{{ recording['date'] }}/{{ recording['camera'] }}/{{ recording['filename'] }}" target="_blank">{{ recording['filename'] }}</a></td>
+        </tr>
+        {% end %}
+    </tbody>
+</table>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const dataTable = new simpleDatatables.DataTable("#recordings", {
+            searchable: true,
+        })
+    });
+</script>
+{% end %}

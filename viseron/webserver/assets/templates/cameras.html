@@ -1,0 +1,65 @@
+{% extends "layout.html" %}
+{% block title %}Cameras{% end %}
+{% block content %}
+<h1 class="title">Cameras</h1>
+<div class="columns is-multiline ml-0">
+{% for camera in cameras %}
+    <div class="column is-half-tablet is-one-quarter-widescreen pl-0">
+        <div class="card">
+            <div class="card-image">
+                <figure class="image">
+                {% if camera['width'] > 1000 %}
+                <a href="/{{ camera['name_slug'] }}/mjpeg-stream" target="_blank"><img src="/{{ camera['name_slug'] }}/mjpeg-stream?width={{ int(camera['width'] / 2) }}&height={{ int(camera['height'] / 2) }}" alt="{{ camera['name'] }}"></a>
+                {% else %}
+                <a href="/{{ camera['name_slug'] }}/mjpeg-stream" target="_blank"><img src="/{{ camera['name_slug'] }}/mjpeg-stream" alt="{{ camera['name'] }}"></a>
+                {% end %}
+                </figure>
+            </div>
+            <div class="card-content">
+                <div class="media">
+                    <div class="media-content">
+                        <h4 class="title is-4">{{ camera['name'] }}</h4>
+                    </div>
+                </div>
+                <div class="content">
+                    <span>Host: {{ camera['host'] }}</span><br />
+                </div>
+                <div class="dropdown is-hoverable">
+                    <div class="dropdown-trigger">
+                      <button class="button" aria-haspopup="true" aria-controls="dropdown-menu4">
+                        <span>View</span>
+                        <span class="icon is-small">
+                          <i class="fas fa-angle-down" aria-hidden="true"></i>
+                        </span>
+                      </button>
+                    </div>
+                    <div class="dropdown-menu" id="dropdown-menu4" role="menu">
+                      <div class="dropdown-content">
+                        <a href="/{{ camera['name_slug'] }}/mjpeg-stream" target="_blank" class="dropdown-item">
+                            Original
+                          </a>
+                          <hr class="dropdown-divider">
+                          <a href="/{{ camera['name_slug'] }}/mjpeg-stream?draw_objects=1" target="_blank" class="dropdown-item">
+                            Draw Objects
+                          </a>
+                          <hr class="dropdown-divider">
+                          <a href="/{{ camera['name_slug'] }}/mjpeg-stream?draw_motion=1" target="_blank" class="dropdown-item">
+                            Draw Motion
+                          </a>
+                          <hr class="dropdown-divider">
+                          <a href="/{{ camera['name_slug'] }}/mjpeg-stream?draw_motion_mask=1" target="_blank" class="dropdown-item">
+                            Draw Motion Mask
+                          </a>
+                          <hr class="dropdown-divider">
+                          <a href="/{{ camera['name_slug'] }}/mjpeg-stream?draw_zones=1" target="_blank" class="dropdown-item">
+                            Draw Zones
+                          </a>
+                      </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% end %}
+</div>
+{% end %}
