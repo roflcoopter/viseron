@@ -1,12 +1,20 @@
 """Create base configs for Viseron."""
+import importlib
 import sys
 
 import yaml
-from voluptuous import All, Any, Invalid, Optional, Required, Schema
+from voluptuous import All, Any, Extra, Invalid, Optional, Required, Schema
 
+from viseron.config.config_camera import CameraConfig
 from viseron.const import CONFIG_PATH, DEFAULT_CONFIG, SECRETS_PATH
+from viseron.exceptions import (
+    MotionConfigError,
+    MotionConfigSchemaError,
+    MotionImportError,
+    MotionModuleNotFoundError,
+)
+from viseron.motion import AbstractMotionDetection, AbstractMotionDetectionConfig
 
-from .config_camera import CameraConfig
 from .config_logging import LoggingConfig
 from .config_motion_detection import MotionDetectionConfig
 from .config_mqtt import MQTTConfig
@@ -32,20 +40,88 @@ def detector_enabled_check(config):
     return config
 
 
+def motion_type_check(config):
+    """Check if local motion detection type differs from global."""
+    for camera in config["cameras"]:
+        if (
+            camera.get("motion_detection")
+            and camera["motion_detection"].get("type")
+            and camera["motion_detection"]["type"] != config["motion_detection"]["type"]
+        ):
+            raise Invalid(
+                f"Motion detection type for camera {camera['name']} differs from "
+                "the global config. This is not supported"
+            )
+    return config
+
+
+def get_motion_type(motion_detection_config):
+    """Set default type if it is missing."""
+    if not motion_detection_config.get("type"):
+        motion_detection_config["type"] = "cpu"
+    return motion_detection_config
+
+
+def import_motion_detection(motion_detection_config):
+    """Dynamically import schema for configured motion detector."""
+
+    try:
+        motion_module = importlib.import_module(
+            "viseron.motion." + motion_detection_config["type"]
+        )
+    except ModuleNotFoundError as error:
+        raise MotionModuleNotFoundError(motion_detection_config["type"]) from error
+
+    if hasattr(motion_module, "MotionDetection") and issubclass(
+        motion_module.MotionDetection, AbstractMotionDetection
+    ):
+        pass
+    else:
+        raise MotionImportError(motion_detection_config["type"])
+
+    motion_config_module = None
+    try:
+        motion_config_module = importlib.import_module(
+            "viseron.motion." + motion_detection_config["type"] + ".config"
+        )
+    except ModuleNotFoundError:
+        pass
+
+    config_module = motion_config_module if motion_config_module else motion_module
+    if hasattr(config_module, "Config") and issubclass(
+        config_module.Config, AbstractMotionDetectionConfig
+    ):
+        pass
+    else:
+        raise MotionConfigError(motion_detection_config["type"])
+
+    if not hasattr(config_module, "SCHEMA"):
+        raise MotionConfigSchemaError(motion_detection_config["type"])
+
+    return config_module.Config, config_module.SCHEMA
+
+
+def validate_motion_detection_schema(motion_detection_config):
+    """Validate motion detection against dynamically imported schema."""
+    _, schema = import_motion_detection(motion_detection_config)
+    return schema(motion_detection_config)
+
+
 VISERON_CONFIG_SCHEMA = Schema(
     All(
         {
-            Required("cameras"): CameraConfig.schema,
+            Required("cameras"): [{Extra: object}],
             Optional("object_detection", default={}): ObjectDetectionConfig.schema,
-            Optional(
-                "motion_detection", default=MotionDetectionConfig.defaults
-            ): MotionDetectionConfig.schema,
+            Optional("motion_detection", default={}): All(
+                get_motion_type, validate_motion_detection_schema
+            ),
             Optional("post_processors", default={}): PostProcessorsConfig.schema,
             Optional("recorder", default={}): RecorderConfig.schema,
             Optional("mqtt", default=None): Any(MQTTConfig.schema, None),
             Optional("logging", default={}): LoggingConfig.schema,
         },
         detector_enabled_check,
+        motion_type_check,
     )
 )
 
@@ -122,10 +198,15 @@ class NVRConfig(BaseConfig):
         self._object_detection = ObjectDetectionConfig(
             object_detection, self._camera.object_detection, self._camera.zones
         )
-        self._motion_detection = MotionDetectionConfig(
-            motion_detection,
-            self._camera.motion_detection,
+
+        # Override global values with local values
+        local_motion_detection_config = motion_detection.copy()
+        local_motion_detection_config.update(self._camera.motion_detection)
+        motion_detection_config_class, _ = import_motion_detection(motion_detection)
+        self._motion_detection = motion_detection_config_class(
+            local_motion_detection_config
         )
+
         self._recorder = recorder
         self._mqtt = mqtt
         self._logging = logging

@@ -80,10 +80,12 @@ class TestCameraConfig:
         """Return CameraConfig object."""
         return config_camera.CameraConfig(camera_config_dict)
 
-    def test_init(self, config, camera_config_dict):
+    def test_init(self, config):
         """Test instantiation."""
         assert_config_instance_config_dict(
-            config, camera_config_dict, ignore_keys=["codec", "input_args", "zones"]
+            config,
+            config.validated_config,
+            ignore_keys=["codec", "input_args", "zones"],
         )
         assert (
             config.substream.input_args
@@ -107,13 +109,13 @@ class TestCameraConfig:
         )
         assert config.substream.codec == [
             "-c:v",
-            camera_config_dict["substream"]["codec"],
+            config.validated_config["substream"]["codec"],
         ]
         for index, zone in enumerate(config.zones):
-            assert zone["name"] == camera_config_dict["zones"][index]["name"]
+            assert zone["name"] == config.validated_config["zones"][index]["name"]
         assert config.codec == [
             "-c:v",
-            camera_config_dict["codec"],
+            config.validated_config["codec"],
         ]
         assert (
             config.input_args
@@ -135,20 +137,22 @@ class TestCameraConfig:
             ]
             + config.timeout_option
         )
-        assert config.name_slug == config_camera.slugify(camera_config_dict["name"])
+        assert config.name_slug == config_camera.slugify(
+            config.validated_config["name"]
+        )
         assert config.output_args == [
             "-f",
             "rawvideo",
             "-pix_fmt",
-            camera_config_dict["pix_fmt"],
+            config.validated_config["pix_fmt"],
             "pipe:1",
         ]
 
-    def test_generate_zones_labels_inherited(self, camera_config_dict, config):
+    def test_generate_zones_labels_inherited(self, config):
         """Test that zone labels are inherited from object_detection."""
-        del camera_config_dict["zones"][0]["labels"]
+        del config.validated_config["zones"][0]["labels"]
         for camera_label, zone_label in zip(
-            config.generate_zones(camera_config_dict["zones"])[0]["labels"],
+            config.generate_zones(config.validated_config["zones"])[0]["labels"],
             config.object_detection["labels"],
         ):
             assert camera_label.confidence == zone_label["confidence"]

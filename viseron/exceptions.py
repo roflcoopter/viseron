@@ -20,7 +20,7 @@ class FFprobeError(ViseronError):
     def __str__(self) -> str:
         """Return string representation."""
         return (
-            f"FFprobe could not connect to stream. "
+            "FFprobe could not connect to stream. "
             f"Output: {self.ffprobe_output}, "
             f"Command: {' '.join(self.ffprobe_command)}"
         )
@@ -153,4 +153,65 @@ class PostProcessorStructureError(ViseronError):
         return (
             f"Could not import post processor {self.processor}. A class named "
             "Processor which inherits from AbstractProcessor is required"
+        )
+
+
+class MotionModuleNotFoundError(ViseronError):
+    """Raised when a motion detector does not exist."""
+
+    def __init__(self, detector: str) -> None:
+        """Initialize error."""
+        super().__init__(self)
+        self.detector = detector
+
+    def __str__(self) -> str:
+        """Return string representation."""
+        return f"Motion detector {self.detector} not found"
+
+
+class MotionImportError(ViseronError):
+    """Raised when a motion detector cannot be imported properly."""
+
+    def __init__(self, detector: str) -> None:
+        """Initialize error."""
+        super().__init__(self)
+        self.detector = detector
+
+    def __str__(self) -> str:
+        """Return string representation."""
+        return (
+            f"Could not import {self.detector}. A class named "
+            "MotionDetection which inherits from AbstractMotionDetection is required"
+        )
+
+
+class MotionConfigError(ViseronError):
+    """Raised when a motion detectors config cannot be imported properly."""
+
+    def __init__(self, detector: str) -> None:
+        """Initialize error."""
+        super().__init__(self)
+        self.detector = detector
+
+    def __str__(self) -> str:
+        """Return string representation."""
+        return (
+            f"Could not import {self.detector}. A class named "
+            "Config which inherits from AbstractMotionDetectionConfig is required"
+        )
+
+
+class MotionConfigSchemaError(ViseronError):
+    """Raised when a motion detectors schema cannot be found."""
+
+    def __init__(self, detector: str) -> None:
+        """Initialize error."""
+        super().__init__(self)
+        self.detector = detector
+
+    def __str__(self) -> str:
+        """Return string representation."""
+        return (
+            f"Could not import {self.detector}.config. A constant named "
+            "SCHEMA which extends from AbstractMotionDetectionConfig.schema is required"
         )
