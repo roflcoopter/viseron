@@ -1,6 +1,7 @@
 # Shameless copy of https://github.com/jrottenberg/ffmpeg/
+ARG CUDA_VERSION
 ARG UBUNTU_VERSION_NUMBER
-FROM nvidia/cuda:11.1-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
 
 WORKDIR /tmp/workdir
 
