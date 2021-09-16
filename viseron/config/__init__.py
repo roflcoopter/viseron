@@ -220,7 +220,7 @@ class NVRConfig(BaseConfig):
 def create_default_config():
     """Create default configuration."""
     try:
-        with open(CONFIG_PATH, "wt") as config_file:
+        with open(CONFIG_PATH, "wt", encoding="utf-8") as config_file:
             config_file.write(DEFAULT_CONFIG)
     except OSError:
         print("Unable to create default configuration file", CONFIG_PATH)
@@ -231,7 +231,7 @@ def create_default_config():
 def load_secrets():
     """Return secrets from secrets.yaml."""
     try:
-        with open(SECRETS_PATH, "r") as secrets_file:
+        with open(SECRETS_PATH, "r", encoding="utf-8") as secrets_file:
             return yaml.load(secrets_file, Loader=yaml.SafeLoader)
     except FileNotFoundError:
         return None
@@ -254,7 +254,7 @@ def load_config():
     yaml.add_constructor("!secret", secret_yaml, Loader=yaml.SafeLoader)
 
     try:
-        with open(CONFIG_PATH, "r") as config_file:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as config_file:
             raw_config = yaml.load(config_file, Loader=yaml.SafeLoader)
     except FileNotFoundError:
         print(
