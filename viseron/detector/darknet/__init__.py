@@ -50,7 +50,7 @@ class ObjectDetection(AbstractObjectDetection):
         # Load names of labels
         self.labels = None
         if labels:
-            with open(labels, "rt") as labels_file:
+            with open(labels, "rt", encoding="utf-8") as labels_file:
                 self.labels = labels_file.read().rstrip("\n").split("\n")
 
     def load_network(self, model, model_config, backend, target):

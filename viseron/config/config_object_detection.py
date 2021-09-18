@@ -159,7 +159,7 @@ SCHEMA = Schema(
 class ObjectDetectionConfig:
     """Object detection config.
 
-    All object detector config classes must inheritfrom this one.
+    All object detector config classes must inherit from this one.
 
     ALLOW_EXTRA is set in the base schema to allow each detector to have its own
     config options.

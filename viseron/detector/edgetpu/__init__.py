@@ -90,7 +90,7 @@ class ObjectDetection(AbstractObjectDetection):
     @staticmethod
     def read_labels(file_path):
         """Read labels from file."""
-        with open(file_path, "r") as label_file:
+        with open(file_path, "r", encoding="utf-8") as label_file:
             lines = label_file.readlines()
         labels = {}
         for line in lines:

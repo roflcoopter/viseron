@@ -343,7 +343,7 @@ class Stream:
     def pipe(self, single_frame=False):
         """Return subprocess pipe for FFmpeg."""
         if single_frame:
-            return sp.Popen(  # pylint: disable=consider-using-with
+            return sp.Popen(
                 self.build_command(ffmpeg_loglevel="fatal", single_frame=single_frame),
                 stdout=sp.PIPE,
                 stderr=sp.PIPE,
@@ -355,7 +355,7 @@ class Stream:
                 stderr=self._log_pipe,
                 name=self.alias,
             )
-        return sp.Popen(  # pylint: disable=consider-using-with
+        return sp.Popen(
             self.build_command(),
             stdout=sp.PIPE,
             stderr=self._log_pipe,
