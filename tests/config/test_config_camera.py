@@ -76,9 +76,11 @@ class TestCameraConfig:
         return raw_config_full["cameras"][0]
 
     @pytest.fixture
-    def config(self, camera_config_dict):
+    def config(self, camera_config_dict, raw_config_full):
         """Return CameraConfig object."""
-        return config_camera.CameraConfig(camera_config_dict)
+        return config_camera.CameraConfig(
+            camera_config_dict, raw_config_full["motion_detection"]
+        )
 
     def test_init(self, config):
         """Test instantiation."""

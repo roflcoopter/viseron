@@ -63,6 +63,12 @@
 !/viseron/detector/edgetpu/*
 !/viseron/helpers
 !/viseron/helpers/*
+!/viseron/motion
+!/viseron/motion/*
+!/viseron/motion/background_subtractor
+!/viseron/motion/background_subtractor/*
+!/viseron/motion/mog2
+!/viseron/motion/mog2/*
 !/viseron/post_processors
 !/viseron/mqtt
 !/viseron/mqtt/*

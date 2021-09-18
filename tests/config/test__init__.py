@@ -68,7 +68,7 @@ def test_motion_type_check():
     """Test that local motion detection type can't differ from global."""
     config = {
         "motion_detection": {
-            "type": "cpu",
+            "type": "background_subtractor",
         },
         "cameras": [
             {
@@ -199,7 +199,7 @@ class TestViseronConfig:
 
 
 GLOBAL_MOTION_DETECTION = {
-    "type": "cpu",
+    "type": "background_subtractor",
     "threshold": 15,
     "height": 300,
     "trigger_recorder": False,
@@ -208,14 +208,14 @@ GLOBAL_MOTION_DETECTION = {
     "frames": 3,
     "alpha": 0.1,
     "max_timeout": 30,
-    "area": 0.1,
+    "area": 0.08,
     "trigger_detector": True,
     "mask": [],
     "timeout": True,
 }
 
 LOCAL_MOTION_DETECTION = {
-    "type": "cpu",
+    "type": "background_subtractor",
     "threshold": 15,
     "height": 300,
     "trigger_recorder": False,
@@ -224,7 +224,7 @@ LOCAL_MOTION_DETECTION = {
     "frames": 3,
     "alpha": 0.1,
     "max_timeout": 30,
-    "area": 0.1,
+    "area": 0.08,
     "trigger_detector": True,
     "mask": [],
     "timeout": True,

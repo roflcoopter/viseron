@@ -367,8 +367,8 @@ class Substream(Stream):
 class CameraConfig(Stream):
     """Camera config."""
 
-    def __init__(self, camera):
-        self._schema = self.build_schema(camera)
+    def __init__(self, camera, motion_detection):
+        self._schema = self.build_schema(camera, motion_detection)
         self._validated_config = self._schema(camera)
 
         super().__init__(self._validated_config)
@@ -394,7 +394,7 @@ class CameraConfig(Stream):
             self._logging = LoggingConfig(self._validated_config["logging"])
 
     @staticmethod
-    def build_schema(camera):
+    def build_schema(camera, motion_detection):
         """Build dynamic schema.
 
         This is needed because the motion detection schema is loaded dynamically
@@ -402,9 +402,9 @@ class CameraConfig(Stream):
         """
         if not camera.get("motion_detection"):
             camera["motion_detection"] = {}
-        camera["motion_detection"] = viseron.config.get_motion_type(
-            camera["motion_detection"]
-        )
+
+        # Inherit type from global motion detection config
+        camera["motion_detection"]["type"] = motion_detection["type"]
         _, schema = viseron.config.import_motion_detection(camera["motion_detection"])
         camera_schema = CAMERA_SCHEMA.extend(
             {

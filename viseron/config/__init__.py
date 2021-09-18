@@ -58,7 +58,7 @@ def motion_type_check(config):
 def get_motion_type(motion_detection_config):
     """Set default type if it is missing."""
     if not motion_detection_config.get("type"):
-        motion_detection_config["type"] = "cpu"
+        motion_detection_config["type"] = "background_subtractor"
     return motion_detection_config
 
 
@@ -194,7 +194,7 @@ class NVRConfig(BaseConfig):
         self, camera, object_detection, motion_detection, recorder, mqtt, logging
     ):
         super().__init__()
-        self._camera = CameraConfig(camera)
+        self._camera = CameraConfig(camera, motion_detection)
         self._object_detection = ObjectDetectionConfig(
             object_detection, self._camera.object_detection, self._camera.zones
         )
