@@ -45,6 +45,10 @@
 !/tests/detector/edgetpu/*
 !/tests/helpers
 !/tests/helpers/*
+!/tests/motion
+!/tests/motion/*
+!/tests/motion/*/
+!/tests/motion/*/*
 
 # Source
 !/viseron
@@ -111,3 +115,5 @@
 !/LICENSE
 !/README.md
 !tox.ini
+
+*__pycache*
