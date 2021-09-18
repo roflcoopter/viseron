@@ -143,6 +143,7 @@ services:
       dockerfile: ./docker/amd64-cuda/Dockerfile.ffmpeg
       args:
         <<: *ffmpeg_args
+        CUDA_VERSION: "$CUDA_VERSION"
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         VIDEO_CODEC_SDK_VERSION: "$VIDEO_CODEC_SDK_VERSION"
       cache_from: 
@@ -154,6 +155,7 @@ services:
       context: ..
       dockerfile: ./docker/amd64-cuda/Dockerfile.opencv
       args:
+        CUDA_VERSION: "$CUDA_VERSION"
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         MAKEFLAGS: "$MAKEFLAGS"
         OPENCV_VERSION: "$OPENCV_VERSION"
@@ -167,6 +169,7 @@ services:
       context: ..
       dockerfile: ./docker/amd64-cuda/Dockerfile.dlib
       args:
+        CUDA_VERSION: "$CUDA_VERSION"
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         MAKEFLAGS: "$MAKEFLAGS"
         DLIB_VERSION: "$DLIB_VERSION"
@@ -191,6 +194,7 @@ services:
       context: ..
       dockerfile: ./docker/amd64-cuda/Dockerfile.base
       args:
+        CUDA_VERSION: "$CUDA_VERSION"
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         OPENCL_VERSION: "$OPENCL_VERSION"
         GMMLIB_VERSION: "$GMMLIB_VERSION"
