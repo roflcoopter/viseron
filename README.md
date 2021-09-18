@@ -57,6 +57,8 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
     - [DeepStack](#deepstack-objects)
     - [Labels](#labels)
   - [Motion detection](#motion-detection)
+    - [Background subtractor](#background-subtractor)
+    - [Background subtractor MOG2](#background-subtractor-mog2)
   - [Recorder](#recorder)
   - [User Interface](#user-interface)
     - [Dynamic MJPEG streams](#dynamic-mjpeg-streams)
@@ -484,22 +486,8 @@ You should also change the resolution to something lower than the main stream to
 ---
 
 ### Camera motion detection
-| Name | Type | Default | Supported options | Description |
-| -----| -----| ------- | ----------------- |------------ |
-| interval | float | 1.0 | any float | Run motion detection at this interval in seconds on the most recent frame. <br>For optimal performance, this should be divisible with the object detection interval, because then preprocessing will only occur once for each frame. |
-| trigger_recorder | bool | true | True/False | If true, detected motion will start the recorder |
-| trigger_detector | bool | true | True/False | If true, the object detector will only run while motion is detected. |
-| timeout | bool | true | True/False | If true, recording will continue until no motion is detected |
-| max_timeout | int | 30 | any integer | Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected. <br>This is to prevent never-ending recordings. <br>Only applicable if ```timeout: true```.
-| width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
-| height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
-| area | float | 0.0 - 1.0 | any float | How big the detected area must be in order to trigger motion |
-| threshold | int | 25 | 0 - 255 | The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. Smaller leads to higher sensitivity, larger values lead to lower sensitivity |
-| alpha | float | 0.2 | 0.0 - 1.0 | How much the current image impacts the moving average.<br>Higher values impacts the average frame a lot and very small changes may trigger motion.<br>Lower value impacts the average less, and fast objects may not trigger motion |
-| frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
-| mask | list | optional | see [Mask config](#mask) | Allows you to specify masks in the shape of polygons. <br>Use this to ignore motion in certain areas of the image |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the motion detector.<br>This affects all logs named ```viseron.motion.<camera name>``` and  ```viseron.nvr.<camera name>.motion``` |
-
+Refer to the global [motion detection config](#motion-detection).\
+Note that you must use the same `type` for each camera.\
 Each setting set here overrides the global [motion detection config](#motion-detection).
 
 ---
@@ -871,6 +859,7 @@ object_detection:
 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
+| type | str | ```background_subtractor``` | ```background_subtractor```, ```mog2``` | What detection method to use.<br>Each detector has its own configuration options explained here:<br>[background_subtractor](#background-subtractor)<br>[mog2](#background-subtractor-mog2) |
 | interval | float | 1.0 | any float | Run motion detection at this interval in seconds on the most recent frame. <br>For optimal performance, this should be divisible with the object detection interval, because then preprocessing will only occur once for each frame. |
 | trigger_detector | bool | true | True/False | If true, the object detector will only run while motion is detected. |
 | trigger_recorder | bool | true | True/False | If true, detected motion will start the recorder |
@@ -878,16 +867,41 @@ object_detection:
 | max_timeout | int | 30 | any integer | Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected. <br>This is to prevent never-ending recordings. <br>Only applicable if ```timeout: true```.
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
-| area | float | 0.0 - 1.0 | any float | How big the detected area must be in order to trigger motion |
-| threshold | int | 25 | 0 - 255 | The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. Smaller leads to higher sensitivity, larger values lead to lower sensitivity |
-| alpha | float | 0.2 | 0.0 - 1.0 | How much the current image impacts the moving average.<br>Higher values impacts the average frame a lot and very small changes may trigger motion.<br>Lower value impacts the average less, and fast objects may not trigger motion. More can be read [here](https://docs.opencv.org/3.4/d7/df3/group__imgproc__motion.html#ga4f9552b541187f61f6818e8d2d826bc7). |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the motion detector. <br>This affects all logs named ```viseron.motion.<camera name>``` and  ```viseron.nvr.<camera name>.motion``` |
+
+The above options are global for all types of motion detectors detectors.
+
+---
+
+### Background subtractor
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| area | float | 0.08| 0.0 - 1.0 | How big the detected area must be in order to trigger motion |
+| threshold | int | 15 | 0 - 255 | The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. Smaller leads to higher sensitivity, larger values lead to lower sensitivity |
+| alpha | float | 0.2 | 0.0 - 1.0 | How much the current image impacts the moving average.<br>Higher values impacts the average frame a lot and very small changes may trigger motion.<br>Lower value impacts the average less, and fast objects may not trigger motion. More can be read [here](https://docs.opencv.org/3.4/d7/df3/group__imgproc__motion.html#ga4f9552b541187f61f6818e8d2d826bc7). |
+
+The above options are specific to the ```type: background_subtractor``` detector.\
 
 Motion detection works by creating a running average of frames, and then comparing the current frame to this average.\
 If enough changes have occurred, motion will be detected.\
 By using a running average, the "background" image will adjust to daylight, stationary objects etc.\
 [This](https://www.pyimagesearch.com/2015/06/01/home-surveillance-and-motion-detection-with-the-raspberry-pi-python-and-opencv/) blogpost from PyImageSearch explains this procedure quite well.
+
+---
+
+### Background subtractor MOG2
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| area | float | 0.08 | 0.0 - 1.0 | How big the detected area must be in order to trigger motion |
+| threshold | int | 15 | 0 - 255 | The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. Smaller leads to higher sensitivity, larger values lead to lower sensitivity |
+| history | int | 500 | any int | Length of the history |
+| detect_shadows | bool | False | True/false | If True, shadows will be considered as motion. Enabling will also reduce speed by a little |
+| learning_rate | float | 0.01 | 0.0 - 1.0 | How fast the background model learns. 0 means that the background model is not updated at all, 1 means that the background model is completely reinitialized from the last frame |
+
+The above options are specific to the ```type: mog2``` detector.
+
+Performs motion detection using the Background subtraction MOG2 algorithm.
 
 ---
 
