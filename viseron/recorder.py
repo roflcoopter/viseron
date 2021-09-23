@@ -6,6 +6,7 @@ from threading import Thread
 
 import cv2
 
+import viseron.mqtt
 from viseron import helpers
 from viseron.cleanup import SegmentCleanup
 from viseron.mqtt.camera import MQTTCamera
@@ -43,7 +44,7 @@ class FFMPEGRecorder:
         self._segment_cleanup = SegmentCleanup(config)
 
         self._mqtt_devices = {}
-        if self.config.recorder.thumbnail.send_to_mqtt:
+        if viseron.mqtt.MQTT.client and self.config.recorder.thumbnail.send_to_mqtt:
             self._mqtt_devices["latest_thumbnail"] = MQTTCamera(
                 config, object_id="latest_thumbnail"
             )

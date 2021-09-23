@@ -88,6 +88,10 @@
 !/viseron/watchdog/*
 !/viseron/webserver
 !/viseron/webserver/*
+!/viseron/webserver/api
+!/viseron/webserver/api/*
+!/viseron/webserver/api/v1
+!/viseron/webserver/api/v1/*
 !/viseron/webserver/assets
 !/viseron/webserver/assets/*
 !/viseron/webserver/assets/templates

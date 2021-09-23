@@ -3,7 +3,7 @@ import os
 
 import tornado.web
 
-from viseron.config import ViseronConfig, load_config
+from viseron.config import ViseronConfig
 from viseron.const import CONFIG_PATH
 from viseron.helpers import slugify
 
@@ -21,7 +21,7 @@ class CamerasHandler(tornado.web.RequestHandler):
 
     def get(self):
         """GET request."""
-        config = ViseronConfig(load_config())
+        config = ViseronConfig.config
         cameras = []
         for camera in config.cameras:
             tmp_cam = camera
@@ -43,7 +43,7 @@ class RecordingsHandler(tornado.web.RequestHandler):
 
     def get(self):
         """GET request."""
-        config = ViseronConfig(load_config())
+        config = ViseronConfig.config
         recordings = []
         for date in sorted(os.listdir(config.recorder.folder), reverse=True):
             if not os.path.isdir(os.path.join(config.recorder.folder, date)):
