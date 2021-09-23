@@ -1,5 +1,5 @@
 """Viseron pytest configuration."""
-from unittest import mock
+from unittest.mock import MagicMock, mock_open, patch
 
 import cv2
 import numpy as np
@@ -118,16 +118,16 @@ def full_config() -> str:
 @pytest.fixture
 def raw_config(simple_config) -> dict:
     """Return simple validated config."""
-    mock_open = mock.mock_open(read_data=simple_config)
-    with mock.patch("builtins.open", mock_open):
+    mock = mock_open(read_data=simple_config)
+    with patch("builtins.open", mock):
         return load_config()
 
 
 @pytest.fixture
 def raw_config_full(full_config) -> dict:
     """Full validated config."""
-    mock_open = mock.mock_open(read_data=full_config)
-    with mock.patch("builtins.open", mock_open):
+    mock = mock_open(read_data=full_config)
+    with patch("builtins.open", mock):
         return load_config()
 
 
@@ -196,3 +196,39 @@ def black_frame(black_raw_frame):
     # Manually set the decoded frame to avoid errors
     frame._decoded_frame = black_raw_frame
     return frame
+
+
+@pytest.fixture
+def mocked_camera(resolution):
+    """Return mocked camera."""
+    mock = MagicMock(resolution=resolution, spec=["stream"])
+    return mock
+
+
+@pytest.fixture
+def mocked_detector():
+    """Return mocked detector."""
+    mock = MagicMock(detection_lock="Testing", spec=[])
+    return mock
+
+
+@pytest.fixture
+def mocked_motion_detection():
+    """Return mocked motion detection."""
+    mock = MagicMock(spec=[])
+    return mock
+
+
+@pytest.fixture
+def mocked_recorder():
+    """Return mocked recorder."""
+    mock = MagicMock(spec=[])
+    return mock
+
+
+@pytest.fixture
+def mocked_restartable_thread():
+    """Return mocked restartable thread."""
+    mock = MagicMock(spec=["start"])
+    mock.start.return_value = "Testing"
+    return mock

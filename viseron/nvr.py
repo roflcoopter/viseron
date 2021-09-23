@@ -60,6 +60,9 @@ class MQTTInterface:
             self.devices["switch"] = MQTTSwitch(config)
             self.devices["camera"] = MQTTCamera(config)
             self.devices["sensor"] = MQTTSensor(config, "status")
+            DataStream.subscribe_data(
+                f"{config.camera.name_slug}/status", self.status_state_callback
+            )
 
     def publish_image(self, object_frame, motion_frame, zones, resolution):
         """Publish image to MQTT."""
@@ -100,6 +103,10 @@ class MQTTInterface:
             if ret:
                 self.devices["camera"].publish(jpg.tobytes())
 
+    def status_state_callback(self, state):
+        """Update status state."""
+        self.status_state = state
+
     @property
     def status_state(self):
         """Return status state."""
@@ -136,7 +143,6 @@ class FFMPEGNVR:
         self.config = config
         self.kill_received = False
         self.camera_grabber = None
-
         self._objects_in_fov = []
         self._labels_in_fov = []
         self._reported_label_count = {}
@@ -238,6 +244,7 @@ class FFMPEGNVR:
     def setup_mqtt(self):
         """Set up various MQTT elements."""
         self._mqtt.on_connect()
+        self._mqtt.status_state = "connecting"
         self.recorder.on_connect()
 
         for zone in self.zones:

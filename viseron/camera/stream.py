@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import subprocess as sp
-from time import sleep
 from typing import TYPE_CHECKING, Dict, Optional, Union
 
 import cv2
@@ -360,28 +359,6 @@ class Stream:
             stdout=sp.PIPE,
             stderr=self._log_pipe,
         )
-
-    def check_command(self):
-        """Check if generated FFmpeg command works."""
-        self._logger.debug("Performing a sanity check on the ffmpeg command")
-        retry = False
-        while True:
-            pipe = self.pipe(single_frame=True)
-            _, stderr = pipe.communicate()
-            if stderr and not any(
-                err in stderr.decode()
-                for err in self._config.camera.ffmpeg_recoverable_errors
-            ):
-                self._logger.error(
-                    f"Error starting decoder command! {stderr.decode()} "
-                    f"Retrying in 5 seconds"
-                )
-                sleep(5)
-                retry = True
-                continue
-            if retry:
-                self._logger.error("Successful reconnection!")
-            break
 
     def start_pipe(self):
         """Start piping frames from FFmpeg."""
