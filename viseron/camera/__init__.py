@@ -9,6 +9,7 @@ from time import sleep
 import cv2
 
 from viseron.const import TOPIC_FRAME_DECODE_OBJECT, TOPIC_FRAME_SCAN_OBJECT
+from viseron.data_stream import DataStream
 from viseron.helpers.logs import SensitiveInformationFilter
 
 from .frame_decoder import FrameDecoder
@@ -98,10 +99,12 @@ class FFMPEGCamera:
 
         while self._connected:
             if self.decode_error.is_set():
+                DataStream.publish_data(
+                    f"{self._config.camera.name_slug}/status", "disconnected"
+                )
                 sleep(5)
                 self._logger.error("Restarting frame pipe")
                 self.stream.close_pipe()
-                self.stream.check_command()
                 self.stream.start_pipe()
                 self.decode_error.clear()
                 empty_frames = 0
