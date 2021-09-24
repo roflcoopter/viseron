@@ -149,6 +149,9 @@ SCHEMA = Schema(
             Any(float, int), Coerce(float), Range(min=0.0)
         ),
         Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
+        Optional("max_frame_age", default=2): All(
+            Any(float, int), Coerce(float), Range(min=0.0)
+        ),
         Optional("log_all_objects", default=False): bool,
         Optional("logging"): LOGGING_SCHEMA,
     },
@@ -181,6 +184,10 @@ class ObjectDetectionConfig:
         for label in camera_object_detection.get("labels", object_detection["labels"]):
             self._labels.append(LabelConfig(label))
         self._mask = generate_mask(camera_object_detection.get("mask", []))
+
+        self._max_frame_age = camera_object_detection.get(
+            "max_frame_age", object_detection["max_frame_age"]
+        )
 
         self._log_all_objects = camera_object_detection.get(
             "log_all_objects", object_detection["log_all_objects"]
@@ -229,6 +236,11 @@ class ObjectDetectionConfig:
     def labels(self) -> List[LabelConfig]:
         """Return label configs."""
         return self._labels
+
+    @property
+    def max_frame_age(self) -> float:
+        """Return max frame age."""
+        return self._max_frame_age
 
     @property
     def log_all_objects(self) -> bool:

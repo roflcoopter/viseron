@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from queue import Queue
 from threading import Event
@@ -26,6 +27,7 @@ class FrameToScan:
     stream_width: int
     stream_height: int
     camera_config: NVRConfig
+    capture_time: float
 
 
 class FrameDecoder:
@@ -97,11 +99,12 @@ class FrameDecoder:
                 DataStream.publish_data(
                     self._topic_decode,
                     FrameToScan(
-                        self,
+                        self.name,
                         current_frame,
                         self._stream.width,
                         self._stream.height,
                         self._config,
+                        time.time(),
                     ),
                 )
 

@@ -95,9 +95,7 @@ class TestFFMPEGNVR:
         mock_motion_detection.assert_called_once_with(
             nvr_config_full, ffmpeg_nvr.camera
         )
-        mock_recorder.assert_called_once_with(
-            nvr_config_full, mocked_detector.detection_lock
-        )
+        mock_recorder.assert_called_once_with(nvr_config_full)
 
         assert mock_restartable_thread.call_count == 2
         assert (

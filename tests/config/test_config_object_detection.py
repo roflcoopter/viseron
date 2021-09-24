@@ -25,6 +25,7 @@ OBJECT_DETECTION_CONFIG = {
             "post_processor": "face_recognition",
         }
     ],
+    "max_frame_age": 1,
     "log_all_objects": True,
     "logging": {
         "level": "debug",
@@ -48,6 +49,7 @@ CAMERA_OBJECT_DETECTION_CONFIG = {
             "post_processor": "",
         }
     ],
+    "max_frame_age": 2,
     "log_all_objects": False,
     "logging": {
         "level": "fatal",

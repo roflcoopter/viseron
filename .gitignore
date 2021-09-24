@@ -41,8 +41,8 @@
 !/tests/config/*
 !/tests/detector
 !/tests/detector/*
-!/tests/detector/edgetpu
-!/tests/detector/edgetpu/*
+!/tests/detector/*/
+!/tests/detector/*/*
 !/tests/helpers
 !/tests/helpers/*
 !/tests/motion

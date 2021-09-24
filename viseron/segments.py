@@ -6,16 +6,21 @@ import subprocess as sp
 import time
 
 from viseron.const import CAMERA_SEGMENT_DURATION
+from viseron.detector import Detector
 
 
 class Segments:
     """Concatenate segments between two timestamps on-demand."""
 
-    def __init__(self, logger, config, segments_folder, detection_lock):
+    def __init__(
+        self,
+        logger,
+        config,
+        segments_folder,
+    ):
         self._logger = logger
         self._config = config
         self._segments_folder = segments_folder
-        self._detection_lock = detection_lock
 
     def segment_duration(self, segment_file):
         """Return the duration of a specified segment."""
@@ -33,7 +38,7 @@ class Segments:
 
         tries = 0
         while True:
-            with self._detection_lock:
+            with Detector.lock:
                 with sp.Popen(ffprobe_cmd, stdout=sp.PIPE, stderr=sp.PIPE) as pipe:
                     (output, stderr) = pipe.communicate()
                     p_status = pipe.wait()
@@ -174,7 +179,7 @@ class Segments:
         self._logger.debug(f"Concatenation command: {ffmpeg_cmd}")
         self._logger.debug(f"Segment script: \n{segment_script}")
 
-        with self._detection_lock:
+        with Detector.lock:
             pipe = sp.run(
                 ffmpeg_cmd, input=segment_script, encoding="ascii", check=True
             )
