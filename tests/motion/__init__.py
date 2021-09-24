@@ -1,1 +1,1 @@
-"""Tests for motion."""
+"""Tests for motion module."""

@@ -500,6 +500,7 @@ Each setting set here overrides the global [motion detection config](#motion-det
 | labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). |
 | mask | list | optional | see [Mask config](#mask) | Allows you to specify masks in the shape of polygons. <br>Use this to ignore objects in certain areas of the image |
 | log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy. Overrides global [config](#object-detection) |
+| max_frame_age | float | 2 | any float larger than 0.0 | Drop frames that are older than this number, in seconds. Overrides global [config](#object-detection) |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the object detector.<br>This affects all logs named ```viseron.nvr.<camera name>.object``` |
 
 ---
@@ -729,6 +730,7 @@ The config example above would give you two streams, available at these endpoint
 | model_height | int | optional | any integer | Detected from model.<br>Frames will be resized to this height in order to fit model and save computing power.<br>I dont recommend changing this. |
 | interval | float | 1.0 | any float | Run object detection at this interval in seconds on the most recent frame. |
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
+| max_frame_age | float | 2 | any float larger than 0.0 | Drop frames that are older than this number, in seconds. Overrides global [config](#object-detection) |
 | log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the object detector.<br>This affects all logs named ```viseron.detector``` and  ```viseron.nvr.<camera name>.object``` |
 

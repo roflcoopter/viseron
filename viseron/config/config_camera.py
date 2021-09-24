@@ -150,6 +150,9 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
                         ],
                     }
                 ],
+                Optional("max_frame_age"): All(
+                    Any(float, int), Coerce(float), Range(min=0.0)
+                ),
                 Optional("logging"): LOGGING_SCHEMA,
                 Optional("log_all_objects"): bool,
             },

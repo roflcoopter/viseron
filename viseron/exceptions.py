@@ -77,6 +77,19 @@ class DuplicateDecoderName(ViseronError):
         return f"A decoder with name {self.decoder_name} already exist"
 
 
+class DetectorModuleNotFoundError(ViseronError):
+    """Raised when an object detector does not exist."""
+
+    def __init__(self, detector: str) -> None:
+        """Initialize error."""
+        super().__init__(self)
+        self.detector = detector
+
+    def __str__(self) -> str:
+        """Return string representation."""
+        return f"Object detector {self.detector} not found"
+
+
 class DetectorImportError(ViseronError):
     """Raised when a detector cannot be imported properly."""
 
