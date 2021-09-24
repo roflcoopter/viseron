@@ -80,7 +80,8 @@ disable=format,
       too-many-public-methods,
       too-many-return-statements,
       too-many-statements,
-      too-many-boolean-expressions
+      too-many-boolean-expressions,
+      consider-using-with
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option

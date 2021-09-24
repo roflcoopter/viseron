@@ -198,7 +198,7 @@ class FFMPEGNVR:
 
         # Initialize recorder
         self._start_recorder = False
-        self.recorder = FFMPEGRecorder(config, detector.detection_lock)
+        self.recorder = FFMPEGRecorder(config)
 
         self.nvr_list[config.camera.name_slug] = self
         RestartableThread(

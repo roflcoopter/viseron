@@ -23,6 +23,7 @@ from viseron.const import (
     FFMPEG_LOG_LEVELS,
     FFPROBE_TIMEOUT,
 )
+from viseron.detector import Detector
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
 from viseron.helpers.logs import FFmpegFilter, LogPipe, SensitiveInformationFilter
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
@@ -173,24 +174,23 @@ class Stream:
             reraise=True,
         ):
             with attempt:
-                with sp.Popen(  # type: ignore
-                    ffprobe_command,
-                    stdout=sp.PIPE,
-                    stderr=self._log_pipe,
-                ) as pipe:
-                    try:
-                        stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
-                        pipe.wait(timeout=FFPROBE_TIMEOUT)
-                    except sp.TimeoutExpired as error:
-                        pipe.terminate()
-                        pipe.wait(timeout=FFPROBE_TIMEOUT)
-                        ffprobe_timeout = self._ffprobe_timeout
-                        self._ffprobe_timeout += FFPROBE_TIMEOUT
-                        raise FFprobeTimeout(
-                            ffprobe_command, ffprobe_timeout
-                        ) from error
-                    else:
-                        self._ffprobe_timeout = FFPROBE_TIMEOUT
+                with Detector.lock:
+                    pipe = sp.Popen(  # type: ignore
+                        ffprobe_command,
+                        stdout=sp.PIPE,
+                        stderr=self._log_pipe,
+                    )
+                try:
+                    stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
+                    pipe.wait(timeout=FFPROBE_TIMEOUT)
+                except sp.TimeoutExpired as error:
+                    pipe.terminate()
+                    pipe.wait(timeout=FFPROBE_TIMEOUT)
+                    ffprobe_timeout = self._ffprobe_timeout
+                    self._ffprobe_timeout += FFPROBE_TIMEOUT
+                    raise FFprobeTimeout(ffprobe_command, ffprobe_timeout) from error
+                else:
+                    self._ffprobe_timeout = FFPROBE_TIMEOUT
 
         try:
             # Trim away any text before start of JSON object
@@ -341,24 +341,27 @@ class Stream:
 
     def pipe(self, single_frame=False):
         """Return subprocess pipe for FFmpeg."""
-        if single_frame:
+        with Detector.lock:
+            if single_frame:
+                return sp.Popen(
+                    self.build_command(
+                        ffmpeg_loglevel="fatal", single_frame=single_frame
+                    ),
+                    stdout=sp.PIPE,
+                    stderr=sp.PIPE,
+                )
+            if self._write_segments and not self._pipe_frames:
+                return RestartablePopen(
+                    self.build_command(),
+                    stdout=sp.PIPE,
+                    stderr=self._log_pipe,
+                    name=self.alias,
+                )
             return sp.Popen(
-                self.build_command(ffmpeg_loglevel="fatal", single_frame=single_frame),
-                stdout=sp.PIPE,
-                stderr=sp.PIPE,
-            )
-        if self._write_segments and not self._pipe_frames:
-            return RestartablePopen(
                 self.build_command(),
                 stdout=sp.PIPE,
                 stderr=self._log_pipe,
-                name=self.alias,
             )
-        return sp.Popen(
-            self.build_command(),
-            stdout=sp.PIPE,
-            stderr=self._log_pipe,
-        )
 
     def start_pipe(self):
         """Start piping frames from FFmpeg."""

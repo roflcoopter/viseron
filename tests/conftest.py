@@ -208,7 +208,7 @@ def mocked_camera(resolution):
 @pytest.fixture
 def mocked_detector():
     """Return mocked detector."""
-    mock = MagicMock(detection_lock="Testing", spec=[])
+    mock = MagicMock(lock="Testing", spec=[])
     return mock
 
 

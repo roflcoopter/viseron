@@ -48,8 +48,9 @@ class AbstractDetectorConfig(ABC, ObjectDetectionConfig):
 class Detector:
     """Subscribe to frames and run object detection using the configured detector."""
 
+    lock = Lock()
+
     def __init__(self, object_detection_config):
-        self.detection_lock = Lock()
         # Config is not validated yet so we need to access the dictionary value
         if not object_detection_config["enable"]:
             return
@@ -118,10 +119,9 @@ class Detector:
         """Perform object detection and publish the results."""
         while True:
             frame_to_scan: FrameToScan = self._object_detection_queue.get()
-            with self.detection_lock:
-                frame_to_scan.frame.objects = self.object_detector.return_objects(
-                    frame_to_scan
-                )
+            frame_to_scan.frame.objects = self.object_detector.return_objects(
+                frame_to_scan
+            )
             DataStream.publish_data(
                 (
                     f"{frame_to_scan.camera_config.camera.name_slug}/"

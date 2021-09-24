@@ -17,7 +17,7 @@ LOGGER = logging.getLogger(__name__)
 class FFMPEGRecorder:
     """Creates thumbnails and recordings."""
 
-    def __init__(self, config, detection_lock):
+    def __init__(self, config):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         if getattr(config.recorder.logging, "level", None):
             self._logger.setLevel(config.recorder.logging.level)
@@ -37,9 +37,7 @@ class FFMPEGRecorder:
             config.recorder.segments_folder, config.camera.name
         )
         self.create_directory(segments_folder)
-        self._segmenter = Segments(
-            self._logger, config, segments_folder, detection_lock
-        )
+        self._segmenter = Segments(self._logger, config, segments_folder)
         self._segment_cleanup = SegmentCleanup(config)
 
         self._mqtt_devices = {}
