@@ -171,8 +171,12 @@ class BaseConfig:
 class ViseronConfig(BaseConfig):
     """Config Viseron specifically."""
 
+    raw_config = {}
+    config = None
+
     def __init__(self, config):
         super().__init__()
+        ViseronConfig.raw_config = config
         self._cameras = config["cameras"]
         self._object_detection = config["object_detection"]
         self._motion_detection = config["motion_detection"]
@@ -180,6 +184,7 @@ class ViseronConfig(BaseConfig):
         self._recorder = RecorderConfig(config["recorder"])
         self._mqtt = MQTTConfig(config["mqtt"]) if config.get("mqtt", None) else None
         self._logging = LoggingConfig(config["logging"])
+        ViseronConfig.config = self
 
     @property
     def cameras(self) -> dict:

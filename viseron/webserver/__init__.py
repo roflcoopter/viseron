@@ -7,8 +7,11 @@ import tornado.gen
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
+from tornado.routing import PathMatches
 
 from viseron.const import PATH_STATIC, PATH_TEMPLATES, PREFIX_STATIC, RECORDER_PATH
+from viseron.webserver.api import APIRouter
+from viseron.webserver.not_found_handler import NotFoundHandler
 from viseron.webserver.stream_handler import DynamicStreamHandler, StaticStreamHandler
 from viseron.webserver.ui import (
     AboutHandler,
@@ -81,14 +84,6 @@ class DeprecatedStreamHandler(tornado.web.RequestHandler):
         self.redirect(f"/{camera}/mjpeg-stream")
 
 
-class NotFoundHandler(tornado.web.RequestHandler):
-    """Default handler."""
-
-    def prepare(self):  # pylint: disable=no-self-use
-        """Catch all methods."""
-        raise tornado.web.HTTPError(404)
-
-
 class IndexRedirect(tornado.web.RequestHandler):
     """Redirect handler for index."""
 
@@ -109,7 +104,7 @@ class WebServer(threading.Thread):
     @staticmethod
     def create_application():
         """Return tornado web app."""
-        return tornado.web.Application(
+        application = tornado.web.Application(
             [
                 (r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-stream", DynamicStreamHandler),
                 (
@@ -141,6 +136,13 @@ class WebServer(threading.Thread):
             static_url_prefix=PREFIX_STATIC,
             debug=True,
         )
+        application.add_handlers(
+            r".*",
+            [
+                (PathMatches(r"/api/.*"), APIRouter(application)),
+            ],
+        )
+        return application
 
     def run(self):
         """Start ioloop."""

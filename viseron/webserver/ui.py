@@ -3,9 +3,9 @@ import os
 
 import tornado.web
 
-from viseron.config import ViseronConfig, load_config
+from viseron.config import ViseronConfig
 from viseron.const import CONFIG_PATH
-from viseron.helpers import slugify
+from viseron.nvr import FFMPEGNVR
 
 
 class AboutHandler(tornado.web.RequestHandler):
@@ -21,13 +21,7 @@ class CamerasHandler(tornado.web.RequestHandler):
 
     def get(self):
         """GET request."""
-        config = ViseronConfig(load_config())
-        cameras = []
-        for camera in config.cameras:
-            tmp_cam = camera
-            tmp_cam["name_slug"] = slugify(tmp_cam["name"])
-            cameras.append(tmp_cam)
-        self.render("cameras.html", cameras=cameras)
+        self.render("cameras.html", nvr_list=FFMPEGNVR.nvr_list.values())
 
 
 class IndexHandler(tornado.web.RequestHandler):
@@ -43,7 +37,7 @@ class RecordingsHandler(tornado.web.RequestHandler):
 
     def get(self):
         """GET request."""
-        config = ViseronConfig(load_config())
+        config = ViseronConfig.config
         recordings = []
         for date in sorted(os.listdir(config.recorder.folder), reverse=True):
             if not os.path.isdir(os.path.join(config.recorder.folder, date)):
