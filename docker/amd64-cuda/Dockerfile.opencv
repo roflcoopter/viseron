@@ -101,6 +101,9 @@ RUN \
   -D MKL_USE_MULTITHREAD=ON \
   -D MKL_WITH_TBB=ON \
   -D OPENCV_DNN_CUDA=ON \
+  # Turn off some unnecessary modules that only take extra time to build
+  -D BUILD_opencv_face=OFF \
+  -D HIGHGUI_ENABLE_PLUGINS=OFF \
   /tmp/opencv && \
   make && \
   make install
