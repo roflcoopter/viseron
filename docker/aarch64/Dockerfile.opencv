@@ -80,6 +80,9 @@ RUN \
   -D CMAKE_SHARED_LINKER_FLAGS=-latomic \
   -D BUILD_DOCS=OFF \
   -D BUILD_EXAMPLES=OFF /tmp/opencv && \
+  # Turn off some unnecessary modules that only take extra time to build
+  -D BUILD_opencv_face=OFF \
+  -D HIGHGUI_ENABLE_PLUGINS=OFF \
   make && \
   make install
 

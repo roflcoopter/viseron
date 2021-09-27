@@ -80,6 +80,9 @@ RUN \
   -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib/modules \
   -D BUILD_DOCS=OFF \
   -D BUILD_EXAMPLES=OFF /tmp/opencv && \
+  # Turn off some unnecessary modules that only take extra time to build
+  -D BUILD_opencv_face=OFF \
+  -D HIGHGUI_ENABLE_PLUGINS=OFF \
   make && \
   make install
 

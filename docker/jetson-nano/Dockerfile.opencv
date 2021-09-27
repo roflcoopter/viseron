@@ -137,6 +137,7 @@ RUN \
   -D ENABLE_NEON=ON \
   # Turn off some unnecessary modules that only take extra time to build
   -D BUILD_opencv_face=OFF \
+  -D HIGHGUI_ENABLE_PLUGINS=OFF \
   /tmp/opencv && \
   make && \
   make install
