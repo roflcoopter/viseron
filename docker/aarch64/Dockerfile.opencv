@@ -83,6 +83,9 @@ RUN \
   # Turn off some unnecessary modules that only take extra time to build
   -D BUILD_opencv_face=OFF \
   -D HIGHGUI_ENABLE_PLUGINS=OFF \
+  -D WITH_WIN32UI=OFF \
+  -D WITH_GTK=OFF \
+  -D WITH_QT=OFF \
   /tmp/opencv && \
   make && \
   make install
