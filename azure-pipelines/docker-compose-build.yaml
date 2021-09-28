@@ -428,7 +428,7 @@ services:
       dockerfile: ./docker/jetson-nano/Dockerfile.opencv
       args:
         UBUNTU_VERSION: bionic
-        MAKEFLAGS: "$MAKEFLAGS"
+        MAKEFLAGS: "-j7"
         PYTHON_VERSION: "$PYTHON_VERSION"
         OPENCV_VERSION: "$OPENCV_VERSION"
         FFMPEG_VERSION: "$JETSON_NANO_FFMPEG_VERSION"
