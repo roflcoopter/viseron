@@ -104,6 +104,7 @@
 !/viseron/webserver/assets/static/js/*
 !/requirements.txt
 !/requirements_test.txt
+!setup.py
 
 # Repo
 !/docs
