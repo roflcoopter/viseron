@@ -6,16 +6,21 @@ import subprocess as sp
 import time
 
 from viseron.const import CAMERA_SEGMENT_DURATION
+from viseron.detector import Detector
 
 
 class Segments:
     """Concatenate segments between two timestamps on-demand."""
 
-    def __init__(self, logger, config, segments_folder, detection_lock):
+    def __init__(
+        self,
+        logger,
+        config,
+        segments_folder,
+    ):
         self._logger = logger
         self._config = config
         self._segments_folder = segments_folder
-        self._detection_lock = detection_lock
 
     def segment_duration(self, segment_file):
         """Return the duration of a specified segment."""
@@ -33,10 +38,10 @@ class Segments:
 
         tries = 0
         while True:
-            with self._detection_lock:
-                pipe = sp.Popen(ffprobe_cmd, stdout=sp.PIPE, stderr=sp.PIPE)
-                (output, stderr) = pipe.communicate()
-                p_status = pipe.wait()
+            with Detector.lock:
+                with sp.Popen(ffprobe_cmd, stdout=sp.PIPE, stderr=sp.PIPE) as pipe:
+                    (output, stderr) = pipe.communicate()
+                    p_status = pipe.wait()
 
             if p_status == 0:
                 try:
@@ -63,7 +68,7 @@ class Segments:
 
     @staticmethod
     def find_segment(segments, timestamp):
-        """Finds a segment which includes the given timestamp."""
+        """Find a segment which includes the given timestamp."""
         return next(
             (
                 key
@@ -74,7 +79,7 @@ class Segments:
         )
 
     def get_segment_information(self):
-        """Gets information for all available segments."""
+        """Get information for all available segments."""
         segment_files = os.listdir(self._segments_folder)
         segment_information: dict = {}
         for segment in segment_files:
@@ -174,7 +179,7 @@ class Segments:
         self._logger.debug(f"Concatenation command: {ffmpeg_cmd}")
         self._logger.debug(f"Segment script: \n{segment_script}")
 
-        with self._detection_lock:
+        with Detector.lock:
             pipe = sp.run(
                 ffmpeg_cmd, input=segment_script, encoding="ascii", check=True
             )

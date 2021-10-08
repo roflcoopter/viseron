@@ -1,6 +1,8 @@
 """Recorder config."""
 from voluptuous import All, Optional, Range, Schema
 
+from viseron.const import RECORDER_PATH
+
 from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 
 SCHEMA = Schema(
@@ -8,7 +10,7 @@ SCHEMA = Schema(
         Optional("lookback", default=5): All(int, Range(min=0)),
         Optional("timeout", default=10): All(int, Range(min=0)),
         Optional("retain", default=7): All(int, Range(min=1)),
-        Optional("folder", default="/recordings"): str,
+        Optional("folder", default=RECORDER_PATH): str,
         Optional("filename_pattern", default="%H:%M:%S"): str,
         Optional("extension", default="mp4"): str,
         Optional("hwaccel_args", default=[]): [str],

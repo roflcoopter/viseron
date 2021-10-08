@@ -1,4 +1,4 @@
-version: "3.2"
+version: "2.4"
 
 services:
   ################ amd64 #######################################¤
@@ -122,6 +122,20 @@ services:
         - roflcoopter/amd64-viseron:dev
     image: roflcoopter/amd64-viseron:dev
 
+  amd64-viseron-tests:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.tests
+      args:
+        ARCH: amd64
+        VISERON_VERSION: dev
+    image: roflcoopter/amd64-viseron-tests:dev
+    container_name: amd64-viseron-tests
+    entrypoint: ""
+    command: >
+        bash -c "pytest --cov=viseron/ --cov-report term-missing -s tests
+        && coverage xml"
+
   ################ amd64 CUDA ###################################
   amd64-cuda-ffmpeg:
     build:
@@ -129,6 +143,7 @@ services:
       dockerfile: ./docker/amd64-cuda/Dockerfile.ffmpeg
       args:
         <<: *ffmpeg_args
+        CUDA_VERSION: "$CUDA_VERSION"
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         VIDEO_CODEC_SDK_VERSION: "$VIDEO_CODEC_SDK_VERSION"
       cache_from: 
@@ -140,6 +155,7 @@ services:
       context: ..
       dockerfile: ./docker/amd64-cuda/Dockerfile.opencv
       args:
+        CUDA_VERSION: "$CUDA_VERSION"
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         MAKEFLAGS: "$MAKEFLAGS"
         OPENCV_VERSION: "$OPENCV_VERSION"
@@ -153,6 +169,7 @@ services:
       context: ..
       dockerfile: ./docker/amd64-cuda/Dockerfile.dlib
       args:
+        CUDA_VERSION: "$CUDA_VERSION"
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         MAKEFLAGS: "$MAKEFLAGS"
         DLIB_VERSION: "$DLIB_VERSION"
@@ -177,6 +194,7 @@ services:
       context: ..
       dockerfile: ./docker/amd64-cuda/Dockerfile.base
       args:
+        CUDA_VERSION: "$CUDA_VERSION"
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         OPENCL_VERSION: "$OPENCL_VERSION"
         GMMLIB_VERSION: "$GMMLIB_VERSION"
@@ -398,9 +416,11 @@ services:
       args:
         <<: *ffmpeg_args
         UBUNTU_VERSION: bionic
+        JETPACK_VERSION: "$JETPACK_VERSION"
+        FFMPEG_VERSION: "$JETSON_NANO_FFMPEG_VERSION"
       cache_from: 
-        - roflcoopter/jetson-nano-ffmpeg:$FFMPEG_VERSION
-    image: roflcoopter/jetson-nano-ffmpeg:$FFMPEG_VERSION
+        - roflcoopter/jetson-nano-ffmpeg:$JETSON_NANO_FFMPEG_VERSION
+    image: roflcoopter/jetson-nano-ffmpeg:$JETSON_NANO_FFMPEG_VERSION
 
   jetson-nano-opencv:
     build:
@@ -408,10 +428,10 @@ services:
       dockerfile: ./docker/jetson-nano/Dockerfile.opencv
       args:
         UBUNTU_VERSION: bionic
-        MAKEFLAGS: "$MAKEFLAGS"
+        MAKEFLAGS: "-j7"
         PYTHON_VERSION: "$PYTHON_VERSION"
         OPENCV_VERSION: "$OPENCV_VERSION"
-        FFMPEG_VERSION: "$FFMPEG_VERSION"
+        FFMPEG_VERSION: "$JETSON_NANO_FFMPEG_VERSION"
         JETPACK_VERSION: "$JETPACK_VERSION"
       cache_from: 
         - roflcoopter/jetson-nano-opencv:$OPENCV_VERSION
@@ -451,7 +471,6 @@ services:
       args:
         UBUNTU_VERSION: bionic
         PYTHON_VERSION: "$PYTHON_VERSION"
-        FFMPEG_VERSION: "$FFMPEG_VERSION"
         JETPACK_VERSION: "$JETPACK_VERSION"
       cache_from: 
         - roflcoopter/jetson-nano-base:$BASE_VERSION
@@ -465,7 +484,7 @@ services:
         ARCH: jetson-nano
         BASE_VERSION: "$BASE_VERSION"
         OPENCV_VERSION: "$OPENCV_VERSION"
-        FFMPEG_VERSION: "$FFMPEG_VERSION"
+        FFMPEG_VERSION: "$JETSON_NANO_FFMPEG_VERSION"
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"

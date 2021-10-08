@@ -6,7 +6,8 @@ from threading import Thread
 
 import cv2
 
-import viseron.helpers as helpers
+import viseron.mqtt
+from viseron import helpers
 from viseron.cleanup import SegmentCleanup
 from viseron.mqtt.camera import MQTTCamera
 from viseron.segments import Segments
@@ -17,7 +18,7 @@ LOGGER = logging.getLogger(__name__)
 class FFMPEGRecorder:
     """Creates thumbnails and recordings."""
 
-    def __init__(self, config, detection_lock):
+    def __init__(self, config):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         if getattr(config.recorder.logging, "level", None):
             self._logger.setLevel(config.recorder.logging.level)
@@ -37,19 +38,17 @@ class FFMPEGRecorder:
             config.recorder.segments_folder, config.camera.name
         )
         self.create_directory(segments_folder)
-        self._segmenter = Segments(
-            self._logger, config, segments_folder, detection_lock
-        )
+        self._segmenter = Segments(self._logger, config, segments_folder)
         self._segment_cleanup = SegmentCleanup(config)
 
         self._mqtt_devices = {}
-        if self.config.recorder.thumbnail.send_to_mqtt:
+        if viseron.mqtt.MQTT.client and self.config.recorder.thumbnail.send_to_mqtt:
             self._mqtt_devices["latest_thumbnail"] = MQTTCamera(
                 config, object_id="latest_thumbnail"
             )
 
     def on_connect(self):
-        """Called when MQTT connection is established."""
+        """On established MQTT connection."""
         for device in self._mqtt_devices.values():
             device.on_connect()
 

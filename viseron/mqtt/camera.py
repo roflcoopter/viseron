@@ -2,8 +2,8 @@
 import json
 import logging
 
-import viseron.helpers as helpers
 import viseron.mqtt
+from viseron import helpers
 
 LOGGER = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ class MQTTCamera:
         return json.dumps(payload, indent=3)
 
     def on_connect(self):
-        """Called when MQTT connection is established."""
+        """On established MQTT connection."""
         if self._config.mqtt.home_assistant.enable:
             viseron.mqtt.MQTT.publish(
                 viseron.mqtt.PublishPayload(

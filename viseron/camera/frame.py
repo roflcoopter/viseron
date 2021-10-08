@@ -102,7 +102,9 @@ class Frame:
     @property
     def decoded_frame_umat_rgb(self):
         """Return decoded frame in RGB UMat format.
-        Decodes frame if not already done."""
+
+        Decodes frame if not already done.
+        """
         if self._decoded_frame_umat_rgb is None:
             self._decoded_frame_umat_rgb = cv2.cvtColor(
                 self.decoded_frame_umat, self._cvt_color
@@ -112,7 +114,9 @@ class Frame:
     @property
     def decoded_frame_mat_rgb(self):
         """Return decoded frame in RGB Mat format.
-        Decodes frame if not already done."""
+
+        Decodes frame if not already done.
+        """
         if self._decoded_frame_mat_rgb is None:
             self._decoded_frame_mat_rgb = self.decoded_frame_umat_rgb.get()
         return self._decoded_frame_mat_rgb

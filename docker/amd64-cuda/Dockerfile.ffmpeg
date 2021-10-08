@@ -1,6 +1,7 @@
 # Shameless copy of https://github.com/jrottenberg/ffmpeg/
+ARG CUDA_VERSION
 ARG UBUNTU_VERSION_NUMBER
-FROM nvidia/cuda:11.1-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
 
 WORKDIR /tmp/workdir
 
@@ -252,7 +253,7 @@ RUN  \
   tar -zx --strip-components=1 -f ${FRIBIDI_VERSION}.tar.gz && \
   ./autogen.sh && \
   ./configure --prefix="${PREFIX}" --disable-static --enable-shared && \
-  # Use -j1 because fribidi breaks when building in parallell and c2man is not installed
+  # Use -j1 because fribidi breaks when building in parallel and c2man is not installed
   make -j1 && \
   make install && \
   rm -rf ${DIR}

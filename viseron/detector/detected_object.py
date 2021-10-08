@@ -1,10 +1,13 @@
 """Represents a detected object."""
-import viseron.helpers as helpers
+from viseron import helpers
 
 
 class DetectedObject:
-    """Object that holds a detected object. All coordinates and metrics are relative
-    to make it easier to do calculations on different image resolutions."""
+    """Object that holds a detected object.
+
+    All coordinates and metrics are relative to make it easier to do calculations on
+    different image resolutions.
+    """
 
     def __init__(
         self, label, confidence, x1, y1, x2, y2, relative=True, image_res=None
@@ -28,6 +31,7 @@ class DetectedObject:
         self._rel_height = float(round(self._rel_y2 - self._rel_y1, 3))
         self._trigger_recorder = False
         self._relevant = False
+        self._filter_hit = None
 
     @property
     def label(self):
@@ -94,10 +98,22 @@ class DetectedObject:
 
     @property
     def relevant(self):
-        """Return if object is relevant, which means it passed through all filters.
-        This does not mean the object will trigger the recorder."""
+        """Return if object is relevant.
+
+        Relevant means it passed through all filters.
+        This does not mean the object will trigger the recorder.
+        """
         return self._relevant
 
     @relevant.setter
     def relevant(self, value):
         self._relevant = value
+
+    @property
+    def filter_hit(self):
+        """Return which filter that discarded the object."""
+        return self._filter_hit
+
+    @filter_hit.setter
+    def filter_hit(self, value):
+        self._filter_hit = value

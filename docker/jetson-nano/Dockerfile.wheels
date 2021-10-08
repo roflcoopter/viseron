@@ -49,6 +49,10 @@ RUN \
   && cd /wheels \
   && curl -sOL https://github.com/google-coral/pycoral/releases/download/release-frogfish/tflite_runtime-2.5.0-cp38-cp38-linux_$PLATFORM.whl \
   \
+  && echo "Downloading pycoral https://github.com/google-coral/pycoral/releases/download/release-frogfish/pycoral-1.0.0-cp38-cp38-linux_$PLATFORM.whl" \
+  && cd /wheels \
+  && curl -sOL https://github.com/google-coral/pycoral/releases/download/release-frogfish/pycoral-1.0.0-cp38-cp38-linux_$PLATFORM.whl \
+  \
   && pip3 wheel --wheel-dir=/wheels --find-links=/wheels -r /requirements.txt \
   # We need to install sklearn from pip since we are using self supplied Python3 and not the one from apt
   && pip3 wheel --wheel-dir=/wheels --find-links=/wheels sklearn \

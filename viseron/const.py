@@ -1,10 +1,11 @@
-""" Constants """
+"""Constants."""
 from typing import List
 
 from cv2 import FONT_HERSHEY_SIMPLEX
 
 CONFIG_PATH = "/config/config.yaml"
 SECRETS_PATH = "/config/secrets.yaml"
+RECORDER_PATH = "/recordings"
 DEFAULT_CONFIG = """
 # See the README for the full list of configuration options.
 cameras:
@@ -86,8 +87,8 @@ HWACCEL_RPI4_DECODER_CODEC_MAP = {"h264": "h264_v4l2m2m"}
 HWACCEL_RPI4_ENCODER_CODEC = "h264_v4l2m2m"
 
 HWACCEL_JETSON_NANO_DECODER_CODEC_MAP = {
-    "h264": "h264_nvv4l2dec",
-    "h265": "hevc_nvv4l2dec",
+    "h264": "h264_nvmpi",
+    "h265": "hevc_nvmpi",
 }
 
 RECORDER_GLOBAL_ARGS = ["-hide_banner"]
@@ -174,3 +175,8 @@ TOPIC_FRAME_PROCESSED_OBJECT = "/".join(
 
 TOPIC_POST_PROCESSOR = "post_processor"
 TOPIC_FRAME_SCAN_POSTPROC = "/".join([TOPIC_FRAME_SCAN, TOPIC_POST_PROCESSOR])
+
+# UI constants
+PREFIX_STATIC = "/ui/static/"
+PATH_STATIC = "/src/viseron/webserver/assets/static"
+PATH_TEMPLATES = "/src/viseron/webserver/assets/templates"

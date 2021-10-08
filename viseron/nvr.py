@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Dict, List, Union
 
 import cv2
 
-import viseron.helpers as helpers
 import viseron.mqtt
+from viseron import helpers
 from viseron.camera import FFMPEGCamera
 from viseron.camera.frame import Frame
 from viseron.const import (
@@ -60,6 +60,9 @@ class MQTTInterface:
             self.devices["switch"] = MQTTSwitch(config)
             self.devices["camera"] = MQTTCamera(config)
             self.devices["sensor"] = MQTTSensor(config, "status")
+            DataStream.subscribe_data(
+                f"{config.camera.name_slug}/status", self.status_state_callback
+            )
 
     def publish_image(self, object_frame, motion_frame, zones, resolution):
         """Publish image to MQTT."""
@@ -67,9 +70,15 @@ class MQTTInterface:
             # Draw on the object frame if it is supplied
             frame = object_frame if object_frame else motion_frame
             if self.config.motion_detection.mask:
-                helpers.draw_mask(
+                helpers.draw_motion_mask(
                     frame.decoded_frame_mat_rgb,
                     self.config.motion_detection.mask,
+                )
+
+            if self.config.object_detection.mask:
+                helpers.draw_object_mask(
+                    frame.decoded_frame_mat_rgb,
+                    self.config.object_detection.mask,
                 )
 
             if motion_frame and frame.motion_contours:
@@ -94,6 +103,10 @@ class MQTTInterface:
             if ret:
                 self.devices["camera"].publish(jpg.tobytes())
 
+    def status_state_callback(self, state):
+        """Update status state."""
+        self.status_state = state
+
     @property
     def status_state(self):
         """Return status state."""
@@ -105,15 +118,17 @@ class MQTTInterface:
         self.devices["sensor"].publish(state, attributes=self.status_attributes)
 
     def on_connect(self):
-        """Called when MQTT connection is established."""
+        """On established MQTT connection."""
         for device in self.devices.values():
             device.on_connect()
 
 
 class FFMPEGNVR:
     """Performs setup of all needed components for recording.
+
     Controls starting/stopping of motion detection, object detection, camera, recording.
-    Also handles publishing to MQTT."""
+    Also handles publishing to MQTT.
+    """
 
     nvr_list: Dict[str, object] = {}
 
@@ -128,7 +143,6 @@ class FFMPEGNVR:
         self.config = config
         self.kill_received = False
         self.camera_grabber = None
-
         self._objects_in_fov = []
         self._labels_in_fov = []
         self._reported_label_count = {}
@@ -140,7 +154,9 @@ class FFMPEGNVR:
             self._object_return_queue,
         )
         for object_filter in config.object_detection.labels:
-            self._object_filters[object_filter.label] = Filter(object_filter)
+            self._object_filters[object_filter.label] = Filter(
+                config, self.camera.resolution, object_filter
+            )
 
         self.zones: List[Zone] = []
         for zone in config.camera.zones:
@@ -182,7 +198,7 @@ class FFMPEGNVR:
 
         # Initialize recorder
         self._start_recorder = False
-        self.recorder = FFMPEGRecorder(config, detector.detection_lock)
+        self.recorder = FFMPEGRecorder(config)
 
         self.nvr_list[config.camera.name_slug] = self
         RestartableThread(
@@ -199,10 +215,11 @@ class FFMPEGNVR:
         self._logger.debug("NVR thread initialized")
 
     def __repr__(self):
+        """Insert name_slug in name."""
         return __name__ + "." + self.config.camera.name_slug
 
     def setup_loggers(self, config):
-        """Setup custom log names and levels."""
+        """Set up custom log names and levels."""
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
         if getattr(config.camera.logging, "level", None):
             self._logger.setLevel(config.camera.logging.level)
@@ -225,8 +242,9 @@ class FFMPEGNVR:
             self._object_logger.setLevel(config.camera.logging.level)
 
     def setup_mqtt(self):
-        """Setup various MQTT elements."""
+        """Set up various MQTT elements."""
         self._mqtt.on_connect()
+        self._mqtt.status_state = "connecting"
         self.recorder.on_connect()
 
         for zone in self.zones:
@@ -357,8 +375,7 @@ class FFMPEGNVR:
             self.recorder.stop_recording()
 
     def get_processed_object_frame(self) -> Union[None, Frame]:
-        """Return a frame along with its detections which has been processed
-        by the object detector."""
+        """Return a frame along with detections from the object detector."""
         try:
             return self._object_return_queue.get_nowait().frame
         except Empty:
@@ -428,8 +445,7 @@ class FFMPEGNVR:
             zone.filter_zone(frame)
 
     def get_processed_motion_frame(self) -> Union[None, Frame]:
-        """Return a frame along with its motion contours which has been processed
-        by the motion detector"""
+        """Return a frame along with motion contours from the motion detector."""
         try:
             return self._motion_return_queue.get_nowait().frame
         except Empty:
@@ -559,8 +575,16 @@ class FFMPEGNVR:
             self._mqtt.status_state = status
 
     def run(self):
-        """Main thread. It handles starting/stopping of recordings and
-        publishes to MQTT if object is detected. Speed is determined by FPS"""
+        """
+        Collect information from detectors and stop/start recordings.
+
+        Main thread for the NVR.
+        Handles:
+            - Filter motion/object detections
+            - Starting/stopping of recordings
+            - Publishes status information to MQTT.
+        Speed is determined by FPS
+        """
         self._logger.debug("Waiting for first frame")
         self.camera.frame_ready.wait()
         self._logger.debug("First frame received")

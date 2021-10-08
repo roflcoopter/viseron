@@ -141,6 +141,6 @@ class PostProcessor:
             self._post_processor.process(frame_to_process)
 
     def on_connect(self):
-        """Called when MQTT connection is established."""
+        """On established MQTT connection."""
         if getattr(self._post_processor, "on_connect", None):
             self._post_processor.on_connect()

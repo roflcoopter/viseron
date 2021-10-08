@@ -7,8 +7,19 @@ import tornado.gen
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
+from tornado.routing import PathMatches
 
+from viseron.const import PATH_STATIC, PATH_TEMPLATES, PREFIX_STATIC, RECORDER_PATH
+from viseron.webserver.api import APIRouter
+from viseron.webserver.not_found_handler import NotFoundHandler
 from viseron.webserver.stream_handler import DynamicStreamHandler, StaticStreamHandler
+from viseron.webserver.ui import (
+    AboutHandler,
+    CamerasHandler,
+    IndexHandler,
+    RecordingsHandler,
+    SettingsHandler,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -37,19 +48,19 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             except tornado.websocket.WebSocketClosedError:
                 break
 
-    def open(self, *args: str, **kwargs: str):
-        """Called on websocket open."""
+    def open(self, *_args: str, **_kwargs: str):
+        """Websocket open."""
         LOGGER.debug("WebSocket opened")
         tornado.ioloop.IOLoop.current().add_future(
             self.get_data(), lambda f: self.close()
         )
 
     def on_message(self, message):
-        """Called on websocket message."""
+        """Websocket message received."""
         self.write_message("You said: " + message)
 
     def on_close(self):  # pylint: disable=no-self-use
-        """Called on websocket close."""
+        """Websocket close."""
         LOGGER.debug("WebSocket closed")
 
 
@@ -58,7 +69,7 @@ class RegularSocketHandler(tornado.web.RequestHandler):
 
     def get(self):
         """GET request."""
-        self.render("assets/index.html")
+        self.render("ws_index.html")
 
 
 class DeprecatedStreamHandler(tornado.web.RequestHandler):
@@ -73,12 +84,12 @@ class DeprecatedStreamHandler(tornado.web.RequestHandler):
         self.redirect(f"/{camera}/mjpeg-stream")
 
 
-class NotFoundHandler(tornado.web.RequestHandler):
-    """Default handler."""
+class IndexRedirect(tornado.web.RequestHandler):
+    """Redirect handler for index."""
 
-    def prepare(self):  # pylint: disable=no-self-use
-        """Catch all methods."""
-        raise tornado.web.HTTPError(404)
+    def get(self):
+        """GET request."""
+        self.redirect("/ui/")
 
 
 class WebServer(threading.Thread):
@@ -93,7 +104,7 @@ class WebServer(threading.Thread):
     @staticmethod
     def create_application():
         """Return tornado web app."""
-        return tornado.web.Application(
+        application = tornado.web.Application(
             [
                 (r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-stream", DynamicStreamHandler),
                 (
@@ -106,10 +117,32 @@ class WebServer(threading.Thread):
                 (r"/ws-stream", RegularSocketHandler),
                 (r"/websocket", WebSocketHandler),
                 (r"/(?P<camera>[A-Za-z0-9_]+)/stream", DeprecatedStreamHandler),
+                (r"/ui/", IndexHandler),
+                (r"/ui/about", AboutHandler),
+                (r"/ui/cameras", CamerasHandler),
+                (r"/ui/index", IndexHandler),
+                (r"/ui/recordings", RecordingsHandler),
+                (r"/ui/settings", SettingsHandler),
+                (
+                    r"/recordings/(.*)",
+                    tornado.web.StaticFileHandler,
+                    {"path": RECORDER_PATH},
+                ),
+                (r"/", IndexRedirect),
             ],
             default_handler_class=NotFoundHandler,
+            template_path=PATH_TEMPLATES,
+            static_path=PATH_STATIC,
+            static_url_prefix=PREFIX_STATIC,
             debug=True,
         )
+        application.add_handlers(
+            r".*",
+            [
+                (PathMatches(r"/api/.*"), APIRouter(application)),
+            ],
+        )
+        return application
 
     def run(self):
         """Start ioloop."""

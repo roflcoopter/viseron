@@ -72,7 +72,7 @@ RUN \
   make install && \
   rm -rf ${DIR}
 ### x265 http://x265.org/
-# Cant build this on ARM, installed from apt instead
+# Can't build this on ARM, installed from apt instead
 # ARG X265_VERSION
 # RUN \
 #   DIR=/tmp/x265 && \
@@ -295,7 +295,7 @@ RUN \
   DIR=/tmp/fribidi && \
   cd ${DIR} && \
   ./configure --prefix="${PREFIX}" --disable-static --enable-shared && \
-  # Use -j1 because fribidi breaks when building in parallell and c2man is not installed
+  # Use -j1 because fribidi breaks when building in parallel and c2man is not installed
   make -j1 && \
   make install && \
   rm -rf ${DIR}

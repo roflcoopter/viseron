@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import subprocess as sp
-from time import sleep
 from typing import TYPE_CHECKING, Dict, Optional, Union
 
 import cv2
@@ -24,6 +23,7 @@ from viseron.const import (
     FFMPEG_LOG_LEVELS,
     FFPROBE_TIMEOUT,
 )
+from viseron.detector import Detector
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
 from viseron.helpers.logs import FFmpegFilter, LogPipe, SensitiveInformationFilter
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
@@ -113,15 +113,17 @@ class Stream:
 
     @property
     def alias(self):
-        """Return ffmpeg executable alias."""
+        """Return FFmpeg executable alias."""
         alias = self._config.camera.name_slug
         if self._write_segments and not self._pipe_frames:
             alias = f"{alias}_segments"
         return alias
 
     def create_symlink(self):
-        """Creates a symlink to ffmpeg executable to know which ffmpeg command
-        belongs to which camera."""
+        """Create a symlink to FFmpeg executable.
+
+        This is done to know which FFmpeg command belongs to which camera.
+        """
         try:
             os.symlink(os.getenv(ENV_FFMPEG_PATH), f"/home/abc/bin/{self.alias}")
         except FileExistsError:
@@ -172,11 +174,12 @@ class Stream:
             reraise=True,
         ):
             with attempt:
-                pipe = sp.Popen(  # type: ignore
-                    ffprobe_command,
-                    stdout=sp.PIPE,
-                    stderr=self._log_pipe,
-                )
+                with Detector.lock:
+                    pipe = sp.Popen(  # type: ignore
+                        ffprobe_command,
+                        stdout=sp.PIPE,
+                        stderr=self._log_pipe,
+                    )
                 try:
                     stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
                     pipe.wait(timeout=FFPROBE_TIMEOUT)
@@ -338,46 +341,27 @@ class Stream:
 
     def pipe(self, single_frame=False):
         """Return subprocess pipe for FFmpeg."""
-        if single_frame:
+        with Detector.lock:
+            if single_frame:
+                return sp.Popen(
+                    self.build_command(
+                        ffmpeg_loglevel="fatal", single_frame=single_frame
+                    ),
+                    stdout=sp.PIPE,
+                    stderr=sp.PIPE,
+                )
+            if self._write_segments and not self._pipe_frames:
+                return RestartablePopen(
+                    self.build_command(),
+                    stdout=sp.PIPE,
+                    stderr=self._log_pipe,
+                    name=self.alias,
+                )
             return sp.Popen(
-                self.build_command(ffmpeg_loglevel="fatal", single_frame=single_frame),
-                stdout=sp.PIPE,
-                stderr=sp.PIPE,
-            )
-        if self._write_segments and not self._pipe_frames:
-            return RestartablePopen(
                 self.build_command(),
                 stdout=sp.PIPE,
                 stderr=self._log_pipe,
-                name=self.alias,
             )
-        return sp.Popen(
-            self.build_command(),
-            stdout=sp.PIPE,
-            stderr=self._log_pipe,
-        )
-
-    def check_command(self):
-        """Check if generated FFmpeg command works."""
-        self._logger.debug("Performing a sanity check on the ffmpeg command")
-        retry = False
-        while True:
-            pipe = self.pipe(single_frame=True)
-            _, stderr = pipe.communicate()
-            if stderr and not any(
-                err in stderr.decode()
-                for err in self._config.camera.ffmpeg_recoverable_errors
-            ):
-                self._logger.error(
-                    f"Error starting decoder command! {stderr.decode()} "
-                    f"Retrying in 5 seconds"
-                )
-                sleep(5)
-                retry = True
-                continue
-            if retry:
-                self._logger.error("Successful reconnection!")
-            break
 
     def start_pipe(self):
         """Start piping frames from FFmpeg."""

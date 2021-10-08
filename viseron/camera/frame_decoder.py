@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from queue import Queue
 from threading import Event
@@ -26,12 +27,15 @@ class FrameToScan:
     stream_width: int
     stream_height: int
     camera_config: NVRConfig
+    capture_time: float
 
 
 class FrameDecoder:
     """Subscribes to raw frames and decodes them.
+
     Frames are then published to subsribers, object/motion detector.
-    This makes it possible to decode frames in parallel with detection."""
+    This makes it possible to decode frames in parallel with detection.
+    """
 
     def __init__(
         self,
@@ -95,11 +99,12 @@ class FrameDecoder:
                 DataStream.publish_data(
                     self._topic_decode,
                     FrameToScan(
-                        self,
+                        self.name,
                         current_frame,
                         self._stream.width,
                         self._stream.height,
                         self._config,
+                        time.time(),
                     ),
                 )
 
@@ -108,7 +113,7 @@ class FrameDecoder:
             self._frame_number = 0
 
     def decode_frame(self):
-        """Decodes received frames from scan_frame."""
+        """Decode received frame from scan_frame."""
         self._logger.debug("Starting decoder thread")
         while True:
             frame_to_scan: FrameToScan = self._decoder_queue.get()

@@ -28,7 +28,7 @@ ENV \
   DEBIAN_FRONTEND=noninteractive \
   PIP_IGNORE_INSTALLED=0
 
-# NVIDIA repos use HTTPS so we need som additional libraries first
+# NVIDIA repos use HTTPS so we need some additional libraries first
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \

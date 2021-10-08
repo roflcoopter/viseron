@@ -13,7 +13,13 @@ from tornado.queues import Queue
 from viseron.config.config_camera import MJPEG_STREAM_SCHEMA
 from viseron.const import TOPIC_FRAME_PROCESSED, TOPIC_STATIC_MJPEG_STREAMS
 from viseron.data_stream import DataStream
-from viseron.helpers import draw_contours, draw_mask, draw_objects, draw_zones
+from viseron.helpers import (
+    draw_contours,
+    draw_motion_mask,
+    draw_object_mask,
+    draw_objects,
+    draw_zones,
+)
 from viseron.nvr import FFMPEGNVR
 
 LOGGER = logging.getLogger(__name__)
@@ -29,7 +35,7 @@ class StreamHandler(tornado.web.RequestHandler):
             frame.resize(
                 "tornado", mjpeg_stream_config["width"], mjpeg_stream_config["height"]
             )
-            # TODO move this to a preprocess
+            # TODO move this to a preprocess pylint: disable=fixme
             processed_frame = frame.get_preprocessed_frame(
                 "tornado"
             ).get()  # Convert to Mat
@@ -38,9 +44,15 @@ class StreamHandler(tornado.web.RequestHandler):
             processed_frame = frame.decoded_frame_mat_rgb
 
         if mjpeg_stream_config["draw_motion_mask"] and nvr.config.motion_detection.mask:
-            draw_mask(
+            draw_motion_mask(
                 processed_frame,
                 nvr.config.motion_detection.mask,
+            )
+
+        if mjpeg_stream_config["draw_object_mask"] and nvr.config.object_detection.mask:
+            draw_object_mask(
+                processed_frame,
+                nvr.config.object_detection.mask,
             )
 
         if mjpeg_stream_config["draw_motion"] and frame.motion_contours:

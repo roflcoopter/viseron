@@ -18,11 +18,14 @@ ignore-patterns=
 #init-hook=
 
 # Use multiple processes to speed up Pylint.
-jobs=1
+jobs=2
 
 # List of plugins (as comma separated values of python modules names) to load,
 # usually to register additional checkers.
-load-plugins=
+load-plugins=pylint_pytest,
+      pylint.extensions.typing,
+      pylint_strict_informational
+
 
 # Pickle collected data for later comparisons.
 persistent=yes
@@ -77,7 +80,8 @@ disable=format,
       too-many-public-methods,
       too-many-return-statements,
       too-many-statements,
-      too-many-boolean-expressions
+      too-many-boolean-expressions,
+      consider-using-with
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -85,7 +89,8 @@ disable=format,
 # it should appear only once). See also the "--disable" option for examples.
 enable=c-extension-no-member,
       unused-import,
-      line-too-long
+      line-too-long,
+      useless-suppression
 
 
 [REPORTS]
@@ -395,7 +400,7 @@ dummy-variables-rgx=_+$|(_[a-zA-Z0-9_]*[a-zA-Z0-9]+?$)|dummy|^ignored_|^unused_
 ignored-argument-names=_.*|^ignored_|^unused_
 
 # Tells whether we should check for unused import in __init__ files.
-init-import=no
+init-import=yes
 
 # List of qualified module names which can have objects that can redefine
 # builtins.

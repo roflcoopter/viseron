@@ -4,7 +4,6 @@ import os
 import re
 from typing import Dict, List
 
-import numpy as np
 from voluptuous import (
     All,
     Any,
@@ -18,6 +17,7 @@ from voluptuous import (
     Schema,
 )
 
+import viseron.config
 from viseron.const import (
     CAMERA_GLOBAL_ARGS,
     CAMERA_HWACCEL_ARGS,
@@ -34,7 +34,7 @@ from viseron.const import (
     HWACCEL_RPI4_DECODER_CODEC_MAP,
     HWACCEL_VAAPI,
 )
-from viseron.helpers import slugify
+from viseron.helpers import generate_numpy_from_coordinates, slugify
 
 from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 from .config_object_detection import LABELS_SCHEMA, LabelConfig
@@ -118,6 +118,7 @@ MJPEG_STREAM_SCHEMA = Schema(
         Optional("draw_objects", default=False): Any(str, bool, bytes),
         Optional("draw_motion", default=False): Any(str, bool, bytes),
         Optional("draw_motion_mask", default=False): Any(str, bool, bytes),
+        Optional("draw_object_mask", default=False): Any(str, bool, bytes),
         Optional("draw_zones", default=False): Any(str, bool, bytes),
         Optional("rotate", default=0): All(Any(int, str), Coerce(int)),
         Optional("mirror", default=False): Any(str, bool, bytes),
@@ -133,25 +134,12 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
         Optional("password", default=None): Maybe(All(str, Length(min=1))),
         Optional("global_args", default=CAMERA_GLOBAL_ARGS): list,
         Optional("substream"): STREAM_SCEHMA,
-        Optional("motion_detection"): Maybe(
+        # Optional("motion_detection"):
+        Optional("object_detection"): Maybe(
             {
+                Optional("enable"): bool,
                 Optional("interval"): Any(int, float),
-                Optional("trigger_detector"): bool,
-                Optional("trigger_recorder"): bool,
-                Optional("timeout"): bool,
-                Optional("max_timeout"): int,
-                Optional("width"): int,
-                Optional("height"): int,
-                Optional("area"): All(
-                    Any(All(float, Range(min=0.0, max=1.0)), 1, 0),
-                    Coerce(float),
-                ),
-                Optional("threshold"): All(int, Range(min=0, max=255)),
-                Optional("alpha"): All(
-                    Any(All(float, Range(min=0.0, max=1.0)), 1, 0),
-                    Coerce(float),
-                ),
-                Optional("frames"): int,
+                Optional("labels"): LABELS_SCHEMA,
                 Optional("mask", default=[]): [
                     {
                         Required("points"): [
@@ -162,14 +150,9 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
                         ],
                     }
                 ],
-                Optional("logging"): LOGGING_SCHEMA,
-            },
-        ),
-        Optional("object_detection"): Maybe(
-            {
-                Optional("enable"): bool,
-                Optional("interval"): Any(int, float),
-                Optional("labels"): LABELS_SCHEMA,
+                Optional("max_frame_age"): All(
+                    Any(float, int), Coerce(float), Range(min=0.0)
+                ),
                 Optional("logging"): LOGGING_SCHEMA,
                 Optional("log_all_objects"): bool,
             },
@@ -215,17 +198,6 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
         },
         Optional("logging"): LOGGING_SCHEMA,
     },
-)
-
-SCHEMA = Schema(
-    All(
-        [
-            All(
-                CAMERA_SCHEMA,
-                ensure_mqtt_name,
-            )
-        ],
-    )
 )
 
 
@@ -398,28 +370,57 @@ class Substream(Stream):
 class CameraConfig(Stream):
     """Camera config."""
 
-    schema = SCHEMA
+    def __init__(self, camera, motion_detection):
+        self._schema = self.build_schema(camera, motion_detection)
+        self._validated_config = self._schema(camera)
 
-    def __init__(self, camera):
-        super().__init__(camera)
-        self._name = camera["name"]
+        super().__init__(self._validated_config)
+        self._name = self._validated_config["name"]
         self._name_slug = slugify(self.name)
-        self._mqtt_name = camera["mqtt_name"]
-        self._global_args = camera["global_args"]
+        self._mqtt_name = self._validated_config["mqtt_name"]
+        self._global_args = self._validated_config["global_args"]
         self._substream = None
-        if camera.get("substream", None):
-            self._substream = Substream(camera)
-        self._motion_detection = camera.get("motion_detection", {})
-        self._object_detection = camera.get("object_detection", {})
-        self._zones = self.generate_zones(camera["zones"])
-        self._publish_image = camera["publish_image"]
-        self._ffmpeg_loglevel = camera["ffmpeg_loglevel"]
-        self._ffmpeg_recoverable_errors = camera["ffmpeg_recoverable_errors"]
-        self._ffprobe_loglevel = camera["ffprobe_loglevel"]
-        self._static_mjpeg_streams = camera["static_mjpeg_streams"]
+        if self._validated_config.get("substream", None):
+            self._substream = Substream(self._validated_config)
+        self._motion_detection = self._validated_config.get("motion_detection", {})
+        self._object_detection = self._validated_config.get("object_detection", {})
+        self._zones = self.generate_zones(self._validated_config["zones"])
+        self._publish_image = self._validated_config["publish_image"]
+        self._ffmpeg_loglevel = self._validated_config["ffmpeg_loglevel"]
+        self._ffmpeg_recoverable_errors = self._validated_config[
+            "ffmpeg_recoverable_errors"
+        ]
+        self._ffprobe_loglevel = self._validated_config["ffprobe_loglevel"]
+        self._static_mjpeg_streams = self._validated_config["static_mjpeg_streams"]
         self._logging = None
-        if camera.get("logging", None):
-            self._logging = LoggingConfig(camera["logging"])
+        if self._validated_config.get("logging", None):
+            self._logging = LoggingConfig(self._validated_config["logging"])
+
+    @staticmethod
+    def build_schema(camera, motion_detection):
+        """Build dynamic schema.
+
+        This is needed because the motion detection schema is loaded dynamically
+        so it cannot be hardcoded.
+        """
+        if not camera.get("motion_detection"):
+            camera["motion_detection"] = {}
+
+        # Inherit type from global motion detection config
+        camera["motion_detection"]["type"] = motion_detection["type"]
+        _, schema = viseron.config.import_motion_detection(camera["motion_detection"])
+        camera_schema = CAMERA_SCHEMA.extend(
+            {
+                Optional("motion_detection"): schema,
+            }
+        )
+        schema = Schema(
+            All(
+                camera_schema,
+                ensure_mqtt_name,
+            )
+        )
+        return schema
 
     def generate_zones(self, zones):
         """Return a list of zones converted to numpy arrays."""
@@ -436,13 +437,15 @@ class CameraConfig(Stream):
                 labels.append(LabelConfig(label))
             zone_dict["labels"] = labels
 
-            point_list = []
-            for point in zone["points"]:
-                point_list.append([point["x"], point["y"]])
-            zone_dict["coordinates"] = np.array(point_list)
+            zone_dict["coordinates"] = generate_numpy_from_coordinates(zone["points"])
             zone_list.append(zone_dict)
 
         return zone_list
+
+    @property
+    def validated_config(self):
+        """Return raw validated config."""
+        return self._validated_config
 
     @property
     def name(self):

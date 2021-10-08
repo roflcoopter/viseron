@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Union
 from tornado.ioloop import IOLoop
 from tornado.queues import Queue as tornado_queue
 
-import viseron.helpers as helpers
+from viseron import helpers
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 LOGGER = logging.getLogger(__name__)
@@ -17,12 +17,14 @@ LOGGER = logging.getLogger(__name__)
 
 class DataStream:
     """Class that enables a publisher/subscriber mechanism.
+
     Used to pass around frames and events between different components.
 
     A data topic can have any value.
     You can subscribe to wildcard topics using '*', eg topic/*/event_name
 
-    Data is published to topics using a thread."""
+    Data is published to topics using a thread.
+    """
 
     _subscribers: Dict[str, Any] = {}
     _wildcard_subscribers: Dict[str, Any] = {}
@@ -46,7 +48,9 @@ class DataStream:
         data_topic: str, callback: Union[Callable, Queue, tornado_queue]
     ) -> uuid.UUID:
         """Subscribe to data on a topic.
-        Returns a Unique ID which can be used to unsubscribe later."""
+
+        Returns a Unique ID which can be used to unsubscribe later.
+        """
         LOGGER.debug(f"Subscribing to data topic {data_topic}, {callback}")
         unique_id = uuid.uuid4()
 

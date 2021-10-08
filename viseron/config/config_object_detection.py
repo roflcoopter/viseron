@@ -20,6 +20,7 @@ from viseron.const import (
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
+from viseron.helpers import generate_mask
 from viseron.helpers.validators import deprecated
 
 from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
@@ -27,25 +28,11 @@ from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 
 def ensure_min_max(label: dict) -> dict:
     """Ensure min values are not larger than max values."""
-    if label["height_min"] > label["height_max"]:
-        raise Invalid("height_min may not be larger than height_max")
-    if label["width_min"] > label["width_max"]:
-        raise Invalid("width_min may not be larger than width_max")
+    if label["height_min"] >= label["height_max"]:
+        raise Invalid("height_min may not be larger or equal to height_max")
+    if label["width_min"] >= label["width_max"]:
+        raise Invalid("width_min may not be larger or equal to width_max")
     return label
-
-
-# TODO test this inside docker container
-def ensure_label(detector: dict) -> dict:
-    """Ensure label exists in label file."""
-    if detector["type"] in ["darknet", "edgetpu"] and detector["label_path"] is None:
-        raise Invalid("Detector type {} requires a label file".format(detector["type"]))
-    if detector["label_path"]:
-        with open(detector["label_path"], "rt") as label_file:
-            labels_file = label_file.read().rstrip("\n").split("\n")
-        for label in detector["labels"]:
-            if label not in labels_file:
-                raise Invalid("Provided label doesn't exist in label file")
-    return detector
 
 
 def get_detector_type() -> str:
@@ -162,6 +149,9 @@ SCHEMA = Schema(
             Any(float, int), Coerce(float), Range(min=0.0)
         ),
         Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
+        Optional("max_frame_age", default=2): All(
+            Any(float, int), Coerce(float), Range(min=0.0)
+        ),
         Optional("log_all_objects", default=False): bool,
         Optional("logging"): LOGGING_SCHEMA,
     },
@@ -170,14 +160,16 @@ SCHEMA = Schema(
 
 
 class ObjectDetectionConfig:
-    """Object detection config. All object detector config classes must inherit
-    from this one.
+    """Object detection config.
+
+    All object detector config classes must inherit from this one.
 
     ALLOW_EXTRA is set in the base schema to allow each detector to have its own
     config options.
     PREVENT_EXTRA is added after the global config is validated.
     The config is validated again in the Detector class, but with each detectors
-    unique schema."""
+    unique schema.
+    """
 
     schema = SCHEMA
 
@@ -191,6 +183,11 @@ class ObjectDetectionConfig:
         self._labels = []
         for label in camera_object_detection.get("labels", object_detection["labels"]):
             self._labels.append(LabelConfig(label))
+        self._mask = generate_mask(camera_object_detection.get("mask", []))
+
+        self._max_frame_age = camera_object_detection.get(
+            "max_frame_age", object_detection["max_frame_age"]
+        )
 
         self._log_all_objects = camera_object_detection.get(
             "log_all_objects", object_detection["log_all_objects"]
@@ -208,7 +205,7 @@ class ObjectDetectionConfig:
         )
 
     def concat_labels(self, camera_zones) -> List[LabelConfig]:
-        """Creates a concatenated list of global labels + all labels in each zone"""
+        """Return a concatenated list of global labels + all labels in each zone."""
         zone_labels = []
         for zone in camera_zones:
             zone_labels += zone["labels"]
@@ -241,9 +238,19 @@ class ObjectDetectionConfig:
         return self._labels
 
     @property
+    def max_frame_age(self) -> float:
+        """Return max frame age."""
+        return self._max_frame_age
+
+    @property
     def log_all_objects(self) -> bool:
         """Return if all labels should be logged, not only configured labels."""
         return self._log_all_objects
+
+    @property
+    def mask(self):
+        """Return mask."""
+        return self._mask
 
     @property
     def logging(self) -> LoggingConfig:

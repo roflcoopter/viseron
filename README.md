@@ -41,12 +41,13 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
 # Table of Contents
 - [Supported architectures](#supported-architectures)
 - [Getting started](#getting-started)
+- [Contributing](#contributing)
 - [Configuration Options](#configuration-options)
   - [Cameras](#cameras)
     - [Substream](#substream)
     - [Camera motion detection](#camera-motion-detection)
-    - [Mask](#mask)
     - [Camera object detection](#camera-object-detection)
+    - [Mask](#mask)
     - [Zones](#zones)
     - [Points](#points)
     - [Static MJPEG streams](#static-mjpeg-streams)
@@ -56,6 +57,8 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
     - [DeepStack](#deepstack-objects)
     - [Labels](#labels)
   - [Motion detection](#motion-detection)
+    - [Background subtractor](#background-subtractor)
+    - [Background subtractor MOG2](#background-subtractor-mog2)
   - [Recorder](#recorder)
   - [User Interface](#user-interface)
     - [Dynamic MJPEG streams](#dynamic-mjpeg-streams)
@@ -313,6 +316,22 @@ The ```config.yaml``` has to be mounted to the folder ```/config```.\
 If no config is present, a default minimal one will be created.\
 Here you need to fill in at least your cameras and you should be good to go.
 
+# Contributing
+Contributors to the project are very much appreciated.
+See the [contribution guidelines](docs/CONTRIBUTING.md) on how to get started.
+
+Some things you can help with:
+- Implement an open feature request or issue from the [issue tracker](https://github.com/roflcoopter/viseron/issues)
+- Improve the documentation
+- Answer questions in issues or [discussions](https://github.com/roflcoopter/viseron/discussions)
+
+You can also use the links below to sponsor Viseron or make a one time donation.
+
+<a href="https://github.com/sponsors/roflcoopter" target="_blank"><img src="docs/img/sponsor_button.png" alt="Sponsor" style="height: 37px !important;width: 170px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5)" ></a>
+<a href="https://www.buymeacoffee.com/roflcoopter" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+
+---
+
 # Configuration Options
 ## Cameras
 
@@ -364,7 +383,7 @@ The command is built like this: \
 | input_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
 | hwaccel_args | list | optional | a valid list of FFmpeg arguments | FFmpeg decoder hardware acceleration arguments |
 | codec | str | optional | any supported decoder codec | FFmpeg video decoder codec, eg ```h264_cuvid```<br>Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information) |
-| audio_codec | str | `copy` | any supported audio encoder codec | FFmpeg audio encoder codec for the generated segments, eg ```aac```.<br>Note that if you set this, FFmpeg will have to reencode your stream which increases system load.<br>Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information) |
+| audio_codec | str | `copy` | any supported audio encoder codec | FFmpeg audio encoder codec for the generated segments, eg ```aac```.<br>Note that if you set this, FFmpeg will have to re-encode your stream which increases system load.<br>Will use FFprobe to get this information if not given, see [FFprobe stream information](#FFprobe-stream-information) |
 | rtsp_transport | str | ```tcp``` | ```tcp```, ```udp```, ```udp_multicast```, ```http``` | Sets RTSP transport protocol. Change this if your camera doesn't support TCP |
 | filter_args | list | optional | a valid list of FFmpeg arguments | See source code for default arguments |
 | frame_timeout | int | 60 | any int | A timeout in seconds. If a frame has not been received in this time period FFmpeg will be restarted |
@@ -467,23 +486,22 @@ You should also change the resolution to something lower than the main stream to
 ---
 
 ### Camera motion detection
+Refer to the global [motion detection config](#motion-detection).\
+Note that you must use the same `type` for each camera.\
+Each setting set here overrides the global [motion detection config](#motion-detection).
+
+---
+
+### Camera object detection
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| interval | float | 1.0 | any float | Run motion detection at this interval in seconds on the most recent frame. <br>For optimal performance, this should be divisible with the object detection interval, because then preprocessing will only occur once for each frame. |
-| trigger_recorder | bool | true | True/False | If true, detected motion will start the recorder |
-| trigger_detector | bool | true | True/False | If true, the object detector will only run while motion is detected. |
-| timeout | bool | true | True/False | If true, recording will continue until no motion is detected |
-| max_timeout | int | 30 | any integer | Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected. <br>This is to prevent never-ending recordings. <br>Only applicable if ```timeout: true```.
-| width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
-| height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
-| area | float | 0.0 - 1.0 | any float | How big the detected area must be in order to trigger motion |
-| threshold | int | 25 | 0 - 255 | The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. Smaller leads to higher sensitivity, larger values lead to lower sensitivity |
-| alpha | float | 0.2 | 0.0 - 1.0 | How much the current image impacts the moving average.<br>Higher values impacts the average frame a lot and very small changes may trigger motion.<br>Lower value impacts the average less, and fast objects may not trigger motion |
-| frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
-| mask | list | optional | see [Mask config](#mask) | Allows you to specify masks in the shape of polygons. <br>Use this to ignore motion in certain areas of the image |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the motion detector.<br>This affects all logs named ```viseron.motion.<camera name>``` and  ```viseron.nvr.<camera name>.motion``` |
-
-Each setting set here overrides the global [motion detection config](#motion-detection).
+| enable | bool | True | true/false | If set to false, object detection is disabled for this camera |
+| interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
+| labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). |
+| mask | list | optional | see [Mask config](#mask) | Allows you to specify masks in the shape of polygons. <br>Use this to ignore objects in certain areas of the image |
+| log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy. Overrides global [config](#object-detection) |
+| max_frame_age | float | 2 | any float larger than 0.0 | Drop frames that are older than this number, in seconds. Overrides global [config](#object-detection) |
+| logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the object detector.<br>This affects all logs named ```viseron.nvr.<camera name>.object``` |
 
 ---
 
@@ -519,6 +537,27 @@ Each setting set here overrides the global [motion detection config](#motion-det
                 y: 750
               - x: 300
                 y: 750
+      object_detection:
+        area: 0.07
+        mask:
+          - points:
+              - x: 0
+                y: 0
+              - x: 250
+                y: 0
+              - x: 250
+                y: 250
+              - x: 0
+                y: 250
+          - points:
+              - x: 400
+                y: 200
+              - x: 1000
+                y: 200
+              - x: 1000
+                y: 750
+              - x: 400
+                y: 750
   ```
 </details>
 
@@ -526,20 +565,12 @@ Each setting set here overrides the global [motion detection config](#motion-det
 | -----| -----| ------- | ----------------- |------------ |
 | points | list | **required** | a list of [points](#points) | Used to draw a polygon of the mask
 
-Masks are used to exclude certain areas in the image from triggering motion.\
+Masks are used to exclude certain areas in the image from motion or object detection depending on the configuration.\
 Say you have a camera which is filming some trees. When the wind is blowing, motion will probably be detected.\
-Draw a mask over these trees and they will no longer trigger said motion.
+Add a mask under the cameras `motion_detection` block that cover these trees and they will no longer trigger said motion.
 
----
+To ignore all objects in a certain area, add a mask under the cameras `object_detection` block that covers the area.
 
-### Camera object detection
-| Name | Type | Default | Supported options | Description |
-| -----| -----| ------- | ----------------- |------------ |
-| enable | bool | True | true/false | If set to false, object detection is disabled for this camera |
-| interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
-| labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). |
-| log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy. Overrides global [config](#object-detection) |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the object detector.<br>This affects all logs named ```viseron.nvr.<camera name>.object``` |
 ---
 
 ### Zones
@@ -604,7 +635,7 @@ To remedy this you define a zone which covers **only** the area that you are act
 | x | int | **required** | any int | X-coordinate of point |
 | y | int | **required** | any int | Y-coordinate of point |
 
-Points are used to form a polygon for an object detection zone or a motion detection mask.
+Points are used to form a polygon for a zone or a object/motion detection mask.
 
 To easily generate points you can use a tool like [image-map.net](https://www.image-map.net/).\
 Just upload an image from your camera and start drawing your zone.\
@@ -655,6 +686,7 @@ points:
 | draw_objects | bool | optional | true/false | If set, found objects will be drawn |
 | draw_motion | bool | optional | true/false | If set, detected motion will be drawn |
 | draw_motion_mask | bool | optional | true/false | If set, configured motion masks will be drawn |
+| draw_object_mask | bool | optional | true/false | If set, configured object masks will be drawn |
 | draw_zones | bool | optional | true/false | If set, configured zones will be drawn |
 | rotate | int | optional | any int | Degrees to rotate the image. Positive/negative values rotate clockwise/counter clockwise respectively |
 | mirror | bool | optional | true/false | If set, mirror the image horizontally |
@@ -698,6 +730,7 @@ The config example above would give you two streams, available at these endpoint
 | model_height | int | optional | any integer | Detected from model.<br>Frames will be resized to this height in order to fit model and save computing power.<br>I dont recommend changing this. |
 | interval | float | 1.0 | any float | Run object detection at this interval in seconds on the most recent frame. |
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
+| max_frame_age | float | 2 | any float larger than 0.0 | Drop frames that are older than this number, in seconds. Overrides global [config](#object-detection) |
 | log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the object detector.<br>This affects all logs named ```viseron.detector``` and  ```viseron.nvr.<camera name>.object``` |
 
@@ -743,11 +776,11 @@ If you want to swap to YOLOv3-tiny you can change these configuration options:
 | -----| -----| ------- | ----------------- |------------ |
 | model_path | str | ```/detectors/models/edgetpu/model.tflite``` | any valid path | Path to the object detection model |
 | label_path | str | ```/detectors/models/edgetpu/labels.txt``` | any valid path | Path to the file containing labels for the model |
+| device | str | `:0` | `:<N>` – use N-th EdgeTPU<br>`usb` – use any USB EdgeTPU<br>`usb:<N>` – use N-th USB EdgeTPU<br>`pci` – use any PCIe EdgeTPU<br>`pci:<N>` – use N-th PCIe EdgeTPU<br>`cpu` – use CPU instead of EdgeTPU | Which EdgeTPU to use.<br>Change this if you have multiple devices and want to use a specific one. |
 
 The above options are specific to the ```type: edgetpu``` detector.\
 The included models are placed inside ```/detectors/models/edgetpu``` folder.\
 There are two models available, one that runs on the EdgeTPU and one the runs on the CPU.
-If no EdgeTPU is found, Viseron will fallback to use the CPU model instead.
 
 ---
 
@@ -798,7 +831,14 @@ For the built in models you can check the ```label_path``` file to see which lab
   <code>docker exec -it viseron cat /detectors/models/edgetpu/labels.txt</code>
 </details>
 
-The max/min width/height is used to filter out any unreasonably large/small objects to reduce false positives.
+The max/min width/height is used to filter out any unreasonably large/small objects to reduce false positives.\
+Objects can also be filtered out with the use of an optional [mask](#mask).
+
+**Important**: Viseron defaults to track `label: person`. This means that if you want not track any label at all you have to explicitly do so like this:
+```yaml
+object_detection:
+  labels: []
+```
 
 ---
 
@@ -821,6 +861,7 @@ The max/min width/height is used to filter out any unreasonably large/small obje
 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
+| type | str | ```background_subtractor``` | ```background_subtractor```, ```mog2``` | What detection method to use.<br>Each detector has its own configuration options explained here:<br>[background_subtractor](#background-subtractor)<br>[mog2](#background-subtractor-mog2) |
 | interval | float | 1.0 | any float | Run motion detection at this interval in seconds on the most recent frame. <br>For optimal performance, this should be divisible with the object detection interval, because then preprocessing will only occur once for each frame. |
 | trigger_detector | bool | true | True/False | If true, the object detector will only run while motion is detected. |
 | trigger_recorder | bool | true | True/False | If true, detected motion will start the recorder |
@@ -828,16 +869,41 @@ The max/min width/height is used to filter out any unreasonably large/small obje
 | max_timeout | int | 30 | any integer | Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected. <br>This is to prevent never-ending recordings. <br>Only applicable if ```timeout: true```.
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
-| area | float | 0.0 - 1.0 | any float | How big the detected area must be in order to trigger motion |
-| threshold | int | 25 | 0 - 255 | The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. Smaller leads to higher sensitivity, larger values lead to lower sensitivity |
-| alpha | float | 0.2 | 0.0 - 1.0 | How much the current image impacts the moving average.<br>Higher values impacts the average frame a lot and very small changes may trigger motion.<br>Lower value impacts the average less, and fast objects may not trigger motion. More can be read [here](https://docs.opencv.org/3.4/d7/df3/group__imgproc__motion.html#ga4f9552b541187f61f6818e8d2d826bc7). |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
 | logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the motion detector. <br>This affects all logs named ```viseron.motion.<camera name>``` and  ```viseron.nvr.<camera name>.motion``` |
+
+The above options are global for all types of motion detectors detectors.
+
+---
+
+### Background subtractor
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| area | float | 0.08| 0.0 - 1.0 | How big the detected area must be in order to trigger motion |
+| threshold | int | 15 | 0 - 255 | The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. Smaller leads to higher sensitivity, larger values lead to lower sensitivity |
+| alpha | float | 0.2 | 0.0 - 1.0 | How much the current image impacts the moving average.<br>Higher values impacts the average frame a lot and very small changes may trigger motion.<br>Lower value impacts the average less, and fast objects may not trigger motion. More can be read [here](https://docs.opencv.org/3.4/d7/df3/group__imgproc__motion.html#ga4f9552b541187f61f6818e8d2d826bc7). |
+
+The above options are specific to the ```type: background_subtractor``` detector.\
 
 Motion detection works by creating a running average of frames, and then comparing the current frame to this average.\
 If enough changes have occurred, motion will be detected.\
 By using a running average, the "background" image will adjust to daylight, stationary objects etc.\
 [This](https://www.pyimagesearch.com/2015/06/01/home-surveillance-and-motion-detection-with-the-raspberry-pi-python-and-opencv/) blogpost from PyImageSearch explains this procedure quite well.
+
+---
+
+### Background subtractor MOG2
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| area | float | 0.08 | 0.0 - 1.0 | How big the detected area must be in order to trigger motion |
+| threshold | int | 15 | 0 - 255 | The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. Smaller leads to higher sensitivity, larger values lead to lower sensitivity |
+| history | int | 500 | any int | Length of the history |
+| detect_shadows | bool | False | True/false | If True, shadows will be considered as motion. Enabling will also reduce speed by a little |
+| learning_rate | float | 0.01 | 0.0 - 1.0 | How fast the background model learns. 0 means that the background model is not updated at all, 1 means that the background model is completely reinitialized from the last frame |
+
+The above options are specific to the ```type: mog2``` detector.
+
+Performs motion detection using the Background subtraction MOG2 algorithm.
 
 ---
 
@@ -1287,7 +1353,7 @@ The switch is used to arm/disarm a camera. When disarmed, no system resources ar
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | level | str | ```INFO``` | ```DEBUG```, ```INFO```, ```WARNING```, ```ERROR```, ```FATAL``` | Log level |
-| color_log | bool | True | True/False | Controls wether the log is colored or not |
+| color_log | bool | True | True/False | Controls whether the log is colored or not |
 
 ---
 
@@ -1424,5 +1490,6 @@ Intel NUC NUC7i5BNH (Intel i5-7260U CPU @ 2.20GHz 2 cores) **without** VAAPI or 
 https://devblogs.nvidia.com/object-detection-pipeline-gpus/
 
 ---
+<a href="https://github.com/sponsors/roflcoopter" target="_blank"><img src="docs/img/sponsor_button.png" alt="Sponsor" style="height: 37px !important;width: 170px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5)" ></a>
 <a href="https://www.buymeacoffee.com/roflcoopter" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a> \
 Donations are very appreciated and will go directly into more hardware for Viseron to support.

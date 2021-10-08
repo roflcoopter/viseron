@@ -5,7 +5,7 @@ import logging
 import cv2
 
 from viseron.camera.frame_decoder import FrameToScan
-from viseron.detector import AbstractObjectDetection
+from viseron.detector import AbstractObjectDetection, Detector
 from viseron.detector.detected_object import DetectedObject
 
 from .config import Config
@@ -50,7 +50,7 @@ class ObjectDetection(AbstractObjectDetection):
         # Load names of labels
         self.labels = None
         if labels:
-            with open(labels, "rt") as labels_file:
+            with open(labels, "rt", encoding="utf-8") as labels_file:
                 self.labels = labels_file.read().rstrip("\n").split("\n")
 
     def load_network(self, model, model_config, backend, target):
@@ -61,6 +61,7 @@ class ObjectDetection(AbstractObjectDetection):
         self.net.setPreferableTarget(target)
 
     def preprocess(self, frame_to_scan: FrameToScan):
+        """Preprocess frame before detection."""
         frame_to_scan.frame.resize(
             frame_to_scan.decoder_name,
             self._model_width,
@@ -91,12 +92,18 @@ class ObjectDetection(AbstractObjectDetection):
         return detections
 
     def return_objects(self, frame_to_scan: FrameToScan):
-        """Perform object detection."""
-        labels, confidences, boxes = self.model.detect(
-            frame_to_scan.frame.get_preprocessed_frame(frame_to_scan.decoder_name),
-            frame_to_scan.camera_config.object_detection.min_confidence,
-            self.nms,
-        )
+        """Perform object detection.
+
+        Running detection using CUDA at the exact same time as running sp.Popen causes
+        the detection process to hang and return the same results infinitely.
+        Therefore we acquire a lock before inference and sp.Popen to avoid this.
+        """
+        with Detector.lock:
+            labels, confidences, boxes = self.model.detect(
+                frame_to_scan.frame.get_preprocessed_frame(frame_to_scan.decoder_name),
+                frame_to_scan.camera_config.object_detection.min_confidence,
+                self.nms,
+            )
 
         objects = self.post_process(labels, confidences, boxes)
         return objects
