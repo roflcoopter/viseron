@@ -200,18 +200,18 @@ class TestViseronConfig:
 
 GLOBAL_MOTION_DETECTION = {
     "type": "background_subtractor",
-    "threshold": 15,
-    "height": 300,
-    "trigger_recorder": False,
-    "width": 300,
-    "interval": 1.0,
-    "frames": 3,
-    "alpha": 0.1,
-    "max_timeout": 30,
-    "area": 0.08,
-    "trigger_detector": True,
+    "threshold": 1,
+    "height": 30,
+    "trigger_recorder": True,
+    "width": 30,
+    "interval": 2,
+    "frames": 2,
+    "alpha": 1,
+    "max_timeout": 3,
+    "area": 0.07,
+    "trigger_detector": False,
     "mask": [],
-    "timeout": True,
+    "timeout": False,
 }
 
 LOCAL_MOTION_DETECTION = {
