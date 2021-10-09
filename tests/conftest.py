@@ -58,7 +58,7 @@ cameras:
         labels:
           - label: person
             confidence: 0.7
-            triggers_recording: true
+            trigger_recorder: true
     object_detection:
       labels:
         - label: person

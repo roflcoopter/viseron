@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-import viseron.nvr as nvr
+from viseron import nvr
 
 
 @pytest.mark.usefixtures("nvr_config_full")

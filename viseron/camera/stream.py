@@ -140,10 +140,8 @@ class Stream:
 
     def calculate_output_fps(self):
         """Calculate FFmpeg output FPS."""
-        max_interval_fps = 1 / min(
-            [decoder.interval for decoder in self.decoders.values()]
-        )
-        self.output_fps = round(min([max_interval_fps, self.fps]))
+        max_decoder_fps = max([decoder.fps for decoder in self.decoders.values()])
+        self.output_fps = min([max_decoder_fps, self.fps])
 
     def run_ffprobe(
         self,

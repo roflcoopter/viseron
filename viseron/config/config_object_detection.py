@@ -21,7 +21,6 @@ from viseron.const import (
     ENV_RASPBERRYPI4,
 )
 from viseron.helpers import generate_mask
-from viseron.helpers.validators import deprecated
 
 from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 
@@ -51,31 +50,28 @@ def get_detector_type() -> str:
 
 LABELS_SCHEMA = Schema(
     [
-        All(
-            deprecated("triggers_recording", replacement="trigger_recorder"),
-            {
-                Required("label"): str,
-                Optional("confidence", default=0.8): All(
-                    Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
-                ),
-                Optional("height_min", default=0.0): All(
-                    Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
-                ),
-                Optional("height_max", default=1.0): All(
-                    Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
-                ),
-                Optional("width_min", default=0.0): All(
-                    Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
-                ),
-                Optional("width_max", default=1.0): All(
-                    Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
-                ),
-                Optional("trigger_recorder", default=True): bool,
-                Optional("require_motion", default=False): bool,
-                Optional("post_processor", default=None): Any(str, None),
-            },
-            ensure_min_max,
-        )
+        {
+            Required("label"): str,
+            Optional("confidence", default=0.8): All(
+                Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
+            ),
+            Optional("height_min", default=0.0): All(
+                Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
+            ),
+            Optional("height_max", default=1.0): All(
+                Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
+            ),
+            Optional("width_min", default=0.0): All(
+                Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
+            ),
+            Optional("width_max", default=1.0): All(
+                Any(0, 1, All(float, Range(min=0.0, max=1.0))), Coerce(float)
+            ),
+            Optional("trigger_recorder", default=True): bool,
+            Optional("require_motion", default=False): bool,
+            Optional("post_processor", default=None): Any(str, None),
+        },
+        ensure_min_max,
     ]
 )
 
@@ -145,9 +141,7 @@ SCHEMA = Schema(
     {
         Optional("type", default=get_detector_type()): str,
         Optional("enable", default=True): bool,
-        Optional("interval", default=1): All(
-            Any(float, int), Coerce(float), Range(min=0.0)
-        ),
+        Optional("fps", default=1): All(Any(float, int), Coerce(float), Range(min=0.0)),
         Optional("labels", default=[{"label": "person"}]): LABELS_SCHEMA,
         Optional("max_frame_age", default=2): All(
             Any(float, int), Coerce(float), Range(min=0.0)
@@ -177,9 +171,7 @@ class ObjectDetectionConfig:
     def __init__(self, object_detection, camera_object_detection={}, camera_zones={}):
         self._type = object_detection["type"]
         self._enable = camera_object_detection.get("enable", object_detection["enable"])
-        self._interval = camera_object_detection.get(
-            "interval", object_detection["interval"]
-        )
+        self._fps = camera_object_detection.get("fps", object_detection["fps"])
         self._labels = []
         for label in camera_object_detection.get("labels", object_detection["labels"]):
             self._labels.append(LabelConfig(label))
@@ -223,9 +215,9 @@ class ObjectDetectionConfig:
         return self._enable
 
     @property
-    def interval(self) -> float:
-        """Return interval."""
-        return self._interval
+    def fps(self):
+        """Return fps."""
+        return self._fps
 
     @property
     def min_confidence(self) -> float:

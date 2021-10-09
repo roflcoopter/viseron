@@ -141,7 +141,7 @@ class MotionDetection:
             self._logger,
             self._config,
             f"{config.camera.name_slug}.motion_detection",
-            config.motion_detection.interval,
+            config.motion_detection.fps,
             camera.stream,
             camera.decode_error,
             TOPIC_FRAME_DECODE_MOTION,

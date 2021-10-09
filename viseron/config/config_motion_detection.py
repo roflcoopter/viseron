@@ -6,7 +6,7 @@ from viseron.helpers import generate_mask
 from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 
 DEFAULTS = {
-    "interval": 1,
+    "fps": 1,
     "trigger_detector": True,
     "trigger_recorder": False,
     "timeout": True,
@@ -19,7 +19,7 @@ DEFAULTS = {
 SCHEMA = Schema(
     {
         Required("type"): str,
-        Optional("interval", default=DEFAULTS["interval"]): All(
+        Optional("fps", default=DEFAULTS["fps"]): All(
             Any(float, int), Coerce(float), Range(min=0.0)
         ),
         Optional("trigger_detector", default=DEFAULTS["trigger_detector"]): bool,
@@ -54,7 +54,7 @@ class MotionDetectionConfig:
 
     def __init__(self, motion_config):
         self._type = motion_config["type"]
-        self._interval = motion_config["interval"]
+        self._fps = motion_config["fps"]
         self._trigger_detector = motion_config["trigger_detector"]
         self._trigger_recorder = motion_config["trigger_recorder"]
         self._timeout = motion_config["timeout"]
@@ -72,9 +72,9 @@ class MotionDetectionConfig:
         return self._type
 
     @property
-    def interval(self):
-        """Return interval."""
-        return self._interval
+    def fps(self):
+        """Return fps."""
+        return self._fps
 
     @property
     def trigger_detector(self):

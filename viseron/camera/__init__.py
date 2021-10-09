@@ -75,7 +75,7 @@ class FFMPEGCamera:
                 self._logger,
                 self._config,
                 f"{self._config.camera.name_slug}.object_detection",
-                self._config.object_detection.interval,
+                self._config.object_detection.fps,
                 self.stream,
                 self.decode_error,
                 TOPIC_FRAME_DECODE_OBJECT,

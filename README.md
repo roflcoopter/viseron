@@ -351,10 +351,10 @@ You can also use the links below to sponsor Viseron or make a one time donation.
       height: 1080
       fps: 6 
       motion_detection:
-        interval: 1
+        fps: 1
         trigger_detector: false
       object_detection:
-        interval: 1
+        fps: 1
         labels:
           - label: person
             confidence: 0.9
@@ -471,17 +471,8 @@ When configured, two FFmpeg processes will spawn:\
 \- One that reads the main stream and creates segments for recordings. Codec ```-c:v copy``` is used so practically no resources are used.\
 \- One that reads the substream and pipes frames to Viseron for motion/object detection.
 
-To really benefit from this you should reduce the framerate of the substream to match the lowest interval set for either motion or object detection.\
-As an example:
-```yaml
-motion_detection:
-  interval: 0.5
-object_detection:
-  interval: 1
-```
-The optimal FPS for this config would be 2, since it would output a frame every 0.5 seconds for the motion detector to consume.
-
-You should also change the resolution to something lower than the main stream to benefit from this.
+To really benefit from this you should reduce the framerate of the substream to match the lowest fps set for either motion or object detection.\
+It may also be useful to change the resolution to something lower than the main stream.
 
 ---
 
@@ -496,7 +487,7 @@ Each setting set here overrides the global [motion detection config](#motion-det
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | enable | bool | True | true/false | If set to false, object detection is disabled for this camera |
-| interval | float | optional | any float | Run object detection at this interval in seconds on the most recent frame. Overrides global [config](#object-detection) |
+| fps | float | optional | any float | Run object detection at this FPS. Overrides global [config](#object-detection) |
 | labels | list | optional | any float | A list of [labels](#labels). Overrides global [config](#labels). |
 | mask | list | optional | see [Mask config](#mask) | Allows you to specify masks in the shape of polygons. <br>Use this to ignore objects in certain areas of the image |
 | log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy. Overrides global [config](#object-detection) |
@@ -709,7 +700,7 @@ The config example above would give you two streams, available at these endpoint
   ```yaml
   object_detection:
     type: darknet
-    interval: 6
+    fps: 1
     labels:
       - label: person
         confidence: 0.9
@@ -728,7 +719,7 @@ The config example above would give you two streams, available at these endpoint
 | type | str | RPi: ```edgetpu``` <br> Other: ```darknet``` | ```darknet```, ```edgetpu```, ```deepstack``` | What detection method to use.<br>Each detector has its own configuration options explained here:<br>[darknet](#darknet)<br>[edgetpu](#edgetpu)<br>[deepstack](#deepstack-objects)|
 | model_width | int | optional | any integer | Detected from model.<br>Frames will be resized to this width in order to fit model and save computing power.<br>I dont recommend changing this. |
 | model_height | int | optional | any integer | Detected from model.<br>Frames will be resized to this height in order to fit model and save computing power.<br>I dont recommend changing this. |
-| interval | float | 1.0 | any float | Run object detection at this interval in seconds on the most recent frame. |
+| fps | float | 1.0 | any float | Run object detection at this FPS. |
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
 | max_frame_age | float | 2 | any float larger than 0.0 | Drop frames that are older than this number, in seconds. Overrides global [config](#object-detection) |
 | log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy |
@@ -848,7 +839,7 @@ object_detection:
 
   ```yaml
   motion_detection:
-    interval: 1
+    fps: 1
     trigger_detector: true
     timeout: true
     max_timeout: 30
@@ -862,7 +853,7 @@ object_detection:
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | type | str | ```background_subtractor``` | ```background_subtractor```, ```mog2``` | What detection method to use.<br>Each detector has its own configuration options explained here:<br>[background_subtractor](#background-subtractor)<br>[mog2](#background-subtractor-mog2) |
-| interval | float | 1.0 | any float | Run motion detection at this interval in seconds on the most recent frame. <br>For optimal performance, this should be divisible with the object detection interval, because then preprocessing will only occur once for each frame. |
+| fps | float | 1.0 | any float | Run motion detection at this FPS. <br>For optimal performance, this should be divisible with the object detection fps, because then preprocessing will only occur once for each frame. |
 | trigger_detector | bool | true | True/False | If true, the object detector will only run while motion is detected. |
 | trigger_recorder | bool | true | True/False | If true, detected motion will start the recorder |
 | timeout | bool | true | True/False | If true, recording will continue until no motion is detected |
@@ -1439,7 +1430,7 @@ If you do have issues, please open an issue and i will do my best to fix them.
 # Benchmarks
 Here I will show you the system load on a few different machines/configs.\
 All examples are with one camera running 1920x1080 at 6 FPS.\
-Motion and object detection running at a 1 second interval.
+Motion and object detection running at 1 fps.
 
 Intel i3-9350K CPU @ 4.00GHz 4 cores with NVIDIA GTX1660 Ti
 | Process | Load on one core | When |
