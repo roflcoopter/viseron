@@ -205,11 +205,9 @@ class NVRConfig(BaseConfig):
         )
 
         # Override global values with local values
-        local_motion_detection_config = motion_detection.copy()
-        local_motion_detection_config.update(self._camera.motion_detection)
         motion_detection_config_class, _ = import_motion_detection(motion_detection)
         self._motion_detection = motion_detection_config_class(
-            local_motion_detection_config
+            self._camera.motion_detection
         )
 
         self._recorder = recorder
