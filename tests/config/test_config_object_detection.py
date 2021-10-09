@@ -11,7 +11,7 @@ from tests.common import assert_config_instance_config_dict
 OBJECT_DETECTION_CONFIG = {
     "type": "darknet",
     "enable": True,
-    "interval": 1,
+    "fps": 1,
     "labels": [
         {
             "label": "dog",
@@ -35,7 +35,7 @@ OBJECT_DETECTION_CONFIG = {
 CAMERA_OBJECT_DETECTION_CONFIG = {
     "type": "edgetpu",
     "enable": False,
-    "interval": 2,
+    "fps": 2,
     "labels": [
         {
             "label": "cat",

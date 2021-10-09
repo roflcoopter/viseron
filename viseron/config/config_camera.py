@@ -138,7 +138,7 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
         Optional("object_detection"): Maybe(
             {
                 Optional("enable"): bool,
-                Optional("interval"): Any(int, float),
+                Optional("fps"): All(Any(float, int), Coerce(float), Range(min=0.0)),
                 Optional("labels"): LABELS_SCHEMA,
                 Optional("mask", default=[]): [
                     {

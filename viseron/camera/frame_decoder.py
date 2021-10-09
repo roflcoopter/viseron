@@ -42,7 +42,7 @@ class FrameDecoder:
         logger: logging.Logger,
         config: NVRConfig,
         name: str,
-        interval: float,
+        fps: float,
         stream: Stream,
         decode_error: Event,
         topic_decode: str,
@@ -52,10 +52,9 @@ class FrameDecoder:
         self._logger = logger
         self._config = config
         self.name = name
-        self.interval = interval
-        self._interval_fps = None
+        self.fps = fps
+        self._frame_interval = None
         self._stream = stream
-
         self.decode_error = False
         self.scan = Event()
         self._frame_number = 0
@@ -79,22 +78,27 @@ class FrameDecoder:
             raise DuplicateDecoderName(name)
         stream.decoders[name] = self
         stream.calculate_output_fps()
+
+        if self.fps > self._stream.output_fps:
+            self._logger.warning(
+                f"FPS for decoder {name} is too high, "
+                f"highest possible FPS is {self._stream.output_fps}"
+            )
+            self.fps = self._stream.output_fps
+
         for decoder in stream.decoders.values():
             decoder.calculate_interval()  # Re-calculate interval for all decoders
 
-        self._logger.debug(
-            f"Running decoder {name} at {interval}s interval, "
-            f"every {interval * stream.fps} frame(s)"
-        )
+        self._logger.debug(f"Running decoder {name} at {self.fps} FPS")
 
     def calculate_interval(self):
-        """Convert interval from seconds to FPS."""
-        self._interval_fps = round(self.interval * self._stream.output_fps)
+        """Calculate which frames are to be processed."""
+        self._frame_interval = round(self._stream.output_fps / self.fps)
 
     def scan_frame(self, current_frame):
         """Publish frame if marked for scanning."""
         if self.scan.is_set():
-            if self._frame_number % self._interval_fps == 0:
+            if self._frame_number % self._frame_interval == 0:
                 self._frame_number = 0
                 DataStream.publish_data(
                     self._topic_decode,
