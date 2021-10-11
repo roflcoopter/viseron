@@ -27,10 +27,6 @@ OBJECT_DETECTION_CONFIG = {
     ],
     "max_frame_age": 1,
     "log_all_objects": True,
-    "logging": {
-        "level": "debug",
-        "color_log": True,
-    },
 }
 CAMERA_OBJECT_DETECTION_CONFIG = {
     "type": "edgetpu",
@@ -51,10 +47,6 @@ CAMERA_OBJECT_DETECTION_CONFIG = {
     ],
     "max_frame_age": 2,
     "log_all_objects": False,
-    "logging": {
-        "level": "fatal",
-        "color_log": False,
-    },
 }
 
 CAMERA_ZONES_CONFIG = [

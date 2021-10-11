@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from viseron.camera.frame import Frame
-from viseron.config import NVRConfig, ViseronConfig, load_config
+from viseron.config import VISERON_CONFIG_SCHEMA, NVRConfig, ViseronConfig, load_config
 from viseron.zones import Zone
 
 YAML_CONFIG = """
@@ -18,8 +18,8 @@ cameras:
     width: 240
     height: 160
     fps: 24
-logging:
-  level: debug
+logger:
+  default_level: debug
 """
 YAML_CONFIG_SECRET = """
 cameras:
@@ -84,13 +84,13 @@ cameras:
               y: 50
             - x: 0
               y: 50
-    logging:
-      level: debug
 post_processors:
   face_recognition:
     type: dlib
 mqtt:
   broker: dummy
+logger:
+  default_level: debug
 """
 
 WIDTH = 100
@@ -120,7 +120,7 @@ def raw_config(simple_config) -> dict:
     """Return simple validated config."""
     mock = mock_open(read_data=simple_config)
     with patch("builtins.open", mock):
-        return load_config()
+        return VISERON_CONFIG_SCHEMA(load_config())
 
 
 @pytest.fixture
@@ -128,7 +128,7 @@ def raw_config_full(full_config) -> dict:
     """Full validated config."""
     mock = mock_open(read_data=full_config)
     with patch("builtins.open", mock):
-        return load_config()
+        return VISERON_CONFIG_SCHEMA(load_config())
 
 
 @pytest.fixture
@@ -152,7 +152,6 @@ def nvr_config(viseron_config) -> NVRConfig:
         viseron_config.motion_detection,
         viseron_config.recorder,
         viseron_config.mqtt,
-        viseron_config.logging,
     )
 
 
@@ -165,7 +164,6 @@ def nvr_config_full(viseron_config_full) -> NVRConfig:
         viseron_config_full.motion_detection,
         viseron_config_full.recorder,
         viseron_config_full.mqtt,
-        viseron_config_full.logging,
     )
 
 

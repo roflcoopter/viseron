@@ -20,10 +20,6 @@ class FFMPEGRecorder:
 
     def __init__(self, config):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
-        if getattr(config.recorder.logging, "level", None):
-            self._logger.setLevel(config.recorder.logging.level)
-        elif getattr(config.camera.logging, "level", None):
-            self._logger.setLevel(config.camera.logging.level)
         self._logger.debug("Initializing ffmpeg recorder")
         self.config = config
 

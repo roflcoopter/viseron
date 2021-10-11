@@ -9,9 +9,8 @@ from queue import Queue
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Dict, Union
 
-from voluptuous import Optional, Required, Schema
+from voluptuous import Required, Schema
 
-from viseron.config.config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 from viseron.const import TOPIC_FRAME_SCAN_POSTPROC
 from viseron.data_stream import DataStream
 from viseron.exceptions import PostProcessorImportError, PostProcessorStructureError
@@ -27,7 +26,6 @@ if TYPE_CHECKING:
 SCHEMA = Schema(
     {
         Required("type"): str,
-        Optional("logging"): LOGGING_SCHEMA,
     }
 )
 
@@ -51,14 +49,7 @@ class AbstractProcessorConfig(ABC):
     SCHEMA = SCHEMA
 
     def __init__(self, processor_config: Dict[str, Any]):
-        self._logging = None
-        if processor_config.get("logging", None):
-            self._logging = LoggingConfig(processor_config["logging"])
-
-    @property
-    def logging(self) -> Union[LoggingConfig, None]:
-        """Return logging config."""
-        return self._logging
+        pass
 
 
 class AbstractProcessor(ABC):
@@ -66,12 +57,10 @@ class AbstractProcessor(ABC):
 
     def __init__(
         self,
-        config: ViseronConfig,  # pylint: disable=unused-argument
+        config: ViseronConfig,
         processor_config: AbstractProcessorConfig,
-        logger: logging.Logger,
     ):
-        if processor_config.logging:
-            logger.setLevel(processor_config.logging.level)
+        pass
 
     @abstractmethod
     def process(self, frame_to_process: PostProcessorFrame):
@@ -89,9 +78,6 @@ class PostProcessor:
         processor_type: str,
         processor_config: Dict[str, Any],
     ):
-        if getattr(config.post_processors.logging, "level", None):
-            LOGGER.setLevel(config.post_processors.logging.level)
-
         processor = self.import_processor(processor_type, processor_config)
         self._post_processor = processor.Processor(  # type: ignore
             config,

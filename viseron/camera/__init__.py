@@ -38,9 +38,6 @@ class FFMPEGCamera:
         """Start processing of camera frames."""
         self._poll_timer = [None]
         self._logger = logging.getLogger(__name__ + "." + self._config.camera.name_slug)
-        if getattr(self._config.camera.logging, "level", None):
-            self._logger.setLevel(self._config.camera.logging.level)
-
         self._logger.debug("Initializing camera {}".format(self._config.camera.name))
 
         if self._config.camera.substream:

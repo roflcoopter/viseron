@@ -1,10 +1,13 @@
 """Viseron init file."""
 import logging
 import signal
+import sys
+import threading
 
 from viseron.cleanup import Cleanup
-from viseron.config import NVRConfig, ViseronConfig, load_config
-from viseron.const import LOG_LEVELS, THREAD_STORE_CATEGORY_NVR
+from viseron.components import setup_components
+from viseron.config import VISERON_CONFIG_SCHEMA, NVRConfig, ViseronConfig, load_config
+from viseron.const import THREAD_STORE_CATEGORY_NVR
 from viseron.data_stream import DataStream
 from viseron.detector import Detector
 from viseron.exceptions import (
@@ -24,15 +27,56 @@ from viseron.webserver import WebServer
 LOGGER = logging.getLogger(__name__)
 
 
+def enable_logging():
+    """Enable logging."""
+    LOGGER.propagate = False
+    handler = logging.StreamHandler()
+    formatter = ViseronLogFormat()
+    handler.setFormatter(formatter)
+    handler.addFilter(DuplicateFilter())
+    LOGGER.addHandler(handler)
+    LOGGER.setLevel(logging.INFO)
+
+    # Silence noisy loggers
+    logging.getLogger("apscheduler.scheduler").setLevel(logging.ERROR)
+    logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)
+
+    sys.excepthook = lambda *args: logging.getLogger(None).exception(
+        "Uncaught exception", exc_info=args  # type: ignore
+    )
+    threading.excepthook = lambda args: logging.getLogger(None).exception(
+        "Uncaught thread exception",
+        exc_info=(
+            args.exc_type,
+            args.exc_value,
+            args.exc_traceback,
+        ),  # type: ignore[arg-type]
+    )
+
+
+def setup_viseron():
+    """Set up and run Viseron."""
+    vis = Viseron()
+    enable_logging()
+
+    LOGGER.info("-------------------------------------------")
+    LOGGER.info("Initializing...")
+
+    config = load_config()
+    setup_components(vis, config)
+    vis.setup()
+
+
 class Viseron:
     """Viseron."""
 
     def __init__(self):
-        config = ViseronConfig(load_config())
+        self.data = {}
+        self.setup_threads = []
 
-        log_settings(config)
-        LOGGER.info("-------------------------------------------")
-        LOGGER.info("Initializing...")
+    def setup(self):
+        """Set up Viseron."""
+        config = ViseronConfig(VISERON_CONFIG_SCHEMA(load_config()))
 
         thread_watchdog = ThreadWatchDog()
         subprocess_watchdog = SubprocessWatchDog()
@@ -76,7 +120,6 @@ class Viseron:
                 )
 
         LOGGER.info("Initializing NVR threads")
-        self.setup_threads = []
         for camera in config.cameras:
             setup_thread = SetupNVR(
                 config,
@@ -137,7 +180,6 @@ class SetupNVR(RestartableThread):
             self._config.motion_detection,
             self._config.recorder,
             self._config.mqtt,
-            self._config.logging,
         )
         try:
             FFMPEGNVR(camera_config, self._detector)
@@ -157,17 +199,3 @@ def schedule_cleanup(config):
     cleanup.start()
     LOGGER.debug("Running initial cleanup")
     cleanup.cleanup()
-
-
-def log_settings(config):
-    """Set custom log settings."""
-    LOGGER.propagate = False
-    formatter = ViseronLogFormat(config.logging)
-    handler = logging.StreamHandler()
-    handler.setFormatter(formatter)
-    handler.addFilter(DuplicateFilter())
-    LOGGER.addHandler(handler)
-
-    LOGGER.setLevel(LOG_LEVELS[config.logging.level])
-    logging.getLogger("apscheduler.scheduler").setLevel(logging.ERROR)
-    logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)

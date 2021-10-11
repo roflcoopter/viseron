@@ -92,7 +92,7 @@ class AbstractFaceRecognition(AbstractProcessor):
         processor_config: AbstractFaceRecognitionConfig,
         logger: logging.Logger,
     ):
-        super().__init__(config, processor_config, logger)
+        super().__init__(config, processor_config)
         self._faces: Dict[str, FaceDict] = {}
         self._mqtt_devices: Dict[str, FaceMQTTBinarySensor] = {}
         self._processor_config = processor_config

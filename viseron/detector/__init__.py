@@ -62,8 +62,6 @@ class Detector:
         )
 
         config = config_module.Config(config_module.SCHEMA(object_detection_config))
-        if getattr(config.logging, "level", None):
-            LOGGER.setLevel(config.logging.level)
         LOGGER.debug(f"Initializing object detector {config.type}")
 
         # Activate OpenCL

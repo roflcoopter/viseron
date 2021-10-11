@@ -1,10 +1,10 @@
 """Start Viseron."""
-from viseron import Viseron
+from viseron import setup_viseron
 
 
 def main():
     """Start Viseron."""
-    Viseron()
+    setup_viseron()
 
 
 def init():

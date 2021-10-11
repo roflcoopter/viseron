@@ -194,7 +194,7 @@ class TestViseronConfig:
         """Test __init__ method."""
         config = ViseronConfig(raw_config)
         assert_config_instance_config_dict(
-            config, raw_config, ignore_keys=["codec", "audio_codec"]
+            config, raw_config, ignore_keys=["codec", "audio_codec", "logger"]
         )
 
 
@@ -243,7 +243,6 @@ class TestNVRConfig:
             viseron_config.motion_detection,
             viseron_config.recorder,
             viseron_config.mqtt,
-            viseron_config.logging,
         )
         assert_config_instance_config_dict(
             config.camera,
@@ -278,7 +277,6 @@ class TestNVRConfig:
             viseron_config.motion_detection,
             viseron_config.recorder,
             viseron_config.mqtt,
-            viseron_config.logging,
         )
         assert_config_instance_config_dict(
             config.motion_detection,

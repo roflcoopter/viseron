@@ -55,6 +55,8 @@
 !/viseron/*
 !/viseron/camera
 !/viseron/camera/*
+!/viseron/components
+!/viseron/components/**
 !/viseron/config
 !/viseron/config/*
 !/viseron/detector

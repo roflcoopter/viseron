@@ -82,10 +82,6 @@ class MotionDetection:
 
     def __init__(self, config: NVRConfig, camera: FFMPEGCamera):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
-        if getattr(config.motion_detection.logging, "level", None):
-            self._logger.setLevel(config.motion_detection.logging.level)
-        elif getattr(config.camera.logging, "level", None):
-            self._logger.setLevel(config.camera.logging.level)
         self._logger.debug(
             f"Initializing motion detector {config.motion_detection.type}"
         )

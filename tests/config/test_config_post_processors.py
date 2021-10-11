@@ -8,9 +8,6 @@ POST_PROCESSORS_CONFIG = config_post_processors.SCHEMA(
         "face_recognition": {
             "type": "dlib",
         },
-        "logging": {
-            "level": "debug",
-        },
     }
 )
 
@@ -25,5 +22,4 @@ class TestPostProcessorsConfig:
             config, POST_PROCESSORS_CONFIG, ignore_keys=["type"]
         )
         post_processors_config = POST_PROCESSORS_CONFIG.copy()
-        post_processors_config.pop("logging")
         assert config.post_processors == post_processors_config

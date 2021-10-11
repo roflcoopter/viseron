@@ -3,8 +3,6 @@ from voluptuous import All, Optional, Range, Schema
 
 from viseron.const import RECORDER_PATH
 
-from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
-
 SCHEMA = Schema(
     {
         Optional("lookback", default=5): All(int, Range(min=0)),
@@ -23,7 +21,6 @@ SCHEMA = Schema(
             Optional("filename_pattern", default="%H:%M:%S"): str,
             Optional("send_to_mqtt", default=False): bool,
         },
-        Optional("logging"): LOGGING_SCHEMA,
     }
 )
 
@@ -70,9 +67,6 @@ class RecorderConfig:
         self._filter_args = recorder["filter_args"]
         self._segments_folder = recorder["segments_folder"]
         self._thumbnail = Thumbnail(recorder["thumbnail"])
-        self._logging = None
-        if recorder.get("logging", None):
-            self._logging = LoggingConfig(recorder["logging"])
 
     @property
     def lookback(self):
@@ -133,8 +127,3 @@ class RecorderConfig:
     def thumbnail(self):
         """Return thumbnail config."""
         return self._thumbnail
-
-    @property
-    def logging(self):
-        """Return logging config."""
-        return self._logging

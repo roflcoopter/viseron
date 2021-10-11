@@ -32,8 +32,6 @@ class Zone:
         config: NVRConfig,
     ):
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
-        if getattr(config.camera.logging, "level", None):
-            self._logger.setLevel(config.camera.logging.level)
 
         self._coordinates = zone["coordinates"]
         self._camera_resolution = camera_resolution

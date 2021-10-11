@@ -3,7 +3,7 @@ import importlib
 import sys
 
 import yaml
-from voluptuous import All, Any, Extra, Invalid, Optional, Required, Schema
+from voluptuous import ALLOW_EXTRA, All, Any, Extra, Invalid, Optional, Required, Schema
 
 from viseron.config.config_camera import CameraConfig
 from viseron.const import CONFIG_PATH, DEFAULT_CONFIG, SECRETS_PATH
@@ -15,7 +15,6 @@ from viseron.exceptions import (
 )
 from viseron.motion import AbstractMotionDetection, AbstractMotionDetectionConfig
 
-from .config_logging import LoggingConfig
 from .config_motion_detection import MotionDetectionConfig
 from .config_mqtt import MQTTConfig
 from .config_object_detection import ObjectDetectionConfig
@@ -118,11 +117,11 @@ VISERON_CONFIG_SCHEMA = Schema(
             Optional("post_processors", default={}): PostProcessorsConfig.schema,
             Optional("recorder", default={}): RecorderConfig.schema,
             Optional("mqtt", default=None): Any(MQTTConfig.schema, None),
-            Optional("logging", default={}): LoggingConfig.schema,
         },
         detector_enabled_check,
         motion_type_check,
-    )
+    ),
+    extra=ALLOW_EXTRA,
 )
 
 
@@ -135,7 +134,6 @@ class BaseConfig:
         self._post_processors = None
         self._recorder = None
         self._mqtt = None
-        self._logging = None
 
     @property
     def object_detection(self) -> ObjectDetectionConfig:
@@ -162,11 +160,6 @@ class BaseConfig:
         """Return MQTT config."""
         return self._mqtt
 
-    @property
-    def logging(self) -> LoggingConfig:
-        """Return logging config."""
-        return self._logging
-
 
 class ViseronConfig(BaseConfig):
     """Config Viseron specifically."""
@@ -183,7 +176,6 @@ class ViseronConfig(BaseConfig):
         self._post_processors = PostProcessorsConfig(config["post_processors"])
         self._recorder = RecorderConfig(config["recorder"])
         self._mqtt = MQTTConfig(config["mqtt"]) if config.get("mqtt", None) else None
-        self._logging = LoggingConfig(config["logging"])
         ViseronConfig.config = self
 
     @property
@@ -195,9 +187,7 @@ class ViseronConfig(BaseConfig):
 class NVRConfig(BaseConfig):
     """Config that is created for each NVR instance, eg one per camera."""
 
-    def __init__(
-        self, camera, object_detection, motion_detection, recorder, mqtt, logging
-    ):
+    def __init__(self, camera, object_detection, motion_detection, recorder, mqtt):
         super().__init__()
         self._camera = CameraConfig(camera, motion_detection)
         self._object_detection = ObjectDetectionConfig(
@@ -212,7 +202,6 @@ class NVRConfig(BaseConfig):
 
         self._recorder = recorder
         self._mqtt = mqtt
-        self._logging = logging
 
     @property
     def camera(self) -> CameraConfig:
@@ -266,4 +255,4 @@ def load_config():
         )
         create_default_config()
         sys.exit()
-    return VISERON_CONFIG_SCHEMA(raw_config)
+    return raw_config

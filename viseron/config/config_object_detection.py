@@ -22,8 +22,6 @@ from viseron.const import (
 )
 from viseron.helpers import generate_mask
 
-from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
-
 
 def ensure_min_max(label: dict) -> dict:
     """Ensure min values are not larger than max values."""
@@ -147,7 +145,6 @@ SCHEMA = Schema(
             Any(float, int), Coerce(float), Range(min=0.0)
         ),
         Optional("log_all_objects", default=False): bool,
-        Optional("logging"): LOGGING_SCHEMA,
     },
     extra=ALLOW_EXTRA,
 )
@@ -184,12 +181,6 @@ class ObjectDetectionConfig:
         self._log_all_objects = camera_object_detection.get(
             "log_all_objects", object_detection["log_all_objects"]
         )
-
-        logging = camera_object_detection.get(
-            "logging",
-            (object_detection.get("logging", None)),
-        )
-        self._logging = LoggingConfig(logging) if logging else logging
 
         self._min_confidence = min(
             (label.confidence for label in self.concat_labels(camera_zones)),
@@ -243,8 +234,3 @@ class ObjectDetectionConfig:
     def mask(self):
         """Return mask."""
         return self._mask
-
-    @property
-    def logging(self) -> LoggingConfig:
-        """Return logging config."""
-        return self._logging

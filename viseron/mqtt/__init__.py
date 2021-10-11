@@ -72,8 +72,8 @@ class MQTT:
         MQTT.client = mqtt.Client(self.config.mqtt.client_id)
         MQTT.client.on_connect = self.on_connect
         MQTT.client.on_message = self.on_message
-        MQTT.client.enable_logger(logger=logging.getLogger("viseron.mqtt_client"))
-        logging.getLogger("viseron.mqtt_client").setLevel(logging.INFO)
+        MQTT.client.enable_logger(logger=logging.getLogger("viseron.mqtt.client"))
+        logging.getLogger("viseron.mqtt.client").setLevel(logging.INFO)
         if self.config.mqtt.username:
             MQTT.client.username_pw_set(
                 self.config.mqtt.username, self.config.mqtt.password

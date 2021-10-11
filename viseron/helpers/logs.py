@@ -6,8 +6,6 @@ import threading
 
 from colorlog import ColoredFormatter
 
-from viseron.config.config_logging import LoggingConfig
-
 
 class DuplicateFilter(logging.Filter):
     """Formats identical log entries to overwrite the last."""
@@ -69,17 +67,14 @@ class ViseronLogFormat(ColoredFormatter):
     )
     overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K" + base_format
 
-    def __init__(self, config: LoggingConfig):
-
-        log_colors = {}
-        if config.color_log:
-            log_colors = {
-                "DEBUG": "cyan",
-                "INFO": "green",
-                "WARNING": "yellow",
-                "ERROR": "red",
-                "CRITICAL": "red",
-            }
+    def __init__(self):
+        log_colors = {
+            "DEBUG": "cyan",
+            "INFO": "green",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "red",
+        }
 
         super().__init__(
             fmt=self.base_format,

@@ -70,7 +70,7 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
     - [Topics for each camera](#topics-for-each-camera)
     - [Topics for each Viseron instance](#topics-for-each-viseron-instance)
     - [Home Assistant MQTT Discovery](#home-assistant-mqtt-discovery)
-  - [Logging](#logging)
+  - [Logger](#logger)
   - [Secrets](#secrets)
 - [Benchmarks](#benchmarks)
 - [User and Group Identifiers](#user-and-group-identifiers)
@@ -396,7 +396,6 @@ The command is built like this: \
 | ffmpeg_loglevel | str | optional | ```quiet```, ```panic```, ```fatal```, ```error```, ```warning```, ```info```, ```verbose```, ```debug```, ```trace``` | Sets the loglevel for FFmpeg.<br> Should only be used in debugging purposes. |
 | ffmpeg_recoverable_errors | list | optional | a list of strings | FFmpeg sometimes print errors that are not fatal.<br>If you get errors like ```Error starting decoder pipe!```, see below for details. |
 | ffprobe_loglevel | str | optional | ```quiet```, ```panic```, ```fatal```, ```error```, ```warning```, ```info```, ```verbose```, ```debug```, ```trace``` | Sets the loglevel for FFprobe.<br> Should only be used in debugging purposes. |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for this camera.<br>This affects all logs named ```viseron.nvr.<camera name>.*``` and ```viseron.*.<camera name>``` |
 
 #### Default FFmpeg decoder command
 A default FFmpeg decoder command is generated, which varies a bit depending on the Docker container you use,
@@ -492,7 +491,6 @@ Each setting set here overrides the global [motion detection config](#motion-det
 | mask | list | optional | see [Mask config](#mask) | Allows you to specify masks in the shape of polygons. <br>Use this to ignore objects in certain areas of the image |
 | log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy. Overrides global [config](#object-detection) |
 | max_frame_age | float | 2 | any float larger than 0.0 | Drop frames that are older than this number, in seconds. Overrides global [config](#object-detection) |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the camera/global log settings for the object detector.<br>This affects all logs named ```viseron.nvr.<camera name>.object``` |
 
 ---
 
@@ -723,7 +721,6 @@ The config example above would give you two streams, available at these endpoint
 | labels | list | optional | a list of [labels](#labels) | Global labels which applies to all cameras unless overridden |
 | max_frame_age | float | 2 | any float larger than 0.0 | Drop frames that are older than this number, in seconds. Overrides global [config](#object-detection) |
 | log_all_objects | bool | false | true/false | When set to true and loglevel is ```DEBUG```, **all** found objects will be logged. Can be quite noisy |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the object detector.<br>This affects all logs named ```viseron.detector``` and  ```viseron.nvr.<camera name>.object``` |
 
 The above options are global for all types of detectors.\
 If loglevel is set to ```DEBUG```, all detected objects will be printed in a statement like this:
@@ -861,7 +858,6 @@ object_detection:
 | width | int | 300 | any integer | Frames will be resized to this width in order to save computing power |
 | height | int | 300 | any integer | Frames will be resized to this height in order to save computing power |
 | frames | int | 3 | any integer | Number of consecutive frames with motion before triggering, used to reduce false positives |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the motion detector. <br>This affects all logs named ```viseron.motion.<camera name>``` and  ```viseron.nvr.<camera name>.motion``` |
 
 The above options are global for all types of motion detectors detectors.
 
@@ -925,7 +921,6 @@ Performs motion detection using the Background subtraction MOG2 algorithm.
 | audio_codec | str | `copy` | any supported audio encoder codec | FFmpeg audio encoder codec, eg ```aac``` |
 | filter_args | list | optional | a valid list of FFmpeg arguments | FFmpeg encoder filter arguments |
 | thumbnail | dictionary | optional | see [Thumbnail](#thumbnail) | Options for the thumbnail created on start of a recording |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the recorder. <br>This affects all logs named ```viseron.recorder.<camera name>``` |
 
 Viseron uses [FFmpeg segments](https://www.ffmpeg.org/ffmpeg-formats.html#segment_002c-stream_005fsegment_002c-ssegment) to handle recordings.\
 This means Viseron will write small 5 second segments of the stream to disk, and in case of any recording starting, Viseron will find the appropriate segments and concatenate them together.\
@@ -1025,15 +1020,12 @@ To utilize a parameter you append it to the URL after a ```?```. To add multiple
     face_recognition:
       type: dlib
       expire_after: 10
-    logging:
-      level: info
   ```
 </details>
 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | face_recognition | dict | optional | see [Face Recognition](#face-recognition) | Configuration for face recognition. |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the ```post_processors```. <br>This affects all logs named ```viseron.post_processors.*``` |
 
 Post processors are used when you want to perform some kind of action when a specific object is detected.\
 Right now the only implemented post processor is face recognition. In the future more of these post processors will be added (ALPR) along with the ability to create your own custom post processors.
@@ -1046,7 +1038,6 @@ Right now the only implemented post processor is face recognition. In the future
 | expire_after | int | 5 | any int | Time in seconds before a detected face is no longer considered detected |
 | save_unknown_faces | bool | True | True/False | If true, any unrecognized face will be saved to the folder specified in `unknown_faces_path`. You can then move this image to the folder of the correct person to improve accuracy |
 | unknown_faces_path | str | ```/config/face_recognition/faces/unknown``` | path to folder | Path to folder where unknown faces will be stored |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the post processor. <br>This affects all logs named ```viseron.post_processors.face_recognition.*``` |
 
 On startup images are read from ```face_recognition_path``` and a model is trained to recognize these faces.\
 The folder structure of the faces folder is very strict. Here is an example of the default one:
@@ -1068,7 +1059,6 @@ The above options are global for all types of face recognition.
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
 | model | str | CUDA: ```cnn```<br>Other: ```hog``` | ```cnn```, ```hog``` | Which face detection model to use.<br>```hog``` is less accurate but faster on CPUs.<br>```cnn``` is a more accurate deep-learning model which is GPU/CUDA accelerated (if available). |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the post processor. <br>This affects all logs named ```viseron.post_processors.face_recognition.dlib``` |
 
 The above options are specific to ```type: dlib``` face recognition.
 
@@ -1081,7 +1071,6 @@ The above options are specific to ```type: dlib``` face recognition.
 | timeout | int | 10 | any port | Timeout for requests to your DeepStack server |
 | train | bool | True | True/False | If true, DeepStack will be trained on startup to recognize faces. If you already have DeepStack trained you can set this to false. |
 | min_confidence | float | 0.5 | 0.0 - 1.0 | Discard any face with confidence lower than this value |
-| logging | dictionary | optional | see [Logging](#logging) | Overrides the global log settings for the post processor. <br>This affects all logs named ```viseron.post_processors.face_recognition.deepstack``` |
 
 The above options are specific to ```type: deepstack``` face recognition.
 
@@ -1331,20 +1320,22 @@ The switch is used to arm/disarm a camera. When disarmed, no system resources ar
 
 ---
 
-## Logging
+## Logger
 <details>
   <summary>Config example</summary>
 
   ```yaml
-  logging:
-    level: debug
+  logger:
+    default_level: debug
+    logs:
+      viseron.nvr: info
   ```
 </details>
 
 | Name | Type | Default | Supported options | Description |
 | -----| -----| ------- | ----------------- |------------ |
-| level | str | ```INFO``` | ```DEBUG```, ```INFO```, ```WARNING```, ```ERROR```, ```FATAL``` | Log level |
-| color_log | bool | True | True/False | Controls whether the log is colored or not |
+| default_level | str | ```INFO``` | ```DEBUG```, ```INFO```, ```WARNING```, ```ERROR```, ```FATAL``` | Log level |
+| logs | dict | optional | True/False | Dictionary used to set log level for individual components. |
 
 ---
 

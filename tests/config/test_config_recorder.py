@@ -19,9 +19,6 @@ RECORDER_CONFIG = config_recorder.SCHEMA(
         "hwaccel_args": [],
         "codec": "copy",
         "filter_args": [],
-        "logging": {
-            "level": "debug",
-        },
     }
 )
 

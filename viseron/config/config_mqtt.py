@@ -1,9 +1,6 @@
 """MQTT config."""
-import logging
 
 from voluptuous import All, Any, Optional, Required, Schema
-
-LOGGER = logging.getLogger(__name__)
 
 
 def get_lwt_topic(mqtt: dict) -> dict:

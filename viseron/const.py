@@ -94,15 +94,6 @@ HWACCEL_JETSON_NANO_DECODER_CODEC_MAP = {
 RECORDER_GLOBAL_ARGS = ["-hide_banner"]
 RECORDER_HWACCEL_ARGS: List[str] = []
 
-LOG_LEVELS = {
-    "CRITICAL": 50,
-    "ERROR": 40,
-    "WARNING": 30,
-    "INFO": 20,
-    "DEBUG": 10,
-    "NOTSET": 0,
-}
-
 FFMPEG_LOG_LEVELS = {
     "quiet": 50,
     "panic": 50,

@@ -32,8 +32,6 @@ from viseron.zones import Zone
 if TYPE_CHECKING:
     from viseron.detector.detected_object import DetectedObject
 
-LOGGER = logging.getLogger(__name__)
-
 
 class MQTTInterface:
     """Handles MQTT connection."""
@@ -221,25 +219,12 @@ class FFMPEGNVR:
     def setup_loggers(self, config):
         """Set up custom log names and levels."""
         self._logger = logging.getLogger(__name__ + "." + config.camera.name_slug)
-        if getattr(config.camera.logging, "level", None):
-            self._logger.setLevel(config.camera.logging.level)
-
         self._motion_logger = logging.getLogger(
             __name__ + "." + config.camera.name_slug + ".motion"
         )
-
-        if getattr(config.motion_detection.logging, "level", None):
-            self._motion_logger.setLevel(config.motion_detection.logging.level)
-        elif getattr(config.camera.logging, "level", None):
-            self._motion_logger.setLevel(config.camera.logging.level)
-
         self._object_logger = logging.getLogger(
             __name__ + "." + config.camera.name_slug + ".object"
         )
-        if getattr(config.object_detection.logging, "level", None):
-            self._object_logger.setLevel(config.object_detection.logging.level)
-        elif getattr(config.camera.logging, "level", None):
-            self._object_logger.setLevel(config.camera.logging.level)
 
     def setup_mqtt(self):
         """Set up various MQTT elements."""

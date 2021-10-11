@@ -3,8 +3,6 @@ from voluptuous import All, Any, Coerce, Optional, Range, Required, Schema
 
 from viseron.helpers import generate_mask
 
-from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
-
 DEFAULTS = {
     "fps": 1,
     "trigger_detector": True,
@@ -39,7 +37,6 @@ SCHEMA = Schema(
                 ],
             }
         ],
-        Optional("logging"): LOGGING_SCHEMA,
     },
 )
 
@@ -63,8 +60,6 @@ class MotionDetectionConfig:
         self._height = motion_config["height"]
         self._frames = motion_config["frames"]
         self._mask = generate_mask(motion_config["mask"])
-        logging = motion_config.get("logging", None)
-        self._logging = LoggingConfig(logging) if logging else None
 
     @property
     def type(self) -> str:
@@ -115,8 +110,3 @@ class MotionDetectionConfig:
     def mask(self):
         """Return mask."""
         return self._mask
-
-    @property
-    def logging(self):
-        """Return logging config."""
-        return self._logging

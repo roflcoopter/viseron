@@ -1,5 +1,4 @@
 """Camera config."""
-import logging
 import os
 import re
 from typing import Dict, List
@@ -36,10 +35,7 @@ from viseron.const import (
 )
 from viseron.helpers import generate_numpy_from_coordinates, slugify
 
-from .config_logging import SCHEMA as LOGGING_SCHEMA, LoggingConfig
 from .config_object_detection import LABELS_SCHEMA, LabelConfig
-
-LOGGER = logging.getLogger(__name__)
 
 MQTT_NAME_REGEX = re.compile(r"^[a-zA-Z0-9_\.]+$")
 SLUG_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
@@ -153,7 +149,6 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
                 Optional("max_frame_age"): All(
                     Any(float, int), Coerce(float), Range(min=0.0)
                 ),
-                Optional("logging"): LOGGING_SCHEMA,
                 Optional("log_all_objects"): bool,
             },
         ),
@@ -196,7 +191,6 @@ CAMERA_SCHEMA = STREAM_SCEHMA.extend(
         Optional("static_mjpeg_streams", default={}): {
             All(str, ensure_slug): MJPEG_STREAM_SCHEMA
         },
-        Optional("logging"): LOGGING_SCHEMA,
     },
 )
 
@@ -402,9 +396,6 @@ class CameraConfig(Stream):
         ]
         self._ffprobe_loglevel = self._validated_config["ffprobe_loglevel"]
         self._static_mjpeg_streams = self._validated_config["static_mjpeg_streams"]
-        self._logging = None
-        if self._validated_config.get("logging", None):
-            self._logging = LoggingConfig(self._validated_config["logging"])
 
     @staticmethod
     def build_schema(camera):
@@ -521,8 +512,3 @@ class CameraConfig(Stream):
     def static_mjpeg_streams(self):
         """Return static mjpeg streams."""
         return self._static_mjpeg_streams
-
-    @property
-    def logging(self):
-        """Return logging config."""
-        return self._logging
