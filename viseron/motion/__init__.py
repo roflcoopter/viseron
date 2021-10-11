@@ -14,13 +14,13 @@ from voluptuous import PREVENT_EXTRA
 from viseron import helpers
 from viseron.camera import FFMPEGCamera, FrameDecoder
 from viseron.camera.frame_decoder import FrameToScan
+from viseron.components.data_stream import DataStream
 from viseron.config.config_motion_detection import MotionDetectionConfig
 from viseron.const import (
     TOPIC_FRAME_DECODE_MOTION,
     TOPIC_FRAME_PROCESSED_MOTION,
     TOPIC_FRAME_SCAN_MOTION,
 )
-from viseron.data_stream import DataStream
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:

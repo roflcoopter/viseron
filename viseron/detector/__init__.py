@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING
 import cv2
 from voluptuous import PREVENT_EXTRA
 
+from viseron.components.data_stream import DataStream
 from viseron.config.config_object_detection import ObjectDetectionConfig
 from viseron.const import TOPIC_FRAME_PROCESSED_OBJECT, TOPIC_FRAME_SCAN_OBJECT
-from viseron.data_stream import DataStream
 from viseron.exceptions import (
     DetectorConfigError,
     DetectorConfigSchemaError,

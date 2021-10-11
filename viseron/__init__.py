@@ -8,7 +8,6 @@ from viseron.cleanup import Cleanup
 from viseron.components import setup_components
 from viseron.config import VISERON_CONFIG_SCHEMA, NVRConfig, ViseronConfig, load_config
 from viseron.const import THREAD_STORE_CATEGORY_NVR
-from viseron.data_stream import DataStream
 from viseron.detector import Detector
 from viseron.exceptions import (
     FFprobeError,
@@ -82,8 +81,6 @@ class Viseron:
         subprocess_watchdog = SubprocessWatchDog()
         webserver = WebServer()
         webserver.start()
-
-        DataStream(webserver.ioloop)
 
         schedule_cleanup(config)
 

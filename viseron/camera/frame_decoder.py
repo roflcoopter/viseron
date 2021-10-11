@@ -9,7 +9,7 @@ from threading import Event
 from typing import TYPE_CHECKING, Callable
 
 from viseron.camera.frame import Frame
-from viseron.data_stream import DataStream
+from viseron.components.data_stream import DataStream
 from viseron.exceptions import DuplicateDecoderName
 from viseron.watchdog.thread_watchdog import RestartableThread
 

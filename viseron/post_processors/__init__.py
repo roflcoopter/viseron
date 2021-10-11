@@ -11,8 +11,8 @@ from typing import TYPE_CHECKING, Any, Dict, Union
 
 from voluptuous import Required, Schema
 
+from viseron.components.data_stream import DataStream
 from viseron.const import TOPIC_FRAME_SCAN_POSTPROC
-from viseron.data_stream import DataStream
 from viseron.exceptions import PostProcessorImportError, PostProcessorStructureError
 from viseron.watchdog.thread_watchdog import RestartableThread
 

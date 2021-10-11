@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
 import viseron.mqtt
 from viseron import helpers
+from viseron.components.data_stream import DataStream
 from viseron.const import TOPIC_FRAME_SCAN_POSTPROC
-from viseron.data_stream import DataStream
 from viseron.helpers.filter import Filter
 from viseron.mqtt.binary_sensor import MQTTBinarySensor
 from viseron.post_processors import PostProcessorFrame

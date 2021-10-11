@@ -12,12 +12,12 @@ import viseron.mqtt
 from viseron import helpers
 from viseron.camera import FFMPEGCamera
 from viseron.camera.frame import Frame
+from viseron.components.data_stream import DataStream
 from viseron.const import (
     THREAD_STORE_CATEGORY_NVR,
     TOPIC_FRAME_PROCESSED_OBJECT,
     TOPIC_FRAME_SCAN_POSTPROC,
 )
-from viseron.data_stream import DataStream
 from viseron.helpers.filter import Filter
 from viseron.motion import MotionDetection
 from viseron.mqtt.binary_sensor import MQTTBinarySensor

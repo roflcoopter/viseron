@@ -5,6 +5,7 @@ import logging
 import voluptuous as vol
 
 LOGGING_COMPONENTS = ["logger"]
+CORE_COMPONENTS = ["data_stream"]
 UNMIGRATED_COMPONENTS = [
     "cameras",
     "motion_detection",
@@ -32,7 +33,6 @@ class Component:
 
     def get_component(self):
         """Return component module."""
-        LOGGER.info(self._path)
         return importlib.import_module(self._path)
 
     def setup_component(self, config):
@@ -55,6 +55,7 @@ class Component:
             except Exception:  # pylint: disable=broad-except
                 LOGGER.exception("Unknown error calling %s CONFIG_SCHEMA", component)
                 return None
+        return True
 
 
 def get_component(vis, component):
@@ -80,7 +81,10 @@ def setup_components(vis, config):
     """Set up configured components."""
     components_in_config = {key.split(" ")[0] for key in config}
     components_in_config = (
-        components_in_config - set(UNMIGRATED_COMPONENTS) - set(LOGGING_COMPONENTS)
+        components_in_config
+        - set(UNMIGRATED_COMPONENTS)
+        - set(LOGGING_COMPONENTS)
+        - set(CORE_COMPONENTS)
     )
 
     components_to_setup = set()
@@ -89,12 +93,12 @@ def setup_components(vis, config):
         components_to_setup.add(get_component(vis, component))
 
     # Setup logger first
-    setup_component(get_component(vis, "logger"), config)
+    for component in LOGGING_COMPONENTS:
+        setup_component(get_component(vis, component), config)
+
+    # Setup core components
+    for component in CORE_COMPONENTS:
+        setup_component(get_component(vis, component), config)
 
     for component in components_to_setup:
-        LOGGER.info(f"Setting up {component}")
-        try:
-            component.setup_component(config)
-        except ModuleNotFoundError as err:
-            LOGGER.error(f"Failed to load component {component}: {err}")
-            continue
+        setup_component(get_component(vis, component), config)

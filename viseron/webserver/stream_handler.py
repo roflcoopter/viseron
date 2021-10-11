@@ -10,9 +10,9 @@ import tornado.ioloop
 import tornado.web
 from tornado.queues import Queue
 
+from viseron.components.data_stream import DataStream
 from viseron.config.config_camera import MJPEG_STREAM_SCHEMA
 from viseron.const import TOPIC_FRAME_PROCESSED, TOPIC_STATIC_MJPEG_STREAMS
-from viseron.data_stream import DataStream
 from viseron.helpers import (
     draw_contours,
     draw_motion_mask,
@@ -113,7 +113,9 @@ class DynamicStreamHandler(StreamHandler):
 
         frame_queue = Queue(maxsize=10)
         frame_topic = f"{nvr.config.camera.name_slug}/{TOPIC_FRAME_PROCESSED}/*"
-        unique_id = DataStream.subscribe_data(frame_topic, frame_queue)
+        unique_id = DataStream.subscribe_data(
+            frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
+        )
         while True:
             try:
                 item = await frame_queue.get()
@@ -144,7 +146,9 @@ class StaticStreamHandler(StreamHandler):
         subscribe_frame_topic = (
             f"{nvr.config.camera.name_slug}/{TOPIC_FRAME_PROCESSED}/*"
         )
-        unique_id = DataStream.subscribe_data(subscribe_frame_topic, frame_queue)
+        unique_id = DataStream.subscribe_data(
+            subscribe_frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
+        )
 
         while self.active_streams[mjpeg_stream]:
             item = yield frame_queue.get()
@@ -179,7 +183,9 @@ class StaticStreamHandler(StreamHandler):
         frame_topic = (
             f"{TOPIC_STATIC_MJPEG_STREAMS}/{nvr.config.camera.name_slug}/{mjpeg_stream}"
         )
-        unique_id = DataStream.subscribe_data(frame_topic, frame_queue)
+        unique_id = DataStream.subscribe_data(
+            frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
+        )
 
         if self.active_streams.get(mjpeg_stream, False):
             self.active_streams[mjpeg_stream] += 1

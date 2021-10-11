@@ -8,8 +8,8 @@ from time import sleep
 
 import cv2
 
+from viseron.components.data_stream import DataStream
 from viseron.const import TOPIC_FRAME_DECODE_OBJECT, TOPIC_FRAME_SCAN_OBJECT
-from viseron.data_stream import DataStream
 from viseron.helpers.logs import SensitiveInformationFilter
 
 from .frame_decoder import FrameDecoder
