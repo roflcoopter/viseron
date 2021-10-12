@@ -167,6 +167,10 @@ TOPIC_FRAME_PROCESSED_OBJECT = "/".join(
 TOPIC_POST_PROCESSOR = "post_processor"
 TOPIC_FRAME_SCAN_POSTPROC = "/".join([TOPIC_FRAME_SCAN, TOPIC_POST_PROCESSOR])
 
+LOADING = "loading"
+LOADED = "loaded"
+FAILED = "failed"
+
 # UI constants
 PREFIX_STATIC = "/ui/static/"
 PATH_STATIC = "/src/viseron/webserver/assets/static"

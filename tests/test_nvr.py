@@ -15,20 +15,18 @@ class TestMQTTInterface:
         with patch("viseron.mqtt.MQTT") as mock_mqtt:
             mock_mqtt.client = True
             mock_mqtt.publish.return_value = "testing"
-            self.mqtt_interface = nvr.MQTTInterface(nvr_config_full)
-            self.mqtt_interface.publish_image(
-                black_frame, black_frame, [zone], (100, 100)
-            )
+            mqtt_interface = nvr.MQTTInterface(nvr_config_full)
+            mqtt_interface.publish_image(black_frame, black_frame, [zone], (100, 100))
             mock_mqtt.publish.assert_called_once()
 
     def test_status_state(self, nvr_config_full):
         """Test status state update."""
         with patch("viseron.mqtt.MQTT") as mock_mqtt:
             mock_mqtt.client = True
-            self.mqtt_interface = nvr.MQTTInterface(nvr_config_full)
-            self.mqtt_interface.status_state_callback("testing")
+            mqtt_interface = nvr.MQTTInterface(nvr_config_full)
+            mqtt_interface.status_state_callback("testing")
             mock_mqtt.publish.assert_called_once()
-            assert self.mqtt_interface.status_state == "testing"
+            assert mqtt_interface.status_state == "testing"
 
 
 @pytest.fixture

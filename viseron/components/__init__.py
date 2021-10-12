@@ -4,6 +4,8 @@ import logging
 
 import voluptuous as vol
 
+from viseron.const import FAILED, LOADED, LOADING
+
 LOGGING_COMPONENTS = ["logger"]
 CORE_COMPONENTS = ["data_stream"]
 UNMIGRATED_COMPONENTS = [
@@ -27,8 +29,13 @@ class Component:
         self._path = path
         self._name = name
 
-    def __repr__(self):
+    def __str__(self):
         """Return string representation."""
+        return self._name
+
+    @property
+    def name(self):
+        """Return component name."""
         return self._name
 
     def get_component(self):
@@ -38,22 +45,23 @@ class Component:
     def setup_component(self, config):
         """Set up component."""
         component_module = self.get_component()
-        config = self.validate_component_config(config, self._name, component_module)
+        config = self.validate_component_config(config, component_module)
 
         if config:
-            component_module.setup(self._vis, config)
+            return component_module.setup(self._vis, config)
 
-    @staticmethod
-    def validate_component_config(config, component, component_module):
+        return False
+
+    def validate_component_config(self, config, component_module):
         """Validate component config."""
         if hasattr(component_module, "CONFIG_SCHEMA"):
             try:
                 return component_module.CONFIG_SCHEMA(config)  # type: ignore
             except vol.Invalid as ex:
-                LOGGER.exception(f"Error setting up component {component}: {ex}")
+                LOGGER.exception(f"Error setting up component {self.name}: {ex}")
                 return None
             except Exception:  # pylint: disable=broad-except
-                LOGGER.exception("Unknown error calling %s CONFIG_SCHEMA", component)
+                LOGGER.exception("Unknown error calling %s CONFIG_SCHEMA", self.name)
                 return None
         return True
 
@@ -68,13 +76,22 @@ def get_component(vis, component):
         return Component(vis, f"{components.__name__}.{component}", component)
 
 
-def setup_component(component: Component, config):
+def setup_component(vis, component: Component, config):
     """Set up single component."""
-    LOGGER.info(f"Setting up {component}")
+    LOGGER.info(f"Setting up {component.name}")
     try:
-        component.setup_component(config)
+        vis.data[LOADING].add(component.name)
+        if component.setup_component(config):
+            vis.data[LOADED].add(component.name)
+            vis.data[LOADING].remove(component.name)
+        else:
+            vis.data[FAILED].add(component.name)
+            vis.data[LOADING].remove(component.name)
+
     except ModuleNotFoundError as err:
         LOGGER.error(f"Failed to load component {component}: {err}")
+        vis.data[FAILED].add(component.name)
+        vis.data[LOADING].remove(component.name)
 
 
 def setup_components(vis, config):
@@ -87,18 +104,13 @@ def setup_components(vis, config):
         - set(CORE_COMPONENTS)
     )
 
-    components_to_setup = set()
-
-    for component in components_in_config:
-        components_to_setup.add(get_component(vis, component))
-
     # Setup logger first
     for component in LOGGING_COMPONENTS:
-        setup_component(get_component(vis, component), config)
+        setup_component(vis, get_component(vis, component), config)
 
     # Setup core components
     for component in CORE_COMPONENTS:
-        setup_component(get_component(vis, component), config)
+        setup_component(vis, get_component(vis, component), config)
 
-    for component in components_to_setup:
-        setup_component(get_component(vis, component), config)
+    for component in components_in_config:
+        setup_component(vis, get_component(vis, component), config)

@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import pytest
 
+from viseron import Viseron
 from viseron.camera.frame import Frame
 from viseron.config import VISERON_CONFIG_SCHEMA, NVRConfig, ViseronConfig, load_config
 from viseron.zones import Zone
@@ -230,3 +231,9 @@ def mocked_restartable_thread():
     mock = MagicMock(spec=["start"])
     mock.start.return_value = "Testing"
     return mock
+
+
+@pytest.fixture
+def vis():
+    """Fixture to test Viseron instance."""
+    return Viseron()

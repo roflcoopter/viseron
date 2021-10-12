@@ -50,6 +50,8 @@ def setup(vis, config):
     if CONFIG_LOGS in config[COMPONENT]:
         set_log_levels(config[COMPONENT][CONFIG_LOGS])
 
+    return True
+
 
 def _set_log_level(logger, level):
     """Set log level."""

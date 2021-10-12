@@ -7,7 +7,7 @@ import threading
 from viseron.cleanup import Cleanup
 from viseron.components import setup_components
 from viseron.config import VISERON_CONFIG_SCHEMA, NVRConfig, ViseronConfig, load_config
-from viseron.const import THREAD_STORE_CATEGORY_NVR
+from viseron.const import FAILED, LOADED, LOADING, THREAD_STORE_CATEGORY_NVR
 from viseron.detector import Detector
 from viseron.exceptions import (
     FFprobeError,
@@ -72,6 +72,10 @@ class Viseron:
     def __init__(self):
         self.data = {}
         self.setup_threads = []
+
+        self.data[LOADING] = set()
+        self.data[LOADED] = set()
+        self.data[FAILED] = set()
 
     def setup(self):
         """Set up Viseron."""

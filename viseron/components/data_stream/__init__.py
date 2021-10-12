@@ -27,6 +27,7 @@ class DataSubscriber(TypedDict):
 def setup(vis, _):
     """Set up the data_stream component."""
     vis.data[COMPONENT] = DataStream(vis)
+    return True
 
 
 class DataStream:

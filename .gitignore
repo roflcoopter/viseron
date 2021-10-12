@@ -37,6 +37,8 @@
 # Tests
 !/tests
 !/tests/*
+!/tests/components
+!/tests/components/**
 !/tests/config
 !/tests/config/*
 !/tests/detector
