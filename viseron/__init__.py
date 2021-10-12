@@ -4,8 +4,14 @@ import signal
 import sys
 import threading
 
+import voluptuous as vol
+
 from viseron.cleanup import Cleanup
 from viseron.components import setup_components
+from viseron.components.data_stream import (
+    COMPONENT as DATA_STREAM_COMPONENT,
+    DataStream,
+)
 from viseron.config import VISERON_CONFIG_SCHEMA, NVRConfig, ViseronConfig, load_config
 from viseron.const import FAILED, LOADED, LOADING, THREAD_STORE_CATEGORY_NVR
 from viseron.detector import Detector
@@ -22,6 +28,12 @@ from viseron.post_processors import PostProcessor
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import RestartableThread, ThreadWatchDog
 from viseron.webserver import WebServer
+
+VISERON_SIGNALS = {
+    "shutdown": "/viseron/signal/shutdown",
+}
+
+SIGNAL_SCHEMA = vol.Schema(vol.Any("shutdown"))
 
 LOGGER = logging.getLogger(__name__)
 
@@ -76,6 +88,43 @@ class Viseron:
         self.data[LOADING] = set()
         self.data[LOADED] = set()
         self.data[FAILED] = set()
+
+    def register_signal_handler(self, viseron_signal, callback):
+        """Register a callback which gets called on signals emitted by Viseron.
+
+        Signals currently available:
+            - shutdown = Emitted when shutdown has been requested
+        """
+        if DATA_STREAM_COMPONENT not in self.data[LOADED]:
+            LOGGER.error(
+                f"Failed to register signal handler for {viseron_signal}: "
+                f"{DATA_STREAM_COMPONENT} is not loaded"
+            )
+            return False
+
+        try:
+            SIGNAL_SCHEMA(viseron_signal)
+        except vol.Invalid as err:
+            LOGGER.error(
+                f"Failed to register signal handler for {viseron_signal}: {err}"
+            )
+            return False
+
+        self.data[DATA_STREAM_COMPONENT].subscribe_data(
+            f"/viseron/signal/{viseron_signal}", callback
+        )
+
+    def shutdown(self):
+        """Shut down Viseron."""
+        if self.data.get(DATA_STREAM_COMPONENT, None):
+            data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
+            data_stream.publish_data(VISERON_SIGNALS["shutdown"])
+
+        for thread in threading.enumerate():
+            if not thread.daemon and thread != threading.current_thread():
+                thread.join(timeout=5)
+                if thread.is_alive():
+                    LOGGER.error(f"Thread {thread.name} did not exit in time")
 
     def setup(self):
         """Set up Viseron."""
@@ -146,6 +195,8 @@ class Viseron:
                 thread.join()
             webserver.stop()
             webserver.join()
+
+            self.shutdown()
             LOGGER.info("Exiting")
 
         # Listen to signals

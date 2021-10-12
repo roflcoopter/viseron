@@ -53,7 +53,7 @@ class DataStream:
         data_consumer.start()
 
     @staticmethod
-    def publish_data(data_topic: str, data: Any) -> None:
+    def publish_data(data_topic: str, data: Any = None) -> None:
         """Publish data to topic."""
         # LOGGER.debug(f"Publishing to data topic {data_topic}, {data}")
         DataStream._data_queue.put({"data_topic": data_topic, "data": data})
