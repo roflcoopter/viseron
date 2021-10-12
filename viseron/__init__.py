@@ -13,7 +13,13 @@ from viseron.components.data_stream import (
     DataStream,
 )
 from viseron.config import VISERON_CONFIG_SCHEMA, NVRConfig, ViseronConfig, load_config
-from viseron.const import FAILED, LOADED, LOADING, THREAD_STORE_CATEGORY_NVR
+from viseron.const import (
+    FAILED,
+    LOADED,
+    LOADING,
+    THREAD_STORE_CATEGORY_NVR,
+    VISERON_SIGNAL_SHUTDOWN,
+)
 from viseron.detector import Detector
 from viseron.exceptions import (
     FFprobeError,
@@ -27,13 +33,16 @@ from viseron.nvr import FFMPEGNVR
 from viseron.post_processors import PostProcessor
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import RestartableThread, ThreadWatchDog
-from viseron.webserver import WebServer
 
 VISERON_SIGNALS = {
-    "shutdown": "/viseron/signal/shutdown",
+    VISERON_SIGNAL_SHUTDOWN: "/viseron/signal/shutdown",
 }
 
-SIGNAL_SCHEMA = vol.Schema(vol.Any("shutdown"))
+SIGNAL_SCHEMA = vol.Schema(
+    vol.In(
+        VISERON_SIGNALS.keys(),
+    )
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -132,8 +141,6 @@ class Viseron:
 
         thread_watchdog = ThreadWatchDog()
         subprocess_watchdog = SubprocessWatchDog()
-        webserver = WebServer()
-        webserver.start()
 
         schedule_cleanup(config)
 
@@ -193,8 +200,6 @@ class Viseron:
                 thread.stop()
             for thread in nvr_threads:
                 thread.join()
-            webserver.stop()
-            webserver.join()
 
             self.shutdown()
             LOGGER.info("Exiting")

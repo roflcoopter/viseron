@@ -7,12 +7,12 @@ from typing import Any, Dict, List
 import tornado.routing
 from tornado.web import RequestHandler
 
-from viseron.webserver.const import (
+from viseron.components.webserver.const import (
     STATUS_ERROR_ENDPOINT_NOT_FOUND,
     STATUS_ERROR_METHOD_NOT_ALLOWED,
     STATUS_SUCCESS,
 )
-from viseron.webserver.not_found_handler import NotFoundHandler
+from viseron.components.webserver.not_found_handler import NotFoundHandler
 
 LOGGER = logging.getLogger(__name__)
 

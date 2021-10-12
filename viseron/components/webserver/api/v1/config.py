@@ -1,9 +1,9 @@
 """Config API Handler."""
 import logging
 
+from viseron.components.webserver.api import BaseAPIHandler
+from viseron.components.webserver.const import STATUS_ERROR_INTERNAL
 from viseron.config import ViseronConfig
-from viseron.webserver.api import BaseAPIHandler
-from viseron.webserver.const import STATUS_ERROR_INTERNAL
 
 LOGGER = logging.getLogger(__name__)
 

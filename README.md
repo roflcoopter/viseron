@@ -71,6 +71,7 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
     - [Topics for each Viseron instance](#topics-for-each-viseron-instance)
     - [Home Assistant MQTT Discovery](#home-assistant-mqtt-discovery)
   - [Logger](#logger)
+  - [Webserver](#webserver)
   - [Secrets](#secrets)
 - [Benchmarks](#benchmarks)
 - [User and Group Identifiers](#user-and-group-identifiers)
@@ -1336,6 +1337,22 @@ The switch is used to arm/disarm a camera. When disarmed, no system resources ar
 | -----| -----| ------- | ----------------- |------------ |
 | default_level | str | ```INFO``` | ```DEBUG```, ```INFO```, ```WARNING```, ```ERROR```, ```FATAL``` | Log level |
 | logs | dict | optional | True/False | Dictionary used to set log level for individual components. |
+
+---
+
+## Webserver
+<details>
+  <summary>Config example</summary>
+
+  ```yaml
+  webserver:
+    port: 8888
+  ```
+</details>
+
+| Name | Type | Default | Supported options | Description |
+| -----| -----| ------- | ----------------- |------------ |
+| port | int | 8888 | Integer between 1024 and 49151 | Port that the webserver listens on |
 
 ---
 
