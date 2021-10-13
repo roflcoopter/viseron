@@ -1,4 +1,5 @@
 """Viseron init file."""
+import concurrent.futures
 import logging
 import signal
 import sys
@@ -129,11 +130,19 @@ class Viseron:
             data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
             data_stream.publish_data(VISERON_SIGNALS["shutdown"])
 
-        for thread in threading.enumerate():
-            if not thread.daemon and thread != threading.current_thread():
-                thread.join(timeout=5)
-                if thread.is_alive():
-                    LOGGER.error(f"Thread {thread.name} did not exit in time")
+        def join_thread(thread):
+            thread.join(timeout=5)
+            if thread.is_alive():
+                LOGGER.error(f"Thread {thread.name} did not exit in time")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            thread_future = {
+                executor.submit(join_thread, thread): thread
+                for thread in threading.enumerate()
+                if not thread.daemon and thread != threading.current_thread()
+            }
+            for future in concurrent.futures.as_completed(thread_future):
+                future.result()
 
     def setup(self):
         """Set up Viseron."""
