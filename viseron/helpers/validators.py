@@ -1,7 +1,10 @@
 """Custom voluptuous validators."""
+import re
 from typing import Callable, Optional
 
 from voluptuous import Invalid
+
+SLUG_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
 
 
 def deprecated(key: str, replacement: Optional[str] = None) -> Callable[[dict], dict]:
@@ -30,3 +33,11 @@ def deprecated(key: str, replacement: Optional[str] = None) -> Callable[[dict], 
         return config
 
     return validator
+
+
+def ensure_slug(value: str) -> str:
+    """Validate a string to only consist of certain characters."""
+    regex = re.compile(SLUG_REGEX)
+    if not regex.match(value):
+        raise Invalid("Invalid string")
+    return value

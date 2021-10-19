@@ -34,25 +34,17 @@ from viseron.const import (
     HWACCEL_VAAPI,
 )
 from viseron.helpers import generate_numpy_from_coordinates, slugify
+from viseron.helpers.validators import ensure_slug
 
 from .config_object_detection import LABELS_SCHEMA, LabelConfig
 
 MQTT_NAME_REGEX = re.compile(r"^[a-zA-Z0-9_\.]+$")
-SLUG_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
 
 STREAM_FORMAT_MAP = {
     "rtsp": {"protocol": "rtsp", "timeout_option": ["-stimeout", "5000000"]},
     "rtmp": {"protocol": "rtmp", "timeout_option": ["-rw_timeout", "5000000"]},
     "mjpeg": {"protocol": "http", "timeout_option": ["-stimeout", "5000000"]},
 }
-
-
-def ensure_slug(value: str) -> str:
-    """Validate an string to only consist of certain characters."""
-    regex = re.compile(SLUG_REGEX)
-    if not regex.match(value):
-        raise Invalid("Invalid string")
-    return value
 
 
 def ensure_mqtt_name(camera: Dict[str, str]) -> Dict[str, str]:

@@ -69,6 +69,8 @@
 !/viseron/detector/deepstack/*
 !/viseron/detector/edgetpu
 !/viseron/detector/edgetpu/*
+!/viseron/domains
+!/viseron/domains/**
 !/viseron/helpers
 !/viseron/helpers/*
 !/viseron/motion

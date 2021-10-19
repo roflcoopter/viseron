@@ -36,7 +36,7 @@ from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import RestartableThread, ThreadWatchDog
 
 VISERON_SIGNALS = {
-    VISERON_SIGNAL_SHUTDOWN: "/viseron/signal/shutdown",
+    VISERON_SIGNAL_SHUTDOWN: "viseron/signal/shutdown",
 }
 
 SIGNAL_SCHEMA = vol.Schema(
@@ -91,7 +91,10 @@ def setup_viseron():
 class Viseron:
     """Viseron."""
 
+    vis = None
+
     def __init__(self):
+        Viseron.vis = self
         self.data = {}
         self.setup_threads = []
 

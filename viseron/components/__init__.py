@@ -38,6 +38,11 @@ class Component:
         """Return component name."""
         return self._name
 
+    @property
+    def path(self):
+        """Return component path."""
+        return self._path
+
     def get_component(self):
         """Return component module."""
         return importlib.import_module(self._path)
@@ -80,18 +85,19 @@ def setup_component(vis, component: Component, config):
     """Set up single component."""
     LOGGER.info(f"Setting up {component.name}")
     try:
-        vis.data[LOADING].add(component.name)
+        vis.data[LOADING].add(component)
         if component.setup_component(config):
-            vis.data[LOADED].add(component.name)
-            vis.data[LOADING].remove(component.name)
+            vis.data[LOADED].add(component)
+            vis.data[LOADING].remove(component)
         else:
-            vis.data[FAILED].add(component.name)
-            vis.data[LOADING].remove(component.name)
+            LOGGER.error(f"Failed setup of component {component.name}")
+            vis.data[FAILED].add(component)
+            vis.data[LOADING].remove(component)
 
     except ModuleNotFoundError as err:
         LOGGER.error(f"Failed to load component {component}: {err}")
-        vis.data[FAILED].add(component.name)
-        vis.data[LOADING].remove(component.name)
+        vis.data[FAILED].add(component)
+        vis.data[LOADING].remove(component)
 
 
 def setup_components(vis, config):

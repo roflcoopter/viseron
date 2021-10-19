@@ -255,4 +255,8 @@ def load_config():
         )
         create_default_config()
         sys.exit()
+
+    # Convert values to dictionaries if they are None
+    for key, value in raw_config.items():
+        raw_config[key] = value or {}
     return raw_config
