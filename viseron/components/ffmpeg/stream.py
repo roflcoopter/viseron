@@ -26,13 +26,15 @@ from viseron.const import (
 )
 from viseron.domains.camera import (
     CONFIG_EXTENSION,
-    CONFIG_MOTION_DETECTOR,
-    CONFIG_OBJECT_DETECTOR,
+    DOMAIN as CAMERA_DOMAIN,
+    SharedFrame,
+    SharedFrames,
 )
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
 from viseron.helpers.logs import FFmpegFilter, LogPipe, SensitiveInformationFilter
 
 from .const import (
+    CAMERA_INPUT_ARGS,
     CAMERA_SEGMENT_ARGS,
     COMPONENT,
     CONFIG_AUDIO_CODEC,
@@ -72,13 +74,15 @@ from .const import (
 class Stream:
     """Represents a stream of frames from a camera."""
 
-    def __init__(self, vis, config, camera_name):
-        self._logger = logging.getLogger(__name__ + "." + camera_name)
+    def __init__(self, vis, config, camera_identifier):
+        self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.addFilter(SensitiveInformationFilter())
         self._logger.addFilter(FFmpegFilter(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS]))
         self._config = config
-        self._camera_name = camera_name
-        self._recorder = vis.data[COMPONENT][camera_name][RECORDER]
+        self._camera_identifier = camera_identifier
+
+        self._camera = vis.data[CAMERA_DOMAIN][camera_identifier]
+        self._recorder = vis.data[COMPONENT][camera_identifier][RECORDER]
 
         self._pipe = None
         self._log_pipe = LogPipe(
@@ -89,6 +93,7 @@ class Stream:
             self._logger, FFMPEG_LOG_LEVELS[config[CONFIG_FFPROBE_LOGLEVEL]]
         )
         self._ffprobe_timeout = FFPROBE_TIMEOUT
+        self._shared_frames = SharedFrames()
 
         self._output_stream_config = config
         if config.get(CONFIG_SUBSTREAM, None):
@@ -129,6 +134,7 @@ class Stream:
         )
         self.stream_codec = stream_codec
         self.stream_audio_codec = stream_audio_codec
+        self._output_fps = fps
 
         if self.width and self.height and self.fps:
             pass
@@ -192,27 +198,29 @@ class Stream:
             "pipe:1",
         ]
 
+    @property
+    def alias(self):
+        """Return FFmpeg executable alias."""
+        return f"ffmpeg_{self._camera_identifier}"
+
     def create_symlink(self):
         """Create a symlink to FFmpeg executable.
 
         This is done to know which FFmpeg command belongs to which camera.
         """
         try:
-            os.symlink(
-                os.getenv(ENV_FFMPEG_PATH), f"/home/abc/bin/ffmpeg_{self._camera_name}"
-            )
+            os.symlink(os.getenv(ENV_FFMPEG_PATH), f"/home/abc/bin/{self.alias}")
         except FileExistsError:
             pass
 
     @property
     def output_fps(self):
         """Return stream output FPS."""
-        return max(
-            [
-                self._config[CONFIG_OBJECT_DETECTOR][CONFIG_FPS],
-                self._config[CONFIG_MOTION_DETECTOR][CONFIG_FPS],
-            ]
-        )
+        return self._output_fps
+
+    @output_fps.setter
+    def output_fps(self, fps):
+        self._output_fps = fps
 
     def run_ffprobe(
         self,
@@ -339,27 +347,35 @@ class Stream:
         if stream_codec:
             if stream_config[CONFIG_STREAM_FORMAT] in ["rtsp", "rtmp"]:
                 if os.getenv(ENV_RASPBERRYPI3) == "true":
-                    codec = HWACCEL_RPI3_DECODER_CODEC_MAP
+                    codec_map = HWACCEL_RPI3_DECODER_CODEC_MAP
                 if os.getenv(ENV_RASPBERRYPI4) == "true":
-                    codec = HWACCEL_RPI4_DECODER_CODEC_MAP
+                    codec_map = HWACCEL_RPI4_DECODER_CODEC_MAP
                 if os.getenv(ENV_JETSON_NANO) == "true":
-                    codec = HWACCEL_JETSON_NANO_DECODER_CODEC_MAP
+                    codec_map = HWACCEL_JETSON_NANO_DECODER_CODEC_MAP
                 if os.getenv(ENV_CUDA_SUPPORTED) == "true":
-                    codec = HWACCEL_CUDA_DECODER_CODEC_MAP
-            else:
-                codec = {}
-            return ["-c:v", codec]
+                    codec_map = HWACCEL_CUDA_DECODER_CODEC_MAP
+                return ["-c:v", codec_map[stream_codec]]
         return []
 
     def stream_command(self, stream_config, stream_codec, stream_url):
         """Return FFmpeg input stream."""
+        if stream_config[CONFIG_INPUT_ARGS]:
+            input_args = stream_config[CONFIG_INPUT_ARGS]
+        else:
+            input_args = (
+                CAMERA_INPUT_ARGS
+                + STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]][
+                    "timeout_option"
+                ]
+            )
+
         return (
-            stream_config[CONFIG_INPUT_ARGS]
+            input_args
             + stream_config[CONFIG_HWACCEL_ARGS]
             + self.get_codec(stream_config, stream_codec)
             + (
                 ["-rtsp_transport", stream_config[CONFIG_RTSP_TRANSPORT]]
-                if stream_config.stream_format == "rtsp"
+                if self._config[CONFIG_STREAM_FORMAT] == "rtsp"
                 else []
             )
             + ["-i", stream_url]
@@ -385,31 +401,29 @@ class Stream:
         if self._config.get(CONFIG_SUBSTREAM, None):
             substream_input_command = self.stream_command(
                 self._output_stream_config,
-                self._output_stream_config[CONFIG_CODEC],
+                self.stream_codec,
                 self.output_stream_url,
             )
         main_stream_input_command = self.stream_command(
-            self._config, self._config[CONFIG_CODEC], self.stream_url
+            self._config, self.stream_codec, self.stream_url
         )
 
         camera_segment_args = []
         camera_segment_args = (
             ["-map", "0"]
             + CAMERA_SEGMENT_ARGS
-            + self.get_audio_codec(
-                self._output_stream_config[CONFIG_CODEC], self.stream_audio_codec
-            )
+            + self.get_audio_codec(self._output_stream_config, self.stream_audio_codec)
             + [
                 os.path.join(
                     self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
-                    self._camera_name,
+                    self._camera.identifier,
                     f"%Y%m%d%H%M%S.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
                 )
             ]
         )
 
         return (
-            [self._camera_name]
+            [self.alias]
             + self._config[CONFIG_GLOBAL_ARGS]
             + ["-loglevel"]
             + [self._config[CONFIG_FFMPEG_LOGLEVEL]]
@@ -423,9 +437,8 @@ class Stream:
                 else []
             )
             + ["-map"]
-            + ["1"]
-            if self._config.get(CONFIG_SUBSTREAM, None)
-            else ["0"] + self.output_args
+            + (["1"] if self._config.get(CONFIG_SUBSTREAM, None) else ["0"])
+            + self.output_args
         )
 
     def pipe(self):
@@ -438,7 +451,8 @@ class Stream:
 
     def start_pipe(self):
         """Start piping frames from FFmpeg."""
-        self._logger.debug(f"FFMPEG decoder command: {' '.join(self.build_command())}")
+        print(self.build_command())
+        self._logger.debug(f"FFmpeg decoder command: {' '.join(self.build_command())}")
         self._pipe = self.pipe()
 
     def close_pipe(self):
@@ -458,10 +472,20 @@ class Stream:
     def read(self):
         """Return a single frame from FFmpeg pipe."""
         if self._pipe:
-            frame_bytes = self._pipe.stdout.read(self._frame_bytes)
-
-            if len(frame_bytes) == self._frame_bytes:
-                return frame_bytes
+            frame_name, frame_buffer = self._shared_frames.create(self._frame_bytes)
+            try:
+                frame_bytes = self._pipe.stdout.read(self._frame_bytes)
+                if len(frame_bytes) == self._frame_bytes:
+                    frame_buffer[:] = frame_bytes
+                    return SharedFrame(
+                        frame_name,
+                        self._color_plane_width,
+                        self._color_plane_height,
+                        self._color_converter,
+                        (self.width, self.height),
+                    )
+            except Exception as err:  # pylint: disable=broad-except
+                self._logger(f"Error reading frame from FFmpeg: {err}")
                 # return Frame(
                 #     self._color_converter,
                 #     self._color_plane_width,

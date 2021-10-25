@@ -24,6 +24,22 @@ CAMERA_SEGMENT_ARGS = [
     "-c:v",
     "copy",
 ]
+CAMERA_INPUT_ARGS = [
+    "-avoid_negative_ts",
+    "make_zero",
+    "-fflags",
+    "nobuffer",
+    "-flags",
+    "low_delay",
+    "-strict",
+    "experimental",
+    "-fflags",
+    "+genpts",
+    "-use_wallclock_as_timestamps",
+    "1",
+    "-vsync",
+    "0",
+]
 
 FFMPEG_LOG_LEVELS = {
     "quiet": 50,
@@ -88,16 +104,16 @@ DEFAULT_FRAME_TIMEOUT = 60
 
 
 # RECORDER_SCHEMA constants
-CONFIG_HWACCEL_ARGS = "hwaccel_args"
-CONFIG_CODEC = "codec"
-CONFIG_AUDIO_CODEC = "audio_codec"
-CONFIG_FILTER_ARGS = "filter_args"
+CONFIG_RECORDER_HWACCEL_ARGS = "hwaccel_args"
+CONFIG_RECORDER_CODEC = "codec"
+CONFIG_RECORDER_AUDIO_CODEC = "audio_codec"
+CONFIG_RECORDER_FILTER_ARGS = "filter_args"
 CONFIG_SEGMENTS_FOLDER = "segments_folder"
 
-DEFAULT_HWACCEL_ARGS = []
-DEFAULT_CODEC = "copy"
-DEFAULT_AUDIO_CODEC = "copy"
-DEFAULT_FILTER_ARGS = []
+DEFAULT_RECORDER_HWACCEL_ARGS: List[str] = []
+DEFAULT_RECORDER_CODEC = "copy"
+DEFAULT_RECORDER_AUDIO_CODEC = "copy"
+DEFAULT_RECORDER_FILTER_ARGS: List[str] = []
 DEFAULT_SEGMENTS_FOLDER = "/segments"
 
 # CAMERA_SCHEMA constants

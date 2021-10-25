@@ -14,6 +14,7 @@ from viseron.domains.camera import (
     CONFIG_LOOKBACK,
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
+    DOMAIN as CAMERA_DOMAIN,
 )
 
 from .const import CONFIG_SEGMENTS_FOLDER, RECORDER
@@ -25,12 +26,13 @@ LOGGER = logging.getLogger(__name__)
 class Recorder:
     """Creates thumbnails and recordings."""
 
-    def __init__(self, config, camera_name):
-        self._logger = logging.getLogger(__name__ + "." + camera_name)
+    def __init__(self, vis, config, camera_identifier):
+        self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.debug("Initializing ffmpeg recorder")
         self._config = config
         self._recorder_config = self._config[RECORDER]
-        self._camera_name = camera_name
+        self._camera_identifier = camera_identifier
+        self._camera = vis.data[CAMERA_DOMAIN][camera_identifier]
 
         self.is_recording = False
         self.last_recording_start = None
@@ -40,17 +42,17 @@ class Recorder:
         self._recording_name = None
 
         segments_folder = os.path.join(
-            self._recorder_config[CONFIG_SEGMENTS_FOLDER], camera_name
+            self._recorder_config[CONFIG_SEGMENTS_FOLDER], self._camera.identifier
         )
         self.create_directory(segments_folder)
         self._segmenter = Segments(self._logger, config, segments_folder)
         self._segment_cleanup = SegmentCleanup(
-            self._recorder_config, camera_name, self._logger
+            self._recorder_config, self._camera.identifier, self._logger
         )
 
     def subfolder_name(self, today):
         """Generate name of folder for recording."""
-        return f"{today.year:04}-{today.month:02}-{today.day:02}/{self._camera_name}"
+        return f"{today.year:04}-{today.month:02}-{today.day:02}/{self._camera.name}"
 
     def create_thumbnail(self, file_name, frame, objects, resolution):
         """Create thumbnails, sent to MQTT and/or saved to disk based on config."""
@@ -63,7 +65,7 @@ class Recorder:
 
         if self._recorder_config[CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]:
             thumbnail_folder = os.path.join(
-                self._recorder_config[CONFIG_FOLDER], "thumbnails", self._camera_name
+                self._recorder_config[CONFIG_FOLDER], "thumbnails", self._camera.name
             )
             self.create_directory(thumbnail_folder)
 
