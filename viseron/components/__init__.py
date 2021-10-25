@@ -18,6 +18,8 @@ UNMIGRATED_COMPONENTS = [
     "logging",
 ]
 
+LAST_STAGE_COMPONENTS = ["nvr"]
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -47,16 +49,6 @@ class Component:
         """Return component module."""
         return importlib.import_module(self._path)
 
-    def setup_component(self, config):
-        """Set up component."""
-        component_module = self.get_component()
-        config = self.validate_component_config(config, component_module)
-
-        if config:
-            return component_module.setup(self._vis, config)
-
-        return False
-
     def validate_component_config(self, config, component_module):
         """Validate component config."""
         if hasattr(component_module, "CONFIG_SCHEMA"):
@@ -69,6 +61,47 @@ class Component:
                 LOGGER.exception("Unknown error calling %s CONFIG_SCHEMA", self.name)
                 return None
         return True
+
+    def setup_component(self, config):
+        """Set up component."""
+        component_module = self.get_component()
+        config = self.validate_component_config(config, component_module)
+
+        if config:
+            return component_module.setup(self._vis, config)
+
+        return False
+
+    def get_domain(self, domain):
+        """Return domain module."""
+        return importlib.import_module(f"{self._path}.{domain}")
+
+    def validate_domain_config(self, config, domain, domain_module):
+        """Validate domain config."""
+        if hasattr(domain_module, "CONFIG_SCHEMA"):
+            try:
+                return domain_module.CONFIG_SCHEMA(config)  # type: ignore
+            except vol.Invalid as ex:
+                LOGGER.exception(
+                    f"Error setting up domain {domain} for component {self.name}: {ex}"
+                )
+                return None
+            except Exception:  # pylint: disable=broad-except
+                LOGGER.exception(
+                    "Unknown error calling %s.%s CONFIG_SCHEMA", self.name, domain
+                )
+                return None
+        return True
+
+    def setup_domain(self, config, domain):
+        """Set up domain."""
+        domain_module = self.get_domain(domain)
+        config = self.validate_domain_config(config, domain, domain_module)
+
+        if config:
+            return domain_module.setup(self._vis, config)
+
+        return False
 
 
 def get_component(vis, component):
@@ -85,19 +118,19 @@ def setup_component(vis, component: Component, config):
     """Set up single component."""
     LOGGER.info(f"Setting up {component.name}")
     try:
-        vis.data[LOADING].add(component)
+        vis.data[LOADING][component.name] = component
         if component.setup_component(config):
-            vis.data[LOADED].add(component)
-            vis.data[LOADING].remove(component)
+            vis.data[LOADED][component.name] = component
+            del vis.data[LOADING][component.name]
         else:
             LOGGER.error(f"Failed setup of component {component.name}")
-            vis.data[FAILED].add(component)
-            vis.data[LOADING].remove(component)
+            vis.data[FAILED][component.name] = component
+            del vis.data[LOADING][component.name]
 
     except ModuleNotFoundError as err:
-        LOGGER.error(f"Failed to load component {component}: {err}")
-        vis.data[FAILED].add(component)
-        vis.data[LOADING].remove(component)
+        LOGGER.error(f"Failed to load component {component.name}: {err}")
+        vis.data[FAILED][component.name] = component
+        del vis.data[LOADING][component.name]
 
 
 def setup_components(vis, config):
@@ -108,6 +141,7 @@ def setup_components(vis, config):
         - set(UNMIGRATED_COMPONENTS)
         - set(LOGGING_COMPONENTS)
         - set(CORE_COMPONENTS)
+        - set(LAST_STAGE_COMPONENTS)
     )
 
     # Setup logger first
@@ -119,4 +153,8 @@ def setup_components(vis, config):
         setup_component(vis, get_component(vis, component), config)
 
     for component in components_in_config:
+        setup_component(vis, get_component(vis, component), config)
+
+    # Setup NVRs last
+    for component in LAST_STAGE_COMPONENTS:
         setup_component(vis, get_component(vis, component), config)
