@@ -1,6 +1,7 @@
 """Used to publish/subscribe to data between different parts of Viseron."""
 import fnmatch
 import logging
+import multiprocessing as mp
 import threading
 import uuid
 from queue import Queue
@@ -22,6 +23,20 @@ class DataSubscriber(TypedDict):
 
     callback: Union[Callable, Queue, tornado_queue]
     ioloop: Union[IOLoop, None]
+
+
+class Subscribe(TypedDict):
+    """Subscribe to data from process."""
+
+    data_topic: str
+    callback: Union[mp.Queue]
+
+
+class Publish(TypedDict):
+    """Data to publish from process."""
+
+    data_topic: str
+    data: Any
 
 
 def setup(vis, _):
@@ -102,9 +117,12 @@ class DataStream:
         """Run callbacks or put to queues."""
         for callback in callbacks.values():
             if callable(callback["callback"]):
-                thread = threading.Thread(
-                    target=callback["callback"], args=(data,), daemon=True
-                )
+                if data:
+                    thread = threading.Thread(
+                        target=callback["callback"], args=(data,), daemon=True
+                    )
+                else:
+                    thread = threading.Thread(target=callback["callback"], daemon=True)
                 thread.start()
                 continue
 
