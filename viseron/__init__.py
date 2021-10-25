@@ -4,6 +4,8 @@ import logging
 import signal
 import sys
 import threading
+from dataclasses import dataclass
+from typing import Any
 
 import voluptuous as vol
 
@@ -88,6 +90,14 @@ def setup_viseron():
     vis.setup()
 
 
+@dataclass
+class EventData:
+    """Dataclass that holds an event."""
+
+    event_name: str
+    event_data: Any
+
+
 class Viseron:
     """Viseron."""
 
@@ -98,9 +108,9 @@ class Viseron:
         self.data = {}
         self.setup_threads = []
 
-        self.data[LOADING] = set()
-        self.data[LOADED] = set()
-        self.data[FAILED] = set()
+        self.data[LOADING] = {}
+        self.data[LOADED] = {}
+        self.data[FAILED] = {}
 
     def register_signal_handler(self, viseron_signal, callback):
         """Register a callback which gets called on signals emitted by Viseron.
@@ -123,8 +133,28 @@ class Viseron:
             )
             return False
 
-        self.data[DATA_STREAM_COMPONENT].subscribe_data(
-            f"/viseron/signal/{viseron_signal}", callback
+        return self.data[DATA_STREAM_COMPONENT].subscribe_data(
+            f"viseron/signal/{viseron_signal}", callback
+        )
+
+    def listen_event(self, event, callback):
+        """Register a listener to an event."""
+        if DATA_STREAM_COMPONENT not in self.data[LOADED]:
+            LOGGER.error(
+                f"Failed to register event listener for {event}: "
+                f"{DATA_STREAM_COMPONENT} is not loaded"
+            )
+            return False
+
+        return self.data[DATA_STREAM_COMPONENT].subscribe_data(
+            f"event/{event}", callback
+        )
+
+    def dispatch_event(self, event, data):
+        """Dispatch an event."""
+        event = f"event/{event}"
+        self.data[DATA_STREAM_COMPONENT].publish_data(
+            event, data=EventData(event, data)
         )
 
     def shutdown(self):
@@ -168,7 +198,7 @@ class Viseron:
             mqtt.connect()
             mqtt_publisher.start()
 
-        detector = Detector(config.object_detection)
+        Detector(config.object_detection)
 
         post_processors = {}
         for (
@@ -187,17 +217,6 @@ class Viseron:
                         post_processor_type, error
                     )
                 )
-
-        LOGGER.info("Initializing NVR threads")
-        for camera in config.cameras:
-            setup_thread = SetupNVR(
-                config,
-                camera,
-                detector,
-            )
-            self.setup_threads.append(setup_thread)
-        for thread in self.setup_threads:
-            thread.join()
 
         LOGGER.info("Initialization complete")
 
