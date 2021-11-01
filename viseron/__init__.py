@@ -27,7 +27,7 @@ from viseron.const import (
     VISERON_SIGNAL_SHUTDOWN,
 )
 from viseron.detector import Detector
-from viseron.domains.object_detector import DATA_OBJECT_DETECTOR_SCAN
+from viseron.domains.object_detector.const import DATA_OBJECT_DETECTOR_SCAN
 from viseron.exceptions import (
     FFprobeError,
     FFprobeTimeout,

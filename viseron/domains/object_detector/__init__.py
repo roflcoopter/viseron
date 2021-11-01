@@ -6,11 +6,10 @@ import multiprocessing as mp
 import time
 from abc import ABC, abstractmethod
 from queue import Empty, Queue
-from typing import Any
+from typing import Any, Dict
 
 from setproctitle import setproctitle
 
-from viseron.camera.frame_decoder import FrameMetaData
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import CONFIG_MAX_FRAME_AGE, CONFIG_OBJECT_DETECTOR
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
@@ -96,7 +95,7 @@ class AbstractObjectDetector(ABC):
         """Process frame and send it to the detector."""
         remove_shm_from_resource_tracker()
         setproctitle(f"viseron_object_detector_{self.name}")
-        detector_queue: Queue[FrameMetaData] = Queue(maxsize=100)
+        detector_queue: Dict[str, Any] = Queue(maxsize=100)
         detector_thread = RestartableThread(
             target=self.object_detection,
             name=f"object_detector.{self.name}",
