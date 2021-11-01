@@ -18,7 +18,7 @@ import viseron.mqtt
 from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
 
 if TYPE_CHECKING:
-    from viseron.domains.object_detector import DetectedObject
+    from viseron.domains.object_detector.detected_object import DetectedObject
     from viseron.zones import Zone
 
 LOGGER = logging.getLogger(__name__)

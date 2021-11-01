@@ -16,7 +16,7 @@ from viseron.helpers.filter import Filter
 
 if TYPE_CHECKING:
     from viseron.camera.frame import Frame
-    from viseron.domains.object_detector import DetectedObject
+    from viseron.domains.object_detector.detected_object import DetectedObject
 
 EVENT_OBJECTS_IN_ZONE = "{camera_identifier}/zone/{zone_name}/objects"
 
@@ -90,7 +90,9 @@ class Zone:
 
         self._objects_in_zone = objects
         self._vis.dispatch_event(
-            EVENT_OBJECTS_IN_ZONE.format(zone_name=self._name),
+            EVENT_OBJECTS_IN_ZONE.format(
+                camera_identifier=self._camera.identifier, zone_name=self._name
+            ),
             {"zone": self, "objects": objects},
         )
 

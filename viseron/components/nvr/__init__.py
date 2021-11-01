@@ -14,6 +14,8 @@ from viseron.components.data_stream import (
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import DOMAIN as CAMERA_DOMAIN, SharedFrame, SharedFrames
 from viseron.domains.object_detector.const import DATA_OBJECT_DETECTOR_RESULT
+from viseron.domains.object_detector.detected_object import DetectedObject
+from viseron.helpers.filter import Filter
 from viseron.helpers.validators import ensure_slug
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -173,6 +175,9 @@ NVR_SCHEMA = vol.Schema(
 )
 
 
+EVENT_OBJECTS_IN_FOV = "{camera_identifier}/objects"
+
+
 def validate_nvr_config(config, camera_identifier):
     """Validate the config of an NVR entry."""
     try:
@@ -308,6 +313,18 @@ class NVR:
             if self._motion_detector:
                 self._frame_scanners[CONFIG_MOTION_DETECTOR].scan.clear()
 
+        self._objects_in_fov: List[DetectedObject] = []
+        self._object_filters = {}
+        if config[CONFIG_OBJECT_DETECTOR][CONFIG_LABELS]:
+            for object_filter in config[CONFIG_OBJECT_DETECTOR][CONFIG_LABELS]:
+                self._object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
+                    self._camera.resolution,
+                    object_filter,
+                    config[CONFIG_OBJECT_DETECTOR][CONFIG_MASK],
+                )
+        elif self._object_detector:
+            self._logger.warning("No labels configured. No objects will be detected")
+
         self._zones: List[Zone] = []
         for zone in config[CONFIG_ZONES]:
             self._zones.append(Zone(vis, camera_identifier, config, zone))
@@ -351,18 +368,63 @@ class NVR:
             if frame_scanner.check_scan_interval(shared_frame):
                 self._current_frame_scanners[scanner] = frame_scanner
 
-    def scanner_results(self):
+    def filter_fov(self, shared_frame, objects):
+        """Filter field of view."""
+        objects_in_fov = []
+        for obj in objects:
+            if self._object_filters.get(obj.label) and self._object_filters[
+                obj.label
+            ].filter_object(obj):
+                obj.relevant = True
+                objects_in_fov.append(obj)
+
+                if self._object_filters[obj.label].trigger_recorder:
+                    obj.trigger_recorder = True
+
+        self.objects_in_fov_setter(shared_frame, objects_in_fov)
+        if self._config[CONFIG_OBJECT_DETECTOR][CONFIG_LOG_ALL_OBJECTS]:
+            self._object_logger.debug(
+                "All objects: %s",
+                [obj.formatted for obj in objects],
+            )
+        else:
+            self._object_logger.debug(
+                "Objects: %s", [obj.formatted for obj in self.objects_in_fov]
+            )
+
+    @property
+    def objects_in_fov(self):
+        """Return all objects in field of view."""
+        return self._objects_in_fov
+
+    def objects_in_fov_setter(self, shared_frame, objects):
+        """Set objects in field of view."""
+        if objects == self._objects_in_fov:
+            return
+
+        self._objects_in_fov = objects
+        self._vis.dispatch_event(
+            EVENT_OBJECTS_IN_FOV.format(camera_identifier=self._camera.identifier),
+            {
+                "camera_identifier": self._camera.identifier,
+                "shared_frame": shared_frame,
+                "objects": objects,
+            },
+        )
+
+    def scanner_results(self, shared_frame):
         """Wait for scanner to return results."""
-        for _, frame_scanner in self._current_frame_scanners.items():
-            self._logger.debug(frame_scanner.result_queue.get())
+        for scanner, frame_scanner in self._current_frame_scanners.items():
+            scanner_result = frame_scanner.result_queue.get()
+            if scanner == CONFIG_OBJECT_DETECTOR:
+                self.filter_fov(shared_frame, scanner_result)
 
     def process_frame(self, shared_frame: SharedFrame):
         """Process frame."""
-        self._logger.debug(f"Processing frame {shared_frame}")
         shared_frame.nvr_config = self._config
 
         self.check_intervals(shared_frame)
-        self.scanner_results()
+        self.scanner_results(shared_frame)
 
         self._shared_frames.remove(shared_frame)
 

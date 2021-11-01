@@ -8,7 +8,8 @@ import tflite_runtime.interpreter as tflite
 from pycoral.utils.edgetpu import list_edge_tpus, make_interpreter
 
 from viseron import Viseron
-from viseron.domains.object_detector import AbstractObjectDetector, DetectedObject
+from viseron.domains.object_detector import AbstractObjectDetector
+from viseron.domains.object_detector.detected_object import DetectedObject
 
 from .const import COMPONENT, CONFIG_DEVICE, CONFIG_LABEL_PATH, CONFIG_MODEL_PATH
 

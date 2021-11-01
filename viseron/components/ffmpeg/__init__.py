@@ -29,7 +29,6 @@ def setup(vis: Viseron, config):
     config = config[COMPONENT]
     vis.data[COMPONENT] = {}
 
-    LOGGER.debug(config)
     for camera_config in config[CONFIG_CAMERAS]:
         setup_domain(vis, camera_config, COMPONENT, CAMERA_DOMAIN)
 

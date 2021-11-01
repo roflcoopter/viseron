@@ -10,7 +10,7 @@ from viseron.components.nvr.const import (
     CONFIG_LABEL_WIDTH_MAX,
     CONFIG_LABEL_WIDTH_MIN,
 )
-from viseron.domains.object_detector import DetectedObject
+from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.helpers import object_in_polygon
 
 

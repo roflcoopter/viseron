@@ -451,7 +451,6 @@ class Stream:
 
     def start_pipe(self):
         """Start piping frames from FFmpeg."""
-        print(self.build_command())
         self._logger.debug(f"FFmpeg decoder command: {' '.join(self.build_command())}")
         self._pipe = self.pipe()
 
