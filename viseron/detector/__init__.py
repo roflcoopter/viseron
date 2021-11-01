@@ -10,7 +10,7 @@ from threading import Lock
 from typing import TYPE_CHECKING
 
 import cv2
-from voluptuous import PREVENT_EXTRA
+import voluptuous as vol
 
 from viseron.components.data_stream import DataStream
 from viseron.config.config_object_detection import ObjectDetectionConfig
@@ -26,11 +26,15 @@ from viseron.watchdog.thread_watchdog import RestartableThread
 if TYPE_CHECKING:
     from viseron.camera.frame_decoder import FrameToScan
 
+
 LOGGER = logging.getLogger(__name__)
 
 
 class AbstractObjectDetection(ABC):
-    """Abstract Object Detection."""
+    """Abstract Object Detection.
+
+    Deprecated in favor of AbstractObjectDetector.
+    """
 
     def preprocess(self, frame_to_scan: FrameToScan):  # pylint: disable=no-self-use
         """Preprocessor function that runs before detection."""
@@ -44,7 +48,7 @@ class AbstractObjectDetection(ABC):
 class AbstractDetectorConfig(ABC, ObjectDetectionConfig):
     """Abstract Object Detector Config."""
 
-    SCHEMA = ObjectDetectionConfig.schema.extend({}, extra=PREVENT_EXTRA)
+    SCHEMA = ObjectDetectionConfig.schema.extend({}, extra=vol.PREVENT_EXTRA)
 
 
 class Detector:
