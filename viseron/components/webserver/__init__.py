@@ -190,4 +190,5 @@ class WebServer(threading.Thread):
 
     def stop(self):
         """Stop ioloop."""
+        LOGGER.debug("Stopping webserver")
         self._ioloop.stop()

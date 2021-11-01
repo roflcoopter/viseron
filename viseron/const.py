@@ -167,11 +167,17 @@ TOPIC_FRAME_PROCESSED_OBJECT = "/".join(
 TOPIC_POST_PROCESSOR = "post_processor"
 TOPIC_FRAME_SCAN_POSTPROC = "/".join([TOPIC_FRAME_SCAN, TOPIC_POST_PROCESSOR])
 
+
+# Viseron.data constants
 LOADING = "loading"
 LOADED = "loaded"
 FAILED = "failed"
+OBJECT_DETECTORS = "object_detectors"
 
+
+# Signal constants
 VISERON_SIGNAL_SHUTDOWN = "shutdown"
+
 
 # UI constants
 PREFIX_STATIC = "/ui/static/"

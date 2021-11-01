@@ -36,6 +36,7 @@ CONFIG_ZONE_LABELS = "labels"
 
 
 # OBJECT_DETECTOR_SCHEMA
+CONFIG_DETECTOR = "detector"
 CONFIG_FPS = "fps"
 CONFIG_LABELS = "labels"
 CONFIG_MAX_FRAME_AGE = "max_frame_age"

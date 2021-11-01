@@ -472,26 +472,20 @@ class Stream:
     def read(self):
         """Return a single frame from FFmpeg pipe."""
         if self._pipe:
-            frame_name, frame_buffer = self._shared_frames.create(self._frame_bytes)
+            shared_frame = self._shared_frames.create(self._frame_bytes)
             try:
                 frame_bytes = self._pipe.stdout.read(self._frame_bytes)
                 if len(frame_bytes) == self._frame_bytes:
-                    frame_buffer[:] = frame_bytes
+                    shared_frame.buf[:] = frame_bytes
+                    shared_frame.close()
                     return SharedFrame(
-                        frame_name,
+                        shared_frame.name,
                         self._color_plane_width,
                         self._color_plane_height,
                         self._color_converter,
                         (self.width, self.height),
+                        self._camera_identifier,
                     )
             except Exception as err:  # pylint: disable=broad-except
-                self._logger(f"Error reading frame from FFmpeg: {err}")
-                # return Frame(
-                #     self._color_converter,
-                #     self._color_plane_width,
-                #     self._color_plane_height,
-                #     frame_bytes,
-                #     self.width,
-                #     self.height,
-                # )
+                self._logger.error(f"Error reading frame from FFmpeg: {err}")
         return None

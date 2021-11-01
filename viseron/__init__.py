@@ -1,9 +1,11 @@
 """Viseron init file."""
 import concurrent.futures
 import logging
+import multiprocessing
 import signal
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,10 +22,12 @@ from viseron.const import (
     FAILED,
     LOADED,
     LOADING,
+    OBJECT_DETECTORS,
     THREAD_STORE_CATEGORY_NVR,
     VISERON_SIGNAL_SHUTDOWN,
 )
 from viseron.detector import Detector
+from viseron.domains.object_detector import DATA_OBJECT_DETECTOR_SCAN
 from viseron.exceptions import (
     FFprobeError,
     FFprobeTimeout,
@@ -112,6 +116,8 @@ class Viseron:
         self.data[LOADED] = {}
         self.data[FAILED] = {}
 
+        self.data[OBJECT_DETECTORS] = {}
+
     def register_signal_handler(self, viseron_signal, callback):
         """Register a callback which gets called on signals emitted by Viseron.
 
@@ -157,24 +163,54 @@ class Viseron:
             event, data=EventData(event, data)
         )
 
+    def register_object_detector(self, detector_name, input_queue):
+        """Register an object detector that can be used by components."""
+        LOGGER.debug(f"Registering object detector with name: {detector_name}")
+        topic = DATA_OBJECT_DETECTOR_SCAN.format(detector_name=detector_name)
+        self.data[DATA_STREAM_COMPONENT].subscribe_data(
+            data_topic=topic,
+            callback=input_queue,
+        )
+        self.data[OBJECT_DETECTORS][detector_name] = topic
+
+    def get_object_detector(self, detector_name):
+        """Return a registered object detector."""
+        if not self.data[OBJECT_DETECTORS]:
+            LOGGER.error("No object detectors are registered")
+
+        if not self.data[OBJECT_DETECTORS].get(detector_name, None):
+            LOGGER.error(
+                f"Requested object detector {detector_name} has not been registered. "
+                f"Available object detectors are: {self.data[OBJECT_DETECTORS].keys()}"
+            )
+
+        return self.data[OBJECT_DETECTORS][detector_name]
+
     def shutdown(self):
         """Shut down Viseron."""
         if self.data.get(DATA_STREAM_COMPONENT, None):
             data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
             data_stream.publish_data(VISERON_SIGNALS["shutdown"])
 
-        def join_thread(thread):
-            thread.join(timeout=5)
-            if thread.is_alive():
-                LOGGER.error(f"Thread {thread.name} did not exit in time")
+        def join(thread_or_process):
+            thread_or_process.join(timeout=10)
+            time.sleep(0.5)  # Wait for process to exit properly
+            if thread_or_process.is_alive():
+                LOGGER.error(f"{thread_or_process.name} did not exit in time")
+
+        threads_and_processes = [
+            thread
+            for thread in threading.enumerate()
+            if not thread.daemon and thread != threading.current_thread()
+        ]
+        threads_and_processes += multiprocessing.active_children()
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            thread_future = {
-                executor.submit(join_thread, thread): thread
-                for thread in threading.enumerate()
-                if not thread.daemon and thread != threading.current_thread()
+            thread_or_process_future = {
+                executor.submit(join, thread_or_process): thread_or_process
+                for thread_or_process in threads_and_processes
             }
-            for future in concurrent.futures.as_completed(thread_future):
+            for future in concurrent.futures.as_completed(thread_or_process_future):
                 future.result()
 
     def setup(self):

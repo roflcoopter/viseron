@@ -247,7 +247,7 @@ class Camera(AbstractCamera):
                 self.decode_error.set()
 
         self.stream.close_pipe()
-        self._logger.info("FFmpeg frame reader stopped")
+        self._logger.debug("FFmpeg frame reader stopped")
 
     def start_camera(self):
         """Start capturing frames from camera."""

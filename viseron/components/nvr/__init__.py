@@ -2,8 +2,8 @@
 
 import logging
 import threading
-from queue import Queue
-from typing import List
+from queue import Empty, Queue
+from typing import Dict, List
 
 import voluptuous as vol
 
@@ -13,12 +13,14 @@ from viseron.components.data_stream import (
 )
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import DOMAIN as CAMERA_DOMAIN, SharedFrame, SharedFrames
+from viseron.domains.object_detector.const import DATA_OBJECT_DETECTOR_RESULT
 from viseron.helpers.validators import ensure_slug
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
     COMPONENT,
     CONFIG_COORDINATES,
+    CONFIG_DETECTOR,
     CONFIG_FPS,
     CONFIG_LABEL_CONFIDENCE,
     CONFIG_LABEL_HEIGHT_MAX,
@@ -139,6 +141,7 @@ ZONE_SCHEMA = vol.Schema(
 
 OBJECT_DETECTOR_SCHEMA = vol.Schema(
     {
+        vol.Required(CONFIG_DETECTOR): str,
         vol.Optional(CONFIG_FPS, default=DEFAULT_FPS): vol.All(
             vol.Any(float, int), vol.Coerce(float), vol.Range(min=0.0)
         ),
@@ -198,11 +201,50 @@ def setup(vis, config):
     return True
 
 
+class FrameIntervalCalculator:
+    """Mark frames for scanning."""
+
+    def __init__(
+        self, vis, name, logger, output_fps, scan_fps, topic_scan, topic_result
+    ):
+        self._topic_scan = topic_scan
+        if scan_fps > output_fps:
+            logger.warning(
+                f"FPS for {name} is too high, " f"highest possible FPS is {output_fps}"
+            )
+            scan_fps = output_fps
+        self._scan_interval = round(output_fps / scan_fps)
+
+        self.scan = threading.Event()
+        self._frame_number = 0
+        self.result_queue = Queue(maxsize=10)
+
+        self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
+        self._data_stream.subscribe_data(topic_result, self.result_queue)
+
+    def check_scan_interval(self, shared_frame: SharedFrame):
+        """Check if frame should be marked for scanning."""
+        if self.scan.is_set():
+            if self._frame_number % self._scan_interval == 0:
+                self._frame_number = 1
+                self._data_stream.publish_data(self._topic_scan, shared_frame)
+                return True
+            self._frame_number += 1
+        else:
+            self._frame_number = 0
+        return False
+
+
+DATA_MOTION_DETECTOR_SCAN = "motion_detector/{camera_identifier}/scan"
+DATA_MOTION_DETECTOR_RESULT = "motion_detector/{camera_identifier}/result"
+
+
 class NVR:
     """NVR class that orchestrates all handling of camera streams."""
 
     def __init__(self, vis, config: dict, camera_identifier: str):
         vis.data.setdefault(COMPONENT, {})[camera_identifier] = self
+        self._vis = vis
         self._config = config
         self._camera = vis.data[CAMERA_DOMAIN][camera_identifier]
 
@@ -214,32 +256,57 @@ class NVR:
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self._shared_frames = SharedFrames()
 
-        self._motion_detector = config.get(CONFIG_MOTION_DETECTOR, None)
-        if not self._motion_detector:
-            self._logger.info("Motion detector is disabled")
-        self._scan_motion = threading.Event()
-        self._motion_scan_interval = round(
-            self._camera.output_fps / config[CONFIG_MOTION_DETECTOR][CONFIG_FPS]
-        )
+        self._frame_scanners = {}
+        self._current_frame_scanners: Dict[str, FrameIntervalCalculator] = {}
 
-        self._object_detector = config.get(CONFIG_OBJECT_DETECTOR, None)
-        if not self._object_detector:
+        self._motion_detector = config.get(CONFIG_MOTION_DETECTOR, None)
+        if self._motion_detector:
+            self._frame_scanners[CONFIG_MOTION_DETECTOR] = FrameIntervalCalculator(
+                vis,
+                CONFIG_MOTION_DETECTOR,
+                self._logger,
+                self._camera.output_fps,
+                config[CONFIG_MOTION_DETECTOR][CONFIG_FPS],
+                DATA_MOTION_DETECTOR_SCAN.format(
+                    camera_identifier=self._camera.identifier
+                ),
+                DATA_MOTION_DETECTOR_RESULT.format(
+                    camera_identifier=self._camera.identifier
+                ),
+            )
+        else:
+            self._logger.info("Motion detector is disabled")
+
+        if _object_detector := config.get(CONFIG_OBJECT_DETECTOR, None):
+            _object_detector = self.get_object_detector()
+        self._object_detector = _object_detector
+        if self._object_detector:
+            self._frame_scanners[CONFIG_OBJECT_DETECTOR] = FrameIntervalCalculator(
+                vis,
+                CONFIG_OBJECT_DETECTOR,
+                self._logger,
+                self._camera.output_fps,
+                config[CONFIG_OBJECT_DETECTOR][CONFIG_FPS],
+                self._object_detector,
+                DATA_OBJECT_DETECTOR_RESULT.format(
+                    camera_identifier=self._camera.identifier
+                ),
+            )
+        else:
             self._logger.info("Object detector is disabled")
-        self._scan_object = threading.Event()
-        self._object_scan_interval = round(
-            self._camera.output_fps / config[CONFIG_OBJECT_DETECTOR][CONFIG_FPS]
-        )
 
         if (
             self._motion_detector
             and config[CONFIG_MOTION_DETECTOR][CONFIG_TRIGGER_DETECTOR]
         ):
-            self._scan_motion.set()
-            self._scan_object.clear()
+            self._frame_scanners[CONFIG_MOTION_DETECTOR].scan.set()
+            if self._object_detector:
+                self._frame_scanners[CONFIG_OBJECT_DETECTOR].scan.clear()
         else:
             if self._object_detector:
-                self._scan_object.set()
-            self._scan_motion.clear()
+                self._frame_scanners[CONFIG_OBJECT_DETECTOR].scan.set()
+            if self._motion_detector:
+                self._frame_scanners[CONFIG_MOTION_DETECTOR].scan.clear()
 
         self._zones: List[Zone] = []
         for zone in config[CONFIG_ZONES]:
@@ -270,14 +337,32 @@ class NVR:
             __name__ + "." + self._camera.identifier + ".object"
         )
 
-    def check_scan_interval(self, frame_number, frame_interval):
-        """Check if frame should be marked for scanning."""
-        return frame_number % frame_interval == 0
+    def get_object_detector(self):
+        """Get object detector topic."""
+        if detector := self._config[CONFIG_OBJECT_DETECTOR].get(CONFIG_DETECTOR, None):
+            return self._vis.get_object_detector(detector)
+        return False
+
+    def check_intervals(self, shared_frame):
+        """Check all registered frame intervals."""
+        self._current_frame_scanners = {}
+
+        for scanner, frame_scanner in self._frame_scanners.items():
+            if frame_scanner.check_scan_interval(shared_frame):
+                self._current_frame_scanners[scanner] = frame_scanner
+
+    def scanner_results(self):
+        """Wait for scanner to return results."""
+        for _, frame_scanner in self._current_frame_scanners.items():
+            self._logger.debug(frame_scanner.result_queue.get())
 
     def process_frame(self, shared_frame: SharedFrame):
         """Process frame."""
         self._logger.debug(f"Processing frame {shared_frame}")
         shared_frame.nvr_config = self._config
+
+        self.check_intervals(shared_frame)
+        self.scanner_results()
 
         self._shared_frames.remove(shared_frame)
 
@@ -289,9 +374,13 @@ class NVR:
         self.process_frame(frame)
 
         while not self._kill_received:
-            frame = self._frame_queue.get()
-            self._logger.debug("Got new frame")
+            try:
+                frame = self._frame_queue.get(timeout=1)
+            except Empty:
+                continue
             self.process_frame(frame)
+
+        self._logger.debug("NVR thread stopped")
 
     def stop(self):
         """Stop processing of events."""
