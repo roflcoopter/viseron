@@ -391,7 +391,7 @@ def generate_mask(coordinates):
     """Return a mask used to limit motion or object detection to specific areas."""
     mask = []
     for mask_coordinates in coordinates:
-        mask.append(generate_numpy_from_coordinates(mask_coordinates["points"]))
+        mask.append(generate_numpy_from_coordinates(mask_coordinates["coordinates"]))
     return mask
 
 
