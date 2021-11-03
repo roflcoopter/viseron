@@ -360,7 +360,7 @@ class NVR:
             return self._vis.get_object_detector(detector)
         return False
 
-    def check_intervals(self, shared_frame):
+    def check_intervals(self, shared_frame: SharedFrame):
         """Check all registered frame intervals."""
         self._current_frame_scanners = {}
 
@@ -368,7 +368,7 @@ class NVR:
             if frame_scanner.check_scan_interval(shared_frame):
                 self._current_frame_scanners[scanner] = frame_scanner
 
-    def filter_fov(self, shared_frame, objects):
+    def filter_fov(self, shared_frame: SharedFrame, objects: List[DetectedObject]):
         """Filter field of view."""
         objects_in_fov = []
         for obj in objects:
@@ -397,7 +397,9 @@ class NVR:
         """Return all objects in field of view."""
         return self._objects_in_fov
 
-    def objects_in_fov_setter(self, shared_frame, objects):
+    def objects_in_fov_setter(
+        self, shared_frame: SharedFrame, objects: List[DetectedObject]
+    ):
         """Set objects in field of view."""
         if objects == self._objects_in_fov:
             return
@@ -412,12 +414,18 @@ class NVR:
             },
         )
 
-    def scanner_results(self, shared_frame):
+    def filter_zones(self, shared_frame: SharedFrame, objects: List[DetectedObject]):
+        """Filter all zones."""
+        for zone in self._zones:
+            zone.filter_zone(shared_frame, objects)
+
+    def scanner_results(self, shared_frame: SharedFrame):
         """Wait for scanner to return results."""
         for scanner, frame_scanner in self._current_frame_scanners.items():
             scanner_result = frame_scanner.result_queue.get()
             if scanner == CONFIG_OBJECT_DETECTOR:
                 self.filter_fov(shared_frame, scanner_result)
+                self.filter_zones(shared_frame, scanner_result)
 
     def process_frame(self, shared_frame: SharedFrame):
         """Process frame."""

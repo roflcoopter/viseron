@@ -2,21 +2,21 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, List
+from typing import List
 
 from viseron import Viseron, helpers
 from viseron.components.nvr.const import (
     CONFIG_COORDINATES,
+    CONFIG_LABEL_LABEL,
     CONFIG_MASK,
+    CONFIG_OBJECT_DETECTOR,
     CONFIG_ZONE_LABELS,
     CONFIG_ZONE_NAME,
 )
-from viseron.domains.camera import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera import DOMAIN as CAMERA_DOMAIN, SharedFrame
+from viseron.domains.object_detector.detected_object import DetectedObject
+from viseron.helpers import generate_numpy_from_coordinates
 from viseron.helpers.filter import Filter
-
-if TYPE_CHECKING:
-    from viseron.camera.frame import Frame
-    from viseron.domains.object_detector.detected_object import DetectedObject
 
 EVENT_OBJECTS_IN_ZONE = "{camera_identifier}/zone/{zone_name}/objects"
 
@@ -39,26 +39,30 @@ class Zone:
         self._camera = vis.data[CAMERA_DOMAIN][camera_identifier]
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
 
-        self._coordinates = zone_config[CONFIG_COORDINATES]
+        self._coordinates = generate_numpy_from_coordinates(
+            zone_config[CONFIG_COORDINATES]
+        )
         self._camera_resolution = self._camera.resolution
 
         self._name = zone_config[CONFIG_ZONE_NAME]
         self._objects_in_zone: List[DetectedObject] = []
         self._object_filters = {}
         for object_filter in zone_config[CONFIG_ZONE_LABELS]:
-            self._object_filters[object_filter.label] = Filter(
-                self._camera_resolution, object_filter, nvr_config[CONFIG_MASK]
+            self._object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
+                self._camera_resolution,
+                object_filter,
+                nvr_config[CONFIG_OBJECT_DETECTOR][CONFIG_MASK],
             )
 
-    def filter_zone(self, frame: Frame):
+    def filter_zone(self, shared_frame: SharedFrame, objects: List[DetectedObject]):
         """Filter out objects to see if they are within the zone."""
         objects_in_zone = []
-        for obj in frame.objects:
+        for obj in objects:
             if self._object_filters.get(obj.label) and self._object_filters[
                 obj.label
             ].filter_object(obj):
                 if helpers.object_in_polygon(
-                    self._camera_resolution, obj, self.coordinates
+                    self._camera_resolution, obj, self._coordinates
                 ):
                     obj.relevant = True
                     objects_in_zone.append(obj)
@@ -66,7 +70,7 @@ class Zone:
                     if self._object_filters[obj.label].trigger_recorder:
                         obj.trigger_recorder = True
 
-        self.objects_in_zone = objects_in_zone
+        self.objects_in_zone_setter(shared_frame, objects_in_zone)
 
     @property
     def coordinates(self):
@@ -83,8 +87,10 @@ class Zone:
         """Return all present objects in the zone."""
         return self._objects_in_zone
 
-    @objects_in_zone.setter
-    def objects_in_zone(self, objects):
+    def objects_in_zone_setter(
+        self, shared_frame: SharedFrame, objects: List[DetectedObject]
+    ):
+        """Set objects in zone."""
         if objects == self._objects_in_zone:
             return
 
@@ -93,7 +99,12 @@ class Zone:
             EVENT_OBJECTS_IN_ZONE.format(
                 camera_identifier=self._camera.identifier, zone_name=self._name
             ),
-            {"zone": self, "objects": objects},
+            {
+                "camera_identifier": self._camera.identifier,
+                "shared_frame": shared_frame,
+                "zone": self,
+                "objects": objects,
+            },
         )
 
     @property
