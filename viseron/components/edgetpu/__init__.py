@@ -5,17 +5,20 @@ import re
 import voluptuous as vol
 
 from viseron import Viseron
+from viseron.domains import setup_domain
+from viseron.domains.object_detector import CAMERA_SCHEMA
 
 from .const import (
     COMPONENT,
+    CONFIG_CAMERAS,
     CONFIG_DEVICE,
     CONFIG_LABEL_PATH,
     CONFIG_MODEL_PATH,
+    CONFIG_OBJECT_DETECTOR,
     DEFAULT_DEVICE,
     DEFAULT_LABEL_PATH,
     DEFAULT_MODEL_PATH,
 )
-from .object_detector import ObjectDetector
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,11 +53,14 @@ CONFIG_SCHEMA = vol.Schema(
     {
         COMPONENT: vol.Schema(
             {
-                vol.Optional(CONFIG_MODEL_PATH, default=DEFAULT_MODEL_PATH): str,
-                vol.Optional(CONFIG_LABEL_PATH, default=DEFAULT_LABEL_PATH): str,
-                vol.Optional(CONFIG_DEVICE, default=DEFAULT_DEVICE): vol.All(
-                    str, edgetpu_device_validator
-                ),
+                vol.Required(CONFIG_OBJECT_DETECTOR): {
+                    vol.Optional(CONFIG_MODEL_PATH, default=DEFAULT_MODEL_PATH): str,
+                    vol.Optional(CONFIG_LABEL_PATH, default=DEFAULT_LABEL_PATH): str,
+                    vol.Optional(CONFIG_DEVICE, default=DEFAULT_DEVICE): vol.All(
+                        str, edgetpu_device_validator
+                    ),
+                    vol.Required(CONFIG_CAMERAS): {str: CAMERA_SCHEMA},
+                },
             }
         )
     },
@@ -65,6 +71,7 @@ CONFIG_SCHEMA = vol.Schema(
 def setup(vis: Viseron, config):
     """Set up the edgetpu component."""
     config = config[COMPONENT]
-    vis.data[COMPONENT] = ObjectDetector(vis, config)
+    for domain in config.keys():
+        setup_domain(vis, config, COMPONENT, domain)
 
     return True

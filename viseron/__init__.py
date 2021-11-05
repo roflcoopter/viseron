@@ -163,15 +163,15 @@ class Viseron:
             event, data=EventData(event, data)
         )
 
-    def register_object_detector(self, detector_name, input_queue):
+    def register_object_detector(self, camera_identifier, detector):
         """Register an object detector that can be used by components."""
-        LOGGER.debug(f"Registering object detector with name: {detector_name}")
-        topic = DATA_OBJECT_DETECTOR_SCAN.format(detector_name=detector_name)
+        LOGGER.debug(f"Registering object detector for camera: {camera_identifier}")
+        topic = DATA_OBJECT_DETECTOR_SCAN.format(camera_identifier=camera_identifier)
         self.data[DATA_STREAM_COMPONENT].subscribe_data(
             data_topic=topic,
-            callback=input_queue,
+            callback=detector.input_queue,
         )
-        self.data[OBJECT_DETECTORS][detector_name] = topic
+        self.data[OBJECT_DETECTORS][camera_identifier] = detector
 
     def get_object_detector(self, detector_name):
         """Return a registered object detector."""

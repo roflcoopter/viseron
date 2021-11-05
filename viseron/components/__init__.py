@@ -91,7 +91,7 @@ class Component:
                     "Unknown error calling %s.%s CONFIG_SCHEMA", self.name, domain
                 )
                 return None
-        return True
+        return config
 
     def setup_domain(self, config, domain):
         """Set up domain."""

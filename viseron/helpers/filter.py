@@ -1,5 +1,5 @@
 """Used to filter out unwanted objects."""
-from viseron.components.nvr.const import (
+from viseron.domains.object_detector.const import (
     CONFIG_LABEL_CONFIDENCE,
     CONFIG_LABEL_HEIGHT_MAX,
     CONFIG_LABEL_HEIGHT_MIN,

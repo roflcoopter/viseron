@@ -8,19 +8,37 @@ import tflite_runtime.interpreter as tflite
 from pycoral.utils.edgetpu import list_edge_tpus, make_interpreter
 
 from viseron import Viseron
-from viseron.domains.object_detector import AbstractObjectDetector
+from viseron.domains.object_detector import CONFIG_FPS, DOMAIN, AbstractObjectDetector
 from viseron.domains.object_detector.detected_object import DetectedObject
 
-from .const import COMPONENT, CONFIG_DEVICE, CONFIG_LABEL_PATH, CONFIG_MODEL_PATH
+from .const import (
+    COMPONENT,
+    CONFIG_CAMERAS,
+    CONFIG_DEVICE,
+    CONFIG_LABEL_PATH,
+    CONFIG_MODEL_PATH,
+    CONFIG_OBJECT_DETECTOR,
+)
 
 LOGGER = logging.getLogger(__name__)
+
+
+def setup(vis: Viseron, config):
+    """Set up the edgetpu object_detector domain."""
+    for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
+        ObjectDetector(vis, config[DOMAIN], camera_identifier)
+
+    return True
 
 
 class ObjectDetector(AbstractObjectDetector):
     """Performs object detection."""
 
-    def __init__(self, vis: Viseron, config):
+    def __init__(self, vis: Viseron, config, camera_identifier):
         self._vis = vis
+        self._config = config
+        self._camera_identifier = camera_identifier
+
         self.labels = self.read_labels(config[CONFIG_LABEL_PATH])
         LOGGER.debug(f"Available devices: {list_edge_tpus()}")
         LOGGER.debug(f"Loading interpreter with device {config[CONFIG_DEVICE]}")
@@ -44,7 +62,7 @@ class ObjectDetector(AbstractObjectDetector):
 
         super().__init__(vis, config)
 
-        self._vis.register_object_detector(COMPONENT, self._input_queue)
+        self._vis.register_object_detector(camera_identifier, self)
 
     @staticmethod
     def read_labels(file_path):
@@ -106,6 +124,11 @@ class ObjectDetector(AbstractObjectDetector):
 
         objects = self.post_process(0.1)
         return objects
+
+    @property
+    def fps(self):
+        """Return object detector fps."""
+        return self._config[CONFIG_CAMERAS][self._camera_identifier][CONFIG_FPS]
 
     @property
     def name(self) -> str:

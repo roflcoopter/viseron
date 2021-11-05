@@ -13,52 +13,24 @@ from viseron.components.data_stream import (
 )
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import DOMAIN as CAMERA_DOMAIN, SharedFrame, SharedFrames
-from viseron.domains.object_detector.const import DATA_OBJECT_DETECTOR_RESULT
+from viseron.domains.object_detector import LABEL_SCHEMA
+from viseron.domains.object_detector.const import (
+    DATA_OBJECT_DETECTOR_RESULT,
+    DATA_OBJECT_DETECTOR_SCAN,
+)
 from viseron.domains.object_detector.detected_object import DetectedObject
-from viseron.helpers.filter import Filter
+
+# from viseron.helpers.filter import Filter
+from viseron.helpers.schemas import COORDINATES_SCHEMA
 from viseron.helpers.validators import ensure_slug
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
     COMPONENT,
     CONFIG_COORDINATES,
-    CONFIG_DETECTOR,
-    CONFIG_FPS,
-    CONFIG_LABEL_CONFIDENCE,
-    CONFIG_LABEL_HEIGHT_MAX,
-    CONFIG_LABEL_HEIGHT_MIN,
-    CONFIG_LABEL_LABEL,
-    CONFIG_LABEL_POST_PROCESSOR,
-    CONFIG_LABEL_REQUIRE_MOTION,
-    CONFIG_LABEL_TRIGGER_RECORDER,
-    CONFIG_LABEL_WIDTH_MAX,
-    CONFIG_LABEL_WIDTH_MIN,
-    CONFIG_LABELS,
-    CONFIG_LOG_ALL_OBJECTS,
-    CONFIG_MASK,
-    CONFIG_MAX_FRAME_AGE,
-    CONFIG_MOTION_DETECTOR,
-    CONFIG_OBJECT_DETECTOR,
-    CONFIG_TRIGGER_DETECTOR,
-    CONFIG_X,
-    CONFIG_Y,
     CONFIG_ZONE_LABELS,
     CONFIG_ZONE_NAME,
     CONFIG_ZONES,
-    DEFAULT_FPS,
-    DEFAULT_LABEL_CONFIDENCE,
-    DEFAULT_LABEL_HEIGHT_MAX,
-    DEFAULT_LABEL_HEIGHT_MIN,
-    DEFAULT_LABEL_POST_PROCESSOR,
-    DEFAULT_LABEL_REQUIRE_MOTION,
-    DEFAULT_LABEL_TRIGGER_RECORDER,
-    DEFAULT_LABEL_WIDTH_MAX,
-    DEFAULT_LABEL_WIDTH_MIN,
-    DEFAULT_LABELS,
-    DEFAULT_LOG_ALL_OBJECTS,
-    DEFAULT_MASK,
-    DEFAULT_MAX_FRAME_AGE,
-    DEFAULT_TRIGGER_DETECTOR,
     DEFAULT_ZONES,
 )
 from .zone import Zone
@@ -76,61 +48,6 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
-COORDINATES_SCHEMA = vol.Schema(
-    [
-        {
-            vol.Required(CONFIG_X): int,
-            vol.Required(CONFIG_Y): int,
-        }
-    ]
-)
-
-MIN_MAX_SCHEMA = vol.Schema(
-    vol.All(
-        vol.Any(0, 1, vol.All(float, vol.Range(min=0.0, max=1.0))), vol.Coerce(float)
-    )
-)
-
-
-def ensure_min_max(label: dict) -> dict:
-    """Ensure min values are not larger than max values."""
-    if label["height_min"] >= label["height_max"]:
-        raise vol.Invalid("height_min may not be larger or equal to height_max")
-    if label["width_min"] >= label["width_max"]:
-        raise vol.Invalid("width_min may not be larger or equal to width_max")
-    return label
-
-
-LABEL_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONFIG_LABEL_LABEL): str,
-        vol.Optional(
-            CONFIG_LABEL_CONFIDENCE, default=DEFAULT_LABEL_CONFIDENCE
-        ): MIN_MAX_SCHEMA,
-        vol.Optional(
-            CONFIG_LABEL_HEIGHT_MIN, default=DEFAULT_LABEL_HEIGHT_MIN
-        ): MIN_MAX_SCHEMA,
-        vol.Optional(
-            CONFIG_LABEL_HEIGHT_MAX, default=DEFAULT_LABEL_HEIGHT_MAX
-        ): MIN_MAX_SCHEMA,
-        vol.Optional(
-            CONFIG_LABEL_WIDTH_MIN, default=DEFAULT_LABEL_WIDTH_MIN
-        ): MIN_MAX_SCHEMA,
-        vol.Optional(
-            CONFIG_LABEL_WIDTH_MAX, default=DEFAULT_LABEL_WIDTH_MAX
-        ): MIN_MAX_SCHEMA,
-        vol.Optional(
-            CONFIG_LABEL_TRIGGER_RECORDER, default=DEFAULT_LABEL_TRIGGER_RECORDER
-        ): bool,
-        vol.Optional(
-            CONFIG_LABEL_REQUIRE_MOTION, default=DEFAULT_LABEL_REQUIRE_MOTION
-        ): bool,
-        vol.Optional(
-            CONFIG_LABEL_POST_PROCESSOR, default=DEFAULT_LABEL_POST_PROCESSOR
-        ): vol.Any(str, None),
-    },
-    ensure_min_max,
-)
 
 ZONE_SCHEMA = vol.Schema(
     {
@@ -141,40 +58,15 @@ ZONE_SCHEMA = vol.Schema(
 )
 
 
-OBJECT_DETECTOR_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONFIG_DETECTOR): str,
-        vol.Optional(CONFIG_FPS, default=DEFAULT_FPS): vol.All(
-            vol.Any(float, int), vol.Coerce(float), vol.Range(min=0.0)
-        ),
-        vol.Optional(CONFIG_LABELS, default=DEFAULT_LABELS): vol.Any(
-            [], [LABEL_SCHEMA]
-        ),
-        vol.Optional(CONFIG_MAX_FRAME_AGE, default=DEFAULT_MAX_FRAME_AGE): vol.All(
-            vol.Any(float, int), vol.Coerce(float), vol.Range(min=0.0)
-        ),
-        vol.Optional(CONFIG_LOG_ALL_OBJECTS, default=DEFAULT_LOG_ALL_OBJECTS): bool,
-        vol.Optional(CONFIG_MASK, default=DEFAULT_MASK): [
-            {vol.Required(CONFIG_COORDINATES): COORDINATES_SCHEMA}
-        ],
-    }
-)
-
-MOTION_DETECTOR_SCHEMA = vol.Schema(
-    {
-        vol.Optional(CONFIG_TRIGGER_DETECTOR, default=DEFAULT_TRIGGER_DETECTOR): bool,
-    }
-)
-
 NVR_SCHEMA = vol.Schema(
     {
-        vol.Optional(CONFIG_OBJECT_DETECTOR): OBJECT_DETECTOR_SCHEMA,
-        vol.Optional(CONFIG_MOTION_DETECTOR): MOTION_DETECTOR_SCHEMA,
         vol.Optional(CONFIG_ZONES, default=DEFAULT_ZONES): [ZONE_SCHEMA],
     }
 )
 
 
+OBJECT_DETECTOR = "object_detector"
+MOTION_DETECTOR = "motion_detector"
 EVENT_OBJECTS_IN_FOV = "{camera_identifier}/objects"
 
 
@@ -264,14 +156,14 @@ class NVR:
         self._frame_scanners = {}
         self._current_frame_scanners: Dict[str, FrameIntervalCalculator] = {}
 
-        self._motion_detector = config.get(CONFIG_MOTION_DETECTOR, None)
+        self._motion_detector = config.get(MOTION_DETECTOR, None)
         if self._motion_detector:
-            self._frame_scanners[CONFIG_MOTION_DETECTOR] = FrameIntervalCalculator(
+            self._frame_scanners[MOTION_DETECTOR] = FrameIntervalCalculator(
                 vis,
-                CONFIG_MOTION_DETECTOR,
+                MOTION_DETECTOR,
                 self._logger,
                 self._camera.output_fps,
-                config[CONFIG_MOTION_DETECTOR][CONFIG_FPS],
+                config[MOTION_DETECTOR],
                 DATA_MOTION_DETECTOR_SCAN.format(
                     camera_identifier=self._camera.identifier
                 ),
@@ -282,17 +174,18 @@ class NVR:
         else:
             self._logger.info("Motion detector is disabled")
 
-        if _object_detector := config.get(CONFIG_OBJECT_DETECTOR, None):
-            _object_detector = self.get_object_detector()
+        _object_detector = self.get_object_detector()
         self._object_detector = _object_detector
         if self._object_detector:
-            self._frame_scanners[CONFIG_OBJECT_DETECTOR] = FrameIntervalCalculator(
+            self._frame_scanners[OBJECT_DETECTOR] = FrameIntervalCalculator(
                 vis,
-                CONFIG_OBJECT_DETECTOR,
+                OBJECT_DETECTOR,
                 self._logger,
                 self._camera.output_fps,
-                config[CONFIG_OBJECT_DETECTOR][CONFIG_FPS],
-                self._object_detector,
+                self._object_detector.fps,
+                DATA_OBJECT_DETECTOR_SCAN.format(
+                    camera_identifier=self._camera.identifier
+                ),
                 DATA_OBJECT_DETECTOR_RESULT.format(
                     camera_identifier=self._camera.identifier
                 ),
@@ -302,28 +195,28 @@ class NVR:
 
         if (
             self._motion_detector
-            and config[CONFIG_MOTION_DETECTOR][CONFIG_TRIGGER_DETECTOR]
+            # and config[CONFIG_MOTION_DETECTOR][CONFIG_TRIGGER_DETECTOR]
         ):
-            self._frame_scanners[CONFIG_MOTION_DETECTOR].scan.set()
+            self._frame_scanners[MOTION_DETECTOR].scan.set()
             if self._object_detector:
-                self._frame_scanners[CONFIG_OBJECT_DETECTOR].scan.clear()
+                self._frame_scanners[OBJECT_DETECTOR].scan.clear()
         else:
             if self._object_detector:
-                self._frame_scanners[CONFIG_OBJECT_DETECTOR].scan.set()
+                self._frame_scanners[OBJECT_DETECTOR].scan.set()
             if self._motion_detector:
-                self._frame_scanners[CONFIG_MOTION_DETECTOR].scan.clear()
+                self._frame_scanners[MOTION_DETECTOR].scan.clear()
 
         self._objects_in_fov: List[DetectedObject] = []
         self._object_filters = {}
-        if config[CONFIG_OBJECT_DETECTOR][CONFIG_LABELS]:
-            for object_filter in config[CONFIG_OBJECT_DETECTOR][CONFIG_LABELS]:
-                self._object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
-                    self._camera.resolution,
-                    object_filter,
-                    config[CONFIG_OBJECT_DETECTOR][CONFIG_MASK],
-                )
-        elif self._object_detector:
-            self._logger.warning("No labels configured. No objects will be detected")
+        # if config[CONFIG_OBJECT_DETECTOR][CONFIG_LABELS]:
+        #     for object_filter in config[CONFIG_OBJECT_DETECTOR][CONFIG_LABELS]:
+        #         self._object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
+        #             self._camera.resolution,
+        #             object_filter,
+        #             config[CONFIG_OBJECT_DETECTOR][CONFIG_MASK],
+        #         )
+        # elif self._object_detector:
+        #     self._logger.warning("No labels configured. No objects will be detected")
 
         self._zones: List[Zone] = []
         for zone in config[CONFIG_ZONES]:
@@ -356,9 +249,7 @@ class NVR:
 
     def get_object_detector(self):
         """Get object detector topic."""
-        if detector := self._config[CONFIG_OBJECT_DETECTOR].get(CONFIG_DETECTOR, None):
-            return self._vis.get_object_detector(detector)
-        return False
+        return self._vis.get_object_detector(self._camera.identifier)
 
     def check_intervals(self, shared_frame: SharedFrame):
         """Check all registered frame intervals."""
@@ -382,15 +273,15 @@ class NVR:
                     obj.trigger_recorder = True
 
         self.objects_in_fov_setter(shared_frame, objects_in_fov)
-        if self._config[CONFIG_OBJECT_DETECTOR][CONFIG_LOG_ALL_OBJECTS]:
-            self._object_logger.debug(
-                "All objects: %s",
-                [obj.formatted for obj in objects],
-            )
-        else:
-            self._object_logger.debug(
-                "Objects: %s", [obj.formatted for obj in self.objects_in_fov]
-            )
+        # if self._config[CONFIG_OBJECT_DETECTOR][CONFIG_LOG_ALL_OBJECTS]:
+        #     self._object_logger.debug(
+        #         "All objects: %s",
+        #         [obj.formatted for obj in objects],
+        #     )
+        # else:
+        #     self._object_logger.debug(
+        #         "Objects: %s", [obj.formatted for obj in self.objects_in_fov]
+        #     )
 
     @property
     def objects_in_fov(self):
@@ -423,7 +314,7 @@ class NVR:
         """Wait for scanner to return results."""
         for scanner, frame_scanner in self._current_frame_scanners.items():
             scanner_result = frame_scanner.result_queue.get()
-            if scanner == CONFIG_OBJECT_DETECTOR:
+            if scanner == OBJECT_DETECTOR:
                 self.filter_fov(shared_frame, scanner_result)
                 self.filter_zones(shared_frame, scanner_result)
 
