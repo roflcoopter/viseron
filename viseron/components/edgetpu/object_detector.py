@@ -8,12 +8,16 @@ import tflite_runtime.interpreter as tflite
 from pycoral.utils.edgetpu import list_edge_tpus, make_interpreter
 
 from viseron import Viseron
-from viseron.domains.object_detector import CONFIG_FPS, DOMAIN, AbstractObjectDetector
+from viseron.domains.object_detector import (
+    CONFIG_CAMERAS,
+    CONFIG_FPS,
+    DOMAIN,
+    AbstractObjectDetector,
+)
 from viseron.domains.object_detector.detected_object import DetectedObject
 
 from .const import (
     COMPONENT,
-    CONFIG_CAMERAS,
     CONFIG_DEVICE,
     CONFIG_LABEL_PATH,
     CONFIG_MODEL_PATH,
@@ -60,7 +64,7 @@ class ObjectDetector(AbstractObjectDetector):
         self._model_width = self.tensor_input_details[0]["shape"][1]
         self._model_height = self.tensor_input_details[0]["shape"][2]
 
-        super().__init__(vis, config)
+        super().__init__(vis, config, camera_identifier)
 
         self._vis.register_object_detector(camera_identifier, self)
 

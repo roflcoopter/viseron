@@ -4,6 +4,8 @@ from typing import Dict, List
 DATA_OBJECT_DETECTOR_SCAN = "object_detector/{camera_identifier}/scan"
 DATA_OBJECT_DETECTOR_RESULT = "object_detector/{camera_identifier}/result"
 
+EVENT_OBJECTS_IN_FOV = "{camera_identifier}/objects"
+
 
 # LABEL_SCHEMA
 CONFIG_LABEL_LABEL = "label"
@@ -27,6 +29,8 @@ DEFAULT_LABEL_POST_PROCESSOR = None
 
 
 # CAMERA_SCHEMA constants
+CONFIG_CAMERAS = "cameras"
+
 CONFIG_FPS = "fps"
 CONFIG_LABELS = "labels"
 CONFIG_MAX_FRAME_AGE = "max_frame_age"

@@ -6,11 +6,10 @@ import voluptuous as vol
 
 from viseron import Viseron
 from viseron.domains import setup_domain
-from viseron.domains.object_detector import CAMERA_SCHEMA
+from viseron.domains.object_detector import BASE_CONFIG_SCHEMA
 
 from .const import (
     COMPONENT,
-    CONFIG_CAMERAS,
     CONFIG_DEVICE,
     CONFIG_LABEL_PATH,
     CONFIG_MODEL_PATH,
@@ -53,14 +52,19 @@ CONFIG_SCHEMA = vol.Schema(
     {
         COMPONENT: vol.Schema(
             {
-                vol.Required(CONFIG_OBJECT_DETECTOR): {
-                    vol.Optional(CONFIG_MODEL_PATH, default=DEFAULT_MODEL_PATH): str,
-                    vol.Optional(CONFIG_LABEL_PATH, default=DEFAULT_LABEL_PATH): str,
-                    vol.Optional(CONFIG_DEVICE, default=DEFAULT_DEVICE): vol.All(
-                        str, edgetpu_device_validator
-                    ),
-                    vol.Required(CONFIG_CAMERAS): {str: CAMERA_SCHEMA},
-                },
+                vol.Required(CONFIG_OBJECT_DETECTOR): BASE_CONFIG_SCHEMA.extend(
+                    {
+                        vol.Optional(
+                            CONFIG_MODEL_PATH, default=DEFAULT_MODEL_PATH
+                        ): str,
+                        vol.Optional(
+                            CONFIG_LABEL_PATH, default=DEFAULT_LABEL_PATH
+                        ): str,
+                        vol.Optional(CONFIG_DEVICE, default=DEFAULT_DEVICE): vol.All(
+                            str, edgetpu_device_validator
+                        ),
+                    }
+                ),
             }
         )
     },

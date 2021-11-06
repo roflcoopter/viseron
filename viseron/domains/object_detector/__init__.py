@@ -6,15 +6,16 @@ import multiprocessing as mp
 import time
 from abc import ABC, abstractmethod
 from queue import Empty, Queue
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import voluptuous as vol
 from setproctitle import setproctitle
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera import SharedFrame, SharedFrames
+from viseron.domains.camera import DOMAIN as CAMERA_DOMAIN, SharedFrame, SharedFrames
 from viseron.helpers import pop_if_full
+from viseron.helpers.filter import Filter
 from viseron.helpers.mprt_monkeypatch import (  # type: ignore
     remove_shm_from_resource_tracker,
 )
@@ -22,6 +23,7 @@ from viseron.helpers.schemas import COORDINATES_SCHEMA, MIN_MAX_SCHEMA
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
+    CONFIG_CAMERAS,
     CONFIG_COORDINATES,
     CONFIG_FPS,
     CONFIG_LABEL_CONFIDENCE,
@@ -51,7 +53,9 @@ from .const import (
     DEFAULT_LOG_ALL_OBJECTS,
     DEFAULT_MASK,
     DEFAULT_MAX_FRAME_AGE,
+    EVENT_OBJECTS_IN_FOV,
 )
+from .detected_object import DetectedObject
 
 DOMAIN = "object_detector"
 
@@ -114,15 +118,36 @@ CAMERA_SCHEMA = vol.Schema(
     }
 )
 
+BASE_CONFIG_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONFIG_CAMERAS): {str: CAMERA_SCHEMA},
+    }
+)
 LOGGER = logging.getLogger(__name__)
 
 
 class AbstractObjectDetector(ABC):
     """Abstract Object Detector."""
 
-    def __init__(self, vis, config):
+    def __init__(self, vis, config, camera_identifier):
         self._vis = vis
         self._config = config
+        self._camera_identifier = camera_identifier
+        self._logger = logging.getLogger(f"{__name__}.{camera_identifier}")
+
+        self._objects_in_fov: List[DetectedObject] = []
+        self._object_filters = {}
+        if config[CONFIG_CAMERAS][camera_identifier][CONFIG_LABELS]:
+            for object_filter in config[CONFIG_CAMERAS][camera_identifier][
+                CONFIG_LABELS
+            ]:
+                self._object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
+                    vis.data[CAMERA_DOMAIN][camera_identifier].resolution,
+                    object_filter,
+                    config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK],
+                )
+        else:
+            self._logger.warning("No labels configured. No objects will be detected")
 
         self._shared_frames = SharedFrames()
 
@@ -165,17 +190,65 @@ class AbstractObjectDetector(ABC):
             shared_frame: SharedFrame = self.input_queue.get()
             self._process_queue.put(shared_frame)
 
+    def filter_fov(self, shared_frame: SharedFrame, objects: List[DetectedObject]):
+        """Filter field of view."""
+        objects_in_fov = []
+        for obj in objects:
+            if self._object_filters.get(obj.label) and self._object_filters[
+                obj.label
+            ].filter_object(obj):
+                obj.relevant = True
+                objects_in_fov.append(obj)
+
+                if self._object_filters[obj.label].trigger_recorder:
+                    obj.trigger_recorder = True
+
+        self.objects_in_fov_setter(shared_frame, objects_in_fov)
+        if self._config[CONFIG_CAMERAS][self._camera_identifier][
+            CONFIG_LOG_ALL_OBJECTS
+        ]:
+            self._logger.debug(
+                "All objects: %s",
+                [obj.formatted for obj in objects],
+            )
+        else:
+            self._logger.debug(
+                "Objects: %s", [obj.formatted for obj in self.objects_in_fov]
+            )
+
+    @property
+    def objects_in_fov(self):
+        """Return all objects in field of view."""
+        return self._objects_in_fov
+
+    def objects_in_fov_setter(
+        self, shared_frame: SharedFrame, objects: List[DetectedObject]
+    ):
+        """Set objects in field of view."""
+        if objects == self._objects_in_fov:
+            return
+
+        self._objects_in_fov = objects
+        self._vis.dispatch_event(
+            EVENT_OBJECTS_IN_FOV.format(camera_identifier=self._camera_identifier),
+            {
+                "camera_identifier": self._camera_identifier,
+                "shared_frame": shared_frame,
+                "objects": objects,
+            },
+        )
+
     def _process_output_queue(self):
         """Read from multiprocessing queue and put to thread queue."""
         while True:
             output_data = self._output_queue.get()
             shared_frame: SharedFrame = output_data["shared_frame"]
-            objects = output_data["objects"]
+            self.filter_fov(shared_frame, output_data["objects"])
             self._vis.data[DATA_STREAM_COMPONENT].publish_data(
                 DATA_OBJECT_DETECTOR_RESULT.format(
                     camera_identifier=shared_frame.camera_identifier
                 ),
-                objects,
+                self.objects_in_fov,
             )
 
     # @abstractmethod
@@ -224,7 +297,7 @@ class AbstractObjectDetector(ABC):
             preprocessed_frame = input_data["preprocessed_frame"]
 
             if (frame_age := time.time() - shared_frame.capture_time) > self._config[
-                "cameras"
+                CONFIG_CAMERAS
             ][shared_frame.camera_identifier][CONFIG_FPS]:
                 LOGGER.debug(f"Frame is {frame_age} seconds old. Discarding")
                 continue
