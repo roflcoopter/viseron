@@ -172,8 +172,8 @@ TOPIC_FRAME_SCAN_POSTPROC = "/".join([TOPIC_FRAME_SCAN, TOPIC_POST_PROCESSOR])
 LOADING = "loading"
 LOADED = "loaded"
 FAILED = "failed"
-OBJECT_DETECTORS = "object_detectors"
-
+REGISTERED_OBJECT_DETECTORS = "object_detectors"
+REGISTERED_CAMERAS = "cameras"
 
 # Signal constants
 VISERON_SIGNAL_SHUTDOWN = "shutdown"

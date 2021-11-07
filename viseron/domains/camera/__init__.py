@@ -150,6 +150,8 @@ EVENT_STATUS = "{camera_identifier}/camera/status"
 
 EVENT_STATUS_DISCONNECTED = "disconnected"
 
+LOGGER = logging.getLogger(__name__)
+
 
 @dataclass
 class EventStatusData:
@@ -174,8 +176,6 @@ class AbstractCamera(ABC):
         self.frame_bytes_topic = DATA_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
         )
-
-        vis.data.setdefault(DOMAIN, {})[self.identifier] = self
 
     @abstractmethod
     def start_camera(self):

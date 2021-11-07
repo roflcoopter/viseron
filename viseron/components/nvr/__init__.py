@@ -12,7 +12,7 @@ from viseron.components.data_stream import (
     DataStream,
 )
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera import DOMAIN as CAMERA_DOMAIN, SharedFrame, SharedFrames
+from viseron.domains.camera import SharedFrame, SharedFrames
 from viseron.domains.object_detector import LABEL_SCHEMA
 from viseron.domains.object_detector.const import (
     DATA_OBJECT_DETECTOR_RESULT,
@@ -140,7 +140,7 @@ class NVR:
         vis.data.setdefault(COMPONENT, {})[camera_identifier] = self
         self._vis = vis
         self._config = config
-        self._camera = vis.data[CAMERA_DOMAIN][camera_identifier]
+        self._camera = vis.get_registered_camera(camera_identifier)
 
         self.setup_loggers()
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)

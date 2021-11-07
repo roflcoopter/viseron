@@ -77,7 +77,6 @@ from .const import (
     DEFAULT_WIDTH,
     FFMPEG_LOG_LEVELS,
     HWACCEL_VAAPI,
-    RECORDER,
     STREAM_FORMAT_MAP,
 )
 from .recorder import Recorder
@@ -184,12 +183,11 @@ class Camera(AbstractCamera):
 
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
-
-        self._recorder = Recorder(vis, config, self.identifier)
-        vis.data[COMPONENT][self.identifier] = {}
-        vis.data[COMPONENT][self.identifier][RECORDER] = self._recorder
+        vis.data[COMPONENT][self.identifier] = self
+        self.recorder = Recorder(vis, config, self.identifier)
 
         self.initialize_camera()
+        vis.register_camera(self.identifier, self)
 
     def initialize_camera(self):
         """Start processing of camera frames."""
@@ -270,11 +268,11 @@ class Camera(AbstractCamera):
 
     def start_recording(self, frame):
         """Start camera recording."""
-        self._recorder.start_recording(frame)
+        self.recorder.start_recording(frame)
 
     def stop_recording(self):
         """Stop camera recording."""
-        self._recorder.stop_recording()
+        self.recorder.stop_recording()
 
     @property
     def poll_timer(self):
@@ -303,4 +301,4 @@ class Camera(AbstractCamera):
     @property
     def is_recording(self):
         """Return recording status."""
-        return self._recorder.is_recording
+        return self.recorder.is_recording

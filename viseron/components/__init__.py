@@ -1,6 +1,7 @@
 """Viseron components."""
 import importlib
 import logging
+import threading
 
 import voluptuous as vol
 
@@ -152,8 +153,19 @@ def setup_components(vis, config):
     for component in CORE_COMPONENTS:
         setup_component(vis, get_component(vis, component), config)
 
+    # Setup components in parallel
+    setup_threads = []
     for component in components_in_config:
-        setup_component(vis, get_component(vis, component), config)
+        setup_threads.append(
+            threading.Thread(
+                target=setup_component,
+                args=(vis, get_component(vis, component), config),
+            )
+        )
+    for thread in setup_threads:
+        thread.start()
+    for thread in setup_threads:
+        thread.join()
 
     # Setup NVRs last
     for component in LAST_STAGE_COMPONENTS:

@@ -14,10 +14,9 @@ from viseron.domains.camera import (
     CONFIG_LOOKBACK,
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
-    DOMAIN as CAMERA_DOMAIN,
 )
 
-from .const import CONFIG_SEGMENTS_FOLDER, RECORDER
+from .const import COMPONENT, CONFIG_SEGMENTS_FOLDER, RECORDER
 from .segments import SegmentCleanup, Segments
 
 LOGGER = logging.getLogger(__name__)
@@ -32,7 +31,7 @@ class Recorder:
         self._config = config
         self._recorder_config = self._config[RECORDER]
         self._camera_identifier = camera_identifier
-        self._camera = vis.data[CAMERA_DOMAIN][camera_identifier]
+        self._camera = vis.data[COMPONENT][camera_identifier]
 
         self.is_recording = False
         self.last_recording_start = None

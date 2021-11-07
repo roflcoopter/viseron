@@ -24,12 +24,7 @@ from viseron.const import (
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
-from viseron.domains.camera import (
-    CONFIG_EXTENSION,
-    DOMAIN as CAMERA_DOMAIN,
-    SharedFrame,
-    SharedFrames,
-)
+from viseron.domains.camera import CONFIG_EXTENSION, SharedFrame, SharedFrames
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
 from viseron.helpers.logs import FFmpegFilter, LogPipe, SensitiveInformationFilter
 
@@ -66,7 +61,6 @@ from .const import (
     HWACCEL_JETSON_NANO_DECODER_CODEC_MAP,
     HWACCEL_RPI3_DECODER_CODEC_MAP,
     HWACCEL_RPI4_DECODER_CODEC_MAP,
-    RECORDER,
     STREAM_FORMAT_MAP,
 )
 
@@ -81,8 +75,8 @@ class Stream:
         self._config = config
         self._camera_identifier = camera_identifier
 
-        self._camera = vis.data[CAMERA_DOMAIN][camera_identifier]
-        self._recorder = vis.data[COMPONENT][camera_identifier][RECORDER]
+        self._camera = vis.data[COMPONENT][camera_identifier]
+        self._recorder = vis.data[COMPONENT][camera_identifier].recorder
 
         self._pipe = None
         self._log_pipe = LogPipe(

@@ -22,7 +22,8 @@ from viseron.const import (
     FAILED,
     LOADED,
     LOADING,
-    OBJECT_DETECTORS,
+    REGISTERED_CAMERAS,
+    REGISTERED_OBJECT_DETECTORS,
     THREAD_STORE_CATEGORY_NVR,
     VISERON_SIGNAL_SHUTDOWN,
 )
@@ -98,8 +99,8 @@ def setup_viseron():
 class EventData:
     """Dataclass that holds an event."""
 
-    event_name: str
-    event_data: Any
+    name: str
+    data: Any
 
 
 class Viseron:
@@ -116,7 +117,9 @@ class Viseron:
         self.data[LOADED] = {}
         self.data[FAILED] = {}
 
-        self.data[OBJECT_DETECTORS] = {}
+        self.data[REGISTERED_OBJECT_DETECTORS] = {}
+        self.data[REGISTERED_CAMERAS] = {}
+        self._wait_for_camera_store = {}
 
     def register_signal_handler(self, viseron_signal, callback):
         """Register a callback which gets called on signals emitted by Viseron.
@@ -171,20 +174,56 @@ class Viseron:
             data_topic=topic,
             callback=detector.input_queue,
         )
-        self.data[OBJECT_DETECTORS][camera_identifier] = detector
+        self.data[REGISTERED_OBJECT_DETECTORS][camera_identifier] = detector
 
     def get_object_detector(self, detector_name):
         """Return a registered object detector."""
-        if not self.data[OBJECT_DETECTORS]:
+        if not self.data[REGISTERED_OBJECT_DETECTORS]:
             LOGGER.error("No object detectors are registered")
 
-        if not self.data[OBJECT_DETECTORS].get(detector_name, None):
+        if not self.data[REGISTERED_OBJECT_DETECTORS].get(detector_name, None):
             LOGGER.error(
                 f"Requested object detector {detector_name} has not been registered. "
-                f"Available object detectors are: {self.data[OBJECT_DETECTORS].keys()}"
+                "Available object detectors are: "
+                f"{list(self.data[REGISTERED_OBJECT_DETECTORS].keys())}"
             )
 
-        return self.data[OBJECT_DETECTORS][detector_name]
+        return self.data[REGISTERED_OBJECT_DETECTORS][detector_name]
+
+    def register_camera(self, camera_identifier, camera_instance):
+        """Register a camera."""
+        LOGGER.debug(f"Registering camera: {camera_identifier}")
+        self.data[REGISTERED_CAMERAS][camera_identifier] = camera_instance
+
+        if camera_listeners := self._wait_for_camera_store.get(camera_identifier, None):
+            for thread_event in camera_listeners:
+                thread_event.set()
+            del self._wait_for_camera_store[camera_identifier]
+
+    def get_registered_camera(self, camera_identifier):
+        """Return a registered camera."""
+        if not self.data[REGISTERED_CAMERAS]:
+            LOGGER.error("No cameras are registered")
+
+        if not self.data[REGISTERED_CAMERAS].get(camera_identifier, None):
+            LOGGER.error(
+                f"Requested camera {camera_identifier} has not been registered. "
+                "Available cameras are: "
+                f"{list(self.data[REGISTERED_CAMERAS].keys())}"
+            )
+
+        return self.data[REGISTERED_CAMERAS][camera_identifier]
+
+    def wait_for_camera(self, camera_identifier):
+        """Wait for a camera to register."""
+        if camera_identifier in self.data[REGISTERED_CAMERAS]:
+            return
+
+        LOGGER.debug(f"Waiting for camera {camera_identifier} to register")
+        event = threading.Event()
+        self._wait_for_camera_store.setdefault(camera_identifier, []).append(event)
+        event.wait()
+        LOGGER.debug(f"Done waiting for camera {camera_identifier} to register")
 
     def shutdown(self):
         """Shut down Viseron."""

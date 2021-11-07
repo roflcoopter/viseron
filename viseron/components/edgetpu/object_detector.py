@@ -30,6 +30,9 @@ LOGGER = logging.getLogger(__name__)
 def setup(vis: Viseron, config):
     """Set up the edgetpu object_detector domain."""
     for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
+        vis.wait_for_camera(
+            camera_identifier,
+        )
         ObjectDetector(vis, config[DOMAIN], camera_identifier)
 
     return True

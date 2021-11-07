@@ -13,7 +13,7 @@ from setproctitle import setproctitle
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera import DOMAIN as CAMERA_DOMAIN, SharedFrame, SharedFrames
+from viseron.domains.camera import SharedFrame, SharedFrames
 from viseron.helpers import pop_if_full
 from viseron.helpers.filter import Filter
 from viseron.helpers.mprt_monkeypatch import (  # type: ignore
@@ -142,7 +142,7 @@ class AbstractObjectDetector(ABC):
                 CONFIG_LABELS
             ]:
                 self._object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
-                    vis.data[CAMERA_DOMAIN][camera_identifier].resolution,
+                    vis.get_registered_camera(camera_identifier).resolution,
                     object_filter,
                     config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK],
                 )
