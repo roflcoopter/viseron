@@ -216,7 +216,7 @@ class Camera(AbstractCamera):
         while self._connected:
             if self.decode_error.is_set():
                 self._vis.dispatch_event(
-                    EVENT_STATUS.format(self.identifier),
+                    EVENT_STATUS.format(camera_identifier=self.identifier),
                     EventStatusData(status=EVENT_STATUS_DISCONNECTED),
                 )
                 time.sleep(5)
@@ -227,7 +227,6 @@ class Camera(AbstractCamera):
                 empty_frames = 0
 
             current_frame = self.stream.read()
-            self._logger.debug("Frame received")
             if current_frame:
                 empty_frames = 0
                 self._poll_timer[0] = datetime.datetime.now().timestamp()

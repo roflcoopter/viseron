@@ -107,7 +107,8 @@ class FrameIntervalCalculator:
                 f"FPS for {name} is too high, " f"highest possible FPS is {output_fps}"
             )
             scan_fps = output_fps
-        self._scan_interval = round(output_fps / scan_fps)
+        self._scan_fps = scan_fps
+        self._scan_interval = None
 
         self.scan = threading.Event()
         self._frame_number = 0
@@ -115,6 +116,8 @@ class FrameIntervalCalculator:
 
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self._data_stream.subscribe_data(topic_result, self.result_queue)
+
+        self.calculate_scan_interval(output_fps)
 
     def check_scan_interval(self, shared_frame: SharedFrame):
         """Check if frame should be marked for scanning."""
@@ -127,6 +130,20 @@ class FrameIntervalCalculator:
         else:
             self._frame_number = 0
         return False
+
+    def calculate_scan_interval(self, output_fps):
+        """Calculate the frame scan interval."""
+        self._scan_interval = round(output_fps / self.scan_fps)
+
+    @property
+    def scan_fps(self):
+        """Return scan fps of scanner."""
+        return self._scan_fps
+
+    @property
+    def scan_interval(self):
+        """Return scan interval of scanner."""
+        return self._scan_interval
 
 
 DATA_MOTION_DETECTOR_SCAN = "motion_detector/{camera_identifier}/scan"
@@ -219,6 +236,7 @@ class NVR:
             register=True,
         ).start()
 
+        self.calculate_output_fps()
         self._camera.start_camera()
         self._logger.debug(f"NVR for camera {self._camera.name} initialized")
 
@@ -232,6 +250,15 @@ class NVR:
     def get_object_detector(self):
         """Get object detector topic."""
         return self._vis.get_object_detector(self._camera.identifier)
+
+    def calculate_output_fps(self):
+        """Calculate the camera output fps based on registered frame scanners."""
+        highest_fps = max(
+            [scanner.scan_fps for scanner in self._frame_scanners.values()]
+        )
+        self._camera.output_fps = highest_fps
+        for scanner in self._frame_scanners.values():
+            scanner.calculate_scan_interval(self._camera.output_fps)
 
     def check_intervals(self, shared_frame: SharedFrame):
         """Check all registered frame intervals."""

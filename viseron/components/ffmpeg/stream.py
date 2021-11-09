@@ -425,13 +425,13 @@ class Stream:
             + substream_input_command
             + camera_segment_args
             + self._config[CONFIG_FILTER_ARGS]
+            + ["-map"]
+            + (["1"] if self._config.get(CONFIG_SUBSTREAM, None) else ["0"])
             + (
                 ["-filter:v", f"fps={self.output_fps}"]
                 if self.output_fps < self.fps
                 else []
             )
-            + ["-map"]
-            + (["1"] if self._config.get(CONFIG_SUBSTREAM, None) else ["0"])
             + self.output_args
         )
 
