@@ -46,7 +46,7 @@ class Recorder:
         self.create_directory(segments_folder)
         self._segmenter = Segments(self._logger, config, segments_folder)
         self._segment_cleanup = SegmentCleanup(
-            self._recorder_config, self._camera.identifier, self._logger
+            vis, self._recorder_config, self._camera.identifier, self._logger
         )
 
     def subfolder_name(self, today):

@@ -7,6 +7,7 @@ import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import CONFIG_LOOKBACK
 
 from .const import (
@@ -243,7 +244,7 @@ class Segments:
 class SegmentCleanup:
     """Clean up segments created by FFmpeg."""
 
-    def __init__(self, config, camera_name, logger):
+    def __init__(self, vis, config, camera_name, logger):
         self._logger = logger
         self._directory = os.path.join(config[CONFIG_SEGMENTS_FOLDER], camera_name)
         # Make sure we dont delete a segment which is needed by recorder
@@ -256,6 +257,7 @@ class SegmentCleanup:
             id="segment_cleanup",
         )
         self._scheduler.start()
+        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.pause)
 
     def cleanup(self):
         """Delete all segments that are no longer needed."""

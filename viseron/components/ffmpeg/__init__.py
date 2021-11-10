@@ -1,6 +1,7 @@
 """FFmpeg component."""
 
 import logging
+import threading
 
 import voluptuous as vol
 
@@ -29,7 +30,20 @@ def setup(vis: Viseron, config):
     config = config[COMPONENT]
     vis.data[COMPONENT] = {}
 
+    setup_threads = []
     for camera_config in config[CONFIG_CAMERAS]:
-        setup_domain(vis, camera_config, COMPONENT, CAMERA_DOMAIN)
+        setup_threads.append(
+            threading.Thread(
+                target=setup_domain,
+                args=(vis, camera_config, COMPONENT, CAMERA_DOMAIN),
+                daemon=True,
+                name="ffmpeg_camera_setup",
+            )
+        )
+
+    for thread in setup_threads:
+        thread.start()
+    for thread in setup_threads:
+        thread.join()
 
     return True
