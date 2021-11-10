@@ -276,7 +276,15 @@ class NVR:
     def scanner_results(self, shared_frame: SharedFrame):
         """Wait for scanner to return results."""
         for scanner, frame_scanner in self._current_frame_scanners.items():
-            scanner_result = frame_scanner.result_queue.get()
+            while True:
+                try:  # Make sure we dont wait forever if stop is requested
+                    scanner_result = frame_scanner.result_queue.get(timeout=1)
+                    break
+                except Empty:
+                    if self._kill_received:
+                        return
+                    continue
+
             if scanner == OBJECT_DETECTOR:
                 self.filter_zones(shared_frame, scanner_result)
 

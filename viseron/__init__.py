@@ -172,7 +172,7 @@ class Viseron:
         topic = DATA_OBJECT_DETECTOR_SCAN.format(camera_identifier=camera_identifier)
         self.data[DATA_STREAM_COMPONENT].subscribe_data(
             data_topic=topic,
-            callback=detector.input_queue,
+            callback=detector.object_detection_queue,
         )
         self.data[REGISTERED_OBJECT_DETECTORS][camera_identifier] = detector
 
@@ -232,7 +232,7 @@ class Viseron:
             data_stream.publish_data(VISERON_SIGNALS["shutdown"])
 
         def join(thread_or_process):
-            thread_or_process.join(timeout=10)
+            thread_or_process.join(timeout=8)
             time.sleep(0.5)  # Wait for process to exit properly
             if thread_or_process.is_alive():
                 LOGGER.error(f"{thread_or_process.name} did not exit in time")
@@ -296,7 +296,7 @@ class Viseron:
         LOGGER.info("Initialization complete")
 
         def signal_term(*_):
-            LOGGER.info("Kill received! Sending kill to threads..")
+            LOGGER.info("Initiating shutdown")
             thread_watchdog.stop()
             subprocess_watchdog.stop()
             nvr_threads = RestartableThread.thread_store.get(
@@ -308,7 +308,7 @@ class Viseron:
                 thread.join()
 
             self.shutdown()
-            LOGGER.info("Exiting")
+            LOGGER.info("Shutdown complete")
 
         # Listen to signals
         signal.signal(signal.SIGTERM, signal_term)
