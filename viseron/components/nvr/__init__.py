@@ -3,7 +3,7 @@
 import logging
 import threading
 from queue import Empty, Queue
-from typing import Dict, List
+from typing import Dict
 
 import voluptuous as vol
 
@@ -13,25 +13,14 @@ from viseron.components.data_stream import (
 )
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import SharedFrame, SharedFrames
-from viseron.domains.object_detector import LABEL_SCHEMA
 from viseron.domains.object_detector.const import (
     DATA_OBJECT_DETECTOR_RESULT,
     DATA_OBJECT_DETECTOR_SCAN,
 )
-from viseron.domains.object_detector.detected_object import DetectedObject
-from viseron.helpers.schemas import COORDINATES_SCHEMA
 from viseron.helpers.validators import ensure_slug
 from viseron.watchdog.thread_watchdog import RestartableThread
 
-from .const import (
-    COMPONENT,
-    CONFIG_COORDINATES,
-    CONFIG_ZONE_LABELS,
-    CONFIG_ZONE_NAME,
-    CONFIG_ZONES,
-    DEFAULT_ZONES,
-)
-from .zone import Zone
+from .const import COMPONENT
 
 LOGGER = logging.getLogger(__name__)
 
@@ -47,20 +36,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-ZONE_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONFIG_ZONE_NAME): str,
-        vol.Required(CONFIG_COORDINATES): COORDINATES_SCHEMA,
-        vol.Optional(CONFIG_ZONE_LABELS): [LABEL_SCHEMA],
-    }
-)
-
-
-NVR_SCHEMA = vol.Schema(
-    {
-        vol.Optional(CONFIG_ZONES, default=DEFAULT_ZONES): [ZONE_SCHEMA],
-    }
-)
+NVR_SCHEMA = vol.Schema({})
 
 
 OBJECT_DETECTOR = "object_detector"
@@ -73,10 +49,10 @@ def validate_nvr_config(config, camera_identifier):
         return NVR_SCHEMA(config)
     except vol.Invalid as ex:
         LOGGER.exception(f"Error setting up nvr for camera {camera_identifier}: {ex}")
-        return None
+        return False
     except Exception:  # pylint: disable=broad-except
         LOGGER.exception("Unknown error calling %s CONFIG_SCHEMA", camera_identifier)
-        return None
+        return False
     return True
 
 
@@ -86,9 +62,11 @@ def setup(vis, config):
     for camera_identifier in config.keys():
         if config[camera_identifier] is None:
             config[camera_identifier] = {}
-        if validated_config := validate_nvr_config(
+
+        validated_config = validate_nvr_config(
             config[camera_identifier], camera_identifier
-        ):
+        )
+        if validated_config or validated_config == {}:
             nvr = NVR(vis, validated_config, camera_identifier)
             vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, nvr.stop)
 
@@ -220,10 +198,6 @@ class NVR:
             if self._motion_detector:
                 self._frame_scanners[MOTION_DETECTOR].scan.clear()
 
-        self._zones: List[Zone] = []
-        for zone in config[CONFIG_ZONES]:
-            self._zones.append(Zone(vis, camera_identifier, config, zone))
-
         self._frame_queue: "Queue[bytes]" = Queue(maxsize=100)
         self._data_stream.subscribe_data(
             self._camera.frame_bytes_topic, self._frame_queue
@@ -236,7 +210,9 @@ class NVR:
             register=True,
         ).start()
 
-        self.calculate_output_fps()
+        if self._frame_scanners:
+            self.calculate_output_fps()
+
         self._camera.start_camera()
         self._logger.debug(f"NVR for camera {self._camera.name} initialized")
 
@@ -268,14 +244,9 @@ class NVR:
             if frame_scanner.check_scan_interval(shared_frame):
                 self._current_frame_scanners[scanner] = frame_scanner
 
-    def filter_zones(self, shared_frame: SharedFrame, objects: List[DetectedObject]):
-        """Filter all zones."""
-        for zone in self._zones:
-            zone.filter_zone(shared_frame, objects)
-
-    def scanner_results(self, shared_frame: SharedFrame):
+    def scanner_results(self, _: SharedFrame):
         """Wait for scanner to return results."""
-        for scanner, frame_scanner in self._current_frame_scanners.items():
+        for __, frame_scanner in self._current_frame_scanners.items():
             while True:
                 try:  # Make sure we dont wait forever if stop is requested
                     scanner_result = frame_scanner.result_queue.get(timeout=1)
@@ -284,9 +255,8 @@ class NVR:
                     if self._kill_received:
                         return
                     continue
-
-            if scanner == OBJECT_DETECTOR:
-                self.filter_zones(shared_frame, scanner_result)
+                if scanner_result == OBJECT_DETECTOR:
+                    pass
 
     def process_frame(self, shared_frame: SharedFrame):
         """Process frame."""

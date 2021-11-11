@@ -32,6 +32,8 @@ from .const import (
     CONFIG_LOG_ALL_OBJECTS,
     CONFIG_MASK,
     CONFIG_MAX_FRAME_AGE,
+    CONFIG_ZONE_NAME,
+    CONFIG_ZONES,
     DATA_OBJECT_DETECTOR_RESULT,
     DEFAULT_FPS,
     DEFAULT_LABEL_CONFIDENCE,
@@ -46,9 +48,11 @@ from .const import (
     DEFAULT_LOG_ALL_OBJECTS,
     DEFAULT_MASK,
     DEFAULT_MAX_FRAME_AGE,
+    DEFAULT_ZONES,
     EVENT_OBJECTS_IN_FOV,
 )
 from .detected_object import DetectedObject
+from .zone import Zone
 
 DOMAIN = "object_detector"
 
@@ -93,6 +97,14 @@ LABEL_SCHEMA = vol.Schema(
     ensure_min_max,
 )
 
+ZONE_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONFIG_ZONE_NAME): str,
+        vol.Required(CONFIG_COORDINATES): COORDINATES_SCHEMA,
+        vol.Optional(CONFIG_LABELS): [LABEL_SCHEMA],
+    }
+)
+
 CAMERA_SCHEMA = vol.Schema(
     {
         vol.Optional(CONFIG_FPS, default=DEFAULT_FPS): vol.All(
@@ -108,6 +120,10 @@ CAMERA_SCHEMA = vol.Schema(
         vol.Optional(CONFIG_MASK, default=DEFAULT_MASK): [
             {vol.Required(CONFIG_COORDINATES): COORDINATES_SCHEMA}
         ],
+        vol.Optional(CONFIG_ZONES, default=DEFAULT_ZONES): vol.Any(
+            [],
+            [ZONE_SCHEMA],
+        ),
     }
 )
 
@@ -141,8 +157,15 @@ class AbstractObjectDetector(ABC):
                     object_filter,
                     config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK],
                 )
-        else:
-            self._logger.warning("No labels configured. No objects will be detected")
+
+        self._zones: List[Zone] = []
+        for zone in config[CONFIG_CAMERAS][camera_identifier][CONFIG_ZONES]:
+            self._zones.append(Zone(vis, config, camera_identifier, zone))
+
+        if not self._zones and not self._object_filters:
+            self._logger.warning(
+                "No labels or zones configured. No objects will be detected"
+            )
 
         self.object_detection_queue: Queue[SharedFrame] = Queue(maxsize=10)
         object_detection_thread = RestartableThread(
@@ -201,6 +224,11 @@ class AbstractObjectDetector(ABC):
             },
         )
 
+    def filter_zones(self, shared_frame: SharedFrame, objects: List[DetectedObject]):
+        """Filter all zones."""
+        for zone in self._zones:
+            zone.filter_zone(shared_frame, objects)
+
     @abstractmethod
     def preprocess(self, frame):
         """Perform preprocessing of frame before running detection."""
@@ -220,6 +248,7 @@ class AbstractObjectDetector(ABC):
 
             objects = self.return_objects(preprocessed_frame)
             self.filter_fov(shared_frame, objects)
+            self.filter_zones(shared_frame, objects)
             self._vis.data[DATA_STREAM_COMPONENT].publish_data(
                 DATA_OBJECT_DETECTOR_RESULT.format(
                     camera_identifier=shared_frame.camera_identifier

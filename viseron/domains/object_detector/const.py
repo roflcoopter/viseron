@@ -1,5 +1,5 @@
 """Object detector domain constants."""
-from typing import Dict, List
+from typing import Any, Dict, List
 
 DATA_OBJECT_DETECTOR_SCAN = "object_detector/{camera_identifier}/scan"
 DATA_OBJECT_DETECTOR_RESULT = "object_detector/{camera_identifier}/result"
@@ -36,6 +36,7 @@ CONFIG_LABELS = "labels"
 CONFIG_MAX_FRAME_AGE = "max_frame_age"
 CONFIG_LOG_ALL_OBJECTS = "log_all_objects"
 CONFIG_MASK = "mask"
+CONFIG_ZONES = "zones"
 CONFIG_COORDINATES = "coordinates"
 
 DEFAULT_FPS = 1
@@ -43,3 +44,7 @@ DEFAULT_LABELS: List[Dict[str, str]] = []
 DEFAULT_MAX_FRAME_AGE = 2
 DEFAULT_LOG_ALL_OBJECTS = False
 DEFAULT_MASK: List[Dict[str, int]] = []
+DEFAULT_ZONES: List[Dict[str, Any]] = []
+
+# ZONE_SCHEMA constants
+CONFIG_ZONE_NAME = "name"

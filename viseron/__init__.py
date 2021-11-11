@@ -17,6 +17,7 @@ from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
+from viseron.components.nvr import COMPONENT as NVR_COMPONENT
 from viseron.config import VISERON_CONFIG_SCHEMA, NVRConfig, ViseronConfig, load_config
 from viseron.const import (
     FAILED,
@@ -27,7 +28,6 @@ from viseron.const import (
     THREAD_STORE_CATEGORY_NVR,
     VISERON_SIGNAL_SHUTDOWN,
 )
-from viseron.detector import Detector
 from viseron.domains.object_detector.const import DATA_OBJECT_DETECTOR_SCAN
 from viseron.exceptions import (
     FFprobeError,
@@ -180,6 +180,7 @@ class Viseron:
         """Return a registered object detector."""
         if not self.data[REGISTERED_OBJECT_DETECTORS]:
             LOGGER.error("No object detectors are registered")
+            return False
 
         if not self.data[REGISTERED_OBJECT_DETECTORS].get(detector_name, None):
             LOGGER.error(
@@ -187,6 +188,7 @@ class Viseron:
                 "Available object detectors are: "
                 f"{list(self.data[REGISTERED_OBJECT_DETECTORS].keys())}"
             )
+            return False
 
         return self.data[REGISTERED_OBJECT_DETECTORS][detector_name]
 
@@ -204,6 +206,7 @@ class Viseron:
         """Return a registered camera."""
         if not self.data[REGISTERED_CAMERAS]:
             LOGGER.error("No cameras are registered")
+            return False
 
         if not self.data[REGISTERED_CAMERAS].get(camera_identifier, None):
             LOGGER.error(
@@ -211,6 +214,7 @@ class Viseron:
                 "Available cameras are: "
                 f"{list(self.data[REGISTERED_CAMERAS].keys())}"
             )
+            return False
 
         return self.data[REGISTERED_CAMERAS][camera_identifier]
 
@@ -244,7 +248,7 @@ class Viseron:
         ]
         threads_and_processes += multiprocessing.active_children()
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
             thread_or_process_future = {
                 executor.submit(join, thread_or_process): thread_or_process
                 for thread_or_process in threads_and_processes
@@ -273,8 +277,6 @@ class Viseron:
             mqtt.connect()
             mqtt_publisher.start()
 
-        Detector(config.object_detection)
-
         post_processors = {}
         for (
             post_processor_type,
@@ -292,6 +294,10 @@ class Viseron:
                         post_processor_type, error
                     )
                 )
+
+        if not self.data.get(NVR_COMPONENT):
+            LOGGER.warning("No nvr component is configured.")
+            self.shutdown()
 
         LOGGER.info("Initialization complete")
 
@@ -313,6 +319,7 @@ class Viseron:
         # Listen to signals
         signal.signal(signal.SIGTERM, signal_term)
         signal.signal(signal.SIGINT, signal_term)
+        signal.pause()
 
 
 class SetupNVR(RestartableThread):
