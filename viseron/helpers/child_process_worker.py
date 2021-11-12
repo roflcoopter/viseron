@@ -28,6 +28,8 @@ class ChildProcessWorker(ABC):
     def __init__(self, vis, name):
         self._name = name
 
+        self._process_frames_proc_exit = mp.Event()
+
         self.input_queue: Any = Queue(maxsize=100)
         input_thread = RestartableThread(
             target=self._process_input_queue,
@@ -46,7 +48,6 @@ class ChildProcessWorker(ABC):
         )
         output_thread.start()
 
-        self._process_frames_proc_exit = mp.Event()
         self._process_queue: Any = mp.Queue(maxsize=100)
         self._process_frames_proc = mp.Process(
             target=self._process_frames,
@@ -56,6 +57,7 @@ class ChildProcessWorker(ABC):
                 self._process_queue,
                 self._output_queue,
             ),
+            daemon=True,
         )
         self._process_frames_proc.start()
 
@@ -68,9 +70,12 @@ class ChildProcessWorker(ABC):
 
     def _process_input_queue(self):
         """Read from thread queue and put to multiprocessing queue."""
-        while True:
-            input_item = self.input_queue.get()
-            self._process_queue.put(input_item)
+        while not self._process_frames_proc_exit.is_set():
+            try:
+                input_item = self.input_queue.get(timeout=1)
+            except Empty:
+                continue
+            pop_if_full(self._process_queue, input_item)
 
     @abstractmethod
     def work_input(self, item):
@@ -97,8 +102,11 @@ class ChildProcessWorker(ABC):
 
     def _process_output_queue(self):
         """Read from multiprocessing queue and put to thread queue."""
-        while True:
-            item = self._output_queue.get()
+        while not self._process_frames_proc_exit.is_set():
+            try:
+                item = self._output_queue.get(timeout=1)
+            except Empty:
+                continue
             self.work_output(item)
 
     def stop(self):
@@ -106,4 +114,5 @@ class ChildProcessWorker(ABC):
         LOGGER.debug(f"Sending exit event to {self.child_process_name}")
         self._process_frames_proc_exit.set()
         self._process_frames_proc.join()
+        self._process_frames_proc.terminate()
         LOGGER.debug(f"{self.child_process_name} exited")

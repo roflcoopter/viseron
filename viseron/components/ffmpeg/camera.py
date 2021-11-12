@@ -264,6 +264,7 @@ class Camera(AbstractCamera):
     def stop_camera(self):
         """Release the connection to the camera."""
         self._connected = False
+        self._frame_reader.join()
 
     def start_recording(self, frame):
         """Start camera recording."""

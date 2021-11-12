@@ -270,27 +270,35 @@ class NVR:
     def run(self):
         """Read frames from camera."""
         self._logger.debug("Waiting for first frame")
-        frame = self._frame_queue.get()
+        shared_frame = self._frame_queue.get()
         self._logger.debug("First frame received")
-        self.process_frame(frame)
+        self.process_frame(shared_frame)
 
         while not self._kill_received:
             try:
-                frame = self._frame_queue.get(timeout=1)
+                shared_frame = self._frame_queue.get(timeout=1)
             except Empty:
                 continue
-            self.process_frame(frame)
+            self.process_frame(shared_frame)
+
+        # Empty queue before exiting
+        while True:
+            try:
+                shared_frame = self._frame_queue.get(timeout=1)
+            except Empty:
+                break
+            self._shared_frames.remove(shared_frame)
 
         self._logger.debug("NVR thread stopped")
 
     def stop(self):
         """Stop processing of events."""
         self._logger.info("Stopping NVR thread")
-        self._kill_received = True
-
         # Stop frame grabber
         self._camera.stop_camera()
 
         # Stop potential recording
         if self._camera.is_recording:
             self._camera.stop_recording()
+
+        self._kill_received = True

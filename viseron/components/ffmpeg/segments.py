@@ -257,7 +257,7 @@ class SegmentCleanup:
             id="segment_cleanup",
         )
         self._scheduler.start()
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.pause)
+        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.shutdown)
 
     def cleanup(self):
         """Delete all segments that are no longer needed."""
@@ -290,3 +290,8 @@ class SegmentCleanup:
         """Resume the scheduler."""
         self._logger.debug("Resuming segment cleanup")
         self._scheduler.resume_job("segment_cleanup")
+
+    def shutdown(self):
+        """Resume the scheduler."""
+        self._logger.debug("Shutting down segment cleanup")
+        self._scheduler.shutdown()

@@ -69,7 +69,12 @@ class Component:
         config = self.validate_component_config(config, component_module)
 
         if config:
-            return component_module.setup(self._vis, config)
+            try:
+                return component_module.setup(self._vis, config)
+            except Exception as ex:  # pylint: disable=broad-except
+                LOGGER.error(
+                    f"Uncaught exception setting up component {self.name}: {ex}"
+                )
 
         return False
 
@@ -100,8 +105,13 @@ class Component:
         config = self.validate_domain_config(config, domain, domain_module)
 
         if config:
-            return domain_module.setup(self._vis, config)
-
+            try:
+                return domain_module.setup(self._vis, config)
+            except Exception as ex:  # pylint: disable=broad-except
+                LOGGER.exception(
+                    f"Uncaught exception setting up domain {domain} for "
+                    f"component {self.name}: {ex}"
+                )
         return False
 
 
