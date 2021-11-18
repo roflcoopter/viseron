@@ -184,7 +184,7 @@ class Camera(AbstractCamera):
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
         vis.data[COMPONENT][self.identifier] = self
-        self.recorder = Recorder(vis, config, self.identifier)
+        self._recorder = Recorder(vis, config, self)
 
         self.initialize_camera()
         vis.register_camera(self.identifier, self)
@@ -266,13 +266,13 @@ class Camera(AbstractCamera):
         self._connected = False
         self._frame_reader.join()
 
-    def start_recording(self, frame):
-        """Start camera recording."""
-        self.recorder.start_recording(frame)
+    def start_recorder(self, shared_frame, objects_in_fov):
+        """Start camera recorder."""
+        self._recorder.start(shared_frame, objects_in_fov, self.resolution)
 
-    def stop_recording(self):
-        """Stop camera recording."""
-        self.recorder.stop_recording()
+    def stop_recorder(self):
+        """Stop camera recorder."""
+        self._recorder.stop()
 
     @property
     def poll_timer(self):
@@ -299,6 +299,11 @@ class Camera(AbstractCamera):
         self._resolution = resolution
 
     @property
+    def recorder(self) -> Recorder:
+        """Return recorder instance."""
+        return self._recorder
+
+    @property
     def is_recording(self):
         """Return recording status."""
-        return self.recorder.is_recording
+        return self._recorder.is_recording

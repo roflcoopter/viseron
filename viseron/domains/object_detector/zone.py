@@ -5,7 +5,7 @@ import logging
 from typing import List
 
 from viseron import Viseron
-from viseron.domains.camera import SharedFrame
+from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.object_detector.const import CONFIG_LABEL_LABEL, CONFIG_MASK
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.helpers import generate_numpy_from_coordinates, object_in_polygon

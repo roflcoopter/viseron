@@ -7,7 +7,7 @@ import voluptuous as vol
 
 from viseron import Viseron
 from viseron.domains import setup_domain
-from viseron.domains.camera import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 
 from .const import COMPONENT
 

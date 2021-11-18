@@ -1,14 +1,11 @@
 """Camera domain."""
+from __future__ import annotations
 
 import logging
-import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from multiprocessing import shared_memory
-from typing import Any, Dict, Tuple
+from typing import TYPE_CHECKING, Tuple
 
-import cv2
-import numpy as np
 import voluptuous as vol
 
 from viseron.components.data_stream import (
@@ -19,27 +16,56 @@ from viseron.helpers import slugify
 from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import ensure_slug
 
-DOMAIN = "camera"
+from .const import (
+    CONFIG_EXTENSION,
+    CONFIG_FILENAME_PATTERN,
+    CONFIG_FOLDER,
+    CONFIG_IDENTIFIER,
+    CONFIG_IDLE_TIMEOUT,
+    CONFIG_LOOKBACK,
+    CONFIG_MJPEG_DRAW_MOTION,
+    CONFIG_MJPEG_DRAW_MOTION_MASK,
+    CONFIG_MJPEG_DRAW_OBJECT_MASK,
+    CONFIG_MJPEG_DRAW_OBJECTS,
+    CONFIG_MJPEG_DRAW_ZONES,
+    CONFIG_MJPEG_HEIGHT,
+    CONFIG_MJPEG_MIRROR,
+    CONFIG_MJPEG_ROTATE,
+    CONFIG_MJPEG_STREAMS,
+    CONFIG_MJPEG_WIDTH,
+    CONFIG_NAME,
+    CONFIG_PUBLISH_IMAGE,
+    CONFIG_RECORDER,
+    CONFIG_RETAIN,
+    CONFIG_SAVE_TO_DISK,
+    CONFIG_SEND_TO_MQTT,
+    CONFIG_THUMBNAIL,
+    DEFAULT_EXTENSION,
+    DEFAULT_FILENAME_PATTERN,
+    DEFAULT_FOLDER,
+    DEFAULT_IDENTIFIER,
+    DEFAULT_IDLE_TIMEOUT,
+    DEFAULT_LOOKBACK,
+    DEFAULT_MJPEG_DRAW_MOTION,
+    DEFAULT_MJPEG_DRAW_MOTION_MASK,
+    DEFAULT_MJPEG_DRAW_OBJECT_MASK,
+    DEFAULT_MJPEG_DRAW_OBJECTS,
+    DEFAULT_MJPEG_DRAW_ZONES,
+    DEFAULT_MJPEG_HEIGHT,
+    DEFAULT_MJPEG_MIRROR,
+    DEFAULT_MJPEG_ROTATE,
+    DEFAULT_MJPEG_STREAMS,
+    DEFAULT_MJPEG_WIDTH,
+    DEFAULT_PUBLISH_IMAGE,
+    DEFAULT_RECORDER,
+    DEFAULT_RETAIN,
+    DEFAULT_SAVE_TO_DISK,
+    DEFAULT_SEND_TO_MQTT,
+    DEFAULT_THUMBNAIL,
+)
 
-CONFIG_MJPEG_WIDTH = "width"
-CONFIG_MJPEG_HEIGHT = "height"
-CONFIG_MJPEG_DRAW_OBJECTS = "draw_objects"
-CONFIG_MJPEG_DRAW_MOTION = "draw_motion"
-CONFIG_MJPEG_DRAW_MOTION_MASK = "draw_motion_mask"
-CONFIG_MJPEG_DRAW_OBJECT_MASK = "draw_object_mask"
-CONFIG_MJPEG_DRAW_ZONES = "draw_zones"
-CONFIG_MJPEG_ROTATE = "rotate"
-CONFIG_MJPEG_MIRROR = "mirror"
-
-DEFAULT_MJPEG_WIDTH = 0
-DEFAULT_MJPEG_HEIGHT = 0
-DEFAULT_MJPEG_DRAW_OBJECTS = False
-DEFAULT_MJPEG_DRAW_MOTION = False
-DEFAULT_MJPEG_DRAW_MOTION_MASK = False
-DEFAULT_MJPEG_DRAW_OBJECT_MASK = False
-DEFAULT_MJPEG_DRAW_ZONES = False
-DEFAULT_MJPEG_ROTATE = 0
-DEFAULT_MJPEG_MIRROR = False
+if TYPE_CHECKING:
+    from .recorder import AbstractRecorder
 
 COERCE_INT = vol.Schema(vol.All(vol.Any(int, str), vol.Coerce(int)))
 
@@ -69,14 +95,6 @@ MJPEG_STREAM_SCHEMA = vol.Schema(
     }
 )
 
-CONFIG_SAVE_TO_DISK = "save_to_disk"
-CONFIG_FILENAME_PATTERN = "filename_pattern"
-CONFIG_SEND_TO_MQTT = "send_to_mqtt"
-
-DEFAULT_SAVE_TO_DISK = False
-DEFAULT_FILENAME_PATTERN = "%H:%M:%S"
-DEFAULT_SEND_TO_MQTT = False
-
 THUMBNAIL_SCHEMA = vol.Schema(
     {
         vol.Optional(CONFIG_SAVE_TO_DISK, default=DEFAULT_SAVE_TO_DISK): bool,
@@ -84,22 +102,6 @@ THUMBNAIL_SCHEMA = vol.Schema(
         vol.Optional(CONFIG_SEND_TO_MQTT, default=DEFAULT_SEND_TO_MQTT): bool,
     }
 )
-
-CONFIG_LOOKBACK = "lookback"
-CONFIG_IDLE_TIMEOUT = "IDLE_TIMEOUT"
-CONFIG_RETAIN = "retain"
-CONFIG_FOLDER = "folder"
-CONFIG_FILENAME_PATTERN = "filename_pattern"
-CONFIG_EXTENSION = "extension"
-CONFIG_THUMBNAIL = "thumbnail"
-
-DEFAULT_LOOKBACK = 5
-DEFAULT_IDLE_TIMEOUT = 10
-DEFAULT_RETAIN = 7
-DEFAULT_FOLDER = "/recordings"
-DEFAULT_FILENAME_PATTERN = "%H:%M:%S"
-DEFAULT_EXTENSION = "mp4"
-DEFAULT_THUMBNAIL: Dict[str, Any] = {}
 
 
 RECORDER_SCHEMA = vol.Schema(
@@ -119,18 +121,6 @@ RECORDER_SCHEMA = vol.Schema(
         vol.Optional(CONFIG_THUMBNAIL, default=DEFAULT_THUMBNAIL): THUMBNAIL_SCHEMA,
     }
 )
-
-CONFIG_NAME = "name"
-CONFIG_IDENTIFIER = "identifier"
-CONFIG_PUBLISH_IMAGE = "publish_image"
-CONFIG_MJPEG_STREAMS = "mjpeg_streams"
-CONFIG_RECORDER = "recorder"
-
-DEFAULT_IDENTIFIER = None
-DEFAULT_PUBLISH_IMAGE = False
-DEFAULT_MJPEG_STREAMS: Dict[str, Any] = {}
-DEFAULT_RECORDER: Dict[str, Any] = {}
-
 
 BASE_CONFIG_SCHEMA = vol.Schema(
     {
@@ -186,12 +176,12 @@ class AbstractCamera(ABC):
         """Stop camera streaming."""
 
     @abstractmethod
-    def start_recording(self, frame):
-        """Start camera recording."""
+    def start_recorder(self, shared_frame, objects_in_fov):
+        """Start camera recorder."""
 
     @abstractmethod
-    def stop_recording(self):
-        """Stop camera recording."""
+    def stop_recorder(self):
+        """Stop camera recorder."""
 
     @property
     def name(self):
@@ -217,135 +207,10 @@ class AbstractCamera(ABC):
 
     @property
     @abstractmethod
+    def recorder(self) -> AbstractRecorder:
+        """Return recorder."""
+
+    @property
+    @abstractmethod
     def is_recording(self):
         """Return recording status."""
-
-
-class SharedFrame:
-    """Information about a frame shared in memory."""
-
-    def __init__(
-        self,
-        name,
-        color_plane_width,
-        color_plane_height,
-        color_converter,
-        resolution,
-        camera_identifier,
-        config=None,
-    ):
-        self.name = name
-        self.color_plane_width = color_plane_width
-        self.color_plane_height = color_plane_height
-        self.color_converter = color_converter
-        self.resolution = resolution
-        self.camera_identifier = camera_identifier
-        self.nvr_config = config
-        self.capture_time = time.time()
-
-
-class SharedFrames:
-    """Byte frame shared in memory."""
-
-    def __init__(self):
-        self._frames = {}
-
-    def create(self, size, name=None):
-        """Create frame in shared memory."""
-        shm_frame = shared_memory.SharedMemory(create=True, size=size, name=name)
-        self._frames[shm_frame.name] = shm_frame
-        return shm_frame
-
-    def _get(self, name):
-        """Return frame from shared memory."""
-        if shm_frame := self._frames.get(name, None):
-            return shm_frame
-
-        shm_frame = shared_memory.SharedMemory(name=name)
-        self._frames[shm_frame.name] = shm_frame
-        return shm_frame
-
-    def get_decoded_frame(self, shared_frame: SharedFrame) -> np.ndarray:
-        """Return byte frame in numpy format."""
-        shared_frame_numpy = f"{shared_frame.name}_numpy"
-        if shm_frame := self._frames.get(shared_frame_numpy, None):
-            return self._frames[shared_frame_numpy]
-
-        shm_frame = self._get(shared_frame.name)
-        self._frames[shared_frame_numpy] = np.ndarray(
-            (shared_frame.color_plane_height, shared_frame.color_plane_width),
-            dtype=np.uint8,
-            buffer=shm_frame.buf,
-        )
-        return self._frames[shared_frame_numpy]
-
-    def get_decoded_frame_rgb(self, shared_frame: SharedFrame) -> np.ndarray:
-        """Return decoded frame in rgb numpy format."""
-        shared_frame_rgb_name = f"{shared_frame.name}_rgb"
-        shared_frame_rgb_numpy = f"{shared_frame.name}_rgb_numpy"
-        if self._frames.get(shared_frame_rgb_numpy, None):
-            return self._frames[shared_frame_rgb_numpy]
-
-        decoded_frame = self.get_decoded_frame(shared_frame)
-        try:
-            shm_frame = self._get(shared_frame_rgb_name)
-            shm_frame_rgb_numpy: np.ndarray = np.ndarray(
-                (shared_frame.resolution[1], shared_frame.resolution[0], 3),
-                dtype=np.uint8,
-                buffer=shm_frame.buf,
-            )
-        except FileNotFoundError:
-            shm_frame = self.create(
-                shared_frame.resolution[0] * shared_frame.resolution[1] * 3,
-                name=shared_frame_rgb_name,
-            )
-            shm_frame_rgb_numpy = np.ndarray(
-                (shared_frame.resolution[1], shared_frame.resolution[0], 3),
-                dtype=np.uint8,
-                buffer=shm_frame.buf,
-            )
-            cv2.cvtColor(decoded_frame, cv2.COLOR_YUV2RGB_NV21, shm_frame_rgb_numpy)
-
-        self._frames[shared_frame_rgb_name] = shm_frame
-        self._frames[shared_frame_rgb_numpy] = shm_frame_rgb_numpy
-        return shm_frame_rgb_numpy
-
-    def close(self, shared_frame: SharedFrame):
-        """Close frame in shared memory."""
-        frame = self._get(shared_frame.name)
-        frame.close()
-        del self._frames[shared_frame.name]
-        try:
-            del self._frames[f"{shared_frame.name}_numpy"]
-        except KeyError:
-            pass
-
-        frame_rgb_name = f"{shared_frame.name}_rgb"
-        try:
-            frame = self._get(frame_rgb_name)
-            frame.close()
-            del self._frames[frame_rgb_name]
-            del self._frames[f"{frame_rgb_name}_numpy"]
-        except (FileNotFoundError, KeyError):
-            pass
-
-    def remove(self, shared_frame: SharedFrame):
-        """Remove frame from shared memory."""
-        frame = self._get(shared_frame.name)
-        frame.close()
-        frame.unlink()
-        del self._frames[shared_frame.name]
-        try:
-            del self._frames[f"{shared_frame.name}_numpy"]
-        except KeyError:
-            pass
-
-        frame_rgb_name = f"{shared_frame.name}_rgb"
-        try:
-            frame = self._get(frame_rgb_name)
-            frame.close()
-            frame.unlink()
-            del self._frames[frame_rgb_name]
-            del self._frames[f"{frame_rgb_name}_numpy"]
-        except (FileNotFoundError, KeyError):
-            pass

@@ -24,9 +24,11 @@ from viseron.const import (
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
-from viseron.domains.camera import CONFIG_EXTENSION, SharedFrame, SharedFrames
+from viseron.domains.camera import CONFIG_EXTENSION
+from viseron.domains.camera.shared_frames import SharedFrame, SharedFrames
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
 from viseron.helpers.logs import FFmpegFilter, LogPipe, SensitiveInformationFilter
+from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 from .const import (
     CAMERA_INPUT_ARGS,
@@ -79,6 +81,7 @@ class Stream:
         self._recorder = vis.data[COMPONENT][camera_identifier].recorder
 
         self._pipe = None
+        self._segment_process = None
         self._log_pipe = LogPipe(
             self._logger, FFMPEG_LOG_LEVELS[config[CONFIG_FFMPEG_LOGLEVEL]]
         )
@@ -389,24 +392,11 @@ class Stream:
 
         return []
 
-    def build_command(self):
-        """Return full FFmpeg command."""
-        substream_input_command = []
-        if self._config.get(CONFIG_SUBSTREAM, None):
-            substream_input_command = self.stream_command(
-                self._output_stream_config,
-                self.stream_codec,
-                self.output_stream_url,
-            )
-        main_stream_input_command = self.stream_command(
-            self._config, self.stream_codec, self.stream_url
-        )
-
-        camera_segment_args = []
-        camera_segment_args = (
-            ["-map", "0"]
-            + CAMERA_SEGMENT_ARGS
-            + self.get_audio_codec(self._output_stream_config, self.stream_audio_codec)
+    def segment_args(self):
+        """Generate FFmpeg segment args."""
+        return (
+            CAMERA_SEGMENT_ARGS
+            + self.get_audio_codec(self._config, self.stream_audio_codec)
             + [
                 os.path.join(
                     self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
@@ -416,17 +406,48 @@ class Stream:
             ]
         )
 
+    def build_segment_command(self):
+        """Return command for writing segments only from main stream.
+
+        Only used when a substream is configured.
+        """
+        stream_input_command = self.stream_command(
+            self._config, self.stream_codec, self.stream_url
+        )
         return (
             [self.alias]
             + self._config[CONFIG_GLOBAL_ARGS]
             + ["-loglevel"]
             + [self._config[CONFIG_FFMPEG_LOGLEVEL]]
-            + main_stream_input_command
-            + substream_input_command
+            + stream_input_command
+            + self.segment_args()
+        )
+
+    def build_command(self):
+        """Return full FFmpeg command."""
+        if self._config.get(CONFIG_SUBSTREAM, None):
+            stream_input_command = self.stream_command(
+                self._output_stream_config,
+                self.stream_codec,
+                self.output_stream_url,
+            )
+        else:
+            stream_input_command = self.stream_command(
+                self._config, self.stream_codec, self.stream_url
+            )
+
+        camera_segment_args = []
+        if not self._config.get(CONFIG_SUBSTREAM, None):
+            camera_segment_args = self.segment_args()
+
+        return (
+            [self.alias]
+            + self._config[CONFIG_GLOBAL_ARGS]
+            + ["-loglevel"]
+            + [self._config[CONFIG_FFMPEG_LOGLEVEL]]
+            + stream_input_command
             + camera_segment_args
             + self._config[CONFIG_FILTER_ARGS]
-            + ["-map"]
-            + (["1"] if self._config.get(CONFIG_SUBSTREAM, None) else ["0"])
             + (
                 ["-filter:v", f"fps={self.output_fps}"]
                 if self.output_fps < self.fps
@@ -437,6 +458,13 @@ class Stream:
 
     def pipe(self):
         """Return subprocess pipe for FFmpeg."""
+        if self._config.get(CONFIG_SUBSTREAM, None):
+            self._segment_process = RestartablePopen(
+                self.build_segment_command(),
+                stdout=sp.PIPE,
+                stderr=self._log_pipe,
+            )
+
         return sp.Popen(
             self.build_command(),
             stdout=sp.PIPE,
@@ -446,11 +474,18 @@ class Stream:
     def start_pipe(self):
         """Start piping frames from FFmpeg."""
         self._logger.debug(f"FFmpeg decoder command: {' '.join(self.build_command())}")
+        if self._config.get(CONFIG_SUBSTREAM, None):
+            self._logger.debug(
+                f"FFmpeg segments command: {' '.join(self.build_segment_command())}"
+            )
+
         self._pipe = self.pipe()
 
     def close_pipe(self):
         """Close FFmpeg pipe."""
         self._pipe.terminate()
+        if self._segment_process:
+            self._segment_process.terminate()
         try:
             self._pipe.communicate(timeout=5)
         except sp.TimeoutExpired:
@@ -470,7 +505,6 @@ class Stream:
                 frame_bytes = self._pipe.stdout.read(self._frame_bytes)
                 if len(frame_bytes) == self._frame_bytes:
                     shared_frame.buf[:] = frame_bytes
-                    shared_frame.close()
                     return SharedFrame(
                         shared_frame.name,
                         self._color_plane_width,
@@ -481,4 +515,6 @@ class Stream:
                     )
             except Exception as err:  # pylint: disable=broad-except
                 self._logger.error(f"Error reading frame from FFmpeg: {err}")
+            finally:
+                self._shared_frames.close(shared_frame)
         return None

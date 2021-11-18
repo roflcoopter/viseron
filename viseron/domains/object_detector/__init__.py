@@ -11,7 +11,7 @@ import voluptuous as vol
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera import SharedFrame, SharedFrames
+from viseron.domains.camera.shared_frames import SharedFrame, SharedFrames
 from viseron.helpers.filter import Filter
 from viseron.helpers.schemas import COORDINATES_SCHEMA, MIN_MAX_SCHEMA
 from viseron.watchdog.thread_watchdog import RestartableThread
@@ -147,22 +147,22 @@ class AbstractObjectDetector(ABC):
         self._shared_frames = SharedFrames()
 
         self._objects_in_fov: List[DetectedObject] = []
-        self._object_filters = {}
+        self.object_filters = {}
         if config[CONFIG_CAMERAS][camera_identifier][CONFIG_LABELS]:
             for object_filter in config[CONFIG_CAMERAS][camera_identifier][
                 CONFIG_LABELS
             ]:
-                self._object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
+                self.object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
                     vis.get_registered_camera(camera_identifier).resolution,
                     object_filter,
                     config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK],
                 )
 
-        self._zones: List[Zone] = []
+        self.zones: List[Zone] = []
         for zone in config[CONFIG_CAMERAS][camera_identifier][CONFIG_ZONES]:
-            self._zones.append(Zone(vis, config, camera_identifier, zone))
+            self.zones.append(Zone(vis, config, camera_identifier, zone))
 
-        if not self._zones and not self._object_filters:
+        if not self.zones and not self.object_filters:
             self._logger.warning(
                 "No labels or zones configured. No objects will be detected"
             )
@@ -182,13 +182,13 @@ class AbstractObjectDetector(ABC):
         """Filter field of view."""
         objects_in_fov = []
         for obj in objects:
-            if self._object_filters.get(obj.label) and self._object_filters[
+            if self.object_filters.get(obj.label) and self.object_filters[
                 obj.label
             ].filter_object(obj):
                 obj.relevant = True
                 objects_in_fov.append(obj)
 
-                if self._object_filters[obj.label].trigger_recorder:
+                if self.object_filters[obj.label].trigger_recorder:
                     obj.trigger_recorder = True
 
         self.objects_in_fov_setter(shared_frame, objects_in_fov)
@@ -228,7 +228,7 @@ class AbstractObjectDetector(ABC):
 
     def filter_zones(self, shared_frame: SharedFrame, objects: List[DetectedObject]):
         """Filter all zones."""
-        for zone in self._zones:
+        for zone in self.zones:
             zone.filter_zone(shared_frame, objects)
 
     @abstractmethod
@@ -246,6 +246,7 @@ class AbstractObjectDetector(ABC):
                 CONFIG_CAMERAS
             ][shared_frame.camera_identifier][CONFIG_MAX_FRAME_AGE]:
                 self._logger.debug(f"Frame is {frame_age} seconds old. Discarding")
+                self._shared_frames.close(shared_frame)
                 continue
 
             objects = self.return_objects(preprocessed_frame)

@@ -7,15 +7,15 @@ import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import CONFIG_LOOKBACK
 
 from .const import (
     CAMERA_SEGMENT_DURATION,
-    CONFIG_AUDIO_CODEC,
-    CONFIG_CODEC,
-    CONFIG_FILTER_ARGS,
-    CONFIG_HWACCEL_ARGS,
+    CONFIG_RECORDER,
+    CONFIG_RECORDER_AUDIO_CODEC,
+    CONFIG_RECORDER_CODEC,
+    CONFIG_RECORDER_FILTER_ARGS,
+    CONFIG_RECORDER_HWACCEL_ARGS,
     CONFIG_SEGMENTS_FOLDER,
 )
 
@@ -168,7 +168,7 @@ class Segments:
                 "error",
                 "-y",
             ]
-            + self._config[CONFIG_HWACCEL_ARGS]
+            + self._config[CONFIG_RECORDER][CONFIG_RECORDER_HWACCEL_ARGS]
             + [
                 "-protocol_whitelist",
                 "file,pipe",
@@ -179,9 +179,9 @@ class Segments:
                 "-i",
                 "-",
             ]
-            + self._config[CONFIG_CODEC]
-            + self._config[CONFIG_AUDIO_CODEC]
-            + self._config[CONFIG_FILTER_ARGS]
+            + ["-c:v", self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]]
+            + ["-c:a", self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]]
+            + self._config[CONFIG_RECORDER][CONFIG_RECORDER_FILTER_ARGS]
             + ["-movflags", "+faststart"]
             + [file_name]
         )
@@ -245,6 +245,7 @@ class SegmentCleanup:
     """Clean up segments created by FFmpeg."""
 
     def __init__(self, vis, config, camera_name, logger):
+        self._vis = vis
         self._logger = logger
         self._directory = os.path.join(config[CONFIG_SEGMENTS_FOLDER], camera_name)
         # Make sure we dont delete a segment which is needed by recorder
@@ -257,7 +258,6 @@ class SegmentCleanup:
             id="segment_cleanup",
         )
         self._scheduler.start()
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.shutdown)
 
     def cleanup(self):
         """Delete all segments that are no longer needed."""
