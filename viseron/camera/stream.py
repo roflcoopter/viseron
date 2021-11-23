@@ -306,16 +306,15 @@ class Stream:
         """Return full FFmpeg command."""
         camera_segment_args = []
         if not single_frame and self._write_segments:
+            segment_path = os.path.join(
+                self._config.recorder.segments_folder,
+                self._config.camera.name,
+                f"%Y%m%d%H%M%S.{self._config.recorder.extension}",
+            )
             camera_segment_args = (
                 CAMERA_SEGMENT_ARGS
                 + self.get_audio_codec(self.stream_config, self.stream_audio_codec)
-                + [
-                    os.path.join(
-                        self._config.recorder.segments_folder,
-                        self._config.camera.name,
-                        f"%Y%m%d%H%M%S.{self._config.recorder.extension}",
-                    )
-                ]
+                + [segment_path]
             )
 
         return (
@@ -341,8 +340,8 @@ class Stream:
 
     def pipe(self, single_frame=False):
         """Return subprocess pipe for FFmpeg."""
-        with Detector.lock:
-            if single_frame:
+        if single_frame:
+            with Detector.lock:
                 return sp.Popen(
                     self.build_command(
                         ffmpeg_loglevel="fatal", single_frame=single_frame
@@ -350,13 +349,16 @@ class Stream:
                     stdout=sp.PIPE,
                     stderr=sp.PIPE,
                 )
-            if self._write_segments and not self._pipe_frames:
-                return RestartablePopen(
-                    self.build_command(),
-                    stdout=sp.PIPE,
-                    stderr=self._log_pipe,
-                    name=self.alias,
-                )
+
+        if self._write_segments and not self._pipe_frames:
+            return RestartablePopen(
+                self.build_command(),
+                stdout=sp.PIPE,
+                stderr=self._log_pipe,
+                name=self.alias,
+            )
+
+        with Detector.lock:
             return sp.Popen(
                 self.build_command(),
                 stdout=sp.PIPE,
