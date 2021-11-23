@@ -332,9 +332,11 @@ class Stream:
             + (self._config.camera.filter_args if self._pipe_frames else [])
             + (
                 ["-filter:v", f"fps={self.output_fps}"]
-                if self.output_fps < self.fps or \
-                not ('-vf' in self._config.camera.filter_args or \
-                     '-filter:v' in self._config.camera.filter_args)
+                if self.output_fps < self.fps
+                or not (
+                    "-vf" in self._config.camera.filter_args
+                    or "-filter:v" in self._config.camera.filter_args
+                )                
                 else []
             )
             + (self._config.camera.output_args if self._pipe_frames else [])
