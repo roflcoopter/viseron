@@ -160,7 +160,8 @@ class AbstractCamera(ABC):
         self._vis = vis
         self._config = config
 
-        self._logger = logging.getLogger(__name__ + "." + self.identifier)
+        self._logger = logging.getLogger(f"{self.__module__}.{self.identifier}")
+
         self._logger.addFilter(SensitiveInformationFilter())
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self.frame_bytes_topic = DATA_FRAME_BYTES_TOPIC.format(

@@ -173,6 +173,7 @@ LOADING = "loading"
 LOADED = "loaded"
 FAILED = "failed"
 REGISTERED_OBJECT_DETECTORS = "object_detectors"
+REGISTERED_MOTION_DETECTORS = "motion_detectors"
 REGISTERED_CAMERAS = "cameras"
 
 # Signal constants

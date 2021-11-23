@@ -32,6 +32,7 @@ DEFAULT_LABEL_POST_PROCESSOR = None
 CONFIG_CAMERAS = "cameras"
 
 CONFIG_FPS = "fps"
+CONFIG_SCAN_ON_MOTION_ONLY = "scan_on_motion_only"
 CONFIG_LABELS = "labels"
 CONFIG_MAX_FRAME_AGE = "max_frame_age"
 CONFIG_LOG_ALL_OBJECTS = "log_all_objects"
@@ -40,6 +41,7 @@ CONFIG_ZONES = "zones"
 CONFIG_COORDINATES = "coordinates"
 
 DEFAULT_FPS = 1
+DEFAULT_SCAN_ON_MOTION_ONLY = True
 DEFAULT_LABELS: List[Dict[str, str]] = []
 DEFAULT_MAX_FRAME_AGE = 2
 DEFAULT_LOG_ALL_OBJECTS = False

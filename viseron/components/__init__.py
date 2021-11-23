@@ -2,6 +2,7 @@
 import importlib
 import logging
 import threading
+import traceback
 
 import voluptuous as vol
 
@@ -73,7 +74,8 @@ class Component:
                 return component_module.setup(self._vis, config)
             except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.error(
-                    f"Uncaught exception setting up component {self.name}: {ex}"
+                    f"Uncaught exception setting up component {self.name}: {ex}\n"
+                    f"{traceback.print_exc()}"
                 )
 
         return False

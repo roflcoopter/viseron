@@ -24,10 +24,12 @@ from viseron.const import (
     LOADED,
     LOADING,
     REGISTERED_CAMERAS,
+    REGISTERED_MOTION_DETECTORS,
     REGISTERED_OBJECT_DETECTORS,
     THREAD_STORE_CATEGORY_NVR,
     VISERON_SIGNAL_SHUTDOWN,
 )
+from viseron.domains.motion_detector.const import DATA_MOTION_DETECTOR_SCAN
 from viseron.domains.object_detector.const import DATA_OBJECT_DETECTOR_SCAN
 from viseron.exceptions import (
     FFprobeError,
@@ -118,6 +120,7 @@ class Viseron:
         self.data[FAILED] = {}
 
         self.data[REGISTERED_OBJECT_DETECTORS] = {}
+        self.data[REGISTERED_MOTION_DETECTORS] = {}
         self.data[REGISTERED_CAMERAS] = {}
         self._wait_for_camera_store = {}
 
@@ -191,6 +194,31 @@ class Viseron:
             return False
 
         return self.data[REGISTERED_OBJECT_DETECTORS][detector_name]
+
+    def register_motion_detector(self, camera_identifier, detector):
+        """Register an motion detector that can be used by components."""
+        LOGGER.debug(f"Registering motion detector for camera: {camera_identifier}")
+        topic = DATA_MOTION_DETECTOR_SCAN.format(camera_identifier=camera_identifier)
+        self.data[DATA_STREAM_COMPONENT].subscribe_data(
+            data_topic=topic,
+            callback=detector.motion_detection_queue,
+        )
+        self.data[REGISTERED_MOTION_DETECTORS][camera_identifier] = detector
+
+    def get_motion_detector(self, detector_name):
+        """Return a registered motion detector."""
+        if not self.data[REGISTERED_MOTION_DETECTORS]:
+            LOGGER.error("No motion detectors are registered")
+            return False
+
+        if not self.data[REGISTERED_MOTION_DETECTORS].get(detector_name, None):
+            LOGGER.error(
+                f"Requested motion detector {detector_name} has not been registered. "
+                "Available motion detectors are: "
+                f"{list(self.data[REGISTERED_MOTION_DETECTORS].keys())}"
+            )
+            return False
+        return self.data[REGISTERED_MOTION_DETECTORS][detector_name]
 
     def register_camera(self, camera_identifier, camera_instance):
         """Register a camera."""

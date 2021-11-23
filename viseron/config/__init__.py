@@ -111,9 +111,7 @@ VISERON_CONFIG_SCHEMA = Schema(
         {
             Required("cameras"): [{Extra: object}],
             Optional("object_detection", default={}): ObjectDetectionConfig.schema,
-            Optional("motion_detection", default={}): All(
-                get_motion_type, validate_motion_detection_schema
-            ),
+            Optional("motion_detection", default={}): {Extra: object},
             Optional("post_processors", default={}): PostProcessorsConfig.schema,
             Optional("recorder", default={}): RecorderConfig.schema,
             Optional("mqtt", default=None): Any(MQTTConfig.schema, None),

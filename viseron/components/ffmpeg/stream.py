@@ -7,7 +7,6 @@ import os
 import subprocess as sp
 from typing import Dict
 
-import cv2
 from tenacity import (
     Retrying,
     before_sleep_log,
@@ -141,16 +140,10 @@ class Stream:
         self.decoders: Dict[str, FrameDecoder] = {}
         self.create_symlink()
 
-        if self._output_stream_config[CONFIG_PIX_FMT] == "nv12":
-            self._color_converter = cv2.COLOR_YUV2RGB_NV21
-            self._color_plane_width = self.width
-            self._color_plane_height = int(self.height * 1.5)
-            self._frame_bytes = int(self.width * self.height * 1.5)
-        elif self._output_stream_config[CONFIG_PIX_FMT] == "yuv420p":
-            self._color_converter = cv2.COLOR_YUV2BGR_I420
-            self._color_plane_width = self.width
-            self._color_plane_height = int(self.height * 1.5)
-            self._frame_bytes = int(self.width * self.height * 1.5)
+        self._pixel_format = self._output_stream_config[CONFIG_PIX_FMT]
+        self._color_plane_width = self.width
+        self._color_plane_height = int(self.height * 1.5)
+        self._frame_bytes = int(self.width * self.height * 1.5)
 
     @property
     def stream_url(self):
@@ -509,7 +502,7 @@ class Stream:
                         shared_frame.name,
                         self._color_plane_width,
                         self._color_plane_height,
-                        self._color_converter,
+                        self._pixel_format,
                         (self.width, self.height),
                         self._camera_identifier,
                     )

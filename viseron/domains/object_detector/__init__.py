@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC, abstractmethod
-from queue import Queue
+from queue import Empty, Queue
 from typing import List
 
 import voluptuous as vol
@@ -33,6 +33,7 @@ from .const import (
     CONFIG_LOG_ALL_OBJECTS,
     CONFIG_MASK,
     CONFIG_MAX_FRAME_AGE,
+    CONFIG_SCAN_ON_MOTION_ONLY,
     CONFIG_ZONE_NAME,
     CONFIG_ZONES,
     DATA_OBJECT_DETECTOR_RESULT,
@@ -49,6 +50,7 @@ from .const import (
     DEFAULT_LOG_ALL_OBJECTS,
     DEFAULT_MASK,
     DEFAULT_MAX_FRAME_AGE,
+    DEFAULT_SCAN_ON_MOTION_ONLY,
     DEFAULT_ZONES,
     EVENT_OBJECTS_IN_FOV,
 )
@@ -111,6 +113,9 @@ CAMERA_SCHEMA = vol.Schema(
         vol.Optional(CONFIG_FPS, default=DEFAULT_FPS): vol.All(
             vol.Any(float, int), vol.Coerce(float), vol.Range(min=0.0)
         ),
+        vol.Optional(
+            CONFIG_SCAN_ON_MOTION_ONLY, default=DEFAULT_SCAN_ON_MOTION_ONLY
+        ): bool,
         vol.Optional(CONFIG_LABELS, default=DEFAULT_LABELS): vol.Any(
             [], [LABEL_SCHEMA]
         ),
@@ -142,7 +147,7 @@ class AbstractObjectDetector(ABC):
         self._vis = vis
         self._config = config
         self._camera_identifier = camera_identifier
-        self._logger = logging.getLogger(f"{__name__}.{camera_identifier}")
+        self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
 
         self._shared_frames = SharedFrames()
 
@@ -170,7 +175,7 @@ class AbstractObjectDetector(ABC):
         self._kill_received = False
         self.object_detection_queue: Queue[SharedFrame] = Queue(maxsize=10)
         self._object_detection_thread = RestartableThread(
-            target=self.object_detection,
+            target=self._object_detection,
             name=f"{camera_identifier}.object_detection",
             register=True,
             daemon=True,
@@ -235,10 +240,13 @@ class AbstractObjectDetector(ABC):
     def preprocess(self, frame):
         """Perform preprocessing of frame before running detection."""
 
-    def object_detection(self):
+    def _object_detection(self):
         """Perform object detection and publish the results."""
         while not self._kill_received:
-            shared_frame: SharedFrame = self.object_detection_queue.get()
+            try:
+                shared_frame: SharedFrame = self.object_detection_queue.get(timeout=1)
+            except Empty:
+                continue
             decoded_frame = self._shared_frames.get_decoded_frame_rgb(shared_frame)
             preprocessed_frame = self.preprocess(decoded_frame)
 
@@ -269,6 +277,13 @@ class AbstractObjectDetector(ABC):
     @abstractmethod
     def fps(self) -> str:
         """Return object detector fps."""
+
+    @property
+    def scan_on_motion_only(self):
+        """Return if scanning should only be done when there is motion."""
+        return self._config[CONFIG_CAMERAS][self._camera_identifier][
+            CONFIG_SCAN_ON_MOTION_ONLY
+        ]
 
     def stop(self):
         """Stop object detector."""

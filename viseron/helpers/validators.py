@@ -41,3 +41,10 @@ def ensure_slug(value: str) -> str:
     if not regex.match(value):
         raise Invalid("Invalid string")
     return value
+
+
+def none_to_dict(value):
+    """Convert None values to empty dict."""
+    if value is None:
+        return {}
+    return value
