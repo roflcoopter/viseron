@@ -11,7 +11,7 @@ from viseron.domains.object_detector.const import (
     CONFIG_LABEL_WIDTH_MIN,
 )
 from viseron.domains.object_detector.detected_object import DetectedObject
-from viseron.helpers import generate_mask, object_in_polygon
+from viseron.helpers import object_in_polygon
 
 
 class Filter:
@@ -19,7 +19,7 @@ class Filter:
 
     def __init__(self, camera_resolution, object_filter, mask) -> None:
         self._camera_resolution = camera_resolution
-        self._mask = generate_mask(mask)
+        self._mask = mask
         self._label = object_filter[CONFIG_LABEL_LABEL]
         self._confidence = object_filter[CONFIG_LABEL_CONFIDENCE]
         self._width_min = object_filter[CONFIG_LABEL_WIDTH_MIN]

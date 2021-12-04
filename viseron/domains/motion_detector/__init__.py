@@ -11,7 +11,9 @@ import voluptuous as vol
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera.shared_frames import SharedFrame, SharedFrames
+from viseron.domains.camera import AbstractCamera
+from viseron.domains.camera.shared_frames import SharedFrame
+from viseron.helpers import generate_mask
 from viseron.helpers.schemas import COORDINATES_SCHEMA
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -142,7 +144,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
     def __init__(self, vis, config, camera_identifier, color_format="gray"):
         super().__init__(vis, config, camera_identifier)
 
-        self._shared_frames = SharedFrames()
+        self._camera: AbstractCamera = vis.get_registered_camera(camera_identifier)
         self._get_frame_function = getattr(self, f"_get_decoded_frame_{color_format}")
 
         self._resolution = (
@@ -153,9 +155,13 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         self._mask = None
         if config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK]:
             self._logger.debug("Creating mask")
+            self._mask = generate_mask(
+                config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK]
+            )
+
             # Scale mask to fit resized frame
             scaled_mask = []
-            for point_list in config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK]:
+            for point_list in self._mask:
                 rel_mask = np.divide(
                     (point_list),
                     vis.get_registered_camera(camera_identifier).resolution,
@@ -175,7 +181,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
             mask[:] = 255
 
             cv2.fillPoly(mask, pts=scaled_mask, color=(0, 0, 0))
-            self._mask = np.where(mask[:, :, 0] == [0])
+            self._mask_image = np.where(mask[:, :, 0] == [0])
 
         self._kill_received = False
         self.motion_detection_queue: Queue[SharedFrame] = Queue(maxsize=1)
@@ -194,7 +200,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
 
     def _apply_mask(self, frame):
         """Apply motion mask to frame."""
-        frame[self._mask] = [0]
+        frame[self._mask_image] = [0]
         return frame
 
     def _filter_motion(self, shared_frame: SharedFrame, contours: Contours):
@@ -236,11 +242,11 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
 
     def _get_decoded_frame_rgb(self, shared_frame):
         """Return frame in rgb format."""
-        return self._shared_frames.get_decoded_frame_rgb(shared_frame)
+        return self._camera.shared_frames.get_decoded_frame_rgb(shared_frame)
 
     def _get_decoded_frame_gray(self, shared_frame):
         """Return frame in gray format."""
-        return self._shared_frames.get_decoded_frame_gray(shared_frame)
+        return self._camera.shared_frames.get_decoded_frame_gray(shared_frame)
 
     def _motion_detection(self):
         """Perform object detection and publish the results."""
@@ -263,7 +269,6 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
                 ),
                 contours,
             )
-            self._shared_frames.close(shared_frame)
         self._logger.debug("Motion detection thread stopped")
 
     @abstractmethod
@@ -274,6 +279,16 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
     def fps(self):
         """Return motion detector fps."""
         return self._config[CONFIG_CAMERAS][self._camera_identifier][CONFIG_FPS]
+
+    @property
+    def mask(self):
+        """Return motion detector mask."""
+        return self._mask
+
+    @property
+    def area(self):
+        """Return motion detector area."""
+        return self._config[CONFIG_CAMERAS][self._camera_identifier][CONFIG_AREA]
 
     def stop(self):
         """Stop object detector."""

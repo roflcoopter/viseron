@@ -1,4 +1,5 @@
 """Viseron webserver."""
+import asyncio
 import datetime
 import logging
 import threading
@@ -11,15 +12,10 @@ import voluptuous as vol
 from tornado.routing import PathMatches
 
 from viseron import Viseron
-from viseron.const import (
-    PATH_STATIC,
-    PATH_TEMPLATES,
-    PREFIX_STATIC,
-    RECORDER_PATH,
-    VISERON_SIGNAL_SHUTDOWN,
-)
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
 
 from .api import APIRouter
+from .const import PATH_STATIC, PATH_TEMPLATES, PREFIX_STATIC
 from .not_found_handler import NotFoundHandler
 from .stream_handler import DynamicStreamHandler, StaticStreamHandler
 from .ui import (
@@ -33,8 +29,10 @@ from .ui import (
 COMPONENT = "webserver"
 
 CONFIG_PORT = "port"
+CONFIG_DEBUG = "debug"
 
 DEFAULT_PORT = 8888
+DEFAULT_DEBUG = False
 
 LOGGER = logging.getLogger(__name__)
 
@@ -46,6 +44,7 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(CONFIG_PORT, default=DEFAULT_PORT): vol.All(
                     int, vol.Range(min=1024, max=49151)
                 ),
+                vol.Optional(CONFIG_DEBUG, default=DEFAULT_DEBUG): bool,
             }
         )
     },
@@ -55,6 +54,7 @@ CONFIG_SCHEMA = vol.Schema(
 
 def setup(vis: Viseron, config):
     """Set up the webserver component."""
+    config = config[COMPONENT]
     webserver = WebServer(vis, config)
     vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, webserver.stop)
     webserver.start()
@@ -136,44 +136,51 @@ class WebServer(threading.Thread):
     def __init__(self, vis, config):
         super().__init__(name="Tornado WebServer", daemon=True)
         self._vis = vis
+        self._config = config
+        ioloop = asyncio.new_event_loop()
+        asyncio.set_event_loop(ioloop)
         application = self.create_application()
         application.listen(config[CONFIG_PORT])
         self._ioloop = tornado.ioloop.IOLoop.current()
 
-    @staticmethod
-    def create_application():
+    def create_application(self):
         """Return tornado web app."""
         application = tornado.web.Application(
             [
-                (r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-stream", DynamicStreamHandler),
+                (
+                    r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-stream",
+                    DynamicStreamHandler,
+                    {"vis": self._vis},
+                ),
                 (
                     (
                         r"/(?P<camera>[A-Za-z0-9_]+)/static-mjpeg-streams/"
                         r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)"
                     ),
                     StaticStreamHandler,
+                    {"vis": self._vis},
                 ),
                 (r"/ws-stream", RegularSocketHandler),
                 (r"/websocket", WebSocketHandler),
                 (r"/(?P<camera>[A-Za-z0-9_]+)/stream", DeprecatedStreamHandler),
-                (r"/ui/", IndexHandler),
-                (r"/ui/about", AboutHandler),
-                (r"/ui/cameras", CamerasHandler),
-                (r"/ui/index", IndexHandler),
-                (r"/ui/recordings", RecordingsHandler),
-                (r"/ui/settings", SettingsHandler),
+                (r"/ui/", IndexHandler, {"vis": self._vis}),
+                (r"/ui/about", AboutHandler, {"vis": self._vis}),
+                (r"/ui/cameras", CamerasHandler, {"vis": self._vis}),
+                (r"/ui/index", IndexHandler, {"vis": self._vis}),
+                (r"/ui/recordings", RecordingsHandler, {"vis": self._vis}),
+                (r"/ui/settings", SettingsHandler, {"vis": self._vis}),
                 (
                     r"/recordings/(.*)",
                     tornado.web.StaticFileHandler,
-                    {"path": RECORDER_PATH},
+                    {"vis": self._vis},
                 ),
-                (r"/", IndexRedirect),
+                (r"/", IndexRedirect, {"vis": self._vis}),
             ],
             default_handler_class=NotFoundHandler,
             template_path=PATH_TEMPLATES,
             static_path=PATH_STATIC,
             static_url_prefix=PREFIX_STATIC,
-            debug=True,
+            debug=self._config[CONFIG_DEBUG],
         )
         application.add_handlers(
             r".*",

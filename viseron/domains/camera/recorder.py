@@ -23,7 +23,7 @@ from .const import (
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
 )
-from .shared_frames import SharedFrame, SharedFrames
+from .shared_frames import SharedFrame
 
 if TYPE_CHECKING:
     from . import AbstractCamera
@@ -64,8 +64,6 @@ class AbstractRecorder(ABC):
         self._last_recording_path = None
         self._last_recording_start = None
         self._last_recording_end = None
-
-        self._shared_frames = SharedFrames()
 
     def subfolder_name(self, today):
         """Generate name of folder for recording."""
@@ -141,11 +139,10 @@ class AbstractRecorder(ABC):
 
         thumbnail = self.create_thumbnail(
             os.path.join(full_path, thumbnail_name),
-            self._shared_frames.get_decoded_frame_rgb(shared_frame),
+            self._camera.shared_frames.get_decoded_frame_rgb(shared_frame),
             objects_in_fov,
             resolution,
         )
-        self._shared_frames.close(shared_frame)
         self._last_recording_path = os.path.join(full_path, video_name)
 
         self._start(shared_frame, objects_in_fov, resolution)

@@ -4,6 +4,7 @@ from queue import Queue
 from typing import List
 
 import cv2
+import numpy as np
 
 from viseron import Viseron
 from viseron.domains.object_detector import (
@@ -39,7 +40,7 @@ class ObjectDetector(AbstractObjectDetector):
         self._camera_identifier = camera_identifier
 
         self._edgetpu = vis.data[COMPONENT]
-        self._object_result_queue = Queue(maxsize=1)
+        self._object_result_queue: Queue[List[DetectedObject]] = Queue(maxsize=1)
 
         super().__init__(vis, config, camera_identifier)
 
@@ -52,8 +53,7 @@ class ObjectDetector(AbstractObjectDetector):
             (self.model_width, self.model_height),
             interpolation=cv2.INTER_LINEAR,
         )
-
-        return frame.reshape(1, frame.shape[0], frame.shape[1], frame.shape[2])
+        return np.expand_dims(frame, axis=0)
 
     def return_objects(self, frame) -> List[DetectedObject]:
         """Perform object detection."""

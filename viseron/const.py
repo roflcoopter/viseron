@@ -178,9 +178,3 @@ REGISTERED_CAMERAS = "cameras"
 
 # Signal constants
 VISERON_SIGNAL_SHUTDOWN = "shutdown"
-
-
-# UI constants
-PREFIX_STATIC = "/ui/static/"
-PATH_STATIC = "/src/viseron/webserver/assets/static"
-PATH_TEMPLATES = "/src/viseron/webserver/assets/templates"

@@ -12,6 +12,7 @@ from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
+from viseron.domains.camera.shared_frames import SharedFrames
 from viseron.helpers import slugify
 from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import ensure_slug
@@ -164,6 +165,7 @@ class AbstractCamera(ABC):
 
         self._logger.addFilter(SensitiveInformationFilter())
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
+        self.shared_frames = SharedFrames()
         self.frame_bytes_topic = DATA_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
         )
@@ -195,6 +197,11 @@ class AbstractCamera(ABC):
         if self._config[CONFIG_IDENTIFIER]:
             return self._config[CONFIG_IDENTIFIER]
         return slugify(self._config[CONFIG_NAME])
+
+    @property
+    def mjpeg_streams(self):
+        """Return mjpeg streamsr."""
+        return self._config[CONFIG_MJPEG_STREAMS]
 
     @property
     @abstractmethod

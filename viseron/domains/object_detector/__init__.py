@@ -11,7 +11,9 @@ import voluptuous as vol
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera.shared_frames import SharedFrame, SharedFrames
+from viseron.domains.camera import AbstractCamera
+from viseron.domains.camera.shared_frames import SharedFrame
+from viseron.helpers import generate_mask
 from viseron.helpers.filter import Filter
 from viseron.helpers.schemas import COORDINATES_SCHEMA, MIN_MAX_SCHEMA
 from viseron.watchdog.thread_watchdog import RestartableThread
@@ -146,13 +148,18 @@ class AbstractObjectDetector(ABC):
     def __init__(self, vis, config, camera_identifier):
         self._vis = vis
         self._config = config
-        self._camera_identifier = camera_identifier
+        self._camera: AbstractCamera = vis.get_registered_camera(camera_identifier)
         self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
-
-        self._shared_frames = SharedFrames()
 
         self._objects_in_fov: List[DetectedObject] = []
         self.object_filters = {}
+
+        self._mask = []
+        if config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK]:
+            self._mask = generate_mask(
+                config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK]
+            )
+
         if config[CONFIG_CAMERAS][camera_identifier][CONFIG_LABELS]:
             for object_filter in config[CONFIG_CAMERAS][camera_identifier][
                 CONFIG_LABELS
@@ -160,12 +167,12 @@ class AbstractObjectDetector(ABC):
                 self.object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
                     vis.get_registered_camera(camera_identifier).resolution,
                     object_filter,
-                    config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK],
+                    self._mask,
                 )
 
         self.zones: List[Zone] = []
         for zone in config[CONFIG_CAMERAS][camera_identifier][CONFIG_ZONES]:
-            self.zones.append(Zone(vis, config, camera_identifier, zone))
+            self.zones.append(Zone(vis, camera_identifier, zone, self._mask))
 
         if not self.zones and not self.object_filters:
             self._logger.warning(
@@ -173,7 +180,7 @@ class AbstractObjectDetector(ABC):
             )
 
         self._kill_received = False
-        self.object_detection_queue: Queue[SharedFrame] = Queue(maxsize=10)
+        self.object_detection_queue: Queue[SharedFrame] = Queue(maxsize=1)
         self._object_detection_thread = RestartableThread(
             target=self._object_detection,
             name=f"{camera_identifier}.object_detection",
@@ -197,7 +204,7 @@ class AbstractObjectDetector(ABC):
                     obj.trigger_recorder = True
 
         self.objects_in_fov_setter(shared_frame, objects_in_fov)
-        if self._config[CONFIG_CAMERAS][self._camera_identifier][
+        if self._config[CONFIG_CAMERAS][self._camera.identifier][
             CONFIG_LOG_ALL_OBJECTS
         ]:
             self._logger.debug(
@@ -223,9 +230,9 @@ class AbstractObjectDetector(ABC):
 
         self._objects_in_fov = objects
         self._vis.dispatch_event(
-            EVENT_OBJECTS_IN_FOV.format(camera_identifier=self._camera_identifier),
+            EVENT_OBJECTS_IN_FOV.format(camera_identifier=self._camera.identifier),
             {
-                "camera_identifier": self._camera_identifier,
+                "camera_identifier": self._camera.identifier,
                 "shared_frame": shared_frame,
                 "objects": objects,
             },
@@ -247,15 +254,17 @@ class AbstractObjectDetector(ABC):
                 shared_frame: SharedFrame = self.object_detection_queue.get(timeout=1)
             except Empty:
                 continue
-            decoded_frame = self._shared_frames.get_decoded_frame_rgb(shared_frame)
-            preprocessed_frame = self.preprocess(decoded_frame)
 
             if (frame_age := time.time() - shared_frame.capture_time) > self._config[
                 CONFIG_CAMERAS
             ][shared_frame.camera_identifier][CONFIG_MAX_FRAME_AGE]:
                 self._logger.debug(f"Frame is {frame_age} seconds old. Discarding")
-                self._shared_frames.close(shared_frame)
                 continue
+
+            decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(
+                shared_frame
+            )
+            preprocessed_frame = self.preprocess(decoded_frame)
 
             objects = self.return_objects(preprocessed_frame)
             self.filter_fov(shared_frame, objects)
@@ -266,7 +275,6 @@ class AbstractObjectDetector(ABC):
                 ),
                 self.objects_in_fov,
             )
-            self._shared_frames.close(shared_frame)
         self._logger.debug("Object detection thread stopped")
 
     @abstractmethod
@@ -281,9 +289,14 @@ class AbstractObjectDetector(ABC):
     @property
     def scan_on_motion_only(self):
         """Return if scanning should only be done when there is motion."""
-        return self._config[CONFIG_CAMERAS][self._camera_identifier][
+        return self._config[CONFIG_CAMERAS][self._camera.identifier][
             CONFIG_SCAN_ON_MOTION_ONLY
         ]
+
+    @property
+    def mask(self):
+        """Return object detection mask."""
+        return self._mask
 
     def stop(self):
         """Stop object detector."""

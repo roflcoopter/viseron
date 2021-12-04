@@ -11,8 +11,11 @@ import tornado.web
 from tornado.queues import Queue
 
 from viseron.components.data_stream import DataStream
+from viseron.components.nvr import COMPONENT as NVR_COMPONENT, NVR, DataProcessedFrame
+from viseron.components.nvr.const import DATA_PROCESSED_FRAME_TOPIC
 from viseron.config.config_camera import MJPEG_STREAM_SCHEMA
-from viseron.const import TOPIC_FRAME_PROCESSED, TOPIC_STATIC_MJPEG_STREAMS
+from viseron.const import TOPIC_STATIC_MJPEG_STREAMS
+from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.helpers import (
     draw_contours,
     draw_motion_mask,
@@ -20,72 +23,70 @@ from viseron.helpers import (
     draw_objects,
     draw_zones,
 )
-from viseron.nvr import FFMPEGNVR
+
+from .request_handler import ViseronRequestHandler
 
 LOGGER = logging.getLogger(__name__)
 
 
-class StreamHandler(tornado.web.RequestHandler):
+class StreamHandler(ViseronRequestHandler):
     """Represents a stream."""
 
-    async def process_frame(self, nvr: FFMPEGNVR, frame, mjpeg_stream_config):
+    async def process_frame(
+        self, nvr: NVR, processed_frame: DataProcessedFrame, mjpeg_stream_config
+    ):
         """Return JPG with drawn objects, zones etc."""
         if mjpeg_stream_config["width"] and mjpeg_stream_config["height"]:
             resolution = mjpeg_stream_config["width"], mjpeg_stream_config["height"]
-            frame.resize(
-                "tornado", mjpeg_stream_config["width"], mjpeg_stream_config["height"]
+            frame = cv2.resize(
+                processed_frame.frame,
+                resolution,
+                interpolation=cv2.INTER_LINEAR,
             )
-            # TODO move this to a preprocess pylint: disable=fixme
-            processed_frame = frame.get_preprocessed_frame(
-                "tornado"
-            ).get()  # Convert to Mat
         else:
             resolution = nvr.camera.resolution
-            processed_frame = frame.decoded_frame_mat_rgb
+            frame = processed_frame.frame
 
-        if mjpeg_stream_config["draw_motion_mask"] and nvr.config.motion_detection.mask:
-            draw_motion_mask(
-                processed_frame,
-                nvr.config.motion_detection.mask,
-            )
+        if nvr.motion_detector and isinstance(
+            nvr.motion_detector, AbstractMotionDetectorScanner
+        ):
+            if mjpeg_stream_config["draw_motion_mask"] and nvr.motion_detector.mask:
+                draw_motion_mask(
+                    frame,
+                    nvr.motion_detector.mask,
+                )
+            if mjpeg_stream_config["draw_motion"] and processed_frame.motion_contours:
+                draw_contours(
+                    frame,
+                    processed_frame.motion_contours,
+                    resolution,
+                    nvr.motion_detector.area,
+                )
 
-        if mjpeg_stream_config["draw_object_mask"] and nvr.config.object_detection.mask:
-            draw_object_mask(
-                processed_frame,
-                nvr.config.object_detection.mask,
-            )
+        if mjpeg_stream_config["draw_object_mask"] and nvr.object_detector:
+            if mjpeg_stream_config["draw_zones"]:
+                draw_zones(frame, nvr.object_detector.zones)
 
-        if mjpeg_stream_config["draw_motion"] and frame.motion_contours:
-            draw_contours(
-                processed_frame,
-                frame.motion_contours,
-                resolution,
-                nvr.config.motion_detection.area,
-            )
-
-        if mjpeg_stream_config["draw_zones"]:
-            draw_zones(processed_frame, nvr.zones)
-
-        if mjpeg_stream_config["draw_objects"]:
-            draw_objects(
-                processed_frame,
-                frame.objects,
-                resolution,
-            )
+            if nvr.object_detector.mask:
+                draw_object_mask(
+                    frame,
+                    nvr.object_detector.mask,
+                )
+            if mjpeg_stream_config["draw_objects"]:
+                draw_objects(
+                    frame,
+                    processed_frame.objects_in_fov,
+                    resolution,
+                )
 
         if mjpeg_stream_config["rotate"]:
-            processed_frame = imutils.rotate_bound(
-                processed_frame, mjpeg_stream_config["rotate"]
-            )
+            frame = imutils.rotate_bound(frame, mjpeg_stream_config["rotate"])
 
         if mjpeg_stream_config["mirror"]:
-            processed_frame = cv2.flip(processed_frame, 1)
+            frame = cv2.flip(frame, 1)
 
         # Write a low quality image to save bandwidth
-        ret, jpg = cv2.imencode(
-            ".jpg", processed_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100]
-        )
-
+        ret, jpg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
         return ret, jpg
 
 
@@ -95,10 +96,8 @@ class DynamicStreamHandler(StreamHandler):
     async def get(self, camera):
         """Handle a GET request."""
         request_arguments = {k: self.get_argument(k) for k in self.request.arguments}
-        LOGGER.debug(request_arguments)
         mjpeg_stream_config = MJPEG_STREAM_SCHEMA(request_arguments)
-        LOGGER.debug(mjpeg_stream_config)
-        nvr = FFMPEGNVR.nvr_list.get(camera, None)
+        nvr: NVR = self._vis.data[NVR_COMPONENT].get(camera, None)
 
         if not nvr:
             self.set_status(404)
@@ -111,16 +110,19 @@ class DynamicStreamHandler(StreamHandler):
         )
         self.set_header("Connection", "close")
 
-        frame_queue = Queue(maxsize=10)
-        frame_topic = f"{nvr.config.camera.name_slug}/{TOPIC_FRAME_PROCESSED}/*"
+        frame_queue = Queue(maxsize=1)
+        frame_topic = DATA_PROCESSED_FRAME_TOPIC.format(
+            camera_identifier=nvr.camera.identifier
+        )
         unique_id = DataStream.subscribe_data(
             frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
         )
         while True:
             try:
-                item = await frame_queue.get()
-                frame = copy.copy(item.frame)
-                ret, jpg = await self.process_frame(nvr, frame, mjpeg_stream_config)
+                processed_frame: DataProcessedFrame = await frame_queue.get()
+                ret, jpg = await self.process_frame(
+                    nvr, processed_frame, mjpeg_stream_config
+                )
 
                 if ret:
                     self.write("--jpgboundary")
@@ -130,7 +132,7 @@ class DynamicStreamHandler(StreamHandler):
                     await self.flush()
             except tornado.iostream.StreamClosedError:
                 DataStream.unsubscribe_data(frame_topic, unique_id)
-                LOGGER.debug(f"Stream closed for camera {nvr.config.camera.name_slug}")
+                LOGGER.debug(f"Stream closed for camera {nvr.camera.identifier}")
                 break
 
 
@@ -142,12 +144,12 @@ class StaticStreamHandler(StreamHandler):
     @tornado.gen.coroutine
     def stream(self, nvr, mjpeg_stream, mjpeg_stream_config, publish_frame_topic):
         """Subscribe to frames, draw on them, then publish processed frame."""
-        frame_queue = Queue(maxsize=10)
-        subscribe_frame_topic = (
-            f"{nvr.config.camera.name_slug}/{TOPIC_FRAME_PROCESSED}/*"
+        frame_queue = Queue(maxsize=1)
+        frame_topic = DATA_PROCESSED_FRAME_TOPIC.format(
+            camera_identifier=nvr.camera.identifier
         )
         unique_id = DataStream.subscribe_data(
-            subscribe_frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
+            frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
         )
 
         while self.active_streams[mjpeg_stream]:
@@ -158,30 +160,28 @@ class StaticStreamHandler(StreamHandler):
             if ret:
                 DataStream.publish_data(publish_frame_topic, jpg)
 
-        DataStream.unsubscribe_data(subscribe_frame_topic, unique_id)
+        DataStream.unsubscribe_data(frame_topic, unique_id)
         LOGGER.debug(f"Closing stream {mjpeg_stream}")
 
     async def get(self, camera, mjpeg_stream):
         """Handle GET request."""
-        nvr = FFMPEGNVR.nvr_list.get(camera, None)
+        nvr: NVR = self._vis.data[NVR_COMPONENT].get(camera, None)
         if not nvr:
             self.set_status(404)
             self.write(f"Camera {camera} not found.")
             self.finish()
             return
 
-        mjpeg_stream_config = nvr.config.camera.static_mjpeg_streams.get(
-            mjpeg_stream, None
-        )
+        mjpeg_stream_config = nvr.camera.mjpeg_streams.get(mjpeg_stream, None)
         if not mjpeg_stream_config:
             self.set_status(404)
             self.write(f"Stream {mjpeg_stream} not defined.")
             self.finish()
             return
 
-        frame_queue = Queue(maxsize=10)
+        frame_queue = Queue(maxsize=1)
         frame_topic = (
-            f"{TOPIC_STATIC_MJPEG_STREAMS}/{nvr.config.camera.name_slug}/{mjpeg_stream}"
+            f"{TOPIC_STATIC_MJPEG_STREAMS}/{nvr.camera.identifier}/{mjpeg_stream}"
         )
         unique_id = DataStream.subscribe_data(
             frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
@@ -218,7 +218,7 @@ class StaticStreamHandler(StreamHandler):
                 DataStream.unsubscribe_data(frame_topic, unique_id)
                 LOGGER.debug(
                     f"Stream {mjpeg_stream} closed for camera "
-                    f"{nvr.config.camera.name_slug}"
+                    f"{nvr.camera.identifier}"
                 )
                 break
         self.active_streams[mjpeg_stream] -= 1

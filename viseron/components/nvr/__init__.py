@@ -1,11 +1,15 @@
 """NVR component."""
+from __future__ import annotations
 
 import logging
 import threading
+import time
 import traceback
+from dataclasses import dataclass
 from queue import Empty, Queue
-from typing import Dict
+from typing import TYPE_CHECKING, Dict, List
 
+import numpy as np
 import voluptuous as vol
 
 from viseron.components.data_stream import (
@@ -14,7 +18,7 @@ from viseron.components.data_stream import (
 )
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import AbstractCamera
-from viseron.domains.camera.shared_frames import SharedFrame, SharedFrames
+from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.motion_detector.const import (
     DATA_MOTION_DETECTOR_RESULT,
     DATA_MOTION_DETECTOR_SCAN,
@@ -28,7 +32,11 @@ from viseron.helpers.filter import Filter
 from viseron.helpers.validators import ensure_slug
 from viseron.watchdog.thread_watchdog import RestartableThread
 
-from .const import COMPONENT
+from .const import COMPONENT, DATA_PROCESSED_FRAME_TOPIC
+
+if TYPE_CHECKING:
+    from viseron.domains.motion_detector import AbstractMotionDetector, Contours
+    from viseron.domains.object_detector import AbstractObjectDetector
 
 LOGGER = logging.getLogger(__name__)
 
@@ -49,6 +57,15 @@ NVR_SCHEMA = vol.Schema({})
 
 OBJECT_DETECTOR = "object_detector"
 MOTION_DETECTOR = "motion_detector"
+
+
+@dataclass
+class DataProcessedFrame:
+    """Processed frame that is sent on DATA_PROCESSED_FRAME_TOPIC."""
+
+    frame: np.ndarray
+    objects_in_fov: List[DetectedObject]
+    motion_contours: Contours
 
 
 def validate_nvr_config(config, camera_identifier):
@@ -105,7 +122,7 @@ class FrameIntervalCalculator:
 
         self.scan = threading.Event()
         self._frame_number = 0
-        self.result_queue = Queue(maxsize=10)
+        self.result_queue = Queue(maxsize=1)
 
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self._data_stream.subscribe_data(topic_result, self.result_queue)
@@ -143,7 +160,6 @@ class NVR:
     """NVR class that orchestrates all handling of camera streams."""
 
     def __init__(self, vis, config: dict, camera_identifier: str):
-        vis.data.setdefault(COMPONENT, {})[camera_identifier] = self
         self._vis = vis
         self._config = config
         self._camera: AbstractCamera = vis.get_registered_camera(camera_identifier)
@@ -156,11 +172,15 @@ class NVR:
         self._idle_frames = 0
         self._kill_received = False
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
-        self._shared_frames = SharedFrames()
+        self._removal_timers: List[threading.Timer] = []
 
         self._frame_scanners = {}
         self._current_frame_scanners: Dict[str, FrameIntervalCalculator] = {}
+        self._topic_processed_frame = DATA_PROCESSED_FRAME_TOPIC.format(
+            camera_identifier=camera_identifier
+        )
 
+        self._motion_contours = None
         self._motion_only_frames = 0
         self._motion_recorder_keepalive_reached = False
         _motion_detector = self.get_motion_detector()
@@ -182,6 +202,7 @@ class NVR:
         else:
             self._logger.info("Motion detector is disabled")
 
+        self._objects_in_fov: List[DetectedObject] = []
         _object_detector = self.get_object_detector()
         self._object_detector = _object_detector
         if self._object_detector:
@@ -210,10 +231,13 @@ class NVR:
             if self._object_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan.clear()
         else:
+            if self._object_detector and self._motion_detector:
+                self._frame_scanners[OBJECT_DETECTOR].scan.set()
+                self._frame_scanners[MOTION_DETECTOR].scan.clear()
             if self._object_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan.set()
-            if self._motion_detector:
-                self._frame_scanners[MOTION_DETECTOR].scan.clear()
+            elif self._motion_detector:
+                self._frame_scanners[MOTION_DETECTOR].scan.set()
 
         self._frame_queue: "Queue[bytes]" = Queue(maxsize=100)
         self._data_stream.subscribe_data(
@@ -231,6 +255,7 @@ class NVR:
         if self._frame_scanners:
             self.calculate_output_fps()
 
+        vis.data.setdefault(COMPONENT, {})[camera_identifier] = self
         self._camera.start_camera()
         self._logger.debug(f"NVR for camera {self._camera.name} initialized")
 
@@ -268,15 +293,21 @@ class NVR:
 
     def scanner_results(self):
         """Wait for scanner to return results."""
-        for frame_scanner in self._current_frame_scanners.values():
+        self._objects_in_fov = []
+        self._motion_contours = None
+        for scanner_name, frame_scanner in self._current_frame_scanners.items():
             while True:
                 try:  # Make sure we dont wait forever if stop is requested
-                    frame_scanner.result_queue.get(timeout=1)
+                    result = frame_scanner.result_queue.get(timeout=1)
+                    if scanner_name == OBJECT_DETECTOR:
+                        self._objects_in_fov = result
+                    elif scanner_name == MOTION_DETECTOR:
+                        self._motion_contours = result
                     break
                 except Empty:
                     if self._kill_received:
                         return
-                    continue
+                    break
 
     def event_over_check_motion(
         self, obj: DetectedObject, object_filters: Dict[str, Filter]
@@ -452,22 +483,46 @@ class NVR:
         else:
             self._idle_frames = 0
 
+    def remove_frame(self, shared_frame):
+        """Remove frame after a delay.
+
+        This makes sure all frames are cleaned up eventually.
+        """
+        timer = threading.Timer(
+            2, self._camera.shared_frames.remove, args=(shared_frame,)
+        )
+        timer.start()
+
     def run(self):
         """Read frames from camera."""
         self._logger.debug("Waiting for first frame")
-        shared_frame = self._frame_queue.get()
+        shared_frame: SharedFrame = self._frame_queue.get()
         self._logger.debug("First frame received")
         self.process_frame(shared_frame)
 
         while not self._kill_received:
             try:
-                shared_frame = self._frame_queue.get(timeout=1)
+                shared_frame: SharedFrame = self._frame_queue.get(timeout=1)
             except Empty:
                 continue
+            if (frame_age := time.time() - shared_frame.capture_time) > 1:
+                self._logger.debug(f"Frame is {frame_age} seconds old. Discarding")
+                self.remove_frame(shared_frame)
+                continue
+
             self.process_frame(shared_frame)
             self.process_recorder(shared_frame)
-
-            self._shared_frames.remove(shared_frame)
+            self._data_stream.publish_data(
+                self._topic_processed_frame,
+                DataProcessedFrame(
+                    frame=self._camera.shared_frames.get_decoded_frame_rgb(
+                        shared_frame
+                    ).copy(),
+                    objects_in_fov=self._objects_in_fov,
+                    motion_contours=self._motion_contours,
+                ),
+            )
+            self.remove_frame(shared_frame)
         self._logger.debug("NVR thread stopped")
 
     def stop(self):
@@ -489,4 +544,24 @@ class NVR:
                 shared_frame = self._frame_queue.get(timeout=1)
             except Empty:
                 break
-            self._shared_frames.remove(shared_frame)
+            self._camera.shared_frames.remove(shared_frame)
+
+        for timer in self._removal_timers:
+            timer.cancel()
+
+        self._camera.shared_frames.remove_all()
+
+    @property
+    def camera(self) -> AbstractCamera:
+        """Return camera."""
+        return self._camera
+
+    @property
+    def object_detector(self) -> AbstractObjectDetector:
+        """Return object_detector."""
+        return self._object_detector
+
+    @property
+    def motion_detector(self) -> AbstractMotionDetector:
+        """Return motion_detector."""
+        return self._motion_detector

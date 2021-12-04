@@ -8,24 +8,21 @@
     <div class="card">
       <div class="card-image">
         <figure class="image">
-          {% if nvr.camera.stream.width > 1000 %}
-          <a href="/{{ nvr.config.camera.name_slug }}/mjpeg-stream" target="_blank"><img
-              src="/{{ nvr.config.camera.name_slug }}/mjpeg-stream?width={{ int(nvr.camera.stream.width / 2) }}&height={{ int(nvr.camera.stream.height / 2) }}"
-              alt="{{ nvr.config.camera.name }}"></a>
+          {% if nvr.camera.resolution[0] > 1000 %}
+          <a href="/{{ nvr.camera.identifier }}/mjpeg-stream" target="_blank"><img
+              src="/{{ nvr.camera.identifier }}/mjpeg-stream?width={{ int(nvr.camera.resolution[0] / 2) }}&height={{ int(nvr.camera.resolution[1] / 2) }}"
+              alt="{{ nvr.camera.name }}"></a>
           {% else %}
-          <a href="/{{ nvr.config.camera.name_slug }}/mjpeg-stream" target="_blank"><img
-              src="/{{ nvr.config.camera.name_slug }}/mjpeg-stream" alt="{{ nvr.config.camera.name }}"></a>
+          <a href="/{{ nvr.camera.identifier }}/mjpeg-stream" target="_blank"><img
+              src="/{{ nvr.camera.identifier }}/mjpeg-stream" alt="{{ nvr.camera.name }}"></a>
           {% end %}
         </figure>
       </div>
       <div class="card-content">
         <div class="media">
           <div class="media-content">
-            <h4 class="title is-4">{{ nvr.config.camera.name }}</h4>
+            <h4 class="title is-4">{{ nvr.camera.name }}</h4>
           </div>
-        </div>
-        <div class="content">
-          <span>Host: {{ nvr.config.camera.host }}</span><br />
         </div>
         <div class="dropdown is-hoverable">
           <div class="dropdown-trigger">
@@ -38,27 +35,24 @@
           </div>
           <div class="dropdown-menu" id="dropdown-menu4" role="menu">
             <div class="dropdown-content">
-              <a href="/{{ nvr.config.camera.name_slug }}/mjpeg-stream" target="_blank" class="dropdown-item">
+              <a href="/{{ nvr.camera.identifier }}/mjpeg-stream" target="_blank" class="dropdown-item">
                 Original
               </a>
               <hr class="dropdown-divider">
-              <a href="/{{ nvr.config.camera.name_slug }}/mjpeg-stream?draw_objects=1" target="_blank"
-                class="dropdown-item">
+              <a href="/{{ nvr.camera.identifier }}/mjpeg-stream?draw_objects=1" target="_blank" class="dropdown-item">
                 Draw Objects
               </a>
               <hr class="dropdown-divider">
-              <a href="/{{ nvr.config.camera.name_slug }}/mjpeg-stream?draw_motion=1" target="_blank"
-                class="dropdown-item">
+              <a href="/{{ nvr.camera.identifier }}/mjpeg-stream?draw_motion=1" target="_blank" class="dropdown-item">
                 Draw Motion
               </a>
               <hr class="dropdown-divider">
-              <a href="/{{ nvr.config.camera.name_slug }}/mjpeg-stream?draw_motion_mask=1" target="_blank"
+              <a href="/{{ nvr.camera.identifier }}/mjpeg-stream?draw_motion_mask=1" target="_blank"
                 class="dropdown-item">
                 Draw Motion Mask
               </a>
               <hr class="dropdown-divider">
-              <a href="/{{ nvr.config.camera.name_slug }}/mjpeg-stream?draw_zones=1" target="_blank"
-                class="dropdown-item">
+              <a href="/{{ nvr.camera.identifier }}/mjpeg-stream?draw_zones=1" target="_blank" class="dropdown-item">
                 Draw Zones
               </a>
             </div>

@@ -6,12 +6,12 @@ from typing import List
 
 from viseron import Viseron
 from viseron.domains.camera.shared_frames import SharedFrame
-from viseron.domains.object_detector.const import CONFIG_LABEL_LABEL, CONFIG_MASK
+from viseron.domains.object_detector.const import CONFIG_LABEL_LABEL
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.helpers import generate_numpy_from_coordinates, object_in_polygon
 from viseron.helpers.filter import Filter
 
-from .const import CONFIG_CAMERAS, CONFIG_COORDINATES, CONFIG_LABELS, CONFIG_ZONE_NAME
+from .const import CONFIG_COORDINATES, CONFIG_LABELS, CONFIG_ZONE_NAME
 
 EVENT_OBJECTS_IN_ZONE = "{camera_identifier}/zone/{zone_name}/objects"
 
@@ -26,9 +26,9 @@ class Zone:
     def __init__(
         self,
         vis: Viseron,
-        config,
         camera_identifier,
         zone_config,
+        mask,
     ):
         self._vis = vis
         self._camera = vis.get_registered_camera(camera_identifier)
@@ -47,7 +47,7 @@ class Zone:
                 self._object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
                     vis.get_registered_camera(camera_identifier).resolution,
                     object_filter,
-                    config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK],
+                    mask,
                 )
         else:
             self._logger.warning(

@@ -2,4 +2,5 @@
 if -n { s6-test $# -ne 0 }
 if -n { s6-test ${1} -eq 256 }
 
+sleep 5
 s6-svscanctl -t /var/run/s6/services

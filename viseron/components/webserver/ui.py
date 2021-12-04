@@ -1,14 +1,14 @@
 """UI handlers."""
 import os
 
-import tornado.web
-
+from viseron.components.nvr import COMPONENT as NVR_COMPONENT
 from viseron.config import ViseronConfig
 from viseron.const import CONFIG_PATH
-from viseron.nvr import FFMPEGNVR
+
+from .request_handler import ViseronRequestHandler
 
 
-class AboutHandler(tornado.web.RequestHandler):
+class AboutHandler(ViseronRequestHandler):
     """Handler for about-page."""
 
     def get(self):
@@ -16,15 +16,17 @@ class AboutHandler(tornado.web.RequestHandler):
         self.render("about.html", version="maj.min.pat")
 
 
-class CamerasHandler(tornado.web.RequestHandler):
+class CamerasHandler(ViseronRequestHandler):
     """Handler for cameras page."""
 
     def get(self):
         """GET request."""
-        self.render("cameras.html", nvr_list=FFMPEGNVR.nvr_list.values())
+        self.render(
+            "cameras.html", nvr_list=self._vis.data.get(NVR_COMPONENT, {}).values()
+        )
 
 
-class IndexHandler(tornado.web.RequestHandler):
+class IndexHandler(ViseronRequestHandler):
     """Handler for index page."""
 
     def get(self):
@@ -32,7 +34,7 @@ class IndexHandler(tornado.web.RequestHandler):
         self.render("index.html")
 
 
-class RecordingsHandler(tornado.web.RequestHandler):
+class RecordingsHandler(ViseronRequestHandler):
     """Handler for recordings page."""
 
     def get(self):
@@ -67,7 +69,7 @@ class RecordingsHandler(tornado.web.RequestHandler):
         self.render("recordings.html", recordings=recordings)
 
 
-class SettingsHandler(tornado.web.RequestHandler):
+class SettingsHandler(ViseronRequestHandler):
     """Handler for settings-page."""
 
     def get(self):

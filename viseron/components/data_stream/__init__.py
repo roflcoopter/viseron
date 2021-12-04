@@ -58,7 +58,7 @@ class DataStream:
 
     _subscribers: Dict[str, Any] = {}
     _wildcard_subscribers: Dict[str, Any] = {}
-    _data_queue: Queue = Queue(maxsize=100)
+    _data_queue: Queue = Queue(maxsize=1000)
 
     def __init__(self, vis) -> None:
         self._vis = vis
@@ -71,7 +71,9 @@ class DataStream:
     def publish_data(data_topic: str, data: Any = None) -> None:
         """Publish data to topic."""
         # LOGGER.debug(f"Publishing to data topic {data_topic}, {data}")
-        DataStream._data_queue.put({"data_topic": data_topic, "data": data})
+        helpers.pop_if_full(
+            DataStream._data_queue, {"data_topic": data_topic, "data": data}
+        )
 
     @staticmethod
     def subscribe_data(
