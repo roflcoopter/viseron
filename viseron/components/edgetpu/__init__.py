@@ -98,7 +98,7 @@ class EdgeTPU(ChildProcessWorker):
 
         if config[CONFIG_DEVICE] == "cpu":
             self.interpreter = tflite.Interpreter(
-                model_path="/detectors/models/edgetpu/cpu_model.tflite",
+                model_path="/detectors/models/edgetpu/mobiledet_cpu_model.tflite",
             )
         else:
             self.interpreter = make_interpreter(
@@ -118,13 +118,8 @@ class EdgeTPU(ChildProcessWorker):
     @staticmethod
     def read_labels(file_path):
         """Read labels from file."""
-        with open(file_path, "r", encoding="utf-8") as label_file:
-            lines = label_file.readlines()
-        labels = {}
-        for line in lines:
-            pair = line.strip().split(maxsplit=1)
-            labels[int(pair[0])] = pair[1].strip()
-        return labels
+        with open(file_path, "rt", encoding="utf-8") as labels_file:
+            return labels_file.read().rstrip("\n").split("\n")
 
     def output_tensor(self, i):
         """Return output tensor view."""
