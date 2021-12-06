@@ -26,7 +26,7 @@ from viseron.const import (
 from viseron.domains.camera import CONFIG_EXTENSION
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
-from viseron.helpers.logs import FFmpegFilter, LogPipe, SensitiveInformationFilter
+from viseron.helpers.logs import FFmpegFilter, LogPipe
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 from .const import (
@@ -71,7 +71,6 @@ class Stream:
 
     def __init__(self, vis, config, camera_identifier):
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
-        self._logger.addFilter(SensitiveInformationFilter())
         self._logger.addFilter(FFmpegFilter(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS]))
         self._config = config
         self._camera_identifier = camera_identifier

@@ -37,7 +37,11 @@ from viseron.exceptions import (
     PostProcessorImportError,
     PostProcessorStructureError,
 )
-from viseron.helpers.logs import DuplicateFilter, ViseronLogFormat
+from viseron.helpers.logs import (
+    DuplicateFilter,
+    SensitiveInformationFilter,
+    ViseronLogFormat,
+)
 from viseron.mqtt import MQTT
 from viseron.nvr import FFMPEGNVR
 from viseron.post_processors import PostProcessor
@@ -64,6 +68,7 @@ def enable_logging():
     formatter = ViseronLogFormat()
     handler.setFormatter(formatter)
     handler.addFilter(DuplicateFilter())
+    handler.addFilter(SensitiveInformationFilter())
     LOGGER.addHandler(handler)
     LOGGER.setLevel(logging.INFO)
 

@@ -14,7 +14,6 @@ from viseron.components.data_stream import (
 )
 from viseron.domains.camera.shared_frames import SharedFrames
 from viseron.helpers import slugify
-from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import ensure_slug
 
 from .const import (
@@ -163,7 +162,6 @@ class AbstractCamera(ABC):
 
         self._logger = logging.getLogger(f"{self.__module__}.{self.identifier}")
 
-        self._logger.addFilter(SensitiveInformationFilter())
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self.shared_frames = SharedFrames()
         self.frame_bytes_topic = DATA_FRAME_BYTES_TOPIC.format(
