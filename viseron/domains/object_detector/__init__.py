@@ -148,6 +148,7 @@ class AbstractObjectDetector(ABC):
     def __init__(self, vis, config, camera_identifier):
         self._vis = vis
         self._config = config
+        self._camera_identifier = camera_identifier
         self._camera: AbstractCamera = vis.get_registered_camera(camera_identifier)
         self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
 
@@ -179,6 +180,11 @@ class AbstractObjectDetector(ABC):
                 "No labels or zones configured. No objects will be detected"
             )
 
+        self._min_confidence = min(
+            (label.confidence for label in self.concat_labels()),
+            default=1.0,
+        )
+
         self._kill_received = False
         self.object_detection_queue: Queue[SharedFrame] = Queue(maxsize=1)
         self._object_detection_thread = RestartableThread(
@@ -189,6 +195,14 @@ class AbstractObjectDetector(ABC):
         )
         self._object_detection_thread.start()
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+
+    def concat_labels(self) -> List[Filter]:
+        """Return a concatenated list of global filters + all filters in each zone."""
+        zone_filters = []
+        for zone in self.zones:
+            zone_filters += list(zone.object_filters.values())
+
+        return list(self.object_filters.values()) + zone_filters
 
     def filter_fov(self, shared_frame: SharedFrame, objects: List[DetectedObject]):
         """Filter field of view."""
@@ -282,9 +296,9 @@ class AbstractObjectDetector(ABC):
         """Perform object detection."""
 
     @property
-    @abstractmethod
-    def fps(self) -> str:
+    def fps(self):
         """Return object detector fps."""
+        return self._config[CONFIG_CAMERAS][self._camera_identifier][CONFIG_FPS]
 
     @property
     def scan_on_motion_only(self):
@@ -297,6 +311,11 @@ class AbstractObjectDetector(ABC):
     def mask(self):
         """Return object detection mask."""
         return self._mask
+
+    @property
+    def min_confidence(self) -> float:
+        """Return the minimum confidence of all tracked labels."""
+        return self._min_confidence
 
     def stop(self):
         """Stop object detector."""

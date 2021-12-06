@@ -1,10 +1,9 @@
-"""EdgeTPU Object detector."""
+"""Darknet object detector."""
 import logging
 from queue import Queue
 from typing import List
 
 import cv2
-import numpy as np
 
 from viseron import Viseron
 from viseron.domains.object_detector import (
@@ -20,7 +19,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 def setup(vis: Viseron, config):
-    """Set up the edgetpu object_detector domain."""
+    """Set up the darknet object_detector domain."""
     for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
         vis.wait_for_camera(
             camera_identifier,
@@ -38,7 +37,7 @@ class ObjectDetector(AbstractObjectDetector):
         self._config = config
         self._camera_identifier = camera_identifier
 
-        self._edgetpu = vis.data[COMPONENT]
+        self._darknet = vis.data[COMPONENT]
         self._object_result_queue: Queue[List[DetectedObject]] = Queue(maxsize=1)
 
         super().__init__(vis, config, camera_identifier)
@@ -52,20 +51,46 @@ class ObjectDetector(AbstractObjectDetector):
             (self.model_width, self.model_height),
             interpolation=cv2.INTER_LINEAR,
         )
-        return np.expand_dims(frame, axis=0)
+        return frame
+
+    def post_process(self, labels, confidences, boxes):
+        """Post process detections."""
+        detections = []
+        for (label, confidence, box) in zip(labels, confidences, boxes):
+            detections.append(
+                DetectedObject(
+                    self._darknet.labels[int(label)],
+                    confidence,
+                    box[0],
+                    box[1],
+                    box[0] + box[2],
+                    box[1] + box[3],
+                    relative=False,
+                    image_res=self.model_res,
+                )
+            )
+
+        return detections
 
     def return_objects(self, frame) -> List[DetectedObject]:
         """Perform object detection."""
-        return self._edgetpu.invoke(
-            frame, self._camera_identifier, self._object_result_queue
+        labels, confidences, boxes = self._darknet.detect(
+            frame,
+            self.min_confidence,
         )
+        return self.post_process(labels, confidences, boxes)
 
     @property
     def model_width(self) -> int:
         """Return trained model width."""
-        return self._edgetpu.model_width
+        return self._darknet.model_width
 
     @property
     def model_height(self) -> int:
         """Return trained model height."""
-        return self._edgetpu.model_height
+        return self._darknet.model_height
+
+    @property
+    def model_res(self):
+        """Return trained model resolution."""
+        return self._darknet.model_res

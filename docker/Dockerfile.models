@@ -25,6 +25,36 @@ RUN \
 RUN \
   wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-tiny.weights -O /detectors/models/darknet/yolov4-tiny.weights --progress=bar:force:noscroll
 
+# Fetch models for YOLOv4-p6 darknet
+RUN \
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-p6.weights -O /detectors/models/darknet/yolov4-p6.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-p6.cfg -O /detectors/models/darknet/yolov4-p6.cfg --progress=bar:force:noscroll
+
+# Fetch models for YOLOv4-p5 darknet
+RUN \
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-p5.weights -O /detectors/models/darknet/yolov4-p5.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-p5.cfg -O /detectors/models/darknet/yolov4-p5.cfg --progress=bar:force:noscroll
+
+# Fetch models for YOLOv4-csp-x-swish darknet
+RUN \
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-csp-x-swish.weights -O /detectors/models/darknet/yolov4-csp-x-swish.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-csp-x-swish.cfg -O /detectors/models/darknet/yolov4-csp-x-swish.cfg --progress=bar:force:noscroll
+
+# Fetch models for YOLOv4-csp-swish darknet
+RUN \
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-csp-swish.weights -O /detectors/models/darknet/yolov4-csp-swish.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-csp-swish.cfg -O /detectors/models/darknet/yolov4-csp-swish.cfg --progress=bar:force:noscroll
+
+# Fetch models for YOLOv4x-mish darknet
+RUN \
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4x-mish.weights -O /detectors/models/darknet/yolov4x-mish.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4x-mish.cfg -O /detectors/models/darknet/yolov4x-mish.cfg --progress=bar:force:noscroll
+
+# Fetch models for YOLOv4-csp darknet
+RUN \
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-csp.weights -O /detectors/models/darknet/yolov4-csp.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-csp.cfg -O /detectors/models/darknet/yolov4-csp.cfg --progress=bar:force:noscroll
+
 # Fetch models for YOLOv3 darknet
 RUN \
   wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov3.weights -O /detectors/models/darknet/yolov3.weights --progress=bar:force:noscroll && \

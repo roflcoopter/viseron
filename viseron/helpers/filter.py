@@ -69,6 +69,11 @@ class Filter:
         )
 
     @property
+    def confidence(self) -> bool:
+        """Return configured confidence of filter."""
+        return self._confidence
+
+    @property
     def trigger_recorder(self) -> bool:
         """Return if label triggers recorder."""
         return self._trigger_recorder
