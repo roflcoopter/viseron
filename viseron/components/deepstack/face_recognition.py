@@ -1,137 +1,97 @@
 """DeepStack face recognition."""
 import logging
 import os
-from typing import Any, Dict
 
 import cv2
 import deepstack.core as ds
 import requests
-import voluptuous as vol
 from face_recognition.face_recognition_cli import image_files_in_folder
 
-import viseron.mqtt
-from viseron.config import ViseronConfig
-from viseron.helpers import calculate_absolute_coords
-from viseron.post_processors import PostProcessorFrame
-from viseron.post_processors.face_recognition import (
-    AbstractFaceRecognition,
-    AbstractFaceRecognitionConfig,
-    FaceMQTTBinarySensor,
+from viseron import Viseron
+from viseron.domains.face_recognition import AbstractFaceRecognition
+from viseron.domains.face_recognition.const import (
+    CONFIG_FACE_RECOGNITION_PATH,
+    CONFIG_SAVE_UNKNOWN_FACES,
 )
+from viseron.domains.object_detector.detected_object import DetectedObject
+from viseron.domains.post_processor import CONFIG_CAMERAS, PostProcessorFrame
+from viseron.helpers import calculate_absolute_coords
 
-from .defaults import TIMEOUT
-
-SCHEMA = AbstractFaceRecognitionConfig.SCHEMA.extend(
-    {
-        vol.Required("host"): str,
-        vol.Required("port"): int,
-        vol.Optional("api_key", default=None): vol.Maybe(str),
-        vol.Optional("timeout", default=TIMEOUT): int,
-        vol.Optional("train", default=True): bool,
-        vol.Optional("min_confidence", default=0.5): vol.All(
-            vol.Any(0, 1, vol.All(float, vol.Range(min=0.0, max=1.0))),
-            vol.Coerce(float),
-        ),
-    }
+from .const import (
+    CONFIG_API_KEY,
+    CONFIG_FACE_RECOGNITION,
+    CONFIG_HOST,
+    CONFIG_MIN_CONFIDENCE,
+    CONFIG_PORT,
+    CONFIG_TIMEOUT,
+    CONFIG_TRAIN,
 )
 
 LOGGER = logging.getLogger(__name__)
 
 
-class Config(AbstractFaceRecognitionConfig):
-    """DeepStack face recognition config."""
+def setup(vis: Viseron, config):
+    """Set up the deepstack object_detector domain."""
+    if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
+        DeepstackTrain(config)
 
-    def __init__(
-        self,
-        processor_config: Dict[str, Any],
-    ):
-        super().__init__(processor_config)
-        self._host = processor_config["host"]
-        self._port = processor_config["port"]
-        self._api_key = processor_config["api_key"]
-        self._timeout = processor_config["timeout"]
-        self._train = processor_config["train"]
-        self._min_confidence = processor_config["min_confidence"]
+    for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS].keys():
+        if config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS][camera_identifier] is None:
+            config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS][camera_identifier] = {}
 
-    @property
-    def host(self) -> str:
-        """Return Deepstack host."""
-        return self._host
+        vis.wait_for_camera(
+            camera_identifier,
+        )
+        FaceRecognition(vis, config, camera_identifier)
 
-    @property
-    def port(self) -> int:
-        """Return Deepstack port."""
-        return self._port
-
-    @property
-    def api_key(self) -> str:
-        """Return API key."""
-        return self._api_key
-
-    @property
-    def timeout(self) -> int:
-        """Return timeout."""
-        return self._timeout
-
-    @property
-    def train(self) -> int:
-        """Return if faces should be trained."""
-        return self._train
-
-    @property
-    def min_confidence(self) -> float:
-        """Return if faces should be trained."""
-        return self._min_confidence
+    return True
 
 
-class Processor(AbstractFaceRecognition):
+class FaceRecognition(AbstractFaceRecognition):
     """DeepSTack face recognition processor."""
 
-    def __init__(self, config: ViseronConfig, processor_config: Config):
-        super().__init__(config, processor_config, LOGGER)
+    def __init__(self, vis: Viseron, config, camera_identifier):
+        super().__init__(vis, config[CONFIG_FACE_RECOGNITION], camera_identifier)
+
+        self._ds_config = config
         self._ds = DeepstackFace(
-            ip=processor_config.host,
-            port=processor_config.port,
-            api_key=processor_config.api_key,
-            timeout=processor_config.timeout,
-            min_confidence=processor_config.min_confidence,
+            ip=config[CONFIG_HOST],
+            port=config[CONFIG_PORT],
+            api_key=config[CONFIG_API_KEY],
+            timeout=config[CONFIG_TIMEOUT],
+            min_confidence=config[CONFIG_FACE_RECOGNITION][CONFIG_MIN_CONFIDENCE],
         )
-        if processor_config.train:
-            self.train()
 
-        trained_faces = self._ds.list_faces()
+        # trained_faces = self._ds.list_faces()
         # Create one MQTT binary sensor per tracked face
-        self._mqtt_devices = {}
-        if viseron.mqtt.MQTT.client:
-            for face in trained_faces["faces"]:
-                LOGGER.debug(f"Creating MQTT binary sensor for face {face}")
-                self._mqtt_devices[face] = FaceMQTTBinarySensor(config, face)
+        # self._mqtt_devices = {}
+        # if viseron.mqtt.MQTT.client:
+        #     for face in trained_faces["faces"]:
+        #         self._logger.debug(f"Creating MQTT binary sensor for face {face}")
+        #         self._mqtt_devices[face] = FaceMQTTBinarySensor(config, face)
 
-    def process(self, frame_to_process: PostProcessorFrame):
-        """Process received frame."""
-        height, width, _ = frame_to_process.frame.decoded_frame_mat_rgb.shape
+    def face_recognition(self, frame, detected_object: DetectedObject):
+        """Perform face recognition."""
         x1, y1, x2, y2 = calculate_absolute_coords(
             (
-                frame_to_process.detected_object.rel_x1,
-                frame_to_process.detected_object.rel_y1,
-                frame_to_process.detected_object.rel_x2,
-                frame_to_process.detected_object.rel_y2,
+                detected_object.rel_x1,
+                detected_object.rel_y1,
+                detected_object.rel_x2,
+                detected_object.rel_y2,
             ),
-            (width, height),
+            self._camera.resolution,
         )
-        cropped_frame = frame_to_process.frame.decoded_frame_mat_rgb[
-            y1:y2, x1:x2
-        ].copy()
+        cropped_frame = frame[y1:y2, x1:x2].copy()
 
         try:
             detections = self._ds.recognize(
                 cv2.imencode(".jpg", cropped_frame)[1].tobytes()
             )
         except ds.DeepstackException as error:
-            LOGGER.error("Error calling deepstack: %s", error)
+            self._logger.error("Error calling deepstack: %s", error)
         for detection in detections:
             if detection["userid"] != "unknown":
-                LOGGER.debug("Face found: {}".format(detection))
+                self._logger.debug("Face found: {}".format(detection))
                 self.known_face_found(
                     detection["userid"],
                     (
@@ -141,12 +101,37 @@ class Processor(AbstractFaceRecognition):
                         detection["y_max"],
                     ),
                 )
-            elif self._processor_config.save_unknown_faces:
+            elif self._config[CONFIG_SAVE_UNKNOWN_FACES]:
                 self.unknown_face_found(cropped_frame)
+
+    def process(self, post_processor_frame: PostProcessorFrame):
+        """Process received frame."""
+        decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(
+            post_processor_frame.shared_frame
+        )
+        for detected_object in post_processor_frame.filtered_objects:
+            self.face_recognition(decoded_frame, detected_object)
+
+
+class DeepstackTrain:
+    """Train DeepStack to recognize faces."""
+
+    def __init__(self, config):
+        self._config = config
+        self._ds = DeepstackFace(
+            ip=config[CONFIG_HOST],
+            port=config[CONFIG_PORT],
+            api_key=config[CONFIG_API_KEY],
+            timeout=config[CONFIG_TIMEOUT],
+            min_confidence=config[CONFIG_FACE_RECOGNITION][CONFIG_MIN_CONFIDENCE],
+        )
+        self.train()
 
     def train(self):
         """Train DeepStack to recognize faces."""
-        train_dir = os.path.join(self._processor_config.face_recognition_path, "faces")
+        train_dir = os.path.join(
+            self._config[CONFIG_FACE_RECOGNITION][CONFIG_FACE_RECOGNITION_PATH], "faces"
+        )
         try:
             faces_dirs = os.listdir(train_dir)
         except FileNotFoundError:

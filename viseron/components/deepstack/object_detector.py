@@ -5,11 +5,8 @@ import cv2
 import deepstack.core as ds
 
 from viseron import Viseron
-from viseron.domains.object_detector import (
-    CONFIG_CAMERAS,
-    DOMAIN,
-    AbstractObjectDetector,
-)
+from viseron.domains.object_detector import AbstractObjectDetector
+from viseron.domains.object_detector.const import CONFIG_CAMERAS
 from viseron.domains.object_detector.detected_object import DetectedObject
 
 from .const import (
@@ -32,7 +29,7 @@ def setup(vis: Viseron, config):
         vis.wait_for_camera(
             camera_identifier,
         )
-        ObjectDetector(vis, config[DOMAIN], camera_identifier)
+        ObjectDetector(vis, config, camera_identifier)
 
     return True
 
@@ -41,19 +38,16 @@ class ObjectDetector(AbstractObjectDetector):
     """Deepstack object detection."""
 
     def __init__(self, vis: Viseron, config, camera_identifier):
-        super().__init__(vis, config, camera_identifier)
+        super().__init__(vis, config[CONFIG_OBJECT_DETECTOR], camera_identifier)
 
-        self._vis = vis
-        self._config = config
-        self._camera_identifier = camera_identifier
-
+        self._ds_config = config
         self._detector = ds.DeepstackObject(
             ip=config[CONFIG_HOST],
             port=config[CONFIG_PORT],
             api_key=config[CONFIG_API_KEY],
             timeout=config[CONFIG_TIMEOUT],
             min_confidence=self.min_confidence,
-            custom_model=config[CONFIG_CUSTOM_MODEL],
+            custom_model=self._config[CONFIG_CUSTOM_MODEL],
         )
 
         self._image_resolution = (
