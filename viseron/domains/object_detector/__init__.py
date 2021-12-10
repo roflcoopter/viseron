@@ -26,7 +26,6 @@ from .const import (
     CONFIG_LABEL_HEIGHT_MAX,
     CONFIG_LABEL_HEIGHT_MIN,
     CONFIG_LABEL_LABEL,
-    CONFIG_LABEL_POST_PROCESSOR,
     CONFIG_LABEL_REQUIRE_MOTION,
     CONFIG_LABEL_TRIGGER_RECORDER,
     CONFIG_LABEL_WIDTH_MAX,
@@ -43,7 +42,6 @@ from .const import (
     DEFAULT_LABEL_CONFIDENCE,
     DEFAULT_LABEL_HEIGHT_MAX,
     DEFAULT_LABEL_HEIGHT_MIN,
-    DEFAULT_LABEL_POST_PROCESSOR,
     DEFAULT_LABEL_REQUIRE_MOTION,
     DEFAULT_LABEL_TRIGGER_RECORDER,
     DEFAULT_LABEL_WIDTH_MAX,
@@ -56,10 +54,8 @@ from .const import (
     DEFAULT_ZONES,
     EVENT_OBJECTS_IN_FOV,
 )
-from .detected_object import DetectedObject
+from .detected_object import DetectedObject, EventDetectedObjectsData
 from .zone import Zone
-
-DOMAIN = "object_detector"
 
 
 def ensure_min_max(label: dict) -> dict:
@@ -95,9 +91,6 @@ LABEL_SCHEMA = vol.Schema(
         vol.Optional(
             CONFIG_LABEL_REQUIRE_MOTION, default=DEFAULT_LABEL_REQUIRE_MOTION
         ): bool,
-        vol.Optional(
-            CONFIG_LABEL_POST_PROCESSOR, default=DEFAULT_LABEL_POST_PROCESSOR
-        ): vol.Any(str, None),
     },
     ensure_min_max,
 )
@@ -245,11 +238,11 @@ class AbstractObjectDetector(ABC):
         self._objects_in_fov = objects
         self._vis.dispatch_event(
             EVENT_OBJECTS_IN_FOV.format(camera_identifier=self._camera.identifier),
-            {
-                "camera_identifier": self._camera.identifier,
-                "shared_frame": shared_frame,
-                "objects": objects,
-            },
+            EventDetectedObjectsData(
+                camera_identifier=self._camera.identifier,
+                shared_frame=shared_frame,
+                objects=objects,
+            ),
         )
 
     def filter_zones(self, shared_frame: SharedFrame, objects: List[DetectedObject]):

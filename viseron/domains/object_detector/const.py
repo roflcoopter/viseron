@@ -1,10 +1,13 @@
 """Object detector domain constants."""
 from typing import Any, Dict, List
 
+DOMAIN = "object_detector"
+
 DATA_OBJECT_DETECTOR_SCAN = "object_detector/{camera_identifier}/scan"
 DATA_OBJECT_DETECTOR_RESULT = "object_detector/{camera_identifier}/result"
 
 EVENT_OBJECTS_IN_FOV = "{camera_identifier}/objects"
+EVENT_OBJECTS_IN_ZONE = "{camera_identifier}/zone/{zone_name}/objects"
 
 
 # LABEL_SCHEMA
@@ -16,7 +19,6 @@ CONFIG_LABEL_WIDTH_MIN = "width_min"
 CONFIG_LABEL_WIDTH_MAX = "width_max"
 CONFIG_LABEL_TRIGGER_RECORDER = "trigger_recorder"
 CONFIG_LABEL_REQUIRE_MOTION = "require_motion"
-CONFIG_LABEL_POST_PROCESSOR = "post_processor"
 
 DEFAULT_LABEL_CONFIDENCE = 0.8
 DEFAULT_LABEL_HEIGHT_MIN = 0
@@ -25,7 +27,6 @@ DEFAULT_LABEL_WIDTH_MIN = 0
 DEFAULT_LABEL_WIDTH_MAX = 1
 DEFAULT_LABEL_TRIGGER_RECORDER = True
 DEFAULT_LABEL_REQUIRE_MOTION = False
-DEFAULT_LABEL_POST_PROCESSOR = None
 
 
 # CAMERA_SCHEMA constants

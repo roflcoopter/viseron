@@ -1,4 +1,8 @@
 """Detected object class."""
+from dataclasses import dataclass
+from typing import Any, List
+
+from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.helpers import calculate_relative_coords
 
 
@@ -117,3 +121,13 @@ class DetectedObject:
     @filter_hit.setter
     def filter_hit(self, value):
         self._filter_hit = value
+
+
+@dataclass
+class EventDetectedObjectsData:
+    """Event with information on objects in field of view or zone."""
+
+    camera_identifier: str
+    shared_frame: SharedFrame
+    objects: List[DetectedObject]
+    zone: Any = None

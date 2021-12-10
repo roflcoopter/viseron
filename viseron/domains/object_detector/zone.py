@@ -7,13 +7,19 @@ from typing import List
 from viseron import Viseron
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.object_detector.const import CONFIG_LABEL_LABEL
-from viseron.domains.object_detector.detected_object import DetectedObject
+from viseron.domains.object_detector.detected_object import (
+    DetectedObject,
+    EventDetectedObjectsData,
+)
 from viseron.helpers import generate_numpy_from_coordinates, object_in_polygon
 from viseron.helpers.filter import Filter
 
-from .const import CONFIG_COORDINATES, CONFIG_LABELS, CONFIG_ZONE_NAME
-
-EVENT_OBJECTS_IN_ZONE = "{camera_identifier}/zone/{zone_name}/objects"
+from .const import (
+    CONFIG_COORDINATES,
+    CONFIG_LABELS,
+    CONFIG_ZONE_NAME,
+    EVENT_OBJECTS_IN_ZONE,
+)
 
 
 class Zone:
@@ -98,12 +104,12 @@ class Zone:
             EVENT_OBJECTS_IN_ZONE.format(
                 camera_identifier=self._camera.identifier, zone_name=self._name
             ),
-            {
-                "camera_identifier": self._camera.identifier,
-                "shared_frame": shared_frame,
-                "zone": self,
-                "objects": objects,
-            },
+            EventDetectedObjectsData(
+                camera_identifier=self._camera.identifier,
+                shared_frame=shared_frame,
+                objects=objects,
+                zone=self,
+            ),
         )
 
     @property
