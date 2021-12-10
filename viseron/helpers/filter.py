@@ -4,7 +4,6 @@ from viseron.domains.object_detector.const import (
     CONFIG_LABEL_HEIGHT_MAX,
     CONFIG_LABEL_HEIGHT_MIN,
     CONFIG_LABEL_LABEL,
-    CONFIG_LABEL_POST_PROCESSOR,
     CONFIG_LABEL_REQUIRE_MOTION,
     CONFIG_LABEL_TRIGGER_RECORDER,
     CONFIG_LABEL_WIDTH_MAX,
@@ -28,7 +27,6 @@ class Filter:
         self._height_max = object_filter[CONFIG_LABEL_HEIGHT_MAX]
         self._trigger_recorder = object_filter[CONFIG_LABEL_TRIGGER_RECORDER]
         self._require_motion = object_filter[CONFIG_LABEL_REQUIRE_MOTION]
-        self._post_processor = object_filter[CONFIG_LABEL_POST_PROCESSOR]
 
     def filter_confidence(self, obj: DetectedObject) -> bool:
         """Return if confidence filter is met."""
@@ -82,8 +80,3 @@ class Filter:
     def require_motion(self) -> bool:
         """Return if label requires motion to trigger recorder."""
         return self._require_motion
-
-    @property
-    def post_processor(self) -> str:
-        """Return post processor for label."""
-        return self._post_processor
