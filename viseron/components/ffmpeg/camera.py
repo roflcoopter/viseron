@@ -15,6 +15,7 @@ from viseron.domains.camera import (
     BASE_CONFIG_SCHEMA as BASE_CAMERA_CONFIG_SCHEMA,
     DEFAULT_RECORDER,
     EVENT_STATUS,
+    EVENT_STATUS_CONNECTED,
     EVENT_STATUS_DISCONNECTED,
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
     AbstractCamera,
@@ -22,6 +23,7 @@ from viseron.domains.camera import (
 )
 from viseron.watchdog.thread_watchdog import RestartableThread
 
+from .binary_sensor import ConnectionStatusBinarySensor
 from .const import (
     COMPONENT,
     CONFIG_AUDIO_CODEC,
@@ -138,9 +140,9 @@ RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
 
 FFMPEG_LOGLEVEL_SCEHMA = vol.Schema(vol.In(FFMPEG_LOG_LEVELS.keys()))
 
-CONFIG_SCHEMA = BASE_CAMERA_CONFIG_SCHEMA.extend(STREAM_SCEHMA_DICT)
+CAMERA_SCHEMA = BASE_CAMERA_CONFIG_SCHEMA.extend(STREAM_SCEHMA_DICT)
 
-CONFIG_SCHEMA = CONFIG_SCHEMA.extend(
+CAMERA_SCHEMA = CAMERA_SCHEMA.extend(
     {
         vol.Required(CONFIG_HOST): vol.All(str, vol.Length(min=1)),
         vol.Optional(CONFIG_USERNAME, default=DEFAULT_USERNAME): vol.Maybe(
@@ -164,21 +166,31 @@ CONFIG_SCHEMA = CONFIG_SCHEMA.extend(
     }
 )
 
+CONFIG_SCHEMA = vol.Schema(
+    {
+        str: CAMERA_SCHEMA,
+    }
+)
+
 
 def setup(vis: Viseron, config):
     """Set up the ffmpeg camera domain."""
-    Camera(vis, config)
+    camera_identifier = list(config)[0]
+    camera = Camera(vis, config[camera_identifier], camera_identifier)
+
+    sensor = ConnectionStatusBinarySensor(vis, camera, "test_sensor")
+    vis.add_entity(COMPONENT, sensor)
 
 
 class Camera(AbstractCamera):
     """Represents a camera which is consumed via FFmpeg."""
 
-    def __init__(self, vis, config):
-        super().__init__(vis, config)
+    def __init__(self, vis, config, identifier):
+        super().__init__(vis, config, identifier)
         self._frame_reader = None
+        self._capture_frames = False
         self._connected = False
         self.resolution = None
-        self.frame_ready = Event()
         self.decode_error = Event()
 
         if cv2.ocl.haveOpenCL():
@@ -206,19 +218,16 @@ class Camera(AbstractCamera):
 
     def read_frames(self):
         """Read frames from camera."""
-        self._connected = True
+        self._capture_frames = True
         self.decode_error.clear()
         self._poll_timer[0] = datetime.datetime.now().timestamp()
         empty_frames = 0
 
         self.stream.start_pipe()
 
-        while self._connected:
+        while self._capture_frames:
             if self.decode_error.is_set():
-                self._vis.dispatch_event(
-                    EVENT_STATUS.format(camera_identifier=self.identifier),
-                    EventStatusData(status=EVENT_STATUS_DISCONNECTED),
-                )
+                self.connected = False
                 time.sleep(5)
                 self._logger.error("Restarting frame pipe")
                 self.stream.close_pipe()
@@ -228,6 +237,7 @@ class Camera(AbstractCamera):
 
             current_frame = self.stream.read()
             if current_frame:
+                self.connected = True
                 empty_frames = 0
                 self._poll_timer[0] = datetime.datetime.now().timestamp()
                 self._data_stream.publish_data(self.frame_bytes_topic, current_frame)
@@ -263,7 +273,7 @@ class Camera(AbstractCamera):
 
     def stop_camera(self):
         """Release the connection to the camera."""
-        self._connected = False
+        self._capture_frames = False
         self._frame_reader.join()
 
     def start_recorder(self, shared_frame, objects_in_fov):
@@ -273,6 +283,26 @@ class Camera(AbstractCamera):
     def stop_recorder(self):
         """Stop camera recorder."""
         self._recorder.stop()
+
+    @property
+    def connected(self):
+        """Return if ffmpeg is connected to camera."""
+        return self._connected
+
+    @connected.setter
+    def connected(self, connected):
+        if connected == self._connected:
+            return
+
+        self._connected = connected
+        self._vis.dispatch_event(
+            EVENT_STATUS.format(camera_identifier=self.identifier),
+            EventStatusData(
+                status=EVENT_STATUS_CONNECTED
+                if connected
+                else EVENT_STATUS_DISCONNECTED
+            ),
+        )
 
     @property
     def poll_timer(self):

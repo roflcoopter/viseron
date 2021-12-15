@@ -13,14 +13,12 @@ from viseron.components.data_stream import (
     DataStream,
 )
 from viseron.domains.camera.shared_frames import SharedFrames
-from viseron.helpers import slugify
 from viseron.helpers.validators import ensure_slug
 
 from .const import (
     CONFIG_EXTENSION,
     CONFIG_FILENAME_PATTERN,
     CONFIG_FOLDER,
-    CONFIG_IDENTIFIER,
     CONFIG_IDLE_TIMEOUT,
     CONFIG_LOOKBACK,
     CONFIG_MJPEG_DRAW_MOTION,
@@ -43,7 +41,6 @@ from .const import (
     DEFAULT_EXTENSION,
     DEFAULT_FILENAME_PATTERN,
     DEFAULT_FOLDER,
-    DEFAULT_IDENTIFIER,
     DEFAULT_IDLE_TIMEOUT,
     DEFAULT_LOOKBACK,
     DEFAULT_MJPEG_DRAW_MOTION,
@@ -56,6 +53,7 @@ from .const import (
     DEFAULT_MJPEG_ROTATE,
     DEFAULT_MJPEG_STREAMS,
     DEFAULT_MJPEG_WIDTH,
+    DEFAULT_NAME,
     DEFAULT_PUBLISH_IMAGE,
     DEFAULT_RECORDER,
     DEFAULT_RETAIN,
@@ -124,9 +122,8 @@ RECORDER_SCHEMA = vol.Schema(
 
 BASE_CONFIG_SCHEMA = vol.Schema(
     {
-        vol.Required(CONFIG_NAME): vol.All(str, vol.Length(min=1)),
-        vol.Optional(CONFIG_IDENTIFIER, default=DEFAULT_IDENTIFIER): vol.Maybe(
-            vol.All(str, vol.Length(min=1))
+        vol.Optional(CONFIG_NAME, default=DEFAULT_NAME): vol.All(
+            str, vol.Length(min=1)
         ),
         vol.Optional(CONFIG_PUBLISH_IMAGE, default=DEFAULT_PUBLISH_IMAGE): bool,
         vol.Optional(CONFIG_MJPEG_STREAMS, default=DEFAULT_MJPEG_STREAMS): {
@@ -139,6 +136,7 @@ BASE_CONFIG_SCHEMA = vol.Schema(
 EVENT_STATUS = "{camera_identifier}/camera/status"
 
 EVENT_STATUS_DISCONNECTED = "disconnected"
+EVENT_STATUS_CONNECTED = "connected"
 
 LOGGER = logging.getLogger(__name__)
 
@@ -156,9 +154,10 @@ DATA_FRAME_BYTES_TOPIC = "{camera_identifier}/camera/frame_bytes"
 class AbstractCamera(ABC):
     """Represent a camera."""
 
-    def __init__(self, vis, config):
+    def __init__(self, vis, config, identifier):
         self._vis = vis
         self._config = config
+        self._identifier = identifier
 
         self._logger = logging.getLogger(f"{self.__module__}.{self.identifier}")
 
@@ -187,14 +186,14 @@ class AbstractCamera(ABC):
     @property
     def name(self):
         """Return camera name."""
-        return self._config[CONFIG_NAME]
+        return (
+            self._config[CONFIG_NAME] if self._config[CONFIG_NAME] else self.identifier
+        )
 
     @property
     def identifier(self):
         """Return camera identifier."""
-        if self._config[CONFIG_IDENTIFIER]:
-            return self._config[CONFIG_IDENTIFIER]
-        return slugify(self._config[CONFIG_NAME])
+        return self._identifier
 
     @property
     def mjpeg_streams(self):

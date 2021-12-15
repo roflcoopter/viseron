@@ -56,12 +56,11 @@ DEFAULT_THUMBNAIL: Dict[str, Any] = {}
 
 # BASE_CONFIG_SCHEMA constants
 CONFIG_NAME = "name"
-CONFIG_IDENTIFIER = "identifier"
 CONFIG_PUBLISH_IMAGE = "publish_image"
 CONFIG_MJPEG_STREAMS = "mjpeg_streams"
 CONFIG_RECORDER = "recorder"
 
-DEFAULT_IDENTIFIER = None
+DEFAULT_NAME = None
 DEFAULT_PUBLISH_IMAGE = False
 DEFAULT_MJPEG_STREAMS: Dict[str, Any] = {}
 DEFAULT_RECORDER: Dict[str, Any] = {}

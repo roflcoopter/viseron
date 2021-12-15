@@ -117,6 +117,8 @@ DEFAULT_RECORDER_FILTER_ARGS: List[str] = []
 DEFAULT_SEGMENTS_FOLDER = "/segments"
 
 # CAMERA_SCHEMA constants
+CONFIG_CAMERAS = "cameras"
+
 CONFIG_HOST = "host"
 CONFIG_USERNAME = "username"
 CONFIG_PASSWORD = "password"

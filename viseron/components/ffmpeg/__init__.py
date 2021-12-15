@@ -9,14 +9,12 @@ from viseron import Viseron
 from viseron.domains import setup_domain
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 
-from .const import COMPONENT
-
-CONFIG_CAMERAS = "cameras"
+from .const import COMPONENT, CONFIG_CAMERAS
 
 CONFIG_SCHEMA = vol.Schema(
     {
         COMPONENT: {
-            vol.Required(CONFIG_CAMERAS): [{vol.Extra: object}],
+            vol.Required(CONFIG_CAMERAS): {str: object},
         },
     },
     extra=vol.ALLOW_EXTRA,
@@ -31,11 +29,18 @@ def setup(vis: Viseron, config):
     vis.data[COMPONENT] = {}
 
     setup_threads = []
-    for camera_config in config[CONFIG_CAMERAS]:
+    for camera_identifier, camera_config in config[CONFIG_CAMERAS].items():
+        pruned_config = {}
+        pruned_config[camera_identifier] = camera_config
         setup_threads.append(
             threading.Thread(
                 target=setup_domain,
-                args=(vis, camera_config, COMPONENT, CAMERA_DOMAIN),
+                args=(
+                    vis,
+                    pruned_config,
+                    COMPONENT,
+                    CAMERA_DOMAIN,
+                ),
                 daemon=True,
                 name="ffmpeg_camera_setup",
             )
