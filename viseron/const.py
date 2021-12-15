@@ -178,3 +178,11 @@ REGISTERED_CAMERAS = "cameras"
 
 # Signal constants
 VISERON_SIGNAL_SHUTDOWN = "shutdown"
+
+# State constants
+STATE_ON = "on"
+STATE_OFF = "off"
+
+# Event constants
+EVENT_STATE_CHANGED = "state_changed"
+EVENT_ENTITY_ADDED = "entity_added"

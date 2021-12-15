@@ -72,7 +72,7 @@
 !/viseron/domains
 !/viseron/domains/**
 !/viseron/helpers
-!/viseron/helpers/*
+!/viseron/helpers/**
 !/viseron/motion
 !/viseron/motion/*
 !/viseron/motion/background_subtractor

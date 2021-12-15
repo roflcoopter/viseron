@@ -7,11 +7,8 @@ import cv2
 import numpy as np
 
 from viseron import Viseron
-from viseron.domains.object_detector import (
-    CONFIG_CAMERAS,
-    DOMAIN,
-    AbstractObjectDetector,
-)
+from viseron.domains.object_detector import CONFIG_CAMERAS, AbstractObjectDetector
+from viseron.domains.object_detector.const import DOMAIN
 from viseron.domains.object_detector.detected_object import DetectedObject
 
 from .const import COMPONENT, CONFIG_OBJECT_DETECTOR

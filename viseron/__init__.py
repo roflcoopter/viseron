@@ -1,4 +1,6 @@
 """Viseron init file."""
+from __future__ import annotations
+
 import concurrent.futures
 import logging
 import multiprocessing
@@ -7,7 +9,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any, List
 
 import voluptuous as vol
 
@@ -20,6 +22,8 @@ from viseron.components.data_stream import (
 from viseron.components.nvr import COMPONENT as NVR_COMPONENT
 from viseron.config import VISERON_CONFIG_SCHEMA, NVRConfig, ViseronConfig, load_config
 from viseron.const import (
+    EVENT_ENTITY_ADDED,
+    EVENT_STATE_CHANGED,
     FAILED,
     LOADED,
     LOADING,
@@ -47,6 +51,10 @@ from viseron.nvr import FFMPEGNVR
 from viseron.post_processors import PostProcessor
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import RestartableThread, ThreadWatchDog
+
+if TYPE_CHECKING:
+    from viseron.components import Component
+    from viseron.helpers.entity import Entity
 
 VISERON_SIGNALS = {
     VISERON_SIGNAL_SHUTDOWN: "viseron/signal/shutdown",
@@ -117,15 +125,19 @@ class Viseron:
 
     def __init__(self):
         Viseron.vis = self
-        self.data = {}
+
+        self.states = States(self)
+
         self.setup_threads = []
 
+        self.data = {}
         self.data[LOADING] = {}
         self.data[LOADED] = {}
         self.data[FAILED] = {}
-
         self.data[REGISTERED_OBJECT_DETECTORS] = {}
         self.data[REGISTERED_MOTION_DETECTORS] = {}
+
+        self._camera_register_lock = threading.Lock()
         self.data[REGISTERED_CAMERAS] = {}
         self._wait_for_camera_store = {}
 
@@ -228,12 +240,15 @@ class Viseron:
     def register_camera(self, camera_identifier, camera_instance):
         """Register a camera."""
         LOGGER.debug(f"Registering camera: {camera_identifier}")
-        self.data[REGISTERED_CAMERAS][camera_identifier] = camera_instance
+        with self._camera_register_lock:
+            self.data[REGISTERED_CAMERAS][camera_identifier] = camera_instance
 
-        if camera_listeners := self._wait_for_camera_store.get(camera_identifier, None):
-            for thread_event in camera_listeners:
-                thread_event.set()
-            del self._wait_for_camera_store[camera_identifier]
+            if camera_listeners := self._wait_for_camera_store.get(
+                camera_identifier, None
+            ):
+                for thread_event in camera_listeners:
+                    thread_event.set()
+                del self._wait_for_camera_store[camera_identifier]
 
     def get_registered_camera(self, camera_identifier):
         """Return a registered camera."""
@@ -253,12 +268,13 @@ class Viseron:
 
     def wait_for_camera(self, camera_identifier):
         """Wait for a camera to register."""
-        if camera_identifier in self.data[REGISTERED_CAMERAS]:
-            return
+        with self._camera_register_lock:
+            if camera_identifier in self.data[REGISTERED_CAMERAS]:
+                return
 
-        LOGGER.debug(f"Waiting for camera {camera_identifier} to register")
-        event = threading.Event()
-        self._wait_for_camera_store.setdefault(camera_identifier, []).append(event)
+            LOGGER.debug(f"Waiting for camera {camera_identifier} to register")
+            event = threading.Event()
+            self._wait_for_camera_store.setdefault(camera_identifier, []).append(event)
         event.wait()
         LOGGER.debug(f"Done waiting for camera {camera_identifier} to register")
 
@@ -288,6 +304,14 @@ class Viseron:
             }
             for future in concurrent.futures.as_completed(thread_or_process_future):
                 future.result()
+
+    def add_entity(self, component: str, entity: Entity):
+        """Add entity to states registry."""
+        self.states.add_entity(self.data[LOADING][component], entity)
+
+    def add_entities(self, component: str, entities: List[Entity]):
+        """Add entities to states registry."""
+        self.states.add_entities(self.data[LOADING][component], entities)
 
     def setup(self):
         """Set up Viseron."""
@@ -353,6 +377,105 @@ class Viseron:
         signal.signal(signal.SIGTERM, signal_term)
         signal.signal(signal.SIGINT, signal_term)
         signal.pause()
+
+
+@dataclass
+class EventStateChangedData:
+    """State changed event data."""
+
+    entity_id: str
+    previous_state: State
+    current_state: State
+
+
+@dataclass
+class EventEntityAddedData:
+    """State changed event data."""
+
+    entity: Entity
+
+
+class State:
+    """Hold the state of a single entity."""
+
+    def __init__(self, entity: Entity, state: str, attributes: dict):
+        self.entity = entity
+        self.state = state
+        self.attributes = attributes
+        self.timestamp = time.time()
+
+
+class States:
+    """Keep track of entity states."""
+
+    def __init__(self, vis):
+        self._vis = vis
+        self.registry = {}
+        self._registry_lock = threading.Lock()
+
+        self._current_states = {}
+
+    def set_state(self, entity: Entity):
+        """Set the state in the states registry."""
+        LOGGER.debug(
+            "Setting state of %s to state: %s, attributes %s",
+            entity.entity_id,
+            entity.state,
+            entity.attributes,
+        )
+
+        previous_state = self._current_states.get(entity.entity_id, None)
+        current_state = State(entity, entity.state, entity.attributes)
+
+        self._current_states[entity.entity_id] = current_state
+        self._vis.dispatch_event(
+            EVENT_STATE_CHANGED,
+            EventStateChangedData(entity.entity_id, previous_state, current_state),
+        )
+
+    def add_entity(self, component: Component, entity: Entity):
+        """Add entity to states registry."""
+        with self._registry_lock:
+            LOGGER.debug(
+                f"Adding entity {entity.entity_id} " f"from component {component.name}"
+            )
+            if entity.entity_id:
+                entity_id = entity.entity_id
+            else:
+                entity_id = self._generate_entity_id(entity)
+
+            if entity_id in self.registry:
+                LOGGER.error(
+                    f"Component {component.name} does not generate unique entity IDs"
+                )
+                suffix_number = 1
+                while True:
+                    if (
+                        unique_entity_id := f"{entity_id}_{suffix_number}"
+                    ) in self.registry:
+                        suffix_number += 1
+                    else:
+                        entity_id = unique_entity_id
+                        break
+
+            entity.entity_id = entity_id
+            entity.vis = self._vis
+
+            self.registry[entity_id] = entity
+            self._vis.dispatch_event(
+                EVENT_ENTITY_ADDED,
+                EventEntityAddedData(entity),
+            )
+
+    def add_entities(self, component: Component, entities: List[Entity]):
+        """Add entities to states registry."""
+        for entity in entities:
+            self.add_entity(component, entity)
+
+    @staticmethod
+    def _generate_entity_id(entity: Entity):
+        """Generate entity id for and entity."""
+        return entity.entity_id_format.format(name=entity.name)
 
 
 class SetupNVR(RestartableThread):
