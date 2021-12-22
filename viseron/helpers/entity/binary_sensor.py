@@ -4,13 +4,13 @@ from __future__ import annotations
 from viseron.const import STATE_OFF, STATE_ON
 from viseron.helpers.entity import Entity
 
-ENTITY_ID_FORMAT = "binary_sensor.{name}"
+DOMAIN = "binary_sensor"
 
 
 class BinarySensorEntity(Entity):
     """Base binary sensor entity class."""
 
-    entity_id_format = ENTITY_ID_FORMAT
+    domain = DOMAIN
 
     _is_on: bool | None = None
 

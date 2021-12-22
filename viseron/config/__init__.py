@@ -3,7 +3,7 @@ import importlib
 import sys
 
 import yaml
-from voluptuous import ALLOW_EXTRA, All, Any, Extra, Invalid, Optional, Required, Schema
+from voluptuous import ALLOW_EXTRA, All, Extra, Invalid, Optional, Required, Schema
 
 from viseron.config.config_camera import CameraConfig
 from viseron.const import CONFIG_PATH, DEFAULT_CONFIG, SECRETS_PATH
@@ -114,7 +114,7 @@ VISERON_CONFIG_SCHEMA = Schema(
             Optional("motion_detection", default={}): {Extra: object},
             Optional("post_processors", default={}): PostProcessorsConfig.schema,
             Optional("recorder", default={}): RecorderConfig.schema,
-            Optional("mqtt", default=None): Any(MQTTConfig.schema, None),
+            Optional("mqtt", default=None): {Extra: object},
         },
         detector_enabled_check,
         motion_type_check,
@@ -173,7 +173,7 @@ class ViseronConfig(BaseConfig):
         self._motion_detection = config["motion_detection"]
         self._post_processors = PostProcessorsConfig(config["post_processors"])
         self._recorder = RecorderConfig(config["recorder"])
-        self._mqtt = MQTTConfig(config["mqtt"]) if config.get("mqtt", None) else None
+        self._mqtt = None
         ViseronConfig.config = self
 
     @property

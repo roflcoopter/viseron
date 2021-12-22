@@ -14,16 +14,12 @@ from viseron.const import ENV_CUDA_SUPPORTED, ENV_VAAPI_SUPPORTED
 from viseron.domains.camera import (
     BASE_CONFIG_SCHEMA as BASE_CAMERA_CONFIG_SCHEMA,
     DEFAULT_RECORDER,
-    EVENT_STATUS,
-    EVENT_STATUS_CONNECTED,
-    EVENT_STATUS_DISCONNECTED,
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
     AbstractCamera,
-    EventStatusData,
 )
+from viseron.domains.camera.binary_sensor import ConnectionStatusBinarySensor
 from viseron.watchdog.thread_watchdog import RestartableThread
 
-from .binary_sensor import ConnectionStatusBinarySensor
 from .const import (
     COMPONENT,
     CONFIG_AUDIO_CODEC,
@@ -178,8 +174,7 @@ def setup(vis: Viseron, config):
     camera_identifier = list(config)[0]
     camera = Camera(vis, config[camera_identifier], camera_identifier)
 
-    sensor = ConnectionStatusBinarySensor(vis, camera, "test_sensor")
-    vis.add_entity(COMPONENT, sensor)
+    vis.add_entity(COMPONENT, ConnectionStatusBinarySensor(vis, camera))
 
 
 class Camera(AbstractCamera):
@@ -189,7 +184,6 @@ class Camera(AbstractCamera):
         super().__init__(vis, config, identifier)
         self._frame_reader = None
         self._capture_frames = False
-        self._connected = False
         self.resolution = None
         self.decode_error = Event()
 
@@ -283,26 +277,6 @@ class Camera(AbstractCamera):
     def stop_recorder(self):
         """Stop camera recorder."""
         self._recorder.stop()
-
-    @property
-    def connected(self):
-        """Return if ffmpeg is connected to camera."""
-        return self._connected
-
-    @connected.setter
-    def connected(self, connected):
-        if connected == self._connected:
-            return
-
-        self._connected = connected
-        self._vis.dispatch_event(
-            EVENT_STATUS.format(camera_identifier=self.identifier),
-            EventStatusData(
-                status=EVENT_STATUS_CONNECTED
-                if connected
-                else EVENT_STATUS_DISCONNECTED
-            ),
-        )
 
     @property
     def poll_timer(self):

@@ -15,7 +15,6 @@ UNMIGRATED_COMPONENTS = [
     "motion_detection",
     "object_detection",
     "recorder",
-    "mqtt",
     "post_processors",
     "logging",
 ]

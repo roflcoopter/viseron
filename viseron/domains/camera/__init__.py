@@ -161,6 +161,7 @@ class AbstractCamera(ABC):
 
         self._logger = logging.getLogger(f"{self.__module__}.{self.identifier}")
 
+        self._connected = False
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self.shared_frames = SharedFrames()
         self.frame_bytes_topic = DATA_FRAME_BYTES_TOPIC.format(
@@ -219,3 +220,23 @@ class AbstractCamera(ABC):
     @abstractmethod
     def is_recording(self):
         """Return recording status."""
+
+    @property
+    def connected(self):
+        """Return if connected to camera."""
+        return self._connected
+
+    @connected.setter
+    def connected(self, connected):
+        if connected == self._connected:
+            return
+
+        self._connected = connected
+        self._vis.dispatch_event(
+            EVENT_STATUS.format(camera_identifier=self.identifier),
+            EventStatusData(
+                status=EVENT_STATUS_CONNECTED
+                if connected
+                else EVENT_STATUS_DISCONNECTED
+            ),
+        )

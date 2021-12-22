@@ -3,16 +3,22 @@ from viseron import EventData, Viseron
 from viseron.domains.camera import EVENT_STATUS
 from viseron.helpers.entity.binary_sensor import BinarySensorEntity
 
+from . import AbstractCamera
+
 
 class ConnectionStatusBinarySensor(BinarySensorEntity):
     """Entity that keeps track of connection to camera."""
 
-    def __init__(self, vis: Viseron, camera, name):
+    def __init__(self, vis: Viseron, camera: AbstractCamera):
         self._camera = camera
-        self._name = name
+        self.object_id = f"{camera.identifier}_connected"
+        self.name = f"{camera.name} Connected"
+
+        self.device_name = camera.name
+        self.device_identifiers = [camera.identifier]
 
         vis.listen_event(
-            EVENT_STATUS.format(camera_identifier=self._camera.identifier),
+            EVENT_STATUS.format(camera_identifier=camera.identifier),
             self.handle_event,
         )
 

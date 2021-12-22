@@ -1,32 +1,43 @@
 """Base entity abstract class."""
+from __future__ import annotations
 
 from abc import ABC
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from viseron import Viseron
 
 
 class Entity(ABC):
-    """Base entity class."""
+    """Base entity class.
 
+    entity_id will be generated with the help of 'domain'.'object_id'.
+    If object_id is not set, it will be generated using name.
+    name is the only required property.
+    """
+
+    # The following variables should NOT be overridden
     entity_id: str = None  # type:ignore
     vis: Viseron = None  # type:ignore
+    domain: str = NotImplemented  # type:ignore
 
-    entity_id_format: str = NotImplemented  # type:ignore
-    _name: str = NotImplemented  # type:ignore
-
+    # These are safe to override
+    name: str = NotImplemented  # type:ignore
+    object_id: str | None = None
     _state: Any = "unknown"
     _attributes: Dict[Any, Any] = {}
+
+    # Used by Home Assistant, safe to override
+    device_name: str | None = None
+    device_identifiers: List[str] | None = None
+    enabled_by_default: bool = True
+    entity_category: str | None = None
+    availability: List[Dict[str, str]] | None = None
+    availability_mode: str = "all"
 
     @property
     def state(self):
         """Return entity state."""
         return self._state
-
-    @property
-    def name(self):
-        """Return entity name."""
-        return self._name
 
     @property
     def attributes(self):

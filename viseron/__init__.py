@@ -41,12 +41,12 @@ from viseron.exceptions import (
     PostProcessorImportError,
     PostProcessorStructureError,
 )
+from viseron.helpers import slugify
 from viseron.helpers.logs import (
     DuplicateFilter,
     SensitiveInformationFilter,
     ViseronLogFormat,
 )
-from viseron.mqtt import MQTT
 from viseron.nvr import FFMPEGNVR
 from viseron.post_processors import PostProcessor
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
@@ -313,6 +313,10 @@ class Viseron:
         """Add entities to states registry."""
         self.states.add_entities(self.data[LOADING][component], entities)
 
+    def get_entities(self):
+        """Return all registered entities."""
+        return self.states.get_entities()
+
     def setup(self):
         """Set up Viseron."""
         config = ViseronConfig(VISERON_CONFIG_SCHEMA(load_config()))
@@ -321,18 +325,6 @@ class Viseron:
         subprocess_watchdog = SubprocessWatchDog()
 
         schedule_cleanup(config)
-
-        mqtt = None
-        if config.mqtt:
-            mqtt = MQTT(config)
-            mqtt_publisher = RestartableThread(
-                name="mqtt_publisher",
-                target=mqtt.publisher,
-                daemon=True,
-                register=True,
-            )
-            mqtt.connect()
-            mqtt_publisher.start()
 
         post_processors = {}
         for (
@@ -383,7 +375,7 @@ class Viseron:
 class EventStateChangedData:
     """State changed event data."""
 
-    entity_id: str
+    entity: Entity
     previous_state: State
     current_state: State
 
@@ -410,7 +402,7 @@ class States:
 
     def __init__(self, vis):
         self._vis = vis
-        self.registry = {}
+        self._registry = {}
         self._registry_lock = threading.Lock()
 
         self._current_states = {}
@@ -430,21 +422,27 @@ class States:
         self._current_states[entity.entity_id] = current_state
         self._vis.dispatch_event(
             EVENT_STATE_CHANGED,
-            EventStateChangedData(entity.entity_id, previous_state, current_state),
+            EventStateChangedData(entity, previous_state, current_state),
         )
 
     def add_entity(self, component: Component, entity: Entity):
         """Add entity to states registry."""
         with self._registry_lock:
-            LOGGER.debug(
-                f"Adding entity {entity.entity_id} " f"from component {component.name}"
-            )
+            if not entity.name:
+                LOGGER.error(
+                    f"Component {component.name} is adding entities without name. "
+                    "name is required for all entities"
+                )
+                return
+
+            LOGGER.debug(f"Adding entity {entity.name} from component {component.name}")
+
             if entity.entity_id:
                 entity_id = entity.entity_id
             else:
                 entity_id = self._generate_entity_id(entity)
 
-            if entity_id in self.registry:
+            if entity_id in self._registry:
                 LOGGER.error(
                     f"Component {component.name} does not generate unique entity IDs"
                 )
@@ -452,7 +450,7 @@ class States:
                 while True:
                     if (
                         unique_entity_id := f"{entity_id}_{suffix_number}"
-                    ) in self.registry:
+                    ) in self._registry:
                         suffix_number += 1
                     else:
                         entity_id = unique_entity_id
@@ -461,21 +459,35 @@ class States:
             entity.entity_id = entity_id
             entity.vis = self._vis
 
-            self.registry[entity_id] = entity
+            self._registry[entity_id] = entity
             self._vis.dispatch_event(
                 EVENT_ENTITY_ADDED,
                 EventEntityAddedData(entity),
             )
+            self.set_state(entity)
 
     def add_entities(self, component: Component, entities: List[Entity]):
         """Add entities to states registry."""
         for entity in entities:
             self.add_entity(component, entity)
 
+    def get_entities(self):
+        """Return all registered entities."""
+        with self._registry_lock:
+            return self._registry
+
     @staticmethod
-    def _generate_entity_id(entity: Entity):
-        """Generate entity id for and entity."""
-        return entity.entity_id_format.format(name=entity.name)
+    def _assign_object_id(entity: Entity):
+        """Assign object id to entity if it is missing."""
+        if entity.object_id:
+            entity.object_id = slugify(entity.object_id)
+        else:
+            entity.object_id = slugify(entity.name)
+
+    def _generate_entity_id(self, entity: Entity):
+        """Generate entity id for an entity."""
+        self._assign_object_id(entity)
+        return f"{entity.domain}.{entity.object_id}"
 
 
 class SetupNVR(RestartableThread):
