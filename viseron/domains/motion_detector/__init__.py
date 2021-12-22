@@ -1,9 +1,11 @@
 """Motion detector domain."""
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from queue import Empty, Queue
-from typing import Union
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
@@ -11,12 +13,11 @@ import voluptuous as vol
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera import AbstractCamera
-from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.helpers import generate_mask
 from viseron.helpers.schemas import COORDINATES_SCHEMA
 from viseron.watchdog.thread_watchdog import RestartableThread
 
+from .binary_sensor import MotionDetectionBinarySensor
 from .const import (
     CONFIG_AREA,
     CONFIG_CAMERAS,
@@ -39,7 +40,13 @@ from .const import (
     DEFAULT_WIDTH,
     EVENT_MOTION_DETECTED,
 )
-from .contours import Contours
+
+if TYPE_CHECKING:
+    from viseron.domains.camera import AbstractCamera
+    from viseron.domains.camera.shared_frames import SharedFrame
+
+    from .contours import Contours
+
 
 CAMERA_SCHEMA = vol.Schema(
     {
@@ -65,39 +72,42 @@ class EventMotionDetected:
     """Hold information on motion event."""
 
     camera_identifier: str
-    shared_frame: SharedFrame
     motion_detected: bool
-    motion_contours: Union[Contours, None] = None
+    shared_frame: SharedFrame | None = None
+    motion_contours: Contours | None = None
 
 
 class AbstractMotionDetector(ABC):
     """Abstract motion detector."""
 
-    def __init__(self, vis, config, camera_identifier):
+    def __init__(self, vis, component, config, camera_identifier):
         self._vis = vis
         self._config = config
-        self._camera_identifier = camera_identifier
+
+        self._camera: AbstractCamera = vis.get_registered_camera(camera_identifier)
         self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
         self._motion_detected = False
+
+        vis.add_entity(component, MotionDetectionBinarySensor(vis, self, self._camera))
 
     @property
     def trigger_recorder(self):
         """Return if detected motion should start recorder."""
-        return self._config[CONFIG_CAMERAS][self._camera_identifier][
+        return self._config[CONFIG_CAMERAS][self._camera.identifier][
             CONFIG_TRIGGER_RECORDER
         ]
 
     @property
     def recorder_keepalive(self):
         """Return if motion should keep a recording going."""
-        return self._config[CONFIG_CAMERAS][self._camera_identifier][
+        return self._config[CONFIG_CAMERAS][self._camera.identifier][
             CONFIG_RECORDER_KEEPALIVE
         ]
 
     @property
     def max_recorder_keepalive(self):
         """Return max seconds that motion is allowed to keep a recording going."""
-        return self._config[CONFIG_CAMERAS][self._camera_identifier][
+        return self._config[CONFIG_CAMERAS][self._camera.identifier][
             CONFIG_MAX_RECORDER_KEEPALIVE
         ]
 
@@ -105,6 +115,27 @@ class AbstractMotionDetector(ABC):
     def motion_detected(self):
         """Return if motion is detected."""
         return self._motion_detected
+
+    def _motion_detected_setter(
+        self,
+        motion_detected,
+        shared_frame: SharedFrame = None,
+        contours: Contours = None,
+    ):
+        if self._motion_detected == motion_detected:
+            return
+
+        self._motion_detected = motion_detected
+        self._logger.debug("Motion detected" if motion_detected else "Motion stopped")
+        self._vis.dispatch_event(
+            EVENT_MOTION_DETECTED.format(camera_identifier=self._camera.identifier),
+            EventMotionDetected(
+                camera_identifier=self._camera.identifier,
+                shared_frame=shared_frame,
+                motion_detected=True,
+                motion_contours=contours,
+            ),
+        )
 
 
 CAMERA_SCHEMA_SCANNER = CAMERA_SCHEMA.extend(
@@ -141,10 +172,9 @@ BASE_CONFIG_SCHEMA_SCANNER = vol.Schema(
 class AbstractMotionDetectorScanner(AbstractMotionDetector):
     """Abstract motion detector that works by scanning frames."""
 
-    def __init__(self, vis, config, camera_identifier, color_format="gray"):
-        super().__init__(vis, config, camera_identifier)
+    def __init__(self, vis, component, config, camera_identifier, color_format="gray"):
+        super().__init__(vis, component, config, camera_identifier)
 
-        self._camera: AbstractCamera = vis.get_registered_camera(camera_identifier)
         self._get_frame_function = getattr(self, f"_get_decoded_frame_{color_format}")
 
         self._resolution = (
@@ -211,33 +241,10 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         self._motion_detected_setter(
             bool(
                 contours.max_area
-                > self._config[CONFIG_CAMERAS][self._camera_identifier][CONFIG_AREA]
+                > self._config[CONFIG_CAMERAS][self._camera.identifier][CONFIG_AREA]
             ),
             shared_frame,
             contours,
-        )
-
-    @property
-    def motion_detected(self):
-        """Return if motion is detected."""
-        return self._motion_detected
-
-    def _motion_detected_setter(
-        self, motion_detected, shared_frame: SharedFrame, contours: Contours
-    ):
-        if self._motion_detected == motion_detected:
-            return
-
-        self._motion_detected = motion_detected
-        self._logger.debug("Motion detected" if motion_detected else "Motion stopped")
-        self._vis.dispatch_event(
-            EVENT_MOTION_DETECTED.format(camera_identifier=self._camera_identifier),
-            EventMotionDetected(
-                camera_identifier=self._camera_identifier,
-                shared_frame=shared_frame,
-                motion_detected=True,
-                motion_contours=contours,
-            ),
         )
 
     def _get_decoded_frame_rgb(self, shared_frame):
@@ -278,7 +285,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
     @property
     def fps(self):
         """Return motion detector fps."""
-        return self._config[CONFIG_CAMERAS][self._camera_identifier][CONFIG_FPS]
+        return self._config[CONFIG_CAMERAS][self._camera.identifier][CONFIG_FPS]
 
     @property
     def mask(self):
@@ -288,7 +295,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
     @property
     def area(self):
         """Return motion detector area."""
-        return self._config[CONFIG_CAMERAS][self._camera_identifier][CONFIG_AREA]
+        return self._config[CONFIG_CAMERAS][self._camera.identifier][CONFIG_AREA]
 
     def stop(self):
         """Stop object detector."""

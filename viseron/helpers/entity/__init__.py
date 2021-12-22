@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List
 
-from viseron import Viseron
+if TYPE_CHECKING:
+    from viseron import Viseron
 
 
 class Entity(ABC):

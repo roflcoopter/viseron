@@ -12,13 +12,10 @@ class HassMQTTBinarySensor(HassMQTTEntity):
     # These should NOT be overridden.
     domain = DOMAIN
 
-    # These are safe to override.
-    device_class: str | None = None
-
     @property
     def config_payload(self):
         """Return config payload."""
         payload = super().config_payload
-        if self.device_class:
-            payload["device_class"] = self.device_class
+        if self._entity.device_class:
+            payload["device_class"] = self._entity.device_class
         return payload

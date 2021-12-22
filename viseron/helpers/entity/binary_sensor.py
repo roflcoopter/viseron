@@ -10,9 +10,14 @@ DOMAIN = "binary_sensor"
 class BinarySensorEntity(Entity):
     """Base binary sensor entity class."""
 
+    # The following variables should NOT be overridden
     domain = DOMAIN
 
+    # These are safe to override
     _is_on: bool | None = None
+
+    # Used by Home Assistant, safe to override
+    device_class: str | None = None
 
     @property
     def is_on(self) -> bool | None:

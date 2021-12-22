@@ -8,6 +8,7 @@ from viseron.domains.motion_detector.const import CONFIG_CAMERAS, DOMAIN
 from viseron.domains.motion_detector.contours import Contours
 
 from .const import (
+    COMPONENT,
     CONFIG_DETECT_SHADOWS,
     CONFIG_HISTORY,
     CONFIG_LEARNING_RATE,
@@ -31,7 +32,7 @@ class MotionDetector(AbstractMotionDetectorScanner):
     """Perform motion detection."""
 
     def __init__(self, vis: Viseron, config, camera_identifier):
-        super().__init__(vis, config, camera_identifier)
+        super().__init__(vis, COMPONENT, config, camera_identifier)
 
         self._camera_config = config[CONFIG_CAMERAS][camera_identifier]
         self._bgsmog = cv2.createBackgroundSubtractorMOG2(

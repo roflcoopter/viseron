@@ -1,15 +1,14 @@
 """Post processing of detected objects."""
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from queue import Queue
-from typing import List, Union
+from typing import TYPE_CHECKING, List, Union
 
 import voluptuous as vol
 
-from viseron import EventData, Viseron
-from viseron.domains.camera import AbstractCamera
-from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.object_detector.const import (
     EVENT_OBJECTS_IN_FOV,
     EVENT_OBJECTS_IN_ZONE,
@@ -18,10 +17,16 @@ from viseron.domains.object_detector.detected_object import (
     DetectedObject,
     EventDetectedObjectsData,
 )
-from viseron.domains.object_detector.zone import Zone
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import CONFIG_CAMERAS, CONFIG_LABELS
+
+if TYPE_CHECKING:
+    from viseron import EventData, Viseron
+    from viseron.domains.camera import AbstractCamera
+    from viseron.domains.camera.shared_frames import SharedFrame
+    from viseron.domains.object_detector.zone import Zone
+
 
 LABEL_SCHEMA = vol.Schema([str])
 
