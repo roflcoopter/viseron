@@ -183,6 +183,6 @@ VISERON_SIGNAL_SHUTDOWN = "shutdown"
 STATE_ON = "on"
 STATE_OFF = "off"
 
-# Event constants
+# Event topic constants
 EVENT_STATE_CHANGED = "state_changed"
 EVENT_ENTITY_ADDED = "entity_added"
