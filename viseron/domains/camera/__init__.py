@@ -12,9 +12,9 @@ from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
-from viseron.domains.camera.shared_frames import SharedFrames
 from viseron.helpers.validators import ensure_slug
 
+from .binary_sensor import ConnectionStatusBinarySensor
 from .const import (
     CONFIG_EXTENSION,
     CONFIG_FILENAME_PATTERN,
@@ -60,7 +60,11 @@ from .const import (
     DEFAULT_SAVE_TO_DISK,
     DEFAULT_SEND_TO_MQTT,
     DEFAULT_THUMBNAIL,
+    EVENT_STATUS,
+    EVENT_STATUS_CONNECTED,
+    EVENT_STATUS_DISCONNECTED,
 )
+from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
     from .recorder import AbstractRecorder
@@ -133,11 +137,6 @@ BASE_CONFIG_SCHEMA = vol.Schema(
     }
 )
 
-EVENT_STATUS = "{camera_identifier}/camera/status"
-
-EVENT_STATUS_DISCONNECTED = "disconnected"
-EVENT_STATUS_CONNECTED = "connected"
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -154,7 +153,7 @@ DATA_FRAME_BYTES_TOPIC = "{camera_identifier}/camera/frame_bytes"
 class AbstractCamera(ABC):
     """Represent a camera."""
 
-    def __init__(self, vis, config, identifier):
+    def __init__(self, vis, component, config, identifier):
         self._vis = vis
         self._config = config
         self._identifier = identifier
@@ -167,6 +166,7 @@ class AbstractCamera(ABC):
         self.frame_bytes_topic = DATA_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
         )
+        vis.add_entity(component, ConnectionStatusBinarySensor(vis, self))
 
     @abstractmethod
     def start_camera(self):
@@ -192,7 +192,7 @@ class AbstractCamera(ABC):
         )
 
     @property
-    def identifier(self):
+    def identifier(self) -> str:
         """Return camera identifier."""
         return self._identifier
 

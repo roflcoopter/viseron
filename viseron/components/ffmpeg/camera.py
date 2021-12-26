@@ -17,7 +17,6 @@ from viseron.domains.camera import (
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
     AbstractCamera,
 )
-from viseron.domains.camera.binary_sensor import ConnectionStatusBinarySensor
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -172,16 +171,14 @@ CONFIG_SCHEMA = vol.Schema(
 def setup(vis: Viseron, config):
     """Set up the ffmpeg camera domain."""
     camera_identifier = list(config)[0]
-    camera = Camera(vis, config[camera_identifier], camera_identifier)
-
-    vis.add_entity(COMPONENT, ConnectionStatusBinarySensor(vis, camera))
+    Camera(vis, config[camera_identifier], camera_identifier)
 
 
 class Camera(AbstractCamera):
     """Represents a camera which is consumed via FFmpeg."""
 
     def __init__(self, vis, config, identifier):
-        super().__init__(vis, config, identifier)
+        super().__init__(vis, COMPONENT, config, identifier)
         self._frame_reader = None
         self._capture_frames = False
         self.resolution = None

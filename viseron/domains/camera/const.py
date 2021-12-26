@@ -4,6 +4,12 @@ from typing import Any, Dict
 DOMAIN = "camera"
 
 
+# Event topic constants
+EVENT_STATUS = "{camera_identifier}/camera/status"
+EVENT_STATUS_DISCONNECTED = "disconnected"
+EVENT_STATUS_CONNECTED = "connected"
+
+
 # MJPEG_STREAM_SCHEMA constants
 CONFIG_MJPEG_WIDTH = "width"
 CONFIG_MJPEG_HEIGHT = "height"
