@@ -63,11 +63,11 @@ class StreamHandler(ViseronRequestHandler):
                     nvr.motion_detector.area,
                 )
 
-        if mjpeg_stream_config["draw_object_mask"] and nvr.object_detector:
+        if nvr.object_detector:
             if mjpeg_stream_config["draw_zones"]:
                 draw_zones(frame, nvr.object_detector.zones)
 
-            if nvr.object_detector.mask:
+            if mjpeg_stream_config["draw_object_mask"] and nvr.object_detector.mask:
                 draw_object_mask(
                     frame,
                     nvr.object_detector.mask,
