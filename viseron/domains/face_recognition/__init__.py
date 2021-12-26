@@ -12,6 +12,7 @@ import voluptuous as vol
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
 from viseron.helpers import create_directory
 
+from .binary_sensor import FaceDetectionBinarySensor
 from .const import (
     CONFIG_CAMERAS,
     CONFIG_EXPIRE_AFTER,
@@ -22,6 +23,8 @@ from .const import (
     DEFAULT_FACE_RECOGNITION_PATH,
     DEFAULT_SAVE_UNKNOWN_FACES,
     DEFAULT_UNKNOWN_FACES_PATH,
+    EVENT_FACE_DETECTED,
+    EVENT_FACE_EXPIRED,
 )
 
 BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
@@ -53,14 +56,29 @@ class FaceDict:
     timer: Timer
 
 
+@dataclass
+class EventFaceDetected:
+    """Hold information on face detection event."""
+
+    camera_identifier: str
+    face: FaceDict
+
+
 class AbstractFaceRecognition(AbstractPostProcessor):
     """Abstract face recognition."""
 
-    def __init__(self, vis, config, camera_identifier):
+    def __init__(self, vis, component, config, camera_identifier):
         super().__init__(vis, config, camera_identifier)
         self._faces: Dict[str, FaceDict] = {}
         if config[CONFIG_SAVE_UNKNOWN_FACES]:
             create_directory(config[CONFIG_UNKNOWN_FACES_PATH])
+
+        for face_dir in os.listdir(config[CONFIG_FACE_RECOGNITION_PATH]):
+            if face_dir == "unknown":
+                continue
+            vis.add_entity(
+                component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
+            )
 
     def known_face_found(self, face: str, coordinates: Tuple[int, int, int, int]):
         """Adds/expires known faces."""
@@ -68,16 +86,24 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         if self._faces.get(face, None):
             self._faces[face].timer.cancel()
 
-        # if self._mqtt_devices.get(face, None):
-        # self._mqtt_devices[face].publish(True)
-
         # Adds a detected face and schedules an expiry timer
-        self._faces[face] = FaceDict(
+        face_dict = FaceDict(
             face,
             coordinates,
             Timer(self._config[CONFIG_EXPIRE_AFTER], self.expire_face, [face]),
         )
-        self._faces[face].timer.start()
+        face_dict.timer.start()
+
+        self._vis.dispatch_event(
+            EVENT_FACE_DETECTED.format(
+                camera_identifier=self._camera.identifier, face=face
+            ),
+            EventFaceDetected(
+                camera_identifier=self._camera.identifier,
+                face=face_dict,
+            ),
+        )
+        self._faces[face] = face_dict
 
     def unknown_face_found(self, frame):
         """Save unknown faces."""
@@ -91,5 +117,13 @@ class AbstractFaceRecognition(AbstractPostProcessor):
     def expire_face(self, face):
         """Expire no longer found face."""
         self._logger.debug(f"Expiring face {face}")
-        # self._mqtt_devices[face].publish(False)
+        self._vis.dispatch_event(
+            EVENT_FACE_EXPIRED.format(
+                camera_identifier=self._camera.identifier, face=face
+            ),
+            EventFaceDetected(
+                camera_identifier=self._camera.identifier,
+                face=self._faces[face],
+            ),
+        )
         del self._faces[face]

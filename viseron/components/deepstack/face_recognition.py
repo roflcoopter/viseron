@@ -18,6 +18,7 @@ from viseron.domains.post_processor import CONFIG_CAMERAS, PostProcessorFrame
 from viseron.helpers import calculate_absolute_coords
 
 from .const import (
+    COMPONENT,
     CONFIG_API_KEY,
     CONFIG_FACE_RECOGNITION,
     CONFIG_HOST,
@@ -51,7 +52,9 @@ class FaceRecognition(AbstractFaceRecognition):
     """DeepSTack face recognition processor."""
 
     def __init__(self, vis: Viseron, config, camera_identifier):
-        super().__init__(vis, config[CONFIG_FACE_RECOGNITION], camera_identifier)
+        super().__init__(
+            vis, COMPONENT, config[CONFIG_FACE_RECOGNITION], camera_identifier
+        )
 
         self._ds_config = config
         self._ds = DeepstackFace(
@@ -61,14 +64,6 @@ class FaceRecognition(AbstractFaceRecognition):
             timeout=config[CONFIG_TIMEOUT],
             min_confidence=config[CONFIG_FACE_RECOGNITION][CONFIG_MIN_CONFIDENCE],
         )
-
-        # trained_faces = self._ds.list_faces()
-        # Create one MQTT binary sensor per tracked face
-        # self._mqtt_devices = {}
-        # if viseron.mqtt.MQTT.client:
-        #     for face in trained_faces["faces"]:
-        #         self._logger.debug(f"Creating MQTT binary sensor for face {face}")
-        #         self._mqtt_devices[face] = FaceMQTTBinarySensor(config, face)
 
     def face_recognition(self, frame, detected_object: DetectedObject):
         """Perform face recognition."""
@@ -129,9 +124,7 @@ class DeepstackTrain:
 
     def train(self):
         """Train DeepStack to recognize faces."""
-        train_dir = os.path.join(
-            self._config[CONFIG_FACE_RECOGNITION][CONFIG_FACE_RECOGNITION_PATH], "faces"
-        )
+        train_dir = self._config[CONFIG_FACE_RECOGNITION][CONFIG_FACE_RECOGNITION_PATH]
         try:
             faces_dirs = os.listdir(train_dir)
         except FileNotFoundError:
