@@ -3,18 +3,19 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Dict, List
+from typing import Dict
 
 from viseron import EventData, EventEntityAddedData, Viseron
 from viseron.const import EVENT_ENTITY_ADDED
-from viseron.helpers.entity import Entity
 
 from .binary_sensor import HassMQTTBinarySensor
 from .entity import HassMQTTEntity
+from .sensor import HassMQTTSensor
 
 LOGGER = logging.getLogger(__name__)
 
 DOMAIN_MAP = {
+    "sensor": HassMQTTSensor,
     "binary_sensor": HassMQTTBinarySensor,
 }
 
@@ -48,9 +49,9 @@ class HassMQTTInterface:
             mqtt_entity.create()
             self._entities[entity.entity_id] = mqtt_entity
 
-    def create_entities(self, entities: List[Entity]):
+    def create_entities(self, entities):
         """Create entities in Home Assistant."""
-        for entity in entities:
+        for entity in entities.values():
             self.create_entity(entity)
 
     def entity_added(self, event_data: EventData):
