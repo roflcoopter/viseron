@@ -12,13 +12,8 @@ from typing import TYPE_CHECKING, Dict, List
 import numpy as np
 import voluptuous as vol
 
-from viseron.components.data_stream import (
-    COMPONENT as DATA_STREAM_COMPONENT,
-    DataStream,
-)
+from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera import AbstractCamera
-from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.motion_detector.const import (
     DATA_MOTION_DETECTOR_RESULT,
     DATA_MOTION_DETECTOR_SCAN,
@@ -28,15 +23,19 @@ from viseron.domains.object_detector.const import (
     DATA_OBJECT_DETECTOR_SCAN,
 )
 from viseron.domains.object_detector.detected_object import DetectedObject
-from viseron.helpers.filter import Filter
 from viseron.helpers.validators import ensure_slug
 from viseron.watchdog.thread_watchdog import RestartableThread
 
-from .const import COMPONENT, DATA_PROCESSED_FRAME_TOPIC
+from .const import COMPONENT, DATA_PROCESSED_FRAME_TOPIC, EVENT_OPERATION_STATE
+from .sensor import OperationStateSensor
 
 if TYPE_CHECKING:
+    from viseron.components.data_stream import DataStream
+    from viseron.domains.camera import AbstractCamera
+    from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.motion_detector import AbstractMotionDetector, Contours
     from viseron.domains.object_detector import AbstractObjectDetector
+    from viseron.helpers.filter import Filter
 
 LOGGER = logging.getLogger(__name__)
 
@@ -103,6 +102,14 @@ def setup(vis, config):
                 )
 
     return True
+
+
+@dataclass
+class EventOperationState:
+    """Hold information of current state of operation."""
+
+    camera_identifier: str
+    operation_state: str
 
 
 class FrameIntervalCalculator:
@@ -173,6 +180,7 @@ class NVR:
         self._kill_received = False
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self._removal_timers: List[threading.Timer] = []
+        self._operation_state = None
 
         self._frame_scanners = {}
         self._current_frame_scanners: Dict[str, FrameIntervalCalculator] = {}
@@ -256,6 +264,7 @@ class NVR:
             self.calculate_output_fps()
 
         vis.data.setdefault(COMPONENT, {})[camera_identifier] = self
+        vis.add_entity(COMPONENT, OperationStateSensor(vis, self))
         self._camera.start_camera()
         self._logger.debug(f"NVR for camera {self._camera.name} initialized")
 
@@ -282,6 +291,44 @@ class NVR:
         self._camera.output_fps = highest_fps
         for scanner in self._frame_scanners.values():
             scanner.calculate_scan_interval(self._camera.output_fps)
+
+    @property
+    def operation_state(self):
+        """Return state of operation."""
+        return self._operation_state
+
+    @operation_state.setter
+    def operation_state(self, value):
+        """Set state of operation."""
+        if value == self._operation_state:
+            return
+
+        self._operation_state = value
+        self._vis.dispatch_event(
+            EVENT_OPERATION_STATE.format(camera_identifier=self._camera.identifier),
+            EventOperationState(
+                camera_identifier=self._camera.identifier,
+                operation_state=value,
+            ),
+        )
+
+    def update_operation_state(self):
+        """Update operation state."""
+        operation_state = "idle"
+        if self._camera.is_recording:
+            operation_state = "recording"
+        elif (
+            self._object_detector
+            and self._frame_scanners[OBJECT_DETECTOR].scan.is_set()
+        ):
+            operation_state = "scanning_for_objects"
+        elif (
+            self._motion_detector
+            and self._frame_scanners[MOTION_DETECTOR].scan.is_set()
+        ):
+            operation_state = "scanning_for_motion"
+
+        self.operation_state = operation_state
 
     def check_intervals(self, shared_frame: SharedFrame):
         """Check all registered frame intervals."""
@@ -501,6 +548,7 @@ class NVR:
         self.process_frame(shared_frame)
 
         while not self._kill_received:
+            self.update_operation_state()
             try:
                 shared_frame: SharedFrame = self._frame_queue.get(timeout=1)
             except Empty:
