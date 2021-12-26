@@ -10,6 +10,7 @@ from viseron.domains.object_detector.const import CONFIG_CAMERAS
 from viseron.domains.object_detector.detected_object import DetectedObject
 
 from .const import (
+    COMPONENT,
     CONFIG_API_KEY,
     CONFIG_CUSTOM_MODEL,
     CONFIG_HOST,
@@ -38,7 +39,9 @@ class ObjectDetector(AbstractObjectDetector):
     """Deepstack object detection."""
 
     def __init__(self, vis: Viseron, config, camera_identifier):
-        super().__init__(vis, config[CONFIG_OBJECT_DETECTOR], camera_identifier)
+        super().__init__(
+            vis, COMPONENT, config[CONFIG_OBJECT_DETECTOR], camera_identifier
+        )
 
         self._ds_config = config
         self._detector = ds.DeepstackObject(

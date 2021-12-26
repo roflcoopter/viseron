@@ -3,9 +3,13 @@ from typing import Any, Dict, List
 
 DOMAIN = "object_detector"
 
+
+# Data stream topic constants
 DATA_OBJECT_DETECTOR_SCAN = "object_detector/{camera_identifier}/scan"
 DATA_OBJECT_DETECTOR_RESULT = "object_detector/{camera_identifier}/result"
 
+
+# Event topic constants
 EVENT_OBJECTS_IN_FOV = "{camera_identifier}/objects"
 EVENT_OBJECTS_IN_ZONE = "{camera_identifier}/zone/{zone_name}/objects"
 

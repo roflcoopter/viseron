@@ -122,7 +122,7 @@ class HassMQTTEntity(ABC):
         payload["object_id"] = self.object_id  # last part of Home Assistant entity_id
         payload["unique_id"] = self.unique_id
         payload["state_topic"] = self.state_topic
-        payload["value_template"] = "{{ value_json.state | upper }}"
+        payload["value_template"] = "{{ value_json.state }}"
         payload["json_attributes_topic"] = self.state_topic
         payload["json_attributes_template"] = "{{ value_json.attributes | tojson }}"
 

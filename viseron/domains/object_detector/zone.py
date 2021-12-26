@@ -14,6 +14,10 @@ from viseron.domains.object_detector.detected_object import (
 from viseron.helpers import generate_numpy_from_coordinates, object_in_polygon
 from viseron.helpers.filter import Filter
 
+from .binary_sensor import (
+    ObjectDetectedBinarySensorZone,
+    ObjectDetectedBinarySensorZoneLabel,
+)
 from .const import (
     CONFIG_COORDINATES,
     CONFIG_LABELS,
@@ -32,6 +36,7 @@ class Zone:
     def __init__(
         self,
         vis: Viseron,
+        component,
         camera_identifier,
         zone_config,
         mask,
@@ -55,11 +60,22 @@ class Zone:
                     object_filter,
                     mask,
                 )
+                vis.add_entity(
+                    component,
+                    ObjectDetectedBinarySensorZoneLabel(
+                        vis, self, object_filter[CONFIG_LABEL_LABEL], self._camera
+                    ),
+                )
+
         else:
             self._logger.warning(
                 "No labels configured. "
                 f"No objects will be detected in zone {zone_config[CONFIG_ZONE_NAME]}"
             )
+        vis.add_entity(
+            component,
+            ObjectDetectedBinarySensorZone(vis, self, self._camera),
+        )
 
     def filter_zone(self, shared_frame: SharedFrame, objects: List[DetectedObject]):
         """Filter out objects to see if they are within the zone."""
@@ -88,7 +104,7 @@ class Zone:
         return self._object_filters
 
     @property
-    def objects_in_zone(self):
+    def objects_in_zone(self) -> List[DetectedObject]:
         """Return all present objects in the zone."""
         return self._objects_in_zone
 

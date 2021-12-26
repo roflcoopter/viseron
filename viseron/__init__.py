@@ -9,7 +9,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, Any, Dict, List
 
 import voluptuous as vol
 
@@ -376,7 +376,7 @@ class EventStateChangedData:
     """State changed event data."""
 
     entity: Entity
-    previous_state: State
+    previous_state: State | None
     current_state: State
 
 
@@ -400,12 +400,12 @@ class State:
 class States:
     """Keep track of entity states."""
 
-    def __init__(self, vis):
+    def __init__(self, vis: Viseron):
         self._vis = vis
-        self._registry = {}
+        self._registry: Dict[str, Entity] = {}
         self._registry_lock = threading.Lock()
 
-        self._current_states = {}
+        self._current_states: Dict[str, State] = {}
 
     def set_state(self, entity: Entity):
         """Set the state in the states registry."""

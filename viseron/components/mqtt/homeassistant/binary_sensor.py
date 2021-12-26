@@ -16,6 +16,9 @@ class HassMQTTBinarySensor(HassMQTTEntity):
     def config_payload(self):
         """Return config payload."""
         payload = super().config_payload
+        payload["payload_on"] = "on"
+        payload["payload_off"] = "off"
+
         if self._entity.device_class:
             payload["device_class"] = self._entity.device_class
         return payload

@@ -38,7 +38,7 @@ class ObjectDetector(AbstractObjectDetector):
         self._edgetpu = vis.data[COMPONENT]
         self._object_result_queue: Queue[List[DetectedObject]] = Queue(maxsize=1)
 
-        super().__init__(vis, config, camera_identifier)
+        super().__init__(vis, COMPONENT, config, camera_identifier)
 
         self._vis.register_object_detector(camera_identifier, self)
 

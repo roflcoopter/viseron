@@ -6,11 +6,8 @@ from typing import List
 import cv2
 
 from viseron import Viseron
-from viseron.domains.object_detector import (
-    CONFIG_CAMERAS,
-    DOMAIN,
-    AbstractObjectDetector,
-)
+from viseron.domains.object_detector import CONFIG_CAMERAS, AbstractObjectDetector
+from viseron.domains.object_detector.const import DOMAIN
 from viseron.domains.object_detector.detected_object import DetectedObject
 
 from .const import COMPONENT, CONFIG_OBJECT_DETECTOR
@@ -40,7 +37,7 @@ class ObjectDetector(AbstractObjectDetector):
         self._darknet = vis.data[COMPONENT]
         self._object_result_queue: Queue[List[DetectedObject]] = Queue(maxsize=1)
 
-        super().__init__(vis, config, camera_identifier)
+        super().__init__(vis, COMPONENT, config, camera_identifier)
 
         self._vis.register_object_detector(camera_identifier, self)
 

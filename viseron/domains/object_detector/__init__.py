@@ -18,6 +18,10 @@ from viseron.helpers.filter import Filter
 from viseron.helpers.schemas import COORDINATES_SCHEMA, MIN_MAX_SCHEMA
 from viseron.watchdog.thread_watchdog import RestartableThread
 
+from .binary_sensor import (
+    ObjectDetectedBinarySensorFoV,
+    ObjectDetectedBinarySensorFoVLabel,
+)
 from .const import (
     CONFIG_CAMERAS,
     CONFIG_COORDINATES,
@@ -138,7 +142,7 @@ BASE_CONFIG_SCHEMA = vol.Schema(
 class AbstractObjectDetector(ABC):
     """Abstract Object Detector."""
 
-    def __init__(self, vis, config, camera_identifier):
+    def __init__(self, vis, component, config, camera_identifier):
         self._vis = vis
         self._config = config
         self._camera_identifier = camera_identifier
@@ -163,10 +167,16 @@ class AbstractObjectDetector(ABC):
                     object_filter,
                     self._mask,
                 )
+                vis.add_entity(
+                    component,
+                    ObjectDetectedBinarySensorFoVLabel(
+                        vis, object_filter[CONFIG_LABEL_LABEL], self._camera
+                    ),
+                )
 
         self.zones: List[Zone] = []
         for zone in config[CONFIG_CAMERAS][camera_identifier][CONFIG_ZONES]:
-            self.zones.append(Zone(vis, camera_identifier, zone, self._mask))
+            self.zones.append(Zone(vis, component, camera_identifier, zone, self._mask))
 
         if not self.zones and not self.object_filters:
             self._logger.warning(
@@ -187,7 +197,9 @@ class AbstractObjectDetector(ABC):
             daemon=True,
         )
         self._object_detection_thread.start()
+
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+        vis.add_entity(component, ObjectDetectedBinarySensorFoV(vis, self._camera))
 
     def concat_labels(self) -> List[Filter]:
         """Return a concatenated list of global filters + all filters in each zone."""
