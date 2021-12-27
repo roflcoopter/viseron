@@ -120,14 +120,6 @@ class MQTT:
         self._subscriptions: Dict[str, List[Callable]] = {}
 
         self._kill_received = False
-        publisher = RestartableThread(
-            name=f"{__name__}.publisher",
-            target=self.publisher,
-            daemon=True,
-            register=True,
-        )
-        publisher.start()
-
         vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
 
     def on_connect(self, _client, _userdata, _flags, returncode):
@@ -173,6 +165,13 @@ class MQTT:
                 self._config[CONFIG_USERNAME], self._config[CONFIG_PASSWORD]
             )
 
+        RestartableThread(
+            name=f"{__name__}.publisher",
+            target=self.publisher,
+            daemon=True,
+            register=True,
+        ).start()
+
         # Set a Last Will message
         self._client.will_set(
             self._config[CONFIG_LAST_WILL_TOPIC], payload="dead", retain=True
@@ -192,10 +191,7 @@ class MQTT:
 
     def publish(self, payload: PublishPayload):
         """Put payload in publish queue."""
-        if self._client:
-            self._publish_queue.put(payload)
-        else:
-            LOGGER.error("Trying to publish when MQTT has not been initialized")
+        self._publish_queue.put(payload)
 
     def publisher(self):
         """Publish thread."""
