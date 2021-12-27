@@ -1,111 +1,101 @@
 """dlib face recognition."""
+from __future__ import absolute_import, annotations
+
 import logging
 import math
 import os
-import os.path
-from typing import Any as TypeAny, Dict
+from typing import TYPE_CHECKING
 
 import face_recognition
 import PIL
 from face_recognition.face_recognition_cli import image_files_in_folder
 from sklearn import neighbors
-from voluptuous import Any, Optional
 
-import viseron.mqtt
-from viseron.config import ViseronConfig
-from viseron.const import ENV_CUDA_SUPPORTED
+from viseron.domains.face_recognition import AbstractFaceRecognition
+from viseron.domains.face_recognition.const import (
+    CONFIG_FACE_RECOGNITION_PATH,
+    CONFIG_SAVE_UNKNOWN_FACES,
+)
+from viseron.domains.post_processor import CONFIG_CAMERAS
 from viseron.helpers import calculate_absolute_coords
-from viseron.post_processors import PostProcessorFrame
-from viseron.post_processors.face_recognition import (
-    AbstractFaceRecognition,
-    AbstractFaceRecognitionConfig,
-    FaceMQTTBinarySensor,
-)
 
+from .const import COMPONENT, CONFIG_FACE_RECOGNITION, CONFIG_MODEL
 
-def get_default_model() -> str:
-    """Return default model."""
-    if os.getenv(ENV_CUDA_SUPPORTED) == "true":
-        return "cnn"
-    return "hog"
-
-
-SCHEMA = AbstractFaceRecognitionConfig.SCHEMA.extend(
-    {
-        Optional("model", default=get_default_model()): Any("hog", "cnn"),
-    }
-)
+if TYPE_CHECKING:
+    from viseron import Viseron
+    from viseron.domains.object_detector.detected_object import DetectedObject
+    from viseron.domains.post_processor import PostProcessorFrame
 
 LOGGER = logging.getLogger(__name__)
 
 
-class Config(AbstractFaceRecognitionConfig):
-    """dlib config."""
+def setup(vis: Viseron, config):
+    """Set up the dlib face_recognition domain."""
+    classifier, _tracked_faces = train(
+        config[CONFIG_FACE_RECOGNITION][CONFIG_FACE_RECOGNITION_PATH]
+    )
 
-    def __init__(
-        self,
-        processor_config: Dict[str, TypeAny],
-    ):
-        super().__init__(processor_config)
-        self._model = processor_config["model"]
+    for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS].keys():
+        if config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS][camera_identifier] is None:
+            config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS][camera_identifier] = {}
 
-    @property
-    def model(self):
-        """Return model."""
-        return self._model
+        vis.wait_for_camera(
+            camera_identifier,
+        )
+        FaceRecognition(vis, config, camera_identifier, classifier)
+
+    return True
 
 
-class Processor(AbstractFaceRecognition):
+class FaceRecognition(AbstractFaceRecognition):
     """dlib face recognition processor."""
 
-    def __init__(self, config: ViseronConfig, processor_config: Config):
-        super().__init__(config, processor_config, LOGGER)
-        LOGGER.debug("Initializing dlib")
-        self._processor_config: Config = processor_config
-        self._classifier, tracked_faces = train(processor_config.face_recognition_path)
+    def __init__(self, vis: Viseron, config, camera_identifier, classifier):
+        super().__init__(
+            vis, COMPONENT, config[CONFIG_FACE_RECOGNITION], camera_identifier
+        )
+        self._classifier = classifier
 
-        # Create one MQTT binary sensor per tracked face
-        self._mqtt_devices = {}
-        if viseron.mqtt.MQTT.client:
-            for face in list(set(tracked_faces)):
-                LOGGER.debug(f"Creating MQTT binary sensor for face {face}")
-                self._mqtt_devices[face] = FaceMQTTBinarySensor(config, face)
-
-        LOGGER.debug("dlib initialized")
-
-    def process(self, frame_to_process: PostProcessorFrame):
-        """Run face detection."""
+    def face_recognition(self, frame, detected_object: DetectedObject):
+        """Perform face recognition."""
         if not self._classifier:
-            LOGGER.error(
+            self._logger.error(
                 "Classifier has not been trained, "
                 "make sure the folder structure of faces is correct"
             )
             return
 
-        height, width, _ = frame_to_process.frame.decoded_frame_mat_rgb.shape
         x1, y1, x2, y2 = calculate_absolute_coords(
             (
-                frame_to_process.detected_object.rel_x1,
-                frame_to_process.detected_object.rel_y1,
-                frame_to_process.detected_object.rel_x2,
-                frame_to_process.detected_object.rel_y2,
+                detected_object.rel_x1,
+                detected_object.rel_y1,
+                detected_object.rel_x2,
+                detected_object.rel_y2,
             ),
-            (width, height),
+            self._camera.resolution,
         )
-        cropped_frame = frame_to_process.frame.decoded_frame_mat_rgb[
-            y1:y2, x1:x2
-        ].copy()
+        cropped_frame = frame[y1:y2, x1:x2].copy()
 
         faces = predict(
-            cropped_frame, self._classifier, model=self._processor_config.model
+            cropped_frame,
+            self._classifier,
+            model=self._config[CONFIG_MODEL],
         )
-        LOGGER.debug(f"Faces found: {faces}")
+        self._logger.debug(f"Faces found: {faces}")
 
         for face, coordinates in faces:
             if face != "unknown":
                 self.known_face_found(face, coordinates)
-            elif self._processor_config.save_unknown_faces:
+            elif self._config[CONFIG_SAVE_UNKNOWN_FACES]:
                 self.unknown_face_found(cropped_frame)
+
+    def process(self, post_processor_frame: PostProcessorFrame):
+        """Process received frame."""
+        decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(
+            post_processor_frame.shared_frame
+        )
+        for detected_object in post_processor_frame.filtered_objects:
+            self.face_recognition(decoded_frame, detected_object)
 
 
 def train(
@@ -145,12 +135,11 @@ def train(
     face_names = []
 
     # Loop through each person in the training set
-    train_dir = os.path.join(face_recognition_path, "faces")
     try:
-        faces_dirs = os.listdir(train_dir)
+        faces_dirs = os.listdir(face_recognition_path)
     except FileNotFoundError:
         LOGGER.error(
-            f"{train_dir} does not exist. "
+            f"{face_recognition_path} does not exist. "
             "Make sure its created properly. "
             "See the documentation for the proper folder structure"
         )
@@ -159,7 +148,7 @@ def train(
     if not faces_dirs:
         LOGGER.warning(
             f"face_recognition is configured, "
-            f"but no subfolders in {train_dir} could be found"
+            f"but no subfolders in {face_recognition_path} could be found"
         )
         return None, []
 
@@ -171,10 +160,12 @@ def train(
 
         # Loop through each training image for the current person
         try:
-            img_paths = image_files_in_folder(os.path.join(train_dir, face_dir))
+            img_paths = image_files_in_folder(
+                os.path.join(face_recognition_path, face_dir)
+            )
         except NotADirectoryError as error:
             LOGGER.error(
-                f"{train_dir} can only contain directories. "
+                f"{face_recognition_path} can only contain directories. "
                 "Please remove any other files"
             )
             LOGGER.error(error)
@@ -182,8 +173,8 @@ def train(
         if not img_paths:
             LOGGER.warning(
                 f"No images were found for face {face_dir} "
-                f"in folder {os.path.join(train_dir, face_dir)}. Please provide "
-                f"some images of this person."
+                f"in folder {os.path.join(face_recognition_path, face_dir)}. "
+                f"Please provide some images of this person."
             )
             continue
 
@@ -216,10 +207,10 @@ def train(
                 face_names.append(face_dir)
 
     if not face_encodings:
-        LOGGER.error(f"No faces found for training in {train_dir}")
+        LOGGER.error(f"No faces found for training in {face_recognition_path}")
         return None, []
 
-    # model_path = os.path.join(train_dir, model_dir)
+    # model_path = os.path.join(face_recognition_path, model_dir)
 
     # try:
     #     os.makedirs(model_path)

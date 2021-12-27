@@ -1,20 +1,21 @@
 """DeepStack face recognition."""
+from __future__ import annotations
+
 import logging
 import os
+from typing import TYPE_CHECKING
 
 import cv2
 import deepstack.core as ds
 import requests
 from face_recognition.face_recognition_cli import image_files_in_folder
 
-from viseron import Viseron
 from viseron.domains.face_recognition import AbstractFaceRecognition
 from viseron.domains.face_recognition.const import (
     CONFIG_FACE_RECOGNITION_PATH,
     CONFIG_SAVE_UNKNOWN_FACES,
 )
-from viseron.domains.object_detector.detected_object import DetectedObject
-from viseron.domains.post_processor import CONFIG_CAMERAS, PostProcessorFrame
+from viseron.domains.post_processor import CONFIG_CAMERAS
 from viseron.helpers import calculate_absolute_coords
 
 from .const import (
@@ -28,11 +29,16 @@ from .const import (
     CONFIG_TRAIN,
 )
 
+if TYPE_CHECKING:
+    from viseron import Viseron
+    from viseron.domains.object_detector.detected_object import DetectedObject
+    from viseron.domains.post_processor import PostProcessorFrame
+
 LOGGER = logging.getLogger(__name__)
 
 
 def setup(vis: Viseron, config):
-    """Set up the deepstack object_detector domain."""
+    """Set up the deepstack face_recognition domain."""
     if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
         DeepstackTrain(config)
 
@@ -84,6 +90,7 @@ class FaceRecognition(AbstractFaceRecognition):
             )
         except ds.DeepstackException as error:
             self._logger.error("Error calling deepstack: %s", error)
+
         for detection in detections:
             if detection["userid"] != "unknown":
                 self._logger.debug("Face found: {}".format(detection))
