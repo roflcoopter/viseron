@@ -10,6 +10,7 @@ from viseron import Viseron
 from viseron.const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
 from viseron.domains import setup_domain
 from viseron.domains.object_detector import BASE_CONFIG_SCHEMA
+from viseron.helpers.subprocess import POPEN_LOCK
 
 from .const import (
     COMPONENT,
@@ -158,11 +159,14 @@ class Darknet:
 
     def detect(self, frame, min_confidence):
         """Run detection on frame."""
-        return self._model.detect(
-            frame,
-            min_confidence,
-            self._nms,
-        )
+        # This lock must be used because OpenCVs DNN bugs out when spawning subprocesses
+        # See https://github.com/opencv/opencv/issues/19643
+        with POPEN_LOCK:
+            return self._model.detect(
+                frame,
+                min_confidence,
+                self._nms,
+            )
 
     @property
     def model_width(self) -> int:

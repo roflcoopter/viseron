@@ -4,7 +4,7 @@ import logging
 import subprocess as sp
 from typing import List
 
-from viseron.detector import Detector
+from viseron.helpers.subprocess import Popen
 from viseron.watchdog import WatchDog
 
 LOGGER = logging.getLogger(__name__)
@@ -61,11 +61,10 @@ class RestartablePopen:
 
     def start(self):
         """Start the subprocess."""
-        with Detector.lock:
-            self._subprocess = sp.Popen(
-                *self._args,
-                **self._kwargs,
-            )
+        self._subprocess = Popen(
+            *self._args,
+            **self._kwargs,
+        )
         self._start_time = datetime.datetime.now().timestamp()
         self._started = True
 
