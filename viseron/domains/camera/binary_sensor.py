@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from viseron.helpers.entity.binary_sensor import BinarySensorEntity
 
-from .const import EVENT_STATUS
+from .const import EVENT_RECORDER_START, EVENT_RECORDER_STOP, EVENT_STATUS
 from .entity import CameraEntity
 
 if TYPE_CHECKING:
@@ -37,6 +37,49 @@ class ConnectionStatusBinarySensor(CameraBinarySensor):
     def _is_on(self):
         return self._camera.connected
 
-    def handle_event(self, _: EventData):
+    def handle_event(self, _event_data: EventData):
         """Handle status event."""
+        self.set_state()
+
+
+class RecorderBinarySensor(CameraBinarySensor):
+    """Entity that keeps track of the recorder of a camera."""
+
+    def __init__(self, vis: Viseron, camera: AbstractCamera):
+        super().__init__(vis, camera)
+        self.device_class = "running"
+        self.object_id = f"{camera.identifier}_recorder"
+        self.name = f"{camera.name} Recorder"
+
+        vis.listen_event(
+            EVENT_RECORDER_START.format(camera_identifier=camera.identifier),
+            self.handle_start_event,
+        )
+        vis.listen_event(
+            EVENT_RECORDER_STOP.format(camera_identifier=camera.identifier),
+            self.handle_stop_event,
+        )
+
+    def handle_start_event(self, event_data: EventData):
+        """Handle recorder start event."""
+        attributes = {}
+        attributes["last_recording_start"] = event_data.data.start_time.isoformat()
+        attributes["last_recording_end"] = None
+        attributes["path"] = event_data.data.path
+        attributes["thumbnail_path"] = event_data.data.thumbnail_path
+
+        self._attributes = attributes
+        self._is_on = True
+        self.set_state()
+
+    def handle_stop_event(self, event_data: EventData):
+        """Handle recorder stop event."""
+        attributes = {}
+        attributes["last_recording_start"] = event_data.data.start_time.isoformat()
+        attributes["last_recording_end"] = event_data.data.end_time.isoformat()
+        attributes["path"] = event_data.data.path
+        attributes["thumbnail_path"] = event_data.data.thumbnail_path
+
+        self._attributes = attributes
+        self._is_on = False
         self.set_state()

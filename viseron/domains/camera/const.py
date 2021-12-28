@@ -9,6 +9,9 @@ EVENT_STATUS = "{camera_identifier}/camera/status"
 EVENT_STATUS_DISCONNECTED = "disconnected"
 EVENT_STATUS_CONNECTED = "connected"
 
+EVENT_RECORDER_START = "{camera_identifier}/recorder/start"
+EVENT_RECORDER_STOP = "{camera_identifier}/recorder/stop"
+
 
 # MJPEG_STREAM_SCHEMA constants
 CONFIG_MJPEG_WIDTH = "width"
@@ -44,7 +47,7 @@ DEFAULT_SEND_TO_MQTT = False
 
 # RECORDER_SCHEMA constants
 CONFIG_LOOKBACK = "lookback"
-CONFIG_IDLE_TIMEOUT = "IDLE_TIMEOUT"
+CONFIG_IDLE_TIMEOUT = "idle_timeout"
 CONFIG_RETAIN = "retain"
 CONFIG_FOLDER = "folder"
 CONFIG_FILENAME_PATTERN = "filename_pattern"

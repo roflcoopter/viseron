@@ -14,6 +14,7 @@ import numpy as np
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.helpers import draw_objects
 
+from .binary_sensor import RecorderBinarySensor
 from .const import (
     CONFIG_EXTENSION,
     CONFIG_FILENAME_PATTERN,
@@ -22,6 +23,8 @@ from .const import (
     CONFIG_RECORDER,
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
+    EVENT_RECORDER_START,
+    EVENT_RECORDER_STOP,
 )
 from .shared_frames import SharedFrame
 
@@ -29,16 +32,14 @@ if TYPE_CHECKING:
     from . import AbstractCamera
 
 
-EVENT_RECORDER_START = "{camera_identifier}/recorder/start"
-EVENT_RECORDER_STOP = "{camera_identifier}/recorder/stop"
-
-
 @dataclass
 class EventRecorderStart:
     """Hold information on recorder start event."""
 
     start_time: datetime.datetime
+    path: str
     thumbnail: np.ndarray
+    thumbnail_path: str
     objects: List[DetectedObject]
 
 
@@ -48,13 +49,14 @@ class EventRecorderStop:
 
     start_time: datetime.datetime
     end_time: datetime.datetime
-    filename: os.PathLike
+    path: str
+    thumbnail_path: str
 
 
 class AbstractRecorder(ABC):
     """Abstract recorder."""
 
-    def __init__(self, vis, config, camera):
+    def __init__(self, vis, component, config, camera):
         self._logger = logging.getLogger(self.__module__ + "." + camera.identifier)
         self._vis = vis
         self._config = config
@@ -62,8 +64,11 @@ class AbstractRecorder(ABC):
 
         self.is_recording = False
         self._last_recording_path = None
+        self._last_recording_thumbnail_path = None
         self._last_recording_start = None
         self._last_recording_end = None
+
+        vis.add_entity(component, RecorderBinarySensor(vis, self._camera))
 
     def subfolder_name(self, today):
         """Generate name of folder for recording."""
@@ -137,20 +142,24 @@ class AbstractRecorder(ABC):
         )
         self.create_directory(full_path)
 
+        thumbnail_path = os.path.join(full_path, thumbnail_name)
         thumbnail = self.create_thumbnail(
-            os.path.join(full_path, thumbnail_name),
+            thumbnail_path,
             self._camera.shared_frames.get_decoded_frame_rgb(shared_frame),
             objects_in_fov,
             resolution,
         )
         self._last_recording_path = os.path.join(full_path, video_name)
+        self._last_recording_thumbnail_path = thumbnail_path
 
         self._start(shared_frame, objects_in_fov, resolution)
         self._vis.dispatch_event(
             EVENT_RECORDER_START.format(camera_identifier=self._camera.identifier),
             EventRecorderStart(
                 start_time=self.last_recording_start,
+                path=self.last_recording_path,
                 thumbnail=thumbnail,
+                thumbnail_path=thumbnail_path,
                 objects=objects_in_fov,
             ),
         )
@@ -173,8 +182,9 @@ class AbstractRecorder(ABC):
             EVENT_RECORDER_STOP.format(camera_identifier=self._camera.identifier),
             EventRecorderStop(
                 start_time=self.last_recording_start,
-                end_time=self.last_recording_start,
-                filename=self.last_recording_path,
+                end_time=self.last_recording_end,
+                path=self.last_recording_path,
+                thumbnail_path=self.last_recording_thumbnail_path,
             ),
         )
         self.is_recording = False
@@ -191,7 +201,7 @@ class AbstractRecorder(ABC):
         return self._config[CONFIG_RECORDER][CONFIG_IDLE_TIMEOUT]
 
     @property
-    def last_recording_path(self) -> os.PathLike:
+    def last_recording_path(self) -> str:
         """Return last recording path."""
         return self._last_recording_path
 
@@ -204,3 +214,8 @@ class AbstractRecorder(ABC):
     def last_recording_end(self) -> datetime.datetime:
         """Return last recording end time."""
         return self._last_recording_end
+
+    @property
+    def last_recording_thumbnail_path(self) -> str:
+        """Return last recording thumbnail path."""
+        return self._last_recording_thumbnail_path

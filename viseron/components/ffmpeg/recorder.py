@@ -6,7 +6,7 @@ from threading import Thread
 from viseron.domains.camera import CONFIG_LOOKBACK
 from viseron.domains.camera.recorder import AbstractRecorder
 
-from .const import CONFIG_SEGMENTS_FOLDER, RECORDER
+from .const import COMPONENT, CONFIG_SEGMENTS_FOLDER, RECORDER
 from .segments import SegmentCleanup, Segments
 
 LOGGER = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ class Recorder(AbstractRecorder):
     """Creates thumbnails and recordings."""
 
     def __init__(self, vis, config, camera):
-        super().__init__(vis, config, camera)
+        super().__init__(vis, COMPONENT, config, camera)
         self._logger.debug("Initializing ffmpeg recorder")
         self._recorder_config = config[RECORDER]
 
