@@ -66,7 +66,8 @@ class RecorderBinarySensor(CameraBinarySensor):
         attributes["last_recording_start"] = event_data.data.start_time.isoformat()
         attributes["last_recording_end"] = None
         attributes["path"] = event_data.data.path
-        attributes["thumbnail_path"] = event_data.data.thumbnail_path
+        if event_data.data.thumbnail_path:
+            attributes["thumbnail_path"] = event_data.data.thumbnail_path
 
         self._attributes = attributes
         self._is_on = True
@@ -78,7 +79,8 @@ class RecorderBinarySensor(CameraBinarySensor):
         attributes["last_recording_start"] = event_data.data.start_time.isoformat()
         attributes["last_recording_end"] = event_data.data.end_time.isoformat()
         attributes["path"] = event_data.data.path
-        attributes["thumbnail_path"] = event_data.data.thumbnail_path
+        if event_data.data.thumbnail_path:
+            attributes["thumbnail_path"] = event_data.data.thumbnail_path
 
         self._attributes = attributes
         self._is_on = False

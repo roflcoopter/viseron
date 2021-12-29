@@ -36,7 +36,6 @@ from .const import (
     CONFIG_RECORDER,
     CONFIG_RETAIN,
     CONFIG_SAVE_TO_DISK,
-    CONFIG_SEND_TO_MQTT,
     CONFIG_THUMBNAIL,
     DEFAULT_EXTENSION,
     DEFAULT_FILENAME_PATTERN,
@@ -58,7 +57,6 @@ from .const import (
     DEFAULT_RECORDER,
     DEFAULT_RETAIN,
     DEFAULT_SAVE_TO_DISK,
-    DEFAULT_SEND_TO_MQTT,
     DEFAULT_THUMBNAIL,
     EVENT_STATUS,
     EVENT_STATUS_CONNECTED,
@@ -101,7 +99,6 @@ THUMBNAIL_SCHEMA = vol.Schema(
     {
         vol.Optional(CONFIG_SAVE_TO_DISK, default=DEFAULT_SAVE_TO_DISK): bool,
         vol.Optional(CONFIG_FILENAME_PATTERN, default=DEFAULT_FILENAME_PATTERN): str,
-        vol.Optional(CONFIG_SEND_TO_MQTT, default=DEFAULT_SEND_TO_MQTT): bool,
     }
 )
 

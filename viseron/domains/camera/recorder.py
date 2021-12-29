@@ -26,6 +26,7 @@ from .const import (
     EVENT_RECORDER_START,
     EVENT_RECORDER_STOP,
 )
+from .image import ThumbnailImage
 from .shared_frames import SharedFrame
 
 if TYPE_CHECKING:
@@ -39,7 +40,7 @@ class EventRecorderStart:
     start_time: datetime.datetime
     path: str
     thumbnail: np.ndarray
-    thumbnail_path: str
+    thumbnail_path: str | None
     objects: List[DetectedObject]
 
 
@@ -50,7 +51,7 @@ class EventRecorderStop:
     start_time: datetime.datetime
     end_time: datetime.datetime
     path: str
-    thumbnail_path: str
+    thumbnail_path: str | None
 
 
 class AbstractRecorder(ABC):
@@ -69,6 +70,7 @@ class AbstractRecorder(ABC):
         self._last_recording_end = None
 
         vis.add_entity(component, RecorderBinarySensor(vis, self._camera))
+        vis.add_entity(component, ThumbnailImage(vis, self._camera))
 
     def subfolder_name(self, today):
         """Generate name of folder for recording."""
@@ -159,7 +161,9 @@ class AbstractRecorder(ABC):
                 start_time=self.last_recording_start,
                 path=self.last_recording_path,
                 thumbnail=thumbnail,
-                thumbnail_path=thumbnail_path,
+                thumbnail_path=thumbnail_path
+                if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]
+                else None,
                 objects=objects_in_fov,
             ),
         )
@@ -184,7 +188,9 @@ class AbstractRecorder(ABC):
                 start_time=self.last_recording_start,
                 end_time=self.last_recording_end,
                 path=self.last_recording_path,
-                thumbnail_path=self.last_recording_thumbnail_path,
+                thumbnail_path=self.last_recording_thumbnail_path
+                if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]
+                else None,
             ),
         )
         self.is_recording = False
