@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import json
 from abc import ABC
+from typing import TYPE_CHECKING
 
-from viseron import Viseron
 from viseron.components.mqtt.const import (
     COMPONENT as MQTT_COMPONENT,
     CONFIG_CLIENT_ID,
@@ -17,7 +17,10 @@ from viseron.components.mqtt.const import (
     MQTT_CLIENT_CONNECTION_TOPIC,
 )
 from viseron.components.mqtt.helpers import PublishPayload
-from viseron.helpers.entity import Entity
+
+if TYPE_CHECKING:
+    from viseron import Viseron
+    from viseron.components.mqtt.entity import MQTTEntity
 
 
 class HassMQTTEntity(ABC):
@@ -25,18 +28,18 @@ class HassMQTTEntity(ABC):
 
     domain: str = NotImplemented
 
-    def __init__(self, vis: Viseron, config, entity: Entity):
+    def __init__(self, vis: Viseron, config, mqtt_entity: MQTTEntity):
         self._vis = vis
         self._config = config
-        self._entity = entity
+        self._mqtt_entity = mqtt_entity
 
         self._mqtt = vis.data[MQTT_COMPONENT]
 
     @property
     def availability(self):
         """Return availability."""
-        if self._entity.availability:
-            return self._entity.availability
+        if self._mqtt_entity.entity.availability:
+            return self._mqtt_entity.entity.availability
 
         return [
             {
@@ -56,12 +59,12 @@ class HassMQTTEntity(ABC):
     @property
     def device_name(self):
         """Return device name."""
-        return self._entity.device_name
+        return self._mqtt_entity.entity.device_name
 
     @property
     def device_identifiers(self):
         """Return device identifiers."""
-        return self._entity.device_identifiers
+        return self._mqtt_entity.entity.device_identifiers
 
     @property
     def device(self):
@@ -77,32 +80,37 @@ class HassMQTTEntity(ABC):
     @property
     def enabled_by_default(self):
         """Return if entity is enabled by default."""
-        return self._entity.enabled_by_default
+        return self._mqtt_entity.entity.enabled_by_default
 
     @property
     def entity_category(self):
         """Return the category of the entity."""
-        return self._entity.entity_category
+        return self._mqtt_entity.entity.entity_category
 
     @property
     def name(self):
         """Return name."""
-        return self._entity.name
+        return self._mqtt_entity.entity.name
 
     @property
     def unique_id(self):
         """Return unique ID."""
-        return self._entity.entity_id
+        return self._mqtt_entity.entity.entity_id
 
     @property
     def object_id(self):
-        """Return unique ID."""
-        return self._entity.object_id
+        """Return object ID."""
+        return self._mqtt_entity.entity.object_id
 
     @property
     def state_topic(self):
         """Return state topic."""
-        return f"{self._config[CONFIG_CLIENT_ID]}/{self.domain}/{self.object_id}/state"
+        return self._mqtt_entity.state_topic
+
+    @property
+    def json_attributes_topic(self):
+        """Return json attributes topic."""
+        return self._mqtt_entity.attributes_topic
 
     @property
     def config_topic(self):
@@ -123,7 +131,7 @@ class HassMQTTEntity(ABC):
         payload["unique_id"] = self.unique_id
         payload["state_topic"] = self.state_topic
         payload["value_template"] = "{{ value_json.state }}"
-        payload["json_attributes_topic"] = self.state_topic
+        payload["json_attributes_topic"] = self.json_attributes_topic
         payload["json_attributes_template"] = "{{ value_json.attributes | tojson }}"
 
         if self.entity_category:
@@ -141,16 +149,5 @@ class HassMQTTEntity(ABC):
                 self.config_topic,
                 json.dumps(self.config_payload),
                 retain=self._config[CONFIG_HOME_ASSISTANT][CONFIG_RETAIN_CONFIG],
-            )
-        )
-
-        payload = {}
-        payload["state"] = self._entity.state
-        payload["attributes"] = self._entity.attributes
-        self._mqtt.publish(
-            PublishPayload(
-                self.state_topic,
-                json.dumps(payload),
-                retain=True,
             )
         )

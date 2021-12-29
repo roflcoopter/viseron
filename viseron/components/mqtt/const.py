@@ -15,6 +15,11 @@ MQTT_CLIENT_CONNECTION_TOPIC = "{client_id}/state"
 MQTT_CLIENT_CONNECTION_ONLINE = "online"
 MQTT_CLIENT_CONNECTION_OFFLINE = "offline"
 
+
+# Event topic constants
+EVENT_MQTT_ENTITY_ADDED = "mqtt/entity_added"
+
+
 # HOME_ASSISTANT_SCHEMA constants
 CONFIG_DISCOVERY_PREFIX = "discovery_prefix"
 CONFIG_RETAIN_CONFIG = "retain_config"

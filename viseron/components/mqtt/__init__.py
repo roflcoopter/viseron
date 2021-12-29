@@ -1,14 +1,20 @@
 """MQTT interface."""
-import json
+from __future__ import annotations
+
 import logging
+import threading
 from queue import Empty, Queue
-from typing import Callable, Dict, List
+from typing import TYPE_CHECKING, Callable, Dict, List
 
 import paho.mqtt.client as mqtt
 import voluptuous as vol
 
-from viseron import EventData, Viseron
-from viseron.const import EVENT_STATE_CHANGED, VISERON_SIGNAL_SHUTDOWN
+from viseron import EventEntityAddedData
+from viseron.const import (
+    EVENT_ENTITY_ADDED,
+    EVENT_STATE_CHANGED,
+    VISERON_SIGNAL_SHUTDOWN,
+)
 from viseron.helpers.validators import none_to_dict
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -30,6 +36,7 @@ from .const import (
     DEFAULT_PORT,
     DEFAULT_RETAIN_CONFIG,
     DEFAULT_USERNAME,
+    EVENT_MQTT_ENTITY_ADDED,
     INCLUSION_GROUP_AUTHENTICATION,
     MESSAGE_AUTHENTICATION,
     MQTT_CLIENT_CONNECTION_OFFLINE,
@@ -37,8 +44,17 @@ from .const import (
     MQTT_CLIENT_CONNECTION_TOPIC,
     MQTT_RC,
 )
+from .entity import MQTTEntity
+from .entity.binary_sensor import BinarySensorMQTTEntity
+from .entity.image import ImageMQTTEntity
+from .entity.sensor import SensorMQTTEntity
+from .event import EventMQTTEntityAddedData
 from .helpers import PublishPayload, SubscribeTopic
 from .homeassistant import HassMQTTInterface
+
+if TYPE_CHECKING:
+    from viseron import EventData, Viseron
+    from viseron.helpers.entity import Entity
 
 LOGGER = logging.getLogger(__name__)
 
@@ -94,12 +110,18 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
+DOMAIN_MAP = {
+    "binary_sensor": BinarySensorMQTTEntity,
+    "image": ImageMQTTEntity,
+    "sensor": SensorMQTTEntity,
+}
+
+
 def setup(vis: Viseron, config):
     """Set up the mqtt component."""
     config = config[COMPONENT]
     mqtt_client = MQTT(vis, config)
     mqtt_client.connect()
-    vis.data[COMPONENT] = mqtt_client
     vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, mqtt_client.stop)
 
     if config.get(CONFIG_HOME_ASSISTANT, None):
@@ -120,7 +142,49 @@ class MQTT:
         self._subscriptions: Dict[str, List[Callable]] = {}
 
         self._kill_received = False
+
+        vis.data[COMPONENT] = self
+
+        self._entity_creation_lock = threading.Lock()
+        self._entities: Dict[str, MQTTEntity] = {}
+        vis.listen_event(EVENT_ENTITY_ADDED, self.entity_added)
+        self.create_entities(vis.get_entities())
+
         vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
+
+    def create_entity(self, entity: Entity):
+        """Create entity in Home Assistant."""
+        with self._entity_creation_lock:
+            if entity.entity_id in self._entities:
+                LOGGER.debug(f"Entity {entity.entity_id} has already been added")
+                return
+
+            if entity_class := DOMAIN_MAP.get(entity.domain):
+                mqtt_entity = entity_class(self._vis, self._config, entity)
+            else:
+                LOGGER.debug(f"Unsupported domain encountered: {entity.domain}")
+                return
+            mqtt_entity = entity_class(self._vis, self._config, entity)
+
+            self._entities[entity.entity_id] = mqtt_entity
+            self._vis.dispatch_event(
+                EVENT_MQTT_ENTITY_ADDED,
+                EventMQTTEntityAddedData(mqtt_entity),
+            )
+
+    def create_entities(self, entities):
+        """Create entities in Home Assistant."""
+        for entity in entities.values():
+            self.create_entity(entity)
+
+    def entity_added(self, event_data: EventData):
+        """Add entity to Home Assistant when its added to Viseron."""
+        entity_added_data: EventEntityAddedData = event_data.data
+        self.create_entity(entity_added_data.entity)
+
+    def get_entities(self):
+        """Return registered MQTT entities."""
+        return self._entities
 
     def on_connect(self, _client, _userdata, _flags, returncode):
         """On established MQTT connection."""
@@ -211,17 +275,13 @@ class MQTT:
         """Relay entity state change to MQTT."""
         entity = event_data.data.entity
 
-        payload = {}
-        payload["state"] = entity.state
-        payload["attributes"] = entity.attributes
-        self.publish(
-            PublishPayload(
-                f"{self._config[CONFIG_CLIENT_ID]}/{entity.domain}/"
-                f"{entity.object_id}/state",
-                json.dumps(payload),
-                retain=True,
+        if entity.entity_id not in self._entities:
+            LOGGER.error(
+                f"State change triggered for missing entity {entity.entity_id}"
             )
-        )
+            return
+
+        self._entities[entity.entity_id].publish_state()
 
     def stop(self):
         """Stop mqtt client."""

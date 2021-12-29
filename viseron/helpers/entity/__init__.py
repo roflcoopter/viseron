@@ -41,9 +41,19 @@ class Entity(ABC):
         return self._state
 
     @property
+    def json_serializable_state(self):
+        """Return entity state that is json serializable."""
+        return self.state
+
+    @property
     def attributes(self):
         """Return entity attributes."""
         return self._attributes
+
+    @property
+    def json_serializable_attributes(self):
+        """Return entity attributes that is json serializable."""
+        return self.attributes
 
     def set_state(self):
         """Set the state in the states registry."""

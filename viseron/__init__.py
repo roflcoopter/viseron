@@ -382,7 +382,7 @@ class EventStateChangedData:
 
 @dataclass
 class EventEntityAddedData:
-    """State changed event data."""
+    """Entity event data."""
 
     entity: Entity
 

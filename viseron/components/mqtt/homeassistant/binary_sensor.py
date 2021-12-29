@@ -19,6 +19,6 @@ class HassMQTTBinarySensor(HassMQTTEntity):
         payload["payload_on"] = "on"
         payload["payload_off"] = "off"
 
-        if self._entity.device_class:
-            payload["device_class"] = self._entity.device_class
+        if self._mqtt_entity.entity.device_class:
+            payload["device_class"] = self._mqtt_entity.entity.device_class
         return payload
