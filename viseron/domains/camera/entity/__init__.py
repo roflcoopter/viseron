@@ -8,7 +8,7 @@ from viseron.helpers.entity import Entity
 if TYPE_CHECKING:
     from viseron import Viseron
 
-    from . import AbstractCamera
+    from .. import AbstractCamera
 
 
 class CameraEntity(Entity):

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from viseron.domains.camera.binary_sensor import CameraBinarySensor
+from viseron.domains.camera.entity.binary_sensor import CameraBinarySensor
 
 from .const import EVENT_FACE_DETECTED, EVENT_FACE_EXPIRED
 

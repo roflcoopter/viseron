@@ -1,9 +1,9 @@
-"""Binary sensor that represents connection to camera."""
+"""Sensor entity for a camera."""
 from __future__ import annotations
 
 from viseron.helpers.entity.sensor import SensorEntity
 
-from .entity import CameraEntity
+from . import CameraEntity
 
 
 class CameraSensor(CameraEntity, SensorEntity):

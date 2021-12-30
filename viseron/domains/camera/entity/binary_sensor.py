@@ -1,17 +1,17 @@
-"""Binary sensor that represents connection to camera."""
+"""Binary sensor for a camera."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
 from viseron.helpers.entity.binary_sensor import BinarySensorEntity
 
-from .const import EVENT_RECORDER_START, EVENT_RECORDER_STOP, EVENT_STATUS
-from .entity import CameraEntity
+from ..const import EVENT_RECORDER_START, EVENT_RECORDER_STOP, EVENT_STATUS
+from . import CameraEntity
 
 if TYPE_CHECKING:
     from viseron import EventData, Viseron
 
-    from . import AbstractCamera
+    from .. import AbstractCamera
 
 
 class CameraBinarySensor(CameraEntity, BinarySensorEntity):

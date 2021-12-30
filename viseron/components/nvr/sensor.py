@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from viseron.domains.camera.sensor import CameraSensor
+from viseron.domains.camera.entity.sensor import CameraSensor
 
 from .const import EVENT_OPERATION_STATE
 

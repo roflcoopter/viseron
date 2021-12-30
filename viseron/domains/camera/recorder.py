@@ -14,7 +14,6 @@ import numpy as np
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.helpers import draw_objects
 
-from .binary_sensor import RecorderBinarySensor
 from .const import (
     CONFIG_EXTENSION,
     CONFIG_FILENAME_PATTERN,
@@ -26,7 +25,8 @@ from .const import (
     EVENT_RECORDER_START,
     EVENT_RECORDER_STOP,
 )
-from .image import ThumbnailImage
+from .entity.binary_sensor import RecorderBinarySensor
+from .entity.image import ThumbnailImage
 from .shared_frames import SharedFrame
 
 if TYPE_CHECKING:
