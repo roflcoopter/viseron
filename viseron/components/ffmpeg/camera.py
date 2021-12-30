@@ -209,7 +209,6 @@ class Camera(AbstractCamera):
 
     def read_frames(self):
         """Read frames from camera."""
-        self._capture_frames = True
         self.decode_error.clear()
         self._poll_timer[0] = datetime.datetime.now().timestamp()
         empty_frames = 0
@@ -250,6 +249,7 @@ class Camera(AbstractCamera):
     def start_camera(self):
         """Start capturing frames from camera."""
         self._logger.debug("Starting capture thread")
+        self._capture_frames = True
         if not self._frame_reader or not self._frame_reader.is_alive():
             self._frame_reader = RestartableThread(
                 name="viseron.camera." + self.identifier,
@@ -308,3 +308,8 @@ class Camera(AbstractCamera):
     def is_recording(self):
         """Return recording status."""
         return self._recorder.is_recording
+
+    @property
+    def is_on(self):
+        """Return if camera is on."""
+        return self._frame_reader.is_alive()

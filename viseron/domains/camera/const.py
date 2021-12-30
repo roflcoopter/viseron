@@ -12,6 +12,9 @@ EVENT_STATUS_CONNECTED = "connected"
 EVENT_RECORDER_START = "{camera_identifier}/recorder/start"
 EVENT_RECORDER_STOP = "{camera_identifier}/recorder/stop"
 
+EVENT_CAMERA_START = "{camera_identifier}/camera/start"
+EVENT_CAMERA_STOP = "{camera_identifier}/camera/stop"
+
 
 # MJPEG_STREAM_SCHEMA constants
 CONFIG_MJPEG_WIDTH = "width"

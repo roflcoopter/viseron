@@ -14,7 +14,6 @@ from viseron.components.data_stream import (
 )
 from viseron.helpers.validators import ensure_slug
 
-from .binary_sensor import ConnectionStatusBinarySensor
 from .const import (
     CONFIG_EXTENSION,
     CONFIG_FILENAME_PATTERN,
@@ -62,6 +61,8 @@ from .const import (
     EVENT_STATUS_CONNECTED,
     EVENT_STATUS_DISCONNECTED,
 )
+from .entity.binary_sensor import ConnectionStatusBinarySensor
+from .entity.toggle import CameraConnectionToggle
 from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
@@ -164,6 +165,7 @@ class AbstractCamera(ABC):
             camera_identifier=self.identifier
         )
         vis.add_entity(component, ConnectionStatusBinarySensor(vis, self))
+        vis.add_entity(component, CameraConnectionToggle(vis, self))
 
     @abstractmethod
     def start_camera(self):
@@ -217,6 +219,16 @@ class AbstractCamera(ABC):
     @abstractmethod
     def is_recording(self):
         """Return recording status."""
+
+    @property
+    @abstractmethod
+    def is_on(self):
+        """Return if camera is on.
+
+        Not the same as self.connected below.
+        A camera can be on (or armed) while still being disconnected, eg during
+        network outages.
+        """
 
     @property
     def connected(self):
