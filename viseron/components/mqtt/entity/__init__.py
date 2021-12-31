@@ -9,6 +9,7 @@ from viseron.components.mqtt.helpers import PublishPayload
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.components.mqtt import MQTT
     from viseron.helpers.entity import Entity
 
 
@@ -20,7 +21,7 @@ class MQTTEntity:
         self._config = config
         self.entity = entity
 
-        self._mqtt = vis.data[MQTT_COMPONENT]
+        self._mqtt: MQTT = vis.data[MQTT_COMPONENT]
 
     @property
     def state_topic(self):

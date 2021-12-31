@@ -48,6 +48,7 @@ from .entity import MQTTEntity
 from .entity.binary_sensor import BinarySensorMQTTEntity
 from .entity.image import ImageMQTTEntity
 from .entity.sensor import SensorMQTTEntity
+from .entity.toggle import ToggleMQTTEntity
 from .event import EventMQTTEntityAddedData
 from .helpers import PublishPayload, SubscribeTopic
 from .homeassistant import HassMQTTInterface
@@ -114,6 +115,7 @@ DOMAIN_MAP = {
     "binary_sensor": BinarySensorMQTTEntity,
     "image": ImageMQTTEntity,
     "sensor": SensorMQTTEntity,
+    "toggle": ToggleMQTTEntity,
 }
 
 
@@ -147,10 +149,6 @@ class MQTT:
 
         self._entity_creation_lock = threading.Lock()
         self._entities: Dict[str, MQTTEntity] = {}
-        vis.listen_event(EVENT_ENTITY_ADDED, self.entity_added)
-        self.create_entities(vis.get_entities())
-
-        vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
 
     def create_entity(self, entity: Entity):
         """Create entity in Home Assistant."""
@@ -164,7 +162,6 @@ class MQTT:
             else:
                 LOGGER.debug(f"Unsupported domain encountered: {entity.domain}")
                 return
-            mqtt_entity = entity_class(self._vis, self._config, entity)
 
             self._entities[entity.entity_id] = mqtt_entity
             self._vis.dispatch_event(
@@ -194,6 +191,11 @@ class MQTT:
                 f"Could not connect to broker. Returncode: {returncode}: "
                 f"{MQTT_RC.get(returncode, 'Unknown error')}"
             )
+            return
+
+        self._vis.listen_event(EVENT_ENTITY_ADDED, self.entity_added)
+        self.create_entities(self._vis.get_entities())
+        self._vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
 
         # Send initial alive message
         self.publish(
@@ -213,9 +215,17 @@ class MQTT:
 
     def on_message(self, _client, _userdata, msg):
         """On message received."""
-        LOGGER.debug(f"Got topic {msg.topic}, message {str(msg.payload.decode())}")
+        LOGGER.debug(
+            f"Message received on topic {msg.topic}, "
+            f"message {str(msg.payload.decode())}"
+        )
         for callback in self._subscriptions[msg.topic]:
-            callback(msg)
+            # Run callback in thread to not block the message queue
+            threading.Thread(
+                target=callback,
+                args=(msg,),
+                daemon=True,
+            ).start()
 
     def connect(self):
         """Connect to broker."""
@@ -250,6 +260,7 @@ class MQTT:
         if subscription.topic not in self._subscriptions:
             self._client.subscribe(subscription.topic)
 
+        LOGGER.debug(f"Subscribing to topic {subscription.topic}")
         self._subscriptions.setdefault(subscription.topic, [])
         self._subscriptions[subscription.topic].append(subscription.callback)
 
