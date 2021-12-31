@@ -9,8 +9,10 @@ from viseron.components.mqtt.const import COMPONENT, EVENT_MQTT_ENTITY_ADDED
 from viseron.components.mqtt.event import EventMQTTEntityAddedData
 
 from .binary_sensor import HassMQTTBinarySensor
+from .camera import HassMQTTCamera
 from .entity import HassMQTTEntity
 from .sensor import HassMQTTSensor
+from .switch import HassMQTTSwitch
 
 if TYPE_CHECKING:
     from viseron import EventData, Viseron
@@ -20,7 +22,9 @@ LOGGER = logging.getLogger(__name__)
 
 DOMAIN_MAP = {
     "binary_sensor": HassMQTTBinarySensor,
+    "image": HassMQTTCamera,
     "sensor": HassMQTTSensor,
+    "toggle": HassMQTTSwitch,
 }
 
 

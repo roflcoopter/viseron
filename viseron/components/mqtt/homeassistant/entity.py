@@ -108,6 +108,11 @@ class HassMQTTEntity(ABC):
         return self._mqtt_entity.state_topic
 
     @property
+    def icon(self):
+        """Return icon."""
+        return self._mqtt_entity.entity.icon
+
+    @property
     def json_attributes_topic(self):
         """Return json attributes topic."""
         return self._mqtt_entity.attributes_topic
@@ -139,6 +144,9 @@ class HassMQTTEntity(ABC):
 
         if self.device_name and self.device_identifiers:
             payload["device"] = self.device
+
+        if self.icon and self.icon:
+            payload["icon"] = self.icon
 
         return payload
 
