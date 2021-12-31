@@ -3,15 +3,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from viseron.domains.camera.const import (
+    EVENT_CAMERA_START,
+    EVENT_CAMERA_STARTED,
+    EVENT_CAMERA_STOP,
+    EVENT_CAMERA_STOPPED,
+)
 from viseron.helpers.entity.toggle import ToggleEntity
 
-from ..const import EVENT_CAMERA_START, EVENT_CAMERA_STOP
 from . import CameraEntity
 
 if TYPE_CHECKING:
-    from viseron import Viseron
-
-    from .. import AbstractCamera
+    from viseron import EventData, Viseron
+    from viseron.domains.camera import AbstractCamera
 
 
 class CameraToggle(CameraEntity, ToggleEntity):
@@ -25,14 +29,23 @@ class CameraConnectionToggle(CameraToggle):
         super().__init__(vis, camera)
         self.object_id = f"{camera.identifier}_connection"
         self.name = f"{camera.name} Connection"
+        self.icon = "mdi:cctv"
 
         vis.listen_event(
             EVENT_CAMERA_START.format(camera_identifier=self._camera.identifier),
-            self.turn_on,
+            self.handle_start_event,
         )
         vis.listen_event(
             EVENT_CAMERA_STOP.format(camera_identifier=self._camera.identifier),
-            self.turn_off,
+            self.handle_stop_event,
+        )
+        vis.listen_event(
+            EVENT_CAMERA_STARTED.format(camera_identifier=self._camera.identifier),
+            self.handle_started_stopped_event,
+        )
+        vis.listen_event(
+            EVENT_CAMERA_STOPPED.format(camera_identifier=self._camera.identifier),
+            self.handle_started_stopped_event,
         )
 
     @property
@@ -43,9 +56,19 @@ class CameraConnectionToggle(CameraToggle):
     def turn_on(self):
         """Turn on camera."""
         self._camera.start_camera()
-        self.set_state()
 
     def turn_off(self):
         """Turn off camera."""
         self._camera.stop_camera()
+
+    def handle_start_event(self, _event_data: EventData):
+        """Handle camera start event."""
+        self.turn_on()
+
+    def handle_stop_event(self, _event_data: EventData):
+        """Handle recorder stop event."""
+        self.turn_off()
+
+    def handle_started_stopped_event(self, _event_data: EventData):
+        """Handle camera started/stopped event."""
         self.set_state()

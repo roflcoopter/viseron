@@ -317,6 +317,8 @@ class NVR:
         operation_state = "idle"
         if self._camera.is_recording:
             operation_state = "recording"
+        elif not self._camera.is_on:
+            operation_state = "idle"
         elif (
             self._object_detector
             and self._frame_scanners[OBJECT_DETECTOR].scan.is_set()

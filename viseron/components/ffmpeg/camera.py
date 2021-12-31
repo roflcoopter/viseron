@@ -17,6 +17,7 @@ from viseron.domains.camera import (
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
     AbstractCamera,
 )
+from viseron.domains.camera.const import EVENT_CAMERA_STARTED, EVENT_CAMERA_STOPPED
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -178,8 +179,18 @@ class Camera(AbstractCamera):
     """Represents a camera which is consumed via FFmpeg."""
 
     def __init__(self, vis, config, identifier):
+        self._poll_timer = [None]
+        self._frame_reader = RestartableThread(
+            name="viseron.camera." + identifier,
+            target=self.read_frames,
+            poll_timer=self.poll_timer,
+            poll_timeout=config[CONFIG_FRAME_TIMEOUT],
+            poll_target=self.stop_camera,
+            daemon=True,
+            register=True,
+        )
+
         super().__init__(vis, COMPONENT, config, identifier)
-        self._frame_reader = None
         self._capture_frames = False
         self.resolution = None
         self.decode_error = Event()
@@ -243,6 +254,7 @@ class Camera(AbstractCamera):
                 self._logger.error("Did not receive a frame")
                 self.decode_error.set()
 
+        self.connected = False
         self.stream.close_pipe()
         self._logger.debug("FFmpeg frame reader stopped")
 
@@ -261,11 +273,22 @@ class Camera(AbstractCamera):
                 register=True,
             )
             self._frame_reader.start()
+            self._vis.dispatch_event(
+                EVENT_CAMERA_STARTED.format(camera_identifier=self.identifier),
+                None,
+            )
 
     def stop_camera(self):
         """Release the connection to the camera."""
         self._capture_frames = False
+        self._frame_reader.stop()
         self._frame_reader.join()
+        self._vis.dispatch_event(
+            EVENT_CAMERA_STOPPED.format(camera_identifier=self.identifier),
+            None,
+        )
+        if self.is_recording:
+            self.stop_recorder()
 
     def start_recorder(self, shared_frame, objects_in_fov):
         """Start camera recorder."""

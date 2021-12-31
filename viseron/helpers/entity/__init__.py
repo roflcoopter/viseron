@@ -28,12 +28,13 @@ class Entity(ABC):
     _attributes: Dict[Any, Any] = {}
 
     # Used by Home Assistant, safe to override
+    availability: List[Dict[str, str]] | None = None
+    availability_mode: str = "all"
     device_name: str | None = None
     device_identifiers: List[str] | None = None
     enabled_by_default: bool = True
     entity_category: str | None = None
-    availability: List[Dict[str, str]] | None = None
-    availability_mode: str = "all"
+    icon: str | None = None
 
     @property
     def state(self):

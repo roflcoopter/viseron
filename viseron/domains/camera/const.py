@@ -14,6 +14,8 @@ EVENT_RECORDER_STOP = "{camera_identifier}/recorder/stop"
 
 EVENT_CAMERA_START = "{camera_identifier}/camera/start"
 EVENT_CAMERA_STOP = "{camera_identifier}/camera/stop"
+EVENT_CAMERA_STARTED = "{camera_identifier}/camera/started"
+EVENT_CAMERA_STOPPED = "{camera_identifier}/camera/stopped"
 
 
 # MJPEG_STREAM_SCHEMA constants
