@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List
 
 import voluptuous as vol
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from viseron.cleanup import Cleanup
 from viseron.components import setup_components
@@ -140,6 +141,11 @@ class Viseron:
         self._camera_register_lock = threading.Lock()
         self.data[REGISTERED_CAMERAS] = {}
         self._wait_for_camera_store = {}
+
+        self._periodic_update_scheduler = BackgroundScheduler(
+            timezone="UTC", daemon=True
+        )
+        self._periodic_update_scheduler.start()
 
     def register_signal_handler(self, viseron_signal, callback):
         """Register a callback which gets called on signals emitted by Viseron.
@@ -284,6 +290,8 @@ class Viseron:
             data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
             data_stream.publish_data(VISERON_SIGNALS["shutdown"])
 
+        self._periodic_update_scheduler.shutdown()
+
         def join(thread_or_process):
             thread_or_process.join(timeout=8)
             time.sleep(0.5)  # Wait for process to exit properly
@@ -316,6 +324,12 @@ class Viseron:
     def get_entities(self):
         """Return all registered entities."""
         return self.states.get_entities()
+
+    def schedule_periodic_update(self, entity: Entity, update_interval: int):
+        """Schedule entity update at a fixed interval."""
+        self._periodic_update_scheduler.add_job(
+            entity.update, "interval", seconds=update_interval
+        )
 
     def setup(self):
         """Set up Viseron."""

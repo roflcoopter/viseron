@@ -62,3 +62,7 @@ class Entity(ABC):
             raise RuntimeError(f"Attribute vis has not been set for {self}")
 
         self.vis.states.set_state(self)
+
+    def update(self):
+        """Update entity."""
+        raise NotImplementedError()

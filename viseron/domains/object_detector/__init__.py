@@ -1,6 +1,7 @@
 """Object detector domain."""
 from __future__ import annotations
 
+import collections
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -59,6 +60,7 @@ from .const import (
     EVENT_OBJECTS_IN_FOV,
 )
 from .detected_object import DetectedObject, EventDetectedObjectsData
+from .sensor import ObjectDetectorFPSSensor
 from .zone import Zone
 
 
@@ -152,6 +154,10 @@ class AbstractObjectDetector(ABC):
         self._objects_in_fov: List[DetectedObject] = []
         self.object_filters = {}
 
+        self._preproc_fps = collections.deque(maxlen=50)
+        self._inference_fps = collections.deque(maxlen=50)
+        self._theoretical_max_fps = collections.deque(maxlen=50)
+
         self._mask = []
         if config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK]:
             self._mask = generate_mask(
@@ -200,6 +206,7 @@ class AbstractObjectDetector(ABC):
 
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
         vis.add_entity(component, ObjectDetectedBinarySensorFoV(vis, self._camera))
+        vis.add_entity(component, ObjectDetectorFPSSensor(vis, self, self._camera))
 
     def concat_labels(self) -> List[Filter]:
         """Return a concatenated list of global filters + all filters in each zone."""
@@ -271,10 +278,11 @@ class AbstractObjectDetector(ABC):
         while not self._kill_received:
             try:
                 shared_frame: SharedFrame = self.object_detection_queue.get(timeout=1)
+                frame_time = time.time()
             except Empty:
                 continue
 
-            if (frame_age := time.time() - shared_frame.capture_time) > self._config[
+            if (frame_age := frame_time - shared_frame.capture_time) > self._config[
                 CONFIG_CAMERAS
             ][shared_frame.camera_identifier][CONFIG_MAX_FRAME_AGE]:
                 self._logger.debug(f"Frame is {frame_age} seconds old. Discarding")
@@ -284,8 +292,12 @@ class AbstractObjectDetector(ABC):
                 shared_frame
             )
             preprocessed_frame = self.preprocess(decoded_frame)
+            self._preproc_fps.append(1 / (time.time() - frame_time))
 
+            frame_time = time.time()
             objects = self.return_objects(preprocessed_frame)
+            self._inference_fps.append(1 / (time.time() - frame_time))
+
             self.filter_fov(shared_frame, objects)
             self.filter_zones(shared_frame, objects)
             self._vis.data[DATA_STREAM_COMPONENT].publish_data(
@@ -294,6 +306,7 @@ class AbstractObjectDetector(ABC):
                 ),
                 self.objects_in_fov,
             )
+            self._theoretical_max_fps.append(1 / (time.time() - frame_time))
         self._logger.debug("Object detection thread stopped")
 
     @abstractmethod
@@ -321,6 +334,28 @@ class AbstractObjectDetector(ABC):
     def min_confidence(self) -> float:
         """Return the minimum confidence of all tracked labels."""
         return self._min_confidence
+
+    @staticmethod
+    def _avg_fps(fps_deque: collections.deque):
+        """Calculate the average fps from a deuqe of measurements."""
+        if fps_deque:
+            return round(sum(fps_deque) / len(fps_deque))
+        return 0
+
+    @property
+    def preproc_fps(self):
+        """Return the image preprocessor average fps."""
+        return self._avg_fps(self._preproc_fps)
+
+    @property
+    def inference_fps(self):
+        """Return the detector inferenace average fps."""
+        return self._avg_fps(self._inference_fps)
+
+    @property
+    def theoretical_max_fps(self):
+        """Return the theoretical max average fps."""
+        return self._avg_fps(self._theoretical_max_fps)
 
     def stop(self):
         """Stop object detector."""

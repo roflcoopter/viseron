@@ -19,6 +19,7 @@ class FaceDetectionBinarySensor(CameraBinarySensor):
         super().__init__(vis, camera)
         self.object_id = f"{camera.identifier}_face_detected_{face}"
         self.name = f"{camera.name} Face Detected {face.capitalize()}"
+        self.icon = "mdi:face-recognition"
 
         self._detected = False
 
