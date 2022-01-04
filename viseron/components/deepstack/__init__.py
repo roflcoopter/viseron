@@ -75,8 +75,8 @@ def setup(vis: Viseron, config):
     """Set up the edgetpu component."""
     config = config[COMPONENT]
     if config.get(CONFIG_OBJECT_DETECTOR, None):
-        setup_domain(vis, config, COMPONENT, CONFIG_OBJECT_DETECTOR)
+        setup_domain(vis, COMPONENT, CONFIG_OBJECT_DETECTOR, config)
     if config.get(CONFIG_FACE_RECOGNITION, None):
-        setup_domain(vis, config, COMPONENT, CONFIG_FACE_RECOGNITION)
+        setup_domain(vis, COMPONENT, CONFIG_FACE_RECOGNITION, config)
 
     return True

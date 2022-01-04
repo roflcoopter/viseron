@@ -219,7 +219,7 @@ class Viseron:
         return self.data[REGISTERED_OBJECT_DETECTORS][detector_name]
 
     def register_motion_detector(self, camera_identifier, detector):
-        """Register an motion detector that can be used by components."""
+        """Register a motion detector that can be used by components."""
         LOGGER.debug(f"Registering motion detector for camera: {camera_identifier}")
         topic = DATA_MOTION_DETECTOR_SCAN.format(camera_identifier=camera_identifier)
         self.data[DATA_STREAM_COMPONENT].subscribe_data(
@@ -315,11 +315,15 @@ class Viseron:
 
     def add_entity(self, component: str, entity: Entity):
         """Add entity to states registry."""
-        self.states.add_entity(self.data[LOADING][component], entity)
+        component_instance = self.data[LOADED].get(component, None)
+        if not component_instance:
+            component_instance = self.data[LOADING][component]
+        self.states.add_entity(component_instance, entity)
 
     def add_entities(self, component: str, entities: List[Entity]):
         """Add entities to states registry."""
-        self.states.add_entities(self.data[LOADING][component], entities)
+        for entity in entities:
+            self.add_entity(component, entity)
 
     def get_entities(self):
         """Return all registered entities."""
@@ -479,11 +483,6 @@ class States:
                 EventEntityAddedData(entity),
             )
             self.set_state(entity)
-
-    def add_entities(self, component: Component, entities: List[Entity]):
-        """Add entities to states registry."""
-        for entity in entities:
-            self.add_entity(component, entity)
 
     def get_entities(self):
         """Return all registered entities."""

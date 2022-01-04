@@ -7,8 +7,7 @@ from viseron.const import LOADING
 LOGGER = logging.getLogger(__name__)
 
 
-def setup_domain(vis, config, component, domain):
-    """Set up single component."""
-    LOGGER.info(f"Setting up domain {domain} for component {component}")
+def setup_domain(vis, component, domain, config):
+    """Set up single domain."""
     component_instance: Component = vis.data[LOADING][component]
-    component_instance.setup_domain(config, domain)
+    component_instance.add_domain_to_setup(domain, config)

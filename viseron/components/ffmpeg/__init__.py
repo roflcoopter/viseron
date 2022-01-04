@@ -1,7 +1,6 @@
 """FFmpeg component."""
 
 import logging
-import threading
 
 import voluptuous as vol
 
@@ -9,12 +8,12 @@ from viseron import Viseron
 from viseron.domains import setup_domain
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 
-from .const import COMPONENT, CONFIG_CAMERAS
+from .const import COMPONENT, CONFIG_CAMERA
 
 CONFIG_SCHEMA = vol.Schema(
     {
         COMPONENT: {
-            vol.Required(CONFIG_CAMERAS): {str: object},
+            vol.Required(CONFIG_CAMERA): {str: object},
         },
     },
     extra=vol.ALLOW_EXTRA,
@@ -28,27 +27,9 @@ def setup(vis: Viseron, config):
     config = config[COMPONENT]
     vis.data[COMPONENT] = {}
 
-    setup_threads = []
-    for camera_identifier, camera_config in config[CONFIG_CAMERAS].items():
+    for camera_identifier, camera_config in config[CONFIG_CAMERA].items():
         pruned_config = {}
         pruned_config[camera_identifier] = camera_config
-        setup_threads.append(
-            threading.Thread(
-                target=setup_domain,
-                args=(
-                    vis,
-                    pruned_config,
-                    COMPONENT,
-                    CAMERA_DOMAIN,
-                ),
-                daemon=True,
-                name="ffmpeg_camera_setup",
-            )
-        )
-
-    for thread in setup_threads:
-        thread.start()
-    for thread in setup_threads:
-        thread.join()
+        setup_domain(vis, COMPONENT, CAMERA_DOMAIN, pruned_config)
 
     return True

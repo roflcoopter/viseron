@@ -83,7 +83,7 @@ def setup(vis: Viseron, config):
     config = config[COMPONENT]
     vis.data[COMPONENT] = EdgeTPU(vis, config[CONFIG_OBJECT_DETECTOR])
     for domain in config.keys():
-        setup_domain(vis, config, COMPONENT, domain)
+        setup_domain(vis, COMPONENT, domain, config)
 
     return True
 

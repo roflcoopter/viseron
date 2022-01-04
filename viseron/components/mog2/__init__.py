@@ -68,6 +68,6 @@ def setup(vis: Viseron, config):
     """Set up the mog2 component."""
     config = config[COMPONENT]
     for domain in config.keys():
-        setup_domain(vis, config, COMPONENT, domain)
+        setup_domain(vis, COMPONENT, domain, config)
 
     return True

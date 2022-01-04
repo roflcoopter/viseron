@@ -86,11 +86,11 @@ CONFIG_SCHEMA = vol.Schema(
 
 
 def setup(vis: Viseron, config):
-    """Set up the edgetpu component."""
+    """Set up the darknet component."""
     config = config[COMPONENT]
     vis.data[COMPONENT] = Darknet(vis, config[CONFIG_OBJECT_DETECTOR])
     for domain in config.keys():
-        setup_domain(vis, config, COMPONENT, domain)
+        setup_domain(vis, COMPONENT, domain, config)
 
     return True
 

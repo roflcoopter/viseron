@@ -1,12 +1,15 @@
 """Viseron components."""
+import concurrent
 import importlib
 import logging
 import threading
+import time
 import traceback
 
 import voluptuous as vol
 
 from viseron.const import FAILED, LOADED, LOADING
+from viseron.exceptions import DomainNotReady
 
 LOGGING_COMPONENTS = ["logger"]
 CORE_COMPONENTS = ["data_stream"]
@@ -27,10 +30,13 @@ LOGGER = logging.getLogger(__name__)
 class Component:
     """Represents a Viseron component."""
 
-    def __init__(self, vis, path, name):
+    def __init__(self, vis, path, name, config):
         self._vis = vis
         self._path = path
         self._name = name
+        self._config = config
+
+        self.domains_to_setup = []
 
     def __str__(self):
         """Return string representation."""
@@ -50,11 +56,11 @@ class Component:
         """Return component module."""
         return importlib.import_module(self._path)
 
-    def validate_component_config(self, config, component_module):
+    def validate_component_config(self, component_module):
         """Validate component config."""
         if hasattr(component_module, "CONFIG_SCHEMA"):
             try:
-                return component_module.CONFIG_SCHEMA(config)  # type: ignore
+                return component_module.CONFIG_SCHEMA(self._config)  # type: ignore
             except vol.Invalid as ex:
                 LOGGER.exception(f"Error setting up component {self.name}: {ex}")
                 return None
@@ -63,10 +69,10 @@ class Component:
                 return None
         return True
 
-    def setup_component(self, config):
+    def setup_component(self):
         """Set up component."""
         component_module = self.get_component()
-        config = self.validate_component_config(config, component_module)
+        config = self.validate_component_config(component_module)
 
         if config:
             try:
@@ -78,6 +84,10 @@ class Component:
                 )
 
         return False
+
+    def add_domain_to_setup(self, domain, config):
+        """Add a domain to setup queue."""
+        self.domains_to_setup.append({"domain": domain, "config": config})
 
     def get_domain(self, domain):
         """Return domain module."""
@@ -100,14 +110,28 @@ class Component:
                 return None
         return config
 
-    def setup_domain(self, config, domain):
+    def setup_domain(self, domain, config):
         """Set up domain."""
+        LOGGER.info(f"Setting up domain {domain} for component {self.name}")
         domain_module = self.get_domain(domain)
         config = self.validate_domain_config(config, domain, domain_module)
 
         if config:
             try:
                 return domain_module.setup(self._vis, config)
+            except DomainNotReady:
+                LOGGER.error(
+                    f"Domain {domain} for component {self.name} is not ready. "
+                    "Retrying later"
+                )
+                threading.Timer(
+                    10,
+                    self.setup_domain,
+                    args=(
+                        domain,
+                        config,
+                    ),
+                ).start()
             except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.exception(
                     f"Uncaught exception setting up domain {domain} for "
@@ -116,22 +140,22 @@ class Component:
         return False
 
 
-def get_component(vis, component):
+def get_component(vis, component, config):
     """Get configured component."""
     from viseron import (  # pylint: disable=import-outside-toplevel,import-self
         components,
     )
 
     for _ in components.__path__:
-        return Component(vis, f"{components.__name__}.{component}", component)
+        return Component(vis, f"{components.__name__}.{component}", component, config)
 
 
-def setup_component(vis, component: Component, config):
+def setup_component(vis, component: Component):
     """Set up single component."""
     LOGGER.info(f"Setting up {component.name}")
     try:
         vis.data[LOADING][component.name] = component
-        if component.setup_component(config):
+        if component.setup_component():
             vis.data[LOADED][component.name] = component
             del vis.data[LOADING][component.name]
         else:
@@ -143,6 +167,39 @@ def setup_component(vis, component: Component, config):
         LOGGER.error(f"Failed to load component {component.name}: {err}")
         vis.data[FAILED][component.name] = component
         del vis.data[LOADING][component.name]
+
+
+def setup_domains(vis):
+    """Set up all domains."""
+    setup_threads = []
+    for component in vis.data[LOADED].values():
+        for domain_to_setup in component.domains_to_setup:
+            setup_threads.append(
+                threading.Thread(
+                    target=component.setup_domain,
+                    args=(
+                        domain_to_setup["domain"],
+                        domain_to_setup["config"],
+                    ),
+                    name=f"{component}_setup_{domain_to_setup['domain']}",
+                )
+            )
+    for thread in setup_threads:
+        thread.start()
+
+    def join(thread):
+        thread.join(timeout=30)
+        time.sleep(0.5)  # Wait for thread to exit properly
+        if thread.is_alive():
+            LOGGER.error(f"{thread.name} did not finish in time")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+        setup_thread_future = {
+            executor.submit(join, setup_thread): setup_thread
+            for setup_thread in setup_threads
+        }
+        for future in concurrent.futures.as_completed(setup_thread_future):
+            future.result()
 
 
 def setup_components(vis, config):
@@ -158,11 +215,11 @@ def setup_components(vis, config):
 
     # Setup logger first
     for component in LOGGING_COMPONENTS:
-        setup_component(vis, get_component(vis, component), config)
+        setup_component(vis, get_component(vis, component, config))
 
     # Setup core components
     for component in CORE_COMPONENTS:
-        setup_component(vis, get_component(vis, component), config)
+        setup_component(vis, get_component(vis, component, config))
 
     # Setup components in parallel
     setup_threads = []
@@ -170,14 +227,29 @@ def setup_components(vis, config):
         setup_threads.append(
             threading.Thread(
                 target=setup_component,
-                args=(vis, get_component(vis, component), config),
+                args=(vis, get_component(vis, component, config)),
+                name=f"{component}_setup",
             )
         )
     for thread in setup_threads:
         thread.start()
-    for thread in setup_threads:
-        thread.join()
+
+    def join(thread):
+        thread.join(timeout=30)
+        time.sleep(0.5)  # Wait for thread to exit properly
+        if thread.is_alive():
+            LOGGER.error(f"{thread.name} did not finish in time")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+        setup_thread_future = {
+            executor.submit(join, setup_thread): setup_thread
+            for setup_thread in setup_threads
+        }
+        for future in concurrent.futures.as_completed(setup_thread_future):
+            future.result()
+
+    setup_domains(vis)
 
     # Setup NVRs last
     for component in LAST_STAGE_COMPONENTS:
-        setup_component(vis, get_component(vis, component), config)
+        setup_component(vis, get_component(vis, component, config))

@@ -6,6 +6,10 @@ class ViseronError(Exception):
     """General Viseron exception occurred."""
 
 
+class DomainNotReady(ViseronError):
+    """Error that indicates that a domain is not ready."""
+
+
 class FFprobeError(ViseronError):
     """Raised when FFprobe returns an error."""
 
