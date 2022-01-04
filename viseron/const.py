@@ -186,3 +186,7 @@ STATE_OFF = "off"
 # Event topic constants
 EVENT_STATE_CHANGED = "state_changed"
 EVENT_ENTITY_ADDED = "entity_added"
+
+# Setup constants
+COMPONENT_RETRY_INTERVAL = 10
+DOMAIN_RETRY_INTERVAL = 10

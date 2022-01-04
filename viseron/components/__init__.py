@@ -8,8 +8,14 @@ import traceback
 
 import voluptuous as vol
 
-from viseron.const import FAILED, LOADED, LOADING
-from viseron.exceptions import DomainNotReady
+from viseron.const import (
+    COMPONENT_RETRY_INTERVAL,
+    DOMAIN_RETRY_INTERVAL,
+    FAILED,
+    LOADED,
+    LOADING,
+)
+from viseron.exceptions import ComponentNotReady, DomainNotReady
 
 LOGGING_COMPONENTS = ["logger"]
 CORE_COMPONENTS = ["data_stream"]
@@ -69,7 +75,7 @@ class Component:
                 return None
         return True
 
-    def setup_component(self):
+    def setup_component(self, tries=1):
         """Set up component."""
         component_module = self.get_component()
         config = self.validate_component_config(component_module)
@@ -77,6 +83,17 @@ class Component:
         if config:
             try:
                 return component_module.setup(self._vis, config)
+            except ComponentNotReady:
+                wait_time = min(tries, 10) * COMPONENT_RETRY_INTERVAL
+                LOGGER.error(
+                    f"Component {self.name} is not ready. "
+                    f"Retrying in {wait_time} seconds"
+                )
+                threading.Timer(
+                    wait_time,
+                    self.setup_component,
+                    kwargs={"tries": tries + 1},
+                ).start()
             except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.error(
                     f"Uncaught exception setting up component {self.name}: {ex}\n"
@@ -110,7 +127,7 @@ class Component:
                 return None
         return config
 
-    def setup_domain(self, domain, config):
+    def setup_domain(self, domain, config, tries=1):
         """Set up domain."""
         LOGGER.info(f"Setting up domain {domain} for component {self.name}")
         domain_module = self.get_domain(domain)
@@ -120,17 +137,19 @@ class Component:
             try:
                 return domain_module.setup(self._vis, config)
             except DomainNotReady:
+                wait_time = min(tries, 10) * DOMAIN_RETRY_INTERVAL
                 LOGGER.error(
                     f"Domain {domain} for component {self.name} is not ready. "
-                    "Retrying later"
+                    f"Retrying in {wait_time} seconds"
                 )
                 threading.Timer(
-                    10,
+                    wait_time,
                     self.setup_domain,
                     args=(
                         domain,
                         config,
                     ),
+                    kwargs={"tries": tries + 1},
                 ).start()
             except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.exception(
