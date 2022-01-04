@@ -11,6 +11,7 @@ from viseron import Viseron
 from viseron.domains import setup_domain
 from viseron.domains.object_detector import BASE_CONFIG_SCHEMA
 from viseron.domains.object_detector.detected_object import DetectedObject
+from viseron.exceptions import ComponentNotReady
 from viseron.helpers import pop_if_full
 from viseron.helpers.child_process_worker import ChildProcessWorker
 
@@ -101,10 +102,14 @@ class EdgeTPU(ChildProcessWorker):
                 model_path="/detectors/models/edgetpu/mobiledet_cpu_model.tflite",
             )
         else:
-            self.interpreter = make_interpreter(
-                config[CONFIG_MODEL_PATH],
-                device=config[CONFIG_DEVICE],
-            )
+            try:
+                self.interpreter = make_interpreter(
+                    config[CONFIG_MODEL_PATH],
+                    device=config[CONFIG_DEVICE],
+                )
+            except ValueError as error:
+                LOGGER.error(f"Error when trying to load EdgeTPU: {error}")
+                raise ComponentNotReady() from error
         self.interpreter.allocate_tensors()
 
         self.tensor_input_details = self.interpreter.get_input_details()
