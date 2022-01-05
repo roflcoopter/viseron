@@ -284,15 +284,16 @@ class MQTT:
 
     def state_changed(self, event_data: EventData):
         """Relay entity state change to MQTT."""
-        entity = event_data.data.entity
+        with self._entity_creation_lock:
+            entity = event_data.data.entity
 
-        if entity.entity_id not in self._entities:
-            LOGGER.error(
-                f"State change triggered for missing entity {entity.entity_id}"
-            )
-            return
+            if entity.entity_id not in self._entities:
+                LOGGER.error(
+                    f"State change triggered for missing entity {entity.entity_id}"
+                )
+                return
 
-        self._entities[entity.entity_id].publish_state()
+            self._entities[entity.entity_id].publish_state()
 
     def stop(self):
         """Stop mqtt client."""
