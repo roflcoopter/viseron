@@ -5,6 +5,7 @@ from threading import Thread
 
 from viseron.domains.camera import CONFIG_LOOKBACK
 from viseron.domains.camera.recorder import AbstractRecorder
+from viseron.helpers import create_directory
 
 from .const import COMPONENT, CONFIG_SEGMENTS_FOLDER, RECORDER
 from .segments import SegmentCleanup, Segments
@@ -26,7 +27,7 @@ class Recorder(AbstractRecorder):
         segments_folder = os.path.join(
             self._recorder_config[CONFIG_SEGMENTS_FOLDER], self._camera.identifier
         )
-        self.create_directory(segments_folder)
+        create_directory(segments_folder)
         self._segmenter = Segments(self._logger, config, segments_folder)
         self._segment_cleanup = SegmentCleanup(
             vis, self._recorder_config, self._camera.identifier, self._logger

@@ -146,37 +146,6 @@ class DetectorConfigSchemaError(ViseronError):
         )
 
 
-class PostProcessorImportError(ViseronError):
-    """Raised when a post processor cannot be imported properly."""
-
-    def __init__(self, processor: str) -> None:
-        """Initialize error."""
-        super().__init__(self)
-        self.processor = processor
-
-    def __str__(self) -> str:
-        """Return string representation."""
-        return (
-            f"Could not import post processor {self.processor}. Check your config.yaml"
-        )
-
-
-class PostProcessorStructureError(ViseronError):
-    """Raised when a post processors structure is wrong."""
-
-    def __init__(self, processor: str) -> None:
-        """Initialize error."""
-        super().__init__(self)
-        self.processor = processor
-
-    def __str__(self) -> str:
-        """Return string representation."""
-        return (
-            f"Could not import post processor {self.processor}. A class named "
-            "Processor which inherits from AbstractProcessor is required"
-        )
-
-
 class MotionModuleNotFoundError(ViseronError):
     """Raised when a motion detector does not exist."""
 

@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import subprocess as sp
-from typing import Dict
 
 from tenacity import (
     Retrying,
@@ -15,7 +14,6 @@ from tenacity import (
     wait_exponential,
 )
 
-from viseron.camera.frame_decoder import FrameDecoder
 from viseron.const import (
     ENV_CUDA_SUPPORTED,
     ENV_FFMPEG_PATH,
@@ -136,7 +134,6 @@ class Stream:
         else:
             raise StreamInformationError(self.width, self.height, self.fps)
 
-        self.decoders: Dict[str, FrameDecoder] = {}
         self.create_symlink()
 
         self._pixel_format = self._output_stream_config[CONFIG_PIX_FMT]

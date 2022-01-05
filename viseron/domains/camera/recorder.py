@@ -4,15 +4,18 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List
 
 import cv2
 import numpy as np
+from apscheduler.schedulers.background import BackgroundScheduler
+from path import Path
 
 from viseron.domains.object_detector.detected_object import DetectedObject
-from viseron.helpers import draw_objects
+from viseron.helpers import create_directory, draw_objects
 
 from .const import (
     CONFIG_EXTENSION,
@@ -20,6 +23,7 @@ from .const import (
     CONFIG_FOLDER,
     CONFIG_IDLE_TIMEOUT,
     CONFIG_RECORDER,
+    CONFIG_RETAIN,
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
     EVENT_RECORDER_START,
@@ -69,21 +73,22 @@ class AbstractRecorder(ABC):
         self._last_recording_start = None
         self._last_recording_end = None
 
+        self._recordings_folder = os.path.join(
+            self._config[CONFIG_RECORDER][CONFIG_FOLDER], self._camera.name
+        )
+        create_directory(self._recordings_folder)
+
+        self._scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
+        self._scheduler.add_job(self.cleanup_recordings, "cron", hour="1")
+        self._scheduler.start()
+        self.cleanup_recordings()
+
         vis.add_entity(component, RecorderBinarySensor(vis, self._camera))
         vis.add_entity(component, ThumbnailImage(vis, self._camera))
 
     def subfolder_name(self, today):
         """Generate name of folder for recording."""
-        return f"{today.year:04}-{today.month:02}-{today.day:02}/{self._camera.name}"
-
-    def create_directory(self, path):
-        """Create a directory."""
-        try:
-            if not os.path.isdir(path):
-                self._logger.debug(f"Creating folder {path}")
-                os.makedirs(path)
-        except FileExistsError:
-            pass
+        return f"{today.year:04}-{today.month:02}-{today.day:02}"
 
     def create_thumbnail(self, file_name, frame, objects, resolution):
         """Create thumbnails, sent to MQTT and/or saved to disk based on config."""
@@ -100,7 +105,7 @@ class AbstractRecorder(ABC):
                 "thumbnails",
                 self._camera.name,
             )
-            self.create_directory(thumbnail_folder)
+            create_directory(thumbnail_folder)
 
             self._logger.debug(f"Saving thumbnail in {thumbnail_folder}")
             if not cv2.imwrite(
@@ -131,18 +136,17 @@ class AbstractRecorder(ABC):
             self._config[CONFIG_RECORDER][CONFIG_FILENAME_PATTERN]
         )
         video_name = (
-            f"{filename_pattern}" f".{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}"
+            f"{filename_pattern}.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}"
         )
         thumbnail_name = self.last_recording_start.strftime(
             self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_FILENAME_PATTERN]
         )
         thumbnail_name = f"{thumbnail_name}.jpg"
+
         # Create foldername
         subfolder = self.subfolder_name(self.last_recording_start)
-        full_path = os.path.join(
-            self._config[CONFIG_RECORDER][CONFIG_FOLDER], subfolder
-        )
-        self.create_directory(full_path)
+        full_path = os.path.join(self._recordings_folder, subfolder)
+        create_directory(full_path)
 
         thumbnail_path = os.path.join(full_path, thumbnail_name)
         thumbnail = self.create_thumbnail(
@@ -225,3 +229,34 @@ class AbstractRecorder(ABC):
     def last_recording_thumbnail_path(self) -> str:
         """Return last recording thumbnail path."""
         return self._last_recording_thumbnail_path
+
+    def cleanup_recordings(self):
+        """Delete all recordings that have past the configured days to retain."""
+        self._logger.debug("Running cleanup")
+        retention_period = time.time() - (
+            self._config[CONFIG_RECORDER][CONFIG_RETAIN] * 24 * 60 * 60
+        )
+        dirs = Path(self._recordings_folder)
+
+        extensions = [
+            f"*.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
+            "*.mp4",
+            "*.mkv",
+            "*.jpg",
+        ]
+        for extension in extensions:
+            files = dirs.walkfiles(extension)
+            for file in files:
+                if file.mtime <= retention_period:
+                    self._logger.debug(f"Removing file {file}")
+                    file.remove()
+
+        folders = dirs.walkdirs("*-*-*")
+        for folder in folders:
+            self._logger.debug(f"Items in {folder}: {len(folder.listdir())}")
+            if len(folder.listdir()) == 0:
+                try:
+                    folder.rmdir()
+                    self._logger.debug(f"Removing directory {folder}")
+                except OSError:
+                    self._logger.error(f"Could not remove directory {folder}")

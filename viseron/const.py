@@ -23,7 +23,6 @@ cameras:
 #  username: <if auth is enabled>
 #  password: <if auth is enabled>
 """
-THREAD_STORE_CATEGORY_NVR = "nvr"
 
 CAMERA_GLOBAL_ARGS = ["-hide_banner"]
 CAMERA_INPUT_ARGS = [

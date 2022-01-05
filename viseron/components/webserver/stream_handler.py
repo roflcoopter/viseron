@@ -13,8 +13,8 @@ from tornado.queues import Queue
 from viseron.components.data_stream import DataStream
 from viseron.components.nvr import COMPONENT as NVR_COMPONENT, NVR, DataProcessedFrame
 from viseron.components.nvr.const import DATA_PROCESSED_FRAME_TOPIC
-from viseron.config.config_camera import MJPEG_STREAM_SCHEMA
 from viseron.const import TOPIC_STATIC_MJPEG_STREAMS
+from viseron.domains.camera import MJPEG_STREAM_SCHEMA
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.helpers import (
     draw_contours,

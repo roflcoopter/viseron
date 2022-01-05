@@ -4,9 +4,8 @@ from __future__ import annotations
 import logging
 import math
 import os
-from collections import Counter
 from queue import Full, Queue
-from typing import TYPE_CHECKING, Any, Callable, Dict, Hashable, List, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Hashable, Tuple
 
 import cv2
 import numpy as np
@@ -14,12 +13,10 @@ import slugify as unicode_slug
 import tornado.queues as tq
 import voluptuous as vol
 
-import viseron.mqtt
 from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
 
 if TYPE_CHECKING:
     from viseron.domains.object_detector.detected_object import DetectedObject
-    from viseron.zones import Zone
 
 LOGGER = logging.getLogger(__name__)
 
@@ -297,56 +294,6 @@ def print_slugs(config: dict):
             f"Name: {camera['name']}, "
             f"slug: {unicode_slug.slugify(camera['name'], separator='_')}"
         )
-
-
-def report_labels(
-    labels,
-    labels_in_fov: List[str],
-    reported_label_count: Dict[str, int],
-    mqtt_devices,
-) -> Tuple[List[str], Dict[str, int]]:
-    """Send on/off to MQTT for labels.
-
-    Only if state has changed since last report.
-    """
-    labels = sorted(labels)
-    if labels == labels_in_fov:
-        return labels_in_fov, reported_label_count
-
-    labels_added = list(set(labels) - set(labels_in_fov))
-    labels_removed = list(set(labels_in_fov) - set(labels))
-
-    # Count occurrences of each label
-    counter: Counter = Counter(labels)
-
-    if viseron.mqtt.MQTT.client:
-        for label in labels_added:
-            attributes = {}
-            attributes["count"] = counter[label]
-            mqtt_devices[label].publish(True, attributes)
-            reported_label_count[label] = counter[label]  # Save reported count
-
-        for label in labels_removed:
-            mqtt_devices[label].publish(False)
-
-        for label, count in counter.items():
-            if reported_label_count.get(label, 0) != count:
-                attributes = {}
-                attributes["count"] = count
-                mqtt_devices[label].publish(True, attributes)
-                reported_label_count[label] = count
-
-    return labels, reported_label_count
-
-
-def combined_objects(
-    objects_in_fov: List["DetectedObject"], zones: List["Zone"]
-) -> List["DetectedObject"]:
-    """Combine the object lists of a frame and all zones."""
-    all_objects = objects_in_fov
-    for zone in zones:
-        all_objects += zone.objects_in_zone
-    return all_objects
 
 
 def key_dependency(

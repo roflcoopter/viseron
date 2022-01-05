@@ -1,10 +1,20 @@
 """Start Viseron."""
+import signal
+
 from viseron import setup_viseron
 
 
 def main():
     """Start Viseron."""
-    setup_viseron()
+    viseron = setup_viseron()
+
+    def signal_term(*_):
+        viseron.shutdown()
+
+    # Listen to signals
+    signal.signal(signal.SIGTERM, signal_term)
+    signal.signal(signal.SIGINT, signal_term)
+    signal.pause()
 
 
 def init():

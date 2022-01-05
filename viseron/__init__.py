@@ -4,7 +4,6 @@ from __future__ import annotations
 import concurrent.futures
 import logging
 import multiprocessing
-import signal
 import sys
 import threading
 import time
@@ -14,14 +13,13 @@ from typing import TYPE_CHECKING, Any, List
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from viseron.cleanup import Cleanup
 from viseron.components import setup_components
 from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
 from viseron.components.nvr import COMPONENT as NVR_COMPONENT
-from viseron.config import VISERON_CONFIG_SCHEMA, NVRConfig, ViseronConfig, load_config
+from viseron.config import load_config
 from viseron.const import (
     FAILED,
     LOADED,
@@ -29,27 +27,18 @@ from viseron.const import (
     REGISTERED_CAMERAS,
     REGISTERED_MOTION_DETECTORS,
     REGISTERED_OBJECT_DETECTORS,
-    THREAD_STORE_CATEGORY_NVR,
     VISERON_SIGNAL_SHUTDOWN,
 )
 from viseron.domains.motion_detector.const import DATA_MOTION_DETECTOR_SCAN
 from viseron.domains.object_detector.const import DATA_OBJECT_DETECTOR_SCAN
-from viseron.exceptions import (
-    FFprobeError,
-    FFprobeTimeout,
-    PostProcessorImportError,
-    PostProcessorStructureError,
-)
 from viseron.helpers.logs import (
     DuplicateFilter,
     SensitiveInformationFilter,
     ViseronLogFormat,
 )
-from viseron.nvr import FFMPEGNVR
-from viseron.post_processors import PostProcessor
 from viseron.states import States
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
-from viseron.watchdog.thread_watchdog import RestartableThread, ThreadWatchDog
+from viseron.watchdog.thread_watchdog import ThreadWatchDog
 
 if TYPE_CHECKING:
     from viseron.helpers.entity import Entity
@@ -97,15 +86,18 @@ def enable_logging():
 
 def setup_viseron():
     """Set up and run Viseron."""
-    vis = Viseron()
     enable_logging()
-
     LOGGER.info("-------------------------------------------")
     LOGGER.info("Initializing...")
 
     config = load_config()
+
+    vis = Viseron()
+
     setup_components(vis, config)
     vis.setup()
+
+    return vis
 
 
 @dataclass
@@ -119,11 +111,7 @@ class EventData:
 class Viseron:
     """Viseron."""
 
-    vis = None
-
     def __init__(self):
-        Viseron.vis = self
-
         self.states = States(self)
 
         self.setup_threads = []
@@ -139,10 +127,11 @@ class Viseron:
         self.data[REGISTERED_CAMERAS] = {}
         self._wait_for_camera_store = {}
 
+        self._thread_watchdog = ThreadWatchDog()
+        self._subprocess_watchdog = SubprocessWatchDog()
         self._periodic_update_scheduler = BackgroundScheduler(
             timezone="UTC", daemon=True
         )
-        self._periodic_update_scheduler.start()
 
     def register_signal_handler(self, viseron_signal, callback):
         """Register a callback which gets called on signals emitted by Viseron.
@@ -283,10 +272,14 @@ class Viseron:
 
     def shutdown(self):
         """Shut down Viseron."""
+        LOGGER.info("Initiating shutdown")
+
         if self.data.get(DATA_STREAM_COMPONENT, None):
             data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
             data_stream.publish_data(VISERON_SIGNALS["shutdown"])
 
+        self._thread_watchdog.stop()
+        self._subprocess_watchdog.stop()
         self._periodic_update_scheduler.shutdown()
 
         def join(thread_or_process):
@@ -309,6 +302,7 @@ class Viseron:
             }
             for future in concurrent.futures.as_completed(thread_or_process_future):
                 future.result()
+        LOGGER.info("Shutdown complete")
 
     def add_entity(self, component: str, entity: Entity):
         """Add entity to states registry."""
@@ -334,102 +328,10 @@ class Viseron:
 
     def setup(self):
         """Set up Viseron."""
-        config = ViseronConfig(VISERON_CONFIG_SCHEMA(load_config()))
-
-        thread_watchdog = ThreadWatchDog()
-        subprocess_watchdog = SubprocessWatchDog()
-
-        schedule_cleanup(config)
-
-        post_processors = {}
-        for (
-            post_processor_type,
-            post_processor_config,
-        ) in config.post_processors.post_processors.items():
-            try:
-                post_processors[post_processor_type] = PostProcessor(
-                    config,
-                    post_processor_type,
-                    post_processor_config,
-                )
-            except (PostProcessorImportError, PostProcessorStructureError) as error:
-                LOGGER.error(
-                    "Error loading post processor {}. {}".format(
-                        post_processor_type, error
-                    )
-                )
-
         if not self.data.get(NVR_COMPONENT):
             LOGGER.warning("No nvr component is configured.")
             self.shutdown()
 
+        self._periodic_update_scheduler.start()
+
         LOGGER.info("Initialization complete")
-
-        def signal_term(*_):
-            LOGGER.info("Initiating shutdown")
-            thread_watchdog.stop()
-            subprocess_watchdog.stop()
-            nvr_threads = RestartableThread.thread_store.get(
-                THREAD_STORE_CATEGORY_NVR, []
-            ).copy()
-            for thread in nvr_threads:
-                thread.stop()
-            for thread in nvr_threads:
-                thread.join()
-
-            self.shutdown()
-            LOGGER.info("Shutdown complete")
-
-        # Listen to signals
-        signal.signal(signal.SIGTERM, signal_term)
-        signal.signal(signal.SIGINT, signal_term)
-        signal.pause()
-
-
-class SetupNVR(RestartableThread):
-    """Thread to setup NVR."""
-
-    def __init__(self, config, camera, detector, register=True):
-        super().__init__(
-            name=f"setup.{camera['name']}",
-            daemon=True,
-            register=register,
-            base_class=SetupNVR,
-            base_class_args=(
-                config,
-                camera,
-                detector,
-            ),
-        )
-        self._config = config
-        self._camera = camera
-        self._detector = detector
-        self.start()
-
-    def run(self):
-        """Validate config and setup NVR."""
-        camera_config = NVRConfig(
-            self._camera,
-            self._config.object_detection,
-            self._config.motion_detection,
-            self._config.recorder,
-            self._config.mqtt,
-        )
-        try:
-            FFMPEGNVR(camera_config, self._detector)
-        except (FFprobeError, FFprobeTimeout) as error:
-            LOGGER.error(
-                f"Failed to initialize camera {camera_config.camera.name}: {error}"
-            )
-        else:
-            # Unregister thread from watchdog only if it succeeds
-            self.stop()
-
-
-def schedule_cleanup(config):
-    """Start timed cleanup of old recordings."""
-    LOGGER.debug("Starting cleanup scheduler")
-    cleanup = Cleanup(config)
-    cleanup.start()
-    LOGGER.debug("Running initial cleanup")
-    cleanup.cleanup()
