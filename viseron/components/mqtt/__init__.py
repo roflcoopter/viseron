@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING, Callable, Dict, List
 import paho.mqtt.client as mqtt
 import voluptuous as vol
 
-from viseron import EventEntityAddedData
 from viseron.const import (
     EVENT_ENTITY_ADDED,
     EVENT_STATE_CHANGED,
     VISERON_SIGNAL_SHUTDOWN,
 )
 from viseron.helpers.validators import none_to_dict
+from viseron.states import EventEntityAddedData
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
