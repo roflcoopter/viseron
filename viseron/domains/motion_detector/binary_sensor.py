@@ -8,7 +8,7 @@ from viseron.domains.camera.entity.binary_sensor import CameraBinarySensor
 from .const import EVENT_MOTION_DETECTED
 
 if TYPE_CHECKING:
-    from viseron import EventData, Viseron
+    from viseron import Event, Viseron
     from viseron.domains.camera import AbstractCamera
 
     from . import AbstractMotionDetector
@@ -38,6 +38,6 @@ class MotionDetectionBinarySensor(CameraBinarySensor):
     def _is_on(self):
         return self._motion_detector.motion_detected
 
-    def handle_event(self, _event_data: EventData):
+    def handle_event(self, _event_data: Event):
         """Handle status event."""
         self.set_state()

@@ -9,7 +9,7 @@ from ..const import EVENT_RECORDER_START, EVENT_RECORDER_STOP, EVENT_STATUS
 from . import CameraEntity
 
 if TYPE_CHECKING:
-    from viseron import EventData, Viseron
+    from viseron import Event, Viseron
 
     from .. import AbstractCamera
 
@@ -37,7 +37,7 @@ class ConnectionStatusBinarySensor(CameraBinarySensor):
     def _is_on(self):
         return self._camera.connected
 
-    def handle_event(self, _event_data: EventData):
+    def handle_event(self, _event_data: Event):
         """Handle status event."""
         self.set_state()
 
@@ -60,7 +60,7 @@ class RecorderBinarySensor(CameraBinarySensor):
             self.handle_stop_event,
         )
 
-    def handle_start_event(self, event_data: EventData):
+    def handle_start_event(self, event_data: Event):
         """Handle recorder start event."""
         attributes = {}
         attributes["last_recording_start"] = event_data.data.start_time.isoformat()
@@ -73,7 +73,7 @@ class RecorderBinarySensor(CameraBinarySensor):
         self._is_on = True
         self.set_state()
 
-    def handle_stop_event(self, event_data: EventData):
+    def handle_stop_event(self, event_data: Event):
         """Handle recorder stop event."""
         attributes = {}
         attributes["last_recording_start"] = event_data.data.start_time.isoformat()

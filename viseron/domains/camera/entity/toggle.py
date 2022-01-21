@@ -14,7 +14,7 @@ from viseron.helpers.entity.toggle import ToggleEntity
 from . import CameraEntity
 
 if TYPE_CHECKING:
-    from viseron import EventData, Viseron
+    from viseron import Event, Viseron
     from viseron.domains.camera import AbstractCamera
 
 
@@ -61,14 +61,14 @@ class CameraConnectionToggle(CameraToggle):
         """Turn off camera."""
         self._camera.stop_camera()
 
-    def handle_start_event(self, _event_data: EventData):
+    def handle_start_event(self, _event_data: Event):
         """Handle camera start event."""
         self.turn_on()
 
-    def handle_stop_event(self, _event_data: EventData):
+    def handle_stop_event(self, _event_data: Event):
         """Handle recorder stop event."""
         self.turn_off()
 
-    def handle_started_stopped_event(self, _event_data: EventData):
+    def handle_started_stopped_event(self, _event_data: Event):
         """Handle camera started/stopped event."""
         self.set_state()

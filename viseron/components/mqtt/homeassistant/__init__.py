@@ -15,7 +15,7 @@ from .sensor import HassMQTTSensor
 from .switch import HassMQTTSwitch
 
 if TYPE_CHECKING:
-    from viseron import EventData, Viseron
+    from viseron import Event, Viseron
     from viseron.components.mqtt.entity import MQTTEntity
 
 LOGGER = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ class HassMQTTInterface:
         for entity in entities.values():
             self.create_entity(entity)
 
-    def entity_added(self, event_data: EventData):
+    def entity_added(self, event_data: Event):
         """Add entity to Home Assistant when its added to Viseron."""
         entity_added_data: EventMQTTEntityAddedData = event_data.data
         self.create_entity(entity_added_data.mqtt_entity)

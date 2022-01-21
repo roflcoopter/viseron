@@ -9,7 +9,7 @@ from ..const import EVENT_RECORDER_START
 from . import CameraEntity
 
 if TYPE_CHECKING:
-    from viseron import EventData, Viseron
+    from viseron import Event, Viseron
 
     from .. import AbstractCamera
 
@@ -32,7 +32,7 @@ class ThumbnailImage(CameraImage):
             self.handle_event,
         )
 
-    def handle_event(self, event_data: EventData):
+    def handle_event(self, event_data: Event):
         """Handle recorder start event."""
         attributes = {}
         attributes["recording_start"] = event_data.data.start_time.isoformat()

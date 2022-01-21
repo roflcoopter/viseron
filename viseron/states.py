@@ -5,7 +5,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Any, Dict
 
 from viseron.const import EVENT_ENTITY_ADDED, EVENT_STATE_CHANGED
 from viseron.helpers import slugify
@@ -22,9 +22,21 @@ LOGGER = logging.getLogger(__name__)
 class EventStateChangedData:
     """State changed event data."""
 
-    entity: Entity
+    entity_id: str
     previous_state: State | None
     current_state: State
+
+    _as_dict: dict[str, Any] | None = None
+
+    def as_dict(self):
+        """Return state changed event as dict."""
+        if not self._as_dict:
+            self._as_dict = {
+                "entity_id": self.entity_id,
+                "previous_state": self.previous_state,
+                "current_state": self.current_state,
+            }
+        return self._as_dict
 
 
 @dataclass
@@ -37,11 +49,33 @@ class EventEntityAddedData:
 class State:
     """Hold the state of a single entity."""
 
-    def __init__(self, entity: Entity, state: str, attributes: dict):
-        self.entity = entity
+    def __init__(
+        self,
+        entity_id: str,
+        state: str,
+        json_serializable_state,
+        attributes: dict,
+        json_serializable_attributes,
+    ):
+        self.entity_id = entity_id
         self.state = state
         self.attributes = attributes
+        self.json_serializable_state = json_serializable_state
+        self.json_serializable_attributes = json_serializable_attributes
         self.timestamp = time.time()
+
+        self._as_dict: dict[str, Any] | None = None
+
+    def as_dict(self):
+        """Return state as dict."""
+        if not self._as_dict:
+            self._as_dict = {
+                "entity_id": self.entity_id,
+                "state": self.json_serializable_state,
+                "attributes": self.json_serializable_attributes,
+                "timestamp": self.timestamp,
+            }
+        return self._as_dict
 
 
 class States:
@@ -64,12 +98,22 @@ class States:
         )
 
         previous_state = self._current_states.get(entity.entity_id, None)
-        current_state = State(entity, entity.state, entity.attributes)
+        current_state = State(
+            entity.entity_id,
+            entity.state,
+            entity.json_serializable_state,
+            entity.attributes,
+            entity.json_serializable_attributes,
+        )
 
         self._current_states[entity.entity_id] = current_state
         self._vis.dispatch_event(
             EVENT_STATE_CHANGED,
-            EventStateChangedData(entity, previous_state, current_state),
+            EventStateChangedData(
+                entity_id=entity.entity_id,
+                previous_state=previous_state,
+                current_state=current_state,
+            ),
         )
 
     def add_entity(self, component: Component, entity: Entity):

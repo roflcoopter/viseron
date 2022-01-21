@@ -8,7 +8,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, Any, Callable, List
 
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -31,6 +31,7 @@ from viseron.const import (
 )
 from viseron.domains.motion_detector.const import DATA_MOTION_DETECTOR_SCAN
 from viseron.domains.object_detector.const import DATA_OBJECT_DETECTOR_SCAN
+from viseron.exceptions import DataStreamNotLoaded
 from viseron.helpers.logs import (
     DuplicateFilter,
     SensitiveInformationFilter,
@@ -101,11 +102,20 @@ def setup_viseron():
 
 
 @dataclass
-class EventData:
+class Event:
     """Dataclass that holds an event."""
 
     name: str
     data: Any
+    timestamp: float = time.time()
+
+    def as_dict(self) -> dict[str, Any]:
+        """Convert Event to dict."""
+        return {
+            "name": self.name,
+            "data": self.data,
+            "timestamp": self.timestamp,
+        }
 
 
 class Viseron:
@@ -158,25 +168,28 @@ class Viseron:
             f"viseron/signal/{viseron_signal}", callback
         )
 
-    def listen_event(self, event, callback):
+    def listen_event(self, event, callback, ioloop=None) -> Callable[[], None]:
         """Register a listener to an event."""
         if DATA_STREAM_COMPONENT not in self.data[LOADED]:
             LOGGER.error(
                 f"Failed to register event listener for {event}: "
                 f"{DATA_STREAM_COMPONENT} is not loaded"
             )
-            return False
+            raise DataStreamNotLoaded
 
-        return self.data[DATA_STREAM_COMPONENT].subscribe_data(
-            f"event/{event}", callback
-        )
+        data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
+        topic = f"event/{event}"
+        uuid = data_stream.subscribe_data(topic, callback, ioloop=ioloop)
+
+        def unsubscribe():
+            data_stream.unsubscribe_data(topic, uuid)
+
+        return unsubscribe
 
     def dispatch_event(self, event, data):
         """Dispatch an event."""
         event = f"event/{event}"
-        self.data[DATA_STREAM_COMPONENT].publish_data(
-            event, data=EventData(event, data)
-        )
+        self.data[DATA_STREAM_COMPONENT].publish_data(event, data=Event(event, data))
 
     def register_object_detector(self, camera_identifier, detector):
         """Register an object detector that can be used by components."""

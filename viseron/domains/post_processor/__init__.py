@@ -22,7 +22,7 @@ from viseron.watchdog.thread_watchdog import RestartableThread
 from .const import CONFIG_CAMERAS, CONFIG_LABELS
 
 if TYPE_CHECKING:
-    from viseron import EventData, Viseron
+    from viseron import Event, Viseron
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.object_detector.zone import Zone
@@ -97,7 +97,7 @@ class AbstractPostProcessor(ABC):
     def post_process(self):
         """Post processor loop."""
         while True:
-            event_data: EventData = self._post_processor_queue.get()
+            event_data: Event = self._post_processor_queue.get()
             detected_objects_data: EventDetectedObjectsData = event_data.data
             if self._labels:
                 filtered_objects = [

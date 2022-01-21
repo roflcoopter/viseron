@@ -8,7 +8,7 @@ from viseron.domains.camera.entity.binary_sensor import CameraBinarySensor
 from .const import EVENT_FACE_DETECTED, EVENT_FACE_EXPIRED
 
 if TYPE_CHECKING:
-    from viseron import EventData, Viseron
+    from viseron import Event, Viseron
     from viseron.domains.camera import AbstractCamera
 
 
@@ -36,12 +36,12 @@ class FaceDetectionBinarySensor(CameraBinarySensor):
     def _is_on(self):
         return self._detected
 
-    def face_detected(self, _event_data: EventData):
+    def face_detected(self, _event_data: Event):
         """Handle face detected event."""
         self._detected = True
         self.set_state()
 
-    def face_expired(self, _event_data: EventData):
+    def face_expired(self, _event_data: Event):
         """Handle face expired event."""
         self._detected = False
         self.set_state()

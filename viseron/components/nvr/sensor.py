@@ -8,7 +8,7 @@ from viseron.domains.camera.entity.sensor import CameraSensor
 from .const import EVENT_OPERATION_STATE
 
 if TYPE_CHECKING:
-    from viseron import EventData, Viseron
+    from viseron import Event, Viseron
 
     from . import NVR
 
@@ -33,7 +33,7 @@ class OperationStateSensor(CameraSensor):
             self.handle_event,
         )
 
-    def handle_event(self, event_data: EventData):
+    def handle_event(self, event_data: Event):
         """Update sensor state."""
         self._state = event_data.data.operation_state
         self.set_state()

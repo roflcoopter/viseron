@@ -54,7 +54,7 @@ from .helpers import PublishPayload, SubscribeTopic
 from .homeassistant import HassMQTTInterface
 
 if TYPE_CHECKING:
-    from viseron import EventData, Viseron
+    from viseron import Event, Viseron
     from viseron.helpers.entity import Entity
 
 LOGGER = logging.getLogger(__name__)
@@ -174,7 +174,7 @@ class MQTT:
         for entity in entities.values():
             self.create_entity(entity)
 
-    def entity_added(self, event_data: EventData):
+    def entity_added(self, event_data: Event):
         """Add entity to Home Assistant when its added to Viseron."""
         entity_added_data: EventEntityAddedData = event_data.data
         self.create_entity(entity_added_data.entity)
@@ -282,18 +282,16 @@ class MQTT:
                 retain=message.retain,
             )
 
-    def state_changed(self, event_data: EventData):
+    def state_changed(self, event_data: Event):
         """Relay entity state change to MQTT."""
         with self._entity_creation_lock:
-            entity = event_data.data.entity
+            entity_id = event_data.data.entity_id
 
-            if entity.entity_id not in self._entities:
-                LOGGER.error(
-                    f"State change triggered for missing entity {entity.entity_id}"
-                )
+            if entity_id not in self._entities:
+                LOGGER.error(f"State change triggered for missing entity {entity_id}")
                 return
 
-            self._entities[entity.entity_id].publish_state()
+            self._entities[entity_id].publish_state()
 
     def stop(self):
         """Stop mqtt client."""

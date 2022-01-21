@@ -8,7 +8,7 @@ from viseron.domains.camera.entity.binary_sensor import CameraBinarySensor
 from .const import EVENT_OBJECTS_IN_FOV, EVENT_OBJECTS_IN_ZONE
 
 if TYPE_CHECKING:
-    from viseron import EventData, Viseron
+    from viseron import Event, Viseron
     from viseron.domains.camera import AbstractCamera
 
     from .detected_object import DetectedObject
@@ -30,7 +30,7 @@ class ObjectDetectedBinarySensor(CameraBinarySensor):
     def _is_on(self):
         return bool(self._objects)
 
-    def handle_event(self, event_data: EventData):
+    def handle_event(self, event_data: Event):
         """Handle status event."""
         if self._is_on == bool(event_data.data.objects):
             return
@@ -102,7 +102,7 @@ class ObjectDetectedBinarySensorLabel(CameraBinarySensor):
         """Return entity attributes."""
         return {"count": len(self._tracked_label)}
 
-    def handle_event(self, event_data: EventData):
+    def handle_event(self, event_data: Event):
         """Handle status event."""
         tracked_label = [
             label for label in event_data.data.objects if label.label == self._label

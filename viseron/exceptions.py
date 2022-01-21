@@ -14,6 +14,10 @@ class DomainNotReady(ViseronError):
     """Error that indicates that a domain is not ready."""
 
 
+class DataStreamNotLoaded(ViseronError):
+    """Error that indicates that data stream component is not loaded."""
+
+
 class FFprobeError(ViseronError):
     """Raised when FFprobe returns an error."""
 
