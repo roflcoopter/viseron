@@ -1,4 +1,6 @@
 """Used to publish/subscribe to data between different parts of Viseron."""
+from __future__ import annotations
+
 import fnmatch
 import logging
 import multiprocessing as mp
@@ -118,14 +120,26 @@ class DataStream:
     ) -> None:
         """Run callbacks or put to queues."""
         for callback in callbacks.values():
-            if callable(callback["callback"]):
+            if callable(callback["callback"]) and callback["ioloop"] is None:
                 if data:
                     thread = threading.Thread(
-                        target=callback["callback"], args=(data,), daemon=True
+                        target=callback["callback"],
+                        args=(data,),
+                        daemon=True,
                     )
                 else:
-                    thread = threading.Thread(target=callback["callback"], daemon=True)
+                    thread = threading.Thread(
+                        target=callback["callback"],
+                        daemon=True,
+                    )
                 thread.start()
+                continue
+
+            if callable(callback["callback"]) and callback["ioloop"] is not None:
+                if data:
+                    callback["ioloop"].add_callback(callback["callback"], data)
+                else:
+                    callback["ioloop"].add_callback(callback["callback"])
                 continue
 
             if isinstance(callback["callback"], Queue):

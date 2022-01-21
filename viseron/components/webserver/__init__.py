@@ -1,21 +1,31 @@
 """Viseron webserver."""
+from __future__ import annotations
+
 import asyncio
-import datetime
 import logging
 import threading
+from typing import TYPE_CHECKING
 
 import tornado.gen
 import tornado.ioloop
 import tornado.web
-import tornado.websocket
 import voluptuous as vol
 from tornado.routing import PathMatches
 
-from viseron import Viseron
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 
 from .api import APIRouter
-from .const import PATH_STATIC, PATH_TEMPLATES, PREFIX_STATIC
+from .const import (
+    COMPONENT,
+    CONFIG_DEBUG,
+    CONFIG_PORT,
+    DEFAULT_DEBUG,
+    DEFAULT_PORT,
+    PATH_STATIC,
+    PATH_TEMPLATES,
+    PREFIX_STATIC,
+    WEBSOCKET_COMMANDS,
+)
 from .not_found_handler import NotFoundHandler
 from .stream_handler import DynamicStreamHandler, StaticStreamHandler
 from .ui import (
@@ -25,14 +35,12 @@ from .ui import (
     RecordingsHandler,
     SettingsHandler,
 )
+from .websocket_api import WebSocketHandler
+from .websocket_api.commands import subscribe_event
 
-COMPONENT = "webserver"
+if TYPE_CHECKING:
+    from viseron import Viseron
 
-CONFIG_PORT = "port"
-CONFIG_DEBUG = "debug"
-
-DEFAULT_PORT = 8888
-DEFAULT_DEBUG = False
 
 LOGGER = logging.getLogger(__name__)
 
@@ -57,49 +65,12 @@ def setup(vis: Viseron, config):
     config = config[COMPONENT]
     webserver = WebServer(vis, config)
     vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, webserver.stop)
+
+    webserver.register_websocket_command(subscribe_event)
+
     webserver.start()
 
     return True
-
-
-class WebSocketHandler(tornado.websocket.WebSocketHandler):
-    """Websocket handler."""
-
-    def check_origin(self, origin):  # pylint: disable=unused-argument,no-self-use
-        """Check request origin."""
-        return True
-
-    @tornado.gen.coroutine
-    def get_data(self):
-        """Get data."""
-        while True:
-            LOGGER.debug("Write time")
-            try:
-                yield self.write_message(
-                    {
-                        "current_time": datetime.datetime.strftime(
-                            datetime.datetime.now(), "%Y-%m-%d %H:%M:%S"
-                        )
-                    }
-                )
-                yield tornado.gen.sleep(1)
-            except tornado.websocket.WebSocketClosedError:
-                break
-
-    def open(self, *_args: str, **_kwargs: str):
-        """Websocket open."""
-        LOGGER.debug("WebSocket opened")
-        tornado.ioloop.IOLoop.current().add_future(
-            self.get_data(), lambda f: self.close()
-        )
-
-    def on_message(self, message):
-        """Websocket message received."""
-        self.write_message("You said: " + message)
-
-    def on_close(self):  # pylint: disable=no-self-use
-        """Websocket close."""
-        LOGGER.debug("WebSocket closed")
 
 
 class RegularSocketHandler(tornado.web.RequestHandler):
@@ -137,6 +108,10 @@ class WebServer(threading.Thread):
         super().__init__(name="Tornado WebServer", daemon=True)
         self._vis = vis
         self._config = config
+
+        vis.data[COMPONENT] = self
+        vis.data[WEBSOCKET_COMMANDS] = {}
+
         ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(ioloop)
         application = self.create_application()
@@ -161,7 +136,7 @@ class WebServer(threading.Thread):
                     {"vis": self._vis},
                 ),
                 (r"/ws-stream", RegularSocketHandler),
-                (r"/websocket", WebSocketHandler),
+                (r"/websocket", WebSocketHandler, {"vis": self._vis}),
                 (r"/(?P<camera>[A-Za-z0-9_]+)/stream", DeprecatedStreamHandler),
                 (r"/ui/", IndexHandler, {"vis": self._vis}),
                 (r"/ui/about", AboutHandler, {"vis": self._vis}),
@@ -185,10 +160,18 @@ class WebServer(threading.Thread):
         application.add_handlers(
             r".*",
             [
-                (PathMatches(r"/api/.*"), APIRouter(application)),
+                (PathMatches(r"/api/.*"), APIRouter(self._vis, application)),
             ],
         )
         return application
+
+    def register_websocket_command(self, handler):
+        """Register a websocket command."""
+        if handler.command in self._vis.data[WEBSOCKET_COMMANDS]:
+            LOGGER.error(f"Command {handler.command} has already been registered")
+            return
+
+        self._vis.data[WEBSOCKET_COMMANDS][handler.command] = (handler, handler.schema)
 
     def run(self):
         """Start ioloop."""

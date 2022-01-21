@@ -5,7 +5,6 @@ import re
 from typing import Any, Dict, List
 
 import tornado.routing
-from tornado.web import RequestHandler
 
 from viseron.components.webserver.const import (
     STATUS_ERROR_ENDPOINT_NOT_FOUND,
@@ -13,11 +12,12 @@ from viseron.components.webserver.const import (
     STATUS_SUCCESS,
 )
 from viseron.components.webserver.not_found_handler import NotFoundHandler
+from viseron.components.webserver.request_handler import ViseronRequestHandler
 
 LOGGER = logging.getLogger(__name__)
 
 
-class BaseAPIHandler(RequestHandler):
+class BaseAPIHandler(ViseronRequestHandler):
     """Base handler for all API endpoints."""
 
     routes: List[Dict[str, Any]] = []
@@ -99,7 +99,8 @@ class BaseAPIHandler(RequestHandler):
 class APIRouter(tornado.routing.Router):
     """Catch-all API Router."""
 
-    def __init__(self, application, **_kwargs):
+    def __init__(self, vis, application, **_kwargs):
+        self._vis = vis
         self._application = application
 
     def find_handler(self, request, **_kwargs):
@@ -111,7 +112,9 @@ class APIRouter(tornado.routing.Router):
         try:
             handler = getattr(
                 importlib.import_module(
-                    f"viseron.webserver.api.{api_version}".format(api_version)
+                    f"viseron.components.webserver.api.{api_version}".format(
+                        api_version
+                    )
                 ),
                 endpoint_handler,
             )
@@ -124,7 +127,8 @@ class APIRouter(tornado.routing.Router):
 
         # Return handler
         return self._application.get_handler_delegate(
-            request,
-            handler,
+            request=request,
+            target_class=handler,
+            target_kwargs={"vis": self._vis},
             path_args=[request.path],
         )

@@ -107,12 +107,12 @@ class Event:
 
     name: str
     data: Any
-    timestamp: float = time.time()
+    timestamp: float
 
     def as_dict(self) -> dict[str, Any]:
         """Convert Event to dict."""
         return {
-            "name": self.name,
+            "name": self.name.split("/", 1),
             "data": self.data,
             "timestamp": self.timestamp,
         }
@@ -189,7 +189,9 @@ class Viseron:
     def dispatch_event(self, event, data):
         """Dispatch an event."""
         event = f"event/{event}"
-        self.data[DATA_STREAM_COMPONENT].publish_data(event, data=Event(event, data))
+        self.data[DATA_STREAM_COMPONENT].publish_data(
+            event, data=Event(event, data, time.time())
+        )
 
     def register_object_detector(self, camera_identifier, detector):
         """Register an object detector that can be used by components."""

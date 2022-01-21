@@ -3,7 +3,6 @@ import logging
 
 from viseron.components.webserver.api import BaseAPIHandler
 from viseron.components.webserver.const import STATUS_ERROR_INTERNAL
-from viseron.config import ViseronConfig
 
 LOGGER = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ class ConfigAPIHandler(BaseAPIHandler):
     def get_config(self, kwargs):
         """Return Viseron config."""
         try:
-            self.response_success(ViseronConfig.raw_config)
+            self.response_success({})
             return
         except Exception as error:  # pylint: disable=broad-except
             LOGGER.error(

@@ -7,6 +7,7 @@ import time
 import traceback
 
 import voluptuous as vol
+from voluptuous.humanize import humanize_error
 
 from viseron.const import (
     COMPONENT_RETRY_INTERVAL,
@@ -68,7 +69,10 @@ class Component:
             try:
                 return component_module.CONFIG_SCHEMA(self._config)  # type: ignore
             except vol.Invalid as ex:
-                LOGGER.exception(f"Error setting up component {self.name}: {ex}")
+                LOGGER.exception(
+                    f"Error validating config for component {self.name}: "
+                    f"{humanize_error(self._config, ex)}"
+                )
                 return None
             except Exception:  # pylint: disable=broad-except
                 LOGGER.exception("Unknown error calling %s CONFIG_SCHEMA", self.name)
@@ -117,7 +121,9 @@ class Component:
                 return domain_module.CONFIG_SCHEMA(config)  # type: ignore
             except vol.Invalid as ex:
                 LOGGER.exception(
-                    f"Error setting up domain {domain} for component {self.name}: {ex}"
+                    f"Error validating config for domain {domain} and "
+                    f"component {self.name}: "
+                    f"{humanize_error(self._config, ex)}"
                 )
                 return None
             except Exception:  # pylint: disable=broad-except
