@@ -2,14 +2,10 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 from viseron.components.webserver.api import BaseAPIHandler
 from viseron.components.webserver.const import STATUS_ERROR_INTERNAL
 from viseron.const import REGISTERED_CAMERAS
-
-if TYPE_CHECKING:
-    from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -27,17 +23,8 @@ class CamerasAPIHandler(BaseAPIHandler):
 
     def get_cameras(self, kwargs):
         """Return Viseron config."""
-        cameras = {}
-        for camera_identifier in self._vis.data[REGISTERED_CAMERAS]:
-            camera: AbstractCamera = self._vis.data[REGISTERED_CAMERAS][
-                camera_identifier
-            ]
-            camera_info = {}
-            camera_info["identifier"] = camera_identifier
-            camera_info["name"] = camera.name
-            cameras[camera_identifier] = camera_info
         try:
-            self.response_success(cameras)
+            self.response_success(self._vis.data[REGISTERED_CAMERAS])
             return
         except Exception as error:  # pylint: disable=broad-except
             LOGGER.error(

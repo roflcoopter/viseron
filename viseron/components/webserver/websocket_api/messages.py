@@ -1,7 +1,6 @@
 """WebSocket API messages."""
 from __future__ import annotations
 
-import datetime
 import json
 import logging
 from functools import partial
@@ -10,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict
 import voluptuous as vol
 
 from viseron.components.webserver.const import TYPE_RESULT, WS_ERROR_UNKNOWN_ERROR
+from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
     from viseron import Event
@@ -28,19 +28,6 @@ MINIMAL_MESSAGE_SCHEMA = BASE_MESSAGE_SCHEMA.extend(
     },
     extra=vol.ALLOW_EXTRA,
 )
-
-
-class JSONEncoder(json.JSONEncoder):
-    """Helper to convert objects to JSON."""
-
-    def default(self, o: Any) -> Any:
-        """Convert objects."""
-        if isinstance(o, datetime.datetime):
-            return o.isoformat()
-        if hasattr(o, "as_dict"):
-            return o.as_dict()
-
-        return json.JSONEncoder.default(self, o)
 
 
 def message_to_json(message: dict[str, Any]) -> str:

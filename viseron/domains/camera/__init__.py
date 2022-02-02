@@ -167,6 +167,14 @@ class AbstractCamera(ABC):
         vis.add_entity(component, ConnectionStatusBinarySensor(vis, self))
         vis.add_entity(component, CameraConnectionToggle(vis, self))
 
+    def as_dict(self):
+        """Return camera information as dict."""
+        return {
+            "identifier": self.identifier,
+            "name": self.name,
+            "recordings": self.recorder,
+        }
+
     @abstractmethod
     def start_camera(self):
         """Start camera streaming."""

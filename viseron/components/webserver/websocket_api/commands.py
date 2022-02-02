@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Callable
 import tornado
 import voluptuous as vol
 
+from viseron.const import REGISTERED_CAMERAS
+
 from .messages import (
     BASE_MESSAGE_SCHEMA,
     event_message,
@@ -53,3 +55,14 @@ def subscribe_event(connection: WebSocketHandler, message):
         message["event"], forward_event, ioloop=tornado.ioloop.IOLoop.current()
     )
     connection.send_message(result_message(message["command_id"]))
+
+
+@websocket_command({vol.Required("type"): "get_cameras"})
+def get_cameras(connection: WebSocketHandler, message):
+    """Get all registered cameras."""
+    connection.send_message(
+        result_message(
+            message["command_id"],
+            message_to_json(connection.vis.data[REGISTERED_CAMERAS]),
+        )
+    )

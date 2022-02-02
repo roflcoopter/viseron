@@ -1,7 +1,9 @@
 """API request handler."""
 import importlib
+import json
 import logging
 import re
+from functools import partial
 from typing import Any, Dict, List
 
 import tornado.routing
@@ -13,6 +15,7 @@ from viseron.components.webserver.const import (
 )
 from viseron.components.webserver.not_found_handler import NotFoundHandler
 from viseron.components.webserver.request_handler import ViseronRequestHandler
+from viseron.helpers.json import JSONEncoder
 
 LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +30,11 @@ class BaseAPIHandler(ViseronRequestHandler):
         if response is None:
             response = {"success": True}
         self.set_status(STATUS_SUCCESS)
+
+        if isinstance(response, dict):
+            self.finish(partial(json.dumps, cls=JSONEncoder, allow_nan=False)(response))
+            return
+
         self.finish(response)
 
     def response_error(self, status_code, reason):

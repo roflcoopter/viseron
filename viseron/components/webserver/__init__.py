@@ -12,7 +12,11 @@ import tornado.web
 import voluptuous as vol
 from tornado.routing import PathMatches
 
-from viseron.const import VISERON_SIGNAL_SHUTDOWN
+from viseron.const import (
+    EVENT_CAMERA_REGISTERED,
+    REGISTERED_CAMERAS,
+    VISERON_SIGNAL_SHUTDOWN,
+)
 
 from .api import APIRouter
 from .const import (
@@ -36,10 +40,11 @@ from .ui import (
     SettingsHandler,
 )
 from .websocket_api import WebSocketHandler
-from .websocket_api.commands import subscribe_event
+from .websocket_api.commands import get_cameras, subscribe_event
 
 if TYPE_CHECKING:
-    from viseron import Viseron
+    from viseron import Event, Viseron
+    from viseron.domains.camera import AbstractCamera
 
 
 LOGGER = logging.getLogger(__name__)
@@ -67,6 +72,7 @@ def setup(vis: Viseron, config):
     vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, webserver.stop)
 
     webserver.register_websocket_command(subscribe_event)
+    webserver.register_websocket_command(get_cameras)
 
     webserver.start()
 
@@ -114,9 +120,13 @@ class WebServer(threading.Thread):
 
         ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(ioloop)
-        application = self.create_application()
-        application.listen(config[CONFIG_PORT])
+        self.application = self.create_application()
+        self.application.listen(config[CONFIG_PORT])
         self._ioloop = tornado.ioloop.IOLoop.current()
+
+        self._vis.listen_event(EVENT_CAMERA_REGISTERED, self.camera_registered)
+        for camera in self._vis.data[REGISTERED_CAMERAS].values():
+            self._serve_camera_recordings(camera)
 
     def create_application(self):
         """Return tornado web app."""
@@ -144,11 +154,6 @@ class WebServer(threading.Thread):
                 (r"/ui/index", IndexHandler, {"vis": self._vis}),
                 (r"/ui/recordings", RecordingsHandler, {"vis": self._vis}),
                 (r"/ui/settings", SettingsHandler, {"vis": self._vis}),
-                (
-                    r"/recordings/(.*)",
-                    tornado.web.StaticFileHandler,
-                    {"vis": self._vis},
-                ),
                 (r"/", IndexRedirect, {"vis": self._vis}),
             ],
             default_handler_class=NotFoundHandler,
@@ -172,6 +177,24 @@ class WebServer(threading.Thread):
             return
 
         self._vis.data[WEBSOCKET_COMMANDS][handler.command] = (handler, handler.schema)
+
+    def _serve_camera_recordings(self, camera: AbstractCamera):
+        """Serve recordings of each camera in a static file handler."""
+        self.application.add_handlers(
+            r".*",
+            [
+                (
+                    fr"/recordings/{camera.identifier}/(.*)",
+                    tornado.web.StaticFileHandler,
+                    {"path": camera.recorder.recordings_folder},
+                )
+            ],
+        )
+
+    def camera_registered(self, event_data: Event):
+        """Handle camera registering."""
+        camera: AbstractCamera = event_data.data
+        self._serve_camera_recordings(camera)
 
     def run(self):
         """Start ioloop."""

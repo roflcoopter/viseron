@@ -73,10 +73,10 @@ class AbstractRecorder(ABC):
         self._last_recording_start = None
         self._last_recording_end = None
 
-        self._recordings_folder = os.path.join(
-            self._config[CONFIG_RECORDER][CONFIG_FOLDER], self._camera.name
+        self.recordings_folder = os.path.join(
+            self._config[CONFIG_RECORDER][CONFIG_FOLDER], self._camera.identifier
         )
-        create_directory(self._recordings_folder)
+        create_directory(self.recordings_folder)
 
         self._scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
         self._scheduler.add_job(self.cleanup_recordings, "cron", hour="1")
@@ -85,6 +85,35 @@ class AbstractRecorder(ABC):
 
         vis.add_entity(component, RecorderBinarySensor(vis, self._camera))
         vis.add_entity(component, ThumbnailImage(vis, self._camera))
+
+    def as_dict(self):
+        """Return recorder information as dict."""
+        recordings_dict = {}
+        extensions = [
+            f"*.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
+            "*.mp4",
+            "*.mkv",
+        ]
+        dirs = Path(self.recordings_folder)
+        date_folders = dirs.walkdirs("*-*-*")
+        for date_folder in date_folders:
+            if len(date_folder.listdir()) == 0:
+                continue
+
+            daily_recordings = []
+            for extension in extensions:
+                recordings = date_folder.walkfiles(extension)
+                for recording in recordings:
+                    daily_recordings.append(
+                        {
+                            "path": str(recording),
+                            "date": str(date_folder.name),
+                            "filename": str(recording.name),
+                            "thumbnail": f"{str(recording.stem)}.jpg",
+                        }
+                    )
+            recordings_dict[date_folder.name] = daily_recordings
+        return recordings_dict
 
     def subfolder_name(self, today):
         """Generate name of folder for recording."""
@@ -145,7 +174,7 @@ class AbstractRecorder(ABC):
 
         # Create foldername
         subfolder = self.subfolder_name(self.last_recording_start)
-        full_path = os.path.join(self._recordings_folder, subfolder)
+        full_path = os.path.join(self.recordings_folder, subfolder)
         create_directory(full_path)
 
         thumbnail_path = os.path.join(full_path, thumbnail_name)
@@ -236,7 +265,7 @@ class AbstractRecorder(ABC):
         retention_period = time.time() - (
             self._config[CONFIG_RECORDER][CONFIG_RETAIN] * 24 * 60 * 60
         )
-        dirs = Path(self._recordings_folder)
+        dirs = Path(self.recordings_folder)
 
         extensions = [
             f"*.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
