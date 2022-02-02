@@ -185,6 +185,7 @@ STATE_OFF = "off"
 # Event topic constants
 EVENT_STATE_CHANGED = "state_changed"
 EVENT_ENTITY_ADDED = "entity_added"
+EVENT_CAMERA_REGISTERED = "camera_registered"
 
 # Setup constants
 COMPONENT_RETRY_INTERVAL = 10

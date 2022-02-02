@@ -21,6 +21,7 @@ from viseron.components.data_stream import (
 from viseron.components.nvr import COMPONENT as NVR_COMPONENT
 from viseron.config import load_config
 from viseron.const import (
+    EVENT_CAMERA_REGISTERED,
     FAILED,
     LOADED,
     LOADING,
@@ -112,7 +113,7 @@ class Event:
     def as_dict(self) -> dict[str, Any]:
         """Convert Event to dict."""
         return {
-            "name": self.name.split("/", 1),
+            "name": self.name.split("/", 1)[1],
             "data": self.data,
             "timestamp": self.timestamp,
         }
@@ -256,6 +257,7 @@ class Viseron:
                 for thread_event in camera_listeners:
                     thread_event.set()
                 del self._wait_for_camera_store[camera_identifier]
+            self.dispatch_event(EVENT_CAMERA_REGISTERED, camera_instance)
 
     def get_registered_camera(self, camera_identifier):
         """Return a registered camera."""
