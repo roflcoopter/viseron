@@ -172,6 +172,8 @@ class AbstractCamera(ABC):
         return {
             "identifier": self.identifier,
             "name": self.name,
+            "width": self.resolution[0],
+            "height": self.resolution[1],
             "recordings": self.recorder,
         }
 

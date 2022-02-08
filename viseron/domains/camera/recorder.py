@@ -72,6 +72,13 @@ class AbstractRecorder(ABC):
         self._last_recording_thumbnail_path = None
         self._last_recording_start = None
         self._last_recording_end = None
+        self._extensions = list(
+            {
+                f"*.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
+                "*.mp4",
+                "*.mkv",
+            }
+        )
 
         self.recordings_folder = os.path.join(
             self._config[CONFIG_RECORDER][CONFIG_FOLDER], self._camera.identifier
@@ -89,11 +96,6 @@ class AbstractRecorder(ABC):
     def as_dict(self):
         """Return recorder information as dict."""
         recordings_dict = {}
-        extensions = [
-            f"*.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
-            "*.mp4",
-            "*.mkv",
-        ]
         dirs = Path(self.recordings_folder)
         date_folders = dirs.walkdirs("*-*-*")
         for date_folder in date_folders:
@@ -101,7 +103,7 @@ class AbstractRecorder(ABC):
                 continue
 
             daily_recordings = []
-            for extension in extensions:
+            for extension in self._extensions:
                 recordings = date_folder.walkfiles(extension)
                 for recording in recordings:
                     daily_recordings.append(
@@ -109,7 +111,9 @@ class AbstractRecorder(ABC):
                             "path": str(recording),
                             "date": str(date_folder.name),
                             "filename": str(recording.name),
-                            "thumbnail": f"{str(recording.stem)}.jpg",
+                            "thumbnail_path": os.path.join(
+                                date_folder, f"{str(recording.stem)}.jpg"
+                            ),
                         }
                     )
             recordings_dict[date_folder.name] = daily_recordings
