@@ -39,6 +39,7 @@ from .const import (
     CONFIG_PATH,
     CONFIG_PIX_FMT,
     CONFIG_PORT,
+    CONFIG_PROTOCOL,
     CONFIG_RECORDER,
     CONFIG_RECORDER_AUDIO_CODEC,
     CONFIG_RECORDER_CODEC,
@@ -64,6 +65,7 @@ from .const import (
     DEFAULT_INPUT_ARGS,
     DEFAULT_PASSWORD,
     DEFAULT_PIX_FMT,
+    DEFAULT_PROTOCOL,
     DEFAULT_RECORDER_AUDIO_CODEC,
     DEFAULT_RECORDER_CODEC,
     DEFAULT_RECORDER_FILTER_ARGS,
@@ -98,6 +100,9 @@ def check_for_hwaccels(hwaccel_args: List[str]) -> List[str]:
 STREAM_SCEHMA_DICT = {
     vol.Optional(CONFIG_STREAM_FORMAT, default=DEFAULT_STREAM_FORMAT): vol.In(
         STREAM_FORMAT_MAP.keys()
+    ),
+    vol.Optional(CONFIG_PROTOCOL, default=DEFAULT_PROTOCOL): vol.Maybe(
+        vol.Any("rtsp", "rtmp", "http", "https")
     ),
     vol.Required(CONFIG_PATH): vol.All(str, vol.Length(min=1)),
     vol.Required(CONFIG_PORT): vol.All(int, vol.Range(min=1)),

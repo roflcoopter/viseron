@@ -48,6 +48,7 @@ from .const import (
     CONFIG_PATH,
     CONFIG_PIX_FMT,
     CONFIG_PORT,
+    CONFIG_PROTOCOL,
     CONFIG_RECORDER,
     CONFIG_RTSP_TRANSPORT,
     CONFIG_SEGMENTS_FOLDER,
@@ -127,7 +128,7 @@ class Stream:
         )
         self.stream_codec = stream_codec
         self.stream_audio_codec = stream_audio_codec
-        self._output_fps = fps
+        self._output_fps = self.fps
 
         if self.width and self.height and self.fps:
             pass
@@ -148,7 +149,11 @@ class Stream:
         if self._config[CONFIG_USERNAME] and self._config[CONFIG_PASSWORD]:
             auth = f"{self._config[CONFIG_USERNAME]}:{self._config[CONFIG_PASSWORD]}@"
 
-        protocol = STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]]["protocol"]
+        protocol = (
+            self._config[CONFIG_PROTOCOL]
+            if self._config[CONFIG_PROTOCOL]
+            else STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]]["protocol"]
+        )
         return (
             f"{protocol}://"
             f"{auth}"
@@ -163,9 +168,13 @@ class Stream:
         if self._config[CONFIG_USERNAME] and self._config[CONFIG_PASSWORD]:
             auth = f"{self._config[CONFIG_USERNAME]}:{self._config[CONFIG_PASSWORD]}@"
 
-        protocol = STREAM_FORMAT_MAP[self._output_stream_config[CONFIG_STREAM_FORMAT]][
-            "protocol"
-        ]
+        protocol = (
+            self._output_stream_config[CONFIG_PROTOCOL]
+            if self._output_stream_config[CONFIG_PROTOCOL]
+            else STREAM_FORMAT_MAP[self._output_stream_config[CONFIG_STREAM_FORMAT]][
+                "protocol"
+            ]
+        )
         return (
             f"{protocol}://"
             f"{auth}"

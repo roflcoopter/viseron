@@ -6,7 +6,7 @@ COMPONENT = "ffmpeg"
 STREAM_FORMAT_MAP = {
     "rtsp": {"protocol": "rtsp", "timeout_option": ["-stimeout", "5000000"]},
     "rtmp": {"protocol": "rtmp", "timeout_option": ["-rw_timeout", "5000000"]},
-    "mjpeg": {"protocol": "http", "timeout_option": ["-stimeout", "5000000"]},
+    "mjpeg": {"protocol": "http", "timeout_option": ["-timeout", "5000000"]},
 }
 
 RECORDER = "recorder"
@@ -75,6 +75,7 @@ HWACCEL_JETSON_NANO_DECODER_CODEC_MAP = {
 
 # STREAM_SCHEMA constants
 CONFIG_STREAM_FORMAT = "stream_format"
+CONFIG_PROTOCOL = "protocol"
 CONFIG_PATH = "path"
 CONFIG_PORT = "port"
 CONFIG_WIDTH = "width"
@@ -90,6 +91,7 @@ CONFIG_PIX_FMT = "pix_fmt"
 CONFIG_FRAME_TIMEOUT = "frame_timeout"
 
 DEFAULT_STREAM_FORMAT = "rtsp"
+DEFAULT_PROTOCOL = None
 DEFAULT_WIDTH = None
 DEFAULT_HEIGHT = None
 DEFAULT_FPS = None
