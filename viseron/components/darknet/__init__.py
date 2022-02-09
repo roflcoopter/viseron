@@ -151,9 +151,7 @@ class Darknet:
     def load_network(self, model, model_config, backend, target):
         """Load network."""
         # Load a network
-        self._net = cv2.dnn.readNet(  # pylint:disable=no-member
-            model, model_config, "darknet"
-        )
+        self._net = cv2.dnn.readNet(model, model_config, "darknet")
         self._net.setPreferableBackend(backend)
         self._net.setPreferableTarget(target)
 
