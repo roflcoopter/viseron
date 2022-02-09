@@ -119,7 +119,8 @@ class AbstractRecorder(ABC):
             recordings_dict[date_folder.name] = daily_recordings
         return recordings_dict
 
-    def subfolder_name(self, today):
+    @staticmethod
+    def subfolder_name(today):
         """Generate name of folder for recording."""
         return f"{today.year:04}-{today.month:02}-{today.day:02}"
 
