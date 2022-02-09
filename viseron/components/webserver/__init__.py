@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import threading
 from typing import TYPE_CHECKING
 
@@ -26,19 +27,11 @@ from .const import (
     DEFAULT_DEBUG,
     DEFAULT_PORT,
     PATH_STATIC,
-    PATH_TEMPLATES,
-    PREFIX_STATIC,
     WEBSOCKET_COMMANDS,
 )
 from .not_found_handler import NotFoundHandler
+from .request_handler import ViseronRequestHandler
 from .stream_handler import DynamicStreamHandler, StaticStreamHandler
-from .ui import (
-    AboutHandler,
-    CamerasHandler,
-    IndexHandler,
-    RecordingsHandler,
-    SettingsHandler,
-)
 from .websocket_api import WebSocketHandler
 from .websocket_api.commands import get_cameras, subscribe_event
 
@@ -79,12 +72,12 @@ def setup(vis: Viseron, config):
     return True
 
 
-class RegularSocketHandler(tornado.web.RequestHandler):
-    """Socket handler."""
+class IndexHandler(ViseronRequestHandler):
+    """Handler for index page."""
 
     def get(self):
         """GET request."""
-        self.render("ws_index.html")
+        self.render(os.path.join(PATH_STATIC, "index.html"))
 
 
 class DeprecatedStreamHandler(tornado.web.RequestHandler):
@@ -99,18 +92,10 @@ class DeprecatedStreamHandler(tornado.web.RequestHandler):
         self.redirect(f"/{camera}/mjpeg-stream")
 
 
-class IndexRedirect(tornado.web.RequestHandler):
-    """Redirect handler for index."""
-
-    def get(self):
-        """GET request."""
-        self.redirect("/ui/")
-
-
 class WebServer(threading.Thread):
     """Webserver."""
 
-    def __init__(self, vis, config):
+    def __init__(self, vis: Viseron, config):
         super().__init__(name="Tornado WebServer", daemon=True)
         self._vis = vis
         self._config = config
@@ -145,21 +130,12 @@ class WebServer(threading.Thread):
                     StaticStreamHandler,
                     {"vis": self._vis},
                 ),
-                (r"/ws-stream", RegularSocketHandler),
                 (r"/websocket", WebSocketHandler, {"vis": self._vis}),
                 (r"/(?P<camera>[A-Za-z0-9_]+)/stream", DeprecatedStreamHandler),
-                (r"/ui/", IndexHandler, {"vis": self._vis}),
-                (r"/ui/about", AboutHandler, {"vis": self._vis}),
-                (r"/ui/cameras", CamerasHandler, {"vis": self._vis}),
-                (r"/ui/index", IndexHandler, {"vis": self._vis}),
-                (r"/ui/recordings", RecordingsHandler, {"vis": self._vis}),
-                (r"/ui/settings", SettingsHandler, {"vis": self._vis}),
-                (r"/", IndexRedirect, {"vis": self._vis}),
+                (r"/.*", IndexHandler, {"vis": self._vis}),
             ],
             default_handler_class=NotFoundHandler,
-            template_path=PATH_TEMPLATES,
             static_path=PATH_STATIC,
-            static_url_prefix=PREFIX_STATIC,
             debug=self._config[CONFIG_DEBUG],
         )
         application.add_handlers(

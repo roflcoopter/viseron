@@ -3,9 +3,7 @@
 
 COMPONENT = "webserver"
 
-PREFIX_STATIC = "/ui/static/"
-PATH_STATIC = "/src/viseron/components/webserver/assets/static"
-PATH_TEMPLATES = "/src/viseron/components/webserver/assets/templates"
+PATH_STATIC = "/src/viseron/frontend/static"
 
 
 # CONFIG_SCHEMA constants

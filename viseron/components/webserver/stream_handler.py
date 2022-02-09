@@ -1,5 +1,6 @@
 """Handles different kind of browser streams."""
 
+import asyncio
 import copy
 import logging
 from typing import Dict
@@ -97,13 +98,27 @@ class DynamicStreamHandler(StreamHandler):
         """Handle a GET request."""
         request_arguments = {k: self.get_argument(k) for k in self.request.arguments}
         mjpeg_stream_config = MJPEG_STREAM_SCHEMA(request_arguments)
-        nvr: NVR = self._vis.data[NVR_COMPONENT].get(camera, None)
 
-        if not nvr:
-            self.set_status(404)
-            self.write(f"Camera {camera} not found.")
-            self.finish()
-            return
+        tries = 0
+        while True:
+            if tries == 60:
+                self.set_status(404)
+                self.write(f"Camera {camera} not found.")
+                self.finish()
+                return
+
+            nvr_data = self._vis.data.get(NVR_COMPONENT, None)
+            if not nvr_data:
+                tries += 1
+                await asyncio.sleep(1)
+                continue
+
+            nvr: NVR = self._vis.data[NVR_COMPONENT].get(camera, None)
+            if not nvr:
+                tries += 1
+                await asyncio.sleep(1)
+                continue
+            break
 
         self.set_header(
             "Content-Type", "multipart/x-mixed-replace;boundary=--jpgboundary"
