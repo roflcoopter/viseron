@@ -98,19 +98,25 @@
 !/viseron/webserver/api/*
 !/viseron/webserver/api/v1
 !/viseron/webserver/api/v1/*
-!/viseron/webserver/assets
-!/viseron/webserver/assets/*
-!/viseron/webserver/assets/templates
-!/viseron/webserver/assets/templates/*
-!/viseron/webserver/assets/static
-!/viseron/webserver/assets/static/*
-!/viseron/webserver/assets/static/css
-!/viseron/webserver/assets/static/css/*
-!/viseron/webserver/assets/static/js
-!/viseron/webserver/assets/static/js/*
 !/requirements.txt
 !/requirements_test.txt
 !setup.py
+
+# Frontend
+!/frontend
+!/frontend/public
+!/frontend/public/*
+!/frontend/public/static
+!/frontend/public/static/*
+!/frontend/src
+!/frontend/src/**
+!/frontend/.eslintrc.js
+!/frontend/.prettierrc.json
+!/frontend/lint-staged.config.js
+!/frontend/package-lock.json
+!/frontend/package.json
+!/frontend/README.md
+!/frontend/tsconfig.json
 
 # Repo
 !/docs
