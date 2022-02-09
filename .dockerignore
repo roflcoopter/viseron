@@ -10,3 +10,4 @@
 !requirements.txt
 !requirements_test.txt
 !rootfs/
+!frontend/

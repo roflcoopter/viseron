@@ -6,6 +6,19 @@ ARG WHEELS_VERSION
 FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} as opencv
 FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION} as ffmpeg
 FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} as wheels
+FROM node:14.18.3 as frontend
+
+WORKDIR /frontend
+
+COPY frontend/package.json ./
+COPY frontend/package-lock.json ./
+COPY frontend/ ./
+
+RUN npm ci \
+  && npm run build \
+  # Move index.html into the static folder
+  && mv /frontend/build/index.html /frontend/build/static/
+
 FROM roflcoopter/${ARCH}-base:${BASE_VERSION}
 
 WORKDIR /src
@@ -68,3 +81,4 @@ ENTRYPOINT ["/init"]
 
 COPY rootfs/ /
 COPY viseron /src/viseron/
+COPY --from=frontend /frontend/build/static /src/viseron/frontend/static
