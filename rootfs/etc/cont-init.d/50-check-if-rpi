@@ -11,7 +11,7 @@ case "$OUTPUT" in
         echo Running on an RPi3
         ;;
 
-    "a03111" | "b03111" | "b03112" | "c03111" | "c03112")
+    "a03111" | "b03111" | "b03112" | "c03111" | "c03112" | "d03114")
         export VISERON_RASPBERRYPI4=true
         printf "true" > /var/run/environment/VISERON_RASPBERRYPI4
         echo Running on an RPi4
