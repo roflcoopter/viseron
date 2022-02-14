@@ -102,6 +102,7 @@ class FaceRecognition(AbstractFaceRecognition):
                         detection["x_max"],
                         detection["y_max"],
                     ),
+                    confidence=detection["confidence"],
                 )
             elif self._config[CONFIG_SAVE_UNKNOWN_FACES]:
                 self.unknown_face_found(cropped_frame)

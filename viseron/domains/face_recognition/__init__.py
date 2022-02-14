@@ -1,4 +1,6 @@
 """Face recognition module."""
+from __future__ import annotations
+
 import datetime
 import os
 from dataclasses import dataclass
@@ -53,6 +55,7 @@ class FaceDict:
 
     name: str
     coordinates: Tuple[int, int, int, int]
+    confidence: float | None
     timer: Timer
 
 
@@ -80,7 +83,9 @@ class AbstractFaceRecognition(AbstractPostProcessor):
                 component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
             )
 
-    def known_face_found(self, face: str, coordinates: Tuple[int, int, int, int]):
+    def known_face_found(
+        self, face: str, coordinates: Tuple[int, int, int, int], confidence=None
+    ):
         """Adds/expires known faces."""
         # Cancel the expiry timer if face has already been detected
         if self._faces.get(face, None):
@@ -90,6 +95,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         face_dict = FaceDict(
             face,
             coordinates,
+            confidence,
             Timer(self._config[CONFIG_EXPIRE_AFTER], self.expire_face, [face]),
         )
         face_dict.timer.start()
