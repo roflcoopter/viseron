@@ -65,9 +65,9 @@ HWACCEL_CUDA_DECODER_CODEC_MAP = {
 HWACCEL_RPI3_DECODER_CODEC_MAP = {"h264": "h264_mmal"}
 HWACCEL_RPI4_DECODER_CODEC_MAP = {"h264": "h264_v4l2m2m"}
 HWACCEL_JETSON_NANO_DECODER_CODEC_MAP = {
-    "h264": "h264_nvmpi",
-    "h265": "hevc_nvmpi",
-    "hevc": "hevc_nvmpi",
+    "h264": "h264_nvv4l2dec",
+    "h265": "hevc_nvv4l2dec",
+    "hevc": "hevc_nvv4l2dec",
 }
 
 # STREAM_SCHEMA constants

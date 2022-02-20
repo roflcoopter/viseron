@@ -1,12 +1,8 @@
 # Some inspiration was taken from here https://github.com/mdegans/nano_build_opencv/blob/docker/build_opencv.sh
 ARG PYTHON_VERSION
 ARG UBUNTU_VERSION
-ARG FFMPEG_VERSION
-ARG JETPACK_VERSION
-FROM roflcoopter/jetson-nano-ffmpeg:${FFMPEG_VERSION} as ffmpeg
-FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
 FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as qemu
-FROM nvcr.io/nvidia/l4t-base:${JETPACK_VERSION} as build
+FROM timongentzsch/l4t-ubuntu20-base:latest as build
 
 COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
 COPY --from=qemu /bin/sh /bin/sh
@@ -14,15 +10,6 @@ COPY --from=qemu /bin/sh.real /bin/sh.real
 COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
 COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
 COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
-
-COPY --from=ffmpeg /usr/local /usr/local/
-
-COPY --from=python /usr/local /usr/local/
-RUN \
-  cd /usr/local/bin && \
-  ln -s idle3 idle && \
-  ln -s pydoc3 pydoc && \
-  ln -s python3 python
 
 RUN [ "cross-build-start" ]
 
@@ -38,15 +25,7 @@ ENV \
   CUDA_ARCH_BIN="53" \
   CUDA_ARCH_PTX="70"
 
-RUN \
-  apt-get update && apt-get install -y --no-install-recommends \
-  ca-certificates \
-  gnupg && \
-  echo "deb https://repo.download.nvidia.com/jetson/common r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list \
-  && echo "deb https://repo.download.nvidia.com/jetson/t210 r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list \
-  && apt-key adv --fetch-key http://repo.download.nvidia.com/jetson/jetson-ota-public.asc \
-  && mkdir -p /opt/nvidia/l4t-packages/ && touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall
-
+# Pin g++ and gcc to version 8 to be compatible with CUDA 10.2
 RUN buildDeps="autoconf \
   automake \
   ca-certificates \
@@ -56,8 +35,8 @@ RUN buildDeps="autoconf \
   bzip2 \
   expat \
   libexpat1-dev \
-  g++ \
-  gcc \
+  g++-8 \
+  gcc-8 \
   git \
   gperf \
   libtool \
@@ -67,17 +46,20 @@ RUN buildDeps="autoconf \
   pkg-config \
   python3 \
   python3-dev \
-  # python3-numpy \
+  python3-numpy \
   libssl-dev \
   yasm \
   libgomp1 \
   libnuma-dev \
   zlib1g-dev \
   libcudnn8-dev \
-  libcublas-dev" && \
+  libcublas-dev \
+  cuda-minimal-build-10-2 \
+  cuda-libraries-dev-10-2" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps} && \
-  pip3 install numpy
+  update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 8 && \
+  update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 8
 
 # Minimal cuda install does not create symlink so we do it manually
 RUN ln -s /usr/local/cuda-10.2 /usr/local/cuda

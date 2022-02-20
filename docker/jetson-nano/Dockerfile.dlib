@@ -1,9 +1,6 @@
-ARG PYTHON_VERSION
 ARG UBUNTU_VERSION
-ARG JETPACK_VERSION
-FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
 FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as qemu
-FROM nvcr.io/nvidia/l4t-base:${JETPACK_VERSION} as build
+FROM timongentzsch/l4t-ubuntu20-base:latest as build
 
 COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
 COPY --from=qemu /bin/sh /bin/sh
@@ -11,13 +8,6 @@ COPY --from=qemu /bin/sh.real /bin/sh.real
 COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
 COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
 COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
-
-COPY --from=python /usr/local /usr/local/
-RUN \
-  cd /usr/local/bin && \
-  ln -s idle3 idle && \
-  ln -s pydoc3 pydoc && \
-  ln -s python3 python
 
 RUN [ "cross-build-start" ]
 
@@ -27,16 +17,6 @@ ARG MAKEFLAGS="-j2"
 ENV \
   DEBIAN_FRONTEND=noninteractive \
   PIP_IGNORE_INSTALLED=0
-
-# NVIDIA repos use HTTPS so we need some additional libraries first
-RUN \
-  apt-get update && apt-get install -y --no-install-recommends \
-  ca-certificates \
-  gnupg && \
-  echo "deb https://repo.download.nvidia.com/jetson/common r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list \
-  && echo "deb https://repo.download.nvidia.com/jetson/t210 r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list \
-  && apt-key adv --fetch-key http://repo.download.nvidia.com/jetson/jetson-ota-public.asc \
-  && mkdir -p /opt/nvidia/l4t-packages/ && touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall
 
 RUN buildDeps="autoconf \
   automake \
