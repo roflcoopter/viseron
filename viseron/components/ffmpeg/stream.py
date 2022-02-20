@@ -339,6 +339,8 @@ class Stream:
         if stream_config[CONFIG_CODEC]:
             return stream_config[CONFIG_CODEC]
 
+        codec = None
+        codec_map = None
         if stream_codec:
             if stream_config[CONFIG_STREAM_FORMAT] in ["rtsp", "rtmp"]:
                 if os.getenv(ENV_RASPBERRYPI3) == "true":
@@ -349,7 +351,10 @@ class Stream:
                     codec_map = HWACCEL_JETSON_NANO_DECODER_CODEC_MAP
                 if os.getenv(ENV_CUDA_SUPPORTED) == "true":
                     codec_map = HWACCEL_CUDA_DECODER_CODEC_MAP
-                return ["-c:v", codec_map[stream_codec]]
+                if codec_map:
+                    codec = codec_map.get(stream_codec, None)
+        if codec:
+            return ["-c:v", codec]
         return []
 
     def stream_command(self, stream_config, stream_codec, stream_url):

@@ -55,22 +55,19 @@ FFMPEG_LOG_LEVELS = {
 
 FFPROBE_TIMEOUT = 15
 
+# Hardware acceleration constands
 HWACCEL_VAAPI = ["-hwaccel", "vaapi", "-vaapi_device", "/dev/dri/renderD128"]
-HWACCEL_VAAPI_ENCODER_FILTER = ["-vf", "format=nv12|vaapi,hwupload"]
-HWACCEL_VAAPI_ENCODER_CODEC = "h264_vaapi"
-
-HWACCEL_CUDA_DECODER_CODEC_MAP = {"h264": "h264_cuvid", "h265": "hevc_cuvid"}
-HWACCEL_CUDA_ENCODER_CODEC = "h264_nvenc"
-
+HWACCEL_CUDA_DECODER_CODEC_MAP = {
+    "h264": "h264_cuvid",
+    "h265": "hevc_cuvid",
+    "hevc": "hevc_cuvid",
+}
 HWACCEL_RPI3_DECODER_CODEC_MAP = {"h264": "h264_mmal"}
-HWACCEL_RPI3_ENCODER_CODEC = "h264_omx"
-
 HWACCEL_RPI4_DECODER_CODEC_MAP = {"h264": "h264_v4l2m2m"}
-HWACCEL_RPI4_ENCODER_CODEC = "h264_v4l2m2m"
-
 HWACCEL_JETSON_NANO_DECODER_CODEC_MAP = {
     "h264": "h264_nvmpi",
     "h265": "hevc_nvmpi",
+    "hevc": "hevc_nvmpi",
 }
 
 # STREAM_SCHEMA constants
