@@ -4,7 +4,8 @@ pr: none
 jobs:
   - template: templates/build.yaml
     parameters:
-      image: models
+      images:
+        - models
       imageNameOnly: true
       architectures:
         - amd64

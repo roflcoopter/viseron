@@ -19,4 +19,5 @@ resources:
 jobs:
   - template: templates/build.yaml
     parameters:
-      image: base
+      images:
+        - base

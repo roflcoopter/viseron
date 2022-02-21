@@ -15,4 +15,6 @@ resources:
 jobs:
   - template: templates/build.yaml
     parameters:
-      image: opencv
+      images:
+        - opencv-part1
+        - opencv

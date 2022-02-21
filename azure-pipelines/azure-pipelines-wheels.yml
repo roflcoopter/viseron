@@ -21,4 +21,5 @@ resources:
 jobs:
   - template: templates/build.yaml
     parameters:
-      image: wheels
+      images:
+        - wheels

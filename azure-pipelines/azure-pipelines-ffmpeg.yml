@@ -4,4 +4,5 @@ pr: none
 jobs:
   - template: templates/build.yaml
     parameters:
-      image: ffmpeg
+      images:
+        - ffmpeg

@@ -15,4 +15,5 @@ resources:
 jobs:
   - template: templates/build.yaml
     parameters:
-      image: dlib
+      images:
+        - dlib
