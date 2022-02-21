@@ -13,19 +13,11 @@ resources:
           - dev
 
 jobs:
-  - template: templates/build.yaml
-    parameters:
-      architectures:
-        - aarch64
-        - amd64
-        - amd64-cuda
-        - rpi3
-      images:
-        - opencv
-  - template: templates/build.yaml
+  - template: templates/multi-arch-build.yaml
     parameters:
       architectures:
         - jetson-nano
-      images:
-        - opencv-part1
-        - opencv
+      image: opencv-part1
+  - template: templates/multi-arch-build.yaml
+    parameters:
+      image: opencv

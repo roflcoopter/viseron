@@ -2,7 +2,6 @@ trigger: none
 pr: none
 
 jobs:
-  - template: templates/build.yaml
+  - template: templates/multi-arch-build.yaml
     parameters:
-      images:
-        - ffmpeg
+      image: ffmpeg

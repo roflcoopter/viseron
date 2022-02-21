@@ -42,10 +42,9 @@ resources:
 stages:
   - stage: Build
     jobs:
-      - template: templates/build.yaml
+      - template: templates/multi-arch-build.yaml
         parameters:
-          images:
-            - viseron
+          image: viseron
           release: true
 
   - stage: "Publish"

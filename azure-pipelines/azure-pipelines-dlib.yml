@@ -13,7 +13,6 @@ resources:
           - dev
 
 jobs:
-  - template: templates/build.yaml
+  - template: templates/multi-arch-build.yaml
     parameters:
-      images:
-        - dlib
+      image: dlib

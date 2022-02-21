@@ -17,7 +17,6 @@ resources:
         branches:
           - dev
 jobs:
-  - template: templates/build.yaml
+  - template: templates/multi-arch-build.yaml
     parameters:
-      images:
-        - base
+      image: base
