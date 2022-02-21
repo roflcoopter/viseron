@@ -399,7 +399,7 @@ services:
         - roflcoopter/jetson-nano-ffmpeg:$JETSON_NANO_FFMPEG_VERSION
     image: roflcoopter/jetson-nano-ffmpeg:$JETSON_NANO_FFMPEG_VERSION
 
-  jetson-nano-opencv-part1:
+  jetson-nano-opencvpartone:
     build:
       context: ..
       dockerfile: ./docker/jetson-nano/Dockerfile.opencv.part1
@@ -408,8 +408,8 @@ services:
         MAKEFLAGS: "-j7"
         OPENCV_VERSION: "$OPENCV_VERSION"
       cache_from:
-        - roflcoopter/jetson-nano-opencv-part1:$OPENCV_VERSION
-    image: roflcoopter/jetson-nano-opencv-part1:$OPENCV_VERSION
+        - roflcoopter/jetson-nano-opencvpartone:$OPENCV_VERSION
+    image: roflcoopter/jetson-nano-opencvpartone:$OPENCV_VERSION
 
   jetson-nano-opencv:
     build:

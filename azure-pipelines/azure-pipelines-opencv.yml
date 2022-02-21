@@ -12,12 +12,17 @@ resources:
         branches:
           - dev
 
-jobs:
-  - template: templates/multi-arch-build.yaml
-    parameters:
-      architectures:
-        - jetson-nano
-      image: opencv-part1
-  - template: templates/multi-arch-build.yaml
-    parameters:
-      image: opencv
+stages:
+  - stage: OpenCV_Part_One
+    jobs:
+      - template: templates/build.yaml
+        parameters:
+          architectures:
+            - jetson-nano
+          image: opencvpartone
+  - stage: OpenCV
+    dependsOn: OpenCV_Part_One
+    jobs:
+      - template: templates/build.yaml
+        parameters:
+          image: opencv

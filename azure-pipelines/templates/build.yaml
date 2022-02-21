@@ -1,6 +1,12 @@
 parameters:
-  - name: architecture
-    type: string
+  - name: architectures
+    type: object
+    default:
+      - aarch64
+      - amd64
+      - amd64-cuda
+      - jetson-nano
+      - rpi3
   - name: namespace
     type: string
     default: roflcoopter
@@ -20,8 +26,13 @@ parameters:
     default: false
 
 jobs:
-  - job: Build_${{ parameters.architecture }}-${{ parameters.image }}
+  - job: "build_${{ parameters.image }}"
     timeoutInMinutes: ${{ parameters.timeoutJob }}
+    strategy:
+      matrix:
+        ${{ each architecture in parameters.architectures }}:
+          ${{ architecture }}:
+            arch: ${{ architecture }}
     pool:
       vmImage: "ubuntu-latest"
     steps:
@@ -37,14 +48,14 @@ jobs:
 
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
-          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull ${{ parameters.architecture }}-${{ parameters.image }}
-        displayName: Pull ${{ parameters.architecture }}-${{ parameters.image }} for Docker layer caching
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull $(arch)-${{ parameters.image }}
+        displayName: Pull image for Docker layer caching
         continueOnError: true
 
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
-          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 ${{ parameters.architecture }}-${{ parameters.image }}
-        displayName: Build ${{ parameters.architecture }}-${{ parameters.image }}
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 $(arch)-${{ parameters.image }}
+        displayName: Build $(arch)-${{ parameters.image }}
         condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false))
         env:
           DOCKER_BUILDKIT: 1
@@ -63,8 +74,8 @@ jobs:
       # Runs only for non-release triggers
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
-          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env push ${{ parameters.architecture }}-${{ parameters.image }}
-        displayName: Push ${{ parameters.architecture }}-${{ parameters.image }}
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env push $(arch)-${{ parameters.image }}
+        displayName: Push $(arch)-${{ parameters.image }}
         condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false), eq('${{ parameters.release }}', false))
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
@@ -77,16 +88,16 @@ jobs:
         parameters:
           release: ${{ parameters.release }}
       - script: |
-          echo tagging roflcoopter/${{ parameters.architecture }}-${{ parameters.image }}:$(viseronVersion)
-          docker image tag roflcoopter/${{ parameters.architecture }}-${{ parameters.image }}:dev roflcoopter/${{ parameters.architecture }}-${{ parameters.image }}:$(viseronVersion)
-          docker image push roflcoopter/${{ parameters.architecture }}-${{ parameters.image }}:$(viseronVersion)
+          echo tagging roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
+          docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
+          docker image push roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
 
           if [ $(latestRelease) = true ] ; then
-            echo tagging roflcoopter/${{ parameters.architecture }}-${{ parameters.image }}:latest
-            docker image tag roflcoopter/${{ parameters.architecture }}-${{ parameters.image }}:dev roflcoopter/${{ parameters.architecture }}-${{ parameters.image }}:latest
-            docker image push roflcoopter/${{ parameters.architecture }}-${{ parameters.image }}:latest
+            echo tagging roflcoopter/$(arch)-${{ parameters.image }}:latest
+            docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:latest
+            docker image push roflcoopter/$(arch)-${{ parameters.image }}:latest
           fi
-        displayName: Push ${{ parameters.architecture }}-${{ parameters.image }}
+        displayName: Push $(arch)-${{ parameters.image }}
         condition: and(succeeded(), eq('${{ parameters.release }}', true))
 
       - task: Docker@2
