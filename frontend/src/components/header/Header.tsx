@@ -1,7 +1,7 @@
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import GitHubIcon from "@mui/icons-material/GitHub";
-import HomeIcon from "@mui/icons-material/Home";
+import SettingsIcon from "@mui/icons-material/Settings";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import IconButton from "@mui/material/IconButton";
@@ -12,6 +12,8 @@ import * as React from "react";
 import { Link } from "react-router-dom";
 
 import { ColorModeContext } from "context/ColorModeContext";
+
+import { ReactComponent as ViseronLogo } from "../../viseron-logo.svg";
 
 const Header = styled("header")(({ theme }) => ({
   position: "sticky",
@@ -42,9 +44,14 @@ export default function AppHeader() {
         sx={{ display: "flex", alignItems: "center", minHeight: 56 }}
       >
         <Tooltip title="Home" enterDelay={300}>
-          <IconButton component={Link} color="primary" to={"/"}>
-            <HomeIcon fontSize="small" />
-          </IconButton>
+          <Box
+            component={Link}
+            to={"/"}
+            aria-label="Home"
+            sx={{ marginTop: "auto" }}
+          >
+            <ViseronLogo width={45} height={45} />
+          </Box>
         </Tooltip>
         <Box sx={{ ml: "auto" }} />
         <Stack direction="row" spacing={1}>
@@ -72,6 +79,11 @@ export default function AppHeader() {
               ) : (
                 <Brightness4Icon />
               )}
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={"Edit Configuration"} enterDelay={300}>
+            <IconButton component={Link} color="primary" to={"/configuration"}>
+              <SettingsIcon />
             </IconButton>
           </Tooltip>
         </Stack>

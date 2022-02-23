@@ -32,6 +32,7 @@ WS_ERROR_INVALID_FORMAT = "invalid_format"
 WS_ERROR_UNKNOWN_COMMAND = "uknown_command"
 WS_ERROR_UNKNOWN_ERROR = "uknown_error"
 WS_ERROR_OLD_COMMAND_ID = "old_command_id"
+WS_ERROR_SAVE_CONFIG_FAILED = "save_config_failed"
 
 
 # Viseron data constants

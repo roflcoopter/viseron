@@ -3,6 +3,11 @@ export type SubscribeEventMessage = {
   event: string;
 };
 
+export type SaveConfigMessage = {
+  type: "save_config";
+  config: string;
+};
+
 export function subscribeEvent(event: string) {
   const message: SubscribeEventMessage = {
     type: "subscribe_event",
@@ -23,4 +28,19 @@ export function getCameras() {
   return {
     type: "get_cameras",
   };
+}
+
+export function getConfig() {
+  return {
+    type: "get_config",
+  };
+}
+
+export function saveConfig(config: string) {
+  const message: SaveConfigMessage = {
+    type: "save_config",
+    config,
+  };
+
+  return message;
 }

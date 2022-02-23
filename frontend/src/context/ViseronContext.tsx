@@ -9,10 +9,12 @@ export type ViseronProviderProps = {
 };
 
 export type ViseronContextState = {
+  connection: Connection | undefined;
   cameras: types.Cameras;
 };
 
 const contextDefaultValues: ViseronContextState = {
+  connection: undefined,
   cameras: {},
 };
 
@@ -22,36 +24,42 @@ export const ViseronContext =
 export const ViseronProvider: FC<ViseronProviderProps> = ({
   children,
 }: ViseronProviderProps) => {
+  const [connection, setConnection] = useState<Connection | undefined>(
+    undefined
+  );
   const [cameras, setCameras] = useState<types.Cameras>({});
 
   useEffect(() => {
-    const ws = new Connection();
+    if (connection) {
+      const cameraRegistered = async (camera: types.Camera) => {
+        setCameras((prevCameras) => {
+          let newCameras = { ...prevCameras };
+          newCameras[camera.identifier] = camera;
+          newCameras = sortObj(newCameras);
+          return newCameras;
+        });
+      };
 
-    const cameraRegistered = async (camera: types.Camera) => {
-      setCameras((prevCameras) => {
-        let newCameras = { ...prevCameras };
-        newCameras[camera.identifier] = camera;
-        newCameras = sortObj(newCameras);
-        return newCameras;
-      });
-    };
+      const onConnect = async () => {
+        const registeredCameras = await connection!.getCameras();
+        setCameras(sortObj(registeredCameras));
+      };
+      connection!.addEventListener("connected", onConnect);
 
-    const onConnect = async () => {
-      const registeredCameras = await ws!.getCameras();
-      setCameras(sortObj(registeredCameras));
-    };
-    ws.addEventListener("connected", onConnect);
+      const connect = async () => {
+        connection!.subscribeCameras(cameraRegistered); // call without await to not block
+        await connection!.connect();
+      };
+      connect();
+    }
+  }, [connection]);
 
-    const connect = async () => {
-      ws.subscribeCameras(cameraRegistered); // call without await to not block
-      await ws.connect();
-    };
-
-    connect();
+  useEffect(() => {
+    setConnection(new Connection());
   }, []);
 
   return (
-    <ViseronContext.Provider value={{ cameras }}>
+    <ViseronContext.Provider value={{ cameras, connection }}>
       {children}
     </ViseronContext.Provider>
   );

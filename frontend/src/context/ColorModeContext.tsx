@@ -157,12 +157,8 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         MuiButton: {
           styleOverrides: {
             root: {
-              border: `1px solid ${
-                theme.palette.mode === "dark"
-                  ? theme.palette.primary[900]
-                  : theme.palette.grey[300]
-              }`,
-              color: mode === "dark" ? blue[300] : blue.main,
+              fontWeight: 600,
+              letterSpacing: 0,
             },
           },
         },

@@ -1,6 +1,7 @@
 import CssBaseline from "@mui/material/CssBaseline";
 import React from "react";
 import ReactDOM from "react-dom";
+import { BrowserRouter as Router } from "react-router-dom";
 
 import { ColorModeProvider } from "context/ColorModeContext";
 import { ViseronProvider } from "context/ViseronContext";
@@ -12,8 +13,10 @@ ReactDOM.render(
   <React.StrictMode>
     <ViseronProvider>
       <ColorModeProvider>
-        <CssBaseline />
-        <App />
+        <CssBaseline enableColorScheme />
+        <Router>
+          <App />
+        </Router>
       </ColorModeProvider>
     </ViseronProvider>
   </React.StrictMode>,

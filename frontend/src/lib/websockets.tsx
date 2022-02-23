@@ -292,16 +292,13 @@ export class Connection {
   }
 
   sendMessagePromise(message: Message, commandId: number | null = null) {
-    message.command_id = commandId || this._generateCommandId();
-    return new Promise<string>((resolve, reject) => {
+    return new Promise<any>((resolve, reject) => {
       if (this.queuedMessages) {
         this.queuedMessages!.push({
           reject,
           resolve: async () => {
             try {
-              resolve(
-                await this.sendMessagePromise(message, message.command_id)
-              );
+              resolve(await this.sendMessagePromise(message));
             } catch (err) {
               reject(err);
             }
@@ -310,6 +307,7 @@ export class Connection {
         return;
       }
 
+      message.command_id = commandId || this._generateCommandId();
       this.commands.set(message.command_id, { resolve, reject });
       this._sendMessage(message);
     });
@@ -369,5 +367,18 @@ export class Connection {
       true
     );
     return subscription;
+  }
+
+  async getConfig(): Promise<string> {
+    const response = await this.sendMessagePromise(messages.getConfig());
+    return response.config;
+  }
+
+  async saveConfig(
+    config: string
+  ): Promise<
+    WebSocketResultResponse["result"] | WebSocketResultErrorResponse["error"]
+  > {
+    return this.sendMessagePromise(messages.saveConfig(config));
   }
 }

@@ -7,10 +7,12 @@ from typing import TYPE_CHECKING, Callable
 import tornado
 import voluptuous as vol
 
-from viseron.const import REGISTERED_CAMERAS
+from viseron.components.webserver.const import WS_ERROR_SAVE_CONFIG_FAILED
+from viseron.const import CONFIG_PATH, REGISTERED_CAMERAS
 
 from .messages import (
     BASE_MESSAGE_SCHEMA,
+    error_message,
     event_message,
     message_to_json,
     result_message,
@@ -64,5 +66,42 @@ def get_cameras(connection: WebSocketHandler, message):
         result_message(
             message["command_id"],
             message_to_json(connection.vis.data[REGISTERED_CAMERAS]),
+        )
+    )
+
+
+@websocket_command({vol.Required("type"): "get_config"})
+def get_config(connection: WebSocketHandler, message):
+    """Return config in text format."""
+    with open(CONFIG_PATH, "r", encoding="utf-8") as config_file:
+        config = config_file.read()
+
+    connection.send_message(
+        result_message(
+            message["command_id"],
+            {"config": config},
+        )
+    )
+
+
+@websocket_command({vol.Required("type"): "save_config", vol.Required("config"): str})
+def save_config(connection: WebSocketHandler, message):
+    """Save config to file."""
+    try:
+        with open(CONFIG_PATH, "w", encoding="utf-8") as config_file:
+            config_file.write(message["config"])
+    except Exception as exception:  # pylint: disable=broad-except
+        connection.send_message(
+            error_message(
+                message["command_id"],
+                WS_ERROR_SAVE_CONFIG_FAILED,
+                str(exception),
+            )
+        )
+        return
+
+    connection.send_message(
+        result_message(
+            message["command_id"],
         )
     )

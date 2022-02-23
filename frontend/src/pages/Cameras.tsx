@@ -1,6 +1,6 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
-import { useContext, useEffect } from "react";
+import { useContext } from "react";
 
 import CameraCard from "components/CameraCard";
 import { Loading } from "components/loading/Loading";
@@ -11,13 +11,6 @@ import { objIsEmpty } from "lib/helpers";
 const Cameras = () => {
   useTitle("Cameras");
   const viseron = useContext(ViseronContext);
-
-  useEffect(
-    () => () => {
-      window.stop();
-    },
-    []
-  );
 
   if (objIsEmpty(viseron.cameras)) {
     return <Loading text="Loading Cameras" />;

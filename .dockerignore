@@ -11,3 +11,5 @@
 !requirements_test.txt
 !rootfs/
 !frontend/
+!frontend/node_modules/
+!frontend/build/

@@ -33,7 +33,12 @@ from .not_found_handler import NotFoundHandler
 from .request_handler import ViseronRequestHandler
 from .stream_handler import DynamicStreamHandler, StaticStreamHandler
 from .websocket_api import WebSocketHandler
-from .websocket_api.commands import get_cameras, subscribe_event
+from .websocket_api.commands import (
+    get_cameras,
+    get_config,
+    save_config,
+    subscribe_event,
+)
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
@@ -66,6 +71,8 @@ def setup(vis: Viseron, config):
 
     webserver.register_websocket_command(subscribe_event)
     webserver.register_websocket_command(get_cameras)
+    webserver.register_websocket_command(get_config)
+    webserver.register_websocket_command(save_config)
 
     webserver.start()
 
