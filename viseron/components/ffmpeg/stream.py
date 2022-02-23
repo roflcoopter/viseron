@@ -337,7 +337,7 @@ class Stream:
     def get_codec(stream_config, stream_codec):
         """Return codec set in config or from predefined codec map."""
         if stream_config[CONFIG_CODEC]:
-            return stream_config[CONFIG_CODEC]
+            return ["-c:v", stream_config[CONFIG_CODEC]]
 
         codec = None
         codec_map = None
