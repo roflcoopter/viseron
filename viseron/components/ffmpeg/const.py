@@ -3,6 +3,8 @@ from typing import List
 
 COMPONENT = "ffmpeg"
 
+ENV_FFMPEG_PATH = "VISERON_FFMPEG_PATH"
+
 STREAM_FORMAT_MAP = {
     "rtsp": {"protocol": "rtsp", "timeout_option": ["-stimeout", "5000000"]},
     "rtmp": {"protocol": "rtmp", "timeout_option": ["-rw_timeout", "5000000"]},

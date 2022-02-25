@@ -16,7 +16,6 @@ from tenacity import (
 
 from viseron.const import (
     ENV_CUDA_SUPPORTED,
-    ENV_FFMPEG_PATH,
     ENV_JETSON_NANO,
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
@@ -56,6 +55,7 @@ from .const import (
     CONFIG_SUBSTREAM,
     CONFIG_USERNAME,
     CONFIG_WIDTH,
+    ENV_FFMPEG_PATH,
     FFMPEG_LOG_LEVELS,
     FFPROBE_TIMEOUT,
     HWACCEL_CUDA_DECODER_CODEC_MAP,
