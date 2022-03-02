@@ -1,23 +1,38 @@
+ARG PYTHON_VERSION
+ARG JETPACK_VERSION
 FROM roflcoopter/viseron-models:latest as models
-FROM timongentzsch/l4t-ubuntu20-base:latest
-
-ARG JETSON_NANO_FFMPEG_APT_VERSION
+FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
+FROM nvcr.io/nvidia/l4t-base:r${JETPACK_VERSION} as build
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
+COPY --from=python /usr/local /usr/local/
+
+ARG SOC
+ARG JETPACK_VERSION_MAJOR
+ARG JETPACK_VERSION_MINOR
+ARG JETSON_NANO_FFMPEG_APT_VERSION
+ENV \
+  LD_LIBRARY_PATH="/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra-egl"
 
 RUN \
+  cd /usr/local/bin && \
+  ln -s idle3 idle && \
+  ln -s pydoc3 pydoc && \
+  ln -s python3 python && \
+  \
   apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   gnupg && \
-  echo "deb https://repo.download.nvidia.com/jetson/ffmpeg main main" | tee -a /etc/apt/sources.list && \
-  echo "deb-src https://repo.download.nvidia.com/jetson/ffmpeg main main" | tee -a /etc/apt/sources.list && \
+  echo "deb https://repo.download.nvidia.com/jetson/common r${JETPACK_VERSION_MAJOR}.${JETPACK_VERSION_MINOR} main" >> /etc/apt/sources.list.d/nvidia.list && \
+  echo "deb https://repo.download.nvidia.com/jetson/${SOC} r${JETPACK_VERSION_MAJOR}.${JETPACK_VERSION_MINOR} main" >> /etc/apt/sources.list.d/nvidia.list && \
+  echo "deb https://repo.download.nvidia.com/jetson/ffmpeg main main" >> /etc/apt/sources.list.d/nvidia.list && \
+  echo "deb-src https://repo.download.nvidia.com/jetson/ffmpeg main main" >> /etc/apt/sources.list.d/nvidia.list && \
   apt-key adv --fetch-key http://repo.download.nvidia.com/jetson/jetson-ota-public.asc && \
   mkdir -p /opt/nvidia/l4t-packages/ && touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall && \
   rm -r /etc/ld.so.conf.d/nvidia-tegra.conf && \
   \
   apt-get update && apt-get install -y --no-install-recommends \
-  ca-certificates \
   # face_recognition/dlib
   libtiff5 \
   libjpeg62 \
@@ -27,9 +42,9 @@ RUN \
   libsm6 \
   # OpenCV
   libatlas3-base \
-  libhdf5-103 \
+  libhdf5-100 \
   liblapacke \
-  libopenexr24 \
+  libopenexr22 \
   libpng16-16 \
   libatomic1 \
   # L4T (needed by ffmpeg)
@@ -39,9 +54,17 @@ RUN \
   libcublas10 \
   cuda-libraries-10-2 \
   # ffmpeg
-  && apt-get install -y --no-install-recommends \
-  ffmpeg=${JETSON_NANO_FFMPEG_APT_VERSION} &&\
+  libv4l-dev \
+  libharfbuzz-bin \
+  libegl1 \
+  libfreetype6 \
+  ffmpeg=${JETSON_NANO_FFMPEG_APT_VERSION} && \
   ln -s /detectors/models/darknet/yolov4-tiny.weights /detectors/models/darknet/default.weights && \
   ln -s /detectors/models/darknet/yolov4-tiny.cfg /detectors/models/darknet/default.cfg && \
   # Minimal cuda install does not create symlink so we do it manually
-  ln -s /usr/local/cuda-10.2 /usr/local/cuda
+  ln -s /usr/local/cuda-10.2 /usr/local/cuda && \
+  echo "/usr/lib/aarch64-linux-gnu/tegra" >> /etc/ld.so.conf.d/nvidia-tegra.conf && \
+  echo "/usr/lib/aarch64-linux-gnu/tegra-egl" >> /etc/ld.so.conf.d/nvidia-tegra.conf
+
+# This has not been run in the base image it seems so libraries are not found
+RUN ldconfig

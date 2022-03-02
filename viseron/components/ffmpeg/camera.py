@@ -233,6 +233,7 @@ class Camera(AbstractCamera):
 
         while self._capture_frames:
             if self.decode_error.is_set():
+                self._poll_timer[0] = datetime.datetime.now().timestamp()
                 self.connected = False
                 time.sleep(5)
                 self._logger.error("Restarting frame pipe")

@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bash
+
+echo "****************** Getting GStreamer path *******************"
+export VISERON_GSTREAMER_PATH=$(which gst-launch-1.0)
+printf "$VISERON_GSTREAMER_PATH" > /var/run/environment/VISERON_GSTREAMER_PATH
+echo GStreamer path: $VISERON_GSTREAMER_PATH
+echo "*********************** Done *****************************"

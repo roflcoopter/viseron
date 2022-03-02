@@ -20,7 +20,6 @@ from viseron.const import (
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
-from viseron.domains.camera import CONFIG_EXTENSION
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
 from viseron.helpers.logs import FFmpegFilter, LogPipe
@@ -28,42 +27,30 @@ from viseron.helpers.subprocess import Popen
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 from .const import (
-    CAMERA_INPUT_ARGS,
-    CAMERA_SEGMENT_ARGS,
     COMPONENT,
     CONFIG_AUDIO_CODEC,
     CONFIG_CODEC,
-    CONFIG_FFMPEG_LOGLEVEL,
-    CONFIG_FFMPEG_RECOVERABLE_ERRORS,
     CONFIG_FFPROBE_LOGLEVEL,
-    CONFIG_FILTER_ARGS,
     CONFIG_FPS,
-    CONFIG_GLOBAL_ARGS,
+    CONFIG_GSTREAMER_LOGLEVEL,
+    CONFIG_GSTREAMER_RECOVERABLE_ERRORS,
     CONFIG_HEIGHT,
     CONFIG_HOST,
-    CONFIG_HWACCEL_ARGS,
-    CONFIG_INPUT_ARGS,
     CONFIG_PASSWORD,
     CONFIG_PATH,
-    CONFIG_PIX_FMT,
     CONFIG_PORT,
     CONFIG_PROTOCOL,
-    CONFIG_RECORDER,
-    CONFIG_RTSP_TRANSPORT,
-    CONFIG_SEGMENTS_FOLDER,
     CONFIG_STREAM_FORMAT,
     CONFIG_SUBSTREAM,
     CONFIG_USERNAME,
     CONFIG_WIDTH,
-    ENV_FFMPEG_PATH,
-    FFMPEG_LOG_LEVELS,
+    ENV_GSTREAMER_PATH,
     FFPROBE_TIMEOUT,
-    HWACCEL_CUDA_DECODER_CODEC_MAP,
-    HWACCEL_JETSON_NANO_DECODER_CODEC_MAP,
-    HWACCEL_RPI3_DECODER_CODEC_MAP,
-    HWACCEL_RPI4_DECODER_CODEC_MAP,
+    GSTREAMER_LOG_LEVELS,
+    PIXEL_FORMAT,
     STREAM_FORMAT_MAP,
 )
+from .pipeline import BasePipeline, JetsonPipeline
 
 
 class Stream:
@@ -71,7 +58,9 @@ class Stream:
 
     def __init__(self, vis, config, camera_identifier):
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
-        self._logger.addFilter(FFmpegFilter(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS]))
+        self._logger.addFilter(
+            FFmpegFilter(config[CONFIG_GSTREAMER_RECOVERABLE_ERRORS])
+        )
         self._config = config
         self._camera_identifier = camera_identifier
 
@@ -81,11 +70,11 @@ class Stream:
         self._pipe = None
         self._segment_process = None
         self._log_pipe = LogPipe(
-            self._logger, FFMPEG_LOG_LEVELS[config[CONFIG_FFMPEG_LOGLEVEL]]
+            self._logger, GSTREAMER_LOG_LEVELS[config[CONFIG_GSTREAMER_LOGLEVEL]]
         )
 
         self._ffprobe_log_pipe = LogPipe(
-            self._logger, FFMPEG_LOG_LEVELS[config[CONFIG_FFPROBE_LOGLEVEL]]
+            self._logger, GSTREAMER_LOG_LEVELS[config[CONFIG_FFPROBE_LOGLEVEL]]
         )
         self._ffprobe_timeout = FFPROBE_TIMEOUT
 
@@ -137,10 +126,22 @@ class Stream:
 
         self.create_symlink()
 
-        self._pixel_format = self._output_stream_config[CONFIG_PIX_FMT]
+        self._pixel_format = PIXEL_FORMAT.lower()
         self._color_plane_width = self.width
         self._color_plane_height = int(self.height * 1.5)
         self._frame_bytes_size = int(self.width * self.height * 1.5)
+
+        # For now only the Nano has a specific pipeline
+        if os.getenv(ENV_RASPBERRYPI3) == "true":
+            self._pipeline = BasePipeline(vis, config, self, camera_identifier)
+        elif os.getenv(ENV_RASPBERRYPI4) == "true":
+            self._pipeline = BasePipeline(vis, config, self, camera_identifier)
+        elif os.getenv(ENV_JETSON_NANO) == "true":
+            self._pipeline = JetsonPipeline(vis, config, self, camera_identifier)
+        elif os.getenv(ENV_CUDA_SUPPORTED) == "true":
+            self._pipeline = BasePipeline(vis, config, self, camera_identifier)
+        else:
+            self._pipeline = BasePipeline(vis, config, self, camera_identifier)
 
     @property
     def stream_url(self):
@@ -183,28 +184,17 @@ class Stream:
         )
 
     @property
-    def output_args(self):
-        """Return FFmpeg output args."""
-        return [
-            "-f",
-            "rawvideo",
-            "-pix_fmt",
-            self._output_stream_config[CONFIG_PIX_FMT],
-            "pipe:1",
-        ]
-
-    @property
     def alias(self):
-        """Return FFmpeg executable alias."""
-        return f"ffmpeg_{self._camera_identifier}"
+        """Return GStreamer executable alias."""
+        return f"gstreamer_{self._camera_identifier}"
 
     def create_symlink(self):
-        """Create a symlink to FFmpeg executable.
+        """Create a symlink to GStreamer executable.
 
-        This is done to know which FFmpeg command belongs to which camera.
+        This is done to know which GStreamer command belongs to which camera.
         """
         try:
-            os.symlink(os.getenv(ENV_FFMPEG_PATH), f"/home/abc/bin/{self.alias}")
+            os.symlink(os.getenv(ENV_GSTREAMER_PATH), f"/home/abc/bin/{self.alias}")
         except FileExistsError:
             pass
 
@@ -333,134 +323,15 @@ class Stream:
         )
         return width, height, fps, codec, audio_codec
 
-    @staticmethod
-    def get_codec(stream_config, stream_codec):
-        """Return codec set in config or from predefined codec map."""
-        if stream_config[CONFIG_CODEC]:
-            return ["-c:v", stream_config[CONFIG_CODEC]]
-
-        codec = None
-        codec_map = None
-        if stream_codec:
-            if stream_config[CONFIG_STREAM_FORMAT] in ["rtsp", "rtmp"]:
-                if os.getenv(ENV_RASPBERRYPI3) == "true":
-                    codec_map = HWACCEL_RPI3_DECODER_CODEC_MAP
-                elif os.getenv(ENV_RASPBERRYPI4) == "true":
-                    codec_map = HWACCEL_RPI4_DECODER_CODEC_MAP
-                elif os.getenv(ENV_JETSON_NANO) == "true":
-                    codec_map = HWACCEL_JETSON_NANO_DECODER_CODEC_MAP
-                elif os.getenv(ENV_CUDA_SUPPORTED) == "true":
-                    codec_map = HWACCEL_CUDA_DECODER_CODEC_MAP
-                if codec_map:
-                    codec = codec_map.get(stream_codec, None)
-        if codec:
-            return ["-c:v", codec]
-        return []
-
-    def stream_command(self, stream_config, stream_codec, stream_url):
-        """Return FFmpeg input stream."""
-        if stream_config[CONFIG_INPUT_ARGS]:
-            input_args = stream_config[CONFIG_INPUT_ARGS]
-        else:
-            input_args = (
-                CAMERA_INPUT_ARGS
-                + STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]][
-                    "timeout_option"
-                ]
-            )
-
-        return (
-            input_args
-            + stream_config[CONFIG_HWACCEL_ARGS]
-            + self.get_codec(stream_config, stream_codec)
-            + (
-                ["-rtsp_transport", stream_config[CONFIG_RTSP_TRANSPORT]]
-                if self._config[CONFIG_STREAM_FORMAT] == "rtsp"
-                else []
-            )
-            + ["-i", stream_url]
-        )
-
-    @staticmethod
-    def get_audio_codec(stream_config, stream_audio_codec):
-        """Return audio codec used for saving segments."""
-        if (
-            stream_config[CONFIG_AUDIO_CODEC]
-            and stream_config[CONFIG_AUDIO_CODEC] != "unset"
-        ):
-            return ["-c:a", stream_config[CONFIG_AUDIO_CODEC]]
-
-        if stream_audio_codec and stream_config[CONFIG_AUDIO_CODEC] == "unset":
-            return ["-c:a", "copy"]
-
-        return []
-
-    def segment_args(self):
-        """Generate FFmpeg segment args."""
-        return (
-            CAMERA_SEGMENT_ARGS
-            + self.get_audio_codec(self._config, self.stream_audio_codec)
-            + [
-                os.path.join(
-                    self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
-                    self._camera.identifier,
-                    f"%Y%m%d%H%M%S.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
-                )
-            ]
-        )
-
     def build_segment_command(self):
         """Return command for writing segments only from main stream.
 
         Only used when a substream is configured.
         """
-        stream_input_command = self.stream_command(
-            self._config, self.stream_codec, self.stream_url
-        )
-        return (
-            [self.alias]
-            + self._config[CONFIG_GLOBAL_ARGS]
-            + ["-loglevel"]
-            + [self._config[CONFIG_FFMPEG_LOGLEVEL]]
-            + stream_input_command
-            + self.segment_args()
-        )
-
-    def build_command(self):
-        """Return full FFmpeg command."""
-        if self._config.get(CONFIG_SUBSTREAM, None):
-            stream_input_command = self.stream_command(
-                self._output_stream_config,
-                self.stream_codec,
-                self.output_stream_url,
-            )
-        else:
-            stream_input_command = self.stream_command(
-                self._config, self.stream_codec, self.stream_url
-            )
-
-        camera_segment_args = []
-        if not self._config.get(CONFIG_SUBSTREAM, None):
-            camera_segment_args = self.segment_args()
-
-        return (
-            [self.alias]
-            + self._config[CONFIG_GLOBAL_ARGS]
-            + ["-loglevel"]
-            + [self._config[CONFIG_FFMPEG_LOGLEVEL]]
-            + stream_input_command
-            + camera_segment_args
-            + self._config[CONFIG_FILTER_ARGS]
-            + (
-                ["-filter:v", f"fps={self.output_fps}"]
-                if self.output_fps < self.fps
-                else []
-            )
-            + self.output_args
-        )
+        raise NotImplementedError
 
     def pipe(self):
-        """Return subprocess pipe for FFmpeg."""
+        """Return subprocess pipe for GStreamer."""
         if self._config.get(CONFIG_SUBSTREAM, None):
             self._segment_process = RestartablePopen(
                 self.build_segment_command(),
@@ -469,30 +340,32 @@ class Stream:
             )
 
         return Popen(
-            self.build_command(),
+            self._pipeline.build_pipeline(),
             stdout=sp.PIPE,
             stderr=self._log_pipe,
         )
 
     def start_pipe(self):
-        """Start piping frames from FFmpeg."""
-        self._logger.debug(f"FFmpeg decoder command: {' '.join(self.build_command())}")
+        """Start piping frames from GStreamer."""
+        self._logger.debug(
+            f"GStreamer decoder command: {' '.join(self._pipeline.build_pipeline())}"
+        )
         if self._config.get(CONFIG_SUBSTREAM, None):
             self._logger.debug(
-                f"FFmpeg segments command: {' '.join(self.build_segment_command())}"
+                f"GStreamer segments command: {' '.join(self.build_segment_command())}"
             )
 
         self._pipe = self.pipe()
 
     def close_pipe(self):
-        """Close FFmpeg pipe."""
+        """Close GStreamer pipe."""
         self._pipe.terminate()
         if self._segment_process:
             self._segment_process.terminate()
         try:
             self._pipe.communicate(timeout=5)
         except sp.TimeoutExpired:
-            self._logger.debug("FFmpeg did not terminate, killing instead.")
+            self._logger.debug("GStreamer did not terminate, killing instead.")
             self._pipe.kill()
             self._pipe.communicate()
 
@@ -501,7 +374,7 @@ class Stream:
         return self._pipe.poll()
 
     def read(self):
-        """Return a single frame from FFmpeg pipe."""
+        """Return a single frame from GStreamer pipe."""
         if self._pipe:
             try:
                 frame_bytes = self._pipe.stdout.read(self._frame_bytes_size)
@@ -516,5 +389,5 @@ class Stream:
                     self._camera.shared_frames.create(shared_frame, frame_bytes)
                     return shared_frame
             except Exception as err:  # pylint: disable=broad-except
-                self._logger.error(f"Error reading frame from FFmpeg: {err}")
+                self._logger.error(f"Error reading frame from GStreamer: {err}")
         return None

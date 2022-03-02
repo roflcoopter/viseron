@@ -25,9 +25,12 @@
 !/docker/amd64-cuda/Dockerfile*
 !/docker/jetson-nano
 !/docker/jetson-nano/Dockerfile*
-!/docker/jetson-nano/patch_ffmpeg.sh
+!/docker/jetson-nano/pycoral-2.0.0-cp38-cp38-linux_aarch64.whl
+!/docker/jetson-nano/tflite_runtime-2.5.0.post1-cp38-cp38-linux_aarch64.whl
 !/docker/rpi3
 !/docker/rpi3/Dockerfile*
+!/docker/ffprobe_wrapper
+!/docker/ffmpeg_wrapper
 !/docker/yolov4*.cfg
 !/rootfs/
 !/rootfs/etc/

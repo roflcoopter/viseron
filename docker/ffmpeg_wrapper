@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# This script wraps the FFmpeg executable to supply correct LD_LIBRARY_PATH.
+# Previously FFmpeg was copied to /usr/local but that breaks GStreamer for some reason.
+# That is also the reason why LD_LIBRARY_PATH can't be set globally.
+FFMPEG_PATH=$(PATH=/ffmpeg/bin:$PATH which ffmpeg)
+LD_LIBRARY_PATH=/ffmpeg/lib exec -a "$(basename "$0")" "$FFMPEG_PATH" "$@"
