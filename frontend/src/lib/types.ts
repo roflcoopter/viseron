@@ -24,7 +24,9 @@ export interface Recording {
 }
 
 export interface Recordings {
-  [index: string]: [Recording]
+  [index: string]: {
+    [index: string]: Recording
+  }
 }
 
 export interface Camera {

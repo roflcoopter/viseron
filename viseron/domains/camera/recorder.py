@@ -102,20 +102,18 @@ class AbstractRecorder(ABC):
             if len(date_folder.listdir()) == 0:
                 continue
 
-            daily_recordings = []
+            daily_recordings = {}
             for extension in self._extensions:
                 recordings = date_folder.walkfiles(extension)
                 for recording in recordings:
-                    daily_recordings.append(
-                        {
-                            "path": str(recording),
-                            "date": str(date_folder.name),
-                            "filename": str(recording.name),
-                            "thumbnail_path": os.path.join(
-                                date_folder, f"{str(recording.stem)}.jpg"
-                            ),
-                        }
-                    )
+                    daily_recordings[str(recording.name)] = {
+                        "path": str(recording),
+                        "date": str(date_folder.name),
+                        "filename": str(recording.name),
+                        "thumbnail_path": os.path.join(
+                            date_folder, f"{str(recording.stem)}.jpg"
+                        ),
+                    }
             recordings_dict[date_folder.name] = daily_recordings
         return recordings_dict
 

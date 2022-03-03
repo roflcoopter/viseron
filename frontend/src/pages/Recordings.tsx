@@ -61,19 +61,24 @@ const Recordings = () => {
                 justifyContent="start"
                 spacing={2}
               >
-                {camera.recordings[date].map((recording, _i) => (
-                  <Grid
-                    item
-                    key={recording.path}
-                    xs={12}
-                    sm={6}
-                    md={6}
-                    lg={4}
-                    xl={4}
-                  >
-                    <RecordingCard recording={recording} />
-                  </Grid>
-                ))}
+                {Object.keys(camera.recordings[date])
+                  .sort()
+                  .reverse()
+                  .map((recording) => (
+                    <Grid
+                      item
+                      key={recording}
+                      xs={12}
+                      sm={6}
+                      md={6}
+                      lg={4}
+                      xl={4}
+                    >
+                      <RecordingCard
+                        recording={camera.recordings[date][recording]}
+                      />
+                    </Grid>
+                  ))}
               </Grid>
             </Grid>
           ))}
