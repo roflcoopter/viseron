@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import * as messages from "lib/messages";
 import * as types from "lib/types";
 
+const connectedToastId = "connectedToastId";
 const connectingToastId = "connectingToastId";
 const connectionLostToastId = "connectionLostToastId";
 
@@ -116,6 +117,7 @@ export class Connection {
     this.commandId = 0;
     if (this.reconnectTimer) {
       toast("Connected to server!", {
+        toastId: connectedToastId,
         type: toast.TYPE.INFO,
         autoClose: 5000,
         pauseOnFocusLoss: false,
