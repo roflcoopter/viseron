@@ -1,0 +1,318 @@
+"""GStreamer camera."""
+
+import datetime
+import time
+from threading import Event
+
+import cv2
+import voluptuous as vol
+
+from viseron import Viseron
+from viseron.domains.camera import (
+    BASE_CONFIG_SCHEMA as BASE_CAMERA_CONFIG_SCHEMA,
+    DEFAULT_RECORDER,
+    RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
+    AbstractCamera,
+)
+from viseron.domains.camera.const import EVENT_CAMERA_STARTED, EVENT_CAMERA_STOPPED
+from viseron.watchdog.thread_watchdog import RestartableThread
+
+from .const import (
+    COMPONENT,
+    CONFIG_AUDIO_CODEC,
+    CONFIG_CODEC,
+    CONFIG_FFPROBE_LOGLEVEL,
+    CONFIG_FPS,
+    CONFIG_FRAME_TIMEOUT,
+    CONFIG_GSTREAMER_LOGLEVEL,
+    CONFIG_GSTREAMER_RECOVERABLE_ERRORS,
+    CONFIG_HEIGHT,
+    CONFIG_HOST,
+    CONFIG_MUXER,
+    CONFIG_PASSWORD,
+    CONFIG_PATH,
+    CONFIG_PORT,
+    CONFIG_PROTOCOL,
+    CONFIG_RECORDER,
+    CONFIG_RECORDER_AUDIO_CODEC,
+    CONFIG_RECORDER_CODEC,
+    CONFIG_RECORDER_FILTER_ARGS,
+    CONFIG_RECORDER_HWACCEL_ARGS,
+    CONFIG_RTSP_TRANSPORT,
+    CONFIG_SEGMENTS_FOLDER,
+    CONFIG_STREAM_FORMAT,
+    CONFIG_SUBSTREAM,
+    CONFIG_USERNAME,
+    CONFIG_WIDTH,
+    DEFAULT_AUDIO_CODEC,
+    DEFAULT_CODEC,
+    DEFAULT_FFPROBE_LOGLEVEL,
+    DEFAULT_FPS,
+    DEFAULT_FRAME_TIMEOUT,
+    DEFAULT_GSTREAMER_LOGLEVEL,
+    DEFAULT_GSTREAMER_RECOVERABLE_ERRORS,
+    DEFAULT_HEIGHT,
+    DEFAULT_MUXER,
+    DEFAULT_PASSWORD,
+    DEFAULT_PROTOCOL,
+    DEFAULT_RECORDER_AUDIO_CODEC,
+    DEFAULT_RECORDER_CODEC,
+    DEFAULT_RECORDER_FILTER_ARGS,
+    DEFAULT_RECORDER_HWACCEL_ARGS,
+    DEFAULT_RTSP_TRANSPORT,
+    DEFAULT_SEGMENTS_FOLDER,
+    DEFAULT_STREAM_FORMAT,
+    DEFAULT_USERNAME,
+    DEFAULT_WIDTH,
+    GSTREAMER_LOG_LEVELS,
+    STREAM_FORMAT_MAP,
+)
+from .recorder import Recorder
+from .stream import Stream
+
+STREAM_SCEHMA_DICT = {
+    vol.Optional(CONFIG_STREAM_FORMAT, default=DEFAULT_STREAM_FORMAT): vol.In(
+        STREAM_FORMAT_MAP.keys()
+    ),
+    vol.Optional(CONFIG_PROTOCOL, default=DEFAULT_PROTOCOL): vol.Maybe(
+        vol.Any("rtsp", "rtmp", "http", "https")
+    ),
+    vol.Required(CONFIG_PATH): vol.All(str, vol.Length(min=1)),
+    vol.Required(CONFIG_PORT): vol.All(int, vol.Range(min=1)),
+    vol.Optional(CONFIG_WIDTH, default=DEFAULT_WIDTH): vol.Maybe(int),
+    vol.Optional(CONFIG_HEIGHT, default=DEFAULT_HEIGHT): vol.Maybe(int),
+    vol.Optional(CONFIG_FPS, default=DEFAULT_FPS): vol.Maybe(
+        vol.All(int, vol.Range(min=1))
+    ),
+    vol.Optional(CONFIG_CODEC, default=DEFAULT_CODEC): str,
+    vol.Optional(CONFIG_AUDIO_CODEC, default=DEFAULT_AUDIO_CODEC): vol.Maybe(str),
+    vol.Optional(CONFIG_RTSP_TRANSPORT, default=DEFAULT_RTSP_TRANSPORT): vol.Any(
+        "tcp",
+        "udp",
+        "mcast",
+    ),
+    vol.Optional(CONFIG_FRAME_TIMEOUT, default=DEFAULT_FRAME_TIMEOUT): int,
+}
+
+RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
+    {
+        vol.Optional(
+            CONFIG_RECORDER_HWACCEL_ARGS, default=DEFAULT_RECORDER_HWACCEL_ARGS
+        ): [str],
+        vol.Optional(CONFIG_RECORDER_CODEC, default=DEFAULT_RECORDER_CODEC): str,
+        vol.Optional(
+            CONFIG_RECORDER_AUDIO_CODEC, default=DEFAULT_RECORDER_AUDIO_CODEC
+        ): str,
+        vol.Optional(
+            CONFIG_RECORDER_FILTER_ARGS, default=DEFAULT_RECORDER_FILTER_ARGS
+        ): [str],
+        vol.Optional(CONFIG_SEGMENTS_FOLDER, default=DEFAULT_SEGMENTS_FOLDER): str,
+        vol.Optional(CONFIG_MUXER, default=DEFAULT_MUXER): vol.In(["mp4mux", "avimux"]),
+    }
+)
+
+GSTREAMER_LOG_LEVELSCHEMA = vol.Schema(vol.In(GSTREAMER_LOG_LEVELS.keys()))
+
+CAMERA_SCHEMA = BASE_CAMERA_CONFIG_SCHEMA.extend(STREAM_SCEHMA_DICT)
+
+CAMERA_SCHEMA = CAMERA_SCHEMA.extend(
+    {
+        vol.Required(CONFIG_HOST): vol.All(str, vol.Length(min=1)),
+        vol.Optional(CONFIG_USERNAME, default=DEFAULT_USERNAME): vol.Maybe(
+            vol.All(str, vol.Length(min=1))
+        ),
+        vol.Optional(CONFIG_PASSWORD, default=DEFAULT_PASSWORD): vol.Maybe(
+            vol.All(str, vol.Length(min=1))
+        ),
+        vol.Optional(CONFIG_SUBSTREAM): vol.Schema(STREAM_SCEHMA_DICT),
+        vol.Optional(
+            CONFIG_GSTREAMER_LOGLEVEL, default=DEFAULT_GSTREAMER_LOGLEVEL
+        ): GSTREAMER_LOG_LEVELSCHEMA,
+        vol.Optional(
+            CONFIG_GSTREAMER_RECOVERABLE_ERRORS,
+            default=DEFAULT_GSTREAMER_RECOVERABLE_ERRORS,
+        ): [str],
+        vol.Optional(
+            CONFIG_FFPROBE_LOGLEVEL, default=DEFAULT_FFPROBE_LOGLEVEL
+        ): GSTREAMER_LOG_LEVELSCHEMA,
+        vol.Optional(CONFIG_RECORDER, default=DEFAULT_RECORDER): RECORDER_SCHEMA,
+    }
+)
+
+CONFIG_SCHEMA = vol.Schema(
+    {
+        str: CAMERA_SCHEMA,
+    }
+)
+
+
+def setup(vis: Viseron, config):
+    """Set up the gstreamer camera domain."""
+    camera_identifier = list(config)[0]
+    Camera(vis, config[camera_identifier], camera_identifier)
+
+
+class Camera(AbstractCamera):
+    """Represents a camera which is consumed via GStreamer."""
+
+    def __init__(self, vis, config, identifier):
+        self._poll_timer = [None]
+        self._frame_reader = RestartableThread(
+            name="viseron.camera." + identifier,
+            target=self.read_frames,
+            poll_timer=self.poll_timer,
+            poll_timeout=config[CONFIG_FRAME_TIMEOUT],
+            poll_target=self.stop_camera,
+            daemon=True,
+            register=True,
+        )
+
+        super().__init__(vis, COMPONENT, config, identifier)
+        self._capture_frames = False
+        self.resolution = None
+        self.decode_error = Event()
+
+        if cv2.ocl.haveOpenCL():
+            cv2.ocl.setUseOpenCL(True)
+        vis.data[COMPONENT][self.identifier] = self
+        self._recorder = Recorder(vis, config, self)
+
+        self.initialize_camera()
+        vis.register_camera(self.identifier, self)
+
+    def initialize_camera(self):
+        """Start processing of camera frames."""
+        self._poll_timer = [None]
+        self._logger.debug("Initializing camera {}".format(self.name))
+
+        self.stream = Stream(self._vis, self._config, self.identifier)
+
+        self.resolution = self.stream.width, self.stream.height
+        self._logger.debug(
+            f"Resolution: {self.resolution[0]}x{self.resolution[1]} "
+            f"@ {self.stream.fps} FPS"
+        )
+
+        self._logger.debug(f"Camera {self.name} initialized")
+
+    def read_frames(self):
+        """Read frames from camera."""
+        self.decode_error.clear()
+        self._poll_timer[0] = datetime.datetime.now().timestamp()
+        empty_frames = 0
+
+        self.stream.start_pipe()
+
+        while self._capture_frames:
+            if self.decode_error.is_set():
+                self._poll_timer[0] = datetime.datetime.now().timestamp()
+                self.connected = False
+                time.sleep(5)
+                self._logger.error("Restarting frame pipe")
+                self.stream.close_pipe()
+                self.stream.start_pipe()
+                self.decode_error.clear()
+                empty_frames = 0
+
+            self.current_frame = self.stream.read()
+            if self.current_frame:
+                self.connected = True
+                empty_frames = 0
+                self._poll_timer[0] = datetime.datetime.now().timestamp()
+                self._data_stream.publish_data(
+                    self.frame_bytes_topic, self.current_frame
+                )
+                continue
+
+            if self.stream.poll is not None:
+                self._logger.error("GStreamer process has exited")
+                self.decode_error.set()
+                continue
+
+            empty_frames += 1
+            if empty_frames >= 10:
+                self._logger.error("Did not receive a frame")
+                self.decode_error.set()
+
+        self.connected = False
+        self.stream.close_pipe()
+        self._logger.debug("GStreamer frame reader stopped")
+
+    def start_camera(self):
+        """Start capturing frames from camera."""
+        self._logger.debug("Starting capture thread")
+        self._capture_frames = True
+        if not self._frame_reader or not self._frame_reader.is_alive():
+            self._frame_reader = RestartableThread(
+                name="viseron.camera." + self.identifier,
+                target=self.read_frames,
+                poll_timer=self.poll_timer,
+                poll_timeout=self._config[CONFIG_FRAME_TIMEOUT],
+                poll_target=self.stop_camera,
+                daemon=True,
+                register=True,
+            )
+            self._frame_reader.start()
+            self._vis.dispatch_event(
+                EVENT_CAMERA_STARTED.format(camera_identifier=self.identifier),
+                None,
+            )
+
+    def stop_camera(self):
+        """Release the connection to the camera."""
+        self._capture_frames = False
+        self._frame_reader.stop()
+        self._frame_reader.join()
+        self._vis.dispatch_event(
+            EVENT_CAMERA_STOPPED.format(camera_identifier=self.identifier),
+            None,
+        )
+        if self.is_recording:
+            self.stop_recorder()
+
+    def start_recorder(self, shared_frame, objects_in_fov):
+        """Start camera recorder."""
+        self._recorder.start(shared_frame, objects_in_fov, self.resolution)
+
+    def stop_recorder(self):
+        """Stop camera recorder."""
+        self._recorder.stop()
+
+    @property
+    def poll_timer(self):
+        """Return poll timer."""
+        return self._poll_timer
+
+    @property
+    def output_fps(self):
+        """Set stream output fps."""
+        return self.stream.output_fps
+
+    @output_fps.setter
+    def output_fps(self, fps):
+        self.stream.output_fps = fps
+
+    @property
+    def resolution(self):
+        """Return stream resolution."""
+        return self._resolution
+
+    @resolution.setter
+    def resolution(self, resolution):
+        """Return stream resolution."""
+        self._resolution = resolution
+
+    @property
+    def recorder(self) -> Recorder:
+        """Return recorder instance."""
+        return self._recorder
+
+    @property
+    def is_recording(self):
+        """Return recording status."""
+        return self._recorder.is_recording
+
+    @property
+    def is_on(self):
+        """Return if camera is on."""
+        return self._frame_reader.is_alive()
