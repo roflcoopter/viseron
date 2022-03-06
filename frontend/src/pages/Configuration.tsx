@@ -1,9 +1,10 @@
 import Container from "@mui/material/Container";
 import "monaco-editor";
+import { lazy } from "react";
 
-import Editor from "components/editor/Editor";
 import { useTitle } from "hooks/UseTitle";
 
+const Editor = lazy(() => import("components/editor/Editor"));
 const Configuration = () => {
   useTitle("Configuration");
 

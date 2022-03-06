@@ -8,7 +8,7 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import { alpha, styled, useTheme } from "@mui/material/styles";
-import * as React from "react";
+import { useContext } from "react";
 import { Link } from "react-router-dom";
 
 import { ColorModeContext } from "context/ColorModeContext";
@@ -34,7 +34,7 @@ const Header = styled("header")(({ theme }) => ({
 }));
 
 export default function AppHeader() {
-  const colorMode = React.useContext(ColorModeContext);
+  const colorMode = useContext(ColorModeContext);
   const theme = useTheme();
 
   return (

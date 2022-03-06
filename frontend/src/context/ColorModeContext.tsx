@@ -6,7 +6,13 @@ import {
 } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { deepmerge } from "@mui/utils";
-import * as React from "react";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 declare module "@mui/material/styles/createPalette" {
   interface ColorRange {
@@ -61,7 +67,7 @@ export type ColorModeProviderProps = {
   children: React.ReactNode;
 };
 
-export const ColorModeContext = React.createContext({
+export const ColorModeContext = createContext({
   toggleColorMode: () => {},
 });
 
@@ -69,8 +75,8 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
   const preferredMode = useMediaQuery("(prefers-color-scheme: dark)")
     ? "dark"
     : "light";
-  const [mode, setMode] = React.useState<"light" | "dark">("light");
-  const colorMode = React.useMemo(
+  const [mode, setMode] = useState<"light" | "dark">("light");
+  const colorMode = useMemo(
     () => ({
       toggleColorMode: () => {
         setMode((prevMode) => {
@@ -83,7 +89,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
     []
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     const chosenMode = localStorage.getItem("chosenMode");
     switch (chosenMode) {
       case "dark":
@@ -97,7 +103,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
     }
   }, [preferredMode]);
 
-  const getDesignTokens = React.useCallback(
+  const getDesignTokens = useCallback(
     (requestedMode: "light" | "dark") =>
       ({
         shape: {
@@ -183,11 +189,11 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
     };
   }
 
-  const viseronTheme = React.useMemo(
+  const viseronTheme = useMemo(
     () => createTheme(getDesignTokens(mode)),
     [mode, getDesignTokens]
   );
-  const theme = React.useMemo(
+  const theme = useMemo(
     () =>
       createTheme(deepmerge(viseronTheme, getThemedComponents(viseronTheme))),
     // eslint-disable-next-line react-hooks/exhaustive-deps

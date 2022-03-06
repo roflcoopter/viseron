@@ -1,4 +1,4 @@
-import * as React from "react";
+import { FC, useEffect, useRef } from "react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import "videojs-overlay";
@@ -42,14 +42,11 @@ type VideoJsPlayerOverlay = videojs.Player & {
   overlay: (overlays: VideoJsOverlayOptions) => void;
 };
 
-const VideoPlayer: React.FC<VideoPlayerPropsInferface> = ({
-  recording,
-  options,
-}) => {
-  const videoNode = React.useRef<HTMLVideoElement>(null);
-  const player = React.useRef<videojs.Player>();
+const VideoPlayer: FC<VideoPlayerPropsInferface> = ({ recording, options }) => {
+  const videoNode = useRef<HTMLVideoElement>(null);
+  const player = useRef<videojs.Player>();
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!player.current) {
       player.current = videojs(videoNode.current!, options, () => {
         (player.current as VideoJsPlayerOverlay).overlay({
