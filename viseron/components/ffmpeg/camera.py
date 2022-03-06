@@ -242,12 +242,14 @@ class Camera(AbstractCamera):
                 self.decode_error.clear()
                 empty_frames = 0
 
-            current_frame = self.stream.read()
-            if current_frame:
+            self.current_frame = self.stream.read()
+            if self.current_frame:
                 self.connected = True
                 empty_frames = 0
                 self._poll_timer[0] = datetime.datetime.now().timestamp()
-                self._data_stream.publish_data(self.frame_bytes_topic, current_frame)
+                self._data_stream.publish_data(
+                    self.frame_bytes_topic, self.current_frame
+                )
                 continue
 
             if self.stream.poll is not None:

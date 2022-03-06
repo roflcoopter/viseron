@@ -8,7 +8,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, List
+from typing import TYPE_CHECKING, Any, Callable, List, Literal
 
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -30,6 +30,7 @@ from viseron.const import (
     REGISTERED_OBJECT_DETECTORS,
     VISERON_SIGNAL_SHUTDOWN,
 )
+from viseron.domains.camera import AbstractCamera
 from viseron.domains.motion_detector.const import DATA_MOTION_DETECTOR_SCAN
 from viseron.domains.object_detector.const import DATA_OBJECT_DETECTOR_SCAN
 from viseron.exceptions import DataStreamNotLoaded
@@ -259,7 +260,9 @@ class Viseron:
                 del self._wait_for_camera_store[camera_identifier]
             self.dispatch_event(EVENT_CAMERA_REGISTERED, camera_instance)
 
-    def get_registered_camera(self, camera_identifier):
+    def get_registered_camera(
+        self, camera_identifier
+    ) -> AbstractCamera | Literal[False]:
         """Return a registered camera."""
         if not self.data[REGISTERED_CAMERAS]:
             LOGGER.error("No cameras are registered")

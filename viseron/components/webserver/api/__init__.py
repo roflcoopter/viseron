@@ -2,20 +2,24 @@
 import importlib
 import json
 import logging
-import re
 from functools import partial
 from typing import Any, Dict, List
 
 import tornado.routing
+import voluptuous as vol
+from voluptuous.humanize import humanize_error
 
 from viseron.components.webserver.const import (
     STATUS_ERROR_ENDPOINT_NOT_FOUND,
+    STATUS_ERROR_INTERNAL,
     STATUS_ERROR_METHOD_NOT_ALLOWED,
     STATUS_SUCCESS,
 )
 from viseron.components.webserver.not_found_handler import NotFoundHandler
 from viseron.components.webserver.request_handler import ViseronRequestHandler
 from viseron.helpers.json import JSONEncoder
+
+API_BASE = "/api/v1"
 
 LOGGER = logging.getLogger(__name__)
 
@@ -25,11 +29,21 @@ class BaseAPIHandler(ViseronRequestHandler):
 
     routes: List[Dict[str, Any]] = []
 
-    def response_success(self, response=None):
+    def initialize(self, vis):
+        """Initialize."""
+        super().initialize(vis)
+        self.route = {}
+        self.request_arguments = {}
+
+    def response_success(self, response=None, headers=None):
         """Send successful response."""
         if response is None:
             response = {"success": True}
         self.set_status(STATUS_SUCCESS)
+
+        if headers:
+            for header, value in headers.items():
+                self.set_header(header, value)
 
         if isinstance(response, dict):
             self.finish(partial(json.dumps, cls=JSONEncoder, allow_nan=False)(response))
@@ -39,7 +53,7 @@ class BaseAPIHandler(ViseronRequestHandler):
 
     def response_error(self, status_code, reason):
         """Send error response."""
-        self.set_status(status_code, reason=reason)
+        self.set_status(status_code, reason=reason.replace("\n", ""))
         response = {"error": f"{status_code}: {reason}"}
         self.finish(response)
 
@@ -63,21 +77,49 @@ class BaseAPIHandler(ViseronRequestHandler):
     def route_request(self):
         """Route request to correct API endpoint."""
         unsupported_method = False
-        endpoint = re.sub("^/api/.*/", "/", self.request.uri)
 
         for route in self.routes:
-            if re.match(route["path_pattern"], endpoint):
+            path_match = tornado.routing.PathMatches(
+                f"{API_BASE}{route['path_pattern']}"
+            )
+            if path_match.regex.match(self.request.path):
                 if self.request.method not in route["supported_methods"]:
                     unsupported_method = True
                     continue
 
+                params = path_match.match(self.request)
+                request_arguments = {
+                    k: self.get_argument(k) for k in self.request.arguments
+                }
+                if schema := route.get("request_arguments_schema", None):
+                    try:
+                        self.request_arguments = schema(request_arguments)
+                    except vol.Invalid as err:
+                        LOGGER.error(
+                            "Invalid request arguments: {}".format(request_arguments),
+                            exc_info=True,
+                        )
+                        self.response_error(
+                            STATUS_ERROR_INTERNAL,
+                            reason="Invalid request arguments: {}. {}".format(
+                                request_arguments,
+                                humanize_error(request_arguments, err),
+                            ),
+                        )
+                        return
+
                 LOGGER.debug(
-                    "Routing to {}.{}()".format(
-                        self.__class__.__name__, route.get("method")
+                    "Routing to {}.{}(*args={}, **kwargs={})".format(
+                        self.__class__.__name__,
+                        route.get("method"),
+                        params["path_args"],
+                        params["path_kwargs"],
                     ),
                 )
-                kwargs = {"route": route}
-                getattr(self, route.get("method"))(kwargs)
+                self.route = route
+                getattr(self, route.get("method"))(
+                    *params["path_args"], **params["path_kwargs"]
+                )
                 return
 
         if unsupported_method:
@@ -130,6 +172,11 @@ class APIRouter(tornado.routing.Router):
             LOGGER.warning(
                 f"Unable to find handler for path: {request.path}",
                 exc_info=True,
+            )
+            handler = NotFoundHandler
+        except ModuleNotFoundError as error:
+            LOGGER.warning(
+                f"Error importing API endpoint module: {error}", exc_info=True
             )
             handler = NotFoundHandler
 

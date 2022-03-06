@@ -160,6 +160,7 @@ class AbstractCamera(ABC):
 
         self._connected = False
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
+        self.current_frame = None
         self.shared_frames = SharedFrames()
         self.frame_bytes_topic = DATA_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
