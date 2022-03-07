@@ -36,7 +36,6 @@ from .const import (
     CONFIG_FFMPEG_LOGLEVEL,
     CONFIG_FFMPEG_RECOVERABLE_ERRORS,
     CONFIG_FFPROBE_LOGLEVEL,
-    CONFIG_FILTER_ARGS,
     CONFIG_FPS,
     CONFIG_GLOBAL_ARGS,
     CONFIG_HEIGHT,
@@ -54,6 +53,7 @@ from .const import (
     CONFIG_STREAM_FORMAT,
     CONFIG_SUBSTREAM,
     CONFIG_USERNAME,
+    CONFIG_VIDEO_FILTERS,
     CONFIG_WIDTH,
     ENV_FFMPEG_PATH,
     FFMPEG_LOG_LEVELS,
@@ -409,6 +409,17 @@ class Stream:
             ]
         )
 
+    def filter_args(self):
+        """Return filter arguments."""
+        filters = self._config[CONFIG_VIDEO_FILTERS].copy()
+        if self.output_fps < self.fps:
+            filters.append(f"fps={self.output_fps}")
+
+        return [
+            "-vf",
+            (",".join(filters)),
+        ]
+
     def build_segment_command(self):
         """Return command for writing segments only from main stream.
 
@@ -450,12 +461,7 @@ class Stream:
             + [self._config[CONFIG_FFMPEG_LOGLEVEL]]
             + stream_input_command
             + camera_segment_args
-            + self._config[CONFIG_FILTER_ARGS]
-            + (
-                ["-filter:v", f"fps={self.output_fps}"]
-                if self.output_fps < self.fps
-                else []
-            )
+            + self.filter_args()
             + self.output_args
         )
 
