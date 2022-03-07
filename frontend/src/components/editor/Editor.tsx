@@ -59,6 +59,7 @@ setDiagnosticsOptions({
   completion: true,
   validate: true,
   format: true,
+  customTags: ["!secret"],
 });
 
 const renderWhitespace:
