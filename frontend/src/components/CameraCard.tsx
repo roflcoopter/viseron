@@ -23,6 +23,7 @@ export default function CameraCard({ camera }: CameraCardProps) {
   const ref: any = useRef<HTMLDivElement>();
   const onScreen = useOnScreen<HTMLDivElement>(ref, "-1px");
   const isVisible = usePageVisibility();
+  const [initialRender, setInitialRender] = useState(true);
 
   const generateSnapshotURL = useCallback(
     (width = null) =>
@@ -45,6 +46,18 @@ export default function CameraCard({ camera }: CameraCardProps) {
         // Dont load new image if we are still loading
         return prevSnapshotURL;
       }
+      if (initialRender) {
+        // Make sure we show the spinner on the first image fetched.
+        setInitialRender(false);
+        return {
+          url: generateSnapshotURL(
+            ref.current ? ref.current.offsetWidth : null
+          ),
+          disableSpinner: false,
+          disableTransition: false,
+          loading: true,
+        };
+      }
       return {
         url: generateSnapshotURL(ref.current ? ref.current.offsetWidth : null),
         disableSpinner: true,
@@ -52,7 +65,7 @@ export default function CameraCard({ camera }: CameraCardProps) {
         loading: true,
       };
     });
-  }, [generateSnapshotURL]);
+  }, [generateSnapshotURL, initialRender]);
 
   useEffect(() => {
     // If element is on screen and browser is visible, start interval to fetch images
@@ -90,6 +103,13 @@ export default function CameraCard({ camera }: CameraCardProps) {
           aspectRatio={camera.width / camera.height}
           color={theme.palette.background.default}
           onLoad={() => {
+            setSnapshotURL((prevSnapshotURL) => ({
+              ...prevSnapshotURL,
+              loading: false,
+            }));
+          }}
+          errorIcon={Image.defaultProps!.loading}
+          onError={() => {
             setSnapshotURL((prevSnapshotURL) => ({
               ...prevSnapshotURL,
               loading: false,
