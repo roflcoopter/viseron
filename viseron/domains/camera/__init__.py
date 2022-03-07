@@ -4,8 +4,12 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from functools import lru_cache
+from threading import Timer
 from typing import TYPE_CHECKING, Tuple
 
+import cv2
+import imutils
 import voluptuous as vol
 
 from viseron.components.data_stream import (
@@ -67,6 +71,7 @@ from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
     from .recorder import AbstractRecorder
+    from .shared_frames import SharedFrame
 
 COERCE_INT = vol.Schema(vol.All(vol.Any(int, str), vol.Coerce(int)))
 
@@ -160,11 +165,13 @@ class AbstractCamera(ABC):
 
         self._connected = False
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
-        self.current_frame = None
+        self.current_frame: SharedFrame = None
         self.shared_frames = SharedFrames()
         self.frame_bytes_topic = DATA_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
         )
+
+        self._clear_cache_timer = None
         vis.add_entity(component, ConnectionStatusBinarySensor(vis, self))
         vis.add_entity(component, CameraConnectionToggle(vis, self))
 
@@ -260,3 +267,47 @@ class AbstractCamera(ABC):
                 else EVENT_STATUS_DISCONNECTED
             ),
         )
+
+    def _clear_snapshot_cache(self, clear_cache):
+        """Clear snapshot cache."""
+        clear_cache()
+
+    @lru_cache(maxsize=2)
+    def get_snapshot(
+        self,
+        current_frame: SharedFrame,
+        width=None,
+        height=None,
+    ):
+        """Return current frame as jpg bytes.
+
+        current_frame is passed in instead of taken from self.current_frame to allow
+        the use of lru_cache
+        """
+        if self._clear_cache_timer:
+            self._clear_cache_timer.cancel()
+
+        decoded_frame = self.shared_frames.get_decoded_frame_rgb(current_frame)
+        if width and height:
+            decoded_frame = cv2.resize(
+                decoded_frame, (width, height), interpolation=cv2.INTER_AREA
+            )
+        elif width or height:
+            decoded_frame = imutils.resize(decoded_frame, width, height)
+
+        ret, jpg = cv2.imencode(
+            ".jpg", decoded_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100]
+        )
+
+        # Start a timer to clear the cache after some time.
+        # This is done to avoid storing a frame in memory after its no longer valid
+        self._clear_cache_timer = Timer(
+            self.output_fps * 2,
+            self._clear_snapshot_cache,
+            (self.get_snapshot.cache_clear,),
+        )
+        self._clear_cache_timer.start()
+
+        if ret:
+            return ret, jpg.tobytes()
+        return ret, False

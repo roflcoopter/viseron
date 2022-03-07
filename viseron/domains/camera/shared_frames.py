@@ -2,6 +2,7 @@
 import logging
 import time
 import uuid
+from functools import lru_cache
 
 import cv2
 import numpy as np
@@ -79,6 +80,7 @@ class SharedFrames:
         """Return byte frame in numpy format."""
         return self._frames[shared_frame.name]
 
+    @lru_cache(maxsize=2)
     def _color_convert(self, shared_frame: SharedFrame, color_model) -> np.ndarray:
         """Return decoded frame in specified color format."""
         shared_frame_name = f"{shared_frame.name}_{color_model}"

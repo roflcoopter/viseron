@@ -1,9 +1,11 @@
 """API request handler."""
+from __future__ import annotations
+
 import importlib
 import json
 import logging
 from functools import partial
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List
 
 import tornado.routing
 import voluptuous as vol
@@ -19,6 +21,9 @@ from viseron.components.webserver.not_found_handler import NotFoundHandler
 from viseron.components.webserver.request_handler import ViseronRequestHandler
 from viseron.helpers.json import JSONEncoder
 
+if TYPE_CHECKING:
+    from viseron import Viseron
+
 API_BASE = "/api/v1"
 
 LOGGER = logging.getLogger(__name__)
@@ -29,11 +34,11 @@ class BaseAPIHandler(ViseronRequestHandler):
 
     routes: List[Dict[str, Any]] = []
 
-    def initialize(self, vis):
+    def initialize(self, vis: Viseron):
         """Initialize."""
         super().initialize(vis)
-        self.route = {}
-        self.request_arguments = {}
+        self.route: Dict[str, Any] = {}
+        self.request_arguments: Dict[str, str] = {}
 
     def response_success(self, response=None, headers=None):
         """Send successful response."""

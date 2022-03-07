@@ -2,10 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
-import cv2
-import imutils
 import voluptuous as vol
 
 from viseron.components.webserver.api import BaseAPIHandler
@@ -15,26 +12,7 @@ from viseron.components.webserver.const import (
 )
 from viseron.domains.camera import COERCE_INT
 
-if TYPE_CHECKING:
-    from viseron.domains.camera import AbstractCamera
-
 LOGGER = logging.getLogger(__name__)
-
-
-def _get_snapshot(camera: AbstractCamera, width=None, height=None):
-    """Return current frame as jpg bytes."""
-    decoded_frame = camera.shared_frames.get_decoded_frame_rgb(camera.current_frame)
-    if width and height:
-        decoded_frame = cv2.resize(
-            decoded_frame, (width, height), interpolation=cv2.INTER_AREA
-        )
-    elif width or height:
-        decoded_frame = imutils.resize(decoded_frame, width, height)
-
-    ret, jpg = cv2.imencode(".jpg", decoded_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
-    if ret:
-        return ret, jpg.tobytes()
-    return ret, False
 
 
 class CameraAPIHandler(BaseAPIHandler):
@@ -67,8 +45,8 @@ class CameraAPIHandler(BaseAPIHandler):
                 )
                 return
 
-            ret, jpg = _get_snapshot(
-                camera,
+            ret, jpg = camera.get_snapshot(
+                camera.current_frame,
                 self.request_arguments["width"],
                 self.request_arguments["height"],
             )
