@@ -355,3 +355,22 @@ def object_in_polygon(resolution, obj: DetectedObject, coordinates):
     )
     middle = ((x2 - x1) / 2) + x1
     return cv2.pointPolygonTest(coordinates, (middle, y2), False) >= 0
+
+
+def letterbox_resize(image: np.ndarray, width, height):
+    """Resize image to expected size, keeping aspect ratio and pad with black pixels."""
+    image_height, image_width, _ = image.shape
+    scale = min(height / image_height, width / image_width)
+    output_height = int(image_height * scale)
+    output_width = int(image_width * scale)
+
+    image = cv2.resize(
+        image, (output_width, output_height), interpolation=cv2.INTER_CUBIC
+    )
+    output_image = np.full((height, width, 3), 0, dtype="uint8")
+    output_image[
+        (height - output_height) // 2 : (height - output_height) // 2 + output_height,
+        (width - output_width) // 2 : (width - output_width) // 2 + output_width,
+        :,
+    ] = image.copy()
+    return output_image

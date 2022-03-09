@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+from functools import partial
 from typing import TYPE_CHECKING
 
 from viseron.components.mqtt.const import COMPONENT as MQTT_COMPONENT, CONFIG_CLIENT_ID
 from viseron.components.mqtt.helpers import PublishPayload
+from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -44,7 +46,7 @@ class MQTTEntity:
         self._mqtt.publish(
             PublishPayload(
                 self.state_topic,
-                json.dumps(payload),
+                partial(json.dumps, cls=JSONEncoder, allow_nan=False)(payload),
                 retain=True,
             )
         )
