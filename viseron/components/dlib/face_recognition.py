@@ -32,7 +32,8 @@ LOGGER = logging.getLogger(__name__)
 def setup(vis: Viseron, config):
     """Set up the dlib face_recognition domain."""
     classifier, _tracked_faces = train(
-        config[CONFIG_FACE_RECOGNITION][CONFIG_FACE_RECOGNITION_PATH]
+        config[CONFIG_FACE_RECOGNITION][CONFIG_FACE_RECOGNITION_PATH],
+        model=config[CONFIG_FACE_RECOGNITION][CONFIG_MODEL],
     )
 
     for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS].keys():
@@ -100,8 +101,7 @@ class FaceRecognition(AbstractFaceRecognition):
 
 def train(
     face_recognition_path,
-    # model_dir="model",
-    # model_name="trained_faces.clf",
+    model="hog",
     n_neighbors=None,
 ):
     """
@@ -185,7 +185,7 @@ def train(
                 LOGGER.error(f"Error loading image: {error}")
                 continue
 
-            face_bounding_boxes = face_recognition.face_locations(image)
+            face_bounding_boxes = face_recognition.face_locations(image, model=model)
 
             if len(face_bounding_boxes) != 1:
                 # Skip image if amount of people !=1
