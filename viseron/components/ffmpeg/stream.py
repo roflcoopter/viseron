@@ -415,10 +415,12 @@ class Stream:
         if self.output_fps < self.fps:
             filters.append(f"fps={self.output_fps}")
 
-        return [
-            "-vf",
-            (",".join(filters)),
-        ]
+        if filters:
+            return [
+                "-vf",
+                (",".join(filters)),
+            ]
+        return []
 
     def build_segment_command(self):
         """Return command for writing segments only from main stream.
