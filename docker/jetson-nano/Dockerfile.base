@@ -6,6 +6,7 @@ FROM nvcr.io/nvidia/l4t-base:r${JETPACK_VERSION} as build
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
+COPY --from=models /classifiers/models/edgetpu /classifiers/models/edgetpu
 COPY --from=python /usr/local /usr/local/
 
 ARG SOC

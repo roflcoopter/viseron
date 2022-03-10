@@ -85,10 +85,14 @@ class ChildProcessWorker(ABC):
     def work_output(self, item):
         """Perform work on output item from child process."""
 
+    def process_initialization(self):
+        """Run initializations inside spawned process."""
+
     def _process_frames(self, exit_event, process_queue, output_queue):
         """Process frame and send it to the detector."""
         remove_shm_from_resource_tracker()
         setproctitle(self.child_process_name)
+        self.process_initialization()
 
         while not exit_event.is_set():
             try:

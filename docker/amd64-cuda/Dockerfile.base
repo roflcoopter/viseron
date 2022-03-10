@@ -5,6 +5,7 @@ FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-runtime-ubuntu${UBUNTU_VERSION_NUMBER}
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
+COPY --from=models /classifiers/models/edgetpu /classifiers/models/edgetpu
 
 ARG OPENCL_VERSION
 ARG GMMLIB_VERSION

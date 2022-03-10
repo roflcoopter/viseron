@@ -6,14 +6,22 @@ RUN \
   ca-certificates \
   wget 
 
-# EdgeTPU MobileNet SSD v2 Object Detection model
+# EdgeTPU Models
 RUN \
-  mkdir -p /detectors/models/edgetpu/classification && \
+  mkdir -p /detectors/models/edgetpu && \
+  mkdir -p /classifiers/models/edgetpu && \
+  # Object detection
   wget https://github.com/google-coral/test_data/raw/master/ssd_mobilenet_v2_coco_quant_postprocess_edgetpu.tflite -O /detectors/models/edgetpu/model.tflite --progress=bar:force:noscroll && \
   wget https://github.com/google-coral/test_data/raw/master/ssd_mobilenet_v2_coco_quant_postprocess.tflite         -O /detectors/models/edgetpu/cpu_model.tflite --progress=bar:force:noscroll && \
   wget https://github.com/google-coral/test_data/raw/master/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite  -O /detectors/models/edgetpu/mobiledet_model.tflite --progress=bar:force:noscroll && \
   wget https://github.com/google-coral/test_data/raw/master/ssdlite_mobiledet_coco_qat_postprocess.tflite          -O /detectors/models/edgetpu/mobiledet_cpu_model.tflite --progress=bar:force:noscroll && \
-  wget https://github.com/google-coral/test_data/raw/master/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll 
+  wget https://raw.githubusercontent.com/google-coral/test_data/master/efficientdet_lite3_512_ptq_edgetpu.tflite   -O /detectors/models/edgetpu/efficientdet_lite3.tflite --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/google-coral/test_data/master/efficientdet_lite3_512_ptq.tflite           -O /detectors/models/edgetpu/efficientdet_lite3_cpu_model.tflite --progress=bar:force:noscroll && \
+  wget https://github.com/google-coral/test_data/raw/master/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll && \
+  # Image classification
+  wget https://raw.githubusercontent.com/google-coral/test_data/master/tf2_mobilenet_v3_edgetpu_1.0_224_ptq_edgetpu.tflite -O /classifiers/models/edgetpu/tf2_mobilenet_v3_edgetpu_1.0_224_ptq_edgetpu.tflite --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/google-coral/test_data/master/tf2_mobilenet_v3_edgetpu_1.0_224_ptq.tflite -O /classifiers/models/edgetpu/tf2_mobilenet_v3_edgetpu_1.0_224_ptq_cpu.tflite --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/google-coral/test_data/master/imagenet_labels.txt -O /classifiers/models/edgetpu/labels.txt --progress=bar:force:noscroll
 
 # Fetch models for YOLOv4 darknet
 RUN \
@@ -71,3 +79,4 @@ ADD ./docker/yolov4-tiny.cfg /detectors/models/darknet/yolov4-tiny.cfg
 FROM scratch
 
 COPY --from=base /detectors /detectors
+COPY --from=base /classifiers /classifiers
