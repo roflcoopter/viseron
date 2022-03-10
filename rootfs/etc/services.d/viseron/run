@@ -1,7 +1,8 @@
 #!/usr/bin/with-contenv bash
 
-# Kill left over FFmpeg processes in case of a restart
+# Kill left over FFmpeg and GStreamer processes in case of a restart
 pkill -f ffmpeg_
+pkill -f gstreamer_
 
 cd /src
-exec justc-envdir /var/run/environment s6-setuidgid abc python3 -u -m viseron
+exec justc-envdir /var/run/environment s6-setuidgid abc exec -a "viseron" python3 -u -m viseron
