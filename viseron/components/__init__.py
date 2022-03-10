@@ -95,7 +95,8 @@ class Component:
                 )
                 threading.Timer(
                     wait_time,
-                    self.setup_component,
+                    setup_component,
+                    args=(self._vis, self),
                     kwargs={"tries": tries + 1},
                 ).start()
             except Exception as ex:  # pylint: disable=broad-except
@@ -103,6 +104,8 @@ class Component:
                     f"Uncaught exception setting up component {self.name}: {ex}\n"
                     f"{traceback.print_exc()}"
                 )
+        # Clear any domains that were marked for setup
+        self.domains_to_setup.clear()
 
         return False
 
@@ -175,12 +178,20 @@ def get_component(vis, component, config):
         return Component(vis, f"{components.__name__}.{component}", component, config)
 
 
-def setup_component(vis, component: Component):
+def setup_component(vis, component: Component, tries=1):
     """Set up single component."""
-    LOGGER.info(f"Setting up {component.name}")
+    LOGGER.info(
+        f"Setting up {component.name}{(f', attempt {tries}') if tries > 1 else ''}"
+    )
+
+    # When tries is larger than one, it means we are in a retry loop.
+    if tries > 1:
+        # Remove component from being marked as failed
+        del vis.data[FAILED][component.name]
+
     try:
         vis.data[LOADING][component.name] = component
-        if component.setup_component():
+        if component.setup_component(tries=tries):
             vis.data[LOADED][component.name] = component
             del vis.data[LOADING][component.name]
         else:
