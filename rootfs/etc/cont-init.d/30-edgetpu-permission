@@ -1,7 +1,7 @@
 #!/usr/bin/with-contenv bash
 
 echo "************** Setting EdgeTPU permissions ***************"
-CORAL_VENDOR_IDS=$(dpkg -L libedgetpu1-max | grep "\.rules" | xargs cat | sed -n "s/^.*ATTRS{idVendor}==\(.*\),.*/\1/p")
+CORAL_VENDOR_IDS=$(dpkg -L libedgetpu1-max | grep "\.rules" | xargs cat | sed -n "s/^.*ATTRS{idVendor}==\(.*\),/\1/p" | sed -n "s/\(\,.*\)//p")
 COMMAND=$(echo $CORAL_VENDOR_IDS | xargs printf -- '-e %s\n' | xargs -t echo 'lsusb | grep -e "Google Inc" -e "Global Unichip Corp"' 2>/dev/null)
 DEVICES=$(eval "$COMMAND")
 
