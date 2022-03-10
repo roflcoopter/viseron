@@ -23,7 +23,6 @@ from .const import CONFIG_CAMERAS, CONFIG_LABELS
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
-    from viseron.domains.camera import AbstractCamera
     from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.object_detector.zone import Zone
 
@@ -62,7 +61,7 @@ class AbstractPostProcessor(ABC):
         self._vis = vis
         self._config = config
         self._camera_identifier = camera_identifier
-        self._camera: AbstractCamera = vis.get_registered_camera(camera_identifier)
+        self._camera = vis.get_registered_camera(camera_identifier)
         self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
 
         self._labels = config.get(CONFIG_LABELS, None)
@@ -99,24 +98,33 @@ class AbstractPostProcessor(ABC):
         while True:
             event_data: Event = self._post_processor_queue.get()
             detected_objects_data: EventDetectedObjectsData = event_data.data
+
             if self._labels:
                 filtered_objects = [
                     detected_object
                     for detected_object in detected_objects_data.objects
                     if detected_object.label in self._labels
                 ]
+                if filtered_objects:
+                    self.process(
+                        PostProcessorFrame(
+                            camera_identifier=detected_objects_data.camera_identifier,
+                            shared_frame=detected_objects_data.shared_frame,
+                            detected_objects=detected_objects_data.objects,
+                            filtered_objects=filtered_objects,
+                            zone=detected_objects_data.zone,
+                        )
+                    )
             else:
-                filtered_objects = detected_objects_data.objects
-
-            self.process(
-                PostProcessorFrame(
-                    camera_identifier=detected_objects_data.camera_identifier,
-                    shared_frame=detected_objects_data.shared_frame,
-                    detected_objects=detected_objects_data.objects,
-                    filtered_objects=filtered_objects,
-                    zone=detected_objects_data.zone,
+                self.process(
+                    PostProcessorFrame(
+                        camera_identifier=detected_objects_data.camera_identifier,
+                        shared_frame=detected_objects_data.shared_frame,
+                        detected_objects=detected_objects_data.objects,
+                        filtered_objects=detected_objects_data.objects,
+                        zone=detected_objects_data.zone,
+                    )
                 )
-            )
 
     @abstractmethod
     def process(self, post_processor_frame: PostProcessorFrame):
