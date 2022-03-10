@@ -310,7 +310,7 @@ class AbstractObjectDetector(ABC):
         self._logger.debug("Object detection thread stopped")
 
     @abstractmethod
-    def return_objects(self, frame):
+    def return_objects(self, frame) -> List[DetectedObject]:
         """Perform object detection."""
 
     @property

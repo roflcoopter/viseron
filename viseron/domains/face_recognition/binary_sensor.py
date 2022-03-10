@@ -1,4 +1,4 @@
-"""Binary sensor that represents motion detection."""
+"""Binary sensor that represents face recognition."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

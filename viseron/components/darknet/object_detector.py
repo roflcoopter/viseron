@@ -43,12 +43,11 @@ class ObjectDetector(AbstractObjectDetector):
 
     def preprocess(self, frame):
         """Return preprocessed frame before performing object detection."""
-        frame = cv2.resize(
+        return cv2.resize(
             frame,
             (self.model_width, self.model_height),
             interpolation=cv2.INTER_LINEAR,
         )
-        return frame
 
     def post_process(self, labels, confidences, boxes):
         """Post process detections."""
