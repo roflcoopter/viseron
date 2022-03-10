@@ -6,4 +6,5 @@ jobs:
     parameters:
       image: models
       imageNameOnly: true
-      architecture: amd64
+      architectures:
+        - amd64
