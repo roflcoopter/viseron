@@ -4,11 +4,13 @@ from __future__ import annotations
 import concurrent.futures
 import logging
 import multiprocessing
+import os
 import sys
 import threading
 import time
+import tracemalloc
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, List, Literal
+from typing import TYPE_CHECKING, Any, Callable, List
 
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -21,6 +23,7 @@ from viseron.components.data_stream import (
 from viseron.components.nvr import COMPONENT as NVR_COMPONENT
 from viseron.config import load_config
 from viseron.const import (
+    ENV_PROFILE_MEMORY,
     EVENT_CAMERA_REGISTERED,
     FAILED,
     LOADED,
@@ -33,7 +36,8 @@ from viseron.const import (
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.motion_detector.const import DATA_MOTION_DETECTOR_SCAN
 from viseron.domains.object_detector.const import DATA_OBJECT_DETECTOR_SCAN
-from viseron.exceptions import DataStreamNotLoaded
+from viseron.exceptions import CameraNotRegisteredError, DataStreamNotLoaded
+from viseron.helpers import memory_usage_profiler
 from viseron.helpers.logs import (
     DuplicateFilter,
     SensitiveInformationFilter,
@@ -141,9 +145,7 @@ class Viseron:
 
         self._thread_watchdog = ThreadWatchDog()
         self._subprocess_watchdog = SubprocessWatchDog()
-        self._periodic_update_scheduler = BackgroundScheduler(
-            timezone="UTC", daemon=True
-        )
+        self._background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
 
     def register_signal_handler(self, viseron_signal, callback):
         """Register a callback which gets called on signals emitted by Viseron.
@@ -260,21 +262,16 @@ class Viseron:
                 del self._wait_for_camera_store[camera_identifier]
             self.dispatch_event(EVENT_CAMERA_REGISTERED, camera_instance)
 
-    def get_registered_camera(
-        self, camera_identifier
-    ) -> AbstractCamera | Literal[False]:
+    def get_registered_camera(self, camera_identifier) -> AbstractCamera:
         """Return a registered camera."""
         if not self.data[REGISTERED_CAMERAS]:
             LOGGER.error("No cameras are registered")
-            return False
+            raise CameraNotRegisteredError(camera_identifier)
 
         if not self.data[REGISTERED_CAMERAS].get(camera_identifier, None):
-            LOGGER.error(
-                f"Requested camera {camera_identifier} has not been registered. "
-                "Available cameras are: "
-                f"{list(self.data[REGISTERED_CAMERAS].keys())}"
+            raise CameraNotRegisteredError(
+                camera_identifier, cameras=list(self.data[REGISTERED_CAMERAS].keys())
             )
-            return False
 
         return self.data[REGISTERED_CAMERAS][camera_identifier]
 
@@ -300,7 +297,7 @@ class Viseron:
 
         self._thread_watchdog.stop()
         self._subprocess_watchdog.stop()
-        self._periodic_update_scheduler.shutdown()
+        self._background_scheduler.shutdown()
 
         def join(thread_or_process):
             thread_or_process.join(timeout=8)
@@ -342,7 +339,7 @@ class Viseron:
 
     def schedule_periodic_update(self, entity: Entity, update_interval: int):
         """Schedule entity update at a fixed interval."""
-        self._periodic_update_scheduler.add_job(
+        self._background_scheduler.add_job(
             entity.update, "interval", seconds=update_interval
         )
 
@@ -352,6 +349,11 @@ class Viseron:
             LOGGER.warning("No nvr component is configured.")
             self.shutdown()
 
-        self._periodic_update_scheduler.start()
+        if os.getenv(ENV_PROFILE_MEMORY) == "true":
+            tracemalloc.start()
+            self._background_scheduler.add_job(
+                memory_usage_profiler, "interval", seconds=5, args=[LOGGER]
+            )
+        self._background_scheduler.start()
 
         LOGGER.info("Initialization complete")

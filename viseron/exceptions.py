@@ -1,5 +1,5 @@
 """Exceptions used by Viseron."""
-from typing import Union
+from typing import List, Union
 
 
 class ViseronError(Exception):
@@ -208,4 +208,25 @@ class MotionConfigSchemaError(ViseronError):
         return (
             f"Could not import {self.detector}.config. A constant named "
             "SCHEMA which extends from AbstractMotionDetectionConfig.schema is required"
+        )
+
+
+class CameraNotRegisteredError(ViseronError):
+    """Raised when trying to get a camera that has not been registered."""
+
+    def __init__(self, camera_identifier, cameras: List[str] = None) -> None:
+        """Initialize error."""
+        super().__init__(self)
+        self.camera_identifier = camera_identifier
+        self.cameras = cameras
+
+    def __str__(self) -> str:
+        """Return string representation."""
+        return (
+            f"Requested camera {self.camera_identifier} has not been registered. "
+            + (
+                f"Available cameras are: {', '.join(self.cameras)}"
+                if self.cameras
+                else ""
+            )
         )
