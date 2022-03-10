@@ -7,6 +7,7 @@ import time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import CONFIG_LOOKBACK
 from viseron.helpers.subprocess import Popen, run
 
@@ -284,10 +285,16 @@ class SegmentCleanup:
         )
         self._scheduler.start()
 
-    def cleanup(self):
+        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.shutdown)
+
+    def cleanup(self, force=False):
         """Delete all segments that are no longer needed."""
         now = datetime.datetime.now().timestamp()
         for segment in os.listdir(self._directory):
+            if force:
+                os.remove(os.path.join(self._directory, segment))
+                continue
+
             try:
                 start_time = datetime.datetime.strptime(
                     segment.split(".")[0], "%Y%m%d%H%M%S"
@@ -319,4 +326,5 @@ class SegmentCleanup:
     def shutdown(self):
         """Resume the scheduler."""
         self._logger.debug("Shutting down segment cleanup")
+        self.cleanup(force=True)
         self._scheduler.shutdown()
