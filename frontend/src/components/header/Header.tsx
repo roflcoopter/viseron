@@ -8,17 +8,23 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import { alpha, styled, useTheme } from "@mui/material/styles";
-import { useContext } from "react";
+import { useContext, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { ColorModeContext } from "context/ColorModeContext";
+import { useScrollPosition } from "hooks/UseScrollPosition";
 
 import { ReactComponent as ViseronLogo } from "../../viseron-logo.svg";
 
-const Header = styled("header")(({ theme }) => ({
+interface HeaderProps {
+  showHeader: boolean;
+}
+
+const Header = styled("header", {
+  shouldForwardProp: (prop) => prop !== "showHeader",
+})<HeaderProps>(({ theme, showHeader }) => ({
   position: "sticky",
   top: 0,
-  transition: theme.transitions.create("top"),
   zIndex: theme.zIndex.appBar,
   backdropFilter: "blur(20px)",
   boxShadow: `inset 0px -1px 1px ${
@@ -31,17 +37,50 @@ const Header = styled("header")(({ theme }) => ({
       ? alpha(theme.palette.background.default, 0.72)
       : "rgba(255,255,255,0.72)",
   marginBottom: "10px",
+  transform: showHeader ? "translateY(0)" : "translateY(-100%)",
+  transition: "transform 300ms ease-in",
 }));
 
 export default function AppHeader() {
   const colorMode = useContext(ColorModeContext);
   const theme = useTheme();
+  const [showHeader, setShowHeader] = useState(true);
+  const lastTogglePos = useRef(0);
+
+  useScrollPosition((prevPos: any, currPos: any) => {
+    // Always show header if we haven't scrolled down more than 56px
+    if (currPos.y <= 56 || lastTogglePos.current === 0) {
+      lastTogglePos.current = currPos.y;
+      setShowHeader(true);
+      return;
+    }
+
+    // Dont toggle header visibility unless we scrolled up or down more than 20px
+    const relativePosition = currPos.y - lastTogglePos.current;
+    if (relativePosition > -20 && relativePosition < 20) {
+      return;
+    }
+
+    if (currPos.y > prevPos.y) {
+      // Scrolling down
+      lastTogglePos.current = currPos.y;
+      setShowHeader(false);
+    } else if (currPos.y < prevPos.y) {
+      // Scrolling up
+      lastTogglePos.current = currPos.y;
+      setShowHeader(true);
+    }
+  });
 
   return (
-    <Header>
+    <Header showHeader={showHeader}>
       <Container
         maxWidth={false}
-        sx={{ display: "flex", alignItems: "center", minHeight: 56 }}
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          minHeight: 56,
+        }}
       >
         <Tooltip title="Home" enterDelay={300}>
           <Box
