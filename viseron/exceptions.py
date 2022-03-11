@@ -22,37 +22,31 @@ class FFprobeError(ViseronError):
     """Raised when FFprobe returns an error."""
 
     def __init__(
-        self, ffprobe_output: Union[bytes, str, dict], ffprobe_command: list
+        self,
+        ffprobe_output: Union[bytes, str, dict],
     ) -> None:
         """Initialize error."""
         super().__init__(self)
         self.ffprobe_output = ffprobe_output
-        self.ffprobe_command = ffprobe_command
 
     def __str__(self) -> str:
         """Return string representation."""
         return (
-            "FFprobe could not connect to stream. "
-            f"Output: {self.ffprobe_output}, "
-            f"Command: {' '.join(self.ffprobe_command)}"
+            "FFprobe could not connect to stream. " f"Output: {self.ffprobe_output!r}"
         )
 
 
 class FFprobeTimeout(ViseronError):
     """Raised when FFprobe times out."""
 
-    def __init__(self, ffprobe_command, timeout) -> None:
+    def __init__(self, timeout) -> None:
         """Initialize error."""
         super().__init__(self)
-        self.ffprobe_command = ffprobe_command
         self.timeout = timeout
 
     def __str__(self) -> str:
         """Return string representation."""
-        return (
-            f"FFprobe command {' '.join(self.ffprobe_command)} "
-            f"timed out after {self.timeout}s"
-        )
+        return f"FFprobe command timed out after {self.timeout}s"
 
 
 class StreamInformationError(ViseronError):

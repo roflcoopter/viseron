@@ -227,6 +227,7 @@ class Stream:
             ]
             + [stream_url]
         )
+        self._logger.debug(f"FFprobe command: {' '.join(ffprobe_command)}")
 
         for attempt in Retrying(
             retry=retry_if_exception_type((sp.TimeoutExpired, FFprobeTimeout)),
@@ -249,7 +250,7 @@ class Stream:
                     pipe.wait(timeout=FFPROBE_TIMEOUT)
                     ffprobe_timeout = self._ffprobe_timeout
                     self._ffprobe_timeout += FFPROBE_TIMEOUT
-                    raise FFprobeTimeout(ffprobe_command, ffprobe_timeout) from error
+                    raise FFprobeTimeout(ffprobe_timeout) from error
                 else:
                     self._ffprobe_timeout = FFPROBE_TIMEOUT
 
@@ -260,13 +261,11 @@ class Stream:
         except json.decoder.JSONDecodeError as error:
             raise FFprobeError(
                 stdout,
-                ffprobe_command,
             ) from error
 
         if output.get("error", None):
             raise FFprobeError(
                 output,
-                ffprobe_command,
             )
 
         return output
