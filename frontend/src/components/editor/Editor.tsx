@@ -104,7 +104,14 @@ const Problems = ({ editor, problems }: ProblemsProps) => {
   }
 
   return (
-    <Box sx={{ maxHeight: "10vh", overflow: "auto", width: editorWidth }}>
+    <Box
+      sx={{
+        minHeight: "10vh",
+        maxHeight: "10vh",
+        overflow: "auto",
+        width: editorWidth,
+      }}
+    >
       <List
         sx={{
           [`& .active, & .${listItemClasses.root}:hover`]: {
@@ -339,7 +346,13 @@ const Editor = () => {
             </LoadingButton>
           </span>
         </Tooltip>
-        <Box sx={{ width: editorWidth, height: "80vh", position: "relative" }}>
+        <Box
+          sx={{
+            width: editorWidth,
+            height: problems.length > 0 ? "80vh" : "90vh",
+            position: "relative",
+          }}
+        >
           <Backdrop open={savePending} sx={{ position: "absolute", zIndex: 1 }}>
             <CircularProgress color="inherit" />
           </Backdrop>
@@ -352,7 +365,7 @@ const Editor = () => {
           >
             <MonacoEditor
               width="editorWidth"
-              height="80vh"
+              height={problems.length > 0 ? "80vh" : "90vh"}
               language="yaml"
               theme={`${theme.palette.mode === "dark" ? "vs-dark" : "light"}`}
               defaultValue={savedConfig}

@@ -7,6 +7,7 @@ import { ColorModeProvider } from "context/ColorModeContext";
 import { ViseronProvider } from "context/ViseronContext";
 
 import App from "./App";
+import "./index.css";
 import reportWebVitals from "./reportWebVitals";
 
 ReactDOM.render(
