@@ -4,12 +4,12 @@ import Typography from "@mui/material/Typography";
 import { useContext } from "react";
 import { useParams } from "react-router-dom";
 
+import { ScrollToTopOnMount } from "components/ScrollToTop";
+import { Loading } from "components/loading/Loading";
+import RecordingCard from "components/recording/RecordingCard";
+import { ViseronContext } from "context/ViseronContext";
 import { useTitle } from "hooks/UseTitle";
-
-import { Loading } from "../components/loading/Loading";
-import RecordingCard from "../components/recording/RecordingCard";
-import { ViseronContext } from "../context/ViseronContext";
-import { objIsEmpty } from "../lib/helpers";
+import { objIsEmpty } from "lib/helpers";
 
 type RecordingsParams = {
   identifier: string;
@@ -48,6 +48,7 @@ const Recordings = () => {
 
   return (
     <Container>
+      <ScrollToTopOnMount />
       <Grid container direction="row" spacing={2}>
         {Object.keys(camera.recordings)
           .sort()
