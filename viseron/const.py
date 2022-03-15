@@ -153,9 +153,11 @@ TOPIC_FRAME_SCAN_POSTPROC = "/".join([TOPIC_FRAME_SCAN, TOPIC_POST_PROCESSOR])
 LOADING = "loading"
 LOADED = "loaded"
 FAILED = "failed"
+DOMAIN_IDENTIFIERS = "domain_identifiers"
 REGISTERED_OBJECT_DETECTORS = "object_detectors"
 REGISTERED_MOTION_DETECTORS = "motion_detectors"
 REGISTERED_CAMERAS = "cameras"
+REGISTERED_DOMAINS = "registered_domains"
 
 # Signal constants
 VISERON_SIGNAL_SHUTDOWN = "shutdown"
@@ -169,6 +171,7 @@ STATE_UNKNOWN = "unknown"
 EVENT_STATE_CHANGED = "state_changed"
 EVENT_ENTITY_ADDED = "entity_added"
 EVENT_CAMERA_REGISTERED = "camera_registered"
+EVENT_DOMAIN_REGISTERED = "{domain}/registered"
 
 # Setup constants
 COMPONENT_RETRY_INTERVAL = 10

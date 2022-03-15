@@ -20,15 +20,17 @@ from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
-from viseron.components.nvr import COMPONENT as NVR_COMPONENT
 from viseron.config import load_config
 from viseron.const import (
+    DOMAIN_IDENTIFIERS,
     ENV_PROFILE_MEMORY,
     EVENT_CAMERA_REGISTERED,
+    EVENT_DOMAIN_REGISTERED,
     FAILED,
     LOADED,
     LOADING,
     REGISTERED_CAMERAS,
+    REGISTERED_DOMAINS,
     REGISTERED_MOTION_DETECTORS,
     REGISTERED_OBJECT_DETECTORS,
     VISERON_SIGNAL_SHUTDOWN,
@@ -142,6 +144,11 @@ class Viseron:
         self._camera_register_lock = threading.Lock()
         self.data[REGISTERED_CAMERAS] = {}
         self._wait_for_camera_store = {}
+
+        self.data[DOMAIN_IDENTIFIERS] = {}
+        self._domain_register_lock = threading.Lock()
+        self.data[REGISTERED_DOMAINS] = {}
+        self._wait_for_domain_store = {}
 
         self._thread_watchdog = ThreadWatchDog()
         self._subprocess_watchdog = SubprocessWatchDog()
@@ -287,6 +294,40 @@ class Viseron:
         event.wait()
         LOGGER.debug(f"Done waiting for camera {camera_identifier} to register")
 
+    def register_domain(self, domain, identifier, instance):
+        """Register a domain with a specific identifier."""
+        LOGGER.debug(f"Registering domain {domain} with identifier {identifier}")
+        with self._domain_register_lock:
+            self.data[REGISTERED_DOMAINS].setdefault(domain, {})[identifier] = instance
+
+            if listeners := self._wait_for_domain_store.get(identifier, None):
+                for thread_event in listeners:
+                    thread_event.set()
+                del self._wait_for_domain_store[identifier]
+            self.dispatch_event(EVENT_DOMAIN_REGISTERED.format(domain=domain), instance)
+
+    def wait_for_domain(self, domain, identifier):
+        """Wait for a domain with a specific identifier to register."""
+        LOGGER.debug(
+            f"1 Waiting for domain {domain} with identifier {identifier} to register"
+        )
+        with self._domain_register_lock:
+            if (
+                domain in self.data[REGISTERED_DOMAINS]
+                and identifier in self.data[REGISTERED_DOMAINS][domain]
+            ):
+                return
+
+            LOGGER.debug(
+                f"Waiting for domain {domain} with identifier {identifier} to register"
+            )
+            event = threading.Event()
+            self._wait_for_domain_store.setdefault(domain, {}).setdefault(
+                identifier, []
+            ).append(event)
+        event.wait()
+        LOGGER.debug(f"Done waiting for domain {domain} with identifier {identifier}")
+
     def shutdown(self):
         """Shut down Viseron."""
         LOGGER.info("Initiating shutdown")
@@ -345,10 +386,6 @@ class Viseron:
 
     def setup(self):
         """Set up Viseron."""
-        if not self.data.get(NVR_COMPONENT):
-            LOGGER.warning("No nvr component is configured.")
-            self.shutdown()
-
         if os.getenv(ENV_PROFILE_MEMORY) == "true":
             tracemalloc.start()
             self._background_scheduler.add_job(

@@ -17,7 +17,11 @@ from viseron.domains.camera import (
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
     AbstractCamera,
 )
-from viseron.domains.camera.const import EVENT_CAMERA_STARTED, EVENT_CAMERA_STOPPED
+from viseron.domains.camera.const import (
+    DOMAIN,
+    EVENT_CAMERA_STARTED,
+    EVENT_CAMERA_STOPPED,
+)
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -179,16 +183,15 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config, identifier):
     """Set up the ffmpeg camera domain."""
-    camera_identifier = list(config)[0]
-    Camera(vis, config[camera_identifier], camera_identifier)
+    Camera(vis, config[identifier], identifier)
 
 
 class Camera(AbstractCamera):
     """Represents a camera which is consumed via FFmpeg."""
 
-    def __init__(self, vis, config, identifier):
+    def __init__(self, vis: Viseron, config, identifier):
         self._poll_timer = [None]
         self._frame_reader = RestartableThread(
             name="viseron.camera." + identifier,
@@ -212,6 +215,7 @@ class Camera(AbstractCamera):
 
         self.initialize_camera()
         vis.register_camera(self.identifier, self)
+        vis.register_domain(DOMAIN, self.identifier, self)
 
     def initialize_camera(self):
         """Start processing of camera frames."""

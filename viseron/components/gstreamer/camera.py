@@ -14,7 +14,11 @@ from viseron.domains.camera import (
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
     AbstractCamera,
 )
-from viseron.domains.camera.const import EVENT_CAMERA_STARTED, EVENT_CAMERA_STOPPED
+from viseron.domains.camera.const import (
+    DOMAIN,
+    EVENT_CAMERA_STARTED,
+    EVENT_CAMERA_STOPPED,
+)
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -179,6 +183,7 @@ class Camera(AbstractCamera):
 
         self.initialize_camera()
         vis.register_camera(self.identifier, self)
+        vis.register_domain(DOMAIN, self.identifier, self)
 
     def initialize_camera(self):
         """Start processing of camera frames."""

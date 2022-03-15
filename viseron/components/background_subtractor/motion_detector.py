@@ -30,6 +30,7 @@ class MotionDetector(AbstractMotionDetectorScanner):
         self._avg = None
 
         self._vis.register_motion_detector(camera_identifier, self)
+        vis.register_domain(DOMAIN, camera_identifier, self)
 
     def preprocess(self, frame):
         """Resize the frame to the desired width and height."""

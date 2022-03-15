@@ -12,18 +12,16 @@ from .const import (
     CONFIG_DETECT_SHADOWS,
     CONFIG_HISTORY,
     CONFIG_LEARNING_RATE,
-    CONFIG_MOTION_DETECTOR,
     CONFIG_THRESHOLD,
 )
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config, identifier):
     """Set up the edgetpu object_detector domain."""
-    for camera_identifier in config[CONFIG_MOTION_DETECTOR][CONFIG_CAMERAS].keys():
-        vis.wait_for_camera(
-            camera_identifier,
-        )
-        MotionDetector(vis, config[DOMAIN], camera_identifier)
+    vis.wait_for_camera(
+        identifier,
+    )
+    MotionDetector(vis, config[DOMAIN], identifier)
 
     return True
 
@@ -41,7 +39,8 @@ class MotionDetector(AbstractMotionDetectorScanner):
             self._camera_config[CONFIG_DETECT_SHADOWS],
         )
 
-        self._vis.register_motion_detector(camera_identifier, self)
+        vis.register_motion_detector(camera_identifier, self)
+        vis.register_domain(DOMAIN, camera_identifier, self)
 
     def preprocess(self, frame):
         """Resize the frame to the desired width and height."""

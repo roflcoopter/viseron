@@ -1,10 +1,10 @@
 """NVR component."""
 from __future__ import annotations
 
+import concurrent.futures
 import logging
 import threading
 import time
-import traceback
 from dataclasses import dataclass
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Dict, List
@@ -13,7 +13,7 @@ import numpy as np
 import voluptuous as vol
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
-from viseron.const import VISERON_SIGNAL_SHUTDOWN
+from viseron.const import DOMAIN_IDENTIFIERS, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.motion_detector.const import (
     DATA_MOTION_DETECTOR_RESULT,
     DATA_MOTION_DETECTOR_SCAN,
@@ -30,6 +30,7 @@ from .const import COMPONENT, DATA_PROCESSED_FRAME_TOPIC, EVENT_OPERATION_STATE
 from .sensor import OperationStateSensor
 
 if TYPE_CHECKING:
+    from viseron import Viseron
     from viseron.components.data_stream import DataStream
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.camera.shared_frames import SharedFrame
@@ -54,6 +55,7 @@ CONFIG_SCHEMA = vol.Schema(
 NVR_SCHEMA = vol.Schema({})
 
 
+CAMERA = "camera"
 OBJECT_DETECTOR = "object_detector"
 MOTION_DETECTOR = "motion_detector"
 
@@ -75,14 +77,41 @@ def validate_nvr_config(config, camera_identifier):
         LOGGER.exception(f"Error setting up nvr for camera {camera_identifier}: {ex}")
         return False
     except Exception:  # pylint: disable=broad-except
-        LOGGER.exception("Unknown error calling %s CONFIG_SCHEMA", camera_identifier)
+        LOGGER.exception("Unknown error calling %s NVR_SCHEMA", camera_identifier)
         return False
     return True
 
 
-def setup(vis, config):
+def setup_nvr(vis: Viseron, config, identifier):
+    """Set up an NVR instance."""
+    vis.wait_for_domain(CAMERA, identifier)
+
+    if (
+        OBJECT_DETECTOR in vis.data[DOMAIN_IDENTIFIERS]
+        and identifier in vis.data[DOMAIN_IDENTIFIERS][OBJECT_DETECTOR]
+    ):
+        vis.wait_for_domain(OBJECT_DETECTOR, identifier)
+    if (
+        MOTION_DETECTOR in vis.data[DOMAIN_IDENTIFIERS]
+        and identifier in vis.data[DOMAIN_IDENTIFIERS][MOTION_DETECTOR]
+    ):
+        vis.wait_for_domain(MOTION_DETECTOR, identifier)
+
+    try:
+        nvr = NVR(vis, config, identifier)
+        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, nvr.stop)
+    except Exception as ex:  # pylint: disable=broad-except
+        LOGGER.error(
+            f"Uncaught exception setting up nvr for camera {identifier}: {ex}",
+            exc_info=True,
+        )
+
+
+def setup(vis: Viseron, config):
     """Set up the nvr component."""
     config = config[COMPONENT]
+
+    setup_threads = []
     for camera_identifier in config.keys():
         if config[camera_identifier] is None:
             config[camera_identifier] = {}
@@ -91,15 +120,33 @@ def setup(vis, config):
             config[camera_identifier], camera_identifier
         )
         if validated_config or validated_config == {}:
-            try:
-                nvr = NVR(vis, validated_config, camera_identifier)
-                vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, nvr.stop)
-            except Exception as ex:  # pylint: disable=broad-except
-                LOGGER.error(
-                    f"Uncaught exception setting up nvr for camera {camera_identifier}:"
-                    f" {ex}\n"
-                    f"{traceback.print_exc()}"
+            setup_threads.append(
+                threading.Thread(
+                    target=setup_nvr,
+                    args=(vis, validated_config, camera_identifier),
+                    name=f"nvr.{camera_identifier}.setup",
                 )
+            )
+
+    for thread in setup_threads:
+        thread.start()
+
+    def join(thread):
+        thread.join(timeout=30)
+        time.sleep(0.5)  # Wait for thread to exit properly
+        if thread.is_alive():
+            LOGGER.warning(
+                f"NVR for camera {thread.name.split('.')[1]} is still waiting. "
+                "This indicates a problem with your configuration"
+            )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+        setup_thread_future = {
+            executor.submit(join, setup_thread): setup_thread
+            for setup_thread in setup_threads
+        }
+        for future in concurrent.futures.as_completed(setup_thread_future):
+            future.result()
 
     return True
 

@@ -1,22 +1,42 @@
 """Viseron components."""
+from __future__ import annotations
+
 import concurrent
 import importlib
 import logging
 import threading
 import time
 import traceback
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, List
 
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
 from viseron.const import (
     COMPONENT_RETRY_INTERVAL,
+    DOMAIN_IDENTIFIERS,
     DOMAIN_RETRY_INTERVAL,
     FAILED,
     LOADED,
     LOADING,
 )
 from viseron.exceptions import ComponentNotReady, DomainNotReady
+
+if TYPE_CHECKING:
+    from viseron import Viseron
+    from viseron.domains import RequireDomain
+
+
+@dataclass
+class DomainToSetup:
+    """Represent a domain to setup."""
+
+    domain: str
+    config: dict
+    identifier: str
+    require_domains: List[RequireDomain]
+
 
 LOGGING_COMPONENTS = ["logger"]
 CORE_COMPONENTS = ["data_stream"]
@@ -43,7 +63,7 @@ class Component:
         self._name = name
         self._config = config
 
-        self.domains_to_setup = []
+        self.domains_to_setup: List[DomainToSetup] = []
 
     def __str__(self):
         """Return string representation."""
@@ -109,9 +129,16 @@ class Component:
 
         return False
 
-    def add_domain_to_setup(self, domain, config):
+    def add_domain_to_setup(self, domain, config, identifier, require_domains):
         """Add a domain to setup queue."""
-        self.domains_to_setup.append({"domain": domain, "config": config})
+        self.domains_to_setup.append(
+            DomainToSetup(
+                domain=domain,
+                config=config,
+                identifier=identifier,
+                require_domains=require_domains,
+            )
+        )
 
     def get_domain(self, domain):
         """Return domain module."""
@@ -136,14 +163,19 @@ class Component:
                 return None
         return config
 
-    def setup_domain(self, domain, config, tries=1):
+    def setup_domain(self, domain, config, identifier, tries=1):
         """Set up domain."""
-        LOGGER.info(f"Setting up domain {domain} for component {self.name}")
+        LOGGER.info(
+            f"Setting up domain {domain} for component {self.name}"
+            f"{(f' with identifier {identifier}') if identifier else ''}"
+        )
         domain_module = self.get_domain(domain)
         config = self.validate_domain_config(config, domain, domain_module)
 
         if config:
             try:
+                if identifier:
+                    return domain_module.setup(self._vis, config, identifier)
                 return domain_module.setup(self._vis, config)
             except DomainNotReady:
                 wait_time = min(tries, 10) * DOMAIN_RETRY_INTERVAL
@@ -154,10 +186,7 @@ class Component:
                 threading.Timer(
                     wait_time,
                     self.setup_domain,
-                    args=(
-                        domain,
-                        config,
-                    ),
+                    args=(domain, config, identifier),
                     kwargs={"tries": tries + 1},
                 ).start()
             except Exception as ex:  # pylint: disable=broad-except
@@ -165,6 +194,10 @@ class Component:
                     f"Uncaught exception setting up domain {domain} for "
                     f"component {self.name}: {ex}"
                 )
+                try:
+                    self._vis.data[DOMAIN_IDENTIFIERS][domain].remove(identifier)
+                except KeyError:
+                    pass
         return False
 
 
@@ -205,19 +238,50 @@ def setup_component(vis, component: Component, tries=1):
         del vis.data[LOADING][component.name]
 
 
+def domain_dependencies(vis):
+    """Check that domain dependencies are resolved."""
+    component: Component
+    for component in vis.data[LOADED].values():
+        for domain_to_setup in component.domains_to_setup:
+            if domain_to_setup.identifier:
+                vis.data[DOMAIN_IDENTIFIERS].setdefault(
+                    domain_to_setup.domain, []
+                ).append(domain_to_setup.identifier)
+
+    for component in vis.data[LOADED].values():
+        for domain_to_setup in component.domains_to_setup[:]:
+            if not domain_to_setup.require_domains:
+                continue
+            for require_domain in domain_to_setup.require_domains:
+                if (
+                    require_domain.domain in vis.data[DOMAIN_IDENTIFIERS]
+                    and require_domain.identifier
+                    in vis.data[DOMAIN_IDENTIFIERS][require_domain.domain]
+                ):
+                    continue
+                LOGGER.error(
+                    f"Domain {domain_to_setup.domain} for component {component.name} "
+                    f"requires domain {require_domain.domain} with "
+                    f"identifier {require_domain.identifier} but it has not been setup"
+                )
+                component.domains_to_setup.remove(domain_to_setup)
+
+
 def setup_domains(vis):
     """Set up all domains."""
     setup_threads = []
+    component: Component
     for component in vis.data[LOADED].values():
         for domain_to_setup in component.domains_to_setup:
             setup_threads.append(
                 threading.Thread(
                     target=component.setup_domain,
                     args=(
-                        domain_to_setup["domain"],
-                        domain_to_setup["config"],
+                        domain_to_setup.domain,
+                        domain_to_setup.config,
+                        domain_to_setup.identifier,
                     ),
-                    name=f"{component}_setup_{domain_to_setup['domain']}",
+                    name=f"{component}_setup_{domain_to_setup.domain}",
                 )
             )
     for thread in setup_threads:
@@ -238,7 +302,7 @@ def setup_domains(vis):
             future.result()
 
 
-def setup_components(vis, config):
+def setup_components(vis: Viseron, config):
     """Set up configured components."""
     components_in_config = {key.split(" ")[0] for key in config}
     components_in_config = (
@@ -284,6 +348,7 @@ def setup_components(vis, config):
         for future in concurrent.futures.as_completed(setup_thread_future):
             future.result()
 
+    domain_dependencies(vis)
     setup_domains(vis)
 
     # Setup NVRs last

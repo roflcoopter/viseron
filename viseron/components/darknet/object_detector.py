@@ -6,22 +6,19 @@ from typing import List
 import cv2
 
 from viseron import Viseron
-from viseron.domains.object_detector import CONFIG_CAMERAS, AbstractObjectDetector
+from viseron.domains.object_detector import AbstractObjectDetector
 from viseron.domains.object_detector.const import DOMAIN
 from viseron.domains.object_detector.detected_object import DetectedObject
 
-from .const import COMPONENT, CONFIG_OBJECT_DETECTOR
+from .const import COMPONENT
 
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config, identifier):
     """Set up the darknet object_detector domain."""
-    for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
-        vis.wait_for_camera(
-            camera_identifier,
-        )
-        ObjectDetector(vis, config[DOMAIN], camera_identifier)
+    vis.wait_for_camera(identifier)
+    ObjectDetector(vis, config[DOMAIN], identifier)
 
     return True
 
@@ -30,16 +27,12 @@ class ObjectDetector(AbstractObjectDetector):
     """Performs object detection."""
 
     def __init__(self, vis: Viseron, config, camera_identifier):
-        self._vis = vis
-        self._config = config
-        self._camera_identifier = camera_identifier
-
+        super().__init__(vis, COMPONENT, config, camera_identifier)
         self._darknet = vis.data[COMPONENT]
         self._object_result_queue: Queue[List[DetectedObject]] = Queue(maxsize=1)
 
-        super().__init__(vis, COMPONENT, config, camera_identifier)
-
         self._vis.register_object_detector(camera_identifier, self)
+        vis.register_domain(DOMAIN, camera_identifier, self)
 
     def preprocess(self, frame):
         """Return preprocessed frame before performing object detection."""

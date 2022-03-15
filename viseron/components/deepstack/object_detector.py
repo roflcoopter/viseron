@@ -6,7 +6,7 @@ import deepstack.core as ds
 
 from viseron import Viseron
 from viseron.domains.object_detector import AbstractObjectDetector
-from viseron.domains.object_detector.const import CONFIG_CAMERAS
+from viseron.domains.object_detector.const import CONFIG_CAMERAS, DOMAIN
 from viseron.domains.object_detector.detected_object import DetectedObject
 
 from .const import (
@@ -63,6 +63,7 @@ class ObjectDetector(AbstractObjectDetector):
         )
 
         self._vis.register_object_detector(camera_identifier, self)
+        vis.register_domain(DOMAIN, camera_identifier, self)
 
     def preprocess(self, frame):
         """Preprocess frame before detection."""

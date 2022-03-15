@@ -8,8 +8,9 @@ import voluptuous as vol
 
 from viseron import Viseron
 from viseron.const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
-from viseron.domains import setup_domain
+from viseron.domains import RequireDomain, setup_domain
 from viseron.domains.object_detector import BASE_CONFIG_SCHEMA
+from viseron.domains.object_detector.const import CONFIG_CAMERAS
 from viseron.helpers.subprocess import POPEN_LOCK
 
 from .const import (
@@ -89,8 +90,20 @@ def setup(vis: Viseron, config):
     """Set up the darknet component."""
     config = config[COMPONENT]
     vis.data[COMPONENT] = Darknet(vis, config[CONFIG_OBJECT_DETECTOR])
-    for domain in config.keys():
-        setup_domain(vis, COMPONENT, domain, config)
+    for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
+        setup_domain(
+            vis,
+            COMPONENT,
+            CONFIG_OBJECT_DETECTOR,
+            config,
+            identifier=camera_identifier,
+            require_domains=[
+                RequireDomain(
+                    domain="camera",
+                    identifier=camera_identifier,
+                )
+            ],
+        )
 
     return True
 
