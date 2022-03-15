@@ -32,10 +32,11 @@ def setup(vis, config):
     """Set up the logger component."""
     vis.data[COMPONENT] = {}
     vis.data[COMPONENT][CONFIG_LOGS] = {}
+    logging.setLoggerClass(_get_logger_class(vis.data[COMPONENT][CONFIG_LOGS]))
 
     def set_default_log_level(level):
         """Set the default log level for components."""
-        _set_log_level(logging.getLogger("viseron"), level)
+        _set_log_level(logging.getLogger(""), level)
 
     def set_log_levels(logpoints):
         """Set the specified log levels."""

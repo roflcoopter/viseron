@@ -62,23 +62,27 @@ SIGNAL_SCHEMA = vol.Schema(
     )
 )
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger(f"{__name__}.core")
 
 
 def enable_logging():
     """Enable logging."""
-    LOGGER.propagate = False
+    root_logger = logging.getLogger()
+    root_logger.propagate = False
     handler = logging.StreamHandler()
     formatter = ViseronLogFormat()
     handler.setFormatter(formatter)
     handler.addFilter(DuplicateFilter())
     handler.addFilter(SensitiveInformationFilter())
-    LOGGER.addHandler(handler)
-    LOGGER.setLevel(logging.INFO)
+    root_logger.addHandler(handler)
+    root_logger.setLevel(logging.INFO)
 
     # Silence noisy loggers
     logging.getLogger("apscheduler.scheduler").setLevel(logging.ERROR)
     logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)
+    logging.getLogger("tornado.access").setLevel(logging.WARNING)
+    logging.getLogger("tornado.application").setLevel(logging.WARNING)
+    logging.getLogger("tornado.general").setLevel(logging.WARNING)
 
     sys.excepthook = lambda *args: logging.getLogger(None).exception(
         "Uncaught exception", exc_info=args  # type: ignore
@@ -308,9 +312,6 @@ class Viseron:
 
     def wait_for_domain(self, domain, identifier):
         """Wait for a domain with a specific identifier to register."""
-        LOGGER.debug(
-            f"1 Waiting for domain {domain} with identifier {identifier} to register"
-        )
         with self._domain_register_lock:
             if (
                 domain in self.data[REGISTERED_DOMAINS]

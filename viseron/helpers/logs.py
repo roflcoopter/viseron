@@ -63,7 +63,7 @@ class ViseronLogFormat(ColoredFormatter):
 
     # pylint: disable=protected-access
     base_format = (
-        "%(log_color)s[%(asctime)s] [%(levelname)-8s] [%(name)-24s] - %(message)s"
+        "%(log_color)s[%(asctime)s] [%(levelname)-8s] [%(name)s] - %(message)s"
     )
     overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K" + base_format
 
