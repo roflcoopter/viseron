@@ -45,10 +45,7 @@ BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
             vol.Any(vol.All(int, vol.Range(min=0)), vol.All(float, vol.Range(min=0.0))),
             vol.Coerce(float),
         ),
-        vol.Required(CONFIG_CAMERAS): vol.All(
-            {str: None},
-            none_to_dict,
-        ),
+        vol.Required(CONFIG_CAMERAS): {str: vol.All(None, none_to_dict)},
     }
 )
 
