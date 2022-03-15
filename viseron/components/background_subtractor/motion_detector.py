@@ -6,16 +6,13 @@ from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.domains.motion_detector.const import CONFIG_CAMERAS, DOMAIN
 from viseron.domains.motion_detector.contours import Contours
 
-from .const import COMPONENT, CONFIG_ALPHA, CONFIG_MOTION_DETECTOR, CONFIG_THRESHOLD
+from .const import COMPONENT, CONFIG_ALPHA, CONFIG_THRESHOLD
 
 
-def setup(vis: Viseron, config):
-    """Set up the edgetpu object_detector domain."""
-    for camera_identifier in config[CONFIG_MOTION_DETECTOR][CONFIG_CAMERAS].keys():
-        vis.wait_for_camera(
-            camera_identifier,
-        )
-        MotionDetector(vis, config[DOMAIN], camera_identifier)
+def setup(vis: Viseron, config, identifier):
+    """Set up the background_subtractor motion_detector domain."""
+    vis.wait_for_camera(identifier)
+    MotionDetector(vis, config[DOMAIN], identifier)
 
     return True
 

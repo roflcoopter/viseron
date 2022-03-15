@@ -17,7 +17,7 @@ from .const import (
 
 
 def setup(vis: Viseron, config, identifier):
-    """Set up the edgetpu object_detector domain."""
+    """Set up the mog2 motion_detector domain."""
     vis.wait_for_camera(
         identifier,
     )

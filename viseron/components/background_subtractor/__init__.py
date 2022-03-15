@@ -2,7 +2,7 @@
 import voluptuous as vol
 
 from viseron import Viseron
-from viseron.domains import setup_domain
+from viseron.domains import RequireDomain, setup_domain
 from viseron.domains.motion_detector import (
     BASE_CONFIG_SCHEMA_SCANNER,
     CAMERA_SCHEMA_SCANNER,
@@ -53,7 +53,18 @@ CONFIG_SCHEMA = vol.Schema(
 def setup(vis: Viseron, config):
     """Set up the background_subtractor component."""
     config = config[COMPONENT]
-    for domain in config.keys():
-        setup_domain(vis, COMPONENT, domain, config)
-
+    for camera_identifier in config[CONFIG_MOTION_DETECTOR][CONFIG_CAMERAS].keys():
+        setup_domain(
+            vis,
+            COMPONENT,
+            CONFIG_MOTION_DETECTOR,
+            config,
+            identifier=camera_identifier,
+            require_domains=[
+                RequireDomain(
+                    domain="camera",
+                    identifier=camera_identifier,
+                )
+            ],
+        )
     return True
