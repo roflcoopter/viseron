@@ -109,7 +109,7 @@ def setup(vis: Viseron, config):
                 ],
             )
 
-    if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
-        DeepstackTrain(config)
+        if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
+            DeepstackTrain(config)
 
     return True

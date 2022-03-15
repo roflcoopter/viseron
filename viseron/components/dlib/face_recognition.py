@@ -12,11 +12,7 @@ from face_recognition.face_recognition_cli import image_files_in_folder
 from sklearn import neighbors
 
 from viseron.domains.face_recognition import AbstractFaceRecognition
-from viseron.domains.face_recognition.const import (
-    CONFIG_FACE_RECOGNITION_PATH,
-    CONFIG_SAVE_UNKNOWN_FACES,
-)
-from viseron.domains.post_processor import CONFIG_CAMERAS
+from viseron.domains.face_recognition.const import CONFIG_SAVE_UNKNOWN_FACES
 from viseron.helpers import calculate_absolute_coords
 
 from .const import COMPONENT, CONFIG_FACE_RECOGNITION, CONFIG_MODEL
@@ -29,21 +25,10 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config, identifier):
     """Set up the dlib face_recognition domain."""
-    classifier, _tracked_faces = train(
-        config[CONFIG_FACE_RECOGNITION][CONFIG_FACE_RECOGNITION_PATH],
-        model=config[CONFIG_FACE_RECOGNITION][CONFIG_MODEL],
-    )
-
-    for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS].keys():
-        if config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS][camera_identifier] is None:
-            config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS][camera_identifier] = {}
-
-        vis.wait_for_camera(
-            camera_identifier,
-        )
-        FaceRecognition(vis, config, camera_identifier, classifier)
+    vis.wait_for_camera(identifier)
+    FaceRecognition(vis, config, identifier, vis.data[COMPONENT])
 
     return True
 

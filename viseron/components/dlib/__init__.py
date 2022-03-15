@@ -5,10 +5,15 @@ import os
 import voluptuous as vol
 
 from viseron import Viseron
+from viseron.components.dlib.face_recognition import train
 from viseron.const import ENV_CUDA_SUPPORTED
-from viseron.domains import setup_domain
+from viseron.domains import RequireDomain, setup_domain
 from viseron.domains.face_recognition import (
     BASE_CONFIG_SCHEMA as FACE_RECOGNITION_BASE_CONFIG_SCHEMA,
+)
+from viseron.domains.face_recognition.const import (
+    CONFIG_CAMERAS,
+    CONFIG_FACE_RECOGNITION_PATH,
 )
 
 from .const import COMPONENT, CONFIG_FACE_RECOGNITION, CONFIG_MODEL, SUPPORTED_MODELS
@@ -46,7 +51,27 @@ CONFIG_SCHEMA = vol.Schema(
 def setup(vis: Viseron, config):
     """Set up the edgetpu component."""
     config = config[COMPONENT]
+
     if config.get(CONFIG_FACE_RECOGNITION, None):
-        setup_domain(vis, COMPONENT, CONFIG_FACE_RECOGNITION, config)
+        classifier, _tracked_faces = train(
+            config[CONFIG_FACE_RECOGNITION][CONFIG_FACE_RECOGNITION_PATH],
+            model=config[CONFIG_FACE_RECOGNITION][CONFIG_MODEL],
+        )
+        vis.data[COMPONENT] = classifier
+
+        for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS].keys():
+            setup_domain(
+                vis,
+                COMPONENT,
+                CONFIG_FACE_RECOGNITION,
+                config,
+                identifier=camera_identifier,
+                require_domains=[
+                    RequireDomain(
+                        domain="camera",
+                        identifier=camera_identifier,
+                    )
+                ],
+            )
 
     return True
