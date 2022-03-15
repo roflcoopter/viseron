@@ -15,7 +15,6 @@ from viseron.domains.face_recognition.const import (
     CONFIG_FACE_RECOGNITION_PATH,
     CONFIG_SAVE_UNKNOWN_FACES,
 )
-from viseron.domains.post_processor import CONFIG_CAMERAS
 from viseron.helpers import calculate_absolute_coords
 
 from .const import (
@@ -26,7 +25,6 @@ from .const import (
     CONFIG_MIN_CONFIDENCE,
     CONFIG_PORT,
     CONFIG_TIMEOUT,
-    CONFIG_TRAIN,
 )
 
 if TYPE_CHECKING:
@@ -37,19 +35,10 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config, identifier):
     """Set up the deepstack face_recognition domain."""
-    if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
-        DeepstackTrain(config)
-
-    for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS].keys():
-        if config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS][camera_identifier] is None:
-            config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS][camera_identifier] = {}
-
-        vis.wait_for_camera(
-            camera_identifier,
-        )
-        FaceRecognition(vis, config, camera_identifier)
+    vis.wait_for_camera(identifier)
+    FaceRecognition(vis, config, identifier)
 
     return True
 

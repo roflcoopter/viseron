@@ -13,6 +13,7 @@ import voluptuous as vol
 
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
 from viseron.helpers import create_directory
+from viseron.helpers.validators import none_to_dict
 
 from .binary_sensor import FaceDetectionBinarySensor
 from .const import (
@@ -44,7 +45,10 @@ BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
             vol.Any(vol.All(int, vol.Range(min=0)), vol.All(float, vol.Range(min=0.0))),
             vol.Coerce(float),
         ),
-        vol.Required(CONFIG_CAMERAS): {str: None},
+        vol.Required(CONFIG_CAMERAS): vol.All(
+            {str: None},
+            none_to_dict,
+        ),
     }
 )
 

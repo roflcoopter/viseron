@@ -4,13 +4,15 @@ import logging
 import voluptuous as vol
 
 from viseron import Viseron
-from viseron.domains import setup_domain
+from viseron.components.deepstack.face_recognition import DeepstackTrain
+from viseron.domains import RequireDomain, setup_domain
 from viseron.domains.face_recognition import (
     BASE_CONFIG_SCHEMA as FACE_RECOGNITION_BASE_CONFIG_SCHEMA,
 )
 from viseron.domains.object_detector import (
     BASE_CONFIG_SCHEMA as OBJECT_DETECTOR_BASE_CONFIG_SCHEMA,
 )
+from viseron.domains.object_detector.const import CONFIG_CAMERAS
 
 from .const import (
     COMPONENT,
@@ -74,9 +76,40 @@ CONFIG_SCHEMA = vol.Schema(
 def setup(vis: Viseron, config):
     """Set up the edgetpu component."""
     config = config[COMPONENT]
+
     if config.get(CONFIG_OBJECT_DETECTOR, None):
-        setup_domain(vis, COMPONENT, CONFIG_OBJECT_DETECTOR, config)
+        for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
+            setup_domain(
+                vis,
+                COMPONENT,
+                CONFIG_OBJECT_DETECTOR,
+                config,
+                identifier=camera_identifier,
+                require_domains=[
+                    RequireDomain(
+                        domain="camera",
+                        identifier=camera_identifier,
+                    )
+                ],
+            )
+
     if config.get(CONFIG_FACE_RECOGNITION, None):
-        setup_domain(vis, COMPONENT, CONFIG_FACE_RECOGNITION, config)
+        for camera_identifier in config[CONFIG_FACE_RECOGNITION][CONFIG_CAMERAS].keys():
+            setup_domain(
+                vis,
+                COMPONENT,
+                CONFIG_FACE_RECOGNITION,
+                config,
+                identifier=camera_identifier,
+                require_domains=[
+                    RequireDomain(
+                        domain="camera",
+                        identifier=camera_identifier,
+                    )
+                ],
+            )
+
+    if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
+        DeepstackTrain(config)
 
     return True

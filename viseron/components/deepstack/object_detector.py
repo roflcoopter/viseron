@@ -6,7 +6,7 @@ import deepstack.core as ds
 
 from viseron import Viseron
 from viseron.domains.object_detector import AbstractObjectDetector
-from viseron.domains.object_detector.const import CONFIG_CAMERAS, DOMAIN
+from viseron.domains.object_detector.const import DOMAIN
 from viseron.domains.object_detector.detected_object import DetectedObject
 
 from .const import (
@@ -24,13 +24,12 @@ from .const import (
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config, identifier):
     """Set up the deepstack object_detector domain."""
-    for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
-        vis.wait_for_camera(
-            camera_identifier,
-        )
-        ObjectDetector(vis, config, camera_identifier)
+    vis.wait_for_camera(
+        identifier,
+    )
+    ObjectDetector(vis, config, identifier)
 
     return True
 
