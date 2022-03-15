@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, List
 import numpy as np
 
 from viseron.domains.image_classification import (
-    CONFIG_CAMERAS,
     AbstractImageClassification,
     ImageClassificationResult,
 )
@@ -23,19 +22,10 @@ if TYPE_CHECKING:
     from . import EdgeTPUClassification
 
 
-def setup(vis: Viseron, config):
-    """Set up the edgetpu object_detector domain."""
-    for camera_identifier in config[CONFIG_IMAGE_CLASSIFICATION][CONFIG_CAMERAS].keys():
-        if (
-            config[CONFIG_IMAGE_CLASSIFICATION][CONFIG_CAMERAS][camera_identifier]
-            is None
-        ):
-            config[CONFIG_IMAGE_CLASSIFICATION][CONFIG_CAMERAS][camera_identifier] = {}
-
-        vis.wait_for_camera(
-            camera_identifier,
-        )
-        ImageClassification(vis, COMPONENT, config[DOMAIN], camera_identifier)
+def setup(vis: Viseron, config, identifier):
+    """Set up the edgetpu image_classification domain."""
+    vis.wait_for_camera(identifier)
+    ImageClassification(vis, COMPONENT, config[DOMAIN], identifier)
 
     return True
 

@@ -10,12 +10,13 @@ from pycoral.utils.dataset import read_label_file
 from pycoral.utils.edgetpu import list_edge_tpus, make_interpreter
 
 from viseron import Viseron
-from viseron.domains import setup_domain
+from viseron.domains import RequireDomain, setup_domain
 from viseron.domains.image_classification import (
     BASE_CONFIG_SCHEMA as IMAGE_CLASSIFICATION_BASE_CONFIG_SCHEMA,
     ImageClassificationResult,
 )
 from viseron.domains.object_detector import BASE_CONFIG_SCHEMA
+from viseron.domains.object_detector.const import CONFIG_CAMERAS
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers import pop_if_full
@@ -128,14 +129,40 @@ def setup(vis: Viseron, config):
         vis.data[COMPONENT][CONFIG_OBJECT_DETECTOR] = EdgeTPUDetection(
             vis, config[CONFIG_OBJECT_DETECTOR], CONFIG_OBJECT_DETECTOR
         )
-        setup_domain(vis, COMPONENT, CONFIG_OBJECT_DETECTOR, config)
-
+        for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
+            setup_domain(
+                vis,
+                COMPONENT,
+                CONFIG_OBJECT_DETECTOR,
+                config,
+                identifier=camera_identifier,
+                require_domains=[
+                    RequireDomain(
+                        domain="camera",
+                        identifier=camera_identifier,
+                    )
+                ],
+            )
     if config.get(CONFIG_IMAGE_CLASSIFICATION, None):
         vis.data[COMPONENT][CONFIG_IMAGE_CLASSIFICATION] = EdgeTPUClassification(
             vis, config[CONFIG_IMAGE_CLASSIFICATION], CONFIG_IMAGE_CLASSIFICATION
         )
-        setup_domain(vis, COMPONENT, CONFIG_IMAGE_CLASSIFICATION, config)
-
+        for camera_identifier in config[CONFIG_IMAGE_CLASSIFICATION][
+            CONFIG_CAMERAS
+        ].keys():
+            setup_domain(
+                vis,
+                COMPONENT,
+                CONFIG_IMAGE_CLASSIFICATION,
+                config,
+                identifier=camera_identifier,
+                require_domains=[
+                    RequireDomain(
+                        domain="camera",
+                        identifier=camera_identifier,
+                    )
+                ],
+            )
     return True
 
 

@@ -10,6 +10,7 @@ import numpy as np
 import voluptuous as vol
 
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
+from viseron.helpers.validators import none_to_dict
 
 from .const import (
     CONFIG_CAMERAS,
@@ -30,7 +31,12 @@ BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
             vol.Any(vol.All(int, vol.Range(min=0)), vol.All(float, vol.Range(min=0.0))),
             vol.Coerce(float),
         ),
-        vol.Required(CONFIG_CAMERAS): {str: None},
+        vol.Required(CONFIG_CAMERAS): {
+            str: vol.All(
+                None,
+                none_to_dict,
+            )
+        },
     }
 )
 

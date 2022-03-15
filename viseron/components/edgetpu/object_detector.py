@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 from viseron import Viseron
-from viseron.domains.object_detector import CONFIG_CAMERAS, AbstractObjectDetector
+from viseron.domains.object_detector import AbstractObjectDetector
 from viseron.domains.object_detector.const import DOMAIN
 from viseron.domains.object_detector.detected_object import DetectedObject
 
@@ -16,13 +16,10 @@ from .const import COMPONENT, CONFIG_OBJECT_DETECTOR
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config, identifier):
     """Set up the edgetpu object_detector domain."""
-    for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
-        vis.wait_for_camera(
-            camera_identifier,
-        )
-        ObjectDetector(vis, config[DOMAIN], camera_identifier)
+    vis.wait_for_camera(identifier)
+    ObjectDetector(vis, config[DOMAIN], identifier)
 
     return True
 
