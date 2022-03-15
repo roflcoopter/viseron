@@ -150,10 +150,9 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config, identifier):
     """Set up the gstreamer camera domain."""
-    camera_identifier = list(config)[0]
-    Camera(vis, config[camera_identifier], camera_identifier)
+    Camera(vis, config[identifier], identifier)
 
 
 class Camera(AbstractCamera):
