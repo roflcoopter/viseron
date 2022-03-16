@@ -80,6 +80,8 @@ def enable_logging():
     # Silence noisy loggers
     logging.getLogger("apscheduler.scheduler").setLevel(logging.ERROR)
     logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)
+    logging.getLogger("requests").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("tornado.access").setLevel(logging.WARNING)
     logging.getLogger("tornado.application").setLevel(logging.WARNING)
     logging.getLogger("tornado.general").setLevel(logging.WARNING)
@@ -304,10 +306,12 @@ class Viseron:
         with self._domain_register_lock:
             self.data[REGISTERED_DOMAINS].setdefault(domain, {})[identifier] = instance
 
-            if listeners := self._wait_for_domain_store.get(identifier, None):
+            if listeners := self._wait_for_domain_store.get(domain, {}).get(
+                identifier, None
+            ):
                 for thread_event in listeners:
                     thread_event.set()
-                del self._wait_for_domain_store[identifier]
+                del self._wait_for_domain_store[domain][identifier]
             self.dispatch_event(EVENT_DOMAIN_REGISTERED.format(domain=domain), instance)
 
     def wait_for_domain(self, domain, identifier):
@@ -317,7 +321,7 @@ class Viseron:
                 domain in self.data[REGISTERED_DOMAINS]
                 and identifier in self.data[REGISTERED_DOMAINS][domain]
             ):
-                return
+                return self.data[REGISTERED_DOMAINS][domain][identifier]
 
             LOGGER.debug(
                 f"Waiting for domain {domain} with identifier {identifier} to register"
@@ -328,6 +332,7 @@ class Viseron:
             ).append(event)
         event.wait()
         LOGGER.debug(f"Done waiting for domain {domain} with identifier {identifier}")
+        return self.data[REGISTERED_DOMAINS][domain][identifier]
 
     def shutdown(self):
         """Shut down Viseron."""

@@ -171,7 +171,7 @@ STATE_UNKNOWN = "unknown"
 EVENT_STATE_CHANGED = "state_changed"
 EVENT_ENTITY_ADDED = "entity_added"
 EVENT_CAMERA_REGISTERED = "camera_registered"
-EVENT_DOMAIN_REGISTERED = "{domain}/registered"
+EVENT_DOMAIN_REGISTERED = "domain/registered/{domain}"
 
 # Setup constants
 COMPONENT_RETRY_INTERVAL = 10

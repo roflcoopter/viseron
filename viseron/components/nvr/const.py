@@ -1,6 +1,13 @@
 """NVR constants."""
 
+from typing import Final
+
 COMPONENT = "nvr"
+DOMAIN = "nvr"
+
+CAMERA: Final = "camera"
+OBJECT_DETECTOR: Final = "object_detector"
+MOTION_DETECTOR: Final = "motion_detector"
 
 
 # Data stream topic constants

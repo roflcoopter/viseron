@@ -10,7 +10,7 @@ from .const import EVENT_OPERATION_STATE
 if TYPE_CHECKING:
     from viseron import Event, Viseron
 
-    from . import NVR
+    from .nvr import NVR
 
 
 class OperationStateSensor(CameraSensor):

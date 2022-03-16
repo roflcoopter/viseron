@@ -8,4 +8,5 @@ SupportedDomains = Literal[
     "image_classification",
     "motion_detector",
     "object_detector",
+    "nvr",
 ]

@@ -49,7 +49,7 @@ UNMIGRATED_COMPONENTS = [
     "logging",
 ]
 
-LAST_STAGE_COMPONENTS = ["nvr"]
+LAST_STAGE_COMPONENTS: List[str] = []
 
 LOGGER = logging.getLogger(__name__)
 
@@ -351,6 +351,6 @@ def setup_components(vis: Viseron, config):
     domain_dependencies(vis)
     setup_domains(vis)
 
-    # Setup NVRs last
+    # Setup last stage components
     for component in LAST_STAGE_COMPONENTS:
         setup_component(vis, get_component(vis, component, config))
