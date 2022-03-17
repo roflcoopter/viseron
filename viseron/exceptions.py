@@ -224,3 +224,21 @@ class CameraNotRegisteredError(ViseronError):
                 else ""
             )
         )
+
+
+class DomainNotRegisteredError(ViseronError):
+    """Raised when trying to get a domain that has not been registered."""
+
+    def __init__(self, domain: str, identifier: str) -> None:
+        """Initialize error."""
+        super().__init__(self)
+        self.domain = domain
+        self.identifier = identifier
+
+    def __str__(self) -> str:
+        """Return string representation."""
+        return (
+            f"Requested domain {self.domain} "
+            f"with identifier {self.identifier}"
+            "has not been registered"
+        )

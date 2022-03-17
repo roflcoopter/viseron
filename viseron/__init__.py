@@ -23,6 +23,8 @@ from viseron.components.data_stream import (
 from viseron.config import load_config
 from viseron.const import (
     DOMAIN_IDENTIFIERS,
+    DOMAIN_SETUP_TASKS,
+    DOMAINS_TO_SETUP,
     ENV_PROFILE_MEMORY,
     EVENT_CAMERA_REGISTERED,
     EVENT_DOMAIN_REGISTERED,
@@ -35,10 +37,13 @@ from viseron.const import (
     REGISTERED_OBJECT_DETECTORS,
     VISERON_SIGNAL_SHUTDOWN,
 )
-from viseron.domains.camera import AbstractCamera
 from viseron.domains.motion_detector.const import DATA_MOTION_DETECTOR_SCAN
 from viseron.domains.object_detector.const import DATA_OBJECT_DETECTOR_SCAN
-from viseron.exceptions import CameraNotRegisteredError, DataStreamNotLoaded
+from viseron.exceptions import (
+    CameraNotRegisteredError,
+    DataStreamNotLoaded,
+    DomainNotRegisteredError,
+)
 from viseron.helpers import memory_usage_profiler
 from viseron.helpers.logs import (
     DuplicateFilter,
@@ -50,6 +55,7 @@ from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import ThreadWatchDog
 
 if TYPE_CHECKING:
+    from viseron.domains.camera import AbstractCamera
     from viseron.helpers.entity import Entity
 
 VISERON_SIGNALS = {
@@ -151,6 +157,8 @@ class Viseron:
         self.data[REGISTERED_CAMERAS] = {}
         self._wait_for_camera_store = {}
 
+        self.data[DOMAINS_TO_SETUP] = {}
+        self.data[DOMAIN_SETUP_TASKS] = {}
         self.data[DOMAIN_IDENTIFIERS] = {}
         self._domain_register_lock = threading.Lock()
         self.data[REGISTERED_DOMAINS] = {}
@@ -333,6 +341,18 @@ class Viseron:
         event.wait()
         LOGGER.debug(f"Done waiting for domain {domain} with identifier {identifier}")
         return self.data[REGISTERED_DOMAINS][domain][identifier]
+
+    def get_registered_domain(self, domain, identifier):
+        """Return a registered domain."""
+        if (
+            domain in self.data[REGISTERED_DOMAINS]
+            and identifier in self.data[REGISTERED_DOMAINS][domain]
+        ):
+            return self.data[REGISTERED_DOMAINS][domain][identifier]
+        raise DomainNotRegisteredError(
+            domain,
+            identifier,
+        )
 
     def shutdown(self):
         """Shut down Viseron."""
