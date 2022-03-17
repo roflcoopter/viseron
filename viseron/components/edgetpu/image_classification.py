@@ -1,6 +1,7 @@
 """EdgeTPU image classification post processor."""
 from __future__ import annotations
 
+import threading
 from queue import Queue
 from typing import TYPE_CHECKING, List
 
@@ -11,20 +12,35 @@ from viseron.domains.image_classification import (
     ImageClassificationResult,
 )
 from viseron.domains.image_classification.const import DOMAIN
+from viseron.exceptions import DomainNotReady
 from viseron.helpers import calculate_absolute_coords, letterbox_resize
 
+from . import EdgeTPUClassification, MakeInterpreterError
 from .const import COMPONENT, CONFIG_IMAGE_CLASSIFICATION
 
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains.post_processor import PostProcessorFrame
 
-    from . import EdgeTPUClassification
+MAKE_INTERPRETER_LOCK = threading.Lock()
 
 
 def setup(vis: Viseron, config, identifier):
     """Set up the edgetpu image_classification domain."""
     vis.wait_for_camera(identifier)
+    with MAKE_INTERPRETER_LOCK:
+        if not vis.data[COMPONENT].get(CONFIG_IMAGE_CLASSIFICATION, None):
+            try:
+                vis.data[COMPONENT][
+                    CONFIG_IMAGE_CLASSIFICATION
+                ] = EdgeTPUClassification(
+                    vis,
+                    config[CONFIG_IMAGE_CLASSIFICATION],
+                    CONFIG_IMAGE_CLASSIFICATION,
+                )
+            except (MakeInterpreterError, FileNotFoundError) as error:
+                raise DomainNotReady from error
+
     ImageClassification(vis, COMPONENT, config[DOMAIN], identifier)
 
     return True

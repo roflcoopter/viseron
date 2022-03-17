@@ -6,10 +6,6 @@ class ViseronError(Exception):
     """General Viseron exception occurred."""
 
 
-class ComponentNotReady(ViseronError):
-    """Error that indicates that a component is not ready."""
-
-
 class DomainNotReady(ViseronError):
     """Error that indicates that a domain is not ready."""
 

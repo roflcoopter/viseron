@@ -18,7 +18,7 @@ from viseron.domains.image_classification import (
 from viseron.domains.object_detector import BASE_CONFIG_SCHEMA
 from viseron.domains.object_detector.const import CONFIG_CAMERAS
 from viseron.domains.object_detector.detected_object import DetectedObject
-from viseron.exceptions import ComponentNotReady
+from viseron.exceptions import ViseronError
 from viseron.helpers import pop_if_full
 from viseron.helpers.child_process_worker import ChildProcessWorker
 
@@ -126,9 +126,6 @@ def setup(vis: Viseron, config):
     vis.data[COMPONENT] = {}
 
     if config.get(CONFIG_OBJECT_DETECTOR, None):
-        vis.data[COMPONENT][CONFIG_OBJECT_DETECTOR] = EdgeTPUDetection(
-            vis, config[CONFIG_OBJECT_DETECTOR], CONFIG_OBJECT_DETECTOR
-        )
         for camera_identifier in config[CONFIG_OBJECT_DETECTOR][CONFIG_CAMERAS].keys():
             setup_domain(
                 vis,
@@ -144,9 +141,6 @@ def setup(vis: Viseron, config):
                 ],
             )
     if config.get(CONFIG_IMAGE_CLASSIFICATION, None):
-        vis.data[COMPONENT][CONFIG_IMAGE_CLASSIFICATION] = EdgeTPUClassification(
-            vis, config[CONFIG_IMAGE_CLASSIFICATION], CONFIG_IMAGE_CLASSIFICATION
-        )
         for camera_identifier in config[CONFIG_IMAGE_CLASSIFICATION][
             CONFIG_CAMERAS
         ].keys():
@@ -201,6 +195,10 @@ def get_default_model(domain, model, device):
     raise ValueError(f"Unsupported domain: {domain}")
 
 
+class MakeInterpreterError(ViseronError):
+    """Error raised on all failures to make interpreter."""
+
+
 class EdgeTPU(ChildProcessWorker):
     """EdgeTPU interface."""
 
@@ -240,9 +238,9 @@ class EdgeTPU(ChildProcessWorker):
                     model,
                     device=self._config[CONFIG_DEVICE],
                 )
-            except ValueError as error:
+            except Exception as error:
                 LOGGER.error(f"Error when trying to load EdgeTPU: {error}")
-                raise ComponentNotReady() from error
+                raise MakeInterpreterError from error
         interpreter.allocate_tensors()
         return interpreter
 

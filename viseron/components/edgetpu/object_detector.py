@@ -1,5 +1,6 @@
 """EdgeTPU Object detector."""
 import logging
+import threading
 from queue import Queue
 from typing import List
 
@@ -10,14 +11,27 @@ from viseron import Viseron
 from viseron.domains.object_detector import AbstractObjectDetector
 from viseron.domains.object_detector.const import DOMAIN
 from viseron.domains.object_detector.detected_object import DetectedObject
+from viseron.exceptions import DomainNotReady
 
+from . import EdgeTPUDetection, MakeInterpreterError
 from .const import COMPONENT, CONFIG_OBJECT_DETECTOR
 
 LOGGER = logging.getLogger(__name__)
 
+MAKE_INTERPRETER_LOCK = threading.Lock()
+
 
 def setup(vis: Viseron, config, identifier):
     """Set up the edgetpu object_detector domain."""
+    with MAKE_INTERPRETER_LOCK:
+        if not vis.data[COMPONENT].get(CONFIG_OBJECT_DETECTOR, None):
+            try:
+                vis.data[COMPONENT][CONFIG_OBJECT_DETECTOR] = EdgeTPUDetection(
+                    vis, config[CONFIG_OBJECT_DETECTOR], CONFIG_OBJECT_DETECTOR
+                )
+            except (MakeInterpreterError, FileNotFoundError) as error:
+                raise DomainNotReady from error
+
     vis.wait_for_camera(identifier)
     ObjectDetector(vis, config[DOMAIN], identifier)
 

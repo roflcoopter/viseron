@@ -14,16 +14,16 @@ import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
 from viseron.const import (
-    COMPONENT_RETRY_INTERVAL,
     DOMAIN_IDENTIFIERS,
     DOMAIN_RETRY_INTERVAL,
+    DOMAIN_RETRY_INTERVAL_MAX,
     DOMAIN_SETUP_TASKS,
     DOMAINS_TO_SETUP,
     FAILED,
     LOADED,
     LOADING,
 )
-from viseron.exceptions import ComponentNotReady, DomainNotReady
+from viseron.exceptions import DomainNotReady
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -103,7 +103,7 @@ class Component:
                 return None
         return True
 
-    def setup_component(self, tries=1):
+    def setup_component(self):
         """Set up component."""
         component_module = self.get_component()
         config = self.validate_component_config(component_module)
@@ -111,18 +111,6 @@ class Component:
         if config:
             try:
                 return component_module.setup(self._vis, config)
-            except ComponentNotReady:
-                wait_time = min(tries, 10) * COMPONENT_RETRY_INTERVAL
-                LOGGER.error(
-                    f"Component {self.name} is not ready. "
-                    f"Retrying in {wait_time} seconds"
-                )
-                threading.Timer(
-                    wait_time,
-                    setup_component,
-                    args=(self._vis, self),
-                    kwargs={"tries": tries + 1},
-                ).start()
             except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.error(
                     f"Uncaught exception setting up component {self.name}: {ex}\n"
@@ -246,18 +234,24 @@ class Component:
                     )
                 return domain_module.setup(self._vis, config)
             except DomainNotReady:
-                wait_time = min(tries, 10) * DOMAIN_RETRY_INTERVAL
+                wait_time = min(
+                    tries * DOMAIN_RETRY_INTERVAL, DOMAIN_RETRY_INTERVAL_MAX
+                )
                 LOGGER.error(
                     f"Domain {domain_to_setup.domain} "
                     f"for component {self.name} is not ready. "
                     f"Retrying in {wait_time} seconds"
                 )
-                threading.Timer(
-                    wait_time,
-                    self.setup_domain,
-                    args=(domain_to_setup.domain, config, domain_to_setup.identifier),
-                    kwargs={"tries": tries + 1},
-                ).start()
+                time.sleep(wait_time)
+                # Running with ThreadPoolExecutor and awaiting the future does not
+                # cause a max recursion error if we retry for a long time
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(
+                        self.setup_domain,
+                        domain_to_setup,
+                        tries=tries + 1,
+                    )
+                    return future.result()
             except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.exception(
                     f"Uncaught exception setting up domain {domain_to_setup.domain} for"
@@ -282,20 +276,13 @@ def get_component(vis, component, config):
         return Component(vis, f"{components.__name__}.{component}", component, config)
 
 
-def setup_component(vis, component: Component, tries=1):
+def setup_component(vis, component: Component):
     """Set up single component."""
-    LOGGER.info(
-        f"Setting up {component.name}{(f', attempt {tries}') if tries > 1 else ''}"
-    )
-
-    # When tries is larger than one, it means we are in a retry loop.
-    if tries > 1:
-        # Remove component from being marked as failed
-        del vis.data[FAILED][component.name]
+    LOGGER.info(f"Setting up {component.name}")
 
     try:
         vis.data[LOADING][component.name] = component
-        if component.setup_component(tries=tries):
+        if component.setup_component():
             vis.data[LOADED][component.name] = component
             del vis.data[LOADING][component.name]
         else:
