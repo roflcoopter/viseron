@@ -1,4 +1,5 @@
 """FFmpeg constants."""
+import logging
 from typing import List
 
 COMPONENT = "ffmpeg"
@@ -43,18 +44,19 @@ CAMERA_INPUT_ARGS = [
     "0",
 ]
 
-FFMPEG_LOG_LEVELS = {
-    "quiet": 50,
-    "panic": 50,
-    "fatal": 50,
-    "error": 40,
-    "warning": 30,
-    "info": 20,
-    "verbose": 10,
-    "debug": 10,
-    "trace": 10,
+FFMPEG_LOGLEVELS = {
+    "quiet": logging.CRITICAL,
+    "panic": logging.CRITICAL,
+    "fatal": logging.CRITICAL,
+    "error": logging.ERROR,
+    "warning": logging.WARNING,
+    "info": logging.INFO,
+    "verbose": logging.DEBUG,
+    "debug": logging.DEBUG,
+    "trace": logging.DEBUG,
 }
 
+FFPROBE_LOGLEVELS = FFMPEG_LOGLEVELS
 FFPROBE_TIMEOUT = 15
 
 # Hardware acceleration constands
@@ -139,5 +141,6 @@ DEFAULT_FFMPEG_LOGLEVEL = "error"
 DEFAULT_FFMPEG_RECOVERABLE_ERRORS = [
     "error while decoding MB",
     "Application provided invalid, non monotonically increasing dts to muxer in stream",
+    "Last message repeated",
 ]
 DEFAULT_FFPROBE_LOGLEVEL = "error"

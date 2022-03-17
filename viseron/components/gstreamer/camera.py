@@ -68,7 +68,7 @@ from .const import (
     DEFAULT_STREAM_FORMAT,
     DEFAULT_USERNAME,
     DEFAULT_WIDTH,
-    GSTREAMER_LOG_LEVELS,
+    GSTREAMER_LOGLEVELS,
     STREAM_FORMAT_MAP,
 )
 from .recorder import Recorder
@@ -115,7 +115,7 @@ RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
     }
 )
 
-GSTREAMER_LOG_LEVELSCHEMA = vol.Schema(vol.In(GSTREAMER_LOG_LEVELS.keys()))
+GSTREAMER_LOGLEVELSCHEMA = vol.Schema(vol.In(GSTREAMER_LOGLEVELS.keys()))
 
 CAMERA_SCHEMA = BASE_CAMERA_CONFIG_SCHEMA.extend(STREAM_SCEHMA_DICT)
 
@@ -131,14 +131,14 @@ CAMERA_SCHEMA = CAMERA_SCHEMA.extend(
         vol.Optional(CONFIG_SUBSTREAM): vol.Schema(STREAM_SCEHMA_DICT),
         vol.Optional(
             CONFIG_GSTREAMER_LOGLEVEL, default=DEFAULT_GSTREAMER_LOGLEVEL
-        ): GSTREAMER_LOG_LEVELSCHEMA,
+        ): GSTREAMER_LOGLEVELSCHEMA,
         vol.Optional(
             CONFIG_GSTREAMER_RECOVERABLE_ERRORS,
             default=DEFAULT_GSTREAMER_RECOVERABLE_ERRORS,
         ): [str],
         vol.Optional(
             CONFIG_FFPROBE_LOGLEVEL, default=DEFAULT_FFPROBE_LOGLEVEL
-        ): GSTREAMER_LOG_LEVELSCHEMA,
+        ): GSTREAMER_LOGLEVELSCHEMA,
         vol.Optional(CONFIG_RECORDER, default=DEFAULT_RECORDER): RECORDER_SCHEMA,
     }
 )
@@ -153,6 +153,7 @@ CONFIG_SCHEMA = vol.Schema(
 def setup(vis: Viseron, config, identifier):
     """Set up the gstreamer camera domain."""
     Camera(vis, config[identifier], identifier)
+    return True
 
 
 class Camera(AbstractCamera):

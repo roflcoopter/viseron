@@ -1,4 +1,5 @@
 """GStreamer constants."""
+import logging
 from typing import List
 
 COMPONENT = "gstreamer"
@@ -52,7 +53,7 @@ PIXEL_FORMAT = "NV12"
 
 CAMERA_SEGMENT_DURATION = 5
 
-GSTREAMER_LOG_LEVELS = {
+GSTREAMER_LOGLEVELS = {
     "error": 1,
     "warning": 2,
     "fixme": 3,
@@ -60,18 +61,14 @@ GSTREAMER_LOG_LEVELS = {
     "debug": 5,
     "trace": 7,
 }
-# FFprobe constants
-FFPROBE_TIMEOUT = 15
-FFPROBE_LOG_LEVELS = {
-    "quiet": 50,
-    "panic": 50,
-    "fatal": 50,
-    "error": 40,
-    "warning": 30,
-    "info": 20,
-    "verbose": 10,
-    "debug": 10,
-    "trace": 10,
+
+LOGLEVEL_CONVERTER = {
+    "error": logging.ERROR,
+    "warning": logging.WARNING,
+    "fixme": logging.INFO,
+    "info": logging.INFO,
+    "debug": logging.DEBUG,
+    "trace": logging.DEBUG,
 }
 
 # STREAM_SCHEMA constants

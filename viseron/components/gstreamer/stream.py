@@ -14,6 +14,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from viseron.components.ffmpeg.const import FFPROBE_LOGLEVELS, FFPROBE_TIMEOUT
 from viseron.const import (
     ENV_CUDA_SUPPORTED,
     ENV_JETSON_NANO,
@@ -22,7 +23,7 @@ from viseron.const import (
 )
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
-from viseron.helpers.logs import FFmpegFilter, LogPipe
+from viseron.helpers.logs import LogPipe, UnhelpfullLogFilter
 from viseron.helpers.subprocess import Popen
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
@@ -45,8 +46,7 @@ from .const import (
     CONFIG_USERNAME,
     CONFIG_WIDTH,
     ENV_GSTREAMER_PATH,
-    FFPROBE_TIMEOUT,
-    GSTREAMER_LOG_LEVELS,
+    LOGLEVEL_CONVERTER,
     PIXEL_FORMAT,
     STREAM_FORMAT_MAP,
 )
@@ -59,7 +59,7 @@ class Stream:
     def __init__(self, vis, config, camera_identifier):
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.addFilter(
-            FFmpegFilter(config[CONFIG_GSTREAMER_RECOVERABLE_ERRORS])
+            UnhelpfullLogFilter(config[CONFIG_GSTREAMER_RECOVERABLE_ERRORS])
         )
         self._config = config
         self._camera_identifier = camera_identifier
@@ -70,11 +70,11 @@ class Stream:
         self._pipe = None
         self._segment_process = None
         self._log_pipe = LogPipe(
-            self._logger, GSTREAMER_LOG_LEVELS[config[CONFIG_GSTREAMER_LOGLEVEL]]
+            self._logger, LOGLEVEL_CONVERTER[config[CONFIG_GSTREAMER_LOGLEVEL]]
         )
 
         self._ffprobe_log_pipe = LogPipe(
-            self._logger, GSTREAMER_LOG_LEVELS[config[CONFIG_FFPROBE_LOGLEVEL]]
+            self._logger, FFPROBE_LOGLEVELS[config[CONFIG_FFPROBE_LOGLEVEL]]
         )
         self._ffprobe_timeout = FFPROBE_TIMEOUT
 

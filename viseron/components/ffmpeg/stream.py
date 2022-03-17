@@ -23,7 +23,7 @@ from viseron.const import (
 from viseron.domains.camera import CONFIG_EXTENSION
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
-from viseron.helpers.logs import FFmpegFilter, LogPipe
+from viseron.helpers.logs import LogPipe, UnhelpfullLogFilter
 from viseron.helpers.subprocess import Popen
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
@@ -56,7 +56,8 @@ from .const import (
     CONFIG_VIDEO_FILTERS,
     CONFIG_WIDTH,
     ENV_FFMPEG_PATH,
-    FFMPEG_LOG_LEVELS,
+    FFMPEG_LOGLEVELS,
+    FFPROBE_LOGLEVELS,
     FFPROBE_TIMEOUT,
     HWACCEL_CUDA_DECODER_CODEC_MAP,
     HWACCEL_JETSON_NANO_DECODER_CODEC_MAP,
@@ -71,7 +72,9 @@ class Stream:
 
     def __init__(self, vis, config, camera_identifier):
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
-        self._logger.addFilter(FFmpegFilter(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS]))
+        self._logger.addFilter(
+            UnhelpfullLogFilter(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS])
+        )
         self._config = config
         self._camera_identifier = camera_identifier
 
@@ -81,11 +84,11 @@ class Stream:
         self._pipe = None
         self._segment_process = None
         self._log_pipe = LogPipe(
-            self._logger, FFMPEG_LOG_LEVELS[config[CONFIG_FFMPEG_LOGLEVEL]]
+            self._logger, FFMPEG_LOGLEVELS[config[CONFIG_FFMPEG_LOGLEVEL]]
         )
 
         self._ffprobe_log_pipe = LogPipe(
-            self._logger, FFMPEG_LOG_LEVELS[config[CONFIG_FFPROBE_LOGLEVEL]]
+            self._logger, FFPROBE_LOGLEVELS[config[CONFIG_FFPROBE_LOGLEVEL]]
         )
         self._ffprobe_timeout = FFPROBE_TIMEOUT
 

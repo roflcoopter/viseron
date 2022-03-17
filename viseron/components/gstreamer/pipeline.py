@@ -17,7 +17,7 @@ from .const import (
     CONFIG_STREAM_FORMAT,
     DECODER_ELEMENT_MAP,
     DEPAY_ELEMENT_MAP,
-    GSTREAMER_LOG_LEVELS,
+    GSTREAMER_LOGLEVELS,
     PIXEL_FORMAT,
     STREAM_FORMAT_MAP,
 )
@@ -40,7 +40,7 @@ class BasePipeline:
         return [self._stream.alias] + [
             (
                 "--gst-debug-level="
-                f"{GSTREAMER_LOG_LEVELS[self._config[CONFIG_GSTREAMER_LOGLEVEL]]}"
+                f"{GSTREAMER_LOGLEVELS[self._config[CONFIG_GSTREAMER_LOGLEVEL]]}"
             ),
             "-q",
         ]

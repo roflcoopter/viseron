@@ -81,7 +81,7 @@ from .const import (
     DEFAULT_USERNAME,
     DEFAULT_VIDEO_FILTERS,
     DEFAULT_WIDTH,
-    FFMPEG_LOG_LEVELS,
+    FFMPEG_LOGLEVELS,
     HWACCEL_VAAPI,
     STREAM_FORMAT_MAP,
 )
@@ -148,7 +148,7 @@ RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
     }
 )
 
-FFMPEG_LOGLEVEL_SCEHMA = vol.Schema(vol.In(FFMPEG_LOG_LEVELS.keys()))
+FFMPEG_LOGLEVEL_SCEHMA = vol.Schema(vol.In(FFMPEG_LOGLEVELS.keys()))
 
 CAMERA_SCHEMA = BASE_CAMERA_CONFIG_SCHEMA.extend(STREAM_SCEHMA_DICT)
 
@@ -186,6 +186,7 @@ CONFIG_SCHEMA = vol.Schema(
 def setup(vis: Viseron, config, identifier):
     """Set up the ffmpeg camera domain."""
     Camera(vis, config[identifier], identifier)
+    return True
 
 
 class Camera(AbstractCamera):

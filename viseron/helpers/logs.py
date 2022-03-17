@@ -44,7 +44,7 @@ class SensitiveInformationFilter(logging.Filter):
         return True
 
 
-class FFmpegFilter(logging.Filter):
+class UnhelpfullLogFilter(logging.Filter):
     """Filter out unimportant logs."""
 
     def __init__(self, errors_to_ignore, *args, **kwargs):
@@ -123,7 +123,7 @@ class LogPipe(threading.Thread):
     def run(self):
         """Run the thread, logging everything."""
         for line in iter(self.pipe_reader.readline, ""):
-            self._logger.log(self._output_level, line.strip("\n"))
+            self._logger.log(self._output_level, line.strip().strip("\n"))
 
         self.pipe_reader.close()
 
