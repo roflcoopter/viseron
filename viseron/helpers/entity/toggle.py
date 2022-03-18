@@ -1,10 +1,12 @@
 """Base toggle entity class."""
 from __future__ import annotations
 
+from typing import Final
+
 from viseron.const import STATE_OFF, STATE_ON
 from viseron.helpers.entity import Entity
 
-DOMAIN = "toggle"
+DOMAIN: Final = "toggle"
 
 
 class ToggleEntity(Entity):

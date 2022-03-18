@@ -1,11 +1,13 @@
 """Home Assistant MQTT switch."""
 from __future__ import annotations
 
+from typing import Final
+
 from viseron.const import STATE_OFF, STATE_ON
 
 from .entity import HassMQTTEntity
 
-DOMAIN = "switch"
+DOMAIN: Final = "switch"
 
 
 class HassMQTTSwitch(HassMQTTEntity):

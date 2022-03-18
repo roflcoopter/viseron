@@ -1,9 +1,11 @@
 """Base sensor entity class."""
 from __future__ import annotations
 
+from typing import Final
+
 from viseron.helpers.entity import Entity
 
-DOMAIN = "sensor"
+DOMAIN: Final = "sensor"
 
 
 class SensorEntity(Entity):

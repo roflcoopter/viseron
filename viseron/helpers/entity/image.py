@@ -1,9 +1,11 @@
 """Base image entity class."""
 from __future__ import annotations
 
+from typing import Final
+
 from viseron.helpers.entity import Entity
 
-DOMAIN = "image"
+DOMAIN: Final = "image"
 
 
 class ImageEntity(Entity):

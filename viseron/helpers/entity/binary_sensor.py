@@ -1,10 +1,12 @@
 """Base binary sensor entity class."""
 from __future__ import annotations
 
+from typing import Final
+
 from viseron.const import STATE_OFF, STATE_ON
 from viseron.helpers.entity import Entity
 
-DOMAIN = "binary_sensor"
+DOMAIN: Final = "binary_sensor"
 
 
 class BinarySensorEntity(Entity):

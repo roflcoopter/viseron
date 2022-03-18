@@ -1,9 +1,11 @@
 """Home Assistant MQTT sensor."""
 from __future__ import annotations
 
+from typing import Final
+
 from .entity import HassMQTTEntity
 
-DOMAIN = "sensor"
+DOMAIN: Final = "sensor"
 
 
 class HassMQTTSensor(HassMQTTEntity):

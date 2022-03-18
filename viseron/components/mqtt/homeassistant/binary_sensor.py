@@ -1,11 +1,13 @@
 """Home Assistant MQTT binary sensor."""
 from __future__ import annotations
 
+from typing import Final
+
 from viseron.const import STATE_OFF, STATE_ON
 
 from .entity import HassMQTTEntity
 
-DOMAIN = "binary_sensor"
+DOMAIN: Final = "binary_sensor"
 
 
 class HassMQTTBinarySensor(HassMQTTEntity):
