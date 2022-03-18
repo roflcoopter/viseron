@@ -8,7 +8,8 @@ import tornado
 import voluptuous as vol
 
 from viseron.components.webserver.const import WS_ERROR_SAVE_CONFIG_FAILED
-from viseron.const import CONFIG_PATH, REGISTERED_CAMERAS
+from viseron.const import CONFIG_PATH, REGISTERED_DOMAINS
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 
 from .messages import (
     BASE_MESSAGE_SCHEMA,
@@ -65,7 +66,9 @@ def get_cameras(connection: WebSocketHandler, message):
     connection.send_message(
         result_message(
             message["command_id"],
-            message_to_json(connection.vis.data[REGISTERED_CAMERAS]),
+            message_to_json(
+                connection.vis.data[REGISTERED_DOMAINS].get(CAMERA_DOMAIN, {})
+            ),
         )
     )
 

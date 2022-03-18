@@ -37,7 +37,6 @@ LOGGER = logging.getLogger(__name__)
 
 def setup(vis: Viseron, config, identifier):
     """Set up the deepstack face_recognition domain."""
-    vis.wait_for_camera(identifier)
     FaceRecognition(vis, config, identifier)
 
     return True

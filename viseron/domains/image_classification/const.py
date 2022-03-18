@@ -1,6 +1,7 @@
 """Image classification constants."""
+from typing import Final
 
-DOMAIN = "image_classification"
+DOMAIN: Final = "image_classification"
 
 
 # Event topic constants

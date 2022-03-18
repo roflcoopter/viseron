@@ -26,9 +26,6 @@ LOGGER = logging.getLogger(__name__)
 
 def setup(vis: Viseron, config, identifier):
     """Set up the deepstack object_detector domain."""
-    vis.wait_for_camera(
-        identifier,
-    )
     ObjectDetector(vis, config, identifier)
 
     return True
@@ -61,7 +58,6 @@ class ObjectDetector(AbstractObjectDetector):
             else self._camera.resolution[1],
         )
 
-        self._vis.register_object_detector(camera_identifier, self)
         vis.register_domain(DOMAIN, camera_identifier, self)
 
     def preprocess(self, frame):

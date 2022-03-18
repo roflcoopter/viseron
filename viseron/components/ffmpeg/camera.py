@@ -215,7 +215,6 @@ class Camera(AbstractCamera):
         self._recorder = Recorder(vis, config, self)
 
         self.initialize_camera()
-        vis.register_camera(self.identifier, self)
         vis.register_domain(DOMAIN, self.identifier, self)
 
     def initialize_camera(self):

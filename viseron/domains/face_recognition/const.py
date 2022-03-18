@@ -1,6 +1,7 @@
 """Face recognition constants."""
+from typing import Final
 
-DOMAIN = "face_recognition"
+DOMAIN: Final = "face_recognition"
 
 
 # Event topic constants

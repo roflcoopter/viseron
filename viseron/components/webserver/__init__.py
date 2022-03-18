@@ -13,11 +13,8 @@ import tornado.web
 import voluptuous as vol
 from tornado.routing import PathMatches
 
-from viseron.const import (
-    EVENT_CAMERA_REGISTERED,
-    REGISTERED_CAMERAS,
-    VISERON_SIGNAL_SHUTDOWN,
-)
+from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_SHUTDOWN
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 
 from .api import APIRouter
 from .const import (
@@ -116,9 +113,9 @@ class WebServer(threading.Thread):
         self.application.listen(config[CONFIG_PORT])
         self._ioloop = tornado.ioloop.IOLoop.current()
 
-        self._vis.listen_event(EVENT_CAMERA_REGISTERED, self.camera_registered)
-        for camera in self._vis.data[REGISTERED_CAMERAS].values():
-            self._serve_camera_recordings(camera)
+        self._vis.listen_event(
+            EVENT_DOMAIN_REGISTERED.format(domain=CAMERA_DOMAIN), self.camera_registered
+        )
 
     def create_application(self):
         """Return tornado web app."""

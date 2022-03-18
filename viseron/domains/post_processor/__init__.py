@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, List, Union
 
 import voluptuous as vol
 
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.object_detector.const import (
     EVENT_OBJECTS_IN_FOV,
     EVENT_OBJECTS_IN_ZONE,
@@ -61,7 +62,7 @@ class AbstractPostProcessor(ABC):
         self._vis = vis
         self._config = config
         self._camera_identifier = camera_identifier
-        self._camera = vis.get_registered_camera(camera_identifier)
+        self._camera = vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
         self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
 
         self._labels = config.get(CONFIG_LABELS, None)

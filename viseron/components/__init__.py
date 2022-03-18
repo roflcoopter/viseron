@@ -233,14 +233,15 @@ class Component:
                         self._vis, config, domain_to_setup.identifier
                     )
                 return domain_module.setup(self._vis, config)
-            except DomainNotReady:
+            except DomainNotReady as error:
                 wait_time = min(
                     tries * DOMAIN_RETRY_INTERVAL, DOMAIN_RETRY_INTERVAL_MAX
                 )
                 LOGGER.error(
                     f"Domain {domain_to_setup.domain} "
                     f"for component {self.name} is not ready. "
-                    f"Retrying in {wait_time} seconds"
+                    f"Retrying in {wait_time} seconds. "
+                    f"Error: {str(error)}"
                 )
                 time.sleep(wait_time)
                 # Running with ThreadPoolExecutor and awaiting the future does not

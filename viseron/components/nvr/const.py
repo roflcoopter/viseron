@@ -2,8 +2,8 @@
 
 from typing import Final
 
-COMPONENT = "nvr"
-DOMAIN = "nvr"
+COMPONENT: Final = "nvr"
+DOMAIN: Final = "nvr"
 
 CAMERA: Final = "camera"
 OBJECT_DETECTOR: Final = "object_detector"

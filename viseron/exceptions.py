@@ -1,5 +1,5 @@
 """Exceptions used by Viseron."""
-from typing import List, Union
+from typing import Union
 
 
 class ViseronError(Exception):
@@ -8,6 +8,10 @@ class ViseronError(Exception):
 
 class DomainNotReady(ViseronError):
     """Error that indicates that a domain is not ready."""
+
+    def __str__(self) -> str:
+        """Return error."""
+        return super().__str__() or str(self.__cause__)
 
 
 class DataStreamNotLoaded(ViseronError):
@@ -201,31 +205,10 @@ class MotionConfigSchemaError(ViseronError):
         )
 
 
-class CameraNotRegisteredError(ViseronError):
-    """Raised when trying to get a camera that has not been registered."""
-
-    def __init__(self, camera_identifier, cameras: List[str] = None) -> None:
-        """Initialize error."""
-        super().__init__(self)
-        self.camera_identifier = camera_identifier
-        self.cameras = cameras
-
-    def __str__(self) -> str:
-        """Return string representation."""
-        return (
-            f"Requested camera {self.camera_identifier} has not been registered. "
-            + (
-                f"Available cameras are: {', '.join(self.cameras)}"
-                if self.cameras
-                else ""
-            )
-        )
-
-
 class DomainNotRegisteredError(ViseronError):
     """Raised when trying to get a domain that has not been registered."""
 
-    def __init__(self, domain: str, identifier: str) -> None:
+    def __init__(self, domain: str, identifier: str = None) -> None:
         """Initialize error."""
         super().__init__(self)
         self.domain = domain
@@ -233,8 +216,7 @@ class DomainNotRegisteredError(ViseronError):
 
     def __str__(self) -> str:
         """Return string representation."""
-        return (
-            f"Requested domain {self.domain} "
-            f"with identifier {self.identifier}"
-            "has not been registered"
+        return ("Requested domain{}{}has not been registered").format(
+            self.domain,
+            f" with identifier {self.identifier} " if self.identifier else " ",
         )

@@ -5,6 +5,7 @@ import logging
 from typing import List
 
 from viseron import Viseron
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.object_detector.const import CONFIG_LABEL_LABEL
 from viseron.domains.object_detector.detected_object import (
@@ -42,7 +43,7 @@ class Zone:
         mask,
     ):
         self._vis = vis
-        self._camera = vis.get_registered_camera(camera_identifier)
+        self._camera = vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
 
         self._coordinates = generate_numpy_from_coordinates(
@@ -56,7 +57,7 @@ class Zone:
         if zone_config[CONFIG_LABELS]:
             for object_filter in zone_config[CONFIG_LABELS]:
                 self._object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
-                    vis.get_registered_camera(camera_identifier).resolution,
+                    self._camera.resolution,
                     object_filter,
                     mask,
                 )

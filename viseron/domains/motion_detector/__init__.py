@@ -13,6 +13,7 @@ import voluptuous as vol
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.helpers import generate_mask
 from viseron.helpers.schemas import COORDINATES_SCHEMA
 from viseron.watchdog.thread_watchdog import RestartableThread
@@ -30,6 +31,7 @@ from .const import (
     CONFIG_TRIGGER_RECORDER,
     CONFIG_WIDTH,
     DATA_MOTION_DETECTOR_RESULT,
+    DATA_MOTION_DETECTOR_SCAN,
     DEFAULT_AREA,
     DEFAULT_FPS,
     DEFAULT_HEIGHT,
@@ -84,7 +86,9 @@ class AbstractMotionDetector(ABC):
         self._vis = vis
         self._config = config
 
-        self._camera: AbstractCamera = vis.get_registered_camera(camera_identifier)
+        self._camera: AbstractCamera = vis.get_registered_domain(
+            CAMERA_DOMAIN, camera_identifier
+        )
         self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
         self._motion_detected = False
 
@@ -194,7 +198,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
             for point_list in self._mask:
                 rel_mask = np.divide(
                     (point_list),
-                    vis.get_registered_camera(camera_identifier).resolution,
+                    self._camera.resolution,
                 )
                 scaled_mask.append(
                     np.multiply(rel_mask, self._resolution).astype("int32")
@@ -222,6 +226,12 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
             daemon=True,
         )
         self._motion_detection_thread.start()
+        topic = DATA_MOTION_DETECTOR_SCAN.format(camera_identifier=camera_identifier)
+        vis.data[DATA_STREAM_COMPONENT].subscribe_data(
+            data_topic=topic,
+            callback=self.motion_detection_queue,
+        )
+
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
     @abstractmethod

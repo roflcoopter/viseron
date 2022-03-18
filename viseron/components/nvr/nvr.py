@@ -18,6 +18,7 @@ import numpy as np
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import COMPONENT
 from viseron.const import DOMAIN_IDENTIFIERS, VISERON_SIGNAL_SHUTDOWN
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.motion_detector.const import (
     DATA_MOTION_DETECTOR_RESULT,
     DATA_MOTION_DETECTOR_SCAN,
@@ -156,7 +157,9 @@ class NVR:
     ):
         self._vis = vis
         self._config = config
-        self._camera: AbstractCamera = vis.get_registered_camera(camera_identifier)
+        self._camera: AbstractCamera = vis.get_registered_domain(
+            CAMERA_DOMAIN, camera_identifier
+        )
 
         self.setup_loggers()
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)

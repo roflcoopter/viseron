@@ -18,9 +18,6 @@ from .const import (
 
 def setup(vis: Viseron, config, identifier):
     """Set up the mog2 motion_detector domain."""
-    vis.wait_for_camera(
-        identifier,
-    )
     MotionDetector(vis, config[DOMAIN], identifier)
 
     return True
@@ -39,7 +36,6 @@ class MotionDetector(AbstractMotionDetectorScanner):
             self._camera_config[CONFIG_DETECT_SHADOWS],
         )
 
-        vis.register_motion_detector(camera_identifier, self)
         vis.register_domain(DOMAIN, camera_identifier, self)
 
     def preprocess(self, frame):

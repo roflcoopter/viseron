@@ -11,7 +11,6 @@ from .const import COMPONENT, CONFIG_ALPHA, CONFIG_THRESHOLD
 
 def setup(vis: Viseron, config, identifier):
     """Set up the background_subtractor motion_detector domain."""
-    vis.wait_for_camera(identifier)
     MotionDetector(vis, config[DOMAIN], identifier)
 
     return True
@@ -26,7 +25,6 @@ class MotionDetector(AbstractMotionDetectorScanner):
 
         self._avg = None
 
-        self._vis.register_motion_detector(camera_identifier, self)
         vis.register_domain(DOMAIN, camera_identifier, self)
 
     def preprocess(self, frame):

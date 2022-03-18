@@ -156,9 +156,6 @@ FAILED = "failed"
 DOMAINS_TO_SETUP = "domains_to_setup"
 DOMAIN_IDENTIFIERS = "domain_identifiers"
 DOMAIN_SETUP_TASKS = "domain_setup_tasks"
-REGISTERED_OBJECT_DETECTORS = "object_detectors"
-REGISTERED_MOTION_DETECTORS = "motion_detectors"
-REGISTERED_CAMERAS = "cameras"
 REGISTERED_DOMAINS = "registered_domains"
 
 # Signal constants
@@ -172,7 +169,6 @@ STATE_UNKNOWN = "unknown"
 # Event topic constants
 EVENT_STATE_CHANGED = "state_changed"
 EVENT_ENTITY_ADDED = "entity_added"
-EVENT_CAMERA_REGISTERED = "camera_registered"
 EVENT_DOMAIN_REGISTERED = "domain/registered/{domain}"
 
 # Setup constants

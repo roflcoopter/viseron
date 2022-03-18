@@ -17,7 +17,6 @@ LOGGER = logging.getLogger(__name__)
 
 def setup(vis: Viseron, config, identifier):
     """Set up the darknet object_detector domain."""
-    vis.wait_for_camera(identifier)
     ObjectDetector(vis, config[DOMAIN], identifier)
 
     return True
@@ -31,7 +30,6 @@ class ObjectDetector(AbstractObjectDetector):
         self._darknet = vis.data[COMPONENT]
         self._object_result_queue: Queue[List[DetectedObject]] = Queue(maxsize=1)
 
-        self._vis.register_object_detector(camera_identifier, self)
         vis.register_domain(DOMAIN, camera_identifier, self)
 
     def preprocess(self, frame):

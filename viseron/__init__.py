@@ -10,7 +10,7 @@ import threading
 import time
 import tracemalloc
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, List
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, overload
 
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -26,24 +26,14 @@ from viseron.const import (
     DOMAIN_SETUP_TASKS,
     DOMAINS_TO_SETUP,
     ENV_PROFILE_MEMORY,
-    EVENT_CAMERA_REGISTERED,
     EVENT_DOMAIN_REGISTERED,
     FAILED,
     LOADED,
     LOADING,
-    REGISTERED_CAMERAS,
     REGISTERED_DOMAINS,
-    REGISTERED_MOTION_DETECTORS,
-    REGISTERED_OBJECT_DETECTORS,
     VISERON_SIGNAL_SHUTDOWN,
 )
-from viseron.domains.motion_detector.const import DATA_MOTION_DETECTOR_SCAN
-from viseron.domains.object_detector.const import DATA_OBJECT_DETECTOR_SCAN
-from viseron.exceptions import (
-    CameraNotRegisteredError,
-    DataStreamNotLoaded,
-    DomainNotRegisteredError,
-)
+from viseron.exceptions import DataStreamNotLoaded, DomainNotRegisteredError
 from viseron.helpers import memory_usage_profiler
 from viseron.helpers.logs import (
     DuplicateFilter,
@@ -51,11 +41,17 @@ from viseron.helpers.logs import (
     ViseronLogFormat,
 )
 from viseron.states import States
+from viseron.types import SupportedDomains
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import ThreadWatchDog
 
 if TYPE_CHECKING:
+    from viseron.components.nvr.nvr import NVR
     from viseron.domains.camera import AbstractCamera
+    from viseron.domains.face_recognition import AbstractFaceRecognition
+    from viseron.domains.image_classification import AbstractImageClassification
+    from viseron.domains.motion_detector import AbstractMotionDetectorScanner
+    from viseron.domains.object_detector import AbstractObjectDetector
     from viseron.helpers.entity import Entity
 
 VISERON_SIGNALS = {
@@ -150,12 +146,6 @@ class Viseron:
         self.data[LOADING] = {}
         self.data[LOADED] = {}
         self.data[FAILED] = {}
-        self.data[REGISTERED_OBJECT_DETECTORS] = {}
-        self.data[REGISTERED_MOTION_DETECTORS] = {}
-
-        self._camera_register_lock = threading.Lock()
-        self.data[REGISTERED_CAMERAS] = {}
-        self._wait_for_camera_store = {}
 
         self.data[DOMAINS_TO_SETUP] = {}
         self.data[DOMAIN_SETUP_TASKS] = {}
@@ -218,97 +208,58 @@ class Viseron:
             event, data=Event(event, data, time.time())
         )
 
-    def register_object_detector(self, camera_identifier, detector):
-        """Register an object detector that can be used by components."""
-        LOGGER.debug(f"Registering object detector for camera: {camera_identifier}")
-        topic = DATA_OBJECT_DETECTOR_SCAN.format(camera_identifier=camera_identifier)
-        self.data[DATA_STREAM_COMPONENT].subscribe_data(
-            data_topic=topic,
-            callback=detector.object_detection_queue,
-        )
-        self.data[REGISTERED_OBJECT_DETECTORS][camera_identifier] = detector
+    @overload
+    def register_domain(
+        self, domain: Literal["camera"], identifier: str, instance: AbstractCamera
+    ):
+        ...
 
-    def get_object_detector(self, detector_name):
-        """Return a registered object detector."""
-        if not self.data[REGISTERED_OBJECT_DETECTORS]:
-            LOGGER.error("No object detectors are registered")
-            return False
+    @overload
+    def register_domain(
+        self,
+        domain: Literal["face_recognition"],
+        identifier: str,
+        instance: AbstractFaceRecognition,
+    ):
+        ...
 
-        if not self.data[REGISTERED_OBJECT_DETECTORS].get(detector_name, None):
-            LOGGER.error(
-                f"Requested object detector {detector_name} has not been registered. "
-                "Available object detectors are: "
-                f"{list(self.data[REGISTERED_OBJECT_DETECTORS].keys())}"
-            )
-            return False
+    @overload
+    def register_domain(
+        self,
+        domain: Literal["image_classification"],
+        identifier: str,
+        instance: AbstractImageClassification,
+    ):
+        ...
 
-        return self.data[REGISTERED_OBJECT_DETECTORS][detector_name]
+    @overload
+    def register_domain(
+        self,
+        domain: Literal["motion_detector"],
+        identifier: str,
+        instance: AbstractMotionDetectorScanner,
+    ):
+        ...
 
-    def register_motion_detector(self, camera_identifier, detector):
-        """Register a motion detector that can be used by components."""
-        LOGGER.debug(f"Registering motion detector for camera: {camera_identifier}")
-        topic = DATA_MOTION_DETECTOR_SCAN.format(camera_identifier=camera_identifier)
-        self.data[DATA_STREAM_COMPONENT].subscribe_data(
-            data_topic=topic,
-            callback=detector.motion_detection_queue,
-        )
-        self.data[REGISTERED_MOTION_DETECTORS][camera_identifier] = detector
+    @overload
+    def register_domain(
+        self,
+        domain: Literal["object_detector"],
+        identifier: str,
+        instance: AbstractObjectDetector,
+    ):
+        ...
 
-    def get_motion_detector(self, detector_name):
-        """Return a registered motion detector."""
-        if not self.data[REGISTERED_MOTION_DETECTORS]:
-            LOGGER.error("No motion detectors are registered")
-            return False
+    @overload
+    def register_domain(
+        self,
+        domain: Literal["nvr"],
+        identifier: str,
+        instance: NVR,
+    ):
+        ...
 
-        if not self.data[REGISTERED_MOTION_DETECTORS].get(detector_name, None):
-            LOGGER.error(
-                f"Requested motion detector {detector_name} has not been registered. "
-                "Available motion detectors are: "
-                f"{list(self.data[REGISTERED_MOTION_DETECTORS].keys())}"
-            )
-            return False
-        return self.data[REGISTERED_MOTION_DETECTORS][detector_name]
-
-    def register_camera(self, camera_identifier, camera_instance):
-        """Register a camera."""
-        LOGGER.debug(f"Registering camera: {camera_identifier}")
-        with self._camera_register_lock:
-            self.data[REGISTERED_CAMERAS][camera_identifier] = camera_instance
-
-            if camera_listeners := self._wait_for_camera_store.get(
-                camera_identifier, None
-            ):
-                for thread_event in camera_listeners:
-                    thread_event.set()
-                del self._wait_for_camera_store[camera_identifier]
-            self.dispatch_event(EVENT_CAMERA_REGISTERED, camera_instance)
-
-    def get_registered_camera(self, camera_identifier) -> AbstractCamera:
-        """Return a registered camera."""
-        if not self.data[REGISTERED_CAMERAS]:
-            LOGGER.error("No cameras are registered")
-            raise CameraNotRegisteredError(camera_identifier)
-
-        if not self.data[REGISTERED_CAMERAS].get(camera_identifier, None):
-            raise CameraNotRegisteredError(
-                camera_identifier, cameras=list(self.data[REGISTERED_CAMERAS].keys())
-            )
-
-        return self.data[REGISTERED_CAMERAS][camera_identifier]
-
-    def wait_for_camera(self, camera_identifier):
-        """Wait for a camera to register."""
-        with self._camera_register_lock:
-            if camera_identifier in self.data[REGISTERED_CAMERAS]:
-                return
-
-            LOGGER.debug(f"Waiting for camera {camera_identifier} to register")
-            event = threading.Event()
-            self._wait_for_camera_store.setdefault(camera_identifier, []).append(event)
-        event.wait()
-        LOGGER.debug(f"Done waiting for camera {camera_identifier} to register")
-
-    def register_domain(self, domain, identifier, instance):
+    def register_domain(self, domain: SupportedDomains, identifier: str, instance):
         """Register a domain with a specific identifier."""
         LOGGER.debug(f"Registering domain {domain} with identifier {identifier}")
         with self._domain_register_lock:
@@ -322,7 +273,7 @@ class Viseron:
                 del self._wait_for_domain_store[domain][identifier]
             self.dispatch_event(EVENT_DOMAIN_REGISTERED.format(domain=domain), instance)
 
-    def wait_for_domain(self, domain, identifier):
+    def wait_for_domain(self, domain: SupportedDomains, identifier: str):
         """Wait for a domain with a specific identifier to register."""
         with self._domain_register_lock:
             if (
@@ -342,16 +293,94 @@ class Viseron:
         LOGGER.debug(f"Done waiting for domain {domain} with identifier {identifier}")
         return self.data[REGISTERED_DOMAINS][domain][identifier]
 
-    def get_registered_domain(self, domain, identifier):
-        """Return a registered domain."""
+    @overload
+    def get_registered_domain(
+        self, domain: Literal["camera"], identifier: str
+    ) -> AbstractCamera:
+        ...
+
+    @overload
+    def get_registered_domain(
+        self, domain: Literal["face_recognition"], identifier: str
+    ) -> AbstractFaceRecognition:
+        ...
+
+    @overload
+    def get_registered_domain(
+        self, domain: Literal["image_classification"], identifier: str
+    ) -> AbstractImageClassification:
+        ...
+
+    @overload
+    def get_registered_domain(
+        self, domain: Literal["motion_detector"], identifier: str
+    ) -> AbstractMotionDetectorScanner:
+        ...
+
+    @overload
+    def get_registered_domain(
+        self, domain: Literal["object_detector"], identifier: str
+    ) -> AbstractObjectDetector:
+        ...
+
+    @overload
+    def get_registered_domain(self, domain: Literal["nvr"], identifier: str) -> NVR:
+        ...
+
+    def get_registered_domain(self, domain: SupportedDomains, identifier: str):
+        """Return a registered domain with a specific identifier."""
         if (
             domain in self.data[REGISTERED_DOMAINS]
             and identifier in self.data[REGISTERED_DOMAINS][domain]
         ):
             return self.data[REGISTERED_DOMAINS][domain][identifier]
+
         raise DomainNotRegisteredError(
             domain,
-            identifier,
+            identifier=identifier,
+        )
+
+    @overload
+    def get_registered_identifiers(
+        self, domain: Literal["camera"]
+    ) -> Dict[str, AbstractCamera]:
+        ...
+
+    @overload
+    def get_registered_identifiers(
+        self, domain: Literal["face_recognition"]
+    ) -> Dict[str, AbstractFaceRecognition]:
+        ...
+
+    @overload
+    def get_registered_identifiers(
+        self, domain: Literal["image_classification"]
+    ) -> Dict[str, AbstractImageClassification]:
+        ...
+
+    @overload
+    def get_registered_identifiers(
+        self, domain: Literal["motion_detector"]
+    ) -> Dict[str, AbstractMotionDetectorScanner]:
+        ...
+
+    @overload
+    def get_registered_identifiers(
+        self, domain: Literal["object_detector"]
+    ) -> Dict[str, AbstractObjectDetector]:
+        ...
+
+    @overload
+    def get_registered_identifiers(self, domain: Literal["nvr"]) -> Dict[str, NVR]:
+        ...
+
+    def get_registered_identifiers(self, domain: SupportedDomains):
+        """Return a list of all registered identifiers for a domain."""
+        if domain in self.data[REGISTERED_DOMAINS]:
+            return self.data[REGISTERED_DOMAINS][domain]
+
+        raise DomainNotRegisteredError(
+            domain,
         )
 
     def shutdown(self):

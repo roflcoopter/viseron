@@ -1,7 +1,7 @@
 """Camera domain constants."""
-from typing import Any, Dict
+from typing import Any, Dict, Final
 
-DOMAIN = "camera"
+DOMAIN: Final = "camera"
 
 
 # Event topic constants

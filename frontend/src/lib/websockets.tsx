@@ -364,7 +364,7 @@ export class Connection {
       storedCameraCallback(message.data);
     };
     const subscription = await this.subscribeEvent(
-      "camera_registered",
+      "domain/registered/camera",
       _cameraCallback,
       true
     );

@@ -1,7 +1,7 @@
 """Object detector domain constants."""
-from typing import Any, Dict, List
+from typing import Any, Dict, Final, List
 
-DOMAIN = "object_detector"
+DOMAIN: Final = "object_detector"
 
 
 # Data stream topic constants

@@ -1,7 +1,7 @@
 """Motion detector domain constants."""
-from typing import Dict, List
+from typing import Dict, Final, List
 
-DOMAIN = "motion_detector"
+DOMAIN: Final = "motion_detector"
 
 
 # Data stream topic constants

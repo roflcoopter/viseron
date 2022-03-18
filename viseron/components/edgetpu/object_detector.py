@@ -32,7 +32,6 @@ def setup(vis: Viseron, config, identifier):
             except (MakeInterpreterError, FileNotFoundError) as error:
                 raise DomainNotReady from error
 
-    vis.wait_for_camera(identifier)
     ObjectDetector(vis, config[DOMAIN], identifier)
 
     return True
@@ -51,7 +50,6 @@ class ObjectDetector(AbstractObjectDetector):
 
         super().__init__(vis, COMPONENT, config, camera_identifier)
 
-        self._vis.register_object_detector(camera_identifier, self)
         vis.register_domain(DOMAIN, camera_identifier, self)
 
     def preprocess(self, frame):

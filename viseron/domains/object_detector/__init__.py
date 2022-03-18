@@ -13,6 +13,7 @@ import voluptuous as vol
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import AbstractCamera
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.helpers import generate_mask
 from viseron.helpers.filter import Filter
@@ -43,6 +44,7 @@ from .const import (
     CONFIG_ZONE_NAME,
     CONFIG_ZONES,
     DATA_OBJECT_DETECTOR_RESULT,
+    DATA_OBJECT_DETECTOR_SCAN,
     DEFAULT_FPS,
     DEFAULT_LABEL_CONFIDENCE,
     DEFAULT_LABEL_HEIGHT_MAX,
@@ -148,7 +150,9 @@ class AbstractObjectDetector(ABC):
         self._vis = vis
         self._config = config
         self._camera_identifier = camera_identifier
-        self._camera: AbstractCamera = vis.get_registered_camera(camera_identifier)
+        self._camera: AbstractCamera = vis.get_registered_domain(
+            CAMERA_DOMAIN, camera_identifier
+        )
         self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
 
         self._objects_in_fov: List[DetectedObject] = []
@@ -169,7 +173,7 @@ class AbstractObjectDetector(ABC):
                 CONFIG_LABELS
             ]:
                 self.object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
-                    vis.get_registered_camera(camera_identifier).resolution,
+                    self._camera.resolution,
                     object_filter,
                     self._mask,
                 )
@@ -203,6 +207,11 @@ class AbstractObjectDetector(ABC):
             daemon=True,
         )
         self._object_detection_thread.start()
+        topic = DATA_OBJECT_DETECTOR_SCAN.format(camera_identifier=camera_identifier)
+        self._vis.data[DATA_STREAM_COMPONENT].subscribe_data(
+            data_topic=topic,
+            callback=self.object_detection_queue,
+        )
 
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
         vis.add_entity(component, ObjectDetectedBinarySensorFoV(vis, self._camera))
