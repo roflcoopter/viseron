@@ -117,13 +117,13 @@ class BaseAPIHandler(ViseronRequestHandler):
                     "Routing to {}.{}(*args={}, **kwargs={})".format(
                         self.__class__.__name__,
                         route.get("method"),
-                        params["path_args"],
-                        params["path_kwargs"],
+                        params.get("path_args", []),
+                        params.get("path_kwargs", {}),
                     ),
                 )
                 self.route = route
                 getattr(self, route.get("method"))(
-                    *params["path_args"], **params["path_kwargs"]
+                    *params.get("path_args", []), **params.get("path_kwargs", {})
                 )
                 return
 
