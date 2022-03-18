@@ -101,7 +101,8 @@ class BasePipeline:
             ]
         return []
 
-    def converter_element(self):
+    @staticmethod
+    def converter_element():
         """Return converter element.
 
         The converter element is used to convert input stream to raw image

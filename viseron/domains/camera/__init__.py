@@ -268,7 +268,8 @@ class AbstractCamera(ABC):
             ),
         )
 
-    def _clear_snapshot_cache(self, clear_cache):
+    @staticmethod
+    def _clear_snapshot_cache(clear_cache):
         """Clear snapshot cache."""
         clear_cache()
 
