@@ -18,6 +18,9 @@ interface CameraCardProps {
   camera: types.Camera;
 }
 
+const blankImage =
+  "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
+
 export default function CameraCard({ camera }: CameraCardProps) {
   const theme = useTheme();
   const ref: any = useRef<HTMLDivElement>();
@@ -34,7 +37,7 @@ export default function CameraCard({ camera }: CameraCardProps) {
   );
   const [snapshotURL, setSnapshotURL] = useState({
     // Show blank image on start
-    url: "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E",
+    url: blankImage,
     disableSpinner: false,
     disableTransition: false,
     loading: true,
@@ -59,9 +62,8 @@ export default function CameraCard({ camera }: CameraCardProps) {
         };
       }
       return {
+        ...prevSnapshotURL,
         url: generateSnapshotURL(ref.current ? ref.current.offsetWidth : null),
-        disableSpinner: true,
-        disableTransition: true,
         loading: true,
       };
     });
@@ -94,17 +96,21 @@ export default function CameraCard({ camera }: CameraCardProps) {
         </Typography>
       </CardContent>
       <CardActionArea>
+        {/* 'alt=""' in combination with textIndent is a neat trick to hide the broken image icon */}
         <Image
+          alt=""
+          imageStyle={{ textIndent: "-10000px" }}
           src={snapshotURL.url}
           disableSpinner={snapshotURL.disableSpinner}
           disableTransition={snapshotURL.disableTransition}
-          alt={camera.name}
           animationDuration={1000}
           aspectRatio={camera.width / camera.height}
           color={theme.palette.background.default}
           onLoad={() => {
             setSnapshotURL((prevSnapshotURL) => ({
               ...prevSnapshotURL,
+              disableSpinner: true,
+              disableTransition: true,
               loading: false,
             }));
           }}
@@ -112,6 +118,8 @@ export default function CameraCard({ camera }: CameraCardProps) {
           onError={() => {
             setSnapshotURL((prevSnapshotURL) => ({
               ...prevSnapshotURL,
+              disableSpinner: false,
+              disableTransition: false,
               loading: false,
             }));
           }}
