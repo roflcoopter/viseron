@@ -27,7 +27,7 @@ from viseron.exceptions import DomainNotReady
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.domains import RequireDomain
+    from viseron.domains import OptionalDomain, RequireDomain
 
 
 @dataclass
@@ -39,20 +39,12 @@ class DomainToSetup:
     config: dict
     identifier: str
     require_domains: List[RequireDomain]
+    optional_domains: List[OptionalDomain]
 
 
 LOGGING_COMPONENTS = ["logger"]
 CORE_COMPONENTS = ["data_stream"]
-UNMIGRATED_COMPONENTS = [
-    "cameras",
-    "motion_detection",
-    "object_detection",
-    "recorder",
-    "post_processors",
-    "logging",
-]
 
-LAST_STAGE_COMPONENTS: List[str] = ["nvr"]
 DOMAIN_SETUP_LOCK = threading.Lock()
 
 LOGGER = logging.getLogger(__name__)
@@ -125,7 +117,9 @@ class Component:
 
         return False
 
-    def add_domain_to_setup(self, domain, config, identifier, require_domains):
+    def add_domain_to_setup(
+        self, domain, config, identifier, require_domains, optional_domains
+    ):
         """Add a domain to setup queue."""
         domain_to_setup = DomainToSetup(
             component=self,
@@ -133,6 +127,7 @@ class Component:
             config=config,
             identifier=identifier,
             require_domains=require_domains if require_domains else [],
+            optional_domains=optional_domains if optional_domains else [],
         )
         self.domains_to_setup.append(domain_to_setup)
         self._vis.data[DOMAINS_TO_SETUP].setdefault(domain, {})[
@@ -163,11 +158,24 @@ class Component:
         return config
 
     def _setup_dependencies(self, domain_to_setup: DomainToSetup):
+        """Await the setup of all dependencies."""
         dependencies_futures = [
             self._vis.data[DOMAIN_SETUP_TASKS][required_domain.domain][
                 required_domain.identifier
             ]
             for required_domain in domain_to_setup.require_domains
+        ]
+
+        optional_dependencies_futures = [
+            self._vis.data[DOMAIN_SETUP_TASKS][optional_domain.domain][
+                optional_domain.identifier
+            ]
+            for optional_domain in domain_to_setup.optional_domains
+            if (
+                optional_domain.domain in self._vis.data[DOMAIN_IDENTIFIERS]
+                and optional_domain.identifier
+                in self._vis.data[DOMAIN_IDENTIFIERS][optional_domain.domain]
+            )
         ]
 
         if dependencies_futures:
@@ -185,9 +193,28 @@ class Component:
                     for future in dependencies_futures
                 ],
             )
+        if optional_dependencies_futures:
+            LOGGER.debug(
+                "Domain %s for component %s%s will wait for optional dependencies %s",
+                domain_to_setup.domain,
+                self.name,
+                (
+                    f" with identifier {domain_to_setup.identifier}"
+                    if domain_to_setup.identifier
+                    else ""
+                ),
+                [
+                    f"domain: {future.domain}, identifier: {future.identifier}"
+                    for future in optional_dependencies_futures
+                ],
+            )
 
         failed = []
-        for future in list(concurrent.futures.as_completed(dependencies_futures)):
+        for future in list(
+            concurrent.futures.as_completed(
+                dependencies_futures + optional_dependencies_futures
+            )
+        ):
             if not future.result():
                 failed.append(future)
 
@@ -358,6 +385,21 @@ def setup_domain(vis, executor, domain_to_setup: DomainToSetup):
                 required_domain.identifier
             ],
         )
+
+    for optional_domain in domain_to_setup.optional_domains:
+        if (
+            optional_domain.domain in vis.data[DOMAIN_IDENTIFIERS]
+            and optional_domain.identifier
+            in vis.data[DOMAIN_IDENTIFIERS][optional_domain.domain]
+        ):
+            setup_domain(
+                vis,
+                executor,
+                vis.data[DOMAINS_TO_SETUP][optional_domain.domain][
+                    optional_domain.identifier
+                ],
+            )
+
     _setup_domain(vis, executor, domain_to_setup)
 
 
@@ -385,11 +427,7 @@ def setup_components(vis: Viseron, config):
     """Set up configured components."""
     components_in_config = {key.split(" ")[0] for key in config}
     components_in_config = (
-        components_in_config
-        - set(UNMIGRATED_COMPONENTS)
-        - set(LOGGING_COMPONENTS)
-        - set(CORE_COMPONENTS)
-        - set(LAST_STAGE_COMPONENTS)
+        components_in_config - set(LOGGING_COMPONENTS) - set(CORE_COMPONENTS)
     )
 
     # Setup logger first
@@ -427,9 +465,4 @@ def setup_components(vis: Viseron, config):
         for future in concurrent.futures.as_completed(setup_thread_future):
             future.result()
 
-    setup_domains(vis)
-
-    # Setup last stage components
-    for component in LAST_STAGE_COMPONENTS:
-        setup_component(vis, get_component(vis, component, config))
     setup_domains(vis)

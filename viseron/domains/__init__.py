@@ -17,10 +17,23 @@ LOGGER = logging.getLogger(__name__)
 
 @dataclass
 class RequireDomain:
-    """Require other domain with specific identifier to be setup before this one."""
+    """Mark domain with given identifier as a required dependency.
+
+    Viseron will make sure that all required domains are resolved before setting up
+    the domain.
+    """
 
     domain: SupportedDomains
     identifier: str
+
+
+class OptionalDomain(RequireDomain):
+    """Mark domain with given identifier as a optional dependency.
+
+    If the optional domain is marked for setup, it will be awaited before setting up
+    the domain.
+    If the optional domain is NOT marked for setup, Viseron will ignore the dependency.
+    """
 
 
 def setup_domain(
@@ -30,7 +43,10 @@ def setup_domain(
     config,
     identifier: str = None,
     require_domains: List[RequireDomain] | None = None,
+    optional_domains: List[OptionalDomain] | None = None,
 ):
     """Set up single domain."""
     component_instance: Component = vis.data[LOADING][component]
-    component_instance.add_domain_to_setup(domain, config, identifier, require_domains)
+    component_instance.add_domain_to_setup(
+        domain, config, identifier, require_domains, optional_domains
+    )

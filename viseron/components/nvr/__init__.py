@@ -6,8 +6,7 @@ from typing import TYPE_CHECKING
 
 import voluptuous as vol
 
-from viseron.const import DOMAIN_IDENTIFIERS
-from viseron.domains import RequireDomain, setup_domain
+from viseron.domains import OptionalDomain, RequireDomain, setup_domain
 from viseron.helpers.validators import ensure_slug, none_to_dict
 
 from .const import CAMERA, COMPONENT, DOMAIN, MOTION_DETECTOR, OBJECT_DETECTOR
@@ -34,40 +33,27 @@ def setup(vis: Viseron, config):
     config = config[COMPONENT]
 
     for camera_identifier in config.keys():
-        require_domains = []
-        require_domains.append(
-            RequireDomain(
-                domain=CAMERA,
-                identifier=camera_identifier,
-            )
-        )
-        if (
-            OBJECT_DETECTOR in vis.data[DOMAIN_IDENTIFIERS]
-            and camera_identifier in vis.data[DOMAIN_IDENTIFIERS][OBJECT_DETECTOR]
-        ):
-            require_domains.append(
-                RequireDomain(
-                    domain=OBJECT_DETECTOR,
-                    identifier=camera_identifier,
-                )
-            )
-        if (
-            MOTION_DETECTOR in vis.data[DOMAIN_IDENTIFIERS]
-            and camera_identifier in vis.data[DOMAIN_IDENTIFIERS][MOTION_DETECTOR]
-        ):
-            require_domains.append(
-                RequireDomain(
-                    domain=MOTION_DETECTOR,
-                    identifier=camera_identifier,
-                )
-            )
-
         setup_domain(
             vis,
             COMPONENT,
             DOMAIN,
             config,
             identifier=camera_identifier,
-            require_domains=require_domains,
+            require_domains=[
+                RequireDomain(
+                    domain=CAMERA,
+                    identifier=camera_identifier,
+                )
+            ],
+            optional_domains=[
+                OptionalDomain(
+                    domain=OBJECT_DETECTOR,
+                    identifier=camera_identifier,
+                ),
+                OptionalDomain(
+                    domain=MOTION_DETECTOR,
+                    identifier=camera_identifier,
+                ),
+            ],
         )
     return True

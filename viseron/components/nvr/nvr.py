@@ -257,7 +257,7 @@ class NVR:
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
         self._camera.start_camera()
-        self._logger.debug(f"NVR for camera {self._camera.name} initialized")
+        self._logger.info(f"NVR for camera {self._camera.name} initialized")
 
     def setup_loggers(self):
         """Set up custom log names and levels."""
