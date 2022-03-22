@@ -10,6 +10,7 @@ import threading
 import time
 import tracemalloc
 from dataclasses import dataclass
+from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, overload
 
 import voluptuous as vol
@@ -103,9 +104,10 @@ def enable_logging():
 
 def setup_viseron():
     """Set up and run Viseron."""
+    start = timer()
     enable_logging()
     LOGGER.info("-------------------------------------------")
-    LOGGER.info("Initializing...")
+    LOGGER.info("Initializing Viseron")
 
     config = load_config()
 
@@ -114,6 +116,8 @@ def setup_viseron():
     setup_components(vis, config)
     vis.setup()
 
+    end = timer()
+    LOGGER.info("Viseron initialized in %.1f seconds", end - start)
     return vis
 
 
@@ -156,7 +160,8 @@ class Viseron:
 
         self._thread_watchdog = ThreadWatchDog()
         self._subprocess_watchdog = SubprocessWatchDog()
-        self._background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
+        self.background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
+        self.background_scheduler.start()
 
     def register_signal_handler(self, viseron_signal, callback):
         """Register a callback which gets called on signals emitted by Viseron.
@@ -393,7 +398,7 @@ class Viseron:
 
         self._thread_watchdog.stop()
         self._subprocess_watchdog.stop()
-        self._background_scheduler.shutdown()
+        self.background_scheduler.shutdown()
 
         def join(thread_or_process):
             thread_or_process.join(timeout=8)
@@ -435,7 +440,7 @@ class Viseron:
 
     def schedule_periodic_update(self, entity: Entity, update_interval: int):
         """Schedule entity update at a fixed interval."""
-        self._background_scheduler.add_job(
+        self.background_scheduler.add_job(
             entity.update, "interval", seconds=update_interval
         )
 
@@ -443,9 +448,6 @@ class Viseron:
         """Set up Viseron."""
         if os.getenv(ENV_PROFILE_MEMORY) == "true":
             tracemalloc.start()
-            self._background_scheduler.add_job(
+            self.background_scheduler.add_job(
                 memory_usage_profiler, "interval", seconds=5, args=[LOGGER]
             )
-        self._background_scheduler.start()
-
-        LOGGER.info("Initialization complete")

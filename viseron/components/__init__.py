@@ -8,6 +8,7 @@ import threading
 import time
 import traceback
 from dataclasses import dataclass
+from timeit import default_timer as timer
 from typing import TYPE_CHECKING, List
 
 import voluptuous as vol
@@ -22,6 +23,8 @@ from viseron.const import (
     FAILED,
     LOADED,
     LOADING,
+    SLOW_DEPENDENCY_WARNING,
+    SLOW_SETUP_WARNING,
 )
 from viseron.exceptions import DomainNotReady
 
@@ -42,8 +45,8 @@ class DomainToSetup:
     optional_domains: List[OptionalDomain]
 
 
-LOGGING_COMPONENTS = ["logger"]
-CORE_COMPONENTS = ["data_stream"]
+LOGGING_COMPONENTS = {"logger"}
+CORE_COMPONENTS = {"data_stream"}
 
 DOMAIN_SETUP_LOCK = threading.Lock()
 
@@ -97,24 +100,55 @@ class Component:
 
     def setup_component(self):
         """Set up component."""
+        start = timer()
+        LOGGER.info(f"Setting up component {self.name}")
+        slow_setup_warning = threading.Timer(
+            SLOW_SETUP_WARNING,
+            LOGGER.warning,
+            (
+                f"Setup of component {self.name} "
+                f"is taking longer than {SLOW_SETUP_WARNING} seconds",
+            ),
+        )
+        slow_setup_warning.start()
+
         component_module = self.get_component()
         config = self.validate_component_config(component_module)
 
+        result = False
         if config:
             try:
-                return component_module.setup(self._vis, config)
+                result = component_module.setup(self._vis, config)
             except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.error(
                     f"Uncaught exception setting up component {self.name}: {ex}\n"
                     f"{traceback.print_exc()}"
                 )
+            finally:
+                slow_setup_warning.cancel()
+
+        end = timer()
+        if result is True:
+            LOGGER.info(
+                "Setup of component %s took %.1f seconds",
+                self.name,
+                end - start,
+            )
+            return True
+
         # Clear any domains that were marked for setup
         for domain_to_setup in self.domains_to_setup:
             del self._vis.data[DOMAINS_TO_SETUP][domain_to_setup.domain][
                 domain_to_setup.identifier
             ]
         self.domains_to_setup.clear()
+        if result is False:
+            return False
 
+        LOGGER.error(
+            "Setup of component %s did not return boolean",
+            self.name,
+        )
         return False
 
     def add_domain_to_setup(
@@ -159,6 +193,26 @@ class Component:
 
     def _setup_dependencies(self, domain_to_setup: DomainToSetup):
         """Await the setup of all dependencies."""
+
+        def _slow_dependency_warning(futures):
+            unfinished_dependencies = [future for future in futures if future.running()]
+            if unfinished_dependencies:
+                LOGGER.warning(
+                    "Domain %s for component %s%s "
+                    "is still waiting for dependencies: %s",
+                    domain_to_setup.domain,
+                    self.name,
+                    (
+                        f" with identifier {domain_to_setup.identifier}"
+                        if domain_to_setup.identifier
+                        else ""
+                    ),
+                    [
+                        f"domain: {future.domain}, identifier: {future.identifier}"
+                        for future in unfinished_dependencies
+                    ],
+                )
+
         dependencies_futures = [
             self._vis.data[DOMAIN_SETUP_TASKS][required_domain.domain][
                 required_domain.identifier
@@ -209,14 +263,22 @@ class Component:
                 ],
             )
 
+        slow_dependency_warning = self._vis.background_scheduler.add_job(
+            _slow_dependency_warning,
+            "interval",
+            seconds=SLOW_DEPENDENCY_WARNING,
+            args=[dependencies_futures + optional_dependencies_futures],
+        )
         failed = []
         for future in list(
             concurrent.futures.as_completed(
                 dependencies_futures + optional_dependencies_futures
             )
         ):
-            if not future.result():
-                failed.append(future)
+            if future.result() is True:
+                continue
+            failed.append(future)
+        slow_dependency_warning.remove()
 
         if failed:
             LOGGER.error(
@@ -236,7 +298,7 @@ class Component:
     def setup_domain(self, domain_to_setup: DomainToSetup, tries=1):
         """Set up domain."""
         LOGGER.info(
-            "Setting up domain %s for component %s%s",
+            "Setting up domain %s for component %s%s%s",
             domain_to_setup.domain,
             self.name,
             (
@@ -244,7 +306,9 @@ class Component:
                 if domain_to_setup.identifier
                 else ""
             ),
+            (f", attempt {tries}" if tries > 1 else ""),
         )
+
         domain_module = self.get_domain(domain_to_setup.domain)
         config = self.validate_domain_config(
             domain_to_setup.config, domain_to_setup.domain, domain_module
@@ -253,14 +317,38 @@ class Component:
         if not self._setup_dependencies(domain_to_setup):
             return False
 
+        slow_setup_warning = threading.Timer(
+            SLOW_SETUP_WARNING,
+            LOGGER.warning,
+            args=(
+                (
+                    "Setup of domain %s for component %s%s "
+                    "is taking longer than %s seconds"
+                ),
+                domain_to_setup.domain,
+                self.name,
+                (
+                    f" with identifier {domain_to_setup.identifier}"
+                    if domain_to_setup.identifier
+                    else ""
+                ),
+                SLOW_SETUP_WARNING,
+            ),
+        )
+        slow_setup_warning.start()
+
+        start = timer()
+        result = False
         if config:
             try:
                 if domain_to_setup.identifier:
-                    return domain_module.setup(
+                    result = domain_module.setup(
                         self._vis, config, domain_to_setup.identifier
                     )
-                return domain_module.setup(self._vis, config)
+                else:
+                    result = domain_module.setup(self._vis, config)
             except DomainNotReady as error:
+                slow_setup_warning.cancel()
                 wait_time = min(
                     tries * DOMAIN_RETRY_INTERVAL, DOMAIN_RETRY_INTERVAL_MAX
                 )
@@ -291,6 +379,31 @@ class Component:
                     )
                 except KeyError:
                     pass
+            finally:
+                slow_setup_warning.cancel()
+        end = timer()
+
+        if result is True:
+            LOGGER.info(
+                "Setup of domain %s for component %s%s took %.1f seconds",
+                domain_to_setup.domain,
+                self.name,
+                (
+                    f" with identifier {domain_to_setup.identifier}"
+                    if domain_to_setup.identifier
+                    else ""
+                ),
+                end - start,
+            )
+            return True
+        if result is False:
+            return False
+
+        LOGGER.error(
+            "Setup of domain %s for component %s did not return boolean",
+            domain_to_setup.domain,
+            self.name,
+        )
         return False
 
 
@@ -306,8 +419,6 @@ def get_component(vis, component, config):
 
 def setup_component(vis, component: Component):
     """Set up single component."""
-    LOGGER.info(f"Setting up {component.name}")
-
     try:
         vis.data[LOADING][component.name] = component
         if component.setup_component():
@@ -426,12 +537,8 @@ def setup_domains(vis):
 def setup_components(vis: Viseron, config):
     """Set up configured components."""
     components_in_config = {key.split(" ")[0] for key in config}
-    components_in_config = (
-        components_in_config - set(LOGGING_COMPONENTS) - set(CORE_COMPONENTS)
-    )
-
     # Setup logger first
-    for component in LOGGING_COMPONENTS:
+    for component in components_in_config & LOGGING_COMPONENTS:
         setup_component(vis, get_component(vis, component, config))
 
     # Setup core components
@@ -440,7 +547,9 @@ def setup_components(vis: Viseron, config):
 
     # Setup components in parallel
     setup_threads = []
-    for component in components_in_config:
+    for component in (
+        components_in_config - set(LOGGING_COMPONENTS) - set(CORE_COMPONENTS)
+    ):
         setup_threads.append(
             threading.Thread(
                 target=setup_component,
