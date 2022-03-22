@@ -46,7 +46,8 @@ class DomainToSetup:
 
 
 LOGGING_COMPONENTS = {"logger"}
-CORE_COMPONENTS = {"data_stream"}
+# Core components are always loaded even if they are not present in config
+CORE_COMPONENTS = {"webserver", "data_stream"}
 
 DOMAIN_SETUP_LOCK = threading.Lock()
 
@@ -100,7 +101,6 @@ class Component:
 
     def setup_component(self):
         """Set up component."""
-        start = timer()
         LOGGER.info(f"Setting up component {self.name}")
         slow_setup_warning = threading.Timer(
             SLOW_SETUP_WARNING,
@@ -110,14 +110,15 @@ class Component:
                 f"is taking longer than {SLOW_SETUP_WARNING} seconds",
             ),
         )
-        slow_setup_warning.start()
 
         component_module = self.get_component()
         config = self.validate_component_config(component_module)
 
+        start = timer()
         result = False
         if config:
             try:
+                slow_setup_warning.start()
                 result = component_module.setup(self._vis, config)
             except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.error(
@@ -335,12 +336,12 @@ class Component:
                 SLOW_SETUP_WARNING,
             ),
         )
-        slow_setup_warning.start()
 
         start = timer()
         result = False
         if config:
             try:
+                slow_setup_warning.start()
                 if domain_to_setup.identifier:
                     result = domain_module.setup(
                         self._vis, config, domain_to_setup.identifier
@@ -348,6 +349,7 @@ class Component:
                 else:
                     result = domain_module.setup(self._vis, config)
             except DomainNotReady as error:
+                # Cancel the slow setup warning here since the retrying blocks
                 slow_setup_warning.cancel()
                 wait_time = min(
                     tries * DOMAIN_RETRY_INTERVAL, DOMAIN_RETRY_INTERVAL_MAX
@@ -381,6 +383,7 @@ class Component:
                     pass
             finally:
                 slow_setup_warning.cancel()
+
         end = timer()
 
         if result is True:

@@ -47,7 +47,7 @@ LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        COMPONENT: vol.Schema(
+        vol.Optional(COMPONENT, default={}): vol.Schema(
             {
                 vol.Optional(CONFIG_PORT, default=DEFAULT_PORT): vol.All(
                     int, vol.Range(min=1024, max=49151)
