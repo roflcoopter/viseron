@@ -15,6 +15,8 @@ import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
 from viseron.const import (
+    COMPONENT_RETRY_INTERVAL,
+    COMPONENT_RETRY_INTERVAL_MAX,
     DOMAIN_IDENTIFIERS,
     DOMAIN_RETRY_INTERVAL,
     DOMAIN_RETRY_INTERVAL_MAX,
@@ -26,7 +28,7 @@ from viseron.const import (
     SLOW_DEPENDENCY_WARNING,
     SLOW_SETUP_WARNING,
 )
-from viseron.exceptions import DomainNotReady
+from viseron.exceptions import ComponentNotReady, DomainNotReady
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -47,7 +49,9 @@ class DomainToSetup:
 
 LOGGING_COMPONENTS = {"logger"}
 # Core components are always loaded even if they are not present in config
-CORE_COMPONENTS = {"webserver", "data_stream"}
+CORE_COMPONENTS = {"data_stream"}
+# Default components are always loaded even if they are not present in config
+DEFAULT_COMPONENTS = {"webserver"}
 
 DOMAIN_SETUP_LOCK = threading.Lock()
 
@@ -99,9 +103,13 @@ class Component:
                 return None
         return True
 
-    def setup_component(self):
+    def setup_component(self, tries=1):
         """Set up component."""
-        LOGGER.info(f"Setting up component {self.name}")
+        LOGGER.info(
+            "Setting up component %s%s",
+            self.name,
+            (f", attempt {tries}" if tries > 1 else ""),
+        )
         slow_setup_warning = threading.Timer(
             SLOW_SETUP_WARNING,
             LOGGER.warning,
@@ -120,6 +128,21 @@ class Component:
             try:
                 slow_setup_warning.start()
                 result = component_module.setup(self._vis, config)
+            except ComponentNotReady as error:
+                wait_time = min(
+                    tries * COMPONENT_RETRY_INTERVAL, COMPONENT_RETRY_INTERVAL_MAX
+                )
+                LOGGER.error(
+                    f"Component {self.name} is not ready. "
+                    f"Retrying in {wait_time} seconds in the background. "
+                    f"Error: {str(error)}"
+                )
+                threading.Timer(
+                    wait_time,
+                    setup_component,
+                    args=(self._vis, self),
+                    kwargs={"tries": tries + 1},
+                ).start()
             except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.error(
                     f"Uncaught exception setting up component {self.name}: {ex}\n"
@@ -420,11 +443,16 @@ def get_component(vis, component, config):
         return Component(vis, f"{components.__name__}.{component}", component, config)
 
 
-def setup_component(vis, component: Component):
+def setup_component(vis, component: Component, tries=1):
     """Set up single component."""
+    # When tries is larger than one, it means we are in a retry loop.
+    if tries > 1:
+        # Remove component from being marked as failed
+        del vis.data[FAILED][component.name]
+
     try:
         vis.data[LOADING][component.name] = component
-        if component.setup_component():
+        if component.setup_component(tries=tries):
             vis.data[LOADED][component.name] = component
             del vis.data[LOADING][component.name]
         else:
@@ -548,10 +576,17 @@ def setup_components(vis: Viseron, config):
     for component in CORE_COMPONENTS:
         setup_component(vis, get_component(vis, component, config))
 
+    # Setup default components
+    for component in DEFAULT_COMPONENTS:
+        setup_component(vis, get_component(vis, component, config))
+
     # Setup components in parallel
     setup_threads = []
     for component in (
-        components_in_config - set(LOGGING_COMPONENTS) - set(CORE_COMPONENTS)
+        components_in_config
+        - set(LOGGING_COMPONENTS)
+        - set(CORE_COMPONENTS)
+        - set(DEFAULT_COMPONENTS)
     ):
         setup_threads.append(
             threading.Thread(

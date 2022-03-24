@@ -6,14 +6,18 @@ from viseron import setup_viseron
 
 def main():
     """Start Viseron."""
-    viseron = setup_viseron()
+    viseron = None
 
     def signal_term(*_):
-        viseron.shutdown()
+        if viseron:
+            viseron.shutdown()
 
     # Listen to signals
     signal.signal(signal.SIGTERM, signal_term)
     signal.signal(signal.SIGINT, signal_term)
+
+    viseron = setup_viseron()
+
     signal.pause()
 
 

@@ -6,22 +6,65 @@ from cv2 import FONT_HERSHEY_SIMPLEX
 CONFIG_PATH = "/config/config.yaml"
 SECRETS_PATH = "/config/secrets.yaml"
 RECORDER_PATH = "/recordings"
-DEFAULT_CONFIG = """
-# See the README for the full list of configuration options.
-cameras:
-  - name: <camera friendly name>
-    host: <ip address or hostname>
-    port: <port the camera listens on>
-    username: <if auth is enabled>
-    password: <if auth is enabled>
-    path: <URL path to the stream>
+DEFAULT_CONFIG = """# Thanks for trying out Viseron!
+# This is a small walkthrough of the configuration to get you started.
+# There are far more components and options available than what is listed here.
+# See the documentation for the full list of configuration options.
 
-# MQTT is optional
-#mqtt:
-#  broker: <ip address or hostname of broker>
-#  port: <port the broker listens on>
-#  username: <if auth is enabled>
-#  password: <if auth is enabled>
+## Start by adding some cameras
+ffmpeg:
+  camera:
+    camera_1:  # This value has to be unique across all cameras
+      name: <camera friendly name>
+      host: <ip address or hostname of camera>
+      port: <port the camera listens on>
+      path: <URL path to the stream>
+      username: <if auth is enabled>
+      password: <if auth is enabled>
+
+    camera_2:  # This value has to be unique across all cameras
+      name: <camera friendly name>
+      host: <ip address or hostname of camera>
+      port: <port the camera listens on>
+      path: <URL path to the stream>
+      username: <if auth is enabled>
+      password: <if auth is enabled>
+
+
+## Then add an object detector
+darknet:
+  object_detector:
+    cameras:
+      camera_1:  # Attach detector to the configured camera_1 above
+        fps: 1
+        scan_on_motion_only: false  # Scan for objects even when there is no motion
+        labels:
+          - label: person
+            confidence: 0.75
+            trigger_recorder: true
+
+      camera_2:  # Attach detector to the configured camera_2 above
+        fps: 1
+        labels:
+          - label: person
+            confidence: 0.75
+            trigger_recorder: true
+
+
+## You can also use motion detection
+mog2:
+  motion_detector:
+    cameras:
+      camera_2:  # Attach detector to the configured camera_2 above
+        fps: 1
+
+
+## To tie everything together we need to configure one more component.
+nvr:
+  camera_1:  # Run NVR for camera_1
+  camera_2:  # Run NVR for camera_2
+
+# Now you can restart Viseron and you should be good to go!
 """
 
 CAMERA_GLOBAL_ARGS = ["-hide_banner"]
@@ -172,6 +215,8 @@ EVENT_ENTITY_ADDED = "entity_added"
 EVENT_DOMAIN_REGISTERED = "domain/registered/{domain}"
 
 # Setup constants
+COMPONENT_RETRY_INTERVAL = 10
+COMPONENT_RETRY_INTERVAL_MAX = 300
 DOMAIN_RETRY_INTERVAL = 10
 DOMAIN_RETRY_INTERVAL_MAX = 300
 SLOW_SETUP_WARNING = 20

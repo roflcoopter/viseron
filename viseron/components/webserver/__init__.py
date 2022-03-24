@@ -15,6 +15,7 @@ from tornado.routing import PathMatches
 
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.exceptions import ComponentNotReady
 
 from .api import APIRouter
 from .const import (
@@ -110,7 +111,12 @@ class WebServer(threading.Thread):
         ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(ioloop)
         self.application = self.create_application()
-        self.application.listen(config[CONFIG_PORT])
+        try:
+            self.application.listen(config[CONFIG_PORT])
+        except OSError as error:
+            if "Address already in use" in str(error):
+                raise ComponentNotReady from error
+            raise error
         self._ioloop = tornado.ioloop.IOLoop.current()
 
         self._vis.listen_event(

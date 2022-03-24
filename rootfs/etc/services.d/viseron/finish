@@ -1,6 +1,20 @@
-#!/usr/bin/execlineb -S0
-if -n { s6-test $# -ne 0 }
-if -n { s6-test ${1} -eq 256 }
+#!/usr/bin/execlineb -S1
+# Based on https://github.com/home-assistant/core/blob/a50bac5cc2bfcde48d1d7cde99f8261786dfc6ec/rootfs/etc/services.d/home-assistant/finish
+define VISERON_RESTART_EXIT_CODE 100
+define SIGNAL_EXIT_CODE 256
+define SIGTERM 15
 
-sleep 5
+foreground { s6-echo "[viseron-finish] Viseron exit code ${1}" }
+
+# Exit without stopping the supervisor so the Viseron service restarts on its own
+if { s6-test ${1} -ne ${VISERON_RESTART_EXIT_CODE} }
+
+ifelse { s6-test ${1} -eq ${SIGNAL_EXIT_CODE} } {
+  # Process terminated by a signal
+  define signal ${2}
+  foreground { s6-echo "[viseron-finish] Viseron received signal ${signal}" }
+  if { s6-test ${signal} -ne ${SIGTERM} }
+  s6-svscanctl -t /var/run/s6/services
+}
+
 s6-svscanctl -t /var/run/s6/services

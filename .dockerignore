@@ -15,3 +15,5 @@
 !frontend/
 frontend/node_modules
 frontend/build
+
+**.pyc

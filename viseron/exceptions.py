@@ -6,12 +6,25 @@ class ViseronError(Exception):
     """General Viseron exception occurred."""
 
 
-class DomainNotReady(ViseronError):
-    """Error that indicates that a domain is not ready."""
+class NotReadyError(ViseronError):
+    """Base class for component and domain not-ready errors."""
 
     def __str__(self) -> str:
         """Return error."""
         return super().__str__() or str(self.__cause__)
+
+
+class ComponentNotReady(NotReadyError):
+    """Error that indicates that a component is not ready.
+
+    Note that Viseron will retry the setup of components in the background, thus
+    this exception should only be raised in components that DOES NOT call setup_domain.
+    If that happens, those domains will never be setup.
+    """
+
+
+class DomainNotReady(NotReadyError):
+    """Error that indicates that a domain is not ready."""
 
 
 class DataStreamNotLoaded(ViseronError):
