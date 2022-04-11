@@ -36,6 +36,7 @@ ENV \
   S6_KILL_GRACETIME=1000 \
   PATH=$PATH:/home/abc/bin \
   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib \
+  PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.8/site-packages \
   OPENCV_OPENCL_CACHE_ENABLE=false
 
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}-installer /tmp/s6-overlay-installer
@@ -56,14 +57,19 @@ RUN \
   # Install extra apt packages from build-arg
   ${EXTRA_APT_PACKAGES} \
   # GStreamer
+  libgstreamer1.0-dev \
+  libgstreamer-plugins-base1.0-dev \
+  libgstreamer-plugins-bad1.0-dev \
   gstreamer1.0-alsa \
   gstreamer1.0-libav \
-  gstreamer1.0-plugins-bad \
   gstreamer1.0-plugins-base \
   gstreamer1.0-plugins-good \
+  gstreamer1.0-plugins-bad \
   gstreamer1.0-plugins-ugly \
   gstreamer1.0-tools \
   gstreamer1.0-vaapi \
+  gstreamer1.0-gl \
+  gstreamer1.0-pulseaudio \
   && rm -rf /var/lib/apt/lists/* \
   \
   && pip3 install /wheels/*.whl \

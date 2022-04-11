@@ -16,3 +16,9 @@ jobs:
   - template: templates/build.yaml
     parameters:
       image: dlib
+  - template: templates/build.yaml
+    parameters:
+      image: darknet
+      architectures:
+        - amd64-cuda
+        - jetson-nano

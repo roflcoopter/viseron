@@ -1,0 +1,104 @@
+ARG PYTHON_VERSION
+ARG UBUNTU_VERSION
+ARG OPENCV_VERSION
+ARG JETPACK_VERSION
+FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
+FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as qemu
+FROM roflcoopter/jetson-nano-opencv:${OPENCV_VERSION} as opencv
+FROM nvcr.io/nvidia/l4t-base:r${JETPACK_VERSION} as build
+
+COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
+COPY --from=qemu /bin/sh /bin/sh
+COPY --from=qemu /bin/sh.real /bin/sh.real
+COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
+COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
+COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
+
+COPY --from=python /usr/local /usr/local/
+RUN \
+  cd /usr/local/bin && \
+  ln -s idle3 idle && \
+  ln -s pydoc3 pydoc && \
+  ln -s python3 python
+
+COPY --from=opencv /opt/opencv /opt/opencv/
+
+RUN [ "cross-build-start" ]
+
+ARG MAKEFLAGS="-j2"
+ARG SOC
+ARG JETPACK_VERSION_MAJOR
+ARG JETPACK_VERSION_MINOR
+ARG DARKNET_COMMIT
+
+ENV \
+  DEBIAN_FRONTEND=noninteractive \
+  NVIDIA_DRIVER_CAPABILITIES=all \
+  NVIDIA_VISIBLE_DEVICES=0 \
+  PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/opt/opencv/lib/pkgconfig \
+  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/opencv/lib:/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra-egl
+
+RUN \
+  apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates \
+  gnupg && \
+  echo "deb https://repo.download.nvidia.com/jetson/common r${JETPACK_VERSION_MAJOR}.${JETPACK_VERSION_MINOR} main" >>  /etc/apt/sources.list.d/nvidia.list && \
+  echo "deb https://repo.download.nvidia.com/jetson/${SOC} r${JETPACK_VERSION_MAJOR}.${JETPACK_VERSION_MINOR} main" >>  /etc/apt/sources.list.d/nvidia.list \
+  && apt-key adv --fetch-key http://repo.download.nvidia.com/jetson/jetson-ota-public.asc \
+  && mkdir -p /opt/nvidia/l4t-packages/ && touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall
+
+RUN buildDeps="autoconf \
+  pkg-config \
+  automake \
+  ca-certificates \
+  cmake \
+  g++ \
+  gcc \
+  git \
+  libopenblas-dev \
+  liblapack-dev \
+  make \
+  python3-dev \
+  python3-pip \
+  python3-setuptools \
+  python3-wheel \
+  libcudnn8-dev \
+  libcublas-dev \
+  nvidia-l4t-cuda \
+  cuda-libraries-dev-10-2" && \
+  apt-get -yqq update && \
+  apt-get install -yq -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' --no-install-recommends ${buildDeps} 
+
+# Minimal cuda install does not create symlink so we do it manually
+RUN ln -s /usr/local/cuda-10.2 /usr/local/cuda
+
+# Compile Darknet
+RUN \
+  DIR=/tmp && mkdir -p ${DIR} && cd ${DIR} && \
+  git clone https://github.com/AlexeyAB/darknet.git && \
+  cd darknet && \
+  git checkout ${DARKNET_COMMIT} && \
+  sed -i -e 's/GPU=0/GPU=1/' Makefile && \
+  sed -i -e 's/CUDNN=0/CUDNN=1/' Makefile && \
+  sed -i -e 's/OPENCV=0/OPENCV=1/' Makefile && \
+  sed -i -e 's/OPENMP=0/OPENMP=1/' Makefile && \
+  sed -i -e 's/LIBSO=0/LIBSO=1/' Makefile && \
+  sed -i 's|fprintf(stderr|fprintf(stdout|' \
+  src/convolutional_layer.c \
+  src/maxpool_layer.c \
+  src/parser.c \
+  src/route_layer.c \
+  src/shortcut_layer.c \
+  src/upsample_layer.c \
+  src/yolo_layer.c && \
+  sed -i 's|fprintf(stderr, "|fprintf(stdout, "ERRORLOG|' src/*.c && \
+  make ARCH=" -gencode arch=compute_53,code=[sm_53,compute_53]"  && \
+  # Compile Darknet with CUDNN_HALF
+  sed -i -e 's/CUDNN_HALF=0/CUDNN_HALF=1/' Makefile && \
+  sed -i -e 's/LIBNAMESO=libdarknet.so/LIBNAMESO=libdarknet_half.so/' Makefile && \
+  make ARCH=" -gencode arch=compute_53,code=[sm_53,compute_53]"
+
+FROM scratch
+
+COPY --from=build /tmp/darknet/libdarknet.so /darknet/lib/libdarknet.so
+COPY --from=build /tmp/darknet/libdarknet_half.so /darknet/lib/libdarknet_half.so

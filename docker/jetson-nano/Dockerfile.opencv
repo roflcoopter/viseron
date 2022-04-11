@@ -19,8 +19,6 @@ ARG OPENCV_VERSION
 ARG MAKEFLAGS="-j2"
 ENV \
   DEBIAN_FRONTEND=noninteractive \
-  PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig" \
-  PREFIX=/opt/opencv \
   # Jetson Nano uses compute capability 5.3
   CUDA_ARCH_BIN="53" \
   CUDA_ARCH_PTX="70"
@@ -31,4 +29,5 @@ RUN \
   make install
 
 FROM scratch as opencv
+
 COPY --from=build /opt/opencv /opt/opencv/

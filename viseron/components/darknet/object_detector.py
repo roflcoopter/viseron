@@ -3,8 +3,6 @@ import logging
 from queue import Queue
 from typing import List
 
-import cv2
-
 from viseron import Viseron
 from viseron.domains.object_detector import AbstractObjectDetector
 from viseron.domains.object_detector.const import DOMAIN
@@ -34,38 +32,17 @@ class ObjectDetector(AbstractObjectDetector):
 
     def preprocess(self, frame):
         """Return preprocessed frame before performing object detection."""
-        return cv2.resize(
-            frame,
-            (self.model_width, self.model_height),
-            interpolation=cv2.INTER_LINEAR,
-        )
-
-    def post_process(self, labels, confidences, boxes):
-        """Post process detections."""
-        detections = []
-        for (label, confidence, box) in zip(labels, confidences, boxes):
-            detections.append(
-                DetectedObject(
-                    self._darknet.labels[int(label)],
-                    confidence,
-                    box[0],
-                    box[1],
-                    box[0] + box[2],
-                    box[1] + box[3],
-                    relative=False,
-                    image_res=self.model_res,
-                )
-            )
-
-        return detections
+        return self._darknet.preprocess(frame)
 
     def return_objects(self, frame) -> List[DetectedObject]:
         """Perform object detection."""
-        labels, confidences, boxes = self._darknet.detect(
+        detections = self._darknet.detect(
             frame,
+            self._camera_identifier,
+            self._object_result_queue,
             self.min_confidence,
         )
-        return self.post_process(labels, confidences, boxes)
+        return self._darknet.post_process(detections)
 
     @property
     def model_width(self) -> int:

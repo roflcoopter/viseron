@@ -9,7 +9,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import CONFIG_LOOKBACK
-from viseron.helpers.subprocess import Popen, run
 
 from .const import (
     CAMERA_SEGMENT_DURATION,
@@ -51,7 +50,7 @@ class Segments:
 
         tries = 0
         while True:
-            with Popen(
+            with sp.Popen(
                 ffprobe_cmd,
                 stdout=sp.PIPE,
                 stderr=sp.PIPE,
@@ -194,7 +193,7 @@ class Segments:
         self._logger.debug(f"Concatenation command: {ffmpeg_cmd}")
         self._logger.debug(f"Segment script: \n{segment_script}")
 
-        pipe = run(ffmpeg_cmd, input=segment_script, encoding="ascii", check=True)
+        pipe = sp.run(ffmpeg_cmd, input=segment_script, encoding="ascii", check=True)
         if pipe.returncode != 0:
             self._logger.error(f"Error concatenating segments: {pipe.stderr}")
 

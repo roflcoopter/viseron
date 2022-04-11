@@ -177,6 +177,21 @@ services:
         - roflcoopter/amd64-cuda-dlib:$DLIB_VERSION
     image: roflcoopter/amd64-cuda-dlib:$DLIB_VERSION
 
+  amd64-cuda-darknet:
+    build:
+      context: ..
+      dockerfile: ./docker/amd64-cuda/Dockerfile.darknet
+      args:
+        ARCH: amd64-cuda
+        OPENCV_VERSION: "$OPENCV_VERSION"
+        CUDA_VERSION: "$CUDA_VERSION"
+        UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
+        MAKEFLAGS: "$MAKEFLAGS"
+        DARKNET_COMMIT: "$DARKNET_COMMIT"
+      cache_from:
+        - roflcoopter/amd64-cuda-darknet:$DARKNET_COMMIT
+    image: roflcoopter/amd64-cuda-darknet:$DARKNET_COMMIT
+
   amd64-cuda-wheels:
     build:
       context: ..
@@ -196,6 +211,7 @@ services:
       args:
         CUDA_VERSION: "$CUDA_VERSION"
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
+        DARKNET_COMMIT: "$DARKNET_COMMIT"
         OPENCL_VERSION: "$OPENCL_VERSION"
         GMMLIB_VERSION: "$GMMLIB_VERSION"
         IGC_VERSION: "$IGC_VERSION"
@@ -459,6 +475,24 @@ services:
         - roflcoopter/jetson-nano-dlib:$DLIB_VERSION
     image: roflcoopter/jetson-nano-dlib:$DLIB_VERSION
 
+  jetson-nano-darknet:
+    build:
+      context: ..
+      dockerfile: ./docker/jetson-nano/Dockerfile.darknet
+      args:
+        PYTHON_VERSION: "$PYTHON_VERSION"
+        UBUNTU_VERSION: $JETSON_NANO_UBUNTU_VERSION
+        OPENCV_VERSION: "$OPENCV_VERSION"
+        JETPACK_VERSION: "$JETPACK_VERSION_MAJOR.$JETPACK_VERSION_MINOR.$JETPACK_VERSION_PATCH"
+        JETPACK_VERSION_MAJOR: $JETPACK_VERSION_MAJOR
+        JETPACK_VERSION_MINOR: $JETPACK_VERSION_MINOR
+        SOC: t210
+        MAKEFLAGS: "$MAKEFLAGS"
+        DARKNET_COMMIT: "$DARKNET_COMMIT"
+      cache_from:
+        - roflcoopter/jetson-nano-darknet:$DARKNET_COMMIT
+    image: roflcoopter/jetson-nano-darknet:$DARKNET_COMMIT
+
   jetson-nano-wheels:
     build:
       context: ..
@@ -479,6 +513,7 @@ services:
       dockerfile: ./docker/jetson-nano/Dockerfile.base
       args:
         PYTHON_VERSION: "$PYTHON_VERSION"
+        DARKNET_COMMIT: "$DARKNET_COMMIT"
         JETPACK_VERSION: "$JETPACK_VERSION_MAJOR.$JETPACK_VERSION_MINOR.$JETPACK_VERSION_PATCH"
         JETPACK_VERSION_MAJOR: $JETPACK_VERSION_MAJOR
         JETPACK_VERSION_MINOR: $JETPACK_VERSION_MINOR

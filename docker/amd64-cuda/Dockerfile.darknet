@@ -1,0 +1,68 @@
+ARG ARCH
+ARG OPENCV_VERSION
+ARG CUDA_VERSION
+ARG UBUNTU_VERSION_NUMBER
+FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} as opencv
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
+
+COPY --from=opencv /opt/opencv /opt/opencv/
+
+ARG MAKEFLAGS="-j2"
+ARG DARKNET_COMMIT
+
+ENV \
+  DEBIAN_FRONTEND=noninteractive \
+  NVIDIA_DRIVER_CAPABILITIES=all \
+  NVIDIA_VISIBLE_DEVICES=0 \
+  PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/opt/opencv/lib/pkgconfig \
+  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/opencv/lib
+
+RUN buildDeps="autoconf \
+  pkg-config \
+  automake \
+  ca-certificates \
+  cmake \
+  g++ \
+  gcc \
+  git \
+  libopenblas-dev \
+  liblapack-dev \
+  make \
+  python3-dev \
+  python3-pip \
+  python3-setuptools \
+  python3-wheel" && \
+  apt-get -yqq update && \
+  apt-get install -yq --no-install-recommends ${buildDeps} 
+
+# Compile Darknet
+RUN \
+  DIR=/tmp && mkdir -p ${DIR} && cd ${DIR} && \
+  git clone https://github.com/AlexeyAB/darknet.git && \
+  cd darknet && \
+  git checkout ${DARKNET_COMMIT} && \
+  sed -i -e 's/GPU=0/GPU=1/' Makefile && \
+  sed -i -e 's/CUDNN=0/CUDNN=1/' Makefile && \
+  sed -i -e 's/OPENCV=0/OPENCV=1/' Makefile && \
+  sed -i -e 's/AVX=0/AVX=1/' Makefile && \
+  sed -i -e 's/OPENMP=0/OPENMP=1/' Makefile && \
+  sed -i -e 's/LIBSO=0/LIBSO=1/' Makefile && \
+  sed -i 's|fprintf(stderr|fprintf(stdout|' \
+  src/convolutional_layer.c \
+  src/maxpool_layer.c \
+  src/parser.c \
+  src/route_layer.c \
+  src/shortcut_layer.c \
+  src/upsample_layer.c \
+  src/yolo_layer.c && \
+  sed -i 's|fprintf(stderr, "|fprintf(stdout, "ERRORLOG|' src/*.c && \
+  make && \
+  # Compile Darknet with CUDNN_HALF
+  sed -i -e 's/CUDNN_HALF=0/CUDNN_HALF=1/' Makefile && \
+  sed -i -e 's/LIBNAMESO=libdarknet.so/LIBNAMESO=libdarknet_half.so/' Makefile && \
+  make
+
+FROM scratch
+
+COPY --from=build /tmp/darknet/libdarknet.so /darknet/lib/libdarknet.so
+COPY --from=build /tmp/darknet/libdarknet_half.so /darknet/lib/libdarknet_half.so

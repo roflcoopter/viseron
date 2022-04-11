@@ -348,7 +348,7 @@ class AbstractObjectDetector(ABC):
     def _avg_fps(fps_deque: collections.deque):
         """Calculate the average fps from a deuqe of measurements."""
         if fps_deque:
-            return round(sum(fps_deque) / len(fps_deque))
+            return round(sum(fps_deque) / len(fps_deque), 1)
         return 0
 
     @property

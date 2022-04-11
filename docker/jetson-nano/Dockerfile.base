@@ -1,7 +1,9 @@
 ARG PYTHON_VERSION
+ARG DARKNET_COMMIT
 ARG JETPACK_VERSION
 FROM roflcoopter/viseron-models:latest as models
 FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
+FROM roflcoopter/jetson-nano-darknet:${DARKNET_COMMIT} as darknet
 FROM nvcr.io/nvidia/l4t-base:r${JETPACK_VERSION} as build
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
@@ -69,3 +71,5 @@ RUN \
 
 # This has not been run in the base image it seems so libraries are not found
 RUN ldconfig
+
+COPY --from=darknet /darknet/lib /usr/local/lib

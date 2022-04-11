@@ -1,5 +1,6 @@
 """EdgeTPU object detection."""
 import logging
+import multiprocessing as mp
 import re
 from abc import abstractmethod
 
@@ -219,12 +220,17 @@ class EdgeTPU(ChildProcessWorker):
         self._model_width = self.tensor_input_details[0]["shape"][1]
         self._model_height = self.tensor_input_details[0]["shape"][2]
         # Discard the interpreter to release the EdgeTPU
-        # It is re-create inside the spawned child process in process_initialization
+        # It is re-created inside the spawned child process in process_initialization
         del interpreter
 
         self.interpreter = None
         self._result_queues = {}
+        self._process_initialization_done = mp.Event()
         super().__init__(vis, f"{COMPONENT}.{domain}")
+        self._process_initialization_done.wait(20)
+        if not self._process_initialization_done.wait(timeout=15):
+            LOGGER.exception("Failed to load EdgeTPU in child process")
+            raise MakeInterpreterError
 
     def make_interpreter(self, device, model):
         """Make interpreter."""
@@ -247,6 +253,7 @@ class EdgeTPU(ChildProcessWorker):
     def process_initialization(self):
         """Make interpreter inside the child process."""
         self.interpreter = self.make_interpreter(self._device, self._model)
+        self._process_initialization_done.set()
 
     @abstractmethod
     def post_process(self, item):

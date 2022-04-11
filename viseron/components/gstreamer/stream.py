@@ -24,7 +24,6 @@ from viseron.const import (
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
 from viseron.helpers.logs import LogPipe, UnhelpfullLogFilter
-from viseron.helpers.subprocess import Popen
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 from .const import (
@@ -237,7 +236,7 @@ class Stream:
             reraise=True,
         ):
             with attempt:
-                pipe = Popen(  # type: ignore
+                pipe = sp.Popen(
                     ffprobe_command,
                     stdout=sp.PIPE,
                     stderr=self._log_pipe,
@@ -338,7 +337,7 @@ class Stream:
                 stderr=self._log_pipe,
             )
 
-        return Popen(
+        return sp.Popen(
             self._pipeline.build_pipeline(),
             stdout=sp.PIPE,
             stderr=self._log_pipe,

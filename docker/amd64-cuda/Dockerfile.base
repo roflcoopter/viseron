@@ -1,6 +1,8 @@
+ARG DARKNET_COMMIT
 ARG CUDA_VERSION
 ARG UBUNTU_VERSION_NUMBER
 FROM roflcoopter/viseron-models:latest as models
+FROM roflcoopter/amd64-cuda-darknet:${DARKNET_COMMIT} as darknet
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-runtime-ubuntu${UBUNTU_VERSION_NUMBER}
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
@@ -49,3 +51,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd && \
   ln -s /detectors/models/darknet/yolov4x-mish.weights /detectors/models/darknet/default.weights && \
   ln -s /detectors/models/darknet/yolov4x-mish.cfg /detectors/models/darknet/default.cfg
+
+COPY --from=darknet /darknet/lib /usr/local/lib
