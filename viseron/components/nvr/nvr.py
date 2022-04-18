@@ -457,7 +457,10 @@ class NVR:
 
     def start_recorder(self, shared_frame):
         """Start recorder."""
-        self._camera.start_recorder(shared_frame, self._object_detector.objects_in_fov)
+        self._camera.start_recorder(
+            shared_frame,
+            self._object_detector.objects_in_fov if self._object_detector else None,
+        )
 
         if (
             self._motion_detector

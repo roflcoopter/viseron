@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import lru_cache
 from threading import Timer
-from typing import TYPE_CHECKING, Tuple
+from typing import TYPE_CHECKING, List, Tuple
 
 import cv2
 import imutils
@@ -70,6 +70,8 @@ from .entity.toggle import CameraConnectionToggle
 from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
+    from viseron.domains.object_detector.detected_object import DetectedObject
+
     from .recorder import AbstractRecorder
     from .shared_frames import SharedFrame
 
@@ -194,7 +196,9 @@ class AbstractCamera(ABC):
         """Stop camera streaming."""
 
     @abstractmethod
-    def start_recorder(self, shared_frame, objects_in_fov):
+    def start_recorder(
+        self, shared_frame: SharedFrame, objects_in_fov: List[DetectedObject] | None
+    ):
         """Start camera recorder."""
 
     @abstractmethod

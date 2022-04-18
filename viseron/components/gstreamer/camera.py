@@ -1,8 +1,10 @@
 """GStreamer camera."""
+from __future__ import annotations
 
 import datetime
 import time
 from threading import Event
+from typing import TYPE_CHECKING, List
 
 import cv2
 import voluptuous as vol
@@ -73,6 +75,10 @@ from .const import (
 )
 from .recorder import Recorder
 from .stream import Stream
+
+if TYPE_CHECKING:
+    from viseron.domains.camera.shared_frames import SharedFrame
+    from viseron.domains.object_detector.detected_object import DetectedObject
 
 STREAM_SCEHMA_DICT = {
     vol.Optional(CONFIG_STREAM_FORMAT, default=DEFAULT_STREAM_FORMAT): vol.In(
@@ -274,9 +280,13 @@ class Camera(AbstractCamera):
         if self.is_recording:
             self.stop_recorder()
 
-    def start_recorder(self, shared_frame, objects_in_fov):
+    def start_recorder(
+        self, shared_frame: SharedFrame, objects_in_fov: List[DetectedObject] | None
+    ):
         """Start camera recorder."""
-        self._recorder.start(shared_frame, objects_in_fov, self.resolution)
+        self._recorder.start(
+            shared_frame, objects_in_fov if objects_in_fov else [], self.resolution
+        )
 
     def stop_recorder(self):
         """Stop camera recorder."""
