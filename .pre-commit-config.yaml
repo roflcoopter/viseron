@@ -1,10 +1,10 @@
 repos:
   - repo: https://github.com/PyCQA/isort
-    rev: 5.8.0
+    rev: 5.10.1
     hooks:
       - id: isort
   - repo: https://github.com/psf/black
-    rev: 21.6b0
+    rev: 22.3.0
     hooks:
       - id: black
         args:
@@ -12,7 +12,7 @@ repos:
           - --quiet
         files: ^((viseron|tests)/.+)?[^/]+\.py$
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.0.0
+    rev: v2.1.0
     hooks:
       - id: codespell
         args:
@@ -21,15 +21,15 @@ repos:
         exclude_types: [csv, json]
         exclude: ^tests/fixtures/
   - repo: https://gitlab.com/pycqa/flake8
-    rev: 3.9.2
+    rev: 4.0.1
     hooks:
       - id: flake8
         additional_dependencies:
-          - pycodestyle==2.7.0
-          - pyflakes==2.3.1
+          - pycodestyle==2.8.0
+          - pyflakes==2.4.0
           - flake8-docstrings==1.6.0
-          - pydocstyle==6.0.0
-          - flake8-comprehensions==3.5.0
-          - flake8-noqa==1.1.0
+          - pydocstyle==6.1.1
+          - flake8-comprehensions==3.8.0
+          - flake8-noqa==1.2.1
           - mccabe==0.6.1
         files: ^(viseron|tests)/.+\.py$
