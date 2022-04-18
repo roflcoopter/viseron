@@ -34,7 +34,7 @@ LOGGER = logging.getLogger(__name__)
 class StreamHandler(ViseronRequestHandler):
     """Represents a stream."""
 
-    async def process_frame(
+    async def process_frame(  # pylint: disable=no-self-use
         self, nvr: NVR, processed_frame: DataProcessedFrame, mjpeg_stream_config
     ):
         """Return JPG with drawn objects, zones etc."""
