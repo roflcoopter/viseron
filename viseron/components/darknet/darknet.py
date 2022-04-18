@@ -198,7 +198,8 @@ class DarknetWrapper:
         ]
         return network, class_names
 
-    def remove_negatives_faster(self, detections, class_names, num):
+    @staticmethod
+    def remove_negatives_faster(detections, class_names, num):
         """Faster version of remove_negatives."""
         predictions = []
         for j in range(num):
