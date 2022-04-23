@@ -44,8 +44,6 @@ RUN \
   sed -i -e 's/GPU=0/GPU=1/' Makefile && \
   sed -i -e 's/CUDNN=0/CUDNN=1/' Makefile && \
   sed -i -e 's/OPENCV=0/OPENCV=1/' Makefile && \
-  sed -i -e 's/AVX=0/AVX=1/' Makefile && \
-  sed -i -e 's/OPENMP=0/OPENMP=1/' Makefile && \
   sed -i -e 's/LIBSO=0/LIBSO=1/' Makefile && \
   sed -i 's|fprintf(stderr|fprintf(stdout|' \
   src/convolutional_layer.c \
