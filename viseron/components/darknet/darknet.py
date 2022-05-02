@@ -198,21 +198,6 @@ class DarknetWrapper:
         ]
         return network, class_names
 
-    @staticmethod
-    def remove_negatives_faster(detections, class_names, num):
-        """Faster version of remove_negatives."""
-        predictions = []
-        for j in range(num):
-            if detections[j].best_class_idx == -1:
-                continue
-            name = class_names[detections[j].best_class_idx]
-            bbox = detections[j].bbox
-            bbox = (bbox.x, bbox.y, bbox.w, bbox.h)
-            predictions.append(
-                (name, detections[j].prob[detections[j].best_class_idx], bbox)
-            )
-        return predictions
-
     def detect_image(
         self, network, class_names, image, thresh=0.5, hier_thresh=0.5, nms=0.45
     ):
@@ -223,7 +208,30 @@ class DarknetWrapper:
             network, image.w, image.h, thresh, hier_thresh, None, 0, pnum, 0
         )
         num = pnum[0]
-        self._do_nms_sort(detections, num, len(class_names), nms)
-        predictions = self.remove_negatives_faster(detections, class_names, num)
+        if nms:
+            self._do_nms_sort(detections, num, len(class_names), nms)
+        predictions = remove_negatives(detections, class_names, num)
+        predictions = decode_detection(predictions)
         self._free_detections(detections, num)
-        return predictions
+        return sorted(predictions, key=lambda x: x[1])
+
+
+def remove_negatives(detections, class_names, num):
+    """Remove all classes with 0% confidence within the detection."""
+    predictions = []
+    for j in range(num):
+        for idx, name in enumerate(class_names):
+            if detections[j].prob[idx] > 0:
+                bbox = detections[j].bbox
+                bbox = (bbox.x, bbox.y, bbox.w, bbox.h)
+                predictions.append((name, detections[j].prob[idx], (bbox)))
+    return predictions
+
+
+def decode_detection(detections):
+    """Decode detections."""
+    decoded = []
+    for label, confidence, bbox in detections:
+        confidence = str(round(confidence * 100, 2))
+        decoded.append((str(label), confidence, bbox))
+    return decoded
