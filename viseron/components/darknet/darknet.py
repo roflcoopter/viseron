@@ -232,6 +232,6 @@ def decode_detection(detections):
     """Decode detections."""
     decoded = []
     for label, confidence, bbox in detections:
-        confidence = str(round(confidence * 100, 2))
+        confidence = str(round(confidence, 2))
         decoded.append((str(label), confidence, bbox))
     return decoded
