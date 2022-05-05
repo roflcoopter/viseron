@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, overload
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from viseron.components import setup_components
+from viseron.components import setup_components, setup_domains
 from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
@@ -114,6 +114,7 @@ def setup_viseron():
     vis = Viseron()
 
     setup_components(vis, config)
+    setup_domains(vis)
     vis.setup()
 
     end = timer()

@@ -2,16 +2,11 @@
 from __future__ import annotations
 
 import logging
-from typing import List
+from typing import TYPE_CHECKING, List
 
-from viseron import Viseron
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
-from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.object_detector.const import CONFIG_LABEL_LABEL
-from viseron.domains.object_detector.detected_object import (
-    DetectedObject,
-    EventDetectedObjectsData,
-)
+from viseron.domains.object_detector.detected_object import EventDetectedObjectsData
 from viseron.helpers import generate_numpy_from_coordinates, object_in_polygon
 from viseron.helpers.filter import Filter
 
@@ -25,6 +20,11 @@ from .const import (
     CONFIG_ZONE_NAME,
     EVENT_OBJECTS_IN_ZONE,
 )
+
+if TYPE_CHECKING:
+    from viseron import Viseron
+    from viseron.domains.camera.shared_frames import SharedFrame
+    from viseron.domains.object_detector.detected_object import DetectedObject
 
 
 class Zone:

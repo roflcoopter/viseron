@@ -611,5 +611,3 @@ def setup_components(vis: Viseron, config):
         }
         for future in concurrent.futures.as_completed(setup_thread_future):
             future.result()
-
-    setup_domains(vis)
