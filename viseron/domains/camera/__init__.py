@@ -35,7 +35,6 @@ from .const import (
     CONFIG_MJPEG_STREAMS,
     CONFIG_MJPEG_WIDTH,
     CONFIG_NAME,
-    CONFIG_PUBLISH_IMAGE,
     CONFIG_RECORDER,
     CONFIG_RETAIN,
     CONFIG_SAVE_TO_DISK,
@@ -56,7 +55,6 @@ from .const import (
     DEFAULT_MJPEG_STREAMS,
     DEFAULT_MJPEG_WIDTH,
     DEFAULT_NAME,
-    DEFAULT_PUBLISH_IMAGE,
     DEFAULT_RECORDER,
     DEFAULT_RETAIN,
     DEFAULT_SAVE_TO_DISK,
@@ -134,7 +132,6 @@ BASE_CONFIG_SCHEMA = vol.Schema(
         vol.Optional(CONFIG_NAME, default=DEFAULT_NAME): vol.All(
             str, vol.Length(min=1)
         ),
-        vol.Optional(CONFIG_PUBLISH_IMAGE, default=DEFAULT_PUBLISH_IMAGE): bool,
         vol.Optional(CONFIG_MJPEG_STREAMS, default=DEFAULT_MJPEG_STREAMS): {
             vol.All(str, ensure_slug): MJPEG_STREAM_SCHEMA
         },
