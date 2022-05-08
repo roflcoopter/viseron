@@ -308,7 +308,7 @@ class EdgeTPUDetection(EdgeTPU):
                     obj.bbox.xmax,
                     obj.bbox.ymax,
                     relative=False,
-                    image_res=(self.model_width, self.model_height),
+                    model_res=(self.model_width, self.model_height),
                 )
             )
 

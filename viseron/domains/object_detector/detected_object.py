@@ -3,7 +3,11 @@ from dataclasses import dataclass
 from typing import Any, List
 
 from viseron.domains.camera.shared_frames import SharedFrame
-from viseron.helpers import calculate_relative_coords
+from viseron.helpers import (
+    calculate_absolute_coords,
+    calculate_relative_coords,
+    convert_letterboxed_bbox,
+)
 
 
 class DetectedObject:
@@ -14,10 +18,36 @@ class DetectedObject:
     """
 
     def __init__(
-        self, label, confidence, x1, y1, x2, y2, relative=True, image_res=None
+        self,
+        label,
+        confidence,
+        x1,
+        y1,
+        x2,
+        y2,
+        relative=True,
+        model_res=None,
+        letterboxed=False,
+        frame_res=None,
     ):
         self._label = label
         self._confidence = round(float(confidence), 3)
+
+        if letterboxed:
+            if relative:
+                x1, y1, x2, y2 = calculate_absolute_coords((x1, y1, x2, y2), model_res)
+
+            (x1, y1, x2, y2) = convert_letterboxed_bbox(
+                frame_res[0],
+                frame_res[1],
+                model_res[0],
+                model_res[1],
+                (x1, y1, x2, y2),
+            )
+            # convert_letterboxed_bbox returns the bbox in frame_res based coordinates
+            (x1, y1, x2, y2) = calculate_relative_coords((x1, y1, x2, y2), frame_res)
+            relative = True
+
         if relative:
             self._rel_x1 = float(round(x1, 3))
             self._rel_y1 = float(round(y1, 3))
@@ -29,7 +59,7 @@ class DetectedObject:
                 self._rel_y1,
                 self._rel_x2,
                 self._rel_y2,
-            ) = calculate_relative_coords((x1, y1, x2, y2), image_res)
+            ) = calculate_relative_coords((x1, y1, x2, y2), model_res)
 
         self._rel_width = float(round(self._rel_x2 - self._rel_x1, 3))
         self._rel_height = float(round(self._rel_y2 - self._rel_y1, 3))

@@ -1,14 +1,20 @@
 """Darknet object detector."""
+from __future__ import annotations
+
 import logging
 from queue import Queue
-from typing import List
+from typing import TYPE_CHECKING, List
 
-from viseron import Viseron
 from viseron.domains.object_detector import AbstractObjectDetector
 from viseron.domains.object_detector.const import DOMAIN
-from viseron.domains.object_detector.detected_object import DetectedObject
 
 from .const import COMPONENT
+
+if TYPE_CHECKING:
+    from viseron import Viseron
+    from viseron.components.darknet import BaseDarknet
+    from viseron.domains.object_detector.detected_object import DetectedObject
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +31,7 @@ class ObjectDetector(AbstractObjectDetector):
 
     def __init__(self, vis: Viseron, config, camera_identifier):
         super().__init__(vis, COMPONENT, config, camera_identifier)
-        self._darknet = vis.data[COMPONENT]
+        self._darknet: BaseDarknet = vis.data[COMPONENT]
         self._object_result_queue: Queue[List[DetectedObject]] = Queue(maxsize=1)
 
         vis.register_domain(DOMAIN, camera_identifier, self)
@@ -42,7 +48,7 @@ class ObjectDetector(AbstractObjectDetector):
             self._object_result_queue,
             self.min_confidence,
         )
-        return self._darknet.post_process(detections)
+        return self._darknet.post_process(detections, self._camera.resolution)
 
     @property
     def model_width(self) -> int:

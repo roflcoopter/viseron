@@ -137,8 +137,8 @@ class DarknetWrapper:
         self._do_nms_sort = self._lib.do_nms_sort
         self._do_nms_sort.argtypes = [POINTER(DETECTION), c_int, c_int, c_float]
 
-        self._free_image = self._lib.free_image
-        self._free_image.argtypes = [IMAGE]
+        self.free_image = self._lib.free_image
+        self.free_image.argtypes = [IMAGE]
 
         self._letterbox_image = self._lib.letterbox_image
         self._letterbox_image.argtypes = [IMAGE, c_int, c_int]
@@ -213,7 +213,7 @@ class DarknetWrapper:
         predictions = remove_negatives(detections, class_names, num)
         predictions = decode_detection(predictions)
         self._free_detections(detections, num)
-        return sorted(predictions, key=lambda x: x[1])
+        return sorted(predictions, key=lambda x: x[1], reverse=True)
 
 
 def remove_negatives(detections, class_names, num):
@@ -228,10 +228,20 @@ def remove_negatives(detections, class_names, num):
     return predictions
 
 
+def bbox2points(bbox):
+    """From bounding box yolo format to corner points cv2 rectangle."""
+    x1, y1, width, height = bbox
+    xmin = int(round(x1 - (width / 2)))
+    xmax = int(round(x1 + (width / 2)))
+    ymin = int(round(y1 - (height / 2)))
+    ymax = int(round(y1 + (height / 2)))
+    return xmin, ymin, xmax, ymax
+
+
 def decode_detection(detections):
     """Decode detections."""
     decoded = []
     for label, confidence, bbox in detections:
         confidence = str(round(confidence, 2))
-        decoded.append((str(label), confidence, bbox))
+        decoded.append((str(label), confidence, bbox2points(bbox)))
     return decoded

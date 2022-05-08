@@ -83,7 +83,7 @@ class ObjectDetector(AbstractObjectDetector):
                     detection["x_max"],
                     detection["y_max"],
                     relative=False,
-                    image_res=self._image_resolution,
+                    model_res=self._image_resolution,
                 )
             )
         return objects

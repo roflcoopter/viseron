@@ -378,6 +378,65 @@ def letterbox_resize(image: np.ndarray, width, height):
     return output_image
 
 
+def convert_letterboxed_bbox(
+    frame_width, frame_height, model_width, model_height, bbox
+):
+    """Convert boundingbox from a letterboxed image to the original image.
+
+    To improve accuracy, images are resized with letterboxing before running
+    object detection. This avoids distorting the image.
+    When an image is letterboxed, the bbox does not correspond 1-to-1 with the original
+    image, so we need to convert the coordinates
+    Args:
+        frame_width:
+            Width of original input image.
+        frame_height:
+            Height of original input image.
+        frame_width:
+            Width of object detection model.
+        frame_height:
+            Height of object detection model.
+        bbox:
+            The ABSOLUTE bounding box coordinates predicted from the model.
+    """
+    if model_width != model_height:
+        raise ValueError(
+            "Can only convert bbox from a letterboxed image for models of equal "
+            f"width and height, got {model_width}x{model_height}",
+        )
+    x1, y1, x2, y2 = bbox
+
+    scale = min(model_height / frame_height, model_width / frame_width)
+    output_height = int(frame_height * scale)
+    output_width = int(frame_width * scale)
+
+    if output_width > output_height:  # Horizontal padding
+        y1 = (
+            (y1 - 1 / 2 * (model_height - frame_height / frame_width * model_height))
+            * frame_width
+            / model_width
+        )
+        y2 = (
+            (y2 - 1 / 2 * (model_height - frame_height / frame_width * model_height))
+            * frame_width
+            / model_width
+        )
+        return x1, y1, x2, y2
+
+    # Vertical padding
+    x1 = (
+        (x1 - 1 / 2 * (model_height - frame_width / frame_height * model_height))
+        * frame_height
+        / model_width
+    )
+    x2 = (
+        (x2 - 1 / 2 * (model_height - frame_width / frame_height * model_height))
+        * frame_height
+        / model_width
+    )
+    return x1, y1, x2, y2
+
+
 def memory_usage_profiler(logger, key_type="lineno", limit=5):
     """Print a table with the lines that are using the most memory."""
     snapshot = tracemalloc.take_snapshot()

@@ -17,7 +17,7 @@ from viseron.domains.object_detector import BASE_CONFIG_SCHEMA
 from viseron.domains.object_detector.const import CONFIG_CAMERAS
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.exceptions import ViseronError
-from viseron.helpers import pop_if_full
+from viseron.helpers import letterbox_resize, pop_if_full
 from viseron.helpers.child_process_worker import ChildProcessWorker
 from viseron.helpers.logs import CTypesLogPipe
 
@@ -129,15 +129,16 @@ class BaseDarknet(ABC):
         self._vis = vis
         self._config = config
 
-        LOGGER.debug(
-            f"Using weights {config[CONFIG_MODEL_PATH]} and "
-            f"config {config[CONFIG_MODEL_CONFIG]}"
-        )
-
         model_config = configparser.ConfigParser(strict=False)
         model_config.read(config[CONFIG_MODEL_CONFIG])
         self._model_width = int(model_config.get("net", "width"))
         self._model_height = int(model_config.get("net", "height"))
+
+        LOGGER.debug(
+            f"Using weights {config[CONFIG_MODEL_PATH]} and "
+            f"config {config[CONFIG_MODEL_CONFIG]}, "
+            f"{self._model_width}x{self._model_height}"
+        )
 
         self.load_labels(config[CONFIG_LABEL_PATH])
 
@@ -174,6 +175,10 @@ class BaseDarknet(ABC):
     @abstractmethod
     def detect(self, frame, camera_identifier, result_queue, min_confidence):
         """Perform detection."""
+
+    @abstractmethod
+    def post_process(self, detections, camera_resolution):
+        """Post process detections."""
 
 
 class DarknetDNN(BaseDarknet):
@@ -223,7 +228,7 @@ class DarknetDNN(BaseDarknet):
                 self._nms,
             )
 
-    def post_process(self, detections):
+    def post_process(self, detections, _camera_resolution):
         """Post process detections."""
         _detections = []
         for (label, confidence, box) in zip(
@@ -238,7 +243,7 @@ class DarknetDNN(BaseDarknet):
                     box[0] + box[2],
                     box[1] + box[3],
                     relative=False,
-                    image_res=self.model_res,
+                    model_res=self.model_res,
                 )
             )
 
@@ -329,7 +334,7 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
 
     def preprocess(self, frame):
         """Pre process frame before detection."""
-        return frame.tobytes()
+        return letterbox_resize(frame, self.model_width, self.model_height).tobytes()
 
     def detect(self, frame, camera_identifier, result_queue, min_confidence):
         """Perform detection."""
@@ -345,7 +350,7 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
         item = result_queue.get()
         return item["result"]
 
-    def post_process(self, detections):
+    def post_process(self, detections, camera_resolution):
         """Post process detections."""
         _detections = []
         for label, confidence, box in detections:
@@ -355,10 +360,12 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
                     confidence,
                     box[0],
                     box[1],
-                    box[0] + box[2],
-                    box[1] + box[3],
+                    box[2],
+                    box[3],
                     relative=False,
-                    image_res=self.model_res,
+                    model_res=self.model_res,
+                    letterboxed=True,
+                    frame_res=camera_resolution,
                 )
             )
 
