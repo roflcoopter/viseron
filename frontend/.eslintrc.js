@@ -1,53 +1,53 @@
 module.exports = {
-  "extends": [
+  extends: [
     "react-app",
     "airbnb-base",
     "airbnb-typescript/base",
     "plugin:@typescript-eslint/recommended",
-    "prettier"
+    "prettier",
   ],
-  "parser": "@typescript-eslint/parser",
-  "parserOptions": {
-    "ecmaVersion": 2020,
-    "ecmaFeatures": {
-      "modules": true
+  parser: "@typescript-eslint/parser",
+  parserOptions: {
+    ecmaVersion: 2020,
+    ecmaFeatures: {
+      modules: true,
     },
-    "sourceType": "module",
-    "project": "tsconfig.json",
+    sourceType: "module",
+    project: "tsconfig.json",
     tsconfigRootDir: __dirname,
   },
-  "ignorePatterns": ["src/setupProxy.js"],
-  "rules": {
+  ignorePatterns: ["src/setupProxy.js"],
+  rules: {
     "@typescript-eslint/no-non-null-assertion": "off",
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-unused-vars": [
       "error",
       {
-        "vars": "all",
-        "varsIgnorePattern": "^_",
-        "args": "after-used",
-        "argsIgnorePattern": "^_",
-        "ignoreRestSiblings": true
-      }
+        vars: "all",
+        varsIgnorePattern: "^_",
+        args: "after-used",
+        argsIgnorePattern: "^_",
+        ignoreRestSiblings: true,
+      },
     ],
     "@typescript-eslint/naming-convention": [
       "off",
       {
-        "selector": "default",
-        "format": ["camelCase", "snake_case"],
-        "leadingUnderscore": "allow",
-        "trailingUnderscore": "allow"
+        selector: "default",
+        format: ["camelCase", "snake_case"],
+        leadingUnderscore: "allow",
+        trailingUnderscore: "allow",
       },
       {
-        "selector": ["variable"],
-        "format": ["camelCase", "snake_case", "UPPER_CASE"],
-        "leadingUnderscore": "allow",
-        "trailingUnderscore": "allow"
+        selector: ["variable"],
+        format: ["camelCase", "snake_case", "UPPER_CASE"],
+        leadingUnderscore: "allow",
+        trailingUnderscore: "allow",
       },
       {
-        "selector": "typeLike",
-        "format": ["PascalCase"]
-      }
+        selector: "typeLike",
+        format: ["PascalCase"],
+      },
     ],
     "prefer-destructuring": "off",
     "no-underscore-dangle": "off",
@@ -58,5 +58,11 @@ module.exports = {
     "no-console": "off",
     "no-plusplus": "off",
     "no-restricted-globals": "off",
-  }
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: ["@mui/*/*/*", "!@mui/material/test-utils/*"],
+      },
+    ],
+  },
 };
