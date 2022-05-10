@@ -1,5 +1,6 @@
 import { CardActionArea } from "@mui/material";
 import Card from "@mui/material/Card";
+import LazyLoad from "react-lazyload";
 
 import VideoPlayer from "components/videoplayer/VideoPlayer";
 import * as types from "lib/types";
@@ -17,7 +18,7 @@ export default function RecordingCard({ recording }: RecordingCardInterface) {
     poster: process.env.REACT_APP_PROXY_HOST
       ? `http://${process.env.REACT_APP_PROXY_HOST}${recording.thumbnail_path}`
       : `${recording.thumbnail_path}`,
-    preload: "auto",
+    preload: "none",
     responsive: true,
     fluid: true,
     playbackRates: [0.5, 1, 2, 5, 10],
@@ -32,10 +33,12 @@ export default function RecordingCard({ recording }: RecordingCardInterface) {
   };
 
   return (
-    <Card variant="outlined">
-      <CardActionArea>
-        <VideoPlayer recording={recording} options={videoJsOptions} />
-      </CardActionArea>
-    </Card>
+    <LazyLoad height={200}>
+      <Card variant="outlined">
+        <CardActionArea>
+          <VideoPlayer recording={recording} options={videoJsOptions} />
+        </CardActionArea>
+      </Card>
+    </LazyLoad>
   );
 }
