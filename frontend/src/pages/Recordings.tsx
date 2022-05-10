@@ -72,8 +72,8 @@ const Recordings = () => {
                       xs={12}
                       sm={6}
                       md={6}
-                      lg={4}
-                      xl={4}
+                      lg={6}
+                      xl={6}
                     >
                       <RecordingCard
                         recording={camera.recordings[date][recording]}
