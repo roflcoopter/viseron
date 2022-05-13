@@ -34,6 +34,7 @@ from viseron.watchdog.thread_watchdog import RestartableThread
 from .const import (
     DATA_PROCESSED_FRAME_TOPIC,
     EVENT_OPERATION_STATE,
+    EVENT_SCAN_FRAMES,
     MOTION_DETECTOR,
     OBJECT_DETECTOR,
 )
@@ -93,24 +94,43 @@ class EventOperationState:
     operation_state: str
 
 
+@dataclass
+class EventScanFrames:
+    """Event dispatched on starting/stopping scan of frames."""
+
+    camera_identifier: str
+    scan: bool
+
+
 class FrameIntervalCalculator:
     """Mark frames for scanning."""
 
     def __init__(
-        self, vis, name, logger, output_fps, scan_fps, topic_scan, topic_result
+        self,
+        vis: Viseron,
+        camera_identifier,
+        name,
+        logger,
+        output_fps,
+        scan_fps,
+        topic_scan,
+        topic_result,
     ):
+        self._vis = vis
+        self._camera_identifier = camera_identifier
+        self._name = name
         self._topic_scan = topic_scan
         if scan_fps > output_fps:
             logger.warning(
                 f"FPS for {name} is too high, " f"highest possible FPS is {output_fps}"
             )
             scan_fps = output_fps
+        self._scan: bool = False
         self._scan_fps = scan_fps
-        self._scan_interval = None
+        self._scan_interval = 0
 
-        self.scan = threading.Event()
         self._frame_number = 0
-        self.result_queue = Queue(maxsize=1)
+        self.result_queue: Queue = Queue(maxsize=1)
 
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self._data_stream.subscribe_data(topic_result, self.result_queue)
@@ -119,7 +139,7 @@ class FrameIntervalCalculator:
 
     def check_scan_interval(self, shared_frame: SharedFrame):
         """Check if frame should be marked for scanning."""
-        if self.scan.is_set():
+        if self.scan:
             if self._frame_number % self._scan_interval == 0:
                 self._frame_number = 1
                 self._data_stream.publish_data(self._topic_scan, shared_frame)
@@ -132,6 +152,21 @@ class FrameIntervalCalculator:
     def calculate_scan_interval(self, output_fps):
         """Calculate the frame scan interval."""
         self._scan_interval = round(output_fps / self.scan_fps)
+
+    @property
+    def scan(self):
+        """Return if frames should be scanned."""
+        return self._scan
+
+    @scan.setter
+    def scan(self, value: bool):
+        self._scan = value
+        self._vis.dispatch_event(
+            EVENT_SCAN_FRAMES.format(
+                camera_identifier=self._camera_identifier, scanner_name=self._name
+            ),
+            EventScanFrames(camera_identifier=self._camera_identifier, scan=value),
+        )
 
     @property
     def scan_fps(self):
@@ -185,6 +220,7 @@ class NVR:
         if self._motion_detector:
             self._frame_scanners[MOTION_DETECTOR] = FrameIntervalCalculator(
                 vis,
+                self._camera.identifier,
                 MOTION_DETECTOR,
                 self._logger,
                 self._camera.output_fps,
@@ -204,6 +240,7 @@ class NVR:
         if self._object_detector:
             self._frame_scanners[OBJECT_DETECTOR] = FrameIntervalCalculator(
                 vis,
+                self._camera.identifier,
                 OBJECT_DETECTOR,
                 self._logger,
                 self._camera.output_fps,
@@ -223,17 +260,17 @@ class NVR:
             and self._object_detector
             and self._object_detector.scan_on_motion_only
         ):
-            self._frame_scanners[MOTION_DETECTOR].scan.set()
+            self._frame_scanners[MOTION_DETECTOR].scan = True
             if self._object_detector:
-                self._frame_scanners[OBJECT_DETECTOR].scan.clear()
+                self._frame_scanners[OBJECT_DETECTOR].scan = False
         else:
             if self._object_detector and self._motion_detector:
-                self._frame_scanners[OBJECT_DETECTOR].scan.set()
-                self._frame_scanners[MOTION_DETECTOR].scan.clear()
+                self._frame_scanners[OBJECT_DETECTOR].scan = True
+                self._frame_scanners[MOTION_DETECTOR].scan = False
             if self._object_detector:
-                self._frame_scanners[OBJECT_DETECTOR].scan.set()
+                self._frame_scanners[OBJECT_DETECTOR].scan = True
             elif self._motion_detector:
-                self._frame_scanners[MOTION_DETECTOR].scan.set()
+                self._frame_scanners[MOTION_DETECTOR].scan = True
 
         self._frame_queue: "Queue[bytes]" = Queue(maxsize=100)
         self._data_stream.subscribe_data(
@@ -302,15 +339,9 @@ class NVR:
             operation_state = "recording"
         elif not self._camera.is_on:
             operation_state = "idle"
-        elif (
-            self._object_detector
-            and self._frame_scanners[OBJECT_DETECTOR].scan.is_set()
-        ):
+        elif self._object_detector and self._frame_scanners[OBJECT_DETECTOR].scan:
             operation_state = "scanning_for_objects"
-        elif (
-            self._motion_detector
-            and self._frame_scanners[MOTION_DETECTOR].scan.is_set()
-        ):
+        elif self._motion_detector and self._frame_scanners[MOTION_DETECTOR].scan:
             operation_state = "scanning_for_motion"
 
         self.operation_state = operation_state
@@ -438,9 +469,9 @@ class NVR:
             if (
                 self._object_detector
                 and self._object_detector.scan_on_motion_only
-                and not self._frame_scanners[OBJECT_DETECTOR].scan.is_set()
+                and not self._frame_scanners[OBJECT_DETECTOR].scan
             ):
-                self._frame_scanners[OBJECT_DETECTOR].scan.set()
+                self._frame_scanners[OBJECT_DETECTOR].scan = True
                 self._logger.debug("Starting object detector")
 
             if self._motion_detector.trigger_recorder and not self._camera.is_recording:
@@ -448,12 +479,12 @@ class NVR:
 
         elif (
             self._object_detector
-            and self._frame_scanners[OBJECT_DETECTOR].scan.is_set()
+            and self._frame_scanners[OBJECT_DETECTOR].scan
             and not self._camera.is_recording
             and self._object_detector.scan_on_motion_only
         ):
             self._logger.debug("Not recording, pausing object detector")
-            self._frame_scanners[OBJECT_DETECTOR].scan.clear()
+            self._frame_scanners[OBJECT_DETECTOR].scan = False
 
     def start_recorder(self, shared_frame):
         """Start recorder."""
@@ -465,9 +496,9 @@ class NVR:
         if (
             self._motion_detector
             and self._motion_detector.recorder_keepalive
-            and not self._frame_scanners[MOTION_DETECTOR].scan.is_set()
+            and not self._frame_scanners[MOTION_DETECTOR].scan
         ):
-            self._frame_scanners[MOTION_DETECTOR].scan.set()
+            self._frame_scanners[MOTION_DETECTOR].scan = True
             self._logger.info("Starting motion detector")
 
     def stop_recorder(self):
@@ -491,7 +522,7 @@ class NVR:
                 and not self._object_detector.scan_on_motion_only
                 and not self._motion_detector.trigger_recorder
             ):
-                self._frame_scanners[MOTION_DETECTOR].scan.clear()
+                self._frame_scanners[MOTION_DETECTOR].scan = False
                 self._logger.info("Pausing motion detector")
 
             self._camera.stop_recorder()

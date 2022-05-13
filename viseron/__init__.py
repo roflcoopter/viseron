@@ -11,7 +11,17 @@ import time
 import tracemalloc
 from dataclasses import dataclass
 from timeit import default_timer as timer
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Literal, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Literal,
+    TypeVar,
+    overload,
+)
 
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -122,12 +132,15 @@ def setup_viseron():
     return vis
 
 
+T = TypeVar("T")
+
+
 @dataclass
-class Event:
+class Event(Generic[T]):
     """Dataclass that holds an event."""
 
     name: str
-    data: Any
+    data: T
     timestamp: float
 
     def as_dict(self) -> dict[str, Any]:
