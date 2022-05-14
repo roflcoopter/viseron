@@ -1,4 +1,6 @@
 """Detected object class."""
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any, List
 
@@ -158,6 +160,6 @@ class EventDetectedObjectsData:
     """Event with information on objects in field of view or zone."""
 
     camera_identifier: str
-    shared_frame: SharedFrame
+    shared_frame: SharedFrame | None
     objects: List[DetectedObject]
     zone: Any = None

@@ -6,11 +6,12 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from queue import Empty, Queue
-from typing import List
+from typing import TYPE_CHECKING, Any, Deque, Dict, List
 
 import voluptuous as vol
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
+from viseron.components.nvr.const import EVENT_SCAN_FRAMES, OBJECT_DETECTOR
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
@@ -64,6 +65,10 @@ from .const import (
 from .detected_object import DetectedObject, EventDetectedObjectsData
 from .sensor import ObjectDetectorFPSSensor
 from .zone import Zone
+
+if TYPE_CHECKING:
+    from viseron import Event, Viseron
+    from viseron.components.nvr.nvr import EventScanFrames
 
 
 def ensure_min_max(label: dict) -> dict:
@@ -146,7 +151,13 @@ BASE_CONFIG_SCHEMA = vol.Schema(
 class AbstractObjectDetector(ABC):
     """Abstract Object Detector."""
 
-    def __init__(self, vis, component, config, camera_identifier):
+    def __init__(
+        self,
+        vis: Viseron,
+        component: str,
+        config: Dict[Any, Any],
+        camera_identifier: str,
+    ):
         self._vis = vis
         self._config = config
         self._camera_identifier = camera_identifier
@@ -158,9 +169,9 @@ class AbstractObjectDetector(ABC):
         self._objects_in_fov: List[DetectedObject] = []
         self.object_filters = {}
 
-        self._preproc_fps = collections.deque(maxlen=50)
-        self._inference_fps = collections.deque(maxlen=50)
-        self._theoretical_max_fps = collections.deque(maxlen=50)
+        self._preproc_fps: Deque[float] = collections.deque(maxlen=50)
+        self._inference_fps: Deque[float] = collections.deque(maxlen=50)
+        self._theoretical_max_fps: Deque[float] = collections.deque(maxlen=50)
 
         self._mask = []
         if config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK]:
@@ -213,6 +224,13 @@ class AbstractObjectDetector(ABC):
             callback=self.object_detection_queue,
         )
 
+        vis.listen_event(
+            EVENT_SCAN_FRAMES.format(
+                camera_identifier=camera_identifier, scanner_name=OBJECT_DETECTOR
+            ),
+            self.handle_stop_scan,
+        )
+
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
         vis.add_entity(component, ObjectDetectedBinarySensorFoV(vis, self._camera))
         vis.add_entity(component, ObjectDetectorFPSSensor(vis, self, self._camera))
@@ -238,7 +256,7 @@ class AbstractObjectDetector(ABC):
                 if self.object_filters[obj.label].trigger_recorder:
                     obj.trigger_recorder = True
 
-        self.objects_in_fov_setter(shared_frame, objects_in_fov)
+        self._objects_in_fov_setter(shared_frame, objects_in_fov)
         if self._config[CONFIG_CAMERAS][self._camera.identifier][
             CONFIG_LOG_ALL_OBJECTS
         ]:
@@ -256,8 +274,8 @@ class AbstractObjectDetector(ABC):
         """Return all objects in field of view."""
         return self._objects_in_fov
 
-    def objects_in_fov_setter(
-        self, shared_frame: SharedFrame, objects: List[DetectedObject]
+    def _objects_in_fov_setter(
+        self, shared_frame: SharedFrame | None, objects: List[DetectedObject]
     ):
         """Set objects in field of view."""
         if objects == self._objects_in_fov:
@@ -365,6 +383,13 @@ class AbstractObjectDetector(ABC):
     def theoretical_max_fps(self):
         """Return the theoretical max average fps."""
         return self._avg_fps(self._theoretical_max_fps)
+
+    def handle_stop_scan(self, event_data: Event[EventScanFrames]):
+        """Handle event when stopping frame scans."""
+        if event_data.data.scan is False:
+            self._objects_in_fov_setter(None, [])
+            for zone in self.zones:
+                zone.objects_in_zone_setter(None, [])
 
     def stop(self):
         """Stop object detector."""

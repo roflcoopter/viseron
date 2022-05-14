@@ -5,13 +5,14 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from queue import Empty, Queue
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict
 
 import cv2
 import numpy as np
 import voluptuous as vol
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
+from viseron.components.nvr.const import EVENT_SCAN_FRAMES, MOTION_DETECTOR
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.helpers import generate_mask
@@ -44,6 +45,8 @@ from .const import (
 )
 
 if TYPE_CHECKING:
+    from viseron import Event, Viseron
+    from viseron.components.nvr.nvr import EventScanFrames
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.camera.shared_frames import SharedFrame
 
@@ -82,7 +85,13 @@ class EventMotionDetected:
 class AbstractMotionDetector(ABC):
     """Abstract motion detector."""
 
-    def __init__(self, vis, component, config, camera_identifier):
+    def __init__(
+        self,
+        vis: Viseron,
+        component: str,
+        config: Dict[Any, Any],
+        camera_identifier: str,
+    ):
         self._vis = vis
         self._config = config
 
@@ -91,6 +100,7 @@ class AbstractMotionDetector(ABC):
         )
         self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
         self._motion_detected = False
+        self._motion_contours: Contours | None = None
 
         vis.add_entity(component, MotionDetectionBinarySensor(vis, self, self._camera))
 
@@ -120,6 +130,11 @@ class AbstractMotionDetector(ABC):
         """Return if motion is detected."""
         return self._motion_detected
 
+    @property
+    def motion_contours(self):
+        """Return motion contours."""
+        return self._motion_contours
+
     def _motion_detected_setter(
         self,
         motion_detected,
@@ -130,13 +145,14 @@ class AbstractMotionDetector(ABC):
             return
 
         self._motion_detected = motion_detected
+        self._motion_contours = contours
         self._logger.debug("Motion detected" if motion_detected else "Motion stopped")
         self._vis.dispatch_event(
             EVENT_MOTION_DETECTED.format(camera_identifier=self._camera.identifier),
             EventMotionDetected(
                 camera_identifier=self._camera.identifier,
                 shared_frame=shared_frame,
-                motion_detected=True,
+                motion_detected=motion_detected,
                 motion_contours=contours,
             ),
         )
@@ -232,6 +248,13 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
             callback=self.motion_detection_queue,
         )
 
+        vis.listen_event(
+            EVENT_SCAN_FRAMES.format(
+                camera_identifier=camera_identifier, scanner_name=MOTION_DETECTOR
+            ),
+            self.handle_stop_scan,
+        )
+
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
     @abstractmethod
@@ -307,7 +330,12 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         """Return motion detector area."""
         return self._config[CONFIG_CAMERAS][self._camera.identifier][CONFIG_AREA]
 
+    def handle_stop_scan(self, event_data: Event[EventScanFrames]):
+        """Handle event when stopping frame scans."""
+        if event_data.data.scan is False:
+            self._motion_detected_setter(False, None, None)
+
     def stop(self):
-        """Stop object detector."""
+        """Stop motion detector."""
         self._kill_received = True
         self._motion_detection_thread.join()

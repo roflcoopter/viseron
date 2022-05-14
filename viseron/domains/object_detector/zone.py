@@ -110,7 +110,7 @@ class Zone:
         return self._objects_in_zone
 
     def objects_in_zone_setter(
-        self, shared_frame: SharedFrame, objects: List[DetectedObject]
+        self, shared_frame: SharedFrame | None, objects: List[DetectedObject]
     ):
         """Set objects in zone."""
         if objects == self._objects_in_zone:

@@ -97,8 +97,10 @@ class AbstractPostProcessor(ABC):
     def post_process(self):
         """Post processor loop."""
         while True:
-            event_data: Event = self._post_processor_queue.get()
-            detected_objects_data: EventDetectedObjectsData = event_data.data
+            event_data: Event[
+                EventDetectedObjectsData
+            ] = self._post_processor_queue.get()
+            detected_objects_data = event_data.data
 
             if self._labels:
                 filtered_objects = [
@@ -116,7 +118,7 @@ class AbstractPostProcessor(ABC):
                             zone=detected_objects_data.zone,
                         )
                     )
-            else:
+            elif detected_objects_data.objects:
                 self.process(
                     PostProcessorFrame(
                         camera_identifier=detected_objects_data.camera_identifier,
