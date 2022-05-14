@@ -1,6 +1,8 @@
 #!/usr/bin/with-contenv bash
 
-echo "****** Checking if we are running on a Jetson Board ******"
+source /helpers/logger.sh
+
+log_info "****** Checking if we are running on a Jetson Board ******"
 # Check if we are running on a Jetson Board
 # Board revision table can be found here https://docs.nvidia.com/jetson/l4t/index.html
 # Some good info here as well https://forums.developer.nvidia.com/t/best-way-to-check-which-tegra-board/111603/7
@@ -9,10 +11,10 @@ case "$OUTPUT" in
     "33")
         export VISERON_JETSON_NANO=true
         printf "true" > /var/run/environment/VISERON_JETSON_NANO
-        echo Running on a Jetson Nano
+        log_info "Running on a Jetson Nano"
         ;;
 
     *)
-        echo Not running on any supported Jetson board
+        log_info "Not running on any supported Jetson board"
 esac
-echo "*********************** Done *****************************"
+log_info "*********************** Done *****************************"
