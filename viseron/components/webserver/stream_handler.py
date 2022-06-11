@@ -49,8 +49,10 @@ class StreamHandler(ViseronRequestHandler):
             resolution = nvr.camera.resolution
             frame = processed_frame.frame
 
-        if nvr.motion_detector and isinstance(
-            nvr.motion_detector, AbstractMotionDetectorScanner
+        if (
+            nvr.motion_detector
+            and processed_frame.motion_contours
+            and isinstance(nvr.motion_detector, AbstractMotionDetectorScanner)
         ):
             if mjpeg_stream_config["draw_motion_mask"] and nvr.motion_detector.mask:
                 draw_motion_mask(
@@ -65,7 +67,7 @@ class StreamHandler(ViseronRequestHandler):
                     nvr.motion_detector.area,
                 )
 
-        if nvr.object_detector:
+        if nvr.object_detector and processed_frame.objects_in_fov:
             if mjpeg_stream_config["draw_zones"]:
                 draw_zones(frame, nvr.object_detector.zones)
 

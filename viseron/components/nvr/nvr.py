@@ -82,8 +82,8 @@ class DataProcessedFrame:
     """Processed frame that is sent on DATA_PROCESSED_FRAME_TOPIC."""
 
     frame: np.ndarray
-    objects_in_fov: List[DetectedObject]
-    motion_contours: Contours
+    objects_in_fov: List[DetectedObject] | None
+    motion_contours: Contours | None
 
 
 @dataclass
@@ -128,6 +128,7 @@ class FrameIntervalCalculator:
         self._scan: bool = False
         self._scan_fps = scan_fps
         self._scan_interval = 0
+        self._scan_error: bool = False
 
         self._frame_number = 0
         self.result_queue: Queue = Queue(maxsize=1)
@@ -178,6 +179,15 @@ class FrameIntervalCalculator:
         """Return scan interval of scanner."""
         return self._scan_interval
 
+    @property
+    def scan_error(self):
+        """Return if the last scan failed."""
+        return self._scan_error
+
+    @scan_error.setter
+    def scan_error(self, value: bool):
+        self._scan_error = value
+
 
 class NVR:
     """NVR class that orchestrates all handling of camera streams."""
@@ -207,8 +217,9 @@ class NVR:
         self._removal_timers: List[threading.Timer] = []
         self._operation_state = None
 
-        self._frame_scanners = {}
+        self._frame_scanners: Dict[str, FrameIntervalCalculator] = {}
         self._current_frame_scanners: Dict[str, FrameIntervalCalculator] = {}
+        self._frame_scanner_errors: List[str] = []
         self._topic_processed_frame = DATA_PROCESSED_FRAME_TOPIC.format(
             camera_identifier=camera_identifier
         )
@@ -333,7 +344,9 @@ class NVR:
     def update_operation_state(self):
         """Update operation state."""
         operation_state = "idle"
-        if self._camera.is_recording:
+        if self._frame_scanner_errors:
+            operation_state = "error_scanning_frame"
+        elif self._camera.is_recording:
             operation_state = "recording"
         elif not self._camera.is_on:
             operation_state = "idle"
@@ -354,19 +367,22 @@ class NVR:
 
     def scanner_results(self):
         """Wait for scanner to return results."""
-        for frame_scanner in self._current_frame_scanners.values():
-            while True:
-                try:
-                    # Wait for scanner to return.
-                    # We dont care about the result since its referenced directly
-                    # from the scanner instead of storing it locally
-                    frame_scanner.result_queue.get(
-                        timeout=1,
-                    )
-                    break
-                except Empty:  # Make sure we dont wait forever if stop is requested
-                    if self._kill_received:
-                        return
+        self._frame_scanner_errors = []
+        for name, frame_scanner in self._current_frame_scanners.items():
+            frame_scanner.scan_error = False
+            try:
+                # Wait for scanner to return.
+                # We dont care about the result since its referenced directly
+                # from the scanner instead of storing it locally
+                frame_scanner.result_queue.get(
+                    timeout=3,
+                )
+            except Empty:  # Make sure we dont wait forever
+                if self._kill_received:
+                    return
+                self._logger.error(f"Failed to retrieve result for {name}")
+                frame_scanner.scan_error = True
+                self._frame_scanner_errors.append(name)
 
     def event_over_check_motion(
         self, obj: DetectedObject, object_filters: Dict[str, Filter]
@@ -397,7 +413,11 @@ class NVR:
 
     def event_over(self):
         """Return if ongoing motion and/or object detection is over."""
-        if self._object_detector and self._frame_scanners[OBJECT_DETECTOR].scan:
+        if (
+            self._object_detector
+            and self._frame_scanners[OBJECT_DETECTOR].scan
+            and not self._frame_scanners[OBJECT_DETECTOR].scan_error
+        ):
             for obj in self._object_detector.objects_in_fov:
                 if not self.event_over_check_object(
                     obj, self._object_detector.object_filters
@@ -412,6 +432,7 @@ class NVR:
         if (
             self._motion_detector
             and self._frame_scanners[MOTION_DETECTOR].scan
+            and not self._frame_scanners[MOTION_DETECTOR].scan_error
             and self._motion_detector.recorder_keepalive
             and self._motion_detector.motion_detected
         ):
@@ -453,8 +474,13 @@ class NVR:
         if self._camera.is_recording:
             return
 
-        # Only process objects if we are actively scanning for objects
-        if self._object_detector and not self._frame_scanners[OBJECT_DETECTOR].scan:
+        # Only process objects if we are actively scanning for objects and the last
+        # scan did not return an error
+        if (
+            self._object_detector
+            and not self._frame_scanners[OBJECT_DETECTOR].scan
+            and not self._frame_scanners[OBJECT_DETECTOR].scan_error
+        ):
             return
 
         for obj in self._object_detector.objects_in_fov:
@@ -474,8 +500,13 @@ class NVR:
         if self._camera.is_recording:
             return
 
-        # Only process motion if we are actively scanning for objects
-        if self._motion_detector and not self._frame_scanners[MOTION_DETECTOR].scan:
+        # Only process motion if we are actively scanning for motion and the last
+        # scan did not return an error
+        if (
+            self._motion_detector
+            and not self._frame_scanners[MOTION_DETECTOR].scan
+            and not self._frame_scanners[MOTION_DETECTOR].scan_error
+        ):
             return
 
         if self._motion_detector and self._motion_detector.motion_detected:
@@ -600,8 +631,12 @@ class NVR:
                     frame=self._camera.shared_frames.get_decoded_frame_rgb(
                         shared_frame
                     ).copy(),
-                    objects_in_fov=self._object_detector.objects_in_fov,
-                    motion_contours=self._motion_detector.motion_contours,
+                    objects_in_fov=self._object_detector.objects_in_fov
+                    if self._object_detector
+                    else None,
+                    motion_contours=self._motion_detector.motion_contours
+                    if self._motion_detector
+                    else None,
                 ),
             )
             self.remove_frame(shared_frame)

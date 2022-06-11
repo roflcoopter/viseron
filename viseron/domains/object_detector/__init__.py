@@ -167,7 +167,7 @@ class AbstractObjectDetector(ABC):
         self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
 
         self._objects_in_fov: List[DetectedObject] = []
-        self.object_filters = {}
+        self.object_filters: Dict[str, Filter] = {}
 
         self._preproc_fps: Deque[float] = collections.deque(maxlen=50)
         self._inference_fps: Deque[float] = collections.deque(maxlen=50)
