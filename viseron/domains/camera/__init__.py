@@ -162,7 +162,7 @@ class AbstractCamera(ABC):
 
         self._logger = logging.getLogger(f"{self.__module__}.{self.identifier}")
 
-        self._connected = False
+        self._connected: bool = False
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self.current_frame: SharedFrame = None
         self.shared_frames = SharedFrames()
@@ -250,7 +250,7 @@ class AbstractCamera(ABC):
         """
 
     @property
-    def connected(self):
+    def connected(self) -> bool:
         """Return if connected to camera."""
         return self._connected
 

@@ -123,7 +123,8 @@ class Stream:
         else:
             raise StreamInformationError(self.width, self.height, self.fps)
 
-        self.create_symlink()
+        self.create_symlink(self.alias)
+        self.create_symlink(self.segments_alias)
 
         self._pixel_format = PIXEL_FORMAT.lower()
         self._color_plane_width = self.width
@@ -187,13 +188,19 @@ class Stream:
         """Return GStreamer executable alias."""
         return f"gstreamer_{self._camera_identifier}"
 
-    def create_symlink(self):
+    @property
+    def segments_alias(self):
+        """Return GStreamer segments executable alias."""
+        return f"gstreamer_{self._camera_identifier}_seg"
+
+    @staticmethod
+    def create_symlink(alias):
         """Create a symlink to GStreamer executable.
 
         This is done to know which GStreamer command belongs to which camera.
         """
         try:
-            os.symlink(os.getenv(ENV_GSTREAMER_PATH), f"/home/abc/bin/{self.alias}")
+            os.symlink(os.getenv(ENV_GSTREAMER_PATH), f"/home/abc/bin/{alias}")
         except FileExistsError:
             pass
 
@@ -333,6 +340,7 @@ class Stream:
         if self._config.get(CONFIG_SUBSTREAM, None):
             self._segment_process = RestartablePopen(
                 self.build_segment_command(),
+                name=f"viseron.camera.{self._camera.identifier}.segments",
                 stdout=sp.PIPE,
                 stderr=self._log_pipe,
             )
@@ -357,9 +365,14 @@ class Stream:
 
     def close_pipe(self):
         """Close GStreamer pipe."""
-        self._pipe.terminate()
         if self._segment_process:
             self._segment_process.terminate()
+
+        if self.poll() is not None:
+            return
+
+        self._pipe.terminate()
+
         try:
             self._pipe.communicate(timeout=5)
         except sp.TimeoutExpired:

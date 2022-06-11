@@ -101,7 +101,9 @@ STREAM_SCEHMA_DICT = {
         "udp",
         "mcast",
     ),
-    vol.Optional(CONFIG_FRAME_TIMEOUT, default=DEFAULT_FRAME_TIMEOUT): int,
+    vol.Optional(CONFIG_FRAME_TIMEOUT, default=DEFAULT_FRAME_TIMEOUT): vol.All(
+        int, vol.Range(1, 60)
+    ),
 }
 
 RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
@@ -166,19 +168,12 @@ class Camera(AbstractCamera):
     """Represents a camera which is consumed via GStreamer."""
 
     def __init__(self, vis, config, identifier):
-        self._poll_timer = [None]
-        self._frame_reader = RestartableThread(
-            name="viseron.camera." + identifier,
-            target=self.read_frames,
-            poll_timer=self.poll_timer,
-            poll_timeout=config[CONFIG_FRAME_TIMEOUT],
-            poll_target=self.stop_camera,
-            daemon=True,
-            register=True,
-        )
+        self._poll_timer = None
+        self._frame_reader = None
 
         super().__init__(vis, COMPONENT, config, identifier)
         self._capture_frames = False
+        self._thread_stuck = False
         self.resolution = None
         self.decode_error = Event()
 
@@ -190,9 +185,21 @@ class Camera(AbstractCamera):
         self.initialize_camera()
         vis.register_domain(DOMAIN, self.identifier, self)
 
+    def _create_frame_reader(self):
+        """Return a frame reader thread."""
+        return RestartableThread(
+            name="viseron.camera." + self.identifier,
+            target=self.read_frames,
+            poll_method=self.poll_method,
+            poll_target=self.poll_target,
+            daemon=True,
+            register=True,
+            restart_method=self.start_camera,
+        )
+
     def initialize_camera(self):
         """Start processing of camera frames."""
-        self._poll_timer = [None]
+        self._poll_timer = None
         self._logger.debug("Initializing camera {}".format(self.name))
 
         self.stream = Stream(self._vis, self._config, self.identifier)
@@ -208,14 +215,15 @@ class Camera(AbstractCamera):
     def read_frames(self):
         """Read frames from camera."""
         self.decode_error.clear()
-        self._poll_timer[0] = datetime.datetime.now().timestamp()
+        self._poll_timer = datetime.datetime.now().timestamp()
         empty_frames = 0
+        self._thread_stuck = False
 
         self.stream.start_pipe()
 
         while self._capture_frames:
             if self.decode_error.is_set():
-                self._poll_timer[0] = datetime.datetime.now().timestamp()
+                self._poll_timer = datetime.datetime.now().timestamp()
                 self.connected = False
                 time.sleep(5)
                 self._logger.error("Restarting frame pipe")
@@ -228,13 +236,16 @@ class Camera(AbstractCamera):
             if self.current_frame:
                 self.connected = True
                 empty_frames = 0
-                self._poll_timer[0] = datetime.datetime.now().timestamp()
+                self._poll_timer = datetime.datetime.now().timestamp()
                 self._data_stream.publish_data(
                     self.frame_bytes_topic, self.current_frame
                 )
                 continue
 
-            if self.stream.poll is not None:
+            if self._thread_stuck:
+                return
+
+            if self.stream.poll() is not None:
                 self._logger.error("GStreamer process has exited")
                 self.decode_error.set()
                 continue
@@ -248,20 +259,33 @@ class Camera(AbstractCamera):
         self.stream.close_pipe()
         self._logger.debug("GStreamer frame reader stopped")
 
+    def poll_target(self):
+        """Close pipe when RestartableThread.poll_timeout has been reached."""
+        self._logger.error("Timeout waiting for frame")
+        self._thread_stuck = True
+        self.stop_camera()
+
+    def poll_method(self):
+        """Return true on frame timeout for RestartableThread to trigger a restart."""
+        now = datetime.datetime.now().timestamp()
+
+        # Make sure we timeout at some point if we never get the first frame.
+        if now - self._poll_timer > (DEFAULT_FRAME_TIMEOUT * 2):
+            return True
+
+        if not self.connected:
+            return False
+
+        if now - self._poll_timer > self._config[CONFIG_FRAME_TIMEOUT]:
+            return True
+        return False
+
     def start_camera(self):
         """Start capturing frames from camera."""
         self._logger.debug("Starting capture thread")
         self._capture_frames = True
         if not self._frame_reader or not self._frame_reader.is_alive():
-            self._frame_reader = RestartableThread(
-                name="viseron.camera." + self.identifier,
-                target=self.read_frames,
-                poll_timer=self.poll_timer,
-                poll_timeout=self._config[CONFIG_FRAME_TIMEOUT],
-                poll_target=self.stop_camera,
-                daemon=True,
-                register=True,
-            )
+            self._frame_reader = self._create_frame_reader()
             self._frame_reader.start()
             self._vis.dispatch_event(
                 EVENT_CAMERA_STARTED.format(camera_identifier=self.identifier),
@@ -270,9 +294,15 @@ class Camera(AbstractCamera):
 
     def stop_camera(self):
         """Release the connection to the camera."""
+        self._logger.debug("Stopping capture thread")
         self._capture_frames = False
-        self._frame_reader.stop()
-        self._frame_reader.join()
+        if self._frame_reader:
+            self._frame_reader.stop()
+            self._frame_reader.join(timeout=5)
+            if self._frame_reader.is_alive():
+                self._logger.debug("Timed out trying to stop camera. Killing pipe")
+                self.stream.close_pipe()
+
         self._vis.dispatch_event(
             EVENT_CAMERA_STOPPED.format(camera_identifier=self.identifier),
             None,
@@ -329,4 +359,6 @@ class Camera(AbstractCamera):
     @property
     def is_on(self):
         """Return if camera is on."""
-        return self._frame_reader.is_alive()
+        if self._frame_reader:
+            return self._frame_reader.is_alive()
+        return False

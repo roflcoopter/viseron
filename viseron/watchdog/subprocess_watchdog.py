@@ -96,7 +96,7 @@ class SubprocessWatchDog(WatchDog):
         self._scheduler.add_job(self.watchdog, "interval", seconds=15)
 
     def watchdog(self):
-        """Check for stopped processes and restarts them."""
+        """Check for stopped processes and restart them."""
         for registered_process in self.registered_items:
             if not registered_process.started:
                 continue
