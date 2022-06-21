@@ -49,6 +49,8 @@ if TYPE_CHECKING:
     from viseron.domains.object_detector import AbstractObjectDetector
     from viseron.helpers.filter import Filter
 
+LOGGER = logging.getLogger(__name__)
+
 
 def setup(vis: Viseron, config, identifier):
     """Set up the edgetpu object_detector domain."""
@@ -70,7 +72,14 @@ def setup(vis: Viseron, config, identifier):
         try:
             motion_detector = vis.get_registered_domain(MOTION_DETECTOR, identifier)
         except DomainNotRegisteredError:
-            object_detector = False
+            motion_detector = False
+
+    if object_detector is False and motion_detector is False:
+        LOGGER.error(
+            f"Failed setup of domain nvr for camera {identifier}. "
+            "At least one object or motion detector has to be configured"
+        )
+        return False
 
     NVR(vis, config, identifier, object_detector, motion_detector)
 
@@ -470,6 +479,10 @@ class NVR:
 
     def process_object_event(self):
         """Process any detected objects to see if recorder should start."""
+        # Only process objects if object detection is enabled
+        if not self._object_detector:
+            return
+
         # Only process objects if we are not already recording
         if self._camera.is_recording:
             return
@@ -496,6 +509,10 @@ class NVR:
 
     def process_motion_event(self):
         """Process motion to see if it has started or stopped."""
+        # Only process motion if motion detection is enabled
+        if not self._motion_detector:
+            return
+
         # Only process motion if we are not already recording
         if self._camera.is_recording:
             return
