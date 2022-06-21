@@ -112,7 +112,7 @@ ZONE_SCHEMA = vol.Schema(
     {
         vol.Required(CONFIG_ZONE_NAME): str,
         vol.Required(CONFIG_COORDINATES): COORDINATES_SCHEMA,
-        vol.Optional(CONFIG_LABELS): [LABEL_SCHEMA],
+        vol.Optional(CONFIG_LABELS, default=DEFAULT_LABELS): [LABEL_SCHEMA],
     }
 )
 
