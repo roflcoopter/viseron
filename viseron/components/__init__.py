@@ -167,6 +167,10 @@ class Component:
             ]
         self.domains_to_setup.clear()
         if result is False:
+            LOGGER.error(
+                "Setup of component %s failed",
+                self.name,
+            )
             return False
 
         LOGGER.error(
@@ -422,7 +426,18 @@ class Component:
                 end - start,
             )
             return True
+
         if result is False:
+            LOGGER.error(
+                "Setup of domain %s for component %s%s failed",
+                domain_to_setup.domain,
+                self.name,
+                (
+                    f" with identifier {domain_to_setup.identifier}"
+                    if domain_to_setup.identifier
+                    else ""
+                ),
+            )
             return False
 
         LOGGER.error(
