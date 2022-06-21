@@ -41,7 +41,8 @@ class SensitiveInformationFilter(logging.Filter):
 
     def filter(self, record):
         """Filter log record."""
-        record.msg = re.sub(r":\/\/(.*?)\@", r"://*****:*****@", record.msg)
+        if isinstance(record.msg, str):
+            record.msg = re.sub(r":\/\/(.*?)\@", r"://*****:*****@", record.msg)
         return True
 
 
