@@ -227,7 +227,7 @@ class StaticStreamHandler(StreamHandler):
         while True:
             try:
                 jpg = await frame_queue.get()
-                self.write("--jpgboundary")
+                self.write("--jpgboundary\r\n")
                 self.write("Content-type: image/jpeg\r\n")
                 self.write("Content-length: %s\r\n\r\n" % len(jpg))
                 self.write(jpg.tobytes())
