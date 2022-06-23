@@ -152,7 +152,7 @@ class DynamicStreamHandler(StreamHandler):
                 )
 
                 if ret:
-                    self.write_jpg(jpg)
+                    await self.write_jpg(jpg)
             except tornado.iostream.StreamClosedError:
                 DataStream.unsubscribe_data(frame_topic, unique_id)
                 LOGGER.debug(f"Stream closed for camera {nvr.camera.identifier}")
@@ -232,7 +232,7 @@ class StaticStreamHandler(StreamHandler):
         while True:
             try:
                 jpg = await frame_queue.get()
-                self.write_jpg(jpg)
+                await self.write_jpg(jpg)
             except tornado.iostream.StreamClosedError:
                 DataStream.unsubscribe_data(frame_topic, unique_id)
                 LOGGER.debug(
