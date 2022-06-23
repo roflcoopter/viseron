@@ -34,6 +34,15 @@ LOGGER = logging.getLogger(__name__)
 class StreamHandler(ViseronRequestHandler):
     """Represents a stream."""
 
+
+    async def write_jpg(self, jpg):
+        """Set the headers and write the jpg data."""
+        self.write("--jpgboundary\r\n")
+        self.write("Content-type: image/jpeg\r\n")
+        self.write("Content-length: %s\r\n\r\n" % len(jpg))
+        self.write(jpg.tobytes())
+        await self.flush()
+        
     async def process_frame(  # pylint: disable=no-self-use
         self, nvr: NVR, processed_frame: DataProcessedFrame, mjpeg_stream_config
     ):
@@ -143,11 +152,7 @@ class DynamicStreamHandler(StreamHandler):
                 )
 
                 if ret:
-                    self.write("--jpgboundary")
-                    self.write("Content-type: image/jpeg\r\n")
-                    self.write("Content-length: %s\r\n\r\n" % len(jpg))
-                    self.write(jpg.tobytes())
-                    await self.flush()
+                    self.write_jpg(jpg)
             except tornado.iostream.StreamClosedError:
                 DataStream.unsubscribe_data(frame_topic, unique_id)
                 LOGGER.debug(f"Stream closed for camera {nvr.camera.identifier}")
@@ -227,11 +232,7 @@ class StaticStreamHandler(StreamHandler):
         while True:
             try:
                 jpg = await frame_queue.get()
-                self.write("--jpgboundary\r\n")
-                self.write("Content-type: image/jpeg\r\n")
-                self.write("Content-length: %s\r\n\r\n" % len(jpg))
-                self.write(jpg.tobytes())
-                await self.flush()
+                self.write_jpg(jpg)
             except tornado.iostream.StreamClosedError:
                 DataStream.unsubscribe_data(frame_topic, unique_id)
                 LOGGER.debug(
