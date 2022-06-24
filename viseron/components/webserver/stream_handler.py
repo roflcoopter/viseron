@@ -34,7 +34,6 @@ LOGGER = logging.getLogger(__name__)
 class StreamHandler(ViseronRequestHandler):
     """Represents a stream."""
 
-
     async def write_jpg(self, jpg):
         """Set the headers and write the jpg data."""
         self.write("--jpgboundary\r\n")
@@ -42,7 +41,7 @@ class StreamHandler(ViseronRequestHandler):
         self.write("Content-length: %s\r\n\r\n" % len(jpg))
         self.write(jpg.tobytes())
         await self.flush()
-        
+
     async def process_frame(  # pylint: disable=no-self-use
         self, nvr: NVR, processed_frame: DataProcessedFrame, mjpeg_stream_config
     ):
