@@ -1,17 +1,53 @@
 # Contributing to Viseron
-Everyone is welcome to contribute to Viseron.\
+
+Everyone is welcome to contribute to Viseron.
 I will gladly accept any pull request that is opened, as long as it follows the [style guidelines](#style-guidelines) outlined below.
 
 If you want to contribute but you dont know how to code, please use the links below to sponsor Viseron or make a donation.
 
-<a href="https://github.com/sponsors/roflcoopter" target="_blank"><img src="img/sponsor_button.png" alt="Sponsor" style="height: 37px !important;width: 170px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5)" ></a>
-<a href="https://www.buymeacoffee.com/roflcoopter" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
+<main>
+  <a
+    className="btn"
+    aria-label="Sponsor @roflcoopter"
+    target="_top"
+    href="https://github.com/sponsors/roflcoopter?o=esb"
+  >
+    <svg
+      aria-hidden="true"
+      height="16"
+      viewBox="0 0 16 16"
+      version="1.1"
+      width="16"
+      data-view-component="true"
+      className="octicon octicon-heart icon-sponsor mr-2"
+    >
+      <path
+        fillRule="evenodd"
+        d="M4.25 2.5c-1.336 0-2.75 1.164-2.75 3 0 2.15 1.58 4.144 3.365 5.682A20.565 20.565 0 008 13.393a20.561 20.561 0 003.135-2.211C12.92 9.644 14.5 7.65 14.5 5.5c0-1.836-1.414-3-2.75-3-1.373 0-2.609.986-3.029 2.456a.75.75 0 01-1.442 0C6.859 3.486 5.623 2.5 4.25 2.5zM8 14.25l-.345.666-.002-.001-.006-.003-.018-.01a7.643 7.643 0 01-.31-.17 22.075 22.075 0 01-3.434-2.414C2.045 10.731 0 8.35 0 5.5 0 2.836 2.086 1 4.25 1 5.797 1 7.153 1.802 8 3.02 8.847 1.802 10.203 1 11.75 1 13.914 1 16 2.836 16 5.5c0 2.85-2.045 5.231-3.885 6.818a22.08 22.08 0 01-3.744 2.584l-.018.01-.006.003h-.002L8 14.25zm0 0l.345.666a.752.752 0 01-.69 0L8 14.25z"
+      ></path>
+    </svg>
+    <span>Sponsor</span>
+  </a>
+<a href="https://www.buymeacoffee.com/roflcoopter" target="_blank">
+  <img
+    src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png"
+    alt="Buy Me A Coffee"
+    style={{
+      position: "relative",
+      verticalAlign: "middle",
+      boxShadow: "0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important",
+      display: "inline-block",
+    }}
+  />
+</a>
 
----
+</main>
 
 ## Setup your local environment
+
 Some setup is required in order to do efficient development.
-- Install the dependencies: `pip3 install -r requirements.txt -r requirements_test.txt`.\
+
+- Install the dependencies: `pip3 install -r requirements.txt -r requirements_test.txt`.
   It might be wise to do this in a `virtualenv` but this is up to you.
 - Install `docker`
 - Install `docker-compose`
@@ -20,6 +56,7 @@ Some setup is required in order to do efficient development.
 ---
 
 ## Style guidelines
+
 All code is linted with quite strict [PEP 8 (Style Guide for Python Code)](https://www.python.org/dev/peps/pep-0008/) and [PEP 257 (Docstring Conventions)](https://www.python.org/dev/peps/pep-0257/) coding conventions.
 
 To accommodate this a few tools are used.
@@ -36,6 +73,7 @@ I suggest that you setup your IDE to match these requirements which makes develo
 ---
 
 ## Development guidelines
+
 The development process with `tox` is quite new for me so if you run into any issues, please let me know and we can work it out.
 
 - Fork the Viseron repo
@@ -45,24 +83,30 @@ The development process with `tox` is quite new for me so if you run into any is
 - Create a PR towards the `dev` branch
 
 ### Using tox
-`tox` is the main tool used for linting and testing your code.\
-Simply running the command `tox` will run all checks. You can single out a specific check by supplying the `-e` flag.\
+
+`tox` is the main tool used for linting and testing your code.
+Simply running the command `tox` will run all checks. You can single out a specific check by supplying the `-e` flag.
 For example:
+
 - Run pylint only: `tox -e pylint`
 - Run pytest only: `tox -e pytest`
 
 #### A note on pytest
-Viseron requires a lot of dependencies.\
-To make testing with `pytest` as easy as possible, `tox` will build and run a Docker container which executes `pytest`.\
+
+Viseron requires a lot of dependencies.
+To make testing with `pytest` as easy as possible, `tox` will build and run a Docker container which executes `pytest`.
 If you would like to run tests outside of `tox` you can build and run this container manually:
-```
+
+```bash
 docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build amd64-viseron-tests
 docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env run --rm amd64-viseron-tests
 ```
 
 ### Develop Docker containers
+
 Viseron heavily uses multistage Docker builds, and compilation of different components are split into different Dockerfiles.
 To build all the `amd64` image from scratch the following commands can be used.
+
 ```bash
 docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-ffmpeg && \
 docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-opencv && \
@@ -72,15 +116,22 @@ docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-
 docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron
 ```
 
-Lets say you want to update to a newer version of OpenCV.\
+Lets say you want to update to a newer version of OpenCV.
 To do this you would:
+
 - Edit `OPENCV_VERSION` in ./azure-pipelines/.env
 - Build the OpenCV image: `docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-opencv`
 - Build Viseron image: `docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron`
 
 #### Cross-building
-To support different CPU architectures i use [Balenas base images](https://www.balena.io/docs/reference/base-images/base-images/) that runs QEMU.\
+
+To support different CPU architectures i use [Balenas base images](https://www.balena.io/docs/reference/base-images/base-images/) that runs QEMU.
 To build these you need to first register QEMU on your builder.
 
-The easiest way to do that is to run `docker run --rm --privileged tonistiigi/binfmt --install all`\
+The easiest way to do that is to run:
+
+```bash
+docker run --rm --privileged tonistiigi/binfmt --install all
+```
+
 You can then simply build the containers like you normally would and QEMU will be invoked automatically.

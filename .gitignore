@@ -121,11 +121,14 @@
 !/frontend/README.md
 !/frontend/tsconfig.json
 
-# Repo
+# Docs
 !/docs
 !/docs/*
-!/docs/img
-!/docs/img/*
+!/docs/docs/**
+!/docs/src/**
+!/docs/static/**
+
+# Repo
 !/.flake8
 !/.gitignore
 !/.isort.cfg

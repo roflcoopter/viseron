@@ -1,0 +1,363 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Installation
+
+Viseron runs exclusively in Docker.<br />
+First of all, choose the appropriate Docker container for your machine. <br />
+
+Builds are published to [Docker Hub](https://hub.docker.com/repository/docker/roflcoopter/viseron).
+
+:::tip HOW DO I CHOOSE?
+
+Have a look at the [supported architectures](#supported-architectures) below.
+
+:::
+
+# Supported architectures
+
+Viserons images support multiple architectures such as `amd64`, `aarch64` and `armhf`. <br />
+Pulling `roflcoopter/viseron:latest` should automatically pull the correct image for you. <br />
+An exception to this is if you have the need for a specific container, eg the CUDA version.
+Then you will need to specify your desired image.
+
+The images available are:
+
+| Image                             | Architecture | Description                                                                                                                                                 |
+| --------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `roflcoopter/viseron`             | multiarch    | Multiarch image                                                                                                                                             |
+| `roflcoopter/aarch64-viseron`     | `aarch64`    | Generic aarch64 image, with RPi4 hardware accelerated decoding/encoding                                                                                     |
+| `roflcoopter/amd64-viseron`       | `amd64`      | Generic image                                                                                                                                               |
+| `roflcoopter/amd64-cuda-viseron`  | `amd64`      | Image with CUDA support                                                                                                                                     |
+| `roflcoopter/rpi3-viseron`        | `armhf`      | Built specifically for the RPi3 with hardware accelerated decoding/encoding                                                                                 |
+| `roflcoopter/jetson-nano-viseron` | `aarch64`    | Built specifically for the Jetson Nano with:<br />- GStreamer hardware accelerated decoding<br />- FFmpeg hardware accelerated decoding<br />- CUDA support |
+
+## Running Viseron
+
+Below are a few examples on how to run Viseron. <br />
+Both `docker` and `docker-compose` examples are given.
+
+<details><summary>64-bit Linux machine</summary>
+
+<Tabs groupId="docker-type">
+<TabItem value="docker" label="Docker">
+
+```bash
+docker run --rm \
+-v <recordings path>:/recordings \
+-v <config path>:/config \
+-v /etc/localtime:/etc/localtime:ro \
+-p 8888:8888 \
+--name viseron \
+roflcoopter/viseron:latest
+```
+
+</TabItem>
+<TabItem value="docker-compose" label="Docker-Compose">
+
+```yaml
+version: "2.4"
+
+services:
+viseron:
+image: roflcoopter/viseron:latest
+container_name: viseron
+volumes: - <recordings path>:/recordings - <config path>:/config - /etc/localtime:/etc/localtime:ro
+ports: - 8888:8888
+```
+
+</TabItem>
+</Tabs>
+
+</details>
+<details><summary>64-bit Linux machine with VAAPI (Intel NUC for example)</summary>
+
+<Tabs groupId="docker-type">
+<TabItem value="docker" label="Docker">
+
+```bash
+docker run --rm \
+-v <recordings path>:/recordings \
+-v <config path>:/config \
+-v /etc/localtime:/etc/localtime:ro \
+-p 8888:8888 \
+--name viseron \
+--device /dev/dri \
+roflcoopter/viseron:latest
+```
+
+</TabItem>
+<TabItem value="docker-compose" label="Docker-Compose">
+
+```yaml
+version: "2.4"
+
+services:
+  viseron:
+    image: roflcoopter/viseron:latest
+    container_name: viseron
+    volumes:
+      - <recordings path>:/recordings
+      - <config path>:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 8888:8888
+    devices:
+      - /dev/dri
+```
+
+</TabItem>
+</Tabs>
+</details>
+
+<details>
+  <summary>64-bit Linux machine with NVIDIA GPU</summary>
+
+<Tabs groupId="docker-type">
+<TabItem value="docker" label="Docker">
+
+```bash
+docker run --rm \
+-v <recordings path>:/recordings \
+-v <config path>:/config \
+-v /etc/localtime:/etc/localtime:ro \
+-p 8888:8888 \
+--name viseron \
+--runtime=nvidia \
+roflcoopter/amd64-cuda-viseron:latest
+```
+
+</TabItem>
+<TabItem value="docker-compose" label="Docker-Compose">
+
+```yaml
+version: "2.4"
+
+services:
+  viseron:
+    image: roflcoopter/amd64-cuda-viseron:latest
+    container_name: viseron
+    volumes:
+      - <recordings path>:/recordings
+      - <config path>:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 8888:8888
+    runtime: nvidia
+```
+
+</TabItem>
+</Tabs>
+
+:::caution
+
+Make sure [NVIDIA Docker](https://github.com/NVIDIA/nvidia-docker) is installed.
+
+:::
+
+</details>
+
+<details>
+  <summary>On a Jetson Nano</summary>
+
+<Tabs groupId="docker-type">
+<TabItem value="docker" label="Docker">
+
+```bash
+docker run --rm \
+-v <recordings path>:/recordings \
+-v <config path>:/config \
+-v /etc/localtime:/etc/localtime:ro \
+-p 8888:8888 \
+--name viseron \
+--runtime=nvidia \
+--privileged \
+roflcoopter/jetson-nano-viseron:latest
+```
+
+:::caution
+
+It is a must to run with `--privileged` so the container gets access to all the needed devices for hardware acceleration.<br />
+You can probably get around this by manually mounting all the needed devices but this is not something I have looked into.
+
+:::
+
+</TabItem>
+<TabItem value="docker-compose" label="Docker-Compose">
+
+```yaml
+version: "2.4"
+
+services:
+  viseron:
+    image: roflcoopter/jetson-nano-viseron:latest
+    container_name: viseron
+    volumes:
+      - <recordings path>:/recordings
+      - <config path>:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 8888:8888
+    runtime: nvidia
+    privileged: true
+```
+
+:::caution
+
+It is a must to run with `privileged: true` so the container gets access to all the needed devices for hardware acceleration.<br />
+You can probably get around this by manually mounting all the needed devices but this is not something I have looked into.
+
+:::
+
+</TabItem>
+</Tabs>
+
+</details>
+
+<details>
+<summary>On a RaspberryPi 4</summary>
+<Tabs groupId="docker-type">
+<TabItem value="docker" label="Docker">
+
+```bash
+docker run --rm \
+--privileged \
+-v <recordings path>:/recordings \
+-v <config path>:/config \
+-v /etc/localtime:/etc/localtime:ro \
+-v /dev/bus/usb:/dev/bus/usb \
+-v /opt/vc/lib:/opt/vc/lib \
+-p 8888:8888 \
+--name viseron \
+--device=/dev/video10:/dev/video10 \
+--device=/dev/video11:/dev/video11 \
+--device=/dev/video12:/dev/video12 \
+--device /dev/bus/usb:/dev/bus/usb \
+roflcoopter/viseron:latest
+```
+
+</TabItem>
+<TabItem value="docker-compose" label="Docker-Compose">
+
+```yaml
+version: "2.4"
+services:
+  viseron:
+    image: roflcoopter/viseron:latest
+    container_name: viseron
+    volumes:
+      - <recordings path>:/recordings
+      - <config path>:/config
+      - /etc/localtime:/etc/localtime:ro
+    devices:
+      - /dev/video10:/dev/video10
+      - /dev/video11:/dev/video11
+      - /dev/video12:/dev/video12
+      - /dev/bus/usb:/dev/bus/usb
+    ports:
+      - 8888:8888
+    privileged: true
+```
+
+</TabItem>
+</Tabs>
+
+:::caution
+
+Viseron is quite RAM intensive, mostly because of the object detection.<br />
+I do not recommend using an RPi unless you have a Google Coral EdgeTPU.<br />
+The CPU is not fast enough and you might run out of memory.
+
+:::
+
+:::tip
+
+Configure a substream if you plan on running Viseron on an RPi.
+
+:::
+
+</details>
+
+<details><summary>RaspberryPi 3b+</summary>
+<Tabs groupId="docker-type">
+<TabItem value="docker" label="Docker">
+
+```bash
+docker run --rm \
+--privileged \
+-v <recordings path>:/recordings \
+-v <config path>:/config \
+-v /etc/localtime:/etc/localtime:ro \
+-v /opt/vc/lib:/opt/vc/lib \
+-p 8888:8888 \
+--name viseron \
+--device /dev/vchiq:/dev/vchiq \
+--device /dev/vcsm:/dev/vcsm \
+--device /dev/bus/usb:/dev/bus/usb \
+roflcoopter/viseron:latest
+```
+
+</TabItem>
+<TabItem value="docker-compose" label="Docker-Compose">
+
+```yaml
+version: "2.4"
+services:
+  viseron:
+    image: roflcoopter/viseron:latest
+    container_name: viseron
+    volumes:
+      - <recordings path>:/recordings
+      - <config path>:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /opt/vc/lib:/opt/vc/lib
+    devices:
+      - /dev/vchiq:/dev/vchiq
+      - /dev/vcsm:/dev/vcsm
+      - /dev/bus/usb:/dev/bus/usb
+    ports:
+      - 8888:8888
+    privileged: true
+```
+
+</TabItem>
+</Tabs>
+
+:::caution
+
+Viseron is quite RAM intensive, mostly because of the object detection.<br />
+I do not recommend using an RPi unless you have a Google Coral EdgeTPU.<br />
+The CPU is not fast enough and you might run out of memory.
+
+:::
+:::tip
+
+To make use of hardware accelerated decoding/encoding you might have to increase the allocated GPU memory.<br />
+To do this edit `/boot/config.txt` and set `gpu_mem=256` and then reboot.
+
+:::
+
+:::tip
+
+Configure a substream if you plan on running Viseron on an RPi.
+
+:::
+
+</details>
+
+Viseron will start up immediately and serve the Web UI on port `8888`.<br />
+Please proceed to the next chapter on [how to configure Viseron.](configuration)
+
+:::tip VAAPI
+
+VAAPI hardware acceleration support is built into every `amd64` container.<br />
+To utilize it you need to add `--device /dev/dri` to your docker command.
+
+:::
+
+:::tip EdgeTPU
+
+EdgeTPU support is also included in all containers.<br />
+To use it, add `-v /dev/bus/usb:/dev/bus/usb --privileged` to your docker command.
+
+:::
