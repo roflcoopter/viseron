@@ -1,6 +1,8 @@
-import useBaseUrl from "@docusaurus/useBaseUrl";
 import React from "react";
+
+import useBaseUrl from "@docusaurus/useBaseUrl";
 import clsx from "clsx";
+
 import styles from "./HomepageFeatures.module.css";
 
 type FeatureItem = {
@@ -15,9 +17,8 @@ const FeatureList: FeatureItem[] = [
     image: "/img/undraw_setup.svg",
     description: (
       <>
-        Just spin up the Docker-container and fill in the
-        <code>config.yaml</code>
-        using the integrated editor.
+        Just spin up the Docker-container and fill in the{" "}
+        <code>config.yaml</code> using the integrated editor.
       </>
     ),
   },
@@ -26,8 +27,9 @@ const FeatureList: FeatureItem[] = [
     image: "/img/undraw_advanced_customization.svg",
     description: (
       <>
-        Viseron comes with a great number of integrations which can be mixed and
-        matched to your liking.
+        Viseron comes with a good number of components which can be mixed and
+        matched to your liking.<br></br>
+        <a href="/components">See full list of components here.</a>
       </>
     ),
   },

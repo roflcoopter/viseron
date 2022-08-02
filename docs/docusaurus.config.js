@@ -58,6 +58,12 @@ const config = {
             label: "Contributing",
           },
           {
+            title: "Components",
+            to: "components-explorer",
+            label: "Components",
+            position: "left",
+          },
+          {
             href: "https://github.com/roflcoopter/viseron",
             label: "GitHub",
             position: "right",
@@ -144,6 +150,7 @@ const config = {
       },
     ],
   ],
+  plugins: ["@docusaurus/plugin-ideal-image"],
 };
 
 module.exports = config;

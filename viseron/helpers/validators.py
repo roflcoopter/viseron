@@ -1,9 +1,13 @@
 """Custom voluptuous validators."""
+import logging
 import re
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
-from voluptuous import Invalid
+import voluptuous as vol
 
+from viseron.helpers import slugify
+
+LOGGER = logging.getLogger(__name__)
 SLUG_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
 
 
@@ -26,7 +30,7 @@ def deprecated(key: str, replacement: Optional[str] = None) -> Callable[[dict], 
                     config[replacement] = value
                     return config
                 return config
-            raise Invalid(
+            raise vol.Invalid(
                 f"Config option {key} is deprecated. "
                 "Please remove it from your configuration"
             )
@@ -39,7 +43,7 @@ def ensure_slug(value: str) -> str:
     """Validate a string to only consist of certain characters."""
     regex = re.compile(SLUG_REGEX)
     if not regex.match(value):
-        raise Invalid("Invalid string")
+        raise vol.Invalid(f"{value} is an invalid slug.")
     return value
 
 
@@ -48,3 +52,36 @@ def none_to_dict(value):
     if value is None:
         return {}
     return value
+
+
+def slug(value: Any) -> str:
+    """Validate value is a valid slug."""
+    if value is None:
+        raise vol.Invalid("Slug should not be None")
+    str_value = str(value)
+    slg = slugify(str_value)
+    if str_value == slg:
+        return str_value
+    msg = f"invalid slug {value} (try {slg})"
+    LOGGER.error(msg)
+    raise vol.Invalid(msg)
+
+
+def valid_camera_identifier(value):
+    """Check if supplied camera identifier is valid."""
+    if not isinstance(value, str):
+        msg = f"Camera identifier should be a string. Got {value}"
+        LOGGER.error(msg)
+        raise vol.Invalid(msg)
+    if slug(value):
+        return value
+
+
+class CameraIdentifier(vol.Required):
+    """Validate Camera Identifier."""
+
+    def __init__(self, description="Camera identifier."):
+        super().__init__(
+            valid_camera_identifier,
+            description=description,
+        )

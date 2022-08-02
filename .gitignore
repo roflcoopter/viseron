@@ -128,6 +128,11 @@
 !/docs/src/**
 !/docs/static/**
 
+# Scripts
+!/scripts
+!/scripts/*
+!/scripts/gen_docs/*
+
 # Repo
 !/.flake8
 !/.gitignore

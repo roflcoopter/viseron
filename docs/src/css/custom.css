@@ -114,3 +114,50 @@ html[data-theme="dark"] .docusaurus-highlight-code-line {
   vertical-align: text-bottom;
   fill: currentColor;
 }
+
+.screen-reader-only {
+  position: absolute;
+  white-space: nowrap;
+  border: 0;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  clip: rect(0 0 0 0);
+  clip-path: polygon(0 0, 0 0, 0 0);
+}
+
+.outline {
+  outline: 1px solid var(--ifm-color-primary);
+  border: 3px solid transparent;
+  -webkit-transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease-in-out;
+}
+.outline:hover {
+  outline: 0px solid transparent;
+  border: 3px solid var(--ifm-color-primary);
+  -webkit-transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease-in-out;
+}
+
+.collapse-button {
+  transition: all 0.2s ease-in-out;
+  transform: rotateZ(0deg);
+}
+
+.collapse-button.collapsed {
+  transform: rotateZ(-90deg);
+}
+
+.collapse-content.collapsed {
+  display: none;
+}
+
+.collapsed-content.expanded {
+  display: block;
+}
+
+.menu__caret:hover {
+  background: rgb(0 0 0 / 0%);
+}

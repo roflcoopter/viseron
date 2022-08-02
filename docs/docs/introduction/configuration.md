@@ -15,7 +15,7 @@ The built in Configuration Editor has syntax highlighting, making your YAML ende
 
 ## Components
 
-Viserons config consists of [components](/docs/components).<br />
+Viserons config consists of [components](/components-explorer).<br />
 Every component provides different sets of domains (such as cameras, object detection, motion detection etc).<br />
 These domains are then tied together, providing the full capabilities of Viseron.
 

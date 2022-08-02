@@ -28,6 +28,25 @@ DEFAULT_DNN_BACKEND = None
 DEFAULT_DNN_TARGET = None
 DEFAULT_HALF_PRECISION = False
 
+DESC_OBJECT_DETECTOR = "Object detector domain config."
+DESC_MODEL_PATH = "Path to model (YOLO *.weights file)"
+DESC_MODEL_CONFIG = "Path to config (YOLO *.cfg file)"
+DESC_LABEL_PATH = "Path to file containing trained labels."
+DESC_SUPPRESSION = (
+    "Non-maxima suppression, "
+    "used to remove overlapping detections.<br>"
+    "You can read more about how this works "
+    "<a href=https://towardsdatascience.com/non-maximum-suppression-nms-93ce178e177c>"
+    "here.<a>"
+)
+DESC_DNN_BACKEND = "OpenCV DNN Backend."
+DESC_DNN_TARGET = "OpenCV DNN Target."
+DESC_HALF_PRECISION = (
+    "Enable/disable half precision accuracy.<br>"
+    "If your GPU supports FP16, enabling this might give you a performance increase."
+)
+
+
 # DNN backend/target constants
 DNN_DEFAULT = "default"
 DNN_CPU = "cpu"

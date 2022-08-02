@@ -18,7 +18,12 @@ from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.helpers import generate_mask
 from viseron.helpers.filter import Filter
-from viseron.helpers.schemas import COORDINATES_SCHEMA, MIN_MAX_SCHEMA
+from viseron.helpers.schemas import (
+    COORDINATES_SCHEMA,
+    FLOAT_MIN_ZERO,
+    FLOAT_MIN_ZERO_MAX_ONE,
+)
+from viseron.helpers.validators import CameraIdentifier
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .binary_sensor import (
@@ -60,6 +65,25 @@ from .const import (
     DEFAULT_MAX_FRAME_AGE,
     DEFAULT_SCAN_ON_MOTION_ONLY,
     DEFAULT_ZONES,
+    DESC_CAMERA_IDENTIFIER,
+    DESC_CAMERAS,
+    DESC_COORDINATES,
+    DESC_FPS,
+    DESC_LABEL_CONFIDENCE,
+    DESC_LABEL_HEIGHT_MAX,
+    DESC_LABEL_HEIGHT_MIN,
+    DESC_LABEL_LABEL,
+    DESC_LABEL_REQUIRE_MOTION,
+    DESC_LABEL_TRIGGER_RECORDER,
+    DESC_LABEL_WIDTH_MAX,
+    DESC_LABEL_WIDTH_MIN,
+    DESC_LABELS,
+    DESC_LOG_ALL_OBJECTS,
+    DESC_MASK,
+    DESC_MAX_FRAME_AGE,
+    DESC_SCAN_ON_MOTION_ONLY,
+    DESC_ZONE_NAME,
+    DESC_ZONES,
     EVENT_OBJECTS_IN_FOV,
 )
 from .detected_object import DetectedObject, EventDetectedObjectsData
@@ -82,27 +106,44 @@ def ensure_min_max(label: dict) -> dict:
 
 LABEL_SCHEMA = vol.Schema(
     {
-        vol.Required(CONFIG_LABEL_LABEL): str,
+        vol.Required(
+            CONFIG_LABEL_LABEL,
+            description=DESC_LABEL_LABEL,
+        ): str,
         vol.Optional(
-            CONFIG_LABEL_CONFIDENCE, default=DEFAULT_LABEL_CONFIDENCE
-        ): MIN_MAX_SCHEMA,
+            CONFIG_LABEL_CONFIDENCE,
+            default=DEFAULT_LABEL_CONFIDENCE,
+            description=DESC_LABEL_CONFIDENCE,
+        ): FLOAT_MIN_ZERO_MAX_ONE,
         vol.Optional(
-            CONFIG_LABEL_HEIGHT_MIN, default=DEFAULT_LABEL_HEIGHT_MIN
-        ): MIN_MAX_SCHEMA,
+            CONFIG_LABEL_HEIGHT_MIN,
+            default=DEFAULT_LABEL_HEIGHT_MIN,
+            description=DESC_LABEL_HEIGHT_MIN,
+        ): FLOAT_MIN_ZERO_MAX_ONE,
         vol.Optional(
-            CONFIG_LABEL_HEIGHT_MAX, default=DEFAULT_LABEL_HEIGHT_MAX
-        ): MIN_MAX_SCHEMA,
+            CONFIG_LABEL_HEIGHT_MAX,
+            default=DEFAULT_LABEL_HEIGHT_MAX,
+            description=DESC_LABEL_HEIGHT_MAX,
+        ): FLOAT_MIN_ZERO_MAX_ONE,
         vol.Optional(
-            CONFIG_LABEL_WIDTH_MIN, default=DEFAULT_LABEL_WIDTH_MIN
-        ): MIN_MAX_SCHEMA,
+            CONFIG_LABEL_WIDTH_MIN,
+            default=DEFAULT_LABEL_WIDTH_MIN,
+            description=DESC_LABEL_WIDTH_MIN,
+        ): FLOAT_MIN_ZERO_MAX_ONE,
         vol.Optional(
-            CONFIG_LABEL_WIDTH_MAX, default=DEFAULT_LABEL_WIDTH_MAX
-        ): MIN_MAX_SCHEMA,
+            CONFIG_LABEL_WIDTH_MAX,
+            default=DEFAULT_LABEL_WIDTH_MAX,
+            description=DESC_LABEL_WIDTH_MAX,
+        ): FLOAT_MIN_ZERO_MAX_ONE,
         vol.Optional(
-            CONFIG_LABEL_TRIGGER_RECORDER, default=DEFAULT_LABEL_TRIGGER_RECORDER
+            CONFIG_LABEL_TRIGGER_RECORDER,
+            default=DEFAULT_LABEL_TRIGGER_RECORDER,
+            description=DESC_LABEL_TRIGGER_RECORDER,
         ): bool,
         vol.Optional(
-            CONFIG_LABEL_REQUIRE_MOTION, default=DEFAULT_LABEL_REQUIRE_MOTION
+            CONFIG_LABEL_REQUIRE_MOTION,
+            default=DEFAULT_LABEL_REQUIRE_MOTION,
+            description=DESC_LABEL_REQUIRE_MOTION,
         ): bool,
     },
     ensure_min_max,
@@ -110,40 +151,58 @@ LABEL_SCHEMA = vol.Schema(
 
 ZONE_SCHEMA = vol.Schema(
     {
-        vol.Required(CONFIG_ZONE_NAME): str,
-        vol.Required(CONFIG_COORDINATES): COORDINATES_SCHEMA,
-        vol.Optional(CONFIG_LABELS, default=DEFAULT_LABELS): [LABEL_SCHEMA],
+        vol.Required(CONFIG_ZONE_NAME, description=DESC_ZONE_NAME): str,
+        vol.Required(
+            CONFIG_COORDINATES, description=DESC_COORDINATES
+        ): COORDINATES_SCHEMA,
+        vol.Optional(CONFIG_LABELS, default=DEFAULT_LABELS, description=DESC_LABELS): [
+            LABEL_SCHEMA
+        ],
     }
 )
 
 CAMERA_SCHEMA = vol.Schema(
     {
-        vol.Optional(CONFIG_FPS, default=DEFAULT_FPS): vol.All(
-            vol.Any(float, int), vol.Coerce(float), vol.Range(min=0.0)
-        ),
         vol.Optional(
-            CONFIG_SCAN_ON_MOTION_ONLY, default=DEFAULT_SCAN_ON_MOTION_ONLY
+            CONFIG_FPS, default=DEFAULT_FPS, description=DESC_FPS
+        ): FLOAT_MIN_ZERO,
+        vol.Optional(
+            CONFIG_SCAN_ON_MOTION_ONLY,
+            default=DEFAULT_SCAN_ON_MOTION_ONLY,
+            description=DESC_SCAN_ON_MOTION_ONLY,
         ): bool,
-        vol.Optional(CONFIG_LABELS, default=DEFAULT_LABELS): vol.Any(
-            [], [LABEL_SCHEMA]
-        ),
-        vol.Optional(CONFIG_MAX_FRAME_AGE, default=DEFAULT_MAX_FRAME_AGE): vol.All(
-            vol.Any(float, int), vol.Coerce(float), vol.Range(min=0.0)
-        ),
-        vol.Optional(CONFIG_LOG_ALL_OBJECTS, default=DEFAULT_LOG_ALL_OBJECTS): bool,
-        vol.Optional(CONFIG_MASK, default=DEFAULT_MASK): [
-            {vol.Required(CONFIG_COORDINATES): COORDINATES_SCHEMA}
+        vol.Optional(CONFIG_LABELS, default=DEFAULT_LABELS, description=DESC_LABELS): [
+            LABEL_SCHEMA
         ],
-        vol.Optional(CONFIG_ZONES, default=DEFAULT_ZONES): vol.Any(
-            [],
-            [ZONE_SCHEMA],
-        ),
-    }
+        vol.Optional(
+            CONFIG_MAX_FRAME_AGE,
+            default=DEFAULT_MAX_FRAME_AGE,
+            description=DESC_MAX_FRAME_AGE,
+        ): FLOAT_MIN_ZERO,
+        vol.Optional(
+            CONFIG_LOG_ALL_OBJECTS,
+            default=DEFAULT_LOG_ALL_OBJECTS,
+            description=DESC_LOG_ALL_OBJECTS,
+        ): bool,
+        vol.Optional(CONFIG_MASK, default=DEFAULT_MASK, description=DESC_MASK): [
+            {
+                vol.Required(
+                    CONFIG_COORDINATES, description=DESC_COORDINATES
+                ): COORDINATES_SCHEMA
+            }
+        ],
+        vol.Optional(CONFIG_ZONES, default=DEFAULT_ZONES, description=DESC_ZONES): [
+            ZONE_SCHEMA
+        ],
+    },
 )
+
 
 BASE_CONFIG_SCHEMA = vol.Schema(
     {
-        vol.Required(CONFIG_CAMERAS): {str: CAMERA_SCHEMA},
+        vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
+            CameraIdentifier(description=DESC_CAMERA_IDENTIFIER): CAMERA_SCHEMA
+        },
     }
 )
 

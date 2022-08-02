@@ -1,0 +1,176 @@
+import Admonition from "@theme/Admonition";
+import TabItem from "@theme/TabItem";
+import Tabs from "@theme/Tabs";
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
+import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
+import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+Darknet is a state-of-the-art object detector that uses the YOLO (You Only Look Once) framework.
+It is built on a singel-stage algorithm to achieve both speed and accuracy.
+
+If CUDA is available on your system, `darknet` will run on your GPU.
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+darknet:
+  object_detector:
+    model_path: /detectors/models/darknet/yolov4.weights
+    model_config: /detectors/models/darknet/yolov4.cfg
+    cameras:
+      viseron_camera1:
+        fps: 1
+        scan_on_motion_only: true
+        log_all_objects: false
+        labels:
+          - label: dog
+            confidence: 0.7
+            trigger_recorder: false
+        zones:
+          - name: zone1
+            coordinates:
+              - x: 0
+                y: 500
+              - x: 1920
+                y: 500
+              - x: 1920
+                y: 1080
+              - x: 0
+                y: 1080
+            labels:
+              - label: person
+                confidence: 0.8
+                trigger_recorder: true
+        mask:
+          - coordinates:
+              - x: 400
+                y: 200
+              - x: 1000
+                y: 200
+              - x: 1000
+                y: 750
+              - x: 400
+                y: 750
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Object detector
+
+### Labels
+
+<ObjectDetectorLabels label_path="/detectors/models/darknet/coco.names" />
+
+### Zones
+
+<ObjectDetectorZones />
+
+### Mask
+
+<ObjectDetectorMask />
+
+### Pre-trained models
+
+The included models are placed inside `/detectors/models/darknet` folder.
+
+<details>
+<summary>Included models:</summary>
+
+- `yolov3-tiny.weights`
+- `yolov3.weights`
+- `yolov4-csp-swish.weights`
+- `yolov4-csp-x-swish.weights`
+- `yolov4-csp.weights`
+- `yolov4-p5.weights`
+- `yolov4-p6.weights`
+- `yolov4-tiny.weights`
+- `yolov4.weights`
+- `yolov4x-mish.weights`
+
+:::tip
+
+This [GitHub issue](https://github.com/AlexeyAB/darknet/issues/7087#issue-758524970) explains the models quite well.
+
+To make an educated guess of what model to use, you can reference [this image.](https://user-images.githubusercontent.com/4096485/101356322-f1f5a180-38a8-11eb-9907-4fe4f188d887.png)<br></br>
+It will help you find the perfect trade-off between accuracy and latency.
+
+:::
+
+</details>
+
+The default model differs a bit per container:
+
+| Image                             | Model                  |
+| --------------------------------- | ---------------------- |
+| `roflcoopter/viseron`             | `yolov3.weights`       |
+| `roflcoopter/amd64-viseron`       | `yolov3.weights`       |
+| `roflcoopter/amd64-cuda-viseron`  | `yolov4x-mish.weights` |
+| `roflcoopter/jetson-nano-viseron` | `yolov4-tiny.weights`  |
+
+The reason why not all containers are using YOLOv4 is that there are currently some issues with OpenCVs implementation of it.
+As soon as this is fixed for the versions of OpenCV that Viseron is using, YOLOv4 will be the standard for all.
+
+<Admonition type="tip">
+The containers also has <code>*-tiny.weights</code> model included in the image.
+The tiny-models can be used to reduce CPU and RAM usage.
+If you want to swap to a tiny-model you can change these configuration options:
+
+<Tabs>
+<TabItem value="yolov4" label="YOLOv4" default>
+
+```yaml
+darknet:
+  object_detector:
+    model_path: /detectors/models/darknet/yolov4-tiny.weights
+    model_config: /detectors/models/darknet/yolov4-tiny.cfg
+```
+
+</TabItem>
+<TabItem value="yolov3" label="YOLOv3">
+
+```yaml
+darknet:
+  object_detector:
+    model_path: /detectors/models/darknet/yolov3-tiny.weights
+    model_config: /detectors/models/darknet/yolov3-tiny.cfg
+```
+
+</TabItem>
+</Tabs>
+
+<Admonition type="note">
+  The tiny-models have <b>significantly</b> worse accuracy than their larger
+  counterparts.
+</Admonition>
+
+</Admonition>
+
+### OpenCV DNN Backend/Target
+
+The `dnn_backend` and `dnn_target` controls how the model runs.
+By default the YOLO-model will run on your GPU if you have CUDA or OpenCL available.
+You should not have to change this unless you have special needs.
+
+If you dont have a GPU available, `darknet` will run on the CPU.
+
+:::tip
+
+If you want to force `darknet` to run on OpenCL you can set these config options:
+
+```yaml
+darknet:
+  object_detector:
+    dnn_backend: opencv
+    dnn_target: opencl
+```

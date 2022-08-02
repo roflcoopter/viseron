@@ -1,0 +1,76 @@
+/* Modified version of https://github.com/facebook/docusaurus/blob/be0dc6b0c9d52e503dc1928f636010b761d5d44d/website/src/pages/showcase/_components/ShowcaseCard/styles.module.css */
+.componentCardImage {
+  overflow: hidden;
+  padding-top: 5px !important;
+  width: 10rem;
+  height: 10rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.componentCardHeader {
+  border-top: 2px solid var(--ifm-color-emphasis-200);
+  display: flex;
+  align-items: center;
+  padding-top: 0.25rem;
+  margin-bottom: 12px;
+}
+
+.componentCardTitle {
+  margin-bottom: 0;
+  flex: 1 1 auto;
+}
+
+.componentCardTitle a {
+  text-decoration: none;
+  background: linear-gradient(
+      var(--ifm-color-primary),
+      var(--ifm-color-primary)
+    )
+    0% 100% / 0% 1px no-repeat;
+  transition: background-size ease-out 200ms;
+}
+
+.componentCardTitle a:not(:focus):hover {
+  background-size: 100% 1px;
+}
+
+.componentCardTitle {
+  margin-right: 0.25rem;
+}
+
+.componentCardBody {
+  font-size: smaller;
+  line-height: 1.66;
+}
+
+.cardFooter {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.tag {
+  font-size: 0.675rem;
+  border: 1px solid var(--ifm-color-secondary-darkest);
+  cursor: default;
+  margin-right: 6px;
+  margin-bottom: 6px !important;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tag .textLabel {
+  margin-left: 8px;
+}
+
+.tag .colorLabel {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-left: 6px;
+  margin-right: 6px;
+}

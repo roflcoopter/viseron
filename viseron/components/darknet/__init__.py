@@ -20,6 +20,7 @@ from viseron.exceptions import ViseronError
 from viseron.helpers import letterbox_resize, pop_if_full
 from viseron.helpers.child_process_worker import ChildProcessWorker
 from viseron.helpers.logs import CTypesLogPipe
+from viseron.helpers.schemas import FLOAT_MIN_ZERO_MAX_ONE
 
 from . import darknet
 from .const import (
@@ -39,6 +40,14 @@ from .const import (
     DEFAULT_MODEL_CONFIG,
     DEFAULT_MODEL_PATH,
     DEFAULT_SUPPRESSION,
+    DESC_DNN_BACKEND,
+    DESC_DNN_TARGET,
+    DESC_HALF_PRECISION,
+    DESC_LABEL_PATH,
+    DESC_MODEL_CONFIG,
+    DESC_MODEL_PATH,
+    DESC_OBJECT_DETECTOR,
+    DESC_SUPPRESSION,
     DNN_BACKENDS,
     DNN_CPU,
     DNN_DEFAULT,
@@ -49,35 +58,46 @@ LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        COMPONENT: vol.Schema(
+        vol.Required(COMPONENT, description="Darknet configuration"): vol.Schema(
             {
-                vol.Required(CONFIG_OBJECT_DETECTOR): BASE_CONFIG_SCHEMA.extend(
+                vol.Required(
+                    CONFIG_OBJECT_DETECTOR, description=DESC_OBJECT_DETECTOR
+                ): BASE_CONFIG_SCHEMA.extend(
                     {
                         vol.Optional(
-                            CONFIG_MODEL_PATH, default=DEFAULT_MODEL_PATH
+                            CONFIG_MODEL_PATH,
+                            default=DEFAULT_MODEL_PATH,
+                            description=DESC_MODEL_PATH,
                         ): str,
                         vol.Optional(
-                            CONFIG_MODEL_CONFIG, default=DEFAULT_MODEL_CONFIG
+                            CONFIG_MODEL_CONFIG,
+                            default=DEFAULT_MODEL_CONFIG,
+                            description=DESC_MODEL_CONFIG,
                         ): str,
                         vol.Optional(
-                            CONFIG_LABEL_PATH, default=DEFAULT_LABEL_PATH
+                            CONFIG_LABEL_PATH,
+                            default=DEFAULT_LABEL_PATH,
+                            description=DESC_LABEL_PATH,
                         ): str,
                         vol.Optional(
-                            CONFIG_SUPPRESSION, default=DEFAULT_SUPPRESSION
-                        ): vol.Any(
-                            0,
-                            1,
-                            vol.All(float, vol.Range(min=0.0, max=1.0)),
-                            vol.Coerce(float),
-                        ),
+                            CONFIG_SUPPRESSION,
+                            default=DEFAULT_SUPPRESSION,
+                            description=DESC_SUPPRESSION,
+                        ): FLOAT_MIN_ZERO_MAX_ONE,
                         vol.Optional(
-                            CONFIG_DNN_BACKEND, default=DEFAULT_DNN_BACKEND
-                        ): vol.Any(vol.In(DNN_BACKENDS), None),
+                            CONFIG_DNN_BACKEND,
+                            default=DEFAULT_DNN_BACKEND,
+                            description=DESC_DNN_BACKEND,
+                        ): vol.Maybe(vol.In(DNN_BACKENDS)),
                         vol.Optional(
-                            CONFIG_DNN_TARGET, default=DEFAULT_DNN_TARGET
-                        ): vol.Any(vol.In(DNN_TARGETS), None),
+                            CONFIG_DNN_TARGET,
+                            default=DEFAULT_DNN_TARGET,
+                            description=DESC_DNN_TARGET,
+                        ): vol.Maybe(vol.In(DNN_TARGETS)),
                         vol.Optional(
-                            CONFIG_HALF_PRECISION, default=DEFAULT_HALF_PRECISION
+                            CONFIG_HALF_PRECISION,
+                            default=DEFAULT_HALF_PRECISION,
+                            description=DESC_HALF_PRECISION,
                         ): bool,
                     }
                 ),
