@@ -26,6 +26,7 @@ from viseron.watchdog.thread_watchdog import RestartableThread
 from .const import (
     COMPONENT,
     CONFIG_AUDIO_CODEC,
+    CONFIG_AUDIO_PIPELINE,
     CONFIG_CODEC,
     CONFIG_FFPROBE_LOGLEVEL,
     CONFIG_FPS,
@@ -51,6 +52,7 @@ from .const import (
     CONFIG_USERNAME,
     CONFIG_WIDTH,
     DEFAULT_AUDIO_CODEC,
+    DEFAULT_AUDIO_PIPELINE,
     DEFAULT_CODEC,
     DEFAULT_FFPROBE_LOGLEVEL,
     DEFAULT_FPS,
@@ -96,6 +98,7 @@ STREAM_SCEHMA_DICT = {
     ),
     vol.Optional(CONFIG_CODEC, default=DEFAULT_CODEC): str,
     vol.Optional(CONFIG_AUDIO_CODEC, default=DEFAULT_AUDIO_CODEC): vol.Maybe(str),
+    vol.Optional(CONFIG_AUDIO_PIPELINE, default=DEFAULT_AUDIO_PIPELINE): vol.Maybe(str),
     vol.Optional(CONFIG_RTSP_TRANSPORT, default=DEFAULT_RTSP_TRANSPORT): vol.Any(
         "tcp",
         "udp",

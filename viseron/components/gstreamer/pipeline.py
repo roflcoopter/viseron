@@ -9,6 +9,8 @@ from viseron.domains.camera.const import CONFIG_EXTENSION
 from .const import (
     CAMERA_SEGMENT_DURATION,
     COMPONENT,
+    CONFIG_AUDIO_CODEC,
+    CONFIG_AUDIO_PIPELINE,
     CONFIG_GSTREAMER_LOGLEVEL,
     CONFIG_MUXER,
     CONFIG_RECORDER,
@@ -184,6 +186,39 @@ class BasePipeline:
             + [f"location={segment_filepattern}"]
         )
 
+    def audio_pipeline(self):
+        """Return audio pipeline."""
+        if (
+            self._stream.output_stream_config[CONFIG_AUDIO_PIPELINE]
+            and self._stream.output_stream_config[CONFIG_AUDIO_PIPELINE] != "unset"
+        ):
+            return self._stream.output_stream_config[CONFIG_AUDIO_PIPELINE].split(" ")
+
+        if (
+            self._stream.output_stream_config[CONFIG_AUDIO_CODEC]
+            and self._stream.output_stream_config[CONFIG_AUDIO_CODEC] != "unset"
+        ) or (
+            self._stream.stream_audio_codec
+            and self._stream.output_stream_config[CONFIG_AUDIO_CODEC]
+        ):
+            return [
+                "input_stream.",
+                "!",
+                "queue",
+                "!",
+                "decodebin",
+                "!",
+                "audioconvert",
+                "!",
+                "queue",
+                "!",
+                "voaacenc",
+                "!",
+                "mux.audio_0",
+            ]
+
+        return []
+
     def build_pipeline(self):
         """Return pipeline."""
         return (
@@ -191,6 +226,7 @@ class BasePipeline:
             + self.input_pipeline()
             + self.output_pipeline()
             + self.segment_pipeline()
+            + self.audio_pipeline()
         )
 
 

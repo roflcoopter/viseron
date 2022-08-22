@@ -29,6 +29,7 @@ from viseron.watchdog.subprocess_watchdog import RestartablePopen
 from .const import (
     COMPONENT,
     CONFIG_AUDIO_CODEC,
+    CONFIG_AUDIO_PIPELINE,
     CONFIG_CODEC,
     CONFIG_FFPROBE_LOGLEVEL,
     CONFIG_FPS,
@@ -89,7 +90,10 @@ class Stream:
             or not self._output_stream_config[CONFIG_HEIGHT]
             or not self._output_stream_config[CONFIG_FPS]
             or not self._output_stream_config[CONFIG_CODEC]
-            or self._output_stream_config[CONFIG_AUDIO_CODEC] == "unset"
+            or (
+                self._output_stream_config[CONFIG_AUDIO_CODEC] == "unset"
+                and self._output_stream_config[CONFIG_AUDIO_PIPELINE] == "unset"
+            )
         ):
             (
                 width,
@@ -182,6 +186,11 @@ class Stream:
             f"{self._config[CONFIG_HOST]}:{self._output_stream_config[CONFIG_PORT]}"
             f"{self._output_stream_config[CONFIG_PATH]}"
         )
+
+    @property
+    def output_stream_config(self):
+        """Return output stream config."""
+        return self._output_stream_config
 
     @property
     def alias(self):
