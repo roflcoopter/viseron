@@ -6,10 +6,14 @@ import logging
 
 import voluptuous as vol
 
-from .const import COMPONENT, DEFAULT_LOG_LEVEL, VALID_LOG_LEVELS
-
-CONFIG_DEFAULT_LEVEL = "default_level"
-CONFIG_LOGS = "logs"
+from .const import (
+    COMPONENT,
+    CONFIG_CAMERAS,
+    CONFIG_DEFAULT_LEVEL,
+    CONFIG_LOGS,
+    DEFAULT_LOG_LEVEL,
+    VALID_LOG_LEVELS,
+)
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -19,6 +23,9 @@ CONFIG_SCHEMA = vol.Schema(
                     vol.Upper, vol.In(VALID_LOG_LEVELS)
                 ),
                 vol.Optional(CONFIG_LOGS): vol.Schema(
+                    {str: vol.All(vol.Upper, vol.In(VALID_LOG_LEVELS))}
+                ),
+                vol.Optional(CONFIG_CAMERAS): vol.Schema(
                     {str: vol.All(vol.Upper, vol.In(VALID_LOG_LEVELS))}
                 ),
             }
@@ -32,7 +39,11 @@ def setup(vis, config):
     """Set up the logger component."""
     vis.data[COMPONENT] = {}
     vis.data[COMPONENT][CONFIG_LOGS] = {}
-    logging.setLoggerClass(_get_logger_class(vis.data[COMPONENT][CONFIG_LOGS]))
+    logging.setLoggerClass(
+        _get_logger_class(
+            vis.data[COMPONENT][CONFIG_LOGS], config[COMPONENT][CONFIG_CAMERAS]
+        )
+    )
 
     def set_default_log_level(level):
         """Set the default log level for components."""
@@ -59,7 +70,7 @@ def _set_log_level(logger, level):
     getattr(logger, "orig_setLevel", logger.setLevel)(VALID_LOG_LEVELS[level])
 
 
-def _get_logger_class(log_overrides):
+def _get_logger_class(log_overrides, camera_log_overrides):
     """Create a logger subclass.
 
     Used to make sure overridden log levels are set properly
@@ -68,10 +79,22 @@ def _get_logger_class(log_overrides):
     class ViseronLogger(logging.Logger):
         """Logger with built in level overrides."""
 
+        def __init__(self, name, level=logging.NOTSET):
+            for piece in name.split("."):
+                if piece in camera_log_overrides:
+                    level = VALID_LOG_LEVELS[camera_log_overrides[piece]]
+                    break
+
+            super().__init__(name, level=level)
+
         def setLevel(self, level) -> None:
             """Set the log level unless overridden."""
             if self.name in log_overrides:
                 return
+
+            for piece in self.name.split("."):
+                if piece in camera_log_overrides:
+                    return
 
             super().setLevel(level)
 
