@@ -215,7 +215,6 @@ class NVR:
             CAMERA_DOMAIN, camera_identifier
         )
 
-        self.setup_loggers()
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.debug(f"Initializing NVR for camera {self._camera.name}")
 
@@ -313,13 +312,6 @@ class NVR:
 
         self._camera.start_camera()
         self._logger.info(f"NVR for camera {self._camera.name} initialized")
-
-    def setup_loggers(self):
-        """Set up custom log names and levels."""
-        self._logger = logging.getLogger(__name__ + "." + self._camera.identifier)
-        self._motion_logger = logging.getLogger(
-            __name__ + "." + self._camera.identifier + ".motion"
-        )
 
     def calculate_output_fps(self):
         """Calculate the camera output fps based on registered frame scanners."""

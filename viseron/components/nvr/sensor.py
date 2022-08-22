@@ -9,6 +9,7 @@ from .const import EVENT_OPERATION_STATE
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
+    from viseron.components.nvr.nvr import EventOperationState
 
     from .nvr import NVR
 
@@ -28,12 +29,14 @@ class OperationStateSensor(CameraSensor):
         self.object_id = f"{nvr.camera.identifier}_operation_state"
         self.name = f"{nvr.camera.name} Operation State"
 
-        vis.listen_event(
-            EVENT_OPERATION_STATE.format(camera_identifier=nvr.camera.identifier),
+    def setup(self):
+        """Set up event listener."""
+        self._vis.listen_event(
+            EVENT_OPERATION_STATE.format(camera_identifier=self.nvr.camera.identifier),
             self.handle_event,
         )
 
-    def handle_event(self, event_data: Event):
+    def handle_event(self, event_data: Event[EventOperationState]):
         """Update sensor state."""
         self._state = event_data.data.operation_state
         self.set_state()

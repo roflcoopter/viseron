@@ -151,6 +151,9 @@ class States:
             entity.vis = self._vis
 
             self._registry[entity_id] = entity
+            if hasattr(entity, "setup"):
+                entity.setup()
+
             self._vis.dispatch_event(
                 EVENT_ENTITY_ADDED,
                 EventEntityAddedData(entity),
