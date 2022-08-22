@@ -9,11 +9,13 @@ from collections.abc import Mapping
 import typing_extensions
 import voluptuous as vol
 
-from viseron.helpers.validators import CameraIdentifier
+from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict, Maybe
 from viseron.types import SupportedDomains
 
 from .const import (
     DOCS_CONTENTS,
+    DOCS_FACE_RECOGNITION_CONTENTS,
+    DOCS_FACE_RECOGNITION_IMPORTS,
     DOCS_IMPORTS,
     DOCS_OBJECT_DETECTOR_CONTENTS,
     DOCS_OBJECT_DETECTOR_IMPORTS,
@@ -90,6 +92,21 @@ def convert(schema):  # noqa: C901
                 _options.append(option)
         return _options
 
+    if isinstance(schema, Maybe):
+        val = []
+        for validator in schema.validators:
+            if validator is None:
+                continue
+            val.append(convert(validator))
+        options = recurse_options(val)
+
+        if len(options) == 1:
+            return options[0]
+        return {
+            "type": "select",
+            "options": options,
+        }
+
     if isinstance(schema, vol.Any):
         val = []
         for validator in schema.validators:
@@ -151,6 +168,9 @@ def convert(schema):  # noqa: C901
 
     if isinstance(schema, vol.Coerce):
         schema = schema.type
+
+    if isinstance(schema, CoerceNoneToDict):
+        return convert(schema.schema)
 
     if isinstance(schema, list):
         return {
@@ -230,15 +250,19 @@ def import_component(component):
     else:
         print("_meta.tsx found, will NOT overwrite")
 
-    if not os.path.exists(os.path.join(docs_path, "_index.mdx")):
+    if not os.path.exists(os.path.join(docs_path, "index.mdx")):
         print("index.mdx is missing, creating new from template")
         docs = DOCS_IMPORTS
         if "object_detector" in supported_domains:
             docs += DOCS_OBJECT_DETECTOR_IMPORTS
+        if "face_recognition" in supported_domains:
+            docs += DOCS_FACE_RECOGNITION_IMPORTS
 
         docs += DOCS_CONTENTS
         if "object_detector" in supported_domains:
             docs += DOCS_OBJECT_DETECTOR_CONTENTS
+        if "face_recognition" in supported_domains:
+            docs += DOCS_FACE_RECOGNITION_CONTENTS
 
         with open(
             os.path.join(docs_path, "index.mdx"),
@@ -277,7 +301,7 @@ def main():
     parser.add_argument(
         "-c",
         "--component",
-        help="Component to generate doc skeleton for",
+        help="What component to generate doc skeleton for",
         required=True,
     )
     args = parser.parse_args()

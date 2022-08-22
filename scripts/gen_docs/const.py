@@ -40,6 +40,7 @@ Config example here
 
 """
 
+
 DOCS_OBJECT_DETECTOR_IMPORTS = """import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
 import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
 import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
@@ -58,4 +59,22 @@ DOCS_OBJECT_DETECTOR_CONTENTS = """## Object detector
 ### Mask
 
 <ObjectDetectorMask />
+
+"""
+
+
+DOCS_FACE_RECOGNITION_IMPORTS = """import FaceRecognitionLabels from "@site/src/pages/components-explorer/_domains/face_recognition/labels.mdx"
+import FaceRecognitionTrain from "@site/src/pages/components-explorer/_domains/face_recognition/train.mdx";
+"""
+
+DOCS_FACE_RECOGNITION_CONTENTS = """## Face recognition
+
+Face recognition runs as a <a href="/docs/introduction/configuration#post-processors">post processor</a> when a specific object is detected.
+
+### Labels
+<FaceRecognitionLabels />
+
+### Train
+<FaceRecognitionTrain />
+
 """

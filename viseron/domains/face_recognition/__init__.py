@@ -13,11 +13,10 @@ import voluptuous as vol
 
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
 from viseron.helpers import create_directory
-from viseron.helpers.validators import none_to_dict
+from viseron.helpers.schemas import FLOAT_MIN_ZERO
 
 from .binary_sensor import FaceDetectionBinarySensor
 from .const import (
-    CONFIG_CAMERAS,
     CONFIG_EXPIRE_AFTER,
     CONFIG_FACE_RECOGNITION_PATH,
     CONFIG_SAVE_UNKNOWN_FACES,
@@ -26,6 +25,10 @@ from .const import (
     DEFAULT_FACE_RECOGNITION_PATH,
     DEFAULT_SAVE_UNKNOWN_FACES,
     DEFAULT_UNKNOWN_FACES_PATH,
+    DESC_EXPIRE_AFTER,
+    DESC_FACE_RECOGNITION_PATH,
+    DESC_SAVE_UNKNOWN_FACES,
+    DESC_UNKNOWN_FACES_PATH,
     EVENT_FACE_DETECTED,
     EVENT_FACE_EXPIRED,
 )
@@ -33,19 +36,25 @@ from .const import (
 BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
     {
         vol.Optional(
-            CONFIG_FACE_RECOGNITION_PATH, default=DEFAULT_FACE_RECOGNITION_PATH
+            CONFIG_FACE_RECOGNITION_PATH,
+            default=DEFAULT_FACE_RECOGNITION_PATH,
+            description=DESC_FACE_RECOGNITION_PATH,
         ): str,
         vol.Optional(
-            CONFIG_SAVE_UNKNOWN_FACES, default=DEFAULT_SAVE_UNKNOWN_FACES
+            CONFIG_SAVE_UNKNOWN_FACES,
+            default=DEFAULT_SAVE_UNKNOWN_FACES,
+            description=DESC_SAVE_UNKNOWN_FACES,
         ): bool,
         vol.Optional(
-            CONFIG_UNKNOWN_FACES_PATH, default=DEFAULT_UNKNOWN_FACES_PATH
+            CONFIG_UNKNOWN_FACES_PATH,
+            default=DEFAULT_UNKNOWN_FACES_PATH,
+            description=DESC_UNKNOWN_FACES_PATH,
         ): str,
-        vol.Optional(CONFIG_EXPIRE_AFTER, default=DEFAULT_EXPIRE_AFTER): vol.All(
-            vol.Any(vol.All(int, vol.Range(min=0)), vol.All(float, vol.Range(min=0.0))),
-            vol.Coerce(float),
-        ),
-        vol.Required(CONFIG_CAMERAS): {str: vol.All(None, none_to_dict)},
+        vol.Optional(
+            CONFIG_EXPIRE_AFTER,
+            default=DEFAULT_EXPIRE_AFTER,
+            description=DESC_EXPIRE_AFTER,
+        ): FLOAT_MIN_ZERO,
     }
 )
 

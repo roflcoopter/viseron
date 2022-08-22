@@ -18,9 +18,16 @@ from viseron.domains.object_detector.detected_object import (
     DetectedObject,
     EventDetectedObjectsData,
 )
+from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
 from viseron.watchdog.thread_watchdog import RestartableThread
 
-from .const import CONFIG_CAMERAS, CONFIG_LABELS
+from .const import (
+    CONFIG_CAMERAS,
+    CONFIG_LABELS,
+    DESC_CAMERAS,
+    DESC_LABELS_GLOBAL,
+    DESC_LABELS_LOCAL,
+)
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
@@ -32,14 +39,16 @@ LABEL_SCHEMA = vol.Schema([str])
 
 CAMERA_SCHEMA = vol.Schema(
     {
-        vol.Optional(CONFIG_LABELS): LABEL_SCHEMA,
+        vol.Optional(CONFIG_LABELS, description=DESC_LABELS_LOCAL): LABEL_SCHEMA,
     }
 )
 
 BASE_CONFIG_SCHEMA = vol.Schema(
     {
-        vol.Optional(CONFIG_CAMERAS): {str: CAMERA_SCHEMA},
-        vol.Optional(CONFIG_LABELS): LABEL_SCHEMA,
+        vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
+            CameraIdentifier(): CoerceNoneToDict(CAMERA_SCHEMA)
+        },
+        vol.Optional(CONFIG_LABELS, description=DESC_LABELS_GLOBAL): LABEL_SCHEMA,
     }
 )
 

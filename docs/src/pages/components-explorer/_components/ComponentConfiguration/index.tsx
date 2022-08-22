@@ -34,7 +34,9 @@ function buildValidValues(item: any) {
         <ul className={styles.configVariablesValidValuesValue}>
           {getValidValues(item.options).map((option, index) => (
             <li key={`${option.value}${index}`}>
-              <code>{option.value}</code>
+              <code>
+                {option.value === undefined ? `<${option.type}>` : option.value}
+              </code>
             </li>
           ))}
         </ul>

@@ -3,6 +3,36 @@
         "type": "map",
         "value": [
             {
+                "type": "string",
+                "name": "host",
+                "description": "IP or hostname to your DeepStack server.",
+                "required": true,
+                "default": null
+            },
+            {
+                "type": "integer",
+                "valueMin": 1024,
+                "valueMax": 49151,
+                "name": "port",
+                "description": "Port to your DeepStack server.",
+                "required": true,
+                "default": null
+            },
+            {
+                "type": "string",
+                "name": "api_key",
+                "description": "API key to your DeepStack server, if you have one set.",
+                "optional": true,
+                "default": null
+            },
+            {
+                "type": "integer",
+                "name": "timeout",
+                "description": "Timeout for requests to your DeepStack server.",
+                "optional": true,
+                "default": 10
+            },
+            {
                 "type": "map",
                 "value": [
                     {
@@ -283,97 +313,127 @@
                         "default": null
                     },
                     {
-                        "type": "string",
-                        "name": "model_path",
-                        "description": "Path to model (YOLO *.weights file)",
+                        "type": "integer",
+                        "name": "image_width",
+                        "description": "Frames will be resized to this width before inference to save computing power.",
                         "optional": true,
-                        "default": "/detectors/models/darknet/default.weights"
+                        "default": null
+                    },
+                    {
+                        "type": "integer",
+                        "name": "image_height",
+                        "description": "Frames will be resized to this height before inference to save computing power.",
+                        "optional": true,
+                        "default": null
                     },
                     {
                         "type": "string",
-                        "name": "model_config",
-                        "description": "Path to config (YOLO *.cfg file)",
+                        "name": "custom_model",
+                        "description": "Name of a custom DeepStack model. More information <a href=https://docs.deepstack.cc/custom-models/index.html>here</a>.",
                         "optional": true,
-                        "default": "/detectors/models/darknet/default.cfg"
+                        "default": null
+                    }
+                ],
+                "name": "object_detector",
+                "description": "Object detector domain config.",
+                "optional": true,
+                "default": null
+            },
+            {
+                "type": "map",
+                "value": [
+                    {
+                        "type": "map",
+                        "key": {
+                            "type": "camera_identifier",
+                            "name": "CAMERA_IDENTIFIER",
+                            "description": "Camera identifier."
+                        },
+                        "value": [
+                            {
+                                "type": "list",
+                                "values": [
+                                    {
+                                        "type": "string"
+                                    }
+                                ],
+                                "name": "labels",
+                                "description": "A list of labels that when detected will be sent to the post processor. Applies <b>only</b> to this specific camera.",
+                                "optional": true,
+                                "default": null
+                            }
+                        ],
+                        "description": "Camera-specific configuration. All subordinate keys corresponds to the <code>camera_identifier</code> of a configured camera.",
+                        "name": "cameras",
+                        "required": true,
+                        "default": null
+                    },
+                    {
+                        "type": "list",
+                        "values": [
+                            {
+                                "type": "string"
+                            }
+                        ],
+                        "name": "labels",
+                        "description": "A list of labels that when detected will be sent to the post processor. Applies to <b>all</b> cameras defined under <code>cameras</code>.",
+                        "optional": true,
+                        "default": null
                     },
                     {
                         "type": "string",
-                        "name": "label_path",
-                        "description": "Path to file containing trained labels.",
+                        "name": "face_recognition_path",
+                        "description": "Path to folder which contains subdirectories with images for each face to track.",
                         "optional": true,
-                        "default": "/detectors/models/darknet/coco.names"
+                        "default": "/config/face_recognition/faces"
+                    },
+                    {
+                        "type": "boolean",
+                        "name": "save_unknown_faces",
+                        "description": "If true, any unrecognized face will be saved to the folder specified in <code>unknown_faces_path</code>. You can then move this image to the folder of the correct person to improve accuracy.",
+                        "optional": true,
+                        "default": false
+                    },
+                    {
+                        "type": "string",
+                        "name": "unknown_faces_path",
+                        "description": "Path to folder where unknown faces will be stored.",
+                        "optional": true,
+                        "default": "/config/face_recognition/faces/unknown"
+                    },
+                    {
+                        "type": "float",
+                        "valueMin": 0.0,
+                        "name": "expire_after",
+                        "description": "Time in seconds before a detected face is no longer considered detected.",
+                        "optional": true,
+                        "default": 5
+                    },
+                    {
+                        "type": "boolean",
+                        "name": "train",
+                        "description": "Train DeepStack to recognize faces on Viseron start. Disable this when you have a good model trained.",
+                        "optional": true,
+                        "default": true
                     },
                     {
                         "type": "float",
                         "valueMin": 0.0,
                         "valueMax": 1.0,
-                        "name": "suppression",
-                        "description": "Non-maxima suppression, used to remove overlapping detections.<br>You can read more about how this works <a href=https://towardsdatascience.com/non-maximum-suppression-nms-93ce178e177c>here.<a>",
+                        "name": "min_confidence",
+                        "description": "Minumum confidence for a face to be considered a match.",
                         "optional": true,
-                        "default": 0.4
-                    },
-                    {
-                        "type": "select",
-                        "options": [
-                            {
-                                "type": "none",
-                                "value": "null"
-                            },
-                            {
-                                "type": "constant",
-                                "value": "default"
-                            },
-                            {
-                                "type": "constant",
-                                "value": "opencv"
-                            }
-                        ],
-                        "name": "dnn_backend",
-                        "description": "OpenCV DNN Backend.",
-                        "optional": true,
-                        "default": null
-                    },
-                    {
-                        "type": "select",
-                        "options": [
-                            {
-                                "type": "none",
-                                "value": "null"
-                            },
-                            {
-                                "type": "constant",
-                                "value": "cpu"
-                            },
-                            {
-                                "type": "constant",
-                                "value": "opencl"
-                            },
-                            {
-                                "type": "constant",
-                                "value": "opencl_fp16"
-                            }
-                        ],
-                        "name": "dnn_target",
-                        "description": "OpenCV DNN Target.",
-                        "optional": true,
-                        "default": null
-                    },
-                    {
-                        "type": "boolean",
-                        "name": "half_precision",
-                        "description": "Enable/disable half precision accuracy.<br>If your GPU supports FP16, enabling this might give you a performance increase.",
-                        "optional": true,
-                        "default": false
+                        "default": 0.8
                     }
                 ],
-                "name": "object_detector",
-                "description": "Object detector domain config.",
-                "required": true,
+                "name": "face_recognition",
+                "description": "Face recognition domain config",
+                "optional": true,
                 "default": null
             }
         ],
-        "name": "darknet",
-        "description": "Darknet configuration.",
+        "name": "deepstack",
+        "description": "DeepStack configuration.",
         "required": true,
         "default": null
     }

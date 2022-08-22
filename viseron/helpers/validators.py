@@ -85,3 +85,34 @@ class CameraIdentifier(vol.Required):
             valid_camera_identifier,
             description=description,
         )
+
+
+class CoerceNoneToDict:
+    """Coerce None to empty dict."""
+
+    def __init__(self, schema, msg=None):
+        self.schema = schema
+        self.msg = msg
+
+    def __call__(self, value):
+        """Coerce None to empty dict."""
+        if isinstance(value, dict):
+            return value
+
+        if value is None:
+            return {}
+        raise vol.CoerceInvalid("expected dict or None")
+
+    def __repr__(self):
+        """Return representation."""
+        return "CoerceNoneToDict(%s, msg=%r)" % ("dict", self.msg)
+
+
+class Maybe(vol.Any):
+    """Mimic voluptuous.Maybe but using a class instead.
+
+    This allows for special handling when generating docs with scripts/gen_docs.py.
+    """
+
+    def __init__(self, *validators, **kwargs):
+        super().__init__(*validators + (None,), **kwargs)
