@@ -31,19 +31,21 @@ class CameraConnectionToggle(CameraToggle):
         self.name = f"{camera.name} Connection"
         self.icon = "mdi:cctv"
 
-        vis.listen_event(
+    def setup(self):
+        """Set up event listener."""
+        self._vis.listen_event(
             EVENT_CAMERA_START.format(camera_identifier=self._camera.identifier),
             self.handle_start_event,
         )
-        vis.listen_event(
+        self._vis.listen_event(
             EVENT_CAMERA_STOP.format(camera_identifier=self._camera.identifier),
             self.handle_stop_event,
         )
-        vis.listen_event(
+        self._vis.listen_event(
             EVENT_CAMERA_STARTED.format(camera_identifier=self._camera.identifier),
             self.handle_started_stopped_event,
         )
-        vis.listen_event(
+        self._vis.listen_event(
             EVENT_CAMERA_STOPPED.format(camera_identifier=self._camera.identifier),
             self.handle_started_stopped_event,
         )

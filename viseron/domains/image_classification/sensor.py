@@ -25,15 +25,17 @@ class ImageClassificationSensor(CameraSensor):
 
         self._image_classification_event: EventImageClassification | None = None
 
-        vis.listen_event(
+    def setup(self):
+        """Set up event listener."""
+        self._vis.listen_event(
             EVENT_IMAGE_CLASSIFICATION_RESULT.format(
-                camera_identifier=camera.identifier
+                camera_identifier=self._camera.identifier
             ),
             self.result,
         )
-        vis.listen_event(
+        self._vis.listen_event(
             EVENT_IMAGE_CLASSIFICATION_EXPIRED.format(
-                camera_identifier=camera.identifier
+                camera_identifier=self._camera.identifier
             ),
             self.result_expired,
         )

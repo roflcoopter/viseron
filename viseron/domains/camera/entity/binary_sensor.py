@@ -28,8 +28,10 @@ class ConnectionStatusBinarySensor(CameraBinarySensor):
         self.object_id = f"{camera.identifier}_connected"
         self.name = f"{camera.name} Connected"
 
-        vis.listen_event(
-            EVENT_STATUS.format(camera_identifier=camera.identifier),
+    def setup(self):
+        """Set up event listener."""
+        self._vis.listen_event(
+            EVENT_STATUS.format(camera_identifier=self._camera.identifier),
             self.handle_event,
         )
 
@@ -51,12 +53,14 @@ class RecorderBinarySensor(CameraBinarySensor):
         self.object_id = f"{camera.identifier}_recorder"
         self.name = f"{camera.name} Recorder"
 
-        vis.listen_event(
-            EVENT_RECORDER_START.format(camera_identifier=camera.identifier),
+    def setup(self):
+        """Set up event listener."""
+        self._vis.listen_event(
+            EVENT_RECORDER_START.format(camera_identifier=self._camera.identifier),
             self.handle_start_event,
         )
-        vis.listen_event(
-            EVENT_RECORDER_STOP.format(camera_identifier=camera.identifier),
+        self._vis.listen_event(
+            EVENT_RECORDER_STOP.format(camera_identifier=self._camera.identifier),
             self.handle_stop_event,
         )
 

@@ -16,21 +16,28 @@ if TYPE_CHECKING:
 class FaceDetectionBinarySensor(CameraBinarySensor):
     """Entity that keeps track of face detection."""
 
-    def __init__(self, vis: Viseron, camera: AbstractCamera, face: str):
+    def __init__(self, vis: Viseron, camera: AbstractCamera, face_name: str):
         super().__init__(vis, camera)
-        self.object_id = f"{camera.identifier}_face_detected_{face}"
-        self.name = f"{camera.name} Face Detected {face.capitalize()}"
+        self._face_name = face_name
+        self.object_id = f"{camera.identifier}_face_detected_{face_name}"
+        self.name = f"{camera.name} Face Detected {face_name.capitalize()}"
         self.icon = "mdi:face-recognition"
 
         self._detected = False
         self._face: FaceDict | None = None
 
-        vis.listen_event(
-            EVENT_FACE_DETECTED.format(camera_identifier=camera.identifier, face=face),
+    def setup(self):
+        """Set up event listener."""
+        self._vis.listen_event(
+            EVENT_FACE_DETECTED.format(
+                camera_identifier=self._camera.identifier, face=self._face_name
+            ),
             self.face_detected,
         )
-        vis.listen_event(
-            EVENT_FACE_EXPIRED.format(camera_identifier=camera.identifier, face=face),
+        self._vis.listen_event(
+            EVENT_FACE_EXPIRED.format(
+                camera_identifier=self._camera.identifier, face=self._face_name
+            ),
             self.face_expired,
         )
 

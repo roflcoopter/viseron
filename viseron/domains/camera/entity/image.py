@@ -27,8 +27,10 @@ class ThumbnailImage(CameraImage):
         self.object_id = f"{camera.identifier}_latest_thumbnail"
         self.name = f"{camera.name} Latest Thumbnail"
 
-        vis.listen_event(
-            EVENT_RECORDER_START.format(camera_identifier=camera.identifier),
+    def setup(self):
+        """Set up event listener."""
+        self._vis.listen_event(
+            EVENT_RECORDER_START.format(camera_identifier=self._camera.identifier),
             self.handle_event,
         )
 

@@ -30,7 +30,9 @@ class ObjectDetectorFPSSensor(CameraSensor):
         self.icon = "mdi:speedometer"
         self.entity_category = "diagnostic"
 
-        vis.schedule_periodic_update(self, UPDATE_INTERVAL)
+    def setup(self):
+        """Set up state updates."""
+        self._vis.schedule_periodic_update(self, UPDATE_INTERVAL)
 
     @property
     def attributes(self):

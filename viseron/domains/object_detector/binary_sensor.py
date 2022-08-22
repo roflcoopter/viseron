@@ -28,9 +28,12 @@ class ObjectDetectedBinarySensor(CameraBinarySensor):
     ):
         super().__init__(vis, camera)
         self._objects: List[DetectedObject] = []
-        vis.listen_event(
+
+    def setup(self):
+        """Set up event listener."""
+        self._vis.listen_event(
             EVENT_SCAN_FRAMES.format(
-                camera_identifier=camera.identifier, scanner_name=OBJECT_DETECTOR
+                camera_identifier=self._camera.identifier, scanner_name=OBJECT_DETECTOR
             ),
             self.handle_stop_scan,
         )

@@ -30,8 +30,10 @@ class MotionDetectionBinarySensor(CameraBinarySensor):
         self.object_id = f"{camera.identifier}_motion_detected"
         self.name = f"{camera.name} Motion Detected"
 
-        vis.listen_event(
-            EVENT_MOTION_DETECTED.format(camera_identifier=camera.identifier),
+    def setup(self):
+        """Set up event listener."""
+        self._vis.listen_event(
+            EVENT_MOTION_DETECTED.format(camera_identifier=self._camera.identifier),
             self.handle_event,
         )
 
