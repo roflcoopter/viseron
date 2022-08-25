@@ -11,10 +11,8 @@ from viseron.domains import RequireDomain, setup_domain
 from viseron.domains.face_recognition import (
     BASE_CONFIG_SCHEMA as FACE_RECOGNITION_BASE_CONFIG_SCHEMA,
 )
-from viseron.domains.face_recognition.const import (
-    CONFIG_CAMERAS,
-    CONFIG_FACE_RECOGNITION_PATH,
-)
+from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH
+from viseron.domains.post_processor.const import CONFIG_CAMERAS
 
 from .const import COMPONENT, CONFIG_FACE_RECOGNITION, CONFIG_MODEL, SUPPORTED_MODELS
 
