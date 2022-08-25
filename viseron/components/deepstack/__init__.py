@@ -37,6 +37,7 @@ from .const import (
     DEFAULT_TIMEOUT,
     DEFAULT_TRAIN,
     DESC_API_KEY,
+    DESC_COMPONENT,
     DESC_CUSTOM_MODEL,
     DESC_FACE_RECOGNITION,
     DESC_HOST,
@@ -84,7 +85,7 @@ FACE_RECOGNITION_SCHEMA = FACE_RECOGNITION_BASE_CONFIG_SCHEMA.extend(
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        vol.Required(COMPONENT, description="DeepStack configuration."): vol.Schema(
+        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
             {
                 vol.Required(CONFIG_HOST, description=DESC_HOST): str,
                 vol.Required(CONFIG_PORT, description=DESC_PORT): vol.All(

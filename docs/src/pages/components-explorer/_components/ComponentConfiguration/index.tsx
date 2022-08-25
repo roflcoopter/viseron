@@ -85,12 +85,22 @@ function buildDescription(item: any) {
   );
 }
 
+function getName(item: any) {
+  if (typeof item.name === "string") {
+    return item.name;
+  }
+  if (item.name.name) {
+    return item.name.name;
+  }
+  return `<${item.name.type}>`;
+}
+
 // Return div with header containing item name/type/required/default value
 function buildHeader(item: any) {
   return (
     <div className="config-variables-header">
       {item.name ? (
-        <span className={styles.configVariablesName}>{item.name}</span>
+        <span className={styles.configVariablesName}>{getName(item)}</span>
       ) : null}
       <span className={styles.configVariablesType}>{item.type}</span>
 
@@ -154,24 +164,6 @@ function buildItem(item: ComponentConfigurationType, children: any, index) {
 }
 
 function configOption(_config: ComponentConfigurationType, index) {
-  if (_config.type === "map" && _config.key) {
-    // Recursively build up all child nodes
-    return buildItem(
-      _config,
-      buildItem(
-        {
-          ..._config,
-          type: _config.key.type,
-          name: _config.key.name,
-          description: _config.key.description,
-        },
-        _config.value.map((children) => configOption(children, index)),
-        index
-      ),
-      index
-    );
-  }
-
   if (_config.type === "list") {
     if (Array.isArray(_config.values[0])) {
       return buildItem(
@@ -204,7 +196,7 @@ function ComponentConfiguration({
 }) {
   return (
     <span>
-      <div className="config-variables">
+      <div className={clsx(styles.configVariables)}>
         {config.map((_config, index) => configOption(_config, index))}
       </div>
     </span>

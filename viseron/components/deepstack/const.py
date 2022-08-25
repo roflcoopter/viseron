@@ -14,6 +14,7 @@ CONFIG_TIMEOUT = "timeout"
 DEFAULT_API_KEY = None
 DEFAULT_TIMEOUT = 10
 
+DESC_COMPONENT = "DeepStack configuration."
 DESC_OBJECT_DETECTOR = "Object detector domain config."
 DESC_FACE_RECOGNITION = "Face recognition domain config."
 DESC_HOST = "IP or hostname to your DeepStack server."

@@ -1,3 +1,7 @@
+.configVariables {
+  padding-bottom: var(--ifm-heading-margin-bottom);
+}
+
 .configVariablesItem {
   border-bottom: 1px solid #d9dbde;
   padding-top: 12px;

@@ -40,6 +40,7 @@ from .const import (
     DEFAULT_MODEL_CONFIG,
     DEFAULT_MODEL_PATH,
     DEFAULT_SUPPRESSION,
+    DESC_COMPONENT,
     DESC_DNN_BACKEND,
     DESC_DNN_TARGET,
     DESC_HALF_PRECISION,
@@ -58,7 +59,7 @@ LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        vol.Required(COMPONENT, description="Darknet configuration."): vol.Schema(
+        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
             {
                 vol.Required(
                     CONFIG_OBJECT_DETECTOR, description=DESC_OBJECT_DETECTOR

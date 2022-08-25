@@ -28,6 +28,7 @@ DEFAULT_DNN_BACKEND = None
 DEFAULT_DNN_TARGET = None
 DEFAULT_HALF_PRECISION = False
 
+DESC_COMPONENT = "Darknet configuration."
 DESC_OBJECT_DETECTOR = "Object detector domain config."
 DESC_MODEL_PATH = "Path to model (YOLO *.weights file)"
 DESC_MODEL_CONFIG = "Path to config (YOLO *.cfg file)"

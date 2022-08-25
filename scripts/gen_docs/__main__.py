@@ -54,20 +54,14 @@ def convert(schema):  # noqa: C901
             else:
                 pkey = key
 
-            if not isinstance(pkey, str):
-                if len(schema) != 1:
-                    raise ValueError("Unable to convert schema: {}".format(schema))
-                return {
-                    "type": "map",
-                    "key": convert(key),
-                    "value": convert(value),
-                    "description": description,
-                }
-
             pval = convert(value)
             if isinstance(pval, list):
                 pval = {"type": "map", "value": pval}
-            pval["name"] = pkey
+
+            if not isinstance(pkey, str):
+                pval["name"] = convert(key)
+            else:
+                pval["name"] = pkey
             pval["description"] = description
 
             if isinstance(key, (vol.Required, vol.Optional)):
@@ -195,9 +189,7 @@ def convert(schema):  # noqa: C901
 
     if isinstance(schema, CameraIdentifier):
         return {
-            "type": "camera_identifier",
-            "name": "CAMERA_IDENTIFIER",
-            "description": schema.description,
+            "type": "CAMERA_IDENTIFIER",
         }
 
     if callable(schema):
