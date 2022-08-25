@@ -80,3 +80,15 @@ Face recognition runs as a <a href="/docs/introduction/configuration#post-proces
 <FaceRecognitionTrain />
 
 """
+
+
+DOCS_MOTION_DETECTOR_IMPORTS = """import MotionDetectorMask from "@site/src/pages/components-explorer/_domains/motion_detector/mask.mdx";
+"""
+
+DOCS_MOTION_DETECTOR_CONTENTS = """## Motion detector
+
+### Mask
+
+<MotionDetectorMask />
+
+"""

@@ -17,6 +17,8 @@ from .const import (
     DOCS_FACE_RECOGNITION_CONTENTS,
     DOCS_FACE_RECOGNITION_IMPORTS,
     DOCS_IMPORTS,
+    DOCS_MOTION_DETECTOR_CONTENTS,
+    DOCS_MOTION_DETECTOR_IMPORTS,
     DOCS_OBJECT_DETECTOR_CONTENTS,
     DOCS_OBJECT_DETECTOR_IMPORTS,
     META_CONTENTS,
@@ -247,12 +249,16 @@ def import_component(component):
         docs = DOCS_IMPORTS
         if "object_detector" in supported_domains:
             docs += DOCS_OBJECT_DETECTOR_IMPORTS
+        if "motion_detector" in supported_domains:
+            docs += DOCS_MOTION_DETECTOR_IMPORTS
         if "face_recognition" in supported_domains:
             docs += DOCS_FACE_RECOGNITION_IMPORTS
 
         docs += DOCS_CONTENTS
         if "object_detector" in supported_domains:
             docs += DOCS_OBJECT_DETECTOR_CONTENTS
+        if "motion_detector" in supported_domains:
+            docs += DOCS_MOTION_DETECTOR_CONTENTS
         if "face_recognition" in supported_domains:
             docs += DOCS_FACE_RECOGNITION_CONTENTS
 
