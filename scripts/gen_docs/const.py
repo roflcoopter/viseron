@@ -72,9 +72,11 @@ DOCS_FACE_RECOGNITION_CONTENTS = """## Face recognition
 Face recognition runs as a <a href="/docs/introduction/configuration#post-processors">post processor</a> when a specific object is detected.
 
 ### Labels
+
 <FaceRecognitionLabels />
 
 ### Train
+
 <FaceRecognitionTrain />
 
 """

@@ -14,7 +14,15 @@ from viseron.domains.face_recognition import (
 from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH
 from viseron.domains.post_processor.const import CONFIG_CAMERAS
 
-from .const import COMPONENT, CONFIG_FACE_RECOGNITION, CONFIG_MODEL, SUPPORTED_MODELS
+from .const import (
+    COMPONENT,
+    CONFIG_FACE_RECOGNITION,
+    CONFIG_MODEL,
+    DESC_COMPONENT,
+    DESC_FACE_RECOGNITION,
+    DESC_MODEL,
+    SUPPORTED_MODELS,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -28,17 +36,19 @@ def get_default_model() -> str:
 
 FACE_RECOGNITION_SCHEMA = FACE_RECOGNITION_BASE_CONFIG_SCHEMA.extend(
     {
-        vol.Optional(CONFIG_MODEL, default=get_default_model()): vol.In(
-            SUPPORTED_MODELS
-        ),
+        vol.Optional(
+            CONFIG_MODEL, default=get_default_model(), description=DESC_MODEL
+        ): vol.In(SUPPORTED_MODELS),
     }
 )
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        COMPONENT: vol.Schema(
+        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
             {
-                vol.Optional(CONFIG_FACE_RECOGNITION): FACE_RECOGNITION_SCHEMA,
+                vol.Optional(
+                    CONFIG_FACE_RECOGNITION, description=DESC_FACE_RECOGNITION
+                ): FACE_RECOGNITION_SCHEMA,
             }
         )
     },
