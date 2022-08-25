@@ -6,28 +6,42 @@ import logging
 
 import voluptuous as vol
 
+from viseron.helpers.validators import CameraIdentifier
+
 from .const import (
     COMPONENT,
     CONFIG_CAMERAS,
     CONFIG_DEFAULT_LEVEL,
     CONFIG_LOGS,
     DEFAULT_LOG_LEVEL,
+    DESC_CAMERA_IDENTIFIER,
+    DESC_CAMERAS,
+    DESC_COMPONENT,
+    DESC_DEFAULT_LEVEL,
+    DESC_LOGGER_NAME,
+    DESC_LOGS,
     VALID_LOG_LEVELS,
 )
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        COMPONENT: vol.Schema(
+        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
             {
-                vol.Optional(CONFIG_DEFAULT_LEVEL, default=DEFAULT_LOG_LEVEL): vol.All(
-                    vol.Upper, vol.In(VALID_LOG_LEVELS)
-                ),
-                vol.Optional(CONFIG_LOGS): vol.Schema(
-                    {str: vol.All(vol.Upper, vol.In(VALID_LOG_LEVELS))}
-                ),
-                vol.Optional(CONFIG_CAMERAS): vol.Schema(
-                    {str: vol.All(vol.Upper, vol.In(VALID_LOG_LEVELS))}
-                ),
+                vol.Optional(
+                    CONFIG_DEFAULT_LEVEL,
+                    default=DEFAULT_LOG_LEVEL,
+                    description=DESC_DEFAULT_LEVEL,
+                ): vol.All(vol.Lower, vol.In(VALID_LOG_LEVELS)),
+                vol.Optional(CONFIG_LOGS, description=DESC_LOGS): {
+                    vol.Required(str, description=DESC_LOGGER_NAME): vol.All(
+                        vol.Lower, vol.In(VALID_LOG_LEVELS)
+                    )
+                },
+                vol.Optional(CONFIG_CAMERAS, description=DESC_CAMERAS): {
+                    CameraIdentifier(description=DESC_CAMERA_IDENTIFIER): vol.All(
+                        vol.Lower, vol.In(VALID_LOG_LEVELS)
+                    )
+                },
             }
         )
     },

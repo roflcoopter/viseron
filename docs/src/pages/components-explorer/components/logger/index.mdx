@@ -1,0 +1,62 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+The `logger` component enables you to control the log levels of other components and activities in Viseron.
+
+Logs are in the format: <code>[timestamp] [level] [log_name] - message</code>
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+logger:
+  default_level: info
+  logs:
+    viseron.components.ffmpeg: debug
+    viseron.components.edgetpu: debug
+  cameras:
+    camera_one: debug
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Available levels
+
+This list shows the available log levels sorted by severity.
+Logging messages which are less severe than the given level will be ignored.
+
+- critical
+- error
+- warning
+- info
+- debug
+
+## View logs
+
+Example command to examine the logs:
+
+```bash
+docker logs -f viseron
+```
+
+## Debugging a camera
+
+If one of your cameras is malfunctioning you might need to enable debug logging for it to gain some more insight or raise an issue.
+
+Setting `default_level` to `debug` will create a lot of noise.
+To isolate the logs of a specific camera, use the `cameras` config option.
+The following example will enable debug logging for _all_ logs related to the camera with the identifier `camera_one`.
+
+```yaml
+logger:
+  cameras:
+    camera_one: debug
+```
