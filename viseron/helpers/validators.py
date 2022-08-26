@@ -90,9 +90,8 @@ class CameraIdentifier(vol.Required):
 class CoerceNoneToDict:
     """Coerce None to empty dict."""
 
-    def __init__(self, schema, msg=None):
-        self.schema = schema
-        self.msg = msg
+    def __init__(self):
+        pass
 
     def __call__(self, value):
         """Coerce None to empty dict."""
@@ -105,7 +104,7 @@ class CoerceNoneToDict:
 
     def __repr__(self):
         """Return representation."""
-        return "CoerceNoneToDict(%s, msg=%r)" % ("dict", self.msg)
+        return "CoerceNoneToDict(%s)" % ("dict")
 
 
 class Maybe(vol.Any):

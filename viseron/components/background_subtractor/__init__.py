@@ -41,7 +41,7 @@ CONFIG_SCHEMA = vol.Schema(
                     CONFIG_MOTION_DETECTOR, description=DESC_MOTION_DETECTOR
                 ): {
                     vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
-                        CameraIdentifier(): CoerceNoneToDict(CAMERA_SCHEMA)
+                        CameraIdentifier(): vol.All(CoerceNoneToDict(), CAMERA_SCHEMA),
                     },
                 },
             }

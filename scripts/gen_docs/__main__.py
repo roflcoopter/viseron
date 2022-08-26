@@ -114,10 +114,23 @@ def convert(schema):  # noqa: C901
         }
 
     if isinstance(schema, vol.All):
-        val = {}
+        val_list = []
+        val_dict = {}
         for validator in schema.validators:
-            val.update(convert(validator))
-        return val
+            if isinstance(validator, CoerceNoneToDict):
+                continue
+
+            _val = convert(validator)
+            if isinstance(_val, list):
+                for __val in _val:
+                    print(__val)
+                    val_list.append(__val)
+            else:
+                val_dict.update(_val)
+
+        if val_list:
+            return val_list
+        return val_dict
 
     if isinstance(schema, (vol.Clamp, vol.Range)):
         val = {}
@@ -164,9 +177,6 @@ def convert(schema):  # noqa: C901
 
     if isinstance(schema, vol.Coerce):
         schema = schema.type
-
-    if isinstance(schema, CoerceNoneToDict):
-        return convert(schema.schema)
 
     if isinstance(schema, list):
         return {

@@ -46,7 +46,7 @@ CAMERA_SCHEMA = vol.Schema(
 BASE_CONFIG_SCHEMA = vol.Schema(
     {
         vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
-            CameraIdentifier(): CoerceNoneToDict(CAMERA_SCHEMA)
+            CameraIdentifier(): vol.All(CoerceNoneToDict(), CAMERA_SCHEMA)
         },
         vol.Optional(CONFIG_LABELS, description=DESC_LABELS_GLOBAL): LABEL_SCHEMA,
     }
