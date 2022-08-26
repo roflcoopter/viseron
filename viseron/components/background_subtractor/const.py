@@ -13,8 +13,8 @@ DEFAULT_ALPHA = 0.1
 DESC_COMPONENT = "Component configuration."
 DESC_THRESHOLD = (
     "The minimum allowed difference between our current frame and averaged frame for a "
-    "given pixel to be considered motion. A smaller value leads to higher sensitivity and "
-    "a larger value leads to lower sensitivity."
+    "given pixel to be considered motion. A smaller value leads to higher sensitivity "
+    "and a larger value leads to lower sensitivity."
 )
 DESC_ALPHA = (
     "How much the current image impacts the moving average.<br>"
