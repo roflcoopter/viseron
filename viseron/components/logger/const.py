@@ -9,6 +9,7 @@ CONFIG_LOGS = "logs"
 CONFIG_CAMERAS = "cameras"
 
 DEFAULT_LOG_LEVEL = "info"
+DEFAULT_CAMERAS = None
 
 DESC_COMPONENT = "Logger configuration."
 DESC_DEFAULT_LEVEL = "Set default level for all logs."

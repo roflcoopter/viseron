@@ -6,13 +6,14 @@ import logging
 
 import voluptuous as vol
 
-from viseron.helpers.validators import CameraIdentifier
+from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
 
 from .const import (
     COMPONENT,
     CONFIG_CAMERAS,
     CONFIG_DEFAULT_LEVEL,
     CONFIG_LOGS,
+    DEFAULT_CAMERAS,
     DEFAULT_LOG_LEVEL,
     DESC_CAMERA_IDENTIFIER,
     DESC_CAMERAS,
@@ -37,11 +38,15 @@ CONFIG_SCHEMA = vol.Schema(
                         vol.Lower, vol.In(VALID_LOG_LEVELS)
                     )
                 },
-                vol.Optional(CONFIG_CAMERAS, description=DESC_CAMERAS): {
-                    CameraIdentifier(description=DESC_CAMERA_IDENTIFIER): vol.All(
-                        vol.Lower, vol.In(VALID_LOG_LEVELS)
-                    )
-                },
+                vol.Optional(
+                    CONFIG_CAMERAS, default=DEFAULT_CAMERAS, description=DESC_CAMERAS
+                ): CoerceNoneToDict(
+                    {
+                        CameraIdentifier(description=DESC_CAMERA_IDENTIFIER): vol.All(
+                            vol.Lower, vol.In(VALID_LOG_LEVELS)
+                        )
+                    }
+                ),
             }
         )
     },
