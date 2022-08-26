@@ -3,11 +3,7 @@ import voluptuous as vol
 
 from viseron import Viseron
 from viseron.domains import RequireDomain, setup_domain
-from viseron.domains.motion_detector import (
-    BASE_CONFIG_SCHEMA_SCANNER,
-    CAMERA_SCHEMA_SCANNER,
-    CONFIG_CAMERAS,
-)
+from viseron.domains.motion_detector import CAMERA_SCHEMA_SCANNER, CONFIG_CAMERAS
 from viseron.helpers.validators import none_to_dict
 
 from .const import (
@@ -46,17 +42,15 @@ CAMERA_SCHEMA = CAMERA_SCHEMA_SCANNER.extend(
 )
 
 
-MOTION_DETECTOR_SCHEMA = BASE_CONFIG_SCHEMA_SCANNER.extend(
-    {
-        vol.Required(CONFIG_CAMERAS): {str: vol.All(none_to_dict, CAMERA_SCHEMA)},
-    }
-)
-
 CONFIG_SCHEMA = vol.Schema(
     {
         COMPONENT: vol.Schema(
             {
-                vol.Required(CONFIG_MOTION_DETECTOR): MOTION_DETECTOR_SCHEMA,
+                vol.Required(CONFIG_MOTION_DETECTOR): {
+                    vol.Required(CONFIG_CAMERAS): {
+                        str: vol.All(none_to_dict, CAMERA_SCHEMA)
+                    },
+                },
             }
         )
     },

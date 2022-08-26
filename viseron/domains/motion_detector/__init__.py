@@ -16,7 +16,12 @@ from viseron.components.nvr.const import EVENT_SCAN_FRAMES, MOTION_DETECTOR
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.helpers import generate_mask
-from viseron.helpers.schemas import COORDINATES_SCHEMA
+from viseron.helpers.schemas import (
+    COORDINATES_SCHEMA,
+    FLOAT_MIN_ZERO,
+    FLOAT_MIN_ZERO_MAX_ONE,
+)
+from viseron.helpers.validators import CameraIdentifier
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .binary_sensor import MotionDetectionBinarySensor
@@ -41,6 +46,16 @@ from .const import (
     DEFAULT_RECORDER_KEEPALIVE,
     DEFAULT_TRIGGER_RECORDER,
     DEFAULT_WIDTH,
+    DESC_AREA,
+    DESC_CAMERAS,
+    DESC_COORDINATES,
+    DESC_FPS,
+    DESC_HEIGHT,
+    DESC_MASK,
+    DESC_MAX_RECORDER_KEEPALIVE,
+    DESC_RECORDER_KEEPALIVE,
+    DESC_TRIGGER_RECORDER,
+    DESC_WIDTH,
     EVENT_MOTION_DETECTED,
 )
 
@@ -55,19 +70,29 @@ if TYPE_CHECKING:
 
 CAMERA_SCHEMA = vol.Schema(
     {
-        vol.Optional(CONFIG_TRIGGER_RECORDER, default=DEFAULT_TRIGGER_RECORDER): bool,
         vol.Optional(
-            CONFIG_RECORDER_KEEPALIVE, default=DEFAULT_RECORDER_KEEPALIVE
+            CONFIG_TRIGGER_RECORDER,
+            default=DEFAULT_TRIGGER_RECORDER,
+            description=DESC_TRIGGER_RECORDER,
         ): bool,
         vol.Optional(
-            CONFIG_MAX_RECORDER_KEEPALIVE, default=DEFAULT_MAX_RECORDER_KEEPALIVE
+            CONFIG_RECORDER_KEEPALIVE,
+            default=DEFAULT_RECORDER_KEEPALIVE,
+            description=DESC_RECORDER_KEEPALIVE,
+        ): bool,
+        vol.Optional(
+            CONFIG_MAX_RECORDER_KEEPALIVE,
+            default=DEFAULT_MAX_RECORDER_KEEPALIVE,
+            description=DESC_MAX_RECORDER_KEEPALIVE,
         ): vol.All(int, vol.Range(min=0)),
     }
 )
 
 BASE_CONFIG_SCHEMA = vol.Schema(
     {
-        vol.Required(CONFIG_CAMERAS): {str: CAMERA_SCHEMA},
+        vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
+            CameraIdentifier(): CAMERA_SCHEMA
+        },
     }
 )
 
@@ -160,31 +185,23 @@ class AbstractMotionDetector(ABC):
 
 CAMERA_SCHEMA_SCANNER = CAMERA_SCHEMA.extend(
     {
-        vol.Optional(CONFIG_FPS, default=DEFAULT_FPS): vol.All(
-            vol.Any(float, int), vol.Coerce(float), vol.Range(min=0.0)
-        ),
-        vol.Optional(CONFIG_AREA, default=DEFAULT_AREA): vol.All(
-            vol.Any(
-                vol.All(
-                    float,
-                    vol.Range(min=0.0, max=1.0),
-                ),
-                1,
-                0,
-            ),
-            vol.Coerce(float),
-        ),
-        vol.Optional(CONFIG_WIDTH, default=DEFAULT_WIDTH): int,
-        vol.Optional(CONFIG_HEIGHT, default=DEFAULT_HEIGHT): int,
-        vol.Optional(CONFIG_MASK, default=DEFAULT_MASK): [
-            {vol.Required(CONFIG_COORDINATES): COORDINATES_SCHEMA}
+        vol.Optional(
+            CONFIG_FPS, default=DEFAULT_FPS, description=DESC_FPS
+        ): FLOAT_MIN_ZERO,
+        vol.Optional(
+            CONFIG_AREA, default=DEFAULT_AREA, description=DESC_AREA
+        ): FLOAT_MIN_ZERO_MAX_ONE,
+        vol.Optional(CONFIG_WIDTH, default=DEFAULT_WIDTH, description=DESC_WIDTH): int,
+        vol.Optional(
+            CONFIG_HEIGHT, default=DEFAULT_HEIGHT, description=DESC_HEIGHT
+        ): int,
+        vol.Optional(CONFIG_MASK, default=DEFAULT_MASK, description=DESC_MASK): [
+            {
+                vol.Required(
+                    CONFIG_COORDINATES, description=DESC_COORDINATES
+                ): COORDINATES_SCHEMA
+            }
         ],
-    }
-)
-
-BASE_CONFIG_SCHEMA_SCANNER = vol.Schema(
-    {
-        vol.Required(CONFIG_CAMERAS): {str: CAMERA_SCHEMA_SCANNER},
     }
 )
 

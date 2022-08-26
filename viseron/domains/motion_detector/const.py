@@ -34,3 +34,35 @@ DEFAULT_MASK: List[Dict[str, int]] = []
 DEFAULT_TRIGGER_RECORDER = False
 DEFAULT_RECORDER_KEEPALIVE = True
 DEFAULT_MAX_RECORDER_KEEPALIVE = 30
+
+DESC_CAMERAS = (
+    "Camera-specific configuration. All subordinate "
+    "keys corresponds to the <code>camera_identifier</code> of a configured camera."
+)
+DESC_FPS = (
+    "The FPS at which the motion detector runs.<br>"
+    "Higher values will result in more scanning, which uses more resources."
+)
+DESC_AREA = "How big the detected area must be in order to trigger motion."
+DESC_WIDTH = (
+    "Frames will be resized to this width before applying the motion detection "
+    "algorithm to save computing power."
+)
+DESC_HEIGHT = (
+    "Frames will be resized to this height before applying the motion detection "
+    "algorithm to save computing power."
+)
+DESC_MASK = (
+    "A mask is used to exclude certain areas in the image from motion detection. "
+)
+DESC_COORDINATES = "List of X and Y coordinates to form a polygon"
+DESC_TRIGGER_RECORDER = "If true, detected motion will start the recorder."
+DESC_RECORDER_KEEPALIVE = (
+    "If true, recording will continue until no motion is detected."
+)
+DESC_MAX_RECORDER_KEEPALIVE = (
+    "Value in seconds for how long motion is allowed to keep the "
+    "recorder going when no objects are detected.<br>"
+    "This is to prevent never-ending recordings.<br>"
+    "Only applicable if <code>recorder_keepalive: true</code>."
+)

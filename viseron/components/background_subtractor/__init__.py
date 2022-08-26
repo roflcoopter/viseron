@@ -3,12 +3,10 @@ import voluptuous as vol
 
 from viseron import Viseron
 from viseron.domains import RequireDomain, setup_domain
-from viseron.domains.motion_detector import (
-    BASE_CONFIG_SCHEMA_SCANNER,
-    CAMERA_SCHEMA_SCANNER,
-    CONFIG_CAMERAS,
-)
-from viseron.helpers.validators import none_to_dict
+from viseron.domains.motion_detector import CAMERA_SCHEMA_SCANNER, CONFIG_CAMERAS
+from viseron.domains.motion_detector.const import DESC_CAMERAS
+from viseron.helpers.schemas import FLOAT_MIN_ZERO_MAX_ONE
+from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
 
 from .const import (
     COMPONENT,
@@ -17,32 +15,35 @@ from .const import (
     CONFIG_THRESHOLD,
     DEFAULT_ALPHA,
     DEFAULT_THRESHOLD,
+    DESC_ALPHA,
+    DESC_COMPONENT,
+    DESC_MOTION_DETECTOR,
+    DESC_THRESHOLD,
 )
 
 CAMERA_SCHEMA = CAMERA_SCHEMA_SCANNER.extend(
     {
-        vol.Optional(CONFIG_THRESHOLD, default=DEFAULT_THRESHOLD): vol.All(
-            int, vol.Range(min=0, max=255)
-        ),
-        vol.Optional(CONFIG_ALPHA, default=DEFAULT_ALPHA): vol.All(
-            vol.Any(vol.All(float, vol.Range(min=0.0, max=1.0)), 1, 0),
-            vol.Coerce(float),
-        ),
+        vol.Optional(
+            CONFIG_THRESHOLD, default=DEFAULT_THRESHOLD, description=DESC_THRESHOLD
+        ): vol.All(int, vol.Range(min=0, max=255)),
+        vol.Optional(
+            CONFIG_ALPHA, default=DEFAULT_ALPHA, description=DESC_ALPHA
+        ): FLOAT_MIN_ZERO_MAX_ONE,
     }
 )
 
-
-MOTION_DETECTOR_SCHEMA = BASE_CONFIG_SCHEMA_SCANNER.extend(
-    {
-        vol.Required(CONFIG_CAMERAS): {str: vol.All(none_to_dict, CAMERA_SCHEMA)},
-    }
-)
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        COMPONENT: vol.Schema(
+        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
             {
-                vol.Required(CONFIG_MOTION_DETECTOR): MOTION_DETECTOR_SCHEMA,
+                vol.Required(
+                    CONFIG_MOTION_DETECTOR, description=DESC_MOTION_DETECTOR
+                ): {
+                    vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
+                        CameraIdentifier(): CoerceNoneToDict(CAMERA_SCHEMA)
+                    },
+                },
             }
         )
     },

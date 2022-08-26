@@ -1,0 +1,50 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import MotionDetectorMask from "@site/src/pages/components-explorer/_domains/motion_detector/mask.mdx";
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+The `background_subtractor` component utilizes a set of OpenCV functions to implement motion detection using an algorithm called background subtraction.
+
+It works by creating a running average of frames, and then comparing the current frame to this average.<br />
+If enough changes have occurred, motion will be detected.<br />
+By using a running average, the "background" image will adjust to daylight, stationary objects etc.<br />
+[This](https://www.pyimagesearch.com/2015/06/01/home-surveillance-and-motion-detection-with-the-raspberry-pi-python-and-opencv/) blogpost from PyImageSearch explains this procedure quite well.
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+background_subtractor:
+  motion_detector:
+    cameras:
+      camera_one:
+        fps: 1
+        mask:
+          - coordinates:
+              - x: 400
+                y: 200
+              - x: 1000
+                y: 200
+              - x: 1000
+                y: 750
+              - x: 400
+                y: 750
+      camera_two:
+        fps: 2
+        trigger_recorder: true
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Motion detector
+
+### Mask
+
+<MotionDetectorMask />
