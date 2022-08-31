@@ -1,7 +1,6 @@
 """EdgeTPU object detection."""
 import logging
 import multiprocessing as mp
-import re
 from abc import abstractmethod
 
 import tflite_runtime.interpreter as tflite
@@ -22,7 +21,9 @@ from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.exceptions import ViseronError
 from viseron.helpers import pop_if_full
 from viseron.helpers.child_process_worker import ChildProcessWorker
+from viseron.helpers.validators import Maybe
 
+from .config import DeviceValidator, get_label_schema
 from .const import (
     COMPONENT,
     CONFIG_DEVICE,
@@ -35,81 +36,41 @@ from .const import (
     DEFAULT_DETECTOR_CPU_MODEL,
     DEFAULT_DETECTOR_EDGETPU_MODEL,
     DEFAULT_DEVICE,
-    DEFAULT_LABEL_PATH,
-    DEFAULT_LABEL_PATH_MAP,
     DEFAULT_MODEL_PATH,
+    DESC_COMPONENT,
+    DESC_DEVICE,
+    DESC_IMAGE_CLASSIFICATION,
+    DESC_MODEL_PATH,
+    DESC_OBJECT_DETECTOR,
     DEVICE_CPU,
 )
 
 LOGGER = logging.getLogger(__name__)
 
 
-DEVICE_REGEXES = [
-    re.compile(r"^:[0-9]$"),  # match ':<N>'
-    re.compile(r"^(usb|pci|cpu)$"),  # match 'usb', 'pci' and 'cpu'
-    re.compile(r"^(usb|pci):[0-9]$"),  # match 'usb:<N>' and 'pci:<N>'
-]
-
-
-def edgetpu_device_validator(device):
-    """Check for valid EdgeTPU device name.
-
-    Valid values are:
-        ":<N>" : Use N-th Edge TPU
-        "usb" : Use any USB Edge TPU
-        "usb:<N>" : Use N-th USB Edge TPU
-        "pci" : Use any PCIe Edge TPU
-        "pci:<N>" : Use N-th PCIe Edge TPU
-        "cpu" : Run on the CPU
-    """
-    for regex in DEVICE_REGEXES:
-        if regex.match(device):
-            return device
-    raise vol.Invalid(
-        f"EdgeTPU device {device} is invalid. Please check your configuration"
-    )
-
-
-class DefaultLabelPath:
-    """Return default label path for specified domain."""
-
-    def __init__(self, domain, msg=None):
-        self.msg = msg
-        self.domain = domain
-
-    def __call__(self, value):
-        """Return default label path for specified domain."""
-        if value:
-            return value
-        return DEFAULT_LABEL_PATH_MAP[self.domain]
-
-
-def get_label_schema(domain):
-    """Return domain specific schema."""
-    return {
-        vol.Optional(CONFIG_LABEL_PATH, default=DEFAULT_LABEL_PATH): vol.All(
-            vol.Maybe(str), DefaultLabelPath(domain)
-        )
-    }
-
-
 EDGETPU_SCHEMA = {
-    vol.Optional(CONFIG_MODEL_PATH, default=DEFAULT_MODEL_PATH): vol.Maybe(str),
-    vol.Optional(CONFIG_DEVICE, default=DEFAULT_DEVICE): vol.Maybe(
-        vol.All(str, edgetpu_device_validator)
-    ),
+    vol.Optional(
+        CONFIG_MODEL_PATH,
+        default=DEFAULT_MODEL_PATH,
+        description=DESC_MODEL_PATH,
+    ): Maybe(str),
+    vol.Optional(
+        CONFIG_DEVICE, default=DEFAULT_DEVICE, description=DESC_DEVICE
+    ): DeviceValidator(),
 }
 
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        COMPONENT: vol.Schema(
+        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
             {
-                vol.Optional(CONFIG_OBJECT_DETECTOR): BASE_CONFIG_SCHEMA.extend(
+                vol.Optional(
+                    CONFIG_OBJECT_DETECTOR, description=DESC_OBJECT_DETECTOR
+                ): BASE_CONFIG_SCHEMA.extend(
                     {**EDGETPU_SCHEMA, **get_label_schema(CONFIG_OBJECT_DETECTOR)}
                 ),
                 vol.Optional(
-                    CONFIG_IMAGE_CLASSIFICATION
+                    CONFIG_IMAGE_CLASSIFICATION, description=DESC_IMAGE_CLASSIFICATION
                 ): IMAGE_CLASSIFICATION_BASE_CONFIG_SCHEMA.extend(
                     {**EDGETPU_SCHEMA, **get_label_schema(CONFIG_IMAGE_CLASSIFICATION)}
                 ),

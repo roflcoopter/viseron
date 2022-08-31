@@ -37,6 +37,7 @@ function buildValidValues(item: any) {
               <code>
                 {option.value === undefined ? `<${option.type}>` : option.value}
               </code>
+              {option.description ? `: ${option.description}` : null}
             </li>
           ))}
         </ul>
