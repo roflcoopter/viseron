@@ -65,7 +65,6 @@ from .const import (
     DEFAULT_MAX_FRAME_AGE,
     DEFAULT_SCAN_ON_MOTION_ONLY,
     DEFAULT_ZONES,
-    DESC_CAMERA_IDENTIFIER,
     DESC_CAMERAS,
     DESC_COORDINATES,
     DESC_FPS,
@@ -201,7 +200,7 @@ CAMERA_SCHEMA = vol.Schema(
 BASE_CONFIG_SCHEMA = vol.Schema(
     {
         vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
-            CameraIdentifier(description=DESC_CAMERA_IDENTIFIER): CAMERA_SCHEMA
+            CameraIdentifier(): CAMERA_SCHEMA
         },
     }
 )

@@ -83,7 +83,6 @@ DESC_CAMERAS = (
     "Camera-specific configuration. All subordinate "
     "keys corresponds to the <code>camera_identifier</code> of a configured camera."
 )
-DESC_CAMERA_IDENTIFIER = "Camera identifier."
 
 DESC_FPS = (
     "The FPS at which the object detector runs.<br>"

@@ -80,7 +80,13 @@ def valid_camera_identifier(value):
 class CameraIdentifier(vol.Required):
     """Validate Camera Identifier."""
 
-    def __init__(self, description="Camera identifier."):
+    def __init__(
+        self,
+        description=(
+            "Camera identifier. "
+            "Valid characters are lowercase a-z, numbers and underscores."
+        ),
+    ):
         super().__init__(
             valid_camera_identifier,
             description=description,

@@ -10,12 +10,12 @@ import numpy as np
 import voluptuous as vol
 
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
-from viseron.helpers.validators import none_to_dict
+from viseron.helpers.schemas import FLOAT_MIN_ZERO
 
 from .const import (
-    CONFIG_CAMERAS,
     CONFIG_EXPIRE_AFTER,
     DEFAULT_EXPIRE_AFTER,
+    DESC_EXPIRE_AFTER,
     EVENT_IMAGE_CLASSIFICATION_EXPIRED,
     EVENT_IMAGE_CLASSIFICATION_RESULT,
 )
@@ -27,16 +27,11 @@ if TYPE_CHECKING:
 
 BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
     {
-        vol.Optional(CONFIG_EXPIRE_AFTER, default=DEFAULT_EXPIRE_AFTER): vol.All(
-            vol.Any(vol.All(int, vol.Range(min=0)), vol.All(float, vol.Range(min=0.0))),
-            vol.Coerce(float),
-        ),
-        vol.Required(CONFIG_CAMERAS): {
-            str: vol.All(
-                None,
-                none_to_dict,
-            )
-        },
+        vol.Optional(
+            CONFIG_EXPIRE_AFTER,
+            default=DEFAULT_EXPIRE_AFTER,
+            description=DESC_EXPIRE_AFTER,
+        ): FLOAT_MIN_ZERO,
     }
 )
 

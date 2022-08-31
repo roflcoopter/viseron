@@ -9,6 +9,7 @@ from collections.abc import Mapping
 import typing_extensions
 import voluptuous as vol
 
+from viseron.config import UNSUPPORTED
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict, Maybe
 from viseron.types import SupportedDomains
 
@@ -16,6 +17,8 @@ from .const import (
     DOCS_CONTENTS,
     DOCS_FACE_RECOGNITION_CONTENTS,
     DOCS_FACE_RECOGNITION_IMPORTS,
+    DOCS_IMAGE_CLASSIFICATION_CONTENTS,
+    DOCS_IMAGE_CLASSIFICATION_IMPORTS,
     DOCS_IMPORTS,
     DOCS_MOTION_DETECTOR_CONTENTS,
     DOCS_MOTION_DETECTOR_IMPORTS,
@@ -37,10 +40,15 @@ DOCS_PATH = "./docs/src/pages/components-explorer/components/{component}"
 
 
 # This function is copied and adapted from https://github.com/home-assistant-libs/voluptuous-serialize/blob/2.4.0/voluptuous_serialize/__init__.py # pylint: disable=line-too-long
-def convert(schema):  # noqa: C901
+def convert(schema, custom_convert=None):  # noqa: C901
     """Convert a voluptuous schema to a dictionary."""
     if isinstance(schema, vol.Schema):
         schema = schema.schema
+
+    if custom_convert:
+        val = custom_convert(schema)
+        if val is not UNSUPPORTED:
+            return val
 
     if isinstance(schema, Mapping):
         val = []
@@ -56,12 +64,12 @@ def convert(schema):  # noqa: C901
             else:
                 pkey = key
 
-            pval = convert(value)
+            pval = convert(value, custom_convert=custom_convert)
             if isinstance(pval, list):
                 pval = {"type": "map", "value": pval}
 
             if not isinstance(pkey, str):
-                pval["name"] = convert(key)
+                pval["name"] = convert(key, custom_convert=custom_convert)
             else:
                 pval["name"] = pkey
             pval["description"] = description
@@ -93,7 +101,7 @@ def convert(schema):  # noqa: C901
         for validator in schema.validators:
             if validator is None:
                 continue
-            val.append(convert(validator))
+            val.append(convert(validator, custom_convert=custom_convert))
         options = recurse_options(val)
 
         if len(options) == 1:
@@ -106,7 +114,7 @@ def convert(schema):  # noqa: C901
     if isinstance(schema, vol.Any):
         val = []
         for validator in schema.validators:
-            val.append(convert(validator))
+            val.append(convert(validator, custom_convert=custom_convert))
         options = recurse_options(val)
         return {
             "type": "select",
@@ -120,10 +128,9 @@ def convert(schema):  # noqa: C901
             if isinstance(validator, CoerceNoneToDict):
                 continue
 
-            _val = convert(validator)
+            _val = convert(validator, custom_convert=custom_convert)
             if isinstance(_val, list):
                 for __val in _val:
-                    print(__val)
                     val_list.append(__val)
             else:
                 val_dict.update(_val)
@@ -158,11 +165,17 @@ def convert(schema):  # noqa: C901
         if isinstance(schema.container, Mapping):
             return {
                 "type": "select",
-                "options": [convert(item) for item in schema.container],
+                "options": [
+                    convert(item, custom_convert=custom_convert)
+                    for item in schema.container
+                ],
             }
         return {
             "type": "select",
-            "options": [convert(item) for item in schema.container],
+            "options": [
+                convert(item, custom_convert=custom_convert)
+                for item in schema.container
+            ],
         }
 
     if schema in (vol.Lower, vol.Upper, vol.Capitalize, vol.Title, vol.Strip):
@@ -181,7 +194,7 @@ def convert(schema):  # noqa: C901
     if isinstance(schema, list):
         return {
             "type": "list",
-            "values": [convert(item) for item in schema],
+            "values": [convert(item, custom_convert=custom_convert) for item in schema],
         }
 
     try:
@@ -263,6 +276,8 @@ def import_component(component):
             docs += DOCS_MOTION_DETECTOR_IMPORTS
         if "face_recognition" in supported_domains:
             docs += DOCS_FACE_RECOGNITION_IMPORTS
+        if "image_classification" in supported_domains:
+            docs += DOCS_IMAGE_CLASSIFICATION_IMPORTS
 
         docs += DOCS_CONTENTS
         if "object_detector" in supported_domains:
@@ -271,6 +286,8 @@ def import_component(component):
             docs += DOCS_MOTION_DETECTOR_CONTENTS
         if "face_recognition" in supported_domains:
             docs += DOCS_FACE_RECOGNITION_CONTENTS
+        if "image_classification" in supported_domains:
+            docs += DOCS_IMAGE_CLASSIFICATION_CONTENTS
 
         with open(
             os.path.join(docs_path, "index.mdx"),
@@ -283,7 +300,20 @@ def import_component(component):
 
     component_config = {}
     if hasattr(component_module, "CONFIG_SCHEMA"):
-        component_config = convert(component_module.CONFIG_SCHEMA)
+        try:
+            config_module = importlib.import_module(
+                f"viseron.components.{component}.config"
+            )
+        except ModuleNotFoundError:
+            config_module = None
+
+        custom_convert = None
+        if config_module and hasattr(config_module, "custom_convert"):
+            custom_convert = config_module.custom_convert
+
+        component_config = convert(
+            component_module.CONFIG_SCHEMA, custom_convert=custom_convert
+        )
         print("Writing config.json")
         with open(
             os.path.join(docs_path, "config.json"),
@@ -296,9 +326,10 @@ def import_component(component):
 def main():
     """Generate docs skeleton."""
     if (
-        os.path.isfile("requirements.txt")
-        and os.path.isdir("viseron")
+        os.path.isdir("viseron")
         and os.path.isdir("viseron/components")
+        and os.path.isdir("docs")
+        and os.path.isdir("scripts")
     ):
         pass
     else:

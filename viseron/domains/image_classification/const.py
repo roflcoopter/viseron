@@ -10,7 +10,8 @@ EVENT_IMAGE_CLASSIFICATION_EXPIRED = "{camera_identifier}/image_classification/e
 
 
 # BASE_CONFIG_SCHEMA constants
-CONFIG_CAMERAS = "cameras"
 CONFIG_EXPIRE_AFTER = "expire_after"
 
 DEFAULT_EXPIRE_AFTER = 5
+
+DESC_EXPIRE_AFTER = "Time in seconds before a classification expires."

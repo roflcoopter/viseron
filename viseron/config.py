@@ -8,6 +8,8 @@ from viseron.const import CONFIG_PATH, DEFAULT_CONFIG, SECRETS_PATH
 
 LOGGER = logging.getLogger(__name__)
 
+UNSUPPORTED = object()
+
 
 def create_default_config():
     """Create default configuration."""
