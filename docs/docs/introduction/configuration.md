@@ -1,3 +1,7 @@
+---
+toc_max_heading_level: 4
+---
+
 # Configuration
 
 Viseron uses a YAML based configuration.
@@ -36,14 +40,28 @@ The `camera` domain is the base of it all.
 This is the domain that connects to your camera and fetches frames for processing.
 Each camera has a unique `camera identifier` which flows through the entire configuration.
 
+:::info Camera identifier
+
+A `camera identifier` is a so called slug in programming terms.
+A slug is a human-readable unique identifier.
+
+Valid characters are lowercase `a-z`, `0-9`, and underscores ( `_` ).
+
+:::
+
+[Link to all components with camera domain.](/components-explorer?tags=camera)
+
 ### Object Detector domain
 
-The object detector domain scans for objects at requested intervals, sending events on detections for other parts of Viseron to consume.<br />
+The object detector domain scans for objects at requested intervals, sending events on detections for other parts of Viseron to consume.
+
 :::info
 
 Object detection can be configured to run all the time so you never miss anything, or only when there is detected motion, saving some resources.<br/>
 Whatever floats your boat!
 :::
+
+[Link to all components with object detector domain.](/components-explorer?tags=object_detector)
 
 ### Motion Detector domain
 
@@ -56,6 +74,8 @@ The motion detector can be configured to start recordings as well, bypassing the
 
 :::
 
+[Link to all components with motion detector domain.](/components-explorer?tags=motion_detector)
+
 ### NVR domain
 
 The NVR domain is what glues all the other domains together.
@@ -66,17 +86,23 @@ It handles:
 - Starts and stops the recorder
 - Sends frames to [post processors](#post-processors)
 
+[Link to all components with NVR domain.](/components-explorer?tags=nvr)
+
 ### Post Processors
 
 TODO
 
-### Face Recognition
+#### Face Recognition
 
 TODO
 
-### Image Classification
+[Link to all components with face recognition domain.](/components-explorer?tags=face_recognition)
+
+#### Image Classification
 
 TODO
+
+[Link to all components with image classification domain.](/components-explorer?tags=image_classification)
 
 ## Secrets
 

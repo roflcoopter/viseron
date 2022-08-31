@@ -308,7 +308,7 @@
                                 "name": {
                                     "type": "CAMERA_IDENTIFIER"
                                 },
-                                "description": "Camera identifier.",
+                                "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
                                 "cameraidentifier": true,
                                 "default": null
                             }
@@ -370,7 +370,7 @@
                                 "name": {
                                     "type": "CAMERA_IDENTIFIER"
                                 },
-                                "description": "Camera identifier.",
+                                "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
                                 "cameraidentifier": true,
                                 "default": null
                             }
