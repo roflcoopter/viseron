@@ -1,7 +1,6 @@
 """Handles different kind of browser streams."""
 
 import asyncio
-import copy
 import logging
 from typing import Dict
 
@@ -42,25 +41,26 @@ class StreamHandler(ViseronRequestHandler):
         self.write(jpg.tobytes())
         await self.flush()
 
-    async def process_frame(  # pylint: disable=no-self-use
-        self, nvr: NVR, processed_frame: DataProcessedFrame, mjpeg_stream_config
+    @staticmethod
+    async def process_frame(
+        nvr: NVR, processed_frame: DataProcessedFrame, mjpeg_stream_config
     ):
         """Return JPG with drawn objects, zones etc."""
+        _frame = processed_frame.frame.copy()
+
         if mjpeg_stream_config["width"] and mjpeg_stream_config["height"]:
             resolution = mjpeg_stream_config["width"], mjpeg_stream_config["height"]
             frame = cv2.resize(
-                processed_frame.frame,
+                _frame,
                 resolution,
                 interpolation=cv2.INTER_LINEAR,
             )
         else:
             resolution = nvr.camera.resolution
-            frame = processed_frame.frame
+            frame = _frame
 
-        if (
-            nvr.motion_detector
-            and processed_frame.motion_contours
-            and isinstance(nvr.motion_detector, AbstractMotionDetectorScanner)
+        if nvr.motion_detector and isinstance(
+            nvr.motion_detector, AbstractMotionDetectorScanner
         ):
             if mjpeg_stream_config["draw_motion_mask"] and nvr.motion_detector.mask:
                 draw_motion_mask(
@@ -75,7 +75,7 @@ class StreamHandler(ViseronRequestHandler):
                     nvr.motion_detector.area,
                 )
 
-        if nvr.object_detector and processed_frame.objects_in_fov:
+        if nvr.object_detector:
             if mjpeg_stream_config["draw_zones"]:
                 draw_zones(frame, nvr.object_detector.zones)
 
@@ -84,7 +84,7 @@ class StreamHandler(ViseronRequestHandler):
                     frame,
                     nvr.object_detector.mask,
                 )
-            if mjpeg_stream_config["draw_objects"]:
+            if mjpeg_stream_config["draw_objects"] and processed_frame.objects_in_fov:
                 draw_objects(
                     frame,
                     processed_frame.objects_in_fov,
@@ -163,8 +163,7 @@ class StaticStreamHandler(StreamHandler):
 
     active_streams: Dict[str, object] = {}
 
-    @tornado.gen.coroutine
-    def stream(self, nvr, mjpeg_stream, mjpeg_stream_config, publish_frame_topic):
+    async def stream(self, nvr, mjpeg_stream, mjpeg_stream_config, publish_frame_topic):
         """Subscribe to frames, draw on them, then publish processed frame."""
         frame_queue = Queue(maxsize=1)
         frame_topic = DATA_PROCESSED_FRAME_TOPIC.format(
@@ -175,9 +174,10 @@ class StaticStreamHandler(StreamHandler):
         )
 
         while self.active_streams[mjpeg_stream]:
-            item = yield frame_queue.get()
-            frame = copy.copy(item.frame)
-            ret, jpg = yield self.process_frame(nvr, frame, mjpeg_stream_config)
+            processed_frame: DataProcessedFrame = await frame_queue.get()
+            ret, jpg = await self.process_frame(
+                nvr, processed_frame, mjpeg_stream_config
+            )
 
             if ret:
                 DataStream.publish_data(publish_frame_topic, jpg)
@@ -187,12 +187,26 @@ class StaticStreamHandler(StreamHandler):
 
     async def get(self, camera, mjpeg_stream):
         """Handle GET request."""
-        nvr: NVR = self._vis.data[NVR_COMPONENT].get(camera, None)
-        if not nvr:
-            self.set_status(404)
-            self.write(f"Camera {camera} not found.")
-            self.finish()
-            return
+        tries = 0
+        while True:
+            if tries == 60:
+                self.set_status(404)
+                self.write(f"Camera {camera} not found.")
+                self.finish()
+                return
+
+            nvr_data = self._vis.data.get(NVR_COMPONENT, None)
+            if not nvr_data:
+                tries += 1
+                await asyncio.sleep(1)
+                continue
+
+            nvr: NVR = self._vis.data[NVR_COMPONENT].get(camera, None)
+            if not nvr:
+                tries += 1
+                await asyncio.sleep(1)
+                continue
+            break
 
         mjpeg_stream_config = nvr.camera.mjpeg_streams.get(mjpeg_stream, None)
         if not mjpeg_stream_config:
@@ -212,16 +226,14 @@ class StaticStreamHandler(StreamHandler):
         if self.active_streams.get(mjpeg_stream, False):
             self.active_streams[mjpeg_stream] += 1
             LOGGER.debug(
-                "Stream {mjpeg_stream} already active, number of streams: "
+                f"Stream {mjpeg_stream} already active, number of streams: "
                 f"{self.active_streams[mjpeg_stream]}"
             )
         else:
             LOGGER.debug(f"Stream {mjpeg_stream} is not active, starting")
             self.active_streams[mjpeg_stream] = 1
             tornado.ioloop.IOLoop.current().spawn_callback(
-                lambda: self.stream(
-                    nvr, mjpeg_stream, mjpeg_stream_config, frame_topic
-                ),
+                self.stream, nvr, mjpeg_stream, mjpeg_stream_config, frame_topic
             )
 
         self.set_header(
