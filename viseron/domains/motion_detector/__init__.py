@@ -166,11 +166,11 @@ class AbstractMotionDetector(ABC):
         shared_frame: SharedFrame = None,
         contours: Contours = None,
     ):
+        self._motion_contours = contours
         if self._motion_detected == motion_detected:
             return
 
         self._motion_detected = motion_detected
-        self._motion_contours = contours
         self._logger.debug("Motion detected" if motion_detected else "Motion stopped")
         self._vis.dispatch_event(
             EVENT_MOTION_DETECTED.format(camera_identifier=self._camera.identifier),
