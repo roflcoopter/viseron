@@ -112,7 +112,14 @@ CONFIG_RECORDER = "recorder"
 DEFAULT_USERNAME = None
 DEFAULT_PASSWORD = None
 DEFAULT_GSTREAMER_LOGLEVEL = "error"
-DEFAULT_GSTREAMER_RECOVERABLE_ERRORS: List[str] = []
+DEFAULT_GSTREAMER_RECOVERABLE_ERRORS: List[str] = [
+    "dconf will not work properly",
+    "decode_slice_header error",
+    "no frame!",
+    "left block unavailable for requested intra mode",
+    "error while decoding MB",
+    "decreasing DTS value",
+]
 DEFAULT_FFPROBE_LOGLEVEL = "error"
 
 
