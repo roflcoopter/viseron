@@ -10,7 +10,7 @@ import typing_extensions
 import voluptuous as vol
 
 from viseron.config import UNSUPPORTED
-from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict, Maybe
+from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict, Maybe, Slug
 from viseron.types import SupportedDomains
 
 from .const import (
@@ -216,6 +216,10 @@ def convert(schema, custom_convert=None):  # noqa: C901
         return {
             "type": "CAMERA_IDENTIFIER",
         }
+    if isinstance(schema, Slug):
+        return {
+            "type": "string",
+        }
 
     if callable(schema):
         return {"type": "custom_validator", "value": "unable_to_convert"}
@@ -227,10 +231,25 @@ def convert(schema, custom_convert=None):  # noqa: C901
 def import_domain(component, domain):
     """Return if domain is supported by component."""
     try:
-        importlib.import_module(f"viseron.components.{component}.{domain}")
+        return importlib.import_module(f"viseron.components.{component}.{domain}")
     except ModuleNotFoundError:
-        return False
-    return True
+        pass
+    return False
+
+
+def sort_required(config):
+    """Put required options first."""
+    if isinstance(config, list):
+        for item in config:
+            sort_required(item)
+
+    if isinstance(config, dict) and config.get("type", None) == "map":
+        newlist = sorted(
+            config["value"], key=lambda d: d.get("required", False), reverse=True
+        )
+        config["value"] = newlist
+        for item in config["value"]:
+            sort_required(item)
 
 
 def import_component(component):
@@ -246,11 +265,12 @@ def import_component(component):
         print(f"Docs folder is missing, creating: {docs_path}")
         os.mkdir(docs_path)
 
-    supported_domains = []
+    supported_domains = {}
     for domain in typing_extensions.get_args(SupportedDomains):
-        if import_domain(component, domain):
-            supported_domains.append(domain)
-    print(f"Found domains: {supported_domains}")
+        imported_domain = import_domain(component, domain)
+        if imported_domain:
+            supported_domains[domain] = imported_domain
+    print(f"Found domains: {list(supported_domains.keys())}")
 
     if not os.path.exists(os.path.join(docs_path, "_meta.tsx")):
         print("_meta.tsx is missing, creating new from template")
@@ -261,7 +281,7 @@ def import_component(component):
         ) as data_file:
             data_file.write(
                 META_CONTENTS.format(
-                    component=component, tags=json.dumps(supported_domains)
+                    component=component, tags=json.dumps(list(supported_domains.keys()))
                 )
             )
     else:
@@ -314,6 +334,18 @@ def import_component(component):
         component_config = convert(
             component_module.CONFIG_SCHEMA, custom_convert=custom_convert
         )
+
+        for domain, domain_module in supported_domains.items():
+            if hasattr(domain_module, "CONFIG_SCHEMA"):
+                domain_config = convert(
+                    domain_module.CONFIG_SCHEMA, custom_convert=custom_convert
+                )
+                for index, _domain in enumerate(component_config[0]["value"]):
+                    if _domain["name"] == domain:
+                        component_config[0]["value"][index]["value"] = domain_config
+                        break
+
+        sort_required(component_config)
         print("Writing config.json")
         with open(
             os.path.join(docs_path, "config.json"),
