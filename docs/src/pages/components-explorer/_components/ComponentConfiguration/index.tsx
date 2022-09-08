@@ -129,7 +129,9 @@ function buildHeader(item: any) {
 
 // Return div that represents a single config item
 function buildItem(item: ComponentConfigurationType, children: any, index) {
-  const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [isCollapsed, setIsCollapsed] = React.useState(
+    !!(item.type === "map" && item.optional)
+  );
 
   return (
     <div
@@ -148,11 +150,11 @@ function buildItem(item: ComponentConfigurationType, children: any, index) {
           ></button>
         ) : null}
       </div>
+      {buildDescription(item)}
       <div
         className={`collapse-content ${isCollapsed ? "collapsed" : "expanded"}`}
         aria-expanded={isCollapsed}
       >
-        {buildDescription(item)}
         {buildMinMax(item)}
         {buildValidValues(item)}
 
@@ -166,7 +168,7 @@ function buildItem(item: ComponentConfigurationType, children: any, index) {
 
 function configOption(_config: ComponentConfigurationType, index) {
   if (_config.type === "list") {
-    if (Array.isArray(_config.values[0])) {
+    if (_config.values && Array.isArray(_config.values[0])) {
       return buildItem(
         _config,
         _config.values[0].map((children) => configOption(children, index)),
