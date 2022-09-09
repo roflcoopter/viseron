@@ -121,3 +121,25 @@ class Maybe(vol.Any):
 
     def __init__(self, *validators, **kwargs):
         super().__init__(*validators + (None,), **kwargs)
+
+
+class Slug:
+    """Ensure value is in proper slug-format."""
+
+    def __init__(
+        self,
+        description=(
+            "Slug, valid characters are lowercase a-z, numbers and underscores."
+        ),
+    ):
+        self.description = description
+
+    def __call__(self, value):
+        """Ensure slug."""
+        if not isinstance(value, str):
+            msg = f"Expected slug, valid characters are [a-z] and [_]. Got {value}"
+            LOGGER.error(msg)
+            raise vol.Invalid(msg)
+        if slug(value):
+            return value
+        raise vol.Invalid("Invalid slug.")

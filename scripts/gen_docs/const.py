@@ -115,3 +115,33 @@ DOCS_IMAGE_CLASSIFICATION_CONTENTS = """## Image classification
 <ImageClassificationLabels />
 
 """
+
+DOCS_CAMERA_IMPORTS = """import Camera from "@site/src/pages/components-explorer/_domains/camera/index.mdx"
+import CameraMjpegStreams from "@site/src/pages/components-explorer/_domains/camera/mjpeg_streams.mdx";
+"""
+
+DOCS_CAMERA_CONTENTS = """## Camera
+
+<Camera />
+
+### MJEPG Streams
+
+<CameraMjpegStreams />
+
+"""
+
+DOMAIN_IMPORTS = {
+    "camera": DOCS_CAMERA_IMPORTS,
+    "face_recognition": DOCS_FACE_RECOGNITION_IMPORTS,
+    "image_classification": DOCS_IMAGE_CLASSIFICATION_IMPORTS,
+    "motion_detector": DOCS_MOTION_DETECTOR_IMPORTS,
+    "object_detector": DOCS_OBJECT_DETECTOR_IMPORTS,
+}
+
+DOMAIN_CONTENT = {
+    "camera": DOCS_CAMERA_CONTENTS,
+    "face_recognition": DOCS_FACE_RECOGNITION_CONTENTS,
+    "image_classification": DOCS_IMAGE_CLASSIFICATION_CONTENTS,
+    "motion_detector": DOCS_MOTION_DETECTOR_CONTENTS,
+    "object_detector": DOCS_OBJECT_DETECTOR_CONTENTS,
+}

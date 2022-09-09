@@ -5,6 +5,7 @@ import json
 import os
 import sys
 from collections.abc import Mapping
+from typing import List
 
 import typing_extensions
 import voluptuous as vol
@@ -15,15 +16,9 @@ from viseron.types import SupportedDomains
 
 from .const import (
     DOCS_CONTENTS,
-    DOCS_FACE_RECOGNITION_CONTENTS,
-    DOCS_FACE_RECOGNITION_IMPORTS,
-    DOCS_IMAGE_CLASSIFICATION_CONTENTS,
-    DOCS_IMAGE_CLASSIFICATION_IMPORTS,
     DOCS_IMPORTS,
-    DOCS_MOTION_DETECTOR_CONTENTS,
-    DOCS_MOTION_DETECTOR_IMPORTS,
-    DOCS_OBJECT_DETECTOR_CONTENTS,
-    DOCS_OBJECT_DETECTOR_IMPORTS,
+    DOMAIN_CONTENT,
+    DOMAIN_IMPORTS,
     META_CONTENTS,
 )
 
@@ -252,6 +247,21 @@ def sort_required(config):
             sort_required(item)
 
 
+def generate_index(supported_domains):
+    """Generate index.md file."""
+    sorted_domains = dict(sorted(supported_domains.items()))
+
+    docs = DOCS_IMPORTS
+    for domain in sorted_domains:
+        docs += DOMAIN_IMPORTS.get(domain)
+
+    docs += DOCS_CONTENTS
+    for domain in sorted_domains:
+        docs += DOMAIN_CONTENT.get(domain)
+
+    return docs
+
+
 def import_component(component):
     """Dynamic import of component."""
     print(f"importing {component}")
@@ -289,25 +299,7 @@ def import_component(component):
 
     if not os.path.exists(os.path.join(docs_path, "index.mdx")):
         print("index.mdx is missing, creating new from template")
-        docs = DOCS_IMPORTS
-        if "object_detector" in supported_domains:
-            docs += DOCS_OBJECT_DETECTOR_IMPORTS
-        if "motion_detector" in supported_domains:
-            docs += DOCS_MOTION_DETECTOR_IMPORTS
-        if "face_recognition" in supported_domains:
-            docs += DOCS_FACE_RECOGNITION_IMPORTS
-        if "image_classification" in supported_domains:
-            docs += DOCS_IMAGE_CLASSIFICATION_IMPORTS
-
-        docs += DOCS_CONTENTS
-        if "object_detector" in supported_domains:
-            docs += DOCS_OBJECT_DETECTOR_CONTENTS
-        if "motion_detector" in supported_domains:
-            docs += DOCS_MOTION_DETECTOR_CONTENTS
-        if "face_recognition" in supported_domains:
-            docs += DOCS_FACE_RECOGNITION_CONTENTS
-        if "image_classification" in supported_domains:
-            docs += DOCS_IMAGE_CLASSIFICATION_CONTENTS
+        docs = generate_index(supported_domains)
 
         with open(
             os.path.join(docs_path, "index.mdx"),
