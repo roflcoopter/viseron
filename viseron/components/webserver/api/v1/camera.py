@@ -10,7 +10,6 @@ from viseron.components.webserver.const import (
     STATUS_ERROR_ENDPOINT_NOT_FOUND,
     STATUS_ERROR_INTERNAL,
 )
-from viseron.domains.camera import COERCE_INT
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
 
@@ -28,8 +27,8 @@ class CameraAPIHandler(BaseAPIHandler):
             "request_arguments_schema": vol.Schema(
                 {
                     vol.Optional("rand", default=None): vol.Maybe(str),
-                    vol.Optional("width", default=None): vol.Maybe(COERCE_INT),
-                    vol.Optional("height", default=None): vol.Maybe(COERCE_INT),
+                    vol.Optional("width", default=None): vol.Maybe(vol.Coerce(int)),
+                    vol.Optional("height", default=None): vol.Maybe(vol.Coerce(int)),
                 },
             ),
         },

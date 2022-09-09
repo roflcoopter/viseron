@@ -1,5 +1,7 @@
 """Camera domain constants."""
-from typing import Any, Dict, Final
+from __future__ import annotations
+
+from typing import Final
 
 DOMAIN: Final = "camera"
 
@@ -39,13 +41,29 @@ DEFAULT_MJPEG_DRAW_ZONES = False
 DEFAULT_MJPEG_ROTATE = 0
 DEFAULT_MJPEG_MIRROR = False
 
+DESC_MJPEG_WIDTH = "Frame will be rezied to this width. Required if height is set."
+DESC_MJPEG_HEIGHT = "Frame will be rezied to this height. Required if width is set."
+DESC_MJPEG_DRAW_OBJECTS = "If set, found objects will be drawn."
+DESC_MJPEG_DRAW_MOTION = "If set, detected motion will be drawn."
+DESC_MJPEG_DRAW_MOTION_MASK = "If set, configured motion masks will be drawn."
+DESC_MJPEG_DRAW_OBJECT_MASK = "If set, configured object masks will be drawn."
+DESC_MJPEG_DRAW_ZONES = "If set, configured zones will be drawn."
+DESC_MJPEG_ROTATE = (
+    "Degrees to rotate the image. "
+    "Positive/negative values rotate clockwise/counter clockwise respectively"
+)
+DESC_MJPEG_MIRROR = "If set, mirror the image horizontally."
+
 
 # THUMBNAIL_SCHEMA constants
 CONFIG_SAVE_TO_DISK = "save_to_disk"
-CONFIG_FILENAME_PATTERN = "filename_pattern"
 
 DEFAULT_SAVE_TO_DISK = True
-DEFAULT_FILENAME_PATTERN = "%H:%M:%S"
+
+DESC_SAVE_TO_DISK = (
+    "If <code>true</code>, the thumbnail that is created on start of recording is "
+    "saved to <code>{folder}/{camera_identifier}/latest_thumbnail.jpg</code>"
+)
 
 
 # RECORDER_SCHEMA constants
@@ -63,7 +81,22 @@ DEFAULT_RETAIN = 7
 DEFAULT_FOLDER = "/recordings"
 DEFAULT_FILENAME_PATTERN = "%H:%M:%S"
 DEFAULT_EXTENSION = "mp4"
-DEFAULT_THUMBNAIL: Dict[str, Any] = {}
+DEFAULT_THUMBNAIL = None
+
+DESC_LOOKBACK = "Number of seconds to record before a detected object."
+DESC_IDLE_TIMEOUT = "Number of seconds to record after all events are over."
+DESC_RETAIN = "Number of days to save recordings before deletion."
+DESC_FOLDER = "What folder to store recordings in."
+DESC_FILENAME_PATTERN = (
+    "A <a href=https://strftime.org/>strftime</a> pattern for saved recordings.<br>"
+    "Default pattern results in filenames like: <code>23:59:59.jpg</code>."
+)
+DESC_EXTENSION = "The file extension used for recordings."
+DESC_THUMBNAIL = "Options for the thumbnail created on start of a recording."
+DESC_FILENAME_PATTERN_THUMBNAIL = (
+    "A <a href=https://strftime.org/>strftime</a> pattern for saved thumbnails.<br>"
+    "Default pattern results in filenames like: <code>23:59:59.jpg</code>."
+)
 
 
 # BASE_CONFIG_SCHEMA constants
@@ -72,5 +105,13 @@ CONFIG_MJPEG_STREAMS = "mjpeg_streams"
 CONFIG_RECORDER = "recorder"
 
 DEFAULT_NAME = None
-DEFAULT_MJPEG_STREAMS: Dict[str, Any] = {}
-DEFAULT_RECORDER: Dict[str, Any] = {}
+DEFAULT_MJPEG_STREAMS = None
+DEFAULT_RECORDER = None
+
+DESC_NAME = "Camera friendly name."
+DESC_MJPEG_STREAMS = "MJPEG streams config."
+DESC_RECORDER = "Recorder config."
+DESC_MJPEG_STREAM = (
+    "Name of the MJPEG stream. Used to build the URL to access the stream.<br>"
+    "Valid characters are lowercase a-z, numbers and underscores."
+)

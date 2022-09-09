@@ -98,13 +98,60 @@ DEFAULT_HEIGHT = None
 DEFAULT_FPS = None
 DEFAULT_INPUT_ARGS = None
 DEFAULT_HWACCEL_ARGS: List["str"] = []
-DEFAULT_CODEC = ""
+DEFAULT_CODEC = "unset"
 DEFAULT_AUDIO_CODEC = "unset"
 DEFAULT_RTSP_TRANSPORT = "tcp"
 DEFAULT_VIDEO_FILTERS: List[str] = []
 DEFAULT_PIX_FMT = "nv12"
 DEFAULT_FRAME_TIMEOUT = 60
 
+DESC_STREAM_FORMAT = "FFmpeg stream format."
+DESC_PROTOCOL = "Stream protocol."
+DESC_PATH = "Path to the camera stream, eg <code>/Streaming/Channels/101/</code>."
+DESC_PORT = "Port for the camera stream,"
+DESC_WIDTH = (
+    "Width of the stream.<br>"
+    "Will use FFprobe to get this information if not given, "
+    "see <a href=#ffprobe-stream-information>FFprobe stream information.</a>"
+)
+DESC_HEIGHT = (
+    "Height of the stream.<br>"
+    "Will use FFprobe to get this information if not given, "
+    "see <a href=#ffprobe-stream-information>FFprobe stream information.</a>"
+)
+DESC_FPS = (
+    "FPS of the stream.<br>"
+    "Will use FFprobe to get this information if not given, "
+    "see <a href=#ffprobe-stream-information>FFprobe stream information.</a>"
+)
+DESC_INPUT_ARGS = "A list of FFmpeg input arguments."
+DESC_HWACCEL_ARGS = "A list of FFmpeg hardware acceleration arguments."
+DESC_CODEC = (
+    "FFmpeg video decoder codec, eg <code>h264_cuvid</code><br>"
+    "Will use FFprobe to get this information if not given, "
+    "see <a href=#ffprobe-stream-information>FFprobe stream information.</a>"
+)
+DESC_AUDIO_CODEC = (
+    "FFmpeg audio encoder codec for the generated segments, eg <code>aac</code>.<br>"
+    "Note that if you set this, FFmpeg will have to re-encode your stream which "
+    "increases system load.<br>Will use FFprobe to get this information if not given, "
+    "see <a href=#ffprobe-stream-information>FFprobe stream information.</a>"
+)
+DESC_RTSP_TRANSPORT = (
+    "Sets RTSP transport protocol. Change this if your camera doesn't support TCP."
+)
+DESC_VIDEO_FILTERS = (
+    "A list of FFmpeg filter arguments. "
+    "These filters are applied <b>before</b> Viseron receives the image for processing."
+)
+DESC_PIX_FMT = (
+    "Only change this if the decoder you are using does not support <code>nv12</code>, "
+    "as <code>nv12</code> is more efficient."
+)
+DESC_FRAME_TIMEOUT = (
+    "A timeout in seconds. If a frame has not been received in this "
+    "time period FFmpeg will be restarted."
+)
 
 # RECORDER_SCHEMA constants
 CONFIG_RECORDER_HWACCEL_ARGS = "hwaccel_args"
@@ -120,6 +167,23 @@ DEFAULT_RECORDER_AUDIO_CODEC = "copy"
 DEFAULT_RECORDER_VIDEO_FILTERS: List[str] = []
 DEFAULT_RECORDER_AUDIO_FILTERS: List[str] = []
 DEFAULT_SEGMENTS_FOLDER = "/segments"
+
+DESC_RECORDER_HWACCEL_ARGS = "FFmpeg encoder hardware acceleration arguments."
+DESC_RECORDER_CODEC = "FFmpeg video encoder codec, eg <code>h264_nvenc</code>."
+DESC_RECORDER_AUDIO_CODEC = "FFmpeg audio encoder codec, eg <code>aac</code>."
+DESC_RECORDER_VIDEO_FILTERS = (
+    "A list of FFmpeg filter arguments. "
+    "These filters are applied to the recorder videos."
+)
+DESC_RECORDER_AUDIO_FILTERS = (
+    "A list of FFmpeg audio filter arguments. "
+    "These filters are applied to the recorder videos."
+)
+DESC_SEGMENTS_FOLDER = (
+    "What folder to store FFmpeg segments in. "
+    "Segments are used to produce recordings so you should not need to change this."
+)
+
 
 # CAMERA_SCHEMA constants
 CONFIG_CAMERA = "camera"
@@ -137,6 +201,7 @@ CONFIG_RECORDER = "recorder"
 DEFAULT_USERNAME = None
 DEFAULT_PASSWORD = None
 DEFAULT_GLOBAL_ARGS = ["-hide_banner"]
+DEFAULT_SUBSTREAM = None
 DEFAULT_FFMPEG_LOGLEVEL = "error"
 DEFAULT_FFMPEG_RECOVERABLE_ERRORS = [
     "error while decoding MB",
@@ -144,3 +209,28 @@ DEFAULT_FFMPEG_RECOVERABLE_ERRORS = [
     "Last message repeated",
 ]
 DEFAULT_FFPROBE_LOGLEVEL = "error"
+
+DESC_HOST = "IP or hostname of camera."
+DESC_USERNAME = "Username for the camera stream."
+DESC_PASSWORD = "Password for the camera stream."
+DESC_GLOBAL_ARGS = (
+    "A valid list of FFmpeg arguments. "
+    "These are applied before the <code>input_args</code>."
+)
+DESC_SUBSTREAM = (
+    "Substream to perform image processing on. "
+    "Very effective for reducing system load."
+)
+DESC_FFMPEG_LOGLEVEL = (
+    "Sets the loglevel for FFmpeg.<br>Should only be used in debugging purposes."
+)
+DESC_FFMPEG_RECOVERABLE_ERRORS = (
+    "FFmpeg sometimes print errors that are not fatal, "
+    "but are preventing Viseron from reading the stream.<br>"
+    "If you get errors like <code>Error starting decoder pipe!</code>, "
+    "see <a href=#recoverable-errors>recoverable errors</a> below."
+)
+DESC_FFPROBE_LOGLEVEL = (
+    "Sets the loglevel for FFprobe.<br> Should only be used in debugging purposes."
+)
+DESC_RECORDER = "Recorder config."

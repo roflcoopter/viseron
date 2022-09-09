@@ -54,6 +54,8 @@ from .const import (
     CONFIG_USERNAME,
     CONFIG_VIDEO_FILTERS,
     CONFIG_WIDTH,
+    DEFAULT_AUDIO_CODEC,
+    DEFAULT_CODEC,
     ENV_FFMPEG_PATH,
     FFMPEG_LOGLEVELS,
     FFPROBE_LOGLEVELS,
@@ -103,7 +105,8 @@ class Stream:
             or not self._output_stream_config[CONFIG_HEIGHT]
             or not self._output_stream_config[CONFIG_FPS]
             or not self._output_stream_config[CONFIG_CODEC]
-            or self._output_stream_config[CONFIG_AUDIO_CODEC] == "unset"
+            or self._output_stream_config[CONFIG_CODEC] == DEFAULT_CODEC
+            or self._output_stream_config[CONFIG_AUDIO_CODEC] == DEFAULT_AUDIO_CODEC
         ):
             (
                 width,
@@ -344,7 +347,7 @@ class Stream:
     @staticmethod
     def get_codec(stream_config, stream_codec):
         """Return codec set in config or from predefined codec map."""
-        if stream_config[CONFIG_CODEC]:
+        if stream_config[CONFIG_CODEC] and stream_config[CONFIG_CODEC] != DEFAULT_CODEC:
             return ["-c:v", stream_config[CONFIG_CODEC]]
 
         codec = None
@@ -394,11 +397,14 @@ class Stream:
         """Return audio codec used for saving segments."""
         if (
             stream_config[CONFIG_AUDIO_CODEC]
-            and stream_config[CONFIG_AUDIO_CODEC] != "unset"
+            and stream_config[CONFIG_AUDIO_CODEC] != DEFAULT_AUDIO_CODEC
         ):
             return ["-c:a", stream_config[CONFIG_AUDIO_CODEC]]
 
-        if stream_audio_codec and stream_config[CONFIG_AUDIO_CODEC] == "unset":
+        if (
+            stream_audio_codec
+            and stream_config[CONFIG_AUDIO_CODEC] == DEFAULT_AUDIO_CODEC
+        ):
             return ["-c:a", "copy"]
 
         return []

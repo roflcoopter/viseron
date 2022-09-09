@@ -16,7 +16,7 @@ from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
-from viseron.helpers.validators import ensure_slug
+from viseron.helpers.validators import CoerceNoneToDict, Slug
 
 from .const import (
     CONFIG_EXTENSION,
@@ -59,6 +59,28 @@ from .const import (
     DEFAULT_RETAIN,
     DEFAULT_SAVE_TO_DISK,
     DEFAULT_THUMBNAIL,
+    DESC_EXTENSION,
+    DESC_FILENAME_PATTERN,
+    DESC_FILENAME_PATTERN_THUMBNAIL,
+    DESC_FOLDER,
+    DESC_IDLE_TIMEOUT,
+    DESC_LOOKBACK,
+    DESC_MJPEG_DRAW_MOTION,
+    DESC_MJPEG_DRAW_MOTION_MASK,
+    DESC_MJPEG_DRAW_OBJECT_MASK,
+    DESC_MJPEG_DRAW_OBJECTS,
+    DESC_MJPEG_DRAW_ZONES,
+    DESC_MJPEG_HEIGHT,
+    DESC_MJPEG_MIRROR,
+    DESC_MJPEG_ROTATE,
+    DESC_MJPEG_STREAM,
+    DESC_MJPEG_STREAMS,
+    DESC_MJPEG_WIDTH,
+    DESC_NAME,
+    DESC_RECORDER,
+    DESC_RETAIN,
+    DESC_SAVE_TO_DISK,
+    DESC_THUMBNAIL,
     EVENT_STATUS,
     EVENT_STATUS_CONNECTED,
     EVENT_STATUS_DISCONNECTED,
@@ -73,69 +95,119 @@ if TYPE_CHECKING:
     from .recorder import AbstractRecorder
     from .shared_frames import SharedFrame
 
-COERCE_INT = vol.Schema(vol.All(vol.Any(int, str), vol.Coerce(int)))
-
-STR_BOOL_BYTES = vol.Schema(vol.Any(str, bool, bytes))
 
 MJPEG_STREAM_SCHEMA = vol.Schema(
     {
-        vol.Optional(CONFIG_MJPEG_WIDTH, default=DEFAULT_MJPEG_WIDTH): COERCE_INT,
-        vol.Optional(CONFIG_MJPEG_HEIGHT, default=DEFAULT_MJPEG_HEIGHT): COERCE_INT,
         vol.Optional(
-            CONFIG_MJPEG_DRAW_OBJECTS, default=DEFAULT_MJPEG_DRAW_OBJECTS
-        ): STR_BOOL_BYTES,
+            CONFIG_MJPEG_WIDTH,
+            default=DEFAULT_MJPEG_WIDTH,
+            description=DESC_MJPEG_WIDTH,
+        ): vol.Coerce(int),
         vol.Optional(
-            CONFIG_MJPEG_DRAW_MOTION, default=DEFAULT_MJPEG_DRAW_MOTION
-        ): STR_BOOL_BYTES,
+            CONFIG_MJPEG_HEIGHT,
+            default=DEFAULT_MJPEG_HEIGHT,
+            description=DESC_MJPEG_HEIGHT,
+        ): vol.Coerce(int),
         vol.Optional(
-            CONFIG_MJPEG_DRAW_MOTION_MASK, default=DEFAULT_MJPEG_DRAW_MOTION_MASK
-        ): STR_BOOL_BYTES,
+            CONFIG_MJPEG_DRAW_OBJECTS,
+            default=DEFAULT_MJPEG_DRAW_OBJECTS,
+            description=DESC_MJPEG_DRAW_OBJECTS,
+        ): vol.Coerce(bool),
         vol.Optional(
-            CONFIG_MJPEG_DRAW_OBJECT_MASK, default=DEFAULT_MJPEG_DRAW_OBJECT_MASK
-        ): STR_BOOL_BYTES,
+            CONFIG_MJPEG_DRAW_MOTION,
+            default=DEFAULT_MJPEG_DRAW_MOTION,
+            description=DESC_MJPEG_DRAW_MOTION,
+        ): vol.Coerce(bool),
         vol.Optional(
-            CONFIG_MJPEG_DRAW_ZONES, default=DEFAULT_MJPEG_DRAW_ZONES
-        ): STR_BOOL_BYTES,
-        vol.Optional(CONFIG_MJPEG_ROTATE, default=DEFAULT_MJPEG_ROTATE): COERCE_INT,
-        vol.Optional(CONFIG_MJPEG_MIRROR, default=DEFAULT_MJPEG_MIRROR): STR_BOOL_BYTES,
+            CONFIG_MJPEG_DRAW_MOTION_MASK,
+            default=DEFAULT_MJPEG_DRAW_MOTION_MASK,
+            description=DESC_MJPEG_DRAW_MOTION_MASK,
+        ): vol.Coerce(bool),
+        vol.Optional(
+            CONFIG_MJPEG_DRAW_OBJECT_MASK,
+            default=DEFAULT_MJPEG_DRAW_OBJECT_MASK,
+            description=DESC_MJPEG_DRAW_OBJECT_MASK,
+        ): vol.Coerce(bool),
+        vol.Optional(
+            CONFIG_MJPEG_DRAW_ZONES,
+            default=DEFAULT_MJPEG_DRAW_ZONES,
+            description=DESC_MJPEG_DRAW_ZONES,
+        ): vol.Coerce(bool),
+        vol.Optional(
+            CONFIG_MJPEG_ROTATE,
+            default=DEFAULT_MJPEG_ROTATE,
+            description=DESC_MJPEG_ROTATE,
+        ): vol.Coerce(int),
+        vol.Optional(
+            CONFIG_MJPEG_MIRROR,
+            default=DEFAULT_MJPEG_MIRROR,
+            description=DESC_MJPEG_MIRROR,
+        ): vol.Coerce(bool),
     }
 )
 
 THUMBNAIL_SCHEMA = vol.Schema(
     {
-        vol.Optional(CONFIG_SAVE_TO_DISK, default=DEFAULT_SAVE_TO_DISK): bool,
-        vol.Optional(CONFIG_FILENAME_PATTERN, default=DEFAULT_FILENAME_PATTERN): str,
+        vol.Optional(
+            CONFIG_SAVE_TO_DISK,
+            default=DEFAULT_SAVE_TO_DISK,
+            description=DESC_SAVE_TO_DISK,
+        ): bool,
+        vol.Optional(
+            CONFIG_FILENAME_PATTERN,
+            default=DEFAULT_FILENAME_PATTERN,
+            description=DESC_FILENAME_PATTERN_THUMBNAIL,
+        ): str,
     }
 )
 
 
 RECORDER_SCHEMA = vol.Schema(
     {
-        vol.Optional(CONFIG_LOOKBACK, default=DEFAULT_LOOKBACK): vol.All(
-            int, vol.Range(min=0)
-        ),
-        vol.Optional(CONFIG_IDLE_TIMEOUT, default=DEFAULT_IDLE_TIMEOUT): vol.All(
-            int, vol.Range(min=0)
-        ),
-        vol.Optional(CONFIG_RETAIN, default=DEFAULT_RETAIN): vol.All(
-            int, vol.Range(min=1)
-        ),
-        vol.Optional(CONFIG_FOLDER, default=DEFAULT_FOLDER): str,
-        vol.Optional(CONFIG_FILENAME_PATTERN, default=DEFAULT_FILENAME_PATTERN): str,
-        vol.Optional(CONFIG_EXTENSION, default=DEFAULT_EXTENSION): str,
-        vol.Optional(CONFIG_THUMBNAIL, default=DEFAULT_THUMBNAIL): THUMBNAIL_SCHEMA,
+        vol.Optional(
+            CONFIG_LOOKBACK, default=DEFAULT_LOOKBACK, description=DESC_LOOKBACK
+        ): vol.All(int, vol.Range(min=0)),
+        vol.Optional(
+            CONFIG_IDLE_TIMEOUT,
+            default=DEFAULT_IDLE_TIMEOUT,
+            description=DESC_IDLE_TIMEOUT,
+        ): vol.All(int, vol.Range(min=0)),
+        vol.Optional(
+            CONFIG_RETAIN, default=DEFAULT_RETAIN, description=DESC_RETAIN
+        ): vol.All(int, vol.Range(min=1)),
+        vol.Optional(
+            CONFIG_FOLDER, default=DEFAULT_FOLDER, description=DESC_FOLDER
+        ): str,
+        vol.Optional(
+            CONFIG_FILENAME_PATTERN,
+            default=DEFAULT_FILENAME_PATTERN,
+            description=DESC_FILENAME_PATTERN,
+        ): str,
+        vol.Optional(
+            CONFIG_EXTENSION, default=DEFAULT_EXTENSION, description=DESC_EXTENSION
+        ): str,
+        vol.Optional(
+            CONFIG_THUMBNAIL, default=DEFAULT_THUMBNAIL, description=DESC_THUMBNAIL
+        ): vol.All(CoerceNoneToDict(), THUMBNAIL_SCHEMA),
     }
 )
 
 BASE_CONFIG_SCHEMA = vol.Schema(
     {
-        vol.Optional(CONFIG_NAME, default=DEFAULT_NAME): vol.All(
+        vol.Optional(CONFIG_NAME, default=DEFAULT_NAME, description=DESC_NAME): vol.All(
             str, vol.Length(min=1)
         ),
-        vol.Optional(CONFIG_MJPEG_STREAMS, default=DEFAULT_MJPEG_STREAMS): {
-            vol.All(str, ensure_slug): MJPEG_STREAM_SCHEMA
-        },
-        vol.Optional(CONFIG_RECORDER, default=DEFAULT_RECORDER): RECORDER_SCHEMA,
+        vol.Optional(
+            CONFIG_MJPEG_STREAMS,
+            default=DEFAULT_MJPEG_STREAMS,
+            description=DESC_MJPEG_STREAMS,
+        ): vol.All(
+            CoerceNoneToDict(),
+            {Slug(description=DESC_MJPEG_STREAM): MJPEG_STREAM_SCHEMA},
+        ),
+        vol.Optional(
+            CONFIG_RECORDER, default=DEFAULT_RECORDER, description=DESC_RECORDER
+        ): vol.All(CoerceNoneToDict(), RECORDER_SCHEMA),
     }
 )
 
