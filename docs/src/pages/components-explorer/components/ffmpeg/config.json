@@ -200,8 +200,7 @@
                                 "default": null
                             },
                             {
-                                "type": "custom_validator",
-                                "value": "unable_to_convert",
+                                "type": "list",
                                 "name": "hwaccel_args",
                                 "description": "A list of FFmpeg hardware acceleration arguments.",
                                 "optional": true,
@@ -401,8 +400,7 @@
                                         "default": null
                                     },
                                     {
-                                        "type": "custom_validator",
-                                        "value": "unable_to_convert",
+                                        "type": "list",
                                         "name": "hwaccel_args",
                                         "description": "A list of FFmpeg hardware acceleration arguments.",
                                         "optional": true,

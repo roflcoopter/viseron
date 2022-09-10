@@ -126,18 +126,15 @@ if TYPE_CHECKING:
     from viseron.domains.object_detector.detected_object import DetectedObject
 
 
-def check_for_hwaccels(hwaccel_args: List[str]) -> List[str]:
+def get_default_hwaccel_args() -> List[str]:
     """Return hardware acceleration args for FFmpeg."""
-    if hwaccel_args:
-        return hwaccel_args
-
     # Dont enable VA-API if CUDA is available
     if (
         os.getenv(ENV_VAAPI_SUPPORTED) == "true"
         and os.getenv(ENV_CUDA_SUPPORTED) != "true"
     ):
         return HWACCEL_VAAPI
-    return hwaccel_args
+    return DEFAULT_HWACCEL_ARGS
 
 
 STREAM_SCEHMA_DICT = {
@@ -164,8 +161,10 @@ STREAM_SCEHMA_DICT = {
         CONFIG_INPUT_ARGS, default=DEFAULT_INPUT_ARGS, description=DESC_INPUT_ARGS
     ): Maybe(list),
     vol.Optional(
-        CONFIG_HWACCEL_ARGS, default=DEFAULT_HWACCEL_ARGS, description=DESC_HWACCEL_ARGS
-    ): check_for_hwaccels,
+        CONFIG_HWACCEL_ARGS,
+        default=get_default_hwaccel_args(),
+        description=DESC_HWACCEL_ARGS,
+    ): Maybe(list),
     vol.Optional(CONFIG_CODEC, default=DEFAULT_CODEC, description=DESC_CODEC): str,
     vol.Optional(
         CONFIG_AUDIO_CODEC, default=DEFAULT_AUDIO_CODEC, description=DESC_AUDIO_CODEC
