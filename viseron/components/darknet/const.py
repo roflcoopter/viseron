@@ -38,7 +38,7 @@ DESC_SUPPRESSION = (
     "used to remove overlapping detections.<br>"
     "You can read more about how this works "
     "<a href=https://towardsdatascience.com/non-maximum-suppression-nms-93ce178e177c>"
-    "here.<a>"
+    "here.</a>"
 )
 DESC_DNN_BACKEND = "OpenCV DNN Backend."
 DESC_DNN_TARGET = "OpenCV DNN Target."

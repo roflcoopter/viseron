@@ -314,7 +314,7 @@
                         "valueMin": 0.0,
                         "valueMax": 1.0,
                         "name": "suppression",
-                        "description": "Non-maxima suppression, used to remove overlapping detections.<br>You can read more about how this works <a href=https://towardsdatascience.com/non-maximum-suppression-nms-93ce178e177c>here.<a>",
+                        "description": "Non-maxima suppression, used to remove overlapping detections.<br>You can read more about how this works <a href=https://towardsdatascience.com/non-maximum-suppression-nms-93ce178e177c>here.</a>",
                         "optional": true,
                         "default": 0.4
                     },
