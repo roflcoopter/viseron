@@ -2,7 +2,9 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
+import ReactTooltip from "react-tooltip";
 
+import CodeBlock from "@theme/CodeBlock";
 import clsx from "clsx";
 
 import styles from "./styles.module.css";
@@ -96,6 +98,54 @@ function getName(item: any) {
   return `<${item.name.type}>`;
 }
 
+function getDefault(item: any) {
+  if (
+    item.optional &&
+    item.default !== null &&
+    // Only display default values for arrays if the length is greater than zero
+    !(Array.isArray(item.default) && item.default.length === 0)
+  ) {
+    // Show array defaults in a CodeBlock tooltip
+    if (Array.isArray(item.default)) {
+      const id = `component-${Math.random().toString(16).slice(2)}`;
+      return (
+        <span className={styles.configVariablesDefault}>
+          , default:
+          <span
+            data-tip=""
+            data-for={id}
+            style={{ borderBottom: "#8792a2 dotted 0.5px" }}
+          >
+            {" "}
+            hover to show
+          </span>
+          <ReactTooltip
+            id={id}
+            wrapper="span"
+            delayHide={250}
+            effect="solid"
+            clickable={true}
+            getContent={() => (
+              <CodeBlock language="yaml">
+                {styles.configVariablesDefault}
+                {item.default
+                  .map((default_entry) => `- ${default_entry}`)
+                  .join("\n")}
+              </CodeBlock>
+            )}
+          />
+        </span>
+      );
+    }
+    return (
+      <span className={styles.configVariablesDefault}>
+        , default: <code>{item.default.toString()}</code>
+      </span>
+    );
+  }
+  return null;
+}
+
 // Return div with header containing item name/type/required/default value
 function buildHeader(item: any) {
   return (
@@ -114,13 +164,7 @@ function buildHeader(item: any) {
         >
           {item.optional ? "optional" : " required"}
         </span>
-        {item.optional &&
-        item.default !== null &&
-        !(Array.isArray(item.default) && item.default.length === 0) ? (
-          <span className={styles.configVariablesDefault}>
-            , default: <code>{item.default.toString()}</code>
-          </span>
-        ) : null}
+        {getDefault(item)}
         {item.optional ? ")" : null}
       </span>
     </div>

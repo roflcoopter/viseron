@@ -32,7 +32,8 @@
     "path": "^0.12.7",
     "prism-react-renderer": "^1.2.1",
     "react": "^17.0.1",
-    "react-dom": "^17.0.1"
+    "react-dom": "^17.0.1",
+    "react-tooltip": "^4.2.21"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.18.9",
