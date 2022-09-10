@@ -35,6 +35,8 @@
 !/rootfs/
 !/rootfs/etc/
 !/rootfs/etc/**
+!/rootfs/helpers/
+!/rootfs/helpers/**
 !/.dockerignore
 
 # Tests
