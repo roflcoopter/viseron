@@ -26,6 +26,7 @@
     "@docusaurus/preset-classic": "^2.0.0-rc.1",
     "@easyops-cn/docusaurus-search-local": "^0.23.2",
     "@mdx-js/react": "^1.6.21",
+    "@tippyjs/react": "^4.2.6",
     "clsx": "^1.1.1",
     "glob": "^8.0.3",
     "lodash-es": "^4.17.21",
@@ -33,7 +34,7 @@
     "prism-react-renderer": "^1.2.1",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
-    "react-tooltip": "^4.2.21"
+    "tippy.js": "^6.3.7"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^7.18.9",

@@ -2,10 +2,11 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
-import ReactTooltip from "react-tooltip";
 
 import CodeBlock from "@theme/CodeBlock";
+import Tippy from "@tippyjs/react";
 import clsx from "clsx";
+import "tippy.js/dist/tippy.css";
 
 import styles from "./styles.module.css";
 
@@ -107,41 +108,37 @@ function getDefault(item: any) {
   ) {
     // Show array defaults in a CodeBlock tooltip
     if (Array.isArray(item.default)) {
-      const id = `component-${Math.random().toString(16).slice(2)}`;
       return (
         <span className={styles.configVariablesDefault}>
           , default:
-          <span
-            data-tip=""
-            data-for={id}
-            style={{ borderBottom: "#8792a2 dotted 0.5px" }}
+          <Tippy
+            interactive={true}
+            content={
+              <span>
+                <CodeBlock language="yaml">
+                  {styles.configVariablesDefault}
+                  {item.default
+                    .map((default_entry) => `- ${default_entry}`)
+                    .join("\n")}
+                </CodeBlock>
+              </span>
+            }
           >
-            {" "}
-            hover to show
-          </span>
-          <ReactTooltip
-            id={id}
-            wrapper="span"
-            delayHide={250}
-            effect="solid"
-            clickable={true}
-            getContent={() => (
-              <CodeBlock language="yaml">
-                {styles.configVariablesDefault}
-                {item.default
-                  .map((default_entry) => `- ${default_entry}`)
-                  .join("\n")}
-              </CodeBlock>
-            )}
-          />
+            <span style={{ borderBottom: "#8792a2 dotted 0.5px" }}>
+              {" hover to show)"}
+            </span>
+          </Tippy>
         </span>
       );
     }
     return (
       <span className={styles.configVariablesDefault}>
-        , default: <code>{item.default.toString()}</code>
+        , default: <code>{item.default.toString()}</code>)
       </span>
     );
+  }
+  if (item.optional) {
+    return ")";
   }
   return null;
 }
@@ -165,7 +162,6 @@ function buildHeader(item: any) {
           {item.optional ? "optional" : " required"}
         </span>
         {getDefault(item)}
-        {item.optional ? ")" : null}
       </span>
     </div>
   );
