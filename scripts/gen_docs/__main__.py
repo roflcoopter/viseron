@@ -5,7 +5,6 @@ import json
 import os
 import sys
 from collections.abc import Mapping
-from typing import List
 
 import typing_extensions
 import voluptuous as vol
