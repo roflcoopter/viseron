@@ -20,37 +20,37 @@ const sidebars = {
   docs: [
     {
       type: "category",
-      label: "Introduction",
+      label: "Documentation",
       link: {
         type: "doc",
-        id: "introduction",
+        id: "documentation",
       },
       collapsed: false,
       items: [
-        "introduction/installation",
+        "documentation/installation",
         {
           type: "category",
           label: "Configuration",
           link: {
             type: "doc",
-            id: "introduction/configuration",
+            id: "documentation/configuration",
           },
           collapsed: false,
           items: [
             {
               type: "link",
               label: "Camera domain",
-              href: "/docs/introduction/configuration#camera-domain",
+              href: "/docs/documentation/configuration#camera-domain",
             },
             {
               type: "link",
               label: "Object Detector domain",
-              href: "/docs/introduction/configuration#object-detector-domain",
+              href: "/docs/documentation/configuration#object-detector-domain",
             },
             {
               type: "link",
               label: "Motion Detector domain",
-              href: "/docs/introduction/configuration#motion-detector-domain",
+              href: "/docs/documentation/configuration#motion-detector-domain",
             },
           ],
         },
