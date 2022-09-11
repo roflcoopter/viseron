@@ -24,7 +24,6 @@ from viseron.const import (
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
 from viseron.helpers.logs import LogPipe, UnhelpfullLogFilter
-from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 from .const import (
     COMPONENT,
@@ -42,9 +41,11 @@ from .const import (
     CONFIG_PORT,
     CONFIG_PROTOCOL,
     CONFIG_STREAM_FORMAT,
-    CONFIG_SUBSTREAM,
     CONFIG_USERNAME,
     CONFIG_WIDTH,
+    DEFAULT_AUDIO_CODEC,
+    DEFAULT_AUDIO_PIPELINE,
+    DEFAULT_CODEC,
     ENV_GSTREAMER_PATH,
     LOGLEVEL_CONVERTER,
     PIXEL_FORMAT,
@@ -79,8 +80,6 @@ class Stream:
         self._ffprobe_timeout = FFPROBE_TIMEOUT
 
         self._output_stream_config = config
-        if config.get(CONFIG_SUBSTREAM, None):
-            self._output_stream_config = config[CONFIG_SUBSTREAM]
 
         stream_codec = None
         stream_audio_codec = None
@@ -90,9 +89,11 @@ class Stream:
             or not self._output_stream_config[CONFIG_HEIGHT]
             or not self._output_stream_config[CONFIG_FPS]
             or not self._output_stream_config[CONFIG_CODEC]
+            or self._output_stream_config[CONFIG_CODEC] == DEFAULT_CODEC
             or (
-                self._output_stream_config[CONFIG_AUDIO_CODEC] == "unset"
-                and self._output_stream_config[CONFIG_AUDIO_PIPELINE] == "unset"
+                self._output_stream_config[CONFIG_AUDIO_CODEC] == DEFAULT_AUDIO_CODEC
+                and self._output_stream_config[CONFIG_AUDIO_PIPELINE]
+                == DEFAULT_AUDIO_PIPELINE
             )
         ):
             (
@@ -346,14 +347,6 @@ class Stream:
 
     def pipe(self):
         """Return subprocess pipe for GStreamer."""
-        if self._config.get(CONFIG_SUBSTREAM, None):
-            self._segment_process = RestartablePopen(
-                self.build_segment_command(),
-                name=f"viseron.camera.{self._camera.identifier}.segments",
-                stdout=sp.PIPE,
-                stderr=self._log_pipe,
-            )
-
         return sp.Popen(
             self._pipeline.build_pipeline(),
             stdout=sp.PIPE,
@@ -365,10 +358,6 @@ class Stream:
         self._logger.debug(
             f"GStreamer decoder command: {' '.join(self._pipeline.build_pipeline())}"
         )
-        if self._config.get(CONFIG_SUBSTREAM, None):
-            self._logger.debug(
-                f"GStreamer segments command: {' '.join(self.build_segment_command())}"
-            )
 
         self._pipe = self.pipe()
 

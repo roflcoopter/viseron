@@ -21,6 +21,7 @@ from viseron.domains.camera.const import (
     EVENT_CAMERA_STARTED,
     EVENT_CAMERA_STOPPED,
 )
+from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict, Maybe
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -48,7 +49,6 @@ from .const import (
     CONFIG_RTSP_TRANSPORT,
     CONFIG_SEGMENTS_FOLDER,
     CONFIG_STREAM_FORMAT,
-    CONFIG_SUBSTREAM,
     CONFIG_USERNAME,
     CONFIG_WIDTH,
     DEFAULT_AUDIO_CODEC,
@@ -72,6 +72,31 @@ from .const import (
     DEFAULT_STREAM_FORMAT,
     DEFAULT_USERNAME,
     DEFAULT_WIDTH,
+    DESC_AUDIO_CODEC,
+    DESC_AUDIO_PIPELINE,
+    DESC_CODEC,
+    DESC_FFPROBE_LOGLEVEL,
+    DESC_FPS,
+    DESC_FRAME_TIMEOUT,
+    DESC_GSTREAMER_LOGLEVEL,
+    DESC_GSTREAMER_RECOVERABLE_ERRORS,
+    DESC_HEIGHT,
+    DESC_HOST,
+    DESC_MUXER,
+    DESC_PASSWORD,
+    DESC_PATH,
+    DESC_PORT,
+    DESC_PROTOCOL,
+    DESC_RECORDER,
+    DESC_RECORDER_AUDIO_CODEC,
+    DESC_RECORDER_CODEC,
+    DESC_RECORDER_FILTER_ARGS,
+    DESC_RECORDER_HWACCEL_ARGS,
+    DESC_RTSP_TRANSPORT,
+    DESC_SEGMENTS_FOLDER,
+    DESC_STREAM_FORMAT,
+    DESC_USERNAME,
+    DESC_WIDTH,
     GSTREAMER_LOGLEVELS,
     STREAM_FORMAT_MAP,
 )
@@ -83,46 +108,80 @@ if TYPE_CHECKING:
     from viseron.domains.object_detector.detected_object import DetectedObject
 
 STREAM_SCEHMA_DICT = {
-    vol.Optional(CONFIG_STREAM_FORMAT, default=DEFAULT_STREAM_FORMAT): vol.In(
-        STREAM_FORMAT_MAP.keys()
+    vol.Required(CONFIG_PATH, description=DESC_PATH): vol.All(str, vol.Length(min=1)),
+    vol.Required(CONFIG_PORT, description=DESC_PORT): vol.All(int, vol.Range(min=1)),
+    vol.Optional(
+        CONFIG_STREAM_FORMAT,
+        default=DEFAULT_STREAM_FORMAT,
+        description=DESC_STREAM_FORMAT,
+    ): vol.In(STREAM_FORMAT_MAP.keys()),
+    vol.Optional(
+        CONFIG_PROTOCOL, default=DEFAULT_PROTOCOL, description=DESC_PROTOCOL
+    ): Maybe(vol.Any("rtsp", "rtmp", "http", "https")),
+    vol.Optional(CONFIG_WIDTH, default=DEFAULT_WIDTH, description=DESC_WIDTH): Maybe(
+        int
     ),
-    vol.Optional(CONFIG_PROTOCOL, default=DEFAULT_PROTOCOL): vol.Maybe(
-        vol.Any("rtsp", "rtmp", "http", "https")
+    vol.Optional(CONFIG_HEIGHT, default=DEFAULT_HEIGHT, description=DESC_HEIGHT): Maybe(
+        int
     ),
-    vol.Required(CONFIG_PATH): vol.All(str, vol.Length(min=1)),
-    vol.Required(CONFIG_PORT): vol.All(int, vol.Range(min=1)),
-    vol.Optional(CONFIG_WIDTH, default=DEFAULT_WIDTH): vol.Maybe(int),
-    vol.Optional(CONFIG_HEIGHT, default=DEFAULT_HEIGHT): vol.Maybe(int),
-    vol.Optional(CONFIG_FPS, default=DEFAULT_FPS): vol.Maybe(
+    vol.Optional(CONFIG_FPS, default=DEFAULT_FPS, description=DESC_FPS): Maybe(
         vol.All(int, vol.Range(min=1))
     ),
-    vol.Optional(CONFIG_CODEC, default=DEFAULT_CODEC): str,
-    vol.Optional(CONFIG_AUDIO_CODEC, default=DEFAULT_AUDIO_CODEC): vol.Maybe(str),
-    vol.Optional(CONFIG_AUDIO_PIPELINE, default=DEFAULT_AUDIO_PIPELINE): vol.Maybe(str),
-    vol.Optional(CONFIG_RTSP_TRANSPORT, default=DEFAULT_RTSP_TRANSPORT): vol.Any(
+    vol.Optional(CONFIG_CODEC, default=DEFAULT_CODEC, description=DESC_CODEC): str,
+    vol.Optional(
+        CONFIG_AUDIO_CODEC, default=DEFAULT_AUDIO_CODEC, description=DESC_AUDIO_CODEC
+    ): Maybe(str),
+    vol.Optional(
+        CONFIG_AUDIO_PIPELINE,
+        default=DEFAULT_AUDIO_PIPELINE,
+        description=DESC_AUDIO_PIPELINE,
+    ): Maybe(str),
+    vol.Optional(
+        CONFIG_RTSP_TRANSPORT,
+        default=DEFAULT_RTSP_TRANSPORT,
+        description=DESC_RTSP_TRANSPORT,
+    ): vol.Any(
         "tcp",
         "udp",
         "mcast",
     ),
-    vol.Optional(CONFIG_FRAME_TIMEOUT, default=DEFAULT_FRAME_TIMEOUT): vol.All(
-        int, vol.Range(1, 60)
-    ),
+    vol.Optional(
+        CONFIG_FRAME_TIMEOUT,
+        default=DEFAULT_FRAME_TIMEOUT,
+        description=DESC_FRAME_TIMEOUT,
+    ): vol.All(int, vol.Range(1, 60)),
 }
 
 RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
     {
         vol.Optional(
-            CONFIG_RECORDER_HWACCEL_ARGS, default=DEFAULT_RECORDER_HWACCEL_ARGS
+            CONFIG_RECORDER_HWACCEL_ARGS,
+            default=DEFAULT_RECORDER_HWACCEL_ARGS,
+            description=DESC_RECORDER_HWACCEL_ARGS,
         ): [str],
-        vol.Optional(CONFIG_RECORDER_CODEC, default=DEFAULT_RECORDER_CODEC): str,
         vol.Optional(
-            CONFIG_RECORDER_AUDIO_CODEC, default=DEFAULT_RECORDER_AUDIO_CODEC
+            CONFIG_RECORDER_CODEC,
+            default=DEFAULT_RECORDER_CODEC,
+            description=DESC_RECORDER_CODEC,
         ): str,
         vol.Optional(
-            CONFIG_RECORDER_FILTER_ARGS, default=DEFAULT_RECORDER_FILTER_ARGS
+            CONFIG_RECORDER_AUDIO_CODEC,
+            default=DEFAULT_RECORDER_AUDIO_CODEC,
+            description=DESC_RECORDER_AUDIO_CODEC,
+        ): str,
+        vol.Optional(
+            CONFIG_RECORDER_FILTER_ARGS,
+            default=DEFAULT_RECORDER_FILTER_ARGS,
+            description=DESC_RECORDER_FILTER_ARGS,
         ): [str],
-        vol.Optional(CONFIG_SEGMENTS_FOLDER, default=DEFAULT_SEGMENTS_FOLDER): str,
-        vol.Optional(CONFIG_MUXER, default=DEFAULT_MUXER): vol.In(["mp4mux", "avimux"]),
+        vol.Optional(
+            CONFIG_SEGMENTS_FOLDER,
+            default=DEFAULT_SEGMENTS_FOLDER,
+            description=DESC_SEGMENTS_FOLDER,
+        ): str,
+        vol.Optional(
+            CONFIG_MUXER, default=DEFAULT_MUXER, description=DESC_MUXER
+        ): vol.In(["mp4mux", "avimux"]),
     }
 )
 
@@ -132,31 +191,37 @@ CAMERA_SCHEMA = BASE_CAMERA_CONFIG_SCHEMA.extend(STREAM_SCEHMA_DICT)
 
 CAMERA_SCHEMA = CAMERA_SCHEMA.extend(
     {
-        vol.Required(CONFIG_HOST): vol.All(str, vol.Length(min=1)),
-        vol.Optional(CONFIG_USERNAME, default=DEFAULT_USERNAME): vol.Maybe(
-            vol.All(str, vol.Length(min=1))
-        ),
-        vol.Optional(CONFIG_PASSWORD, default=DEFAULT_PASSWORD): vol.Maybe(
-            vol.All(str, vol.Length(min=1))
-        ),
-        vol.Optional(CONFIG_SUBSTREAM): vol.Schema(STREAM_SCEHMA_DICT),
+        vol.Required(CONFIG_HOST, description=DESC_HOST): str,
         vol.Optional(
-            CONFIG_GSTREAMER_LOGLEVEL, default=DEFAULT_GSTREAMER_LOGLEVEL
+            CONFIG_USERNAME, default=DEFAULT_USERNAME, description=DESC_USERNAME
+        ): Maybe(str),
+        vol.Optional(
+            CONFIG_PASSWORD, default=DEFAULT_PASSWORD, description=DESC_PASSWORD
+        ): Maybe(str),
+        vol.Optional(
+            CONFIG_GSTREAMER_LOGLEVEL,
+            default=DEFAULT_GSTREAMER_LOGLEVEL,
+            description=DESC_GSTREAMER_LOGLEVEL,
         ): GSTREAMER_LOGLEVELSCHEMA,
         vol.Optional(
             CONFIG_GSTREAMER_RECOVERABLE_ERRORS,
             default=DEFAULT_GSTREAMER_RECOVERABLE_ERRORS,
+            description=DESC_GSTREAMER_RECOVERABLE_ERRORS,
         ): [str],
         vol.Optional(
-            CONFIG_FFPROBE_LOGLEVEL, default=DEFAULT_FFPROBE_LOGLEVEL
+            CONFIG_FFPROBE_LOGLEVEL,
+            default=DEFAULT_FFPROBE_LOGLEVEL,
+            description=DESC_FFPROBE_LOGLEVEL,
         ): GSTREAMER_LOGLEVELSCHEMA,
-        vol.Optional(CONFIG_RECORDER, default=DEFAULT_RECORDER): RECORDER_SCHEMA,
+        vol.Optional(
+            CONFIG_RECORDER, default=DEFAULT_RECORDER, description=DESC_RECORDER
+        ): vol.All(CoerceNoneToDict(), RECORDER_SCHEMA),
     }
 )
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        str: CAMERA_SCHEMA,
+        CameraIdentifier(): CAMERA_SCHEMA,
     }
 )
 

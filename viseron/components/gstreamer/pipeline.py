@@ -18,6 +18,7 @@ from .const import (
     CONFIG_SEGMENTS_FOLDER,
     CONFIG_STREAM_FORMAT,
     DECODER_ELEMENT_MAP,
+    DEFAULT_AUDIO_PIPELINE,
     DEPAY_ELEMENT_MAP,
     GSTREAMER_LOGLEVELS,
     PIXEL_FORMAT,
@@ -190,13 +191,15 @@ class BasePipeline:
         """Return audio pipeline."""
         if (
             self._stream.output_stream_config[CONFIG_AUDIO_PIPELINE]
-            and self._stream.output_stream_config[CONFIG_AUDIO_PIPELINE] != "unset"
+            and self._stream.output_stream_config[CONFIG_AUDIO_PIPELINE]
+            != DEFAULT_AUDIO_PIPELINE
         ):
             return self._stream.output_stream_config[CONFIG_AUDIO_PIPELINE].split(" ")
 
         if (
             self._stream.output_stream_config[CONFIG_AUDIO_CODEC]
-            and self._stream.output_stream_config[CONFIG_AUDIO_CODEC] != "unset"
+            and self._stream.output_stream_config[CONFIG_AUDIO_CODEC]
+            != DEFAULT_AUDIO_PIPELINE
         ) or (
             self._stream.stream_audio_codec
             and self._stream.output_stream_config[CONFIG_AUDIO_CODEC]
