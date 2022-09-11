@@ -1,0 +1,53 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import MotionDetector from "@site/src/pages/components-explorer/_domains/motion_detector/index.mdx";
+import MotionDetectorMask from "@site/src/pages/components-explorer/_domains/motion_detector/mask.mdx";
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+The `mog2` component uses the [BackgroundSubtractorMOG2](https://docs.opencv.org/4.x/d7/d7b/classcv_1_1BackgroundSubtractorMOG2.html) algorithm built into `OpenCV`
+
+The algorithm is very similar to the one used in the [background_subractor](/components-explorer/components/background_subractor) component.
+What separates them is the fact that `mog2` can detect shadows and filter those out, providing a slightly more accurate motion detector.
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+mog2:
+  motion_detector:
+    cameras:
+      camera_one:
+        detect_shadows: true
+        fps: 1
+        mask:
+          - coordinates:
+              - x: 400
+                y: 200
+              - x: 1000
+                y: 200
+              - x: 1000
+                y: 750
+              - x: 400
+                y: 750
+      camera_two:
+        fps: 2
+        trigger_recorder: true
+        threshold: 25
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Motion detector
+
+<MotionDetector />
+
+### Mask
+
+<MotionDetectorMask />
