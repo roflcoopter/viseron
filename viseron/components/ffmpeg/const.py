@@ -4,6 +4,8 @@ from typing import List
 
 COMPONENT = "ffmpeg"
 
+DESC_COMPONENT = "FFmpeg Configuration."
+
 ENV_FFMPEG_PATH = "VISERON_FFMPEG_PATH"
 
 STREAM_FORMAT_MAP = {
@@ -210,6 +212,7 @@ DEFAULT_FFMPEG_RECOVERABLE_ERRORS = [
 ]
 DEFAULT_FFPROBE_LOGLEVEL = "error"
 
+DESC_CAMERA = "Camera domain config."
 DESC_HOST = "IP or hostname of camera."
 DESC_USERNAME = "Username for the camera stream."
 DESC_PASSWORD = "Password for the camera stream."

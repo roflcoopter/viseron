@@ -8,12 +8,12 @@ from viseron import Viseron
 from viseron.domains import setup_domain
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 
-from .const import COMPONENT, CONFIG_CAMERA
+from .const import COMPONENT, CONFIG_CAMERA, DESC_CAMERA, DESC_COMPONENT
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        COMPONENT: {
-            vol.Required(CONFIG_CAMERA): {str: object},
+        vol.Required(COMPONENT, description=DESC_COMPONENT): {
+            vol.Required(CONFIG_CAMERA, description=DESC_CAMERA): {str: object},
         },
     },
     extra=vol.ALLOW_EXTRA,

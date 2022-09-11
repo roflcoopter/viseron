@@ -734,12 +734,14 @@
                     }
                 ],
                 "name": "camera",
-                "description": null,
+                "description": "Camera domain config.",
                 "required": true,
                 "default": null
             }
         ],
         "name": "ffmpeg",
-        "description": null
+        "description": "FFmpeg Configuration.",
+        "required": true,
+        "default": null
     }
 ]
