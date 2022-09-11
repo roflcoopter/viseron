@@ -16,6 +16,7 @@
   --ifm-code-font-size: 95%;
 
   /* Lists */
+  --ifm-heading-margin-top: 35px;
   /* --ifm-list-paragraph-margin: 0px; */
   /* --ifm-paragraph-margin-bottom: 0px; */
 }
