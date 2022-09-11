@@ -26,7 +26,31 @@ Therefore, if you make changes to the `recorder` config you should keep in mind 
   <summary>Configuration example</summary>
 
 ```yaml
-Config example here
+gstreamer:
+  camera:
+    camera_one:
+      name: Camera 1
+      host: 192.168.XX.XX
+      port: 554
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_user
+      password: !secret camera_one_pass
+      mjpeg_streams:
+        my_stream:
+          width: 100
+          height: 100
+          draw_objects: true
+          rotate: 45
+          mirror: true
+      recorder:
+        idle_timeout: 5
+    camera_two:
+      name: Camera 2
+      host: 192.168.YY.YY
+      port: 554
+      path: /Streaming/Channels/101/
+      username: !secret camera_two_user
+      password: !secret camera_two_pass
 ```
 
 </details>
