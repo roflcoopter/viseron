@@ -15,6 +15,15 @@ You can edit the `config.yaml` in whatever way you like, but using the built in 
 
 The built in Configuration Editor has syntax highlighting, making your YAML endevours a bit easier.
 
+<details>
+  <summary>Demonstration of the Editor</summary>
+
+<p align="center">
+  <img src="/img/screenshots/Viseron-demo-configuration.gif" alt-text="Configuration Editor"/>
+</p>
+
+</details>
+
 :::
 
 ## Components
