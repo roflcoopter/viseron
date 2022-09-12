@@ -2,12 +2,10 @@
 title: Documentation
 ---
 
-# Viseron
-
 Viseron is a self-hosted, local only NVR implemented in Python.
 The goal is ease of use while also leveraging hardware acceleration for minimal system load.
 
-# Notable features
+## Notable features
 
 Viserons features include, but not limited to the following:
 
@@ -19,7 +17,7 @@ Viserons features include, but not limited to the following:
 - Face recognition via:
   - dlib
   - [DeepStack](https://docs.deepstack.cc/)
-- Responsive, mobile friendly Web UI using React
+- Responsive, mobile friendly Web UI written in TypeScript React
 - MQTT support
 - [Home Assistant](https://home-assistant.io) MQTT Discovery
 - Lookback, buffers frames to record before the event actually happened
@@ -38,3 +36,20 @@ Viserons features include, but not limited to the following:
 - Zones to limit detection to a particular area to reduce false positives
 - Masks to limit where object and motion detection occurs
 - Stop/start cameras on-demand over MQTT
+
+## Screenshots
+
+<p align="center">
+  <img src="/img/screenshots/Viseron-screenshot-cameras.png" alt-text="Camera view"/>
+  Camera view
+</p>
+
+<p align="center">
+  <img src="/img/screenshots/Viseron-screenshot-recordings.png" alt-text="Recordings view"/>
+  Recordings view
+</p>
+
+<p align="center">
+  <img src="/img/screenshots/Viseron-screenshot-configuration.png" alt-text="Configuration Editor"/>
+  Configuration Editor
+</p>
