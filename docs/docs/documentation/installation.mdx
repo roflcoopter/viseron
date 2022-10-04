@@ -1,5 +1,5 @@
-import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import Tabs from "@theme/Tabs";
 
 # Installation
 
@@ -14,7 +14,7 @@ Have a look at the [supported architectures](#supported-architectures) below.
 
 :::
 
-# Supported architectures
+## Supported architectures
 
 Viserons images support multiple architectures such as `amd64`, `aarch64` and `armhf`. <br />
 Pulling `roflcoopter/viseron:latest` should automatically pull the correct image for you. <br />
@@ -44,46 +44,12 @@ Both `docker` and `docker-compose` examples are given.
 
 ```bash
 docker run --rm \
--v <recordings path>:/recordings \
--v <config path>:/config \
--v /etc/localtime:/etc/localtime:ro \
--p 8888:8888 \
---name viseron \
-roflcoopter/viseron:latest
-```
-
-</TabItem>
-<TabItem value="docker-compose" label="Docker-Compose">
-
-```yaml
-version: "2.4"
-
-services:
-viseron:
-image: roflcoopter/viseron:latest
-container_name: viseron
-volumes: - <recordings path>:/recordings - <config path>:/config - /etc/localtime:/etc/localtime:ro
-ports: - 8888:8888
-```
-
-</TabItem>
-</Tabs>
-
-</details>
-<details><summary>64-bit Linux machine with VAAPI (Intel NUC for example)</summary>
-
-<Tabs groupId="docker-type">
-<TabItem value="docker" label="Docker">
-
-```bash
-docker run --rm \
--v <recordings path>:/recordings \
--v <config path>:/config \
--v /etc/localtime:/etc/localtime:ro \
--p 8888:8888 \
---name viseron \
---device /dev/dri \
-roflcoopter/viseron:latest
+  -v {recordings path}:/recordings \
+  -v {config path}:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  -p 8888:8888 \
+  --name viseron \
+  roflcoopter/viseron:latest
 ```
 
 </TabItem>
@@ -97,8 +63,46 @@ services:
     image: roflcoopter/viseron:latest
     container_name: viseron
     volumes:
-      - <recordings path>:/recordings
-      - <config path>:/config
+      - {recordings path}:/recordings
+      - {config path}:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 8888:8888
+```
+
+</TabItem>
+</Tabs>
+
+</details>
+<details><summary>64-bit Linux machine with VAAPI (Intel NUC for example)</summary>
+
+<Tabs groupId="docker-type">
+<TabItem value="docker" label="Docker">
+
+```bash
+docker run --rm \
+  -v {recordings path}:/recordings \
+  -v {config path}:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  -p 8888:8888 \
+  --name viseron \
+  --device /dev/dri \
+  roflcoopter/viseron:latest
+```
+
+</TabItem>
+<TabItem value="docker-compose" label="Docker-Compose">
+
+```yaml
+version: "2.4"
+
+services:
+  viseron:
+    image: roflcoopter/viseron:latest
+    container_name: viseron
+    volumes:
+      - {recordings path}:/recordings
+      - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
       - 8888:8888
@@ -118,13 +122,13 @@ services:
 
 ```bash
 docker run --rm \
--v <recordings path>:/recordings \
--v <config path>:/config \
--v /etc/localtime:/etc/localtime:ro \
--p 8888:8888 \
---name viseron \
---runtime=nvidia \
-roflcoopter/amd64-cuda-viseron:latest
+  -v {recordings path}:/recordings \
+  -v {config path}:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  -p 8888:8888 \
+  --name viseron \
+  --runtime=nvidia \
+  roflcoopter/amd64-cuda-viseron:latest
 ```
 
 </TabItem>
@@ -138,8 +142,8 @@ services:
     image: roflcoopter/amd64-cuda-viseron:latest
     container_name: viseron
     volumes:
-      - <recordings path>:/recordings
-      - <config path>:/config
+      - {recordings path}:/recordings
+      - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
       - 8888:8888
@@ -165,14 +169,14 @@ Make sure [NVIDIA Docker](https://github.com/NVIDIA/nvidia-docker) is installed.
 
 ```bash
 docker run --rm \
--v <recordings path>:/recordings \
--v <config path>:/config \
--v /etc/localtime:/etc/localtime:ro \
--p 8888:8888 \
---name viseron \
---runtime=nvidia \
---privileged \
-roflcoopter/jetson-nano-viseron:latest
+  -v {recordings path}:/recordings \
+  -v {config path}:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  -p 8888:8888 \
+  --name viseron \
+  --runtime=nvidia \
+  --privileged \
+  roflcoopter/jetson-nano-viseron:latest
 ```
 
 :::caution
@@ -193,8 +197,8 @@ services:
     image: roflcoopter/jetson-nano-viseron:latest
     container_name: viseron
     volumes:
-      - <recordings path>:/recordings
-      - <config path>:/config
+      - {recordings path}:/recordings
+      - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
       - 8888:8888
@@ -221,19 +225,19 @@ You can probably get around this by manually mounting all the needed devices but
 
 ```bash
 docker run --rm \
---privileged \
--v <recordings path>:/recordings \
--v <config path>:/config \
--v /etc/localtime:/etc/localtime:ro \
--v /dev/bus/usb:/dev/bus/usb \
--v /opt/vc/lib:/opt/vc/lib \
--p 8888:8888 \
---name viseron \
---device=/dev/video10:/dev/video10 \
---device=/dev/video11:/dev/video11 \
---device=/dev/video12:/dev/video12 \
---device /dev/bus/usb:/dev/bus/usb \
-roflcoopter/viseron:latest
+  --privileged \
+  -v {recordings path}:/recordings \
+  -v {config path}:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  -v /dev/bus/usb:/dev/bus/usb \
+  -v /opt/vc/lib:/opt/vc/lib \
+  -p 8888:8888 \
+  --name viseron \
+  --device=/dev/video10:/dev/video10 \
+  --device=/dev/video11:/dev/video11 \
+  --device=/dev/video12:/dev/video12 \
+  --device /dev/bus/usb:/dev/bus/usb \
+  roflcoopter/viseron:latest
 ```
 
 </TabItem>
@@ -246,8 +250,8 @@ services:
     image: roflcoopter/viseron:latest
     container_name: viseron
     volumes:
-      - <recordings path>:/recordings
-      - <config path>:/config
+      - {recordings path}:/recordings
+      - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     devices:
       - /dev/video10:/dev/video10
@@ -284,17 +288,17 @@ Configure a substream if you plan on running Viseron on an RPi.
 
 ```bash
 docker run --rm \
---privileged \
--v <recordings path>:/recordings \
--v <config path>:/config \
--v /etc/localtime:/etc/localtime:ro \
--v /opt/vc/lib:/opt/vc/lib \
--p 8888:8888 \
---name viseron \
---device /dev/vchiq:/dev/vchiq \
---device /dev/vcsm:/dev/vcsm \
---device /dev/bus/usb:/dev/bus/usb \
-roflcoopter/viseron:latest
+  --privileged \
+  -v {recordings path}:/recordings \
+  -v {config path}:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  -v /opt/vc/lib:/opt/vc/lib \
+  -p 8888:8888 \
+  --name viseron \
+  --device /dev/vchiq:/dev/vchiq \
+  --device /dev/vcsm:/dev/vcsm \
+  --device /dev/bus/usb:/dev/bus/usb \
+  roflcoopter/viseron:latest
 ```
 
 </TabItem>
@@ -307,8 +311,8 @@ services:
     image: roflcoopter/viseron:latest
     container_name: viseron
     volumes:
-      - <recordings path>:/recordings
-      - <config path>:/config
+      - {recordings path}:/recordings
+      - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
       - /opt/vc/lib:/opt/vc/lib
     devices:
@@ -359,5 +363,74 @@ To utilize it you need to add `--device /dev/dri` to your docker command.
 
 EdgeTPU support is also included in all containers.<br />
 To use it, add `-v /dev/bus/usb:/dev/bus/usb --privileged` to your docker command.
+
+:::
+
+## User and Group Identifiers
+
+When using volumes (`-v` flags) permissions issues can happen between the host and the container.
+To solve this, you can specify the user `PUID` and group `PGID` as environment variables to the container.
+
+<details>
+  <summary>Docker command</summary>
+
+```bash
+docker run --rm \
+  -v {recordings path}:/recordings \
+  -v {config path}:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  -p 8888:8888 \
+  --name viseron \
+  -e PUID=1000 \
+  -e PGID=1000 \
+  roflcoopter/viseron:latest
+```
+
+</details>
+
+<details>
+  <summary>Docker Compose</summary>
+
+Example docker-compose
+
+```yaml
+version: "2.4"
+
+services:
+  viseron:
+    image: roflcoopter/viseron:latest
+    container_name: viseron
+    volumes:
+      - {recordings path}:/recordings
+      - {config path}:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 8888:8888
+    environment:
+      - PUID=1000
+      - PGID=1000
+```
+
+</details>
+
+Ensure the volumes are owned on the host by the user you specify.
+In this example `PUID=1000` and `PGID=1000`.
+
+:::tip
+
+To find the UID and GID of your current user you can run this command on the host:
+
+```
+id your_username_here
+```
+
+:::
+
+:::note
+
+Viseron runs as `root` (`PUID=0` and `PGID=0`) by default.<br />
+This is because it can be problematic to get hardware acceleration and/or EdgeTPUs to work properly for everyone.<br />
+The `s6-overlay` init scripts do a good job at fixing permissions for other users, but you may still face some issues if you choose to not run as `root`.<br />
+If you do have issues, please open an issue and i will do my best to fix them.
 
 :::

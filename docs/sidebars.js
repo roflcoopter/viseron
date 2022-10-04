@@ -27,7 +27,32 @@ const sidebars = {
       },
       collapsed: false,
       items: [
-        "documentation/installation",
+        {
+          type: "category",
+          label: "Installation",
+          link: {
+            type: "doc",
+            id: "documentation/installation",
+          },
+          collapsed: false,
+          items: [
+            {
+              type: "link",
+              label: "Supported architectures",
+              href: "/docs/documentation/installation#supported-architectures",
+            },
+            {
+              type: "link",
+              label: "Running Viseron",
+              href: "/docs/documentation/installation#running-viseron",
+            },
+            {
+              type: "link",
+              label: "User and Group Identifiers",
+              href: "/docs/documentation/installation#user-and-group-identifiers",
+            },
+          ],
+        },
         {
           type: "category",
           label: "Configuration",
