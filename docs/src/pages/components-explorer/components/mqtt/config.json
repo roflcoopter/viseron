@@ -63,7 +63,7 @@
                     }
                 ],
                 "name": "home_assistant",
-                "description": "See <a href=#Home-Assistant-MQTT-Discovery>Home Assistant MQTT Discovery.</a>",
+                "description": "See <a href=#home-assistant-mqtt-discovery>Home Assistant MQTT Discovery.</a>",
                 "optional": true,
                 "default": null
             }

@@ -58,7 +58,7 @@ DESC_CLIENT_ID = (
     "Also used as the base for all topics."
 )
 DESC_HOME_ASSISTANT = (
-    "See <a href=#Home-Assistant-MQTT-Discovery>Home Assistant MQTT Discovery.</a>"
+    "See <a href=#home-assistant-mqtt-discovery>Home Assistant MQTT Discovery.</a>"
 )
 DESC_LAST_WILL_TOPIC = "Last will topic."
 
