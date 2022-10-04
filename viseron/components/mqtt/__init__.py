@@ -14,7 +14,7 @@ from viseron.const import (
     EVENT_STATE_CHANGED,
     VISERON_SIGNAL_SHUTDOWN,
 )
-from viseron.helpers.validators import none_to_dict
+from viseron.helpers.validators import CoerceNoneToDict, Maybe
 from viseron.states import EventEntityAddedData
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -36,6 +36,15 @@ from .const import (
     DEFAULT_PORT,
     DEFAULT_RETAIN_CONFIG,
     DEFAULT_USERNAME,
+    DESC_BROKER,
+    DESC_CLIENT_ID,
+    DESC_DISCOVERY_PREFIX,
+    DESC_HOME_ASSISTANT,
+    DESC_LAST_WILL_TOPIC,
+    DESC_PASSWORD,
+    DESC_PORT,
+    DESC_RETAIN_CONFIG,
+    DESC_USERNAME,
     EVENT_MQTT_ENTITY_ADDED,
     INCLUSION_GROUP_AUTHENTICATION,
     MESSAGE_AUTHENTICATION,
@@ -69,8 +78,16 @@ def get_lwt_topic(mqtt_config: dict) -> dict:
 
 HOME_ASSISTANT_SCHEMA = vol.Schema(
     {
-        vol.Optional(CONFIG_DISCOVERY_PREFIX, default=DEFAULT_DISCOVERY_PREFIX): str,
-        vol.Optional(CONFIG_RETAIN_CONFIG, default=DEFAULT_RETAIN_CONFIG): bool,
+        vol.Optional(
+            CONFIG_DISCOVERY_PREFIX,
+            default=DEFAULT_DISCOVERY_PREFIX,
+            description=DESC_DISCOVERY_PREFIX,
+        ): str,
+        vol.Optional(
+            CONFIG_RETAIN_CONFIG,
+            default=DEFAULT_RETAIN_CONFIG,
+            description=DESC_RETAIN_CONFIG,
+        ): bool,
     }
 )
 
@@ -79,29 +96,38 @@ CONFIG_SCHEMA = vol.Schema(
         COMPONENT: vol.Schema(
             vol.All(
                 {
-                    vol.Required(CONFIG_BROKER): str,
-                    vol.Optional(CONFIG_PORT, default=DEFAULT_PORT): int,
+                    vol.Required(CONFIG_BROKER, description=DESC_BROKER): str,
+                    vol.Optional(
+                        CONFIG_PORT, default=DEFAULT_PORT, description=DESC_PORT
+                    ): int,
                     vol.Inclusive(
                         CONFIG_USERNAME,
                         INCLUSION_GROUP_AUTHENTICATION,
                         default=DEFAULT_USERNAME,
+                        description=DESC_USERNAME,
                         msg=MESSAGE_AUTHENTICATION,
-                    ): vol.Maybe(str),
+                    ): Maybe(str),
                     vol.Inclusive(
                         CONFIG_PASSWORD,
                         INCLUSION_GROUP_AUTHENTICATION,
                         default=DEFAULT_PASSWORD,
+                        description=DESC_PASSWORD,
                         msg=MESSAGE_AUTHENTICATION,
-                    ): vol.Maybe(str),
+                    ): Maybe(str),
                     vol.Optional(
-                        CONFIG_CLIENT_ID, default=DEFAULT_CLIENT_ID
-                    ): vol.Maybe(str),
-                    vol.Optional(CONFIG_HOME_ASSISTANT): vol.All(
-                        none_to_dict, HOME_ASSISTANT_SCHEMA
-                    ),
+                        CONFIG_CLIENT_ID,
+                        default=DEFAULT_CLIENT_ID,
+                        description=DESC_CLIENT_ID,
+                    ): Maybe(str),
                     vol.Optional(
-                        CONFIG_LAST_WILL_TOPIC, default=DEFAULT_LAST_WILL_TOPIC
-                    ): vol.Maybe(str),
+                        CONFIG_LAST_WILL_TOPIC,
+                        default=DEFAULT_LAST_WILL_TOPIC,
+                        description=DESC_LAST_WILL_TOPIC,
+                    ): Maybe(str),
+                    vol.Optional(
+                        CONFIG_HOME_ASSISTANT,
+                        description=DESC_HOME_ASSISTANT,
+                    ): vol.All(CoerceNoneToDict(), HOME_ASSISTANT_SCHEMA),
                 },
                 get_lwt_topic,
             )

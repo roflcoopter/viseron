@@ -27,6 +27,12 @@ CONFIG_RETAIN_CONFIG = "retain_config"
 DEFAULT_DISCOVERY_PREFIX = "homeassistant"
 DEFAULT_RETAIN_CONFIG = True
 
+DESC_DISCOVERY_PREFIX = (
+    "<a href=https://www.home-assistant.io/docs/mqtt/discovery/#discovery_prefix>"
+    "Discovery prefix.</a>"
+)
+DESC_RETAIN_CONFIG = "Retain config topic messages."
+
 
 # CONFIG_SCHEMA constants
 CONFIG_BROKER = "broker"
@@ -42,6 +48,19 @@ DEFAULT_USERNAME = None
 DEFAULT_PASSWORD = None
 DEFAULT_CLIENT_ID = "viseron"
 DEFAULT_LAST_WILL_TOPIC = None
+
+DESC_BROKER = "IP address or hostname of MQTT broker."
+DESC_PORT = "Port the broker is listening on."
+DESC_USERNAME = "Username for the broker."
+DESC_PASSWORD = "Password for the broker."
+DESC_CLIENT_ID = (
+    "Client ID used when connecting to broker.</br>"
+    "Also used as the base for all topics."
+)
+DESC_HOME_ASSISTANT = (
+    "See <a href=#Home-Assistant-MQTT-Discovery>Home Assistant MQTT Discovery.</a>"
+)
+DESC_LAST_WILL_TOPIC = "Last will topic."
 
 INCLUSION_GROUP_AUTHENTICATION = "authentication"
 

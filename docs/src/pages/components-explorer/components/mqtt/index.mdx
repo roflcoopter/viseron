@@ -1,0 +1,573 @@
+import TabItem from "@theme/TabItem";
+import Tabs from "@theme/Tabs";
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+<ComponentHeader meta={ComponentMetadata} />;
+
+The `mqtt` integration allows Viseron to connect to an MQTT broker and publish and subscribe to topics.
+
+It is also used to integrate with Home Assistant.
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+mqtt:
+  broker: mqtt_broker.lan
+  port: 1883
+  username: !secret mqtt_user
+  password: !secret mqtt_pass
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Topics
+
+Viseron internally manages entities, which in turn are published to MQTT topics. Available entity domains are:
+
+- `binary_sensor`: Binary sensors show on/off states
+- `image`: Images are published as JPEGs
+- `sensor`: Sensors show any values
+- `toggle`: Toggles are used to switch things on or off
+
+:::tip
+
+You can observe the logs to find the entity ids.
+
+:::
+
+### Binary sensor topics
+
+#### `{client_id}/binary_sensor/{camera_identifier}_connected/state`
+
+Shows if Viseron is connected to a camera.
+
+<details>
+  <summary>Payloads</summary>
+<Tabs>
+<TabItem value="on" label="on" default>
+
+```json
+{
+  "state": "on",
+  "attributes": {}
+}
+```
+
+</TabItem>
+<TabItem value="off" label="off" default>
+
+```json
+{
+  "state": "off",
+  "attributes": {}
+}
+```
+
+</TabItem>
+</Tabs>
+</details>
+
+#### `{client_id}/binary_sensor/{camera_identifier}_recorder/state`
+
+Shows whether the recorder is recording or not.
+
+<details>
+  <summary>Payloads</summary>
+<Tabs>
+<TabItem value="on" label="on" default>
+
+```json
+{
+  "state": "off",
+  "attributes": {
+    "last_recording_start": "2022-09-14T06:53:34.602066",
+    "last_recording_end": null,
+    "path": "/recordings/front_door/2022-09-14/06:53:34.mp4",
+    "thumbnail_path": "/recordings/front_door/2022-09-14/06:53:34.jpg"
+  }
+}
+```
+
+</TabItem>
+<TabItem value="off" label="off" default>
+
+```json
+{
+  "state": "off",
+  "attributes": {
+    "last_recording_start": "2022-09-14T06:53:34.602066",
+    "last_recording_end": "2022-09-14T06:54:11.596465",
+    "path": "/recordings/front_door/2022-09-14/06:53:34.mp4",
+    "thumbnail_path": "/recordings/front_door/2022-09-14/06:53:34.jpg"
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+</details>
+
+#### `{client_id}/binary_sensor/{camera_identifier}_object_detected/state`
+
+A JSON formatted payload is published to this topic when <b>any</b> configured label is in the field of view.
+
+<details>
+  <summary>Payloads</summary>
+<Tabs>
+<TabItem value="on" label="on" default>
+
+```json
+{
+  "state": "on",
+  "attributes": {}
+}
+```
+
+</TabItem>
+<TabItem value="off" label="off" default>
+
+```json
+{
+  "state": "off",
+  "attributes": {}
+}
+```
+
+</TabItem>
+</Tabs>
+</details>
+
+#### `{client_id}/binary_sensor/{camera_identifier}_object_detected_{label}/state`
+
+A JSON formatted payload is published to this topic when a <b>specific</b> configured label is in the field of view.
+
+<details>
+  <summary>Payloads</summary>
+<Tabs>
+<TabItem value="on" label="on" default>
+
+```json
+{
+  "state": "on",
+  "attributes": {
+    "count": 2
+  }
+}
+```
+
+</TabItem>
+<TabItem value="off" label="off" default>
+
+```json
+{
+  "state": "off",
+  "attributes": {
+    "count": 0
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+</details>
+
+#### `{client_id}/binary_sensor/{camera_identifier}_zone_{zone}_object_detected/state`
+
+A JSON formatted payload is published to this topic when <b>any</b> configured label is in the specific zone.
+
+<details>
+  <summary>Payloads</summary>
+<Tabs>
+<TabItem value="on" label="on" default>
+
+```json
+{
+  "state": "on",
+  "attributes": {}
+}
+```
+
+</TabItem>
+<TabItem value="off" label="off" default>
+
+```json
+{
+  "state": "off",
+  "attributes": {}
+}
+```
+
+</TabItem>
+</Tabs>
+</details>
+
+#### `{client_id}/binary_sensor/{camera_identifier}_zone_{zone}_object_detected_{label}/state`
+
+A JSON formatted payload is published to this topic when a <b>specific</b> configured label is in the specific zone.
+
+<details>
+  <summary>Payloads</summary>
+
+<Tabs>
+<TabItem value="on" label="on" default>
+
+```json
+{
+  "state": "on",
+  "attributes": {
+    "count": 2
+  }
+}
+```
+
+</TabItem>
+<TabItem value="off" label="off" default>
+
+```json
+{
+  "state": "off",
+  "attributes": {
+    "count": 0
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+</details>
+
+#### `{client_id}/binary_sensor/{camera_identifier}_motion_detected/state`
+
+A JSON formatted payload is published to this topic when motion is detected.
+
+<details>
+  <summary>Payloads</summary>
+
+<Tabs>
+<TabItem value="on" label="on" default>
+
+```json
+{
+  "state": "on",
+  "attributes": {}
+}
+```
+
+</TabItem>
+<TabItem value="off" label="off" default>
+
+```json
+{
+  "state": "off",
+  "attributes": {}
+}
+```
+
+</TabItem>
+</Tabs>
+
+</details>
+
+#### `{client_id}/binary_sensor/{camera_identifier}_face_detected_{person name}/state`
+
+A JSON formatted payload is published to this topic when a tracked face is detected.
+
+<details>
+  <summary>Payloads</summary>
+
+<Tabs>
+<TabItem value="on" label="on" default>
+
+```json
+{
+  "state": "on",
+  "attributes": {
+    "camera_identifier": "<camera_identifier>",
+    "camera_name": "<camera name>",
+    "name": "<person name>",
+    "confidence": "<detection confidence>",
+    "coordinates": "<detection coordinates>"
+  }
+}
+```
+
+</TabItem>
+<TabItem value="off" label="off" default>
+
+```json
+{
+  "state": "off",
+  "attributes": {}
+}
+```
+
+</TabItem>
+</Tabs>
+
+</details>
+
+### Toggle topics
+
+#### `{client_id}/toggle/{camera_identifier}_connection/command`
+
+Used for turning on/off a camera. Payload should be `ON` or `OFF`.
+
+<details>
+  <summary>Payloads</summary>
+
+<Tabs>
+<TabItem value="on" label="Turn on" default>
+
+```
+ON
+```
+
+</TabItem>
+<TabItem value="off" label="Turn off" default>
+
+```
+OFF
+```
+
+</TabItem>
+</Tabs>
+
+</details>
+
+#### `{client_id}/toggle/{camera_identifier}_connection/state`
+
+Camera connection state.
+
+<details>
+  <summary>Payloads</summary>
+
+<Tabs>
+<TabItem value="on" label="on" default>
+
+```json
+{
+  "state": "on",
+  "attributes": {}
+}
+```
+
+</TabItem>
+<TabItem value="off" label="off" default>
+
+```json
+{
+  "state": "off",
+  "attributes": {}
+}
+```
+
+</TabItem>
+</Tabs>
+
+</details>
+
+### Image topics
+
+#### `{client_id}/image/{camera_identifier}_latest_thumbnail/image`
+
+A JPEG encoded image is published to this topic when a new recording starts. The object that triggered the recorder will have its bounding box drawn.
+
+#### `{client_id}/image/{camera_identifier}_latest_thumbnail/attributes`
+
+A JSON formatted payload with attributes (currently empty)
+
+### Sensor topics
+
+#### `{client_id}/sensor/{camera_identifier}_object_detector_fps/state`
+
+A JSON formatted payload is periodically published to with an estimate of the current object detectors processing FPS.
+
+<details>
+  <summary>Payloads</summary>
+
+`preprocessor_fps` and `inference_fps` is used to calculate the `state`, which is the same as the `theoretical_max_fps`
+
+```json
+{
+  "state": 34.2,
+  "attributes": {
+    "preprocessor_fps": 305.2,
+    "inference_fps": 34.3,
+    "theoretical_max_fps": 34.2
+  }
+}
+```
+
+</details>
+
+#### `{client_id}/sensor/{camera_identifier}_operation_state/state`
+
+A JSON formatted payload is published to this topic to indicate the current status of the camera
+
+<details>
+  <summary>Payloads</summary>
+
+<Tabs>
+<TabItem value="scanning_for_objects" label="scanning_for_objects" default>
+
+```json
+{
+  "state": "scanning_for_objects",
+  "attributes": {}
+}
+```
+
+</TabItem>
+<TabItem value="scanning_for_motion" label="scanning_for_motion" default>
+
+```json
+{
+  "state": "scanning_for_motion",
+  "attributes": {}
+}
+```
+
+</TabItem>
+<TabItem value="recording" label="recording" default>
+
+```json
+{
+  "state": "recording",
+  "attributes": {}
+}
+```
+
+</TabItem>
+<TabItem value="idle" label="idle" default>
+
+`idle` means no frames are being processed. This is the state when the camera is turned off.
+
+```json
+{
+  "state": "idle",
+  "attributes": {}
+}
+```
+
+</TabItem>
+<TabItem value="error_scanning_frame" label="error_scanning_frame" default>
+
+Sent to the MQTT broker when an error occurs while scanning a frame for `motion` or `objects`.
+
+```json
+{
+  "state": "error_scanning_frame",
+  "attributes": {}
+}
+```
+
+</TabItem>
+</Tabs>
+
+</details>
+
+#### `{client_id}/sensor/{camera_identifier}_image_classification/state`
+
+### Viseron state topic
+
+#### `{client_id}/state`
+
+A JSON formatted payload is published to this topic to indicate the current status of Viseron.
+
+<details>
+  <summary>Payloads</summary>
+
+<Tabs>
+<TabItem value="online" label="online" default>
+
+```
+online
+```
+
+</TabItem>
+<TabItem value="offline" label="offline" default>
+
+```
+offline
+```
+
+</TabItem>
+</Tabs>
+
+</details>
+
+### Last Will Topic
+
+#### `{client_id}/lwt`
+
+MQTT Last will and Testament
+
+<details>
+  <summary>Payloads</summary>
+
+<Tabs>
+<TabItem value="online" label="online" default>
+
+```
+online
+```
+
+</TabItem>
+<TabItem value="offline" label="offline" default>
+
+```
+offline
+```
+
+</TabItem>
+</Tabs>
+
+</details>
+
+## Home Assistant MQTT Discovery
+
+Viseron integrates into Home Assistant using MQTT discovery.
+
+:::note
+
+Home Assistant integration is disabled by default. You enable it by adding `home_assistant` to your `mqtt` config.
+
+:::
+
+Viseron will create a number of entities depending on your configuration.
+
+The paragraphs below show a few of the most notable ones.
+
+### Cameras
+
+1. A camera entity named `camera.{camera_identifier}_latest_thumbnail` is created.
+
+### Sensors
+
+1. A status sensor named `sensor.{camera_identifier}_operation_state` is created.
+   The state is set to `idle`, `recording`, `scanning_for_motion`, `scanning_for_objects` or `error_scanning_frame` depending on the situation.
+2. A sensor that shows current the object detector FPS.
+
+### Binary Sensors
+
+A variable amount of binary sensors will be created based on your configuration.
+
+1. An entity showing if any tracked object is in view.
+2. An entity for each tracked object showing if the label is in view.
+3. An entity for each zone showing if any tracked object is in the zone.
+4. An entity for each tracked object in a zone showing if the label is in the zone.
+5. An entity showing if motion is detected.
+6. An entity showing if a face is detected.
+7. An entity showing camera connection.
+
+### Switch
+
+1. A switch used to arm/disarm a camera. When disarmed, no system resources are used for the camera.
