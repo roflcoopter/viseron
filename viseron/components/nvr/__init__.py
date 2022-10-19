@@ -7,9 +7,16 @@ from typing import TYPE_CHECKING
 import voluptuous as vol
 
 from viseron.domains import OptionalDomain, RequireDomain, setup_domain
-from viseron.helpers.validators import ensure_slug, none_to_dict
+from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
 
-from .const import CAMERA, COMPONENT, DOMAIN, MOTION_DETECTOR, OBJECT_DETECTOR
+from .const import (
+    CAMERA,
+    COMPONENT,
+    DESC_COMPONENT,
+    DOMAIN,
+    MOTION_DETECTOR,
+    OBJECT_DETECTOR,
+)
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -18,11 +25,9 @@ LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        COMPONENT: vol.Schema(
-            {
-                vol.All(str, ensure_slug): vol.All(None, none_to_dict),
-            }
-        )
+        vol.Required(COMPONENT, description=DESC_COMPONENT): {
+            CameraIdentifier(): vol.All(CoerceNoneToDict(), {}),
+        }
     },
     extra=vol.ALLOW_EXTRA,
 )

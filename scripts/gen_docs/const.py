@@ -103,7 +103,7 @@ DOCS_MOTION_DETECTOR_CONTENTS = """## Motion detector
 """
 
 DOCS_IMAGE_CLASSIFICATION_IMPORTS = """import ImageClassification from "@site/src/pages/components-explorer/_domains/image_classification/index.mdx";
-import ImageClassificationLabels from "@site/src/pages/components-explorer/_domains/image_classification/labels.mdx"
+import ImageClassificationLabels from "@site/src/pages/components-explorer/_domains/image_classification/labels.mdx";
 """
 
 DOCS_IMAGE_CLASSIFICATION_CONTENTS = """## Image classification
@@ -116,7 +116,7 @@ DOCS_IMAGE_CLASSIFICATION_CONTENTS = """## Image classification
 
 """
 
-DOCS_CAMERA_IMPORTS = """import Camera from "@site/src/pages/components-explorer/_domains/camera/index.mdx"
+DOCS_CAMERA_IMPORTS = """import Camera from "@site/src/pages/components-explorer/_domains/camera/index.mdx";
 import CameraMjpegStreams from "@site/src/pages/components-explorer/_domains/camera/mjpeg_streams.mdx";
 """
 

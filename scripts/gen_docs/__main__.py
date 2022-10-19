@@ -252,11 +252,11 @@ def generate_index(supported_domains):
 
     docs = DOCS_IMPORTS
     for domain in sorted_domains:
-        docs += DOMAIN_IMPORTS.get(domain)
+        docs += DOMAIN_IMPORTS.get(domain, "")
 
     docs += DOCS_CONTENTS
     for domain in sorted_domains:
-        docs += DOMAIN_CONTENT.get(domain)
+        docs += DOMAIN_CONTENT.get(domain, "")
 
     return docs
 
