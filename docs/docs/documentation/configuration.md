@@ -99,17 +99,24 @@ It handles:
 
 ### Post Processors
 
-TODO
+Post processors are used when you want to perform some kind of action when a specific object is detected.
+
+In the future more of these post processors will be added along with the ability to create your own custom post processors.
+
+If you have any ideas for a good post processor, please open an issue on [GitHub](https://github.com/roflcoopter/viseron/issues)
 
 #### Face Recognition
 
-TODO
+The face recognition domain is a post processor designed to recognise individuals in images.
 
 [Link to all components with face recognition domain.](/components-explorer?tags=face_recognition)
 
 #### Image Classification
 
-TODO
+Image classification labels an entire image with a single label, in contrast to an object detector which labels multiple objects in an image.
+
+Image classifiers generally support more specific detections than an object detector.
+For instance, an object detector might be trained to detect the label birds, while an image classifier can be trained to detect multiple different species of birds.
 
 [Link to all components with image classification domain.](/components-explorer?tags=image_classification)
 
