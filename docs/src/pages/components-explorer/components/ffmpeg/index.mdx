@@ -187,6 +187,70 @@ ffmpeg_recoverable_errors:
   - error while decoding MB
 ```
 
+### Recorder
+
+[FFmpeg segments](https://www.ffmpeg.org/ffmpeg-formats.html#segment_002c-stream_005fsegment_002c-ssegment) are used to handle recordings.<br />
+FFmpeg will write small 5 second segments of the stream to disk, and in case of any recording starting, Viseron will find the appropriate segments and concatenate them together.<br />
+The reason for using segments instead of just starting the recorder on an event, is to support the `lookback` feature which makes it possible to record _before_ an event actually happened.
+
+<details>
+  <summary>The default concatenation command</summary>
+
+```
+ffmpeg -hide_banner -loglevel error -y -protocol_whitelist file,pipe -f concat -safe 0 -i - -c:v copy {outfile.mp4}
+```
+
+</details>
+
+If you want to re-encode the video you can choose `codec`, `video_filters` and optionally `hwaccel_args`.
+
+### Store segments in memory
+
+To place the segments in memory instead of writing to disk, you can mount a tmpfs disk in the container.
+This will use more memory but reduce the load on your harddrives.
+
+<details>
+  <summary>Example tmpfs configuration</summary>
+
+Example Docker command
+
+```bash
+docker run --rm \
+  -v {recordings path}:/recordings \
+  -v {config path}:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  -p 8888:8888 \
+  --tmpfs /tmp \
+  --name viseron \
+  roflcoopter/viseron:latest
+```
+
+Example docker-compose
+
+```yaml
+version: "2.4"
+
+services:
+  viseron:
+    image: roflcoopter/viseron:latest
+    container_name: viseron
+    volumes:
+      - {recordings path}:/recordings
+      - {config path}:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 8888:8888
+    tmpfs:
+      - /tmp
+```
+
+```yaml title="/config/config.yaml"
+recorder:
+  segments_folder: /tmp
+```
+
+</details>
+
 ### Substream
 
 Using the substream is a great way to reduce the system load from FFmpeg.<br />
