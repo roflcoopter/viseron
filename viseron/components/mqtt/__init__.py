@@ -38,6 +38,7 @@ from .const import (
     DEFAULT_USERNAME,
     DESC_BROKER,
     DESC_CLIENT_ID,
+    DESC_COMPONENT,
     DESC_DISCOVERY_PREFIX,
     DESC_HOME_ASSISTANT,
     DESC_LAST_WILL_TOPIC,
@@ -93,7 +94,7 @@ HOME_ASSISTANT_SCHEMA = vol.Schema(
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        COMPONENT: vol.Schema(
+        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
             vol.All(
                 {
                     vol.Required(CONFIG_BROKER, description=DESC_BROKER): str,

@@ -1,6 +1,7 @@
 """mqtt component constants."""
 
 COMPONENT = "mqtt"
+DESC_COMPONENT = "MQTT configuration."
 
 MQTT_RC = {
     0: "Connection successful",

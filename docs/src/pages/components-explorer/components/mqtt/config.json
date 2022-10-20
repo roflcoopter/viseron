@@ -69,6 +69,8 @@
             }
         ],
         "name": "mqtt",
-        "description": null
+        "description": "MQTT configuration.",
+        "required": true,
+        "default": null
     }
 ]
