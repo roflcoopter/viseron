@@ -24,6 +24,9 @@ from .const import (
     CONFIG_PORT,
     DEFAULT_DEBUG,
     DEFAULT_PORT,
+    DESC_COMPONENT,
+    DESC_DEBUG,
+    DESC_PORT,
     PATH_STATIC,
     WEBSOCKET_COMMANDS,
 )
@@ -48,12 +51,14 @@ LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        vol.Optional(COMPONENT, default={}): vol.Schema(
+        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
             {
-                vol.Optional(CONFIG_PORT, default=DEFAULT_PORT): vol.All(
-                    int, vol.Range(min=1024, max=49151)
-                ),
-                vol.Optional(CONFIG_DEBUG, default=DEFAULT_DEBUG): bool,
+                vol.Optional(
+                    CONFIG_PORT, default=DEFAULT_PORT, description=DESC_PORT
+                ): vol.All(int, vol.Range(min=1024, max=49151)),
+                vol.Optional(
+                    CONFIG_DEBUG, default=DEFAULT_DEBUG, description=DESC_DEBUG
+                ): bool,
             }
         )
     },

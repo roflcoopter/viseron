@@ -13,6 +13,10 @@ CONFIG_DEBUG = "debug"
 DEFAULT_PORT = 8888
 DEFAULT_DEBUG = False
 
+DESC_COMPONENT = "Webserver configuration."
+
+DESC_PORT = "Port to run the webserver on."
+DESC_DEBUG = "Enable debug mode for the webserver."
 
 # Status code constants
 STATUS_SUCCESS = 200

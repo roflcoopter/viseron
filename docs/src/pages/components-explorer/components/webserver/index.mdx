@@ -1,0 +1,32 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+The `webserver` component enables Viserons front-end interface.
+
+It also provides the websocket and REST API.
+
+The user interface can be reached by default on port 8888 inside the container.
+
+:::note
+
+`webserver` is always enabled, even if not present in the `config.yaml`
+
+:::
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+webserver:
+  port: 8888
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
