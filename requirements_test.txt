@@ -8,3 +8,4 @@ pytest-sugar==0.9.4
 pylint==2.13.5
 pylint-strict-informational==0.1
 pylint-pytest==1.1.2
+vulture

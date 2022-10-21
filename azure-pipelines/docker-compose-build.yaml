@@ -122,7 +122,7 @@ services:
         - roflcoopter/amd64-viseron:dev
     image: roflcoopter/amd64-viseron:dev
 
-  amd64-viseron-tests:
+  amd64-viseron-tests: &amd64-viseron-tests
     build:
       context: ..
       dockerfile: ./docker/Dockerfile.tests
@@ -135,6 +135,13 @@ services:
     command: >
       bash -c "pytest --cov=viseron/ --cov-report term-missing -s tests
       && coverage xml"
+
+  amd64-viseron-vulture:
+    <<: *amd64-viseron-tests
+    entrypoint: ""
+    command: >
+      bash -c "vulture viseron/"
+    user: 1000:1000
 
   ################ amd64 CUDA ###################################
   amd64-cuda-ffmpeg:
