@@ -12,8 +12,8 @@ pool:
 
 resources:
   pipelines:
-    - pipeline: viserondlib
-      source: "Viseron dlib"
+    - pipeline: viserontools
+      source: "Viseron tools"
       trigger:
         branches:
           - dev
