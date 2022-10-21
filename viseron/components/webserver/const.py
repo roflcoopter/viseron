@@ -10,6 +10,7 @@ PATH_STATIC = "/src/viseron/frontend/static"
 CONFIG_PORT = "port"
 CONFIG_DEBUG = "debug"
 
+DEFAULT_COMPONENT = None
 DEFAULT_PORT = 8888
 DEFAULT_DEBUG = False
 

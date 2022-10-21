@@ -16,12 +16,14 @@ from tornado.routing import PathMatches
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import ComponentNotReady
+from viseron.helpers.validators import CoerceNoneToDict
 
 from .api import APIRouter
 from .const import (
     COMPONENT,
     CONFIG_DEBUG,
     CONFIG_PORT,
+    DEFAULT_COMPONENT,
     DEFAULT_DEBUG,
     DEFAULT_PORT,
     DESC_COMPONENT,
@@ -51,7 +53,10 @@ LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
+        vol.Required(
+            COMPONENT, default=DEFAULT_COMPONENT, description=DESC_COMPONENT
+        ): vol.All(
+            CoerceNoneToDict(),
             {
                 vol.Optional(
                     CONFIG_PORT, default=DEFAULT_PORT, description=DESC_PORT
@@ -59,7 +64,7 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(
                     CONFIG_DEBUG, default=DEFAULT_DEBUG, description=DESC_DEBUG
                 ): bool,
-            }
+            },
         )
     },
     extra=vol.ALLOW_EXTRA,
