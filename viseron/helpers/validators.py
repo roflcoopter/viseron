@@ -1,6 +1,5 @@
 """Custom voluptuous validators."""
 import logging
-import re
 from typing import Any, Callable, Optional
 
 import voluptuous as vol
@@ -8,7 +7,6 @@ import voluptuous as vol
 from viseron.helpers import slugify
 
 LOGGER = logging.getLogger(__name__)
-SLUG_REGEX = re.compile(r"^[a-zA-Z0-9_\-\.]+$")
 
 
 def deprecated(key: str, replacement: Optional[str] = None) -> Callable[[dict], dict]:
@@ -37,21 +35,6 @@ def deprecated(key: str, replacement: Optional[str] = None) -> Callable[[dict], 
         return config
 
     return validator
-
-
-def ensure_slug(value: str) -> str:
-    """Validate a string to only consist of certain characters."""
-    regex = re.compile(SLUG_REGEX)
-    if not regex.match(value):
-        raise vol.Invalid(f"{value} is an invalid slug.")
-    return value
-
-
-def none_to_dict(value):
-    """Convert None values to empty dict."""
-    if value is None:
-        return {}
-    return value
 
 
 def slug(value: Any) -> str:

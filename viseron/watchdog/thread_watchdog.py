@@ -70,7 +70,6 @@ class RestartableThread(threading.Thread):
         self._thread_store_category = thread_store_category
         if thread_store_category:
             self.thread_store.setdefault(thread_store_category, []).append(self)
-        self._register = register
         if register:
             ThreadWatchDog.register(self)
         self._restart_method = restart_method

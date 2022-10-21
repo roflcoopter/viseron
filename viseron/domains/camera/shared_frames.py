@@ -52,7 +52,6 @@ class SharedFrame:
         pixel_format,
         resolution,
         camera_identifier,
-        config=None,
     ):
         self.name = uuid.uuid4()
         self.color_plane_width = color_plane_width
@@ -60,7 +59,6 @@ class SharedFrame:
         self.pixel_format = pixel_format
         self.resolution = resolution
         self.camera_identifier = camera_identifier
-        self.nvr_config = config
         self.capture_time = time.time()
 
 
