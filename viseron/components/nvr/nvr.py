@@ -583,8 +583,6 @@ class NVR:
 
     def process_frame(self, shared_frame: SharedFrame):
         """Process frame."""
-        shared_frame.nvr_config = self._config
-
         self.check_intervals(shared_frame)
         self.scanner_results()
         self.process_object_event()

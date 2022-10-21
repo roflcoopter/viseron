@@ -7,13 +7,12 @@ import math
 import os
 import tracemalloc
 from queue import Full, Queue
-from typing import TYPE_CHECKING, Any, Callable, Dict, Hashable, Tuple
+from typing import TYPE_CHECKING, Any, Tuple
 
 import cv2
 import numpy as np
 import slugify as unicode_slug
 import tornado.queues as tq
-import voluptuous as vol
 
 from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
 
@@ -286,36 +285,6 @@ def pop_if_full(queue: Queue, item: Any, logger=LOGGER, name="unknown", warn=Fal
 def slugify(text: str) -> str:
     """Slugify a given text."""
     return unicode_slug.slugify(text, separator="_")
-
-
-def print_slugs(config: dict):
-    """Print all camera names as slugs."""
-    cameras = config["cameras"]
-    for camera in cameras:
-        print(
-            f"Name: {camera['name']}, "
-            f"slug: {unicode_slug.slugify(camera['name'], separator='_')}"
-        )
-
-
-def key_dependency(
-    key: Hashable, dependency: Hashable
-) -> Callable[[Dict[Hashable, Any]], Dict[Hashable, Any]]:
-    """Validate that all dependencies exist for key."""
-
-    def validator(value: Dict[Hashable, Any]) -> Dict[Hashable, Any]:
-        """Test dependencies."""
-        if not isinstance(value, dict):
-            raise vol.Invalid("key dependencies require a dict")
-        if key in value and dependency not in value:
-            raise vol.Invalid(
-                f'dependency violation - key "{key}" requires '
-                f'key "{dependency}" to exist'
-            )
-
-        return value
-
-    return validator
 
 
 def create_directory(path):
