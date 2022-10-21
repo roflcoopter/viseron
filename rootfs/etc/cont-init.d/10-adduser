@@ -1,5 +1,7 @@
 #!/usr/bin/with-contenv bash
 
+source /helpers/logger.sh
+
 PUID=${PUID:-0}
 PGID=${PGID:-0}
 
@@ -7,10 +9,11 @@ groupmod -o -g "$PGID" abc
 usermod -o -u "$PUID" abc
 
 chown -R abc:abc /home/abc/bin
+chown -R abc:abc /config
 chown -R abc:abc /recordings
 chown -R abc:abc /segments
 
-echo "************************ UID/GID *************************"
-echo "User uid:    $(id -u abc)
-User gid:    $(id -g abc)"
-echo "************************** Done **************************"
+log_info "************************ UID/GID *************************"
+log_info "User uid:    $(id -u abc)"
+log_info "User gid:    $(id -g abc)"
+log_info "************************** Done **************************"

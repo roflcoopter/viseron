@@ -1,0 +1,46 @@
+export type SubscribeEventMessage = {
+  type: "subscribe_event";
+  event: string;
+};
+
+export type SaveConfigMessage = {
+  type: "save_config";
+  config: string;
+};
+
+export function subscribeEvent(event: string) {
+  const message: SubscribeEventMessage = {
+    type: "subscribe_event",
+    event,
+  };
+
+  return message;
+}
+
+export function unsubscribeEvent(subscription: number) {
+  return {
+    type: "unsubscribe_event",
+    subscription,
+  };
+}
+
+export function getCameras() {
+  return {
+    type: "get_cameras",
+  };
+}
+
+export function getConfig() {
+  return {
+    type: "get_config",
+  };
+}
+
+export function saveConfig(config: string) {
+  const message: SaveConfigMessage = {
+    type: "save_config",
+    config,
+  };
+
+  return message;
+}

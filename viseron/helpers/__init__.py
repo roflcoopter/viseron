@@ -1,12 +1,13 @@
 """General helper functions."""
 from __future__ import annotations
 
+import linecache
 import logging
 import math
 import os
-from collections import Counter
+import tracemalloc
 from queue import Full, Queue
-from typing import TYPE_CHECKING, Any, Callable, Dict, Hashable, List, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Dict, Hashable, Tuple
 
 import cv2
 import numpy as np
@@ -14,12 +15,10 @@ import slugify as unicode_slug
 import tornado.queues as tq
 import voluptuous as vol
 
-import viseron.mqtt
 from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
 
 if TYPE_CHECKING:
-    from viseron.detector.detected_object import DetectedObject
-    from viseron.zones import Zone
+    from viseron.domains.object_detector.detected_object import DetectedObject
 
 LOGGER = logging.getLogger(__name__)
 
@@ -299,56 +298,6 @@ def print_slugs(config: dict):
         )
 
 
-def report_labels(
-    labels,
-    labels_in_fov: List[str],
-    reported_label_count: Dict[str, int],
-    mqtt_devices,
-) -> Tuple[List[str], Dict[str, int]]:
-    """Send on/off to MQTT for labels.
-
-    Only if state has changed since last report.
-    """
-    labels = sorted(labels)
-    if labels == labels_in_fov:
-        return labels_in_fov, reported_label_count
-
-    labels_added = list(set(labels) - set(labels_in_fov))
-    labels_removed = list(set(labels_in_fov) - set(labels))
-
-    # Count occurrences of each label
-    counter: Counter = Counter(labels)
-
-    if viseron.mqtt.MQTT.client:
-        for label in labels_added:
-            attributes = {}
-            attributes["count"] = counter[label]
-            mqtt_devices[label].publish(True, attributes)
-            reported_label_count[label] = counter[label]  # Save reported count
-
-        for label in labels_removed:
-            mqtt_devices[label].publish(False)
-
-        for label, count in counter.items():
-            if reported_label_count.get(label, 0) != count:
-                attributes = {}
-                attributes["count"] = count
-                mqtt_devices[label].publish(True, attributes)
-                reported_label_count[label] = count
-
-    return labels, reported_label_count
-
-
-def combined_objects(
-    objects_in_fov: List["DetectedObject"], zones: List["Zone"]
-) -> List["DetectedObject"]:
-    """Combine the object lists of a frame and all zones."""
-    all_objects = objects_in_fov
-    for zone in zones:
-        all_objects += zone.objects_in_zone
-    return all_objects
-
-
 def key_dependency(
     key: Hashable, dependency: Hashable
 ) -> Callable[[Dict[Hashable, Any]], Dict[Hashable, Any]]:
@@ -391,7 +340,7 @@ def generate_mask(coordinates):
     """Return a mask used to limit motion or object detection to specific areas."""
     mask = []
     for mask_coordinates in coordinates:
-        mask.append(generate_numpy_from_coordinates(mask_coordinates["points"]))
+        mask.append(generate_numpy_from_coordinates(mask_coordinates["coordinates"]))
     return mask
 
 
@@ -408,3 +357,118 @@ def object_in_polygon(resolution, obj: DetectedObject, coordinates):
     )
     middle = ((x2 - x1) / 2) + x1
     return cv2.pointPolygonTest(coordinates, (middle, y2), False) >= 0
+
+
+def letterbox_resize(image: np.ndarray, width, height):
+    """Resize image to expected size, keeping aspect ratio and pad with black pixels."""
+    image_height, image_width, _ = image.shape
+    scale = min(height / image_height, width / image_width)
+    output_height = int(image_height * scale)
+    output_width = int(image_width * scale)
+
+    image = cv2.resize(
+        image, (output_width, output_height), interpolation=cv2.INTER_CUBIC
+    )
+    output_image = np.full((height, width, 3), 0, dtype="uint8")
+    output_image[
+        (height - output_height) // 2 : (height - output_height) // 2 + output_height,
+        (width - output_width) // 2 : (width - output_width) // 2 + output_width,
+        :,
+    ] = image.copy()
+    return output_image
+
+
+def convert_letterboxed_bbox(
+    frame_width, frame_height, model_width, model_height, bbox
+):
+    """Convert boundingbox from a letterboxed image to the original image.
+
+    To improve accuracy, images are resized with letterboxing before running
+    object detection. This avoids distorting the image.
+    When an image is letterboxed, the bbox does not correspond 1-to-1 with the original
+    image, so we need to convert the coordinates
+    Args:
+        frame_width:
+            Width of original input image.
+        frame_height:
+            Height of original input image.
+        frame_width:
+            Width of object detection model.
+        frame_height:
+            Height of object detection model.
+        bbox:
+            The ABSOLUTE bounding box coordinates predicted from the model.
+    """
+    if model_width != model_height:
+        raise ValueError(
+            "Can only convert bbox from a letterboxed image for models of equal "
+            f"width and height, got {model_width}x{model_height}",
+        )
+    x1, y1, x2, y2 = bbox
+
+    scale = min(model_height / frame_height, model_width / frame_width)
+    output_height = int(frame_height * scale)
+    output_width = int(frame_width * scale)
+
+    if output_width > output_height:  # Horizontal padding
+        y1 = (
+            (y1 - 1 / 2 * (model_height - frame_height / frame_width * model_height))
+            * frame_width
+            / model_width
+        )
+        y2 = (
+            (y2 - 1 / 2 * (model_height - frame_height / frame_width * model_height))
+            * frame_width
+            / model_width
+        )
+        return x1, y1, x2, y2
+
+    # Vertical padding
+    x1 = (
+        (x1 - 1 / 2 * (model_height - frame_width / frame_height * model_height))
+        * frame_height
+        / model_width
+    )
+    x2 = (
+        (x2 - 1 / 2 * (model_height - frame_width / frame_height * model_height))
+        * frame_height
+        / model_width
+    )
+    return x1, y1, x2, y2
+
+
+def memory_usage_profiler(logger, key_type="lineno", limit=5):
+    """Print a table with the lines that are using the most memory."""
+    snapshot = tracemalloc.take_snapshot()
+    snapshot = snapshot.filter_traces(
+        (
+            tracemalloc.Filter(False, "<frozen importlib._bootstrap>"),
+            tracemalloc.Filter(False, "<unknown>"),
+        )
+    )
+    top_stats = snapshot.statistics(key_type)
+
+    log_message = "Memory profiler:"
+    log_message += "\nTop %s lines" % limit
+    for index, stat in enumerate(top_stats[:limit], 1):
+        frame = stat.traceback[0]
+        # replace "/path/to/module/file.py" with "module/file.py"
+        filename = os.sep.join(frame.filename.split(os.sep)[-2:])
+        log_message += "\n#%s: %s:%s: %.1f KiB" % (
+            index,
+            filename,
+            frame.lineno,
+            stat.size / 1024,
+        )
+        line = linecache.getline(frame.filename, frame.lineno).strip()
+        if line:
+            log_message += "\n    %s" % line
+
+    other = top_stats[limit:]
+    if other:
+        size = sum(stat.size for stat in other)
+        log_message += "\n%s other: %.1f KiB" % (len(other), size / 1024)
+    total = sum(stat.size for stat in top_stats)
+    log_message += "\nTotal allocated size: %.1f KiB" % (total / 1024)
+    log_message += "\n----------------------------------------------------------------"
+    logger.debug(log_message)

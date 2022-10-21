@@ -1,6 +1,16 @@
 # Based on https://github.com/eht16/python3-docker
 ARG UBUNTU_VERSION
-FROM balenalib/aarch64-ubuntu:${UBUNTU_VERSION}-build as build
+ARG JETPACK_VERSION
+FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as qemu
+FROM nvcr.io/nvidia/l4t-base:r${JETPACK_VERSION} as build
+
+COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
+COPY --from=qemu /bin/sh /bin/sh
+COPY --from=qemu /bin/sh.real /bin/sh.real
+COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
+COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
+COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
+
 RUN [ "cross-build-start" ]
 
 ARG PYTHON_VERSION
@@ -37,7 +47,7 @@ RUN \
   wget --no-verbose --output-document=python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" \
   && wget --no-verbose --output-document=python.tar.xz.asc "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc" \
   && export GNUPGHOME="$(mktemp -d)" \
-  && gpg --batch --keyserver ha.pool.sks-keyservers.net --recv-keys "$GPG_KEY" \
+  && gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$GPG_KEY" \
   && gpg --batch --verify python.tar.xz.asc python.tar.xz \
   && { command -v gpgconf > /dev/null && gpgconf --kill all || :; } \
   && rm -rf "$GNUPGHOME" python.tar.xz.asc \
@@ -48,13 +58,12 @@ RUN \
 RUN \
   cd /usr/src/python \
   && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
-  && ./configure --help \
   && ./configure \
   --build="$gnuArch" \
   --prefix="/usr/local" \
   --enable-loadable-sqlite-extensions \
   --enable-optimizations \
-  # --enable-ipv6 \
+  --enable-ipv6 \
   --disable-shared \
   --with-system-expat \
   --without-ensurepip \

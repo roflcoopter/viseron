@@ -1,7 +1,9 @@
 #!/usr/bin/with-contenv bash
 
-echo "****************** Getting FFmpeg path *******************"
+source /helpers/logger.sh
+
+log_info "****************** Getting FFmpeg path *******************"
 export VISERON_FFMPEG_PATH=$(which ffmpeg)
 printf "$VISERON_FFMPEG_PATH" > /var/run/environment/VISERON_FFMPEG_PATH
-echo FFmpeg path: $VISERON_FFMPEG_PATH
-echo "*********************** Done *****************************"
+log_info "FFmpeg path: $VISERON_FFMPEG_PATH"
+log_info "*********************** Done *****************************"

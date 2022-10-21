@@ -4,6 +4,7 @@ FROM roflcoopter/viseron-models:latest as models
 FROM balenalib/aarch64-ubuntu:${UBUNTU_VERSION}-run
 
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
+COPY --from=models /classifiers/models/edgetpu /classifiers/models/edgetpu
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \

@@ -1,0 +1,27 @@
+[
+    {
+        "type": "map",
+        "value": [
+            {
+                "type": "integer",
+                "valueMin": 1024,
+                "valueMax": 49151,
+                "name": "port",
+                "description": "Port to run the webserver on.",
+                "optional": true,
+                "default": 8888
+            },
+            {
+                "type": "boolean",
+                "name": "debug",
+                "description": "Enable debug mode for the webserver.",
+                "optional": true,
+                "default": false
+            }
+        ],
+        "name": "webserver",
+        "description": "Webserver configuration.",
+        "required": true,
+        "default": null
+    }
+]

@@ -1,0 +1,40 @@
+.configVariables {
+  padding-bottom: var(--ifm-heading-margin-bottom);
+}
+
+.configVariablesItem {
+  border-bottom: 1px solid #d9dbde;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.configVariablesName {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.configVariablesType {
+  margin-left: 5px;
+}
+
+.configVariablesType,
+.configVariablesRequired,
+.configVariablesMinMax,
+.configVariablesValues {
+  color: var(--ifm-color-info-darkest);
+  font-size: 13px;
+}
+
+.configVariablesRequired.true {
+  color: var(--ifm-color-danger);
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.configVariablesDescription {
+  font-size: 14px;
+}
+
+.configVariablesChildren {
+  margin-left: 35px;
+}

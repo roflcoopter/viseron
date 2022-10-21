@@ -1,0 +1,164 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* You can override the default Infima variables here. */
+:root {
+  --ifm-color-primary: #007fff;
+  --ifm-color-primary-dark: #0072e5;
+  --ifm-color-primary-darker: #0059b2;
+  --ifm-color-primary-darkest: #004c99;
+  --ifm-color-primary-light: #3399ff;
+  --ifm-color-primary-lighter: #66b2ff;
+  --ifm-color-primary-lightest: #99ccf3;
+  --ifm-code-font-size: 95%;
+
+  /* Lists */
+  --ifm-heading-margin-top: 35px;
+  /* --ifm-list-paragraph-margin: 0px; */
+  /* --ifm-paragraph-margin-bottom: 0px; */
+}
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+html[data-theme="dark"] {
+  --ifm-color-primary: #007fff;
+  --ifm-color-primary-dark: #0072e5;
+  --ifm-color-primary-darker: #0059b2;
+  --ifm-color-primary-darkest: #004c99;
+  --ifm-color-primary-light: #3399ff;
+  --ifm-color-primary-lighter: #66b2ff;
+  --ifm-color-primary-lightest: #99ccf3;
+}
+
+.docusaurus-highlight-code-line {
+  background-color: rgba(0, 0, 0, 0.1);
+  display: block;
+  margin: 0 calc(-1 * var(--ifm-pre-padding));
+  padding: 0 var(--ifm-pre-padding);
+}
+
+html[data-theme="dark"] .docusaurus-highlight-code-line {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.btn {
+  position: relative;
+  display: inline-block;
+  padding: 5px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 26px;
+  white-space: nowrap;
+  vertical-align: middle;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  border: 1px solid;
+  border-radius: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 37px;
+  width: 170px;
+  text-align: center;
+}
+.btn:hover {
+  text-decoration: none;
+}
+
+.btn .octicon {
+  margin-right: 4px;
+  color: #bf3989;
+  vertical-align: text-bottom;
+}
+
+.btn {
+  color: #24292e;
+  background-color: #fafbfc;
+  border-color: rgba(27, 31, 35, 0.15);
+  box-shadow: 0 1px 0 rgba(27, 31, 35, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: background-color 0.2s cubic-bezier(0.3, 0, 0.5, 1);
+}
+.btn:hover,
+.btn.hover,
+[open] > .btn {
+  background-color: #f3f4f6;
+  transition-duration: 0.1s;
+}
+.btn:active,
+.btn.selected,
+.btn[aria-selected="true"] {
+  background-color: #edeff2;
+  box-shadow: inset 0 1px 0 rgba(225, 228, 232, 0.2);
+  transition: none;
+}
+
+.icon-sponsor {
+  transition: transform 0.15s cubic-bezier(0.2, 0, 0.13, 2);
+  transform: scale(1);
+}
+.btn:hover .icon-sponsor,
+.btn:focus .icon-sponsor {
+  transform: scale(1.1);
+}
+.icon-sponsor {
+  overflow: visible !important;
+}
+.mr-2 {
+  margin-right: 8px !important;
+}
+.octicon {
+  display: inline-block;
+  overflow: visible !important;
+  vertical-align: text-bottom;
+  fill: currentColor;
+}
+
+.screen-reader-only {
+  position: absolute;
+  white-space: nowrap;
+  border: 0;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  clip: rect(0 0 0 0);
+  clip-path: polygon(0 0, 0 0, 0 0);
+}
+
+.outline {
+  outline: 1px solid var(--ifm-color-primary);
+  border: 3px solid transparent;
+  -webkit-transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease-in-out;
+}
+.outline:hover {
+  outline: 0px solid transparent;
+  border: 3px solid var(--ifm-color-primary);
+  -webkit-transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease-in-out;
+}
+
+.collapse-button {
+  transition: all 0.2s ease-in-out;
+  transform: rotateZ(0deg);
+}
+
+.collapse-button.collapsed {
+  transform: rotateZ(-90deg);
+}
+
+.collapse-content.collapsed {
+  display: none;
+}
+
+.collapsed-content.expanded {
+  display: block;
+}
+
+.menu__caret:hover {
+  background: rgb(0 0 0 / 0%);
+}

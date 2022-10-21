@@ -1,0 +1,19 @@
+[
+    {
+        "type": "map",
+        "value": [
+            {
+                "name": {
+                    "type": "CAMERA_IDENTIFIER"
+                },
+                "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+                "cameraidentifier": true,
+                "default": null
+            }
+        ],
+        "name": "nvr",
+        "description": "NVR configuration.",
+        "required": true,
+        "default": null
+    }
+]

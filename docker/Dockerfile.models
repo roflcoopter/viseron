@@ -6,14 +6,22 @@ RUN \
   ca-certificates \
   wget 
 
-# EdgeTPU MobileNet SSD v2 Object Detection model
+# EdgeTPU Models
 RUN \
-  mkdir -p /detectors/models/edgetpu/classification && \
+  mkdir -p /detectors/models/edgetpu && \
+  mkdir -p /classifiers/models/edgetpu && \
+  # Object detection
   wget https://github.com/google-coral/test_data/raw/master/ssd_mobilenet_v2_coco_quant_postprocess_edgetpu.tflite -O /detectors/models/edgetpu/model.tflite --progress=bar:force:noscroll && \
   wget https://github.com/google-coral/test_data/raw/master/ssd_mobilenet_v2_coco_quant_postprocess.tflite         -O /detectors/models/edgetpu/cpu_model.tflite --progress=bar:force:noscroll && \
   wget https://github.com/google-coral/test_data/raw/master/ssdlite_mobiledet_coco_qat_postprocess_edgetpu.tflite  -O /detectors/models/edgetpu/mobiledet_model.tflite --progress=bar:force:noscroll && \
   wget https://github.com/google-coral/test_data/raw/master/ssdlite_mobiledet_coco_qat_postprocess.tflite          -O /detectors/models/edgetpu/mobiledet_cpu_model.tflite --progress=bar:force:noscroll && \
-  wget https://github.com/google-coral/test_data/raw/master/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll 
+  wget https://raw.githubusercontent.com/google-coral/test_data/master/efficientdet_lite3_512_ptq_edgetpu.tflite   -O /detectors/models/edgetpu/efficientdet_lite3.tflite --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/google-coral/test_data/master/efficientdet_lite3_512_ptq.tflite           -O /detectors/models/edgetpu/efficientdet_lite3_cpu_model.tflite --progress=bar:force:noscroll && \
+  wget https://github.com/google-coral/test_data/raw/master/coco_labels.txt -O /detectors/models/edgetpu/labels.txt --progress=bar:force:noscroll && \
+  # Image classification
+  wget https://raw.githubusercontent.com/google-coral/test_data/master/tf2_mobilenet_v3_edgetpu_1.0_224_ptq_edgetpu.tflite -O /classifiers/models/edgetpu/tf2_mobilenet_v3_edgetpu_1.0_224_ptq_edgetpu.tflite --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/google-coral/test_data/master/tf2_mobilenet_v3_edgetpu_1.0_224_ptq.tflite -O /classifiers/models/edgetpu/tf2_mobilenet_v3_edgetpu_1.0_224_ptq_cpu.tflite --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/google-coral/test_data/master/imagenet_labels.txt -O /classifiers/models/edgetpu/labels.txt --progress=bar:force:noscroll
 
 # Fetch models for YOLOv4 darknet
 RUN \
@@ -24,6 +32,36 @@ RUN \
 # Fetch models for YOLOv4-tiny darknet
 RUN \
   wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-tiny.weights -O /detectors/models/darknet/yolov4-tiny.weights --progress=bar:force:noscroll
+
+# Fetch models for YOLOv4-p6 darknet
+RUN \
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-p6.weights -O /detectors/models/darknet/yolov4-p6.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-p6.cfg -O /detectors/models/darknet/yolov4-p6.cfg --progress=bar:force:noscroll
+
+# Fetch models for YOLOv4-p5 darknet
+RUN \
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-p5.weights -O /detectors/models/darknet/yolov4-p5.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-p5.cfg -O /detectors/models/darknet/yolov4-p5.cfg --progress=bar:force:noscroll
+
+# Fetch models for YOLOv4-csp-x-swish darknet
+RUN \
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-csp-x-swish.weights -O /detectors/models/darknet/yolov4-csp-x-swish.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-csp-x-swish.cfg -O /detectors/models/darknet/yolov4-csp-x-swish.cfg --progress=bar:force:noscroll
+
+# Fetch models for YOLOv4-csp-swish darknet
+RUN \
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-csp-swish.weights -O /detectors/models/darknet/yolov4-csp-swish.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-csp-swish.cfg -O /detectors/models/darknet/yolov4-csp-swish.cfg --progress=bar:force:noscroll
+
+# Fetch models for YOLOv4x-mish darknet
+RUN \
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4x-mish.weights -O /detectors/models/darknet/yolov4x-mish.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4x-mish.cfg -O /detectors/models/darknet/yolov4x-mish.cfg --progress=bar:force:noscroll
+
+# Fetch models for YOLOv4-csp darknet
+RUN \
+  wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-csp.weights -O /detectors/models/darknet/yolov4-csp.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-csp.cfg -O /detectors/models/darknet/yolov4-csp.cfg --progress=bar:force:noscroll
 
 # Fetch models for YOLOv3 darknet
 RUN \
@@ -41,3 +79,4 @@ ADD ./docker/yolov4-tiny.cfg /detectors/models/darknet/yolov4-tiny.cfg
 FROM scratch
 
 COPY --from=base /detectors /detectors
+COPY --from=base /classifiers /classifiers

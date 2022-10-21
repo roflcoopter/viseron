@@ -1,0 +1,17 @@
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.header img {
+  max-height: 67px;
+  max-width: 100%;
+}
+
+@media only screen and (max-width: 600px) {
+  .header img {
+    display: none;
+  }
+}

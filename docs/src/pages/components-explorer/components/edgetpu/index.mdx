@@ -1,0 +1,101 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ImageClassification from "@site/src/pages/components-explorer/_domains/image_classification/index.mdx";
+import ImageClassificationLabels from "@site/src/pages/components-explorer/_domains/image_classification/labels.mdx";
+import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";
+import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
+import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
+import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+The Coral EdgeTPU provides fast, efficient, private and offline AI inferencing capabilities in multiple form factors, such as a USB accessory or a PCIe module.
+
+:::tip
+
+The `edgetpu` component can also run on the CPU with compatible Tensorflow Lite models.
+
+:::
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+edgetpu:
+  object_detector:
+    cameras:
+      camera_one:
+        fps: 1
+        labels:
+          - label: person
+            confidence: 0.8
+      camera_two:
+        fps: 1
+        scan_on_motion_only: false
+        labels:
+          - label: dog
+            confidence: 0.8
+            trigger_recorder: false
+  image_classification:
+    device: cpu
+    cameras:
+      camera_two:
+    labels:
+      - dog
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Object detector
+
+<ObjectDetector />
+
+### Labels
+
+<ObjectDetectorLabels label_path="/detectors/models/darknet/coco.names" />
+
+### Zones
+
+<ObjectDetectorZones />
+
+### Mask
+
+<ObjectDetectorMask />
+
+### Pre-trained models
+
+The included models are placed inside the `/detectors/models/edgetpu` folder.
+
+There are three models:
+
+- SSD MobileNet V2
+- EfficientDet-Lite3
+- SSDLite MobileDet
+
+The default model is EfficientDet-Lite3 because it features higher precision than the others, with a slightly higher latency.
+
+More information on these models, as well as more object detector models can be found on the [coral.ai website](https://coral.ai/models/object-detection/)
+
+## Image classification
+
+<ImageClassification />
+
+### Labels
+
+<ImageClassificationLabels />
+
+### Pre-trained models
+
+The included model is MobileNet V3.
+It is placed inside the `/classifiers/models/edgetpu` folder.
+It was chosen because it has high accuracy and low latency.
+
+More image classification models can be found on the [coral.ai website](https://coral.ai/models/image-classification/)
+
+There you will also find information to help you understand if you might want to switch to another model.

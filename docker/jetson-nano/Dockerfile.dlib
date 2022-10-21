@@ -3,7 +3,7 @@ ARG UBUNTU_VERSION
 ARG JETPACK_VERSION
 FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
 FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as qemu
-FROM nvcr.io/nvidia/l4t-base:${JETPACK_VERSION} as build
+FROM nvcr.io/nvidia/l4t-base:r${JETPACK_VERSION} as build
 
 COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
 COPY --from=qemu /bin/sh /bin/sh
@@ -23,6 +23,9 @@ RUN [ "cross-build-start" ]
 
 ARG DLIB_VERSION
 ARG MAKEFLAGS="-j2"
+ARG SOC
+ARG JETPACK_VERSION_MAJOR
+ARG JETPACK_VERSION_MINOR
 
 ENV \
   DEBIAN_FRONTEND=noninteractive \
@@ -33,10 +36,10 @@ RUN \
   apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   gnupg && \
-  echo "deb https://repo.download.nvidia.com/jetson/common r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list \
-  && echo "deb https://repo.download.nvidia.com/jetson/t210 r32.5 main" >>  /etc/apt/sources.list.d/nvidia.list \
-  && apt-key adv --fetch-key http://repo.download.nvidia.com/jetson/jetson-ota-public.asc \
-  && mkdir -p /opt/nvidia/l4t-packages/ && touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall
+  echo "deb https://repo.download.nvidia.com/jetson/common r${JETPACK_VERSION_MAJOR}.${JETPACK_VERSION_MINOR} main" >> /etc/apt/sources.list.d/nvidia.list && \
+  echo "deb https://repo.download.nvidia.com/jetson/${SOC} r${JETPACK_VERSION_MAJOR}.${JETPACK_VERSION_MINOR} main" >> /etc/apt/sources.list.d/nvidia.list && \
+  apt-key adv --fetch-key http://repo.download.nvidia.com/jetson/jetson-ota-public.asc && \
+  mkdir -p /opt/nvidia/l4t-packages/ && touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall
 
 RUN buildDeps="autoconf \
   automake \

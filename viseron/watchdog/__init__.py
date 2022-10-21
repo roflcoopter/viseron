@@ -31,6 +31,7 @@ class WatchDog(ABC):
         item,
     ):
         """Register item in the watchdog."""
+        LOGGER.debug(f"Registering {item} in the watchdog")
         cls.registered_items.append(item)
 
     @classmethod
@@ -39,6 +40,7 @@ class WatchDog(ABC):
         item,
     ):
         """Unregister item from the watchdog."""
+        LOGGER.debug(f"Removing {item} from the watchdog")
         try:
             cls.registered_items.remove(item)
         except ValueError:

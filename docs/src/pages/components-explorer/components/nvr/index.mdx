@@ -1,0 +1,31 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+The NVR component is responsible for coordination of the other components.
+
+It is required that you use the NVR, without it Viseron won't really do anything.
+
+It is responsible for, among others:
+
+- Stopping/starting cameras
+- Asynchronously reading frames from cameras and send them to detectors
+- Stopping/starting the recorder
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+nvr:
+  camera_one:
+  camera_two:
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />

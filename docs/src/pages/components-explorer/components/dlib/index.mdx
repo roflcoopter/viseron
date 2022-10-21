@@ -1,0 +1,54 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import FaceRecognition from "@site/src/pages/components-explorer/_domains/face_recognition/index.mdx";
+import FaceRecognitionLabels from "@site/src/pages/components-explorer/_domains/face_recognition/labels.mdx";
+import FaceRecognitionTrain from "@site/src/pages/components-explorer/_domains/face_recognition/train.mdx";
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+<a href="http://dlib.net/">dlib</a> is an open-source, C++ toolkit containing machine
+learning algorithms and other tools.
+
+The `dlib` implementation in Viseron provides face recognition capabilities.
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+dlib:
+  face_recognition:
+    model: cnn
+    expire_after: 10
+    cameras:
+      camera_one:
+        labels:
+          - person
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Face recognition
+
+<FaceRecognition />
+
+### Labels
+
+<FaceRecognitionLabels />
+
+### Train
+
+<FaceRecognitionTrain />
+
+### Models
+
+`dlib` implements two different models for face recognition, `hog` and `cnn`.<br />
+`hog` is less accurate but faster on CPUs.<br />
+`cnn` is a more accurate deep-learning model which is GPU/CUDA accelerated (if available).
+
+If you have a CUDA compatible GPU, `dlib` will run the `cnn` model by default. Otherwise the `hog` model is used.

@@ -1,0 +1,73 @@
+Viseron will serve MJPEG streams of all cameras.
+
+### Dynamic streams
+
+The dynamic streams are automatically created for each camera.
+They utilize [query parameters](#query-parameters) to control what is displayed on the stream.
+
+Example URL: `http://localhost:8888/<camera_identifier>/mjpeg-stream`
+
+#### Query parameters
+
+A number of query parameters are available to instruct Viseron to resize the stream or draw different things on the image.<br />
+To utilize a parameter you append it to the URL after a `?`. To add multiple parameters you separate them with `&`, like this:<br />
+
+```
+http://localhost:8888/<camera name slug>/mjpeg-stream?<parameter1>=<value>&<parameter2>=<value>`
+```
+
+<details>
+  <summary>Expand to see all available query parameters</summary>
+
+| Parameter        | Type | Description                                                                                               |
+| ---------------- | ---- | --------------------------------------------------------------------------------------------------------- |
+| width            | int  | frame will be resized to this width                                                                       |
+| height           | int  | frame will be resized to this height                                                                      |
+| draw_objects     | any  | If this query parameter is set to a truthy value (`true`, `1` etc), found objects will be drawn           |
+| draw_motion      | any  | If this query parameter is set to a truthy value (`true`, `1` etc), detected motion will be drawn         |
+| draw_motion_mask | any  | If this query parameter is set to a truthy value (`true`, `1` etc), configured motion masks will be drawn |
+| draw_zones       | any  | If this query parameter is set to a truthy value (`true`, `1` etc), configured zones will be drawn        |
+| mirror           | any  | If this query parameter is set to a truthy value (`true`, `1` etc), mirror the image horizontally.        |
+| rotate           | any  | Degrees to rotate the image. Positive/negative values rotate clockwise/counter clockwise respectively     |
+
+</details>
+
+:::warning
+
+If you are going to have more than one consumer of the stream, it is better to configure your own [static MJPEG streams](#static-streams).
+This is because each dynamic stream will process their frames individually, duplicating the processing.
+
+:::
+
+### Static streams
+
+The MJPEG streams work exactly as the [dynamic streams](#dynamic-streams), but instead of defining the query parameters in the URL, they are defined in the `config.yaml`<br />
+The benefit of using these predefined streams instead is that frame processing happens only once.<br />
+This means that you can theoretically have as many streams open as you want without increased load on your machine.
+
+<details>
+  <summary>Config example</summary>
+
+```yaml
+<component that provides camera domain>:
+  camera:
+    front_door:
+      ...
+      mjpeg_streams:
+        my-big-front-door-stream:
+          width: 100
+          height: 100
+          draw_objects: true
+        my-small-front-door-stream:
+          width: 100
+          height: 100
+          draw_objects: true
+          draw_zones: true
+          draw_object_mask: true
+```
+
+</details>
+
+The config example above would give you two streams, available at these endpoints:<br />
+`http://localhost:8888/front_door/static-mjpeg-streams/my-big-front-door-stream`<br />
+`http://localhost:8888/front_door/static-mjpeg-streams/my-small-front-door-stream`
