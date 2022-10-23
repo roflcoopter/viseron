@@ -8,8 +8,6 @@ FROM roflcoopter/jetson-nano-opencv:${OPENCV_VERSION} as opencv
 FROM nvcr.io/nvidia/l4t-base:r${JETPACK_VERSION} as build
 
 COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
-COPY --from=qemu /bin/sh /bin/sh
-COPY --from=qemu /bin/sh.real /bin/sh.real
 COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
 COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
 COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
