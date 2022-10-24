@@ -46,7 +46,7 @@ export default function Home(): JSX.Element {
   return (
     <Layout
       title={`Homepage`}
-      description="A modular, self-hosted, local only NVR."
+      description="Self-hosted, local only NVR and AI Computer Vision software."
     >
       <HomepageHeader />
       <main>
