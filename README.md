@@ -29,7 +29,7 @@ You can find all the available components by using the [Component Explorer](http
 # Contributing
 
 Contributors to the project are very much appreciated.
-See the [contribution guidelines](docs/CONTRIBUTING.md) on how to get started.
+See the [contribution guidelines](https://viseron.netlify.app/docs/contributing) on how to get started.
 
 Some things you can help with:
 
