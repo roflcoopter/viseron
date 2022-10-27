@@ -44,3 +44,9 @@ export function saveConfig(config: string) {
 
   return message;
 }
+
+export function restartViseron() {
+  return {
+    type: "restart_viseron",
+  };
+}

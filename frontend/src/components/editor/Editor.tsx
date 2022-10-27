@@ -1,3 +1,4 @@
+import { RestartAlt } from "@mui/icons-material";
 import SaveIcon from "@mui/icons-material/Save";
 import LoadingButton from "@mui/lab/LoadingButton";
 import {
@@ -32,6 +33,7 @@ import MonacoEditor, {
 
 import { Loading } from "components/loading/Loading";
 import { ViseronContext } from "context/ViseronContext";
+import { getConfig, restartViseron, saveConfig } from "lib/commands";
 
 type GlobalThis = typeof globalThis &
   Window & {
@@ -180,6 +182,9 @@ const Editor = () => {
   const [errorDialog, setErrorDialog] = useState({ open: false, text: "" });
   const [syntaxWarningDialog, setSyntaxWarningDialog] = useState(false);
 
+  const [restartPending, setRestartPending] = useState(false);
+  const [restartDialog, setRestartDialog] = useState({ open: false, text: "" });
+
   const updateDimensions = useCallback(() => {
     if (editorInstance) {
       editorInstance!.current!.layout();
@@ -200,7 +205,7 @@ const Editor = () => {
   const save = () => {
     setSavePending(true);
     const config = editorInstance!.current!.getModel()!.getValue();
-    viseron.connection!.saveConfig(config).then(
+    saveConfig(viseron.connection!, config).then(
       (_value) => {
         setSavePending(false);
         setSavedConfig(config);
@@ -221,6 +226,28 @@ const Editor = () => {
         return;
       }
       save();
+    }
+  };
+
+  const _restartViseron = () => {
+    const _restart = async () => {
+      setRestartPending(true);
+      await restartViseron(viseron.connection!).catch(() =>
+        setRestartPending(false)
+      );
+    };
+    _restart();
+  };
+
+  const handleRestart = () => {
+    if (viseron.connection && editorInstance.current) {
+      let text = "Are you sure you want to restart Viseron?";
+      if (problemsRef.current.length > 0) {
+        text = `You have synxat errors in your config. ${text}`;
+      } else if (configUnsaved) {
+        text = `You have unsaved changes to your config. Do you want to restart Viseron anyway?`;
+      }
+      setRestartDialog({ open: true, text });
     }
   };
 
@@ -250,13 +277,17 @@ const Editor = () => {
 
   useEffect(() => {
     if (viseron.connection) {
-      const getConfig = async () => {
-        const config = await viseron.connection!.getConfig();
+      const _getConfig = async () => {
+        const config = await getConfig(viseron.connection!);
         setSavedConfig(config);
       };
-      getConfig();
+      _getConfig();
     }
   }, [viseron.connection]);
+
+  useEffect(() => {
+    setRestartPending(!viseron.connected);
+  }, [viseron.connected]);
 
   if (savedConfig === undefined) {
     return <Loading text="Loading Configuration" />;
@@ -331,21 +362,82 @@ const Editor = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      <Dialog
+        open={restartDialog.open}
+        onClose={() => {
+          setRestartDialog({ ...restartDialog, open: false });
+        }}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">{"Restart Viseron."}</DialogTitle>
+        {restartDialog.text && (
+          <DialogContent>
+            <DialogContentText id="alert-dialog-description">
+              {restartDialog.text}
+            </DialogContentText>
+          </DialogContent>
+        )}
+        <DialogActions>
+          <Button
+            onClick={() => {
+              _restartViseron();
+              setRestartDialog({ ...restartDialog, open: false });
+              // Editor does not focus without the timer
+              setTimeout(() => {
+                editorInstance.current?.focus();
+              }, 1);
+            }}
+          >
+            Yes
+          </Button>
+          <Button
+            onClick={() => {
+              setRestartDialog({ ...restartDialog, open: false });
+              // Editor does not focus without the timer
+              setTimeout(() => {
+                editorInstance.current?.focus();
+              }, 1);
+            }}
+          >
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Stack justifyContent="flex-start" alignItems="flex-start" spacing={2}>
-        <Tooltip title="Ctrl+S" enterDelay={300}>
+        <Stack
+          direction="row"
+          justifyContent="flex-start"
+          alignItems="flex-start"
+          spacing={2}
+        >
+          <Tooltip title="Ctrl+S" enterDelay={300}>
+            <span>
+              <LoadingButton
+                startIcon={<SaveIcon />}
+                loadingPosition="start"
+                onClick={handleSave}
+                variant="contained"
+                loading={savePending}
+                disabled={!configUnsaved}
+              >
+                Save
+              </LoadingButton>
+            </span>
+          </Tooltip>
           <span>
             <LoadingButton
-              startIcon={<SaveIcon />}
+              startIcon={<RestartAlt />}
               loadingPosition="start"
-              onClick={handleSave}
+              onClick={handleRestart}
               variant="contained"
-              loading={savePending}
-              disabled={!configUnsaved}
+              loading={restartPending}
+              color="error"
             >
-              Save
+              Restart
             </LoadingButton>
           </span>
-        </Tooltip>
+        </Stack>
         <Box
           sx={{
             width: editorWidth,
