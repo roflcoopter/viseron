@@ -118,6 +118,10 @@ class LogPipe(threading.Thread):
         self.pipe_reader = os.fdopen(self._read_filedescriptor)
         self.start()
 
+    def fileno(self):
+        """Return the write file descriptor of the pipe."""
+        return self._write_filedescriptor
+
     def run(self):
         """Run the thread, logging everything."""
         for line in iter(self.pipe_reader.readline, ""):
@@ -148,6 +152,10 @@ class CTypesLogPipe(threading.Thread):
         self._old_fd = os.dup(fd)
         os.dup2(self._write_filedescriptor, fd)
         self.start()
+
+    def fileno(self):
+        """Return the write file descriptor of the pipe."""
+        return self._write_filedescriptor
 
     def run(self):
         """Run the thread, logging everything."""
