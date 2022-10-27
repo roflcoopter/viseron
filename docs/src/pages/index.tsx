@@ -43,11 +43,9 @@ function HomepageHeader() {
 }
 
 export default function Home(): JSX.Element {
+  const { siteConfig } = useDocusaurusContext();
   return (
-    <Layout
-      title={`Homepage`}
-      description="Self-hosted, local only NVR and AI Computer Vision software."
-    >
+    <Layout title={`Homepage`} description={siteConfig.tagline}>
       <HomepageHeader />
       <main>
         <HomepageFeatures />

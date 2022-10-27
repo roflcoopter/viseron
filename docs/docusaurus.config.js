@@ -10,7 +10,7 @@ const URL = "https://viseron.netlify.app";
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: PROJECT,
-  tagline: "A modular, self-hosted, local only NVR.",
+  tagline: "Self-hosted, local only NVR and AI Computer Vision software.",
   url: URL,
   baseUrl: "/",
   onBrokenLinks: "throw",
