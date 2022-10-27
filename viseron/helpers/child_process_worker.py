@@ -117,6 +117,7 @@ class ChildProcessWorker(ABC):
         """Stop detection process."""
         LOGGER.debug(f"Sending exit event to {self.child_process_name}")
         self._process_frames_proc_exit.set()
-        self._process_frames_proc.join()
+        self._process_frames_proc.join(5)
         self._process_frames_proc.terminate()
+        self._process_frames_proc.kill()
         LOGGER.debug(f"{self.child_process_name} exited")

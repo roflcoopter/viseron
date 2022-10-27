@@ -1,5 +1,6 @@
 """Start Viseron."""
 import signal
+import sys
 
 from viseron import setup_viseron
 
@@ -19,12 +20,14 @@ def main():
     viseron = setup_viseron()
 
     signal.pause()
+    return viseron.exit_code
 
 
 def init():
     """Initialize."""
     if __name__ == "__main__":
-        main()
+        return main()
+    return 1
 
 
-init()
+sys.exit(init())

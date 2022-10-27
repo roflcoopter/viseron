@@ -177,6 +177,8 @@ class Viseron:
         self.background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
         self.background_scheduler.start()
 
+        self.exit_code = 0
+
     def register_signal_handler(self, viseron_signal, callback):
         """Register a callback which gets called on signals emitted by Viseron.
 
@@ -414,13 +416,16 @@ class Viseron:
         self._subprocess_watchdog.stop()
         self.background_scheduler.shutdown()
 
-        def join(thread_or_process):
+        def join(thread_or_process: threading.Thread | multiprocessing.Process):
             thread_or_process.join(timeout=8)
             time.sleep(0.5)  # Wait for process to exit properly
             if thread_or_process.is_alive():
                 LOGGER.error(f"{thread_or_process.name} did not exit in time")
+                if isinstance(thread_or_process, multiprocessing.Process):
+                    LOGGER.error(f"Forcefully kill {thread_or_process.name}")
+                    thread_or_process.kill()
 
-        threads_and_processes = [
+        threads_and_processes: List[threading.Thread | multiprocessing.Process] = [
             thread
             for thread in threading.enumerate()
             if not thread.daemon and thread != threading.current_thread()

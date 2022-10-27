@@ -39,6 +39,7 @@ from .websocket_api import WebSocketHandler
 from .websocket_api.commands import (
     get_cameras,
     get_config,
+    restart_viseron,
     save_config,
     subscribe_event,
 )
@@ -81,6 +82,7 @@ def setup(vis: Viseron, config):
     webserver.register_websocket_command(get_cameras)
     webserver.register_websocket_command(get_config)
     webserver.register_websocket_command(save_config)
+    webserver.register_websocket_command(restart_viseron)
 
     webserver.start()
 
