@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 import logging
+import os
+import signal
 from typing import TYPE_CHECKING, Callable
 
 import tornado
 import voluptuous as vol
 
 from viseron.components.webserver.const import WS_ERROR_SAVE_CONFIG_FAILED
-from viseron.const import CONFIG_PATH, REGISTERED_DOMAINS
+from viseron.const import CONFIG_PATH, REGISTERED_DOMAINS, RESTART_EXIT_CODE
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 
 from .messages import (
@@ -103,6 +105,18 @@ def save_config(connection: WebSocketHandler, message):
         )
         return
 
+    connection.send_message(
+        result_message(
+            message["command_id"],
+        )
+    )
+
+
+@websocket_command({vol.Required("type"): "restart_viseron"})
+def restart_viseron(connection: WebSocketHandler, message):
+    """Restart Viseron."""
+    connection.vis.exit_code = RESTART_EXIT_CODE
+    os.kill(os.getpid(), signal.SIGINT)
     connection.send_message(
         result_message(
             message["command_id"],

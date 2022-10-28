@@ -1,5 +1,6 @@
 import React, { FC, createContext, useEffect, useState } from "react";
 
+import { getCameras, subscribeCameras } from "lib/commands";
 import { sortObj } from "lib/helpers";
 import * as types from "lib/types";
 import { Connection } from "lib/websockets";
@@ -10,11 +11,13 @@ export type ViseronProviderProps = {
 
 export type ViseronContextState = {
   connection: Connection | undefined;
+  connected: boolean;
   cameras: types.Cameras;
 };
 
 const contextDefaultValues: ViseronContextState = {
   connection: undefined,
+  connected: false,
   cameras: {},
 };
 
@@ -27,6 +30,7 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
   const [connection, setConnection] = useState<Connection | undefined>(
     undefined
   );
+  const [connected, setConnected] = useState<boolean>(false);
   const [cameras, setCameras] = useState<types.Cameras>({});
 
   useEffect(() => {
@@ -41,13 +45,19 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
       };
 
       const onConnect = async () => {
-        const registeredCameras = await connection!.getCameras();
+        setConnected(true);
+        const registeredCameras = await getCameras(connection);
         setCameras(sortObj(registeredCameras));
       };
       connection!.addEventListener("connected", onConnect);
 
+      const onDisonnect = async () => {
+        setConnected(false);
+      };
+      connection!.addEventListener("disconnected", onDisonnect);
+
       const connect = async () => {
-        connection!.subscribeCameras(cameraRegistered); // call without await to not block
+        subscribeCameras(connection, cameraRegistered); // call without await to not block
         await connection!.connect();
       };
       connect();
@@ -59,7 +69,7 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
   }, []);
 
   return (
-    <ViseronContext.Provider value={{ cameras, connection }}>
+    <ViseronContext.Provider value={{ connection, connected, cameras }}>
       {children}
     </ViseronContext.Provider>
   );

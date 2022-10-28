@@ -46,7 +46,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             if (message := await self._message_queue.get()) is None:
                 break
 
-            LOGGER.debug("Sending message {message}".format(message=message))
+            # LOGGER.debug("Sending message {message}".format(message=message))
             await self.write_message(message)
         LOGGER.debug("Exiting WebSocket message writer")
 

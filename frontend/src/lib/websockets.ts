@@ -17,34 +17,6 @@ export interface Message {
   [key: string]: any;
 }
 
-type WebSocketEventResponse = {
-  command_id: number;
-  type: "event";
-  event: types.Event;
-};
-
-type WebSocketResultResponse = {
-  command_id: number;
-  type: "result";
-  success: true;
-  result: any;
-};
-
-type WebSocketResultErrorResponse = {
-  command_id: number;
-  type: "result";
-  success: false;
-  error: {
-    code: string;
-    message: string;
-  };
-};
-
-type WebSocketResponse =
-  | WebSocketEventResponse
-  | WebSocketResultResponse
-  | WebSocketResultErrorResponse;
-
 export type WebSocketProviderProps = {
   children: React.ReactNode;
 };
@@ -161,7 +133,7 @@ export class Connection {
   }
 
   private _handleMessage(event: any) {
-    const message: WebSocketResponse = JSON.parse(event.data);
+    const message: types.WebSocketResponse = JSON.parse(event.data);
     console.debug("Received ", message);
 
     const command_info = this.commands.get(message.command_id);
@@ -169,7 +141,9 @@ export class Connection {
     switch (message.type) {
       case "event":
         if (command_info) {
-          command_info.callback((message as WebSocketEventResponse).event);
+          command_info.callback(
+            (message as types.WebSocketEventResponse).event
+          );
         } else {
           console.warn(
             `Received event for unknown subscription ${message.command_id}. Unsubscribing.`
@@ -350,37 +324,5 @@ export class Connection {
       this.sendMessage(messages.subscribeEvent(event), commandId);
     });
     return () => subscription.unsubscribe();
-  }
-
-  async getCameras(): Promise<types.Cameras> {
-    const response = await this.sendMessagePromise(messages.getCameras());
-    const json = await JSON.parse(response);
-    return json;
-  }
-
-  async subscribeCameras(cameraCallback: (camera: types.Camera) => void) {
-    const storedCameraCallback = cameraCallback;
-    const _cameraCallback = (message: types.CameraRegisteredEvent) => {
-      storedCameraCallback(message.data);
-    };
-    const subscription = await this.subscribeEvent(
-      "domain/registered/camera",
-      _cameraCallback,
-      true
-    );
-    return subscription;
-  }
-
-  async getConfig(): Promise<string> {
-    const response = await this.sendMessagePromise(messages.getConfig());
-    return response.config;
-  }
-
-  async saveConfig(
-    config: string
-  ): Promise<
-    WebSocketResultResponse["result"] | WebSocketResultErrorResponse["error"]
-  > {
-    return this.sendMessagePromise(messages.saveConfig(config));
   }
 }

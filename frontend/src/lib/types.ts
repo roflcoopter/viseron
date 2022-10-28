@@ -46,3 +46,32 @@ export type CameraRegisteredEvent = EventBase & {
   name: "camera_registered";
   data: Camera;
 };
+
+
+export type WebSocketEventResponse = {
+  command_id: number;
+  type: "event";
+  event: Event;
+};
+
+export type WebSocketResultResponse = {
+  command_id: number;
+  type: "result";
+  success: true;
+  result: any;
+};
+
+export type WebSocketResultErrorResponse = {
+  command_id: number;
+  type: "result";
+  success: false;
+  error: {
+    code: string;
+    message: string;
+  };
+};
+
+export type WebSocketResponse =
+  | WebSocketEventResponse
+  | WebSocketResultResponse
+  | WebSocketResultErrorResponse;
