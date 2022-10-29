@@ -145,6 +145,7 @@ const config = {
       {
         hashed: true,
         indexDocs: true,
+        indexPages: true,
         indexBlog: false,
         highlightSearchTermsOnTargetPage: true,
       },
