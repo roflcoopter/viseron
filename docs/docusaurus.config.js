@@ -47,19 +47,19 @@ const config = {
         items: [
           {
             type: "doc",
-            docId: "documentation",
+            docId: "documentation/",
             position: "left",
             label: "Documentation",
           },
           {
             type: "doc",
-            docId: "contributing",
+            docId: "contributing/",
             position: "left",
             label: "Contributing",
           },
           {
             title: "Components",
-            to: "components-explorer",
+            to: "components-explorer/",
             label: "Components",
             position: "left",
           },

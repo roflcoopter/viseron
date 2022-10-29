@@ -52,7 +52,10 @@ function ComponentCard({ component }: { component: Component }) {
       <div className="card__body">
         <div className={clsx(styles.componentCardHeader)}>
           <h4 className={styles.componentCardTitle}>
-            <Link href={componentLink} className={styles.componentCardLink}>
+            <Link
+              href={`${componentLink}/`}
+              className={styles.componentCardLink}
+            >
               {component.title}
             </Link>
           </h4>

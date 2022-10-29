@@ -143,6 +143,7 @@
 !/.pylintrc
 !/codecov.yaml
 !/LICENSE
+!/netlify.toml
 !/README.md
 !tox.ini
 
