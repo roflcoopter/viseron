@@ -32,6 +32,9 @@ else
   done <<< "$DEVICES"
 fi
 
+groupadd --force plugdev
+usermod -aG plugdev abc
+
 FILES=$(find /dev/apex_? -type c -print 2>/dev/null)
 
 for i in $FILES
