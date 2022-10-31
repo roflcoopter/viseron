@@ -507,10 +507,16 @@ def domain_dependencies(vis):
                     f"requires domain {require_domain.domain} with "
                     f"identifier {require_domain.identifier} but it has not been setup"
                 )
-                domain_to_setup.component.domains_to_setup.remove(domain_to_setup)
-                del vis.data[DOMAINS_TO_SETUP][domain_to_setup.domain][
-                    domain_to_setup.identifier
-                ]
+                try:
+                    domain_to_setup.component.domains_to_setup.remove(domain_to_setup)
+                    del vis.data[DOMAINS_TO_SETUP][domain_to_setup.domain][
+                        domain_to_setup.identifier
+                    ]
+                except ValueError:
+                    LOGGER.debug(
+                        f"Domain {domain_to_setup.domain} has already been removed",
+                        exc_info=True,
+                    )
 
 
 def _setup_domain(vis, executor, domain_to_setup: DomainToSetup):
