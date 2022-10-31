@@ -10,6 +10,22 @@ from viseron import helpers
     "frame_res, model_res, bbox, expected, raises, message",
     [
         (
+            (1920, 1080),
+            (300, 300),
+            (75, 90, 105, 120),
+            (480, 156, 672, 348),
+            nullcontext(),
+            None,
+        ),
+        (
+            (1080, 1920),
+            (300, 300),
+            (75, 90, 105, 120),
+            (60, 576, 252, 768),
+            nullcontext(),
+            None,
+        ),
+        (
             (640, 360),
             (640, 640),
             (10, 320, 10, 320),

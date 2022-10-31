@@ -390,7 +390,12 @@ def convert_letterboxed_bbox(
             * frame_width
             / model_width
         )
-        return x1, y1, x2, y2
+        return (
+            (x1 / model_width) * frame_width,  # Scale width from model to frame width
+            y1,
+            (x2 / model_width) * frame_width,  # Scale width from model to frame width
+            y2,
+        )
 
     # Vertical padding
     x1 = (
@@ -403,7 +408,12 @@ def convert_letterboxed_bbox(
         * frame_height
         / model_width
     )
-    return x1, y1, x2, y2
+    return (
+        x1,
+        (y1 / model_height) * frame_height,  # Scale height from model to frame height
+        x2,
+        (y2 / model_height) * frame_height,  # Scale height from model to frame height
+    )
 
 
 def memory_usage_profiler(logger, key_type="lineno", limit=5):
