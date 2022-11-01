@@ -55,14 +55,14 @@ class FaceDetectionBinarySensor(CameraBinarySensor):
                 "name": self._face.name,
                 "confidence": self._face.confidence,
                 "coordinates": self._face.coordinates,
+                "extra_attributes": self._face.extra_attributes,
             }
         return {}
 
-    def face_detected(self, event_data: Event):
+    def face_detected(self, event_data: Event[EventFaceDetected]):
         """Handle face detected event."""
-        face_detected_data: EventFaceDetected = event_data.data
         self._detected = True
-        self._face = face_detected_data.face
+        self._face = event_data.data.face
         self.set_state()
 
     def face_expired(self, _event_data: Event):
