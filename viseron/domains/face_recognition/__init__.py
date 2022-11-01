@@ -5,7 +5,7 @@ import datetime
 import os
 from dataclasses import dataclass
 from threading import Timer
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 from uuid import uuid4
 
 import cv2
@@ -67,6 +67,7 @@ class FaceDict:
     coordinates: Tuple[int, int, int, int]
     confidence: float | None
     timer: Timer
+    extra_attributes: None | Dict[str, Any] = None
 
 
 @dataclass
@@ -94,7 +95,11 @@ class AbstractFaceRecognition(AbstractPostProcessor):
             )
 
     def known_face_found(
-        self, face: str, coordinates: Tuple[int, int, int, int], confidence=None
+        self,
+        face: str,
+        coordinates: Tuple[int, int, int, int],
+        confidence=None,
+        extra_attributes=None,
     ):
         """Adds/expires known faces."""
         # Cancel the expiry timer if face has already been detected
@@ -107,6 +112,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
             coordinates,
             confidence,
             Timer(self._config[CONFIG_EXPIRE_AFTER], self.expire_face, [face]),
+            extra_attributes=extra_attributes,
         )
         face_dict.timer.start()
 
