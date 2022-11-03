@@ -55,6 +55,8 @@ export class Connection {
   // Internal event listeners
   eventListeners = new Map();
 
+  pingInterval: NodeJS.Timeout | undefined;
+
   async connect() {
     if (this.socket) {
       return;
@@ -91,7 +93,7 @@ export class Connection {
       toast("Connected to server!", {
         toastId: connectedToastId,
         type: toast.TYPE.INFO,
-        autoClose: 5000,
+        autoClose: 1000,
         pauseOnFocusLoss: false,
       });
       clearTimeout(this.reconnectTimer);
@@ -128,6 +130,8 @@ export class Connection {
         queuedMsg.resolve();
       }
     }
+
+    this.pingInterval = setInterval(() => { this.ping() }, 30000);
 
     this.fireEvent("connected");
   }
@@ -167,12 +171,25 @@ export class Connection {
           }
         }
         break;
+
+        case "pong":
+          if (command_info) {
+            command_info.resolve();
+            this.commands.delete(message.command_id);
+          } else {
+            console.warn(`Received unknown pong response ${message.command_id}`);
+          }
+          break;
       default:
         console.warn("Unhandled message", message);
     }
   }
 
   private _handleClose = async () => {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+    }
+
     if (!this.reconnectTimer) {
       console.debug("Connection closed");
       if (this.socket) {
@@ -248,6 +265,10 @@ export class Connection {
         autoClose: false,
       });
     }
+  }
+
+  ping() {
+    return this.sendMessagePromise(messages.ping());
   }
 
   private _sendMessage(message: Message) {

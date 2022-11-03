@@ -18,6 +18,7 @@ from .messages import (
     error_message,
     event_message,
     message_to_json,
+    pong_message,
     result_message,
 )
 
@@ -42,6 +43,12 @@ def websocket_command(
         return func
 
     return decorate
+
+
+@websocket_command({vol.Required("type"): "ping"})
+def ping(connection: WebSocketHandler, message):
+    """Respond to ping."""
+    connection.send_message(pong_message(message["command_id"]))
 
 
 @websocket_command(

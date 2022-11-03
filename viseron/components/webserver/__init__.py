@@ -39,6 +39,7 @@ from .websocket_api import WebSocketHandler
 from .websocket_api.commands import (
     get_cameras,
     get_config,
+    ping,
     restart_viseron,
     save_config,
     subscribe_event,
@@ -78,6 +79,7 @@ def setup(vis: Viseron, config):
     webserver = WebServer(vis, config)
     vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, webserver.stop)
 
+    webserver.register_websocket_command(ping)
     webserver.register_websocket_command(subscribe_event)
     webserver.register_websocket_command(get_cameras)
     webserver.register_websocket_command(get_config)
@@ -157,6 +159,7 @@ class WebServer(threading.Thread):
             ],
             default_handler_class=NotFoundHandler,
             static_path=PATH_STATIC,
+            websocket_ping_interval=10,
             debug=self._config[CONFIG_DEBUG],
         )
         application.add_handlers(

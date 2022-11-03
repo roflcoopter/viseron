@@ -50,3 +50,9 @@ export function restartViseron() {
     type: "restart_viseron",
   };
 }
+
+export function ping() {
+  return {
+    type: "ping",
+  };
+}
