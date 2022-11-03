@@ -48,6 +48,11 @@ export type CameraRegisteredEvent = EventBase & {
 };
 
 
+type WebSocketPongResponse = {
+  command_id: number;
+  type: "pong";
+};
+
 export type WebSocketEventResponse = {
   command_id: number;
   type: "event";
@@ -72,6 +77,7 @@ export type WebSocketResultErrorResponse = {
 };
 
 export type WebSocketResponse =
+  | WebSocketPongResponse
   | WebSocketEventResponse
   | WebSocketResultResponse
   | WebSocketResultErrorResponse;

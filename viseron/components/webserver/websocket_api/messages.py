@@ -79,3 +79,8 @@ def event_message(command_id: int, event: Event) -> dict[str, Any]:
         "type": "event",
         "event": event,
     }
+
+
+def pong_message(command_id: int) -> dict[str, Any]:
+    """Return a pong message."""
+    return {"command_id": command_id, "type": "pong"}
