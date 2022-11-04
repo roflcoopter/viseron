@@ -10,11 +10,12 @@ from pycoral.utils.dataset import read_label_file
 from pycoral.utils.edgetpu import list_edge_tpus, make_interpreter
 
 from viseron import Viseron
-from viseron.domains import RequireDomain, setup_domain
+from viseron.domains import OptionalDomain, RequireDomain, setup_domain
 from viseron.domains.image_classification import (
     BASE_CONFIG_SCHEMA as IMAGE_CLASSIFICATION_BASE_CONFIG_SCHEMA,
     ImageClassificationResult,
 )
+from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
 from viseron.domains.object_detector import BASE_CONFIG_SCHEMA
 from viseron.domains.object_detector.const import CONFIG_CAMERAS
 from viseron.domains.object_detector.detected_object import DetectedObject
@@ -117,6 +118,12 @@ def setup(vis: Viseron, config):
                         domain="camera",
                         identifier=camera_identifier,
                     )
+                ],
+                optional_domains=[
+                    OptionalDomain(
+                        domain=MOTION_DETECTOR_DOMAIN,
+                        identifier=camera_identifier,
+                    ),
                 ],
             )
     return True

@@ -12,7 +12,8 @@ import voluptuous as vol
 
 from viseron import Viseron
 from viseron.const import ENV_CUDA_SUPPORTED
-from viseron.domains import RequireDomain, setup_domain
+from viseron.domains import OptionalDomain, RequireDomain, setup_domain
+from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
 from viseron.domains.object_detector import BASE_CONFIG_SCHEMA
 from viseron.domains.object_detector.const import CONFIG_CAMERAS
 from viseron.domains.object_detector.detected_object import DetectedObject
@@ -133,6 +134,12 @@ def setup(vis: Viseron, config):
                     domain="camera",
                     identifier=camera_identifier,
                 )
+            ],
+            optional_domains=[
+                OptionalDomain(
+                    domain=MOTION_DETECTOR_DOMAIN,
+                    identifier=camera_identifier,
+                ),
             ],
         )
 

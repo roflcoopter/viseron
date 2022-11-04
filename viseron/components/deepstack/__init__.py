@@ -5,10 +5,11 @@ import voluptuous as vol
 
 from viseron import Viseron
 from viseron.components.deepstack.face_recognition import DeepstackTrain
-from viseron.domains import RequireDomain, setup_domain
+from viseron.domains import OptionalDomain, RequireDomain, setup_domain
 from viseron.domains.face_recognition import (
     BASE_CONFIG_SCHEMA as FACE_RECOGNITION_BASE_CONFIG_SCHEMA,
 )
+from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
 from viseron.domains.object_detector import (
     BASE_CONFIG_SCHEMA as OBJECT_DETECTOR_BASE_CONFIG_SCHEMA,
 )
@@ -127,6 +128,12 @@ def setup(vis: Viseron, config):
                         domain="camera",
                         identifier=camera_identifier,
                     )
+                ],
+                optional_domains=[
+                    OptionalDomain(
+                        domain=MOTION_DETECTOR_DOMAIN,
+                        identifier=camera_identifier,
+                    ),
                 ],
             )
 
