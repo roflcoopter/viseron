@@ -26,10 +26,19 @@ from typing import (
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from viseron.components import setup_components, setup_domains
+from viseron.components import (
+    get_component,
+    setup_component,
+    setup_components,
+    setup_domains,
+)
 from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
+)
+from viseron.components.nvr.const import (
+    COMPONENT as NVR_COMPONENT,
+    DOMAIN as NVR_DOMAIN,
 )
 from viseron.config import load_config
 from viseron.const import (
@@ -44,6 +53,7 @@ from viseron.const import (
     REGISTERED_DOMAINS,
     VISERON_SIGNAL_SHUTDOWN,
 )
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DataStreamNotLoaded, DomainNotRegisteredError
 from viseron.helpers import memory_usage_profiler
 from viseron.helpers.logs import (
@@ -124,6 +134,26 @@ def setup_viseron():
     vis = Viseron()
 
     setup_components(vis, config)
+
+    if NVR_COMPONENT in vis.data[LOADED]:
+        for camera in vis.data[DOMAINS_TO_SETUP][CAMERA_DOMAIN].keys():
+            if camera not in vis.data[DOMAINS_TO_SETUP][NVR_DOMAIN].keys():
+                LOGGER.warning(
+                    f"Camera with identifier {camera} is not enabled under component "
+                    "nvr. This camera will not be processed"
+                )
+    else:
+        nvr_config = {}
+        nvr_config["nvr"] = {}
+        for camera_to_setup in vis.data[DOMAINS_TO_SETUP][CAMERA_DOMAIN]:
+            LOGGER.warning(
+                "Manually setting up component nvr with "
+                f"identifier {camera_to_setup}. "
+                "Consider adding it your config.yaml instead"
+            )
+            nvr_config["nvr"][camera_to_setup] = {}
+        setup_component(vis, get_component(vis, NVR_COMPONENT, nvr_config))
+
     setup_domains(vis)
     vis.setup()
 
