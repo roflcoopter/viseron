@@ -16,6 +16,8 @@ from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.camera.shared_frames import SharedFrame
+from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
+from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import generate_mask
 from viseron.helpers.filter import Filter
 from viseron.helpers.schemas import (
@@ -289,6 +291,19 @@ class AbstractObjectDetector(ABC):
             self.handle_stop_scan,
         )
 
+        self._scan_on_motion_only = self._config[CONFIG_CAMERAS][
+            self._camera.identifier
+        ][CONFIG_SCAN_ON_MOTION_ONLY]
+        if self.scan_on_motion_only:
+            try:
+                vis.get_registered_domain(MOTION_DETECTOR_DOMAIN, camera_identifier)
+            except DomainNotRegisteredError:
+                self._logger.warning(
+                    "scan_on_motion_only is enabled but no motion detector is "
+                    "configured. Disabling scan_on_motion_only"
+                )
+                self._scan_on_motion_only = False
+
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
         vis.add_entity(component, ObjectDetectedBinarySensorFoV(vis, self._camera))
         vis.add_entity(component, ObjectDetectorFPSSensor(vis, self, self._camera))
@@ -406,9 +421,7 @@ class AbstractObjectDetector(ABC):
     @property
     def scan_on_motion_only(self):
         """Return if scanning should only be done when there is motion."""
-        return self._config[CONFIG_CAMERAS][self._camera.identifier][
-            CONFIG_SCAN_ON_MOTION_ONLY
-        ]
+        return self._scan_on_motion_only
 
     @property
     def mask(self):
