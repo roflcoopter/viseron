@@ -49,7 +49,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   # Add NVIDIA to OpenCL runtime
   mkdir -p /etc/OpenCL/vendors && \
   echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd && \
-  ln -s /detectors/models/darknet/yolov4x-mish.weights /detectors/models/darknet/default.weights && \
-  ln -s /detectors/models/darknet/yolov4x-mish.cfg /detectors/models/darknet/default.cfg
+  ln -s /detectors/models/darknet/yolov7.weights /detectors/models/darknet/default.weights && \
+  ln -s /detectors/models/darknet/yolov7.cfg /detectors/models/darknet/default.cfg
 
 COPY --from=darknet /darknet/lib /usr/local/lib
