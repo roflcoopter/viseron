@@ -7,12 +7,12 @@
     "url": "https://github.com/roflcoopter/viseron.git"
   },
   "dependencies": {
-    "@emotion/react": "^11.7.1",
-    "@emotion/styled": "^11.6.0",
+    "@emotion/react": "^11.10.5",
+    "@emotion/styled": "^11.10.5",
     "@jy95/material-ui-image": "^4.0.0",
     "@mui/icons-material": "^5.3.1",
     "@mui/lab": "^5.0.0-alpha.69",
-    "@mui/material": "^5.3.0",
+    "@mui/material": "^5.10.14",
     "@mui/utils": "^5.3.0",
     "@testing-library/jest-dom": "^5.16.1",
     "@testing-library/react": "^12.1.2",

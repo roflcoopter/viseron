@@ -6,6 +6,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import Footer from "components/footer/Footer";
+import AppDrawer from "components/header/Drawer";
 import Header from "components/header/Header";
 import { Loading } from "components/loading/Loading";
 
@@ -39,6 +40,7 @@ const routes = [
 ));
 
 function App() {
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
   const theme = useMemo(
     () =>
@@ -64,7 +66,8 @@ function App() {
   return (
     <FullHeightContainer>
       <FullHeightContainer>
-        <Header />
+        <AppDrawer drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} />
+        <Header setDrawerOpen={setDrawerOpen} />
         <ToastContainer
           position="bottom-left"
           autoClose={5000}
