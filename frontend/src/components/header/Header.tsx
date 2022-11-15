@@ -1,6 +1,7 @@
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import GitHubIcon from "@mui/icons-material/GitHub";
+import MenuIcon from "@mui/icons-material/Menu";
 import SettingsIcon from "@mui/icons-material/Settings";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
@@ -15,6 +16,10 @@ import { ColorModeContext } from "context/ColorModeContext";
 import { useScrollPosition } from "hooks/UseScrollPosition";
 
 import { ReactComponent as ViseronLogo } from "../../viseron-logo.svg";
+
+interface AppHeaderProps {
+  setDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+}
 
 interface HeaderProps {
   showHeader: boolean;
@@ -41,15 +46,15 @@ const Header = styled("header", {
   transition: "transform 300ms ease-in",
 }));
 
-export default function AppHeader() {
+export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
   const colorMode = useContext(ColorModeContext);
   const theme = useTheme();
   const [showHeader, setShowHeader] = useState(true);
   const lastTogglePos = useRef(0);
 
   useScrollPosition((prevPos: any, currPos: any) => {
-    // Always show header if we haven't scrolled down more than 56px
-    if (currPos.y <= 56 || lastTogglePos.current === 0) {
+    // Always show header if we haven't scrolled down more than theme.headerHeight
+    if (currPos.y <= theme.headerHeight || lastTogglePos.current === 0) {
       lastTogglePos.current = currPos.y;
       setShowHeader(true);
       return;
@@ -79,15 +84,25 @@ export default function AppHeader() {
         sx={{
           display: "flex",
           alignItems: "center",
-          minHeight: 56,
+          minHeight: theme.headerHeight,
         }}
       >
+        <Tooltip title="Menu" enterDelay={300}>
+          <IconButton
+            color="primary"
+            onClick={() => {
+              setDrawerOpen(true);
+            }}
+          >
+            <MenuIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
         <Tooltip title="Home" enterDelay={300}>
           <Box
             component={Link}
             to={"/"}
             aria-label="Home"
-            sx={{ marginTop: "auto" }}
+            sx={{ marginTop: "auto", marginLeft: "16px" }}
           >
             <ViseronLogo width={45} height={45} />
           </Box>

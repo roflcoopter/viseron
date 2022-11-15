@@ -36,6 +36,15 @@ declare module "@mui/material/styles/createPalette" {
   }
 }
 
+declare module "@mui/material/styles" {
+  interface Theme {
+    headerHeight: number;
+  }
+  interface ThemeOptions {
+    headerHeight?: number;
+  }
+}
+
 const blue = {
   50: "#F0F7FF",
   100: "#C2E0FF",
@@ -107,7 +116,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
     (requestedMode: "light" | "dark") =>
       ({
         shape: {
-          borderRadius: "5px",
+          borderRadius: 5,
         },
         ...(mode === "light" && {
           text: {
@@ -122,30 +131,21 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
           },
         }),
         grey,
+        headerHeight: 56,
         palette: {
           mode,
           ...(requestedMode === "light"
             ? {
                 // palette values for light mode
+                divider: grey[300],
               }
             : {
                 background: {
-                  paper: "#001E3C",
+                  paper: "#0A1929",
                   default: "#0A1929",
                 },
-                primary: {
-                  50: "#F0F7FF",
-                  100: "#C2E0FF",
-                  200: "#99CCF3",
-                  300: "#66B2FF",
-                  400: "#3399FF",
-                  main: "#007FFF",
-                  500: "#007FFF",
-                  600: "#0072E5",
-                  700: "#0059B2",
-                  800: "#004C99",
-                  900: "#003A75",
-                },
+                primary: blue,
+                divider: blue[900],
               }),
         },
         typography: {
@@ -185,6 +185,19 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
             },
           ],
         },
+        MuiDrawer: {
+          styleOverrides: {
+            paper: {
+              backgroundColor: "primary",
+              backgroundImage: "unset",
+              borderRight: `1px solid ${
+                theme.palette.mode === "dark"
+                  ? theme.palette.primary[900]
+                  : theme.palette.grey[300]
+              }`,
+            },
+          },
+        },
       },
     };
   }
@@ -196,7 +209,6 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
   const theme = useMemo(
     () =>
       createTheme(deepmerge(viseronTheme, getThemedComponents(viseronTheme))),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [viseronTheme]
   );
   return (
