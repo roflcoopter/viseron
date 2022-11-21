@@ -7,6 +7,7 @@ RUN \
   wget 
 
 # EdgeTPU Models
+FROM base as edgetpu
 RUN \
   mkdir -p /detectors/models/edgetpu && \
   mkdir -p /classifiers/models/edgetpu && \
@@ -23,6 +24,8 @@ RUN \
   wget https://raw.githubusercontent.com/google-coral/test_data/master/tf2_mobilenet_v3_edgetpu_1.0_224_ptq.tflite -O /classifiers/models/edgetpu/tf2_mobilenet_v3_edgetpu_1.0_224_ptq_cpu.tflite --progress=bar:force:noscroll && \
   wget https://raw.githubusercontent.com/google-coral/test_data/master/imagenet_labels.txt -O /classifiers/models/edgetpu/labels.txt --progress=bar:force:noscroll
 
+# YOLOv4 Models
+FROM base as yolov4
 # Fetch models for YOLOv4 darknet
 RUN \
   mkdir -p /detectors/models/darknet && \
@@ -63,8 +66,12 @@ RUN \
   wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v4_pre/yolov4-csp.weights -O /detectors/models/darknet/yolov4-csp.weights --progress=bar:force:noscroll && \
   wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4-csp.cfg -O /detectors/models/darknet/yolov4-csp.cfg --progress=bar:force:noscroll
 
+
+# YOLOv3 Models
+FROM base as yolov3
 # Fetch models for YOLOv3 darknet
 RUN \
+  mkdir -p /detectors/models/darknet && \
   wget https://github.com/AlexeyAB/darknet/releases/download/darknet_yolo_v3_optimal/yolov3.weights -O /detectors/models/darknet/yolov3.weights --progress=bar:force:noscroll && \
   wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3.cfg -O /detectors/models/darknet/yolov3.cfg --progress=bar:force:noscroll
 
@@ -73,8 +80,12 @@ RUN \
   wget https://pjreddie.com/media/files/yolov3-tiny.weights -O /detectors/models/darknet/yolov3-tiny.weights --progress=bar:force:noscroll && \
   wget https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3-tiny.cfg -O /detectors/models/darknet/yolov3-tiny.cfg --progress=bar:force:noscroll
 
+
+# YOLOv7 Models
+FROM base as yolov7
 # Fetch models for YOLOv7 darknet
 RUN \
+  mkdir -p /detectors/models/darknet && \
   wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.weights -O /detectors/models/darknet/yolov7.weights --progress=bar:force:noscroll && \
   wget https://raw.githubusercontent.com/WongKinYiu/yolov7/darknet/cfg/yolov7_darknet.cfg -O /detectors/models/darknet/yolov7.cfg --progress=bar:force:noscroll
 
@@ -93,5 +104,9 @@ ADD ./docker/yolov4-tiny.cfg /detectors/models/darknet/yolov4-tiny.cfg
 
 FROM scratch
 
-COPY --from=base /detectors /detectors
-COPY --from=base /classifiers /classifiers
+COPY --from=edgetpu /detectors /detectors
+COPY --from=yolov4 /detectors /detectors
+COPY --from=yolov3 /detectors /detectors
+COPY --from=yolov7 /detectors /detectors
+
+COPY --from=edgetpu /classifiers /classifiers
