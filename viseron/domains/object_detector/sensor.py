@@ -35,7 +35,7 @@ class ObjectDetectorFPSSensor(CameraSensor):
         self._vis.schedule_periodic_update(self, UPDATE_INTERVAL)
 
     @property
-    def attributes(self):
+    def extra_attributes(self):
         """Return entity attributes."""
         return {
             "preprocessor_fps": self._object_detector.preproc_fps,

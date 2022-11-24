@@ -41,8 +41,8 @@ class MQTTEntity:
     def publish_state(self):
         """Publish state to MQTT."""
         payload = {}
-        payload["state"] = self.entity.json_serializable_state
-        payload["attributes"] = self.entity.json_serializable_attributes
+        payload["state"] = self.entity.state
+        payload["attributes"] = self.entity.attributes
         self._mqtt.publish(
             PublishPayload(
                 self.state_topic,

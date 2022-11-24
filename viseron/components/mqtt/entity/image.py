@@ -30,8 +30,8 @@ class ImageMQTTEntity(MQTTEntity):
 
     def _create_bytes_image(self):
         """Return numpy image as jpg bytes."""
-        if self.entity.state is not None:
-            ret, jpg = cv2.imencode(".jpg", self.entity.state)
+        if self.entity.image is not None:
+            ret, jpg = cv2.imencode(".jpg", self.entity.image)
             if ret:
                 return jpg.tobytes()
         return None
@@ -49,7 +49,7 @@ class ImageMQTTEntity(MQTTEntity):
         )
 
         payload = {}
-        payload["attributes"] = self.entity.json_serializable_attributes
+        payload["attributes"] = self.entity.attributes
         self._mqtt.publish(
             PublishPayload(
                 self.attributes_topic,

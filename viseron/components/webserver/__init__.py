@@ -39,10 +39,12 @@ from .websocket_api import WebSocketHandler
 from .websocket_api.commands import (
     get_cameras,
     get_config,
+    get_entities,
     ping,
     restart_viseron,
     save_config,
     subscribe_event,
+    unsubscribe_event,
 )
 
 if TYPE_CHECKING:
@@ -81,10 +83,12 @@ def setup(vis: Viseron, config):
 
     webserver.register_websocket_command(ping)
     webserver.register_websocket_command(subscribe_event)
+    webserver.register_websocket_command(unsubscribe_event)
     webserver.register_websocket_command(get_cameras)
     webserver.register_websocket_command(get_config)
     webserver.register_websocket_command(save_config)
     webserver.register_websocket_command(restart_viseron)
+    webserver.register_websocket_command(get_entities)
 
     webserver.start()
 
