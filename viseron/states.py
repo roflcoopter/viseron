@@ -53,15 +53,11 @@ class State:
         self,
         entity_id: str,
         state: str,
-        json_serializable_state,
         attributes: dict,
-        json_serializable_attributes,
     ):
         self.entity_id = entity_id
         self.state = state
         self.attributes = attributes
-        self.json_serializable_state = json_serializable_state
-        self.json_serializable_attributes = json_serializable_attributes
         self.timestamp = time.time()
 
         self._as_dict: dict[str, Any] | None = None
@@ -71,8 +67,8 @@ class State:
         if not self._as_dict:
             self._as_dict = {
                 "entity_id": self.entity_id,
-                "state": self.json_serializable_state,
-                "attributes": self.json_serializable_attributes,
+                "state": self.state,
+                "attributes": self.attributes,
                 "timestamp": self.timestamp,
             }
         return self._as_dict
@@ -101,9 +97,7 @@ class States:
         current_state = State(
             entity.entity_id,
             entity.state,
-            entity.json_serializable_state,
             entity.attributes,
-            entity.json_serializable_attributes,
         )
 
         self._current_states[entity.entity_id] = current_state
@@ -152,7 +146,7 @@ class States:
 
             self._registry[entity_id] = entity
             if hasattr(entity, "setup"):
-                entity.setup()
+                entity.setup()  # type: ignore
 
             self._vis.dispatch_event(
                 EVENT_ENTITY_ADDED,
@@ -163,7 +157,7 @@ class States:
     def get_entities(self):
         """Return all registered entities."""
         with self._registry_lock:
-            return self._registry
+            return dict(sorted(self._registry.items()))
 
     @staticmethod
     def _assign_object_id(entity: Entity):

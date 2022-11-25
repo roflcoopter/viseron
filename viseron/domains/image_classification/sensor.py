@@ -48,7 +48,7 @@ class ImageClassificationSensor(CameraSensor):
         return STATE_UNKNOWN
 
     @property
-    def attributes(self):
+    def extra_attributes(self):
         """Return entity attributes."""
         if self._image_classification_event and self._image_classification_event.result:
             return {"result": self._image_classification_event.result}

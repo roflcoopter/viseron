@@ -9,7 +9,10 @@ from typing import TYPE_CHECKING, Callable
 import tornado
 import voluptuous as vol
 
-from viseron.components.webserver.const import WS_ERROR_SAVE_CONFIG_FAILED
+from viseron.components.webserver.const import (
+    WS_ERROR_NOT_FOUND,
+    WS_ERROR_SAVE_CONFIG_FAILED,
+)
 from viseron.const import CONFIG_PATH, REGISTERED_DOMAINS, RESTART_EXIT_CODE
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 
@@ -69,14 +72,36 @@ def subscribe_event(connection: WebSocketHandler, message):
     connection.send_message(result_message(message["command_id"]))
 
 
+@websocket_command(
+    {
+        vol.Required("type"): "unsubscribe_event",
+        vol.Required("subscription"): int,
+    }
+)
+def unsubscribe_event(connection: WebSocketHandler, message):
+    """Unsubscribe to an event."""
+    subscription = message["subscription"]
+    if subscription in connection.subscriptions:
+        connection.subscriptions.pop(subscription)()
+        connection.send_message(result_message(message["command_id"]))
+    else:
+        connection.send_message(
+            error_message(
+                message["command_id"],
+                WS_ERROR_NOT_FOUND,
+                f"Subscription with command_id {message['subscription']} not found.",
+            )
+        )
+
+
 @websocket_command({vol.Required("type"): "get_cameras"})
 def get_cameras(connection: WebSocketHandler, message):
     """Get all registered cameras."""
     connection.send_message(
-        result_message(
-            message["command_id"],
-            message_to_json(
-                connection.vis.data[REGISTERED_DOMAINS].get(CAMERA_DOMAIN, {})
+        message_to_json(
+            result_message(
+                message["command_id"],
+                connection.vis.data[REGISTERED_DOMAINS].get(CAMERA_DOMAIN, {}),
             ),
         )
     )
@@ -127,5 +152,15 @@ def restart_viseron(connection: WebSocketHandler, message):
     connection.send_message(
         result_message(
             message["command_id"],
+        )
+    )
+
+
+@websocket_command({vol.Required("type"): "get_entities"})
+def get_entities(connection: WebSocketHandler, message):
+    """Get all registered entities."""
+    connection.send_message(
+        message_to_json(
+            result_message(message["command_id"], connection.vis.get_entities()),
         )
     )

@@ -3,6 +3,7 @@ import GitHubIcon from "@mui/icons-material/GitHub";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SettingsIcon from "@mui/icons-material/Settings";
 import VideocamIcon from "@mui/icons-material/Videocam";
+import ViewListIcon from "@mui/icons-material/ViewList";
 import VolunteerActivismIcon from "@mui/icons-material/VolunteerActivism";
 import { Container, ListSubheader, Typography } from "@mui/material";
 import Box from "@mui/material/Box";
@@ -33,6 +34,7 @@ type DrawerItemTypes = DrawerItemHeader | DrawerItemLink | DrawerItemDivider;
 const drawerItems: Array<DrawerItemTypes> = [
   { type: "header", title: "Pages" },
   { type: "link", title: "Cameras", icon: VideocamIcon, path: "/cameras" },
+  { type: "link", title: "Entities", icon: ViewListIcon, path: "/entities" },
   { type: "divider" },
   { type: "header", title: "Administration" },
   {

@@ -46,7 +46,7 @@ class FaceDetectionBinarySensor(CameraBinarySensor):
         return self._detected
 
     @property
-    def attributes(self):
+    def extra_attributes(self):
         """Return entity attributes."""
         if self._face:
             return {

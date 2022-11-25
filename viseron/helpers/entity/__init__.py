@@ -42,19 +42,18 @@ class Entity(ABC):
         return self._state
 
     @property
-    def json_serializable_state(self):
-        """Return entity state that is json serializable."""
-        return self.state
-
-    @property
     def attributes(self):
-        """Return entity attributes."""
-        return self._attributes
+        """Return entity attributes.
 
-    @property
-    def json_serializable_attributes(self):
-        """Return entity attributes that is json serializable."""
-        return self.attributes
+        DO NOT OVERRIDE THIS METHOD.
+        If you need to add attributes, override extra_attributes instead.
+        """
+        attributes = {}
+        attributes["name"] = self.name
+        attributes["domain"] = self.domain
+        attributes.update(self.extra_attributes or {})
+        self._attributes = attributes
+        return self._attributes
 
     def set_state(self):
         """Set the state in the states registry."""
@@ -63,6 +62,22 @@ class Entity(ABC):
 
         self.vis.states.set_state(self)
 
+    @property
+    def extra_attributes(self):
+        """Return extra attributes.
+
+        Safe to override. Use this to add extra attributes to the entity.
+        """
+        return {}
+
     def update(self):
         """Update entity."""
         raise NotImplementedError()
+
+    def as_dict(self):
+        """Return entity as dict."""
+        return {
+            "entity_id": self.entity_id,
+            "state": self.state,
+            "attributes": self.attributes,
+        }

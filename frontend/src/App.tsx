@@ -13,6 +13,7 @@ import { Loading } from "components/loading/Loading";
 const Configuration = lazy(() => import("pages/Configuration"));
 const Cameras = lazy(() => import("pages/Cameras"));
 const Recordings = lazy(() => import("pages/Recordings"));
+const Entities = lazy(() => import("pages/Entities"));
 
 const FullHeightContainer = styled("div")(() => ({
   minHeight: "100%",
@@ -34,6 +35,10 @@ const routes = [
   {
     path: "/configuration",
     element: <Configuration />,
+  },
+  {
+    path: "/entities",
+    element: <Entities />,
   },
 ].map(({ path, element }, key) => (
   <Route path={path} element={element} key={key} />

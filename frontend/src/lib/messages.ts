@@ -56,3 +56,10 @@ export function ping() {
     type: "ping",
   };
 }
+
+export function getEntities() {
+  return {
+    type: "get_entities",
+  };
+}
+

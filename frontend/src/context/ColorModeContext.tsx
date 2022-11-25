@@ -137,11 +137,16 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
           ...(requestedMode === "light"
             ? {
                 // palette values for light mode
+                background: {
+                  paper: "#fff",
+                  default: "#fafafa",
+                },
                 divider: grey[300],
               }
             : {
+                // palette values for dark mode
                 background: {
-                  paper: "#0A1929",
+                  paper: "#0c1e30",
                   default: "#0A1929",
                 },
                 primary: blue,
@@ -191,6 +196,17 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
               backgroundColor: "primary",
               backgroundImage: "unset",
               borderRight: `1px solid ${
+                theme.palette.mode === "dark"
+                  ? theme.palette.primary[900]
+                  : theme.palette.grey[300]
+              }`,
+            },
+          },
+        },
+        MuiPaper: {
+          styleOverrides: {
+            root: {
+              border: `1px solid ${
                 theme.palette.mode === "dark"
                   ? theme.palette.primary[900]
                   : theme.palette.grey[300]

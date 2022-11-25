@@ -42,6 +42,6 @@ class ThumbnailImage(CameraImage):
         if event_data.data.thumbnail_path:
             attributes["thumbnail_path"] = event_data.data.thumbnail_path
 
-        self._state = event_data.data.thumbnail
+        self._image = event_data.data.thumbnail
         self._attributes = attributes
         self.set_state()

@@ -314,7 +314,7 @@ export class Connection {
     event: string,
     callback: (message: EventType) => void,
     resubscribe = true
-  ) {
+  ): Promise<SubscriptionUnsubscribe> {
     if (this.queuedMessages) {
       await new Promise((resolve, reject) => {
         this.queuedMessages!.push({ resolve, reject });

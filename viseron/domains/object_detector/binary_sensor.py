@@ -116,7 +116,7 @@ class ObjectDetectedBinarySensorLabel(ObjectDetectedBinarySensor):
         return bool(self._tracked_label)
 
     @property
-    def attributes(self):
+    def extra_attributes(self):
         """Return entity attributes."""
         return {"count": len(self._tracked_label)}
 

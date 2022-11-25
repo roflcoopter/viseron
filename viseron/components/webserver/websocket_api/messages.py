@@ -35,10 +35,12 @@ def message_to_json(message: dict[str, Any]) -> str:
     try:
         return partial(json.dumps, cls=JSONEncoder, allow_nan=False)(message)
     except (ValueError, TypeError):
-        LOGGER.error("Unable to serialize to JSON. ", exc_info=True)
+        LOGGER.error(f"Unable to serialize to JSON. Object: {message}", exc_info=True)
         return partial(json.dumps, cls=JSONEncoder, allow_nan=False)(
             error_message(
-                message["id"], WS_ERROR_UNKNOWN_ERROR, "Invalid JSON in response"
+                message["command_id"],
+                WS_ERROR_UNKNOWN_ERROR,
+                "Invalid JSON in response",
             )
         )
 
