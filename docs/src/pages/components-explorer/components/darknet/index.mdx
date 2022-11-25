@@ -105,14 +105,8 @@ The included models are placed inside the `/detectors/models/darknet` folder.
 
 - `yolov3-tiny.weights`
 - `yolov3.weights`
-- `yolov4-csp-swish.weights`
-- `yolov4-csp-x-swish.weights`
-- `yolov4-csp.weights`
-- `yolov4-p5.weights`
-- `yolov4-p6.weights`
 - `yolov4-tiny.weights`
 - `yolov4.weights`
-- `yolov4x-mish.weights`
 - `yolov7-tiny.weights`
 - `yolov7.weights`
 - `yolov7x.weights`
@@ -135,7 +129,7 @@ The default model differs a bit per container:
 | `roflcoopter/viseron`             | `yolov3.weights`      |
 | `roflcoopter/amd64-viseron`       | `yolov3.weights`      |
 | `roflcoopter/amd64-cuda-viseron`  | `yolov7.weights`      |
-| `roflcoopter/jetson-nano-viseron` | `yolov7-tiny.weights` |
+| `roflcoopter/jetson-nano-viseron` | `yolov4-tiny.weights` |
 
 YOLOv4/YOLOv7 does not currently work in OpenCV which is why YOLOv3 is the default for some images.
 As soon as this is fixed for the versions of OpenCV that Viseron is using, YOLOv7 will be the standard for all.
