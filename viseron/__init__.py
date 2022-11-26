@@ -136,8 +136,8 @@ def setup_viseron():
     setup_components(vis, config)
 
     if NVR_COMPONENT in vis.data[LOADED]:
-        for camera in vis.data[DOMAINS_TO_SETUP][CAMERA_DOMAIN].keys():
-            if camera not in vis.data[DOMAINS_TO_SETUP][NVR_DOMAIN].keys():
+        for camera in vis.data[DOMAINS_TO_SETUP].get(CAMERA_DOMAIN, {}).keys():
+            if camera not in vis.data[DOMAINS_TO_SETUP].get(NVR_DOMAIN, {}).keys():
                 LOGGER.warning(
                     f"Camera with identifier {camera} is not enabled under component "
                     "nvr. This camera will not be processed"
@@ -145,14 +145,16 @@ def setup_viseron():
     else:
         nvr_config = {}
         nvr_config["nvr"] = {}
-        for camera_to_setup in vis.data[DOMAINS_TO_SETUP][CAMERA_DOMAIN]:
-            LOGGER.warning(
-                "Manually setting up component nvr with "
-                f"identifier {camera_to_setup}. "
-                "Consider adding it your config.yaml instead"
-            )
-            nvr_config["nvr"][camera_to_setup] = {}
-        setup_component(vis, get_component(vis, NVR_COMPONENT, nvr_config))
+        cameras_to_setup = vis.data[DOMAINS_TO_SETUP].get(CAMERA_DOMAIN, {})
+        if cameras_to_setup:
+            for camera_to_setup in cameras_to_setup.keys():
+                LOGGER.warning(
+                    "Manually setting up component nvr with "
+                    f"identifier {camera_to_setup}. "
+                    "Consider adding it your config.yaml instead"
+                )
+                nvr_config["nvr"][camera_to_setup] = {}
+            setup_component(vis, get_component(vis, NVR_COMPONENT, nvr_config))
 
     setup_domains(vis)
     vis.setup()
