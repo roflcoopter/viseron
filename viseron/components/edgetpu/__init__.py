@@ -3,6 +3,7 @@ import logging
 import multiprocessing as mp
 from abc import abstractmethod
 
+import numpy as np
 import tflite_runtime.interpreter as tflite
 import voluptuous as vol
 from pycoral.adapters import classify, common, detect
@@ -227,12 +228,9 @@ class EdgeTPU(ChildProcessWorker):
     def post_process(self, item):
         """Post process after invoke."""
 
+    @abstractmethod
     def work_input(self, item):
-        """Perform object detection."""
-        common.set_input(self.interpreter, item["frame"])
-        self.interpreter.invoke()
-        item["result"] = self.post_process(item)
-        return item
+        """Perform work on input."""
 
     def work_output(self, item):
         """Put result into queue."""
@@ -261,6 +259,13 @@ class EdgeTPU(ChildProcessWorker):
 class EdgeTPUDetection(EdgeTPU):
     """EdgeTPU object detector interface."""
 
+    def work_input(self, item):
+        """Perform object detection."""
+        common.set_input(self.interpreter, item["frame"])
+        self.interpreter.invoke()
+        item["result"] = self.post_process(item)
+        return item
+
     def post_process(self, _item):
         """Post process detections."""
         processed_objects = []
@@ -285,6 +290,32 @@ class EdgeTPUDetection(EdgeTPU):
 
 class EdgeTPUClassification(EdgeTPU):
     """EdgeTPU image classification interface."""
+
+    def work_input(self, item):
+        """Perform image classification.
+
+        Some models have unique input quantization values and require additional
+        preprocessing.
+        """
+        params = common.input_details(self.interpreter, "quantization_parameters")
+        scale = params["scales"]
+        zero_point = params["zero_points"]
+        mean = 128.0
+        std = 128.0
+        if abs(scale * std - 1) < 1e-5 and abs(mean - zero_point) < 1e-5:
+            # Input data does not require preprocessing.
+            common.set_input(self.interpreter, item["frame"])
+        else:
+            # Input data requires preprocessing
+            normalized_input = (np.asarray(item["frame"]) - mean) / (
+                std * scale
+            ) + zero_point
+            np.clip(normalized_input, 0, 255, out=normalized_input)
+            common.set_input(self.interpreter, normalized_input.astype(np.uint8))
+
+        self.interpreter.invoke()
+        item["result"] = self.post_process(item)
+        return item
 
     def post_process(self, item):
         """Post process classifications."""
