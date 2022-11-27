@@ -154,6 +154,10 @@ class DetectedObject:
     def filter_hit(self, value):
         self._filter_hit = value
 
+    def as_dict(self) -> dict[str, Any]:
+        """Convert to dict."""
+        return self.formatted
+
 
 @dataclass
 class EventDetectedObjectsData:
