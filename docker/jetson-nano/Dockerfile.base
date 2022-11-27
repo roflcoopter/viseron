@@ -48,6 +48,7 @@ RUN \
   libhdf5-100 \
   liblapacke \
   libopenexr22 \
+  libpng-dev \
   libpng16-16 \
   libatomic1 \
   # L4T (needed by ffmpeg)
