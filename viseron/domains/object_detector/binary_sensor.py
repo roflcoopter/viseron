@@ -42,9 +42,17 @@ class ObjectDetectedBinarySensor(CameraBinarySensor):
     def _is_on(self):
         return bool(self._objects)
 
+    @property
+    def extra_attributes(self):
+        """Return entity attributes."""
+        return {"count": len(self._objects), "objects": self._objects}
+
     def handle_event(self, event_data: Event[EventDetectedObjectsData]):
         """Handle status event."""
-        if self._is_on == bool(event_data.data.objects):
+        if (
+            self._is_on == bool(event_data.data.objects)
+            and self._objects == event_data.data.objects
+        ):
             return
 
         self._objects = event_data.data.objects
@@ -118,7 +126,7 @@ class ObjectDetectedBinarySensorLabel(ObjectDetectedBinarySensor):
     @property
     def extra_attributes(self):
         """Return entity attributes."""
-        return {"count": len(self._tracked_label)}
+        return {"count": len(self._tracked_label), "objects": self._tracked_label}
 
     def handle_event(self, event_data: Event[EventDetectedObjectsData]):
         """Handle status event."""
