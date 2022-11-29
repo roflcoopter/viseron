@@ -92,22 +92,22 @@ class DetectedObject:
     @property
     def rel_x1(self):
         """Return relative x1 of the object."""
-        return self._rel_x1
+        return zero_if_negative(self._rel_x1)
 
     @property
     def rel_y1(self):
         """Return relative y1 of the object."""
-        return self._rel_y1
+        return zero_if_negative(self._rel_y1)
 
     @property
     def rel_x2(self):
         """Return relative x2 of the object."""
-        return self._rel_x2
+        return zero_if_negative(self._rel_x2)
 
     @property
     def rel_y2(self):
         """Return relative y2 of the object."""
-        return self._rel_y2
+        return zero_if_negative(self._rel_y2)
 
     @property
     def formatted(self):
@@ -157,6 +157,18 @@ class DetectedObject:
     def as_dict(self) -> dict[str, Any]:
         """Convert to dict."""
         return self.formatted
+
+
+def zero_if_negative(value):
+    """Return zero if value is less than zero.
+
+    Objects that are close to the edge of the frame might produce negative coordinates
+    which causes problems when converting to absolute coordinates.
+    This mitigates that.
+    """
+    if value < 0:
+        return 0
+    return value
 
 
 @dataclass
