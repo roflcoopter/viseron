@@ -15,7 +15,6 @@ ARG IGC_VERSION
 ARG LEVEL_ZERO_GPU
 
 ENV \
-  LIBVA_DRIVER_NAME=i965 \
   NVIDIA_DRIVER_CAPABILITIES=all \
   NVIDIA_VISIBLE_DEVICES=all
 
@@ -24,10 +23,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   wget \
   # VA-API
   vainfo \
-  # intel-media-va-driver \
+  intel-media-va-driver-non-free \
   libva-drm2 \
   libva2 \
   i965-va-driver \
+  mesa-va-drivers \
+  libmfx1 \
+  radeontop \
+  intel-gpu-tools \
   # OpenCL
   ocl-icd-libopencl1 \
   clinfo \
