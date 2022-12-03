@@ -1,4 +1,4 @@
-"""Compreface face recognition."""
+"""CompreFace face recognition."""
 from __future__ import annotations
 
 import logging
@@ -28,6 +28,7 @@ from .const import (
     CONFIG_LIMIT,
     CONFIG_PORT,
     CONFIG_PREDICTION_COUNT,
+    CONFIG_SIMILARITTY_THRESHOLD,
     CONFIG_STATUS,
 )
 
@@ -40,14 +41,14 @@ LOGGER = logging.getLogger(__name__)
 
 
 def setup(vis: Viseron, config, identifier):
-    """Set up the Compreface face_recognition domain."""
+    """Set up the CompreFace face_recognition domain."""
     FaceRecognition(vis, config, identifier)
 
     return True
 
 
 class FaceRecognition(AbstractFaceRecognition):
-    """Compreface face recognition processor."""
+    """CompreFace face recognition processor."""
 
     def __init__(self, vis: Viseron, config, camera_identifier):
         super().__init__(
@@ -99,13 +100,13 @@ class FaceRecognition(AbstractFaceRecognition):
             self._logger.error("Error calling compreface: %s", error, exc_info=True)
             return
 
-        self._logger.debug("Compreface response: {}".format(detections))
+        self._logger.debug("CompreFace response: {}".format(detections))
         if "result" not in detections:
             return
 
         for result in detections["result"]:
             subject = result["subjects"][0]
-            if subject["subject"] != "unknown":
+            if subject["similarity"] >= self._config[CONFIG_SIMILARITTY_THRESHOLD]:
                 self._logger.debug("Face found: {}".format(subject))
                 self.known_face_found(
                     subject["subject"],
@@ -130,8 +131,8 @@ class FaceRecognition(AbstractFaceRecognition):
             self.face_recognition(decoded_frame, detected_object)
 
 
-class ComprefaceTrain:
-    """Train Compreface to recognize faces."""
+class CompreFaceTrain:
+    """Train CompreFace to recognize faces."""
 
     def __init__(self, config):
         self._config = config
@@ -164,7 +165,7 @@ class ComprefaceTrain:
         self.train()
 
     def train(self):
-        """Train Compreface to recognize faces."""
+        """Train CompreFace to recognize faces."""
         train_dir = self._config[CONFIG_FACE_RECOGNITION][CONFIG_FACE_RECOGNITION_PATH]
         try:
             faces_dirs = os.listdir(train_dir)
@@ -207,7 +208,7 @@ class ComprefaceTrain:
                 result = self._face_collection.add(
                     image_path=face_image, subject=face_dir
                 )
-                LOGGER.debug("Compreface response: {}".format(result))
+                LOGGER.debug("CompreFace response: {}".format(result))
                 if "message" in result:
                     LOGGER.warning(
                         "Image {} not suitable for training: {}".format(

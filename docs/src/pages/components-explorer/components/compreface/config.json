@@ -40,21 +40,21 @@
                     {
                         "type": "string",
                         "name": "host",
-                        "description": "IP or hostname to your Compreface server.",
+                        "description": "IP or hostname to your CompreFace server.",
                         "required": true,
                         "default": null
                     },
                     {
                         "type": "integer",
                         "name": "port",
-                        "description": "Port to your Compreface server.",
+                        "description": "Port to your CompreFace server.",
                         "required": true,
                         "default": null
                     },
                     {
                         "type": "string",
                         "name": "recognition_api_key",
-                        "description": "API key to your Compreface recognition service.",
+                        "description": "API key to your CompreFace recognition service.",
                         "required": true,
                         "default": null
                     },
@@ -102,7 +102,7 @@
                     {
                         "type": "boolean",
                         "name": "train",
-                        "description": "Train Compreface to recognize faces on Viseron start. Disable this when you have a good model trained.",
+                        "description": "Train CompreFace to recognize faces on Viseron start. Disable this when you have a good model trained.",
                         "optional": true,
                         "default": false
                     },
@@ -114,6 +114,15 @@
                         "description": "Minimum required confidence that a recognized face is actually a face. ",
                         "optional": true,
                         "default": 0.8
+                    },
+                    {
+                        "type": "float",
+                        "valueMin": 0.0,
+                        "valueMax": 1.0,
+                        "name": "similarity_threshold",
+                        "description": "CompreFace does not return <code>unknown</code> for faces that it does not recognize. If you upload the faces of two different people, you still receive the result, but the similarity is low. Any similarity below this threshold will be considered as an <code>unknown</code> face.",
+                        "optional": true,
+                        "default": 0.5
                     },
                     {
                         "type": "integer",
@@ -139,7 +148,7 @@
                     {
                         "type": "boolean",
                         "name": "status",
-                        "description": "If true includes system information like execution_time and plugin_version fields. Default value is false",
+                        "description": "If true includes system information like execution_time and plugin_version fields.",
                         "optional": true,
                         "default": false
                     }
@@ -151,7 +160,7 @@
             }
         ],
         "name": "compreface",
-        "description": "Compreface configuration.",
+        "description": "CompreFace configuration.",
         "required": true,
         "default": null
     }

@@ -1,10 +1,10 @@
-"""Compreface object detection."""
+"""CompreFace object detection."""
 import logging
 
 import voluptuous as vol
 
 from viseron import Viseron
-from viseron.components.compreface.face_recognition import ComprefaceTrain
+from viseron.components.compreface.face_recognition import CompreFaceTrain
 from viseron.domains import RequireDomain, setup_domain
 from viseron.domains.face_recognition import (
     BASE_CONFIG_SCHEMA as FACE_RECOGNITION_BASE_CONFIG_SCHEMA,
@@ -23,12 +23,14 @@ from .const import (
     CONFIG_LIMIT,
     CONFIG_PORT,
     CONFIG_PREDICTION_COUNT,
+    CONFIG_SIMILARITTY_THRESHOLD,
     CONFIG_STATUS,
     CONFIG_TRAIN,
     DEFAULT_DET_PROB_THRESHOLD,
     DEFAULT_FACE_PLUGINS,
     DEFAULT_LIMIT,
     DEFAULT_PREDICTION_COUNT,
+    DEFAULT_SIMILARITTY_THRESHOLD,
     DEFAULT_STATUS,
     DEFAULT_TRAIN,
     DESC_API_KEY,
@@ -40,6 +42,7 @@ from .const import (
     DESC_LIMIT,
     DESC_PORT,
     DESC_PREDICTION_COUNT,
+    DESC_SIMILARITY_THRESHOLD,
     DESC_STATUS,
     DESC_TRAIN,
 )
@@ -59,6 +62,11 @@ FACE_RECOGNITION_SCHEMA = FACE_RECOGNITION_BASE_CONFIG_SCHEMA.extend(
             CONFIG_DET_PROB_THRESHOLD,
             default=DEFAULT_DET_PROB_THRESHOLD,
             description=DESC_DET_PROB_THRESHOLD,
+        ): FLOAT_MIN_ZERO_MAX_ONE,
+        vol.Optional(
+            CONFIG_SIMILARITTY_THRESHOLD,
+            default=DEFAULT_SIMILARITTY_THRESHOLD,
+            description=DESC_SIMILARITY_THRESHOLD,
         ): FLOAT_MIN_ZERO_MAX_ONE,
         vol.Optional(CONFIG_LIMIT, default=DEFAULT_LIMIT, description=DESC_LIMIT): int,
         vol.Optional(
@@ -112,6 +120,6 @@ def setup(vis: Viseron, config):
             )
 
         if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
-            ComprefaceTrain(config)
+            CompreFaceTrain(config)
 
     return True
