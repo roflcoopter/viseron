@@ -9,9 +9,9 @@ groupmod -o -g "$PGID" abc
 usermod -o -u "$PUID" abc
 
 chown -R abc:abc /home/abc/bin
-chown -R abc:abc /config
-chown -R abc:abc /recordings
-chown -R abc:abc /segments
+chown -R --silent abc:abc /config || :
+chown -R --silent abc:abc /recordings || :
+chown -R --silent abc:abc /segments || :
 
 log_info "************************ UID/GID *************************"
 log_info "User uid:    $(id -u abc)"
