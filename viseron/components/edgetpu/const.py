@@ -38,10 +38,22 @@ DESC_DEVICE = (
 
 # Image classification config constants
 CONFIG_IMAGE_CLASSIFICATION = "image_classification"
+CONFIG_CROP_CORRECTION = "crop_correction"
 
+DESC_IMAGE_CLASSIFICATION = "Image classification domain config."
+DESC_CROP_CORRECTION = (
+    "Pad with this many pixels around the detected object.</br>"
+    "The image sent to the classifier is cropped to the bounding box of the detected "
+    "object. Without crop correction the accuracy of the classifier is reduced since "
+    "most models are trained on images where the subject is centered in the image with "
+    "some background around it."
+)
+
+DEFAULT_CROP_CORRECTION = 150
+
+
+# Common config constants
 DEFAULT_LABEL_PATH_MAP = {
     CONFIG_OBJECT_DETECTOR: DEFAULT_DETECTOR_LABEL_PATH,
     CONFIG_IMAGE_CLASSIFICATION: DEFAULT_CLASSIFIER_LABEL_PATH,
 }
-
-DESC_IMAGE_CLASSIFICATION = "Image classification domain config."
