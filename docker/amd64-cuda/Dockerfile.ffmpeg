@@ -37,6 +37,8 @@ RUN buildDeps="autoconf \
   libgomp1 \
   libnuma-dev \
   zlib1g-dev \
+  libmfx-dev \
+  intel-media-va-driver-non-free \
   libva-dev" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps}
@@ -487,6 +489,7 @@ RUN  \
   --enable-libkvazaar \
   --enable-libaom \
   --extra-libs=-lpthread \
+  --enable-libmfx \
   --enable-vaapi \
   --enable-cuda \
   --enable-cuvid \
