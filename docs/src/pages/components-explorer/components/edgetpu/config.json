@@ -442,6 +442,13 @@
                         "description": "Path to the file containing labels for the model.",
                         "optional": true,
                         "default": "/classifiers/models/edgetpu/labels.txt"
+                    },
+                    {
+                        "type": "integer",
+                        "name": "crop_correction",
+                        "description": "Pad with this many pixels around the detected object.</br>The image sent to the classifier is cropped to the bounding box of the detected object. Without crop correction the accuracy of the classifier is reduced since most models are trained on images where the subject is centered in the image with some background around it.",
+                        "optional": true,
+                        "default": 150
                     }
                 ],
                 "name": "image_classification",

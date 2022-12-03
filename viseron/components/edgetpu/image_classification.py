@@ -5,6 +5,7 @@ import threading
 from queue import Queue
 from typing import TYPE_CHECKING, List
 
+import cv2
 import numpy as np
 
 from viseron.domains.image_classification import (
@@ -13,10 +14,10 @@ from viseron.domains.image_classification import (
 )
 from viseron.domains.image_classification.const import DOMAIN
 from viseron.exceptions import DomainNotReady
-from viseron.helpers import calculate_absolute_coords, letterbox_resize
+from viseron.helpers import calculate_absolute_coords
 
 from . import EdgeTPUClassification, MakeInterpreterError
-from .const import COMPONENT, CONFIG_IMAGE_CLASSIFICATION
+from .const import COMPONENT, CONFIG_CROP_CORRECTION, CONFIG_IMAGE_CLASSIFICATION
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -80,9 +81,18 @@ class ImageClassification(AbstractImageClassification):
                 ),
                 self._camera.resolution,
             )
-            cropped_frame = frame[y1:y2, x1:x2].copy()
-            resized_frame = letterbox_resize(
-                cropped_frame, self.model_width, self.model_height
+            cropped_frame = crop_frame(
+                frame,
+                self._camera.resolution[0],
+                self._camera.resolution[1],
+                x1,
+                y1,
+                x2,
+                y2,
+                self._config[CONFIG_CROP_CORRECTION],
+            )
+            resized_frame = cv2.resize(
+                cropped_frame, (self.model_width, self.model_height)
             )
             result = self._edgetpu.invoke(
                 resized_frame,
@@ -102,3 +112,11 @@ class ImageClassification(AbstractImageClassification):
     def model_height(self) -> int:
         """Return trained model height."""
         return self._edgetpu.model_height
+
+
+def crop_frame(frame, max_width, max_height, x1, y1, x2, y2, crop_correction):
+    """Crop frame to object."""
+    return frame[
+        max(y1 - crop_correction, 0) : min(y2 + crop_correction, max_height),
+        max(x1 - crop_correction, 0) : min(x2 + crop_correction, max_width),
+    ].copy()

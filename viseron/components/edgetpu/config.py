@@ -5,8 +5,18 @@ import re
 import voluptuous as vol
 
 from viseron.config import UNSUPPORTED
+from viseron.domains.image_classification.const import (
+    DOMAIN as IMAGE_CLASSIFICATION_DOMAIN,
+)
 
-from .const import CONFIG_LABEL_PATH, DEFAULT_LABEL_PATH_MAP, DESC_LABEL_PATH
+from .const import (
+    CONFIG_CROP_CORRECTION,
+    CONFIG_LABEL_PATH,
+    DEFAULT_CROP_CORRECTION,
+    DEFAULT_LABEL_PATH_MAP,
+    DESC_CROP_CORRECTION,
+    DESC_LABEL_PATH,
+)
 
 DEVICE_REGEXES = [
     re.compile(r"^:[0-9]$"),  # match ':<N>'
@@ -76,10 +86,27 @@ class DefaultLabelPath:
 
 def get_label_schema(domain):
     """Return domain specific schema."""
-    return {
+    schema = {
         vol.Optional(
             CONFIG_LABEL_PATH,
             default=DEFAULT_LABEL_PATH_MAP[domain],
             description=DESC_LABEL_PATH,
         ): str,
     }
+
+    if domain == IMAGE_CLASSIFICATION_DOMAIN:
+        image_classification_schema = {
+            vol.Optional(
+                CONFIG_LABEL_PATH,
+                description=DESC_LABEL_PATH,
+                default=DefaultLabelPath(domain),
+            ): str,
+            vol.Optional(
+                CONFIG_CROP_CORRECTION,
+                description=DESC_CROP_CORRECTION,
+                default=DEFAULT_CROP_CORRECTION,
+            ): int,
+        }
+        schema = {**schema, **image_classification_schema}
+
+    return schema
