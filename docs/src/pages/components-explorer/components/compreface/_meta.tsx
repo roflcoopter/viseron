@@ -1,7 +1,7 @@
 import { Component } from "@site/src/types";
 
 const ComponentMetadata: Component = {
-  title: "Compreface",
+  title: "CompreFace",
   name: "compreface",
   description:
     "Exadel CompreFace is a free and open-source face recognition service that can be easily integrated into any system without prior machine learning skills.",
