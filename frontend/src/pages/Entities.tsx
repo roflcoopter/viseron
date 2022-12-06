@@ -58,6 +58,7 @@ const calculateEntities = (entities: types.Entities, filters: Filters) =>
         }
 
         if (
+          attributeValue &&
           attributeValue.toString().toLowerCase().includes(filters.attributes)
         ) {
           return true;

@@ -25,7 +25,6 @@ class Entity(ABC):
     name: str = NotImplemented  # type:ignore
     object_id: str | None = None
     _state: Any = "unknown"
-    _attributes: Dict[Any, Any] = {}
 
     # Used by Home Assistant, safe to override
     availability: List[Dict[str, str]] | None = None
@@ -42,7 +41,7 @@ class Entity(ABC):
         return self._state
 
     @property
-    def attributes(self):
+    def attributes(self) -> Dict[Any, Any]:
         """Return entity attributes.
 
         DO NOT OVERRIDE THIS METHOD.
@@ -52,8 +51,7 @@ class Entity(ABC):
         attributes["name"] = self.name
         attributes["domain"] = self.domain
         attributes.update(self.extra_attributes or {})
-        self._attributes = attributes
-        return self._attributes
+        return attributes
 
     def set_state(self):
         """Set the state in the states registry."""
@@ -63,7 +61,7 @@ class Entity(ABC):
         self.vis.states.set_state(self)
 
     @property
-    def extra_attributes(self):
+    def extra_attributes(self) -> Dict[Any, Any]:
         """Return extra attributes.
 
         Safe to override. Use this to add extra attributes to the entity.

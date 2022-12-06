@@ -20,7 +20,7 @@ repos:
           - --quiet-level=2
         exclude_types: [csv, json]
         exclude: ^tests/fixtures/
-  - repo: https://gitlab.com/pycqa/flake8
+  - repo: https://github.com/PyCQA/flake8
     rev: 4.0.1
     hooks:
       - id: flake8
