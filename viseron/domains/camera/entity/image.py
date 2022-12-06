@@ -10,6 +10,7 @@ from . import CameraEntity
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
+    from viseron.domains.camera.recorder import EventRecorderStart
 
     from .. import AbstractCamera
 
@@ -27,6 +28,10 @@ class ThumbnailImage(CameraImage):
         self.object_id = f"{camera.identifier}_latest_thumbnail"
         self.name = f"{camera.name} Latest Thumbnail"
 
+        self._attr_start_time: str | None = None
+        self._attr_path: str | None = None
+        self._attr_thumbnail_path: str | None = None
+
     def setup(self):
         """Set up event listener."""
         self._vis.listen_event(
@@ -34,14 +39,19 @@ class ThumbnailImage(CameraImage):
             self.handle_event,
         )
 
-    def handle_event(self, event_data: Event):
-        """Handle recorder start event."""
-        attributes = {}
-        attributes["recording_start"] = event_data.data.start_time.isoformat()
-        attributes["path"] = event_data.data.path
-        if event_data.data.thumbnail_path:
-            attributes["thumbnail_path"] = event_data.data.thumbnail_path
+    @property
+    def extra_attributes(self):
+        """Return extra attributes."""
+        return {
+            "start_time": self._attr_start_time,
+            "path": self._attr_path,
+            "thumbnail_path": self._attr_thumbnail_path,
+        }
 
+    def handle_event(self, event_data: Event[EventRecorderStart]):
+        """Handle recorder start event."""
+        self._attr_start_time = event_data.data.start_time.isoformat()
+        self._attr_path = event_data.data.path
+        self._attr_thumbnail_path = event_data.data.thumbnail_path
         self._image = event_data.data.thumbnail
-        self._attributes = attributes
         self.set_state()
