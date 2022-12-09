@@ -1,7 +1,7 @@
 """Recorder."""
 import logging
 import os
-from threading import Thread
+import threading
 
 from viseron.domains.camera import CONFIG_LOOKBACK
 from viseron.domains.camera.recorder import AbstractRecorder
@@ -13,16 +13,38 @@ from .segments import SegmentCleanup, Segments
 LOGGER = logging.getLogger(__name__)
 
 
+class ConcatThreadsContext:
+    """Context manager for keeping track of number of concat threads.
+
+    Used to prevent cleanup from running while concat threads are running.
+    """
+
+    def __init__(self):
+        self.count = 0
+
+    def __enter__(self):
+        """Increment the counter when entering the context."""
+        self.count += 1
+        return self.count
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Decrement the counter when exiting the context."""
+        self.count -= 1
+
+
 class Recorder(AbstractRecorder):
     """Creates thumbnails and recordings."""
 
     def __init__(self, vis, config, camera):
         super().__init__(vis, COMPONENT, config, camera)
-        self._logger.debug("Initializing ffmpeg recorder")
+        self._logger.debug("Initializing recorder")
         self._recorder_config = config[RECORDER]
 
         self._event_start = None
         self._event_end = None
+
+        self._segment_thread_context = ConcatThreadsContext()
+        self._concat_thread_lock = threading.Lock()
 
         segments_folder = os.path.join(
             self._recorder_config[CONFIG_SEGMENTS_FOLDER], self._camera.identifier
@@ -30,19 +52,26 @@ class Recorder(AbstractRecorder):
         create_directory(segments_folder)
         self._segmenter = Segments(self._logger, config, segments_folder)
         self._segment_cleanup = SegmentCleanup(
-            vis, self._recorder_config, self._camera.identifier, self._logger
+            vis,
+            self._recorder_config,
+            self._camera.identifier,
+            self._logger,
+            self._segment_thread_context,
         )
 
     def concat_segments(self):
         """Concatenate FFmpeg segments to a single video."""
-        self._segmenter.concat_segments(
-            self._event_start - self._recorder_config[CONFIG_LOOKBACK],
-            self._event_end,
-            self.last_recording_path,
-        )
-        # Dont resume cleanup if new recording started during encoding
-        if not self.is_recording:
-            self._segment_cleanup.resume()
+        with self._segment_thread_context:
+            with self._concat_thread_lock:
+                self._segment_cleanup.pause()
+                self._segmenter.concat_segments(
+                    self._event_start - self._recorder_config[CONFIG_LOOKBACK],
+                    self._event_end,
+                    self.last_recording_path,
+                )
+                # Dont resume cleanup if new recording started during encoding
+                if not self.is_recording:
+                    self._segment_cleanup.resume()
 
     def _start(self, shared_frame, objects_in_fov, resolution):
         self._segment_cleanup.pause()
@@ -50,5 +79,5 @@ class Recorder(AbstractRecorder):
 
     def _stop(self):
         self._event_end = int(self.last_recording_end.timestamp())
-        concat_thread = Thread(target=self.concat_segments)
+        concat_thread = threading.Thread(target=self.concat_segments)
         concat_thread.start()

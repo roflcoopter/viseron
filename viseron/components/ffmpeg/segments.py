@@ -263,15 +263,20 @@ class Segments:
             self._logger.error("Failed to concatenate segments: %s", error)
             return
 
+        for segment in segments_to_concat[:-1]:
+            self._logger.debug(f"Removing segment: {segment}")
+            os.remove(os.path.join(self._segments_folder, segment))
+
         self._logger.debug("Segments concatenated")
 
 
 class SegmentCleanup:
     """Clean up segments created by FFmpeg."""
 
-    def __init__(self, vis, config, camera_name, logger):
+    def __init__(self, vis, config, camera_name, logger, segment_thread_context):
         self._vis = vis
         self._logger = logger
+        self._segment_thread_context = segment_thread_context
         self._directory = os.path.join(config[CONFIG_SEGMENTS_FOLDER], camera_name)
         # Make sure we dont delete a segment which is needed by recorder
         self._max_age = config[CONFIG_LOOKBACK] + (CAMERA_SEGMENT_DURATION * 3)
@@ -288,6 +293,12 @@ class SegmentCleanup:
 
     def cleanup(self, force=False):
         """Delete all segments that are no longer needed."""
+        if not force and self._segment_thread_context.count > 0:
+            self._logger.debug(
+                "Skipping segment cleanup since segment concatenation is running"
+            )
+            return
+
         now = datetime.datetime.now().timestamp()
         for segment in os.listdir(self._directory):
             if force:
