@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import lru_cache
 from threading import Timer
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING
 
 import cv2
 import imutils
@@ -266,7 +266,7 @@ class AbstractCamera(ABC):
 
     @abstractmethod
     def start_recorder(
-        self, shared_frame: SharedFrame, objects_in_fov: List[DetectedObject] | None
+        self, shared_frame: SharedFrame, objects_in_fov: list[DetectedObject] | None
     ):
         """Start camera recorder."""
 
@@ -298,7 +298,7 @@ class AbstractCamera(ABC):
 
     @property
     @abstractmethod
-    def resolution(self) -> Tuple[int, int]:
+    def resolution(self) -> tuple[int, int]:
         """Return stream resolution."""
 
     @property

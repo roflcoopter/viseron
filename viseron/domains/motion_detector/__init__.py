@@ -5,7 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import numpy as np
@@ -114,7 +114,7 @@ class AbstractMotionDetector(ABC):
         self,
         vis: Viseron,
         component: str,
-        config: Dict[Any, Any],
+        config: dict[Any, Any],
         camera_identifier: str,
     ):
         self._vis = vis
@@ -285,9 +285,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
 
     def _filter_motion(self, shared_frame: SharedFrame, contours: Contours):
         """Filter motion."""
-        self._logger.debug(
-            "Max motion area: {max_area}".format(max_area=contours.max_area)
-        )
+        self._logger.debug("Max motion area: %s", contours.max_area)
         self._motion_detected_setter(
             bool(
                 contours.max_area

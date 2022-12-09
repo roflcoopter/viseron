@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from queue import Empty, Queue
 from typing import Any
 
-from setproctitle import setproctitle
+import setproctitle
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.helpers import pop_if_full
@@ -91,7 +91,7 @@ class ChildProcessWorker(ABC):
     def _process_frames(self, exit_event, process_queue, output_queue):
         """Process frame and send it to the detector."""
         remove_shm_from_resource_tracker()
-        setproctitle(self.child_process_name)
+        setproctitle.setproctitle(self.child_process_name)
         self.process_initialization()
 
         while not exit_event.is_set():

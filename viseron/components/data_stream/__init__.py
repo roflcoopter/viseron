@@ -7,7 +7,7 @@ import multiprocessing as mp
 import threading
 import uuid
 from queue import Queue
-from typing import Any, Callable, Dict, TypedDict, Union
+from typing import Any, Callable, TypedDict
 
 from tornado.ioloop import IOLoop
 from tornado.queues import Queue as tornado_queue
@@ -23,15 +23,15 @@ LOGGER = logging.getLogger(__name__)
 class DataSubscriber(TypedDict):
     """Data subscriber type."""
 
-    callback: Union[Callable, Queue, tornado_queue]
-    ioloop: Union[IOLoop, None]
+    callback: Callable | Queue | tornado_queue
+    ioloop: IOLoop | None
 
 
 class Subscribe(TypedDict):
     """Subscribe to data from process."""
 
     data_topic: str
-    callback: Union[mp.Queue]
+    callback: mp.Queue
 
 
 class Publish(TypedDict):
@@ -58,8 +58,8 @@ class DataStream:
     Data is published to topics using a thread.
     """
 
-    _subscribers: Dict[str, Any] = {}
-    _wildcard_subscribers: Dict[str, Any] = {}
+    _subscribers: dict[str, Any] = {}
+    _wildcard_subscribers: dict[str, Any] = {}
     _data_queue: Queue = Queue(maxsize=1000)
 
     def __init__(self, vis) -> None:
@@ -79,7 +79,7 @@ class DataStream:
 
     @staticmethod
     def subscribe_data(
-        data_topic: str, callback: Union[Callable, Queue, tornado_queue], ioloop=None
+        data_topic: str, callback: Callable | Queue | tornado_queue, ioloop=None
     ) -> uuid.UUID:
         """Subscribe to data on a topic.
 
@@ -115,7 +115,7 @@ class DataStream:
 
     @staticmethod
     def run_callbacks(
-        callbacks: Dict[uuid.UUID, DataSubscriber],
+        callbacks: dict[uuid.UUID, DataSubscriber],
         data: Any,
     ) -> None:
         """Run callbacks or put to queues."""
@@ -160,14 +160,14 @@ class DataStream:
                 f"Tornado Queue with ioloop supplied, got {type(callback['callback'])}"
             )
 
-    def static_subscriptions(self, data_item: Dict[str, Any]) -> None:
+    def static_subscriptions(self, data_item: dict[str, Any]) -> None:
         """Run callbacks for static subscriptions."""
         self.run_callbacks(
             DataStream._subscribers.get(data_item["data_topic"], {}),
             data_item["data"],
         )
 
-    def wildcard_subscriptions(self, data_item: Dict[str, Any]) -> None:
+    def wildcard_subscriptions(self, data_item: dict[str, Any]) -> None:
         """Run callbacks for wildcard subscriptions."""
         for data_topic, callbacks in DataStream._wildcard_subscribers.items():
             if fnmatch.fnmatch(data_item["data_topic"], data_topic):

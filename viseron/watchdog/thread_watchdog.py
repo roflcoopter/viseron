@@ -152,7 +152,7 @@ class ThreadWatchDog(WatchDog):
                 continue
 
             if registered_thread.poll_method and registered_thread.poll_method():
-                LOGGER.debug("Thread {} is stuck".format(registered_thread.name))
+                LOGGER.debug(f"Thread {registered_thread.name} is stuck")
                 registered_thread.poll_target()
                 registered_thread.join(timeout=5)
                 if registered_thread.is_alive():
@@ -163,7 +163,7 @@ class ThreadWatchDog(WatchDog):
             elif registered_thread.is_alive():
                 continue
 
-            LOGGER.error("Thread {} is dead, restarting".format(registered_thread.name))
+            LOGGER.error(f"Thread {registered_thread.name} is dead, restarting")
             if registered_thread.thread_store_category:
                 RestartableThread.thread_store[
                     registered_thread.thread_store_category

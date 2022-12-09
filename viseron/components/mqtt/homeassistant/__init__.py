@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING
 
 from viseron.components.mqtt.const import COMPONENT, EVENT_MQTT_ENTITY_ADDED
 from viseron.components.mqtt.event import EventMQTTEntityAddedData
@@ -38,7 +38,7 @@ class HassMQTTInterface:
         self._mqtt = vis.data[COMPONENT]
 
         self._entity_creation_lock = threading.Lock()
-        self._entities: Dict[str, HassMQTTEntity] = {}
+        self._entities: dict[str, HassMQTTEntity] = {}
         vis.listen_event(EVENT_MQTT_ENTITY_ADDED, self.entity_added)
         self.create_entities(self._mqtt.get_entities())
 

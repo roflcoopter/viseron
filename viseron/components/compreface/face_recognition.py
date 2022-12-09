@@ -100,14 +100,14 @@ class FaceRecognition(AbstractFaceRecognition):
             self._logger.error("Error calling compreface: %s", error, exc_info=True)
             return
 
-        self._logger.debug("CompreFace response: {}".format(detections))
+        self._logger.debug(f"CompreFace response: {detections}")
         if "result" not in detections:
             return
 
         for result in detections["result"]:
             subject = result["subjects"][0]
             if subject["similarity"] >= self._config[CONFIG_SIMILARITTY_THRESHOLD]:
-                self._logger.debug("Face found: {}".format(subject))
+                self._logger.debug(f"Face found: {subject}")
                 self.known_face_found(
                     subject["subject"],
                     (
@@ -208,7 +208,7 @@ class CompreFaceTrain:
                 result = self._face_collection.add(
                     image_path=face_image, subject=face_dir
                 )
-                LOGGER.debug("CompreFace response: {}".format(result))
+                LOGGER.debug(f"CompreFace response: {result}")
                 if "message" in result:
                     LOGGER.warning(
                         "Image {} not suitable for training: {}".format(

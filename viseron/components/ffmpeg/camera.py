@@ -5,7 +5,7 @@ import datetime
 import os
 import time
 from threading import Event
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import cv2
 import voluptuous as vol
@@ -126,7 +126,7 @@ if TYPE_CHECKING:
     from viseron.domains.object_detector.detected_object import DetectedObject
 
 
-def get_default_hwaccel_args() -> List[str]:
+def get_default_hwaccel_args() -> list[str]:
     """Return hardware acceleration args for FFmpeg."""
     # Dont enable VA-API if CUDA is available
     if (
@@ -315,7 +315,7 @@ class Camera(AbstractCamera):
     def initialize_camera(self):
         """Start processing of camera frames."""
         self._poll_timer = None
-        self._logger.debug("Initializing camera {}".format(self.name))
+        self._logger.debug(f"Initializing camera {self.name}")
 
         self.stream = Stream(self._vis, self._config, self.identifier)
 
@@ -426,7 +426,7 @@ class Camera(AbstractCamera):
             self.stop_recorder()
 
     def start_recorder(
-        self, shared_frame: SharedFrame, objects_in_fov: List[DetectedObject] | None
+        self, shared_frame: SharedFrame, objects_in_fov: list[DetectedObject] | None
     ):
         """Start camera recorder."""
         self._recorder.start(

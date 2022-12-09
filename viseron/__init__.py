@@ -11,17 +11,7 @@ import time
 import tracemalloc
 from dataclasses import dataclass
 from timeit import default_timer as timer
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    Generic,
-    List,
-    Literal,
-    TypeVar,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, TypeVar, overload
 
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -396,35 +386,35 @@ class Viseron:
     @overload
     def get_registered_identifiers(
         self, domain: Literal["camera"]
-    ) -> Dict[str, AbstractCamera]:
+    ) -> dict[str, AbstractCamera]:
         ...
 
     @overload
     def get_registered_identifiers(
         self, domain: Literal["face_recognition"]
-    ) -> Dict[str, AbstractFaceRecognition]:
+    ) -> dict[str, AbstractFaceRecognition]:
         ...
 
     @overload
     def get_registered_identifiers(
         self, domain: Literal["image_classification"]
-    ) -> Dict[str, AbstractImageClassification]:
+    ) -> dict[str, AbstractImageClassification]:
         ...
 
     @overload
     def get_registered_identifiers(
         self, domain: Literal["motion_detector"]
-    ) -> Dict[str, AbstractMotionDetectorScanner]:
+    ) -> dict[str, AbstractMotionDetectorScanner]:
         ...
 
     @overload
     def get_registered_identifiers(
         self, domain: Literal["object_detector"]
-    ) -> Dict[str, AbstractObjectDetector]:
+    ) -> dict[str, AbstractObjectDetector]:
         ...
 
     @overload
-    def get_registered_identifiers(self, domain: Literal["nvr"]) -> Dict[str, NVR]:
+    def get_registered_identifiers(self, domain: Literal["nvr"]) -> dict[str, NVR]:
         ...
 
     def get_registered_identifiers(self, domain: SupportedDomains):
@@ -457,7 +447,7 @@ class Viseron:
                     LOGGER.error(f"Forcefully kill {thread_or_process.name}")
                     thread_or_process.kill()
 
-        threads_and_processes: List[threading.Thread | multiprocessing.Process] = [
+        threads_and_processes: list[threading.Thread | multiprocessing.Process] = [
             thread
             for thread in threading.enumerate()
             if not thread.daemon and thread != threading.current_thread()
@@ -480,7 +470,7 @@ class Viseron:
             component_instance = self.data[LOADING][component]
         self.states.add_entity(component_instance, entity)
 
-    def add_entities(self, component: str, entities: List[Entity]):
+    def add_entities(self, component: str, entities: list[Entity]):
         """Add entities to states registry."""
         for entity in entities:
             self.add_entity(component, entity)

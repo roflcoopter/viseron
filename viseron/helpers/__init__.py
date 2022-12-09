@@ -7,7 +7,7 @@ import math
 import os
 import tracemalloc
 from queue import Full, Queue
-from typing import TYPE_CHECKING, Any, Tuple
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import numpy as np
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def calculate_relative_contours(contours, resolution: Tuple[int, int]):
+def calculate_relative_contours(contours, resolution: tuple[int, int]):
     """Convert contours with absolute coords to relative."""
     relative_contours = []
     for contour in contours:
@@ -32,8 +32,8 @@ def calculate_relative_contours(contours, resolution: Tuple[int, int]):
 
 
 def calculate_relative_coords(
-    bounding_box: Tuple[int, int, int, int], resolution: Tuple[int, int]
-) -> Tuple[float, float, float, float]:
+    bounding_box: tuple[int, int, int, int], resolution: tuple[int, int]
+) -> tuple[float, float, float, float]:
     """Convert absolute coords to relative."""
     x1_relative = round(bounding_box[0] / resolution[0], 3)
     y1_relative = round(bounding_box[1] / resolution[1], 3)
@@ -43,8 +43,8 @@ def calculate_relative_coords(
 
 
 def calculate_absolute_coords(
-    bounding_box: Tuple[int, int, int, int], frame_res: Tuple[int, int]
-) -> Tuple[int, int, int, int]:
+    bounding_box: tuple[int, int, int, int], frame_res: tuple[int, int]
+) -> tuple[int, int, int, int]:
     """Convert relative coords to absolute."""
     return (
         math.floor(bounding_box[0] * frame_res[0]),
@@ -55,10 +55,10 @@ def calculate_absolute_coords(
 
 
 def scale_bounding_box(
-    image_size: Tuple[int, int, int, int],
-    bounding_box: Tuple[int, int, int, int],
+    image_size: tuple[int, int, int, int],
+    bounding_box: tuple[int, int, int, int],
     target_size,
-) -> Tuple[float, float, float, float]:
+) -> tuple[float, float, float, float]:
     """Scale a bounding box to target image size."""
     x1p = bounding_box[0] / image_size[0]
     y1p = bounding_box[1] / image_size[1]
@@ -159,7 +159,7 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)) -> None:
 
 
 def draw_object(
-    frame, obj, camera_resolution: Tuple[int, int], color=(150, 0, 0), thickness=1
+    frame, obj, camera_resolution: tuple[int, int], color=(150, 0, 0), thickness=1
 ):
     """Draw a single object on supplied frame."""
     if obj.relevant:
@@ -433,7 +433,7 @@ def memory_usage_profiler(logger, key_type="lineno", limit=5):
         frame = stat.traceback[0]
         # replace "/path/to/module/file.py" with "module/file.py"
         filename = os.sep.join(frame.filename.split(os.sep)[-2:])
-        log_message += "\n#%s: %s:%s: %.1f KiB" % (
+        log_message += "\n#{}: {}:{}: {:.1f} KiB".format(
             index,
             filename,
             frame.lineno,
@@ -446,7 +446,7 @@ def memory_usage_profiler(logger, key_type="lineno", limit=5):
     other = top_stats[limit:]
     if other:
         size = sum(stat.size for stat in other)
-        log_message += "\n%s other: %.1f KiB" % (len(other), size / 1024)
+        log_message += f"\n{len(other)} other: {size / 1024:.1f} KiB"
     total = sum(stat.size for stat in top_stats)
     log_message += "\nTotal allocated size: %.1f KiB" % (total / 1024)
     log_message += "\n----------------------------------------------------------------"

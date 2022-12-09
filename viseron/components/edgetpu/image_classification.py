@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import threading
 from queue import Queue
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
@@ -54,7 +54,7 @@ class ImageClassification(AbstractImageClassification):
             CONFIG_IMAGE_CLASSIFICATION
         ]
         self._classification_result_queue: Queue[
-            List[ImageClassificationResult]
+            list[ImageClassificationResult]
         ] = Queue(maxsize=1)
         super().__init__(vis, component, config, camera_identifier)
 
@@ -68,7 +68,7 @@ class ImageClassification(AbstractImageClassification):
 
     def image_classification(
         self, frame: np.ndarray, post_processor_frame: PostProcessorFrame
-    ) -> List[ImageClassificationResult]:
+    ) -> list[ImageClassificationResult]:
         """Perform image classification."""
         image_classifications = []
         for detected_object in post_processor_frame.filtered_objects:

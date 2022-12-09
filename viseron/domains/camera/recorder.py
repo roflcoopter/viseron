@@ -7,7 +7,7 @@ import os
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
@@ -45,7 +45,7 @@ class EventRecorderStart:
     path: str
     thumbnail: np.ndarray
     thumbnail_path: str | None
-    objects: List[DetectedObject]
+    objects: list[DetectedObject]
 
 
 @dataclass
@@ -150,7 +150,7 @@ class AbstractRecorder(ABC):
     def start(
         self,
         shared_frame: SharedFrame,
-        objects_in_fov: List[DetectedObject],
+        objects_in_fov: list[DetectedObject],
         resolution,
     ):
         """Start recording."""
@@ -208,7 +208,7 @@ class AbstractRecorder(ABC):
     def _start(
         self,
         shared_frame: SharedFrame,
-        objects_in_fov: List[DetectedObject],
+        objects_in_fov: list[DetectedObject],
         resolution,
     ):
         """Start the recorder."""

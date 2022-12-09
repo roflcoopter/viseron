@@ -11,7 +11,7 @@ import threading
 import time
 from dataclasses import dataclass
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Dict, List, Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 
@@ -91,7 +91,7 @@ class DataProcessedFrame:
     """Processed frame that is sent on DATA_PROCESSED_FRAME_TOPIC."""
 
     frame: np.ndarray
-    objects_in_fov: List[DetectedObject] | None
+    objects_in_fov: list[DetectedObject] | None
     motion_contours: Contours | None
 
 
@@ -222,12 +222,12 @@ class NVR:
         self._idle_frames = 0
         self._kill_received = False
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
-        self._removal_timers: List[threading.Timer] = []
+        self._removal_timers: list[threading.Timer] = []
         self._operation_state = None
 
-        self._frame_scanners: Dict[str, FrameIntervalCalculator] = {}
-        self._current_frame_scanners: Dict[str, FrameIntervalCalculator] = {}
-        self._frame_scanner_errors: List[str] = []
+        self._frame_scanners: dict[str, FrameIntervalCalculator] = {}
+        self._current_frame_scanners: dict[str, FrameIntervalCalculator] = {}
+        self._frame_scanner_errors: list[str] = []
         self._topic_processed_frame = DATA_PROCESSED_FRAME_TOPIC.format(
             camera_identifier=camera_identifier
         )
@@ -289,7 +289,7 @@ class NVR:
             elif self._motion_detector:
                 self._frame_scanners[MOTION_DETECTOR].scan = True
 
-        self._frame_queue: "Queue[bytes]" = Queue(maxsize=100)
+        self._frame_queue: Queue[bytes] = Queue(maxsize=100)
         self._data_stream.subscribe_data(
             self._camera.frame_bytes_topic, self._frame_queue
         )
@@ -315,9 +315,7 @@ class NVR:
 
     def calculate_output_fps(self):
         """Calculate the camera output fps based on registered frame scanners."""
-        highest_fps = max(
-            [scanner.scan_fps for scanner in self._frame_scanners.values()]
-        )
+        highest_fps = max(scanner.scan_fps for scanner in self._frame_scanners.values())
         self._camera.output_fps = highest_fps
         for scanner in self._frame_scanners.values():
             scanner.calculate_scan_interval(self._camera.output_fps)
@@ -386,7 +384,7 @@ class NVR:
                 self._frame_scanner_errors.append(name)
 
     def event_over_check_motion(
-        self, obj: DetectedObject, object_filters: Dict[str, Filter]
+        self, obj: DetectedObject, object_filters: dict[str, Filter]
     ):
         """Check if motion should stop the recorder."""
         if object_filters.get(obj.label) and object_filters[obj.label].require_motion:
@@ -401,7 +399,7 @@ class NVR:
         return True
 
     def event_over_check_object(
-        self, obj: DetectedObject, object_filters: Dict[str, Filter]
+        self, obj: DetectedObject, object_filters: dict[str, Filter]
     ):
         """Check if object should stop the recorder."""
         if obj.trigger_recorder:
@@ -452,7 +450,7 @@ class NVR:
             return False
         return True
 
-    def trigger_recorder(self, obj: DetectedObject, object_filters: Dict[str, Filter]):
+    def trigger_recorder(self, obj: DetectedObject, object_filters: dict[str, Filter]):
         """Check if object should start the recorder."""
         # Discard object if it requires motion but motion is not detected
         if (

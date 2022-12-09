@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from queue import Queue
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from viseron.domains.object_detector import AbstractObjectDetector
 from viseron.domains.object_detector.const import DOMAIN
@@ -32,7 +32,7 @@ class ObjectDetector(AbstractObjectDetector):
     def __init__(self, vis: Viseron, config, camera_identifier):
         super().__init__(vis, COMPONENT, config, camera_identifier)
         self._darknet: BaseDarknet = vis.data[COMPONENT]
-        self._object_result_queue: Queue[List[DetectedObject]] = Queue(maxsize=1)
+        self._object_result_queue: Queue[list[DetectedObject]] = Queue(maxsize=1)
 
         vis.register_domain(DOMAIN, camera_identifier, self)
 
@@ -40,7 +40,7 @@ class ObjectDetector(AbstractObjectDetector):
         """Return preprocessed frame before performing object detection."""
         return self._darknet.preprocess(frame)
 
-    def return_objects(self, frame) -> List[DetectedObject]:
+    def return_objects(self, frame) -> list[DetectedObject]:
         """Perform object detection."""
         detections = self._darknet.detect(
             frame,

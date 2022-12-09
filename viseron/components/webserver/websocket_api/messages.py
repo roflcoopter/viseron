@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import logging
 from functools import partial
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 
@@ -45,7 +45,7 @@ def message_to_json(message: dict[str, Any]) -> str:
         )
 
 
-def result_message(command_id: int | None, result: Any = None) -> Dict[str, Any]:
+def result_message(command_id: int | None, result: Any = None) -> dict[str, Any]:
     """Return an successful result message."""
     return {
         "command_id": command_id,
@@ -55,7 +55,7 @@ def result_message(command_id: int | None, result: Any = None) -> Dict[str, Any]
     }
 
 
-def error_message(command_id: int | None, code: str, message: str) -> Dict[str, Any]:
+def error_message(command_id: int | None, code: str, message: str) -> dict[str, Any]:
     """Return an error result message."""
     return {
         "command_id": command_id,
@@ -65,7 +65,7 @@ def error_message(command_id: int | None, code: str, message: str) -> Dict[str, 
     }
 
 
-def invalid_error_message(code: str, message: str) -> Dict[str, Any]:
+def invalid_error_message(code: str, message: str) -> dict[str, Any]:
     """Return an error result message for invalid messages."""
     return {
         "type": TYPE_RESULT,

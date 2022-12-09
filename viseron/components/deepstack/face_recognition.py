@@ -81,7 +81,7 @@ class FaceRecognition(AbstractFaceRecognition):
 
         for detection in detections:
             if detection["userid"] != "unknown":
-                self._logger.debug("Face found: {}".format(detection))
+                self._logger.debug(f"Face found: {detection}")
                 self.known_face_found(
                     detection["userid"],
                     (

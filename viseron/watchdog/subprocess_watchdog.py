@@ -106,7 +106,5 @@ class SubprocessWatchDog(WatchDog):
             if now - registered_process.start_time < registered_process.grace_period:
                 continue
 
-            LOGGER.error(
-                "Process {} has exited, restarting".format(registered_process.name)
-            )
+            LOGGER.error(f"Process {registered_process.name} has exited, restarting")
             registered_process.restart()

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any
 
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.helpers import (
@@ -177,5 +177,5 @@ class EventDetectedObjectsData:
 
     camera_identifier: str
     shared_frame: SharedFrame | None
-    objects: List[DetectedObject]
+    objects: list[DetectedObject]
     zone: Any = None

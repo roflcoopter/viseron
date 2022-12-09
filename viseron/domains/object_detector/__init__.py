@@ -6,7 +6,7 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Any, Deque, Dict, List
+from typing import TYPE_CHECKING, Any, Deque
 
 import voluptuous as vol
 
@@ -215,7 +215,7 @@ class AbstractObjectDetector(ABC):
         self,
         vis: Viseron,
         component: str,
-        config: Dict[Any, Any],
+        config: dict[Any, Any],
         camera_identifier: str,
     ):
         self._vis = vis
@@ -226,8 +226,8 @@ class AbstractObjectDetector(ABC):
         )
         self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
 
-        self._objects_in_fov: List[DetectedObject] = []
-        self.object_filters: Dict[str, Filter] = {}
+        self._objects_in_fov: list[DetectedObject] = []
+        self.object_filters: dict[str, Filter] = {}
 
         self._preproc_fps: Deque[float] = collections.deque(maxlen=50)
         self._inference_fps: Deque[float] = collections.deque(maxlen=50)
@@ -255,7 +255,7 @@ class AbstractObjectDetector(ABC):
                     ),
                 )
 
-        self.zones: List[Zone] = []
+        self.zones: list[Zone] = []
         for zone in config[CONFIG_CAMERAS][camera_identifier][CONFIG_ZONES]:
             self.zones.append(Zone(vis, component, camera_identifier, zone, self._mask))
 
@@ -308,7 +308,7 @@ class AbstractObjectDetector(ABC):
         vis.add_entity(component, ObjectDetectedBinarySensorFoV(vis, self._camera))
         vis.add_entity(component, ObjectDetectorFPSSensor(vis, self, self._camera))
 
-    def concat_labels(self) -> List[Filter]:
+    def concat_labels(self) -> list[Filter]:
         """Return a concatenated list of global filters + all filters in each zone."""
         zone_filters = []
         for zone in self.zones:
@@ -316,7 +316,7 @@ class AbstractObjectDetector(ABC):
 
         return list(self.object_filters.values()) + zone_filters
 
-    def filter_fov(self, shared_frame: SharedFrame, objects: List[DetectedObject]):
+    def filter_fov(self, shared_frame: SharedFrame, objects: list[DetectedObject]):
         """Filter field of view."""
         objects_in_fov = []
         for obj in objects:
@@ -348,7 +348,7 @@ class AbstractObjectDetector(ABC):
         return self._objects_in_fov
 
     def _objects_in_fov_setter(
-        self, shared_frame: SharedFrame | None, objects: List[DetectedObject]
+        self, shared_frame: SharedFrame | None, objects: list[DetectedObject]
     ):
         """Set objects in field of view."""
         if objects == self._objects_in_fov:
@@ -364,7 +364,7 @@ class AbstractObjectDetector(ABC):
             ),
         )
 
-    def filter_zones(self, shared_frame: SharedFrame, objects: List[DetectedObject]):
+    def filter_zones(self, shared_frame: SharedFrame, objects: list[DetectedObject]):
         """Filter all zones."""
         for zone in self.zones:
             zone.filter_zone(shared_frame, objects)
@@ -410,7 +410,7 @@ class AbstractObjectDetector(ABC):
         self._logger.debug("Object detection thread stopped")
 
     @abstractmethod
-    def return_objects(self, frame) -> List[DetectedObject]:
+    def return_objects(self, frame) -> list[DetectedObject]:
         """Perform object detection."""
 
     @property

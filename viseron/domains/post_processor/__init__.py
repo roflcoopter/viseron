@@ -5,7 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from queue import Queue
-from typing import TYPE_CHECKING, List, Union
+from typing import TYPE_CHECKING
 
 import voluptuous as vol
 
@@ -59,9 +59,9 @@ class PostProcessorFrame:
 
     camera_identifier: str
     shared_frame: SharedFrame
-    detected_objects: List[DetectedObject]
-    filtered_objects: List[DetectedObject]
-    zone: Union[Zone, None] = None
+    detected_objects: list[DetectedObject]
+    filtered_objects: list[DetectedObject]
+    zone: Zone | None = None
 
 
 class AbstractPostProcessor(ABC):

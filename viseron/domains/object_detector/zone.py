@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.object_detector.const import CONFIG_LABEL_LABEL
@@ -52,7 +52,7 @@ class Zone:
         self._camera_resolution = self._camera.resolution
 
         self._name = zone_config[CONFIG_ZONE_NAME]
-        self._objects_in_zone: List[DetectedObject] = []
+        self._objects_in_zone: list[DetectedObject] = []
         self._object_filters = {}
         if zone_config[CONFIG_LABELS]:
             for object_filter in zone_config[CONFIG_LABELS]:
@@ -78,7 +78,7 @@ class Zone:
             ObjectDetectedBinarySensorZone(vis, self, self._camera),
         )
 
-    def filter_zone(self, shared_frame: SharedFrame, objects: List[DetectedObject]):
+    def filter_zone(self, shared_frame: SharedFrame, objects: list[DetectedObject]):
         """Filter out objects to see if they are within the zone."""
         objects_in_zone = []
         for obj in objects:
@@ -105,12 +105,12 @@ class Zone:
         return self._object_filters
 
     @property
-    def objects_in_zone(self) -> List[DetectedObject]:
+    def objects_in_zone(self) -> list[DetectedObject]:
         """Return all present objects in the zone."""
         return self._objects_in_zone
 
     def objects_in_zone_setter(
-        self, shared_frame: SharedFrame | None, objects: List[DetectedObject]
+        self, shared_frame: SharedFrame | None, objects: list[DetectedObject]
     ):
         """Set objects in zone."""
         if objects == self._objects_in_zone:

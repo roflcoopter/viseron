@@ -1,10 +1,22 @@
 repos:
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.2.2
+    hooks:
+      - id: pyupgrade
+        args: [--py38-plus]
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.0.0
+    hooks:
+      - id: autoflake
+        args:
+          - --in-place
+          - --remove-all-unused-imports
   - repo: https://github.com/PyCQA/isort
     rev: 5.10.1
     hooks:
       - id: isort
   - repo: https://github.com/psf/black
-    rev: 22.3.0
+    rev: 22.10.0
     hooks:
       - id: black
         args:
@@ -12,7 +24,7 @@ repos:
           - --quiet
         files: ^((viseron|tests)/.+)?[^/]+\.py$
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.1.0
+    rev: v2.2.2
     hooks:
       - id: codespell
         args:
@@ -21,15 +33,27 @@ repos:
         exclude_types: [csv, json]
         exclude: ^tests/fixtures/
   - repo: https://github.com/PyCQA/flake8
-    rev: 4.0.1
+    rev: 6.0.0
     hooks:
       - id: flake8
         additional_dependencies:
-          - pycodestyle==2.8.0
-          - pyflakes==2.4.0
+          - pycodestyle==2.10.0
+          - pyflakes==3.0.1
           - flake8-docstrings==1.6.0
           - pydocstyle==6.1.1
-          - flake8-comprehensions==3.8.0
-          - flake8-noqa==1.2.1
-          - mccabe==0.6.1
+          - flake8-comprehensions==3.10.1
+          - flake8-noqa==1.3.0
+          - mccabe==0.7.0
         files: ^(viseron|tests)/.+\.py$
+  - repo: local
+    hooks:
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        args: [
+            "-rn", # Only display messages
+            "-sn", # Don't display the score
+            "--rcfile=.pylintrc", # Link to your config file
+          ]

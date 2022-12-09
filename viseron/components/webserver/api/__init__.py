@@ -5,7 +5,7 @@ import importlib
 import json
 import logging
 from functools import partial
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any
 
 import tornado.routing
 import voluptuous as vol
@@ -32,13 +32,13 @@ LOGGER = logging.getLogger(__name__)
 class BaseAPIHandler(ViseronRequestHandler):
     """Base handler for all API endpoints."""
 
-    routes: List[Dict[str, Any]] = []
+    routes: list[dict[str, Any]] = []
 
     def initialize(self, vis: Viseron):
         """Initialize."""
         super().initialize(vis)
-        self.route: Dict[str, Any] = {}
-        self.request_arguments: Dict[str, str] = {}
+        self.route: dict[str, Any] = {}
+        self.request_arguments: dict[str, str] = {}
 
     def response_success(self, response=None, headers=None):
         """Send successful response."""
@@ -101,7 +101,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                         self.request_arguments = schema(request_arguments)
                     except vol.Invalid as err:
                         LOGGER.error(
-                            "Invalid request arguments: {}".format(request_arguments),
+                            f"Invalid request arguments: {request_arguments}",
                             exc_info=True,
                         )
                         self.response_error(
