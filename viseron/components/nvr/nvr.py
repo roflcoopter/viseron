@@ -542,6 +542,7 @@ class NVR:
 
     def start_recorder(self, shared_frame):
         """Start recorder."""
+        self._idle_frames = 0
         self._camera.start_recorder(
             shared_frame,
             self._object_detector.objects_in_fov if self._object_detector else None,
@@ -578,7 +579,7 @@ class NVR:
             ):
                 self._frame_scanners[MOTION_DETECTOR].scan = False
                 self._logger.info("Pausing motion detector")
-
+            self._idle_frames = 0
             self._camera.stop_recorder()
 
     def process_frame(self, shared_frame: SharedFrame):
