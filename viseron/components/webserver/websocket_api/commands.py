@@ -110,7 +110,7 @@ def get_cameras(connection: WebSocketHandler, message):
 @websocket_command({vol.Required("type"): "get_config"})
 def get_config(connection: WebSocketHandler, message):
     """Return config in text format."""
-    with open(CONFIG_PATH, "r", encoding="utf-8") as config_file:
+    with open(CONFIG_PATH, encoding="utf-8") as config_file:
         config = config_file.read()
 
     connection.send_message(

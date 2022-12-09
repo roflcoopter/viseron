@@ -323,7 +323,7 @@ class Stream:
 
     def get_stream_information(self, stream_url):
         """Return stream information."""
-        self._logger.debug("Getting stream information for {}".format(stream_url))
+        self._logger.debug(f"Getting stream information for {stream_url}")
         width, height, fps, codec, audio_codec = self.ffprobe_stream_information(
             stream_url
         )

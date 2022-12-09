@@ -1,7 +1,7 @@
 """Binary sensor that represents object detection."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, OBJECT_DETECTOR
 from viseron.domains.camera.entity.binary_sensor import CameraBinarySensor
@@ -27,7 +27,7 @@ class ObjectDetectedBinarySensor(CameraBinarySensor):
         camera: AbstractCamera,
     ):
         super().__init__(vis, camera)
-        self._objects: List[DetectedObject] = []
+        self._objects: list[DetectedObject] = []
 
     def setup(self):
         """Set up event listener."""
@@ -116,7 +116,7 @@ class ObjectDetectedBinarySensorLabel(ObjectDetectedBinarySensor):
         super().__init__(vis, camera)
         self._label = label
 
-        self._tracked_label: List[DetectedObject] = []
+        self._tracked_label: list[DetectedObject] = []
         self._reported_count = 0
 
     @property

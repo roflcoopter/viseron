@@ -5,7 +5,7 @@ import datetime
 import os
 from dataclasses import dataclass
 from threading import Timer
-from typing import Any, Dict, Tuple
+from typing import Any
 from uuid import uuid4
 
 import cv2
@@ -64,10 +64,10 @@ class FaceDict:
     """Representation of a face."""
 
     name: str
-    coordinates: Tuple[int, int, int, int]
+    coordinates: tuple[int, int, int, int]
     confidence: float | None
     timer: Timer
-    extra_attributes: None | Dict[str, Any] = None
+    extra_attributes: None | dict[str, Any] = None
 
 
 @dataclass
@@ -83,7 +83,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
 
     def __init__(self, vis, component, config, camera_identifier):
         super().__init__(vis, config, camera_identifier)
-        self._faces: Dict[str, FaceDict] = {}
+        self._faces: dict[str, FaceDict] = {}
         if config[CONFIG_SAVE_UNKNOWN_FACES]:
             create_directory(config[CONFIG_UNKNOWN_FACES_PATH])
 
@@ -97,7 +97,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
     def known_face_found(
         self,
         face: str,
-        coordinates: Tuple[int, int, int, int],
+        coordinates: tuple[int, int, int, int],
         confidence=None,
         extra_attributes=None,
     ):

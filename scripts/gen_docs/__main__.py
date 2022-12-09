@@ -218,7 +218,7 @@ def convert(schema, custom_convert=None):  # noqa: C901
     if callable(schema):
         return {"type": "custom_validator", "value": "unable_to_convert"}
 
-    raise ValueError("Unable to convert schema: {}".format(schema))
+    raise ValueError(f"Unable to convert schema: {schema}")
     # return {"type": "unsupported", "value": "unable_to_convert"}
 
 

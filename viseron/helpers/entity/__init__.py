@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -27,10 +27,10 @@ class Entity(ABC):
     _state: Any = "unknown"
 
     # Used by Home Assistant, safe to override
-    availability: List[Dict[str, str]] | None = None
+    availability: list[dict[str, str]] | None = None
     availability_mode: str = "all"
     device_name: str | None = None
-    device_identifiers: List[str] | None = None
+    device_identifiers: list[str] | None = None
     enabled_by_default: bool = True
     entity_category: str | None = None
     icon: str | None = None
@@ -41,7 +41,7 @@ class Entity(ABC):
         return self._state
 
     @property
-    def attributes(self) -> Dict[Any, Any]:
+    def attributes(self) -> dict[Any, Any]:
         """Return entity attributes.
 
         DO NOT OVERRIDE THIS METHOD.
@@ -61,7 +61,7 @@ class Entity(ABC):
         self.vis.states.set_state(self)
 
     @property
-    def extra_attributes(self) -> Dict[Any, Any]:
+    def extra_attributes(self) -> dict[Any, Any]:
         """Return extra attributes.
 
         Safe to override. Use this to add extra attributes to the entity.

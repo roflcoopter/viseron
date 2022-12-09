@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from viseron.const import LOADING
 
@@ -42,8 +42,8 @@ def setup_domain(
     domain,
     config,
     identifier: str = None,
-    require_domains: List[RequireDomain] | None = None,
-    optional_domains: List[OptionalDomain] | None = None,
+    require_domains: list[RequireDomain] | None = None,
+    optional_domains: list[OptionalDomain] | None = None,
 ):
     """Set up single domain."""
     component_instance: Component = vis.data[LOADING][component]

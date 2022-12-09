@@ -5,7 +5,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Any
 
 from viseron.const import EVENT_ENTITY_ADDED, EVENT_STATE_CHANGED
 from viseron.helpers import slugify
@@ -79,10 +79,10 @@ class States:
 
     def __init__(self, vis: Viseron):
         self._vis = vis
-        self._registry: Dict[str, Entity] = {}
+        self._registry: dict[str, Entity] = {}
         self._registry_lock = threading.Lock()
 
-        self._current_states: Dict[str, State] = {}
+        self._current_states: dict[str, State] = {}
 
     def set_state(self, entity: Entity):
         """Set the state in the states registry."""

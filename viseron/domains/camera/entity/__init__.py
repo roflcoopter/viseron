@@ -1,7 +1,7 @@
 """Base class for entities tied to a camera."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from viseron.helpers.entity import Entity
 
@@ -19,4 +19,4 @@ class CameraEntity(Entity):
         self._camera = camera
 
         self.device_name = camera.name
-        self.device_identifiers: List[str] | None = [camera.identifier]
+        self.device_identifiers: list[str] | None = [camera.identifier]

@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import threading
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Callable, Dict, List
+from typing import TYPE_CHECKING, Callable
 
 import paho.mqtt.client as mqtt
 import voluptuous as vol
@@ -168,14 +168,14 @@ class MQTT:
 
         self._client: mqtt.Client = None
         self._publish_queue: Queue = Queue(maxsize=1000)
-        self._subscriptions: Dict[str, List[Callable]] = {}
+        self._subscriptions: dict[str, list[Callable]] = {}
 
         self._kill_received = False
 
         vis.data[COMPONENT] = self
 
         self._entity_creation_lock = threading.Lock()
-        self._entities: Dict[str, MQTTEntity] = {}
+        self._entities: dict[str, MQTTEntity] = {}
 
     def create_entity(self, entity: Entity):
         """Create entity in Home Assistant."""

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import TYPE_CHECKING, Callable, Dict
+from typing import TYPE_CHECKING, Callable
 
 import tornado.gen
 import tornado.websocket
@@ -36,7 +36,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
         """Initialize websocket handler."""
         self.vis = vis
         self._last_id = 0
-        self.subscriptions: Dict[int, Callable[[], None]] = {}
+        self.subscriptions: dict[int, Callable[[], None]] = {}
 
         self._message_queue: Queue[str] = Queue()
 
@@ -50,8 +50,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             await self.write_message(message)
         LOGGER.debug("Exiting WebSocket message writer")
 
-    @staticmethod
-    def check_origin(_origin):
+    def check_origin(self, _origin):
         """Check request origin."""
         return True
 
@@ -103,7 +102,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
         try:
             handler(self, schema(message))
         except vol.Invalid as err:
-            LOGGER.error("Message incorrectly formatted: {}".format(err))
+            LOGGER.error(f"Message incorrectly formatted: {err}")
             await self.async_send_message(
                 error_message(
                     command_id,
@@ -112,7 +111,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
                 )
             )
         except Exception as err:  # pylint: disable=broad-except
-            LOGGER.error("Error handling message: {}".format(err), exc_info=True)
+            LOGGER.error(f"Error handling message: {err}", exc_info=True)
             await self.async_send_message(
                 error_message(command_id, WS_ERROR_UNKNOWN_ERROR, "Unknown error.")
             )

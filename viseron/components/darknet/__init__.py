@@ -178,7 +178,7 @@ class BaseDarknet(ABC):
         # Load names of labels
         self.labels = None
         if labels:
-            with open(labels, "rt", encoding="utf-8") as labels_file:
+            with open(labels, encoding="utf-8") as labels_file:
                 self.labels = labels_file.read().rstrip("\n").split("\n")
 
     @property

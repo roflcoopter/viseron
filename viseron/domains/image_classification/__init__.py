@@ -4,7 +4,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from dataclasses import dataclass
 from threading import Timer
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import voluptuous as vol
@@ -58,7 +58,7 @@ class EventImageClassification:
     """Hold information on image classification event."""
 
     camera_identifier: str
-    result: List[ImageClassificationResult] | None
+    result: list[ImageClassificationResult] | None
 
 
 class AbstractImageClassification(AbstractPostProcessor):
@@ -76,7 +76,7 @@ class AbstractImageClassification(AbstractPostProcessor):
     @abstractmethod
     def image_classification(
         self, frame: np.ndarray, post_processor_frame: PostProcessorFrame
-    ) -> List[ImageClassificationResult]:
+    ) -> list[ImageClassificationResult]:
         """Perform image classification."""
 
     def process(self, post_processor_frame: PostProcessorFrame):

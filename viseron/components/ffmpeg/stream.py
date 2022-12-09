@@ -329,7 +329,7 @@ class Stream:
 
     def get_stream_information(self, stream_url):
         """Return stream information."""
-        self._logger.debug("Getting stream information for {}".format(stream_url))
+        self._logger.debug(f"Getting stream information for {stream_url}")
         width, height, fps, codec, audio_codec = self.ffprobe_stream_information(
             stream_url
         )
@@ -512,16 +512,16 @@ class Stream:
         if self._segment_process:
             self._segment_process.terminate()
 
-        if self.poll() is not None:
-            return
-
-        self._pipe.terminate()
         try:
-            self._pipe.communicate(timeout=5)
-        except sp.TimeoutExpired:
-            self._logger.debug("FFmpeg did not terminate, killing instead.")
-            self._pipe.kill()
-            self._pipe.communicate()
+            self._pipe.terminate()
+            try:
+                self._pipe.communicate(timeout=5)
+            except sp.TimeoutExpired:
+                self._logger.debug("FFmpeg did not terminate, killing instead.")
+                self._pipe.kill()
+                self._pipe.communicate()
+        except AttributeError as error:
+            self._logger.error("Failed to close pipe: %s", error)
 
     def poll(self):
         """Poll pipe."""
