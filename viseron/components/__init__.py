@@ -9,7 +9,7 @@ import time
 import traceback
 from dataclasses import dataclass
 from timeit import default_timer as timer
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
@@ -43,8 +43,8 @@ class DomainToSetup:
     domain: str
     config: dict
     identifier: str
-    require_domains: List[RequireDomain]
-    optional_domains: List[OptionalDomain]
+    require_domains: list[RequireDomain]
+    optional_domains: list[OptionalDomain]
 
 
 LOGGING_COMPONENTS = {"logger"}
@@ -67,7 +67,7 @@ class Component:
         self._name = name
         self._config = config
 
-        self.domains_to_setup: List[DomainToSetup] = []
+        self.domains_to_setup: list[DomainToSetup] = []
 
     def __str__(self):
         """Return string representation."""
@@ -183,6 +183,17 @@ class Component:
         self, domain, config, identifier, require_domains, optional_domains
     ):
         """Add a domain to setup queue."""
+        if (
+            domain in self._vis.data[DOMAINS_TO_SETUP]
+            and identifier in self._vis.data[DOMAINS_TO_SETUP][domain]
+        ):
+            LOGGER.warning(
+                f"Domain {domain} with identifier {identifier} already in setup queue. "
+                f"Skipping setup of domain {domain} with identifier {identifier} for "
+                f"component {self.name}",
+            )
+            return
+
         domain_to_setup = DomainToSetup(
             component=self,
             domain=domain,

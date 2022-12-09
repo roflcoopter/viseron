@@ -6,10 +6,11 @@ import pytest
 from viseron.components import (
     CORE_COMPONENTS,
     DEFAULT_COMPONENTS,
+    Component,
     setup_component,
     setup_components,
 )
-from viseron.const import FAILED, LOADED, LOADING
+from viseron.const import DOMAINS_TO_SETUP, FAILED, LOADED, LOADING
 
 from tests.common import MockComponent, return_any
 
@@ -100,3 +101,30 @@ def test_setup_missing_component(vis, caplog):
     assert vis.data[FAILED] == {"testing": mock_component}
     assert "Failed to load component testing" in caplog.text
     caplog.clear()
+
+
+class TestComponent:
+    """Test Component class."""
+
+    def test_add_domain_to_setup(self, vis, caplog):
+        """Test add_domain_to_setup."""
+        component1 = Component(vis, "component1", "component1", {})
+        component1.add_domain_to_setup("object_detector", {}, "identifier1", None, None)
+        assert (
+            vis.data[DOMAINS_TO_SETUP]["object_detector"]["identifier1"].component.name
+            == "component1"
+        )
+
+        # Assert that the same domain and identifier can't be added by another component
+        component2 = Component(vis, "component2", "component2", {})
+        component2.add_domain_to_setup("object_detector", {}, "identifier1", None, None)
+        assert (
+            vis.data[DOMAINS_TO_SETUP]["object_detector"]["identifier1"].component.name
+            == "component1"
+        )
+        assert (
+            "Domain object_detector with identifier identifier1 already in setup "
+            "queue. Skipping setup of domain object_detector with identifier "
+            "identifier1 for component component2" in caplog.text
+        )
+        caplog.clear()
