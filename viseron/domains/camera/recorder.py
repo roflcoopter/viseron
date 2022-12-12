@@ -77,6 +77,7 @@ class AbstractRecorder(ABC):
                 f"*.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
                 "*.mp4",
                 "*.mkv",
+                "*.mov",
             }
         )
 
@@ -272,6 +273,7 @@ class AbstractRecorder(ABC):
 
         extensions = [
             f"*.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
+            "*.mov",
             "*.mp4",
             "*.mkv",
             "*.jpg",

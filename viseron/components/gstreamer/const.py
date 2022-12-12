@@ -1,6 +1,7 @@
 """GStreamer constants."""
+from __future__ import annotations
+
 import logging
-from typing import List
 
 COMPONENT = "gstreamer"
 
@@ -86,6 +87,7 @@ CONFIG_AUDIO_CODEC = "audio_codec"
 CONFIG_AUDIO_PIPELINE = "audio_pipeline"
 CONFIG_RTSP_TRANSPORT = "rtsp_transport"
 CONFIG_FRAME_TIMEOUT = "frame_timeout"
+CONFIG_OUTPUT_ELEMENT = "output_element"
 
 DEFAULT_STREAM_FORMAT = "rtsp"
 DEFAULT_PROTOCOL = None
@@ -97,6 +99,7 @@ DEFAULT_AUDIO_CODEC = "unset"
 DEFAULT_AUDIO_PIPELINE = "unset"
 DEFAULT_RTSP_TRANSPORT = "tcp"
 DEFAULT_FRAME_TIMEOUT = 60
+DEFAULT_OUTPUT_ELEMENT: str = ""
 
 DESC_STREAM_FORMAT = "Stream format."
 DESC_PROTOCOL = "Stream protocol"
@@ -135,6 +138,11 @@ DESC_FRAME_TIMEOUT = (
     "A timeout in seconds. If a frame has not been received in this "
     "time period GStreamer will be restarted."
 )
+DESC_OUTPUT_ELEMENT = (
+    "A GStreamer pipeline element that is added to the generated pipeline. "
+    "It can be used to perform additional filtering on the frames that Viseron is "
+    "processing."
+)
 
 
 # CAMERA_SCHEMA constants
@@ -151,7 +159,7 @@ CONFIG_RECORDER = "recorder"
 DEFAULT_USERNAME = None
 DEFAULT_PASSWORD = None
 DEFAULT_GSTREAMER_LOGLEVEL = "error"
-DEFAULT_GSTREAMER_RECOVERABLE_ERRORS: List[str] = [
+DEFAULT_GSTREAMER_RECOVERABLE_ERRORS: list[str] = [
     "dconf will not work properly",
     "decode_slice_header error",
     "no frame!",
@@ -186,21 +194,30 @@ CONFIG_MUXER = "muxer"
 CONFIG_RECORDER_HWACCEL_ARGS = "hwaccel_args"
 CONFIG_RECORDER_CODEC = "codec"
 CONFIG_RECORDER_AUDIO_CODEC = "audio_codec"
-CONFIG_RECORDER_FILTER_ARGS = "filter_args"
+CONFIG_RECORDER_VIDEO_FILTERS = "video_filters"
+CONFIG_RECORDER_AUDIO_FILTERS = "audio_filters"
 CONFIG_SEGMENTS_FOLDER = "segments_folder"
 
 DEFAULT_MUXER = "mp4mux"
-DEFAULT_RECORDER_HWACCEL_ARGS: List[str] = []
+DEFAULT_RECORDER_HWACCEL_ARGS: list[str] = []
 DEFAULT_RECORDER_CODEC = "copy"
 DEFAULT_RECORDER_AUDIO_CODEC = "copy"
-DEFAULT_RECORDER_FILTER_ARGS: List[str] = []
+DEFAULT_RECORDER_VIDEO_FILTERS: list[str] = []
+DEFAULT_RECORDER_AUDIO_FILTERS: list[str] = []
 DEFAULT_SEGMENTS_FOLDER = "/segments"
 
 DESC_MUXER = "GStreamer segment muxer."
 DESC_RECORDER_HWACCEL_ARGS = "<b>FFmpeg</b> encoder hardware acceleration arguments."
 DESC_RECORDER_CODEC = "<b>FFmpeg</b> video encoder codec, eg <code>h264_nvenc</code>."
 DESC_RECORDER_AUDIO_CODEC = "<b>FFmpeg</b> audio encoder codec, eg <code>aac</code>."
-DESC_RECORDER_FILTER_ARGS = "<b>FFmpeg</b> encoder filter arguments."
+DESC_RECORDER_VIDEO_FILTERS = (
+    "A list of FFmpeg filter arguments. "
+    "These filters are applied to the recorder videos."
+)
+DESC_RECORDER_AUDIO_FILTERS = (
+    "A list of FFmpeg audio filter arguments. "
+    "These filters are applied to the recorder videos."
+)
 DESC_SEGMENTS_FOLDER = (
     "What folder to store GStreamer segments in. "
     "Segments are used to produce recordings so you should not need to change this."

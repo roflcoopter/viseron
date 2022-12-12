@@ -158,6 +158,14 @@ class WebServer(threading.Thread):
                     StaticStreamHandler,
                     {"vis": self._vis},
                 ),
+                (
+                    (
+                        r"/(?P<camera>[A-Za-z0-9_]+)/static-mjpeg-streams/"
+                        r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)"
+                    ),
+                    StaticStreamHandler,
+                    {"vis": self._vis},
+                ),
                 (r"/websocket", WebSocketHandler, {"vis": self._vis}),
                 (r"/.*", IndexHandler, {"vis": self._vis}),
             ],

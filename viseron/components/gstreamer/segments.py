@@ -14,9 +14,10 @@ from .const import (
     CAMERA_SEGMENT_DURATION,
     CONFIG_RECORDER,
     CONFIG_RECORDER_AUDIO_CODEC,
+    CONFIG_RECORDER_AUDIO_FILTERS,
     CONFIG_RECORDER_CODEC,
-    CONFIG_RECORDER_FILTER_ARGS,
     CONFIG_RECORDER_HWACCEL_ARGS,
+    CONFIG_RECORDER_VIDEO_FILTERS,
     CONFIG_SEGMENTS_FOLDER,
 )
 
@@ -164,6 +165,24 @@ class Segments:
                 )
                 return concat_script
 
+    def video_filter_args(self):
+        """Return video filter arguments."""
+        if filters := self._config[CONFIG_RECORDER][CONFIG_RECORDER_VIDEO_FILTERS]:
+            return [
+                "-vf",
+                (",".join(filters)),
+            ]
+        return []
+
+    def audio_filter_args(self):
+        """Return audio filter arguments."""
+        if filters := self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_FILTERS]:
+            return [
+                "-af",
+                (",".join(filters)),
+            ]
+        return []
+
     def ffmpeg_concat(self, segment_script, file_name):
         """Generate and run GStreamer command to concatenate segments."""
         ffmpeg_cmd = (
@@ -186,8 +205,9 @@ class Segments:
                 "-",
             ]
             + ["-c:v", self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]]
+            + self.video_filter_args()
             + ["-c:a", self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]]
-            + self._config[CONFIG_RECORDER][CONFIG_RECORDER_FILTER_ARGS]
+            + self.audio_filter_args()
             + ["-movflags", "+faststart"]
             + [file_name]
         )
