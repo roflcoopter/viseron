@@ -119,3 +119,39 @@ To suppress an error you can add a subset of that error to the `gstreamer_recove
 gstreamer_recoverable_errors:
   - error while decoding MB
 ```
+
+### Rotating video
+
+If you rotate your camera 90 or 180 degrees, you can rotate the video in Viseron to match.<br />
+To do this you can use the `output_element` and `video_filters` option in the config.<br />
+
+:::note
+
+If you are rotating the video 90 degrees, you need to tell Viseron the width and height of the video, which should be the opposite of the cameras real resolution.
+If you have a camera with 1920x1080 resolution, you need to set `width: 1080` and `height: 1920` in the config.
+
+:::
+
+<details>
+  <summary>Config to rotate 90 degrees clockwise</summary>
+
+```yaml title="/config/config.yaml"
+gstreamer:
+  camera:
+    camera_one:
+      name: Camera 1
+      host: 192.168.XX.X
+      port: 554
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_user
+      password: !secret camera_one_pass
+      output_element: "videoflip method=clockwise !" # Rotate the frames processed by Viseron
+      width: 1080 # Width of the rotated video = height of the camera
+      height: 1920 # Height of the rotated video = width of the camera
+      recorder:
+        idle_timeout: 5
+        video_filters: # Rotate the recorded videos, handled by FFmpeg as of now.
+          - transpose=1
+```
+
+</details>

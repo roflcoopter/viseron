@@ -13,6 +13,7 @@ from .const import (
     CONFIG_AUDIO_PIPELINE,
     CONFIG_GSTREAMER_LOGLEVEL,
     CONFIG_MUXER,
+    CONFIG_OUTPUT_ELEMENT,
     CONFIG_RECORDER,
     CONFIG_RTSP_TRANSPORT,
     CONFIG_SEGMENTS_FOLDER,
@@ -104,6 +105,10 @@ class BasePipeline:
             ]
         return []
 
+    def output_element(self):
+        """Return output element to apply user defined options."""
+        return self._config[CONFIG_OUTPUT_ELEMENT].split(" ")
+
     @staticmethod
     def converter_element():
         """Return converter element.
@@ -141,6 +146,7 @@ class BasePipeline:
             self.depay_element()
             + self.decoder_element()
             + self.videorate_element()
+            + self.output_element()
             + self.converter_element()
             + [
                 f"video/x-raw,format=(string){PIXEL_FORMAT}",
