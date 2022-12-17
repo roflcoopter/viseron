@@ -60,7 +60,6 @@ confidence=
 # too-many-* - are not enforced for the sake of readability
 # too-few-* - same as too-many-*
 disable=format,
-      abstract-class-little-used,
       abstract-method,
       cyclic-import,
       duplicate-code,
@@ -81,7 +80,8 @@ disable=format,
       too-many-return-statements,
       too-many-statements,
       too-many-boolean-expressions,
-      consider-using-with
+      consider-using-with, 
+      consider-using-f-string
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -171,13 +171,6 @@ max-line-length=88
 # Maximum number of lines in a module
 max-module-lines=1000
 
-# List of optional constructs for which whitespace checking is disabled. `dict-
-# separator` is used to allow tabulation in dicts, etc.: {1  : 1,\n222: 2}.
-# `trailing-comma` allows a space between comma and closing bracket: (a, ).
-# `empty-line` allows space-only lines.
-no-space-check=trailing-comma,
-               dict-separator
-
 # Allow the body of a class to be on the same line as the declaration if body
 # contains single statement.
 single-line-class-stmt=no
@@ -197,8 +190,7 @@ contextmanager-decorators=contextlib.contextmanager
 # List of members which are set dynamically and missed by pylint inference
 # system, and so shouldn't trigger E1101 when accessed. Python regular
 # expressions are accepted.
-generated-members=cv2.ocl.haveOpenCL,
-      cv2.ocl.setUseOpenCL
+generated-members=cv2.*
 
 # Tells whether missing members accessed in mixin class should be ignored. A
 # mixin class is detected if its name ends with "mixin" (case insensitive).
@@ -316,7 +308,8 @@ good-names=i,
            y1,
            y2,
            Run,
-           _
+           _,
+           T
 
 # Include a hint for the correct naming format with invalid-name
 include-naming-hint=no
@@ -412,7 +405,8 @@ redefining-builtins-modules=six.moves,past.builtins,future.builtins,io,builtins
 # List of method names used to declare (i.e. assign) instance attributes.
 defining-attr-methods=__init__,
                       __new__,
-                      setUp
+                      setUp,
+                      initialize
 
 # List of member names, which should be excluded from the protected access
 # warning.

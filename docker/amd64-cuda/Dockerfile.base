@@ -1,10 +1,13 @@
+ARG DARKNET_COMMIT
 ARG CUDA_VERSION
 ARG UBUNTU_VERSION_NUMBER
 FROM roflcoopter/viseron-models:latest as models
+FROM roflcoopter/amd64-cuda-darknet:${DARKNET_COMMIT} as darknet
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-runtime-ubuntu${UBUNTU_VERSION_NUMBER}
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
+COPY --from=models /classifiers/models/edgetpu /classifiers/models/edgetpu
 
 ARG OPENCL_VERSION
 ARG GMMLIB_VERSION
@@ -12,7 +15,6 @@ ARG IGC_VERSION
 ARG LEVEL_ZERO_GPU
 
 ENV \
-  LIBVA_DRIVER_NAME=i965 \
   NVIDIA_DRIVER_CAPABILITIES=all \
   NVIDIA_VISIBLE_DEVICES=all
 
@@ -21,10 +23,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   wget \
   # VA-API
   vainfo \
-  # intel-media-va-driver \
+  intel-media-va-driver-non-free \
   libva-drm2 \
   libva2 \
   i965-va-driver \
+  mesa-va-drivers \
+  libmfx1 \
+  radeontop \
+  intel-gpu-tools \
   # OpenCL
   ocl-icd-libopencl1 \
   clinfo \
@@ -46,5 +52,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   # Add NVIDIA to OpenCL runtime
   mkdir -p /etc/OpenCL/vendors && \
   echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd && \
-  ln -s /detectors/models/darknet/yolov4.weights /detectors/models/darknet/default.weights && \
-  ln -s /detectors/models/darknet/yolov4.cfg /detectors/models/darknet/default.cfg
+  ln -s /detectors/models/darknet/yolov7.weights /detectors/models/darknet/default.weights && \
+  ln -s /detectors/models/darknet/yolov7.cfg /detectors/models/darknet/default.cfg
+
+COPY --from=darknet /darknet/lib /usr/local/lib

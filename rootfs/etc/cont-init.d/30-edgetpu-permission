@@ -1,32 +1,39 @@
 #!/usr/bin/with-contenv bash
 
-echo "************** Setting EdgeTPU permissions ***************"
-CORAL_VENDOR_IDS=$(dpkg -L libedgetpu1-max | grep "\.rules" | xargs cat | sed -n "s/^.*ATTRS{idVendor}==\(.*\),.*/\1/p")
+source /helpers/logger.sh
+
+log_info "************** Setting EdgeTPU permissions ***************"
+CORAL_VENDOR_IDS=$(dpkg -L libedgetpu1-max | grep "\.rules" | xargs cat | sed -n "s/^.*ATTRS{idVendor}==\(.*\),/\1/p" | sed -n "s/\(\,.*\)//p")
 COMMAND=$(echo $CORAL_VENDOR_IDS | xargs printf -- '-e %s\n' | xargs -t echo 'lsusb | grep -e "Google Inc" -e "Global Unichip Corp"' 2>/dev/null)
 DEVICES=$(eval "$COMMAND")
 
-echo -e "Coral Vendor IDs:\n$CORAL_VENDOR_IDS"
+log_info "Coral Vendor IDs:\n$CORAL_VENDOR_IDS"
 if [ -z "$DEVICES" ]; then
-  echo "No EdgeTPU USB device was found"
+  log_info "No EdgeTPU USB device was found"
 else
-  echo -e "Matching USB devices:\n$DEVICES"
+  log_info "Matching USB devices:\n$DEVICES"
   while read -r i;
   do
     BUS=`echo $i | grep -Po 'Bus \K[0-9]+'`
     DEVICE=`echo $i | grep -Po 'Device \K[0-9]+'`
     USB_PATH="/dev/bus/usb/$BUS/$DEVICE"
     if [ ! -e "$USB_PATH" ]; then
-        echo "$USB_PATH is missing. Make sure to add --device /dev/bus/usb to your docker run command"
+        log_warning "!!!WARNING!!!"
+        log_warning "$USB_PATH is missing. EdgeTPU will not work unless you make sure to add --device /dev/bus/usb to your docker run command. "
+        log_warning "!!!WARNING!!!"
         continue
     fi
     USB_GID=$(stat -c '%g' "/dev/bus/usb/$BUS/$DEVICE")
     if ! id -G abc | grep -qw "$USB_GID"; then
       GROUP_NAME=$(getent group "${USB_GID}" | awk -F: '{print $1}')
-      echo "Adding user to group $GROUP_NAME"
+      log_info "Adding user to group $GROUP_NAME"
       usermod -a -G "$GROUP_NAME" abc
     fi
   done <<< "$DEVICES"
 fi
+
+groupadd --force plugdev
+usermod -aG plugdev abc
 
 FILES=$(find /dev/apex_? -type c -print 2>/dev/null)
 
@@ -44,4 +51,4 @@ do
   fi
 done
 
-echo "************************** Done **************************"
+log_info "************************** Done **************************"

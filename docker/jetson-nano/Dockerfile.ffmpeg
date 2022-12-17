@@ -139,8 +139,6 @@ FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as qemu
 FROM nvcr.io/nvidia/l4t-base:${JETPACK_VERSION} as build
 
 COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
-COPY --from=qemu /bin/sh /bin/sh
-COPY --from=qemu /bin/sh.real /bin/sh.real
 COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
 COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
 COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
@@ -646,8 +644,6 @@ COPY --from=build /usr/local /usr/local/
 # FROM nvcr.io/nvidia/l4t-base:${JETPACK_VERSION}
 
 # COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
-# COPY --from=qemu /bin/sh /bin/sh
-# COPY --from=qemu /bin/sh.real /bin/sh.real
 # COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
 # COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
 # COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
@@ -677,3 +673,10 @@ COPY --from=build /usr/local /usr/local/
 #   libfreetype6
 
 # RUN [ "cross-build-end" ]
+
+# Skip building FFmpeg for now. It is installed from apt in Dockerfile.base
+FROM balenalib/aarch64-ubuntu:${UBUNTU_VERSION}-build as skip-ffmpeg
+RUN rm -r /usr/local && mkdir /usr/local
+
+FROM scratch
+COPY --from=skip-ffmpeg /usr/local /usr/local/

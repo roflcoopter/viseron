@@ -1,0 +1,138 @@
+ARG PYTHON_VERSION
+ARG UBUNTU_VERSION
+ARG JETPACK_VERSION
+FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
+FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as qemu
+FROM nvcr.io/nvidia/l4t-base:r${JETPACK_VERSION} as build
+
+COPY --from=qemu /usr/bin/qemu-aarch64-static /usr/bin/qemu-aarch64-static
+COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
+COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
+COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
+
+COPY --from=python /usr/local /usr/local/
+RUN \
+  cd /usr/local/bin && \
+  ln -s idle3 idle && \
+  ln -s pydoc3 pydoc && \
+  ln -s python3 python
+
+RUN [ "cross-build-start" ]
+
+WORKDIR /tmp/workdir
+
+ARG OPENCV_VERSION
+ARG MAKEFLAGS="-j2"
+ARG SOC
+ARG JETPACK_VERSION_MAJOR
+ARG JETPACK_VERSION_MINOR
+ENV \
+  DEBIAN_FRONTEND=noninteractive \
+  PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig" \
+  PREFIX=/opt/opencv \
+  # Jetson Nano uses compute capability 5.3
+  CUDA_ARCH_BIN="53" \
+  CUDA_ARCH_PTX="70"
+
+RUN \
+  apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates \
+  gnupg && \
+  echo "deb https://repo.download.nvidia.com/jetson/common r${JETPACK_VERSION_MAJOR}.${JETPACK_VERSION_MINOR} main" >>  /etc/apt/sources.list.d/nvidia.list && \
+  echo "deb https://repo.download.nvidia.com/jetson/${SOC} r${JETPACK_VERSION_MAJOR}.${JETPACK_VERSION_MINOR} main" >>  /etc/apt/sources.list.d/nvidia.list \
+  && apt-key adv --fetch-key http://repo.download.nvidia.com/jetson/jetson-ota-public.asc \
+  && mkdir -p /opt/nvidia/l4t-packages/ && touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall
+
+RUN buildDeps="autoconf \
+  automake \
+  ca-certificates \
+  cmake \
+  curl \
+  clinfo \
+  bzip2 \
+  expat \
+  libexpat1-dev \
+  g++ \
+  gcc \
+  git \
+  gperf \
+  libtool \
+  make \
+  nasm \
+  perl \
+  pkg-config \
+  libssl-dev \
+  yasm \
+  libgomp1 \
+  libnuma-dev \
+  zlib1g-dev \
+  libcudnn8-dev \
+  libcublas-dev" && \
+  apt-get -yqq update && \
+  apt-get install -yq --no-install-recommends ${buildDeps} && \
+  pip3 install numpy
+
+# Minimal cuda install does not create symlink so we do it manually
+RUN ln -s /usr/local/cuda-10.2 /usr/local/cuda
+
+## OpenCV
+RUN  \
+  DIR=/tmp/opencv && mkdir -p ${DIR} && cd ${DIR} && \
+  curl -sL -o opencv-${OPENCV_VERSION}.tar.gz https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.tar.gz && \
+  tar -x --strip-components=1 -f opencv-${OPENCV_VERSION}.tar.gz
+RUN  \
+  DIR=/tmp/opencv_contrib && mkdir -p ${DIR} && cd ${DIR} && \
+  curl -sL -o opencv_contrib-${OPENCV_VERSION}.tar.gz https://github.com/opencv/opencv_contrib/archive/${OPENCV_VERSION}.tar.gz && \
+  tar -x --strip-components=1 -f opencv_contrib-${OPENCV_VERSION}.tar.gz
+
+RUN \
+  DIR=/tmp/opencv/build && mkdir -p ${DIR} && cd ${DIR} && \
+  cmake -D CMAKE_BUILD_TYPE=RELEASE \
+  -DBUILD_TIFF=ON \
+  -DBUILD_opencv_java=OFF \
+  -D BUILD_SHARED_LIBS=ON \
+  -D OPENCV_GENERATE_PKGCONFIG=YES \
+  -D WITH_OPENGL=ON \
+  -D WITH_OPENCL=ON \
+  -D WITH_OPENMP=ON \
+  -D WITH_TBB=ON \
+  -D WITH_EIGEN=ON \
+  -D WITH_V4L=ON \
+  -D WITH_GTK=OFF \
+  -D WITH_GTK_2_X=OFF \
+  -D WITH_FFMPEG=ON \
+  -D WITH_GSTREAMER=ON \
+  -D WITH_GSTREAMER_0_10=OFF \
+  -D WITH_LIBV4L=ON \
+  -D WITH_CSTRIPES=ON \
+  -D BUILD_TESTS=OFF \
+  -D BUILD_PERF_TESTS=OFF \
+  -D BUILD_opencv_python2=OFF \
+  -D BUILD_opencv_python3=ON \
+  -D PYTHON3_INCLUDE_DIR=$(python3 -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")  \
+  -D PYTHON3_LIBRARY=$(python3 -c "import distutils.sysconfig as sysconfig; print(sysconfig.get_config_var('LIBDIR'))") \
+  -D CMAKE_INSTALL_PREFIX=${PREFIX} \
+  -D INSTALL_PYTHON_EXAMPLES=OFF \
+  -D INSTALL_C_EXAMPLES=OFF \
+  -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib/modules \
+  -D BUILD_DOCS=OFF \
+  -D BUILD_EXAMPLES=OFF \
+  -D WITH_CUDA=ON \
+  -D WITH_CUDNN=ON \
+  -D CUDA_ARCH_BIN="${CUDA_ARCH_BIN}" \
+  -D CUDA_ARCH_PTX="${CUDA_ARCH_PTX}" \
+  -D CUDA_FAST_MATH=1 \
+  -D WITH_CUBLAS=1 \
+  -D CMAKE_LIBRARY_PATH=/usr/local/cuda/lib64/stubs \
+  -D WITH_MKL=ON \
+  -D MKL_USE_MULTITHREAD=ON \
+  -D MKL_WITH_TBB=ON \
+  -D OPENCV_DNN_CUDA=ON \
+  -D ENABLE_NEON=ON \
+  # Turn off some unnecessary modules that only take extra time to build
+  -D BUILD_opencv_face=OFF \
+  -D HIGHGUI_ENABLE_PLUGINS=OFF \
+  -D WITH_WIN32UI=OFF \
+  -D WITH_GTK=OFF \
+  -D WITH_QT=OFF \
+  /tmp/opencv

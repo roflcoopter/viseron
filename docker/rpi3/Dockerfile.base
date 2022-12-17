@@ -6,6 +6,7 @@ FROM balenalib/raspberrypi3-ubuntu:${UBUNTU_VERSION}-run
 
 COPY --from=ffmpeg /opt/vc/lib /opt/vc/lib
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
+COPY --from=models /classifiers/models/edgetpu /classifiers/models/edgetpu
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \

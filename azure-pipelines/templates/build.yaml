@@ -36,12 +36,6 @@ jobs:
     pool:
       vmImage: "ubuntu-latest"
     steps:
-      # - script: |
-      #     cd $(Agent.BuildDirectory)/s/azure-pipelines
-      #     set -a
-      #     source .env
-      #     set +a
-      #   displayName: Read env vars from file
       - task: Docker@2
         displayName: Login to Docker Hub
         inputs:
@@ -57,6 +51,13 @@ jobs:
           docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull $(arch)-${{ parameters.image }}
         displayName: Pull image for Docker layer caching
         continueOnError: true
+        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false))
+      - script: |
+          cd $(Agent.BuildDirectory)/s/docker
+          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull ${{ parameters.image }}
+        displayName: Pull image for Docker layer caching
+        continueOnError: true
+        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true))
 
       - script: |
           cd $(Agent.BuildDirectory)/s/docker

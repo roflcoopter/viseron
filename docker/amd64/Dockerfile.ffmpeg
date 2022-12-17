@@ -36,6 +36,7 @@ RUN buildDeps="autoconf \
   libgomp1 \
   libnuma-dev \
   zlib1g-dev \
+  libmfx-dev \
   libva-dev" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps}
@@ -471,6 +472,7 @@ RUN  \
   --enable-libaom \
   --extra-libs=-lpthread \
   --enable-vaapi \
+  --enable-libmfx \
   --extra-cflags="-I${PREFIX}/include" \
   --extra-ldflags="-L${PREFIX}/lib" && \
   make && \

@@ -6,41 +6,60 @@ class ViseronError(Exception):
     """General Viseron exception occurred."""
 
 
+class NotReadyError(ViseronError):
+    """Base class for component and domain not-ready errors."""
+
+    def __str__(self) -> str:
+        """Return error."""
+        return super().__str__() or str(self.__cause__)
+
+
+class ComponentNotReady(NotReadyError):
+    """Error that indicates that a component is not ready.
+
+    Note that Viseron will retry the setup of components in the background, thus
+    this exception should only be raised in components that DOES NOT call setup_domain.
+    If that happens, those domains will never be setup.
+    """
+
+
+class DomainNotReady(NotReadyError):
+    """Error that indicates that a domain is not ready."""
+
+
+class DataStreamNotLoaded(ViseronError):
+    """Error that indicates that data stream component is not loaded."""
+
+
 class FFprobeError(ViseronError):
     """Raised when FFprobe returns an error."""
 
     def __init__(
-        self, ffprobe_output: Union[bytes, str, dict], ffprobe_command: list
+        self,
+        ffprobe_output: Union[bytes, str, dict],
     ) -> None:
         """Initialize error."""
         super().__init__(self)
         self.ffprobe_output = ffprobe_output
-        self.ffprobe_command = ffprobe_command
 
     def __str__(self) -> str:
         """Return string representation."""
         return (
-            "FFprobe could not connect to stream. "
-            f"Output: {self.ffprobe_output}, "
-            f"Command: {' '.join(self.ffprobe_command)}"
+            "FFprobe could not connect to stream. " f"Output: {self.ffprobe_output!r}"
         )
 
 
 class FFprobeTimeout(ViseronError):
     """Raised when FFprobe times out."""
 
-    def __init__(self, ffprobe_command, timeout) -> None:
+    def __init__(self, timeout) -> None:
         """Initialize error."""
         super().__init__(self)
-        self.ffprobe_command = ffprobe_command
         self.timeout = timeout
 
     def __str__(self) -> str:
         """Return string representation."""
-        return (
-            f"FFprobe command {' '.join(self.ffprobe_command)} "
-            f"timed out after {self.timeout}s"
-        )
+        return f"FFprobe command timed out after {self.timeout}s"
 
 
 class StreamInformationError(ViseronError):
@@ -64,167 +83,18 @@ class StreamInformationError(ViseronError):
         )
 
 
-class DuplicateDecoderName(ViseronError):
-    """Raised when a decoder is instantiated with a duplicate name."""
+class DomainNotRegisteredError(ViseronError):
+    """Raised when trying to get a domain that has not been registered."""
 
-    def __init__(self, decoder_name: str) -> None:
+    def __init__(self, domain: str, identifier: str = None) -> None:
         """Initialize error."""
         super().__init__(self)
-        self.decoder_name = decoder_name
+        self.domain = domain
+        self.identifier = identifier
 
     def __str__(self) -> str:
         """Return string representation."""
-        return f"A decoder with name {self.decoder_name} already exist"
-
-
-class DetectorModuleNotFoundError(ViseronError):
-    """Raised when an object detector does not exist."""
-
-    def __init__(self, detector: str) -> None:
-        """Initialize error."""
-        super().__init__(self)
-        self.detector = detector
-
-    def __str__(self) -> str:
-        """Return string representation."""
-        return f"Object detector {self.detector} not found"
-
-
-class DetectorImportError(ViseronError):
-    """Raised when a detector cannot be imported properly."""
-
-    def __init__(self, detector: str) -> None:
-        """Initialize error."""
-        super().__init__(self)
-        self.detector = detector
-
-    def __str__(self) -> str:
-        """Return string representation."""
-        return (
-            f"Could not import {self.detector}. A class named "
-            "ObjectDetection which inherits from AbstractObjectDetection is required"
-        )
-
-
-class DetectorConfigError(ViseronError):
-    """Raised when a detectors config cannot be imported properly."""
-
-    def __init__(self, detector: str) -> None:
-        """Initialize error."""
-        super().__init__(self)
-        self.detector = detector
-
-    def __str__(self) -> str:
-        """Return string representation."""
-        return (
-            f"Could not import {self.detector}. A class named "
-            "Config which inherits from AbstractDetectorConfig is required"
-        )
-
-
-class DetectorConfigSchemaError(ViseronError):
-    """Raised when a detectors schema cannot be found."""
-
-    def __init__(self, detector: str) -> None:
-        """Initialize error."""
-        super().__init__(self)
-        self.detector = detector
-
-    def __str__(self) -> str:
-        """Return string representation."""
-        return (
-            f"Could not import {self.detector}.config. A constant named "
-            "SCHEMA which extends from AbstractDetectorConfig.schema is required"
-        )
-
-
-class PostProcessorImportError(ViseronError):
-    """Raised when a post processor cannot be imported properly."""
-
-    def __init__(self, processor: str) -> None:
-        """Initialize error."""
-        super().__init__(self)
-        self.processor = processor
-
-    def __str__(self) -> str:
-        """Return string representation."""
-        return (
-            f"Could not import post processor {self.processor}. Check your config.yaml"
-        )
-
-
-class PostProcessorStructureError(ViseronError):
-    """Raised when a post processors structure is wrong."""
-
-    def __init__(self, processor: str) -> None:
-        """Initialize error."""
-        super().__init__(self)
-        self.processor = processor
-
-    def __str__(self) -> str:
-        """Return string representation."""
-        return (
-            f"Could not import post processor {self.processor}. A class named "
-            "Processor which inherits from AbstractProcessor is required"
-        )
-
-
-class MotionModuleNotFoundError(ViseronError):
-    """Raised when a motion detector does not exist."""
-
-    def __init__(self, detector: str) -> None:
-        """Initialize error."""
-        super().__init__(self)
-        self.detector = detector
-
-    def __str__(self) -> str:
-        """Return string representation."""
-        return f"Motion detector {self.detector} not found"
-
-
-class MotionImportError(ViseronError):
-    """Raised when a motion detector cannot be imported properly."""
-
-    def __init__(self, detector: str) -> None:
-        """Initialize error."""
-        super().__init__(self)
-        self.detector = detector
-
-    def __str__(self) -> str:
-        """Return string representation."""
-        return (
-            f"Could not import {self.detector}. A class named "
-            "MotionDetection which inherits from AbstractMotionDetection is required"
-        )
-
-
-class MotionConfigError(ViseronError):
-    """Raised when a motion detectors config cannot be imported properly."""
-
-    def __init__(self, detector: str) -> None:
-        """Initialize error."""
-        super().__init__(self)
-        self.detector = detector
-
-    def __str__(self) -> str:
-        """Return string representation."""
-        return (
-            f"Could not import {self.detector}. A class named "
-            "Config which inherits from AbstractMotionDetectionConfig is required"
-        )
-
-
-class MotionConfigSchemaError(ViseronError):
-    """Raised when a motion detectors schema cannot be found."""
-
-    def __init__(self, detector: str) -> None:
-        """Initialize error."""
-        super().__init__(self)
-        self.detector = detector
-
-    def __str__(self) -> str:
-        """Return string representation."""
-        return (
-            f"Could not import {self.detector}.config. A constant named "
-            "SCHEMA which extends from AbstractMotionDetectionConfig.schema is required"
+        return ("Requested domain{}{}has not been registered").format(
+            self.domain,
+            f" with identifier {self.identifier} " if self.identifier else " ",
         )

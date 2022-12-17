@@ -25,8 +25,7 @@ steps:
           latestRelease=true
         fi
       else
-        echo "Failed to extract version from branch $branch"
-        exit 255
+        version=$branch
       fi
 
       echo Extracted version is $version

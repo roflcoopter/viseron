@@ -9,7 +9,7 @@ on:
 
 env:
   CACHE_VERSION: 1
-  PYTHON_VERSION: 3.8
+  DEFAULT_PYTHON: 3.8
   PRE_COMMIT_CACHE: ~/.cache/pre-commit
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
@@ -18,28 +18,28 @@ env:
 jobs:
   prepare-python-venv:
     name: Prepare Python venv
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     outputs:
       python-venv-cache-key: ${{ steps.python-venv-cache-key.outputs.key }}
-    steps: 
+    steps:
       # Create Python virtual env used for linters
       - name: Check out code from GitHub
-        uses: actions/checkout@v2.3.4
+        uses: actions/checkout@v3.1.0
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         id: python
-        uses: actions/setup-python@v2.2.2
+        uses: actions/setup-python@v4.3.0
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
-      # Create a virtual environment and cache it 
+      # Create a virtual environment and cache it
       - name: Generate Python virtual environment restore key
         id: python-venv-cache-key
         env:
           cache-name: cache-python-venv
         run: >-
-          echo "::set-output name=key::${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_test.txt') }}"
+          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_test.txt') }}" >> $GITHUB_OUTPUT
       - name: Restore Python virtual environment
         id: cache-venv
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: venv
           key: ${{ steps.python-venv-cache-key.outputs.key }}
@@ -52,21 +52,21 @@ jobs:
 
   prepare-pre-commit:
     name: Prepare pre-commit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: prepare-python-venv
     outputs:
       pre-commit-cache-key: ${{ steps.pre-commit-cache-key.outputs.key }}
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v2.3.4
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v2.2.2
+        uses: actions/checkout@v3.1.0
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v4.3.0
         id: python
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -80,11 +80,11 @@ jobs:
         env:
           cache-name: cache-pre-commit
         run: >-
-          echo "::set-output name=key::${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_test.txt') }}"
+          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_test.txt') }}" >> $GITHUB_OUTPUT
       # Install pre-commit hooks into the cached virtual environment
       - name: Restore pre-commit hooks
         id: cache-pre-commit
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ steps.pre-commit-cache-key.outputs.key }}
@@ -96,19 +96,19 @@ jobs:
 
   run-isort:
     name: Run isort
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v2.3.4
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v2.2.2
+        uses: actions/checkout@v3.1.0
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v4.3.0
         id: python
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -119,7 +119,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -135,19 +135,19 @@ jobs:
 
   run-black:
     name: Run black
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v2.3.4
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v2.2.2
+        uses: actions/checkout@v3.1.0
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v4.3.0
         id: python
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -158,7 +158,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -174,19 +174,19 @@ jobs:
 
   run-codespell:
     name: Run codespell
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v2.3.4
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v2.2.2
+        uses: actions/checkout@v3.1.0
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v4.3.0
         id: python
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -197,7 +197,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -213,19 +213,19 @@ jobs:
 
   run-pylint:
     name: Run pylint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v2.3.4
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v2.2.2
+        uses: actions/checkout@v3.1.0
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v4.3.0
         id: python
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -236,7 +236,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -248,23 +248,25 @@ jobs:
       - name: Run pylint
         run: |
           . venv/bin/activate
+          python --version
+          pylint --version
           pylint viseron
 
   run-flake8:
     name: Run flake8
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v2.3.4
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v2.2.2
+        uses: actions/checkout@v3.1.0
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v4.3.0
         id: python
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -275,7 +277,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -289,23 +291,21 @@ jobs:
           . venv/bin/activate
           pre-commit run --hook-stage manual flake8 --all-files --show-diff-on-failure
 
-  run-pytest:
-    name: Run pytest
-    runs-on: ubuntu-latest
-    needs: prepare-python-venv
+  run-pyupgrade:
+    name: Run pyupgrade
+    runs-on: ubuntu-20.04
+    needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v2.3.4
-        with:
-          fetch-depth: 0
-      - name: Set up Python ${{ env.PYTHON_VERSION }}
-        uses: actions/setup-python@v2.2.2
+        uses: actions/checkout@v3.1.0
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v4.3.0
         id: python
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v2.1.6
+        uses: actions/cache@v3.0.11
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -314,12 +314,53 @@ jobs:
         run: |
           echo "Failed to restore Python virtual environment from cache"
           exit 1
-      - name: Pull current Docker dev tag 
+      - name: Restore pre-commit environment from cache
+        id: cache-pre-commit
+        uses: actions/cache@v3.0.11
+        with:
+          path: ${{ env.PRE_COMMIT_CACHE }}
+          key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
+      - name: Fail job if pre-commit cache restore failed
+        if: steps.cache-pre-commit.outputs.cache-hit != 'true'
+        run: |
+          echo "Failed to restore pre-commit environment from cache"
+          exit 1
+      - name: Run pyupgrade
+        run: |
+          . venv/bin/activate
+          pre-commit run --hook-stage manual pyupgrade --all-files --show-diff-on-failure
+
+  run-pytest:
+    name: Run pytest
+    runs-on: ubuntu-20.04
+    needs: prepare-python-venv
+    steps:
+      - name: Check out code from GitHub
+        uses: actions/checkout@v3.1.0
+        with:
+          fetch-depth: 0
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v4.3.0
+        id: python
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+      - name: Restore base Python virtual environment
+        id: cache-venv
+        uses: actions/cache@v3.0.11
+        with:
+          path: venv
+          key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
+      - name: Fail job if Python cache restore failed
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          echo "Failed to restore Python virtual environment from cache"
+          exit 1
+      - name: Pull current Docker dev tag
         run: |
           docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-viseron
       - name: Get changed files
         id: changed-files
-        uses: tj-actions/changed-files@v7
+        uses: tj-actions/changed-files@v32
         with:
           files: |
             requirements.txt
@@ -345,5 +386,4 @@ jobs:
         run: |
           docker cp amd64-viseron-tests:/src/coverage.xml coverage.xml
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1.5.2
-
+        uses: codecov/codecov-action@v3

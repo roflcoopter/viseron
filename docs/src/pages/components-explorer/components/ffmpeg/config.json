@@ -1,0 +1,747 @@
+[
+    {
+        "type": "map",
+        "value": [
+            {
+                "type": "map",
+                "value": [
+                    {
+                        "type": "map",
+                        "value": [
+                            {
+                                "type": "string",
+                                "lengthMin": 1,
+                                "name": "path",
+                                "description": "Path to the camera stream, eg <code>/Streaming/Channels/101/</code>.",
+                                "required": true,
+                                "default": null
+                            },
+                            {
+                                "type": "integer",
+                                "valueMin": 1,
+                                "name": "port",
+                                "description": "Port for the camera stream,",
+                                "required": true,
+                                "default": null
+                            },
+                            {
+                                "type": "string",
+                                "name": "host",
+                                "description": "IP or hostname of camera.",
+                                "required": true,
+                                "default": null
+                            },
+                            {
+                                "type": "string",
+                                "lengthMin": 1,
+                                "name": "name",
+                                "description": "Camera friendly name.",
+                                "optional": true,
+                                "default": null
+                            },
+                            {
+                                "type": "map",
+                                "value": [
+                                    {
+                                        "type": "map",
+                                        "value": [
+                                            {
+                                                "type": "integer",
+                                                "name": "width",
+                                                "description": "Frame will be rezied to this width. Required if height is set.",
+                                                "optional": true,
+                                                "default": 0
+                                            },
+                                            {
+                                                "type": "integer",
+                                                "name": "height",
+                                                "description": "Frame will be rezied to this height. Required if width is set.",
+                                                "optional": true,
+                                                "default": 0
+                                            },
+                                            {
+                                                "type": "boolean",
+                                                "name": "draw_objects",
+                                                "description": "If set, found objects will be drawn.",
+                                                "optional": true,
+                                                "default": false
+                                            },
+                                            {
+                                                "type": "boolean",
+                                                "name": "draw_motion",
+                                                "description": "If set, detected motion will be drawn.",
+                                                "optional": true,
+                                                "default": false
+                                            },
+                                            {
+                                                "type": "boolean",
+                                                "name": "draw_motion_mask",
+                                                "description": "If set, configured motion masks will be drawn.",
+                                                "optional": true,
+                                                "default": false
+                                            },
+                                            {
+                                                "type": "boolean",
+                                                "name": "draw_object_mask",
+                                                "description": "If set, configured object masks will be drawn.",
+                                                "optional": true,
+                                                "default": false
+                                            },
+                                            {
+                                                "type": "boolean",
+                                                "name": "draw_zones",
+                                                "description": "If set, configured zones will be drawn.",
+                                                "optional": true,
+                                                "default": false
+                                            },
+                                            {
+                                                "type": "integer",
+                                                "name": "rotate",
+                                                "description": "Degrees to rotate the image. Positive/negative values rotate clockwise/counter clockwise respectively",
+                                                "optional": true,
+                                                "default": 0
+                                            },
+                                            {
+                                                "type": "boolean",
+                                                "name": "mirror",
+                                                "description": "If set, mirror the image horizontally.",
+                                                "optional": true,
+                                                "default": false
+                                            }
+                                        ],
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "description": "Name of the MJPEG stream. Used to build the URL to access the stream.<br>Valid characters are lowercase a-z, numbers and underscores."
+                                    }
+                                ],
+                                "name": "mjpeg_streams",
+                                "description": "MJPEG streams config.",
+                                "optional": true,
+                                "default": null
+                            },
+                            {
+                                "type": "select",
+                                "options": [
+                                    {
+                                        "type": "constant",
+                                        "value": "rtsp"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "rtmp"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "mjpeg"
+                                    }
+                                ],
+                                "name": "stream_format",
+                                "description": "FFmpeg stream format.",
+                                "optional": true,
+                                "default": "rtsp"
+                            },
+                            {
+                                "type": "select",
+                                "options": [
+                                    {
+                                        "type": "constant",
+                                        "value": "rtsp"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "rtsps"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "rtmp"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "http"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "https"
+                                    }
+                                ],
+                                "name": "protocol",
+                                "description": "Stream protocol.",
+                                "optional": true,
+                                "default": null
+                            },
+                            {
+                                "type": "integer",
+                                "name": "width",
+                                "description": "Width of the stream.<br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
+                                "optional": true,
+                                "default": null
+                            },
+                            {
+                                "type": "integer",
+                                "name": "height",
+                                "description": "Height of the stream.<br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
+                                "optional": true,
+                                "default": null
+                            },
+                            {
+                                "type": "integer",
+                                "valueMin": 1,
+                                "name": "fps",
+                                "description": "FPS of the stream.<br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
+                                "optional": true,
+                                "default": null
+                            },
+                            {
+                                "type": "list",
+                                "name": "input_args",
+                                "description": "A list of FFmpeg input arguments.",
+                                "optional": true,
+                                "default": null
+                            },
+                            {
+                                "type": "list",
+                                "name": "hwaccel_args",
+                                "description": "A list of FFmpeg hardware acceleration arguments.",
+                                "optional": true,
+                                "default": []
+                            },
+                            {
+                                "type": "string",
+                                "name": "codec",
+                                "description": "FFmpeg video decoder codec, eg <code>h264_cuvid</code><br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
+                                "optional": true,
+                                "default": "unset"
+                            },
+                            {
+                                "type": "string",
+                                "name": "audio_codec",
+                                "description": "FFmpeg audio encoder codec for the generated segments, eg <code>aac</code>.<br>Note that if you set this, FFmpeg will have to re-encode your stream which increases system load.<br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
+                                "optional": true,
+                                "default": "unset"
+                            },
+                            {
+                                "type": "select",
+                                "options": [
+                                    {
+                                        "type": "constant",
+                                        "value": "tcp"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "udp"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "udp_multicast"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "http"
+                                    }
+                                ],
+                                "name": "rtsp_transport",
+                                "description": "Sets RTSP transport protocol. Change this if your camera doesn't support TCP.",
+                                "optional": true,
+                                "default": "tcp"
+                            },
+                            {
+                                "type": "list",
+                                "name": "video_filters",
+                                "description": "A list of FFmpeg filter arguments. These filters are applied <b>before</b> Viseron receives the image for processing.",
+                                "optional": true,
+                                "default": []
+                            },
+                            {
+                                "type": "select",
+                                "options": [
+                                    {
+                                        "type": "constant",
+                                        "value": "nv12"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "yuv420p"
+                                    }
+                                ],
+                                "name": "pix_fmt",
+                                "description": "Only change this if the decoder you are using does not support <code>nv12</code>, as <code>nv12</code> is more efficient.",
+                                "optional": true,
+                                "default": "nv12"
+                            },
+                            {
+                                "type": "integer",
+                                "valueMin": 1,
+                                "valueMax": 60,
+                                "name": "frame_timeout",
+                                "description": "A timeout in seconds. If a frame has not been received in this time period FFmpeg will be restarted.",
+                                "optional": true,
+                                "default": 60
+                            },
+                            {
+                                "type": "string",
+                                "name": "username",
+                                "description": "Username for the camera stream.",
+                                "optional": true,
+                                "default": null
+                            },
+                            {
+                                "type": "string",
+                                "name": "password",
+                                "description": "Password for the camera stream.",
+                                "optional": true,
+                                "default": null
+                            },
+                            {
+                                "type": "list",
+                                "name": "global_args",
+                                "description": "A valid list of FFmpeg arguments. These are applied before the <code>input_args</code>.",
+                                "optional": true,
+                                "default": [
+                                    "-hide_banner"
+                                ]
+                            },
+                            {
+                                "type": "map",
+                                "value": [
+                                    {
+                                        "type": "string",
+                                        "lengthMin": 1,
+                                        "name": "path",
+                                        "description": "Path to the camera stream, eg <code>/Streaming/Channels/101/</code>.",
+                                        "required": true,
+                                        "default": null
+                                    },
+                                    {
+                                        "type": "integer",
+                                        "valueMin": 1,
+                                        "name": "port",
+                                        "description": "Port for the camera stream,",
+                                        "required": true,
+                                        "default": null
+                                    },
+                                    {
+                                        "type": "select",
+                                        "options": [
+                                            {
+                                                "type": "constant",
+                                                "value": "rtsp"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "rtmp"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "mjpeg"
+                                            }
+                                        ],
+                                        "name": "stream_format",
+                                        "description": "FFmpeg stream format.",
+                                        "optional": true,
+                                        "default": "rtsp"
+                                    },
+                                    {
+                                        "type": "select",
+                                        "options": [
+                                            {
+                                                "type": "constant",
+                                                "value": "rtsp"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "rtsps"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "rtmp"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "http"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "https"
+                                            }
+                                        ],
+                                        "name": "protocol",
+                                        "description": "Stream protocol.",
+                                        "optional": true,
+                                        "default": null
+                                    },
+                                    {
+                                        "type": "integer",
+                                        "name": "width",
+                                        "description": "Width of the stream.<br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
+                                        "optional": true,
+                                        "default": null
+                                    },
+                                    {
+                                        "type": "integer",
+                                        "name": "height",
+                                        "description": "Height of the stream.<br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
+                                        "optional": true,
+                                        "default": null
+                                    },
+                                    {
+                                        "type": "integer",
+                                        "valueMin": 1,
+                                        "name": "fps",
+                                        "description": "FPS of the stream.<br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
+                                        "optional": true,
+                                        "default": null
+                                    },
+                                    {
+                                        "type": "list",
+                                        "name": "input_args",
+                                        "description": "A list of FFmpeg input arguments.",
+                                        "optional": true,
+                                        "default": null
+                                    },
+                                    {
+                                        "type": "list",
+                                        "name": "hwaccel_args",
+                                        "description": "A list of FFmpeg hardware acceleration arguments.",
+                                        "optional": true,
+                                        "default": []
+                                    },
+                                    {
+                                        "type": "string",
+                                        "name": "codec",
+                                        "description": "FFmpeg video decoder codec, eg <code>h264_cuvid</code><br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
+                                        "optional": true,
+                                        "default": "unset"
+                                    },
+                                    {
+                                        "type": "string",
+                                        "name": "audio_codec",
+                                        "description": "FFmpeg audio encoder codec for the generated segments, eg <code>aac</code>.<br>Note that if you set this, FFmpeg will have to re-encode your stream which increases system load.<br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
+                                        "optional": true,
+                                        "default": "unset"
+                                    },
+                                    {
+                                        "type": "select",
+                                        "options": [
+                                            {
+                                                "type": "constant",
+                                                "value": "tcp"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "udp"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "udp_multicast"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "http"
+                                            }
+                                        ],
+                                        "name": "rtsp_transport",
+                                        "description": "Sets RTSP transport protocol. Change this if your camera doesn't support TCP.",
+                                        "optional": true,
+                                        "default": "tcp"
+                                    },
+                                    {
+                                        "type": "list",
+                                        "name": "video_filters",
+                                        "description": "A list of FFmpeg filter arguments. These filters are applied <b>before</b> Viseron receives the image for processing.",
+                                        "optional": true,
+                                        "default": []
+                                    },
+                                    {
+                                        "type": "select",
+                                        "options": [
+                                            {
+                                                "type": "constant",
+                                                "value": "nv12"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "yuv420p"
+                                            }
+                                        ],
+                                        "name": "pix_fmt",
+                                        "description": "Only change this if the decoder you are using does not support <code>nv12</code>, as <code>nv12</code> is more efficient.",
+                                        "optional": true,
+                                        "default": "nv12"
+                                    },
+                                    {
+                                        "type": "integer",
+                                        "valueMin": 1,
+                                        "valueMax": 60,
+                                        "name": "frame_timeout",
+                                        "description": "A timeout in seconds. If a frame has not been received in this time period FFmpeg will be restarted.",
+                                        "optional": true,
+                                        "default": 60
+                                    }
+                                ],
+                                "name": "substream",
+                                "description": "Substream to perform image processing on. Very effective for reducing system load.",
+                                "optional": true,
+                                "default": null
+                            },
+                            {
+                                "type": "select",
+                                "options": [
+                                    {
+                                        "type": "constant",
+                                        "value": "quiet"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "panic"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "fatal"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "error"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "warning"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "info"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "verbose"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "debug"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "trace"
+                                    }
+                                ],
+                                "name": "ffmpeg_loglevel",
+                                "description": "Sets the loglevel for FFmpeg.<br>Should only be used in debugging purposes.",
+                                "optional": true,
+                                "default": "error"
+                            },
+                            {
+                                "type": "list",
+                                "values": [
+                                    {
+                                        "type": "string"
+                                    }
+                                ],
+                                "name": "ffmpeg_recoverable_errors",
+                                "description": "FFmpeg sometimes print errors that are not fatal, but are preventing Viseron from reading the stream.<br>If you get errors like <code>Error starting decoder pipe!</code>, see <a href=#recoverable-errors>recoverable errors</a> below.",
+                                "optional": true,
+                                "default": [
+                                    "error while decoding MB",
+                                    "Application provided invalid, non monotonically increasing dts to muxer in stream",
+                                    "Last message repeated"
+                                ]
+                            },
+                            {
+                                "type": "select",
+                                "options": [
+                                    {
+                                        "type": "constant",
+                                        "value": "quiet"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "panic"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "fatal"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "error"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "warning"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "info"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "verbose"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "debug"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "trace"
+                                    }
+                                ],
+                                "name": "ffprobe_loglevel",
+                                "description": "Sets the loglevel for FFprobe.<br> Should only be used in debugging purposes.",
+                                "optional": true,
+                                "default": "error"
+                            },
+                            {
+                                "type": "map",
+                                "value": [
+                                    {
+                                        "type": "integer",
+                                        "valueMin": 0,
+                                        "name": "lookback",
+                                        "description": "Number of seconds to record before a detected object.",
+                                        "optional": true,
+                                        "default": 5
+                                    },
+                                    {
+                                        "type": "integer",
+                                        "valueMin": 0,
+                                        "name": "idle_timeout",
+                                        "description": "Number of seconds to record after all events are over.",
+                                        "optional": true,
+                                        "default": 10
+                                    },
+                                    {
+                                        "type": "integer",
+                                        "valueMin": 1,
+                                        "name": "retain",
+                                        "description": "Number of days to save recordings before deletion.",
+                                        "optional": true,
+                                        "default": 7
+                                    },
+                                    {
+                                        "type": "string",
+                                        "name": "folder",
+                                        "description": "What folder to store recordings in.",
+                                        "optional": true,
+                                        "default": "/recordings"
+                                    },
+                                    {
+                                        "type": "string",
+                                        "name": "filename_pattern",
+                                        "description": "A <a href=https://strftime.org/>strftime</a> pattern for saved recordings.<br>Default pattern results in filenames like: <code>23:59:59.jpg</code>.",
+                                        "optional": true,
+                                        "default": "%H:%M:%S"
+                                    },
+                                    {
+                                        "type": "string",
+                                        "name": "extension",
+                                        "description": "The file extension used for recordings.",
+                                        "optional": true,
+                                        "default": "mp4"
+                                    },
+                                    {
+                                        "type": "map",
+                                        "value": [
+                                            {
+                                                "type": "boolean",
+                                                "name": "save_to_disk",
+                                                "description": "If <code>true</code>, the thumbnail that is created on start of recording is saved to <code>{folder}/{camera_identifier}/latest_thumbnail.jpg</code>",
+                                                "optional": true,
+                                                "default": true
+                                            },
+                                            {
+                                                "type": "string",
+                                                "name": "filename_pattern",
+                                                "description": "A <a href=https://strftime.org/>strftime</a> pattern for saved thumbnails.<br>Default pattern results in filenames like: <code>23:59:59.jpg</code>.",
+                                                "optional": true,
+                                                "default": "%H:%M:%S"
+                                            }
+                                        ],
+                                        "name": "thumbnail",
+                                        "description": "Options for the thumbnail created on start of a recording.",
+                                        "optional": true,
+                                        "default": null
+                                    },
+                                    {
+                                        "type": "list",
+                                        "values": [
+                                            {
+                                                "type": "string"
+                                            }
+                                        ],
+                                        "name": "hwaccel_args",
+                                        "description": "FFmpeg encoder hardware acceleration arguments.",
+                                        "optional": true,
+                                        "default": []
+                                    },
+                                    {
+                                        "type": "string",
+                                        "name": "codec",
+                                        "description": "FFmpeg video encoder codec, eg <code>h264_nvenc</code>.",
+                                        "optional": true,
+                                        "default": "copy"
+                                    },
+                                    {
+                                        "type": "string",
+                                        "name": "audio_codec",
+                                        "description": "FFmpeg audio encoder codec, eg <code>aac</code>.",
+                                        "optional": true,
+                                        "default": "copy"
+                                    },
+                                    {
+                                        "type": "list",
+                                        "values": [
+                                            {
+                                                "type": "string"
+                                            }
+                                        ],
+                                        "name": "video_filters",
+                                        "description": "A list of FFmpeg filter arguments. These filters are applied to the recorder videos.",
+                                        "optional": true,
+                                        "default": []
+                                    },
+                                    {
+                                        "type": "list",
+                                        "values": [
+                                            {
+                                                "type": "string"
+                                            }
+                                        ],
+                                        "name": "audio_filters",
+                                        "description": "A list of FFmpeg audio filter arguments. These filters are applied to the recorder videos.",
+                                        "optional": true,
+                                        "default": []
+                                    },
+                                    {
+                                        "type": "string",
+                                        "name": "segments_folder",
+                                        "description": "What folder to store FFmpeg segments in. Segments are used to produce recordings so you should not need to change this.",
+                                        "optional": true,
+                                        "default": "/segments"
+                                    }
+                                ],
+                                "name": "recorder",
+                                "description": "Recorder config.",
+                                "optional": true,
+                                "default": null
+                            }
+                        ],
+                        "name": {
+                            "type": "CAMERA_IDENTIFIER"
+                        },
+                        "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+                        "cameraidentifier": true,
+                        "default": null
+                    }
+                ],
+                "name": "camera",
+                "description": "Camera domain config.",
+                "required": true,
+                "default": null
+            }
+        ],
+        "name": "ffmpeg",
+        "description": "FFmpeg Configuration.",
+        "required": true,
+        "default": null
+    }
+]

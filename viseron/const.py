@@ -1,31 +1,69 @@
 """Constants."""
-from typing import List
-
-from cv2 import FONT_HERSHEY_SIMPLEX
+import cv2
 
 CONFIG_PATH = "/config/config.yaml"
 SECRETS_PATH = "/config/secrets.yaml"
-RECORDER_PATH = "/recordings"
-DEFAULT_CONFIG = """
-# See the README for the full list of configuration options.
-cameras:
-  - name: <camera friendly name>
-    host: <ip address or hostname>
-    port: <port the camera listens on>
-    username: <if auth is enabled>
-    password: <if auth is enabled>
-    path: <URL path to the stream>
+DEFAULT_CONFIG = """# Thanks for trying out Viseron!
+# This is a small walkthrough of the configuration to get you started.
+# There are far more components and options available than what is listed here.
+# See the documentation for the full list of configuration options.
 
-# MQTT is optional
-#mqtt:
-#  broker: <ip address or hostname of broker>
-#  port: <port the broker listens on>
-#  username: <if auth is enabled>
-#  password: <if auth is enabled>
+## Start by adding some cameras
+ffmpeg:
+  camera:
+    camera_1:  # This value has to be unique across all cameras
+      name: <camera friendly name>
+      host: <ip address or hostname of camera>
+      port: <port the camera listens on>
+      path: <URL path to the stream>
+      username: <if auth is enabled>
+      password: <if auth is enabled>
+
+    camera_2:  # This value has to be unique across all cameras
+      name: <camera friendly name>
+      host: <ip address or hostname of camera>
+      port: <port the camera listens on>
+      path: <URL path to the stream>
+      username: <if auth is enabled>
+      password: <if auth is enabled>
+
+
+## Then add an object detector
+darknet:
+  object_detector:
+    cameras:
+      camera_1:  # Attach detector to the configured camera_1 above
+        fps: 1
+        scan_on_motion_only: false  # Scan for objects even when there is no motion
+        labels:
+          - label: person
+            confidence: 0.75
+            trigger_recorder: true
+
+      camera_2:  # Attach detector to the configured camera_2 above
+        fps: 1
+        labels:
+          - label: person
+            confidence: 0.75
+            trigger_recorder: true
+
+
+## You can also use motion detection
+mog2:
+  motion_detector:
+    cameras:
+      camera_2:  # Attach detector to the configured camera_2 above
+        fps: 1
+
+
+## To tie everything together we need to configure one more component.
+nvr:
+  camera_1:  # Run NVR for camera_1
+  camera_2:  # Run NVR for camera_2
+
+# Now you can restart Viseron and you should be good to go!
 """
-THREAD_STORE_CATEGORY_NVR = "nvr"
 
-CAMERA_GLOBAL_ARGS = ["-hide_banner"]
 CAMERA_INPUT_ARGS = [
     "-avoid_negative_ts",
     "make_zero",
@@ -42,7 +80,6 @@ CAMERA_INPUT_ARGS = [
     "-vsync",
     "0",
 ]
-CAMERA_HWACCEL_ARGS: List["str"] = []
 CAMERA_SEGMENT_DURATION = 5
 CAMERA_SEGMENT_ARGS = [
     "-f",
@@ -57,126 +94,50 @@ CAMERA_SEGMENT_ARGS = [
     "copy",
 ]
 
-ENCODER_CODEC = ""
-
 ENV_CUDA_SUPPORTED = "VISERON_CUDA_SUPPORTED"
 ENV_VAAPI_SUPPORTED = "VISERON_VAAPI_SUPPORTED"
-ENV_OPENCL_SUPPORTED = "VISERON_OPENCL_SUPPORTED"
 ENV_RASPBERRYPI3 = "VISERON_RASPBERRYPI3"
 ENV_RASPBERRYPI4 = "VISERON_RASPBERRYPI4"
 ENV_JETSON_NANO = "VISERON_JETSON_NANO"
-ENV_FFMPEG_PATH = "VISERON_FFMPEG_PATH"
-
-FFMPEG_RECOVERABLE_ERRORS = [
-    "error while decoding MB",
-    "Application provided invalid, non monotonically increasing dts to muxer in stream",
-]
+ENV_PROFILE_MEMORY = "VISERON_PROFILE_MEMORY"
 
 
-HWACCEL_VAAPI = ["-hwaccel", "vaapi", "-vaapi_device", "/dev/dri/renderD128"]
-HWACCEL_VAAPI_ENCODER_FILTER = ["-vf", "format=nv12|vaapi,hwupload"]
-HWACCEL_VAAPI_ENCODER_CODEC = "h264_vaapi"
-
-HWACCEL_CUDA_DECODER_CODEC_MAP = {"h264": "h264_cuvid", "h265": "hevc_cuvid"}
-HWACCEL_CUDA_ENCODER_CODEC = "h264_nvenc"
-
-HWACCEL_RPI3_DECODER_CODEC_MAP = {"h264": "h264_mmal"}
-HWACCEL_RPI3_ENCODER_CODEC = "h264_omx"
-
-HWACCEL_RPI4_DECODER_CODEC_MAP = {"h264": "h264_v4l2m2m"}
-HWACCEL_RPI4_ENCODER_CODEC = "h264_v4l2m2m"
-
-HWACCEL_JETSON_NANO_DECODER_CODEC_MAP = {
-    "h264": "h264_nvmpi",
-    "h265": "hevc_nvmpi",
-}
-
-RECORDER_GLOBAL_ARGS = ["-hide_banner"]
-RECORDER_HWACCEL_ARGS: List[str] = []
-
-LOG_LEVELS = {
-    "CRITICAL": 50,
-    "ERROR": 40,
-    "WARNING": 30,
-    "INFO": 20,
-    "DEBUG": 10,
-    "NOTSET": 0,
-}
-
-FFMPEG_LOG_LEVELS = {
-    "quiet": 50,
-    "panic": 50,
-    "fatal": 50,
-    "error": 40,
-    "warning": 30,
-    "info": 20,
-    "verbose": 10,
-    "debug": 10,
-    "trace": 10,
-}
-
-FFPROBE_TIMEOUT = 15
-
-FONT = FONT_HERSHEY_SIMPLEX
+FONT = cv2.FONT_HERSHEY_SIMPLEX
 FONT_SIZE = 0.6
 FONT_THICKNESS = 1
 
 
 TOPIC_STATIC_MJPEG_STREAMS = "static_mjepg_streams"
 
-TOPIC_DECODE = "decode"
-TOPIC_FRAME = "frame"
-TOPIC_PROCESSED = "processed"
-TOPIC_SCAN = "scan"
+# Viseron.data constants
+LOADING = "loading"
+LOADED = "loaded"
+FAILED = "failed"
+DOMAINS_TO_SETUP = "domains_to_setup"
+DOMAIN_IDENTIFIERS = "domain_identifiers"
+DOMAIN_SETUP_TASKS = "domain_setup_tasks"
+REGISTERED_DOMAINS = "registered_domains"
 
-TOPIC_FRAME_DECODE = "/".join([TOPIC_FRAME, TOPIC_DECODE])
-TOPIC_FRAME_SCAN = "/".join([TOPIC_FRAME, TOPIC_SCAN])
-TOPIC_FRAME_PROCESSED = "/".join([TOPIC_FRAME, TOPIC_PROCESSED])
+# Signal constants
+VISERON_SIGNAL_SHUTDOWN = "shutdown"
 
-TOPIC_MOTION = "motion"
-TOPIC_FRAME_DECODE_MOTION = "/".join(
-    [
-        TOPIC_FRAME_DECODE,
-        TOPIC_MOTION,
-    ]
-)
-TOPIC_FRAME_SCAN_MOTION = "/".join(
-    [
-        TOPIC_FRAME_SCAN,
-        TOPIC_MOTION,
-    ]
-)
-TOPIC_FRAME_PROCESSED_MOTION = "/".join(
-    [
-        TOPIC_FRAME_PROCESSED,
-        TOPIC_MOTION,
-    ]
-)
+# State constants
+STATE_ON = "on"
+STATE_OFF = "off"
+STATE_UNKNOWN = "unknown"
 
-TOPIC_OBJECT = "object"
-TOPIC_FRAME_DECODE_OBJECT = "/".join(
-    [
-        TOPIC_FRAME_DECODE,
-        TOPIC_OBJECT,
-    ]
-)
-TOPIC_FRAME_SCAN_OBJECT = "/".join(
-    [
-        TOPIC_FRAME_SCAN,
-        TOPIC_OBJECT,
-    ]
-)
-TOPIC_FRAME_PROCESSED_OBJECT = "/".join(
-    [
-        TOPIC_FRAME_PROCESSED,
-        TOPIC_OBJECT,
-    ]
-)
+# Event topic constants
+EVENT_STATE_CHANGED = "state_changed"
+EVENT_ENTITY_ADDED = "entity_added"
+EVENT_DOMAIN_REGISTERED = "domain/registered/{domain}"
 
-TOPIC_POST_PROCESSOR = "post_processor"
-TOPIC_FRAME_SCAN_POSTPROC = "/".join([TOPIC_FRAME_SCAN, TOPIC_POST_PROCESSOR])
+# Setup constants
+COMPONENT_RETRY_INTERVAL = 10
+COMPONENT_RETRY_INTERVAL_MAX = 300
+DOMAIN_RETRY_INTERVAL = 10
+DOMAIN_RETRY_INTERVAL_MAX = 300
+SLOW_SETUP_WARNING = 20
+SLOW_DEPENDENCY_WARNING = 60
 
-# UI constants
-PREFIX_STATIC = "/ui/static/"
-PATH_STATIC = "/src/viseron/webserver/assets/static"
-PATH_TEMPLATES = "/src/viseron/webserver/assets/templates"
+
+RESTART_EXIT_CODE = 100

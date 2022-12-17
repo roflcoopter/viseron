@@ -4,7 +4,6 @@ import logging
 import subprocess as sp
 from typing import List
 
-from viseron.detector import Detector
 from viseron.watchdog import WatchDog
 
 LOGGER = logging.getLogger(__name__)
@@ -61,11 +60,10 @@ class RestartablePopen:
 
     def start(self):
         """Start the subprocess."""
-        with Detector.lock:
-            self._subprocess = sp.Popen(
-                *self._args,
-                **self._kwargs,
-            )
+        self._subprocess = sp.Popen(
+            *self._args,
+            **self._kwargs,
+        )
         self._start_time = datetime.datetime.now().timestamp()
         self._started = True
 
@@ -98,7 +96,7 @@ class SubprocessWatchDog(WatchDog):
         self._scheduler.add_job(self.watchdog, "interval", seconds=15)
 
     def watchdog(self):
-        """Check for stopped processes and restarts them."""
+        """Check for stopped processes and restart them."""
         for registered_process in self.registered_items:
             if not registered_process.started:
                 continue
@@ -108,7 +106,5 @@ class SubprocessWatchDog(WatchDog):
             if now - registered_process.start_time < registered_process.grace_period:
                 continue
 
-            LOGGER.error(
-                "Process {} has exited, restarting".format(registered_process.name)
-            )
+            LOGGER.error(f"Process {registered_process.name} has exited, restarting")
             registered_process.restart()

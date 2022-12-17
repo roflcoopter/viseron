@@ -1,0 +1,10 @@
+Labels are used to tell Viseron when to run a post processor.
+
+Any label configured under the <code>object_detector</code> for your camera can be added to the post processors <code>labels</code> section.
+
+:::note
+
+Only objects that are tracked by an <code>object_detector</code> can be sent to a <code>post_processor</code>.
+The object also has to pass all of its filters (confidence, height, width etc).
+
+:::

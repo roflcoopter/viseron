@@ -3,10 +3,9 @@ import logging
 import os
 import re
 import threading
+from typing import Literal
 
 from colorlog import ColoredFormatter
-
-from viseron.config.config_logging import LoggingConfig
 
 
 class DuplicateFilter(logging.Filter):
@@ -42,11 +41,12 @@ class SensitiveInformationFilter(logging.Filter):
 
     def filter(self, record):
         """Filter log record."""
-        record.msg = re.sub(r":\/\/(.*?)\@", r"://*****:*****@", record.msg)
+        if isinstance(record.msg, str):
+            record.msg = re.sub(r":\/\/(.*?)\@", r"://*****:*****@", record.msg)
         return True
 
 
-class FFmpegFilter(logging.Filter):
+class UnhelpfullLogFilter(logging.Filter):
     """Filter out unimportant logs."""
 
     def __init__(self, errors_to_ignore, *args, **kwargs):
@@ -65,21 +65,18 @@ class ViseronLogFormat(ColoredFormatter):
 
     # pylint: disable=protected-access
     base_format = (
-        "%(log_color)s[%(asctime)s] [%(levelname)-8s] [%(name)-24s] - %(message)s"
+        "%(log_color)s[%(asctime)s] [%(levelname)-8s] [%(name)s] - %(message)s"
     )
     overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K" + base_format
 
-    def __init__(self, config: LoggingConfig):
-
-        log_colors = {}
-        if config.color_log:
-            log_colors = {
-                "DEBUG": "cyan",
-                "INFO": "green",
-                "WARNING": "yellow",
-                "ERROR": "red",
-                "CRITICAL": "red",
-            }
+    def __init__(self):
+        log_colors = {
+            "DEBUG": "cyan",
+            "INFO": "green",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "red",
+        }
 
         super().__init__(
             fmt=self.base_format,
@@ -128,10 +125,51 @@ class LogPipe(threading.Thread):
     def run(self):
         """Run the thread, logging everything."""
         for line in iter(self.pipe_reader.readline, ""):
-            self._logger.log(self._output_level, line.strip("\n"))
+            self._logger.log(self._output_level, line.strip().strip("\n"))
 
         self.pipe_reader.close()
 
     def close(self):
         """Close the write end of the pipe."""
         os.close(self._write_filedescriptor)
+
+
+class CTypesLogPipe(threading.Thread):
+    """Used to pipe filedescriptor (stdout or stderr) to python logging.
+
+    If the read line starts with ERRORLOG it will be logged at the ERROR level.
+    Otherwise its logged at the requested loglevel.
+    """
+
+    def __init__(self, logger, loglevel, fd: Literal[1, 2]):
+        super().__init__(name=f"{logger.name}.fd{str(fd)}", daemon=True)
+        self._logger = logger
+        self._loglevel = loglevel
+        self._fd = fd
+
+        self._read_filedescriptor, self._write_filedescriptor = os.pipe()
+        self.pipe_reader = os.fdopen(self._read_filedescriptor)
+        self._old_fd = os.dup(fd)
+        os.dup2(self._write_filedescriptor, fd)
+        self.start()
+
+    def fileno(self):
+        """Return the write file descriptor of the pipe."""
+        return self._write_filedescriptor
+
+    def run(self):
+        """Run the thread, logging everything."""
+        for line in iter(self.pipe_reader.readline, ""):
+            if line.startswith("ERRORLOG"):
+                self._logger.log(
+                    logging.ERROR, line.split("ERRORLOG")[1].strip().strip("\n")
+                )
+            else:
+                self._logger.log(self._loglevel, line.strip().strip("\n"))
+
+        self.pipe_reader.close()
+
+    def close(self):
+        """Close the write end of the pipe."""
+        os.close(self._write_filedescriptor)
+        os.dup2(self._old_fd, self._fd)

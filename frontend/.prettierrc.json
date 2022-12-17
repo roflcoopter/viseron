@@ -1,0 +1,9 @@
+{
+  "importOrder": [
+    "<THIRD_PARTY_MODULES>",
+    "(^components/(.*)$|^context/(.*)$|^lib/(.*)$|^pages/(.*)$|^hooks/(.*)$)",
+    "^[./]"
+  ],
+  "importOrderSeparation": true,
+  "importOrderSortSpecifiers": true
+}

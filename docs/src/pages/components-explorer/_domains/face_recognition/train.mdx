@@ -1,0 +1,21 @@
+On startup images are read from `face_recognition_path` and a model is trained to recognize these faces.<br/>
+The folder structure of the faces folder is very strict. Here is an example of the default one:
+
+```
+/config
+|── face_recognition
+|   └── faces
+|       ├── person1
+|       |   ├── image_of_person1_1.jpg
+|       |   ├── image_of_person1_2.png
+|       |   └── image_of_person1_3.jpg
+|       └── person2
+|       |   ├── image_of_person2_1.jpeg
+|       |   └── image_of_person2_2.jpg
+```
+
+:::warning
+
+You need to follow this folder structure, otherwise training will not be possible.
+
+:::

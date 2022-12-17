@@ -1,0 +1,12 @@
+html,
+body {
+  height: 100%;
+}
+
+#root {
+  height: calc(
+    100% - 179px
+  ); /* 159 = Height of footer (135) + elements inside */
+  display: flex;
+  flex-direction: column;
+}

@@ -1,0 +1,20 @@
+Masks are used to exclude certain areas in the image from object detection.
+If a detected object has its lower portion inside of the mask it will be discarded.
+
+The `coordinates` form a polygon around the masked area.<br></br>
+To easily generate `coordinates` you can use a tool like [image-map.net](https://www.image-map.net/).<br></br>
+Just upload an image from your camera and start drawing your zone.<br></br>
+Then click **Show me the code!** and adapt it to the config format.<br></br>
+Coordinates `coords="522,11,729,275,333,603,171,97"` should be turned into this:
+
+```yaml
+coordinates:
+  - x: 522
+    y: 11
+  - x: 729
+    y: 275
+  - x: 333
+    y: 603
+  - x: 171
+    y: 97
+```

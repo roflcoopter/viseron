@@ -1,6 +1,8 @@
 #!/usr/bin/with-contenv bash
 
-echo "********** Checking if we are running on an RPi **********"
+source /helpers/logger.sh
+
+log_info "********** Checking if we are running on an RPi **********"
 # Check if we are running on an RPi3 or RPi4
 # Hardware revision table is found here: https://www.raspberrypi-spy.co.uk/2012/09/checking-your-raspberry-pi-board-version/
 OUTPUT=$(cat /proc/cpuinfo | grep 'Revision' | awk '{print $3}')
@@ -8,16 +10,16 @@ case "$OUTPUT" in
     "a02082" | "a22082" | "a020d3")
         export VISERON_RASPBERRYPI3=true
         printf "true" > /var/run/environment/VISERON_RASPBERRYPI3
-        echo Running on an RPi3
+        log_info "Running on an RPi3"
         ;;
 
     "a03111" | "b03111" | "b03112" | "c03111" | "c03112" | "d03114")
         export VISERON_RASPBERRYPI4=true
         printf "true" > /var/run/environment/VISERON_RASPBERRYPI4
-        echo Running on an RPi4
+        log_info "Running on an RPi4"
         ;;
 
     *)
-        echo Not running on any supported RPi
+        log_info "Not running on any supported RPi"
 esac
-echo "*********************** Done *****************************"
+log_info "*********************** Done *****************************"

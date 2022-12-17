@@ -4,23 +4,26 @@ FROM ubuntu:${UBUNTU_VERSION} as base
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
+COPY --from=models /classifiers/models/edgetpu /classifiers/models/edgetpu
 
 ARG OPENCL_VERSION
 ARG GMMLIB_VERSION
 ARG IGC_VERSION
 ARG LEVEL_ZERO_GPU
 
-ENV LIBVA_DRIVER_NAME=i965
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   wget \
   # VA-API
   vainfo \
-  # intel-media-va-driver \
+  intel-media-va-driver-non-free \
   libva-drm2 \
   libva2 \
   i965-va-driver \
+  mesa-va-drivers \
+  libmfx1 \
+  radeontop \
+  intel-gpu-tools \
   # OpenCL
   clinfo \
   # FFmpeg
@@ -38,5 +41,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   sha256sum -c ww15.sum && \
   dpkg -i *.deb && \
   rm -R /opencl && \
+  rm /detectors/models/darknet/yolov7* && \
   ln -s /detectors/models/darknet/yolov3.weights /detectors/models/darknet/default.weights && \
   ln -s /detectors/models/darknet/yolov3.cfg /detectors/models/darknet/default.cfg

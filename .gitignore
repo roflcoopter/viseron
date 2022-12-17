@@ -25,18 +25,25 @@
 !/docker/amd64-cuda/Dockerfile*
 !/docker/jetson-nano
 !/docker/jetson-nano/Dockerfile*
-!/docker/jetson-nano/patch_ffmpeg.sh
+!/docker/jetson-nano/pycoral-2.0.0-cp38-cp38-linux_aarch64.whl
+!/docker/jetson-nano/tflite_runtime-2.5.0.post1-cp38-cp38-linux_aarch64.whl
 !/docker/rpi3
 !/docker/rpi3/Dockerfile*
+!/docker/ffprobe_wrapper
+!/docker/ffmpeg_wrapper
 !/docker/yolov4*.cfg
 !/rootfs/
 !/rootfs/etc/
 !/rootfs/etc/**
+!/rootfs/helpers/
+!/rootfs/helpers/**
 !/.dockerignore
 
 # Tests
 !/tests
 !/tests/*
+!/tests/components
+!/tests/components/**
 !/tests/config
 !/tests/config/*
 !/tests/detector
@@ -55,6 +62,8 @@
 !/viseron/*
 !/viseron/camera
 !/viseron/camera/*
+!/viseron/components
+!/viseron/components/**
 !/viseron/config
 !/viseron/config/*
 !/viseron/detector
@@ -65,8 +74,10 @@
 !/viseron/detector/deepstack/*
 !/viseron/detector/edgetpu
 !/viseron/detector/edgetpu/*
+!/viseron/domains
+!/viseron/domains/**
 !/viseron/helpers
-!/viseron/helpers/*
+!/viseron/helpers/**
 !/viseron/motion
 !/viseron/motion/*
 !/viseron/motion/background_subtractor
@@ -92,25 +103,39 @@
 !/viseron/webserver/api/*
 !/viseron/webserver/api/v1
 !/viseron/webserver/api/v1/*
-!/viseron/webserver/assets
-!/viseron/webserver/assets/*
-!/viseron/webserver/assets/templates
-!/viseron/webserver/assets/templates/*
-!/viseron/webserver/assets/static
-!/viseron/webserver/assets/static/*
-!/viseron/webserver/assets/static/css
-!/viseron/webserver/assets/static/css/*
-!/viseron/webserver/assets/static/js
-!/viseron/webserver/assets/static/js/*
 !/requirements.txt
 !/requirements_test.txt
 !setup.py
 
-# Repo
+# Frontend
+!/frontend
+!/frontend/public
+!/frontend/public/*
+!/frontend/public/static
+!/frontend/public/static/*
+!/frontend/src
+!/frontend/src/**
+!/frontend/.eslintrc.js
+!/frontend/.prettierrc.json
+!/frontend/lint-staged.config.js
+!/frontend/package-lock.json
+!/frontend/package.json
+!/frontend/README.md
+!/frontend/tsconfig.json
+
+# Docs
 !/docs
 !/docs/*
-!/docs/img
-!/docs/img/*
+!/docs/docs/**
+!/docs/src/**
+!/docs/static/**
+
+# Scripts
+!/scripts
+!/scripts/*
+!/scripts/gen_docs/*
+
+# Repo
 !/.flake8
 !/.gitignore
 !/.isort.cfg
@@ -118,6 +143,7 @@
 !/.pylintrc
 !/codecov.yaml
 !/LICENSE
+!/netlify.toml
 !/README.md
 !tox.ini
 

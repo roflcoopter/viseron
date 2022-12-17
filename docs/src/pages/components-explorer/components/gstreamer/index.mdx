@@ -1,0 +1,157 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import Camera from "@site/src/pages/components-explorer/_domains/camera/index.mdx";
+import CameraMjpegStreams from "@site/src/pages/components-explorer/_domains/camera/mjpeg_streams.mdx";
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+The GStreamer integration reads frames from your cameras for processing by Viseron.
+
+Viseron uses the `gst-launch-1.0` command to interface with GStreamer.
+
+Hardware acceleration is available and automatically used for the `NVIDIA Jetson Nano`.
+
+:::note
+
+As of now the `gstreamer` integration uses FFmpeg to create recordings when an object is detected and FFprobe to read stream information.
+Therefore, if you make changes to the `recorder` config you should keep in mind that it is in FFmpeg syntax.
+
+:::
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+gstreamer:
+  camera:
+    camera_one:
+      name: Camera 1
+      host: 192.168.XX.XX
+      port: 554
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_user
+      password: !secret camera_one_pass
+      mjpeg_streams:
+        my_stream:
+          width: 100
+          height: 100
+          draw_objects: true
+          rotate: 45
+          mirror: true
+      recorder:
+        idle_timeout: 5
+    camera_two:
+      name: Camera 2
+      host: 192.168.YY.YY
+      port: 554
+      path: /Streaming/Channels/101/
+      username: !secret camera_two_user
+      password: !secret camera_two_pass
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Camera
+
+<Camera />
+
+### MJEPG Streams
+
+<CameraMjpegStreams />
+
+### GStreamer pipeline
+
+Viseron will try to generate a suitable decoder pipeline.
+
+As of now only the `Jetson Nano` has a special pipeline which utilizes hardware acceleration.
+
+If you have experience working with GStreamer, please suggest other pipelines in a PR or an issue!
+
+### GStreamer audio pipeline
+
+If your camera has audio, an audio pipeline will be automatically added to the GStreamer command.
+
+The pipeline is rather crude and always re-encodes the audio to `aac`.
+This is not optimal, but it works. Hopefully this will be improved in the future.
+
+The default audio pipeline looks like this in YAML format:
+
+```yaml
+audio_pipeline:
+  - "input_stream."
+  - "!"
+  - "queue"
+  - "!"
+  - "decodebin"
+  - "!"
+  - "audioconvert"
+  - "!"
+  - "queue"
+  - "!"
+  - "voaacenc"
+  - "!"
+  - "mux.audio_0"
+```
+
+### FFprobe Stream Information
+
+Viseron needs to know the width, height, FPS and audio/video codecs of your stream.<br />
+FFprobe is used on initialization to figure all this information out.
+
+Some cameras dont play nice with this and fail to report some information.<br />
+To circumvent this you can manually specify all these options.
+
+If you specify all of `width`, `height`, `fps`, `codec` and `audio_codec`, Viseron will not need to call FFprobe and startup will be significantly faster.
+
+### Recoverable Errors
+
+GStreamer occasionally prints error messages which are of no real significance.
+
+To suppress an error you can add a subset of that error to the `gstreamer_recoverable_errors` config option.
+
+```yaml
+gstreamer_recoverable_errors:
+  - error while decoding MB
+```
+
+### Rotating video
+
+If you rotate your camera 90 or 180 degrees, you can rotate the video in Viseron to match.<br />
+To do this you can use the `output_element` and `video_filters` option in the config.<br />
+
+:::note
+
+If you are rotating the video 90 degrees, you need to tell Viseron the width and height of the video, which should be the opposite of the cameras real resolution.
+If you have a camera with 1920x1080 resolution, you need to set `width: 1080` and `height: 1920` in the config.
+
+:::
+
+<details>
+  <summary>Config to rotate 90 degrees clockwise</summary>
+
+```yaml title="/config/config.yaml"
+gstreamer:
+  camera:
+    camera_one:
+      name: Camera 1
+      host: 192.168.XX.X
+      port: 554
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_user
+      password: !secret camera_one_pass
+      output_element: "videoflip method=clockwise !" # Rotate the frames processed by Viseron
+      width: 1080 # Width of the rotated video = height of the camera
+      height: 1920 # Height of the rotated video = width of the camera
+      recorder:
+        idle_timeout: 5
+        video_filters: # Rotate the recorded videos, handled by FFmpeg as of now.
+          - transpose=1
+```
+
+</details>

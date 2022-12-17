@@ -1,0 +1,167 @@
+[
+    {
+        "type": "map",
+        "value": [
+            {
+                "type": "map",
+                "value": [
+                    {
+                        "type": "map",
+                        "value": [
+                            {
+                                "type": "map",
+                                "value": [
+                                    {
+                                        "type": "list",
+                                        "values": [
+                                            {
+                                                "type": "string"
+                                            }
+                                        ],
+                                        "name": "labels",
+                                        "description": "A list of labels that when detected will be sent to the post processor. Applies <b>only</b> to this specific camera.",
+                                        "optional": true,
+                                        "default": null
+                                    }
+                                ],
+                                "name": {
+                                    "type": "CAMERA_IDENTIFIER"
+                                },
+                                "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+                                "cameraidentifier": true,
+                                "default": null
+                            }
+                        ],
+                        "name": "cameras",
+                        "description": "Camera-specific configuration. All subordinate keys corresponds to the <code>camera_identifier</code> of a configured camera.",
+                        "required": true,
+                        "default": null
+                    },
+                    {
+                        "type": "string",
+                        "name": "host",
+                        "description": "IP or hostname to your CompreFace server.",
+                        "required": true,
+                        "default": null
+                    },
+                    {
+                        "type": "integer",
+                        "name": "port",
+                        "description": "Port to your CompreFace server.",
+                        "required": true,
+                        "default": null
+                    },
+                    {
+                        "type": "string",
+                        "name": "recognition_api_key",
+                        "description": "API key to your CompreFace recognition service.",
+                        "required": true,
+                        "default": null
+                    },
+                    {
+                        "type": "list",
+                        "values": [
+                            {
+                                "type": "string"
+                            }
+                        ],
+                        "name": "labels",
+                        "description": "A list of labels that when detected will be sent to the post processor. Applies to <b>all</b> cameras defined under <code>cameras</code>.",
+                        "optional": true,
+                        "default": null
+                    },
+                    {
+                        "type": "string",
+                        "name": "face_recognition_path",
+                        "description": "Path to folder which contains subdirectories with images for each face to track.",
+                        "optional": true,
+                        "default": "/config/face_recognition/faces"
+                    },
+                    {
+                        "type": "boolean",
+                        "name": "save_unknown_faces",
+                        "description": "If true, any unrecognized face will be saved to the folder specified in <code>unknown_faces_path</code>. You can then move this image to the folder of the correct person to improve accuracy.",
+                        "optional": true,
+                        "default": false
+                    },
+                    {
+                        "type": "string",
+                        "name": "unknown_faces_path",
+                        "description": "Path to folder where unknown faces will be stored.",
+                        "optional": true,
+                        "default": "/config/face_recognition/faces/unknown"
+                    },
+                    {
+                        "type": "float",
+                        "valueMin": 0.0,
+                        "name": "expire_after",
+                        "description": "Time in seconds before a detected face is no longer considered detected.",
+                        "optional": true,
+                        "default": 5
+                    },
+                    {
+                        "type": "boolean",
+                        "name": "train",
+                        "description": "Train CompreFace to recognize faces on Viseron start. Disable this when you have a good model trained.",
+                        "optional": true,
+                        "default": false
+                    },
+                    {
+                        "type": "float",
+                        "valueMin": 0.0,
+                        "valueMax": 1.0,
+                        "name": "det_prob_threshold",
+                        "description": "Minimum required confidence that a recognized face is actually a face. ",
+                        "optional": true,
+                        "default": 0.8
+                    },
+                    {
+                        "type": "float",
+                        "valueMin": 0.0,
+                        "valueMax": 1.0,
+                        "name": "similarity_threshold",
+                        "description": "CompreFace does not return <code>unknown</code> for faces that it does not recognize. If you upload the faces of two different people, you still receive the result, but the similarity is low. Any similarity below this threshold will be considered as an <code>unknown</code> face.",
+                        "optional": true,
+                        "default": 0.5
+                    },
+                    {
+                        "type": "integer",
+                        "name": "limit",
+                        "description": "Maximum number of faces on the image to be recognized. It recognizes the biggest faces first. Value of 0 represents no limit.",
+                        "optional": true,
+                        "default": 0
+                    },
+                    {
+                        "type": "integer",
+                        "name": "prediction_count",
+                        "description": "Maximum number of subject predictions per face. It returns the most similar subjects.",
+                        "optional": true,
+                        "default": 1
+                    },
+                    {
+                        "type": "string",
+                        "name": "face_plugins",
+                        "description": "Comma-separated slugs of face plugins. If empty, no additional information is returned. <a href=https://github.com/exadel-inc/CompreFace/tree/master/docs/Face-services-and-plugins.md#face-plugins>Learn more</a>",
+                        "optional": true,
+                        "default": null
+                    },
+                    {
+                        "type": "boolean",
+                        "name": "status",
+                        "description": "If true includes system information like execution_time and plugin_version fields.",
+                        "optional": true,
+                        "default": false
+                    }
+                ],
+                "name": "face_recognition",
+                "description": "Face recognition domain config.",
+                "optional": true,
+                "default": null
+            }
+        ],
+        "name": "compreface",
+        "description": "CompreFace configuration.",
+        "required": true,
+        "default": null
+    }
+]

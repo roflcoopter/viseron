@@ -1,24 +1,32 @@
 """Used to filter out unwanted objects."""
-from viseron.config.config_object_detection import LabelConfig
-from viseron.detector.detected_object import DetectedObject
+from viseron.domains.object_detector.const import (
+    CONFIG_LABEL_CONFIDENCE,
+    CONFIG_LABEL_HEIGHT_MAX,
+    CONFIG_LABEL_HEIGHT_MIN,
+    CONFIG_LABEL_LABEL,
+    CONFIG_LABEL_REQUIRE_MOTION,
+    CONFIG_LABEL_TRIGGER_RECORDER,
+    CONFIG_LABEL_WIDTH_MAX,
+    CONFIG_LABEL_WIDTH_MIN,
+)
+from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.helpers import object_in_polygon
 
 
 class Filter:
     """Filter a recorded object against a configured label."""
 
-    def __init__(self, config, camera_resolution, object_filter: LabelConfig) -> None:
-        self._config = config
+    def __init__(self, camera_resolution, object_filter, mask) -> None:
         self._camera_resolution = camera_resolution
-        self._label = object_filter.label
-        self._confidence = object_filter.confidence
-        self._width_min = object_filter.width_min
-        self._width_max = object_filter.width_max
-        self._height_min = object_filter.height_min
-        self._height_max = object_filter.height_max
-        self._trigger_recorder = object_filter.trigger_recorder
-        self._require_motion = object_filter.require_motion
-        self._post_processor = object_filter.post_processor
+        self._mask = mask
+        self._label = object_filter[CONFIG_LABEL_LABEL]
+        self._confidence = object_filter[CONFIG_LABEL_CONFIDENCE]
+        self._width_min = object_filter[CONFIG_LABEL_WIDTH_MIN]
+        self._width_max = object_filter[CONFIG_LABEL_WIDTH_MAX]
+        self._height_min = object_filter[CONFIG_LABEL_HEIGHT_MIN]
+        self._height_max = object_filter[CONFIG_LABEL_HEIGHT_MAX]
+        self._trigger_recorder = object_filter[CONFIG_LABEL_TRIGGER_RECORDER]
+        self._require_motion = object_filter[CONFIG_LABEL_REQUIRE_MOTION]
 
     def filter_confidence(self, obj: DetectedObject) -> bool:
         """Return if confidence filter is met."""
@@ -43,7 +51,7 @@ class Filter:
 
     def filter_mask(self, obj: DetectedObject) -> bool:
         """Return True if object is within mask."""
-        for mask in self._config.object_detection.mask:
+        for mask in self._mask:
             if object_in_polygon(self._camera_resolution, obj, mask):
                 obj.filter_hit = "mask"
                 return False
@@ -59,6 +67,11 @@ class Filter:
         )
 
     @property
+    def confidence(self) -> bool:
+        """Return configured confidence of filter."""
+        return self._confidence
+
+    @property
     def trigger_recorder(self) -> bool:
         """Return if label triggers recorder."""
         return self._trigger_recorder
@@ -67,8 +80,3 @@ class Filter:
     def require_motion(self) -> bool:
         """Return if label requires motion to trigger recorder."""
         return self._require_motion
-
-    @property
-    def post_processor(self) -> str:
-        """Return post processor for label."""
-        return self._post_processor

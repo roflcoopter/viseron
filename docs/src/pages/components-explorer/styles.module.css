@@ -1,0 +1,70 @@
+/* Modified version of https://github.com/facebook/docusaurus/blob/be0dc6b0c9d52e503dc1928f636010b761d5d44d/website/src/pages/showcase/styles.module.css */
+
+.filterCheckbox {
+  justify-content: space-between;
+}
+
+.filterCheckbox,
+.checkboxList {
+  display: flex;
+  align-items: center;
+}
+
+.filterCheckbox > div:first-child {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+}
+
+.filterCheckbox > div > * {
+  margin-bottom: 0;
+  margin-right: 8px;
+}
+
+.checkboxList {
+  flex-wrap: wrap;
+}
+
+.checkboxListItem {
+  user-select: none;
+  white-space: nowrap;
+  height: 32px;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  margin-right: 0.5rem;
+}
+
+.checkboxListItem:last-child {
+  margin-right: 0;
+}
+
+.searchContainer {
+  margin-left: auto;
+}
+
+.searchContainer input {
+  height: 30px;
+  border-radius: 15px;
+  padding: 10px;
+  border: 1px solid gray;
+}
+
+.componentList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.componentListHeader {
+  display: flex;
+  align-items: center;
+}
+
+.componentListHeader > h2 {
+  margin-bottom: 0;
+}
+
+.componentListHeader > svg {
+  width: 30px;
+  height: 30px;
+}
