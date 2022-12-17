@@ -143,6 +143,16 @@ class Stream:
         self.create_symlink(self.alias)
         self.create_symlink(self.segments_alias)
 
+        self._extension = self._config[CONFIG_RECORDER][CONFIG_EXTENSION]
+        if self._config[CONFIG_RECORDER][
+            CONFIG_EXTENSION
+        ] == "mp4" and self.stream_audio_codec in ["pcm_alaw", "pcm_mulaw"]:
+            self._logger.warning(
+                "Container mp4 does not support pcm_alaw audio codec, using mkv "
+                "instead. Consider changing extension in your config."
+            )
+            self._extension = "mkv"
+
         self._pixel_format = self._output_stream_config[CONFIG_PIX_FMT]
         self._color_plane_width = self.width
         self._color_plane_height = int(self.height * 1.5)
@@ -418,7 +428,7 @@ class Stream:
                 os.path.join(
                     self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
                     self._camera.identifier,
-                    f"%Y%m%d%H%M%S.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
+                    f"%Y%m%d%H%M%S.{self._extension}",
                 )
             ]
         )
