@@ -29,7 +29,7 @@ const FeatureList: FeatureItem[] = [
       <>
         Viseron comes with a good number of components which can be mixed and
         matched to your liking.<br></br>
-        <a href="/components">See full list of components here.</a>
+        <a href="/components-explorer">See full list of components here.</a>
       </>
     ),
   },
