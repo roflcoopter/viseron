@@ -10,17 +10,19 @@ The goal is ease of use while also leveraging hardware acceleration for minimal 
 Viserons features include, but not limited to the following:
 
 - Object detection via:
-  - YOLOv3/4 Darknet using OpenCV
+  - YOLOv3, YOLOv4 and YOLOv7 Darknet using OpenCV
   - Tensorflow via Google Coral EdgeTPU
   - [DeepStack](https://docs.deepstack.cc/)
 - Motion detection
 - Face recognition via:
   - dlib
   - [DeepStack](https://docs.deepstack.cc/)
+  - [CompreFace](https://github.com/exadel-inc/CompreFace)
+- Image classification
 - Responsive, mobile friendly Web UI written in TypeScript React
 - MQTT support
 - [Home Assistant](https://home-assistant.io) MQTT Discovery
-- Lookback, buffers frames to record before the event actually happened
+- Lookback, record before an event actually happens
 - Supports hardware acceleration on different platforms
   - CUDA for systems with a supported GPU
   - OpenCL
@@ -40,16 +42,21 @@ Viserons features include, but not limited to the following:
 ## Screenshots
 
 <p align="center">
-  <img src="/img/screenshots/Viseron-screenshot-cameras.png" alt-text="Camera view"/>
   Camera view
+  <img src="/img/screenshots/Viseron-screenshot-cameras.png" alt-text="Camera view"/>
 </p>
 
 <p align="center">
-  <img src="/img/screenshots/Viseron-screenshot-recordings.png" alt-text="Recordings view"/>
   Recordings view
+  <img src="/img/screenshots/Viseron-screenshot-recordings.png" alt-text="Recordings view"/>
 </p>
 
 <p align="center">
-  <img src="/img/screenshots/Viseron-screenshot-configuration.png" alt-text="Configuration Editor"/>
+  Entities view
+  <img src="/img/screenshots/Viseron-screenshot-entities.png" alt-text="Entities view"/>
+</p>
+
+<p align="center">
   Configuration Editor
+  <img src="/img/screenshots/Viseron-screenshot-configuration.png" alt-text="Configuration Editor"/>
 </p>
