@@ -11,7 +11,7 @@ import cv2
 import voluptuous as vol
 
 from viseron import Viseron
-from viseron.const import ENV_CUDA_SUPPORTED
+from viseron.const import ENV_CUDA_SUPPORTED, ENV_OPENCL_SUPPORTED
 from viseron.domains import OptionalDomain, RequireDomain, setup_domain
 from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
 from viseron.domains.object_detector import BASE_CONFIG_SCHEMA
@@ -53,6 +53,8 @@ from .const import (
     DNN_BACKENDS,
     DNN_CPU,
     DNN_DEFAULT,
+    DNN_OPENCL,
+    DNN_OPENCV,
     DNN_TARGETS,
 )
 
@@ -219,6 +221,9 @@ class DarknetDNN(BaseDarknet):
             LOGGER.debug("Enabling OpenCL")
             cv2.ocl.setUseOpenCL(True)
 
+        LOGGER.debug(f"DNN backend: {self.dnn_preferable_backend}")
+        LOGGER.debug(f"DNN target: {self.dnn_preferable_target}")
+
         self.load_network(
             config[CONFIG_MODEL_PATH],
             config[CONFIG_MODEL_CONFIG],
@@ -282,6 +287,8 @@ class DarknetDNN(BaseDarknet):
         """Return DNN backend."""
         if self._config[CONFIG_DNN_BACKEND]:
             return DNN_BACKENDS[self._config[CONFIG_DNN_BACKEND]]
+        if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
+            return DNN_BACKENDS[DNN_OPENCV]
         return DNN_BACKENDS[DNN_DEFAULT]
 
     @property
@@ -289,6 +296,8 @@ class DarknetDNN(BaseDarknet):
         """Return DNN target."""
         if self._config[CONFIG_DNN_TARGET]:
             return DNN_TARGETS[self._config[CONFIG_DNN_TARGET]]
+        if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
+            return DNN_TARGETS[DNN_OPENCL]
         return DNN_TARGETS[DNN_CPU]
 
 
