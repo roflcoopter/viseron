@@ -63,6 +63,7 @@ services:
         UBUNTU_VERSION: "$UBUNTU_VERSION"
         MAKEFLAGS: "$MAKEFLAGS"
         OPENCV_VERSION: "$OPENCV_VERSION"
+        OPENVINO_VERSION: "$OPENVINO_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
       cache_from:
         - roflcoopter/amd64-opencv:$OPENCV_VERSION
@@ -166,6 +167,7 @@ services:
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         MAKEFLAGS: "$MAKEFLAGS"
         OPENCV_VERSION: "$OPENCV_VERSION"
+        OPENVINO_VERSION: "$OPENVINO_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
       cache_from:
         - roflcoopter/amd64-cuda-opencv:$OPENCV_VERSION
