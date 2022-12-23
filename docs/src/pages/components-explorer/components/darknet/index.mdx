@@ -179,21 +179,39 @@ darknet:
 
 </Admonition>
 
-### OpenCV DNN Backend/Target
+### Hardware acceleration
 
-The `dnn_backend` and `dnn_target` controls how the model runs.
-By default the YOLO-model will run on your GPU if you have CUDA or OpenCL available.
-You should not have to change this unless you have special needs.
-
+Hardware accelerated object detection is supported on NVIDIA GPUs and Intel CPUs with integrated GPUs.
 If you dont have a GPU available, `darknet` will run on the CPU.
 
-:::tip
+#### NVIDIA GPUs
 
-If you want to force `darknet` to run on OpenCL you can set these config options:
+If your system supports CUDA it is recommended to use the `roflcoopter/amd64-cuda-viseron` image.
+It will automatically use CUDA for object detection.
+
+:::info
+When running on CUDA, native [Darknet](https://github.com/AlexeyAB/darknet) is used.
+:::
+
+:::tip
+If you want to force `darknet` to run on OpenCL even if you have an NVIDIA GPU you can set these config options:
 
 ```yaml
 darknet:
   object_detector:
-    dnn_backend: opencv
+    dnn_backend: openvino
     dnn_target: opencl
 ```
+
+:::
+
+#### Intel CPUs with integrated GPUs
+
+If you are running on an Intel CPU with integrated GPU, you can use the `roflcoopter/amd64-viseron` image.
+It will automatically use OpenCV with OpenVINO and OpenCL for object detection.
+
+The `dnn_backend` and `dnn_target` controls how the model runs.
+
+:::info
+When not running on CUDA, OpenCVs implementation of Darknet is used.
+:::

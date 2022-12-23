@@ -9,12 +9,15 @@ COPY --from=ffmpeg /usr/local /usr/local/
 WORKDIR /tmp/workdir
 
 ARG OPENCV_VERSION
+ARG OPENVINO_VERSION
 ARG MAKEFLAGS="-j2"
+
 ENV \
   DEBIAN_FRONTEND=noninteractive \
   PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig" \
   PREFIX=/opt/opencv \
   LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib" \
+  PYTHONPATH=$PYTHONPATH:/opt/opencv/lib/python3.8/site-packages \
   # OpenCV supports CC Arch 3.0 and higher. https://github.com/opencv/opencv/blob/master/cmake/OpenCVDetectCUDA.cmake
   # However, CUDA 11 only supports >= 3.5 
   CUDA_ARCH_BIN="35 50 52 53 60 61 70 72 75 80 86" \
@@ -25,6 +28,11 @@ RUN buildDeps="autoconf \
   ca-certificates \
   cmake \
   curl \
+  wget \
+  libusb-1.0 \
+  sudo \
+  cython3 \
+  intel-opencl-icd \
   clinfo \
   bzip2 \
   expat \
@@ -50,6 +58,26 @@ RUN buildDeps="autoconf \
   apt-get install -yq --no-install-recommends ${buildDeps}
 
 
+## Install OpenVINO
+RUN mkdir /opt/openvino && \
+  cd /opt/openvino && \
+  git clone --recurse-submodules --shallow-submodules --branch ${OPENVINO_VERSION} --depth 1 https://github.com/openvinotoolkit/openvino.git .
+
+RUN cd /opt/openvino && \
+  chmod +x install_build_dependencies.sh && \
+  ./install_build_dependencies.sh && \
+  pip3 install --upgrade pip && \
+  pip3 install -r src/bindings/python/wheel/requirements-dev.txt && \
+  mkdir build && cd build && \
+  cmake -DCMAKE_BUILD_TYPE=Release .. \
+  -DENABLE_OPENCV=OFF \
+  -DNGRAPH_PYTHON_BUILD_ENABLE=ON \
+  -DNGRAPH_ONNX_IMPORT_ENABLE=ON \
+  -DENABLE_PYTHON=ON && \
+  make --jobs=$(nproc --all) && \
+  make install 
+
+
 ## OpenCV
 RUN  \
   DIR=/tmp/opencv && mkdir -p ${DIR} && cd ${DIR} && \
@@ -61,6 +89,7 @@ RUN  \
   tar -x --strip-components=1 -f opencv_contrib-${OPENCV_VERSION}.tar.gz
 
 RUN \
+  /bin/bash /opt/openvino/scripts/setupvars/setupvars.sh && \
   DIR=/tmp/opencv/build && mkdir -p ${DIR} && cd ${DIR} && \
   cmake -D CMAKE_BUILD_TYPE=RELEASE \
   -DBUILD_TIFF=ON \
@@ -69,6 +98,12 @@ RUN \
   -D OPENCV_GENERATE_PKGCONFIG=YES \
   -D WITH_OPENGL=ON \
   -D WITH_OPENCL=ON \
+  -D WITH_OPENVINO=ON \
+  -D WITH_INF_ENGINE=ON \
+  -D InferenceEngine_DIR="/usr/local/runtime/cmake" \
+  -D ngraph_DIR="/usr/local/runtime/cmake" \
+  -D WITH_NGRAPH=ON \
+  -D ENABLE_CXX11=ON \
   -D WITH_OPENMP=ON \
   -D WITH_IPP=ON \
   -D WITH_TBB=ON \
@@ -112,6 +147,9 @@ RUN \
   make && \
   make install
 
+RUN python3 -c 'import cv2; print(cv2.getBuildInformation())'
+
 FROM scratch
 
+COPY --from=build /usr/local /usr/local/
 COPY --from=build /opt/opencv /opt/opencv/
