@@ -98,7 +98,6 @@ ENTRYPOINT ["/init"]
 
 COPY docker/ffprobe_wrapper /home/abc/bin/ffprobe
 COPY docker/ffmpeg_wrapper /home/abc/bin/ffmpeg
-COPY --from=opencv /usr/local/runtime /usr/local/runtime/
 COPY --from=opencv /opt/opencv /usr/local/
 COPY --from=ffmpeg /usr/local /ffmpeg/
 COPY rootfs/ /
