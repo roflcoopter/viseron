@@ -6,6 +6,7 @@ FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} as opencv
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
 
 COPY --from=opencv /opt/opencv /opt/opencv/
+COPY --from=opencv /usr/local/runtime /usr/local/runtime/
 
 ARG MAKEFLAGS="-j2"
 ARG DARKNET_COMMIT
@@ -27,6 +28,8 @@ RUN buildDeps="autoconf \
   git \
   libopenblas-dev \
   liblapack-dev \
+  libtbb-dev \
+  libpng16-16 \
   make \
   python3-dev \
   python3-pip \
