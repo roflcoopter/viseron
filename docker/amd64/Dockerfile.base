@@ -24,7 +24,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libmfx1 \
   radeontop \
   intel-gpu-tools \
+  # OpenCV
+  libtbb-dev \
+  libpng16-16 \
   # OpenCL
+  ocl-icd-libopencl1 \
   clinfo \
   # FFmpeg
   libnuma1 && \
