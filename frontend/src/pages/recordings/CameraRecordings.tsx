@@ -6,17 +6,17 @@ import { useParams } from "react-router-dom";
 
 import { ScrollToTopOnMount } from "components/ScrollToTop";
 import { Loading } from "components/loading/Loading";
-import RecordingCard from "components/recording/RecordingCard";
+import RecordingCardDaily from "components/recording/RecordingCardDaily";
 import { ViseronContext } from "context/ViseronContext";
 import { useTitle } from "hooks/UseTitle";
 import { objIsEmpty } from "lib/helpers";
 
-type RecordingsParams = {
+type CameraRecordingsParams = {
   identifier: string;
 };
-const Recordings = () => {
+const CameraRecordings = () => {
   const viseron = useContext(ViseronContext);
-  const { identifier } = useParams<RecordingsParams>();
+  const { identifier } = useParams<CameraRecordingsParams>();
   useTitle(
     `Recordings${
       identifier && identifier! in viseron.cameras
@@ -49,38 +49,22 @@ const Recordings = () => {
   return (
     <Container>
       <ScrollToTopOnMount />
-      <Grid container direction="row" spacing={2}>
+      <Typography variant="h5" align="center">
+        {camera.name}
+      </Typography>
+      <Grid
+        container
+        direction="row"
+        justifyContent="start"
+        alignItems="center"
+        spacing={2}
+      >
         {Object.keys(camera.recordings)
           .sort()
           .reverse()
           .map((date) => (
-            <Grid item key={date} xs={12}>
-              <Typography variant="h5">{date}</Typography>
-              <Grid
-                container
-                direction="row"
-                justifyContent="start"
-                spacing={2}
-              >
-                {Object.keys(camera.recordings[date])
-                  .sort()
-                  .reverse()
-                  .map((recording) => (
-                    <Grid
-                      item
-                      key={recording}
-                      xs={12}
-                      sm={6}
-                      md={6}
-                      lg={6}
-                      xl={6}
-                    >
-                      <RecordingCard
-                        recording={camera.recordings[date][recording]}
-                      />
-                    </Grid>
-                  ))}
-              </Grid>
+            <Grid item key={date} xs={12} sm={12} md={6} lg={6} xl={4}>
+              <RecordingCardDaily camera={camera} date={date} />
             </Grid>
           ))}
       </Grid>
@@ -88,4 +72,4 @@ const Recordings = () => {
   );
 };
 
-export default Recordings;
+export default CameraRecordings;

@@ -12,7 +12,13 @@ import { Loading } from "components/loading/Loading";
 
 const Configuration = lazy(() => import("pages/Configuration"));
 const Cameras = lazy(() => import("pages/Cameras"));
-const Recordings = lazy(() => import("pages/Recordings"));
+const Recordings = lazy(() => import("pages/recordings/Recordings"));
+const CameraRecordings = lazy(
+  () => import("pages/recordings/CameraRecordings")
+);
+const CameraRecordingsDaily = lazy(
+  () => import("pages/recordings/CameraRecordingsDaily")
+);
 const Entities = lazy(() => import("pages/Entities"));
 
 const FullHeightContainer = styled("div")(() => ({
@@ -29,8 +35,16 @@ const routes = [
     element: <Cameras />,
   },
   {
-    path: "/recordings/:identifier",
+    path: "/recordings",
     element: <Recordings />,
+  },
+  {
+    path: "/recordings/:identifier",
+    element: <CameraRecordings />,
+  },
+  {
+    path: "/recordings/:identifier/:date",
+    element: <CameraRecordingsDaily />,
   },
   {
     path: "/configuration",

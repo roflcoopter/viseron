@@ -11,6 +11,7 @@ import "./VideoPlayer.css";
 interface VideoPlayerPropsInferface {
   recording: types.Recording;
   options: videojs.PlayerOptions;
+  overlay?: boolean;
 }
 
 type OverlayBase = {
@@ -42,28 +43,34 @@ type VideoJsPlayerOverlay = videojs.Player & {
   overlay: (overlays: VideoJsOverlayOptions) => void;
 };
 
-const VideoPlayer: FC<VideoPlayerPropsInferface> = ({ recording, options }) => {
+const VideoPlayer: FC<VideoPlayerPropsInferface> = ({
+  recording,
+  options,
+  overlay,
+}) => {
   const videoNode = useRef<HTMLVideoElement>(null);
   const player = useRef<videojs.Player>();
 
   useEffect(() => {
     if (!player.current) {
       player.current = videojs(videoNode.current!, options, () => {
-        (player.current as VideoJsPlayerOverlay).overlay({
-          class: "videojs-overlay-custom",
-          overlays: [
-            {
-              content: recording.filename.split(".")[0],
-              start: "loadstart",
-              end: "play",
-            },
-            {
-              content: recording.filename.split(".")[0],
-              start: "pause",
-              end: "play",
-            },
-          ],
-        });
+        if (overlay) {
+          (player.current as VideoJsPlayerOverlay).overlay({
+            class: "videojs-overlay-custom",
+            overlays: [
+              {
+                content: recording.filename.split(".")[0],
+                start: "loadstart",
+                end: "play",
+              },
+              {
+                content: recording.filename.split(".")[0],
+                start: "pause",
+                end: "play",
+              },
+            ],
+          });
+        }
       });
     }
     return () => {
