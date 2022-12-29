@@ -5,6 +5,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+import { ScrollToTopFab } from "components/ScrollToTop";
 import Footer from "components/footer/Footer";
 import AppDrawer from "components/header/Drawer";
 import Header from "components/header/Header";
@@ -27,11 +28,11 @@ const FullHeightContainer = styled("div")(() => ({
 
 const routes = [
   {
-    path: "/",
-    element: <Navigate to="/cameras" replace />,
+    path: "/cameras",
+    element: <Navigate to="/" replace />,
   },
   {
-    path: "/cameras",
+    path: "/",
     element: <Cameras />,
   },
   {
@@ -104,6 +105,7 @@ function App() {
         </Suspense>
       </FullHeightContainer>
       {showFooter && <Footer />}
+      <ScrollToTopFab />
     </FullHeightContainer>
   );
 }

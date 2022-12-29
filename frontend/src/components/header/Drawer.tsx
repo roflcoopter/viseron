@@ -34,7 +34,7 @@ type DrawerItemTypes = DrawerItemHeader | DrawerItemLink | DrawerItemDivider;
 
 const drawerItems: Array<DrawerItemTypes> = [
   { type: "header", title: "Pages" },
-  { type: "link", title: "Cameras", icon: VideocamIcon, path: "/cameras" },
+  { type: "link", title: "Cameras", icon: VideocamIcon, path: "/" },
   {
     type: "link",
     title: "Recordings",
