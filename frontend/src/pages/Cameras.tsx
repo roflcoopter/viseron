@@ -18,13 +18,7 @@ const Cameras = () => {
 
   return (
     <Container>
-      <Grid
-        container
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        spacing={2}
-      >
+      <Grid container direction="row" spacing={2}>
         {Object.keys(viseron.cameras).map((camera) => (
           <Grid
             item

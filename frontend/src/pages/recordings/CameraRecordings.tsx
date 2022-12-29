@@ -52,13 +52,7 @@ const CameraRecordings = () => {
       <Typography variant="h5" align="center">
         {camera.name}
       </Typography>
-      <Grid
-        container
-        direction="row"
-        justifyContent="start"
-        alignItems="center"
-        spacing={2}
-      >
+      <Grid container direction="row" spacing={2}>
         {Object.keys(camera.recordings)
           .sort()
           .reverse()

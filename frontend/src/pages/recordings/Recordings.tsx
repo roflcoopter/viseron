@@ -2,6 +2,7 @@ import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import { useContext } from "react";
 
+import { ScrollToTopOnMount } from "components/ScrollToTop";
 import { Loading } from "components/loading/Loading";
 import RecordingCardLatest from "components/recording/RecordingCardLatest";
 import { ViseronContext } from "context/ViseronContext";
@@ -18,13 +19,8 @@ const Recordings = () => {
 
   return (
     <Container>
-      <Grid
-        container
-        direction="row"
-        justifyContent="space-between"
-        alignItems="center"
-        spacing={2}
-      >
+      <ScrollToTopOnMount />
+      <Grid container direction="row" spacing={2}>
         {Object.keys(viseron.cameras).map((camera) => (
           <Grid
             item
