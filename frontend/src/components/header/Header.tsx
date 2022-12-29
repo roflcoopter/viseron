@@ -9,13 +9,15 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import { alpha, styled, useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { useContext, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 
 import { ColorModeContext } from "context/ColorModeContext";
 import { useScrollPosition } from "hooks/UseScrollPosition";
 
 import { ReactComponent as ViseronLogo } from "../../viseron-logo.svg";
+import Breadcrumbs from "./Breadcrumbs";
 
 interface AppHeaderProps {
   setDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -49,6 +51,7 @@ const Header = styled("header", {
 export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
   const colorMode = useContext(ColorModeContext);
   const theme = useTheme();
+  const mediaQueryMedium = useMediaQuery(theme.breakpoints.up("md"));
   const [showHeader, setShowHeader] = useState(true);
   const lastTogglePos = useRef(0);
 
@@ -99,7 +102,7 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
         </Tooltip>
         <Tooltip title="Home" enterDelay={300}>
           <Box
-            component={Link}
+            component={RouterLink}
             to={"/"}
             aria-label="Home"
             sx={{ marginTop: "auto", marginLeft: "16px" }}
@@ -107,6 +110,7 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
             <ViseronLogo width={45} height={45} />
           </Box>
         </Tooltip>
+        {mediaQueryMedium && <Breadcrumbs />}
         <Box sx={{ ml: "auto" }} />
         <Stack direction="row" spacing={1}>
           <Tooltip title="GitHub" enterDelay={300}>
@@ -136,7 +140,11 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
             </IconButton>
           </Tooltip>
           <Tooltip title={"Edit Configuration"} enterDelay={300}>
-            <IconButton component={Link} color="primary" to={"/configuration"}>
+            <IconButton
+              component={RouterLink}
+              color="primary"
+              to={"/configuration"}
+            >
               <SettingsIcon />
             </IconButton>
           </Tooltip>

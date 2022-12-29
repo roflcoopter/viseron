@@ -23,10 +23,10 @@ export default function AppFooter() {
       >
         Viseron
       </Typography>
-      <Link target="_blank" href="https://github.com/roflcoopter/viseron">
-        <Typography
-          align="center"
-          variant="subtitle2"
+      <Typography align="center" variant="subtitle2">
+        <Link
+          target="_blank"
+          href="https://github.com/roflcoopter/viseron"
           color={theme.palette.text.secondary}
         >
           <GitHubIcon
@@ -38,8 +38,8 @@ export default function AppFooter() {
             }}
           />
           GitHub
-        </Typography>
-      </Link>
+        </Link>
+      </Typography>
     </Footer>
   );
 }

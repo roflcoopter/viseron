@@ -2,22 +2,24 @@ import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import { useContext } from "react";
 
-import CameraCard from "components/CameraCard";
+import { ScrollToTopOnMount } from "components/ScrollToTop";
 import { Loading } from "components/loading/Loading";
+import RecordingCardLatest from "components/recording/RecordingCardLatest";
 import { ViseronContext } from "context/ViseronContext";
 import { useTitle } from "hooks/UseTitle";
 import { objIsEmpty } from "lib/helpers";
 
-const Cameras = () => {
-  useTitle("Cameras");
+const Recordings = () => {
   const viseron = useContext(ViseronContext);
+  useTitle("Recordings");
 
   if (objIsEmpty(viseron.cameras)) {
-    return <Loading text="Loading Cameras" />;
+    return <Loading text="Loading Recordings" />;
   }
 
   return (
     <Container>
+      <ScrollToTopOnMount />
       <Grid container direction="row" spacing={2}>
         {Object.keys(viseron.cameras).map((camera) => (
           <Grid
@@ -29,7 +31,7 @@ const Cameras = () => {
             xl={4}
             key={viseron.cameras[camera].identifier}
           >
-            <CameraCard camera={viseron.cameras[camera]} />
+            <RecordingCardLatest camera={viseron.cameras[camera]} />
           </Grid>
         ))}
       </Grid>
@@ -37,4 +39,4 @@ const Cameras = () => {
   );
 };
 
-export default Cameras;
+export default Recordings;
