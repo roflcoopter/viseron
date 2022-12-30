@@ -17,6 +17,7 @@ from viseron.domains.camera import (
     AbstractCamera,
 )
 from viseron.domains.camera.const import (
+    CONFIG_EXTENSION,
     DOMAIN,
     EVENT_CAMERA_STARTED,
     EVENT_CAMERA_STOPPED,
@@ -429,6 +430,11 @@ class Camera(AbstractCamera):
     def resolution(self, resolution):
         """Return stream resolution."""
         self._resolution = resolution
+
+    @property
+    def extension(self) -> str:
+        """Return recording file extension."""
+        return self._config[CONFIG_RECORDER][CONFIG_EXTENSION]
 
     @property
     def recorder(self) -> Recorder:

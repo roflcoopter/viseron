@@ -18,7 +18,6 @@ from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.helpers import create_directory, draw_objects
 
 from .const import (
-    CONFIG_EXTENSION,
     CONFIG_FILENAME_PATTERN,
     CONFIG_FOLDER,
     CONFIG_IDLE_TIMEOUT,
@@ -95,7 +94,7 @@ class AbstractRecorder(ABC):
         self._active_recording: Recording | None = None
         self._extensions = list(
             {
-                f"*.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
+                f"*.{self._camera.extension}",
                 "*.mp4",
                 "*.mkv",
                 "*.mov",
@@ -188,9 +187,7 @@ class AbstractRecorder(ABC):
         filename_pattern = start_time.strftime(
             self._config[CONFIG_RECORDER][CONFIG_FILENAME_PATTERN]
         )
-        video_name = (
-            f"{filename_pattern}.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}"
-        )
+        video_name = f"{filename_pattern}.{self._camera.extension}"
         thumbnail_name = start_time.strftime(
             self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_FILENAME_PATTERN]
         )
@@ -287,7 +284,7 @@ class AbstractRecorder(ABC):
         dirs = Path(self.recordings_folder)
 
         extensions = [
-            f"*.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
+            f"*.{self._camera.extension}",
             "*.mov",
             "*.mp4",
             "*.mkv",
