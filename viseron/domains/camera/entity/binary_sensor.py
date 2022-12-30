@@ -11,7 +11,7 @@ from . import CameraEntity
 if TYPE_CHECKING:
     from viseron import Event, Viseron
     from viseron.domains.camera import EventStatusData
-    from viseron.domains.camera.recorder import EventRecorderStart, EventRecorderStop
+    from viseron.domains.camera.recorder import EventRecorderData, Recording
 
     from .. import AbstractCamera
 
@@ -55,10 +55,7 @@ class RecorderBinarySensor(CameraBinarySensor):
         self.object_id = f"{camera.identifier}_recorder"
         self.name = f"{camera.name} Recorder"
 
-        self._attr_last_recording_start: str | None = None
-        self._attr_last_recording_end: str | None = None
-        self._attr_path: str | None = None
-        self._attr_thumbnail_path: str | None = None
+        self._recording: Recording | None = None
 
     def setup(self):
         """Set up event listener."""
@@ -74,27 +71,18 @@ class RecorderBinarySensor(CameraBinarySensor):
     @property
     def extra_attributes(self):
         """Return extra attributes."""
-        return {
-            "last_recording_start": self._attr_last_recording_start,
-            "last_recording_end": self._attr_last_recording_end,
-            "path": self._attr_path,
-            "thumbnail_path": self._attr_thumbnail_path,
-        }
+        if self._recording:
+            return self._recording.as_dict()
+        return {}
 
-    def handle_start_event(self, event_data: Event[EventRecorderStart]):
+    def handle_start_event(self, event_data: Event[EventRecorderData]):
         """Handle recorder start event."""
-        self._attr_last_recording_start = event_data.data.start_time.isoformat()
-        self._attr_last_recording_end = None
-        self._attr_path = event_data.data.path
-        self._attr_thumbnail_path = event_data.data.thumbnail_path
+        self._recording = event_data.data.recording
         self._is_on = True
         self.set_state()
 
-    def handle_stop_event(self, event_data: Event[EventRecorderStop]):
+    def handle_stop_event(self, event_data: Event[EventRecorderData]):
         """Handle recorder stop event."""
-        self._attr_last_recording_start = event_data.data.start_time.isoformat()
-        self._attr_last_recording_end = event_data.data.end_time.isoformat()
-        self._attr_path = event_data.data.path
-        self._attr_thumbnail_path = event_data.data.thumbnail_path
+        self._recording = event_data.data.recording
         self._is_on = False
         self.set_state()

@@ -10,7 +10,7 @@ from . import CameraEntity
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
-    from viseron.domains.camera.recorder import EventRecorderStart
+    from viseron.domains.camera.recorder import EventRecorderData
 
     from .. import AbstractCamera
 
@@ -48,10 +48,11 @@ class ThumbnailImage(CameraImage):
             "thumbnail_path": self._attr_thumbnail_path,
         }
 
-    def handle_event(self, event_data: Event[EventRecorderStart]):
+    def handle_event(self, event_data: Event[EventRecorderData]):
         """Handle recorder start event."""
-        self._attr_start_time = event_data.data.start_time.isoformat()
-        self._attr_path = event_data.data.path
-        self._attr_thumbnail_path = event_data.data.thumbnail_path
-        self._image = event_data.data.thumbnail
+        recording = event_data.data.recording
+        self._attr_start_time = recording.start_time.isoformat()
+        self._attr_path = recording.path
+        self._attr_thumbnail_path = recording.thumbnail_path
+        self._image = recording.thumbnail
         self.set_state()
