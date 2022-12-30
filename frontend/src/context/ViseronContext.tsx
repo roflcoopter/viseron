@@ -1,6 +1,6 @@
 import React, { FC, createContext, useEffect, useState } from "react";
 
-import { getCameras, subscribeCameras } from "lib/commands";
+import { getCameras, subscribeCameras, subscribeRecording } from "lib/commands";
 import { sortObj } from "lib/helpers";
 import * as types from "lib/types";
 import { Connection } from "lib/websockets";
@@ -43,6 +43,26 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
           return newCameras;
         });
       };
+      const newRecording = async (
+        recordingEvent: types.EventRecorderComplete
+      ) => {
+        setCameras((prevCameras) => {
+          const newCameras = { ...prevCameras };
+          const recording = recordingEvent.data.recording;
+          const camera = recordingEvent.data.camera;
+          const prevRecordings = newCameras[camera.identifier].recordings;
+
+          if (recording.date in prevRecordings) {
+            prevRecordings[recording.date][recording.filename] = recording;
+          } else {
+            prevRecordings[recording.date] = {
+              [recording.filename]: recording,
+            };
+          }
+          newCameras[camera.identifier].recordings = prevRecordings;
+          return newCameras;
+        });
+      };
 
       const onConnect = async () => {
         setConnected(true);
@@ -58,6 +78,7 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
 
       const connect = async () => {
         subscribeCameras(connection, cameraRegistered); // call without await to not block
+        subscribeRecording(connection, newRecording); // call without await to not block
         await connection!.connect();
       };
       connect();

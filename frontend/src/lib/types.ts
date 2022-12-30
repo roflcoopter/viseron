@@ -32,16 +32,6 @@ export type WebSocketResponse =
   | WebSocketResultResponse
   | WebSocketResultErrorResponse;
 
-
-export type EventBase = {
-  timestamp: number;
-};
-
-export type Event = EventBase & {
-  name: string;
-  data: { [key: string]: any };
-};
-
 export interface Recording {
   date: string
   filename: string
@@ -63,14 +53,47 @@ export interface Camera {
   recordings: Recordings;
 }
 
-
 export interface Cameras {
   [index: string]: Camera;
 }
 
-export type CameraRegisteredEvent = EventBase & {
+export interface DetectedObject {
+  label: string;
+confidence: number;
+rel_width: number;
+rel_height: number;
+rel_x1: number;
+rel_y1: number
+rel_x2: number;
+rel_y2: number;
+}
+
+export type EventBase = {
+  timestamp: number;
+};
+
+export type Event = EventBase & {
+  name: string;
+  data: { [key: string]: any };
+};
+
+export type EventCameraRegistered = Event & {
   name: "camera_registered";
   data: Camera;
+};
+
+export type EventRecorderComplete = Event & {
+  name: "recorder_complete";
+  data: {
+    camera: Camera
+    recording: Recording & {
+      start_time: string;
+      start_timestamp: number;
+      end_time: string;
+      end_timestamp: number;
+      objects: [DetectedObject];
+    };
+  }
 };
 
 export interface EntityAttributes {
