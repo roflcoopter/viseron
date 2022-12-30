@@ -148,8 +148,8 @@ class Stream:
             CONFIG_EXTENSION
         ] == "mp4" and self.stream_audio_codec in ["pcm_alaw", "pcm_mulaw"]:
             self._logger.warning(
-                "Container mp4 does not support pcm_alaw audio codec, using mkv "
-                "instead. Consider changing extension in your config."
+                f"Container mp4 does not support {self.stream_audio_codec} audio "
+                "codec, using mkv instead. Consider changing extension in your config."
             )
             self._extension = "mkv"
 
@@ -157,6 +157,11 @@ class Stream:
         self._color_plane_width = self.width
         self._color_plane_height = int(self.height * 1.5)
         self._frame_bytes_size = int(self.width * self.height * 1.5)
+
+    @property
+    def extension(self):
+        """Return extension."""
+        return self._extension
 
     @property
     def stream_url(self):

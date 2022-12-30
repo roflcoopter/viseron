@@ -160,10 +160,7 @@ class TestStream:
             assert stream.fps == expected_fps
             assert stream.stream_codec == expected_codec
             assert stream.stream_audio_codec == expected_audio_codec
-            assert (
-                stream._extension  # pylint: disable=protected-access
-                == expected_extension
-            )
+            assert stream.extension == expected_extension
         if expected_caplog:
             assert expected_caplog in caplog.text
         caplog.clear()
