@@ -1,4 +1,4 @@
-import { CardActionArea } from "@mui/material";
+import { CardMedia } from "@mui/material";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
@@ -28,7 +28,7 @@ export default function RecordingCard({
             {recording.filename.split(".")[0]}
           </Typography>
         </CardContent>
-        <CardActionArea>
+        <CardMedia>
           <LazyLoad
             height={200}
             offset={500}
@@ -40,7 +40,7 @@ export default function RecordingCard({
               overlay={false}
             />
           </LazyLoad>
-        </CardActionArea>
+        </CardMedia>
       </Card>
     </LazyLoad>
   );

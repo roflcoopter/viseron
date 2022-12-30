@@ -6,6 +6,7 @@ interface CardActionButtonProps {
   title: string;
   target: string;
   width?: string;
+  disabled?: boolean;
 }
 
 type ExtendedButtonProps = ButtonProps & {
@@ -31,6 +32,7 @@ export function CardActionButtonLink({
   title,
   target,
   width = "50%",
+  disabled = false,
 }: CardActionButtonProps) {
   return (
     <StyledButton
@@ -38,6 +40,7 @@ export function CardActionButtonLink({
       to={target}
       variant="outlined"
       size="large"
+      disabled={disabled}
       sx={{
         width,
       }}

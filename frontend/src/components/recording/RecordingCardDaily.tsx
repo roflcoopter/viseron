@@ -1,4 +1,4 @@
-import { CardActionArea, CardActions } from "@mui/material";
+import { CardActions, CardMedia } from "@mui/material";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
@@ -28,9 +28,12 @@ function getLatestRecordingDate(recordings: types.Recordings, date: string) {
   return dailyRecordings[Object.keys(dailyRecordings).sort().reverse()[0]];
 }
 
-function getVideoElement(lastRecording: types.Recording | null) {
+function getVideoElement(
+  camera: types.Camera,
+  lastRecording: types.Recording | null
+) {
   if (lastRecording === null) {
-    return <Typography align="center">No recordings found</Typography>;
+    return <VideoPlayerPlaceholder camera={camera} />;
   }
 
   const videoJsOptions = getRecordingVideoJSOptions(lastRecording);
@@ -50,23 +53,26 @@ export default function RecordingCardDaily({
           <Typography variant="h5" align="center">
             {date}
           </Typography>
-          {lastRecording && (
+          {lastRecording ? (
             <Typography align="center">{`Last recording: ${
               lastRecording.filename.split(".")[0]
             }`}</Typography>
+          ) : (
+            <Typography align="center">No recordings found</Typography>
           )}
         </CardContent>
-        <CardActionArea>
+        <CardMedia>
           <LazyLoad
             height={200}
             offset={500}
             placeholder={<VideoPlayerPlaceholder camera={camera} />}
           >
-            {getVideoElement(lastRecording)}
+            {getVideoElement(camera, lastRecording)}
           </LazyLoad>
-        </CardActionArea>
+        </CardMedia>
         <CardActions>
           <CardActionButtonLink
+            disabled={lastRecording === null}
             title="View Recordings"
             target={`/recordings/${camera.identifier}/${date}`}
             width="100%"
