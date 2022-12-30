@@ -26,7 +26,7 @@ const config = {
       ({
         docs: {
           sidebarPath: require.resolve("./sidebars.js"),
-          editUrl: "https://github.com/roflcooter/viseron/edit/master/",
+          editUrl: "https://github.com/roflcoopter/viseron/edit/master/",
         },
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
@@ -98,7 +98,7 @@ const config = {
             items: [
               {
                 label: "GitHub",
-                href: "https://github.com/roflcooter/viseron",
+                href: "https://github.com/roflcoopter/viseron",
               },
             ],
           },

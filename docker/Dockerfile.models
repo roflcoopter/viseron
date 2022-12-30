@@ -30,6 +30,7 @@ FROM base as yolov4
 RUN \
   mkdir -p /detectors/models/darknet && \
   wget https://github.com/AlexeyAB/darknet/releases/download/yolov4/yolov4.weights -O /detectors/models/darknet/yolov4.weights --progress=bar:force:noscroll && \
+  wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov4.cfg -O /detectors/models/darknet/yolov4.cfg --progress=bar:force:noscroll && \
   wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/coco.names -O /detectors/models/darknet/coco.names --progress=bar:force:noscroll
 
 # Fetch models for YOLOv4-tiny darknet
@@ -68,9 +69,6 @@ RUN \
 RUN \
   wget https://github.com/AlexeyAB/darknet/releases/download/yolov4/yolov7-tiny.weights -O /detectors/models/darknet/yolov7-tiny.weights --progress=bar:force:noscroll && \
   wget https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov7-tiny.cfg -O /detectors/models/darknet/yolov7-tiny.cfg --progress=bar:force:noscroll
-
-ADD ./docker/yolov4.cfg /detectors/models/darknet/yolov4.cfg
-ADD ./docker/yolov4-tiny.cfg /detectors/models/darknet/yolov4-tiny.cfg
 
 FROM scratch
 

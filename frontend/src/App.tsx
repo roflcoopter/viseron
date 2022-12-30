@@ -5,6 +5,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+import { ScrollToTopFab } from "components/ScrollToTop";
 import Footer from "components/footer/Footer";
 import AppDrawer from "components/header/Drawer";
 import Header from "components/header/Header";
@@ -12,7 +13,13 @@ import { Loading } from "components/loading/Loading";
 
 const Configuration = lazy(() => import("pages/Configuration"));
 const Cameras = lazy(() => import("pages/Cameras"));
-const Recordings = lazy(() => import("pages/Recordings"));
+const Recordings = lazy(() => import("pages/recordings/Recordings"));
+const CameraRecordings = lazy(
+  () => import("pages/recordings/CameraRecordings")
+);
+const CameraRecordingsDaily = lazy(
+  () => import("pages/recordings/CameraRecordingsDaily")
+);
 const Entities = lazy(() => import("pages/Entities"));
 
 const FullHeightContainer = styled("div")(() => ({
@@ -21,16 +28,24 @@ const FullHeightContainer = styled("div")(() => ({
 
 const routes = [
   {
-    path: "/",
-    element: <Navigate to="/cameras" replace />,
+    path: "/cameras",
+    element: <Navigate to="/" replace />,
   },
   {
-    path: "/cameras",
+    path: "/",
     element: <Cameras />,
   },
   {
-    path: "/recordings/:identifier",
+    path: "/recordings",
     element: <Recordings />,
+  },
+  {
+    path: "/recordings/:identifier",
+    element: <CameraRecordings />,
+  },
+  {
+    path: "/recordings/:identifier/:date",
+    element: <CameraRecordingsDaily />,
   },
   {
     path: "/configuration",
@@ -90,6 +105,7 @@ function App() {
         </Suspense>
       </FullHeightContainer>
       {showFooter && <Footer />}
+      <ScrollToTopFab />
     </FullHeightContainer>
   );
 }

@@ -10,12 +10,25 @@ export const getCameras = (async (connection: Connection): Promise<types.Cameras
 
 export const subscribeCameras = (async (connection: Connection, cameraCallback: (camera: types.Camera) => void) => {
   const storedCameraCallback = cameraCallback;
-  const _cameraCallback = (message: types.CameraRegisteredEvent) => {
+  const _cameraCallback = (message: types.EventCameraRegistered) => {
     storedCameraCallback(message.data);
   };
   const subscription = await connection.subscribeEvent(
     "domain/registered/camera",
     _cameraCallback,
+    true
+  );
+  return subscription;
+})
+
+export const subscribeRecording = (async (connection: Connection, recordingCallback: (recordingEvent: types.EventRecorderComplete) => void) => {
+  const storedRecordingCallback = recordingCallback;
+  const _recordingCallback = (message: types.EventRecorderComplete) => {
+    storedRecordingCallback(message);
+  };
+  const subscription = await connection.subscribeEvent(
+    "*/recorder/complete",
+    _recordingCallback,
     true
   );
   return subscription;

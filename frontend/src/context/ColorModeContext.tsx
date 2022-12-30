@@ -165,6 +165,11 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
   function getThemedComponents(theme: Theme) {
     return {
       components: {
+        MuiContainer: {
+          defaultProps: {
+            maxWidth: false,
+          },
+        },
         MuiButton: {
           styleOverrides: {
             root: {

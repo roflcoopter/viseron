@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef } from "react";
+import { FC, useEffect, useRef, useState } from "react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import "videojs-overlay";
@@ -11,6 +11,7 @@ import "./VideoPlayer.css";
 interface VideoPlayerPropsInferface {
   recording: types.Recording;
   options: videojs.PlayerOptions;
+  overlay?: boolean;
 }
 
 type OverlayBase = {
@@ -42,28 +43,35 @@ type VideoJsPlayerOverlay = videojs.Player & {
   overlay: (overlays: VideoJsOverlayOptions) => void;
 };
 
-const VideoPlayer: FC<VideoPlayerPropsInferface> = ({ recording, options }) => {
+const VideoPlayer: FC<VideoPlayerPropsInferface> = ({
+  recording,
+  options,
+  overlay,
+}) => {
   const videoNode = useRef<HTMLVideoElement>(null);
   const player = useRef<videojs.Player>();
+  const [source, setSource] = useState<string>(options.sources![0].src);
 
   useEffect(() => {
     if (!player.current) {
       player.current = videojs(videoNode.current!, options, () => {
-        (player.current as VideoJsPlayerOverlay).overlay({
-          class: "videojs-overlay-custom",
-          overlays: [
-            {
-              content: recording.filename.split(".")[0],
-              start: "loadstart",
-              end: "play",
-            },
-            {
-              content: recording.filename.split(".")[0],
-              start: "pause",
-              end: "play",
-            },
-          ],
-        });
+        if (overlay) {
+          (player.current as VideoJsPlayerOverlay).overlay({
+            class: "videojs-overlay-custom",
+            overlays: [
+              {
+                content: recording.filename.split(".")[0],
+                start: "loadstart",
+                end: "play",
+              },
+              {
+                content: recording.filename.split(".")[0],
+                start: "pause",
+                end: "play",
+              },
+            ],
+          });
+        }
       });
     }
     return () => {
@@ -74,6 +82,13 @@ const VideoPlayer: FC<VideoPlayerPropsInferface> = ({ recording, options }) => {
     // Must disable this warning since we dont want to ever run this twice
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (player.current && source !== options.sources![0].src) {
+    player.current.src(options.sources!);
+    player.current.poster(options.poster!);
+    player.current.load();
+    setSource(options.sources![0].src);
+  }
 
   return (
     <div data-vjs-player>

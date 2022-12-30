@@ -1,8 +1,10 @@
 ARG DARKNET_COMMIT
+ARG OPENCV_VERSION
 ARG CUDA_VERSION
 ARG UBUNTU_VERSION_NUMBER
 FROM roflcoopter/viseron-models:latest as models
 FROM roflcoopter/amd64-cuda-darknet:${DARKNET_COMMIT} as darknet
+FROM roflcoopter/amd64-cuda-opencv:${OPENCV_VERSION} as opencv
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-runtime-ubuntu${UBUNTU_VERSION_NUMBER}
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
@@ -31,6 +33,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libmfx1 \
   radeontop \
   intel-gpu-tools \
+  # OpenCV
+  libtbb-dev \
+  libpng16-16 \
   # OpenCL
   ocl-icd-libopencl1 \
   clinfo \
@@ -56,3 +61,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ln -s /detectors/models/darknet/yolov7.cfg /detectors/models/darknet/default.cfg
 
 COPY --from=darknet /darknet/lib /usr/local/lib
+# OpenVINO
+COPY --from=opencv /usr/local/runtime /usr/local/runtime/

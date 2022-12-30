@@ -332,6 +332,10 @@
                             {
                                 "type": "constant",
                                 "value": "opencv"
+                            },
+                            {
+                                "type": "constant",
+                                "value": "openvino"
                             }
                         ],
                         "name": "dnn_backend",

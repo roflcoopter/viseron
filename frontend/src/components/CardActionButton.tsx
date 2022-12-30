@@ -5,6 +5,8 @@ import { Link } from "react-router-dom";
 interface CardActionButtonProps {
   title: string;
   target: string;
+  width?: string;
+  disabled?: boolean;
 }
 
 type ExtendedButtonProps = ButtonProps & {
@@ -26,15 +28,21 @@ const StyledButton = styled(Button)<ExtendedButtonProps>(({ theme }) => ({
   }`,
 }));
 
-export function CardActionButtonLink({ title, target }: CardActionButtonProps) {
+export function CardActionButtonLink({
+  title,
+  target,
+  width = "50%",
+  disabled = false,
+}: CardActionButtonProps) {
   return (
     <StyledButton
       component={Link}
       to={target}
       variant="outlined"
       size="large"
+      disabled={disabled}
       sx={{
-        width: "50%",
+        width,
       }}
     >
       {title}

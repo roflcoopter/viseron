@@ -303,6 +303,11 @@ class AbstractCamera(ABC):
 
     @property
     @abstractmethod
+    def extension(self) -> str:
+        """Return recording file extension."""
+
+    @property
+    @abstractmethod
     def recorder(self) -> AbstractRecorder:
         """Return recorder."""
 
