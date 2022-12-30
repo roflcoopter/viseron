@@ -435,7 +435,7 @@ class Camera(AbstractCamera):
 
     def stop_recorder(self):
         """Stop camera recorder."""
-        self._recorder.stop()
+        self._recorder.stop(self.recorder.active_recording)
 
     @property
     def output_fps(self):

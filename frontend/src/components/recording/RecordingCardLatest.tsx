@@ -1,4 +1,4 @@
-import { CardActionArea, CardActions } from "@mui/material";
+import { CardActions, CardMedia } from "@mui/material";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
@@ -28,9 +28,12 @@ function getLatestRecording(recordings: types.Recordings) {
   return latestRecordings[Object.keys(latestRecordings).sort().reverse()[0]];
 }
 
-function getVideoElement(latestRecording: types.Recording | null) {
+function getVideoElement(
+  camera: types.Camera,
+  latestRecording: types.Recording | null
+) {
   if (latestRecording === null) {
-    return <Typography align="center">No recordings found</Typography>;
+    return <VideoPlayerPlaceholder camera={camera} />;
   }
 
   const videoJsOptions = getRecordingVideoJSOptions(latestRecording);
@@ -50,22 +53,25 @@ export default function RecordingCardLatest({
           <Typography variant="h5" align="center">
             {camera.name}
           </Typography>
-          {latestRecording && (
+          {latestRecording ? (
             <Typography align="center">{`Latest recording: ${
               latestRecording.date
             } - ${latestRecording.filename.split(".")[0]}`}</Typography>
+          ) : (
+            <Typography align="center">No recordings found</Typography>
           )}
         </CardContent>
-        <CardActionArea>
+        <CardMedia>
           <LazyLoad
             height={200}
             placeholder={<VideoPlayerPlaceholder camera={camera} />}
           >
-            {getVideoElement(latestRecording)}
+            {getVideoElement(camera, latestRecording)}
           </LazyLoad>
-        </CardActionArea>
+        </CardMedia>
         <CardActions>
           <CardActionButtonLink
+            disabled={latestRecording === null}
             title="View Recordings"
             target={`/recordings/${camera.identifier}`}
             width="100%"

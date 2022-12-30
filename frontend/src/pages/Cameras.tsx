@@ -1,5 +1,6 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
+import Typography from "@mui/material/Typography";
 import { useContext } from "react";
 
 import CameraCard from "components/CameraCard";
@@ -18,6 +19,9 @@ const Cameras = () => {
 
   return (
     <Container>
+      <Typography variant="h5" align="center">
+        Cameras
+      </Typography>
       <Grid container direction="row" spacing={2}>
         {Object.keys(viseron.cameras).map((camera) => (
           <Grid

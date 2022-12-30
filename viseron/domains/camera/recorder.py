@@ -38,24 +38,48 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class EventRecorderStart:
-    """Hold information on recorder start event."""
+class EventRecorderData:
+    """Hold information on recorder start/stop/complete event."""
 
-    start_time: datetime.datetime
-    path: str
-    thumbnail: np.ndarray
-    thumbnail_path: str | None
-    objects: list[DetectedObject]
+    camera: AbstractCamera
+    recording: Recording
+
+    def as_dict(self):
+        """Return as dict."""
+        return {
+            "camera": self.camera,
+            "recording": self.recording,
+        }
 
 
 @dataclass
-class EventRecorderStop:
-    """Hold information on recorder stop event."""
+class Recording:
+    """Recording dict representation."""
 
     start_time: datetime.datetime
-    end_time: datetime.datetime
+    start_timestamp: float
+    end_time: datetime.datetime | None
+    end_timestamp: float | None
+    date: str
     path: str
+    filename: str
+    thumbnail: np.ndarray | None
     thumbnail_path: str | None
+    objects: list[DetectedObject]
+
+    def as_dict(self):
+        """Return as dict."""
+        return {
+            "start_time": self.start_time,
+            "start_timestamp": self.start_timestamp,
+            "end_time": self.end_time,
+            "end_timestamp": self.end_timestamp,
+            "date": self.date,
+            "path": self.path,
+            "filename": self.filename,
+            "thumbnail_path": self.thumbnail_path,
+            "objects": self.objects,
+        }
 
 
 class AbstractRecorder(ABC):
@@ -68,10 +92,7 @@ class AbstractRecorder(ABC):
         self._camera: AbstractCamera = camera
 
         self.is_recording = False
-        self._last_recording_path = None
-        self._last_recording_thumbnail_path = None
-        self._last_recording_start = None
-        self._last_recording_end = None
+        self._active_recording: Recording | None = None
         self._extensions = list(
             {
                 f"*.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
@@ -157,27 +178,26 @@ class AbstractRecorder(ABC):
         """Start recording."""
         self._logger.info("Starting recorder")
         self.is_recording = True
-        self._last_recording_start = datetime.datetime.now()
-        self._last_recording_end = None
+        start_time = datetime.datetime.now()
 
         if self._config[CONFIG_RECORDER][CONFIG_FOLDER] is None:
             self._logger.error("Output directory is not specified")
             return
 
         # Create filename
-        filename_pattern = self.last_recording_start.strftime(
+        filename_pattern = start_time.strftime(
             self._config[CONFIG_RECORDER][CONFIG_FILENAME_PATTERN]
         )
         video_name = (
             f"{filename_pattern}.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}"
         )
-        thumbnail_name = self.last_recording_start.strftime(
+        thumbnail_name = start_time.strftime(
             self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_FILENAME_PATTERN]
         )
         thumbnail_name = f"{thumbnail_name}.jpg"
 
         # Create foldername
-        subfolder = self.subfolder_name(self.last_recording_start)
+        subfolder = self.subfolder_name(start_time)
         full_path = os.path.join(self.recordings_folder, subfolder)
         create_directory(full_path)
 
@@ -188,54 +208,64 @@ class AbstractRecorder(ABC):
             objects_in_fov,
             resolution,
         )
-        self._last_recording_path = os.path.join(full_path, video_name)
-        self._last_recording_thumbnail_path = thumbnail_path
 
-        self._start(shared_frame, objects_in_fov, resolution)
+        start_time = datetime.datetime.now()
+
+        recording = Recording(
+            start_time=start_time,
+            start_timestamp=start_time.timestamp(),
+            end_time=None,
+            end_timestamp=None,
+            date=subfolder,
+            path=os.path.join(full_path, video_name),
+            filename=video_name,
+            thumbnail=thumbnail,
+            thumbnail_path=thumbnail_path
+            if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]
+            else None,
+            objects=objects_in_fov,
+        )
+
+        self._start(recording, shared_frame, objects_in_fov, resolution)
+        self._active_recording = recording
         self._vis.dispatch_event(
             EVENT_RECORDER_START.format(camera_identifier=self._camera.identifier),
-            EventRecorderStart(
-                start_time=self.last_recording_start,
-                path=self.last_recording_path,
-                thumbnail=thumbnail,
-                thumbnail_path=thumbnail_path
-                if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]
-                else None,
-                objects=objects_in_fov,
+            EventRecorderData(
+                camera=self._camera,
+                recording=recording,
             ),
         )
+        return recording
 
     @abstractmethod
     def _start(
         self,
+        recording: Recording,
         shared_frame: SharedFrame,
         objects_in_fov: list[DetectedObject],
         resolution,
     ):
         """Start the recorder."""
 
-    def stop(self):
+    def stop(self, recording: Recording):
         """Stop recording."""
         self._logger.info("Stopping recorder")
-        self._last_recording_end = datetime.datetime.now()
-        self._stop()
+        end_time = datetime.datetime.now()
+        recording.end_time = end_time
+        recording.end_timestamp = end_time.timestamp()
+        self._stop(recording)
+        self._active_recording = None
         self._vis.dispatch_event(
             EVENT_RECORDER_STOP.format(camera_identifier=self._camera.identifier),
-            EventRecorderStop(
-                start_time=self.last_recording_start,
-                end_time=self.last_recording_end,
-                path=self.last_recording_path,
-                thumbnail_path=self.last_recording_thumbnail_path
-                if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]
-                else None,
+            EventRecorderData(
+                camera=self._camera,
+                recording=recording,
             ),
         )
         self.is_recording = False
 
     @abstractmethod
-    def _stop(
-        self,
-    ):
+    def _stop(self, recording: Recording):
         """Stop the recorder."""
 
     @property
@@ -244,24 +274,9 @@ class AbstractRecorder(ABC):
         return self._config[CONFIG_RECORDER][CONFIG_IDLE_TIMEOUT]
 
     @property
-    def last_recording_path(self) -> str:
-        """Return last recording path."""
-        return self._last_recording_path
-
-    @property
-    def last_recording_start(self) -> datetime.datetime:
-        """Return last recording start time."""
-        return self._last_recording_start
-
-    @property
-    def last_recording_end(self) -> datetime.datetime:
-        """Return last recording end time."""
-        return self._last_recording_end
-
-    @property
-    def last_recording_thumbnail_path(self) -> str:
-        """Return last recording thumbnail path."""
-        return self._last_recording_thumbnail_path
+    def active_recording(self) -> Recording | None:
+        """Return active recording."""
+        return self._active_recording
 
     def cleanup_recordings(self):
         """Delete all recordings that have past the configured days to retain."""

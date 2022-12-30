@@ -1,14 +1,19 @@
 """Concatenate GStreamer segments to a single video file."""
+from __future__ import annotations
+
 import datetime
 import os
 import shutil
 import subprocess as sp
 import time
+from typing import TYPE_CHECKING
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import CONFIG_LOOKBACK
+from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE
+from viseron.domains.camera.recorder import EventRecorderData
 
 from .const import (
     CAMERA_SEGMENT_DURATION,
@@ -21,6 +26,11 @@ from .const import (
     CONFIG_SEGMENTS_FOLDER,
 )
 
+if TYPE_CHECKING:
+    from viseron import Viseron
+    from viseron.domains.camera import AbstractCamera
+    from viseron.domains.camera.recorder import Recording
+
 
 class Segments:
     """Concatenate segments between two timestamps on-demand."""
@@ -29,10 +39,14 @@ class Segments:
         self,
         logger,
         config,
+        vis: Viseron,
+        camera: AbstractCamera,
         segments_folder,
     ):
         self._logger = logger
         self._config = config
+        self._vis = vis
+        self._camera = camera
         self._segments_folder = segments_folder
 
     def segment_duration(self, segment_file):
@@ -219,8 +233,12 @@ class Segments:
         if pipe.returncode != 0:
             self._logger.error(f"Error concatenating segments: {pipe.stderr}")
 
-    def concat_segments(self, event_start, event_end, file_name):
+    def concat_segments(self, recording: Recording):
         """Concatenate segments between event_start and event_end."""
+        event_start = recording.start_timestamp
+        event_end = (
+            recording.end_timestamp - self._config[CONFIG_RECORDER][CONFIG_LOOKBACK]
+        )
         self._logger.debug("Concatenating segments")
         segment_information = self.get_segment_information()
         if not segment_information:
@@ -250,7 +268,7 @@ class Segments:
         if not segments_to_concat:
             return
 
-        temp_file = os.path.join("/tmp", file_name)
+        temp_file = os.path.join("/tmp", recording.path)
 
         try:
             self.ffmpeg_concat(
@@ -259,10 +277,18 @@ class Segments:
                 ),
                 temp_file,
             )
-            shutil.move(temp_file, file_name)
+            shutil.move(temp_file, recording.path)
         except sp.CalledProcessError as error:
             self._logger.error("Failed to concatenate segments: %s", error)
             return
+
+        self._vis.dispatch_event(
+            EVENT_RECORDER_COMPLETE,
+            EventRecorderData(
+                camera=self._camera,
+                recording=recording,
+            ),
+        )
 
         for segment in segments_to_concat[:-1]:
             self._logger.debug(f"Removing segment: {segment}")

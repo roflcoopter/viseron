@@ -3,20 +3,20 @@ import logging
 
 from viseron.components.gstreamer.segments import Segments
 
+from tests.common import MockCamera
+
 
 class TestSegments:
     """Test the Segments class."""
 
-    @classmethod
-    def setup_class(cls):
-        """Set up testcase."""
+    def test_get_concat_segments(self, vis):
+        """Test that the segments are correctly sorted."""
         config = {}
         logger = logging.getLogger("viseron.components.gstreamer")
-        cls.segments = Segments(config, logger, "/testing")
+        mocked_camera = MockCamera(identifier="test_camera_identifier")
+        segments = Segments(logger, config, vis, mocked_camera, "/testing")
 
-    def test_get_concat_segments(self):
-        """Test that the segments are correctly sorted."""
-        segments = {
+        segs = {
             "38.mp4": {
                 "start_time": 1670490410.0108843,
                 "end_time": 1670490414.8301842,
@@ -42,7 +42,5 @@ class TestSegments:
                 "end_time": 1670490330.3205051,
             },
         }
-        concat_segments = self.segments.get_concat_segments(
-            segments, "39.mp4", "41.mp4"
-        )
+        concat_segments = segments.get_concat_segments(segs, "39.mp4", "41.mp4")
         assert concat_segments == ["39.mp4", "40.mp4", "41.mp4"]

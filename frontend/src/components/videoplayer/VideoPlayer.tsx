@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef } from "react";
+import { FC, useEffect, useRef, useState } from "react";
 import videojs from "video.js";
 import "video.js/dist/video-js.css";
 import "videojs-overlay";
@@ -50,6 +50,7 @@ const VideoPlayer: FC<VideoPlayerPropsInferface> = ({
 }) => {
   const videoNode = useRef<HTMLVideoElement>(null);
   const player = useRef<videojs.Player>();
+  const [source, setSource] = useState<string>(options.sources![0].src);
 
   useEffect(() => {
     if (!player.current) {
@@ -81,6 +82,13 @@ const VideoPlayer: FC<VideoPlayerPropsInferface> = ({
     // Must disable this warning since we dont want to ever run this twice
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (player.current && source !== options.sources![0].src) {
+    player.current.src(options.sources!);
+    player.current.poster(options.poster!);
+    player.current.load();
+    setSource(options.sources![0].src);
+  }
 
   return (
     <div data-vjs-player>

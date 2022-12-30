@@ -1,5 +1,6 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
+import Typography from "@mui/material/Typography";
 import { useContext } from "react";
 
 import { ScrollToTopOnMount } from "components/ScrollToTop";
@@ -20,6 +21,9 @@ const Recordings = () => {
   return (
     <Container>
       <ScrollToTopOnMount />
+      <Typography variant="h5" align="center">
+        Recordings
+      </Typography>
       <Grid container direction="row" spacing={2}>
         {Object.keys(viseron.cameras).map((camera) => (
           <Grid

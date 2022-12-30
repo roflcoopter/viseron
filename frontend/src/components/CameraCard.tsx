@@ -1,5 +1,5 @@
 import Image from "@jy95/material-ui-image";
-import { CardActionArea, CardActions } from "@mui/material";
+import { CardActions, CardMedia } from "@mui/material";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
@@ -95,7 +95,7 @@ export default function CameraCard({ camera }: CameraCardProps) {
           {camera.name}
         </Typography>
       </CardContent>
-      <CardActionArea>
+      <CardMedia>
         {/* 'alt=""' in combination with textIndent is a neat trick to hide the broken image icon */}
         <Image
           alt=""
@@ -124,7 +124,7 @@ export default function CameraCard({ camera }: CameraCardProps) {
             }));
           }}
         />
-      </CardActionArea>
+      </CardMedia>
       <CardActions>
         <CardActionButtonLink
           title="Recordings"

@@ -13,6 +13,7 @@ EVENT_STATUS_CONNECTED = "connected"
 
 EVENT_RECORDER_START = "{camera_identifier}/recorder/start"
 EVENT_RECORDER_STOP = "{camera_identifier}/recorder/stop"
+EVENT_RECORDER_COMPLETE = "{camera_identifier}/recorder/complete"
 
 EVENT_CAMERA_START = "{camera_identifier}/camera/start"
 EVENT_CAMERA_STOP = "{camera_identifier}/camera/stop"
