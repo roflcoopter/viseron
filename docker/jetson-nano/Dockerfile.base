@@ -63,8 +63,8 @@ RUN \
   libegl1 \
   libfreetype6 \
   ffmpeg=${JETSON_NANO_FFMPEG_APT_VERSION} && \
-  ln -s /detectors/models/darknet/yolov4-tiny.weights /detectors/models/darknet/default.weights && \
-  ln -s /detectors/models/darknet/yolov4-tiny.cfg /detectors/models/darknet/default.cfg && \
+  ln -s /detectors/models/darknet/yolov7-tiny.weights /detectors/models/darknet/default.weights && \
+  ln -s /detectors/models/darknet/yolov7-tiny.cfg /detectors/models/darknet/default.cfg && \
   # Minimal cuda install does not create symlink so we do it manually
   ln -s /usr/local/cuda-10.2 /usr/local/cuda && \
   echo "/usr/lib/aarch64-linux-gnu/tegra" >> /etc/ld.so.conf.d/nvidia-tegra.conf && \
