@@ -15,20 +15,20 @@ import config from "./config.json";
 Darknet is a state-of-the-art object detector that uses the YOLO (You Only Look Once) framework.
 It is built on a singel-stage algorithm to achieve both speed and accuracy.
 
-YOLOv7 is currently the most accurate and fastest model.
+YOLOv7 is currently the most accurate and fastest model and has hardware acceleration support on both GPUs and CPUs.
 
 If CUDA is available on your system, `darknet` will run on your GPU.
 
 :::note
 
 `darknet` component uses the official [Darknet](https://github.com/AlexeyAB/darknet) implementation when running on a GPU.
-When running on a CPU, it uses OpenCV's implementation of Darknet, which has some limitations in what models can be used.
+When running on a CPU, it uses OpenCV's implementation of Darknet.
 
 :::
 
-:::warning YOLOv7
+:::info
 
-YOLOv7 is only available if you run the `roflcoopter/amd64-cuda-viseron` image.
+YOLOv7 is the default model used by `darknet` in all images.
 
 :::
 
@@ -121,18 +121,6 @@ It will help you find the perfect trade-off between accuracy and latency.
 :::
 
 </details>
-
-The default model differs a bit per container:
-
-| Image                             | Model                 |
-| --------------------------------- | --------------------- |
-| `roflcoopter/viseron`             | `yolov3.weights`      |
-| `roflcoopter/amd64-viseron`       | `yolov3.weights`      |
-| `roflcoopter/amd64-cuda-viseron`  | `yolov7.weights`      |
-| `roflcoopter/jetson-nano-viseron` | `yolov4-tiny.weights` |
-
-YOLOv4/YOLOv7 does not currently work in OpenCV which is why YOLOv3 is the default for some images.
-As soon as this is fixed for the versions of OpenCV that Viseron is using, YOLOv7 will be the standard for all.
 
 <Admonition type="tip">
 The containers also has <code>*-tiny.weights</code> model included in the image.
