@@ -89,7 +89,17 @@ export default function CameraCard({ camera }: CameraCardProps) {
   }, [updateImage, isVisible, onScreen, generateSnapshotURL]);
 
   return (
-    <Card ref={ref} variant="outlined">
+    <Card
+      ref={ref}
+      variant="outlined"
+      sx={{
+        // Vertically space items evenly to accommodate different aspect ratios
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+      }}
+    >
       <CardContent>
         <Typography variant="h5" align="center">
           {camera.name}
