@@ -4,6 +4,7 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import shutil
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -306,3 +307,31 @@ class AbstractRecorder(ABC):
                     self._logger.debug(f"Removing directory {folder}")
                 except OSError:
                     self._logger.error(f"Could not remove directory {folder}")
+
+    def delete_recording(self, date=None, filename=None):
+        """Delete a single recording."""
+        path = None
+
+        if date and filename:
+            path = os.path.join(self.recordings_folder, date, filename)
+        elif date and filename is None:
+            path = os.path.join(self.recordings_folder, date)
+        elif date is None and filename is None:
+            path = os.path.join(self.recordings_folder, "*")
+        else:
+            self._logger.error("Could not remove file, incorrect path given")
+            return False
+
+        self._logger.debug(f"Removing {path}")
+        try:
+            if filename:
+                os.remove(path)
+            else:
+                dirs = Path(self.recordings_folder)
+                folders = dirs.walkdirs("*-*-*")
+                for folder in folders:
+                    shutil.rmtree(folder)
+        except OSError as error:
+            self._logger.error(f"Could not remove {path}", exc_info=error)
+            return False
+        return True
