@@ -74,92 +74,65 @@ class CameraAPIHandler(BaseAPIHandler):
 
     def get_snapshot(self, camera_identifier: bytes):
         """Return camera snapshot."""
+        camera = self._get_camera(camera_identifier.decode())
 
-        try:
-            camera = self._get_camera(camera_identifier.decode())
-
-            if not camera or not camera.current_frame:
-                self.response_error(
-                    STATUS_ERROR_ENDPOINT_NOT_FOUND,
-                    reason=f"Camera {camera_identifier.decode()} not found",
-                )
-                return
-
-            ret, jpg = camera.get_snapshot(
-                camera.current_frame,
-                self.request_arguments["width"],
-                self.request_arguments["height"],
-            )
-
-            if ret:
-                self.response_success(
-                    response=jpg, headers={"Content-Type": "image/jpeg"}
-                )
-                return
+        if not camera or not camera.current_frame:
             self.response_error(
-                STATUS_ERROR_INTERNAL, reason="Could not fetch camera snapshot"
+                STATUS_ERROR_ENDPOINT_NOT_FOUND,
+                reason=f"Camera {camera_identifier.decode()} not found",
             )
             return
-        except Exception as error:  # pylint: disable=broad-except
-            LOGGER.error(
-                f"Error in API {self.__class__.__name__}.{self.route['method']}: "
-                f"{str(error)}",
-                exc_info=True,
-            )
-            self.response_error(STATUS_ERROR_INTERNAL, reason=str(error))
+
+        ret, jpg = camera.get_snapshot(
+            camera.current_frame,
+            self.request_arguments["width"],
+            self.request_arguments["height"],
+        )
+
+        if ret:
+            self.response_success(response=jpg, headers={"Content-Type": "image/jpeg"})
+            return
+        self.response_error(
+            STATUS_ERROR_INTERNAL, reason="Could not fetch camera snapshot"
+        )
+        return
 
     def get_camera(self, camera_identifier: bytes):
         """Return camera."""
-        try:
-            camera = self._get_camera(camera_identifier.decode())
+        camera = self._get_camera(camera_identifier.decode())
 
-            if not camera:
-                self.response_error(
-                    STATUS_ERROR_ENDPOINT_NOT_FOUND,
-                    reason=f"Camera {camera_identifier.decode()} not found",
-                )
-                return
-
-            self.response_success(camera.as_dict())
-            return
-        except Exception as error:  # pylint: disable=broad-except
-            LOGGER.error(
-                f"Error in API {self.__class__.__name__}.{self.route['method']}: "
-                f"{str(error)}"
+        if not camera:
+            self.response_error(
+                STATUS_ERROR_ENDPOINT_NOT_FOUND,
+                reason=f"Camera {camera_identifier.decode()} not found",
             )
-            self.response_error(STATUS_ERROR_INTERNAL, reason=str(error))
+            return
+
+        self.response_success(camera.as_dict())
+        return
 
     def delete_recording(
         self, camera_identifier: bytes, date: bytes = None, filename: bytes = None
     ):
         """Delete recording(s)."""
-        try:
-            camera = self._get_camera(camera_identifier.decode())
+        camera = self._get_camera(camera_identifier.decode())
 
-            if not camera:
-                self.response_error(
-                    STATUS_ERROR_ENDPOINT_NOT_FOUND,
-                    reason=f"Camera {camera_identifier.decode()} not found",
-                )
-                return
-
-            # Try to delete recording
-            if camera.delete_recording(
-                date.decode() if date else date,
-                filename.decode() if filename else filename,
-            ):
-                self.response_success()
-                return
+        if not camera:
             self.response_error(
-                STATUS_ERROR_INTERNAL,
-                reason=(
-                    f"Failed to delete recording. Date={date!r} filename={filename!r}"
-                ),
+                STATUS_ERROR_ENDPOINT_NOT_FOUND,
+                reason=f"Camera {camera_identifier.decode()} not found",
             )
             return
-        except Exception as error:  # pylint: disable=broad-except
-            LOGGER.error(
-                f"Error in API {self.__class__.__name__}.{self.route['method']}: "
-                f"{str(error)}"
-            )
-            self.response_error(STATUS_ERROR_INTERNAL, reason=str(error))
+
+        # Try to delete recording
+        if camera.delete_recording(
+            date.decode() if date else date,
+            filename.decode() if filename else filename,
+        ):
+            self.response_success()
+            return
+        self.response_error(
+            STATUS_ERROR_INTERNAL,
+            reason=(f"Failed to delete recording. Date={date!r} filename={filename!r}"),
+        )
+        return

@@ -122,10 +122,20 @@ class BaseAPIHandler(ViseronRequestHandler):
                     ),
                 )
                 self.route = route
-                getattr(self, route.get("method"))(
-                    *params.get("path_args", []), **params.get("path_kwargs", {})
-                )
-                return
+                try:
+                    getattr(self, route.get("method"))(
+                        *params.get("path_args", []), **params.get("path_kwargs", {})
+                    )
+                    return
+                except Exception as error:  # pylint: disable=broad-except
+                    LOGGER.error(
+                        f"Error in API {self.__class__.__name__}."
+                        f"{self.route['method']}: "
+                        f"{str(error)}",
+                        exc_info=True,
+                    )
+                    self.response_error(STATUS_ERROR_INTERNAL, reason=str(error))
+                    return
 
         if unsupported_method:
             LOGGER.warning(f"Method not allowed for URI: {self.request.uri}")
