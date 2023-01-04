@@ -41,27 +41,24 @@ class RecordingsAPIHandler(BaseAPIHandler):
     ]
 
     def delete_recording(
-        self, camera_identifier: bytes, date: bytes = None, filename: bytes = None
+        self, camera_identifier: str, date: str = None, filename: str = None
     ):
         """Delete recording(s)."""
-        camera = self._get_camera(camera_identifier.decode())
+        camera = self._get_camera(camera_identifier)
 
         if not camera:
             self.response_error(
                 STATUS_ERROR_ENDPOINT_NOT_FOUND,
-                reason=f"Camera {camera_identifier.decode()} not found",
+                reason=f"Camera {camera_identifier} not found",
             )
             return
 
         # Try to delete recording
-        if camera.delete_recording(
-            date.decode() if date else date,
-            filename.decode() if filename else filename,
-        ):
+        if camera.delete_recording(date, filename):
             self.response_success()
             return
         self.response_error(
             STATUS_ERROR_INTERNAL,
-            reason=(f"Failed to delete recording. Date={date!r} filename={filename!r}"),
+            reason=(f"Failed to delete recording. Date={date} filename={filename}"),
         )
         return

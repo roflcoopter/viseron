@@ -115,19 +115,21 @@ class BaseAPIHandler(ViseronRequestHandler):
                         )
                         return
 
+                path_args = [param.decode() for param in params.get("path_args", [])]
+                path_kwargs = params.get("path_kwargs", [])
+                for key, value in path_kwargs.items():
+                    path_kwargs[key] = value.decode()
                 LOGGER.debug(
                     "Routing to {}.{}(*args={}, **kwargs={})".format(
                         self.__class__.__name__,
                         route.get("method"),
-                        params.get("path_args", []),
-                        params.get("path_kwargs", {}),
+                        path_args,
+                        path_kwargs,
                     ),
                 )
                 self.route = route
                 try:
-                    getattr(self, route.get("method"))(
-                        *params.get("path_args", []), **params.get("path_kwargs", {})
-                    )
+                    getattr(self, route.get("method"))(*path_args, **path_kwargs)
                     return
                 except Exception as error:  # pylint: disable=broad-except
                     LOGGER.error(

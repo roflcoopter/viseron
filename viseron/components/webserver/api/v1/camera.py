@@ -37,14 +37,14 @@ class CameraAPIHandler(BaseAPIHandler):
         },
     ]
 
-    def get_snapshot(self, camera_identifier: bytes):
+    def get_snapshot(self, camera_identifier: str):
         """Return camera snapshot."""
-        camera = self._get_camera(camera_identifier.decode())
+        camera = self._get_camera(camera_identifier)
 
         if not camera or not camera.current_frame:
             self.response_error(
                 STATUS_ERROR_ENDPOINT_NOT_FOUND,
-                reason=f"Camera {camera_identifier.decode()} not found",
+                reason=f"Camera {camera_identifier} not found",
             )
             return
 
@@ -62,14 +62,14 @@ class CameraAPIHandler(BaseAPIHandler):
         )
         return
 
-    def get_camera(self, camera_identifier: bytes):
+    def get_camera(self, camera_identifier: str):
         """Return camera."""
-        camera = self._get_camera(camera_identifier.decode())
+        camera = self._get_camera(camera_identifier)
 
         if not camera:
             self.response_error(
                 STATUS_ERROR_ENDPOINT_NOT_FOUND,
-                reason=f"Camera {camera_identifier.decode()} not found",
+                reason=f"Camera {camera_identifier} not found",
             )
             return
 
@@ -77,27 +77,24 @@ class CameraAPIHandler(BaseAPIHandler):
         return
 
     def delete_recording(
-        self, camera_identifier: bytes, date: bytes = None, filename: bytes = None
+        self, camera_identifier: str, date: str = None, filename: str = None
     ):
         """Delete recording(s)."""
-        camera = self._get_camera(camera_identifier.decode())
+        camera = self._get_camera(camera_identifier)
 
         if not camera:
             self.response_error(
                 STATUS_ERROR_ENDPOINT_NOT_FOUND,
-                reason=f"Camera {camera_identifier.decode()} not found",
+                reason=f"Camera {camera_identifier} not found",
             )
             return
 
         # Try to delete recording
-        if camera.delete_recording(
-            date.decode() if date else date,
-            filename.decode() if filename else filename,
-        ):
+        if camera.delete_recording(date, filename):
             self.response_success()
             return
         self.response_error(
             STATUS_ERROR_INTERNAL,
-            reason=(f"Failed to delete recording. Date={date!r} filename={filename!r}"),
+            reason=(f"Failed to delete recording. Date={date} filename={filename}"),
         )
         return
