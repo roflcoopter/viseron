@@ -32,6 +32,13 @@ export type WebSocketResponse =
   | WebSocketResultResponse
   | WebSocketResultErrorResponse;
 
+export type APISuccessResponse = {
+  success: true;
+}
+export type APIErrorResponse = {
+  error: string;
+}
+
 export interface Recording {
   date: string
   filename: string
