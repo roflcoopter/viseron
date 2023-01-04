@@ -10,8 +10,6 @@ from viseron.components.webserver.const import (
     STATUS_ERROR_ENDPOINT_NOT_FOUND,
     STATUS_ERROR_INTERNAL,
 )
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
-from viseron.exceptions import DomainNotRegisteredError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -37,40 +35,7 @@ class CameraAPIHandler(BaseAPIHandler):
             "supported_methods": ["GET"],
             "method": "get_camera",
         },
-        {
-            "path_pattern": (
-                r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)"
-                r"/recording"
-                r"/(?P<date>[0-9]{4}-[0-9]{2}-[0-9]{2})"
-                r"/(?P<filename>.*\..*)"
-            ),
-            "supported_methods": ["DELETE"],
-            "method": "delete_recording",
-        },
-        {
-            "path_pattern": (
-                r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)"
-                r"/recording"
-                r"/(?P<date>[0-9]{4}-[0-9]{2}-[0-9]{2})"
-            ),
-            "supported_methods": ["DELETE"],
-            "method": "delete_recording",
-        },
-        {
-            "path_pattern": (
-                r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)" r"/recording"
-            ),
-            "supported_methods": ["DELETE"],
-            "method": "delete_recording",
-        },
     ]
-
-    def _get_camera(self, camera_identifier: str):
-        """Get camera instance."""
-        try:
-            return self._vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
-        except DomainNotRegisteredError:
-            return None
 
     def get_snapshot(self, camera_identifier: bytes):
         """Return camera snapshot."""

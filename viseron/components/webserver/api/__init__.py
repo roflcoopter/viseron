@@ -19,6 +19,8 @@ from viseron.components.webserver.const import (
 )
 from viseron.components.webserver.not_found_handler import NotFoundHandler
 from viseron.components.webserver.request_handler import ViseronRequestHandler
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
@@ -143,6 +145,13 @@ class BaseAPIHandler(ViseronRequestHandler):
         else:
             LOGGER.warning(f"Endpoint not found for URI: {self.request.uri}")
             self.handle_endpoint_not_found()
+
+    def _get_camera(self, camera_identifier: str):
+        """Get camera instance."""
+        try:
+            return self._vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
+        except DomainNotRegisteredError:
+            return None
 
     def delete(self, _path):
         """Route DELETE requests."""
