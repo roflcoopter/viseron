@@ -317,7 +317,7 @@ class AbstractRecorder(ABC):
         elif date and filename is None:
             path = os.path.join(self.recordings_folder, date)
         elif date is None and filename is None:
-            path = os.path.join(self.recordings_folder, "*")
+            path = self.recordings_folder
         else:
             self._logger.error("Could not remove file, incorrect path given")
             return False
@@ -326,6 +326,8 @@ class AbstractRecorder(ABC):
         try:
             if filename:
                 os.remove(path)
+            elif date:
+                shutil.rmtree(path)
             else:
                 dirs = Path(self.recordings_folder)
                 folders = dirs.walkdirs("*-*-*")
