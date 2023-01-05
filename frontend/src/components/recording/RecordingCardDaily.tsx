@@ -88,18 +88,19 @@ export default function RecordingCardDaily({
         <CardActions>
           <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
             <Tooltip title="View Recordings">
-              <IconButton
-                component={Link}
-                to={`/recordings/${camera.identifier}/${date}`}
-                disabled={lastRecording === null}
-              >
-                <VideoFileIcon />
-              </IconButton>
+              <span>
+                <IconButton
+                  component={Link}
+                  to={`/recordings/${camera.identifier}/${date}`}
+                  disabled={lastRecording === null}
+                >
+                  <VideoFileIcon />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title="Delete Recordings">
               <MutationIconButton<deleteRecordingParams>
                 mutation={deleteRecording}
-                disabled={lastRecording === null}
                 onClick={() => {
                   deleteRecording.mutate({
                     identifier: camera.identifier,

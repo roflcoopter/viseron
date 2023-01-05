@@ -23,18 +23,22 @@ interface RecordingCardLatestProps {
   camera: types.Camera;
 }
 
-function getLatestRecording(recordings: types.Recordings) {
+function getLatestRecording(
+  recordings: types.Recordings
+): types.Recording | null {
   if (objIsEmpty(recordings)) {
     return null;
   }
 
-  const latestDate = Object.keys(recordings).sort().reverse()[0];
-  const latestRecordings = recordings[latestDate];
-  if (objIsEmpty(latestRecordings)) {
-    return null;
+  for (const date of Object.keys(recordings).sort().reverse()) {
+    if (!objIsEmpty(recordings[date])) {
+      return recordings[date][
+        Object.keys(recordings[date]).sort().reverse()[0]
+      ];
+    }
   }
 
-  return latestRecordings[Object.keys(latestRecordings).sort().reverse()[0]];
+  return null;
 }
 
 function getVideoElement(
@@ -86,26 +90,30 @@ export default function RecordingCardLatest({
         <CardActions>
           <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
             <Tooltip title="View Recordings">
-              <IconButton
-                component={Link}
-                to={`/recordings/${camera.identifier}`}
-                disabled={latestRecording === null}
-              >
-                <VideoFileIcon />
-              </IconButton>
+              <span>
+                <IconButton
+                  component={Link}
+                  to={`/recordings/${camera.identifier}`}
+                  disabled={latestRecording === null}
+                >
+                  <VideoFileIcon />
+                </IconButton>
+              </span>
             </Tooltip>
             <Tooltip title="Delete Recordings">
-              <MutationIconButton<deleteRecordingParams>
-                mutation={deleteRecording}
-                disabled={latestRecording === null}
-                onClick={() => {
-                  deleteRecording.mutate({
-                    identifier: camera.identifier,
-                  });
-                }}
-              >
-                <DeleteForeverIcon />
-              </MutationIconButton>
+              <span>
+                <MutationIconButton<deleteRecordingParams>
+                  mutation={deleteRecording}
+                  disabled={latestRecording === null}
+                  onClick={() => {
+                    deleteRecording.mutate({
+                      identifier: camera.identifier,
+                    });
+                  }}
+                >
+                  <DeleteForeverIcon />
+                </MutationIconButton>
+              </span>
             </Tooltip>
           </Stack>
         </CardActions>
