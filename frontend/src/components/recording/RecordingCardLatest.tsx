@@ -9,60 +9,56 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { AxiosError } from "axios";
 import LazyLoad from "react-lazyload";
-import { useMutation } from "react-query";
+import { useMutation, useQuery } from "react-query";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
-import VideoPlayer from "components/videoplayer/VideoPlayer";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import { deleteRecordingParams } from "lib/api";
-import { getRecordingVideoJSOptions, objIsEmpty } from "lib/helpers";
+import { getVideoElement, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
 interface RecordingCardLatestProps {
   camera: types.Camera;
 }
 
-function getLatestRecording(
-  recordings: types.Recordings
-): types.Recording | null {
-  if (objIsEmpty(recordings)) {
-    return null;
-  }
-
-  for (const date of Object.keys(recordings).sort().reverse()) {
-    if (!objIsEmpty(recordings[date])) {
-      return recordings[date][
-        Object.keys(recordings[date]).sort().reverse()[0]
-      ];
-    }
-  }
-
-  return null;
-}
-
-function getVideoElement(
-  camera: types.Camera,
-  latestRecording: types.Recording | null
-) {
-  if (latestRecording === null) {
-    return <VideoPlayerPlaceholder camera={camera} />;
-  }
-
-  const videoJsOptions = getRecordingVideoJSOptions(latestRecording);
-  return <VideoPlayer recording={latestRecording} options={videoJsOptions} />;
-}
-
 export default function RecordingCardLatest({
   camera,
 }: RecordingCardLatestProps) {
-  const recordings = camera.recordings;
-  const latestRecording = getLatestRecording(recordings);
   const deleteRecording = useMutation<
     types.APISuccessResponse,
     AxiosError<types.APIErrorResponse>,
     deleteRecordingParams
   >("deleteRecording");
+
+  const { status, data: recordings } = useQuery<types.RecordingsCamera>({
+    queryKey: [`/recordings/${camera.identifier}?latest`],
+  });
+
+  let recording: types.Recording | undefined;
+  if (
+    objHasValues<types.RecordingsCamera>(recordings) &&
+    objHasValues<types.RecordingsCamera>(Object.values(recordings)[0]) &&
+    objHasValues<types.RecordingsCamera>(
+      Object.values(Object.values(recordings)[0])[0]
+    )
+  ) {
+    const recordingDate = Object.values(recordings)[0];
+    recording = Object.values(recordingDate)[0];
+  }
+
+  let text = "No recordings found";
+  if (status === "error") {
+    text = "Error getting latest recording";
+  } else if (status === "loading") {
+    text = "Loading latest recording";
+  } else if (status === "success" && !objHasValues(recording)) {
+    text = "No recordings found";
+  } else if (status === "success" && objHasValues(recording) && recording) {
+    text = `Latest recording: ${recording.date} - ${
+      recording.filename.split(".")[0]
+    }`;
+  }
 
   return (
     <LazyLoad height={200}>
@@ -71,20 +67,14 @@ export default function RecordingCardLatest({
           <Typography variant="h5" align="center">
             {camera.name}
           </Typography>
-          {latestRecording ? (
-            <Typography align="center">{`Latest recording: ${
-              latestRecording.date
-            } - ${latestRecording.filename.split(".")[0]}`}</Typography>
-          ) : (
-            <Typography align="center">No recordings found</Typography>
-          )}
+          <Typography align="center">{text}</Typography>
         </CardContent>
         <CardMedia>
           <LazyLoad
             height={200}
             placeholder={<VideoPlayerPlaceholder camera={camera} />}
           >
-            {getVideoElement(camera, latestRecording)}
+            {getVideoElement(camera, recording)}
           </LazyLoad>
         </CardMedia>
         <CardActions>
@@ -94,7 +84,7 @@ export default function RecordingCardLatest({
                 <IconButton
                   component={Link}
                   to={`/recordings/${camera.identifier}`}
-                  disabled={latestRecording === null}
+                  disabled={!objHasValues(recording)}
                 >
                   <VideoFileIcon />
                 </IconButton>
@@ -104,7 +94,7 @@ export default function RecordingCardLatest({
               <span>
                 <MutationIconButton<deleteRecordingParams>
                   mutation={deleteRecording}
-                  disabled={latestRecording === null}
+                  disabled={!objHasValues(recording)}
                   onClick={() => {
                     deleteRecording.mutate({
                       identifier: camera.identifier,

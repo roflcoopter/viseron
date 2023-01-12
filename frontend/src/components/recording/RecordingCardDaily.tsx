@@ -13,48 +13,22 @@ import { useMutation } from "react-query";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
-import VideoPlayer from "components/videoplayer/VideoPlayer";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import { deleteRecordingParams } from "lib/api";
-import { getRecordingVideoJSOptions, objIsEmpty } from "lib/helpers";
+import { getVideoElement, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
 interface RecordingCardDailyProps {
   camera: types.Camera;
   date: string;
-}
-
-function getLatestRecordingDate(recordings: types.Recordings, date: string) {
-  if (objIsEmpty(recordings)) {
-    return null;
-  }
-
-  const dailyRecordings = recordings[date];
-  if (objIsEmpty(dailyRecordings)) {
-    return null;
-  }
-
-  return dailyRecordings[Object.keys(dailyRecordings).sort().reverse()[0]];
-}
-
-function getVideoElement(
-  camera: types.Camera,
-  lastRecording: types.Recording | null
-) {
-  if (lastRecording === null) {
-    return <VideoPlayerPlaceholder camera={camera} />;
-  }
-
-  const videoJsOptions = getRecordingVideoJSOptions(lastRecording);
-  return <VideoPlayer recording={lastRecording} options={videoJsOptions} />;
+  recording: types.Recording | null;
 }
 
 export default function RecordingCardDaily({
   camera,
   date,
+  recording,
 }: RecordingCardDailyProps) {
-  const recordings = camera.recordings;
-  const lastRecording = getLatestRecordingDate(recordings, date);
   const deleteRecording = useMutation<
     types.APISuccessResponse,
     AxiosError<types.APIErrorResponse>,
@@ -68,9 +42,9 @@ export default function RecordingCardDaily({
           <Typography variant="h5" align="center">
             {date}
           </Typography>
-          {lastRecording ? (
+          {objHasValues<types.Recording>(recording) ? (
             <Typography align="center">{`Last recording: ${
-              lastRecording.filename.split(".")[0]
+              recording.filename.split(".")[0]
             }`}</Typography>
           ) : (
             <Typography align="center">No recordings found</Typography>
@@ -82,7 +56,7 @@ export default function RecordingCardDaily({
             offset={500}
             placeholder={<VideoPlayerPlaceholder camera={camera} />}
           >
-            {getVideoElement(camera, lastRecording)}
+            {getVideoElement(camera, recording)}
           </LazyLoad>
         </CardMedia>
         <CardActions>
@@ -92,7 +66,7 @@ export default function RecordingCardDaily({
                 <IconButton
                   component={Link}
                   to={`/recordings/${camera.identifier}/${date}`}
-                  disabled={lastRecording === null}
+                  disabled={!objHasValues(recording)}
                 >
                   <VideoFileIcon />
                 </IconButton>

@@ -8,13 +8,13 @@ import { Loading } from "components/loading/Loading";
 import RecordingCardLatest from "components/recording/RecordingCardLatest";
 import { ViseronContext } from "context/ViseronContext";
 import { useTitle } from "hooks/UseTitle";
-import { objIsEmpty } from "lib/helpers";
+import { objHasValues } from "lib/helpers";
 
 const Recordings = () => {
   const viseron = useContext(ViseronContext);
   useTitle("Recordings");
 
-  if (objIsEmpty(viseron.cameras)) {
+  if (!objHasValues<typeof viseron.cameras>(viseron.cameras)) {
     return <Loading text="Loading Recordings" />;
   }
 
@@ -25,7 +25,7 @@ const Recordings = () => {
         Recordings
       </Typography>
       <Grid container direction="row" spacing={2}>
-        {Object.keys(viseron.cameras).map((camera) => (
+        {Object.values(viseron.cameras).map((camera) => (
           <Grid
             item
             xs={12}
@@ -33,9 +33,9 @@ const Recordings = () => {
             md={6}
             lg={6}
             xl={4}
-            key={viseron.cameras[camera].identifier}
+            key={camera.identifier}
           >
-            <RecordingCardLatest camera={viseron.cameras[camera]} />
+            <RecordingCardLatest camera={camera} />
           </Grid>
         ))}
       </Grid>

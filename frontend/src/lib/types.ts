@@ -34,22 +34,30 @@ export type WebSocketResponse =
 
 export type APISuccessResponse = {
   success: true;
-}
+};
 export type APIErrorResponse = {
   error: string;
-}
+};
 
 export interface Recording {
-  date: string
-  filename: string
-  path: string
-  thumbnail_path: string
+  date: string;
+  filename: string;
+  path: string;
+  thumbnail_path: string;
 }
 
-export interface Recordings {
-  [index: string]: {
-    [index: string]: Recording
-  }
+export interface RecordingsAll {
+  [identifier: string]: {
+    [date: string]: {
+      [filename: string]: Recording;
+    };
+  };
+}
+
+export interface RecordingsCamera {
+  [date: string]: {
+    [filename: string]: Recording;
+  };
 }
 
 export interface Camera {
@@ -57,22 +65,22 @@ export interface Camera {
   name: string;
   width: number;
   height: number;
-  recordings: Recordings;
+  recordings: RecordingsCamera;
 }
 
 export interface Cameras {
-  [index: string]: Camera;
+  [identifier: string]: Camera;
 }
 
 export interface DetectedObject {
   label: string;
-confidence: number;
-rel_width: number;
-rel_height: number;
-rel_x1: number;
-rel_y1: number
-rel_x2: number;
-rel_y2: number;
+  confidence: number;
+  rel_width: number;
+  rel_height: number;
+  rel_x1: number;
+  rel_y1: number;
+  rel_x2: number;
+  rel_y2: number;
 }
 
 export type EventBase = {
@@ -92,7 +100,7 @@ export type EventCameraRegistered = Event & {
 export type EventRecorderComplete = Event & {
   name: "recorder_complete";
   data: {
-    camera: Camera
+    camera: Camera;
     recording: Recording & {
       start_time: string;
       start_timestamp: number;
@@ -100,7 +108,7 @@ export type EventRecorderComplete = Event & {
       end_timestamp: number;
       objects: [DetectedObject];
     };
-  }
+  };
 };
 
 export interface EntityAttributes {
@@ -110,9 +118,9 @@ export interface EntityAttributes {
 }
 
 export interface Entity {
-  entity_id: string
-  state: string
-  attributes: EntityAttributes
+  entity_id: string;
+  state: string;
+  attributes: EntityAttributes;
 }
 
 export interface Entities {
@@ -120,18 +128,17 @@ export interface Entities {
 }
 
 export interface State {
-  entity_id: string,
-  state: string,
-  attributes: EntityAttributes,
-  timestamp: number,
-
+  entity_id: string;
+  state: string;
+  attributes: EntityAttributes;
+  timestamp: number;
 }
 
 export type StateChangedEvent = EventBase & {
   name: "state_changed";
   data: {
     entity_id: string;
-    current_state: State
-    previous_state: State
-  }
+    current_state: State;
+    previous_state: State;
+  };
 };
