@@ -390,7 +390,3 @@ class AbstractCamera(ABC):
         if ret:
             return ret, jpg.tobytes()
         return ret, False
-
-    def delete_recording(self, date=None, recording=None):
-        """Delete recording(s)."""
-        return self.recorder.delete_recording(date, recording)

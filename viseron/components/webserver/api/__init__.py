@@ -40,7 +40,7 @@ class BaseAPIHandler(ViseronRequestHandler):
         """Initialize."""
         super().initialize(vis)
         self.route: dict[str, Any] = {}
-        self.request_arguments: dict[str, str] = {}
+        self.request_arguments: dict[str, Any] = {}
 
     def response_success(self, response=None, headers=None):
         """Send successful response."""
@@ -116,15 +116,19 @@ class BaseAPIHandler(ViseronRequestHandler):
                         return
 
                 path_args = [param.decode() for param in params.get("path_args", [])]
-                path_kwargs = params.get("path_kwargs", [])
+                path_kwargs = params.get("path_kwargs", {})
                 for key, value in path_kwargs.items():
                     path_kwargs[key] = value.decode()
                 LOGGER.debug(
-                    "Routing to {}.{}(*args={}, **kwargs={})".format(
+                    (
+                        "Routing to {}.{}(*args={}, **kwargs={}, "
+                        "request_arguments={})"
+                    ).format(
                         self.__class__.__name__,
                         route.get("method"),
                         path_args,
                         path_kwargs,
+                        self.request_arguments,
                     ),
                 )
                 self.route = route
@@ -147,6 +151,13 @@ class BaseAPIHandler(ViseronRequestHandler):
         else:
             LOGGER.warning(f"Endpoint not found for URI: {self.request.uri}")
             self.handle_endpoint_not_found()
+
+    def _get_cameras(self):
+        """Get all registered camera instances."""
+        try:
+            return self._vis.get_registered_identifiers(CAMERA_DOMAIN)
+        except DomainNotRegisteredError:
+            return None
 
     def _get_camera(self, camera_identifier: str):
         """Get camera instance."""
