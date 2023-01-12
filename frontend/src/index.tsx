@@ -14,16 +14,16 @@ import reportWebVitals from "./reportWebVitals";
 
 ReactDOM.render(
   <React.StrictMode>
-    <ViseronProvider>
-      <ColorModeProvider>
-        <CssBaseline enableColorScheme />
-        <Router>
-          <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <ViseronProvider>
+        <ColorModeProvider>
+          <CssBaseline enableColorScheme />
+          <Router>
             <App />
-          </QueryClientProvider>
-        </Router>
-      </ColorModeProvider>
-    </ViseronProvider>
+          </Router>
+        </ColorModeProvider>
+      </ViseronProvider>
+    </QueryClientProvider>
   </React.StrictMode>,
   document.getElementById("root")
 );

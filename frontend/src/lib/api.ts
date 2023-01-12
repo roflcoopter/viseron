@@ -6,6 +6,8 @@ export const API_V1_URL = "/api/v1";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 30000,
       queryFn: async ({ queryKey: [url] }) => {
         if (typeof url === "string") {
           const response = await axios.get(`${API_V1_URL}${url.toLowerCase()}`);

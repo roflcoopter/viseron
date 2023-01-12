@@ -65,7 +65,6 @@ export interface Camera {
   name: string;
   width: number;
   height: number;
-  recordings: RecordingsCamera;
 }
 
 export interface Cameras {
