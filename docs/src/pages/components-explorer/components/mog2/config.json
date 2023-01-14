@@ -29,7 +29,7 @@
                                         "type": "integer",
                                         "valueMin": 0,
                                         "name": "max_recorder_keepalive",
-                                        "description": "Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected.<br>This is to prevent never-ending recordings.<br>Only applicable if <code>recorder_keepalive: true</code>.",
+                                        "description": "Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected.<br>Use this to prevent never-ending recordings.<br>Only applicable if <code>recorder_keepalive: true</code>.<br><b>A value of <code>0</code> disables this functionality.</b>",
                                         "optional": true,
                                         "default": 30
                                     },
