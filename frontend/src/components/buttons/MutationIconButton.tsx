@@ -3,7 +3,6 @@ import { AxiosError } from "axios";
 import * as React from "react";
 import { UseMutationResult } from "react-query";
 
-import Snackbar from "components/snackbar/Snackbar";
 import * as types from "lib/types";
 
 interface MutationIconButtonProps<T> extends IconButtonProps {
@@ -27,12 +26,10 @@ function MutationIconButtonInner<T>(
   };
 
   const [color, setColor] = React.useState<"default" | "error">("default");
-  const [open, setOpen] = React.useState(false);
 
   React.useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
     if (props.mutation.isError) {
-      setOpen(true);
       setColor("error");
       timer = setTimeout(() => {
         setColor("default");
@@ -52,16 +49,6 @@ function MutationIconButtonInner<T>(
         ref={ref}
         color={color}
         disabled={props.mutation.isLoading || props.disabled}
-      />
-      <Snackbar
-        open={open}
-        setOpen={setOpen}
-        text={
-          props.mutation.error && props.mutation.error.response
-            ? props.mutation.error.response.data.error
-            : "An error occurred"
-        }
-        severity="error"
       />
     </div>
   );

@@ -7,14 +7,13 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { AxiosError } from "axios";
 import LazyLoad from "react-lazyload";
-import { useMutation, useQuery } from "react-query";
+import { useQuery } from "react-query";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
-import { deleteRecordingParams } from "lib/api";
+import { deleteRecordingParams, useDeleteRecording } from "lib/api";
 import { getVideoElement, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -25,11 +24,7 @@ interface RecordingCardLatestProps {
 export default function RecordingCardLatest({
   camera,
 }: RecordingCardLatestProps) {
-  const deleteRecording = useMutation<
-    types.APISuccessResponse,
-    AxiosError<types.APIErrorResponse>,
-    deleteRecordingParams
-  >("deleteRecording");
+  const deleteRecording = useDeleteRecording();
 
   const { status, data: recordings } = useQuery<types.RecordingsCamera>({
     queryKey: [`/recordings/${camera.identifier}?latest`],

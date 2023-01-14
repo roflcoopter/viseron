@@ -5,6 +5,7 @@ import { QueryClientProvider } from "react-query";
 import { BrowserRouter as Router } from "react-router-dom";
 
 import { ColorModeProvider } from "context/ColorModeContext";
+import { SnackbarProvider } from "context/SnackbarContext";
 import { ViseronProvider } from "context/ViseronContext";
 
 import App from "./App";
@@ -15,14 +16,16 @@ import reportWebVitals from "./reportWebVitals";
 ReactDOM.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ViseronProvider>
-        <ColorModeProvider>
-          <CssBaseline enableColorScheme />
-          <Router>
-            <App />
-          </Router>
-        </ColorModeProvider>
-      </ViseronProvider>
+      <SnackbarProvider>
+        <ViseronProvider>
+          <ColorModeProvider>
+            <CssBaseline enableColorScheme />
+            <Router>
+              <App />
+            </Router>
+          </ColorModeProvider>
+        </ViseronProvider>
+      </SnackbarProvider>
     </QueryClientProvider>
   </React.StrictMode>,
   document.getElementById("root")

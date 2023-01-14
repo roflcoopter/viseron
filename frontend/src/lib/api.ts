@@ -1,5 +1,9 @@
-import axios from "axios";
-import { QueryClient } from "react-query";
+import axios, { AxiosError } from "axios";
+import { QueryClient, useMutation } from "react-query";
+
+import { useSnackbar } from "context/SnackbarContext";
+
+import * as types from "./types";
 
 export const API_V1_URL = "/api/v1";
 
@@ -38,19 +42,39 @@ async function deleteRecording({
   return response.data;
 }
 
-queryClient.setMutationDefaults("deleteRecording", {
-  mutationFn: deleteRecording,
-  onSuccess: async (_data, variables, _context) => {
-    queryClient.invalidateQueries({
-      predicate: (query) =>
-        (query.queryKey[0] as string).startsWith(
-          `/recordings/${variables.identifier}`
-        ),
-    });
-    await queryClient.invalidateQueries([
-      `/recordings/${variables.identifier}`,
-    ]);
-  },
-});
+export const useDeleteRecording = () => {
+  const snackbar = useSnackbar();
+  return useMutation<
+    types.APISuccessResponse,
+    AxiosError<types.APIErrorResponse>,
+    deleteRecordingParams
+  >({
+    mutationFn: deleteRecording,
+    onSuccess: async (_data, variables, _context) => {
+      snackbar.showSnackbar("Recording deleted successfully", "success");
+      await queryClient.invalidateQueries({
+        predicate: (query) =>
+          (query.queryKey[0] as string).startsWith(
+            `/recordings/${variables.identifier}`
+          ),
+      });
+      await queryClient.invalidateQueries([
+        `/recordings/${variables.identifier}`,
+      ]);
+    },
+    onError: async (
+      error: AxiosError<types.APIErrorResponse>,
+      _variables: deleteRecordingParams,
+      _context
+    ) => {
+      snackbar.showSnackbar(
+        error.response && error.response.data.error
+          ? `Error deleting recording: ${error.response.data.error}`
+          : `An error occurred: ${error.message}`,
+        "error"
+      );
+    },
+  });
+};
 
 export default queryClient;
