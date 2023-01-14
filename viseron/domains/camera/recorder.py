@@ -4,6 +4,7 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import shutil
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -92,14 +93,12 @@ class AbstractRecorder(ABC):
 
         self.is_recording = False
         self._active_recording: Recording | None = None
-        self._extensions = list(
-            {
-                f"*.{self._camera.extension}",
-                "*.mp4",
-                "*.mkv",
-                "*.mov",
-            }
-        )
+        self._extensions = [
+            f".{self._camera.extension}",
+            ".mp4",
+            ".mkv",
+            ".mov",
+        ]
 
         self.recordings_folder = os.path.join(
             self._config[CONFIG_RECORDER][CONFIG_FOLDER], self._camera.identifier
@@ -116,27 +115,7 @@ class AbstractRecorder(ABC):
 
     def as_dict(self):
         """Return recorder information as dict."""
-        recordings_dict = {}
-        dirs = Path(self.recordings_folder)
-        date_folders = dirs.walkdirs("*-*-*")
-        for date_folder in date_folders:
-            if len(date_folder.listdir()) == 0:
-                continue
-
-            daily_recordings = {}
-            for extension in self._extensions:
-                recordings = date_folder.walkfiles(extension)
-                for recording in recordings:
-                    daily_recordings[str(recording.name)] = {
-                        "path": str(recording),
-                        "date": str(date_folder.name),
-                        "filename": str(recording.name),
-                        "thumbnail_path": os.path.join(
-                            date_folder, f"{str(recording.stem)}.jpg"
-                        ),
-                    }
-            recordings_dict[date_folder.name] = daily_recordings
-        return recordings_dict
+        return self.get_recordings()
 
     @staticmethod
     def subfolder_name(today):
@@ -306,3 +285,105 @@ class AbstractRecorder(ABC):
                     self._logger.debug(f"Removing directory {folder}")
                 except OSError:
                     self._logger.error(f"Could not remove directory {folder}")
+
+    def _recording_file_dict(self, file: Path):
+        """Return a dict with recording file information."""
+        return {
+            "path": str(file),
+            "date": str(file.parent.name),
+            "filename": str(file.name),
+            "thumbnail_path": os.path.join(file.parent, f"{str(file.stem)}.jpg"),
+        }
+
+    def get_recordings(self, date=None):
+        """Return all recordings."""
+        recordings = {}
+        dirs = Path(self.recordings_folder)
+        folders = dirs.walkdirs(date if date else "*-*-*")
+        for folder in folders:
+            recordings[folder.name] = {}
+            if len(folder.listdir()) == 0:
+                continue
+
+            for file in sorted(
+                folder.walkfiles("*.*"),
+                reverse=True,
+            ):
+                if file.ext in self._extensions:
+                    recordings[folder.name][file.name] = self._recording_file_dict(file)
+        return recordings
+
+    def get_recording(self, date, filename):
+        """Return a recording."""
+        file = Path(os.path.join(self.recordings_folder, date, filename))
+        if file.exists():
+            return self._recording_file_dict(file)
+        return {}
+
+    def get_latest_recording(self, date=None):
+        """Return the latest recording."""
+        recordings = {}
+        dirs = Path(self.recordings_folder)
+        folders = dirs.walkdirs(date if date else "*-*-*")
+        for folder in sorted(folders, reverse=True):
+            recordings[folder.name] = {}
+            for file in sorted(
+                folder.walkfiles("*.*"),
+                reverse=True,
+            ):
+                if file.ext in self._extensions:
+                    recordings[folder.name][file.name] = self._recording_file_dict(file)
+                    return recordings
+        return {}
+
+    def get_latest_recording_daily(self):
+        """Return the latest recording for each day."""
+        recordings = {}
+        dirs = Path(self.recordings_folder)
+        folders = dirs.walkdirs("*-*-*")
+        for folder in sorted(folders, reverse=True):
+            recordings[folder.name] = {}
+            for file in sorted(
+                folder.walkfiles("*.*"),
+                reverse=True,
+            ):
+                if file.ext in self._extensions:
+                    recordings[folder.name][file.name] = self._recording_file_dict(file)
+                    break
+        return recordings
+
+    def delete_recording(self, date=None, filename=None):
+        """Delete a single recording."""
+        path = None
+
+        if date and filename:
+            path = os.path.join(self.recordings_folder, date, filename)
+        elif date and filename is None:
+            path = os.path.join(self.recordings_folder, date)
+        elif date is None and filename is None:
+            path = self.recordings_folder
+        else:
+            self._logger.error("Could not remove file, incorrect path given")
+            return False
+
+        self._logger.debug(f"Removing {path}")
+        try:
+            if filename:
+                os.remove(path)
+                thumbnail = Path(
+                    os.path.join(
+                        self.recordings_folder, date, filename.split(".")[0] + ".jpg"
+                    )
+                )
+                os.remove(thumbnail)
+            elif date:
+                shutil.rmtree(path)
+            else:
+                dirs = Path(self.recordings_folder)
+                folders = dirs.walkdirs("*-*-*")
+                for folder in folders:
+                    shutil.rmtree(folder)
+        except OSError as error:
+            self._logger.error(f"Could not remove {path}", exc_info=error)
+            return False
+        return True

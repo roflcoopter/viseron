@@ -1,4 +1,5 @@
 import React, { FC, createContext, useEffect, useState } from "react";
+import { useQueryClient } from "react-query";
 
 import { getCameras, subscribeCameras, subscribeRecording } from "lib/commands";
 import { sortObj } from "lib/helpers";
@@ -32,6 +33,7 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
   );
   const [connected, setConnected] = useState<boolean>(false);
   const [cameras, setCameras] = useState<types.Cameras>({});
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (connection) {
@@ -42,25 +44,21 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
           newCameras = sortObj(newCameras);
           return newCameras;
         });
+        await queryClient.invalidateQueries({
+          predicate: (query) =>
+            (query.queryKey[0] as string).startsWith(
+              `/recordings/${camera.identifier}`
+            ),
+        });
       };
       const newRecording = async (
         recordingEvent: types.EventRecorderComplete
       ) => {
-        setCameras((prevCameras) => {
-          const newCameras = { ...prevCameras };
-          const recording = recordingEvent.data.recording;
-          const camera = recordingEvent.data.camera;
-          const prevRecordings = newCameras[camera.identifier].recordings;
-
-          if (recording.date in prevRecordings) {
-            prevRecordings[recording.date][recording.filename] = recording;
-          } else {
-            prevRecordings[recording.date] = {
-              [recording.filename]: recording,
-            };
-          }
-          newCameras[camera.identifier].recordings = prevRecordings;
-          return newCameras;
+        await queryClient.invalidateQueries({
+          predicate: (query) =>
+            (query.queryKey[0] as string).startsWith(
+              `/recordings/${recordingEvent.data.camera.identifier}`
+            ),
         });
       };
 
@@ -83,7 +81,7 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
       };
       connect();
     }
-  }, [connection]);
+  }, [connection, queryClient]);
 
   useEffect(() => {
     setConnection(new Connection());

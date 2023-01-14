@@ -5,13 +5,11 @@ import logging
 
 import voluptuous as vol
 
-from viseron.components.webserver.api import BaseAPIHandler
+from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.const import (
     STATUS_ERROR_ENDPOINT_NOT_FOUND,
     STATUS_ERROR_INTERNAL,
 )
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
-from viseron.exceptions import DomainNotRegisteredError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -39,66 +37,64 @@ class CameraAPIHandler(BaseAPIHandler):
         },
     ]
 
-    def _get_camera(self, camera_identifier: str):
-        """Get camera instance."""
-        try:
-            return self._vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
-        except DomainNotRegisteredError:
-            return None
-
-    def get_snapshot(self, camera_identifier: bytes):
+    def get_snapshot(self, camera_identifier: str):
         """Return camera snapshot."""
+        camera = self._get_camera(camera_identifier)
 
-        try:
-            camera = self._get_camera(camera_identifier.decode())
-
-            if not camera or not camera.current_frame:
-                self.response_error(
-                    STATUS_ERROR_ENDPOINT_NOT_FOUND,
-                    reason=f"Camera {camera_identifier.decode()} not found",
-                )
-                return
-
-            ret, jpg = camera.get_snapshot(
-                camera.current_frame,
-                self.request_arguments["width"],
-                self.request_arguments["height"],
-            )
-
-            if ret:
-                self.response_success(
-                    response=jpg, headers={"Content-Type": "image/jpeg"}
-                )
-                return
+        if not camera or not camera.current_frame:
             self.response_error(
-                STATUS_ERROR_INTERNAL, reason="Could not fetch camera snapshot"
+                STATUS_ERROR_ENDPOINT_NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
             )
             return
-        except Exception as error:  # pylint: disable=broad-except
-            LOGGER.error(
-                f"Error in API {self.__class__.__name__}.{self.route['method']}: "
-                f"{str(error)}",
-                exc_info=True,
-            )
-            self.response_error(STATUS_ERROR_INTERNAL, reason=str(error))
 
-    def get_camera(self, camera_identifier: bytes):
+        ret, jpg = camera.get_snapshot(
+            camera.current_frame,
+            self.request_arguments["width"],
+            self.request_arguments["height"],
+        )
+
+        if ret:
+            self.response_success(response=jpg, headers={"Content-Type": "image/jpeg"})
+            return
+        self.response_error(
+            STATUS_ERROR_INTERNAL, reason="Could not fetch camera snapshot"
+        )
+        return
+
+    def get_camera(self, camera_identifier: str):
         """Return camera."""
-        try:
-            camera = self._get_camera(camera_identifier.decode())
+        camera = self._get_camera(camera_identifier)
 
-            if not camera:
-                self.response_error(
-                    STATUS_ERROR_ENDPOINT_NOT_FOUND,
-                    reason=f"Camera {camera_identifier.decode()} not found",
-                )
-                return
-
-            self.response_success(camera.as_dict())
-            return
-        except Exception as error:  # pylint: disable=broad-except
-            LOGGER.error(
-                f"Error in API {self.__class__.__name__}.{self.route['method']}: "
-                f"{str(error)}"
+        if not camera:
+            self.response_error(
+                STATUS_ERROR_ENDPOINT_NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
             )
-            self.response_error(STATUS_ERROR_INTERNAL, reason=str(error))
+            return
+
+        self.response_success(camera.as_dict())
+        return
+
+    def delete_recording(
+        self, camera_identifier: str, date: str = None, filename: str = None
+    ):
+        """Delete recording(s)."""
+        camera = self._get_camera(camera_identifier)
+
+        if not camera:
+            self.response_error(
+                STATUS_ERROR_ENDPOINT_NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
+            )
+            return
+
+        # Try to delete recording
+        if camera.delete_recording(date, filename):
+            self.response_success()
+            return
+        self.response_error(
+            STATUS_ERROR_INTERNAL,
+            reason=(f"Failed to delete recording. Date={date} filename={filename}"),
+        )
+        return
