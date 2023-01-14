@@ -436,14 +436,21 @@ class NVR:
             and self._motion_detector.motion_detected
         ):
             # Only allow motion to keep event active for a specified period of time
-            if self._motion_only_frames >= (
-                self._camera.output_fps * self._motion_detector.max_recorder_keepalive
+            if (
+                self._motion_detector.max_recorder_keepalive
+                and self._motion_only_frames
+                >= (
+                    self._camera.output_fps
+                    * self._motion_detector.max_recorder_keepalive
+                )
             ):
                 if not self._motion_recorder_keepalive_reached:
                     self._motion_recorder_keepalive_reached = True
                     self._logger.debug(
                         "Motion has kept recorder alive for longer than "
-                        "max_recorder_keepalive, event considered over anyway"
+                        "max_recorder_keepalive "
+                        f"({self._motion_detector.max_recorder_keepalive}s), "
+                        "event considered over anyway"
                     )
                 return True
             self._motion_only_frames += 1
@@ -527,6 +534,8 @@ class NVR:
 
             if self._motion_detector.trigger_recorder and not self._camera.is_recording:
                 self._start_recorder = True
+                self._motion_only_frames = 0
+                self._motion_recorder_keepalive_reached = False
 
         elif (
             self._object_detector
