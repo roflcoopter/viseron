@@ -1,7 +1,7 @@
 """Config API Handler."""
 import logging
 
-from viseron.components.webserver.api import BaseAPIHandler
+from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.const import CONFIG_PATH
 
 LOGGER = logging.getLogger(__name__)

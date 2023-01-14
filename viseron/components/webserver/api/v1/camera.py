@@ -5,7 +5,7 @@ import logging
 
 import voluptuous as vol
 
-from viseron.components.webserver.api import BaseAPIHandler
+from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.const import (
     STATUS_ERROR_ENDPOINT_NOT_FOUND,
     STATUS_ERROR_INTERNAL,

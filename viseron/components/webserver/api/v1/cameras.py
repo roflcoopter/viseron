@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-from viseron.components.webserver.api import BaseAPIHandler
+from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.const import REGISTERED_DOMAINS
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 
