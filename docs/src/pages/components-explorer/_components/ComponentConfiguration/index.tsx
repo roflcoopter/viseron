@@ -150,8 +150,9 @@ function buildHeader(item: any) {
       {item.name ? (
         <span className={styles.configVariablesName}>{getName(item)}</span>
       ) : null}
+      {/* Zero width space to prevent selecting type when double clicking the name */}
+      &#8203;
       <span className={styles.configVariablesType}>{item.type}</span>
-
       <span className={styles.configVariablesRequired}>
         {item.optional ? " (" : null}
         <span
