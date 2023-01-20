@@ -29,13 +29,27 @@ from .request_handler import ViseronRequestHandler
 
 LOGGER = logging.getLogger(__name__)
 
+BOUNDARY = "--jpgboundary"
+
 
 class StreamHandler(ViseronRequestHandler):
     """Represents a stream."""
 
+    def _set_stream_headers(self):
+        """Set the headers for the stream."""
+        self.set_header(
+            "Cache-Control",
+            "no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0",
+        )
+        self.set_header("Connection", "close")
+        self.set_header(
+            "Content-Type", f"multipart/x-mixed-replace; boundary={BOUNDARY}"
+        )
+        self.set_header("Pragma", "no-cache")
+
     async def write_jpg(self, jpg):
         """Set the headers and write the jpg data."""
-        self.write("--jpgboundary\r\n")
+        self.write(f"{BOUNDARY}\r\n")
         self.write("Content-type: image/jpeg\r\n")
         self.write("Content-length: %s\r\n\r\n" % len(jpg))
         self.write(jpg.tobytes())
@@ -131,11 +145,6 @@ class DynamicStreamHandler(StreamHandler):
                 continue
             break
 
-        self.set_header(
-            "Content-Type", "multipart/x-mixed-replace;boundary=--jpgboundary"
-        )
-        self.set_header("Connection", "close")
-
         frame_queue = Queue(maxsize=1)
         frame_topic = DATA_PROCESSED_FRAME_TOPIC.format(
             camera_identifier=nvr.camera.identifier
@@ -143,6 +152,9 @@ class DynamicStreamHandler(StreamHandler):
         unique_id = DataStream.subscribe_data(
             frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
         )
+
+        self._set_stream_headers()
+
         while True:
             try:
                 processed_frame: DataProcessedFrame = await frame_queue.get()
@@ -236,10 +248,8 @@ class StaticStreamHandler(StreamHandler):
                 self.stream, nvr, mjpeg_stream, mjpeg_stream_config, frame_topic
             )
 
-        self.set_header(
-            "Content-Type", "multipart/x-mixed-replace;boundary=--jpgboundary"
-        )
-        self.set_header("Connection", "close")
+        self._set_stream_headers()
+
         while True:
             try:
                 jpg = await frame_queue.get()
