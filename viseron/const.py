@@ -3,6 +3,7 @@ import cv2
 
 CONFIG_PATH = "/config/config.yaml"
 SECRETS_PATH = "/config/secrets.yaml"
+STORAGE_PATH = "/config/.viseron"
 DEFAULT_CONFIG = """# Thanks for trying out Viseron!
 # This is a small walkthrough of the configuration to get you started.
 # There are far more components and options available than what is listed here.
