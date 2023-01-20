@@ -1,4 +1,5 @@
 apscheduler==3.6.3
+bcrypt==4.0.1
 deepstack-python==0.8
 colorlog==5.0.1
 compreface-sdk==0.6.0

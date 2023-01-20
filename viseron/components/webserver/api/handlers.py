@@ -13,6 +13,7 @@ from voluptuous.humanize import humanize_error
 from viseron.components.webserver.api.const import API_BASE
 from viseron.components.webserver.const import (
     STATUS_ERROR_ENDPOINT_NOT_FOUND,
+    STATUS_ERROR_EXTERNAL,
     STATUS_ERROR_INTERNAL,
     STATUS_ERROR_METHOD_NOT_ALLOWED,
     STATUS_SUCCESS,
@@ -38,6 +39,7 @@ class BaseAPIHandler(ViseronRequestHandler):
         super().initialize(vis)
         self.route: dict[str, Any] = {}
         self.request_arguments: dict[str, Any] = {}
+        self.json_body: dict[str, Any] = {}
 
     def response_success(self, response=None, headers=None):
         """Send successful response."""
@@ -78,6 +80,36 @@ class BaseAPIHandler(ViseronRequestHandler):
         self.set_status(STATUS_ERROR_METHOD_NOT_ALLOWED)
         self.finish(response)
 
+    def validate_json_body(self, route):
+        """Validate JSON body."""
+        if schema := route.get("json_body_schema", None):
+            if not self.request.body:
+                return True
+            try:
+                json_body = json.loads(self.request.body)
+            except json.JSONDecodeError:
+                self.response_error(
+                    STATUS_ERROR_EXTERNAL,
+                    reason=f"Invalid JSON body: {self.request.body}",
+                )
+                return False
+
+            try:
+                self.json_body = schema(json_body)
+            except vol.Invalid:
+                LOGGER.error(
+                    f"Invalid body: {self.request.body}",
+                    exc_info=True,
+                )
+                self.response_error(
+                    STATUS_ERROR_INTERNAL,
+                    reason="Invalid body: {}".format(
+                        self.request.body,
+                    ),
+                )
+                return False
+        return True
+
     def route_request(self):
         """Route request to correct API endpoint."""
         unsupported_method = False
@@ -111,6 +143,9 @@ class BaseAPIHandler(ViseronRequestHandler):
                             ),
                         )
                         return
+
+                if not self.validate_json_body(route):
+                    return
 
                 path_args = [param.decode() for param in params.get("path_args", [])]
                 path_kwargs = params.get("path_kwargs", {})

@@ -5,6 +5,7 @@ COMPONENT = "webserver"
 
 PATH_STATIC = "/src/viseron/frontend/static"
 
+STORAGE_KEY = "auth"
 
 # CONFIG_SCHEMA constants
 CONFIG_PORT = "port"

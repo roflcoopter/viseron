@@ -13,6 +13,7 @@ import tornado.web
 import voluptuous as vol
 from tornado.routing import PathMatches
 
+from viseron.components.webserver.auth import Auth
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import ComponentNotReady
@@ -122,6 +123,7 @@ class WebServer(threading.Thread):
         super().__init__(name="Tornado WebServer", daemon=True)
         self._vis = vis
         self._config = config
+        self.auth = Auth(vis)
 
         vis.data[COMPONENT] = self
         vis.data[WEBSOCKET_COMMANDS] = {}
