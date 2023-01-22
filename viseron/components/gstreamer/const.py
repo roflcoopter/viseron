@@ -54,8 +54,6 @@ DECODER_ELEMENT_MAP = {
 
 PIXEL_FORMAT = "NV12"
 
-CAMERA_SEGMENT_DURATION = 5
-
 GSTREAMER_LOGLEVELS = {
     "error": 1,
     "warning": 2,
@@ -160,12 +158,14 @@ DEFAULT_USERNAME = None
 DEFAULT_PASSWORD = None
 DEFAULT_GSTREAMER_LOGLEVEL = "error"
 DEFAULT_GSTREAMER_RECOVERABLE_ERRORS: list[str] = [
+    "Last message repeated",
     "dconf will not work properly",
     "decode_slice_header error",
     "no frame!",
     "left block unavailable for requested intra mode",
     "error while decoding MB",
     "decreasing DTS value",
+    "non-existing PPS 0 referenced",
 ]
 DEFAULT_FFPROBE_LOGLEVEL = "error"
 
@@ -191,33 +191,10 @@ DESC_RECORDER = "Recorder config."
 
 # RECORDER_SCHEMA constants
 CONFIG_MUXER = "muxer"
-CONFIG_RECORDER_HWACCEL_ARGS = "hwaccel_args"
-CONFIG_RECORDER_CODEC = "codec"
-CONFIG_RECORDER_AUDIO_CODEC = "audio_codec"
-CONFIG_RECORDER_VIDEO_FILTERS = "video_filters"
-CONFIG_RECORDER_AUDIO_FILTERS = "audio_filters"
-CONFIG_SEGMENTS_FOLDER = "segments_folder"
 
 DEFAULT_MUXER = "mp4mux"
-DEFAULT_RECORDER_HWACCEL_ARGS: list[str] = []
-DEFAULT_RECORDER_CODEC = "copy"
-DEFAULT_RECORDER_AUDIO_CODEC = "copy"
-DEFAULT_RECORDER_VIDEO_FILTERS: list[str] = []
-DEFAULT_RECORDER_AUDIO_FILTERS: list[str] = []
-DEFAULT_SEGMENTS_FOLDER = "/segments"
 
 DESC_MUXER = "GStreamer segment muxer."
-DESC_RECORDER_HWACCEL_ARGS = "<b>FFmpeg</b> encoder hardware acceleration arguments."
-DESC_RECORDER_CODEC = "<b>FFmpeg</b> video encoder codec, eg <code>h264_nvenc</code>."
-DESC_RECORDER_AUDIO_CODEC = "<b>FFmpeg</b> audio encoder codec, eg <code>aac</code>."
-DESC_RECORDER_VIDEO_FILTERS = (
-    "A list of FFmpeg filter arguments. "
-    "These filters are applied to the recorder videos."
-)
-DESC_RECORDER_AUDIO_FILTERS = (
-    "A list of FFmpeg audio filter arguments. "
-    "These filters are applied to the recorder videos."
-)
 DESC_SEGMENTS_FOLDER = (
     "What folder to store GStreamer segments in. "
     "Segments are used to produce recordings so you should not need to change this."

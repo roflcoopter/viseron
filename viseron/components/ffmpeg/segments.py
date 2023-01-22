@@ -22,6 +22,7 @@ from .const import (
     CONFIG_RECORDER_AUDIO_FILTERS,
     CONFIG_RECORDER_CODEC,
     CONFIG_RECORDER_HWACCEL_ARGS,
+    CONFIG_RECORDER_OUPTUT_ARGS,
     CONFIG_RECORDER_VIDEO_FILTERS,
     CONFIG_SEGMENTS_FOLDER,
 )
@@ -108,6 +109,12 @@ class Segments:
             None,
         )
 
+    def get_start_time(self, segment):
+        """Get start time of segment."""
+        return datetime.datetime.strptime(
+            segment.split(".")[0], "%Y%m%d%H%M%S"
+        ).timestamp()
+
     def get_segment_information(self):
         """Get information for all available segments."""
         segment_files = os.listdir(self._segments_folder)
@@ -119,9 +126,7 @@ class Segments:
             if not duration:
                 continue
 
-            start_time = datetime.datetime.strptime(
-                segment.split(".")[0], "%Y%m%d%H%M%S"
-            ).timestamp()
+            start_time = self.get_start_time(segment)
 
             information = {"start_time": start_time, "end_time": start_time + duration}
             segment_information[segment] = information
@@ -130,8 +135,10 @@ class Segments:
 
     def get_concat_segments(self, segments, start_segment, end_segment):
         """Return all segments between start_segment and end_segment."""
-        segment_list = list(segments.keys())
-        segment_list.sort()
+        # Sort segments by start time
+        segment_list = sorted(
+            segments.keys(), key=lambda x: (segments[x]["start_time"])
+        )
         try:
             return segment_list[
                 len(segment_list)
@@ -168,7 +175,7 @@ class Segments:
         while True:
             try:
                 concat_script += (
-                    "\nfile " f"'file:{os.path.join(self._segments_folder, segment)}'"
+                    f"\nfile 'file:{os.path.join(self._segments_folder, segment)}'"
                 )
                 segment = next(segment_iterable)
             except StopIteration:
@@ -183,7 +190,7 @@ class Segments:
         if filters := self._config[CONFIG_RECORDER][CONFIG_RECORDER_VIDEO_FILTERS]:
             return [
                 "-vf",
-                (",".join(filters)),
+                ",".join(filters),
             ]
         return []
 
@@ -192,7 +199,7 @@ class Segments:
         if filters := self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_FILTERS]:
             return [
                 "-af",
-                (",".join(filters)),
+                ",".join(filters),
             ]
         return []
 
@@ -221,6 +228,7 @@ class Segments:
             + self.video_filter_args()
             + ["-c:a", self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]]
             + self.audio_filter_args()
+            + self._config[CONFIG_RECORDER][CONFIG_RECORDER_OUPTUT_ARGS]
             + ["-movflags", "+faststart"]
             + [file_name]
         )
@@ -317,6 +325,12 @@ class SegmentCleanup:
 
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.shutdown)
 
+    def get_start_time(self, segment):
+        """Get start time of segment."""
+        return datetime.datetime.strptime(
+            segment.split(".")[0], "%Y%m%d%H%M%S"
+        ).timestamp()
+
     def cleanup(self, force=False):
         """Delete all segments that are no longer needed."""
         if not force and self._segment_thread_context.count > 0:
@@ -332,9 +346,7 @@ class SegmentCleanup:
                 continue
 
             try:
-                start_time = datetime.datetime.strptime(
-                    segment.split(".")[0], "%Y%m%d%H%M%S"
-                ).timestamp()
+                start_time = self.get_start_time(segment)
             except ValueError as error:
                 self._logger.error(
                     f"Could not extract timestamp from segment {segment}: {error}"
