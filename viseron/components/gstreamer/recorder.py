@@ -6,11 +6,12 @@ import os
 import threading
 from typing import TYPE_CHECKING
 
+from viseron.components.ffmpeg.const import CONFIG_SEGMENTS_FOLDER
 from viseron.components.ffmpeg.recorder import ConcatThreadsContext
 from viseron.domains.camera.recorder import AbstractRecorder
 from viseron.helpers import create_directory
 
-from .const import COMPONENT, CONFIG_SEGMENTS_FOLDER, RECORDER
+from .const import COMPONENT, RECORDER
 from .segments import SegmentCleanup, Segments
 
 if TYPE_CHECKING:

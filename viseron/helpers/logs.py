@@ -57,6 +57,10 @@ class UnhelpfullLogFilter(logging.Filter):
         """Filter log record."""
         if any(error in record.msg for error in self.errors_to_ignore):
             return False
+        if isinstance(record.msg, str) and (
+            record.msg == "" or record.msg.isspace() or not record.msg.strip()
+        ):
+            return False
         return True
 
 

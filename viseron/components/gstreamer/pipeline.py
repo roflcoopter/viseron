@@ -4,10 +4,13 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
+from viseron.components.ffmpeg.const import (
+    CAMERA_SEGMENT_DURATION,
+    CONFIG_SEGMENTS_FOLDER,
+)
 from viseron.domains.camera.const import CONFIG_EXTENSION
 
 from .const import (
-    CAMERA_SEGMENT_DURATION,
     COMPONENT,
     CONFIG_AUDIO_CODEC,
     CONFIG_AUDIO_PIPELINE,
@@ -16,7 +19,6 @@ from .const import (
     CONFIG_OUTPUT_ELEMENT,
     CONFIG_RECORDER,
     CONFIG_RTSP_TRANSPORT,
-    CONFIG_SEGMENTS_FOLDER,
     CONFIG_STREAM_FORMAT,
     DECODER_ELEMENT_MAP,
     DEFAULT_AUDIO_PIPELINE,
