@@ -2,8 +2,7 @@ import axios, { AxiosError } from "axios";
 import { QueryClient, useMutation } from "react-query";
 
 import { useSnackbar } from "context/SnackbarContext";
-
-import * as types from "./types";
+import * as types from "lib/types";
 
 export const API_V1_URL = "/api/v1";
 

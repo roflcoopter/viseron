@@ -2,18 +2,18 @@
 from __future__ import annotations
 
 import logging
+from http import HTTPStatus
 
 import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.auth import UserExistsError
-from viseron.components.webserver.const import STATUS_ERROR_EXTERNAL
 
 LOGGER = logging.getLogger(__name__)
 
 
 class AuthAPIHandler(BaseAPIHandler):
-    """Handler for API calls related to a camera."""
+    """Handler for API calls related to authentication."""
 
     routes = [
         {
@@ -43,6 +43,6 @@ class AuthAPIHandler(BaseAPIHandler):
                 self.json_body["group"],
             )
         except UserExistsError as error:
-            self.response_error(STATUS_ERROR_EXTERNAL, reason=str(error))
+            self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
             return
         self.response_success()

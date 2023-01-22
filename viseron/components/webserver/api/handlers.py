@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import logging
 from functools import partial
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
 import tornado.routing
@@ -11,13 +12,6 @@ import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
 from viseron.components.webserver.api.const import API_BASE
-from viseron.components.webserver.const import (
-    STATUS_ERROR_ENDPOINT_NOT_FOUND,
-    STATUS_ERROR_EXTERNAL,
-    STATUS_ERROR_INTERNAL,
-    STATUS_ERROR_METHOD_NOT_ALLOWED,
-    STATUS_SUCCESS,
-)
 from viseron.components.webserver.request_handler import ViseronRequestHandler
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
@@ -41,11 +35,13 @@ class BaseAPIHandler(ViseronRequestHandler):
         self.request_arguments: dict[str, Any] = {}
         self.json_body: dict[str, Any] = {}
 
-    def response_success(self, response=None, headers=None):
+    def response_success(
+        self, *, status: HTTPStatus = HTTPStatus.OK, response=None, headers=None
+    ):
         """Send successful response."""
         if response is None:
             response = {"success": True}
-        self.set_status(STATUS_SUCCESS)
+        self.set_status(status)
 
         if headers:
             for header, value in headers.items():
@@ -59,26 +55,21 @@ class BaseAPIHandler(ViseronRequestHandler):
 
     def response_error(self, status_code, reason):
         """Send error response."""
+        if isinstance(status_code, HTTPStatus):
+            status_code = int(status_code)
         self.set_status(status_code, reason=reason.replace("\n", ""))
-        response = {"error": f"{status_code}: {reason}"}
+        response = {"status": status_code, "error": reason}
         self.finish(response)
 
     def handle_endpoint_not_found(self):
         """Return 404."""
-        response = {"error": f"{STATUS_ERROR_ENDPOINT_NOT_FOUND}: Endpoint not found"}
-        self.set_status(STATUS_ERROR_ENDPOINT_NOT_FOUND)
-        self.finish(response)
+        self.response_error(HTTPStatus.NOT_FOUND, "Endpoint not found")
 
     def handle_method_not_allowed(self):
         """Return 405."""
-        response = {
-            "error": (
-                f"{STATUS_ERROR_METHOD_NOT_ALLOWED}: "
-                f"Method '{self.request.method}' not allowed"
-            )
-        }
-        self.set_status(STATUS_ERROR_METHOD_NOT_ALLOWED)
-        self.finish(response)
+        self.response_error(
+            HTTPStatus.METHOD_NOT_ALLOWED, f"Method '{self.request.method}' not allowed"
+        )
 
     def validate_json_body(self, route):
         """Validate JSON body."""
@@ -89,7 +80,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                 json_body = json.loads(self.request.body)
             except json.JSONDecodeError:
                 self.response_error(
-                    STATUS_ERROR_EXTERNAL,
+                    HTTPStatus.BAD_REQUEST,
                     reason=f"Invalid JSON body: {self.request.body}",
                 )
                 return False
@@ -102,7 +93,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                     exc_info=True,
                 )
                 self.response_error(
-                    STATUS_ERROR_INTERNAL,
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
                     reason="Invalid body: {}".format(
                         self.request.body,
                     ),
@@ -136,7 +127,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                             exc_info=True,
                         )
                         self.response_error(
-                            STATUS_ERROR_INTERNAL,
+                            HTTPStatus.INTERNAL_SERVER_ERROR,
                             reason="Invalid request arguments: {}. {}".format(
                                 request_arguments,
                                 humanize_error(request_arguments, err),
@@ -153,8 +144,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                     path_kwargs[key] = value.decode()
                 LOGGER.debug(
                     (
-                        "Routing to {}.{}(*args={}, **kwargs={}, "
-                        "request_arguments={})"
+                        "Routing to {}.{}(*args={}, **kwargs={}, request_arguments={})"
                     ).format(
                         self.__class__.__name__,
                         route.get("method"),
@@ -174,7 +164,9 @@ class BaseAPIHandler(ViseronRequestHandler):
                         f"{str(error)}",
                         exc_info=True,
                     )
-                    self.response_error(STATUS_ERROR_INTERNAL, reason=str(error))
+                    self.response_error(
+                        HTTPStatus.INTERNAL_SERVER_ERROR, reason=str(error)
+                    )
                     return
 
         if unsupported_method:
@@ -220,6 +212,4 @@ class APINotFoundHandler(BaseAPIHandler):
 
     def get(self, _path):
         """Catch all methods."""
-        self.response_error(
-            STATUS_ERROR_ENDPOINT_NOT_FOUND, reason="Endpoint not found"
-        )
+        self.response_error(HTTPStatus.NOT_FOUND, "Endpoint not found")

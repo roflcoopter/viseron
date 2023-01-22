@@ -61,6 +61,8 @@ class Auth:
         group: Literal["admin", "user"] = None,
     ):
         """Add user."""
+        name = name.strip()
+        username = username.strip().casefold()
         with self._lock:
             if username in self.users:
                 raise UserExistsError(f"A user with username {username} already exists")

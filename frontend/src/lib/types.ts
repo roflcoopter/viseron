@@ -36,6 +36,7 @@ export type APISuccessResponse = {
   success: true;
 };
 export type APIErrorResponse = {
+  status: number;
   error: string;
 };
 
