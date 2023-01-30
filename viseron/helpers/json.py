@@ -2,6 +2,7 @@
 import dataclasses
 import datetime
 import json
+from enum import Enum
 from typing import Any
 
 
@@ -16,5 +17,9 @@ class JSONEncoder(json.JSONEncoder):
             return o.as_dict()
         if dataclasses.is_dataclass(o):
             return dataclasses.asdict(o)
+        if isinstance(o, datetime.timedelta):
+            return int(o.total_seconds())
+        if isinstance(o, Enum):
+            return o.value
 
         return json.JSONEncoder.default(self, o)

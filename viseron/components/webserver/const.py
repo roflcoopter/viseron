@@ -1,11 +1,16 @@
 """Webserver constants."""
 
 
+from datetime import timedelta
+
 COMPONENT = "webserver"
 
 PATH_STATIC = "/src/viseron/frontend/static"
 
-STORAGE_KEY = "auth"
+WEBSERVER_STORAGE_KEY = "webserver"
+AUTH_STORAGE_KEY = "auth"
+
+ACCESS_TOKEN_EXPIRATION = timedelta(minutes=30)
 
 # CONFIG_SCHEMA constants
 CONFIG_PORT = "port"

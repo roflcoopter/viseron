@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import secrets
 import threading
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,7 @@ from viseron.components.webserver.auth import Auth
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import ComponentNotReady
+from viseron.helpers.storage import Storage
 from viseron.helpers.validators import CoerceNoneToDict
 
 from .api import APIRouter
@@ -31,6 +33,7 @@ from .const import (
     DESC_DEBUG,
     DESC_PORT,
     PATH_STATIC,
+    WEBSERVER_STORAGE_KEY,
     WEBSOCKET_COMMANDS,
 )
 from .not_found_handler import NotFoundHandler
@@ -79,7 +82,7 @@ CONFIG_SCHEMA = vol.Schema(
 def setup(vis: Viseron, config):
     """Set up the webserver component."""
     config = config[COMPONENT]
-    webserver = WebServer(vis, config)
+    webserver = Webserver(vis, config)
     vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, webserver.stop)
 
     webserver.register_websocket_command(ping)
@@ -116,23 +119,86 @@ class DeprecatedStreamHandler(tornado.web.RequestHandler):
         self.redirect(f"/{camera}/mjpeg-stream")
 
 
-class WebServer(threading.Thread):
+class WebserverStore:
+    """Webserver storage."""
+
+    def __init__(self, vis: Viseron):
+        self._store = Storage(vis, WEBSERVER_STORAGE_KEY)
+        self._data = self._store.load()
+
+    @property
+    def cookie_secret(self):
+        """Return cookie secret."""
+        if "cookie_secret" not in self._data:
+            self._data["cookie_secret"] = secrets.token_hex(64)
+            self._store.save(self._data)
+        return self._data["cookie_secret"]
+
+
+def create_application(vis: Viseron, config, cookie_secret):
+    """Return tornado web app."""
+    application = tornado.web.Application(
+        [
+            (
+                r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-stream",
+                DynamicStreamHandler,
+                {"vis": vis},
+            ),
+            (
+                (
+                    r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-streams/"
+                    r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)"
+                ),
+                StaticStreamHandler,
+                {"vis": vis},
+            ),
+            (
+                (
+                    r"/(?P<camera>[A-Za-z0-9_]+)/static-mjpeg-streams/"
+                    r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)"
+                ),
+                StaticStreamHandler,
+                {"vis": vis},
+            ),
+            (r"/websocket", WebSocketHandler, {"vis": vis}),
+            (r"/.*", IndexHandler, {"vis": vis}),
+        ],
+        default_handler_class=NotFoundHandler,
+        static_path=PATH_STATIC,
+        websocket_ping_interval=10,
+        debug=config[CONFIG_DEBUG],
+        cookie_secret=cookie_secret,
+    )
+    application.add_handlers(
+        r".*",
+        [
+            (PathMatches(r"/api/.*"), APIRouter(vis, application)),
+        ],
+    )
+    return application
+
+
+class Webserver(threading.Thread):
     """Webserver."""
 
     def __init__(self, vis: Viseron, config):
-        super().__init__(name="Tornado WebServer", daemon=True)
+        super().__init__(name="Tornado Webserver", daemon=True)
         self._vis = vis
         self._config = config
         self.auth = Auth(vis)
+        self._store = WebserverStore(vis)
 
         vis.data[COMPONENT] = self
         vis.data[WEBSOCKET_COMMANDS] = {}
 
         ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(ioloop)
-        self.application = self.create_application()
+        self.application = create_application(vis, config, self._store.cookie_secret)
         try:
-            self.application.listen(config[CONFIG_PORT])
+            self.application.listen(
+                config[CONFIG_PORT],
+                xheaders=True,
+            )
         except OSError as error:
             if "Address already in use" in str(error):
                 raise ComponentNotReady from error
@@ -142,47 +208,6 @@ class WebServer(threading.Thread):
         self._vis.listen_event(
             EVENT_DOMAIN_REGISTERED.format(domain=CAMERA_DOMAIN), self.camera_registered
         )
-
-    def create_application(self):
-        """Return tornado web app."""
-        application = tornado.web.Application(
-            [
-                (
-                    r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-stream",
-                    DynamicStreamHandler,
-                    {"vis": self._vis},
-                ),
-                (
-                    (
-                        r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-streams/"
-                        r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)"
-                    ),
-                    StaticStreamHandler,
-                    {"vis": self._vis},
-                ),
-                (
-                    (
-                        r"/(?P<camera>[A-Za-z0-9_]+)/static-mjpeg-streams/"
-                        r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)"
-                    ),
-                    StaticStreamHandler,
-                    {"vis": self._vis},
-                ),
-                (r"/websocket", WebSocketHandler, {"vis": self._vis}),
-                (r"/.*", IndexHandler, {"vis": self._vis}),
-            ],
-            default_handler_class=NotFoundHandler,
-            static_path=PATH_STATIC,
-            websocket_ping_interval=10,
-            debug=self._config[CONFIG_DEBUG],
-        )
-        application.add_handlers(
-            r".*",
-            [
-                (PathMatches(r"/api/.*"), APIRouter(self._vis, application)),
-            ],
-        )
-        return application
 
     def register_websocket_command(self, handler):
         """Register a websocket command."""

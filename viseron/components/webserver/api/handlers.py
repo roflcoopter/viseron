@@ -53,10 +53,8 @@ class BaseAPIHandler(ViseronRequestHandler):
 
         self.finish(response)
 
-    def response_error(self, status_code, reason):
+    def response_error(self, status_code: HTTPStatus, reason: str):
         """Send error response."""
-        if isinstance(status_code, HTTPStatus):
-            status_code = int(status_code)
         self.set_status(status_code, reason=reason.replace("\n", ""))
         response = {"status": status_code, "error": reason}
         self.finish(response)
@@ -74,31 +72,75 @@ class BaseAPIHandler(ViseronRequestHandler):
     def validate_json_body(self, route):
         """Validate JSON body."""
         if schema := route.get("json_body_schema", None):
-            if not self.request.body:
-                return True
             try:
                 json_body = json.loads(self.request.body)
             except json.JSONDecodeError:
                 self.response_error(
                     HTTPStatus.BAD_REQUEST,
-                    reason=f"Invalid JSON body: {self.request.body}",
+                    reason=f"Invalid JSON in body: {self.request.body.decode()}",
                 )
                 return False
 
             try:
                 self.json_body = schema(json_body)
-            except vol.Invalid:
+            except vol.Invalid as err:
                 LOGGER.error(
                     f"Invalid body: {self.request.body}",
                     exc_info=True,
                 )
                 self.response_error(
-                    HTTPStatus.INTERNAL_SERVER_ERROR,
-                    reason="Invalid body: {}".format(
+                    HTTPStatus.BAD_REQUEST,
+                    reason="Invalid body: {}. {}".format(
                         self.request.body,
+                        humanize_error(json_body, err),
                     ),
                 )
                 return False
+        return True
+
+    def validate_auth_header(self):
+        """Validate auth header."""
+        LOGGER.debug("Current user: %s", self.current_user)
+        # Check correct auth header format
+        try:
+            auth_type, auth_val = self.request.headers.get("Authorization", "").split(
+                " ", 1
+            )
+        except ValueError:
+            LOGGER.debug("Invalid auth header")
+            return False
+        if auth_type != "Bearer":
+            LOGGER.debug(f"Auth type not Bearer: {auth_type}")
+            return False
+
+        # Check auth header is valid
+        header_refresh_token = self._webserver.auth.validate_access_token(auth_val)
+        if header_refresh_token is None:
+            LOGGER.debug("Header refresh token not valid")
+            return False
+
+        # Check auth cookie is valid
+        cookie_refresh_token = self._webserver.auth.validate_access_token(
+            self.get_secure_cookie("token").decode()
+        )
+        if cookie_refresh_token is None:
+            LOGGER.debug("Cookie refresh token not valid")
+            return False
+
+        # Check auth cookie and header match
+        if cookie_refresh_token != header_refresh_token:
+            LOGGER.debug("Cookie and header mismatch")
+            return False
+
+        user = self._webserver.auth.get_user(header_refresh_token.user_id)
+        if user is None or not user.enabled:
+            LOGGER.debug("User not found or disabled")
+            return False
+
+        if self.current_user != user:
+            LOGGER.debug("User mismatch")
+            return False
+
         return True
 
     def route_request(self):
@@ -106,6 +148,13 @@ class BaseAPIHandler(ViseronRequestHandler):
         unsupported_method = False
 
         for route in self.routes:
+            if route.get("requires_auth", True):
+                if not self.validate_auth_header():
+                    self.response_error(
+                        HTTPStatus.UNAUTHORIZED, reason="Authentication required"
+                    )
+                    return
+
             path_match = tornado.routing.PathMatches(
                 f"{API_BASE}{route['path_pattern']}"
             )
@@ -127,7 +176,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                             exc_info=True,
                         )
                         self.response_error(
-                            HTTPStatus.INTERNAL_SERVER_ERROR,
+                            HTTPStatus.BAD_REQUEST,
                             reason="Invalid request arguments: {}. {}".format(
                                 request_arguments,
                                 humanize_error(request_arguments, err),
