@@ -1,11 +1,11 @@
-import axios, { AxiosError } from "axios";
 import { useMutation } from "react-query";
 
 import { useSnackbar } from "context/SnackbarContext";
-import { API_V1_URL } from "lib/api";
+import { viseronAPI } from "lib/api/client";
+import { StoreTokensParams, loadTokens, storeTokens } from "lib/api/tokens";
 import * as types from "lib/types";
 
-interface AuthCreateParams {
+interface AuthCreateVariables {
   name: string;
   username: string;
   password: string;
@@ -17,8 +17,8 @@ async function authCreate({
   username,
   password,
   group,
-}: AuthCreateParams) {
-  const response = await axios.post(`${API_V1_URL}/auth/create`, {
+}: AuthCreateVariables) {
+  const response = await viseronAPI.post(`/auth/create`, {
     name,
     username,
     password,
@@ -31,18 +31,14 @@ export const useAuthCreate = () => {
   const snackbar = useSnackbar();
   return useMutation<
     types.APISuccessResponse,
-    AxiosError<types.APIErrorResponse>,
-    AuthCreateParams
+    types.APIErrorResponse,
+    AuthCreateVariables
   >({
     mutationFn: authCreate,
     onSuccess: async (_data, _variables, _context) => {
       snackbar.showSnackbar("User created successfully", "success");
     },
-    onError: async (
-      error: AxiosError<types.APIErrorResponse>,
-      _variables: AuthCreateParams,
-      _context
-    ) => {
+    onError: async (error, _variables, _context) => {
       snackbar.showSnackbar(
         error.response && error.response.data.error
           ? `Error creating user: ${error.response.data.error}`
@@ -52,3 +48,31 @@ export const useAuthCreate = () => {
     },
   });
 };
+
+interface AuthTokenVariables {
+  grant_type: string;
+  refresh_token: string;
+  client_id: string;
+}
+
+export async function authToken({
+  grant_type,
+  refresh_token,
+  client_id,
+}: AuthTokenVariables): Promise<types.AuthTokenResponse> {
+  const response = await viseronAPI.post("/auth/token", {
+    grant_type,
+    refresh_token,
+    client_id,
+  });
+  const storedTokens = loadTokens();
+  const tokens: StoreTokensParams = {
+    access_token: response.data.access_token,
+    refresh_token: storedTokens.refresh_token,
+    token_type: response.data.token_type,
+    expires_in: response.data.expires_in,
+  };
+  tokens.expires_in = response.data.expires_in;
+  storeTokens(tokens);
+  return response.data;
+}

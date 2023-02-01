@@ -12,7 +12,7 @@ import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
-import { deleteRecordingParams, useDeleteRecording } from "lib/api";
+import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
 import { getVideoElement, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 

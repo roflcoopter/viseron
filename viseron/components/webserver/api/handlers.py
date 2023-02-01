@@ -120,8 +120,13 @@ class BaseAPIHandler(ViseronRequestHandler):
             return False
 
         # Check auth cookie is valid
+        cookie_token = self.get_secure_cookie("token")
+        if cookie_token is None:
+            LOGGER.debug("Cookie token is missing")
+            return False
+
         cookie_refresh_token = self._webserver.auth.validate_access_token(
-            self.get_secure_cookie("token").decode()
+            cookie_token.decode()
         )
         if cookie_refresh_token is None:
             LOGGER.debug("Cookie refresh token not valid")
@@ -148,17 +153,16 @@ class BaseAPIHandler(ViseronRequestHandler):
         unsupported_method = False
 
         for route in self.routes:
-            if route.get("requires_auth", True):
-                if not self.validate_auth_header():
-                    self.response_error(
-                        HTTPStatus.UNAUTHORIZED, reason="Authentication required"
-                    )
-                    return
-
             path_match = tornado.routing.PathMatches(
                 f"{API_BASE}{route['path_pattern']}"
             )
             if path_match.regex.match(self.request.path):
+                if route.get("requires_auth", True):
+                    if not self.validate_auth_header():
+                        self.response_error(
+                            HTTPStatus.UNAUTHORIZED, reason="Authentication required"
+                        )
+                        return
                 if self.request.method not in route["supported_methods"]:
                     unsupported_method = True
                     continue

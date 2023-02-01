@@ -10,7 +10,7 @@ import { ViseronProvider } from "context/ViseronContext";
 
 import App from "./App";
 import "./index.css";
-import queryClient from "./lib/api";
+import queryClient from "./lib/api/client";
 import reportWebVitals from "./reportWebVitals";
 
 ReactDOM.render(

@@ -1,3 +1,5 @@
+import { AxiosError } from "axios";
+
 type WebSocketPongResponse = {
   command_id: number;
   type: "pong";
@@ -35,9 +37,23 @@ export type WebSocketResponse =
 export type APISuccessResponse = {
   success: true;
 };
-export type APIErrorResponse = {
+
+export type APIErrorResponse = AxiosError<{
   status: number;
   error: string;
+}>;
+
+export type AuthTokenResponse = {
+  access_token: string;
+  token_type: "Bearer";
+  expires_in: number;
+};
+
+export type OnboardingResponse = {
+  access_token: string;
+  token_type: "Bearer";
+  refresh_token: string;
+  expires_in: number;
 };
 
 export interface Recording {

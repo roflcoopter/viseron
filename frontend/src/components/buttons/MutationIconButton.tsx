@@ -1,5 +1,4 @@
 import IconButton, { IconButtonProps } from "@mui/material/IconButton";
-import { AxiosError } from "axios";
 import * as React from "react";
 import { UseMutationResult } from "react-query";
 
@@ -8,7 +7,7 @@ import * as types from "lib/types";
 interface MutationIconButtonProps<T> extends IconButtonProps {
   mutation: UseMutationResult<
     types.APISuccessResponse,
-    AxiosError<types.APIErrorResponse>,
+    types.APIErrorResponse,
     T
   >;
 }

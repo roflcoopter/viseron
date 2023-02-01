@@ -16,6 +16,7 @@ class CameraAPIHandler(BaseAPIHandler):
 
     routes = [
         {
+            "requires_auth": False,
             "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/snapshot",
             "supported_methods": ["GET"],
             "method": "get_snapshot",

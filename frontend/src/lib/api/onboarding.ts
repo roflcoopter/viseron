@@ -1,42 +1,45 @@
-import axios, { AxiosError } from "axios";
 import { useMutation } from "react-query";
+import { useNavigate } from "react-router-dom";
 
 import { useSnackbar } from "context/SnackbarContext";
-import { API_V1_URL } from "lib/api";
+import { clientId, viseronAPI } from "lib/api/client";
+import { storeTokens } from "lib/api/tokens";
 import * as types from "lib/types";
 
-interface Onboarding {
+type OnboardingVariables = {
   name: string;
   username: string;
   password: string;
-  group?: string;
-}
+};
 
-async function onboarding({ name, username, password }: Onboarding) {
-  const response = await axios.post(`${API_V1_URL}/onboarding`, {
-    name,
-    username,
-    password,
-  });
+async function onboarding({ name, username, password }: OnboardingVariables) {
+  const response = await viseronAPI.post<types.OnboardingResponse>(
+    "/onboarding",
+    {
+      client_id: clientId(),
+      name,
+      username,
+      password,
+    }
+  );
   return response.data;
 }
 
 export const useOnboarding = () => {
   const snackbar = useSnackbar();
+  const navigate = useNavigate();
   return useMutation<
-    types.APISuccessResponse,
-    AxiosError<types.APIErrorResponse>,
-    Onboarding
+    types.OnboardingResponse,
+    types.APIErrorResponse,
+    OnboardingVariables
   >({
     mutationFn: onboarding,
-    onSuccess: async (_data, _variables, _context) => {
+    onSuccess: async (data, _variables, _context) => {
+      storeTokens(data);
       snackbar.showSnackbar("User created successfully", "success");
+      navigate("/");
     },
-    onError: async (
-      error: AxiosError<types.APIErrorResponse>,
-      _variables: Onboarding,
-      _context
-    ) => {
+    onError: async (error, _variables, _context) => {
       snackbar.showSnackbar(
         error.response && error.response.data.error
           ? `Error creating user: ${error.response.data.error}`
