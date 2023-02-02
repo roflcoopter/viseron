@@ -11,6 +11,7 @@ import Recordings from "pages/recordings/Recordings";
 
 const Configuration = lazy(() => import("pages/Configuration"));
 const Entities = lazy(() => import("pages/Entities"));
+const Login = lazy(() => import("pages/Login"));
 const Onboarding = lazy(() => import("pages/Onboarding"));
 
 function App() {
@@ -55,6 +56,10 @@ function App() {
     {
       element: <PublicLayout />,
       children: [
+        {
+          path: "/login",
+          element: <Login />,
+        },
         {
           path: "/onboarding",
           element: <Onboarding />,

@@ -1,7 +1,7 @@
 import { useMutation } from "react-query";
 
 import { useSnackbar } from "context/SnackbarContext";
-import { viseronAPI } from "lib/api/client";
+import { clientId, viseronAPI } from "lib/api/client";
 import { StoreTokensParams, loadTokens, storeTokens } from "lib/api/tokens";
 import * as types from "lib/types";
 
@@ -45,6 +45,42 @@ export const useAuthCreate = () => {
           : `An error occurred: ${error.message}`,
         "error"
       );
+    },
+  });
+};
+
+interface AuthLoginVariables {
+  username: string;
+  password: string;
+}
+
+async function authLogin({ username, password }: AuthLoginVariables) {
+  const response = await viseronAPI.post("/auth/login", {
+    username,
+    password,
+    client_id: clientId(),
+  });
+  return response.data;
+}
+
+export const useAuthLogin = (
+  onSuccess?: (
+    data: types.APISuccessResponse,
+    variables: AuthLoginVariables
+  ) => Promise<unknown> | void
+) => {
+  const snackbar = useSnackbar();
+  return useMutation<
+    types.APISuccessResponse,
+    types.APIErrorResponse,
+    AuthLoginVariables
+  >({
+    mutationFn: authLogin,
+    onSuccess: async (data, variables, _context) => {
+      snackbar.showSnackbar("Successfully logged in", "success");
+      if (onSuccess) {
+        await onSuccess(data, variables);
+      }
     },
   });
 };

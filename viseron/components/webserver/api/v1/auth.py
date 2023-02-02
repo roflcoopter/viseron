@@ -36,6 +36,7 @@ class AuthAPIHandler(BaseAPIHandler):
             ),
         },
         {
+            "requires_auth": False,
             "path_pattern": r"/auth/login",
             "supported_methods": ["POST"],
             "method": "auth_login",
@@ -88,6 +89,7 @@ class AuthAPIHandler(BaseAPIHandler):
             self.response_error(
                 HTTPStatus.UNAUTHORIZED, reason="Invalid username or password"
             )
+            return
 
         refresh_token = self._webserver.auth.generate_refresh_token(
             user.id,

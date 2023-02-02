@@ -5,17 +5,16 @@ import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useReducer } from "react";
+import { useNavigate } from "react-router-dom";
 import { ReactComponent as ViseronLogo } from "viseron-logo.svg";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
 import { useTitle } from "hooks/UseTitle";
-import { useOnboarding } from "lib/api/onboarding";
+import { useAuthLogin } from "lib/api/auth";
 
 type InputState = {
-  displayName: TextFieldItemState;
   username: TextFieldItemState;
   password: TextFieldItemState;
-  confirmPassword: TextFieldItemState;
 };
 
 type InputAction = {
@@ -24,20 +23,12 @@ type InputAction = {
 };
 
 const initialState: InputState = {
-  displayName: { label: "Display Name", value: "", error: null },
   username: { label: "Username", value: "", error: null },
   password: { label: "Password", value: "", error: null },
-  confirmPassword: { label: "Confirm Password", value: "", error: null },
 };
 
 function reducer(state: InputState, action: InputAction): InputState {
   let error = null;
-  if (action.type === "confirmPassword") {
-    if (state.password.value !== action.value) {
-      error = "Passwords do not match.";
-    }
-  }
-
   if (!action.value) {
     error = "Required.";
   }
@@ -48,11 +39,15 @@ function reducer(state: InputState, action: InputAction): InputState {
   };
 }
 
-const Onboarding = () => {
-  useTitle("Onboarding");
+const Login = () => {
+  useTitle("Login");
   const [inputState, dispatch] = useReducer(reducer, initialState);
 
-  const onboarding = useOnboarding();
+  const navigate = useNavigate();
+  async function onSuccessLogin() {
+    navigate("/");
+  }
+  const login = useAuthLogin(onSuccessLogin);
 
   return (
     <Container sx={{ marginTop: "2%" }}>
@@ -60,7 +55,7 @@ const Onboarding = () => {
         <ViseronLogo width={150} height={150} />
       </Box>
       <Typography variant="h4" align="center">
-        Welcome to Viseron!
+        Welcome back!
       </Typography>
       <Box
         display="flex"
@@ -76,43 +71,25 @@ const Onboarding = () => {
           }}
         >
           <Typography variant="h6" align="center" sx={{ padding: "10px" }}>
-            Create an Account
+            Enter your credentials
           </Typography>
-          {onboarding.isError ? (
+          {login.error ? (
             <Typography variant="h6" align="center" color="error">
-              {onboarding.error?.response?.data.error}
+              {login.error.response && login.error.response.data.status === 401
+                ? "Incorrect username or password."
+                : "An error occurred."}
             </Typography>
           ) : null}
           <form>
             <Grid container spacing={3} sx={{ padding: "15px" }}>
               <TextFieldItem<keyof InputState>
-                autoFocus
-                inputKind={"displayName"}
-                inputState={inputState}
-                dispatch={dispatch}
-              />
-              <TextFieldItem<keyof InputState>
                 inputKind={"username"}
                 inputState={inputState}
                 dispatch={dispatch}
                 value={inputState.username.value}
-                onFocus={() => {
-                  if (!inputState.username.value) {
-                    dispatch({
-                      type: "username",
-                      value: inputState.displayName.value.toLowerCase(),
-                    });
-                  }
-                }}
               />
               <TextFieldItem<keyof InputState>
                 inputKind={"password"}
-                inputState={inputState}
-                dispatch={dispatch}
-                password
-              />
-              <TextFieldItem<keyof InputState>
-                inputKind={"confirmPassword"}
                 inputState={inputState}
                 dispatch={dispatch}
                 password
@@ -124,23 +101,18 @@ const Onboarding = () => {
                   disabled={
                     !inputState.username.value ||
                     !inputState.password.value ||
-                    !inputState.confirmPassword.value ||
-                    inputState.password.value !==
-                      inputState.confirmPassword.value ||
                     !!inputState.username.error ||
                     !!inputState.password.error ||
-                    !!inputState.confirmPassword.error ||
-                    onboarding.isLoading
+                    login.isLoading
                   }
                   onClick={() => {
-                    onboarding.mutate({
-                      name: inputState.displayName.value,
+                    login.mutate({
                       username: inputState.username.value,
                       password: inputState.password.value,
                     });
                   }}
                 >
-                  Sign Up
+                  Login
                 </Button>
               </Grid>
             </Grid>
@@ -151,4 +123,4 @@ const Onboarding = () => {
   );
 };
 
-export default Onboarding;
+export default Login;
