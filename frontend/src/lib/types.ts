@@ -49,12 +49,13 @@ export type AuthTokenResponse = {
   expires_in: number;
 };
 
-export type OnboardingResponse = {
+export type AuthLoginResponse = {
   access_token: string;
   token_type: "Bearer";
   refresh_token: string;
   expires_in: number;
 };
+export type OnboardingResponse = AuthLoginResponse;
 
 export interface Recording {
   date: string;

@@ -1,6 +1,6 @@
 import { styled, useTheme } from "@mui/material/styles";
 import { Suspense, useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -9,6 +9,7 @@ import Footer from "components/footer/Footer";
 import AppDrawer from "components/header/Drawer";
 import Header from "components/header/Header";
 import { Loading } from "components/loading/Loading";
+import { useUser } from "context/ViseronContext";
 
 const FullHeightContainer = styled("div")(() => ({
   minHeight: "100%",
@@ -19,6 +20,7 @@ function PrivateLayout() {
   const theme = useTheme();
   const [showFooter, setShowFooter] = useState(true);
   const location = useLocation();
+  const { user } = useUser();
 
   useEffect(() => {
     if (location.pathname === "/configuration") {
@@ -27,6 +29,10 @@ function PrivateLayout() {
     }
     setShowFooter(true);
   }, [location]);
+
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} />;
+  }
 
   return (
     <FullHeightContainer>

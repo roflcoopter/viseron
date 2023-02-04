@@ -1,11 +1,8 @@
-import axios, { AxiosHeaders } from "axios";
+import axios from "axios";
 import { QueryClient, useMutation } from "react-query";
 
 import { useSnackbar } from "context/SnackbarContext";
 import * as types from "lib/types";
-
-import { authToken } from "./auth";
-import { loadTokens } from "./tokens";
 
 export const API_V1_URL = "/api/v1";
 export const viseronAPI = axios.create({
@@ -16,60 +13,13 @@ export const viseronAPI = axios.create({
 });
 export const clientId = (): string => `${location.protocol}//${location.host}/`;
 
-viseronAPI.interceptors.request.use((config) => {
-  const tokens = loadTokens();
-  if (tokens) {
-    (config.headers as AxiosHeaders).set(
-      "Authorization",
-      `Bearer ${tokens.access_token}`
-    );
-  }
-  return config;
-});
-
-let isFetchingTokens = false;
-let tokenPromise: Promise<types.AuthTokenResponse>;
-
-viseronAPI.interceptors.response.use(
-  async (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    const status = error.response.status;
-
-    if (
-      (status === 401 || status === 403) &&
-      !originalRequest._retry &&
-      !originalRequest.url.includes("/auth")
-    ) {
-      const storedTokens = loadTokens();
-      if (!isFetchingTokens) {
-        isFetchingTokens = true;
-        tokenPromise = authToken({
-          grant_type: "refresh_token",
-          refresh_token: storedTokens.refresh_token,
-          client_id: clientId(),
-        });
-      }
-      const tokens = await tokenPromise;
-      isFetchingTokens = false;
-
-      originalRequest._retry = true;
-      originalRequest.headers.authorization = `Bearer ${tokens.access_token}`;
-
-      return axios(originalRequest);
-    }
-
-    return Promise.reject(error);
-  }
-);
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      retry: false,
       refetchOnWindowFocus: false,
       staleTime: 30000,
       queryFn: async ({ queryKey: [url] }) => {
-        console.log("Querying", url);
         if (typeof url === "string") {
           const response = await viseronAPI.get(`${url.toLowerCase()}`);
           return response.data;

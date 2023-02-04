@@ -5,7 +5,6 @@ import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useReducer } from "react";
-import { useNavigate } from "react-router-dom";
 import { ReactComponent as ViseronLogo } from "viseron-logo.svg";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
@@ -42,12 +41,7 @@ function reducer(state: InputState, action: InputAction): InputState {
 const Login = () => {
   useTitle("Login");
   const [inputState, dispatch] = useReducer(reducer, initialState);
-
-  const navigate = useNavigate();
-  async function onSuccessLogin() {
-    navigate("/");
-  }
-  const login = useAuthLogin(onSuccessLogin);
+  const login = useAuthLogin();
 
   return (
     <Container sx={{ marginTop: "2%" }}>

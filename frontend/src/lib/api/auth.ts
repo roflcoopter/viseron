@@ -1,4 +1,5 @@
 import { useMutation } from "react-query";
+import { useNavigate } from "react-router-dom";
 
 import { useSnackbar } from "context/SnackbarContext";
 import { clientId, viseronAPI } from "lib/api/client";
@@ -63,24 +64,19 @@ async function authLogin({ username, password }: AuthLoginVariables) {
   return response.data;
 }
 
-export const useAuthLogin = (
-  onSuccess?: (
-    data: types.APISuccessResponse,
-    variables: AuthLoginVariables
-  ) => Promise<unknown> | void
-) => {
+export const useAuthLogin = () => {
   const snackbar = useSnackbar();
+  const navigate = useNavigate();
   return useMutation<
-    types.APISuccessResponse,
+    types.AuthLoginResponse,
     types.APIErrorResponse,
     AuthLoginVariables
   >({
     mutationFn: authLogin,
-    onSuccess: async (data, variables, _context) => {
+    onSuccess: async (data, _variables, _context) => {
+      storeTokens(data);
       snackbar.showSnackbar("Successfully logged in", "success");
-      if (onSuccess) {
-        await onSuccess(data, variables);
-      }
+      navigate("/");
     },
   });
 };
