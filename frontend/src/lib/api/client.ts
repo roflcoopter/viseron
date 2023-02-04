@@ -7,6 +7,9 @@ import * as types from "lib/types";
 export const API_V1_URL = "/api/v1";
 export const viseronAPI = axios.create({
   baseURL: API_V1_URL,
+  // Match Tornado XSRF protection
+  xsrfCookieName: "_xsrf",
+  xsrfHeaderName: "X-Xsrftoken",
   headers: {
     "Content-Type": "application/json",
   },

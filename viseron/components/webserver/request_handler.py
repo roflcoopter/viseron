@@ -20,6 +20,8 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         """Initialize request handler."""
         self._vis = vis
         self._webserver: Webserver = vis.data[COMPONENT]
+        # Manually set xsrf cookie
+        self.xsrf_token  # pylint: disable=pointless-statement
 
     async def run_in_executor(self, func, *args):
         """Run function in executor."""

@@ -168,6 +168,7 @@ def create_application(vis: Viseron, config, cookie_secret):
         websocket_ping_interval=10,
         debug=config[CONFIG_DEBUG],
         cookie_secret=cookie_secret,
+        xsrf_cookies=True,
     )
     application.add_handlers(
         r".*",
