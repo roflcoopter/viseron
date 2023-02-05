@@ -25,6 +25,26 @@ DESC_COMPONENT = "Webserver configuration."
 DESC_PORT = "Port to run the webserver on."
 DESC_DEBUG = "Enable debug mode for the webserver."
 
+# Auth constants
+CONFIG_AUTH = "auth"
+CONFIG_SESSION_EXPIRY = "session_expiry"
+CONFIG_DAYS = "days"
+CONFIG_HOURS = "hours"
+CONFIG_MINUTES = "minutes"
+
+DEFAULT_SESSION_EXPIRY = None
+DEFAULT_DAYS = 30
+DEFAULT_HOURS = 0
+DEFAULT_MINUTES = 0
+
+DESC_AUTH = "Authentication configuration."
+DESC_SESSION_EXPIRY = (
+    "Session expiry time. After this time the user will be logged out."
+)
+DESC_DAYS = "Days to expire session."
+DESC_HOURS = "Hours to expire session."
+DESC_MINUTES = "Minutes to expire session."
+
 # Websocket constants
 TYPE_RESULT = "result"
 

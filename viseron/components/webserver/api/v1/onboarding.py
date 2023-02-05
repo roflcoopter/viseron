@@ -58,24 +58,10 @@ class OnboardingAPIHandler(BaseAPIHandler):
             refresh_token, self.request.remote_ip
         )
         cookie_token = self._webserver.auth.generate_access_token(
-            refresh_token, self.request.remote_ip
+            refresh_token, self.request.remote_ip, self._webserver.auth.session_expiry
         )
-        self.clear_cookie("token")
-        self.clear_cookie("user")
-        self.set_secure_cookie(
-            "token",
-            cookie_token,
-            httponly=True,
-            samesite="Lax",
-            secure=bool(self.request.protocol == "https"),
-        )
-        self.set_secure_cookie(
-            "user",
-            user.id,
-            httponly=True,
-            samesite="Lax",
-            secure=bool(self.request.protocol == "https"),
-        )
+
+        self.set_cookies(cookie_token, user)
         self.response_success(
             response={
                 "access_token": access_token,

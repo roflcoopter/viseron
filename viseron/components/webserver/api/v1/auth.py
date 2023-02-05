@@ -3,15 +3,12 @@ from __future__ import annotations
 
 import logging
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.auth import AuthenticationFailed, UserExistsError
-
-if TYPE_CHECKING:
-    from viseron.components.webserver.auth import User
 
 LOGGER = logging.getLogger(__name__)
 
@@ -100,24 +97,10 @@ class AuthAPIHandler(BaseAPIHandler):
             refresh_token, self.request.remote_ip
         )
         cookie_token = self._webserver.auth.generate_access_token(
-            refresh_token, self.request.remote_ip
+            refresh_token, self.request.remote_ip, self._webserver.auth.session_expiry
         )
-        self.clear_cookie("token")
-        self.clear_cookie("user")
-        self.set_secure_cookie(
-            "token",
-            cookie_token,
-            httponly=True,
-            samesite="Lax",
-            secure=bool(self.request.protocol == "https"),
-        )
-        self.set_secure_cookie(
-            "user",
-            user.id,
-            httponly=True,
-            samesite="Lax",
-            secure=bool(self.request.protocol == "https"),
-        )
+
+        self.set_cookies(cookie_token, user)
         self.response_success(
             response={
                 "access_token": access_token,
@@ -131,28 +114,25 @@ class AuthAPIHandler(BaseAPIHandler):
 
     def _handle_refresh_token(
         self,
-    ) -> tuple[Literal[HTTPStatus.BAD_REQUEST], str, None, None] | tuple[
-        Literal[HTTPStatus.FORBIDDEN], str, None, None
-    ] | tuple[Literal[HTTPStatus.OK], dict, str, User]:
+    ) -> tuple[Literal[HTTPStatus.BAD_REQUEST], str] | tuple[
+        Literal[HTTPStatus.FORBIDDEN], str
+    ] | tuple[Literal[HTTPStatus.OK], dict]:
         """Handle refresh token."""
         refresh_token = self._webserver.auth.get_refresh_token_from_token(
             self.json_body["refresh_token"]
         )
 
         if refresh_token is None:
-            return HTTPStatus.BAD_REQUEST, "Invalid grant", None, None
+            return HTTPStatus.BAD_REQUEST, "Invalid grant"
 
         if refresh_token.client_id != self.json_body["client_id"]:
-            return HTTPStatus.BAD_REQUEST, "Invalid client_id", None, None
+            return HTTPStatus.BAD_REQUEST, "Invalid client_id"
 
         user = self._webserver.auth.get_user(refresh_token.user_id)
         if user is None:
-            return HTTPStatus.FORBIDDEN, "Invalid user", None, None
+            return HTTPStatus.FORBIDDEN, "Invalid user"
 
         access_token = self._webserver.auth.generate_access_token(
-            refresh_token, self.request.remote_ip
-        )
-        cookie_token = self._webserver.auth.generate_access_token(
             refresh_token, self.request.remote_ip
         )
 
@@ -165,31 +145,13 @@ class AuthAPIHandler(BaseAPIHandler):
                     refresh_token.access_token_expiration.total_seconds()
                 ),
             },
-            cookie_token,
-            user,
         )
 
     def auth_token(self):
         """Handle token request."""
         if self.json_body["grant_type"] == "refresh_token":
-            status, response, cookie_token, user = self._handle_refresh_token()
+            status, response = self._handle_refresh_token()
             if status == HTTPStatus.OK:
-                self.clear_cookie("token")
-                self.clear_cookie("user")
-                self.set_secure_cookie(
-                    "token",
-                    cookie_token,
-                    httponly=True,
-                    samesite="Lax",
-                    secure=bool(self.request.protocol == "https"),
-                )
-                self.set_secure_cookie(
-                    "user",
-                    user.id,
-                    httponly=True,
-                    samesite="Lax",
-                    secure=bool(self.request.protocol == "https"),
-                )
                 self.response_success(response=response)
                 return
             self.response_error(status, response)

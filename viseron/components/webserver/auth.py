@@ -15,7 +15,15 @@ from typing import TYPE_CHECKING, Literal, cast
 import bcrypt
 import jwt
 
-from viseron.components.webserver.const import ACCESS_TOKEN_EXPIRATION, AUTH_STORAGE_KEY
+from viseron.components.webserver.const import (
+    ACCESS_TOKEN_EXPIRATION,
+    AUTH_STORAGE_KEY,
+    CONFIG_AUTH,
+    CONFIG_DAYS,
+    CONFIG_HOURS,
+    CONFIG_MINUTES,
+    CONFIG_SESSION_EXPIRY,
+)
 from viseron.exceptions import ViseronError
 from viseron.helpers.storage import Storage
 
@@ -78,8 +86,9 @@ class User:
 class Auth:
     """Users."""
 
-    def __init__(self, vis: Viseron):
+    def __init__(self, vis: Viseron, config):
         self._vis = vis
+        self._config = config
         self._users: dict[str, User] | None = None
         self._refresh_tokens: dict[str, RefreshToken] | None = None
         self._auth_store = Storage(vis, AUTH_STORAGE_KEY)
@@ -105,6 +114,15 @@ class Auth:
                 self._load()
                 assert self._refresh_tokens is not None
         return self._refresh_tokens
+
+    @property
+    def session_expiry(self) -> timedelta:
+        """Return session expiry."""
+        return timedelta(
+            days=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY][CONFIG_DAYS],
+            hours=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY][CONFIG_HOURS],
+            minutes=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY][CONFIG_MINUTES],
+        )
 
     @staticmethod
     def hash_password(password: str) -> str:
@@ -266,7 +284,7 @@ class Auth:
         """Validate refresh token."""
 
     def generate_access_token(
-        self, refresh_token: RefreshToken, remote_ip, expiry=None
+        self, refresh_token: RefreshToken, remote_ip, expiry: timedelta | None = None
     ):
         """Generate access token using JWT."""
         self.validate_refresh_token(refresh_token)
@@ -278,7 +296,7 @@ class Auth:
             {
                 "iss": refresh_token.id,
                 "iat": now,
-                "exp": expiry
+                "exp": now + expiry
                 if expiry
                 else now + refresh_token.access_token_expiration,
             },

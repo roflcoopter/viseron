@@ -24,11 +24,20 @@ from viseron.helpers.validators import CoerceNoneToDict
 from .api import APIRouter
 from .const import (
     COMPONENT,
+    CONFIG_AUTH,
+    CONFIG_DAYS,
     CONFIG_DEBUG,
+    CONFIG_HOURS,
+    CONFIG_MINUTES,
     CONFIG_PORT,
+    CONFIG_SESSION_EXPIRY,
     DEFAULT_COMPONENT,
+    DEFAULT_DAYS,
     DEFAULT_DEBUG,
+    DEFAULT_HOURS,
+    DEFAULT_MINUTES,
     DEFAULT_PORT,
+    DEFAULT_SESSION_EXPIRY,
     DESC_COMPONENT,
     DESC_DEBUG,
     DESC_PORT,
@@ -72,6 +81,27 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(
                     CONFIG_DEBUG, default=DEFAULT_DEBUG, description=DESC_DEBUG
                 ): bool,
+                vol.Optional(CONFIG_AUTH): vol.All(
+                    CoerceNoneToDict(),
+                    {
+                        vol.Optional(
+                            CONFIG_SESSION_EXPIRY, default=DEFAULT_SESSION_EXPIRY
+                        ): vol.All(
+                            CoerceNoneToDict(),
+                            {
+                                vol.Optional(
+                                    CONFIG_DAYS, default=DEFAULT_DAYS
+                                ): vol.All(int, vol.Range(min=0)),
+                                vol.Optional(
+                                    CONFIG_HOURS, default=DEFAULT_HOURS
+                                ): vol.All(int, vol.Range(min=0)),
+                                vol.Optional(
+                                    CONFIG_MINUTES, default=DEFAULT_MINUTES
+                                ): vol.All(int, vol.Range(min=0)),
+                            },
+                        )
+                    },
+                ),
             },
         )
     },
@@ -186,7 +216,9 @@ class Webserver(threading.Thread):
         super().__init__(name="Tornado Webserver", daemon=True)
         self._vis = vis
         self._config = config
-        self.auth = Auth(vis)
+        self._auth = None
+        if self._config.get(CONFIG_AUTH, False):
+            self._auth = Auth(vis, config)
         self._store = WebserverStore(vis)
 
         vis.data[COMPONENT] = self
@@ -209,6 +241,11 @@ class Webserver(threading.Thread):
         self._vis.listen_event(
             EVENT_DOMAIN_REGISTERED.format(domain=CAMERA_DOMAIN), self.camera_registered
         )
+
+    @property
+    def auth(self):
+        """Return auth."""
+        return self._auth
 
     def register_websocket_command(self, handler):
         """Register a websocket command."""

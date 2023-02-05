@@ -157,7 +157,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                 f"{API_BASE}{route['path_pattern']}"
             )
             if path_match.regex.match(self.request.path):
-                if route.get("requires_auth", True):
+                if self._webserver.auth and route.get("requires_auth", True):
                     if not self.validate_auth_header():
                         self.response_error(
                             HTTPStatus.UNAUTHORIZED, reason="Authentication required"
