@@ -51,22 +51,23 @@ class OnboardingAPIHandler(BaseAPIHandler):
             "admin",
         )
         Path(onboarding_file).touch()
+
         refresh_token = self._webserver.auth.generate_refresh_token(
-            user.id, self.json_body["client_id"], "normal"
+            user.id,
+            self.json_body["client_id"],
+            "normal",
         )
         access_token = self._webserver.auth.generate_access_token(
             refresh_token, self.request.remote_ip
         )
-        cookie_token = self._webserver.auth.generate_access_token(
-            refresh_token, self.request.remote_ip, self._webserver.auth.session_expiry
-        )
 
-        self.set_cookies(cookie_token, user)
+        self.set_cookies(refresh_token, access_token, user, new_session=True)
+
+        header, payload, _signature = access_token.split(".")
         self.response_success(
             response={
-                "access_token": access_token,
-                "token_type": "Bearer",
-                "refresh_token": refresh_token.token,
+                "header": header,
+                "payload": payload,
                 "expires_in": int(
                     refresh_token.access_token_expiration.total_seconds()
                 ),

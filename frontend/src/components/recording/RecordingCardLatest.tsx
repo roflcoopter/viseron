@@ -7,8 +7,8 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { useQuery } from "@tanstack/react-query";
 import LazyLoad from "react-lazyload";
-import { useQuery } from "react-query";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";

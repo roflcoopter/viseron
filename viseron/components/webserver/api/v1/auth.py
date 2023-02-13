@@ -18,6 +18,12 @@ class AuthAPIHandler(BaseAPIHandler):
 
     routes = [
         {
+            "requires_auth": False,
+            "path_pattern": r"/auth/enabled",
+            "supported_methods": ["GET"],
+            "method": "auth_enabled",
+        },
+        {
             "path_pattern": r"/auth/create",
             "supported_methods": ["POST"],
             "method": "auth_create",
@@ -31,6 +37,11 @@ class AuthAPIHandler(BaseAPIHandler):
                     ),
                 }
             ),
+        },
+        {
+            "path_pattern": r"/auth/user/(?P<user_id>[A-Za-z0-9_]+)",
+            "supported_methods": ["GET"],
+            "method": "auth_get",
         },
         {
             "requires_auth": False,
@@ -55,12 +66,16 @@ class AuthAPIHandler(BaseAPIHandler):
                     vol.Required("grant_type", msg="Invalid grant_type"): vol.All(
                         vol.In(["refresh_token"]), str
                     ),
-                    vol.Required("refresh_token"): str,
                     vol.Required("client_id"): str,
                 }
             ),
         },
     ]
+
+    def auth_enabled(self) -> Literal[True]:
+        """Return if auth is enabled."""
+        self.response_success(response={"enabled": bool(self._webserver.auth)})
+        return True
 
     def auth_create(self):
         """Create a new user."""
@@ -75,6 +90,23 @@ class AuthAPIHandler(BaseAPIHandler):
             self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
             return
         self.response_success()
+
+    def auth_get(self, user_id: str):
+        """Get a user.
+
+        Returns 200 OK with user data if user exists.
+        """
+        user = self._webserver.auth.get_user(user_id)
+        if user is None:
+            self.response_error(HTTPStatus.NOT_FOUND, reason="User not found")
+            return
+        self.response_success(
+            response={
+                "name": user.name,
+                "username": user.username,
+                "group": user.group,
+            }
+        )
 
     def auth_login(self):
         """Login."""
@@ -96,16 +128,14 @@ class AuthAPIHandler(BaseAPIHandler):
         access_token = self._webserver.auth.generate_access_token(
             refresh_token, self.request.remote_ip
         )
-        cookie_token = self._webserver.auth.generate_access_token(
-            refresh_token, self.request.remote_ip, self._webserver.auth.session_expiry
-        )
 
-        self.set_cookies(cookie_token, user)
+        self.set_cookies(refresh_token, access_token, user, new_session=True)
+
+        header, payload, _signature = access_token.split(".")
         self.response_success(
             response={
-                "access_token": access_token,
-                "token_type": "Bearer",
-                "refresh_token": refresh_token.token,
+                "header": header,
+                "payload": payload,
                 "expires_in": int(
                     refresh_token.access_token_expiration.total_seconds()
                 ),
@@ -118,8 +148,12 @@ class AuthAPIHandler(BaseAPIHandler):
         Literal[HTTPStatus.FORBIDDEN], str
     ] | tuple[Literal[HTTPStatus.OK], dict]:
         """Handle refresh token."""
+        refresh_token_cookie = self.get_secure_cookie("refresh_token")
+        if refresh_token_cookie is None:
+            return HTTPStatus.BAD_REQUEST, "Invalid refresh token"
+
         refresh_token = self._webserver.auth.get_refresh_token_from_token(
-            self.json_body["refresh_token"]
+            refresh_token_cookie.decode()
         )
 
         if refresh_token is None:
@@ -136,11 +170,14 @@ class AuthAPIHandler(BaseAPIHandler):
             refresh_token, self.request.remote_ip
         )
 
+        self.set_cookies(refresh_token, access_token, user, new_session=False)
+
+        header, payload, _signature = access_token.split(".")
         return (
             HTTPStatus.OK,
             {
-                "access_token": access_token,
-                "token_type": "Bearer",
+                "header": header,
+                "payload": payload,
                 "expires_in": int(
                     refresh_token.access_token_expiration.total_seconds()
                 ),

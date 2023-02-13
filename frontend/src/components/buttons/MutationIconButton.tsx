@@ -1,6 +1,6 @@
 import IconButton, { IconButtonProps } from "@mui/material/IconButton";
+import { UseMutationResult } from "@tanstack/react-query";
 import * as React from "react";
-import { UseMutationResult } from "react-query";
 
 import * as types from "lib/types";
 

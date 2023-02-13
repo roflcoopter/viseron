@@ -4,10 +4,12 @@ import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import { useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ReactComponent as ViseronLogo } from "viseron-logo.svg";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
+import { useSnackbar } from "context/SnackbarContext";
 import { useTitle } from "hooks/UseTitle";
 import { useAuthLogin } from "lib/api/auth";
 
@@ -41,7 +43,30 @@ function reducer(state: InputState, action: InputAction): InputState {
 const Login = () => {
   useTitle("Login");
   const [inputState, dispatch] = useReducer(reducer, initialState);
+  const location = useLocation();
+  const snackbar = useSnackbar();
+  const navigate = useNavigate();
+  const fromRef = useRef();
   const login = useAuthLogin();
+
+  useEffect(() => {
+    if (
+      location.state &&
+      location.state.snackbarText &&
+      location.state.snackbarType
+    ) {
+      snackbar.showSnackbar(
+        location.state.snackbarText,
+        location.state.snackbarType
+      );
+    }
+    fromRef.current =
+      location.state && location.state.from ? location.state.from : null;
+    // Clear the state parameter
+    navigate(location.pathname, { replace: true });
+    return () => {};
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <Container sx={{ marginTop: "2%" }}>
@@ -100,10 +125,17 @@ const Login = () => {
                     login.isLoading
                   }
                   onClick={() => {
-                    login.mutate({
-                      username: inputState.username.value,
-                      password: inputState.password.value,
-                    });
+                    login.mutate(
+                      {
+                        username: inputState.username.value,
+                        password: inputState.password.value,
+                      },
+                      {
+                        onSuccess: (_data, _variables, _context) => {
+                          navigate(fromRef.current ? fromRef.current : "/");
+                        },
+                      }
+                    );
                   }}
                 >
                   Login

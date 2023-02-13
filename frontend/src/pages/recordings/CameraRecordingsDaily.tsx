@@ -1,11 +1,10 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
+import { useQuery } from "@tanstack/react-query";
 import { useContext } from "react";
-import { useQuery } from "react-query";
 import { useParams } from "react-router-dom";
 
-import { ScrollToTopOnMount } from "components/ScrollToTop";
 import { Loading } from "components/loading/Loading";
 import RecordingCard from "components/recording/RecordingCard";
 import { ViseronContext } from "context/ViseronContext";
@@ -72,7 +71,6 @@ const CameraRecordingsDaily = () => {
 
   return (
     <Container>
-      <ScrollToTopOnMount />
       <Typography variant="h5" align="center">
         {`${camera.name} - ${date}`}
       </Typography>

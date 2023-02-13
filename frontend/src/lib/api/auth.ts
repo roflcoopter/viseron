@@ -1,9 +1,8 @@
-import { useMutation } from "react-query";
-import { useNavigate } from "react-router-dom";
+import { UseQueryOptions, useMutation, useQuery } from "@tanstack/react-query";
 
 import { useSnackbar } from "context/SnackbarContext";
 import { clientId, viseronAPI } from "lib/api/client";
-import { StoreTokensParams, loadTokens, storeTokens } from "lib/api/tokens";
+import { storeTokens } from "lib/api/tokens";
 import * as types from "lib/types";
 
 interface AuthCreateVariables {
@@ -50,6 +49,45 @@ export const useAuthCreate = () => {
   });
 };
 
+type AuthUserRequest = {
+  username: string;
+};
+
+type AuthUserVariables = {
+  username: string;
+  setUser: React.Dispatch<React.SetStateAction<types.AuthUserResponse | null>>;
+  configOptions?: UseQueryOptions<
+    types.AuthUserResponse,
+    types.APIErrorResponse
+  >;
+};
+
+async function authUser({ username }: AuthUserRequest) {
+  const response = await viseronAPI.get<types.AuthUserResponse>(
+    `/auth/user/${username}`
+  );
+  return response.data;
+}
+
+export const useAuthUser = ({
+  username,
+  setUser,
+  configOptions,
+}: AuthUserVariables) =>
+  useQuery<types.AuthUserResponse, types.APIErrorResponse>(
+    ["auth", "user", username],
+    async () => authUser({ username }),
+    {
+      onSuccess: async (data) => {
+        setUser(data);
+      },
+      onError: async (_error) => {
+        setUser(null);
+      },
+      ...configOptions,
+    }
+  );
+
 interface AuthLoginVariables {
   username: string;
   password: string;
@@ -66,7 +104,6 @@ async function authLogin({ username, password }: AuthLoginVariables) {
 
 export const useAuthLogin = () => {
   const snackbar = useSnackbar();
-  const navigate = useNavigate();
   return useMutation<
     types.AuthLoginResponse,
     types.APIErrorResponse,
@@ -76,35 +113,45 @@ export const useAuthLogin = () => {
     onSuccess: async (data, _variables, _context) => {
       storeTokens(data);
       snackbar.showSnackbar("Successfully logged in", "success");
-      navigate("/");
     },
   });
 };
 
 interface AuthTokenVariables {
   grant_type: string;
-  refresh_token: string;
   client_id: string;
 }
 
 export async function authToken({
   grant_type,
-  refresh_token,
   client_id,
 }: AuthTokenVariables): Promise<types.AuthTokenResponse> {
   const response = await viseronAPI.post("/auth/token", {
     grant_type,
-    refresh_token,
     client_id,
   });
-  const storedTokens = loadTokens();
-  const tokens: StoreTokensParams = {
-    access_token: response.data.access_token,
-    refresh_token: storedTokens.refresh_token,
-    token_type: response.data.token_type,
-    expires_in: response.data.expires_in,
-  };
-  tokens.expires_in = response.data.expires_in;
-  storeTokens(tokens);
+  storeTokens(response.data);
   return response.data;
 }
+
+async function authEnabled() {
+  const response = await viseronAPI.get<types.AuthEnabledResponse>(
+    "/auth/enabled"
+  );
+  return response.data;
+}
+
+interface AuthEnabledVariables {
+  setAuth: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export const useAuthEnabled = ({ setAuth }: AuthEnabledVariables) =>
+  useQuery<types.AuthEnabledResponse, types.APIErrorResponse>(
+    ["auth", "enabled"],
+    async () => authEnabled(),
+    {
+      onSuccess: async (data) => {
+        setAuth(data.enabled);
+      },
+    }
+  );

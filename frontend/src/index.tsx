@@ -1,12 +1,12 @@
 import CssBaseline from "@mui/material/CssBaseline";
+import { QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import ReactDOM from "react-dom";
-import { QueryClientProvider } from "react-query";
 import { BrowserRouter as Router } from "react-router-dom";
 
+import { AuthProvider } from "context/AuthContext";
 import { ColorModeProvider } from "context/ColorModeContext";
 import { SnackbarProvider } from "context/SnackbarContext";
-import { ViseronProvider } from "context/ViseronContext";
 
 import App from "./App";
 import "./index.css";
@@ -15,18 +15,18 @@ import reportWebVitals from "./reportWebVitals";
 
 ReactDOM.render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <SnackbarProvider>
-        <ViseronProvider>
-          <ColorModeProvider>
-            <CssBaseline enableColorScheme />
+    <ColorModeProvider>
+      <CssBaseline enableColorScheme />
+      <QueryClientProvider client={queryClient}>
+        <SnackbarProvider>
+          <AuthProvider>
             <Router>
               <App />
             </Router>
-          </ColorModeProvider>
-        </ViseronProvider>
-      </SnackbarProvider>
-    </QueryClientProvider>
+          </AuthProvider>
+        </SnackbarProvider>
+      </QueryClientProvider>
+    </ColorModeProvider>
   </React.StrictMode>,
   document.getElementById("root")
 );

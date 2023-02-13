@@ -35,6 +35,8 @@ export class Connection {
 
   reconnectTimer: NodeJS.Timeout | null = null;
 
+  closeRequested = false;
+
   commandId = 0;
 
   // Active commands and subscriptions
@@ -81,6 +83,13 @@ export class Connection {
     this.socket.addEventListener("close", this._handleClose);
   }
 
+  async disconnect() {
+    this.closeRequested = true;
+    if (this.socket) {
+      this.socket.close();
+    }
+  }
+
   private _generateCommandId(): number {
     return ++this.commandId;
   }
@@ -124,7 +133,9 @@ export class Connection {
       }
     }
 
-    this.pingInterval = setInterval(() => { this.ping() }, 30000);
+    this.pingInterval = setInterval(() => {
+      this.ping();
+    }, 30000);
 
     this.fireEvent("connected");
   }
@@ -165,14 +176,14 @@ export class Connection {
         }
         break;
 
-        case "pong":
-          if (command_info) {
-            command_info.resolve();
-            this.commands.delete(message.command_id);
-          } else {
-            console.warn(`Received unknown pong response ${message.command_id}`);
-          }
-          break;
+      case "pong":
+        if (command_info) {
+          command_info.resolve();
+          this.commands.delete(message.command_id);
+        } else {
+          console.warn(`Received unknown pong response ${message.command_id}`);
+        }
+        break;
       default:
         console.warn("Unhandled message", message);
     }
@@ -183,24 +194,30 @@ export class Connection {
       clearInterval(this.pingInterval);
     }
 
-    if (!this.reconnectTimer) {
-      console.debug("Connection closed");
+    this.commandId = 0;
+    this.oldSubscriptions = this.commands;
+    this.commands = new Map();
+
+    // Reject unanswered commands
+    if (this.oldSubscriptions) {
+      this.oldSubscriptions.forEach((subscription) => {
+        if (!("subscribe" in subscription)) {
+          subscription.reject("Connection lost");
+        }
+      });
+    }
+
+    if (this.closeRequested) {
       if (this.socket) {
         this.socket.removeEventListener("close", this._handleClose);
         this.socket.removeEventListener("message", this._handleMessage);
       }
+      this.socket = null;
+      return;
+    }
 
-      this.oldSubscriptions = this.commands;
-      this.commands = new Map();
-
-      // Reject unanswered commands
-      if (this.oldSubscriptions) {
-        this.oldSubscriptions.forEach((subscription) => {
-          if (!("subscribe" in subscription)) {
-            subscription.reject("Connection lost");
-          }
-        });
-      }
+    if (!this.reconnectTimer) {
+      console.debug("Connection closed");
 
       this.queuedMessages = [];
       toast.dismiss(connectingToastId);

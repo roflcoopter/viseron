@@ -1,5 +1,5 @@
+import { QueryClient, useMutation } from "@tanstack/react-query";
 import axios from "axios";
-import { QueryClient, useMutation } from "react-query";
 
 import { useSnackbar } from "context/SnackbarContext";
 import * as types from "lib/types";
@@ -12,6 +12,7 @@ export const viseronAPI = axios.create({
   xsrfHeaderName: "X-Xsrftoken",
   headers: {
     "Content-Type": "application/json",
+    "X-Requested-With": "XMLHttpRequest",
   },
 });
 export const clientId = (): string => `${location.protocol}//${location.host}/`;
@@ -44,7 +45,7 @@ async function deleteRecording({
   date,
   filename,
 }: deleteRecordingParams) {
-  const url = `${API_V1_URL}/recordings/${identifier}${date ? `/${date}` : ""}${
+  const url = `/recordings/${identifier}${date ? `/${date}` : ""}${
     filename ? `/${filename}` : ""
   }`;
 

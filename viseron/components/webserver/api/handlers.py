@@ -34,6 +34,7 @@ class BaseAPIHandler(ViseronRequestHandler):
         self.route: dict[str, Any] = {}
         self.request_arguments: dict[str, Any] = {}
         self.json_body: dict[str, Any] = {}
+        self.browser_request = False
 
     def response_success(
         self, *, status: HTTPStatus = HTTPStatus.OK, response=None, headers=None
@@ -98,14 +99,31 @@ class BaseAPIHandler(ViseronRequestHandler):
                 return False
         return True
 
+    def _construct_jwt_from_cookies(self) -> str | None:
+        """Construct JWT from cookies."""
+        signature = self.get_secure_cookie("signature_cookie")
+        if signature is None:
+            return None
+        return self.request.headers.get("Authorization", "") + "." + signature.decode()
+
     def validate_auth_header(self):
         """Validate auth header."""
         LOGGER.debug("Current user: %s", self.current_user)
+        # Call is coming from browser? Construct the JWT from the cookies
+        if self.request.headers.get("X-Requested-With", "") == "XMLHttpRequest":
+            LOGGER.debug("Browser request")
+            self.browser_request = True
+            auth_header = self._construct_jwt_from_cookies()
+        else:
+            auth_header = self.request.headers.get("Authorization", None)
+
+        if auth_header is None:
+            LOGGER.debug("Auth header is missing")
+            return False
+
         # Check correct auth header format
         try:
-            auth_type, auth_val = self.request.headers.get("Authorization", "").split(
-                " ", 1
-            )
+            auth_type, auth_val = auth_header.split(" ", 1)
         except ValueError:
             LOGGER.debug("Invalid auth header")
             return False
@@ -113,31 +131,23 @@ class BaseAPIHandler(ViseronRequestHandler):
             LOGGER.debug(f"Auth type not Bearer: {auth_type}")
             return False
 
-        # Check auth header is valid
-        header_refresh_token = self._webserver.auth.validate_access_token(auth_val)
-        if header_refresh_token is None:
-            LOGGER.debug("Header refresh token not valid")
+        # Check access token is valid
+        refresh_token = self._webserver.auth.validate_access_token(auth_val)
+        if refresh_token is None:
+            LOGGER.debug("Access token not valid")
             return False
 
-        # Check auth cookie is valid
-        cookie_token = self.get_secure_cookie("token")
-        if cookie_token is None:
-            LOGGER.debug("Cookie token is missing")
-            return False
+        # Check refresh_token cookie exists
+        if self.browser_request:
+            refresh_token_cookie = self.get_secure_cookie("refresh_token")
+            if refresh_token_cookie is None:
+                LOGGER.debug("Refresh token is missing")
+                return
+            if refresh_token_cookie.decode() != refresh_token.token:
+                LOGGER.debug("Access token does not belong to the refresh token.")
+                return False
 
-        cookie_refresh_token = self._webserver.auth.validate_access_token(
-            cookie_token.decode()
-        )
-        if cookie_refresh_token is None:
-            LOGGER.debug("Cookie refresh token not valid")
-            return False
-
-        # Check auth cookie and header match
-        if cookie_refresh_token != header_refresh_token:
-            LOGGER.debug("Cookie and header mismatch")
-            return False
-
-        user = self._webserver.auth.get_user(header_refresh_token.user_id)
+        user = self._webserver.auth.get_user(refresh_token.user_id)
         if user is None or not user.enabled:
             LOGGER.debug("User not found or disabled")
             return False

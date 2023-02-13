@@ -1,27 +1,18 @@
-export type StoreTokensParams = {
-  access_token: string;
-  token_type: "Bearer";
-  refresh_token: string;
-  expires_in: number;
-};
+import * as types from "lib/types";
 
-type TokenData = {
-  access_token: string;
-  token_type: "Bearer";
-  refresh_token: string;
-  expires_in: number;
+export type AuthTokenData = types.AuthTokenResponse & {
   expires_at: number;
 };
 
-export const storeTokens = (tokens: StoreTokensParams) => {
-  const _tokens: TokenData = {
+export const storeTokens = (tokens: types.AuthTokenResponse) => {
+  const _tokens: AuthTokenData = {
     ...tokens,
     expires_at: Date.now() + tokens.expires_in * 1000,
   };
   localStorage.setItem("tokens", JSON.stringify(_tokens));
 };
 
-export const loadTokens = (): TokenData => {
+export const loadTokens = (): AuthTokenData => {
   const tokens = localStorage.getItem("tokens");
   return tokens !== null ? JSON.parse(tokens) : {};
 };

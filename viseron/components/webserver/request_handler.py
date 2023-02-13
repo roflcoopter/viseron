@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING
 import tornado.web
 from tornado.ioloop import IOLoop
 
-from viseron.components.webserver.auth import User
 from viseron.components.webserver.const import COMPONENT
 
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.webserver import Webserver
+    from viseron.components.webserver.auth import RefreshToken, User
 
 
 class ViseronRequestHandler(tornado.web.RequestHandler):
@@ -37,28 +37,46 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         if not self._webserver.auth:
             return
 
-        _user = self.get_secure_cookie("user")
+        _user = self.get_cookie("user")
         if _user:
             self.current_user = await self.run_in_executor(
-                self._webserver.auth.get_user, _user.decode()
+                self._webserver.auth.get_user, _user
             )
 
-    def set_cookies(self, token: str, user: User):
+    def set_cookies(
+        self,
+        refresh_token: RefreshToken,
+        access_token: str,
+        user: User,
+        new_session=False,
+    ):
         """Set session cookies."""
-        self.clear_cookie("token")
-        self.clear_cookie("user")
         now = datetime.utcnow()
+
+        _header, _payload, signature = access_token.split(".")
+
+        if new_session:
+            self.clear_cookie("refresh_token")
+            self.set_secure_cookie(  # Not a JWT
+                "refresh_token",
+                refresh_token.token,
+                expires=now + self._webserver.auth.session_expiry,
+                httponly=True,
+                samesite="strict",
+                secure=bool(self.request.protocol == "https"),
+            )
+            self.clear_cookie("user")
+            self.set_cookie(
+                "user",
+                user.id,
+                expires=now + self._webserver.auth.session_expiry,
+                samesite="strict",
+                secure=bool(self.request.protocol == "https"),
+            )
+        self.clear_cookie("signature_cookie")
         self.set_secure_cookie(
-            "token",
-            token,
-            expires=now + self._webserver.auth.session_expiry,
-            httponly=True,
-            samesite="strict",
-            secure=bool(self.request.protocol == "https"),
-        )
-        self.set_secure_cookie(
-            "user",
-            user.id,
+            "signature_cookie",
+            signature,
             expires=now + self._webserver.auth.session_expiry,
             httponly=True,
             samesite="strict",

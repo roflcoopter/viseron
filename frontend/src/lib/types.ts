@@ -43,19 +43,24 @@ export type APIErrorResponse = AxiosError<{
   error: string;
 }>;
 
+export type AuthEnabledResponse = {
+  enabled: boolean;
+};
+
 export type AuthTokenResponse = {
-  access_token: string;
-  token_type: "Bearer";
+  header: string;
+  payload: string;
   expires_in: number;
 };
 
-export type AuthLoginResponse = {
-  access_token: string;
-  token_type: "Bearer";
-  refresh_token: string;
-  expires_in: number;
+export type AuthUserResponse = {
+  name: string;
+  username: string;
+  group: string;
 };
-export type OnboardingResponse = AuthLoginResponse;
+
+export type AuthLoginResponse = AuthTokenResponse;
+export type OnboardingResponse = AuthTokenResponse;
 
 export interface Recording {
   date: string;
