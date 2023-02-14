@@ -31,14 +31,14 @@ function PrivateLayout() {
   const userQuery = useAuthUser({
     username: cookies.user,
     setUser,
-    configOptions: { enabled: auth && !!cookies.user },
+    configOptions: { enabled: auth.enabled && !!cookies.user },
   });
 
   if (userQuery.isInitialLoading || userQuery.isFetching) {
     return <Loading text="Loading" />;
   }
 
-  if (auth && (!cookies.user || !user)) {
+  if (auth.enabled && (!cookies.user || !user)) {
     return (
       <Navigate
         to="/login"

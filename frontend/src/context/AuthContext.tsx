@@ -1,6 +1,7 @@
 import { AxiosHeaders } from "axios";
 import Cookies from "js-cookie";
 import { FC, createContext, useMemo, useRef, useState } from "react";
+import { Navigate, useLocation } from "react-router-dom";
 
 import { Loading } from "components/loading/Loading";
 import { authToken, useAuthEnabled } from "lib/api/auth";
@@ -11,12 +12,12 @@ import * as types from "lib/types";
 import { useSnackbar } from "./SnackbarContext";
 
 export type AuthContextState = {
-  auth: boolean;
-  setAuth: React.Dispatch<React.SetStateAction<boolean>>;
+  auth: types.AuthEnabledResponse;
+  setAuth: React.Dispatch<React.SetStateAction<AuthContextState["auth"]>>;
 };
 
 export const AuthContext = createContext<AuthContextState>({
-  auth: true,
+  auth: { enabled: true, onboarding_complete: true },
   setAuth: () => {},
 });
 
@@ -29,9 +30,13 @@ let tokenPromise: Promise<types.AuthTokenResponse>;
 export const AuthProvider: FC<AuthProviderProps> = ({
   children,
 }: AuthProviderProps) => {
-  const [auth, setAuth] = useState<boolean>(true);
+  const [auth, setAuth] = useState<types.AuthEnabledResponse>({
+    enabled: true,
+    onboarding_complete: true,
+  });
   const authQuery = useAuthEnabled({ setAuth });
   const snackbar = useSnackbar();
+  const location = useLocation();
 
   const requestInterceptorRef = useRef<number>();
 
@@ -42,7 +47,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({
 
     requestInterceptorRef.current = viseronAPI.interceptors.request.use(
       async (config) => {
-        if (!auth) {
+        if (!auth.enabled) {
           return config;
         }
 
@@ -103,6 +108,14 @@ export const AuthProvider: FC<AuthProviderProps> = ({
 
   if (authQuery.isLoading || authQuery.isFetching) {
     return <Loading text="Loading" />;
+  }
+
+  if (
+    auth.enabled &&
+    !auth.onboarding_complete &&
+    location.pathname !== "/onboarding"
+  ) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return (

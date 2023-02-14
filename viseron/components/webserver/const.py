@@ -9,6 +9,7 @@ PATH_STATIC = "/src/viseron/frontend/static"
 
 WEBSERVER_STORAGE_KEY = "webserver"
 AUTH_STORAGE_KEY = "auth"
+ONBOARDING_STORAGE_KEY = "onboarding"
 
 ACCESS_TOKEN_EXPIRATION = timedelta(minutes=30)
 

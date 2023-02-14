@@ -2,14 +2,11 @@
 from __future__ import annotations
 
 import logging
-import os
 from http import HTTPStatus
-from pathlib import Path
 
 import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.const import STORAGE_PATH
 
 LOGGER = logging.getLogger(__name__)
 
@@ -36,21 +33,18 @@ class OnboardingAPIHandler(BaseAPIHandler):
 
     def onboarding(self):
         """Onboard the first user."""
-        onboarding_file = os.path.join(STORAGE_PATH, "onboarding")
-        if self._webserver.auth.users or os.path.exists(onboarding_file):
+        if self._webserver.auth.users or self._webserver.auth.onboarding_complete:
             self.response_error(
                 HTTPStatus.FORBIDDEN,
                 reason="Onboarding has already been completed",
             )
             return
 
-        user = self._webserver.auth.add_user(
+        user = self._webserver.auth.onboard_user(
             self.json_body["name"],
             self.json_body["username"],
             self.json_body["password"],
-            "admin",
         )
-        Path(onboarding_file).touch()
 
         refresh_token = self._webserver.auth.generate_refresh_token(
             user.id,

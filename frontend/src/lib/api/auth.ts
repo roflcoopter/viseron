@@ -142,7 +142,7 @@ async function authEnabled() {
 }
 
 interface AuthEnabledVariables {
-  setAuth: React.Dispatch<React.SetStateAction<boolean>>;
+  setAuth: React.Dispatch<React.SetStateAction<types.AuthEnabledResponse>>;
 }
 
 export const useAuthEnabled = ({ setAuth }: AuthEnabledVariables) =>
@@ -151,7 +151,7 @@ export const useAuthEnabled = ({ setAuth }: AuthEnabledVariables) =>
     async () => authEnabled(),
     {
       onSuccess: async (data) => {
-        setAuth(data.enabled);
+        setAuth(data);
       },
     }
   );

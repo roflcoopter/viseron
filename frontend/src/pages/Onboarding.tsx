@@ -4,10 +4,12 @@ import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import { useReducer } from "react";
+import { useContext, useReducer } from "react";
+import { Navigate } from "react-router-dom";
 import { ReactComponent as ViseronLogo } from "viseron-logo.svg";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
+import { AuthContext } from "context/AuthContext";
 import { useTitle } from "hooks/UseTitle";
 import { useOnboarding } from "lib/api/onboarding";
 
@@ -50,9 +52,14 @@ function reducer(state: InputState, action: InputAction): InputState {
 
 const Onboarding = () => {
   useTitle("Onboarding");
-  const [inputState, dispatch] = useReducer(reducer, initialState);
+  const { auth } = useContext(AuthContext);
 
+  const [inputState, dispatch] = useReducer(reducer, initialState);
   const onboarding = useOnboarding();
+
+  if (auth.enabled && auth.onboarding_complete) {
+    return <Navigate to="/" />;
+  }
 
   return (
     <Container sx={{ marginTop: "2%" }}>

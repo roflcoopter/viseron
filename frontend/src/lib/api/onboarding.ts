@@ -1,8 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 
 import { useSnackbar } from "context/SnackbarContext";
-import { clientId, viseronAPI } from "lib/api/client";
+import queryClient, { clientId, viseronAPI } from "lib/api/client";
 import { storeTokens } from "lib/api/tokens";
 import * as types from "lib/types";
 
@@ -27,7 +26,6 @@ async function onboarding({ name, username, password }: OnboardingVariables) {
 
 export const useOnboarding = () => {
   const snackbar = useSnackbar();
-  const navigate = useNavigate();
   return useMutation<
     types.OnboardingResponse,
     types.APIErrorResponse,
@@ -37,7 +35,7 @@ export const useOnboarding = () => {
     onSuccess: async (data, _variables, _context) => {
       storeTokens(data);
       snackbar.showSnackbar("User created successfully", "success");
-      navigate("/");
+      queryClient.invalidateQueries(["auth"]);
     },
     onError: async (error, _variables, _context) => {
       snackbar.showSnackbar(

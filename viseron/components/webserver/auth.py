@@ -5,10 +5,12 @@ import base64
 import enum
 import hmac
 import logging
+import os
 import secrets
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Literal, cast
 
@@ -23,7 +25,9 @@ from viseron.components.webserver.const import (
     CONFIG_HOURS,
     CONFIG_MINUTES,
     CONFIG_SESSION_EXPIRY,
+    ONBOARDING_STORAGE_KEY,
 )
+from viseron.const import STORAGE_PATH
 from viseron.exceptions import ViseronError
 from viseron.helpers.storage import Storage
 
@@ -124,6 +128,18 @@ class Auth:
             minutes=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY][CONFIG_MINUTES],
         )
 
+    @property
+    def onboarding_path(self) -> str:
+        """Return onboarding path."""
+        return os.path.join(STORAGE_PATH, ONBOARDING_STORAGE_KEY)
+
+    @property
+    def onboarding_complete(self) -> bool:
+        """Return onboarding status."""
+        if self.users or os.path.exists(self.onboarding_path):
+            return True
+        return False
+
     @staticmethod
     def hash_password(password: str) -> str:
         """Hash password."""
@@ -167,6 +183,17 @@ class Auth:
             )
             self.users[user.id] = user
             self.save()
+        return user
+
+    def onboard_user(
+        self,
+        name: str,
+        username: str,
+        password: str,
+    ):
+        """Onboard the first user."""
+        user = self.add_user(name, username, password, Group.ADMIN)
+        Path(self.onboarding_path).touch()
         return user
 
     def validate_user(self, username: str, password: str) -> User:

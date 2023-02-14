@@ -19,11 +19,11 @@ ReactDOM.render(
       <CssBaseline enableColorScheme />
       <QueryClientProvider client={queryClient}>
         <SnackbarProvider>
-          <AuthProvider>
-            <Router>
+          <Router>
+            <AuthProvider>
               <App />
-            </Router>
-          </AuthProvider>
+            </AuthProvider>
+          </Router>
         </SnackbarProvider>
       </QueryClientProvider>
     </ColorModeProvider>

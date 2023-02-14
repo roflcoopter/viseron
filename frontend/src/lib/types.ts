@@ -45,6 +45,7 @@ export type APIErrorResponse = AxiosError<{
 
 export type AuthEnabledResponse = {
   enabled: boolean;
+  onboarding_complete: boolean;
 };
 
 export type AuthTokenResponse = {

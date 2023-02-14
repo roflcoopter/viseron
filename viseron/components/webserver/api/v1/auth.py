@@ -74,7 +74,12 @@ class AuthAPIHandler(BaseAPIHandler):
 
     def auth_enabled(self) -> Literal[True]:
         """Return if auth is enabled."""
-        self.response_success(response={"enabled": bool(self._webserver.auth)})
+        self.response_success(
+            response={
+                "enabled": bool(self._webserver.auth),
+                "onboarding_complete": self._webserver.auth.onboarding_complete,
+            }
+        )
         return True
 
     def auth_create(self):
