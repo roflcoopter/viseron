@@ -1,8 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 
 import { useSnackbar } from "context/SnackbarContext";
-import queryClient, { clientId, viseronAPI } from "lib/api/client";
-import { storeTokens } from "lib/api/tokens";
+import { clientId, viseronAPI } from "lib/api/client";
+import { storeTokens } from "lib/tokens";
 import * as types from "lib/types";
 
 type OnboardingVariables = {
@@ -35,7 +35,6 @@ export const useOnboarding = () => {
     onSuccess: async (data, _variables, _context) => {
       storeTokens(data);
       snackbar.showSnackbar("User created successfully", "success");
-      queryClient.invalidateQueries(["auth"]);
     },
     onError: async (error, _variables, _context) => {
       snackbar.showSnackbar(

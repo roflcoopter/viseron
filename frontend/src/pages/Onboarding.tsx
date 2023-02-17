@@ -11,6 +11,7 @@ import { ReactComponent as ViseronLogo } from "viseron-logo.svg";
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
 import { AuthContext } from "context/AuthContext";
 import { useTitle } from "hooks/UseTitle";
+import queryClient from "lib/api/client";
 import { useOnboarding } from "lib/api/onboarding";
 
 type InputState = {
@@ -140,11 +141,18 @@ const Onboarding = () => {
                     onboarding.isLoading
                   }
                   onClick={() => {
-                    onboarding.mutate({
-                      name: inputState.displayName.value,
-                      username: inputState.username.value,
-                      password: inputState.password.value,
-                    });
+                    onboarding.mutate(
+                      {
+                        name: inputState.displayName.value,
+                        username: inputState.username.value,
+                        password: inputState.password.value,
+                      },
+                      {
+                        onSuccess: async (_data, _variables, _context) => {
+                          queryClient.removeQueries();
+                        },
+                      }
+                    );
                   }}
                 >
                   Sign Up

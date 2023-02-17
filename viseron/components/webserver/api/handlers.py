@@ -108,10 +108,8 @@ class BaseAPIHandler(ViseronRequestHandler):
 
     def validate_auth_header(self):
         """Validate auth header."""
-        LOGGER.debug("Current user: %s", self.current_user)
         # Call is coming from browser? Construct the JWT from the cookies
         if self.request.headers.get("X-Requested-With", "") == "XMLHttpRequest":
-            LOGGER.debug("Browser request")
             self.browser_request = True
             auth_header = self._construct_jwt_from_cookies()
         else:
@@ -131,32 +129,9 @@ class BaseAPIHandler(ViseronRequestHandler):
             LOGGER.debug(f"Auth type not Bearer: {auth_type}")
             return False
 
-        # Check access token is valid
-        refresh_token = self._webserver.auth.validate_access_token(auth_val)
-        if refresh_token is None:
-            LOGGER.debug("Access token not valid")
-            return False
-
-        # Check refresh_token cookie exists
-        if self.browser_request:
-            refresh_token_cookie = self.get_secure_cookie("refresh_token")
-            if refresh_token_cookie is None:
-                LOGGER.debug("Refresh token is missing")
-                return
-            if refresh_token_cookie.decode() != refresh_token.token:
-                LOGGER.debug("Access token does not belong to the refresh token.")
-                return False
-
-        user = self._webserver.auth.get_user(refresh_token.user_id)
-        if user is None or not user.enabled:
-            LOGGER.debug("User not found or disabled")
-            return False
-
-        if self.current_user != user:
-            LOGGER.debug("User mismatch")
-            return False
-
-        return True
+        return self.validate_access_token(
+            auth_val, check_refresh_token=self.browser_request
+        )
 
     def route_request(self):
         """Route request to correct API endpoint."""

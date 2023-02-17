@@ -24,7 +24,10 @@ DEFAULT_DEBUG = False
 DESC_COMPONENT = "Webserver configuration."
 
 DESC_PORT = "Port to run the webserver on."
-DESC_DEBUG = "Enable debug mode for the webserver."
+DESC_DEBUG = (
+    "Enable debug mode for the webserver. <b>WARNING: Dont have this enabled in"
+    " production as it weakens security.</b>"
+)
 
 # Auth constants
 CONFIG_AUTH = "auth"
@@ -48,6 +51,10 @@ DESC_MINUTES = "Minutes to expire session."
 
 # Websocket constants
 TYPE_RESULT = "result"
+TYPE_AUTH_OK = "auth_ok"
+TYPE_AUTH_REQUIRED = "auth_required"
+TYPE_AUTH_NOT_REQUIRED = "auth_not_required"
+TYPE_AUTH_FAILED = "auth_failed"
 
 
 # Websocket error codes

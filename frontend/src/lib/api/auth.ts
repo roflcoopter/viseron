@@ -2,7 +2,7 @@ import { UseQueryOptions, useMutation, useQuery } from "@tanstack/react-query";
 
 import { useSnackbar } from "context/SnackbarContext";
 import { clientId, viseronAPI } from "lib/api/client";
-import { storeTokens } from "lib/api/tokens";
+import { storeTokens } from "lib/tokens";
 import * as types from "lib/types";
 
 interface AuthCreateVariables {
@@ -151,7 +151,15 @@ export const useAuthEnabled = ({ setAuth }: AuthEnabledVariables) =>
     async () => authEnabled(),
     {
       onSuccess: async (data) => {
-        setAuth(data);
+        setAuth((prevAuth) => {
+          if (
+            prevAuth.enabled === data.enabled &&
+            prevAuth.onboarding_complete === data.onboarding_complete
+          ) {
+            return prevAuth;
+          }
+          return data;
+        });
       },
     }
   );

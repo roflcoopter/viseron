@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import React, { FC, createContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { getCameras, subscribeCameras, subscribeRecording } from "lib/commands";
 import { sortObj } from "lib/helpers";
@@ -33,7 +34,12 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
   );
   const [connected, setConnected] = useState<boolean>(false);
   const [cameras, setCameras] = useState<types.Cameras>({});
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  const onConnectRef = React.useRef<() => void>();
+  const onDisconnectRef = React.useRef<() => void>();
+  const onConnectionErrorRef = React.useRef<() => void>();
 
   useEffect(() => {
     if (connection) {
@@ -62,17 +68,26 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
         });
       };
 
-      const onConnect = async () => {
+      onConnectRef.current = async () => {
         setConnected(true);
         const registeredCameras = await getCameras(connection);
         setCameras(sortObj(registeredCameras));
       };
-      connection.addEventListener("connected", onConnect);
-
-      const onDisonnect = async () => {
+      onDisconnectRef.current = async () => {
         setConnected(false);
       };
-      connection.addEventListener("disconnected", onDisonnect);
+      onConnectionErrorRef.current = async () => {
+        console.error("Connection error, redirecting to login");
+        queryClient.removeQueries();
+        navigate("/login");
+      };
+
+      connection.addEventListener("connected", onConnectRef.current);
+      connection.addEventListener("disconnected", onDisconnectRef.current);
+      connection.addEventListener(
+        "connection-error",
+        onConnectionErrorRef.current
+      );
 
       const connect = async () => {
         subscribeCameras(connection, cameraRegistered); // call without await to not block
@@ -83,9 +98,27 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
     }
     return () => {
       if (connection) {
+        if (onConnectRef.current) {
+          connection.removeEventListener("connected", onConnectRef.current);
+        }
+        if (onDisconnectRef.current) {
+          connection.removeEventListener(
+            "disconnected",
+            onDisconnectRef.current
+          );
+        }
+
+        if (onConnectionErrorRef.current) {
+          connection.removeEventListener(
+            "connection-error",
+            onConnectionErrorRef.current
+          );
+        }
         connection.disconnect();
+        setConnection(undefined);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connection, queryClient]);
 
   useEffect(() => {

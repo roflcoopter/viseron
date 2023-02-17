@@ -12,6 +12,7 @@ import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
 import { useSnackbar } from "context/SnackbarContext";
 import { useTitle } from "hooks/UseTitle";
 import { useAuthLogin } from "lib/api/auth";
+import queryClient from "lib/api/client";
 
 type InputState = {
   username: TextFieldItemState;
@@ -131,7 +132,8 @@ const Login = () => {
                         password: inputState.password.value,
                       },
                       {
-                        onSuccess: (_data, _variables, _context) => {
+                        onSuccess: async (_data, _variables, _context) => {
+                          queryClient.removeQueries();
                           navigate(fromRef.current ? fromRef.current : "/");
                         },
                       }

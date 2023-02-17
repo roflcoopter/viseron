@@ -1,6 +1,7 @@
 """Viseron request handler."""
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -13,6 +14,8 @@ if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.auth import RefreshToken, User
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ViseronRequestHandler(tornado.web.RequestHandler):
@@ -82,3 +85,34 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             samesite="strict",
             secure=bool(self.request.protocol == "https"),
         )
+
+    def validate_access_token(
+        self, access_token: str, check_refresh_token: bool = True
+    ):
+        """Validate access token."""
+        # Check access token is valid
+        refresh_token = self._webserver.auth.validate_access_token(access_token)
+        if refresh_token is None:
+            LOGGER.debug("Access token not valid")
+            return False
+
+        # Check refresh_token cookie exists
+        if check_refresh_token:
+            refresh_token_cookie = self.get_secure_cookie("refresh_token")
+            if refresh_token_cookie is None:
+                LOGGER.debug("Refresh token is missing")
+                return
+            if refresh_token_cookie.decode() != refresh_token.token:
+                LOGGER.debug("Access token does not belong to the refresh token.")
+                return False
+
+        user = self._webserver.auth.get_user(refresh_token.user_id)
+        if user is None or not user.enabled:
+            LOGGER.debug("User not found or disabled")
+            return False
+
+        if self.current_user != user:
+            LOGGER.debug("User mismatch")
+            return False
+
+        return True

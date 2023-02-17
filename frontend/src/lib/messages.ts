@@ -8,6 +8,13 @@ export type SaveConfigMessage = {
   config: string;
 };
 
+export function auth(accessToken: string) {
+  return {
+    type: "auth",
+    access_token: accessToken,
+  };
+}
+
 export function subscribeEvent(event: string) {
   const message: SubscribeEventMessage = {
     type: "subscribe_event",

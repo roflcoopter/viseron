@@ -4,10 +4,23 @@ import { toast } from "react-toastify";
 import * as messages from "lib/messages";
 import * as types from "lib/types";
 
+import { loadTokens } from "./tokens";
+
+const DEBUG = false;
+
+type Error = 1 | 2 | 3;
+const ERR_CANNOT_CONNECT = 1;
+const ERR_INVALID_AUTH = 2;
+const ERR_CONNECTION_LOST = 3;
+const MSG_TYPE_AUTH_REQUIRED = "auth_required";
+const MSG_TYPE_AUTH_NOT_REQUIRED = "auth_not_required";
+const MSG_TYPE_AUTH_INVALID = "auth_failed";
+const MSG_TYPE_AUTH_OK = "auth_ok";
+
 const connectingToastId = "connectingToastId";
 const connectionLostToastId = "connectionLostToastId";
 
-type Events = "connected" | "disconnected";
+type Events = "connected" | "disconnected" | "connection-error";
 export type EventListener = (conn: Connection, eventData?: any) => void;
 
 export interface Message {
@@ -28,6 +41,85 @@ interface SubscribeEventCommmandInFlight<T> {
   callback: (ev: T) => void;
   subscribe: (() => Promise<SubscriptionUnsubscribe>) | undefined;
   unsubscribe: SubscriptionUnsubscribe;
+}
+
+export function createSocket(wsURL: string): Promise<WebSocket> {
+  if (DEBUG) {
+    console.debug("[Socket] Initializing", wsURL);
+  }
+
+  function connect(
+    promResolve: (socket: WebSocket) => void,
+    promReject: (err: Error) => void
+  ) {
+    if (DEBUG) {
+      console.debug("[Socket] New connection", wsURL);
+    }
+
+    const socket = new WebSocket(wsURL);
+
+    let invalidAuth = false;
+    const closeMessage = () => {
+      socket.removeEventListener("close", closeMessage);
+      if (invalidAuth) {
+        promReject(ERR_INVALID_AUTH);
+        return;
+      }
+
+      promReject(ERR_CANNOT_CONNECT);
+    };
+
+    const handleMessage = async (event: MessageEvent) => {
+      const storedTokens = loadTokens();
+      const message = JSON.parse(event.data);
+
+      if (DEBUG) {
+        console.debug("[Socket] Received", message);
+      }
+      switch (message.type) {
+        case MSG_TYPE_AUTH_REQUIRED:
+          if (DEBUG) {
+            console.debug("[Socket] Sending auth message", message);
+          }
+          socket.send(
+            JSON.stringify(
+              messages.auth(`${storedTokens.header}.${storedTokens.payload}`)
+            )
+          );
+          break;
+
+        case MSG_TYPE_AUTH_INVALID:
+          if (DEBUG) {
+            console.debug("[Socket] Auth failed");
+          }
+          invalidAuth = true;
+          socket.close();
+          break;
+
+        case MSG_TYPE_AUTH_OK:
+        case MSG_TYPE_AUTH_NOT_REQUIRED:
+          socket.removeEventListener("message", handleMessage);
+          socket.removeEventListener("close", closeMessage);
+          socket.removeEventListener("error", closeMessage);
+          promResolve(socket);
+          break;
+
+        default:
+          if (DEBUG) {
+            console.warn("[Socket] Unhandled message", message);
+          }
+      }
+    };
+
+    socket.addEventListener("message", handleMessage);
+    socket.addEventListener("close", closeMessage);
+    socket.addEventListener("error", closeMessage);
+  }
+
+  return new Promise((resolve, reject) =>
+    // eslint-disable-next-line no-promise-executor-return
+    connect(resolve, reject)
+  );
 }
 
 export class Connection {
@@ -66,8 +158,8 @@ export class Connection {
     const wsURL = `${
       window.location.protocol === "https:" ? "wss://" : "ws://"
     }${location.host}/websocket`;
-    console.log(wsURL);
-    this.socket = new WebSocket(wsURL);
+    this.socket = await createSocket(wsURL);
+    this._initializeSocket();
 
     if (!this.reconnectTimer) {
       setTimeout(() => {
@@ -75,10 +167,8 @@ export class Connection {
       }, 1000);
     }
 
-    this._handleOpen = this._handleOpen.bind(this);
     this._handleMessage = this._handleMessage.bind(this);
     this._handleClose = this._handleClose.bind(this);
-    this.socket.addEventListener("open", this._handleOpen);
     this.socket.addEventListener("message", this._handleMessage);
     this.socket.addEventListener("close", this._handleClose);
   }
@@ -94,8 +184,12 @@ export class Connection {
     return ++this.commandId;
   }
 
-  private _handleOpen(_event: any) {
-    console.log("Connection opened");
+  get connected() {
+    return this.socket !== null && this.socket.readyState === this.socket.OPEN;
+  }
+
+  private _initializeSocket() {
+    console.debug("Connection opened");
     this.commandId = 0;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -133,9 +227,17 @@ export class Connection {
       }
     }
 
-    this.pingInterval = setInterval(() => {
-      this.ping();
-    }, 30000);
+    const ping = () => {
+      this.pingInterval = setTimeout(async () => {
+        try {
+          await this.ping();
+        } catch (err) {
+          console.error(err);
+        }
+        ping();
+      }, 30000);
+    };
+    ping();
 
     this.fireEvent("connected");
   }
@@ -207,11 +309,14 @@ export class Connection {
       });
     }
 
+    if (this.socket) {
+      this.socket.removeEventListener("close", this._handleClose);
+      this.socket.removeEventListener("message", this._handleMessage);
+    }
+
+    this.fireEvent("disconnected");
+
     if (this.closeRequested) {
-      if (this.socket) {
-        this.socket.removeEventListener("close", this._handleClose);
-        this.socket.removeEventListener("message", this._handleMessage);
-      }
       this.socket = null;
       return;
     }
@@ -228,12 +333,36 @@ export class Connection {
       });
     }
 
-    this.reconnectTimer = setTimeout(async () => {
-      this.socket = null;
-      console.debug("Reconnecting to server...");
-      await this.connect();
-    }, 5000);
-    this.fireEvent("disconnected");
+    const reconnect = () => {
+      this.reconnectTimer = setTimeout(async () => {
+        this.socket = null;
+        if (this.closeRequested) {
+          return;
+        }
+
+        console.debug("Reconnecting to server...");
+        try {
+          await this.connect();
+        } catch (err) {
+          if (this.queuedMessages) {
+            const queuedMessages = this.queuedMessages;
+            this.queuedMessages = undefined;
+            for (const msg of queuedMessages) {
+              if (msg.reject) {
+                msg.reject(ERR_CONNECTION_LOST);
+              }
+            }
+          }
+          if (err === ERR_INVALID_AUTH) {
+            this.fireEvent("connection-error", err);
+          } else {
+            reconnect();
+          }
+        }
+      }, 5000);
+    };
+
+    reconnect();
   };
 
   addEventListener(eventType: Events, callback: EventListener) {
@@ -282,7 +411,11 @@ export class Connection {
   }
 
   private _sendMessage(message: Message) {
-    console.log("Sending", message);
+    if (!this.connected) {
+      // eslint-disable-next-line @typescript-eslint/no-throw-literal
+      throw ERR_CONNECTION_LOST;
+    }
+    console.debug("Sending", message);
     this.socket!.send(JSON.stringify(message));
   }
 
@@ -330,7 +463,7 @@ export class Connection {
         this.queuedMessages!.push({ resolve, reject });
       });
     }
-    console.log("Subscribing to", event);
+    console.debug("Subscribing to", event);
 
     let subscription: SubscribeEventCommmandInFlight<any>;
 
@@ -352,7 +485,11 @@ export class Connection {
       };
 
       this.commands.set(commandId, subscription);
-      this.sendMessage(messages.subscribeEvent(event), commandId);
+      try {
+        this.sendMessage(messages.subscribeEvent(event), commandId);
+      } catch (err) {
+        // Socket is closing
+      }
     });
     return () => subscription.unsubscribe();
   }

@@ -1,12 +1,12 @@
 import { AxiosHeaders } from "axios";
 import Cookies from "js-cookie";
-import { FC, createContext, useMemo, useRef, useState } from "react";
+import { FC, createContext, useLayoutEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
 import { Loading } from "components/loading/Loading";
 import { authToken, useAuthEnabled } from "lib/api/auth";
 import { clientId, viseronAPI } from "lib/api/client";
-import { loadTokens } from "lib/api/tokens";
+import { loadTokens } from "lib/tokens";
 import * as types from "lib/types";
 
 import { useSnackbar } from "./SnackbarContext";
@@ -38,10 +38,10 @@ export const AuthProvider: FC<AuthProviderProps> = ({
   const snackbar = useSnackbar();
   const location = useLocation();
 
-  const requestInterceptorRef = useRef<number>();
+  const requestInterceptorRef = useRef<number | undefined>(undefined);
 
-  useMemo(() => {
-    if (requestInterceptorRef.current) {
+  useLayoutEffect(() => {
+    if (requestInterceptorRef.current !== undefined) {
       viseronAPI.interceptors.request.eject(requestInterceptorRef.current);
     }
 
@@ -103,11 +103,10 @@ export const AuthProvider: FC<AuthProviderProps> = ({
         return config;
       }
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth]);
+  }, [auth, snackbar]);
 
-  if (authQuery.isLoading || authQuery.isFetching) {
-    return <Loading text="Loading" />;
+  if (authQuery.isInitialLoading) {
+    return <Loading text="Loading Auth" />;
   }
 
   if (

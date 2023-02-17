@@ -13,13 +13,14 @@ import { Loading } from "components/loading/Loading";
 import { AuthContext } from "context/AuthContext";
 import { ViseronProvider } from "context/ViseronContext";
 import { useAuthUser } from "lib/api/auth";
+import queryClient from "lib/api/client";
 import * as types from "lib/types";
 
 const FullHeightContainer = styled("div")(() => ({
   minHeight: "100%",
 }));
 
-function PrivateLayout() {
+export default function PrivateLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const theme = useTheme();
   const location = useLocation();
@@ -34,11 +35,13 @@ function PrivateLayout() {
     configOptions: { enabled: auth.enabled && !!cookies.user },
   });
 
-  if (userQuery.isInitialLoading || userQuery.isFetching) {
-    return <Loading text="Loading" />;
+  // isInitialLoading instead of isLoading because query might be disabled
+  if (userQuery.isInitialLoading) {
+    return <Loading text="Loading User" />;
   }
 
   if (auth.enabled && (!cookies.user || !user)) {
+    queryClient.removeQueries();
     return (
       <Navigate
         to="/login"
@@ -79,5 +82,3 @@ function PrivateLayout() {
     </ViseronProvider>
   );
 }
-
-export default PrivateLayout;

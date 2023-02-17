@@ -1,6 +1,7 @@
 """Websocket API handler."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import TYPE_CHECKING, Callable
@@ -20,25 +21,44 @@ from viseron.components.webserver.const import (
     WS_ERROR_UNKNOWN_COMMAND,
     WS_ERROR_UNKNOWN_ERROR,
 )
+from viseron.components.webserver.request_handler import ViseronRequestHandler
 
-from .messages import MINIMAL_MESSAGE_SCHEMA, error_message, invalid_error_message
+from .messages import (
+    MINIMAL_MESSAGE_SCHEMA,
+    auth_failed_message,
+    auth_not_required_message,
+    auth_ok_message,
+    auth_required_message,
+    error_message,
+    invalid_error_message,
+)
 
 if TYPE_CHECKING:
     from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
 
+AUTH_MESSAGE_SCHEMA = vol.Schema(
+    {
+        vol.Required("type"): "auth",
+        vol.Required("access_token"): str,
+    }
+)
 
-class WebSocketHandler(tornado.websocket.WebSocketHandler):
+
+class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler):
     """Websocket handler."""
 
     def initialize(self, vis: Viseron):
         """Initialize websocket handler."""
+        super().initialize(vis)
         self.vis = vis
         self._last_id = 0
         self.subscriptions: dict[int, Callable[[], None]] = {}
 
         self._message_queue: Queue[str] = Queue()
+        self._waiting_for_auth = True
+        self._writer_exited = False
 
     async def _write_message(self):
         """Write messages to client."""
@@ -48,11 +68,14 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 
             # LOGGER.debug("Sending message {message}".format(message=message))
             await self.write_message(message)
+        self._writer_exited = True
         LOGGER.debug("Exiting WebSocket message writer")
 
-    def check_origin(self, _origin):
+    def check_origin(self, origin):
         """Check request origin."""
-        return True
+        if self.settings.get("debug"):
+            return True
+        return super().check_origin(origin)
 
     def send_message(self, message):
         """Send message to client."""
@@ -62,9 +85,41 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
         """Send message to client."""
         await self._message_queue.put(message)
 
+    def handle_auth(self, message):
+        """Handle auth message."""
+        try:
+            message = AUTH_MESSAGE_SCHEMA(message)
+        except vol.Invalid as err:
+            LOGGER.warning(
+                "Auth message incorrectly formatted: %s", humanize_error(message, err)
+            )
+            return False
+
+        signature = self.get_secure_cookie("signature_cookie")
+        if signature is None:
+            LOGGER.debug("Signature cookie is missing")
+            return False
+
+        access_token = f"{message['access_token']}.{signature.decode()}"
+
+        return self.validate_access_token(access_token)
+
     async def handle_message(self, message):
         """Handle a single incoming message."""
-        handlers = self.vis.data[WEBSOCKET_COMMANDS]
+        if self._waiting_for_auth:
+            if await self.run_in_executor(self.handle_auth, message):
+                LOGGER.debug("Authentication successful.")
+                self._waiting_for_auth = False
+                await self.async_send_message(auth_ok_message())
+                return
+            LOGGER.warning("Authentication failed.")
+            await self.async_send_message(
+                auth_failed_message(
+                    "Authentication failed.",
+                )
+            )
+            await self.force_close()
+            return
 
         try:
             message = MINIMAL_MESSAGE_SCHEMA(message)
@@ -90,6 +145,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             )
             return
 
+        handlers = self._vis.data[WEBSOCKET_COMMANDS]
         if message["type"] not in handlers:
             LOGGER.error("Unknown command: {}".format(message["type"]))
             await self.async_send_message(
@@ -119,7 +175,15 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
 
     def open(self, *_args: str, **_kwargs: str):
         """Websocket open."""
-        LOGGER.debug(f"WebSocket opened {self}")
+        LOGGER.debug("WebSocket opened")
+        if self._webserver.auth:
+            self._waiting_for_auth = True
+            IOLoop.current().spawn_callback(self.send_message, auth_required_message())
+        else:
+            IOLoop.current().spawn_callback(
+                self.send_message, auth_not_required_message()
+            )
+            self._waiting_for_auth = False
         IOLoop.current().spawn_callback(self._write_message)
 
     def on_message(self, message):
@@ -137,9 +201,22 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             return
         IOLoop.current().spawn_callback(self.handle_message, message_data)
 
+    async def force_close(self):
+        """Close websocket."""
+        LOGGER.debug("Force close websocket")
+        for unsub in self.subscriptions.values():
+            unsub()
+
+        self._message_queue.put(None)
+        # Wait until queue is empty
+        while True:
+            if self._message_queue.empty() and self._writer_exited:
+                break
+            await asyncio.sleep(0.5)
+
     def on_close(self):
         """Websocket close."""
-        LOGGER.debug("WebSocket closed")
+        LOGGER.debug("Websocket closed")
         for unsub in self.subscriptions.values():
             unsub()
 

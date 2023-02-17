@@ -253,7 +253,6 @@ class AbstractCamera(ABC):
             "name": self.name,
             "width": self.resolution[0],
             "height": self.resolution[1],
-            "recordings": self.recorder,
         }
 
     @abstractmethod
