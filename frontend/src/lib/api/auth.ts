@@ -2,7 +2,7 @@ import { UseQueryOptions, useMutation, useQuery } from "@tanstack/react-query";
 
 import { useSnackbar } from "context/SnackbarContext";
 import { clientId, viseronAPI } from "lib/api/client";
-import { storeTokens } from "lib/tokens";
+import { clearTokens, storeTokens } from "lib/tokens";
 import * as types from "lib/types";
 
 interface AuthCreateVariables {
@@ -116,6 +116,19 @@ export const useAuthLogin = () => {
     },
   });
 };
+
+async function authLogout() {
+  const response = await viseronAPI.post("/auth/logout");
+  return response.data;
+}
+
+export const useAuthLogout = () =>
+  useMutation<types.APISuccessResponse, types.APIErrorResponse>({
+    mutationFn: authLogout,
+    onSuccess: async (_data, _variables, _context) => {
+      clearTokens();
+    },
+  });
 
 interface AuthTokenVariables {
   grant_type: string;

@@ -1,6 +1,7 @@
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import GitHubIcon from "@mui/icons-material/GitHub";
+import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
 import SettingsIcon from "@mui/icons-material/Settings";
 import Box from "@mui/material/Box";
@@ -11,10 +12,12 @@ import Tooltip from "@mui/material/Tooltip";
 import { alpha, styled, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useContext, useRef, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 
 import { ColorModeContext } from "context/ColorModeContext";
 import { useScrollPosition } from "hooks/UseScrollPosition";
+import { useAuthLogout } from "lib/api/auth";
+import queryClient from "lib/api/client";
 
 import { ReactComponent as ViseronLogo } from "../../viseron-logo.svg";
 import Breadcrumbs from "./Breadcrumbs";
@@ -79,6 +82,9 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
       setShowHeader(true);
     }
   });
+
+  const logout = useAuthLogout();
+  const navigate = useNavigate();
 
   return (
     <Header showHeader={showHeader}>
@@ -146,6 +152,26 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
               to={"/configuration"}
             >
               <SettingsIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={"Logout"} enterDelay={300}>
+            <IconButton
+              color="primary"
+              onClick={() =>
+                logout.mutate(undefined, {
+                  onSuccess: async (_data, _variables, _context) => {
+                    queryClient.removeQueries();
+                    navigate("/login", {
+                      state: {
+                        snackbarText: "Successfully logged out",
+                        snackbarType: "success",
+                      },
+                    });
+                  },
+                })
+              }
+            >
+              <LogoutIcon />
             </IconButton>
           </Tooltip>
         </Stack>

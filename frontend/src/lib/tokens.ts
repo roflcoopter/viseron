@@ -16,3 +16,7 @@ export const loadTokens = (): AuthTokenData => {
   const tokens = localStorage.getItem("tokens");
   return tokens !== null ? JSON.parse(tokens) : {};
 };
+
+export const clearTokens = () => {
+  localStorage.removeItem("tokens");
+}

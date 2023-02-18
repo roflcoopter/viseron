@@ -57,6 +57,11 @@ class AuthAPIHandler(BaseAPIHandler):
             ),
         },
         {
+            "path_pattern": r"/auth/logout",
+            "supported_methods": ["POST"],
+            "method": "auth_logout",
+        },
+        {
             "requires_auth": False,
             "path_pattern": r"/auth/token",
             "supported_methods": ["POST"],
@@ -146,6 +151,24 @@ class AuthAPIHandler(BaseAPIHandler):
                 ),
             }
         )
+
+    def auth_logout(self):
+        """Logout."""
+        refresh_token_cookie = self.get_secure_cookie("refresh_token")
+        if refresh_token_cookie is None:
+            self.response_error(HTTPStatus.BAD_REQUEST, reason="Invalid refresh token")
+            return
+
+        refresh_token = self._webserver.auth.get_refresh_token_from_token(
+            refresh_token_cookie.decode()
+        )
+        if refresh_token is None:
+            self.response_error(HTTPStatus.BAD_REQUEST, reason="Invalid refresh token")
+            return
+
+        self._webserver.auth.delete_refresh_token(refresh_token)
+        self.clear_all_cookies()
+        self.response_success()
 
     def _handle_refresh_token(
         self,

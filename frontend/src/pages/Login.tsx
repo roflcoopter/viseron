@@ -75,7 +75,7 @@ const Login = () => {
         <ViseronLogo width={150} height={150} />
       </Box>
       <Typography variant="h4" align="center">
-        Welcome back!
+        Viseron
       </Typography>
       <Box
         display="flex"

@@ -312,6 +312,12 @@ class Auth:
 
         return found_token
 
+    def delete_refresh_token(self, refresh_token: RefreshToken):
+        """Delete refresh token."""
+        if refresh_token.id in self.refresh_tokens:
+            del self.refresh_tokens[refresh_token.id]
+            self.save()
+
     def validate_refresh_token(self, refresh_token: RefreshToken):
         """Validate refresh token."""
 
