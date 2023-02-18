@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 import tornado.web
@@ -58,12 +58,19 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
 
         _header, _payload, signature = access_token.split(".")
 
-        if new_session:
+        expires = (
+            now + self._webserver.auth.session_expiry
+            if self._webserver.auth.session_expiry
+            else now + timedelta(days=3650)
+        )
+        # Refresh all cookies on every request if expiry is None because you can't have
+        # infinite cookies in some browsers
+        if new_session or self._webserver.auth.session_expiry is None:
             self.clear_cookie("refresh_token")
             self.set_secure_cookie(  # Not a JWT
                 "refresh_token",
                 refresh_token.token,
-                expires=now + self._webserver.auth.session_expiry,
+                expires=expires,
                 httponly=True,
                 samesite="strict",
                 secure=bool(self.request.protocol == "https"),
@@ -72,7 +79,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             self.set_cookie(
                 "user",
                 user.id,
-                expires=now + self._webserver.auth.session_expiry,
+                expires=expires,
                 samesite="strict",
                 secure=bool(self.request.protocol == "https"),
             )
@@ -80,7 +87,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         self.set_secure_cookie(
             "signature_cookie",
             signature,
-            expires=now + self._webserver.auth.session_expiry,
+            expires=expires,
             httponly=True,
             samesite="strict",
             secure=bool(self.request.protocol == "https"),

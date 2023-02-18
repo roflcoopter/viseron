@@ -32,15 +32,16 @@ from .const import (
     CONFIG_PORT,
     CONFIG_SESSION_EXPIRY,
     DEFAULT_COMPONENT,
-    DEFAULT_DAYS,
     DEFAULT_DEBUG,
-    DEFAULT_HOURS,
-    DEFAULT_MINUTES,
     DEFAULT_PORT,
     DEFAULT_SESSION_EXPIRY,
     DESC_COMPONENT,
+    DESC_DAYS,
     DESC_DEBUG,
+    DESC_HOURS,
+    DESC_MINUTES,
     DESC_PORT,
+    DESC_SESSION_EXPIRY,
     PATH_STATIC,
     WEBSERVER_STORAGE_KEY,
     WEBSOCKET_COMMANDS,
@@ -85,18 +86,23 @@ CONFIG_SCHEMA = vol.Schema(
                     CoerceNoneToDict(),
                     {
                         vol.Optional(
-                            CONFIG_SESSION_EXPIRY, default=DEFAULT_SESSION_EXPIRY
+                            CONFIG_SESSION_EXPIRY,
+                            default=DEFAULT_SESSION_EXPIRY,
+                            description=DESC_SESSION_EXPIRY,
                         ): vol.All(
                             CoerceNoneToDict(),
                             {
                                 vol.Optional(
-                                    CONFIG_DAYS, default=DEFAULT_DAYS
+                                    CONFIG_DAYS,
+                                    description=DESC_DAYS,
                                 ): vol.All(int, vol.Range(min=0)),
                                 vol.Optional(
-                                    CONFIG_HOURS, default=DEFAULT_HOURS
+                                    CONFIG_HOURS,
+                                    description=DESC_HOURS,
                                 ): vol.All(int, vol.Range(min=0)),
                                 vol.Optional(
-                                    CONFIG_MINUTES, default=DEFAULT_MINUTES
+                                    CONFIG_MINUTES,
+                                    description=DESC_MINUTES,
                                 ): vol.All(int, vol.Range(min=0)),
                             },
                         )

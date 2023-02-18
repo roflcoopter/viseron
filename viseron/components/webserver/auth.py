@@ -120,12 +120,17 @@ class Auth:
         return self._refresh_tokens
 
     @property
-    def session_expiry(self) -> timedelta:
+    def session_expiry(self) -> timedelta | None:
         """Return session expiry."""
+        if not self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY]:
+            return None
+
         return timedelta(
-            days=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY][CONFIG_DAYS],
-            hours=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY][CONFIG_HOURS],
-            minutes=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY][CONFIG_MINUTES],
+            days=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY].get(CONFIG_DAYS, 0),
+            hours=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY].get(CONFIG_HOURS, 0),
+            minutes=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY].get(
+                CONFIG_MINUTES, 0
+            ),
         )
 
     @property

@@ -37,13 +37,11 @@ CONFIG_HOURS = "hours"
 CONFIG_MINUTES = "minutes"
 
 DEFAULT_SESSION_EXPIRY = None
-DEFAULT_DAYS = 30
-DEFAULT_HOURS = 0
-DEFAULT_MINUTES = 0
 
 DESC_AUTH = "Authentication configuration."
 DESC_SESSION_EXPIRY = (
-    "Session expiry time. After this time the user will be logged out."
+    "Session expiry time. After this time the user will be logged out. By default the"
+    " sessions are infinite."
 )
 DESC_DAYS = "Days to expire session."
 DESC_HOURS = "Hours to expire session."
