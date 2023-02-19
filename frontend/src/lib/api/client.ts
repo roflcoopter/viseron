@@ -1,7 +1,7 @@
 import { QueryClient, useMutation } from "@tanstack/react-query";
 import axios from "axios";
 
-import { useSnackbar } from "context/SnackbarContext";
+import { useToast } from "hooks/UseToast";
 import * as types from "lib/types";
 
 export const API_V1_URL = "/api/v1";
@@ -52,7 +52,7 @@ async function deleteRecording({
 }
 
 export const useDeleteRecording = () => {
-  const snackbar = useSnackbar();
+  const toast = useToast();
   return useMutation<
     types.APISuccessResponse,
     types.APIErrorResponse,
@@ -60,7 +60,7 @@ export const useDeleteRecording = () => {
   >({
     mutationFn: deleteRecording,
     onSuccess: async (_data, variables, _context) => {
-      snackbar.showSnackbar("Recording deleted successfully", "success");
+      toast.success("Recording deleted successfully");
       await queryClient.invalidateQueries({
         predicate: (query) =>
           (query.queryKey[0] as string).startsWith(
@@ -72,11 +72,10 @@ export const useDeleteRecording = () => {
       ]);
     },
     onError: async (error, _variables, _context) => {
-      snackbar.showSnackbar(
+      toast.error(
         error.response && error.response.data.error
           ? `Error deleting recording: ${error.response.data.error}`
-          : `An error occurred: ${error.message}`,
-        "error"
+          : `An error occurred: ${error.message}`
       );
     },
   });

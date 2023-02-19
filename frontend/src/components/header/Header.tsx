@@ -16,6 +16,7 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 
 import { ColorModeContext } from "context/ColorModeContext";
 import { useScrollPosition } from "hooks/UseScrollPosition";
+import { useToast } from "hooks/UseToast";
 import { useAuthLogout } from "lib/api/auth";
 import queryClient from "lib/api/client";
 
@@ -85,6 +86,7 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
 
   const logout = useAuthLogout();
   const navigate = useNavigate();
+  const toast = useToast();
 
   return (
     <Header showHeader={showHeader}>
@@ -161,12 +163,8 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
                 logout.mutate(undefined, {
                   onSuccess: async (_data, _variables, _context) => {
                     queryClient.removeQueries();
-                    navigate("/login", {
-                      state: {
-                        snackbarText: "Successfully logged out",
-                        snackbarType: "success",
-                      },
-                    });
+                    toast.success("Successfully logged out");
+                    navigate("/login");
                   },
                 })
               }

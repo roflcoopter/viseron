@@ -1,6 +1,6 @@
 import React from "react";
-import { toast } from "react-toastify";
 
+import { Toast } from "hooks/UseToast";
 import * as messages from "lib/messages";
 import * as types from "lib/types";
 
@@ -150,6 +150,12 @@ export class Connection {
 
   pingInterval: NodeJS.Timeout | undefined;
 
+  toast: Toast;
+
+  constructor(_toast: Toast) {
+    this.toast = _toast;
+  }
+
   async connect() {
     if (this.socket) {
       return;
@@ -197,8 +203,8 @@ export class Connection {
     }
 
     setTimeout(() => {
-      toast.dismiss(connectingToastId);
-      toast.dismiss(connectionLostToastId);
+      this.toast.dismiss(connectingToastId);
+      this.toast.dismiss(connectionLostToastId);
     }, 500);
 
     const oldSubscriptions = this.oldSubscriptions;
@@ -325,10 +331,9 @@ export class Connection {
       console.debug("Connection closed");
 
       this.queuedMessages = [];
-      toast.dismiss(connectingToastId);
-      toast("Connection lost, reconnecting", {
+      this.toast.dismiss(connectingToastId);
+      this.toast.info("Connection lost, reconnecting", {
         toastId: connectionLostToastId,
-        type: toast.TYPE.ERROR,
         autoClose: false,
       });
     }
@@ -398,9 +403,8 @@ export class Connection {
 
   connectingToast(): void {
     if (this.socket && this.socket.readyState === WebSocket.CONNECTING) {
-      toast("Connecting to server", {
+      this.toast.info("Connecting to server", {
         toastId: connectingToastId,
-        type: toast.TYPE.INFO,
         autoClose: false,
       });
     }

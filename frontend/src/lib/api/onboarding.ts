@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 
-import { useSnackbar } from "context/SnackbarContext";
+import { useToast } from "hooks/UseToast";
 import { clientId, viseronAPI } from "lib/api/client";
 import { storeTokens } from "lib/tokens";
 import * as types from "lib/types";
@@ -25,7 +25,7 @@ async function onboarding({ name, username, password }: OnboardingVariables) {
 }
 
 export const useOnboarding = () => {
-  const snackbar = useSnackbar();
+  const toast = useToast();
   return useMutation<
     types.OnboardingResponse,
     types.APIErrorResponse,
@@ -34,14 +34,13 @@ export const useOnboarding = () => {
     mutationFn: onboarding,
     onSuccess: async (data, _variables, _context) => {
       storeTokens(data);
-      snackbar.showSnackbar("User created successfully", "success");
+      toast.success("User created successfully");
     },
     onError: async (error, _variables, _context) => {
-      snackbar.showSnackbar(
+      toast.error(
         error.response && error.response.data.error
           ? `Error creating user: ${error.response.data.error}`
-          : `An error occurred: ${error.message}`,
-        "error"
+          : `An error occurred: ${error.message}`
       );
     },
   });

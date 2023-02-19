@@ -3,10 +3,10 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import ReactDOM from "react-dom";
 import { BrowserRouter as Router } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
 
 import { AuthProvider } from "context/AuthContext";
 import { ColorModeProvider } from "context/ColorModeContext";
-import { SnackbarProvider } from "context/SnackbarContext";
 
 import App from "./App";
 import "./index.css";
@@ -18,13 +18,23 @@ ReactDOM.render(
     <ColorModeProvider>
       <CssBaseline enableColorScheme />
       <QueryClientProvider client={queryClient}>
-        <SnackbarProvider>
-          <Router>
-            <AuthProvider>
-              <App />
-            </AuthProvider>
-          </Router>
-        </SnackbarProvider>
+        <Router>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </Router>
+        <ToastContainer
+          position="bottom-left"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="colored"
+        />
       </QueryClientProvider>
     </ColorModeProvider>
   </React.StrictMode>,

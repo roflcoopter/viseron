@@ -1,6 +1,6 @@
 import { UseQueryOptions, useMutation, useQuery } from "@tanstack/react-query";
 
-import { useSnackbar } from "context/SnackbarContext";
+import { useToast } from "hooks/UseToast";
 import { clientId, viseronAPI } from "lib/api/client";
 import { clearTokens, storeTokens } from "lib/tokens";
 import * as types from "lib/types";
@@ -28,7 +28,7 @@ async function authCreate({
 }
 
 export const useAuthCreate = () => {
-  const snackbar = useSnackbar();
+  const toast = useToast();
   return useMutation<
     types.APISuccessResponse,
     types.APIErrorResponse,
@@ -36,14 +36,13 @@ export const useAuthCreate = () => {
   >({
     mutationFn: authCreate,
     onSuccess: async (_data, _variables, _context) => {
-      snackbar.showSnackbar("User created successfully", "success");
+      toast.success("User created successfully");
     },
     onError: async (error, _variables, _context) => {
-      snackbar.showSnackbar(
+      toast.error(
         error.response && error.response.data.error
           ? `Error creating user: ${error.response.data.error}`
-          : `An error occurred: ${error.message}`,
-        "error"
+          : `An error occurred: ${error.message}`
       );
     },
   });
@@ -103,7 +102,7 @@ async function authLogin({ username, password }: AuthLoginVariables) {
 }
 
 export const useAuthLogin = () => {
-  const snackbar = useSnackbar();
+  const toast = useToast();
   return useMutation<
     types.AuthLoginResponse,
     types.APIErrorResponse,
@@ -112,7 +111,7 @@ export const useAuthLogin = () => {
     mutationFn: authLogin,
     onSuccess: async (data, _variables, _context) => {
       storeTokens(data);
-      snackbar.showSnackbar("Successfully logged in", "success");
+      toast.success("Successfully logged in");
     },
   });
 };

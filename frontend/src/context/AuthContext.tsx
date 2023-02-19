@@ -4,12 +4,11 @@ import { FC, createContext, useLayoutEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
 import { Loading } from "components/loading/Loading";
+import { useToast } from "hooks/UseToast";
 import { authToken, useAuthEnabled } from "lib/api/auth";
 import { clientId, viseronAPI } from "lib/api/client";
 import { loadTokens } from "lib/tokens";
 import * as types from "lib/types";
-
-import { useSnackbar } from "./SnackbarContext";
 
 export type AuthContextState = {
   auth: types.AuthEnabledResponse;
@@ -35,7 +34,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({
     onboarding_complete: true,
   });
   const authQuery = useAuthEnabled({ setAuth });
-  const snackbar = useSnackbar();
+  const toast = useToast();
   const location = useLocation();
 
   const requestInterceptorRef = useRef<number | undefined>(undefined);
@@ -67,10 +66,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({
         }
 
         if (!cookies.user) {
-          snackbar.showSnackbar(
-            "Session expired, please log in again",
-            "error"
-          );
+          toast.error("Session expired, please log in again");
           throw new Error("Invalid session.");
         }
 
@@ -103,7 +99,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({
         return config;
       }
     );
-  }, [auth, snackbar]);
+  }, [auth, toast]);
 
   if (authQuery.isInitialLoading) {
     return <Loading text="Loading Auth" />;

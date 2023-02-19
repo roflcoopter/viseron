@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import React, { FC, createContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { useToast } from "hooks/UseToast";
 import { getCameras, subscribeCameras, subscribeRecording } from "lib/commands";
 import { sortObj } from "lib/helpers";
 import * as types from "lib/types";
@@ -36,6 +37,7 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
   const [cameras, setCameras] = useState<types.Cameras>({});
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
 
   const onConnectRef = React.useRef<() => void>();
   const onDisconnectRef = React.useRef<() => void>();
@@ -122,7 +124,8 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
   }, [connection, queryClient]);
 
   useEffect(() => {
-    setConnection(new Connection());
+    setConnection(new Connection(toast));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

@@ -1,8 +1,7 @@
-import { styled, useTheme } from "@mui/material/styles";
+import { styled } from "@mui/material/styles";
 import Cookies from "js-cookie";
 import { Suspense, useContext, useState } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import { ScrollToTopFab } from "components/ScrollToTop";
@@ -12,6 +11,7 @@ import Header from "components/header/Header";
 import { Loading } from "components/loading/Loading";
 import { AuthContext } from "context/AuthContext";
 import { ViseronProvider } from "context/ViseronContext";
+import { useToast } from "hooks/UseToast";
 import { useAuthUser } from "lib/api/auth";
 import queryClient from "lib/api/client";
 import * as types from "lib/types";
@@ -22,12 +22,12 @@ const FullHeightContainer = styled("div")(() => ({
 
 export default function PrivateLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const theme = useTheme();
   const location = useLocation();
 
   const { auth } = useContext(AuthContext);
   const cookies = Cookies.get();
   const [user, setUser] = useState<types.AuthUserResponse | null>(null);
+  const toast = useToast();
 
   const userQuery = useAuthUser({
     username: cookies.user,
@@ -42,13 +42,12 @@ export default function PrivateLayout() {
 
   if (auth.enabled && (!cookies.user || !user)) {
     queryClient.removeQueries();
+    toast.error("Session expired, please log in again");
     return (
       <Navigate
         to="/login"
         state={{
           from: location,
-          snackbarText: "Session expired, please log in again",
-          snackbarType: "error",
         }}
       />
     );
@@ -60,18 +59,6 @@ export default function PrivateLayout() {
         <FullHeightContainer>
           <AppDrawer drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} />
           <Header setDrawerOpen={setDrawerOpen} />
-          <ToastContainer
-            position="bottom-left"
-            autoClose={5000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme={theme.palette.mode}
-          />
           <Suspense fallback={<Loading text="Loading" />}>
             <Outlet />
           </Suspense>
