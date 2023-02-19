@@ -14,6 +14,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { useContext, useRef, useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 
+import { AuthContext } from "context/AuthContext";
 import { ColorModeContext } from "context/ColorModeContext";
 import { useScrollPosition } from "hooks/UseScrollPosition";
 import { useToast } from "hooks/UseToast";
@@ -58,6 +59,7 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
   const mediaQueryMedium = useMediaQuery(theme.breakpoints.up("md"));
   const [showHeader, setShowHeader] = useState(true);
   const lastTogglePos = useRef(0);
+  const { auth } = useContext(AuthContext);
 
   useScrollPosition((prevPos: any, currPos: any) => {
     // Always show header if we haven't scrolled down more than theme.headerHeight
@@ -156,22 +158,24 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
               <SettingsIcon />
             </IconButton>
           </Tooltip>
-          <Tooltip title={"Logout"} enterDelay={300}>
-            <IconButton
-              color="primary"
-              onClick={() =>
-                logout.mutate(undefined, {
-                  onSuccess: async (_data, _variables, _context) => {
-                    queryClient.removeQueries();
-                    toast.success("Successfully logged out");
-                    navigate("/login");
-                  },
-                })
-              }
-            >
-              <LogoutIcon />
-            </IconButton>
-          </Tooltip>
+          {auth.enabled && (
+            <Tooltip title={"Logout"} enterDelay={300}>
+              <IconButton
+                color="primary"
+                onClick={() =>
+                  logout.mutate(undefined, {
+                    onSuccess: async (_data, _variables, _context) => {
+                      queryClient.removeQueries();
+                      toast.success("Successfully logged out");
+                      navigate("/login");
+                    },
+                  })
+                }
+              >
+                <LogoutIcon />
+              </IconButton>
+            </Tooltip>
+          )}
         </Stack>
       </Container>
     </Header>
