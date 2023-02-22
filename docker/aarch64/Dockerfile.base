@@ -3,6 +3,7 @@ ARG UBUNTU_VERSION
 FROM roflcoopter/viseron-models:latest as models
 FROM balenalib/aarch64-ubuntu:${UBUNTU_VERSION}-run
 
+COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
 COPY --from=models /classifiers/models/edgetpu /classifiers/models/edgetpu
 
@@ -21,4 +22,6 @@ RUN \
   liblapacke \
   libopenexr24 \
   libpng16-16 \
-  libatomic1
+  libatomic1 && \
+  ln -s /detectors/models/darknet/yolov7-tiny.weights /detectors/models/darknet/default.weights && \
+  ln -s /detectors/models/darknet/yolov7-tiny.cfg /detectors/models/darknet/default.cfg
