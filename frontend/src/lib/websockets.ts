@@ -359,6 +359,8 @@ export class Connection {
             }
           }
           if (err === ERR_INVALID_AUTH) {
+            this.toast.dismiss(connectingToastId);
+            this.toast.dismiss(connectionLostToastId);
             this.fireEvent("connection-error", err);
           } else {
             reconnect();

@@ -13,8 +13,6 @@ from voluptuous.humanize import humanize_error
 
 from viseron.components.webserver.api.const import API_BASE
 from viseron.components.webserver.request_handler import ViseronRequestHandler
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
-from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
@@ -173,13 +171,33 @@ class BaseAPIHandler(ViseronRequestHandler):
                         )
                         return
 
-                if not self.validate_json_body(route):
-                    return
-
                 path_args = [param.decode() for param in params.get("path_args", [])]
                 path_kwargs = params.get("path_kwargs", {})
                 for key, value in path_kwargs.items():
                     path_kwargs[key] = value.decode()
+
+                if self._webserver.auth and route.get("requires_camera_token", False):
+                    if camera_identifier := path_kwargs.get("camera_identifier", None):
+                        camera = self._get_camera(camera_identifier)
+                        if not self.validate_camera_token(
+                            camera,
+                            self.request_arguments.get("access_token", "dummy"),
+                        ):
+                            self.response_error(
+                                HTTPStatus.FORBIDDEN,
+                                reason="Forbidden",
+                            )
+                            return
+                    else:
+                        self.response_error(
+                            HTTPStatus.NOT_FOUND,
+                            reason="Missing camera identifier",
+                        )
+                        return
+
+                if not self.validate_json_body(route):
+                    return
+
                 LOGGER.debug(
                     (
                         "Routing to {}.{}(*args={}, **kwargs={}, request_arguments={})"
@@ -213,20 +231,6 @@ class BaseAPIHandler(ViseronRequestHandler):
         else:
             LOGGER.warning(f"Endpoint not found for URI: {self.request.uri}")
             self.handle_endpoint_not_found()
-
-    def _get_cameras(self):
-        """Get all registered camera instances."""
-        try:
-            return self._vis.get_registered_identifiers(CAMERA_DOMAIN)
-        except DomainNotRegisteredError:
-            return None
-
-    def _get_camera(self, camera_identifier: str):
-        """Get camera instance."""
-        try:
-            return self._vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
-        except DomainNotRegisteredError:
-            return None
 
     def delete(self, _path):
         """Route DELETE requests."""

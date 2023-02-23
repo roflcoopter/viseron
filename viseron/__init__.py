@@ -468,7 +468,7 @@ class Viseron:
         component_instance = self.data[LOADED].get(component, None)
         if not component_instance:
             component_instance = self.data[LOADING][component]
-        self.states.add_entity(component_instance, entity)
+        return self.states.add_entity(component_instance, entity)
 
     def add_entities(self, component: str, entities: list[Entity]):
         """Add entities to states registry."""

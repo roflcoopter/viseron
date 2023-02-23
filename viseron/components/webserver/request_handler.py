@@ -9,6 +9,9 @@ import tornado.web
 from tornado.ioloop import IOLoop
 
 from viseron.components.webserver.const import COMPONENT
+from viseron.domains.camera import AbstractCamera
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.exceptions import DomainNotRegisteredError
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -120,6 +123,27 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
 
         if self.current_user != user:
             LOGGER.debug("User mismatch")
+            return False
+
+        return True
+
+    def _get_cameras(self):
+        """Get all registered camera instances."""
+        try:
+            return self._vis.get_registered_identifiers(CAMERA_DOMAIN)
+        except DomainNotRegisteredError:
+            return None
+
+    def _get_camera(self, camera_identifier: str):
+        """Get camera instance."""
+        try:
+            return self._vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
+        except DomainNotRegisteredError:
+            return None
+
+    def validate_camera_token(self, camera: AbstractCamera, camera_token: str) -> bool:
+        """Validate camera token."""
+        if camera_token not in camera.access_tokens:
             return False
 
         return True

@@ -17,6 +17,7 @@ class CameraAPIHandler(BaseAPIHandler):
     routes = [
         {
             "requires_auth": False,
+            "requires_camera_token": True,
             "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/snapshot",
             "supported_methods": ["GET"],
             "method": "get_snapshot",
@@ -25,6 +26,7 @@ class CameraAPIHandler(BaseAPIHandler):
                     vol.Optional("rand", default=None): vol.Maybe(str),
                     vol.Optional("width", default=None): vol.Maybe(vol.Coerce(int)),
                     vol.Optional("height", default=None): vol.Maybe(vol.Coerce(int)),
+                    vol.Optional("access_token", default=None): vol.Maybe(str),
                 },
             ),
         },

@@ -89,6 +89,7 @@ export interface Camera {
   name: string;
   width: number;
   height: number;
+  access_token: string;
 }
 
 export interface Cameras {

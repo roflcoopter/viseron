@@ -4,15 +4,20 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { usePageVisibility } from "react-page-visibility";
 
 import {
   CardActionButtonHref,
   CardActionButtonLink,
 } from "components/CardActionButton";
+import { ViseronContext } from "context/ViseronContext";
 import useOnScreen from "hooks/UseOnScreen";
+import { useCamera } from "lib/api/camera";
+import queryClient from "lib/api/client";
+import { subscribeStates } from "lib/commands";
 import * as types from "lib/types";
+import { SubscriptionUnsubscribe } from "lib/websockets";
 
 interface CameraCardProps {
   camera: types.Camera;
@@ -22,18 +27,22 @@ const blankImage =
   "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
 
 export default function CameraCard({ camera }: CameraCardProps) {
+  const { connection } = useContext(ViseronContext);
   const theme = useTheme();
   const ref: any = useRef<HTMLDivElement>();
   const onScreen = useOnScreen<HTMLDivElement>(ref, "-1px");
   const isVisible = usePageVisibility();
   const [initialRender, setInitialRender] = useState(true);
+  const cameraQuery = useCamera({ camera_identifier: camera.identifier });
 
   const generateSnapshotURL = useCallback(
     (width = null) =>
       `/api/v1/camera/${camera.identifier}/snapshot?rand=${(Math.random() + 1)
         .toString(36)
-        .substring(7)}${width ? `&width=${width}` : ""}`,
-    [camera.identifier]
+        .substring(7)}${width ? `&width=${width}` : ""}&access_token=${
+        cameraQuery.data?.access_token
+      }`,
+    [camera.identifier, cameraQuery.data?.access_token]
   );
   const [snapshotURL, setSnapshotURL] = useState({
     // Show blank image on start
@@ -45,6 +54,11 @@ export default function CameraCard({ camera }: CameraCardProps) {
   const updateSnapshot = useRef<NodeJS.Timer | null>();
   const updateImage = useCallback(() => {
     setSnapshotURL((prevSnapshotURL) => {
+      if (cameraQuery.isLoading) {
+        // Dont load new image if we are loading token
+        console.log("Not loading new image because we are loading token");
+        return prevSnapshotURL;
+      }
       if (prevSnapshotURL.loading) {
         // Dont load new image if we are still loading
         return prevSnapshotURL;
@@ -67,7 +81,7 @@ export default function CameraCard({ camera }: CameraCardProps) {
         loading: true,
       };
     });
-  }, [generateSnapshotURL, initialRender]);
+  }, [cameraQuery.isLoading, generateSnapshotURL, initialRender]);
 
   useEffect(() => {
     // If element is on screen and browser is visible, start interval to fetch images
@@ -86,7 +100,33 @@ export default function CameraCard({ camera }: CameraCardProps) {
         clearInterval(updateSnapshot.current);
       }
     };
-  }, [updateImage, isVisible, onScreen, generateSnapshotURL]);
+  }, [updateImage, isVisible, onScreen]);
+
+  useEffect(() => {
+    const stateChanged = async (
+      _stateChangedEvent: types.StateChangedEvent
+    ) => {
+      queryClient.invalidateQueries(["camera", camera.identifier]);
+    };
+
+    let unsub: SubscriptionUnsubscribe;
+    const subcscribeEntities = async () => {
+      if (connection) {
+        unsub = await subscribeStates(
+          connection,
+          stateChanged,
+          `sensor.${camera.identifier}_access_token`
+        );
+      }
+    };
+    subcscribeEntities();
+    return () => {
+      const unsubcscribeEntities = async () => {
+        await unsub();
+      };
+      unsubcscribeEntities();
+    };
+  }, [camera, connection]);
 
   return (
     <Card

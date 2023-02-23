@@ -105,18 +105,18 @@ const Entities = () => {
     };
 
     let unsub: SubscriptionUnsubscribe;
-    const subcscribeEntities = async () => {
+    const subscribeEntities = async () => {
       if (viseron.connection) {
         unsub = await subscribeStates(viseron.connection, stateChanged);
         setEntities(await getEntities(viseron.connection));
       }
     };
-    subcscribeEntities();
+    subscribeEntities();
     return () => {
-      const unsubcscribeEntities = async () => {
+      const unsubscribeEntities = async () => {
         await unsub();
       };
-      unsubcscribeEntities();
+      unsubscribeEntities();
     };
   }, [viseron.connection]);
 

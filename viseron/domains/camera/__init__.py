@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from abc import ABC, abstractmethod
+from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
 from threading import Timer
@@ -16,6 +18,7 @@ from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
+from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
 from viseron.helpers.validators import CoerceNoneToDict, Slug
 
 from .const import (
@@ -84,12 +87,14 @@ from .const import (
     EVENT_STATUS,
     EVENT_STATUS_CONNECTED,
     EVENT_STATUS_DISCONNECTED,
+    UPDATE_TOKEN_INTERVAL_MINUTES,
 )
 from .entity.binary_sensor import ConnectionStatusBinarySensor
 from .entity.toggle import CameraConnectionToggle
 from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
+    from viseron import Viseron
     from viseron.domains.object_detector.detected_object import DetectedObject
 
     from .recorder import AbstractRecorder
@@ -227,7 +232,7 @@ DATA_FRAME_BYTES_TOPIC = "{camera_identifier}/camera/frame_bytes"
 class AbstractCamera(ABC):
     """Represent a camera."""
 
-    def __init__(self, vis, component, config, identifier):
+    def __init__(self, vis: Viseron, component: str, config, identifier: str):
         self._vis = vis
         self._config = config
         self._identifier = identifier
@@ -236,15 +241,25 @@ class AbstractCamera(ABC):
 
         self._connected: bool = False
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
-        self.current_frame: SharedFrame = None
+        self.current_frame: SharedFrame | None = None
         self.shared_frames = SharedFrames()
         self.frame_bytes_topic = DATA_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
         )
+        self.access_tokens: deque = deque([], 2)
+        self.access_tokens.append(self.generate_token())
 
-        self._clear_cache_timer = None
+        self._clear_cache_timer: Timer | None = None
         vis.add_entity(component, ConnectionStatusBinarySensor(vis, self))
         vis.add_entity(component, CameraConnectionToggle(vis, self))
+        self._access_token_entity = vis.add_entity(
+            component, CamerAccessTokenSensor(vis, self)
+        )
+
+        self.update_token()
+        self._vis.background_scheduler.add_job(
+            self.update_token, "interval", minutes=UPDATE_TOKEN_INTERVAL_MINUTES
+        )
 
     def as_dict(self):
         """Return camera information as dict."""
@@ -253,7 +268,17 @@ class AbstractCamera(ABC):
             "name": self.name,
             "width": self.resolution[0],
             "height": self.resolution[1],
+            "access_token": self.access_token,
         }
+
+    def generate_token(self):
+        """Generate a new access token."""
+        return secrets.token_hex(64)
+
+    def update_token(self):
+        """Update access token."""
+        self.access_tokens.append(self.generate_token())
+        self._access_token_entity.set_state()
 
     @abstractmethod
     def start_camera(self):
@@ -287,8 +312,13 @@ class AbstractCamera(ABC):
 
     @property
     def mjpeg_streams(self):
-        """Return mjpeg streamsr."""
+        """Return mjpeg streams."""
         return self._config[CONFIG_MJPEG_STREAMS]
+
+    @property
+    def access_token(self) -> str:
+        """Return access token."""
+        return self.access_tokens[-1]
 
     @property
     @abstractmethod
