@@ -506,6 +506,10 @@ export class Connection {
             await this.sendMessagePromise(unsubMessage(commandId));
           }
           this.commands.delete(commandId);
+          if (this.oldSubscriptions) {
+            // Delete from old subscriptions when disconnected so we don't resubscribe
+            this.oldSubscriptions.delete(commandId);
+          }
         },
       };
 
@@ -529,7 +533,9 @@ export class Connection {
         this.queuedMessages!.push({ resolve, reject });
       });
     }
-    console.debug("Subscribing to event", event);
+    if (DEBUG) {
+      console.debug("Subscribing to event", event);
+    }
     const unsub = await this.subscribe(
       callback,
       messages.subscribeEvent(event),
@@ -541,8 +547,8 @@ export class Connection {
 
   async subscribeStates(
     callback: (message: types.StateChangedEvent) => void,
-    entity?: string,
-    entities?: string[],
+    entity_id?: string,
+    entity_ids?: string[],
     resubscribe = true
   ): Promise<SubscriptionUnsubscribe> {
     if (this.queuedMessages) {
@@ -550,10 +556,12 @@ export class Connection {
         this.queuedMessages!.push({ resolve, reject });
       });
     }
-    console.debug("Subscribing to states for ", entity || entities);
+    if (DEBUG) {
+      console.debug("Subscribing to states for ", entity_id || entity_ids);
+    }
     const unsub = await this.subscribe(
       callback,
-      messages.subscribeStates(entity, entities),
+      messages.subscribeStates(entity_id, entity_ids),
       (subscription) => messages.unsubscribeStates(subscription),
       resubscribe
     );

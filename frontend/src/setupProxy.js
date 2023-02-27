@@ -5,6 +5,8 @@ module.exports = function (app) {
     createProxyMiddleware("/api", {
       target: `http://${process.env.REACT_APP_PROXY_HOST}`,
       changeOrigin: true,
+      timeout: 5000,
+      proxyTimeout: 5000,
     })
   );
 
@@ -13,6 +15,8 @@ module.exports = function (app) {
       target: `ws://${process.env.REACT_APP_PROXY_HOST}`,
       ws: true,
       changeOrigin: true,
+      timeout: 5000,
+      proxyTimeout: 5000,
     })
   );
 
@@ -20,6 +24,8 @@ module.exports = function (app) {
     createProxyMiddleware("/*/mjpeg-stream", {
       target: `http://${process.env.REACT_APP_PROXY_HOST}`,
       changeOrigin: true,
+      timeout: 5000,
+      proxyTimeout: 5000,
     })
   );
 };

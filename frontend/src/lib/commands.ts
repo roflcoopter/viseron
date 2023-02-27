@@ -67,19 +67,16 @@ export const getEntities = async (
 export const subscribeStates = async (
   connection: Connection,
   stateCallback: (stateChangedEvent: types.StateChangedEvent) => void,
-  entity_id?: string
+  entity_id?: string,
+  entity_ids?: string[],
+  resubscribe = true
 ) => {
   const storedStateCallback = stateCallback;
-  const _stateCallback = (message: types.StateChangedEvent) => {
-    if (entity_id && message.data.entity_id !== entity_id) {
-      return;
-    }
-    storedStateCallback(message);
-  };
-  const subscription = await connection.subscribeEvent(
-    "state_changed",
-    _stateCallback,
-    true
+  const subscription = await connection.subscribeStates(
+    storedStateCallback,
+    entity_id,
+    entity_ids,
+    resubscribe
   );
   return subscription;
 };

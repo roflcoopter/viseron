@@ -35,7 +35,10 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
   const onScreen = useOnScreen<HTMLDivElement>(ref, "-1px");
   const isVisible = usePageVisibility();
   const [initialRender, setInitialRender] = useState(true);
-  const cameraQuery = useCamera({ camera_identifier });
+  const cameraQuery = useCamera({
+    camera_identifier,
+    configOptions: { enabled: connected },
+  });
   const unsubRef = useRef<SubscriptionUnsubscribe | null>(null);
 
   const generateSnapshotURL = useCallback(
@@ -55,7 +58,7 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
   const updateSnapshot = useRef<NodeJS.Timer | null>();
   const updateImage = useCallback(() => {
     setSnapshotURL((prevSnapshotURL) => {
-      if (cameraQuery.isLoading) {
+      if (cameraQuery.isFetching) {
         // Dont load new image if we are loading token
         return prevSnapshotURL;
       }
@@ -81,7 +84,7 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
         loading: true,
       };
     });
-  }, [cameraQuery.isLoading, generateSnapshotURL, initialRender]);
+  }, [cameraQuery.isFetching, generateSnapshotURL, initialRender]);
 
   useEffect(() => {
     // If element is on screen and browser is visible, start interval to fetch images
@@ -121,7 +124,9 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
         unsubRef.current = await subscribeStates(
           connection,
           stateChanged,
-          `sensor.${camera_identifier}_access_token`
+          `sensor.${camera_identifier}_access_token`,
+          undefined,
+          false
         );
       } else if (connection && !connected && unsubRef.current) {
         await unsubscribeEntities();

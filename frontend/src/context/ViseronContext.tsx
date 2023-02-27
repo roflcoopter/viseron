@@ -46,7 +46,7 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
     if (connection) {
       const cameraRegistered = async (camera: types.Camera) => {
         setCameras((prevCameras) => {
-          if (prevCameras.length === 0) return [camera.identifier];
+          if (prevCameras.includes(camera.identifier)) return prevCameras;
           return [...prevCameras, camera.identifier].sort();
         });
         await queryClient.invalidateQueries({
@@ -68,10 +68,13 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
       };
 
       onConnectRef.current = async () => {
-        queryClient.invalidateQueries(["camera"]);
-        setConnected(true);
         const registeredCameras = await getCameras(connection);
         setCameras(Object.keys(sortObj(registeredCameras)).sort());
+        await queryClient.invalidateQueries({
+          queryKey: ["camera"],
+          refetchType: "none",
+        });
+        setConnected(true);
       };
       onDisconnectRef.current = async () => {
         setConnected(false);
