@@ -4,6 +4,7 @@ import { Toast } from "hooks/UseToast";
 import * as messages from "lib/messages";
 import * as types from "lib/types";
 
+import { sleep } from "./helpers";
 import { loadTokens } from "./tokens";
 
 const DEBUG = false;
@@ -164,7 +165,23 @@ export class Connection {
     const wsURL = `${
       window.location.protocol === "https:" ? "wss://" : "ws://"
     }${location.host}/websocket`;
-    this.socket = await createSocket(wsURL);
+
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        this.socket = await createSocket(wsURL);
+        break;
+      } catch (error) {
+        if (error === ERR_INVALID_AUTH) {
+          // eslint-disable-next-line @typescript-eslint/no-throw-literal
+          throw error;
+        }
+        console.debug("Error connecting, retrying", error);
+        // eslint-disable-next-line no-await-in-loop
+        await sleep(5000);
+      }
+    }
     this._initializeSocket();
 
     if (!this.reconnectTimer) {
@@ -179,8 +196,8 @@ export class Connection {
     this.socket.addEventListener("close", this._handleClose);
   }
 
-  async disconnect() {
-    this.closeRequested = true;
+  async disconnect(closeRequested = true) {
+    this.closeRequested = closeRequested;
     if (this.socket) {
       this.socket.close();
     }
@@ -238,7 +255,7 @@ export class Connection {
         try {
           await this.ping();
         } catch (err) {
-          console.error(err);
+          console.error("Ping failed:", err);
         }
         ping();
       }, 30000);
@@ -250,8 +267,6 @@ export class Connection {
 
   private _handleMessage(event: any) {
     const message: types.WebSocketResponse = JSON.parse(event.data);
-    console.debug("Received ", message);
-
     const command_info = this.commands.get(message.command_id);
 
     switch (message.type) {
@@ -459,9 +474,12 @@ export class Connection {
     });
   }
 
-  async subscribeEvent<EventType>(
-    event: string,
+  private async subscribe<EventType>(
     callback: (message: EventType) => void,
+    subMessage:
+      | messages.SubscribeEventMessage
+      | messages.SubscribeStatesMessage,
+    unsubMessage: (subscription: number) => Message,
     resubscribe = true
   ): Promise<SubscriptionUnsubscribe> {
     if (this.queuedMessages) {
@@ -469,8 +487,6 @@ export class Connection {
         this.queuedMessages!.push({ resolve, reject });
       });
     }
-    console.debug("Subscribing to", event);
-
     let subscription: SubscribeEventCommmandInFlight<any>;
 
     await new Promise((resolve, reject) => {
@@ -482,21 +498,65 @@ export class Connection {
         callback,
         subscribe:
           resubscribe === true
-            ? () => this.subscribeEvent(event, callback, resubscribe)
+            ? () =>
+                this.subscribe(callback, subMessage, unsubMessage, resubscribe)
             : undefined,
         unsubscribe: async () => {
-          await this.sendMessagePromise(messages.unsubscribeEvent(commandId));
+          if (this.connected) {
+            await this.sendMessagePromise(unsubMessage(commandId));
+          }
           this.commands.delete(commandId);
         },
       };
 
       this.commands.set(commandId, subscription);
       try {
-        this.sendMessage(messages.subscribeEvent(event), commandId);
+        this.sendMessage(subMessage, commandId);
       } catch (err) {
         // Socket is closing
       }
     });
     return () => subscription.unsubscribe();
+  }
+
+  async subscribeEvent<EventType>(
+    event: string,
+    callback: (message: EventType) => void,
+    resubscribe = true
+  ): Promise<SubscriptionUnsubscribe> {
+    if (this.queuedMessages) {
+      await new Promise((resolve, reject) => {
+        this.queuedMessages!.push({ resolve, reject });
+      });
+    }
+    console.debug("Subscribing to event", event);
+    const unsub = await this.subscribe(
+      callback,
+      messages.subscribeEvent(event),
+      (subscription) => messages.unsubscribeEvent(subscription),
+      resubscribe
+    );
+    return unsub;
+  }
+
+  async subscribeStates(
+    callback: (message: types.StateChangedEvent) => void,
+    entity?: string,
+    entities?: string[],
+    resubscribe = true
+  ): Promise<SubscriptionUnsubscribe> {
+    if (this.queuedMessages) {
+      await new Promise((resolve, reject) => {
+        this.queuedMessages!.push({ resolve, reject });
+      });
+    }
+    console.debug("Subscribing to states for ", entity || entities);
+    const unsub = await this.subscribe(
+      callback,
+      messages.subscribeStates(entity, entities),
+      (subscription) => messages.unsubscribeStates(subscription),
+      resubscribe
+    );
+    return unsub;
   }
 }

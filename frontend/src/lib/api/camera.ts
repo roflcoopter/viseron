@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { viseronAPI } from "lib/api/client";
 import * as types from "lib/types";
-
-import { viseronAPI } from "./client";
 
 interface CameraVariables {
   camera_identifier: string;

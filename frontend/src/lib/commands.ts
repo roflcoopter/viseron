@@ -76,7 +76,7 @@ export const subscribeStates = async (
     }
     storedStateCallback(message);
   };
-  const subscription = connection.subscribeEvent(
+  const subscription = await connection.subscribeEvent(
     "state_changed",
     _stateCallback,
     true

@@ -104,7 +104,7 @@ const Entities = () => {
       });
     };
 
-    let unsub: SubscriptionUnsubscribe;
+    let unsub: SubscriptionUnsubscribe | null = null;
     const subscribeEntities = async () => {
       if (viseron.connection) {
         unsub = await subscribeStates(viseron.connection, stateChanged);
@@ -114,11 +114,18 @@ const Entities = () => {
     subscribeEntities();
     return () => {
       const unsubscribeEntities = async () => {
-        await unsub();
+        if (viseron.connected && unsub) {
+          try {
+            await unsub();
+          } catch (error) {
+            // Connection is probably closed
+          }
+          unsub = null;
+        }
       };
       unsubscribeEntities();
     };
-  }, [viseron.connection]);
+  }, [viseron.connected, viseron.connection]);
 
   useEffect(() => {
     setFilteredEntities(calculateEntities(entities, filters));

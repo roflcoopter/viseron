@@ -62,3 +62,6 @@ export function getVideoElement(
 export function toTitleCase(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
+
+// eslint-disable-next-line no-promise-executor-return
+export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

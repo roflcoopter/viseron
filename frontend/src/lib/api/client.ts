@@ -21,6 +21,9 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 1,
+      cacheTime: 1000 * 60 * 5,
       queryFn: async ({ queryKey: [url] }) => {
         if (typeof url === "string") {
           const response = await viseronAPI.get(`${url.toLowerCase()}`);

@@ -32,7 +32,7 @@ function App() {
           children: [
             { index: true, element: <Recordings /> },
             {
-              path: ":identifier",
+              path: ":camera_identifier",
               children: [
                 { index: true, element: <CameraRecordings /> },
                 {

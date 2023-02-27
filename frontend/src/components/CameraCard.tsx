@@ -11,6 +11,7 @@ import {
   CardActionButtonHref,
   CardActionButtonLink,
 } from "components/CardActionButton";
+import { AuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
 import useOnScreen from "hooks/UseOnScreen";
 import { useCamera } from "lib/api/camera";
@@ -20,29 +21,29 @@ import * as types from "lib/types";
 import { SubscriptionUnsubscribe } from "lib/websockets";
 
 interface CameraCardProps {
-  camera: types.Camera;
+  camera_identifier: string;
 }
 
 const blankImage =
   "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
 
-export default function CameraCard({ camera }: CameraCardProps) {
-  const { connection } = useContext(ViseronContext);
+export default function CameraCard({ camera_identifier }: CameraCardProps) {
+  const { connected, connection } = useContext(ViseronContext);
+  const { auth } = useContext(AuthContext);
   const theme = useTheme();
   const ref: any = useRef<HTMLDivElement>();
   const onScreen = useOnScreen<HTMLDivElement>(ref, "-1px");
   const isVisible = usePageVisibility();
   const [initialRender, setInitialRender] = useState(true);
-  const cameraQuery = useCamera({ camera_identifier: camera.identifier });
+  const cameraQuery = useCamera({ camera_identifier });
+  const unsubRef = useRef<SubscriptionUnsubscribe | null>(null);
 
   const generateSnapshotURL = useCallback(
     (width = null) =>
-      `/api/v1/camera/${camera.identifier}/snapshot?rand=${(Math.random() + 1)
+      `/api/v1/camera/${camera_identifier}/snapshot?rand=${(Math.random() + 1)
         .toString(36)
-        .substring(7)}${width ? `&width=${width}` : ""}&access_token=${
-        cameraQuery.data?.access_token
-      }`,
-    [camera.identifier, cameraQuery.data?.access_token]
+        .substring(7)}${width ? `&width=${Math.trunc(width)}` : ""}`,
+    [camera_identifier]
   );
   const [snapshotURL, setSnapshotURL] = useState({
     // Show blank image on start
@@ -56,10 +57,9 @@ export default function CameraCard({ camera }: CameraCardProps) {
     setSnapshotURL((prevSnapshotURL) => {
       if (cameraQuery.isLoading) {
         // Dont load new image if we are loading token
-        console.log("Not loading new image because we are loading token");
         return prevSnapshotURL;
       }
-      if (prevSnapshotURL.loading) {
+      if (prevSnapshotURL.loading && !initialRender) {
         // Dont load new image if we are still loading
         return prevSnapshotURL;
       }
@@ -85,7 +85,7 @@ export default function CameraCard({ camera }: CameraCardProps) {
 
   useEffect(() => {
     // If element is on screen and browser is visible, start interval to fetch images
-    if (onScreen && isVisible) {
+    if (onScreen && isVisible && connected && cameraQuery.isSuccess) {
       updateImage();
       updateSnapshot.current = setInterval(() => {
         updateImage();
@@ -100,91 +100,104 @@ export default function CameraCard({ camera }: CameraCardProps) {
         clearInterval(updateSnapshot.current);
       }
     };
-  }, [updateImage, isVisible, onScreen]);
+  }, [updateImage, isVisible, onScreen, connected, cameraQuery.isSuccess]);
 
   useEffect(() => {
     const stateChanged = async (
       _stateChangedEvent: types.StateChangedEvent
     ) => {
-      queryClient.invalidateQueries(["camera", camera.identifier]);
+      queryClient.invalidateQueries(["camera", camera_identifier]);
     };
 
-    let unsub: SubscriptionUnsubscribe;
+    const unsubscribeEntities = async () => {
+      if (unsubRef.current) {
+        await unsubRef.current();
+      }
+      unsubRef.current = null;
+    };
+
     const subcscribeEntities = async () => {
-      if (connection) {
-        unsub = await subscribeStates(
+      if (connection && connected) {
+        unsubRef.current = await subscribeStates(
           connection,
           stateChanged,
-          `sensor.${camera.identifier}_access_token`
+          `sensor.${camera_identifier}_access_token`
         );
+      } else if (connection && !connected && unsubRef.current) {
+        await unsubscribeEntities();
       }
     };
     subcscribeEntities();
     return () => {
-      const unsubcscribeEntities = async () => {
-        await unsub();
-      };
-      unsubcscribeEntities();
+      unsubscribeEntities();
     };
-  }, [camera, connection]);
+  }, [camera_identifier, connected, connection]);
 
   return (
-    <Card
-      ref={ref}
-      variant="outlined"
-      sx={{
-        // Vertically space items evenly to accommodate different aspect ratios
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-      }}
-    >
-      <CardContent>
-        <Typography variant="h5" align="center">
-          {camera.name}
-        </Typography>
-      </CardContent>
-      <CardMedia>
-        {/* 'alt=""' in combination with textIndent is a neat trick to hide the broken image icon */}
-        <Image
-          alt=""
-          imageStyle={{ textIndent: "-10000px" }}
-          src={snapshotURL.url}
-          disableSpinner={snapshotURL.disableSpinner}
-          disableTransition={snapshotURL.disableTransition}
-          animationDuration={1000}
-          aspectRatio={camera.width / camera.height}
-          color={theme.palette.background.default}
-          onLoad={() => {
-            setSnapshotURL((prevSnapshotURL) => ({
-              ...prevSnapshotURL,
-              disableSpinner: true,
-              disableTransition: true,
-              loading: false,
-            }));
+    <div ref={ref}>
+      {cameraQuery.data && (
+        <Card
+          ref={ref}
+          variant="outlined"
+          sx={{
+            // Vertically space items evenly to accommodate different aspect ratios
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
           }}
-          errorIcon={Image.defaultProps!.loading}
-          onError={() => {
-            setSnapshotURL((prevSnapshotURL) => ({
-              ...prevSnapshotURL,
-              disableSpinner: false,
-              disableTransition: false,
-              loading: false,
-            }));
-          }}
-        />
-      </CardMedia>
-      <CardActions>
-        <CardActionButtonLink
-          title="Recordings"
-          target={`/recordings/${camera.identifier}`}
-        />
-        <CardActionButtonHref
-          title="Live View"
-          target={`/${camera.identifier}/mjpeg-stream`}
-        />
-      </CardActions>
-    </Card>
+        >
+          <CardContent>
+            <Typography variant="h5" align="center">
+              {cameraQuery.data.name}
+            </Typography>
+          </CardContent>
+          <CardMedia>
+            {/* 'alt=""' in combination with textIndent is a neat trick to hide the broken image icon */}
+            <Image
+              alt=""
+              imageStyle={{ textIndent: "-10000px" }}
+              src={`${snapshotURL.url}${
+                auth.enabled
+                  ? `&access_token=${cameraQuery.data?.access_token}`
+                  : ""
+              }`}
+              disableSpinner={snapshotURL.disableSpinner}
+              disableTransition={snapshotURL.disableTransition}
+              animationDuration={1000}
+              aspectRatio={cameraQuery.data.width / cameraQuery.data.height}
+              color={theme.palette.background.default}
+              onLoad={() => {
+                setSnapshotURL((prevSnapshotURL) => ({
+                  ...prevSnapshotURL,
+                  disableSpinner: true,
+                  disableTransition: true,
+                  loading: false,
+                }));
+              }}
+              errorIcon={Image.defaultProps!.loading}
+              onError={() => {
+                setSnapshotURL((prevSnapshotURL) => ({
+                  ...prevSnapshotURL,
+                  disableSpinner: false,
+                  disableTransition: false,
+                  loading: false,
+                }));
+              }}
+            />
+          </CardMedia>
+          <CardActions>
+            <CardActionButtonLink
+              title="Recordings"
+              target={`/recordings/${cameraQuery.data.identifier}`}
+            />
+            <CardActionButtonHref
+              title="Live View"
+              target={`/${cameraQuery.data.identifier}/mjpeg-stream`}
+            />
+          </CardActions>
+        </Card>
+      )}
+    </div>
   );
 }

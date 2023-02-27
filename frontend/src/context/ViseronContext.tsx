@@ -15,13 +15,13 @@ export type ViseronProviderProps = {
 export type ViseronContextState = {
   connection: Connection | undefined;
   connected: boolean;
-  cameras: types.Cameras;
+  cameras: string[];
 };
 
 const contextDefaultValues: ViseronContextState = {
   connection: undefined,
   connected: false,
-  cameras: {},
+  cameras: [],
 };
 
 export const ViseronContext =
@@ -34,7 +34,7 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
     undefined
   );
   const [connected, setConnected] = useState<boolean>(false);
-  const [cameras, setCameras] = useState<types.Cameras>({});
+  const [cameras, setCameras] = useState<string[]>([]);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -42,15 +42,12 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
   const onConnectRef = React.useRef<() => void>();
   const onDisconnectRef = React.useRef<() => void>();
   const onConnectionErrorRef = React.useRef<() => void>();
-
   useEffect(() => {
     if (connection) {
       const cameraRegistered = async (camera: types.Camera) => {
         setCameras((prevCameras) => {
-          let newCameras = { ...prevCameras };
-          newCameras[camera.identifier] = camera;
-          newCameras = sortObj(newCameras);
-          return newCameras;
+          if (prevCameras.length === 0) return [camera.identifier];
+          return [...prevCameras, camera.identifier].sort();
         });
         await queryClient.invalidateQueries({
           predicate: (query) =>
@@ -71,9 +68,10 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
       };
 
       onConnectRef.current = async () => {
+        queryClient.invalidateQueries(["camera"]);
         setConnected(true);
         const registeredCameras = await getCameras(connection);
-        setCameras(sortObj(registeredCameras));
+        setCameras(Object.keys(sortObj(registeredCameras)).sort());
       };
       onDisconnectRef.current = async () => {
         setConnected(false);

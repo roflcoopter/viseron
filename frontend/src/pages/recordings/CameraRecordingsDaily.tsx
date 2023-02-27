@@ -9,31 +9,33 @@ import { Loading } from "components/loading/Loading";
 import RecordingCard from "components/recording/RecordingCard";
 import { ViseronContext } from "context/ViseronContext";
 import { useTitle } from "hooks/UseTitle";
+import { useCamera } from "lib/api/camera";
 import { objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
 type CameraRecordingsDailyParams = {
-  identifier: string;
+  camera_identifier: string;
   date: string;
 };
 const CameraRecordingsDaily = () => {
-  const viseron = useContext(ViseronContext);
-  const { identifier, date } = useParams<
+  const { cameras } = useContext(ViseronContext);
+  const { camera_identifier, date } = useParams<
     keyof CameraRecordingsDailyParams
   >() as CameraRecordingsDailyParams;
+  const recordingsQuery = useQuery<types.RecordingsCamera>({
+    queryKey: [`/recordings/${camera_identifier}/${date}`],
+  });
+  const cameraQuery = useCamera({ camera_identifier });
+
   useTitle(
     `Recordings${
-      identifier && identifier in viseron.cameras
-        ? ` | ${viseron.cameras[identifier].name}`
+      cameras.includes(camera_identifier) && cameraQuery.data
+        ? ` | ${cameraQuery.data.name}`
         : ""
     }`
   );
 
-  const { status, data: recordings } = useQuery<types.RecordingsCamera>({
-    queryKey: [`/recordings/${identifier}/${date}`],
-  });
-
-  if (status === "error") {
+  if (recordingsQuery.isError || cameraQuery.isError) {
     return (
       <Container>
         <Typography
@@ -45,26 +47,27 @@ const CameraRecordingsDaily = () => {
   }
 
   if (
-    status === "loading" ||
-    !objHasValues<typeof viseron.cameras>(viseron.cameras) ||
-    !(identifier in viseron.cameras)
+    recordingsQuery.isLoading ||
+    cameraQuery.isLoading ||
+    !objHasValues<typeof cameras>(cameras) ||
+    !cameras.includes(camera_identifier)
   ) {
     return <Loading text="Loading Recordings" />;
   }
 
-  const camera = viseron.cameras[identifier];
+  // const camera = viseron.cameras[identifier];
 
   if (
-    !recordings ||
-    !objHasValues<types.RecordingsCamera>(recordings) ||
-    !objHasValues(recordings[date])
+    !recordingsQuery.data ||
+    !objHasValues<types.RecordingsCamera>(recordingsQuery.data) ||
+    !objHasValues(recordingsQuery.data[date])
   ) {
     return (
       <Container>
         <Typography
           variant="h5"
           align="center"
-        >{`No recordings for ${camera.name} - ${date}`}</Typography>
+        >{`No recordings for ${cameraQuery.data.name} - ${date}`}</Typography>
       </Container>
     );
   }
@@ -72,17 +75,17 @@ const CameraRecordingsDaily = () => {
   return (
     <Container>
       <Typography variant="h5" align="center">
-        {`${camera.name} - ${date}`}
+        {`${cameraQuery.data.name} - ${date}`}
       </Typography>
       <Grid container direction="row" spacing={2}>
-        {Object.keys(recordings[date])
+        {Object.keys(recordingsQuery.data[date])
           .sort()
           .reverse()
           .map((recording) => (
             <Grid item key={recording} xs={12} sm={12} md={6} lg={6} xl={4}>
               <RecordingCard
-                camera={camera}
-                recording={recordings[date][recording]}
+                camera={cameraQuery.data}
+                recording={recordingsQuery.data[date][recording]}
               />
             </Grid>
           ))}
