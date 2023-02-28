@@ -67,3 +67,4 @@ WS_ERROR_NOT_FOUND = "not_found"
 
 # Viseron data constants
 WEBSOCKET_COMMANDS = "websocket_commands"
+WEBSOCKET_CONNECTIONS = "websocket_connections"

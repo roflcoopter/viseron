@@ -13,7 +13,12 @@ from viseron.components.webserver.const import (
     WS_ERROR_NOT_FOUND,
     WS_ERROR_SAVE_CONFIG_FAILED,
 )
-from viseron.const import CONFIG_PATH, REGISTERED_DOMAINS, RESTART_EXIT_CODE
+from viseron.const import (
+    CONFIG_PATH,
+    EVENT_STATE_CHANGED,
+    REGISTERED_DOMAINS,
+    RESTART_EXIT_CODE,
+)
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 
 from .messages import (
@@ -27,6 +32,7 @@ from .messages import (
 
 if TYPE_CHECKING:
     from viseron import Event
+    from viseron.states import EventStateChangedData
 
     from . import WebSocketHandler
 
@@ -92,6 +98,50 @@ def unsubscribe_event(connection: WebSocketHandler, message):
                 f"Subscription with command_id {message['subscription']} not found.",
             )
         )
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "subscribe_states",
+        vol.Exclusive("entity_id", "entity"): str,
+        vol.Exclusive("entity_ids", "entity"): [str],
+    }
+)
+def subscribe_states(connection: WebSocketHandler, message):
+    """Subscribe to state changes for one or multiple entities."""
+
+    def forward_state_change(event: Event[EventStateChangedData]):
+        """Forward state_changed event to WebSocket connection."""
+        if "entity_id" in message:
+            if event.data.entity_id == message["entity_id"]:
+                connection.send_message(
+                    message_to_json(event_message(message["command_id"], event))
+                )
+            return
+        if event.data.entity_id in message["entity_ids"]:
+            connection.send_message(
+                message_to_json(event_message(message["command_id"], event))
+            )
+        return
+
+    connection.subscriptions[message["command_id"]] = connection.vis.listen_event(
+        EVENT_STATE_CHANGED,
+        forward_state_change,
+        ioloop=tornado.ioloop.IOLoop.current(),
+    )
+    connection.send_message(result_message(message["command_id"]))
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "unsubscribe_states",
+        vol.Required("subscription"): int,
+    }
+)
+def unsubscribe_states(connection: WebSocketHandler, message):
+    """Unsubscribe to state changes."""
+    message["type"] = "unsubscribe_event"
+    unsubscribe_event(connection, message)
 
 
 @websocket_command({vol.Required("type"): "get_cameras"})

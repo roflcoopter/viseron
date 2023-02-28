@@ -1,6 +1,7 @@
 """Viseron request handler."""
 from __future__ import annotations
 
+import hmac
 import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
@@ -78,6 +79,15 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
                 samesite="strict",
                 secure=bool(self.request.protocol == "https"),
             )
+            self.clear_cookie("static_asset_key")
+            self.set_secure_cookie(
+                "static_asset_key",
+                refresh_token.static_asset_key,
+                expires=expires,
+                httponly=True,
+                samesite="strict",
+                secure=bool(self.request.protocol == "https"),
+            )
             self.clear_cookie("user")
             self.set_cookie(
                 "user",
@@ -112,7 +122,9 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             if refresh_token_cookie is None:
                 LOGGER.debug("Refresh token is missing")
                 return
-            if refresh_token_cookie.decode() != refresh_token.token:
+            if not hmac.compare_digest(
+                refresh_token_cookie.decode(), refresh_token.token
+            ):
                 LOGGER.debug("Access token does not belong to the refresh token.")
                 return False
 
@@ -141,9 +153,23 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         except DomainNotRegisteredError:
             return None
 
-    def validate_camera_token(self, camera: AbstractCamera, camera_token: str) -> bool:
+    def validate_camera_token(self, camera: AbstractCamera) -> bool:
         """Validate camera token."""
-        if camera_token not in camera.access_tokens:
+        access_token = self.get_argument("access_token", None, strip=True)
+        if access_token:
+            if access_token in camera.access_tokens:
+                return True
             return False
 
-        return True
+        # Access token query parameter not set, check cookies
+        refresh_token_cookie = self.get_secure_cookie("refresh_token")
+        static_asset_key = self.get_secure_cookie("static_asset_key")
+        if refresh_token_cookie and static_asset_key:
+            refresh_token = self._webserver.auth.get_refresh_token_from_token(
+                refresh_token_cookie.decode()
+            )
+            if hmac.compare_digest(
+                refresh_token.static_asset_key, static_asset_key.decode()
+            ):
+                return True
+        return False

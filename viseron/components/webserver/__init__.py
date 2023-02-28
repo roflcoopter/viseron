@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent
 import logging
 import os
 import secrets
@@ -15,6 +16,9 @@ import voluptuous as vol
 from tornado.routing import PathMatches
 
 from viseron.components.webserver.auth import Auth
+from viseron.components.webserver.static_file_handler import (
+    AccessTokenStaticFileHandler,
+)
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import ComponentNotReady
@@ -45,6 +49,7 @@ from .const import (
     PATH_STATIC,
     WEBSERVER_STORAGE_KEY,
     WEBSOCKET_COMMANDS,
+    WEBSOCKET_CONNECTIONS,
 )
 from .not_found_handler import NotFoundHandler
 from .request_handler import ViseronRequestHandler
@@ -58,7 +63,9 @@ from .websocket_api.commands import (
     restart_viseron,
     save_config,
     subscribe_event,
+    subscribe_states,
     unsubscribe_event,
+    unsubscribe_states,
 )
 
 if TYPE_CHECKING:
@@ -124,6 +131,8 @@ def setup(vis: Viseron, config):
     webserver.register_websocket_command(ping)
     webserver.register_websocket_command(subscribe_event)
     webserver.register_websocket_command(unsubscribe_event)
+    webserver.register_websocket_command(subscribe_states)
+    webserver.register_websocket_command(unsubscribe_states)
     webserver.register_websocket_command(get_cameras)
     webserver.register_websocket_command(get_config)
     webserver.register_websocket_command(save_config)
@@ -229,9 +238,10 @@ class Webserver(threading.Thread):
 
         vis.data[COMPONENT] = self
         vis.data[WEBSOCKET_COMMANDS] = {}
+        vis.data[WEBSOCKET_CONNECTIONS] = []
 
-        ioloop = asyncio.new_event_loop()
-        asyncio.set_event_loop(ioloop)
+        self._asyncio_ioloop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._asyncio_ioloop)
         self.application = create_application(vis, config, self._store.cookie_secret)
         try:
             self.application.listen(
@@ -268,8 +278,12 @@ class Webserver(threading.Thread):
             [
                 (
                     rf"/recordings/{camera.identifier}/(.*/.*)",
-                    tornado.web.StaticFileHandler,
-                    {"path": camera.recorder.recordings_folder},
+                    AccessTokenStaticFileHandler,
+                    {
+                        "path": camera.recorder.recordings_folder,
+                        "vis": self._vis,
+                        "camera_identifier": camera.identifier,
+                    },
                 )
             ],
         )
@@ -287,4 +301,22 @@ class Webserver(threading.Thread):
     def stop(self):
         """Stop ioloop."""
         LOGGER.debug("Stopping webserver")
+        futures = []
+        connection: WebSocketHandler
+        for connection in self._vis.data[WEBSOCKET_CONNECTIONS]:
+            LOGGER.debug("Closing websocket connection, %s", connection)
+            futures.append(
+                asyncio.run_coroutine_threadsafe(
+                    connection.force_close(), self._asyncio_ioloop
+                )
+            )
+
+        for future in concurrent.futures.as_completed(futures):
+            # Await results
+            future.result()
+
+        asyncio.set_event_loop(self._asyncio_ioloop)
+        for task in asyncio.Task.all_tasks():
+            task.cancel()
+
         self._ioloop.stop()

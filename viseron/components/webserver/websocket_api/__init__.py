@@ -15,6 +15,7 @@ from voluptuous.humanize import humanize_error
 
 from viseron.components.webserver.const import (
     WEBSOCKET_COMMANDS,
+    WEBSOCKET_CONNECTIONS,
     WS_ERROR_INVALID_FORMAT,
     WS_ERROR_INVALID_JSON,
     WS_ERROR_OLD_COMMAND_ID,
@@ -59,6 +60,8 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
         self._message_queue: Queue[str] = Queue()
         self._waiting_for_auth = True
         self._writer_exited = False
+
+        self.vis.data[WEBSOCKET_CONNECTIONS].append(self)
 
     async def _write_message(self):
         """Write messages to client."""
@@ -213,6 +216,8 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             if self._message_queue.empty() and self._writer_exited:
                 break
             await asyncio.sleep(0.5)
+        self.vis.data[WEBSOCKET_CONNECTIONS].remove(self)
+        LOGGER.debug("Force close finished")
 
     def on_close(self):
         """Websocket close."""
@@ -221,3 +226,4 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             unsub()
 
         self._message_queue.put(None)
+        self.vis.data[WEBSOCKET_CONNECTIONS].remove(self)

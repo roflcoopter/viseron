@@ -64,6 +64,7 @@ class RefreshToken:
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     token: str = field(default_factory=lambda: secrets.token_hex(64))
     jwt_key: str = field(default_factory=lambda: secrets.token_hex(64))
+    static_asset_key: str = field(default_factory=lambda: secrets.token_hex(64))
     used_at: float | None = None
     used_by: str | None = None
 
@@ -267,6 +268,7 @@ class Auth:
                 id=refresh_token["id"],
                 token=refresh_token["token"],
                 jwt_key=refresh_token["jwt_key"],
+                static_asset_key=refresh_token["static_asset_key"],
                 used_at=refresh_token["used_at"],
                 used_by=refresh_token["used_by"],
             )

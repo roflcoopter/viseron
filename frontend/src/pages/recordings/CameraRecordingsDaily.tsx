@@ -55,8 +55,6 @@ const CameraRecordingsDaily = () => {
     return <Loading text="Loading Recordings" />;
   }
 
-  // const camera = viseron.cameras[identifier];
-
   if (
     !recordingsQuery.data ||
     !objHasValues<types.RecordingsCamera>(recordingsQuery.data) ||
