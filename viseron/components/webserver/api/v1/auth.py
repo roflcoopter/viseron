@@ -8,7 +8,11 @@ from typing import Literal
 import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.components.webserver.auth import AuthenticationFailed, UserExistsError
+from viseron.components.webserver.auth import (
+    AuthenticationFailed,
+    Group,
+    UserExistsError,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -32,9 +36,7 @@ class AuthAPIHandler(BaseAPIHandler):
                     vol.Required("name"): str,
                     vol.Required("username"): str,
                     vol.Required("password"): str,
-                    vol.Optional("group", default=None): vol.Maybe(
-                        vol.Any("admin", "user")
-                    ),
+                    vol.Required("group"): vol.In([e.value for e in Group]),
                 }
             ),
         },
@@ -173,8 +175,8 @@ class AuthAPIHandler(BaseAPIHandler):
     def _handle_refresh_token(
         self,
     ) -> tuple[Literal[HTTPStatus.BAD_REQUEST], str] | tuple[
-        Literal[HTTPStatus.FORBIDDEN], str
-    ] | tuple[Literal[HTTPStatus.OK], dict]:
+        Literal[HTTPStatus.OK], dict
+    ]:
         """Handle refresh token."""
         refresh_token_cookie = self.get_secure_cookie("refresh_token")
         if refresh_token_cookie is None:
@@ -192,7 +194,7 @@ class AuthAPIHandler(BaseAPIHandler):
 
         user = self._webserver.auth.get_user(refresh_token.user_id)
         if user is None:
-            return HTTPStatus.FORBIDDEN, "Invalid user"
+            return HTTPStatus.BAD_REQUEST, "Invalid user"
 
         access_token = self._webserver.auth.generate_access_token(
             refresh_token, self.request.remote_ip

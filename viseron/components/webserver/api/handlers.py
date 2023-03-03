@@ -12,6 +12,7 @@ import voluptuous as vol
 from voluptuous.humanize import humanize_error
 
 from viseron.components.webserver.api.const import API_BASE
+from viseron.components.webserver.auth import Group
 from viseron.components.webserver.request_handler import ViseronRequestHandler
 from viseron.helpers.json import JSONEncoder
 
@@ -19,6 +20,13 @@ if TYPE_CHECKING:
     from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
+
+METHOD_ALLOWED_GROUPS = {
+    "GET": [Group.ADMIN.value, Group.WRITE.value, Group.READ.value],
+    "POST": [Group.ADMIN.value, Group.WRITE.value],
+    "PUT": [Group.ADMIN.value, Group.WRITE.value],
+    "DELETE": [Group.ADMIN.value, Group.WRITE.value],
+}
 
 
 class BaseAPIHandler(ViseronRequestHandler):
@@ -140,15 +148,32 @@ class BaseAPIHandler(ViseronRequestHandler):
                 f"{API_BASE}{route['path_pattern']}"
             )
             if path_match.regex.match(self.request.path):
+                if self.request.method not in route["supported_methods"]:
+                    unsupported_method = True
+                    continue
+
                 if self._webserver.auth and route.get("requires_auth", True):
                     if not self.validate_auth_header():
                         self.response_error(
                             HTTPStatus.UNAUTHORIZED, reason="Authentication required"
                         )
                         return
-                if self.request.method not in route["supported_methods"]:
-                    unsupported_method = True
-                    continue
+
+                    if requires_group := route.get("requires_group", None):
+                        if self.current_user.group not in requires_group:
+                            self.response_error(
+                                HTTPStatus.FORBIDDEN, reason="Insufficient permissions"
+                            )
+                            return
+                    else:
+                        if (
+                            self.current_user.group
+                            not in METHOD_ALLOWED_GROUPS[self.request.method]
+                        ):
+                            self.response_error(
+                                HTTPStatus.FORBIDDEN, reason="Insufficient permissions"
+                            )
+                            return
 
                 params = path_match.match(self.request)
                 request_arguments = {

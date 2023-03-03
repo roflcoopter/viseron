@@ -19,10 +19,12 @@ from viseron.components.webserver.const import (
     WS_ERROR_INVALID_FORMAT,
     WS_ERROR_INVALID_JSON,
     WS_ERROR_OLD_COMMAND_ID,
+    WS_ERROR_UNAUTHORIZED,
     WS_ERROR_UNKNOWN_COMMAND,
     WS_ERROR_UNKNOWN_ERROR,
 )
 from viseron.components.webserver.request_handler import ViseronRequestHandler
+from viseron.exceptions import Unauthorized
 
 from .messages import (
     MINIMAL_MESSAGE_SCHEMA,
@@ -160,21 +162,34 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
 
         try:
             handler(self, schema(message))
-        except vol.Invalid as err:
-            LOGGER.error(f"Message incorrectly formatted: {err}")
-            await self.async_send_message(
-                error_message(
-                    command_id,
-                    WS_ERROR_INVALID_FORMAT,
-                    humanize_error(message, err),
-                )
-            )
         except Exception as err:  # pylint: disable=broad-except
-            LOGGER.error(f"Error handling message: {err}", exc_info=True)
-            await self.async_send_message(
-                error_message(command_id, WS_ERROR_UNKNOWN_ERROR, "Unknown error.")
-            )
+            await self.handle_exception(command_id, err)
         self._last_id = command_id
+
+    async def handle_exception(self, command_id, err: Exception) -> None:
+        """Handle an exception."""
+        log_handler = LOGGER.error
+
+        if isinstance(err, vol.Invalid):
+            code = WS_ERROR_INVALID_FORMAT
+            message = humanize_error(err.message, err)
+        elif isinstance(err, Unauthorized):
+            code = WS_ERROR_UNAUTHORIZED
+            message = "Unauthorized."
+        else:
+            # Log unknown errors as exceptions
+            log_handler = LOGGER.exception
+            code = WS_ERROR_UNKNOWN_ERROR
+            message = "Unknown error"
+
+        log_handler("Error handling message. Code: %s, message: %s", code, message)
+        await self.async_send_message(
+            error_message(
+                command_id,
+                code,
+                message,
+            )
+        )
 
     def open(self, *_args: str, **_kwargs: str):
         """Websocket open."""

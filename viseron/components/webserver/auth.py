@@ -73,7 +73,8 @@ class Group(enum.Enum):
     """Group enum."""
 
     ADMIN = "admin"
-    USER = "user"
+    READ = "read"
+    WRITE = "write"
 
 
 @dataclass
@@ -158,7 +159,7 @@ class Auth:
         name: str,
         username: str,
         password: str,
-        group: Group | None = None,
+        group: Group,
         enabled: bool = True,
     ):
         """Add user."""
@@ -169,13 +170,6 @@ class Auth:
             if self.get_user_by_username(username):
                 raise UserExistsError(f"A user with username {username} already exists")
 
-            if group is None:
-                if not self.users:
-                    LOGGER.debug("No users exist, setting group to admin")
-                    group = Group.ADMIN
-                else:
-                    LOGGER.debug("No group specified, setting group to user")
-                    group = Group.USER
             try:
                 Group(group)
             except ValueError as error:

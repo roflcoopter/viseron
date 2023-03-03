@@ -35,8 +35,8 @@ class AccessTokenStaticFileHandler(
             if camera := self._get_camera(self._camera_identifier):
                 if not await self.run_in_executor(self.validate_camera_token, camera):
                     self.set_status(
-                        HTTPStatus.FORBIDDEN,
-                        reason="Forbidden",
+                        HTTPStatus.UNAUTHORIZED,
+                        reason="Unauthorized",
                     )
                     self.finish()
                     return

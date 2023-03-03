@@ -44,9 +44,7 @@ class FFprobeError(ViseronError):
 
     def __str__(self) -> str:
         """Return string representation."""
-        return (
-            "FFprobe could not connect to stream. " f"Output: {self.ffprobe_output!r}"
-        )
+        return f"FFprobe could not connect to stream. Output: {self.ffprobe_output!r}"
 
 
 class FFprobeTimeout(ViseronError):
@@ -98,3 +96,7 @@ class DomainNotRegisteredError(ViseronError):
             self.domain,
             f" with identifier {self.identifier} " if self.identifier else " ",
         )
+
+
+class Unauthorized(ViseronError):
+    """Raised when an unauthorized action is attempted."""

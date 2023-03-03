@@ -4,11 +4,13 @@ from __future__ import annotations
 import logging
 import os
 import signal
-from typing import TYPE_CHECKING, Callable
+from functools import wraps
+from typing import TYPE_CHECKING, Any, Callable
 
 import tornado
 import voluptuous as vol
 
+from viseron.components.webserver.auth import Group
 from viseron.components.webserver.const import (
     WS_ERROR_NOT_FOUND,
     WS_ERROR_SAVE_CONFIG_FAILED,
@@ -20,6 +22,7 @@ from viseron.const import (
     RESTART_EXIT_CODE,
 )
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.exceptions import Unauthorized
 
 from .messages import (
     BASE_MESSAGE_SCHEMA,
@@ -52,6 +55,21 @@ def websocket_command(
         return func
 
     return decorate
+
+
+def require_admin(func):
+    """Websocket decorator to require user to be an admin."""
+
+    @wraps(func)
+    def with_admin(connection: WebSocketHandler, message: dict[str, Any]) -> None:
+        """Check admin and call function."""
+        user = connection.current_user
+        if user is None or not user.group == Group.ADMIN.value:
+            raise Unauthorized()
+
+        func(connection, message)
+
+    return with_admin
 
 
 @websocket_command({vol.Required("type"): "ping"})
@@ -171,6 +189,7 @@ def get_config(connection: WebSocketHandler, message):
     )
 
 
+@require_admin
 @websocket_command({vol.Required("type"): "save_config", vol.Required("config"): str})
 def save_config(connection: WebSocketHandler, message):
     """Save config to file."""
@@ -194,6 +213,7 @@ def save_config(connection: WebSocketHandler, message):
     )
 
 
+@require_admin
 @websocket_command({vol.Required("type"): "restart_viseron"})
 def restart_viseron(connection: WebSocketHandler, message):
     """Restart Viseron."""

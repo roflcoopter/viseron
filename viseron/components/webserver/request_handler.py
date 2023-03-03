@@ -4,6 +4,7 @@ from __future__ import annotations
 import hmac
 import logging
 from datetime import datetime, timedelta
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import tornado.web
@@ -48,6 +49,19 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         if _user:
             self.current_user = await self.run_in_executor(
                 self._webserver.auth.get_user, _user
+            )
+
+    @property
+    def status(self):
+        """Return the status of the request."""
+        return self.get_status()
+
+    def on_finish(self) -> None:
+        """Log requests with failed authentication."""
+        if self.status == HTTPStatus.UNAUTHORIZED:
+            LOGGER.warning(
+                f"Request with failed authentication from {self.request.remote_ip} for"
+                f" URL: {self.request.uri} {self.request.headers.get('User-Agent')}",
             )
 
     def set_cookies(
