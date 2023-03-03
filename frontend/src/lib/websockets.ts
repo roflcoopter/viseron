@@ -4,8 +4,10 @@ import { Toast } from "hooks/UseToast";
 import * as messages from "lib/messages";
 import * as types from "lib/types";
 
+import { authToken } from "./api/auth";
+import { clientId } from "./api/client";
 import { sleep } from "./helpers";
-import { loadTokens } from "./tokens";
+import { loadTokens, tokenExpired } from "./tokens";
 
 const DEBUG = false;
 
@@ -60,8 +62,13 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
     const socket = new WebSocket(wsURL);
 
     let invalidAuth = false;
+    let refreshToken = false;
     const closeMessage = () => {
       socket.removeEventListener("close", closeMessage);
+      if (refreshToken) {
+        return;
+      }
+
       if (invalidAuth) {
         promReject(ERR_INVALID_AUTH);
         return;
@@ -71,7 +78,7 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
     };
 
     const handleMessage = async (event: MessageEvent) => {
-      const storedTokens = loadTokens();
+      let storedTokens = loadTokens();
       const message = JSON.parse(event.data);
 
       if (DEBUG) {
@@ -79,6 +86,22 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
       }
       switch (message.type) {
         case MSG_TYPE_AUTH_REQUIRED:
+          if (tokenExpired()) {
+            if (DEBUG) {
+              console.debug("[Socket] Token expired, refreshing");
+            }
+            refreshToken = true;
+            await authToken({
+              grant_type: "refresh_token",
+              client_id: clientId(),
+            });
+            storedTokens = loadTokens();
+            // Since we authenticate by partly using cookies, we need to close the
+            // socket and open a new one so the refreshed signature_cookie is sent.
+            socket.close();
+            await createSocket(wsURL);
+            return;
+          }
           if (DEBUG) {
             console.debug("[Socket] Sending auth message", message);
           }

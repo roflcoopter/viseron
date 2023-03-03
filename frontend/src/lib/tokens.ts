@@ -19,4 +19,12 @@ export const loadTokens = (): AuthTokenData => {
 
 export const clearTokens = () => {
   localStorage.removeItem("tokens");
-}
+};
+
+export const tokenExpired = (): boolean => {
+  const storedTokens = loadTokens();
+  if (!storedTokens || Date.now() - 10000 > storedTokens.expires_at) {
+    return true;
+  }
+  return false;
+};
