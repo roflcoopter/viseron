@@ -29,18 +29,14 @@ export function getRecordingVideoJSOptions(recording: types.Recording) {
     playsinline: true,
     controls: true,
     loop: true,
-    poster: process.env.REACT_APP_PROXY_HOST
-      ? `http://${process.env.REACT_APP_PROXY_HOST}${recording.thumbnail_path}`
-      : `${recording.thumbnail_path}`,
+    poster: `${recording.thumbnail_path}`,
     preload: "none",
     responsive: true,
     fluid: true,
     playbackRates: [0.5, 1, 2, 5, 10],
     sources: [
       {
-        src: process.env.REACT_APP_PROXY_HOST
-          ? `http://${process.env.REACT_APP_PROXY_HOST}${recording.path}`
-          : `${recording.path}`,
+        src: `${recording.path}`,
         type: "video/mp4",
       },
     ],
