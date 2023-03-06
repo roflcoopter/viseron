@@ -242,10 +242,10 @@ class Segments:
 
     def concat_segments(self, recording: Recording):
         """Concatenate segments between event_start and event_end."""
-        event_start = recording.start_timestamp
-        event_end = (
-            recording.end_timestamp - self._config[CONFIG_RECORDER][CONFIG_LOOKBACK]
+        event_start = (
+            recording.start_timestamp - self._config[CONFIG_RECORDER][CONFIG_LOOKBACK]
         )
+        event_end = recording.end_timestamp
         self._logger.debug("Concatenating segments")
         segment_information = self.get_segment_information()
         if not segment_information:
