@@ -63,6 +63,7 @@ DESC_RECORDER_KEEPALIVE = (
 DESC_MAX_RECORDER_KEEPALIVE = (
     "Value in seconds for how long motion is allowed to keep the "
     "recorder going when no objects are detected.<br>"
-    "This is to prevent never-ending recordings.<br>"
-    "Only applicable if <code>recorder_keepalive: true</code>."
+    "Use this to prevent never-ending recordings.<br>"
+    "Only applicable if <code>recorder_keepalive: true</code>.<br>"
+    "<b>A value of <code>0</code> disables this functionality.</b>"
 )

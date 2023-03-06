@@ -1,8 +1,8 @@
 """Config API Handler."""
 import logging
 
-from viseron.components.webserver.api import BaseAPIHandler
-from viseron.components.webserver.const import STATUS_ERROR_INTERNAL
+from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.const import CONFIG_PATH
 
 LOGGER = logging.getLogger(__name__)
 
@@ -18,14 +18,9 @@ class ConfigAPIHandler(BaseAPIHandler):
         },
     ]
 
-    def get_config(self, kwargs):
+    def get_config(self):
         """Return Viseron config."""
-        try:
-            self.response_success({})
-            return
-        except Exception as error:  # pylint: disable=broad-except
-            LOGGER.error(
-                f"Error in API {self.__class__.__name__}.{kwargs['route']['method']}: "
-                f"{str(error)}"
-            )
-            self.response_error(STATUS_ERROR_INTERNAL, reason=str(error))
+        with open(CONFIG_PATH, encoding="utf-8") as config_file:
+            config = config_file.read()
+
+        self.response_success(config)

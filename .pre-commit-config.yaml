@@ -12,7 +12,7 @@ repos:
           - --in-place
           - --remove-all-unused-imports
   - repo: https://github.com/PyCQA/isort
-    rev: 5.10.1
+    rev: 5.11.5
     hooks:
       - id: isort
   - repo: https://github.com/psf/black

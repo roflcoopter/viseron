@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Dict
+from typing import Dict, Tuple
 
 import cv2
 import imutils
@@ -29,13 +29,27 @@ from .request_handler import ViseronRequestHandler
 
 LOGGER = logging.getLogger(__name__)
 
+BOUNDARY = "--jpgboundary"
+
 
 class StreamHandler(ViseronRequestHandler):
     """Represents a stream."""
 
+    def _set_stream_headers(self):
+        """Set the headers for the stream."""
+        self.set_header(
+            "Cache-Control",
+            "no-store, no-cache, must-revalidate, pre-check=0, post-check=0, max-age=0",
+        )
+        self.set_header("Connection", "close")
+        self.set_header(
+            "Content-Type", f"multipart/x-mixed-replace; boundary={BOUNDARY}"
+        )
+        self.set_header("Pragma", "no-cache")
+
     async def write_jpg(self, jpg):
         """Set the headers and write the jpg data."""
-        self.write("--jpgboundary\r\n")
+        self.write(f"{BOUNDARY}\r\n")
         self.write("Content-type: image/jpeg\r\n")
         self.write("Content-length: %s\r\n\r\n" % len(jpg))
         self.write(jpg.tobytes())
@@ -131,11 +145,6 @@ class DynamicStreamHandler(StreamHandler):
                 continue
             break
 
-        self.set_header(
-            "Content-Type", "multipart/x-mixed-replace;boundary=--jpgboundary"
-        )
-        self.set_header("Connection", "close")
-
         frame_queue = Queue(maxsize=1)
         frame_topic = DATA_PROCESSED_FRAME_TOPIC.format(
             camera_identifier=nvr.camera.identifier
@@ -143,6 +152,9 @@ class DynamicStreamHandler(StreamHandler):
         unique_id = DataStream.subscribe_data(
             frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
         )
+
+        self._set_stream_headers()
+
         while True:
             try:
                 processed_frame: DataProcessedFrame = await frame_queue.get()
@@ -161,7 +173,7 @@ class DynamicStreamHandler(StreamHandler):
 class StaticStreamHandler(StreamHandler):
     """Represents a static stream defined in config.yaml."""
 
-    active_streams: Dict[str, object] = {}
+    active_streams: Dict[Tuple[str, str], object] = {}
 
     async def stream(self, nvr, mjpeg_stream, mjpeg_stream_config, publish_frame_topic):
         """Subscribe to frames, draw on them, then publish processed frame."""
@@ -173,7 +185,7 @@ class StaticStreamHandler(StreamHandler):
             frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
         )
 
-        while self.active_streams[mjpeg_stream]:
+        while self.active_streams[(nvr.camera.identifier, mjpeg_stream)]:
             processed_frame: DataProcessedFrame = await frame_queue.get()
             ret, jpg = await self.process_frame(
                 nvr, processed_frame, mjpeg_stream_config
@@ -223,23 +235,21 @@ class StaticStreamHandler(StreamHandler):
             frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
         )
 
-        if self.active_streams.get(mjpeg_stream, False):
-            self.active_streams[mjpeg_stream] += 1
+        if self.active_streams.get((nvr.camera.identifier, mjpeg_stream), False):
+            self.active_streams[(nvr.camera.identifier, mjpeg_stream)] += 1
             LOGGER.debug(
                 f"Stream {mjpeg_stream} already active, number of streams: "
-                f"{self.active_streams[mjpeg_stream]}"
+                f"{self.active_streams[(nvr.camera.identifier,mjpeg_stream)]}"
             )
         else:
             LOGGER.debug(f"Stream {mjpeg_stream} is not active, starting")
-            self.active_streams[mjpeg_stream] = 1
+            self.active_streams[(nvr.camera.identifier, mjpeg_stream)] = 1
             tornado.ioloop.IOLoop.current().spawn_callback(
                 self.stream, nvr, mjpeg_stream, mjpeg_stream_config, frame_topic
             )
 
-        self.set_header(
-            "Content-Type", "multipart/x-mixed-replace;boundary=--jpgboundary"
-        )
-        self.set_header("Connection", "close")
+        self._set_stream_headers()
+
         while True:
             try:
                 jpg = await frame_queue.get()
@@ -251,4 +261,4 @@ class StaticStreamHandler(StreamHandler):
                     f"{nvr.camera.identifier}"
                 )
                 break
-        self.active_streams[mjpeg_stream] -= 1
+        self.active_streams[(nvr.camera.identifier, mjpeg_stream)] -= 1

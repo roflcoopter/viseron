@@ -60,6 +60,13 @@ def valid_camera_identifier(value):
         return value
 
 
+def request_argument_no_value(value):
+    """Return true for given request arguments without value."""
+    if value or (isinstance(value, str) and value == ""):
+        return True
+    return False
+
+
 class CameraIdentifier(vol.Required):
     """Validate Camera Identifier."""
 

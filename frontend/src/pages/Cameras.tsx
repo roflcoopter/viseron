@@ -7,13 +7,13 @@ import CameraCard from "components/CameraCard";
 import { Loading } from "components/loading/Loading";
 import { ViseronContext } from "context/ViseronContext";
 import { useTitle } from "hooks/UseTitle";
-import { objIsEmpty } from "lib/helpers";
+import { objHasValues } from "lib/helpers";
 
 const Cameras = () => {
   useTitle("Cameras");
   const viseron = useContext(ViseronContext);
 
-  if (objIsEmpty(viseron.cameras)) {
+  if (!objHasValues<typeof viseron.cameras>(viseron.cameras)) {
     return <Loading text="Loading Cameras" />;
   }
 

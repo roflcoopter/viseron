@@ -196,7 +196,7 @@ class WebServer(threading.Thread):
             r".*",
             [
                 (
-                    rf"/recordings/{camera.identifier}/(.*)",
+                    rf"/recordings/{camera.identifier}/(.*/.*)",
                     tornado.web.StaticFileHandler,
                     {"path": camera.recorder.recordings_folder},
                 )

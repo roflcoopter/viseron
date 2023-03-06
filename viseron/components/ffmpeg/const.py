@@ -162,12 +162,14 @@ CONFIG_RECORDER_AUDIO_CODEC = "audio_codec"
 CONFIG_RECORDER_VIDEO_FILTERS = "video_filters"
 CONFIG_RECORDER_AUDIO_FILTERS = "audio_filters"
 CONFIG_SEGMENTS_FOLDER = "segments_folder"
+CONFIG_RECORDER_OUPTUT_ARGS = "output_args"
 
 DEFAULT_RECORDER_HWACCEL_ARGS: List[str] = []
 DEFAULT_RECORDER_CODEC = "copy"
 DEFAULT_RECORDER_AUDIO_CODEC = "copy"
 DEFAULT_RECORDER_VIDEO_FILTERS: List[str] = []
 DEFAULT_RECORDER_AUDIO_FILTERS: List[str] = []
+DEFAULT_RECORDER_OUTPUT_ARGS: List[str] = []
 DEFAULT_SEGMENTS_FOLDER = "/segments"
 
 DESC_RECORDER_HWACCEL_ARGS = "FFmpeg encoder hardware acceleration arguments."
@@ -181,6 +183,7 @@ DESC_RECORDER_AUDIO_FILTERS = (
     "A list of FFmpeg audio filter arguments. "
     "These filters are applied to the recorder videos."
 )
+DESC_RECORDER_OUTPUT_ARGS = "FFmpeg encoder output arguments."
 DESC_SEGMENTS_FOLDER = (
     "What folder to store FFmpeg segments in. "
     "Segments are used to produce recordings so you should not need to change this."
@@ -209,6 +212,9 @@ DEFAULT_FFMPEG_RECOVERABLE_ERRORS = [
     "error while decoding MB",
     "Application provided invalid, non monotonically increasing dts to muxer in stream",
     "Last message repeated",
+    "non-existing PPS 0 referenced",
+    "no frame!",
+    "decode_slice_header error",
 ]
 DEFAULT_FFPROBE_LOGLEVEL = "error"
 
@@ -221,8 +227,7 @@ DESC_GLOBAL_ARGS = (
     "These are applied before the <code>input_args</code>."
 )
 DESC_SUBSTREAM = (
-    "Substream to perform image processing on. "
-    "Very effective for reducing system load."
+    "Substream to perform image processing on. Very effective for reducing system load."
 )
 DESC_FFMPEG_LOGLEVEL = (
     "Sets the loglevel for FFmpeg.<br>Should only be used in debugging purposes."

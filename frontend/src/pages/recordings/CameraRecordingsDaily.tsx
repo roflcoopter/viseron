@@ -2,6 +2,7 @@ import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 import { useContext } from "react";
+import { useQuery } from "react-query";
 import { useParams } from "react-router-dom";
 
 import { ScrollToTopOnMount } from "components/ScrollToTop";
@@ -9,7 +10,8 @@ import { Loading } from "components/loading/Loading";
 import RecordingCard from "components/recording/RecordingCard";
 import { ViseronContext } from "context/ViseronContext";
 import { useTitle } from "hooks/UseTitle";
-import { objIsEmpty } from "lib/helpers";
+import { objHasValues } from "lib/helpers";
+import * as types from "lib/types";
 
 type CameraRecordingsDailyParams = {
   identifier: string;
@@ -17,29 +19,46 @@ type CameraRecordingsDailyParams = {
 };
 const CameraRecordingsDaily = () => {
   const viseron = useContext(ViseronContext);
-  const { identifier, date } = useParams<CameraRecordingsDailyParams>();
+  const { identifier, date } = useParams<
+    keyof CameraRecordingsDailyParams
+  >() as CameraRecordingsDailyParams;
   useTitle(
     `Recordings${
-      identifier && identifier! in viseron.cameras
+      identifier && identifier in viseron.cameras
         ? ` | ${viseron.cameras[identifier].name}`
         : ""
     }`
   );
 
+  const { status, data: recordings } = useQuery<types.RecordingsCamera>({
+    queryKey: [`/recordings/${identifier}/${date}`],
+  });
+
+  if (status === "error") {
+    return (
+      <Container>
+        <Typography
+          variant="h5"
+          align="center"
+        >{`Error loading recordings`}</Typography>
+      </Container>
+    );
+  }
+
   if (
-    objIsEmpty(viseron.cameras) ||
-    !(identifier! in viseron.cameras) ||
-    !date
+    status === "loading" ||
+    !objHasValues<typeof viseron.cameras>(viseron.cameras) ||
+    !(identifier in viseron.cameras)
   ) {
     return <Loading text="Loading Recordings" />;
   }
 
-  const camera = viseron.cameras[identifier!];
+  const camera = viseron.cameras[identifier];
 
   if (
-    objIsEmpty(camera.recordings) ||
-    !camera.recordings[date] ||
-    objIsEmpty(camera.recordings[date])
+    !recordings ||
+    !objHasValues<types.RecordingsCamera>(recordings) ||
+    !objHasValues(recordings[date])
   ) {
     return (
       <Container>
@@ -58,14 +77,14 @@ const CameraRecordingsDaily = () => {
         {`${camera.name} - ${date}`}
       </Typography>
       <Grid container direction="row" spacing={2}>
-        {Object.keys(camera.recordings[date])
+        {Object.keys(recordings[date])
           .sort()
           .reverse()
           .map((recording) => (
             <Grid item key={recording} xs={12} sm={12} md={6} lg={6} xl={4}>
               <RecordingCard
                 camera={camera}
-                recording={camera.recordings[date][recording]}
+                recording={recordings[date][recording]}
               />
             </Grid>
           ))}

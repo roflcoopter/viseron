@@ -300,12 +300,14 @@
                                 "description": "GStreamer sometimes print errors that are not fatal, but are preventing Viseron from reading the stream.<br>If you get errors like <code>Error starting decoder pipe!</code>, see <a href=#recoverable-errors>recoverable errors</a> below.",
                                 "optional": true,
                                 "default": [
+                                    "Last message repeated",
                                     "dconf will not work properly",
                                     "decode_slice_header error",
                                     "no frame!",
                                     "left block unavailable for requested intra mode",
                                     "error while decoding MB",
-                                    "decreasing DTS value"
+                                    "decreasing DTS value",
+                                    "non-existing PPS 0 referenced"
                                 ]
                             },
                             {
@@ -420,21 +422,21 @@
                                             }
                                         ],
                                         "name": "hwaccel_args",
-                                        "description": "<b>FFmpeg</b> encoder hardware acceleration arguments.",
+                                        "description": "FFmpeg encoder hardware acceleration arguments.",
                                         "optional": true,
                                         "default": []
                                     },
                                     {
                                         "type": "string",
                                         "name": "codec",
-                                        "description": "<b>FFmpeg</b> video encoder codec, eg <code>h264_nvenc</code>.",
+                                        "description": "FFmpeg video encoder codec, eg <code>h264_nvenc</code>.",
                                         "optional": true,
                                         "default": "copy"
                                     },
                                     {
                                         "type": "string",
                                         "name": "audio_codec",
-                                        "description": "<b>FFmpeg</b> audio encoder codec, eg <code>aac</code>.",
+                                        "description": "FFmpeg audio encoder codec, eg <code>aac</code>.",
                                         "optional": true,
                                         "default": "copy"
                                     },
@@ -459,6 +461,18 @@
                                         ],
                                         "name": "audio_filters",
                                         "description": "A list of FFmpeg audio filter arguments. These filters are applied to the recorder videos.",
+                                        "optional": true,
+                                        "default": []
+                                    },
+                                    {
+                                        "type": "list",
+                                        "values": [
+                                            {
+                                                "type": "string"
+                                            }
+                                        ],
+                                        "name": "output_args",
+                                        "description": "FFmpeg encoder output arguments.",
                                         "optional": true,
                                         "default": []
                                     },
