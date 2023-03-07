@@ -20,10 +20,18 @@ class MockComponent:
 class MockCamera(MagicMock):
     """Representation of a fake camera."""
 
-    def __init__(self, identifier="test_camera_identifier", resolution=(1920, 1080)):
+    def __init__(
+        self,
+        identifier="test_camera_identifier",
+        resolution=(1920, 1080),
+        extension="mp4",
+    ):
         """Initialize the mock component."""
         super().__init__(
-            recorder=MagicMock(), identifier=identifier, resolution=resolution
+            recorder=MagicMock(),
+            identifier=identifier,
+            resolution=resolution,
+            extension=extension,
         )
 
 

@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import subprocess as sp
+from typing import TYPE_CHECKING
 
 from tenacity import (
     Retrying,
@@ -20,7 +21,6 @@ from viseron.const import (
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
-from viseron.domains.camera import CONFIG_EXTENSION
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
 from viseron.helpers.logs import LogPipe, UnhelpfullLogFilter
@@ -67,11 +67,15 @@ from .const import (
     STREAM_FORMAT_MAP,
 )
 
+if TYPE_CHECKING:
+    from viseron import Viseron
+    from viseron.components.ffmpeg.camera import Camera
+
 
 class Stream:
     """Represents a stream of frames from a camera."""
 
-    def __init__(self, vis, config, camera_identifier):
+    def __init__(self, vis: Viseron, config, camera_identifier):
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.addFilter(
             UnhelpfullLogFilter(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS])
@@ -79,7 +83,7 @@ class Stream:
         self._config = config
         self._camera_identifier = camera_identifier
 
-        self._camera = vis.data[COMPONENT][camera_identifier]
+        self._camera: Camera = vis.data[COMPONENT][camera_identifier]
         self._recorder = vis.data[COMPONENT][camera_identifier].recorder
 
         self._pipe = None
@@ -143,25 +147,10 @@ class Stream:
         self.create_symlink(self.alias)
         self.create_symlink(self.segments_alias)
 
-        self._extension = self._config[CONFIG_RECORDER][CONFIG_EXTENSION]
-        if self._config[CONFIG_RECORDER][
-            CONFIG_EXTENSION
-        ] == "mp4" and self.stream_audio_codec in ["pcm_alaw", "pcm_mulaw"]:
-            self._logger.warning(
-                f"Container mp4 does not support {self.stream_audio_codec} audio "
-                "codec, using mkv instead. Consider changing extension in your config."
-            )
-            self._extension = "mkv"
-
         self._pixel_format = self._output_stream_config[CONFIG_PIX_FMT]
         self._color_plane_width = self.width
         self._color_plane_height = int(self.height * 1.5)
         self._frame_bytes_size = int(self.width * self.height * 1.5)
-
-    @property
-    def extension(self):
-        """Return extension."""
-        return self._extension
 
     @property
     def stream_url(self):
@@ -274,7 +263,7 @@ class Stream:
             reraise=True,
         ):
             with attempt:
-                pipe = sp.Popen(
+                pipe = sp.Popen(  # type: ignore
                     ffprobe_command,
                     stdout=sp.PIPE,
                     stderr=self._log_pipe,
@@ -407,14 +396,23 @@ class Stream:
             + ["-i", stream_url]
         )
 
-    @staticmethod
-    def get_audio_codec(stream_config, stream_audio_codec):
+    def get_audio_codec(self, stream_config, stream_audio_codec, extension):
         """Return audio codec used for saving segments."""
         if (
             stream_config[CONFIG_AUDIO_CODEC]
             and stream_config[CONFIG_AUDIO_CODEC] != DEFAULT_AUDIO_CODEC
         ):
             return ["-c:a", stream_config[CONFIG_AUDIO_CODEC]]
+
+        if extension == "mp4" and stream_audio_codec in [
+            "pcm_alaw",
+            "pcm_mulaw",
+        ]:
+            self._logger.warning(
+                f"Container mp4 does not support {stream_audio_codec} audio "
+                "codec. Audio will be transcoded as aac."
+            )
+            return ["-c:a", "aac"]
 
         if (
             stream_audio_codec
@@ -428,12 +426,14 @@ class Stream:
         """Generate FFmpeg segment args."""
         return (
             CAMERA_SEGMENT_ARGS
-            + self.get_audio_codec(self._config, self.stream_audio_codec)
+            + self.get_audio_codec(
+                self._config, self.stream_audio_codec, self._camera.extension
+            )
             + [
                 os.path.join(
                     self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
                     self._camera.identifier,
-                    f"%Y%m%d%H%M%S.{self._extension}",
+                    f"%Y%m%d%H%M%S.{self._camera.extension}",
                 )
             ]
         )
@@ -447,7 +447,7 @@ class Stream:
         if filters:
             return [
                 "-vf",
-                (",".join(filters)),
+                ",".join(filters),
             ]
         return []
 
