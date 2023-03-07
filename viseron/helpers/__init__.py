@@ -240,25 +240,28 @@ def draw_mask(text, frame, mask_points, color=(255, 255, 255)) -> None:
     )
     # Draw polygon outline
     cv2.polylines(frame, mask_points, True, color, 2)
-    for mask in mask_points:
-        image_moment = cv2.moments(mask)
-        center_x = int(image_moment["m10"] / image_moment["m00"])
-        center_y = int(image_moment["m01"] / image_moment["m00"])
-        text_size = cv2.getTextSize(
-            text=text,
-            fontFace=FONT,
-            fontScale=FONT_SIZE,
-            thickness=FONT_THICKNESS,
-        )[0]
-        cv2.putText(
-            frame,
-            text,
-            (center_x - (int(text_size[0] / 2)), center_y + 5),
-            FONT,
-            FONT_SIZE,
-            (255, 255, 255),
-            FONT_THICKNESS,
-        )
+    try:
+        for mask in mask_points:
+            image_moment = cv2.moments(mask)
+            center_x = int(image_moment["m10"] / image_moment["m00"])
+            center_y = int(image_moment["m01"] / image_moment["m00"])
+            text_size = cv2.getTextSize(
+                text=text,
+                fontFace=FONT,
+                fontScale=FONT_SIZE,
+                thickness=FONT_THICKNESS,
+            )[0]
+            cv2.putText(
+                frame,
+                text,
+                (center_x - (int(text_size[0] / 2)), center_y + 5),
+                FONT,
+                FONT_SIZE,
+                (255, 255, 255),
+                FONT_THICKNESS,
+            )
+    except ZeroDivisionError:
+        LOGGER.warning("Center of mask could not be calculated. No text will be drawn.")
 
 
 def draw_motion_mask(frame, mask_points) -> None:

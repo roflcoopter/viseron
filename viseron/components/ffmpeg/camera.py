@@ -469,8 +469,6 @@ class Camera(AbstractCamera):
     @property
     def extension(self) -> str:
         """Return recording file extension."""
-        if self.stream:
-            return self.stream.extension
         return self._config[CONFIG_RECORDER][CONFIG_EXTENSION]
 
     @property

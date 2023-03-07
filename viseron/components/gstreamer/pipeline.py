@@ -24,6 +24,7 @@ from .const import (
     DEFAULT_AUDIO_PIPELINE,
     DEPAY_ELEMENT_MAP,
     GSTREAMER_LOGLEVELS,
+    PARSE_ELEMENT_MAP,
     PIXEL_FORMAT,
     STREAM_FORMAT_MAP,
 )
@@ -164,8 +165,8 @@ class BasePipeline:
         Returns parse element from override map if it exists.
         Otherwise we assume the parse element shares name with the codec.
         """
-        if depay_element := DEPAY_ELEMENT_MAP.get(self._stream.stream_codec, None):
-            return ["!", depay_element]
+        if parse_element := PARSE_ELEMENT_MAP.get(self._stream.stream_codec, None):
+            return ["!", parse_element]
 
         return ["!", f"{self._stream.stream_codec}parse"]
 
