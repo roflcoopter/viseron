@@ -52,6 +52,8 @@ export type AuthTokenResponse = {
   header: string;
   payload: string;
   expires_in: number;
+  expires_at: number;
+  session_expires_at: number;
 };
 
 export type AuthUserResponse = {

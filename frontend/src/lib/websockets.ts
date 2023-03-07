@@ -1,13 +1,12 @@
 import React from "react";
 
-import { Toast } from "hooks/UseToast";
+import { Toast, toastIds } from "hooks/UseToast";
+import { authToken } from "lib/api/auth";
+import { clientId } from "lib/api/client";
+import { sleep } from "lib/helpers";
 import * as messages from "lib/messages";
+import { loadTokens, tokenExpired } from "lib/tokens";
 import * as types from "lib/types";
-
-import { authToken } from "./api/auth";
-import { clientId } from "./api/client";
-import { sleep } from "./helpers";
-import { loadTokens, tokenExpired } from "./tokens";
 
 const DEBUG = false;
 
@@ -19,9 +18,6 @@ const MSG_TYPE_AUTH_REQUIRED = "auth_required";
 const MSG_TYPE_AUTH_NOT_REQUIRED = "auth_not_required";
 const MSG_TYPE_AUTH_INVALID = "auth_failed";
 const MSG_TYPE_AUTH_OK = "auth_ok";
-
-const connectingToastId = "connectingToastId";
-const connectionLostToastId = "connectionLostToastId";
 
 type Events = "connected" | "disconnected" | "connection-error";
 export type EventListener = (conn: Connection, eventData?: any) => void;
@@ -90,6 +86,13 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
             if (DEBUG) {
               console.debug("[Socket] Token expired, refreshing");
             }
+
+            // If we already tried to refresh the token, we should not try again.
+            if (refreshToken) {
+              promReject(ERR_CANNOT_CONNECT);
+              return;
+            }
+
             refreshToken = true;
             await authToken({
               grant_type: "refresh_token",
@@ -99,11 +102,22 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
             // Since we authenticate by partly using cookies, we need to close the
             // socket and open a new one so the refreshed signature_cookie is sent.
             socket.close();
-            await createSocket(wsURL);
+            let newSocket: WebSocket;
+            try {
+              newSocket = await createSocket(wsURL);
+            } catch (error) {
+              promReject(error as Error);
+              return;
+            }
+            promResolve(newSocket);
             return;
           }
           if (DEBUG) {
             console.debug("[Socket] Sending auth message", message);
+          }
+          if (!storedTokens) {
+            promReject(ERR_INVALID_AUTH);
+            return;
           }
           socket.send(
             JSON.stringify(
@@ -243,8 +257,8 @@ export class Connection {
     }
 
     setTimeout(() => {
-      this.toast.dismiss(connectingToastId);
-      this.toast.dismiss(connectionLostToastId);
+      this.toast.dismiss(toastIds.websocketConnecting);
+      this.toast.dismiss(toastIds.websocketConnectionLost);
     }, 500);
 
     const oldSubscriptions = this.oldSubscriptions;
@@ -369,9 +383,9 @@ export class Connection {
       console.debug("Connection closed");
 
       this.queuedMessages = [];
-      this.toast.dismiss(connectingToastId);
+      this.toast.dismiss(toastIds.websocketConnecting);
       this.toast.info("Connection lost, reconnecting", {
-        toastId: connectionLostToastId,
+        toastId: toastIds.websocketConnectionLost,
         autoClose: false,
       });
     }
@@ -397,8 +411,8 @@ export class Connection {
             }
           }
           if (err === ERR_INVALID_AUTH) {
-            this.toast.dismiss(connectingToastId);
-            this.toast.dismiss(connectionLostToastId);
+            this.toast.dismiss(toastIds.websocketConnecting);
+            this.toast.dismiss(toastIds.websocketConnectionLost);
             this.fireEvent("connection-error", err);
           } else {
             reconnect();
@@ -444,7 +458,7 @@ export class Connection {
   connectingToast(): void {
     if (this.socket && this.socket.readyState === WebSocket.CONNECTING) {
       this.toast.info("Connecting to server", {
-        toastId: connectingToastId,
+        toastId: toastIds.websocketConnecting,
         autoClose: false,
       });
     }

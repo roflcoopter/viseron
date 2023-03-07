@@ -7,6 +7,7 @@ from http import HTTPStatus
 import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.components.webserver.auth import token_response
 
 LOGGER = logging.getLogger(__name__)
 
@@ -57,13 +58,9 @@ class OnboardingAPIHandler(BaseAPIHandler):
 
         self.set_cookies(refresh_token, access_token, user, new_session=True)
 
-        header, payload, _signature = access_token.split(".")
         self.response_success(
-            response={
-                "header": header,
-                "payload": payload,
-                "expires_in": int(
-                    refresh_token.access_token_expiration.total_seconds()
-                ),
-            }
+            response=token_response(
+                refresh_token,
+                access_token,
+            ),
         )

@@ -8,11 +8,11 @@ import logging
 import os
 import secrets
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Lock
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import bcrypt
 import jwt
@@ -58,6 +58,7 @@ class RefreshToken:
 
     user_id: str
     client_id: str
+    session_expiration: timedelta
     access_token_type: Literal["normal"]
     access_token_expiration: timedelta = ACCESS_TOKEN_EXPIRATION
     created_at: float = field(default_factory=lambda: datetime.now().timestamp())
@@ -87,6 +88,39 @@ class User:
     group: Group
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     enabled: bool = True
+
+
+@dataclass
+class TokenResponse:
+    """Token response."""
+
+    header: str
+    payload: str
+    expires_in: int
+    expires_at: int
+    session_expires_at: int
+
+
+def token_response(
+    refresh_token: RefreshToken,
+    access_token: str,
+) -> dict[str, Any]:
+    """Create token response."""
+    header, payload, _signature = access_token.split(".")
+    return asdict(
+        TokenResponse(
+            header=header,
+            payload=payload,
+            expires_in=int(refresh_token.access_token_expiration.total_seconds()),
+            expires_at=int(
+                (datetime.now() + refresh_token.access_token_expiration).timestamp()
+            ),
+            session_expires_at=int(
+                refresh_token.created_at
+                + refresh_token.session_expiration.total_seconds()
+            ),
+        )
+    )
 
 
 class Auth:
@@ -254,6 +288,7 @@ class Auth:
             refresh_tokens[refresh_token["id"]] = RefreshToken(
                 user_id=refresh_token["user_id"],
                 client_id=refresh_token["client_id"],
+                session_expiration=refresh_token["session_expiration"],
                 access_token_type=refresh_token["access_token_type"],
                 access_token_expiration=timedelta(
                     seconds=refresh_token["access_token_expiration"]
@@ -287,6 +322,9 @@ class Auth:
         refresh_token = RefreshToken(
             user_id=user_id,
             client_id=client_id,
+            session_expiration=(
+                self.session_expiry if self.session_expiry else timedelta(days=3650)
+            ),
             access_token_type=access_token_type,
             access_token_expiration=access_token_expiration,
         )

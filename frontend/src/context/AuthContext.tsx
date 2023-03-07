@@ -3,6 +3,7 @@ import Cookies from "js-cookie";
 import { FC, createContext, useLayoutEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
+import SessionExpired from "components/dialog/SessionExpired";
 import { Loading } from "components/loading/Loading";
 import { useToast } from "hooks/UseToast";
 import { authToken, useAuthEnabled } from "lib/api/auth";
@@ -115,6 +116,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({
 
   return (
     <AuthContext.Provider value={{ auth, setAuth }}>
+      {auth.enabled ? <SessionExpired /> : null}
       {children}
     </AuthContext.Provider>
   );

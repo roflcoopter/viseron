@@ -54,7 +54,9 @@ type AuthUserRequest = {
 
 type AuthUserVariables = {
   username: string;
-  setUser: React.Dispatch<React.SetStateAction<types.AuthUserResponse | null>>;
+  setUser: React.Dispatch<
+    React.SetStateAction<types.AuthUserResponse | undefined>
+  >;
   configOptions?: UseQueryOptions<
     types.AuthUserResponse,
     types.APIErrorResponse
@@ -81,7 +83,7 @@ export const useAuthUser = ({
         setUser(data);
       },
       onError: async (_error) => {
-        setUser(null);
+        setUser(undefined);
       },
       ...configOptions,
     }

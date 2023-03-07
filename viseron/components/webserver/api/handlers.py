@@ -161,6 +161,11 @@ class BaseAPIHandler(ViseronRequestHandler):
 
                     if requires_group := route.get("requires_group", None):
                         if self.current_user.group not in requires_group:
+                            LOGGER.debug(
+                                "Request with invalid permissions, endpoint requires"
+                                f" {requires_group}, user is in group"
+                                f" {self.current_user.group}"
+                            )
                             self.response_error(
                                 HTTPStatus.FORBIDDEN, reason="Insufficient permissions"
                             )
@@ -170,6 +175,11 @@ class BaseAPIHandler(ViseronRequestHandler):
                             self.current_user.group
                             not in METHOD_ALLOWED_GROUPS[self.request.method]
                         ):
+                            LOGGER.debug(
+                                "Request with invalid permissions, endpoint requires"
+                                f" {requires_group}, user is in group"
+                                f" {self.current_user.group}"
+                            )
                             self.response_error(
                                 HTTPStatus.FORBIDDEN, reason="Insufficient permissions"
                             )

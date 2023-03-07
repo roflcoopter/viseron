@@ -48,12 +48,23 @@ const Login = () => {
   const fromRef = useRef();
   const login = useAuthLogin();
 
+  queryClient.removeQueries({
+    predicate(query) {
+      return query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled";
+    },
+  });
+  queryClient.invalidateQueries({
+    refetchType: "none",
+    predicate(query) {
+      return query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled";
+    },
+  });
+
   useEffect(() => {
     fromRef.current =
       location.state && location.state.from ? location.state.from : null;
     // Clear the state parameter
     navigate(location.pathname, { replace: true });
-    return () => {};
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -121,7 +132,6 @@ const Login = () => {
                       },
                       {
                         onSuccess: async (_data, _variables, _context) => {
-                          queryClient.removeQueries();
                           navigate(fromRef.current ? fromRef.current : "/");
                         },
                       }

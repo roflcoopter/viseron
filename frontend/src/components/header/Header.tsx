@@ -19,7 +19,6 @@ import { ColorModeContext } from "context/ColorModeContext";
 import { useScrollPosition } from "hooks/UseScrollPosition";
 import { useToast } from "hooks/UseToast";
 import { useAuthLogout } from "lib/api/auth";
-import queryClient from "lib/api/client";
 
 import { ReactComponent as ViseronLogo } from "../../viseron-logo.svg";
 import Breadcrumbs from "./Breadcrumbs";
@@ -165,7 +164,6 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
                 onClick={() =>
                   logout.mutate(undefined, {
                     onSuccess: async (_data, _variables, _context) => {
-                      queryClient.removeQueries();
                       toast.success("Successfully logged out");
                       navigate("/login");
                     },

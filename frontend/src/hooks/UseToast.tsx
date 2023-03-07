@@ -24,6 +24,12 @@ const defaultToastOptions = (theme: Theme) => ({
   },
 });
 
+export const toastIds = {
+  websocketConnecting: "websocketConnecting",
+  websocketConnectionLost: "websocketConnectionLost",
+  sessionExpired: "sessionExpired",
+};
+
 export const useToast = () => {
   const theme = useTheme();
   return {

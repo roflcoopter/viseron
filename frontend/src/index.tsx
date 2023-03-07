@@ -25,14 +25,9 @@ ReactDOM.render(
         </Router>
         <ToastContainer
           position="bottom-left"
+          pauseOnFocusLoss={false}
           autoClose={5000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
+          draggablePercent={50}
           theme="colored"
         />
       </QueryClientProvider>

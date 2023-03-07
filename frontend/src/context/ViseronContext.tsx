@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import React, { FC, createContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { useToast } from "hooks/UseToast";
+import { toastIds, useToast } from "hooks/UseToast";
 import { getCameras, subscribeCameras, subscribeRecording } from "lib/commands";
 import { sortObj } from "lib/helpers";
 import * as types from "lib/types";
@@ -81,7 +81,6 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
       };
       onConnectionErrorRef.current = async () => {
         console.error("Connection error, redirecting to login");
-        queryClient.removeQueries();
         navigate("/login");
       };
 
@@ -119,6 +118,8 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
         }
         connection.disconnect();
         setConnection(undefined);
+        toast.dismiss(toastIds.websocketConnecting);
+        toast.dismiss(toastIds.websocketConnectionLost);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

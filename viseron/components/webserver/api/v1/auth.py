@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from http import HTTPStatus
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import voluptuous as vol
 
@@ -12,7 +12,11 @@ from viseron.components.webserver.auth import (
     AuthenticationFailed,
     Group,
     UserExistsError,
+    token_response,
 )
+
+if TYPE_CHECKING:
+    from viseron.components.webserver.auth import TokenResponse
 
 LOGGER = logging.getLogger(__name__)
 
@@ -143,15 +147,11 @@ class AuthAPIHandler(BaseAPIHandler):
 
         self.set_cookies(refresh_token, access_token, user, new_session=True)
 
-        header, payload, _signature = access_token.split(".")
         self.response_success(
-            response={
-                "header": header,
-                "payload": payload,
-                "expires_in": int(
-                    refresh_token.access_token_expiration.total_seconds()
-                ),
-            }
+            response=token_response(
+                refresh_token,
+                access_token,
+            ),
         )
 
     def auth_logout(self):
@@ -175,7 +175,7 @@ class AuthAPIHandler(BaseAPIHandler):
     def _handle_refresh_token(
         self,
     ) -> tuple[Literal[HTTPStatus.BAD_REQUEST], str] | tuple[
-        Literal[HTTPStatus.OK], dict
+        Literal[HTTPStatus.OK], TokenResponse
     ]:
         """Handle refresh token."""
         refresh_token_cookie = self.get_secure_cookie("refresh_token")
@@ -202,16 +202,12 @@ class AuthAPIHandler(BaseAPIHandler):
 
         self.set_cookies(refresh_token, access_token, user, new_session=False)
 
-        header, payload, _signature = access_token.split(".")
         return (
             HTTPStatus.OK,
-            {
-                "header": header,
-                "payload": payload,
-                "expires_in": int(
-                    refresh_token.access_token_expiration.total_seconds()
-                ),
-            },
+            token_response(
+                refresh_token,
+                access_token,
+            ),
         )
 
     def auth_token(self):

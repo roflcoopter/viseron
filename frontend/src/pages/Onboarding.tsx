@@ -5,13 +5,12 @@ import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useContext, useReducer } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { ReactComponent as ViseronLogo } from "viseron-logo.svg";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
 import { AuthContext } from "context/AuthContext";
 import { useTitle } from "hooks/UseTitle";
-import queryClient from "lib/api/client";
 import { useOnboarding } from "lib/api/onboarding";
 
 type InputState = {
@@ -54,6 +53,7 @@ function reducer(state: InputState, action: InputAction): InputState {
 const Onboarding = () => {
   useTitle("Onboarding");
   const { auth } = useContext(AuthContext);
+  const navigate = useNavigate();
 
   const [inputState, dispatch] = useReducer(reducer, initialState);
   const onboarding = useOnboarding();
@@ -149,7 +149,7 @@ const Onboarding = () => {
                       },
                       {
                         onSuccess: async (_data, _variables, _context) => {
-                          queryClient.removeQueries();
+                          navigate("/");
                         },
                       }
                     );

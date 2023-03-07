@@ -120,6 +120,16 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             secure=bool(self.request.protocol == "https"),
         )
 
+    def clear_all_cookies(self, path: str = "/", domain: str | None = None) -> None:
+        """Overridden clear_all_cookies.
+
+        Clears all cookies except for the XSRF cookie.
+        """
+        for name in self.request.cookies:
+            if name == "_xsrf":
+                continue
+            self.clear_cookie(name, path=path, domain=domain)
+
     def validate_access_token(
         self, access_token: str, check_refresh_token: bool = True
     ):
