@@ -360,11 +360,12 @@ jobs:
           docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-viseron
       - name: Get changed files
         id: changed-files
-        uses: tj-actions/changed-files@v35
+        uses: tj-actions/changed-files@v32
         with:
           files: |
             requirements.txt
             docker/Dockerfile.wheels
+            azure-pipelines/.env
       - name: List all modified files
         run: |
           for file in "${{ steps.changed-files.outputs.all_modified_files }}"; do
