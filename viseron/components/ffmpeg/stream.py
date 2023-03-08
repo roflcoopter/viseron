@@ -277,8 +277,7 @@ class Stream:
                     ffprobe_timeout = self._ffprobe_timeout
                     self._ffprobe_timeout += FFPROBE_TIMEOUT
                     raise FFprobeTimeout(ffprobe_timeout) from error
-                else:
-                    self._ffprobe_timeout = FFPROBE_TIMEOUT
+                self._ffprobe_timeout = FFPROBE_TIMEOUT
 
         try:
             # Trim away any text before start of JSON object

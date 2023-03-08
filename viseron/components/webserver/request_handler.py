@@ -30,6 +30,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         """Initialize request handler."""
         self._vis = vis
         self._webserver: Webserver = vis.data[COMPONENT]
+        self.current_user = None
         # Manually set xsrf cookie
         self.xsrf_token  # pylint: disable=pointless-statement
 
@@ -50,6 +51,11 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             self.current_user = await self.run_in_executor(
                 self._webserver.auth.get_user, _user
             )
+
+    @property
+    def webserver(self) -> Webserver:
+        """Return the webserver component."""
+        return self._webserver
 
     @property
     def status(self):

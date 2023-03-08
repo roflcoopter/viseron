@@ -25,7 +25,7 @@ class AccessTokenStaticFileHandler(
         default_filename: str | None = None,
     ) -> None:
         """Initialize the handler."""
-        super().initialize(path, default_filename)
+        tornado.web.StaticFileHandler.initialize(self, path, default_filename)
         ViseronRequestHandler.initialize(self, vis)  # type: ignore
         self._camera_identifier = camera_identifier
 

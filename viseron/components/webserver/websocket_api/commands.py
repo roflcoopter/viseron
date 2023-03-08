@@ -63,9 +63,10 @@ def require_admin(func):
     @wraps(func)
     def with_admin(connection: WebSocketHandler, message: dict[str, Any]) -> None:
         """Check admin and call function."""
-        user = connection.current_user
-        if user is None or not user.group == Group.ADMIN.value:
-            raise Unauthorized()
+        if connection.webserver.auth:
+            user = connection.current_user
+            if user is None or not user.group == Group.ADMIN.value:
+                raise Unauthorized()
 
         func(connection, message)
 
