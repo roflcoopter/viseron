@@ -1,3 +1,5 @@
+import { AxiosError } from "axios";
+
 type WebSocketPongResponse = {
   command_id: number;
   type: "pong";
@@ -35,9 +37,33 @@ export type WebSocketResponse =
 export type APISuccessResponse = {
   success: true;
 };
-export type APIErrorResponse = {
+
+export type APIErrorResponse = AxiosError<{
+  status: number;
   error: string;
+}>;
+
+export type AuthEnabledResponse = {
+  enabled: boolean;
+  onboarding_complete: boolean;
 };
+
+export type AuthTokenResponse = {
+  header: string;
+  payload: string;
+  expires_in: number;
+  expires_at: number;
+  session_expires_at: number;
+};
+
+export type AuthUserResponse = {
+  name: string;
+  username: string;
+  group: string;
+};
+
+export type AuthLoginResponse = AuthTokenResponse;
+export type OnboardingResponse = AuthTokenResponse;
 
 export interface Recording {
   date: string;
@@ -65,6 +91,7 @@ export interface Camera {
   name: string;
   width: number;
   height: number;
+  access_token: string;
 }
 
 export interface Cameras {

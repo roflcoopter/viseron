@@ -11,10 +11,10 @@ import { useTitle } from "hooks/UseTitle";
 import { objHasValues } from "lib/helpers";
 
 const Recordings = () => {
-  const viseron = useContext(ViseronContext);
+  const { cameras } = useContext(ViseronContext);
   useTitle("Recordings");
 
-  if (!objHasValues<typeof viseron.cameras>(viseron.cameras)) {
+  if (!objHasValues<typeof cameras>(cameras)) {
     return <Loading text="Loading Recordings" />;
   }
 
@@ -25,7 +25,7 @@ const Recordings = () => {
         Recordings
       </Typography>
       <Grid container direction="row" spacing={2}>
-        {Object.values(viseron.cameras).map((camera) => (
+        {Object.values(cameras).map((camera_identifier) => (
           <Grid
             item
             xs={12}
@@ -33,9 +33,9 @@ const Recordings = () => {
             md={6}
             lg={6}
             xl={4}
-            key={camera.identifier}
+            key={camera_identifier}
           >
-            <RecordingCardLatest camera={camera} />
+            <RecordingCardLatest camera_identifier={camera_identifier} />
           </Grid>
         ))}
       </Grid>

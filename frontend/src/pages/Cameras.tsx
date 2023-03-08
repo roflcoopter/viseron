@@ -11,9 +11,9 @@ import { objHasValues } from "lib/helpers";
 
 const Cameras = () => {
   useTitle("Cameras");
-  const viseron = useContext(ViseronContext);
+  const { cameras } = useContext(ViseronContext);
 
-  if (!objHasValues<typeof viseron.cameras>(viseron.cameras)) {
+  if (!objHasValues<typeof cameras>(cameras)) {
     return <Loading text="Loading Cameras" />;
   }
 
@@ -23,7 +23,7 @@ const Cameras = () => {
         Cameras
       </Typography>
       <Grid container direction="row" spacing={2}>
-        {Object.keys(viseron.cameras).map((camera) => (
+        {cameras.map((camera_identifier) => (
           <Grid
             item
             xs={12}
@@ -31,9 +31,9 @@ const Cameras = () => {
             md={6}
             lg={6}
             xl={4}
-            key={viseron.cameras[camera].identifier}
+            key={camera_identifier}
           >
-            <CameraCard camera={viseron.cameras[camera]} />
+            <CameraCard camera_identifier={camera_identifier} />
           </Grid>
         ))}
       </Grid>

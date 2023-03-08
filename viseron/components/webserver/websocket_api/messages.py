@@ -8,7 +8,14 @@ from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 
-from viseron.components.webserver.const import TYPE_RESULT, WS_ERROR_UNKNOWN_ERROR
+from viseron.components.webserver.const import (
+    TYPE_AUTH_FAILED,
+    TYPE_AUTH_NOT_REQUIRED,
+    TYPE_AUTH_OK,
+    TYPE_AUTH_REQUIRED,
+    TYPE_RESULT,
+    WS_ERROR_UNKNOWN_ERROR,
+)
 from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
@@ -45,8 +52,28 @@ def message_to_json(message: dict[str, Any]) -> str:
         )
 
 
+def auth_ok_message() -> dict[str, str]:
+    """Return an auth_ok message."""
+    return {"type": TYPE_AUTH_OK}
+
+
+def auth_required_message() -> dict[str, str]:
+    """Return an auth_required message."""
+    return {"type": TYPE_AUTH_REQUIRED, "message": "Authentication required."}
+
+
+def auth_not_required_message() -> dict[str, str]:
+    """Return an auth_not_required message."""
+    return {"type": TYPE_AUTH_NOT_REQUIRED, "message": "Authentication not required."}
+
+
+def auth_failed_message(message: str) -> dict[str, str]:
+    """Return an auth_failed message."""
+    return {"type": TYPE_AUTH_FAILED, "message": message}
+
+
 def result_message(command_id: int | None, result: Any = None) -> dict[str, Any]:
-    """Return an successful result message."""
+    """Return a successful result message."""
     return {
         "command_id": command_id,
         "type": TYPE_RESULT,

@@ -1,6 +1,8 @@
+import { useQueryClient } from "@tanstack/react-query";
 import React, { FC, createContext, useEffect, useState } from "react";
-import { useQueryClient } from "react-query";
+import { useNavigate } from "react-router-dom";
 
+import { toastIds, useToast } from "hooks/UseToast";
 import { getCameras, subscribeCameras, subscribeRecording } from "lib/commands";
 import { sortObj } from "lib/helpers";
 import * as types from "lib/types";
@@ -13,13 +15,13 @@ export type ViseronProviderProps = {
 export type ViseronContextState = {
   connection: Connection | undefined;
   connected: boolean;
-  cameras: types.Cameras;
+  cameras: string[];
 };
 
 const contextDefaultValues: ViseronContextState = {
   connection: undefined,
   connected: false,
-  cameras: {},
+  cameras: [],
 };
 
 export const ViseronContext =
@@ -32,17 +34,20 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
     undefined
   );
   const [connected, setConnected] = useState<boolean>(false);
-  const [cameras, setCameras] = useState<types.Cameras>({});
+  const [cameras, setCameras] = useState<string[]>([]);
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const toast = useToast();
 
+  const onConnectRef = React.useRef<() => void>();
+  const onDisconnectRef = React.useRef<() => void>();
+  const onConnectionErrorRef = React.useRef<() => void>();
   useEffect(() => {
     if (connection) {
       const cameraRegistered = async (camera: types.Camera) => {
         setCameras((prevCameras) => {
-          let newCameras = { ...prevCameras };
-          newCameras[camera.identifier] = camera;
-          newCameras = sortObj(newCameras);
-          return newCameras;
+          if (prevCameras.includes(camera.identifier)) return prevCameras;
+          return [...prevCameras, camera.identifier].sort();
         });
         await queryClient.invalidateQueries({
           predicate: (query) =>
@@ -62,29 +67,67 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
         });
       };
 
-      const onConnect = async () => {
-        setConnected(true);
+      onConnectRef.current = async () => {
         const registeredCameras = await getCameras(connection);
-        setCameras(sortObj(registeredCameras));
+        setCameras(Object.keys(sortObj(registeredCameras)).sort());
+        await queryClient.invalidateQueries({
+          queryKey: ["camera"],
+          refetchType: "none",
+        });
+        setConnected(true);
       };
-      connection!.addEventListener("connected", onConnect);
-
-      const onDisonnect = async () => {
+      onDisconnectRef.current = async () => {
         setConnected(false);
       };
-      connection!.addEventListener("disconnected", onDisonnect);
+      onConnectionErrorRef.current = async () => {
+        console.error("Connection error, redirecting to login");
+        navigate("/login");
+      };
+
+      connection.addEventListener("connected", onConnectRef.current);
+      connection.addEventListener("disconnected", onDisconnectRef.current);
+      connection.addEventListener(
+        "connection-error",
+        onConnectionErrorRef.current
+      );
 
       const connect = async () => {
         subscribeCameras(connection, cameraRegistered); // call without await to not block
         subscribeRecording(connection, newRecording); // call without await to not block
-        await connection!.connect();
+        await connection.connect();
       };
       connect();
     }
+    return () => {
+      if (connection) {
+        if (onConnectRef.current) {
+          connection.removeEventListener("connected", onConnectRef.current);
+        }
+        if (onDisconnectRef.current) {
+          connection.removeEventListener(
+            "disconnected",
+            onDisconnectRef.current
+          );
+        }
+
+        if (onConnectionErrorRef.current) {
+          connection.removeEventListener(
+            "connection-error",
+            onConnectionErrorRef.current
+          );
+        }
+        connection.disconnect();
+        setConnection(undefined);
+        toast.dismiss(toastIds.websocketConnecting);
+        toast.dismiss(toastIds.websocketConnectionLost);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connection, queryClient]);
 
   useEffect(() => {
-    setConnection(new Connection());
+    setConnection(new Connection(toast));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

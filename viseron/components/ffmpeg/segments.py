@@ -158,10 +158,9 @@ class Segments:
         """Return a script string with information of each segment to concatenate."""
         segment_iterable = iter(segments_to_concat)
         segment = next(segment_iterable)
+        inpoint = max(int(event_start - segment_information[segment]["start_time"]), 0)
         concat_script = f"file 'file:{os.path.join(self._segments_folder, segment)}'"
-        concat_script += (
-            f"\ninpoint {int(event_start-segment_information[segment]['start_time'])}"
-        )
+        concat_script += f"\ninpoint {inpoint}"
 
         try:
             segment = next(segment_iterable)

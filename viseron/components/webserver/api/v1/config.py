@@ -23,4 +23,4 @@ class ConfigAPIHandler(BaseAPIHandler):
         with open(CONFIG_PATH, encoding="utf-8") as config_file:
             config = config_file.read()
 
-        self.response_success(config)
+        self.response_success(response=config)

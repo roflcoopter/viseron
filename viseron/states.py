@@ -153,6 +153,7 @@ class States:
                 EventEntityAddedData(entity),
             )
             self.set_state(entity)
+            return entity
 
     def get_entities(self):
         """Return all registered entities."""

@@ -23,4 +23,6 @@ class CamerasAPIHandler(BaseAPIHandler):
 
     def get_cameras(self):
         """Return cameras."""
-        self.response_success(self._vis.data[REGISTERED_DOMAINS].get(CAMERA_DOMAIN, {}))
+        self.response_success(
+            response=self._vis.data[REGISTERED_DOMAINS].get(CAMERA_DOMAIN, {})
+        )

@@ -1,6 +1,7 @@
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import GitHubIcon from "@mui/icons-material/GitHub";
+import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
 import SettingsIcon from "@mui/icons-material/Settings";
 import Box from "@mui/material/Box";
@@ -11,10 +12,13 @@ import Tooltip from "@mui/material/Tooltip";
 import { alpha, styled, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useContext, useRef, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 
+import { AuthContext } from "context/AuthContext";
 import { ColorModeContext } from "context/ColorModeContext";
 import { useScrollPosition } from "hooks/UseScrollPosition";
+import { useToast } from "hooks/UseToast";
+import { useAuthLogout } from "lib/api/auth";
 
 import { ReactComponent as ViseronLogo } from "../../viseron-logo.svg";
 import Breadcrumbs from "./Breadcrumbs";
@@ -54,6 +58,7 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
   const mediaQueryMedium = useMediaQuery(theme.breakpoints.up("md"));
   const [showHeader, setShowHeader] = useState(true);
   const lastTogglePos = useRef(0);
+  const { auth } = useContext(AuthContext);
 
   useScrollPosition((prevPos: any, currPos: any) => {
     // Always show header if we haven't scrolled down more than theme.headerHeight
@@ -79,6 +84,10 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
       setShowHeader(true);
     }
   });
+
+  const logout = useAuthLogout();
+  const navigate = useNavigate();
+  const toast = useToast();
 
   return (
     <Header showHeader={showHeader}>
@@ -148,6 +157,23 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
               <SettingsIcon />
             </IconButton>
           </Tooltip>
+          {auth.enabled && (
+            <Tooltip title={"Logout"} enterDelay={300}>
+              <IconButton
+                color="primary"
+                onClick={() =>
+                  logout.mutate(undefined, {
+                    onSuccess: async (_data, _variables, _context) => {
+                      toast.success("Successfully logged out");
+                      navigate("/login");
+                    },
+                  })
+                }
+              >
+                <LogoutIcon />
+              </IconButton>
+            </Tooltip>
+          )}
         </Stack>
       </Container>
     </Header>

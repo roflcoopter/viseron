@@ -30,7 +30,6 @@ export default function useOnScreen<T extends Element>(
         observer.unobserve(ref.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty array ensures that effect is only run on mount and unmount
+  }, [ref, rootMargin]);
   return isIntersecting;
 }
