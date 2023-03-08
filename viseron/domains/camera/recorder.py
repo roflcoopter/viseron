@@ -375,15 +375,20 @@ class AbstractRecorder(ABC):
                         self.recordings_folder, date, filename.split(".")[0] + ".jpg"
                     )
                 )
-                os.remove(thumbnail)
+                try:
+                    os.remove(thumbnail)
+                except FileNotFoundError:
+                    pass
+
             elif date:
                 shutil.rmtree(path)
+
             else:
                 dirs = Path(self.recordings_folder)
                 folders = dirs.walkdirs("*-*-*")
                 for folder in folders:
                     shutil.rmtree(folder)
-        except OSError as error:
+        except (OSError, FileNotFoundError) as error:
             self._logger.error(f"Could not remove {path}", exc_info=error)
             return False
         return True
