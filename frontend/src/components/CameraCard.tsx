@@ -27,8 +27,51 @@ interface CameraCardProps {
 const blankImage =
   "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
 
-export default function CameraCard({ camera_identifier }: CameraCardProps) {
+const useCameraToken = (camera_identifier: string, auth_enabled: boolean) => {
   const { connected, connection } = useContext(ViseronContext);
+  const unsubRef = useRef<SubscriptionUnsubscribe | null>(null);
+
+  useEffect(() => {
+    // If auth is disabled, we dont need to sub for tokens
+    if (!auth_enabled) {
+      return;
+    }
+    const stateChanged = async (
+      _stateChangedEvent: types.StateChangedEvent
+    ) => {
+      queryClient.invalidateQueries(["camera", camera_identifier]);
+    };
+
+    const unsubscribeEntities = async () => {
+      if (unsubRef.current) {
+        await unsubRef.current();
+      }
+      unsubRef.current = null;
+    };
+
+    const subcscribeEntities = async () => {
+      if (connection && connected) {
+        unsubRef.current = await subscribeStates(
+          connection,
+          stateChanged,
+          `sensor.${camera_identifier}_access_token`,
+          undefined,
+          false
+        );
+      } else if (connection && !connected && unsubRef.current) {
+        await unsubscribeEntities();
+      }
+    };
+    subcscribeEntities();
+    // eslint-disable-next-line consistent-return
+    return () => {
+      unsubscribeEntities();
+    };
+  }, [auth_enabled, camera_identifier, connected, connection]);
+};
+
+export default function CameraCard({ camera_identifier }: CameraCardProps) {
+  const { connected } = useContext(ViseronContext);
   const { auth } = useContext(AuthContext);
   const theme = useTheme();
   const ref: any = useRef<HTMLDivElement>();
@@ -39,7 +82,6 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
     camera_identifier,
     configOptions: { enabled: connected },
   });
-  const unsubRef = useRef<SubscriptionUnsubscribe | null>(null);
 
   const generateSnapshotURL = useCallback(
     (width = null) =>
@@ -105,38 +147,7 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
     };
   }, [updateImage, isVisible, onScreen, connected, cameraQuery.isSuccess]);
 
-  useEffect(() => {
-    const stateChanged = async (
-      _stateChangedEvent: types.StateChangedEvent
-    ) => {
-      queryClient.invalidateQueries(["camera", camera_identifier]);
-    };
-
-    const unsubscribeEntities = async () => {
-      if (unsubRef.current) {
-        await unsubRef.current();
-      }
-      unsubRef.current = null;
-    };
-
-    const subcscribeEntities = async () => {
-      if (connection && connected) {
-        unsubRef.current = await subscribeStates(
-          connection,
-          stateChanged,
-          `sensor.${camera_identifier}_access_token`,
-          undefined,
-          false
-        );
-      } else if (connection && !connected && unsubRef.current) {
-        await unsubscribeEntities();
-      }
-    };
-    subcscribeEntities();
-    return () => {
-      unsubscribeEntities();
-    };
-  }, [camera_identifier, connected, connection]);
+  useCameraToken(camera_identifier, auth.enabled);
 
   return (
     <div ref={ref}>
