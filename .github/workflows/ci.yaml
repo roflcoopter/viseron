@@ -338,7 +338,7 @@ jobs:
       - name: Check out code from GitHub
         uses: actions/checkout@v3.1.0
         with:
-          fetch-depth: 0
+          fetch-depth: 2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
