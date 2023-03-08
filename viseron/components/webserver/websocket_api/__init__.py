@@ -206,7 +206,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
 
     def on_message(self, message):
         """Websocket message received."""
-        LOGGER.debug("Received %s", message)
+        LOGGER.debug(f"Received {message}")
         try:
             message_data = json.loads(message)
         except ValueError:

@@ -43,6 +43,19 @@ class SensitiveInformationFilter(logging.Filter):
         """Filter log record."""
         if isinstance(record.msg, str):
             record.msg = re.sub(r":\/\/(.*?)\@", r"://*****:*****@", record.msg)
+            # Based on this answer: https://stackoverflow.com/a/41307057
+            record.msg = re.sub(
+                r"(\bpassword\W+)([a-zA-z0-9_!\"#$%&'()*+,-.\/:;<=>?@[\]^_`{|}~]+)",
+                r"\1*****",
+                record.msg,
+                flags=re.IGNORECASE | re.MULTILINE,
+            )
+            record.msg = re.sub(
+                r"(\b(access_token)\W+)(\w+)",
+                r"\1*****",
+                record.msg,
+                flags=re.IGNORECASE | re.MULTILINE,
+            )
         return True
 
 
