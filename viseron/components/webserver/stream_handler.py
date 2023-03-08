@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from http import HTTPStatus
 from typing import Dict, Tuple
 
 import cv2
@@ -34,6 +35,36 @@ BOUNDARY = "--jpgboundary"
 
 class StreamHandler(ViseronRequestHandler):
     """Represents a stream."""
+
+    async def prepare(self):
+        """Validate access token."""
+        if self._webserver.auth:
+            camera_identifier = self.path_kwargs.get("camera", None)
+            if not camera_identifier:
+                self.set_status(
+                    HTTPStatus.BAD_REQUEST,
+                    reason="Missing camera identifier in request",
+                )
+                self.finish()
+
+            camera = self._get_camera(camera_identifier)
+            if not camera:
+                self.set_status(
+                    HTTPStatus.NOT_FOUND,
+                    reason=f"Camera {camera_identifier} not found",
+                )
+                self.finish()
+                return
+
+            if not await self.run_in_executor(self.validate_camera_token, camera):
+                self.set_status(
+                    HTTPStatus.UNAUTHORIZED,
+                    reason="Unauthorized",
+                )
+                self.finish()
+                return
+
+        await super().prepare()
 
     def _set_stream_headers(self):
         """Set the headers for the stream."""
@@ -257,8 +288,7 @@ class StaticStreamHandler(StreamHandler):
             except tornado.iostream.StreamClosedError:
                 DataStream.unsubscribe_data(frame_topic, unique_id)
                 LOGGER.debug(
-                    f"Stream {mjpeg_stream} closed for camera "
-                    f"{nvr.camera.identifier}"
+                    f"Stream {mjpeg_stream} closed for camera {nvr.camera.identifier}"
                 )
                 break
         self.active_streams[(nvr.camera.identifier, mjpeg_stream)] -= 1

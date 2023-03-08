@@ -288,7 +288,9 @@ class Auth:
             refresh_tokens[refresh_token["id"]] = RefreshToken(
                 user_id=refresh_token["user_id"],
                 client_id=refresh_token["client_id"],
-                session_expiration=refresh_token["session_expiration"],
+                session_expiration=timedelta(
+                    seconds=refresh_token["session_expiration"]
+                ),
                 access_token_type=refresh_token["access_token_type"],
                 access_token_expiration=timedelta(
                     seconds=refresh_token["access_token_expiration"]

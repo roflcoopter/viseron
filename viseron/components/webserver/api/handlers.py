@@ -215,21 +215,23 @@ class BaseAPIHandler(ViseronRequestHandler):
                     camera_identifier = path_kwargs.get("camera_identifier", None)
                     if not camera_identifier:
                         self.response_error(
-                            HTTPStatus.NOT_FOUND,
-                            reason="Missing camera identifier",
+                            HTTPStatus.BAD_REQUEST,
+                            reason="Missing camera identifier in request",
                         )
                         return
-                    if camera := self._get_camera(camera_identifier):
-                        if not self.validate_camera_token(camera):
-                            self.response_error(
-                                HTTPStatus.FORBIDDEN,
-                                reason="Forbidden",
-                            )
-                            return
-                    else:
+
+                    camera = self._get_camera(camera_identifier)
+                    if not camera:
                         self.response_error(
                             HTTPStatus.NOT_FOUND,
                             reason=f"Camera {camera_identifier} not found",
+                        )
+                        return
+
+                    if not self.validate_camera_token(camera):
+                        self.response_error(
+                            HTTPStatus.UNAUTHORIZED,
+                            reason="Unauthorized",
                         )
                         return
 

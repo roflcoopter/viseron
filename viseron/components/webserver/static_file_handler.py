@@ -32,19 +32,28 @@ class AccessTokenStaticFileHandler(
     async def prepare(self):
         """Validate access token."""
         if self._webserver.auth:
-            if camera := self._get_camera(self._camera_identifier):
-                if not await self.run_in_executor(self.validate_camera_token, camera):
-                    self.set_status(
-                        HTTPStatus.UNAUTHORIZED,
-                        reason="Unauthorized",
-                    )
-                    self.finish()
-                    return
-            else:
+            if not self._camera_identifier:
+                self.set_status(
+                    HTTPStatus.BAD_REQUEST,
+                    reason="Missing camera identifier in request",
+                )
+                self.finish()
+
+            camera = self._get_camera(self._camera_identifier)
+            if not camera:
                 self.set_status(
                     HTTPStatus.NOT_FOUND,
                     reason=f"Camera {self._camera_identifier} not found",
                 )
                 self.finish()
                 return
+
+            if not await self.run_in_executor(self.validate_camera_token, camera):
+                self.set_status(
+                    HTTPStatus.UNAUTHORIZED,
+                    reason="Unauthorized",
+                )
+                self.finish()
+                return
+
         await super().prepare()
