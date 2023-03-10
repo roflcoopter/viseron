@@ -4,7 +4,7 @@ deepstack-python==0.8
 colorlog==5.0.1
 compreface-sdk==0.6.0
 imutils==0.5.3
-numpy==1.24.0
+numpy==1.23.5
 paho-mqtt==1.5.0
 path.py==12.4.0
 pyjwt==2.6.0
