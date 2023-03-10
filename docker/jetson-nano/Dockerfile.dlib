@@ -69,10 +69,9 @@ RUN \
   git clone --branch v${DLIB_VERSION} --depth 1 https://github.com/davisking/dlib.git && \
   # Fix bug, explained here https://medium.com/@ageitgey/build-a-hardware-based-face-recognition-system-for-150-with-the-nvidia-jetson-nano-and-python-a25cb8c891fd
   sed -i -e 's/forward_algo = forward_best_algo;/\/\/forward_algo = forward_best_algo;/' dlib/dlib/cuda/cudnn_dlibapi.cpp && \
-  cd dlib; python3 setup.py bdist_wheel --dist-dir=/wheels
-
-RUN \
-  pip3 wheel face_recognition dlib==${DLIB_VERSION} --wheel-dir=/wheels/ --find-links=/wheels/
+  cd dlib; python3 setup.py bdist_wheel --dist-dir=/wheels \
+  \
+  && ls -al /wheels/
 
 RUN [ "cross-build-end" ]
 
