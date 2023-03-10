@@ -8,6 +8,7 @@ FROM ${BUILD_FROM} as build
 COPY --from=dlib /wheels /wheels
 
 ARG ARCH
+ARG EXTRA_PIP_ARGS=""
 
 ENV \
   DEBIAN_FRONTEND=noninteractive \
@@ -25,16 +26,20 @@ RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
   python3-pip \
   python3-setuptools \
   python3-wheel \
+  && python3 -m pip install --upgrade pip \
   && apt-get autoremove -y && apt-get clean -y
 
 ADD requirements.txt requirements.txt
-RUN \
-  mkdir -p /wheels \
+# We need to setup Rust compiler for bcrypt
+# A tmpfs is needed: https://github.com/rust-lang/cargo/issues/8719
+RUN --mount=type=tmpfs,target=/root/.cargo curl https://sh.rustup.rs -sSf | bash -s -- -y \
+  && . $HOME/.cargo/env \
+  && mkdir -p /wheels \
   && if [ "$ARCH" = "amd64" ] || [ "$ARCH" = "amd64-cuda" ]; then export PLATFORM="x86_64"; \
   elif [ "$ARCH" = "armhf" ] || [ "$ARCH" = "rpi3" ]; then export PLATFORM="armv7l"; \
   else export PLATFORM="$ARCH"; fi \
   \
-  && pip3 wheel --wheel-dir=/wheels --find-links=/wheels -r /requirements.txt \
+  && pip3 wheel --wheel-dir=/wheels --find-links=/wheels ${EXTRA_PIP_ARGS} -r /requirements.txt \
   \
   && ls -al /wheels/
 

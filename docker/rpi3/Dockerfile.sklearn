@@ -1,0 +1,52 @@
+
+# Sklearn does not have a prebuilt wheel for armv7l, and it takes forever to
+# build from source. So we build it once and use it as a base for the other images
+# No CI for this image, built locally and pushed to docker hub
+ARG CMAKE_VERSION
+ARG UBUNTU_VERSION
+FROM roflcoopter/rpi3-cmake:${CMAKE_VERSION} as cmake
+FROM balenalib/raspberrypi3-ubuntu:$UBUNTU_VERSION-build as build
+RUN [ "cross-build-start" ]
+
+COPY --from=cmake /usr/custom_cmake/bin /usr/custom_cmake/bin/
+COPY --from=cmake /usr/custom_cmake/share /usr/custom_cmake/share/
+
+ARG MAKEFLAGS="-j2"
+ARG SKLEARN_VERSION
+
+ENV \
+  DEBIAN_FRONTEND=noninteractive \
+  PIP_IGNORE_INSTALLED=0 \
+  PATH=/usr/custom_cmake/bin:$PATH
+
+RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
+  build-essential \
+  curl \
+  cython3 \
+  gcc \
+  gfortran \
+  g++ \
+  make \
+  ninja-build \
+  python3 \
+  python3-dev \
+  python3-pip \
+  python3-setuptools \
+  python3-wheel \
+  libopenblas-dev \
+  && python3 -m pip install --upgrade pip \
+  && apt-get autoremove -y && apt-get clean -y
+
+RUN mkdir -p /wheels \
+  \
+  && pip3 wheel --wheel-dir=/wheels --find-links=/wheels scikit-learn==${SKLEARN_VERSION} \
+  \
+  && ls -al /wheels/
+
+RUN [ "cross-build-end" ]
+
+FROM balenalib/raspberrypi3-ubuntu:$UBUNTU_VERSION-build
+
+# Copy scikit-learn + scipy wheels
+COPY --from=build /wheels/scikit_learn*.whl /wheels/
+COPY --from=build /wheels/scipy*.whl /wheels/
