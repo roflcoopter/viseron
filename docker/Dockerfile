@@ -48,7 +48,6 @@ RUN \
   tzdata \
   python3 \
   python3-pip \
-  python3-sklearn \
   usbutils \
   # OpenCV and FFmpeg Dependencies
   libgomp1 \
@@ -72,6 +71,7 @@ RUN \
   gstreamer1.0-pulseaudio \
   && rm -rf /var/lib/apt/lists/* \
   \
+  && python3 -m pip install --upgrade pip \
   && pip3 install /wheels/*.whl \
   && rm -r /wheels \
   \

@@ -286,14 +286,32 @@ services:
         - roflcoopter/rpi3-dlib:$DLIB_VERSION
     image: roflcoopter/rpi3-dlib:$DLIB_VERSION
 
+  # Sklearn does not have a prebuilt wheel for armv7l, and it takes forever to
+  # build from source. So we build it once and use it as a base for the other images
+  # No CI for this image, built locally and pushed to docker hub
+  rpi3-sklearn:
+    build:
+      context: ..
+      dockerfile: ./docker/rpi3/Dockerfile.sklearn
+      args:
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
+        CMAKE_VERSION: "$CMAKE_VERSION"
+        SKLEARN_VERSION: "$SKLEARN_VERSION"
+        MAKEFLAGS: "$MAKEFLAGS"
+      cache_from:
+        - roflcoopter/rpi3-sklearn:$SKLEARN_VERSION
+    image: roflcoopter/rpi3-sklearn:$SKLEARN_VERSION
+
   rpi3-wheels:
     build:
       context: ..
       dockerfile: ./docker/Dockerfile.wheels
       args:
         ARCH: rpi3
-        BUILD_FROM: balenalib/raspberrypi3-ubuntu:$UBUNTU_VERSION-build
+        BUILD_FROM: roflcoopter/rpi3-sklearn:$SKLEARN_VERSION
         DLIB_VERSION: "$DLIB_VERSION"
+        EXTRA_PIP_ARGS: --extra-index-url https://www.piwheels.org/simple
+        CMAKE_VERSION: "$CMAKE_VERSION"
       cache_from:
         - roflcoopter/rpi3-wheels:$WHEELS_VERSION
     image: roflcoopter/rpi3-wheels:$WHEELS_VERSION
