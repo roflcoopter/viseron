@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Literal
+from typing import Any, Literal
 
 import voluptuous as vol
 
@@ -14,9 +14,6 @@ from viseron.components.webserver.auth import (
     UserExistsError,
     token_response,
 )
-
-if TYPE_CHECKING:
-    from viseron.components.webserver.auth import TokenResponse
 
 LOGGER = logging.getLogger(__name__)
 
@@ -47,7 +44,7 @@ class AuthAPIHandler(BaseAPIHandler):
         {
             "path_pattern": r"/auth/user/(?P<user_id>[A-Za-z0-9_]+)",
             "supported_methods": ["GET"],
-            "method": "auth_get",
+            "method": "auth_user",
         },
         {
             "requires_auth": False,
@@ -100,14 +97,14 @@ class AuthAPIHandler(BaseAPIHandler):
                 self.json_body["name"].strip(),
                 self.json_body["username"].strip().casefold(),
                 self.json_body["password"],
-                self.json_body["group"],
+                Group(self.json_body["group"]),
             )
         except UserExistsError as error:
             self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
             return
         self.response_success()
 
-    def auth_get(self, user_id: str):
+    def auth_user(self, user_id: str):
         """Get a user.
 
         Returns 200 OK with user data if user exists.
@@ -120,7 +117,7 @@ class AuthAPIHandler(BaseAPIHandler):
             response={
                 "name": user.name,
                 "username": user.username,
-                "group": user.group,
+                "group": user.group.value,
             }
         )
 
@@ -175,7 +172,7 @@ class AuthAPIHandler(BaseAPIHandler):
     def _handle_refresh_token(
         self,
     ) -> tuple[Literal[HTTPStatus.BAD_REQUEST], str] | tuple[
-        Literal[HTTPStatus.OK], TokenResponse
+        Literal[HTTPStatus.OK], dict[str, Any]
     ]:
         """Handle refresh token."""
         refresh_token_cookie = self.get_secure_cookie("refresh_token")

@@ -22,10 +22,10 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 METHOD_ALLOWED_GROUPS = {
-    "GET": [Group.ADMIN.value, Group.WRITE.value, Group.READ.value],
-    "POST": [Group.ADMIN.value, Group.WRITE.value],
-    "PUT": [Group.ADMIN.value, Group.WRITE.value],
-    "DELETE": [Group.ADMIN.value, Group.WRITE.value],
+    "GET": [Group.ADMIN, Group.WRITE, Group.READ],
+    "POST": [Group.ADMIN, Group.WRITE],
+    "PUT": [Group.ADMIN, Group.WRITE],
+    "DELETE": [Group.ADMIN, Group.WRITE],
 }
 
 
@@ -177,8 +177,8 @@ class BaseAPIHandler(ViseronRequestHandler):
                         ):
                             LOGGER.debug(
                                 "Request with invalid permissions, endpoint requires"
-                                f" {requires_group}, user is in group"
-                                f" {self.current_user.group}"
+                                f" {METHOD_ALLOWED_GROUPS[self.request.method]}, user"
+                                f" is in group {self.current_user.group}"
                             )
                             self.response_error(
                                 HTTPStatus.FORBIDDEN, reason="Insufficient permissions"
