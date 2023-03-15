@@ -204,6 +204,9 @@ class Auth:
             if self.get_user_by_username(username):
                 raise UserExistsError(f"A user with username {username} already exists")
 
+            if not isinstance(group, Group):
+                raise InvalidGroupError(f"Invalid group {group}")
+
             user = User(
                 name,
                 username,

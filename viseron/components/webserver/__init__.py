@@ -180,7 +180,7 @@ class WebserverStore:
         return self._data["cookie_secret"]
 
 
-def create_application(vis: Viseron, config, cookie_secret):
+def create_application(vis: Viseron, config, cookie_secret, xsrf_cookies=True):
     """Return tornado web app."""
     application = tornado.web.Application(
         [
@@ -213,7 +213,7 @@ def create_application(vis: Viseron, config, cookie_secret):
         websocket_ping_interval=10,
         debug=config[CONFIG_DEBUG],
         cookie_secret=cookie_secret,
-        xsrf_cookies=True,
+        xsrf_cookies=xsrf_cookies,
     )
     application.add_handlers(
         r".*",

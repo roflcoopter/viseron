@@ -50,5 +50,4 @@ class APIRouter(tornado.routing.Router):
             request=request,
             target_class=handler,
             target_kwargs={"vis": self._vis},
-            path_args=[request.path],
         )

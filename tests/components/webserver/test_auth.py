@@ -32,6 +32,8 @@ class TestAuth:
             self.auth._auth_store.path  # pylint: disable=protected-access
         ):
             os.remove(self.auth._auth_store.path)  # pylint: disable=protected-access
+        if os.path.exists(self.auth.onboarding_path):
+            os.remove(self.auth.onboarding_path)
 
     def test_add_user(self):
         """Test adding user."""
