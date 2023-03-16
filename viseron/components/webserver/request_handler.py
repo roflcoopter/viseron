@@ -53,6 +53,15 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             )
 
     @property
+    def current_user(self) -> User | None:
+        """Return current user."""
+        return super().current_user
+
+    @current_user.setter
+    def current_user(self, value: User | None) -> None:
+        self._current_user = value
+
+    @property
     def webserver(self) -> Webserver:
         """Return the webserver component."""
         return self._webserver

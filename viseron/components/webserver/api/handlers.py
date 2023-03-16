@@ -22,10 +22,10 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 METHOD_ALLOWED_GROUPS = {
-    "GET": [Group.ADMIN.value, Group.WRITE.value, Group.READ.value],
-    "POST": [Group.ADMIN.value, Group.WRITE.value],
-    "PUT": [Group.ADMIN.value, Group.WRITE.value],
-    "DELETE": [Group.ADMIN.value, Group.WRITE.value],
+    "GET": [Group.ADMIN, Group.WRITE, Group.READ],
+    "POST": [Group.ADMIN, Group.WRITE],
+    "PUT": [Group.ADMIN, Group.WRITE],
+    "DELETE": [Group.ADMIN, Group.WRITE],
 }
 
 
@@ -39,8 +39,18 @@ class BaseAPIHandler(ViseronRequestHandler):
         super().initialize(vis)
         self.route: dict[str, Any] = {}
         self.request_arguments: dict[str, Any] = {}
-        self.json_body: dict[str, Any] = {}
+        self.json_body = {}
         self.browser_request = False
+
+    @property
+    def json_body(self) -> dict[str, Any]:
+        """Return JSON body."""
+        return self._json_body
+
+    @json_body.setter
+    def json_body(self, value):
+        """Set JSON body."""
+        self._json_body = value
 
     def response_success(
         self, *, status: HTTPStatus = HTTPStatus.OK, response=None, headers=None
@@ -177,8 +187,8 @@ class BaseAPIHandler(ViseronRequestHandler):
                         ):
                             LOGGER.debug(
                                 "Request with invalid permissions, endpoint requires"
-                                f" {requires_group}, user is in group"
-                                f" {self.current_user.group}"
+                                f" {METHOD_ALLOWED_GROUPS[self.request.method]}, user"
+                                f" is in group {self.current_user.group}"
                             )
                             self.response_error(
                                 HTTPStatus.FORBIDDEN, reason="Insufficient permissions"
@@ -261,7 +271,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                         exc_info=True,
                     )
                     self.response_error(
-                        HTTPStatus.INTERNAL_SERVER_ERROR, reason=str(error)
+                        HTTPStatus.INTERNAL_SERVER_ERROR, reason="Internal server error"
                     )
                     return
 
@@ -272,19 +282,19 @@ class BaseAPIHandler(ViseronRequestHandler):
             LOGGER.warning(f"Endpoint not found for URI: {self.request.uri}")
             self.handle_endpoint_not_found()
 
-    def delete(self, _path):
+    def delete(self):
         """Route DELETE requests."""
         self.route_request()
 
-    def get(self, _path):
+    def get(self):
         """Route GET requests."""
         self.route_request()
 
-    def post(self, _path):
+    def post(self):
         """Route POST requests."""
         self.route_request()
 
-    def put(self, _path):
+    def put(self):
         """Route PUT requests."""
         self.route_request()
 
@@ -292,6 +302,6 @@ class BaseAPIHandler(ViseronRequestHandler):
 class APINotFoundHandler(BaseAPIHandler):
     """Default handler."""
 
-    def get(self, _path):
+    def get(self):
         """Catch all methods."""
         self.response_error(HTTPStatus.NOT_FOUND, "Endpoint not found")

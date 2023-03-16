@@ -138,6 +138,10 @@ services:
       bash -c "pytest --cov=viseron/ --cov-report term-missing -s tests
       && coverage xml"
 
+  amd64-viseron-tests-tox:
+    <<: *amd64-viseron-tests
+    entrypoint: pytest
+
   amd64-viseron-vulture:
     <<: *amd64-viseron-tests
     entrypoint: ""

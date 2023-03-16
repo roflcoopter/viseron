@@ -65,7 +65,7 @@ def require_admin(func):
         """Check admin and call function."""
         if connection.webserver.auth:
             user = connection.current_user
-            if user is None or not user.group == Group.ADMIN.value:
+            if user is None or not user.group == Group.ADMIN:
                 raise Unauthorized()
 
         func(connection, message)
