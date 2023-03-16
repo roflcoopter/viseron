@@ -20,18 +20,22 @@ class MockComponent:
 class MockCamera(MagicMock):
     """Representation of a fake camera."""
 
-    def __init__(
+    def __init__(  # pylint: disable=dangerous-default-value
         self,
         identifier="test_camera_identifier",
         resolution=(1920, 1080),
         extension="mp4",
+        access_tokens=["test_access_token", "test_access_token_2"],
+        **kwargs,
     ):
-        """Initialize the mock component."""
+        """Initialize the mock camera."""
         super().__init__(
             recorder=MagicMock(),
             identifier=identifier,
             resolution=resolution,
             extension=extension,
+            access_tokens=access_tokens,
+            **kwargs,
         )
 
 

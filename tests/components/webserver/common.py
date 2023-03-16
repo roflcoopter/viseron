@@ -22,6 +22,8 @@ USER_NAME = "asd"
 REFRESH_TOKEN_ID = "77541fd8343543a7be6057270b23cdfe"
 CLIENT_ID = "http://dummy.lan:8888/"
 
+STATIC_ASSET_KEY = "static_asset_key"
+
 AUTH_STORAGE_DATA = {
     "version": 1,
     "data": {
@@ -46,7 +48,7 @@ AUTH_STORAGE_DATA = {
                 "id": REFRESH_TOKEN_ID,
                 "token": "token",
                 "jwt_key": "jwt_key",
-                "static_asset_key": "static_asset_key",
+                "static_asset_key": STATIC_ASSET_KEY,
                 "used_at": 1678196574.598274,
                 "used_by": "192.168.100.100",
             },
@@ -150,7 +152,16 @@ class TestAppBaseAuth(TestAppBase):
 
         kwargs["headers"][
             "Cookie"
-        ] = f"refresh_token={refresh_token_cookie}; user={USER_ID}"
+        ] = f"refresh_token={refresh_token_cookie};user={USER_ID};"
+
+        # Add optional static asset key cookie
+        static_asset_key_cookie = create_signed_value(
+            self._app.settings["cookie_secret"],
+            "static_asset_key",
+            kwargs.pop("static_asset_key_cookie", STATIC_ASSET_KEY),
+        ).decode()
+        kwargs["headers"]["Cookie"] += f"static_asset_key={static_asset_key_cookie};"
+
         kwargs["headers"]["Authorization"] = "Bearer " + access_token
 
         return self.fetch(path, raise_error, **kwargs)

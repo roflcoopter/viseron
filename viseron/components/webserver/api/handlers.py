@@ -271,7 +271,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                         exc_info=True,
                     )
                     self.response_error(
-                        HTTPStatus.INTERNAL_SERVER_ERROR, reason=str(error)
+                        HTTPStatus.INTERNAL_SERVER_ERROR, reason="Internal server error"
                     )
                     return
 
