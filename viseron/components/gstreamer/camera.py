@@ -10,7 +10,9 @@ import cv2
 import voluptuous as vol
 
 from viseron import Viseron
+from viseron.components.ffmpeg.camera import FFMPEG_LOGLEVEL_SCEHMA
 from viseron.components.ffmpeg.const import (
+    CONFIG_FFMPEG_LOGLEVEL,
     CONFIG_RECORDER_AUDIO_CODEC,
     CONFIG_RECORDER_AUDIO_FILTERS,
     CONFIG_RECORDER_CODEC,
@@ -18,6 +20,7 @@ from viseron.components.ffmpeg.const import (
     CONFIG_RECORDER_OUPTUT_ARGS,
     CONFIG_RECORDER_VIDEO_FILTERS,
     CONFIG_SEGMENTS_FOLDER,
+    DEFAULT_FFMPEG_LOGLEVEL,
     DEFAULT_RECORDER_AUDIO_CODEC,
     DEFAULT_RECORDER_AUDIO_FILTERS,
     DEFAULT_RECORDER_CODEC,
@@ -28,6 +31,7 @@ from viseron.components.ffmpeg.const import (
     DESC_RECORDER_AUDIO_CODEC,
     DESC_RECORDER_AUDIO_FILTERS,
     DESC_RECORDER_CODEC,
+    DESC_RECORDER_FFMPEG_LOGLEVEL,
     DESC_RECORDER_HWACCEL_ARGS,
     DESC_RECORDER_OUTPUT_ARGS,
     DESC_RECORDER_VIDEO_FILTERS,
@@ -218,6 +222,11 @@ RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
         vol.Optional(
             CONFIG_MUXER, default=DEFAULT_MUXER, description=DESC_MUXER
         ): vol.In(["mp4mux", "avimux"]),
+        vol.Optional(
+            CONFIG_FFMPEG_LOGLEVEL,
+            default=DEFAULT_FFMPEG_LOGLEVEL,
+            description=DESC_RECORDER_FFMPEG_LOGLEVEL,
+        ): FFMPEG_LOGLEVEL_SCEHMA,
     }
 )
 

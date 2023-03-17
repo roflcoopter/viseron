@@ -188,6 +188,10 @@ DESC_SEGMENTS_FOLDER = (
     "What folder to store FFmpeg segments in. "
     "Segments are used to produce recordings so you should not need to change this."
 )
+DESC_RECORDER_FFMPEG_LOGLEVEL = (
+    "Sets the FFmpeg loglevel for the recorder.<br>Should only be used in debugging"
+    " purposes."
+)
 
 
 # CAMERA_SCHEMA constants
