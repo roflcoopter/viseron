@@ -506,6 +506,51 @@
                                         "description": "GStreamer segment muxer.",
                                         "optional": true,
                                         "default": "mp4mux"
+                                    },
+                                    {
+                                        "type": "select",
+                                        "options": [
+                                            {
+                                                "type": "constant",
+                                                "value": "quiet"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "panic"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "fatal"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "error"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "warning"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "info"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "verbose"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "debug"
+                                            },
+                                            {
+                                                "type": "constant",
+                                                "value": "trace"
+                                            }
+                                        ],
+                                        "name": "ffmpeg_loglevel",
+                                        "description": "Sets the FFmpeg loglevel for the recorder.<br>Should only be used in debugging purposes.",
+                                        "optional": true,
+                                        "default": "error"
                                     }
                                 ],
                                 "name": "recorder",

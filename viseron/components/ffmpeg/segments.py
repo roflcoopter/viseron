@@ -17,6 +17,7 @@ from viseron.domains.camera.recorder import EventRecorderData
 
 from .const import (
     CAMERA_SEGMENT_DURATION,
+    CONFIG_FFMPEG_LOGLEVEL,
     CONFIG_RECORDER,
     CONFIG_RECORDER_AUDIO_CODEC,
     CONFIG_RECORDER_AUDIO_FILTERS,
@@ -209,7 +210,7 @@ class Segments:
                 "ffmpeg",
                 "-hide_banner",
                 "-loglevel",
-                "error",
+                self._config[CONFIG_RECORDER][CONFIG_FFMPEG_LOGLEVEL],
                 "-y",
             ]
             + self._config[CONFIG_RECORDER][CONFIG_RECORDER_HWACCEL_ARGS]
