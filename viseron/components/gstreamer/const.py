@@ -86,6 +86,8 @@ CONFIG_AUDIO_PIPELINE = "audio_pipeline"
 CONFIG_RTSP_TRANSPORT = "rtsp_transport"
 CONFIG_FRAME_TIMEOUT = "frame_timeout"
 CONFIG_OUTPUT_ELEMENT = "output_element"
+CONFIG_RAW_PIPELINE = "raw_pipeline"
+
 
 DEFAULT_STREAM_FORMAT = "rtsp"
 DEFAULT_PROTOCOL = None
@@ -98,6 +100,7 @@ DEFAULT_AUDIO_PIPELINE = "unset"
 DEFAULT_RTSP_TRANSPORT = "tcp"
 DEFAULT_FRAME_TIMEOUT = 60
 DEFAULT_OUTPUT_ELEMENT: str = ""
+DEFAULT_RAW_PIPELINE = None
 
 DESC_STREAM_FORMAT = "Stream format."
 DESC_PROTOCOL = "Stream protocol"
@@ -140,6 +143,11 @@ DESC_OUTPUT_ELEMENT = (
     "A GStreamer pipeline element that is added to the generated pipeline. "
     "It can be used to perform additional filtering on the frames that Viseron is "
     "processing."
+)
+DESC_RAW_PIPELINE = (
+    "A raw GStreamer pipeline that will be used instead of the generated pipeline. "
+    "This is an advanced option and should only be used if you know what you are doing."
+    " See <a href=#raw-pipeline>Raw pipeline</a> for more information."
 )
 
 

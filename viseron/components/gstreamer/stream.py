@@ -40,6 +40,7 @@ from .const import (
     CONFIG_PATH,
     CONFIG_PORT,
     CONFIG_PROTOCOL,
+    CONFIG_RAW_PIPELINE,
     CONFIG_STREAM_FORMAT,
     CONFIG_USERNAME,
     CONFIG_WIDTH,
@@ -51,7 +52,7 @@ from .const import (
     PIXEL_FORMAT,
     STREAM_FORMAT_MAP,
 )
-from .pipeline import BasePipeline, JetsonPipeline
+from .pipeline import BasePipeline, JetsonPipeline, RawPipeline
 
 
 class Stream:
@@ -137,7 +138,9 @@ class Stream:
         self._frame_bytes_size = int(self.width * self.height * 1.5)
 
         # For now only the Nano has a specific pipeline
-        if os.getenv(ENV_RASPBERRYPI3) == "true":
+        if self._config[CONFIG_RAW_PIPELINE]:
+            self._pipeline = RawPipeline(vis, config, self, camera_identifier)
+        elif os.getenv(ENV_RASPBERRYPI3) == "true":
             self._pipeline = BasePipeline(vis, config, self, camera_identifier)
         elif os.getenv(ENV_RASPBERRYPI4) == "true":
             self._pipeline = BasePipeline(vis, config, self, camera_identifier)

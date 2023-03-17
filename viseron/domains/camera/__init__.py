@@ -95,6 +95,7 @@ from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.domains.object_detector.detected_object import DetectedObject
 
     from .recorder import AbstractRecorder
@@ -280,6 +281,11 @@ class AbstractCamera(ABC):
         self.access_tokens.append(self.generate_token())
         self._access_token_entity.set_state()
 
+    def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]):
+        """Calculate the camera output fps based on registered frame scanners."""
+        highest_fps = max(scanner.scan_fps for scanner in scanners)
+        self.output_fps = highest_fps
+
     @abstractmethod
     def start_camera(self):
         """Start camera streaming."""
@@ -324,6 +330,10 @@ class AbstractCamera(ABC):
     @abstractmethod
     def output_fps(self):
         """Return stream output fps."""
+
+    @output_fps.setter
+    def output_fps(self, fps):
+        """Set stream output fps."""
 
     @property
     @abstractmethod

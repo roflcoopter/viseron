@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from viseron.components.ffmpeg.const import (
@@ -17,6 +18,7 @@ from .const import (
     CONFIG_GSTREAMER_LOGLEVEL,
     CONFIG_MUXER,
     CONFIG_OUTPUT_ELEMENT,
+    CONFIG_RAW_PIPELINE,
     CONFIG_RECORDER,
     CONFIG_RTSP_TRANSPORT,
     CONFIG_STREAM_FORMAT,
@@ -33,7 +35,29 @@ if TYPE_CHECKING:
     from viseron.components.gstreamer.stream import Stream
 
 
-class BasePipeline:
+class AbstractPipeline(ABC):
+    """Abstract GStreamer pipeline."""
+
+    @abstractmethod
+    def build_pipeline(self):
+        """Build pipeline."""
+
+
+class RawPipeline(AbstractPipeline):
+    """Raw GStreamer pipeline."""
+
+    def __init__(self, vis, config, stream: Stream, camera_identifier):
+        self._vis = vis
+        self._config = config
+        self._stream = stream
+        self._camera = vis.data[COMPONENT][camera_identifier]
+
+    def build_pipeline(self):
+        """Build pipeline."""
+        return self._config[CONFIG_RAW_PIPELINE].split(" ")
+
+
+class BasePipeline(AbstractPipeline):
     """Base GStreamer pipeline."""
 
     def __init__(self, vis, config, stream: Stream, camera_identifier):
