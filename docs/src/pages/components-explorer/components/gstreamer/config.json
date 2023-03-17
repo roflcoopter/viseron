@@ -244,6 +244,13 @@
                             },
                             {
                                 "type": "string",
+                                "name": "raw_pipeline",
+                                "description": "A raw GStreamer pipeline that will be used instead of the generated pipeline. This is an advanced option and should only be used if you know what you are doing. See <a href=#raw-pipeline>Raw pipeline</a> for more information.",
+                                "optional": true,
+                                "default": null
+                            },
+                            {
+                                "type": "string",
                                 "name": "username",
                                 "description": "Username for the camera stream.",
                                 "optional": true,

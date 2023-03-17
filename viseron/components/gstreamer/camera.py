@@ -65,6 +65,7 @@ from .const import (
     CONFIG_PATH,
     CONFIG_PORT,
     CONFIG_PROTOCOL,
+    CONFIG_RAW_PIPELINE,
     CONFIG_RECORDER,
     CONFIG_RTSP_TRANSPORT,
     CONFIG_STREAM_FORMAT,
@@ -83,6 +84,7 @@ from .const import (
     DEFAULT_OUTPUT_ELEMENT,
     DEFAULT_PASSWORD,
     DEFAULT_PROTOCOL,
+    DEFAULT_RAW_PIPELINE,
     DEFAULT_RTSP_TRANSPORT,
     DEFAULT_STREAM_FORMAT,
     DEFAULT_USERNAME,
@@ -103,6 +105,7 @@ from .const import (
     DESC_PATH,
     DESC_PORT,
     DESC_PROTOCOL,
+    DESC_RAW_PIPELINE,
     DESC_RECORDER,
     DESC_RTSP_TRANSPORT,
     DESC_SEGMENTS_FOLDER,
@@ -116,6 +119,7 @@ from .recorder import Recorder
 from .stream import Stream
 
 if TYPE_CHECKING:
+    from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.object_detector.detected_object import DetectedObject
 
@@ -167,6 +171,11 @@ STREAM_SCEHMA_DICT = {
         default=DEFAULT_FRAME_TIMEOUT,
         description=DESC_FRAME_TIMEOUT,
     ): vol.All(int, vol.Range(1, 60)),
+    vol.Optional(
+        CONFIG_RAW_PIPELINE,
+        default=DEFAULT_RAW_PIPELINE,
+        description=DESC_RAW_PIPELINE,
+    ): Maybe(str),
 }
 
 RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
@@ -262,9 +271,9 @@ def setup(vis: Viseron, config, identifier):
 class Camera(AbstractCamera):
     """Represents a camera which is consumed via GStreamer."""
 
-    def __init__(self, vis, config, identifier):
+    def __init__(self, vis: Viseron, config, identifier):
         self._poll_timer = None
-        self._frame_reader = None
+        self._frame_reader: RestartableThread | None = None
 
         super().__init__(vis, COMPONENT, config, identifier)
         self._capture_frames = False
@@ -374,6 +383,17 @@ class Camera(AbstractCamera):
         if now - self._poll_timer > self._config[CONFIG_FRAME_TIMEOUT]:
             return True
         return False
+
+    def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]):
+        """Calculate the camera output fps based on registered frame scanners.
+
+        Overrides AbstractCamera.calculate_output_fps since we can't use the default
+        implementation if the user has entered a raw pipeline.
+        """
+        if self._config[CONFIG_RAW_PIPELINE]:
+            return self.stream.fps
+
+        return super().calculate_output_fps(scanners)
 
     def start_camera(self):
         """Start capturing frames from camera."""
