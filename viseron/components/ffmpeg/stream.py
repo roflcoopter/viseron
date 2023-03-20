@@ -29,7 +29,6 @@ from viseron.watchdog.subprocess_watchdog import RestartablePopen
 from .const import (
     CAMERA_INPUT_ARGS,
     CAMERA_SEGMENT_ARGS,
-    COMPONENT,
     CONFIG_AUDIO_CODEC,
     CONFIG_CODEC,
     CONFIG_FFMPEG_LOGLEVEL,
@@ -68,14 +67,13 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from viseron import Viseron
     from viseron.components.ffmpeg.camera import Camera
 
 
 class Stream:
     """Represents a stream of frames from a camera."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier):
+    def __init__(self, config, camera: Camera, camera_identifier):
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.addFilter(
             UnhelpfullLogFilter(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS])
@@ -83,8 +81,7 @@ class Stream:
         self._config = config
         self._camera_identifier = camera_identifier
 
-        self._camera: Camera = vis.data[COMPONENT][camera_identifier]
-        self._recorder = vis.data[COMPONENT][camera_identifier].recorder
+        self._camera: Camera = camera
 
         self._pipe = None
         self._segment_process = None

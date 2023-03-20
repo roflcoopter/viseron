@@ -24,6 +24,7 @@ from viseron.domains.camera.const import (
     EVENT_CAMERA_STARTED,
     EVENT_CAMERA_STOPPED,
 )
+from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict, Maybe
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -290,7 +291,10 @@ CONFIG_SCHEMA = vol.Schema(
 
 def setup(vis: Viseron, config, identifier):
     """Set up the ffmpeg camera domain."""
-    Camera(vis, config[identifier], identifier)
+    try:
+        Camera(vis, config[identifier], identifier)
+    except (FFprobeError, FFprobeTimeout) as error:
+        raise DomainNotReady from error
     return True
 
 
@@ -300,7 +304,10 @@ class Camera(AbstractCamera):
     def __init__(self, vis: Viseron, config, identifier):
         self._poll_timer = None
         self._frame_reader = None
-        self.stream = None
+        # Stream must be initialized before super().__init__ is called as it raises
+        # FFprobeError/FFprobeTimeout which is caught in setup() and re-raised as
+        # DomainNotReady
+        self.stream = Stream(config, self, identifier)
 
         super().__init__(vis, COMPONENT, config, identifier)
         self._capture_frames = False
@@ -332,8 +339,6 @@ class Camera(AbstractCamera):
         """Start processing of camera frames."""
         self._poll_timer = None
         self._logger.debug(f"Initializing camera {self.name}")
-
-        self.stream = Stream(self._vis, self._config, self.identifier)
 
         self.resolution = self.stream.width, self.stream.height
         self._logger.debug(
