@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from viseron.components.ffmpeg.const import (
-    COMPONENT,
     CONFIG_AUDIO_CODEC,
     CONFIG_CODEC,
     CONFIG_FFMPEG_LOGLEVEL,
@@ -113,7 +112,6 @@ class TestStream:
     )
     def test_init(
         self,
-        vis,
         config,
         stream_information,
         expected_width,
@@ -125,9 +123,6 @@ class TestStream:
     ):
         """Test that the stream is correctly initialized."""
         mocked_camera = MockCamera(identifier="test_camera_identifier")
-        vis.data[COMPONENT] = {}
-        vis.data[COMPONENT]["test_camera_identifier"] = mocked_camera
-
         with raises, patch.object(
             Stream, "get_stream_information", MagicMock(return_value=stream_information)
         ) as mock_get_stream_information, patch.object(
@@ -135,7 +130,7 @@ class TestStream:
         ), patch.object(
             Stream, "output_stream_url", MagicMock()
         ):
-            stream = Stream(vis, config, "test_camera_identifier")
+            stream = Stream(config, mocked_camera, "test_camera_identifier")
             mock_get_stream_information.assert_called_once()
             assert stream._camera == mocked_camera  # pylint: disable=protected-access
             assert stream.width == expected_width
@@ -158,15 +153,13 @@ class TestStream:
     ):
         """Test that the correct audio codec is returned."""
         mocked_camera = MockCamera(identifier="test_camera_identifier")
-        vis.data[COMPONENT] = {}
-        vis.data[COMPONENT]["test_camera_identifier"] = mocked_camera
         config = CONFIG
         config[CONFIG_AUDIO_CODEC] = config_audio_codec
 
         with patch.object(
             Stream, "__init__", MagicMock(spec=Stream, return_value=None)
         ):
-            stream = Stream(vis, config, "test_camera_identifier")
+            stream = Stream(config, mocked_camera, "test_camera_identifier")
             stream._logger = MagicMock()  # pylint: disable=protected-access
             assert (
                 stream.get_audio_codec(config, stream_audio_codec, extension)

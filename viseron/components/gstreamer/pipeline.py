@@ -12,7 +12,6 @@ from viseron.components.ffmpeg.const import (
 from viseron.domains.camera.const import CONFIG_EXTENSION
 
 from .const import (
-    COMPONENT,
     CONFIG_AUDIO_CODEC,
     CONFIG_AUDIO_PIPELINE,
     CONFIG_GSTREAMER_LOGLEVEL,
@@ -46,11 +45,8 @@ class AbstractPipeline(ABC):
 class RawPipeline(AbstractPipeline):
     """Raw GStreamer pipeline."""
 
-    def __init__(self, vis, config, stream: Stream, camera_identifier):
-        self._vis = vis
+    def __init__(self, config):
         self._config = config
-        self._stream = stream
-        self._camera = vis.data[COMPONENT][camera_identifier]
 
     def build_pipeline(self):
         """Build pipeline."""
@@ -60,11 +56,10 @@ class RawPipeline(AbstractPipeline):
 class BasePipeline(AbstractPipeline):
     """Base GStreamer pipeline."""
 
-    def __init__(self, vis, config, stream: Stream, camera_identifier):
-        self._vis = vis
+    def __init__(self, config, stream: Stream, camera_identifier):
         self._config = config
         self._stream = stream
-        self._camera = vis.data[COMPONENT][camera_identifier]
+        self._camera_identifier = camera_identifier
 
     def global_args(self):
         """Return GStreamer global args."""
@@ -198,7 +193,7 @@ class BasePipeline(AbstractPipeline):
         """Generate GStreamer segment args."""
         segment_filepattern = os.path.join(
             self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
-            self._camera.identifier,
+            self._camera_identifier,
             f"%01d.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
         )
         return (

@@ -24,7 +24,12 @@ class ComponentNotReady(NotReadyError):
 
 
 class DomainNotReady(NotReadyError):
-    """Error that indicates that a domain is not ready."""
+    """Error that indicates that a domain is not ready.
+
+    It is VERY important that this exception is never raised after
+    add_entity/add_entities is called, since that will cause the entity to be added
+    twice and cause issues.
+    """
 
 
 class DataStreamNotLoaded(ViseronError):
