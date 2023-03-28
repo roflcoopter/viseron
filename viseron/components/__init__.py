@@ -1,15 +1,15 @@
 """Viseron components."""
 from __future__ import annotations
 
-import concurrent
 import importlib
 import logging
 import threading
 import time
 import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from timeit import default_timer as timer
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal
 
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
@@ -17,11 +17,15 @@ from voluptuous.humanize import humanize_error
 from viseron.const import (
     COMPONENT_RETRY_INTERVAL,
     COMPONENT_RETRY_INTERVAL_MAX,
+    DOMAIN_FAILED,
     DOMAIN_IDENTIFIERS,
+    DOMAIN_LOADED,
+    DOMAIN_LOADING,
     DOMAIN_RETRY_INTERVAL,
     DOMAIN_RETRY_INTERVAL_MAX,
     DOMAIN_SETUP_TASKS,
     DOMAINS_TO_SETUP,
+    EVENT_DOMAIN_SETUP_STATUS,
     FAILED,
     LOADED,
     LOADING,
@@ -33,6 +37,7 @@ from viseron.exceptions import ComponentNotReady, DomainNotReady
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains import OptionalDomain, RequireDomain
+    from viseron.domains.camera import FailedCamera
 
 
 @dataclass
@@ -45,6 +50,21 @@ class DomainToSetup:
     identifier: str
     require_domains: list[RequireDomain]
     optional_domains: list[OptionalDomain]
+    error: str | None = None
+    error_instance: FailedCamera | None = None
+    retrying = False
+
+    def as_dict(self):
+        """Return as dict."""
+        return {
+            "component": self.component.name,
+            "domain": self.domain,
+            "config": self.config,
+            "identifier": self.identifier,
+            "require_domains": self.require_domains,
+            "optional_domains": self.optional_domains,
+            "error": self.error,
+        }
 
 
 LOGGING_COMPONENTS = {"logger"}
@@ -61,7 +81,7 @@ LOGGER = logging.getLogger(__name__)
 class Component:
     """Represents a Viseron component."""
 
-    def __init__(self, vis, path, name, config):
+    def __init__(self, vis: Viseron, path, name, config):
         self._vis = vis
         self._path = path
         self._name = name
@@ -114,8 +134,10 @@ class Component:
             SLOW_SETUP_WARNING,
             LOGGER.warning,
             (
-                f"Setup of component {self.name} "
-                f"is taking longer than {SLOW_SETUP_WARNING} seconds",
+                (
+                    f"Setup of component {self.name} "
+                    f"is taking longer than {SLOW_SETUP_WARNING} seconds"
+                ),
             ),
         )
 
@@ -211,24 +233,26 @@ class Component:
         """Return domain module."""
         return importlib.import_module(f"{self._path}.{domain}")
 
-    def validate_domain_config(self, config, domain, domain_module):
+    def validate_domain_config(
+        self, config, domain, domain_module
+    ) -> tuple[dict[str, Any], None] | tuple[None, str]:
         """Validate domain config."""
         if hasattr(domain_module, "CONFIG_SCHEMA"):
             try:
-                return domain_module.CONFIG_SCHEMA(config)  # type: ignore
+                return domain_module.CONFIG_SCHEMA(config), None  # type: ignore
             except vol.Invalid as ex:
-                LOGGER.exception(
+                error = (
                     f"Error validating config for domain {domain} and "
                     f"component {self.name}: "
                     f"{humanize_error(self._config, ex)}"
                 )
-                return None
+                LOGGER.exception(error)
+                return None, error
             except Exception:  # pylint: disable=broad-except
-                LOGGER.exception(
-                    "Unknown error calling %s.%s CONFIG_SCHEMA", self.name, domain
-                )
-                return None
-        return config
+                error = f"Unknown error calling {self.name}.{domain} CONFIG_SCHEMA"
+                LOGGER.exception(error)
+                return None, error
+        return config, None
 
     def _setup_dependencies(self, domain_to_setup: DomainToSetup):
         """Await the setup of all dependencies."""
@@ -310,9 +334,7 @@ class Component:
         )
         failed = []
         for future in list(
-            concurrent.futures.as_completed(
-                dependencies_futures + optional_dependencies_futures
-            )
+            as_completed(dependencies_futures + optional_dependencies_futures)
         ):
             if future.result() is True:
                 continue
@@ -348,8 +370,10 @@ class Component:
             (f", attempt {tries}" if tries > 1 else ""),
         )
 
+        domain_setup_status(self._vis, domain_to_setup, DOMAIN_LOADING)
+
         domain_module = self.get_domain(domain_to_setup.domain)
-        config = self.validate_domain_config(
+        config, config_error = self.validate_domain_config(
             domain_to_setup.config, domain_to_setup.domain, domain_module
         )
 
@@ -380,14 +404,14 @@ class Component:
         if config:
             try:
                 slow_setup_warning.start()
-                if domain_to_setup.identifier:
-                    result = domain_module.setup(
-                        self._vis, config, domain_to_setup.identifier
-                    )
-                else:
-                    result = domain_module.setup(self._vis, config)
+                result = domain_module.setup(
+                    self._vis, config, domain_to_setup.identifier
+                )
             except DomainNotReady as error:
                 # Cancel the slow setup warning here since the retrying blocks
+                domain_to_setup.error = str(error)
+                domain_to_setup.retrying = True
+                domain_setup_status(self._vis, domain_to_setup, DOMAIN_FAILED)
                 slow_setup_warning.cancel()
                 wait_time = min(
                     tries * DOMAIN_RETRY_INTERVAL, DOMAIN_RETRY_INTERVAL_MAX
@@ -401,18 +425,19 @@ class Component:
                 time.sleep(wait_time)
                 # Running with ThreadPoolExecutor and awaiting the future does not
                 # cause a max recursion error if we retry for a long time
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                with ThreadPoolExecutor(max_workers=1) as executor:
                     future = executor.submit(
                         self.setup_domain,
                         domain_to_setup,
                         tries=tries + 1,
                     )
                     return future.result()
-            except Exception as ex:  # pylint: disable=broad-except
+            except Exception as error:  # pylint: disable=broad-except
                 LOGGER.exception(
                     f"Uncaught exception setting up domain {domain_to_setup.domain} for"
-                    f" component {self.name}: {ex}"
+                    f" component {self.name}: {error}"
                 )
+                domain_to_setup.error = str(error)
                 try:
                     self._vis.data[DOMAIN_IDENTIFIERS][domain_to_setup.domain].remove(
                         domain_to_setup.identifier
@@ -421,6 +446,8 @@ class Component:
                     pass
             finally:
                 slow_setup_warning.cancel()
+        else:
+            domain_to_setup.error = config_error
 
         end = timer()
 
@@ -436,6 +463,7 @@ class Component:
                 ),
                 end - start,
             )
+            domain_setup_status(self._vis, domain_to_setup, DOMAIN_LOADED)
             return True
 
         if result is False:
@@ -449,6 +477,9 @@ class Component:
                     else ""
                 ),
             )
+            self._vis.data[DOMAIN_FAILED][domain_to_setup.identifier] = domain_to_setup
+            self._vis.data[DOMAIN_LOADING].pop(domain_to_setup.domain, None)
+            domain_setup_status(self._vis, domain_to_setup, DOMAIN_FAILED)
             return False
 
         LOGGER.error(
@@ -456,10 +487,11 @@ class Component:
             domain_to_setup.domain,
             self.name,
         )
+        domain_setup_status(self._vis, domain_to_setup, DOMAIN_FAILED)
         return False
 
 
-def get_component(vis, component, config):
+def get_component(vis, component: Component, config):
     """Get configured component."""
     from viseron import (  # pylint: disable=import-outside-toplevel,import-self
         components,
@@ -492,8 +524,9 @@ def setup_component(vis, component: Component, tries=1):
         del vis.data[LOADING][component.name]
 
 
-def domain_dependencies(vis):
+def domain_dependencies(vis: Viseron):
     """Check that domain dependencies are resolved."""
+    domain_to_setup: DomainToSetup
     for domain in vis.data[DOMAINS_TO_SETUP]:
         for domain_to_setup in vis.data[DOMAINS_TO_SETUP][domain].values():
             if domain_to_setup.identifier:
@@ -512,13 +545,16 @@ def domain_dependencies(vis):
                     in vis.data[DOMAIN_IDENTIFIERS][require_domain.domain]
                 ):
                     continue
-                LOGGER.error(
+                error = (
                     f"Domain {domain_to_setup.domain} "
                     f"for component {domain_to_setup.component.name} "
                     f"requires domain {require_domain.domain} with "
                     f"identifier {require_domain.identifier} but it has not been setup"
                 )
+                LOGGER.error(error)
+                domain_to_setup.error = error
                 try:
+                    domain_setup_status(vis, domain_to_setup, DOMAIN_FAILED)
                     domain_to_setup.component.domains_to_setup.remove(domain_to_setup)
                     del vis.data[DOMAINS_TO_SETUP][domain_to_setup.domain][
                         domain_to_setup.identifier
@@ -530,20 +566,24 @@ def domain_dependencies(vis):
                     )
 
 
-def _setup_domain(vis, executor, domain_to_setup: DomainToSetup):
+def _setup_domain(
+    vis: Viseron, executor: ThreadPoolExecutor, domain_to_setup: DomainToSetup
+):
     with DOMAIN_SETUP_LOCK:
         future = executor.submit(
             domain_to_setup.component.setup_domain,
             domain_to_setup,
         )
-        future.domain = domain_to_setup.domain
-        future.identifier = domain_to_setup.identifier
+        setattr(future, "domain", domain_to_setup.domain)
+        setattr(future, "identifier", domain_to_setup.identifier)
         vis.data[DOMAIN_SETUP_TASKS].setdefault(domain_to_setup.domain, {})[
             domain_to_setup.identifier
         ] = future
 
 
-def setup_domain(vis, executor, domain_to_setup: DomainToSetup):
+def setup_domain(
+    vis: Viseron, executor: ThreadPoolExecutor, domain_to_setup: DomainToSetup
+):
     """Set up single domain and all its dependencies."""
     with DOMAIN_SETUP_LOCK:
         if domain_to_setup.identifier in vis.data[DOMAIN_SETUP_TASKS].get(
@@ -577,16 +617,17 @@ def setup_domain(vis, executor, domain_to_setup: DomainToSetup):
     _setup_domain(vis, executor, domain_to_setup)
 
 
-def setup_domains(vis):
+def setup_domains(vis: Viseron):
     """Set up all domains."""
+    # Check that all domain dependencies are resolved
     domain_dependencies(vis)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+    with ThreadPoolExecutor(max_workers=100) as executor:
         for domain in vis.data[DOMAINS_TO_SETUP]:
             for domain_to_setup in vis.data[DOMAINS_TO_SETUP][domain].values():
                 setup_domain(vis, executor, domain_to_setup)
 
-        for future in concurrent.futures.as_completed(
+        for future in as_completed(
             [
                 future
                 for domain in vis.data[DOMAIN_SETUP_TASKS]
@@ -636,10 +677,57 @@ def setup_components(vis: Viseron, config):
         if thread.is_alive():
             LOGGER.error(f"{thread.name} did not finish in time")
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+    with ThreadPoolExecutor(max_workers=100) as executor:
         setup_thread_future = {
             executor.submit(join, setup_thread): setup_thread
             for setup_thread in setup_threads
         }
-        for future in concurrent.futures.as_completed(setup_thread_future):
+        for future in as_completed(setup_thread_future):
             future.result()
+
+
+def domain_setup_status(
+    vis: Viseron,
+    domain: DomainToSetup,
+    status: Literal["domain_loading", "domain_loaded", "domain_failed"],
+):
+    """Set the status of a domain setup.
+
+    Sends an event when a domains setup status changes.
+    """
+
+    def handle_failed_domain():
+        """Handle failed domain setup.
+
+        Domains can have a setup_failed function that is called when the domain setup
+        fails. The error_instance attribute is stored on the DomainToSetup object and
+        can be used to give access to partial functionality of the domain
+        (eg the recorder of a camera).
+        """
+        domain_module = importlib.import_module(f"viseron.domains.{domain.domain}")
+        if hasattr(domain_module, "setup_failed"):
+            domain.error_instance = domain_module.setup_failed(vis, domain)
+
+    vis.data[DOMAIN_LOADING].setdefault(domain.domain, {})
+    vis.data[DOMAIN_LOADED].setdefault(domain.domain, {})
+    vis.data[DOMAIN_FAILED].setdefault(domain.domain, {})
+
+    if status == DOMAIN_LOADING:
+        vis.data[DOMAIN_LOADING][domain.domain][domain.identifier] = domain
+    elif status == DOMAIN_LOADED:
+        vis.data[DOMAIN_LOADED][domain.domain][domain.identifier] = domain
+        vis.data[DOMAIN_LOADING][domain.domain].pop(domain.identifier, None)
+        vis.data[DOMAIN_FAILED][domain.domain].pop(domain.identifier, None)
+    elif status == DOMAIN_FAILED:
+        vis.data[DOMAIN_LOADING][domain.domain].pop(domain.identifier, None)
+        vis.data[DOMAIN_FAILED][domain.domain][domain.identifier] = domain
+        handle_failed_domain()
+    else:
+        raise ValueError(f"Invalid domain status: {status}")
+
+    vis.dispatch_event(
+        EVENT_DOMAIN_SETUP_STATUS.format(
+            status=status, domain=domain.domain, identifier=domain.identifier
+        ),
+        domain,
+    )

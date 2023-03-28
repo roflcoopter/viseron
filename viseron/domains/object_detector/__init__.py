@@ -13,7 +13,6 @@ import voluptuous as vol
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, OBJECT_DETECTOR
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
@@ -94,6 +93,7 @@ from .zone import Zone
 if TYPE_CHECKING:
     from viseron import Event, Viseron
     from viseron.components.nvr.nvr import EventScanFrames
+    from viseron.domains.camera import AbstractCamera
 
 
 def ensure_min_max(label: dict) -> dict:

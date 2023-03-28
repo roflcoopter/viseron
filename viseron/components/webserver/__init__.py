@@ -19,7 +19,13 @@ from viseron.components.webserver.auth import Auth
 from viseron.components.webserver.static_file_handler import (
     AccessTokenStaticFileHandler,
 )
-from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_SHUTDOWN
+from viseron.const import (
+    DOMAIN_FAILED,
+    EVENT_DOMAIN_REGISTERED,
+    EVENT_DOMAIN_SETUP_STATUS,
+    VISERON_SIGNAL_SHUTDOWN,
+)
+from viseron.domains.camera import AbstractCamera, FailedCamera
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers.storage import Storage
@@ -70,7 +76,7 @@ from .websocket_api.commands import (
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
-    from viseron.domains.camera import AbstractCamera
+    from viseron.components import DomainToSetup
 
 
 LOGGER = logging.getLogger(__name__)
@@ -257,6 +263,12 @@ class Webserver(threading.Thread):
         self._vis.listen_event(
             EVENT_DOMAIN_REGISTERED.format(domain=CAMERA_DOMAIN), self.camera_registered
         )
+        self._vis.listen_event(
+            EVENT_DOMAIN_SETUP_STATUS.format(
+                status=DOMAIN_FAILED, domain=CAMERA_DOMAIN, identifier="*"
+            ),
+            self.camera_registered,
+        )
 
     @property
     def auth(self):
@@ -271,27 +283,41 @@ class Webserver(threading.Thread):
 
         self._vis.data[WEBSOCKET_COMMANDS][handler.command] = (handler, handler.schema)
 
-    def _serve_camera_recordings(self, camera: AbstractCamera):
+    def _serve_camera_recordings(
+        self, camera: AbstractCamera | FailedCamera, failed=False
+    ):
         """Serve recordings of each camera in a static file handler."""
         self.application.add_handlers(
             r".*",
             [
                 (
-                    rf"/recordings/{camera.identifier}/(.*/.*)",
+                    (
+                        rf"\/recordings\/{camera.identifier}\/"
+                        rf"(.*\/.*\.(mp4$|mkv$|mov$|jpg$|{camera.extension}$))"
+                    ),
                     AccessTokenStaticFileHandler,
                     {
                         "path": camera.recorder.recordings_folder,
                         "vis": self._vis,
                         "camera_identifier": camera.identifier,
+                        "failed": failed,
                     },
                 )
             ],
         )
 
-    def camera_registered(self, event_data: Event):
+    def camera_registered(self, event_data: Event[AbstractCamera | DomainToSetup]):
         """Handle camera registering."""
-        camera: AbstractCamera = event_data.data
-        self._serve_camera_recordings(camera)
+        camera: AbstractCamera | FailedCamera | None = None
+        failed = False
+        if isinstance(event_data.data, AbstractCamera):
+            camera = event_data.data
+        else:
+            camera = event_data.data.error_instance
+            failed = True
+
+        if camera:
+            self._serve_camera_recordings(camera, failed)
 
     def run(self):
         """Start ioloop."""

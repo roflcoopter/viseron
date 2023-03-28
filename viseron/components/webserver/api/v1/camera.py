@@ -7,6 +7,7 @@ from http import HTTPStatus
 import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.helpers.validators import request_argument_bool
 
 LOGGER = logging.getLogger(__name__)
 
@@ -34,6 +35,11 @@ class CameraAPIHandler(BaseAPIHandler):
             "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)",
             "supported_methods": ["GET"],
             "method": "get_camera",
+            "request_arguments_schema": vol.Schema(
+                {
+                    vol.Optional("failed", default=False): request_argument_bool,
+                },
+            ),
         },
     ]
 
@@ -64,7 +70,9 @@ class CameraAPIHandler(BaseAPIHandler):
 
     def get_camera(self, camera_identifier: str):
         """Return camera."""
-        camera = self._get_camera(camera_identifier)
+        camera = self._get_camera(
+            camera_identifier, failed=self.request_arguments["failed"]
+        )
 
         if not camera:
             self.response_error(

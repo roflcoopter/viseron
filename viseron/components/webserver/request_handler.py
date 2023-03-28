@@ -5,13 +5,14 @@ import hmac
 import logging
 from datetime import datetime, timedelta
 from http import HTTPStatus
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, overload
 
 import tornado.web
 from tornado.ioloop import IOLoop
 
 from viseron.components.webserver.const import COMPONENT
-from viseron.domains.camera import AbstractCamera
+from viseron.const import DOMAIN_FAILED
+from viseron.domains.camera import FailedCamera
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
 
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.auth import RefreshToken, User
+    from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -185,12 +187,41 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         except DomainNotRegisteredError:
             return None
 
-    def _get_camera(self, camera_identifier: str):
-        """Get camera instance."""
+    @overload
+    def _get_camera(self, camera_identifier: str) -> AbstractCamera | None:
+        ...
+
+    @overload
+    def _get_camera(
+        self, camera_identifier: str, failed: Literal[False]
+    ) -> AbstractCamera | None:
+        ...
+
+    @overload
+    def _get_camera(
+        self, camera_identifier: str, failed: Literal[True]
+    ) -> AbstractCamera | FailedCamera | None:
+        ...
+
+    def _get_camera(self, camera_identifier: str, failed: bool = False):
+        """Get camera instance.
+
+        If failed is True, check for failed camera instances
+        if the camera is not found.
+        """
+        camera = None
         try:
-            return self._vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
+            camera = self._vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
         except DomainNotRegisteredError:
-            return None
+            if failed:
+                domain_to_setup = (
+                    self._vis.data[DOMAIN_FAILED]
+                    .get(CAMERA_DOMAIN, {})
+                    .get(camera_identifier, None)
+                )
+                if domain_to_setup:
+                    camera = domain_to_setup.error_instance
+        return camera
 
     def validate_camera_token(self, camera: AbstractCamera) -> bool:
         """Validate camera token."""

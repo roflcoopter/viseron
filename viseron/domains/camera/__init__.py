@@ -8,17 +8,19 @@ from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
 from threading import Timer
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import imutils
 import voluptuous as vol
 
+from viseron.components import DomainToSetup
 from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
 from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
+from viseron.domains.camera.recorder import FailedCameraRecorder
 from viseron.helpers.validators import CoerceNoneToDict, Slug
 
 from .const import (
@@ -270,6 +272,7 @@ class AbstractCamera(ABC):
             "width": self.resolution[0],
             "height": self.resolution[1],
             "access_token": self.access_token,
+            "failed": False,
         }
 
     def generate_token(self):
@@ -429,3 +432,82 @@ class AbstractCamera(ABC):
         if ret:
             return ret, jpg.tobytes()
         return ret, False
+
+
+class FailedCamera:
+    """Failed camera.
+
+    This class is instantiated when a camera fails to initialize.
+    It allows us to expose the camera to the frontend, so that the user can
+    see that the camera has failed.
+    It also gives access to the cameras recordings.
+    """
+
+    def __init__(self, vis: Viseron, domain_to_setup: DomainToSetup):
+        """Initialize failed camera."""
+        self._vis = vis
+        self._domain_to_setup = domain_to_setup
+        self._config: dict[str, Any] = domain_to_setup.config[
+            domain_to_setup.identifier
+        ]
+
+        self._recorder = FailedCameraRecorder(vis, self._config, self)
+
+    def as_dict(self):
+        """Return camera as dict."""
+        return {
+            "name": self.name,
+            "identifier": self.identifier,
+            "width": self.width,
+            "height": self.height,
+            "error": self.error,
+            "retrying": self.retrying,
+            "failed": True,
+        }
+
+    @property
+    def name(self):
+        """Return camera name."""
+        return self._config.get(CONFIG_NAME, self._domain_to_setup.identifier)
+
+    @property
+    def identifier(self) -> str:
+        """Return camera identifier."""
+        return self._domain_to_setup.identifier
+
+    @property
+    def width(self) -> int:
+        """Return width."""
+        return 1920
+
+    @property
+    def height(self) -> int:
+        """Return height."""
+        return 1080
+
+    @property
+    def extension(self) -> str:
+        """Return recording file extension."""
+        return self._config.get(CONFIG_RECORDER, {}).get(
+            CONFIG_EXTENSION, DEFAULT_EXTENSION
+        )
+
+    @property
+    def error(self):
+        """Return error."""
+        return self._domain_to_setup.error
+
+    @property
+    def retrying(self):
+        """Return retrying."""
+        return self._domain_to_setup.retrying
+
+    @property
+    def recorder(self) -> FailedCameraRecorder:
+        """Return recorder."""
+        return self._recorder
+
+
+def setup_failed(vis: Viseron, domain_to_setup: DomainToSetup):
+    """Handle failed setup."""
+    return FailedCamera(vis, domain_to_setup)
