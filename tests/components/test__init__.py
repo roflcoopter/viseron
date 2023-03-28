@@ -1,5 +1,5 @@
 """Test component module."""
-from unittest.mock import Mock, call, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
 import pytest
 
@@ -7,10 +7,20 @@ from viseron.components import (
     CORE_COMPONENTS,
     DEFAULT_COMPONENTS,
     Component,
+    DomainToSetup,
+    domain_setup_status,
     setup_component,
     setup_components,
 )
-from viseron.const import DOMAINS_TO_SETUP, FAILED, LOADED, LOADING
+from viseron.const import (
+    DOMAIN_FAILED,
+    DOMAIN_LOADED,
+    DOMAIN_LOADING,
+    DOMAINS_TO_SETUP,
+    FAILED,
+    LOADED,
+    LOADING,
+)
 
 from tests.common import MockComponent, return_any
 
@@ -101,6 +111,35 @@ def test_setup_missing_component(vis, caplog):
     assert vis.data[FAILED] == {"testing": mock_component}
     assert "Failed to load component testing" in caplog.text
     caplog.clear()
+
+
+def test_domain_setup_status(vis):
+    """Test domain_setup_status."""
+    domain_to_setup = DomainToSetup(
+        MagicMock(), "object_detector", {}, "identifier1", None, None
+    )
+    domain_setup_status(vis, domain_to_setup, DOMAIN_LOADING)
+    assert vis.data[DOMAIN_LOADING]["object_detector"]["identifier1"] == domain_to_setup
+    assert vis.data[DOMAIN_LOADED]["object_detector"] == {}
+    assert vis.data[DOMAIN_FAILED]["object_detector"] == {}
+
+    domain_setup_status(vis, domain_to_setup, DOMAIN_LOADED)
+    assert vis.data[DOMAIN_LOADING]["object_detector"] == {}
+    assert vis.data[DOMAIN_LOADED]["object_detector"]["identifier1"] == domain_to_setup
+    assert vis.data[DOMAIN_FAILED]["object_detector"] == {}
+
+
+def test_domain_setup_status_failed(vis):
+    """Test failed domain_setup_status."""
+    domain_to_setup = DomainToSetup(
+        MagicMock(), "object_detector", {}, "identifier1", None, None
+    )
+    domain_setup_status(vis, domain_to_setup, DOMAIN_LOADING)
+    assert vis.data[DOMAIN_LOADING]["object_detector"]["identifier1"] == domain_to_setup
+    domain_setup_status(vis, domain_to_setup, DOMAIN_FAILED)
+    assert vis.data[DOMAIN_LOADING]["object_detector"] == {}
+    assert vis.data[DOMAIN_LOADED]["object_detector"] == {}
+    assert vis.data[DOMAIN_FAILED]["object_detector"]["identifier1"] == domain_to_setup
 
 
 class TestComponent:
