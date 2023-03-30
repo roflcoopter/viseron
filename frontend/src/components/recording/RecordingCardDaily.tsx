@@ -1,12 +1,14 @@
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import VideoFileIcon from "@mui/icons-material/VideoFile";
-import { CardActions, CardMedia } from "@mui/material";
 import Card from "@mui/material/Card";
+import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
+import CardMedia from "@mui/material/CardMedia";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
 
@@ -17,7 +19,7 @@ import { getVideoElement, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
 interface RecordingCardDailyProps {
-  camera: types.Camera;
+  camera: types.Camera | types.FailedCamera;
   date: string;
   recording: types.Recording | null;
 }
@@ -27,11 +29,25 @@ export default function RecordingCardDaily({
   date,
   recording,
 }: RecordingCardDailyProps) {
+  const theme = useTheme();
   const deleteRecording = useDeleteRecording();
 
   return (
     <LazyLoad height={200}>
-      <Card variant="outlined">
+      <Card
+        variant="outlined"
+        sx={
+          camera.failed
+            ? {
+                border: `2px solid ${
+                  camera.retrying
+                    ? theme.palette.warning.main
+                    : theme.palette.error.main
+                }`,
+              }
+            : undefined
+        }
+      >
         <CardContent>
           <Typography variant="h5" align="center">
             {date}
@@ -73,6 +89,7 @@ export default function RecordingCardDaily({
                   deleteRecording.mutate({
                     identifier: camera.identifier,
                     date,
+                    failed: camera.failed,
                   });
                 }}
               >

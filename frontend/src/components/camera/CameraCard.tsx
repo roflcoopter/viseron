@@ -1,7 +1,8 @@
 import Image from "@jy95/material-ui-image";
-import { CardActions, CardMedia } from "@mui/material";
 import Card from "@mui/material/Card";
+import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
+import CardMedia from "@mui/material/CardMedia";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
@@ -78,9 +79,8 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
   const onScreen = useOnScreen<HTMLDivElement>(ref, "-1px");
   const isVisible = usePageVisibility();
   const [initialRender, setInitialRender] = useState(true);
-  const cameraQuery = useCamera({
-    camera_identifier,
-    configOptions: { enabled: connected },
+  const cameraQuery = useCamera(camera_identifier, false, {
+    enabled: connected,
   });
 
   const generateSnapshotURL = useCallback(

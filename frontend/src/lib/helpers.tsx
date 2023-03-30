@@ -44,7 +44,7 @@ export function getRecordingVideoJSOptions(recording: types.Recording) {
 }
 
 export function getVideoElement(
-  camera: types.Camera,
+  camera: types.Camera | types.FailedCamera,
   recording: types.Recording | null | undefined
 ) {
   if (!objHasValues(recording) || !recording) {

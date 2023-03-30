@@ -39,18 +39,23 @@ export type deleteRecordingParams = {
   identifier: string;
   date?: string;
   filename?: string;
+  failed?: boolean;
 };
 
 async function deleteRecording({
   identifier,
   date,
   filename,
+  failed,
 }: deleteRecordingParams) {
   const url = `/recordings/${identifier}${date ? `/${date}` : ""}${
     filename ? `/${filename}` : ""
   }`;
 
-  const response = await viseronAPI.delete(url);
+  const response = await viseronAPI.delete(
+    url,
+    failed ? { params: { failed: true } } : undefined
+  );
   return response.data;
 }
 
