@@ -42,9 +42,6 @@ export function unsubscribeEvent(subscription: number) {
 }
 
 export function subscribeStates(entity_id?: string, entity_ids?: string[]) {
-  if (!entity_id && !entity_ids) {
-    throw new Error("Must specify either entity_id or entity_ids");
-  }
   if (entity_id && entity_ids) {
     throw new Error("Cannot specify both entity_id and entity_ids");
   }

@@ -137,11 +137,15 @@ def subscribe_states(connection: WebSocketHandler, message):
                     message_to_json(event_message(message["command_id"], event))
                 )
             return
-        if event.data.entity_id in message["entity_ids"]:
-            connection.send_message(
-                message_to_json(event_message(message["command_id"], event))
-            )
-        return
+        if "entity_ids" in message:
+            if event.data.entity_id in message["entity_ids"]:
+                connection.send_message(
+                    message_to_json(event_message(message["command_id"], event))
+                )
+            return
+        connection.send_message(
+            message_to_json(event_message(message["command_id"], event))
+        )
 
     connection.subscriptions[message["command_id"]] = connection.vis.listen_event(
         EVENT_STATE_CHANGED,
