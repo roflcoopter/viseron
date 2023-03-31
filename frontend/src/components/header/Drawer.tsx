@@ -6,14 +6,16 @@ import VideoFileIcon from "@mui/icons-material/VideoFile";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import ViewListIcon from "@mui/icons-material/ViewList";
 import VolunteerActivismIcon from "@mui/icons-material/VolunteerActivism";
-import { Container, ListSubheader, Typography } from "@mui/material";
 import Box from "@mui/material/Box";
+import Container from "@mui/material/Container";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
+import ListSubheader from "@mui/material/ListSubheader";
+import Typography from "@mui/material/Typography";
 import { Link, Location, useLocation } from "react-router-dom";
 
 import { ReactComponent as ViseronLogo } from "../../viseron-logo.svg";

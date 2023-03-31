@@ -1,6 +1,6 @@
-import { Typography } from "@mui/material";
 import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
+import Typography from "@mui/material/Typography";
 import { ReactComponent as ViseronLogo } from "viseron-logo.svg";
 
 interface ErrorProps {

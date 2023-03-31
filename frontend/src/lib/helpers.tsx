@@ -1,6 +1,9 @@
-import VideoPlayer from "components/videoplayer/VideoPlayer";
+import { Suspense, lazy } from "react";
+
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import * as types from "lib/types";
+
+const VideoPlayer = lazy(() => import("components/videoplayer/VideoPlayer"));
 
 // No idea how to type this...
 export function sortObj(obj: any) {
@@ -52,7 +55,11 @@ export function getVideoElement(
   }
 
   const videoJsOptions = getRecordingVideoJSOptions(recording);
-  return <VideoPlayer recording={recording} options={videoJsOptions} />;
+  return (
+    <Suspense fallback={<VideoPlayerPlaceholder camera={camera} />}>
+      <VideoPlayer recording={recording} options={videoJsOptions} />
+    </Suspense>
+  );
 }
 
 export function toTitleCase(str: string) {
