@@ -1,11 +1,13 @@
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
-import Typography from "@mui/material/Typography";
 import { styled } from "@mui/material/styles";
 import Cookies from "js-cookie";
 import { Suspense, useContext, useEffect, useState } from "react";
-import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { ScrollToTopFab } from "components/ScrollToTop";
+import { Error } from "components/error/Error";
 import Footer from "components/footer/Footer";
 import AppDrawer from "components/header/Drawer";
 import Header from "components/header/Header";
@@ -48,13 +50,17 @@ export default function PrivateLayout() {
   }
 
   if (userQuery.isError) {
-    toast.error("Failed to load user");
+    toast.error("Failed to load user", {
+      toastId: toastIds.userLoadError,
+    });
     return (
       <Container>
-        <Typography
-          variant="h5"
-          align="center"
-        >{`Error loading user`}</Typography>
+        <Error text="Error loading user" />
+        <Box display="flex" justifyContent="center" alignItems="center">
+          <Button variant="contained" component={Link} to="/login">
+            Navigate to Login
+          </Button>
+        </Box>
       </Container>
     );
   }

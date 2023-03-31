@@ -1,12 +1,14 @@
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import VideoFileIcon from "@mui/icons-material/VideoFile";
-import { CardActions, CardMedia } from "@mui/material";
 import Card from "@mui/material/Card";
+import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
+import CardMedia from "@mui/material/CardMedia";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import { useQuery } from "@tanstack/react-query";
 import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
@@ -20,17 +22,23 @@ import * as types from "lib/types";
 
 interface RecordingCardLatestProps {
   camera_identifier: string;
+  failed?: boolean;
 }
 
 export default function RecordingCardLatest({
   camera_identifier,
+  failed,
 }: RecordingCardLatestProps) {
+  const theme = useTheme();
   const deleteRecording = useDeleteRecording();
 
   const recordingsQuery = useQuery<types.RecordingsCamera>({
-    queryKey: [`/recordings/${camera_identifier}?latest`],
+    queryKey: [
+      `/recordings/${camera_identifier}?latest${failed ? "&failed=1" : ""}`,
+    ],
   });
-  const cameraQuery = useCamera({ camera_identifier });
+
+  const cameraQuery = useCamera(camera_identifier, failed);
 
   let recording: types.Recording | undefined;
   if (
@@ -69,7 +77,23 @@ export default function RecordingCardLatest({
 
   return (
     <LazyLoad height={200}>
-      <Card variant="outlined">
+      <Card
+        variant="outlined"
+        sx={{
+          // Vertically space items evenly to accommodate different aspect ratios
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          ...(cameraQuery.data.failed && {
+            border: `2px solid ${
+              cameraQuery.data.retrying
+                ? theme.palette.warning.main
+                : theme.palette.error.main
+            }`,
+          }),
+        }}
+      >
         <CardContent>
           <Typography variant="h5" align="center">
             {cameraQuery.data.name}
@@ -105,6 +129,7 @@ export default function RecordingCardLatest({
                   onClick={() => {
                     deleteRecording.mutate({
                       identifier: camera_identifier,
+                      failed,
                     });
                   }}
                 >

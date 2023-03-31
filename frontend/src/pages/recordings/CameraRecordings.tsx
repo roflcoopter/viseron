@@ -2,13 +2,11 @@ import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 import { useQuery } from "@tanstack/react-query";
-import { useContext } from "react";
 import { useParams } from "react-router-dom";
 
 import { ScrollToTopOnMount } from "components/ScrollToTop";
 import { Loading } from "components/loading/Loading";
 import RecordingCardDaily from "components/recording/RecordingCardDaily";
-import { ViseronContext } from "context/ViseronContext";
 import { useTitle } from "hooks/UseTitle";
 import { useCamera } from "lib/api/camera";
 import { objHasValues } from "lib/helpers";
@@ -18,20 +16,17 @@ type CameraRecordingsParams = {
   camera_identifier: string;
 };
 const CameraRecordings = () => {
-  const { cameras } = useContext(ViseronContext);
   const { camera_identifier } = useParams<
     keyof CameraRecordingsParams
   >() as CameraRecordingsParams;
+
   const recordingsQuery = useQuery<types.RecordingsCamera>({
-    queryKey: [`/recordings/${camera_identifier}?latest&daily`],
+    queryKey: [`/recordings/${camera_identifier}?latest&daily&failed=1`],
   });
-  const cameraQuery = useCamera({ camera_identifier });
+  const cameraQuery = useCamera(camera_identifier, true);
+
   useTitle(
-    `Recordings${
-      cameras.includes(camera_identifier) && cameraQuery.data
-        ? ` | ${cameraQuery.data.name}`
-        : ""
-    }`
+    `Recordings${cameraQuery.data ? ` | ${cameraQuery.data.name}` : ""}`
   );
 
   if (recordingsQuery.isError || cameraQuery.isError) {
@@ -45,12 +40,7 @@ const CameraRecordings = () => {
     );
   }
 
-  if (
-    recordingsQuery.isLoading ||
-    cameraQuery.isLoading ||
-    !objHasValues<typeof cameras>(cameras) ||
-    !cameras.includes(camera_identifier)
-  ) {
+  if (recordingsQuery.isLoading || cameraQuery.isLoading) {
     return <Loading text="Loading Recordings" />;
   }
 

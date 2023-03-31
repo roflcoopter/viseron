@@ -3,26 +3,41 @@ import { UseQueryOptions, useQuery } from "@tanstack/react-query";
 import { viseronAPI } from "lib/api/client";
 import * as types from "lib/types";
 
-type CameraVariables = {
-  camera_identifier: string;
-  configOptions?: UseQueryOptions<types.Camera, types.APIErrorResponse>;
-};
 type CameraRequest = {
   camera_identifier: string;
+  failed?: boolean;
 };
-async function camera({ camera_identifier }: CameraRequest) {
-  const response = await viseronAPI.get<types.Camera>(
-    `camera/${camera_identifier}`
+
+async function camera({ camera_identifier, failed }: CameraRequest) {
+  const response = await viseronAPI.get(
+    `camera/${camera_identifier}`,
+    failed ? { params: { failed: true } } : undefined
   );
   return response.data;
 }
 
-export const useCamera = ({
-  camera_identifier,
-  configOptions,
-}: CameraVariables) =>
-  useQuery<types.Camera, types.APIErrorResponse>(
+export function useCamera<T extends boolean = false>(
+  camera_identifier: string,
+  failed?: T,
+  configOptions?: UseQueryOptions<
+    T extends true
+      ? types.Camera | types.FailedCamera
+      : T extends undefined
+      ? types.Camera
+      : types.Camera,
+    types.APIErrorResponse
+  >
+) {
+  return useQuery<
+    T extends true
+      ? types.Camera | types.FailedCamera
+      : T extends undefined
+      ? types.Camera
+      : types.Camera,
+    types.APIErrorResponse
+  >(
     ["camera", camera_identifier],
-    async () => camera({ camera_identifier }),
+    async () => camera({ camera_identifier, failed }),
     configOptions
   );
+}

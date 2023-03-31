@@ -41,7 +41,7 @@ def setup_domain(
     component,
     domain,
     config,
-    identifier: str = None,
+    identifier: str,
     require_domains: list[RequireDomain] | None = None,
     optional_domains: list[OptionalDomain] | None = None,
 ):

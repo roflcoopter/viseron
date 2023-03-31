@@ -26,6 +26,7 @@ from .const import (
     CONFIG_RETAIN,
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
+    DEFAULT_FOLDER,
     EVENT_RECORDER_START,
     EVENT_RECORDER_STOP,
 )
@@ -34,7 +35,8 @@ from .entity.image import ThumbnailImage
 from .shared_frames import SharedFrame
 
 if TYPE_CHECKING:
-    from . import AbstractCamera
+    from viseron import Viseron
+    from viseron.domains.camera import AbstractCamera, FailedCamera
 
 
 @dataclass
@@ -82,13 +84,138 @@ class Recording:
         }
 
 
-class AbstractRecorder(ABC):
-    """Abstract recorder."""
+class RecorderBase:
+    """Base recorder."""
 
-    def __init__(self, vis, component, config, camera):
+    def __init__(self, vis: Viseron, config, camera: AbstractCamera | FailedCamera):
         self._logger = logging.getLogger(self.__module__ + "." + camera.identifier)
         self._vis = vis
         self._config = config
+        self._camera = camera
+        self._extensions = [
+            ".mp4",
+            ".mkv",
+            ".mov",
+        ]
+
+        self.recordings_folder = os.path.join(
+            self._config.get(CONFIG_RECORDER, {}).get(CONFIG_FOLDER, DEFAULT_FOLDER),
+            self._camera.identifier,
+        )
+
+    def _recording_file_dict(self, file: Path):
+        """Return a dict with recording file information."""
+        return {
+            "path": str(file),
+            "date": str(file.parent.name),
+            "filename": str(file.name),
+            "thumbnail_path": os.path.join(file.parent, f"{str(file.stem)}.jpg"),
+        }
+
+    def get_recordings(self, date=None):
+        """Return all recordings."""
+        recordings = {}
+        dirs = Path(self.recordings_folder)
+        folders = dirs.walkdirs(date if date else "*-*-*")
+        for folder in folders:
+            recordings[folder.name] = {}
+            if len(folder.listdir()) == 0:
+                continue
+
+            for file in sorted(
+                folder.walkfiles("*.*"),
+                reverse=True,
+            ):
+                if file.ext in self._extensions:
+                    recordings[folder.name][file.name] = self._recording_file_dict(file)
+        return recordings
+
+    def get_recording(self, date, filename):
+        """Return a recording."""
+        file = Path(os.path.join(self.recordings_folder, date, filename))
+        if file.exists():
+            return self._recording_file_dict(file)
+        return {}
+
+    def get_latest_recording(self, date=None):
+        """Return the latest recording."""
+        recordings = {}
+        dirs = Path(self.recordings_folder)
+        folders = dirs.walkdirs(date if date else "*-*-*")
+        for folder in sorted(folders, reverse=True):
+            recordings[folder.name] = {}
+            for file in sorted(
+                folder.walkfiles("*.*"),
+                reverse=True,
+            ):
+                if file.ext in self._extensions:
+                    recordings[folder.name][file.name] = self._recording_file_dict(file)
+                    return recordings
+        return {}
+
+    def get_latest_recording_daily(self):
+        """Return the latest recording for each day."""
+        recordings = {}
+        dirs = Path(self.recordings_folder)
+        folders = dirs.walkdirs("*-*-*")
+        for folder in sorted(folders, reverse=True):
+            recordings[folder.name] = {}
+            for file in sorted(
+                folder.walkfiles("*.*"),
+                reverse=True,
+            ):
+                if file.ext in self._extensions:
+                    recordings[folder.name][file.name] = self._recording_file_dict(file)
+                    break
+        return recordings
+
+    def delete_recording(self, date=None, filename=None):
+        """Delete a single recording."""
+        path = None
+
+        if date and filename:
+            path = os.path.join(self.recordings_folder, date, filename)
+        elif date and filename is None:
+            path = os.path.join(self.recordings_folder, date)
+        elif date is None and filename is None:
+            path = self.recordings_folder
+        else:
+            self._logger.error("Could not remove file, incorrect path given")
+            return False
+
+        self._logger.debug(f"Removing {path}")
+        try:
+            if filename:
+                os.remove(path)
+                thumbnail = Path(
+                    os.path.join(
+                        self.recordings_folder, date, filename.split(".")[0] + ".jpg"
+                    )
+                )
+                try:
+                    os.remove(thumbnail)
+                except FileNotFoundError:
+                    pass
+
+            elif date:
+                shutil.rmtree(path)
+
+            else:
+                dirs = Path(self.recordings_folder)
+                folders = dirs.walkdirs("*-*-*")
+                for folder in folders:
+                    shutil.rmtree(folder)
+        except (OSError, FileNotFoundError) as error:
+            self._logger.error(f"Could not remove {path}", exc_info=error)
+            return False
+        return True
+
+
+class AbstractRecorder(ABC, RecorderBase):
+    """Abstract recorder."""
+
+    def __init__(self, vis: Viseron, component, config, camera: AbstractCamera):
+        super().__init__(vis, config, camera)
         self._camera: AbstractCamera = camera
 
         self.is_recording = False
@@ -100,9 +227,6 @@ class AbstractRecorder(ABC):
             ".mov",
         ]
 
-        self.recordings_folder = os.path.join(
-            self._config[CONFIG_RECORDER][CONFIG_FOLDER], self._camera.identifier
-        )
         create_directory(self.recordings_folder)
 
         self._scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
@@ -286,109 +410,9 @@ class AbstractRecorder(ABC):
                 except OSError:
                     self._logger.error(f"Could not remove directory {folder}")
 
-    def _recording_file_dict(self, file: Path):
-        """Return a dict with recording file information."""
-        return {
-            "path": str(file),
-            "date": str(file.parent.name),
-            "filename": str(file.name),
-            "thumbnail_path": os.path.join(file.parent, f"{str(file.stem)}.jpg"),
-        }
 
-    def get_recordings(self, date=None):
-        """Return all recordings."""
-        recordings = {}
-        dirs = Path(self.recordings_folder)
-        folders = dirs.walkdirs(date if date else "*-*-*")
-        for folder in folders:
-            recordings[folder.name] = {}
-            if len(folder.listdir()) == 0:
-                continue
+class FailedCameraRecorder(RecorderBase):
+    """Failed camera recorder.
 
-            for file in sorted(
-                folder.walkfiles("*.*"),
-                reverse=True,
-            ):
-                if file.ext in self._extensions:
-                    recordings[folder.name][file.name] = self._recording_file_dict(file)
-        return recordings
-
-    def get_recording(self, date, filename):
-        """Return a recording."""
-        file = Path(os.path.join(self.recordings_folder, date, filename))
-        if file.exists():
-            return self._recording_file_dict(file)
-        return {}
-
-    def get_latest_recording(self, date=None):
-        """Return the latest recording."""
-        recordings = {}
-        dirs = Path(self.recordings_folder)
-        folders = dirs.walkdirs(date if date else "*-*-*")
-        for folder in sorted(folders, reverse=True):
-            recordings[folder.name] = {}
-            for file in sorted(
-                folder.walkfiles("*.*"),
-                reverse=True,
-            ):
-                if file.ext in self._extensions:
-                    recordings[folder.name][file.name] = self._recording_file_dict(file)
-                    return recordings
-        return {}
-
-    def get_latest_recording_daily(self):
-        """Return the latest recording for each day."""
-        recordings = {}
-        dirs = Path(self.recordings_folder)
-        folders = dirs.walkdirs("*-*-*")
-        for folder in sorted(folders, reverse=True):
-            recordings[folder.name] = {}
-            for file in sorted(
-                folder.walkfiles("*.*"),
-                reverse=True,
-            ):
-                if file.ext in self._extensions:
-                    recordings[folder.name][file.name] = self._recording_file_dict(file)
-                    break
-        return recordings
-
-    def delete_recording(self, date=None, filename=None):
-        """Delete a single recording."""
-        path = None
-
-        if date and filename:
-            path = os.path.join(self.recordings_folder, date, filename)
-        elif date and filename is None:
-            path = os.path.join(self.recordings_folder, date)
-        elif date is None and filename is None:
-            path = self.recordings_folder
-        else:
-            self._logger.error("Could not remove file, incorrect path given")
-            return False
-
-        self._logger.debug(f"Removing {path}")
-        try:
-            if filename:
-                os.remove(path)
-                thumbnail = Path(
-                    os.path.join(
-                        self.recordings_folder, date, filename.split(".")[0] + ".jpg"
-                    )
-                )
-                try:
-                    os.remove(thumbnail)
-                except FileNotFoundError:
-                    pass
-
-            elif date:
-                shutil.rmtree(path)
-
-            else:
-                dirs = Path(self.recordings_folder)
-                folders = dirs.walkdirs("*-*-*")
-                for folder in folders:
-                    shutil.rmtree(folder)
-        except (OSError, FileNotFoundError) as error:
-            self._logger.error(f"Could not remove {path}", exc_info=error)
-            return False
-        return True
+    Provides access to the recordings for failed cameras.
+    """

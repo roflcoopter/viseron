@@ -80,3 +80,16 @@ export const subscribeStates = async (
   );
   return subscription;
 };
+
+export const subscribeEvent = async <T = types.Event>(
+  connection: Connection,
+  event: string,
+  eventCallback: (event: T) => void
+) => {
+  const subscription = await connection.subscribeEvent(
+    event,
+    eventCallback,
+    true
+  );
+  return subscription;
+};

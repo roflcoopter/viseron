@@ -28,6 +28,7 @@ export const toastIds = {
   websocketConnecting: "websocketConnecting",
   websocketConnectionLost: "websocketConnectionLost",
   sessionExpired: "sessionExpired",
+  userLoadError: "userLoadError",
 };
 
 export const useToast = () => {

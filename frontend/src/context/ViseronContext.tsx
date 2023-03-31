@@ -3,8 +3,7 @@ import React, { FC, createContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { toastIds, useToast } from "hooks/UseToast";
-import { getCameras, subscribeCameras, subscribeRecording } from "lib/commands";
-import { sortObj } from "lib/helpers";
+import { subscribeCameras, subscribeRecording } from "lib/commands";
 import * as types from "lib/types";
 import { Connection } from "lib/websockets";
 
@@ -15,13 +14,11 @@ export type ViseronProviderProps = {
 export type ViseronContextState = {
   connection: Connection | undefined;
   connected: boolean;
-  cameras: string[];
 };
 
 const contextDefaultValues: ViseronContextState = {
   connection: undefined,
   connected: false,
-  cameras: [],
 };
 
 export const ViseronContext =
@@ -34,7 +31,6 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
     undefined
   );
   const [connected, setConnected] = useState<boolean>(false);
-  const [cameras, setCameras] = useState<string[]>([]);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -45,10 +41,6 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
   useEffect(() => {
     if (connection) {
       const cameraRegistered = async (camera: types.Camera) => {
-        setCameras((prevCameras) => {
-          if (prevCameras.includes(camera.identifier)) return prevCameras;
-          return [...prevCameras, camera.identifier].sort();
-        });
         await queryClient.invalidateQueries({
           predicate: (query) =>
             (query.queryKey[0] as string).startsWith(
@@ -68,12 +60,11 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
       };
 
       onConnectRef.current = async () => {
-        const registeredCameras = await getCameras(connection);
-        setCameras(Object.keys(sortObj(registeredCameras)).sort());
         await queryClient.invalidateQueries({
           queryKey: ["camera"],
           refetchType: "none",
         });
+        await queryClient.invalidateQueries(["cameras"]);
         setConnected(true);
       };
       onDisconnectRef.current = async () => {
@@ -131,7 +122,7 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
   }, []);
 
   return (
-    <ViseronContext.Provider value={{ connection, connected, cameras }}>
+    <ViseronContext.Provider value={{ connection, connected }}>
       {children}
     </ViseronContext.Provider>
   );

@@ -7,7 +7,7 @@ from http import HTTPStatus
 import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.helpers.validators import request_argument_no_value
+from viseron.helpers.validators import request_argument_bool, request_argument_no_value
 
 LOGGER = logging.getLogger(__name__)
 
@@ -38,11 +38,13 @@ class RecordingsAPIHandler(BaseAPIHandler):
                             default=False,
                             msg=LATEST_DAILY_MSG,
                         ): request_argument_no_value,
+                        vol.Optional("failed", default=False): request_argument_bool,
                     },
                     {
                         vol.Optional(
                             "latest", default=False
                         ): request_argument_no_value,
+                        vol.Optional("failed", default=False): request_argument_bool,
                     },
                 ),
             ),
@@ -57,6 +59,7 @@ class RecordingsAPIHandler(BaseAPIHandler):
             "request_arguments_schema": vol.Schema(
                 {
                     vol.Optional("latest", default=False): request_argument_no_value,
+                    vol.Optional("failed", default=False): request_argument_bool,
                 },
             ),
         },
@@ -79,11 +82,13 @@ class RecordingsAPIHandler(BaseAPIHandler):
                             default=False,
                             msg=LATEST_DAILY_MSG,
                         ): request_argument_no_value,
+                        vol.Optional("failed", default=False): request_argument_bool,
                     },
                     {
                         vol.Optional(
                             "latest", default=False
                         ): request_argument_no_value,
+                        vol.Optional("failed", default=False): request_argument_bool,
                     },
                 ),
             ),
@@ -96,6 +101,11 @@ class RecordingsAPIHandler(BaseAPIHandler):
             ),
             "supported_methods": ["DELETE"],
             "method": "delete_recording",
+            "request_arguments_schema": vol.Schema(
+                {
+                    vol.Optional("failed", default=False): request_argument_bool,
+                },
+            ),
         },
         {
             "path_pattern": (
@@ -104,11 +114,21 @@ class RecordingsAPIHandler(BaseAPIHandler):
             ),
             "supported_methods": ["DELETE"],
             "method": "delete_recording",
+            "request_arguments_schema": vol.Schema(
+                {
+                    vol.Optional("failed", default=False): request_argument_bool,
+                },
+            ),
         },
         {
             "path_pattern": r"/recordings/(?P<camera_identifier>[A-Za-z0-9_]+)",
             "supported_methods": ["DELETE"],
             "method": "delete_recording",
+            "request_arguments_schema": vol.Schema(
+                {
+                    vol.Optional("failed", default=False): request_argument_bool,
+                },
+            ),
         },
     ]
 
@@ -142,7 +162,9 @@ class RecordingsAPIHandler(BaseAPIHandler):
 
     def get_recordings_camera(self, camera_identifier: str, date: str = None):
         """Get recordings for a single camera."""
-        camera = self._get_camera(camera_identifier)
+        camera = self._get_camera(
+            camera_identifier, failed=self.request_arguments["failed"]
+        )
 
         if not camera:
             self.response_error(
@@ -168,7 +190,9 @@ class RecordingsAPIHandler(BaseAPIHandler):
         self, camera_identifier: str, date: str = None, filename: str = None
     ):
         """Delete recording(s)."""
-        camera = self._get_camera(camera_identifier)
+        camera = self._get_camera(
+            camera_identifier, failed=self.request_arguments["failed"]
+        )
 
         if not camera:
             self.response_error(

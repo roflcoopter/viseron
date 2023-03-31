@@ -92,10 +92,25 @@ export interface Camera {
   width: number;
   height: number;
   access_token: string;
+  failed: false;
 }
 
 export interface Cameras {
   [identifier: string]: Camera;
+}
+
+export interface FailedCamera {
+  identifier: string;
+  name: string;
+  width: number;
+  height: number;
+  error: string;
+  retrying: boolean;
+  failed: true;
+}
+
+export interface FailedCameras {
+  [identifier: string]: FailedCamera;
 }
 
 export interface DetectedObject {

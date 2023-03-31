@@ -1,16 +1,19 @@
 """Viseron fixtures."""
 from typing import Iterator
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from viseron import Viseron
+from viseron.components.data_stream import COMPONENT as DATA_STREAM, DataStream
 
 
 @pytest.fixture
 def vis():
     """Fixture to test Viseron instance."""
-    return Viseron()
+    viseron = Viseron()
+    viseron.data[DATA_STREAM] = MagicMock(spec=DataStream)
+    return viseron
 
 
 @pytest.fixture(scope="session", autouse=True)

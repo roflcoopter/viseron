@@ -2,16 +2,13 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import MuiBreadcrumbs from "@mui/material/Breadcrumbs";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
-import { useContext } from "react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 
-import { ViseronContext } from "context/ViseronContext";
 import queryClient from "lib/api/client";
 import { toTitleCase } from "lib/helpers";
 import * as types from "lib/types";
 
 export default function Breadcrumbs() {
-  const { cameras } = useContext(ViseronContext);
   const location = useLocation();
   const pathnames = location.pathname.split("/").filter((x) => x);
   if (pathnames.length === 0) {
@@ -28,14 +25,12 @@ export default function Breadcrumbs() {
       {pathnames.map((value: any, index: number) => {
         const last = index === pathnames.length - 1;
         const to = `/${pathnames.slice(0, index + 1).join("/")}`;
-        if (cameras.includes(value)) {
-          const camera = queryClient.getQueryData<types.Camera>([
-            "camera",
-            value,
-          ]);
-          if (camera) {
-            value = camera.name;
-          }
+        const camera = queryClient.getQueryData<types.Camera>([
+          "camera",
+          value,
+        ]);
+        if (camera) {
+          value = camera.name;
         }
 
         return last ? (

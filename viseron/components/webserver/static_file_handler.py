@@ -22,12 +22,14 @@ class AccessTokenStaticFileHandler(
         path: str,
         vis: Viseron,
         camera_identifier,
+        failed: bool,
         default_filename: str | None = None,
     ) -> None:
         """Initialize the handler."""
         tornado.web.StaticFileHandler.initialize(self, path, default_filename)
         ViseronRequestHandler.initialize(self, vis)  # type: ignore
         self._camera_identifier = camera_identifier
+        self._failed = failed
 
     async def prepare(self):
         """Validate access token."""
@@ -39,7 +41,7 @@ class AccessTokenStaticFileHandler(
                 )
                 self.finish()
 
-            camera = self._get_camera(self._camera_identifier)
+            camera = self._get_camera(self._camera_identifier, self._failed)
             if not camera:
                 self.set_status(
                     HTTPStatus.NOT_FOUND,
