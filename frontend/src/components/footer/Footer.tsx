@@ -1,7 +1,7 @@
 import GitHubIcon from "@mui/icons-material/GitHub";
-import { Typography, useTheme } from "@mui/material";
 import Link from "@mui/material/Link";
-import { styled } from "@mui/material/styles";
+import Typography from "@mui/material/Typography";
+import { styled, useTheme } from "@mui/material/styles";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 

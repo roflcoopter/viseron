@@ -34,34 +34,40 @@ const Cameras = () => {
       </Typography>
       <Grid container direction="row" spacing={2}>
         {failedCameras.data
-          ? Object.values(failedCameras.data).map((failedCamera) => (
-              <Grid
-                item
-                xs={12}
-                sm={12}
-                md={6}
-                lg={6}
-                xl={4}
-                key={failedCamera.identifier}
-              >
-                <FailedCameraCard failedCamera={failedCamera} />
-              </Grid>
-            ))
+          ? Object.keys(failedCameras.data)
+              .sort()
+              .map((camera_identifier) => (
+                <Grid
+                  item
+                  xs={12}
+                  sm={12}
+                  md={6}
+                  lg={6}
+                  xl={4}
+                  key={camera_identifier}
+                >
+                  <FailedCameraCard
+                    failedCamera={failedCameras.data[camera_identifier]}
+                  />
+                </Grid>
+              ))
           : null}
         {cameras.data
-          ? Object.keys(cameras.data).map((camera_identifier) => (
-              <Grid
-                item
-                xs={12}
-                sm={12}
-                md={6}
-                lg={6}
-                xl={4}
-                key={camera_identifier}
-              >
-                <CameraCard camera_identifier={camera_identifier} />
-              </Grid>
-            ))
+          ? Object.keys(cameras.data)
+              .sort()
+              .map((camera_identifier) => (
+                <Grid
+                  item
+                  xs={12}
+                  sm={12}
+                  md={6}
+                  lg={6}
+                  xl={4}
+                  key={camera_identifier}
+                >
+                  <CameraCard camera_identifier={camera_identifier} />
+                </Grid>
+              ))
           : null}
       </Grid>
     </Container>

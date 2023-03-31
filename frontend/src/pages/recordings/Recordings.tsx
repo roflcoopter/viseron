@@ -51,21 +51,25 @@ const Recordings = () => {
       </Typography>
       <Grid container direction="row" spacing={2}>
         {failedCameras.data
-          ? Object.keys(failedCameras.data).map((camera_identifier) => (
-              <GridItem
-                key={camera_identifier}
-                camera_identifier={camera_identifier}
-                failed
-              />
-            ))
+          ? Object.keys(failedCameras.data)
+              .sort()
+              .map((camera_identifier) => (
+                <GridItem
+                  key={camera_identifier}
+                  camera_identifier={camera_identifier}
+                  failed
+                />
+              ))
           : null}
         {cameras.data
-          ? Object.keys(cameras.data).map((camera_identifier) => (
-              <GridItem
-                key={camera_identifier}
-                camera_identifier={camera_identifier}
-              />
-            ))
+          ? Object.keys(cameras.data)
+              .sort()
+              .map((camera_identifier) => (
+                <GridItem
+                  key={camera_identifier}
+                  camera_identifier={camera_identifier}
+                />
+              ))
           : null}
       </Grid>
     </Container>

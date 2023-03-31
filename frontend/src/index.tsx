@@ -1,10 +1,11 @@
 import CssBaseline from "@mui/material/CssBaseline";
 import { QueryClientProvider } from "@tanstack/react-query";
-import React from "react";
+import React, { Suspense } from "react";
 import ReactDOM from "react-dom";
-import { BrowserRouter as Router } from "react-router-dom";
+import { HashRouter as Router } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 
+import { Loading } from "components/loading/Loading";
 import { AuthProvider } from "context/AuthContext";
 import { ColorModeProvider } from "context/ColorModeContext";
 
@@ -20,7 +21,9 @@ ReactDOM.render(
       <QueryClientProvider client={queryClient}>
         <Router>
           <AuthProvider>
-            <App />
+            <Suspense fallback={<Loading text="Loading chunk" />}>
+              <App />
+            </Suspense>
           </AuthProvider>
         </Router>
         <ToastContainer

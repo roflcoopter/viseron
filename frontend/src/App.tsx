@@ -1,18 +1,21 @@
 import PrivateLayout from "layouts/PrivateLayout";
-import PublicLayout from "layouts/PublicLayout";
 import { lazy } from "react";
 import { Navigate, useRoutes } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
 
-import Cameras from "pages/Cameras";
-import CameraRecordings from "pages/recordings/CameraRecordings";
-import CameraRecordingsDaily from "pages/recordings/CameraRecordingsDaily";
-import Recordings from "pages/recordings/Recordings";
-
+const Cameras = lazy(() => import("pages/Cameras"));
+const CameraRecordings = lazy(
+  () => import("pages/recordings/CameraRecordings")
+);
+const CameraRecordingsDaily = lazy(
+  () => import("pages/recordings/CameraRecordingsDaily")
+);
 const Configuration = lazy(() => import("pages/Configuration"));
 const Entities = lazy(() => import("pages/Entities"));
 const Login = lazy(() => import("pages/Login"));
 const Onboarding = lazy(() => import("pages/Onboarding"));
+const PublicLayout = lazy(() => import("layouts/PublicLayout"));
+const Recordings = lazy(() => import("pages/recordings/Recordings"));
 
 function App() {
   const routes = useRoutes([
