@@ -209,9 +209,11 @@ class AuthAPIHandler(BaseAPIHandler):
             if status == HTTPStatus.OK:
                 self.response_success(response=response)
                 return
+            self.clear_all_cookies()
             self.response_error(status, response)
             return
 
+        self.clear_all_cookies()
         self.response_error(
             HTTPStatus.BAD_REQUEST,
             reason="Invalid grant_type",
