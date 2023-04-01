@@ -58,7 +58,7 @@ const Onboarding = () => {
   const [inputState, dispatch] = useReducer(reducer, initialState);
   const onboarding = useOnboarding();
 
-  if (auth.enabled && auth.onboarding_complete) {
+  if ((auth.enabled && auth.onboarding_complete) || !auth.enabled) {
     return <Navigate to="/" />;
   }
 

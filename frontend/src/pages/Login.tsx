@@ -4,11 +4,12 @@ import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import { useEffect, useReducer, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useContext, useEffect, useReducer, useRef } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ReactComponent as ViseronLogo } from "viseron-logo.svg";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
+import { AuthContext } from "context/AuthContext";
 import { useTitle } from "hooks/UseTitle";
 import { useAuthLogin } from "lib/api/auth";
 import queryClient from "lib/api/client";
@@ -42,11 +43,13 @@ function reducer(state: InputState, action: InputAction): InputState {
 
 const Login = () => {
   useTitle("Login");
-  const [inputState, dispatch] = useReducer(reducer, initialState);
+  const { auth } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
-  const fromRef = useRef();
   const login = useAuthLogin();
+
+  const [inputState, dispatch] = useReducer(reducer, initialState);
+  const fromRef = useRef();
 
   queryClient.removeQueries({
     predicate(query) {
@@ -67,6 +70,14 @@ const Login = () => {
     navigate(location.pathname, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (auth.enabled && !auth.onboarding_complete) {
+    return <Navigate to="/onboarding" />;
+  }
+
+  if (!auth.enabled) {
+    return <Navigate to="/" />;
+  }
 
   return (
     <Container sx={{ marginTop: "2%" }}>

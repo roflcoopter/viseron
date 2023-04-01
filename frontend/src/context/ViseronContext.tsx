@@ -1,7 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
-import React, { FC, createContext, useEffect, useState } from "react";
+import React, {
+  FC,
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { useNavigate } from "react-router-dom";
 
+import { AuthContext } from "context/AuthContext";
 import { toastIds, useToast } from "hooks/UseToast";
 import { subscribeCameras, subscribeRecording } from "lib/commands";
 import * as types from "lib/types";
@@ -27,17 +34,19 @@ export const ViseronContext =
 export const ViseronProvider: FC<ViseronProviderProps> = ({
   children,
 }: ViseronProviderProps) => {
-  const [connection, setConnection] = useState<Connection | undefined>(
-    undefined
-  );
-  const [connected, setConnected] = useState<boolean>(false);
+  const { auth } = useContext(AuthContext);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();
 
+  const [connection, setConnection] = useState<Connection | undefined>(
+    undefined
+  );
+  const [connected, setConnected] = useState<boolean>(false);
   const onConnectRef = React.useRef<() => void>();
   const onDisconnectRef = React.useRef<() => void>();
   const onConnectionErrorRef = React.useRef<() => void>();
+
   useEffect(() => {
     if (connection) {
       const cameraRegistered = async (camera: types.Camera) => {
@@ -71,8 +80,11 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
         setConnected(false);
       };
       onConnectionErrorRef.current = async () => {
-        console.error("Connection error, redirecting to login");
-        navigate("/login");
+        if (auth.enabled) {
+          const url = auth.onboarding_complete ? "/login" : "/onboarding";
+          console.error(`Connection error, redirecting to ${url}`);
+          navigate(url);
+        }
       };
 
       connection.addEventListener("connected", onConnectRef.current);
