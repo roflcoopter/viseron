@@ -16,7 +16,8 @@ ARG JETPACK_VERSION_MAJOR
 ARG JETPACK_VERSION_MINOR
 ARG JETSON_NANO_FFMPEG_APT_VERSION
 ENV \
-  LD_LIBRARY_PATH="/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra-egl"
+  LD_LIBRARY_PATH="/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra-egl" \
+  LD_PRELOAD="/usr/lib/aarch64-linux-gnu/libgomp.so.1"
 
 RUN \
   cd /usr/local/bin && \
