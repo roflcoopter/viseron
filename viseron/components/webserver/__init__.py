@@ -233,7 +233,7 @@ def create_application(vis: Viseron, config, cookie_secret, xsrf_cookies=True):
 class Webserver(threading.Thread):
     """Webserver."""
 
-    def __init__(self, vis: Viseron, config):
+    def __init__(self, vis: Viseron, config) -> None:
         super().__init__(name="Tornado Webserver", daemon=True)
         self._vis = vis
         self._config = config

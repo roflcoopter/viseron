@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+from types import TracebackType
 from typing import TYPE_CHECKING
 
 from viseron.domains.camera.recorder import AbstractRecorder
@@ -34,7 +35,12 @@ class ConcatThreadsContext:
         self.count += 1
         return self.count
 
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         """Decrement the counter when exiting the context."""
         self.count -= 1
 

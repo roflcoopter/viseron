@@ -89,7 +89,7 @@ class Component:
 
         self.domains_to_setup: list[DomainToSetup] = []
 
-    def __str__(self):
+    def __str__(self) -> str:
         """Return string representation."""
         return self._name
 

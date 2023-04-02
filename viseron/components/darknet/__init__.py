@@ -309,7 +309,7 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
     See https://github.com/opencv/opencv/issues/19643
     """
 
-    def __init__(self, vis, config):
+    def __init__(self, vis, config) -> None:
         LOGGER.debug("Using native Darknet")
         BaseDarknet.__init__(self, vis, config)
 

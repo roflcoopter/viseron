@@ -61,7 +61,7 @@ if TYPE_CHECKING:
 class Stream:
     """Represents a stream of frames from a camera."""
 
-    def __init__(self, config, camera: Camera, camera_identifier):
+    def __init__(self, config, camera: Camera, camera_identifier) -> None:
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.addFilter(
             UnhelpfullLogFilter(config[CONFIG_GSTREAMER_RECOVERABLE_ERRORS])

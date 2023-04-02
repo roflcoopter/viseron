@@ -172,7 +172,7 @@ class MakeInterpreterError(ViseronError):
 class EdgeTPU(ChildProcessWorker):
     """EdgeTPU interface."""
 
-    def __init__(self, vis, config, domain):
+    def __init__(self, vis, config, domain) -> None:
         self._config = config
         self._device = get_default_device(config[CONFIG_DEVICE])
         self._model = get_default_model(domain, config[CONFIG_MODEL_PATH], self._device)
