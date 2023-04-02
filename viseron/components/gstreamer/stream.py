@@ -210,7 +210,7 @@ class Stream:
         return f"gstreamer_{self._camera_identifier}_seg"
 
     @staticmethod
-    def create_symlink(alias):
+    def create_symlink(alias) -> None:
         """Create a symlink to GStreamer executable.
 
         This is done to know which GStreamer command belongs to which camera.
@@ -226,7 +226,7 @@ class Stream:
         return self._output_fps
 
     @output_fps.setter
-    def output_fps(self, fps):
+    def output_fps(self, fps) -> None:
         self._output_fps = fps
 
     def run_ffprobe(
@@ -358,7 +358,7 @@ class Stream:
             stderr=self._log_pipe,
         )
 
-    def start_pipe(self):
+    def start_pipe(self) -> None:
         """Start piping frames from GStreamer."""
         self._logger.debug(
             f"GStreamer decoder command: {' '.join(self._pipeline.build_pipeline())}"
@@ -366,7 +366,7 @@ class Stream:
 
         self._pipe = self.pipe()
 
-    def close_pipe(self):
+    def close_pipe(self) -> None:
         """Close GStreamer pipe."""
         if self._segment_process:
             self._segment_process.terminate()

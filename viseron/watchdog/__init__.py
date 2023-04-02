@@ -18,7 +18,7 @@ class WatchDog(ABC):
     registered_items: List = []
     _scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
 
-    def __init__(self):
+    def __init__(self) -> None:
         try:
             self._scheduler.start()
             LOGGER.debug("Starting scheduler")
@@ -29,7 +29,7 @@ class WatchDog(ABC):
     def register(
         cls,
         item,
-    ):
+    ) -> None:
         """Register item in the watchdog."""
         LOGGER.debug(f"Registering {item} in the watchdog")
         cls.registered_items.append(item)
@@ -38,7 +38,7 @@ class WatchDog(ABC):
     def unregister(
         cls,
         item,
-    ):
+    ) -> None:
         """Unregister item from the watchdog."""
         LOGGER.debug(f"Removing {item} from the watchdog")
         try:
@@ -50,7 +50,7 @@ class WatchDog(ABC):
     def watchdog(self):
         """Watchdog."""
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the watchdog."""
         try:
             self._scheduler.shutdown()

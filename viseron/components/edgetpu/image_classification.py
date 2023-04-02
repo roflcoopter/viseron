@@ -49,7 +49,7 @@ def setup(vis: Viseron, config, identifier):
 class ImageClassification(AbstractImageClassification):
     """Perform EdgeTPU image classification."""
 
-    def __init__(self, vis, component, config, camera_identifier):
+    def __init__(self, vis, component, config, camera_identifier) -> None:
         self._edgetpu: EdgeTPUClassification = vis.data[COMPONENT][
             CONFIG_IMAGE_CLASSIFICATION
         ]

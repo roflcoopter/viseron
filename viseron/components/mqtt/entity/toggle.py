@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class ToggleMQTTEntity(MQTTEntity):
     """Base toggle MQTT entity class."""
 
-    def __init__(self, vis: Viseron, config, entity: Entity):
+    def __init__(self, vis: Viseron, config, entity: Entity) -> None:
         super().__init__(vis, config, entity)
         self._mqtt.subscribe(
             SubscribeTopic(topic=self.command_topic, callback=self.command_handler)
@@ -31,7 +31,7 @@ class ToggleMQTTEntity(MQTTEntity):
             f"{self.entity.object_id}/command"
         )
 
-    def command_handler(self, message):
+    def command_handler(self, message) -> None:
         """Handle commands on the command topic."""
         payload = message.payload.decode()
         if payload == STATE_ON:

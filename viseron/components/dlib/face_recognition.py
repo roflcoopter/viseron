@@ -48,13 +48,13 @@ def setup(vis: Viseron, config, identifier):
 class FaceRecognition(AbstractFaceRecognition):
     """dlib face recognition processor."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier, classifier):
+    def __init__(self, vis: Viseron, config, camera_identifier, classifier) -> None:
         super().__init__(
             vis, COMPONENT, config[CONFIG_FACE_RECOGNITION], camera_identifier
         )
         self._classifier = classifier
 
-    def face_recognition(self, frame, detected_object: DetectedObject):
+    def face_recognition(self, frame, detected_object: DetectedObject) -> None:
         """Perform face recognition."""
         if not self._classifier:
             self._logger.error(
@@ -87,7 +87,7 @@ class FaceRecognition(AbstractFaceRecognition):
             elif self._config[CONFIG_SAVE_UNKNOWN_FACES]:
                 self.unknown_face_found(cropped_frame)
 
-    def process(self, post_processor_frame: PostProcessorFrame):
+    def process(self, post_processor_frame: PostProcessorFrame) -> None:
         """Process received frame."""
         decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(
             post_processor_frame.shared_frame

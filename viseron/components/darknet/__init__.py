@@ -155,7 +155,7 @@ class LoadDarknetError(ViseronError):
 class BaseDarknet(ABC):
     """Base class for native Darknet and Darknet via OpenCV."""
 
-    def __init__(self, vis, config):
+    def __init__(self, vis, config) -> None:
         self._vis = vis
         self._config = config
 
@@ -175,7 +175,7 @@ class BaseDarknet(ABC):
         self._nms = config[CONFIG_SUPPRESSION]
         self._result_queues = {}
 
-    def load_labels(self, labels):
+    def load_labels(self, labels) -> None:
         """Load labels from file."""
         # Load names of labels
         self.labels = None
@@ -214,7 +214,7 @@ class BaseDarknet(ABC):
 class DarknetDNN(BaseDarknet):
     """Darknet object detector interface."""
 
-    def __init__(self, vis, config):
+    def __init__(self, vis, config) -> None:
         LOGGER.debug("Using OpenCV DNN Darknet")
         super().__init__(vis, config)
         if cv2.ocl.haveOpenCL():
@@ -233,7 +233,7 @@ class DarknetDNN(BaseDarknet):
 
         self._detection_lock = threading.Lock()
 
-    def load_network(self, model, model_config, backend, target):
+    def load_network(self, model, model_config, backend, target) -> None:
         """Load network."""
         self._net = cv2.dnn.readNet(model, model_config, "darknet")
         self._net.setPreferableBackend(backend)
@@ -325,14 +325,14 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
         if not self._process_initialization_done.wait(timeout=15):
             raise LoadDarknetError("Failed to load Darknet network in child process")
 
-    def create_data_file(self, config, labels):
+    def create_data_file(self, config, labels) -> None:
         """Create Darknet datafile which describes the labels."""
         LOGGER.debug(f"Creating Darknet data file {self.darknet_data_path}")
         with open(self.darknet_data_path, "w", encoding="utf-8") as data_file:
             data_file.write(f"classes={len(labels)}\n")
             data_file.write(f"names={config[CONFIG_LABEL_PATH]}")
 
-    def process_initialization(self):
+    def process_initialization(self) -> None:
         """Load network inside the child process."""
         self._darknet_image = self._darknet.make_image(
             self._model_width, self._model_height, 3
@@ -365,7 +365,7 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
         item["result"] = self._detect(item["frame"], item["min_confidence"])
         return item
 
-    def work_output(self, item):
+    def work_output(self, item) -> None:
         """Put result into queue."""
         pop_if_full(self._result_queues[item["camera_identifier"]], item)
 

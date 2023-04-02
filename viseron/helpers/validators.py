@@ -76,7 +76,7 @@ class CameraIdentifier(vol.Required):
             "Camera identifier. "
             "Valid characters are lowercase a-z, numbers and underscores."
         ),
-    ):
+    ) -> None:
         super().__init__(
             valid_camera_identifier,
             description=description,
@@ -86,7 +86,7 @@ class CameraIdentifier(vol.Required):
 class CoerceNoneToDict:
     """Coerce None to empty dict."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     def __call__(self, value):
@@ -109,7 +109,7 @@ class Maybe(vol.Any):
     This allows for special handling when generating docs with scripts/gen_docs.py.
     """
 
-    def __init__(self, *validators, **kwargs):
+    def __init__(self, *validators, **kwargs) -> None:
         super().__init__(*validators + (None,), **kwargs)
 
 
@@ -121,7 +121,7 @@ class Slug:
         description=(
             "Slug, valid characters are lowercase a-z, numbers and underscores."
         ),
-    ):
+    ) -> None:
         self.description = description
 
     def __call__(self, value):

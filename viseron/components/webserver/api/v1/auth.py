@@ -80,7 +80,7 @@ class AuthAPIHandler(BaseAPIHandler):
         },
     ]
 
-    def auth_enabled(self):
+    def auth_enabled(self) -> None:
         """Return if auth is enabled."""
         response = {
             "enabled": bool(self._webserver.auth) if self._webserver.auth else False,
@@ -90,7 +90,7 @@ class AuthAPIHandler(BaseAPIHandler):
         }
         self.response_success(response=response)
 
-    def auth_create(self):
+    def auth_create(self) -> None:
         """Create a new user."""
         try:
             self._webserver.auth.add_user(
@@ -104,7 +104,7 @@ class AuthAPIHandler(BaseAPIHandler):
             return
         self.response_success()
 
-    def auth_user(self, user_id: str):
+    def auth_user(self, user_id: str) -> None:
         """Get a user.
 
         Returns 200 OK with user data if user exists.
@@ -121,7 +121,7 @@ class AuthAPIHandler(BaseAPIHandler):
             }
         )
 
-    def auth_login(self):
+    def auth_login(self) -> None:
         """Login."""
         try:
             user = self._webserver.auth.validate_user(
@@ -151,7 +151,7 @@ class AuthAPIHandler(BaseAPIHandler):
             ),
         )
 
-    def auth_logout(self):
+    def auth_logout(self) -> None:
         """Logout."""
         refresh_token_cookie = self.get_secure_cookie("refresh_token")
         if refresh_token_cookie is not None:
@@ -202,7 +202,7 @@ class AuthAPIHandler(BaseAPIHandler):
             ),
         )
 
-    def auth_token(self):
+    def auth_token(self) -> None:
         """Handle token request."""
         if self.json_body["grant_type"] == "refresh_token":
             status, response = self._handle_refresh_token()

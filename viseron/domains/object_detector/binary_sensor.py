@@ -25,11 +25,11 @@ class ObjectDetectedBinarySensor(CameraBinarySensor):
         self,
         vis: Viseron,
         camera: AbstractCamera,
-    ):
+    ) -> None:
         super().__init__(vis, camera)
         self._objects: list[DetectedObject] = []
 
-    def setup(self):
+    def setup(self) -> None:
         """Set up event listener."""
         self._vis.listen_event(
             EVENT_SCAN_FRAMES.format(
@@ -47,7 +47,7 @@ class ObjectDetectedBinarySensor(CameraBinarySensor):
         """Return entity attributes."""
         return {"count": len(self._objects), "objects": self._objects}
 
-    def handle_event(self, event_data: Event[EventDetectedObjectsData]):
+    def handle_event(self, event_data: Event[EventDetectedObjectsData]) -> None:
         """Handle status event."""
         if (
             self._is_on == bool(event_data.data.objects)
@@ -58,7 +58,7 @@ class ObjectDetectedBinarySensor(CameraBinarySensor):
         self._objects = event_data.data.objects
         self.set_state()
 
-    def handle_stop_scan(self, event_data: Event[EventScanFrames]):
+    def handle_stop_scan(self, event_data: Event[EventScanFrames]) -> None:
         """Handle event when stopping frame scans."""
         if event_data.data.scan is False:
             self._objects = []
@@ -72,7 +72,7 @@ class ObjectDetectedBinarySensorFoV(ObjectDetectedBinarySensor):
         self,
         vis: Viseron,
         camera: AbstractCamera,
-    ):
+    ) -> None:
         super().__init__(vis, camera)
         self.object_id = f"{camera.identifier}_object_detected"
         self.name = f"{camera.name} Object Detected"
@@ -91,7 +91,7 @@ class ObjectDetectedBinarySensorZone(ObjectDetectedBinarySensor):
         vis: Viseron,
         zone: Zone,
         camera: AbstractCamera,
-    ):
+    ) -> None:
         super().__init__(vis, camera)
         self.object_id = f"{camera.identifier}_zone_{zone.name}_object_detected"
         self.name = f"{camera.name} Zone {zone.name} Object Detected"
@@ -112,7 +112,7 @@ class ObjectDetectedBinarySensorLabel(ObjectDetectedBinarySensor):
         vis: Viseron,
         label: str,
         camera: AbstractCamera,
-    ):
+    ) -> None:
         super().__init__(vis, camera)
         self._label = label
 
@@ -128,7 +128,7 @@ class ObjectDetectedBinarySensorLabel(ObjectDetectedBinarySensor):
         """Return entity attributes."""
         return {"count": len(self._tracked_label), "objects": self._tracked_label}
 
-    def handle_event(self, event_data: Event[EventDetectedObjectsData]):
+    def handle_event(self, event_data: Event[EventDetectedObjectsData]) -> None:
         """Handle status event."""
         tracked_label = [
             label for label in event_data.data.objects if label.label == self._label
@@ -142,7 +142,7 @@ class ObjectDetectedBinarySensorLabel(ObjectDetectedBinarySensor):
         self._reported_count = count
         self.set_state()
 
-    def handle_stop_scan(self, event_data: Event[EventScanFrames]):
+    def handle_stop_scan(self, event_data: Event[EventScanFrames]) -> None:
         """Handle event when stopping frame scans."""
         if event_data.data.scan is False:
             self._objects = []
@@ -159,7 +159,7 @@ class ObjectDetectedBinarySensorFoVLabel(ObjectDetectedBinarySensorLabel):
         vis: Viseron,
         label: str,
         camera: AbstractCamera,
-    ):
+    ) -> None:
         super().__init__(vis, label, camera)
         self.object_id = f"{camera.identifier}_object_detected_{label}"
         self.name = f"{camera.name} Object Detected {label.capitalize()}"
@@ -179,7 +179,7 @@ class ObjectDetectedBinarySensorZoneLabel(ObjectDetectedBinarySensorLabel):
         zone: Zone,
         label: str,
         camera: AbstractCamera,
-    ):
+    ) -> None:
         super().__init__(vis, label, camera)
         self.object_id = f"{camera.identifier}_zone_{zone.name}_object_detected_{label}"
         self.name = (

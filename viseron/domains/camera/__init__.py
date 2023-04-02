@@ -235,7 +235,7 @@ DATA_FRAME_BYTES_TOPIC = "{camera_identifier}/camera/frame_bytes"
 class AbstractCamera(ABC):
     """Represent a camera."""
 
-    def __init__(self, vis: Viseron, component: str, config, identifier: str):
+    def __init__(self, vis: Viseron, component: str, config, identifier: str) -> None:
         self._vis = vis
         self._config = config
         self._identifier = identifier
@@ -279,12 +279,12 @@ class AbstractCamera(ABC):
         """Generate a new access token."""
         return secrets.token_hex(64)
 
-    def update_token(self):
+    def update_token(self) -> None:
         """Update access token."""
         self.access_tokens.append(self.generate_token())
         self._access_token_entity.set_state()
 
-    def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]):
+    def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]) -> None:
         """Calculate the camera output fps based on registered frame scanners."""
         highest_fps = max(scanner.scan_fps for scanner in scanners)
         self.output_fps = highest_fps
@@ -335,7 +335,7 @@ class AbstractCamera(ABC):
         """Return stream output fps."""
 
     @output_fps.setter
-    def output_fps(self, fps):
+    def output_fps(self, fps) -> None:
         """Set stream output fps."""
 
     @property
@@ -374,7 +374,7 @@ class AbstractCamera(ABC):
         return self._connected
 
     @connected.setter
-    def connected(self, connected):
+    def connected(self, connected) -> None:
         if connected == self._connected:
             return
 
@@ -389,7 +389,7 @@ class AbstractCamera(ABC):
         )
 
     @staticmethod
-    def _clear_snapshot_cache(clear_cache):
+    def _clear_snapshot_cache(clear_cache) -> None:
         """Clear snapshot cache."""
         clear_cache()
 
@@ -443,7 +443,7 @@ class FailedCamera:
     It also gives access to the cameras recordings.
     """
 
-    def __init__(self, vis: Viseron, domain_to_setup: DomainToSetup):
+    def __init__(self, vis: Viseron, domain_to_setup: DomainToSetup) -> None:
         """Initialize failed camera."""
         self._vis = vis
         self._domain_to_setup = domain_to_setup

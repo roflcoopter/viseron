@@ -44,7 +44,7 @@ def setup_domain(
     identifier: str,
     require_domains: list[RequireDomain] | None = None,
     optional_domains: list[OptionalDomain] | None = None,
-):
+) -> None:
     """Set up single domain."""
     component_instance: Component = vis.data[LOADING][component]
     component_instance.add_domain_to_setup(

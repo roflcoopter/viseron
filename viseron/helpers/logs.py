@@ -62,7 +62,7 @@ class SensitiveInformationFilter(logging.Filter):
 class UnhelpfullLogFilter(logging.Filter):
     """Filter out unimportant logs."""
 
-    def __init__(self, errors_to_ignore, *args, **kwargs):
+    def __init__(self, errors_to_ignore, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.errors_to_ignore = errors_to_ignore
 
@@ -86,7 +86,7 @@ class ViseronLogFormat(ColoredFormatter):
     )
     overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K" + base_format
 
-    def __init__(self):
+    def __init__(self) -> None:
         log_colors = {
             "DEBUG": "cyan",
             "INFO": "green",
@@ -126,7 +126,7 @@ class ViseronLogFormat(ColoredFormatter):
 class LogPipe(threading.Thread):
     """Used to pipe stderr to python logging."""
 
-    def __init__(self, logger, output_level):
+    def __init__(self, logger, output_level) -> None:
         """Log stdout without blocking."""
         super().__init__(name=f"{logger.name}.logpipe", daemon=True)
         self._logger = logger
@@ -139,14 +139,14 @@ class LogPipe(threading.Thread):
         """Return the write file descriptor of the pipe."""
         return self._write_filedescriptor
 
-    def run(self):
+    def run(self) -> None:
         """Run the thread, logging everything."""
         for line in iter(self.pipe_reader.readline, ""):
             self._logger.log(self._output_level, line.strip().strip("\n"))
 
         self.pipe_reader.close()
 
-    def close(self):
+    def close(self) -> None:
         """Close the write end of the pipe."""
         os.close(self._write_filedescriptor)
 
@@ -158,7 +158,7 @@ class CTypesLogPipe(threading.Thread):
     Otherwise its logged at the requested loglevel.
     """
 
-    def __init__(self, logger, loglevel, fd: Literal[1, 2]):
+    def __init__(self, logger, loglevel, fd: Literal[1, 2]) -> None:
         super().__init__(name=f"{logger.name}.fd{str(fd)}", daemon=True)
         self._logger = logger
         self._loglevel = loglevel
@@ -174,7 +174,7 @@ class CTypesLogPipe(threading.Thread):
         """Return the write file descriptor of the pipe."""
         return self._write_filedescriptor
 
-    def run(self):
+    def run(self) -> None:
         """Run the thread, logging everything."""
         for line in iter(self.pipe_reader.readline, ""):
             if line.startswith("ERRORLOG"):
@@ -186,7 +186,7 @@ class CTypesLogPipe(threading.Thread):
 
         self.pipe_reader.close()
 
-    def close(self):
+    def close(self) -> None:
         """Close the write end of the pipe."""
         os.close(self._write_filedescriptor)
         os.dup2(self._old_fd, self._fd)

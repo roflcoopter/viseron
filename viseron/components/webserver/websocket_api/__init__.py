@@ -52,7 +52,7 @@ AUTH_MESSAGE_SCHEMA = vol.Schema(
 class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler):
     """Websocket handler."""
 
-    def initialize(self, vis: Viseron):
+    def initialize(self, vis: Viseron) -> None:
         """Initialize websocket handler."""
         super().initialize(vis)
         self.vis = vis
@@ -65,7 +65,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
 
         self.vis.data[WEBSOCKET_CONNECTIONS].append(self)
 
-    async def _write_message(self):
+    async def _write_message(self) -> None:
         """Write messages to client."""
         while True:
             if (message := await self._message_queue.get()) is None:
@@ -82,11 +82,11 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             return True
         return super().check_origin(origin)
 
-    def send_message(self, message):
+    def send_message(self, message) -> None:
         """Send message to client."""
         self._message_queue.put(message)
 
-    async def async_send_message(self, message):
+    async def async_send_message(self, message) -> None:
         """Send message to client."""
         await self._message_queue.put(message)
 
@@ -109,7 +109,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
 
         return self.validate_access_token(access_token)
 
-    async def handle_message(self, message):
+    async def handle_message(self, message) -> None:
         """Handle a single incoming message."""
         if self._waiting_for_auth:
             if await self.run_in_executor(self.handle_auth, message):
@@ -191,7 +191,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             )
         )
 
-    def open(self, *_args: str, **_kwargs: str):
+    def open(self, *_args: str, **_kwargs: str) -> None:
         """Websocket open."""
         LOGGER.debug("WebSocket opened")
         if self._webserver.auth:
@@ -204,7 +204,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             self._waiting_for_auth = False
         IOLoop.current().spawn_callback(self._write_message)
 
-    def on_message(self, message):
+    def on_message(self, message) -> None:
         """Websocket message received."""
         LOGGER.debug(f"Received {message}")
         try:
@@ -219,7 +219,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             return
         IOLoop.current().spawn_callback(self.handle_message, message_data)
 
-    async def force_close(self):
+    async def force_close(self) -> None:
         """Close websocket."""
         LOGGER.debug("Force close websocket")
         for unsub in self.subscriptions.values():
@@ -234,7 +234,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
         self.vis.data[WEBSOCKET_CONNECTIONS].remove(self)
         LOGGER.debug("Force close finished")
 
-    def on_close(self):
+    def on_close(self) -> None:
         """Websocket close."""
         LOGGER.debug("Websocket closed")
         for unsub in self.subscriptions.values():

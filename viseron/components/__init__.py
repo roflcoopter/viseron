@@ -81,7 +81,7 @@ LOGGER = logging.getLogger(__name__)
 class Component:
     """Represents a Viseron component."""
 
-    def __init__(self, vis: Viseron, path, name, config):
+    def __init__(self, vis: Viseron, path, name, config) -> None:
         self._vis = vis
         self._path = path
         self._name = name
@@ -203,7 +203,7 @@ class Component:
 
     def add_domain_to_setup(
         self, domain, config, identifier, require_domains, optional_domains
-    ):
+    ) -> None:
         """Add a domain to setup queue."""
         if (
             domain in self._vis.data[DOMAINS_TO_SETUP]
@@ -257,7 +257,7 @@ class Component:
     def _setup_dependencies(self, domain_to_setup: DomainToSetup):
         """Await the setup of all dependencies."""
 
-        def _slow_dependency_warning(futures):
+        def _slow_dependency_warning(futures) -> None:
             unfinished_dependencies = [future for future in futures if future.running()]
             if unfinished_dependencies:
                 LOGGER.warning(
@@ -501,7 +501,7 @@ def get_component(vis, component: Component, config):
         return Component(vis, f"{components.__name__}.{component}", component, config)
 
 
-def setup_component(vis, component: Component, tries=1):
+def setup_component(vis, component: Component, tries=1) -> None:
     """Set up single component."""
     # When tries is larger than one, it means we are in a retry loop.
     if tries > 1:
@@ -524,7 +524,7 @@ def setup_component(vis, component: Component, tries=1):
         del vis.data[LOADING][component.name]
 
 
-def domain_dependencies(vis: Viseron):
+def domain_dependencies(vis: Viseron) -> None:
     """Check that domain dependencies are resolved."""
     domain_to_setup: DomainToSetup
     for domain in vis.data[DOMAINS_TO_SETUP]:
@@ -568,7 +568,7 @@ def domain_dependencies(vis: Viseron):
 
 def _setup_domain(
     vis: Viseron, executor: ThreadPoolExecutor, domain_to_setup: DomainToSetup
-):
+) -> None:
     with DOMAIN_SETUP_LOCK:
         future = executor.submit(
             domain_to_setup.component.setup_domain,
@@ -583,7 +583,7 @@ def _setup_domain(
 
 def setup_domain(
     vis: Viseron, executor: ThreadPoolExecutor, domain_to_setup: DomainToSetup
-):
+) -> None:
     """Set up single domain and all its dependencies."""
     with DOMAIN_SETUP_LOCK:
         if domain_to_setup.identifier in vis.data[DOMAIN_SETUP_TASKS].get(
@@ -617,7 +617,7 @@ def setup_domain(
     _setup_domain(vis, executor, domain_to_setup)
 
 
-def setup_domains(vis: Viseron):
+def setup_domains(vis: Viseron) -> None:
     """Set up all domains."""
     # Check that all domain dependencies are resolved
     domain_dependencies(vis)
@@ -638,7 +638,7 @@ def setup_domains(vis: Viseron):
             future.result()
 
 
-def setup_components(vis: Viseron, config):
+def setup_components(vis: Viseron, config) -> None:
     """Set up configured components."""
     components_in_config = {key.split(" ")[0] for key in config}
     # Setup logger first
@@ -671,7 +671,7 @@ def setup_components(vis: Viseron, config):
     for thread in setup_threads:
         thread.start()
 
-    def join(thread):
+    def join(thread) -> None:
         thread.join(timeout=30)
         time.sleep(0.5)  # Wait for thread to exit properly
         if thread.is_alive():
@@ -696,7 +696,7 @@ def domain_setup_status(
     Sends an event when a domains setup status changes.
     """
 
-    def handle_failed_domain():
+    def handle_failed_domain() -> None:
         """Handle failed domain setup.
 
         Domains can have a setup_failed function that is called when the domain setup

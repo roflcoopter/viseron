@@ -81,7 +81,7 @@ SIGNAL_SCHEMA = vol.Schema(
 LOGGER = logging.getLogger(f"{__name__}.core")
 
 
-def enable_logging():
+def enable_logging() -> None:
     """Enable logging."""
     root_logger = logging.getLogger()
     root_logger.propagate = False
@@ -180,7 +180,7 @@ class Event(Generic[T]):
 class Viseron:
     """Viseron."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.states = States(self)
 
         self.setup_threads = []
@@ -246,12 +246,12 @@ class Viseron:
         topic = f"event/{event}"
         uuid = data_stream.subscribe_data(topic, callback, ioloop=ioloop)
 
-        def unsubscribe():
+        def unsubscribe() -> None:
             data_stream.unsubscribe_data(topic, uuid)
 
         return unsubscribe
 
-    def dispatch_event(self, event, data):
+    def dispatch_event(self, event, data) -> None:
         """Dispatch an event."""
         event = f"event/{event}"
         self.data[DATA_STREAM_COMPONENT].publish_data(
@@ -261,7 +261,7 @@ class Viseron:
     @overload
     def register_domain(
         self, domain: Literal["camera"], identifier: str, instance: AbstractCamera
-    ):
+    ) -> None:
         ...
 
     @overload
@@ -270,7 +270,7 @@ class Viseron:
         domain: Literal["face_recognition"],
         identifier: str,
         instance: AbstractFaceRecognition,
-    ):
+    ) -> None:
         ...
 
     @overload
@@ -279,7 +279,7 @@ class Viseron:
         domain: Literal["image_classification"],
         identifier: str,
         instance: AbstractImageClassification,
-    ):
+    ) -> None:
         ...
 
     @overload
@@ -288,7 +288,7 @@ class Viseron:
         domain: Literal["motion_detector"],
         identifier: str,
         instance: AbstractMotionDetectorScanner,
-    ):
+    ) -> None:
         ...
 
     @overload
@@ -297,7 +297,7 @@ class Viseron:
         domain: Literal["object_detector"],
         identifier: str,
         instance: AbstractObjectDetector,
-    ):
+    ) -> None:
         ...
 
     @overload
@@ -306,10 +306,12 @@ class Viseron:
         domain: Literal["nvr"],
         identifier: str,
         instance: NVR,
-    ):
+    ) -> None:
         ...
 
-    def register_domain(self, domain: SupportedDomains, identifier: str, instance):
+    def register_domain(
+        self, domain: SupportedDomains, identifier: str, instance
+    ) -> None:
         """Register a domain with a specific identifier."""
         LOGGER.debug(f"Registering domain {domain} with identifier {identifier}")
         with self._domain_register_lock:
@@ -433,7 +435,7 @@ class Viseron:
             domain,
         )
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Shut down Viseron."""
         LOGGER.info("Initiating shutdown")
 
@@ -445,7 +447,7 @@ class Viseron:
         self._subprocess_watchdog.stop()
         self.background_scheduler.shutdown()
 
-        def join(thread_or_process: threading.Thread | multiprocessing.Process):
+        def join(thread_or_process: threading.Thread | multiprocessing.Process) -> None:
             thread_or_process.join(timeout=8)
             time.sleep(0.5)  # Wait for process to exit properly
             if thread_or_process.is_alive():
@@ -477,7 +479,7 @@ class Viseron:
             component_instance = self.data[LOADING][component]
         return self.states.add_entity(component_instance, entity)
 
-    def add_entities(self, component: str, entities: list[Entity]):
+    def add_entities(self, component: str, entities: list[Entity]) -> None:
         """Add entities to states registry."""
         for entity in entities:
             self.add_entity(component, entity)
@@ -486,13 +488,13 @@ class Viseron:
         """Return all registered entities."""
         return self.states.get_entities()
 
-    def schedule_periodic_update(self, entity: Entity, update_interval: int):
+    def schedule_periodic_update(self, entity: Entity, update_interval: int) -> None:
         """Schedule entity update at a fixed interval."""
         self.background_scheduler.add_job(
             entity.update, "interval", seconds=update_interval
         )
 
-    def setup(self):
+    def setup(self) -> None:
         """Set up Viseron."""
         if os.getenv(ENV_PROFILE_MEMORY) == "true":
             tracemalloc.start()

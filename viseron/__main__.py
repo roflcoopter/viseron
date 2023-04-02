@@ -9,7 +9,7 @@ def main():
     """Start Viseron."""
     viseron = None
 
-    def signal_term(*_):
+    def signal_term(*_) -> None:
         if viseron:
             viseron.shutdown()
 

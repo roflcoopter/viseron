@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 class CameraEntity(Entity):
     """Base class for entities tied to a specific AbstractCamera."""
 
-    def __init__(self, vis: Viseron, camera: AbstractCamera):
+    def __init__(self, vis: Viseron, camera: AbstractCamera) -> None:
         self._vis = vis
         self._camera = camera
 

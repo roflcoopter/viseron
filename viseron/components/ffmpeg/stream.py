@@ -211,7 +211,7 @@ class Stream:
         return f"ffmpeg_{self._camera_identifier}_seg"
 
     @staticmethod
-    def create_symlink(alias):
+    def create_symlink(alias) -> None:
         """Create a symlink to FFmpeg executable.
 
         This is done to know which FFmpeg command belongs to which camera.
@@ -227,7 +227,7 @@ class Stream:
         return self._output_fps
 
     @output_fps.setter
-    def output_fps(self, fps):
+    def output_fps(self, fps) -> None:
         self._output_fps = fps
 
     def run_ffprobe(
@@ -508,7 +508,7 @@ class Stream:
             stderr=self._log_pipe,
         )
 
-    def start_pipe(self):
+    def start_pipe(self) -> None:
         """Start piping frames from FFmpeg."""
         self._logger.debug(f"FFmpeg decoder command: {' '.join(self.build_command())}")
         if self._config.get(CONFIG_SUBSTREAM, None):
@@ -518,7 +518,7 @@ class Stream:
 
         self._pipe = self.pipe()
 
-    def close_pipe(self):
+    def close_pipe(self) -> None:
         """Close FFmpeg pipe."""
         if self._segment_process:
             self._segment_process.terminate()

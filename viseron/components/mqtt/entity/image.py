@@ -36,7 +36,7 @@ class ImageMQTTEntity(MQTTEntity):
                 return jpg.tobytes()
         return None
 
-    def publish_state(self):
+    def publish_state(self) -> None:
         """Publish state to MQTT."""
         image = self._create_bytes_image()
 

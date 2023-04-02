@@ -67,7 +67,7 @@ class PostProcessorFrame:
 class AbstractPostProcessor(ABC):
     """Abstract Post Processor."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier):
+    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
         self._vis = vis
         self._config = config
         self._camera_identifier = camera_identifier
@@ -103,7 +103,7 @@ class AbstractPostProcessor(ABC):
             self._post_processor_queue,
         )
 
-    def post_process(self):
+    def post_process(self) -> None:
         """Post processor loop."""
         while True:
             event_data: Event[

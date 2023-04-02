@@ -87,7 +87,9 @@ class Recording:
 class RecorderBase:
     """Base recorder."""
 
-    def __init__(self, vis: Viseron, config, camera: AbstractCamera | FailedCamera):
+    def __init__(
+        self, vis: Viseron, config, camera: AbstractCamera | FailedCamera
+    ) -> None:
         self._logger = logging.getLogger(self.__module__ + "." + camera.identifier)
         self._vis = vis
         self._config = config
@@ -214,7 +216,7 @@ class RecorderBase:
 class AbstractRecorder(ABC, RecorderBase):
     """Abstract recorder."""
 
-    def __init__(self, vis: Viseron, component, config, camera: AbstractCamera):
+    def __init__(self, vis: Viseron, component, config, camera: AbstractCamera) -> None:
         super().__init__(vis, config, camera)
         self._camera: AbstractCamera = camera
 
@@ -347,7 +349,7 @@ class AbstractRecorder(ABC, RecorderBase):
     ):
         """Start the recorder."""
 
-    def stop(self, recording: Recording):
+    def stop(self, recording: Recording) -> None:
         """Stop recording."""
         self._logger.info("Stopping recorder")
         end_time = datetime.datetime.now()
@@ -378,7 +380,7 @@ class AbstractRecorder(ABC, RecorderBase):
         """Return active recording."""
         return self._active_recording
 
-    def cleanup_recordings(self):
+    def cleanup_recordings(self) -> None:
         """Delete all recordings that have past the configured days to retain."""
         self._logger.debug("Running cleanup")
         retention_period = time.time() - (

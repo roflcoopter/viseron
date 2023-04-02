@@ -5,7 +5,7 @@
 from multiprocessing import resource_tracker
 
 
-def remove_shm_from_resource_tracker():
+def remove_shm_from_resource_tracker() -> None:
     """Monkey-patch multiprocessing.resource_tracker so SharedMemory won't be tracked.
 
     More details at: https://bugs.python.org/issue38119

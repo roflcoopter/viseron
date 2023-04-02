@@ -34,7 +34,7 @@ class BaseAPIHandler(ViseronRequestHandler):
 
     routes: list[dict[str, Any]] = []
 
-    def initialize(self, vis: Viseron):
+    def initialize(self, vis: Viseron) -> None:
         """Initialize."""
         super().initialize(vis)
         self.route: dict[str, Any] = {}
@@ -48,13 +48,13 @@ class BaseAPIHandler(ViseronRequestHandler):
         return self._json_body
 
     @json_body.setter
-    def json_body(self, value):
+    def json_body(self, value) -> None:
         """Set JSON body."""
         self._json_body = value
 
     def response_success(
         self, *, status: HTTPStatus = HTTPStatus.OK, response=None, headers=None
-    ):
+    ) -> None:
         """Send successful response."""
         if response is None:
             response = {"success": True}
@@ -70,17 +70,17 @@ class BaseAPIHandler(ViseronRequestHandler):
 
         self.finish(response)
 
-    def response_error(self, status_code: HTTPStatus, reason: str):
+    def response_error(self, status_code: HTTPStatus, reason: str) -> None:
         """Send error response."""
         self.set_status(status_code, reason=reason.replace("\n", ""))
         response = {"status": status_code, "error": reason}
         self.finish(response)
 
-    def handle_endpoint_not_found(self):
+    def handle_endpoint_not_found(self) -> None:
         """Return 404."""
         self.response_error(HTTPStatus.NOT_FOUND, "Endpoint not found")
 
-    def handle_method_not_allowed(self):
+    def handle_method_not_allowed(self) -> None:
         """Return 405."""
         self.response_error(
             HTTPStatus.METHOD_NOT_ALLOWED, f"Method '{self.request.method}' not allowed"
@@ -149,7 +149,7 @@ class BaseAPIHandler(ViseronRequestHandler):
             auth_val, check_refresh_token=self.browser_request
         )
 
-    def route_request(self):
+    def route_request(self) -> None:
         """Route request to correct API endpoint."""
         unsupported_method = False
 
@@ -282,19 +282,19 @@ class BaseAPIHandler(ViseronRequestHandler):
             LOGGER.warning(f"Endpoint not found for URI: {self.request.uri}")
             self.handle_endpoint_not_found()
 
-    def delete(self):
+    def delete(self) -> None:
         """Route DELETE requests."""
         self.route_request()
 
-    def get(self):
+    def get(self) -> None:
         """Route GET requests."""
         self.route_request()
 
-    def post(self):
+    def post(self) -> None:
         """Route POST requests."""
         self.route_request()
 
-    def put(self):
+    def put(self) -> None:
         """Route PUT requests."""
         self.route_request()
 
@@ -302,6 +302,6 @@ class BaseAPIHandler(ViseronRequestHandler):
 class APINotFoundHandler(BaseAPIHandler):
     """Default handler."""
 
-    def get(self):
+    def get(self) -> None:
         """Catch all methods."""
         self.response_error(HTTPStatus.NOT_FOUND, "Endpoint not found")

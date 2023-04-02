@@ -219,7 +219,7 @@ class EdgeTPU(ChildProcessWorker):
         interpreter.allocate_tensors()
         return interpreter
 
-    def process_initialization(self):
+    def process_initialization(self) -> None:
         """Make interpreter inside the child process."""
         self.interpreter = self.make_interpreter(self._device, self._model)
         self._process_initialization_done.set()
@@ -232,7 +232,7 @@ class EdgeTPU(ChildProcessWorker):
     def work_input(self, item):
         """Perform work on input."""
 
-    def work_output(self, item):
+    def work_output(self, item) -> None:
         """Put result into queue."""
         pop_if_full(self._result_queues[item["camera_identifier"]], item)
 

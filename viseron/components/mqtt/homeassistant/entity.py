@@ -28,7 +28,7 @@ class HassMQTTEntity(ABC):
 
     domain: str = NotImplemented
 
-    def __init__(self, vis: Viseron, config, mqtt_entity: MQTTEntity):
+    def __init__(self, vis: Viseron, config, mqtt_entity: MQTTEntity) -> None:
         self._vis = vis
         self._config = config
         self._mqtt_entity = mqtt_entity
@@ -150,7 +150,7 @@ class HassMQTTEntity(ABC):
 
         return payload
 
-    def create(self):
+    def create(self) -> None:
         """Create config in Home Assistant."""
         self._mqtt.publish(
             PublishPayload(

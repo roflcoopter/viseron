@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class MQTTEntity:
     """Class that relays Entity state and attributes to the MQTT broker."""
 
-    def __init__(self, vis: Viseron, config, entity: Entity):
+    def __init__(self, vis: Viseron, config, entity: Entity) -> None:
         self._vis = vis
         self._config = config
         self.entity = entity
@@ -38,7 +38,7 @@ class MQTTEntity:
         """Return attributes topic."""
         return self.state_topic
 
-    def publish_state(self):
+    def publish_state(self) -> None:
         """Publish state to MQTT."""
         payload = {}
         payload["state"] = self.entity.state

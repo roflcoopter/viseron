@@ -40,7 +40,7 @@ def setup(vis: Viseron, config, identifier):
 class ObjectDetector(AbstractObjectDetector):
     """Performs object detection."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier):
+    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
         self._vis = vis
         self._config = config
         self._camera_identifier = camera_identifier

@@ -14,7 +14,7 @@ LOGGER = logging.getLogger(__name__)
 class APIRouter(tornado.routing.Router):
     """Catch-all API Router."""
 
-    def __init__(self, vis, application, **_kwargs):
+    def __init__(self, vis, application, **_kwargs) -> None:
         self._vis = vis
         self._application = application
 

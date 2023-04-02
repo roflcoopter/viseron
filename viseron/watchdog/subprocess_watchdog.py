@@ -16,7 +16,9 @@ class RestartablePopen:
     process.
     """
 
-    def __init__(self, *args, name=None, grace_period=20, register=True, **kwargs):
+    def __init__(
+        self, *args, name=None, grace_period=20, register=True, **kwargs
+    ) -> None:
         self._args = args
         self._name = name
         self._grace_period = grace_period
@@ -58,7 +60,7 @@ class RestartablePopen:
         """Return subprocess start time."""
         return self._start_time
 
-    def start(self):
+    def start(self) -> None:
         """Start the subprocess."""
         self._subprocess = sp.Popen(
             *self._args,
@@ -67,7 +69,7 @@ class RestartablePopen:
         self._start_time = datetime.datetime.now().timestamp()
         self._started = True
 
-    def restart(self):
+    def restart(self) -> None:
         """Restart the subprocess."""
         self._started = False
         self._subprocess.terminate()
@@ -79,7 +81,7 @@ class RestartablePopen:
             self._subprocess.communicate()
         self.start()
 
-    def terminate(self):
+    def terminate(self) -> None:
         """Terminate the subprocess."""
         self._started = False
         SubprocessWatchDog.unregister(self)
@@ -91,11 +93,11 @@ class SubprocessWatchDog(WatchDog):
 
     registered_items: List[RestartablePopen] = []
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._scheduler.add_job(self.watchdog, "interval", seconds=15)
 
-    def watchdog(self):
+    def watchdog(self) -> None:
         """Check for stopped processes and restart them."""
         for registered_process in self.registered_items:
             if not registered_process.started:

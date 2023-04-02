@@ -54,7 +54,7 @@ class State:
         entity_id: str,
         state: str,
         attributes: dict,
-    ):
+    ) -> None:
         self.entity_id = entity_id
         self.state = state
         self.attributes = attributes
@@ -77,14 +77,14 @@ class State:
 class States:
     """Keep track of entity states."""
 
-    def __init__(self, vis: Viseron):
+    def __init__(self, vis: Viseron) -> None:
         self._vis = vis
         self._registry: dict[str, Entity] = {}
         self._registry_lock = threading.Lock()
 
         self._current_states: dict[str, State] = {}
 
-    def set_state(self, entity: Entity):
+    def set_state(self, entity: Entity) -> None:
         """Set the state in the states registry."""
         LOGGER.debug(
             "Setting state of %s to state: %s, attributes %s",
@@ -161,7 +161,7 @@ class States:
             return dict(sorted(self._registry.items()))
 
     @staticmethod
-    def _assign_object_id(entity: Entity):
+    def _assign_object_id(entity: Entity) -> None:
         """Assign object id to entity if it is missing."""
         if entity.object_id:
             entity.object_id = slugify(entity.object_id)

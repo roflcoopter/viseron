@@ -45,7 +45,7 @@ class AbstractPipeline(ABC):
 class RawPipeline(AbstractPipeline):
     """Raw GStreamer pipeline."""
 
-    def __init__(self, config):
+    def __init__(self, config) -> None:
         self._config = config
 
     def build_pipeline(self):
@@ -56,7 +56,7 @@ class RawPipeline(AbstractPipeline):
 class BasePipeline(AbstractPipeline):
     """Base GStreamer pipeline."""
 
-    def __init__(self, config, stream: Stream, camera_identifier):
+    def __init__(self, config, stream: Stream, camera_identifier) -> None:
         self._config = config
         self._stream = stream
         self._camera_identifier = camera_identifier

@@ -160,7 +160,7 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)) -> None:
 
 def draw_object(
     frame, obj, camera_resolution: tuple[int, int], color=(150, 0, 0), thickness=1
-):
+) -> None:
     """Draw a single object on supplied frame."""
     if obj.relevant:
         color = (0, 150, 0)
@@ -274,7 +274,9 @@ def draw_object_mask(frame, mask_points) -> None:
     draw_mask("Object mask", frame, mask_points, color=(255, 255, 255))
 
 
-def pop_if_full(queue: Queue, item: Any, logger=LOGGER, name="unknown", warn=False):
+def pop_if_full(
+    queue: Queue, item: Any, logger=LOGGER, name="unknown", warn=False
+) -> None:
     """If queue is full, pop oldest item and put the new item."""
     try:
         queue.put_nowait(item)
@@ -290,7 +292,7 @@ def slugify(text: str) -> str:
     return unicode_slug.slugify(text, separator="_")
 
 
-def create_directory(path):
+def create_directory(path) -> None:
     """Create a directory."""
     try:
         if not os.path.isdir(path):
@@ -419,7 +421,7 @@ def convert_letterboxed_bbox(
     )
 
 
-def memory_usage_profiler(logger, key_type="lineno", limit=5):
+def memory_usage_profiler(logger, key_type="lineno", limit=5) -> None:
     """Print a table with the lines that are using the most memory."""
     snapshot = tracemalloc.take_snapshot()
     snapshot = snapshot.filter_traces(

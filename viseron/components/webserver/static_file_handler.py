@@ -31,7 +31,7 @@ class AccessTokenStaticFileHandler(
         self._camera_identifier = camera_identifier
         self._failed = failed
 
-    async def prepare(self):
+    async def prepare(self) -> None:
         """Validate access token."""
         if self._webserver.auth:
             if not self._camera_identifier:

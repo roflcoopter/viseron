@@ -48,7 +48,7 @@ class RestartableThread(threading.Thread):
         restart_method: Optional[Callable] = None,
         base_class=None,
         base_class_args=(),
-    ):
+    ) -> None:
         super().__init__(
             group=group,
             target=target,
@@ -138,11 +138,11 @@ class ThreadWatchDog(WatchDog):
 
     registered_items: List[RestartableThread] = []
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._scheduler.add_job(self.watchdog, "interval", seconds=15)
 
-    def watchdog(self):
+    def watchdog(self) -> None:
         """Check for stopped threads and restart them."""
         new_threads: List[RestartableThread] = []
         deleted_threads: List[RestartableThread] = []

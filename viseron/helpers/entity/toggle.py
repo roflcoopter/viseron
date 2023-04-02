@@ -39,7 +39,7 @@ class ToggleEntity(Entity):
         """Turn off entity."""
         raise NotImplementedError()
 
-    def toggle(self):
+    def toggle(self) -> None:
         """Turn off entity."""
         if self.is_on:
             self.turn_off()

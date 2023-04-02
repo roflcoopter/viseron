@@ -41,7 +41,7 @@ class Zone:
         camera_identifier,
         zone_config,
         mask,
-    ):
+    ) -> None:
         self._vis = vis
         self._camera = vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
@@ -78,7 +78,9 @@ class Zone:
             ObjectDetectedBinarySensorZone(vis, self, self._camera),
         )
 
-    def filter_zone(self, shared_frame: SharedFrame, objects: list[DetectedObject]):
+    def filter_zone(
+        self, shared_frame: SharedFrame, objects: list[DetectedObject]
+    ) -> None:
         """Filter out objects to see if they are within the zone."""
         objects_in_zone = []
         for obj in objects:
@@ -111,7 +113,7 @@ class Zone:
 
     def objects_in_zone_setter(
         self, shared_frame: SharedFrame | None, objects: list[DetectedObject]
-    ):
+    ) -> None:
         """Set objects in zone."""
         if objects == self._objects_in_zone:
             return

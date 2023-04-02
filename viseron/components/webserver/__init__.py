@@ -153,7 +153,7 @@ def setup(vis: Viseron, config):
 class IndexHandler(ViseronRequestHandler):
     """Handler for index page."""
 
-    def get(self):
+    def get(self) -> None:
         """GET request."""
         self.render(os.path.join(PATH_STATIC, "index.html"))
 
@@ -161,7 +161,7 @@ class IndexHandler(ViseronRequestHandler):
 class DeprecatedStreamHandler(tornado.web.RequestHandler):
     """Socket handler."""
 
-    def get(self, camera):
+    def get(self, camera) -> None:
         """GET request."""
         LOGGER.warning(
             f"The endpoint /{camera}/stream is deprecated. "
@@ -173,7 +173,7 @@ class DeprecatedStreamHandler(tornado.web.RequestHandler):
 class WebserverStore:
     """Webserver storage."""
 
-    def __init__(self, vis: Viseron):
+    def __init__(self, vis: Viseron) -> None:
         self._store = Storage(vis, WEBSERVER_STORAGE_KEY)
         self._data = self._store.load()
 
@@ -275,7 +275,7 @@ class Webserver(threading.Thread):
         """Return auth."""
         return self._auth
 
-    def register_websocket_command(self, handler):
+    def register_websocket_command(self, handler) -> None:
         """Register a websocket command."""
         if handler.command in self._vis.data[WEBSOCKET_COMMANDS]:
             LOGGER.error(f"Command {handler.command} has already been registered")
@@ -285,7 +285,7 @@ class Webserver(threading.Thread):
 
     def _serve_camera_recordings(
         self, camera: AbstractCamera | FailedCamera, failed=False
-    ):
+    ) -> None:
         """Serve recordings of each camera in a static file handler."""
         self.application.add_handlers(
             r".*",
@@ -306,7 +306,9 @@ class Webserver(threading.Thread):
             ],
         )
 
-    def camera_registered(self, event_data: Event[AbstractCamera | DomainToSetup]):
+    def camera_registered(
+        self, event_data: Event[AbstractCamera | DomainToSetup]
+    ) -> None:
         """Handle camera registering."""
         camera: AbstractCamera | FailedCamera | None = None
         failed = False
@@ -319,12 +321,12 @@ class Webserver(threading.Thread):
         if camera:
             self._serve_camera_recordings(camera, failed)
 
-    def run(self):
+    def run(self) -> None:
         """Start ioloop."""
         self._ioloop.start()
         self._ioloop.close()
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop ioloop."""
         LOGGER.debug("Stopping webserver")
         futures = []

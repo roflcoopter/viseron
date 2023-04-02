@@ -131,7 +131,7 @@ class FrameIntervalCalculator:
         scan_fps,
         topic_scan,
         topic_result,
-    ):
+    ) -> None:
         self._vis = vis
         self._camera_identifier = camera_identifier
         self._name = name
@@ -166,7 +166,7 @@ class FrameIntervalCalculator:
             self._frame_number = 0
         return False
 
-    def calculate_scan_interval(self, output_fps):
+    def calculate_scan_interval(self, output_fps) -> None:
         """Calculate the frame scan interval."""
         self._scan_interval = round(output_fps / self.scan_fps)
 
@@ -176,7 +176,7 @@ class FrameIntervalCalculator:
         return self._scan
 
     @scan.setter
-    def scan(self, value: bool):
+    def scan(self, value: bool) -> None:
         self._scan = value
         self._vis.dispatch_event(
             EVENT_SCAN_FRAMES.format(
@@ -201,7 +201,7 @@ class FrameIntervalCalculator:
         return self._scan_error
 
     @scan_error.setter
-    def scan_error(self, value: bool):
+    def scan_error(self, value: bool) -> None:
         self._scan_error = value
 
 
@@ -215,7 +215,7 @@ class NVR:
         camera_identifier: str,
         object_detector: AbstractObjectDetector | Literal[False],
         motion_detector: AbstractMotionDetectorScanner | Literal[False],
-    ):
+    ) -> None:
         self._vis = vis
         self._config = config
         self._camera: AbstractCamera = vis.get_registered_domain(
@@ -320,7 +320,7 @@ class NVR:
         self._camera.start_camera()
         self._logger.info(f"NVR for camera {self._camera.name} initialized")
 
-    def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]):
+    def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]) -> None:
         """Calculate output fps based on fps of all scanners."""
         self._camera.calculate_output_fps(scanners)
         for scanner in scanners:
@@ -332,7 +332,7 @@ class NVR:
         return self._operation_state
 
     @operation_state.setter
-    def operation_state(self, value):
+    def operation_state(self, value) -> None:
         """Set state of operation."""
         if value == self._operation_state:
             return
@@ -346,7 +346,7 @@ class NVR:
             ),
         )
 
-    def update_operation_state(self):
+    def update_operation_state(self) -> None:
         """Update operation state."""
         operation_state = "idle"
         if self._frame_scanner_errors:
@@ -362,7 +362,7 @@ class NVR:
 
         self.operation_state = operation_state
 
-    def check_intervals(self, shared_frame: SharedFrame):
+    def check_intervals(self, shared_frame: SharedFrame) -> None:
         """Check all registered frame intervals."""
         self._current_frame_scanners = {}
 
@@ -370,7 +370,7 @@ class NVR:
             if frame_scanner.check_scan_interval(shared_frame):
                 self._current_frame_scanners[scanner] = frame_scanner
 
-    def scanner_results(self):
+    def scanner_results(self) -> None:
         """Wait for scanner to return results."""
         self._frame_scanner_errors = []
         for name, frame_scanner in self._current_frame_scanners.items():
@@ -480,7 +480,7 @@ class NVR:
 
         return False
 
-    def process_object_event(self):
+    def process_object_event(self) -> None:
         """Process any detected objects to see if recorder should start."""
         # Only process objects if object detection is enabled
         if not self._object_detector:
@@ -510,7 +510,7 @@ class NVR:
                     self._start_recorder = True
                     return
 
-    def process_motion_event(self):
+    def process_motion_event(self) -> None:
         """Process motion to see if it has started or stopped."""
         # Only process motion if motion detection is enabled
         if not self._motion_detector:
@@ -553,7 +553,7 @@ class NVR:
             self._logger.debug("Not recording, pausing object detector")
             self._frame_scanners[OBJECT_DETECTOR].scan = False
 
-    def start_recorder(self, shared_frame):
+    def start_recorder(self, shared_frame) -> None:
         """Start recorder."""
         self._idle_frames = 0
         self._camera.start_recorder(
@@ -569,7 +569,7 @@ class NVR:
             self._frame_scanners[MOTION_DETECTOR].scan = True
             self._logger.info("Starting motion detector")
 
-    def stop_recorder(self):
+    def stop_recorder(self) -> None:
         """Stop recorder."""
         if self._idle_frames % self._camera.output_fps == 0:
             self._logger.info(
@@ -595,14 +595,14 @@ class NVR:
             self._idle_frames = 0
             self._camera.stop_recorder()
 
-    def process_frame(self, shared_frame: SharedFrame):
+    def process_frame(self, shared_frame: SharedFrame) -> None:
         """Process frame."""
         self.check_intervals(shared_frame)
         self.scanner_results()
         self.process_object_event()
         self.process_motion_event()
 
-    def process_recorder(self, shared_frame: SharedFrame):
+    def process_recorder(self, shared_frame: SharedFrame) -> None:
         """Check if we should start or stop the recorder."""
         if self._start_recorder:
             self._start_recorder = False
@@ -613,7 +613,7 @@ class NVR:
         else:
             self._idle_frames = 0
 
-    def remove_frame(self, shared_frame):
+    def remove_frame(self, shared_frame) -> None:
         """Remove frame after a delay.
 
         This makes sure all frames are cleaned up eventually.
@@ -623,7 +623,7 @@ class NVR:
         )
         timer.start()
 
-    def run(self):
+    def run(self) -> None:
         """Read frames from camera."""
         self._logger.debug("Waiting for first frame")
         first_frame_log = True
@@ -663,7 +663,7 @@ class NVR:
             self.remove_frame(shared_frame)
         self._logger.debug("NVR thread stopped")
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop processing of events."""
         self._logger.info("Stopping NVR thread")
         # Stop frame grabber

@@ -46,7 +46,7 @@ class Segments:
         vis: Viseron,
         camera: AbstractCamera,
         segments_folder,
-    ):
+    ) -> None:
         self._logger = logger
         self._config = config
         self._vis = vis
@@ -210,7 +210,7 @@ class Segments:
             ]
         return []
 
-    def ffmpeg_concat(self, segment_script, file_name):
+    def ffmpeg_concat(self, segment_script, file_name) -> None:
         """Generate and run FFmpeg command to concatenate segments."""
         ffmpeg_cmd = (
             [
@@ -251,7 +251,7 @@ class Segments:
             stderr=self._log_pipe,
         )
 
-    def concat_segments(self, recording: Recording):
+    def concat_segments(self, recording: Recording) -> None:
         """Concatenate segments between event_start and event_end."""
         event_start = (
             recording.start_timestamp - self._config[CONFIG_RECORDER][CONFIG_LOOKBACK]
@@ -318,7 +318,9 @@ class Segments:
 class SegmentCleanup:
     """Clean up segments created by FFmpeg."""
 
-    def __init__(self, vis, config, camera_name, logger, segment_thread_context):
+    def __init__(
+        self, vis, config, camera_name, logger, segment_thread_context
+    ) -> None:
         self._vis = vis
         self._logger = logger
         self._segment_thread_context = segment_thread_context
@@ -342,7 +344,7 @@ class SegmentCleanup:
             segment.split(".")[0], "%Y%m%d%H%M%S"
         ).timestamp()
 
-    def cleanup(self, force=False):
+    def cleanup(self, force=False) -> None:
         """Delete all segments that are no longer needed."""
         if not force and self._segment_thread_context.count > 0:
             self._logger.debug(
@@ -367,22 +369,22 @@ class SegmentCleanup:
             if now - start_time > self._max_age:
                 os.remove(os.path.join(self._directory, segment))
 
-    def start(self):
+    def start(self) -> None:
         """Start the scheduler."""
         self._logger.debug("Starting segment cleanup")
         self._scheduler.start()
 
-    def pause(self):
+    def pause(self) -> None:
         """Pauise the scheduler."""
         self._logger.debug("Pausing segment cleanup")
         self._scheduler.pause_job("segment_cleanup")
 
-    def resume(self):
+    def resume(self) -> None:
         """Resume the scheduler."""
         self._logger.debug("Resuming segment cleanup")
         self._scheduler.resume_job("segment_cleanup")
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Resume the scheduler."""
         self._logger.debug("Shutting down segment cleanup")
         self.cleanup(force=True)
