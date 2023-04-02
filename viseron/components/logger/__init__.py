@@ -57,7 +57,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis, config):
+def setup(vis, config) -> bool:
     """Set up the logger component."""
     vis.data[COMPONENT] = {}
     vis.data[COMPONENT][CONFIG_LOGS] = {}

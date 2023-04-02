@@ -86,7 +86,7 @@ class BaseAPIHandler(ViseronRequestHandler):
             HTTPStatus.METHOD_NOT_ALLOWED, f"Method '{self.request.method}' not allowed"
         )
 
-    def validate_json_body(self, route):
+    def validate_json_body(self, route) -> bool:
         """Validate JSON body."""
         if schema := route.get("json_body_schema", None):
             try:

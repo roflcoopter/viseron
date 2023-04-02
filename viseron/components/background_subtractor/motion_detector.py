@@ -9,7 +9,7 @@ from viseron.domains.motion_detector.contours import Contours
 from .const import COMPONENT, CONFIG_ALPHA, CONFIG_THRESHOLD
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the background_subtractor motion_detector domain."""
     MotionDetector(vis, config[DOMAIN], identifier)
 

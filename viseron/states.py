@@ -168,7 +168,7 @@ class States:
         else:
             entity.object_id = slugify(entity.name)
 
-    def _generate_entity_id(self, entity: Entity):
+    def _generate_entity_id(self, entity: Entity) -> str:
         """Generate entity id for an entity."""
         self._assign_object_id(entity)
         return f"{entity.domain}.{entity.object_id}"

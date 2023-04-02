@@ -11,7 +11,7 @@ LOGGER = logging.getLogger(__name__)
 UNSUPPORTED = object()
 
 
-def create_default_config():
+def create_default_config() -> bool:
     """Create default configuration."""
     try:
         with open(CONFIG_PATH, "w", encoding="utf-8") as config_file:

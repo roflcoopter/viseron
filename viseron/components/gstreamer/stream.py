@@ -155,7 +155,7 @@ class Stream:
             self._pipeline = BasePipeline(config, self, camera_identifier)
 
     @property
-    def stream_url(self):
+    def stream_url(self) -> str:
         """Return stream url."""
         auth = ""
         if self._config[CONFIG_USERNAME] and self._config[CONFIG_PASSWORD]:
@@ -174,7 +174,7 @@ class Stream:
         )
 
     @property
-    def output_stream_url(self):
+    def output_stream_url(self) -> str:
         """Return output stream url."""
         auth = ""
         if self._config[CONFIG_USERNAME] and self._config[CONFIG_PASSWORD]:
@@ -200,12 +200,12 @@ class Stream:
         return self._output_stream_config
 
     @property
-    def alias(self):
+    def alias(self) -> str:
         """Return GStreamer executable alias."""
         return f"gstreamer_{self._camera_identifier}"
 
     @property
-    def segments_alias(self):
+    def segments_alias(self) -> str:
         """Return GStreamer segments executable alias."""
         return f"gstreamer_{self._camera_identifier}_seg"
 

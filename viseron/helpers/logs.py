@@ -12,7 +12,7 @@ class DuplicateFilter(logging.Filter):
     """Formats identical log entries to overwrite the last."""
 
     # pylint: disable=attribute-defined-outside-init
-    def filter(self, record):
+    def filter(self, record) -> bool:
         """Filter log record."""
         current_log = (
             record.name,
@@ -39,7 +39,7 @@ class DuplicateFilter(logging.Filter):
 class SensitiveInformationFilter(logging.Filter):
     """Redacts sensitive information from logs."""
 
-    def filter(self, record):
+    def filter(self, record) -> bool:
         """Filter log record."""
         if isinstance(record.msg, str):
             record.msg = re.sub(r":\/\/(.*?)\@", r"://*****:*****@", record.msg)
@@ -66,7 +66,7 @@ class UnhelpfullLogFilter(logging.Filter):
         super().__init__(*args, **kwargs)
         self.errors_to_ignore = errors_to_ignore
 
-    def filter(self, record):
+    def filter(self, record) -> bool:
         """Filter log record."""
         if any(error in record.msg for error in self.errors_to_ignore):
             return False

@@ -150,7 +150,7 @@ class Stream:
         self._frame_bytes_size = int(self.width * self.height * 1.5)
 
     @property
-    def stream_url(self):
+    def stream_url(self) -> str:
         """Return stream url."""
         auth = ""
         if self._config[CONFIG_USERNAME] and self._config[CONFIG_PASSWORD]:
@@ -169,7 +169,7 @@ class Stream:
         )
 
     @property
-    def output_stream_url(self):
+    def output_stream_url(self) -> str:
         """Return output stream url."""
         auth = ""
         if self._config[CONFIG_USERNAME] and self._config[CONFIG_PASSWORD]:
@@ -201,12 +201,12 @@ class Stream:
         ]
 
     @property
-    def alias(self):
+    def alias(self) -> str:
         """Return FFmpeg executable alias."""
         return f"ffmpeg_{self._camera_identifier}"
 
     @property
-    def segments_alias(self):
+    def segments_alias(self) -> str:
         """Return FFmpeg segments executable alias."""
         return f"ffmpeg_{self._camera_identifier}_seg"
 

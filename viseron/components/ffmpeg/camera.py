@@ -289,7 +289,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the ffmpeg camera domain."""
     try:
         Camera(vis, config[identifier], identifier)
@@ -401,7 +401,7 @@ class Camera(AbstractCamera):
         self._thread_stuck = True
         self.stop_camera()
 
-    def poll_method(self):
+    def poll_method(self) -> bool:
         """Return true on frame timeout for RestartableThread to trigger a restart."""
         now = datetime.datetime.now().timestamp()
 

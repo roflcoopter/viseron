@@ -52,7 +52,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the edgetpu object_detector domain."""
     object_detector: AbstractObjectDetector | Literal[False] = False
     if (
@@ -154,7 +154,7 @@ class FrameIntervalCalculator:
 
         self.calculate_scan_interval(output_fps)
 
-    def check_scan_interval(self, shared_frame: SharedFrame):
+    def check_scan_interval(self, shared_frame: SharedFrame) -> bool:
         """Check if frame should be marked for scanning."""
         if self.scan:
             if self._frame_number % self._scan_interval == 0:
@@ -391,7 +391,7 @@ class NVR:
 
     def event_over_check_motion(
         self, obj: DetectedObject, object_filters: dict[str, Filter]
-    ):
+    ) -> bool:
         """Check if motion should stop the recorder."""
         if object_filters.get(obj.label) and object_filters[obj.label].require_motion:
             if self._motion_detector and self._motion_detector.motion_detected:
@@ -406,7 +406,7 @@ class NVR:
 
     def event_over_check_object(
         self, obj: DetectedObject, object_filters: dict[str, Filter]
-    ):
+    ) -> bool:
         """Check if object should stop the recorder."""
         if obj.trigger_recorder:
             if self._motion_detector:
@@ -416,7 +416,7 @@ class NVR:
                 return False
         return True
 
-    def event_over(self):
+    def event_over(self) -> bool:
         """Return if ongoing motion and/or object detection is over."""
         if (
             self._object_detector
@@ -463,7 +463,9 @@ class NVR:
             return False
         return True
 
-    def trigger_recorder(self, obj: DetectedObject, object_filters: dict[str, Filter]):
+    def trigger_recorder(
+        self, obj: DetectedObject, object_filters: dict[str, Filter]
+    ) -> bool:
         """Check if object should start the recorder."""
         # Discard object if it requires motion but motion is not detected
         if (

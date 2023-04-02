@@ -24,7 +24,7 @@ from .const import (
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the deepstack object_detector domain."""
     ObjectDetector(vis, config, identifier)
 

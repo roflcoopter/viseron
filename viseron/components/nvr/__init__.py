@@ -33,7 +33,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config) -> bool:
     """Set up the nvr component."""
     config = config[COMPONENT]
 

@@ -118,7 +118,7 @@ class HassMQTTEntity(ABC):
         return self._mqtt_entity.attributes_topic
 
     @property
-    def config_topic(self):
+    def config_topic(self) -> str:
         """Return config topic."""
         return (
             f"{self._config[CONFIG_HOME_ASSISTANT][CONFIG_DISCOVERY_PREFIX]}/"

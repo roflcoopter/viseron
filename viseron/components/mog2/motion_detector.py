@@ -16,7 +16,7 @@ from .const import (
 )
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the mog2 motion_detector domain."""
     MotionDetector(vis, config[DOMAIN], identifier)
 

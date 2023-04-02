@@ -112,7 +112,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config) -> bool:
     """Set up the darknet component."""
     config = config[COMPONENT]
     if (
@@ -424,7 +424,7 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
         return self.model_width, self.model_height
 
     @property
-    def darknet_data_path(self):
+    def darknet_data_path(self) -> str:
         """Return path to Darknet data file."""
         homedir = os.path.expanduser(f"~{pwd.getpwuid(os.geteuid())[0]}")
         return f"{homedir}/darknet_data.data"

@@ -64,7 +64,7 @@ class ChildProcessWorker(ABC):
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
     @property
-    def child_process_name(self):
+    def child_process_name(self) -> str:
         """Return spawned child process name."""
         return f"child_process.{self._name}.process"
 

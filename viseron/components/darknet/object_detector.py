@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the darknet object_detector domain."""
     ObjectDetector(vis, config[DOMAIN], identifier)
 

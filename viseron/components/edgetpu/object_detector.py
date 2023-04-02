@@ -21,7 +21,7 @@ LOGGER = logging.getLogger(__name__)
 MAKE_INTERPRETER_LOCK = threading.Lock()
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the edgetpu object_detector domain."""
     with MAKE_INTERPRETER_LOCK:
         if not vis.data[COMPONENT].get(CONFIG_OBJECT_DETECTOR, None):

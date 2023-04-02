@@ -22,7 +22,7 @@ CONFIG_SCHEMA = vol.Schema(
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config) -> bool:
     """Set up the ffmpeg component."""
     config = config[COMPONENT]
     vis.data[COMPONENT] = {}

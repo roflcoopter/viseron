@@ -13,7 +13,7 @@ class ImageMQTTEntity(MQTTEntity):
     """Base image MQTT entity class."""
 
     @property
-    def state_topic(self):
+    def state_topic(self) -> str:
         """Return state topic."""
         return (
             f"{self._config[CONFIG_CLIENT_ID]}/{self.entity.domain}/"
@@ -21,7 +21,7 @@ class ImageMQTTEntity(MQTTEntity):
         )
 
     @property
-    def attributes_topic(self):
+    def attributes_topic(self) -> str:
         """Return attributes topic."""
         return (
             f"{self._config[CONFIG_CLIENT_ID]}/{self.entity.domain}/"

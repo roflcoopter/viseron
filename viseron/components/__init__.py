@@ -123,7 +123,7 @@ class Component:
                 return None
         return True
 
-    def setup_component(self, tries=1):
+    def setup_component(self, tries=1) -> bool:
         """Set up component."""
         LOGGER.info(
             "Setting up component %s%s",
@@ -254,7 +254,7 @@ class Component:
                 return None, error
         return config, None
 
-    def _setup_dependencies(self, domain_to_setup: DomainToSetup):
+    def _setup_dependencies(self, domain_to_setup: DomainToSetup) -> bool:
         """Await the setup of all dependencies."""
 
         def _slow_dependency_warning(futures) -> None:

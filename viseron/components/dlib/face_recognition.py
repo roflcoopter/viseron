@@ -28,7 +28,7 @@ TRAIN_LOCK = threading.Lock()
 CLASSIFIER = "CLASSIFIER"
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the dlib face_recognition domain."""
     with TRAIN_LOCK:
         if not vis.data[COMPONENT].get(CLASSIFIER, None):

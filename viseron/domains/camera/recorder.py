@@ -171,7 +171,7 @@ class RecorderBase:
                     break
         return recordings
 
-    def delete_recording(self, date=None, filename=None):
+    def delete_recording(self, date=None, filename=None) -> bool:
         """Delete a single recording."""
         path = None
 
@@ -244,7 +244,7 @@ class AbstractRecorder(ABC, RecorderBase):
         return self.get_recordings()
 
     @staticmethod
-    def subfolder_name(today):
+    def subfolder_name(today) -> str:
         """Generate name of folder for recording."""
         return f"{today.year:04}-{today.month:02}-{today.day:02}"
 

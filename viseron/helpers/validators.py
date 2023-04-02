@@ -60,7 +60,7 @@ def valid_camera_identifier(value):
         return value
 
 
-def request_argument_no_value(value):
+def request_argument_no_value(value) -> bool:
     """Return true for given request arguments without value."""
     if value or (isinstance(value, str) and value == ""):
         return True
@@ -98,7 +98,7 @@ class CoerceNoneToDict:
             return {}
         raise vol.CoerceInvalid("expected dict or None")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return representation."""
         return "CoerceNoneToDict(%s)" % "dict"
 

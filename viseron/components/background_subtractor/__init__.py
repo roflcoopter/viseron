@@ -51,7 +51,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config) -> bool:
     """Set up the background_subtractor component."""
     config = config[COMPONENT]
     for camera_identifier in config[CONFIG_MOTION_DETECTOR][CONFIG_CAMERAS].keys():

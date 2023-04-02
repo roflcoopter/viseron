@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the deepstack face_recognition domain."""
     FaceRecognition(vis, config, identifier)
 

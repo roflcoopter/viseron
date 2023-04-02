@@ -128,7 +128,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config) -> bool:
     """Set up the webserver component."""
     config = config[COMPONENT]
     webserver = Webserver(vis, config)

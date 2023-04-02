@@ -26,7 +26,7 @@ class MQTTEntity:
         self._mqtt: MQTT = vis.data[MQTT_COMPONENT]
 
     @property
-    def state_topic(self):
+    def state_topic(self) -> str:
         """Return state topic."""
         return (
             f"{self._config[CONFIG_CLIENT_ID]}/{self.entity.domain}/"

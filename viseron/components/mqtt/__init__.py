@@ -146,7 +146,7 @@ DOMAIN_MAP = {
 }
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config) -> bool:
     """Set up the mqtt component."""
     config = config[COMPONENT]
     mqtt_client = MQTT(vis, config)

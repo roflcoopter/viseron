@@ -24,7 +24,7 @@ class ToggleMQTTEntity(MQTTEntity):
         )
 
     @property
-    def command_topic(self):
+    def command_topic(self) -> str:
         """Return command topic."""
         return (
             f"{self._config[CONFIG_CLIENT_ID]}/{self.entity.domain}/"

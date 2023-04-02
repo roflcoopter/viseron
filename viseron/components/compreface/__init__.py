@@ -99,7 +99,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config) -> bool:
     """Set up the edgetpu component."""
     config = config[COMPONENT]
 
