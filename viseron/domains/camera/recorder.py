@@ -8,7 +8,7 @@ import shutil
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 import cv2
 import numpy as np
@@ -37,6 +37,15 @@ from .shared_frames import SharedFrame
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains.camera import AbstractCamera, FailedCamera
+
+
+class RecordingDict(TypedDict):
+    """Recording dict."""
+
+    path: str
+    filename: str
+    date: str
+    thumbnail_path: str | None
 
 
 @dataclass
@@ -105,7 +114,7 @@ class RecorderBase:
             self._camera.identifier,
         )
 
-    def _recording_file_dict(self, file: Path):
+    def _recording_file_dict(self, file: Path) -> RecordingDict:
         """Return a dict with recording file information."""
         return {
             "path": str(file),
@@ -116,7 +125,7 @@ class RecorderBase:
 
     def get_recordings(self, date=None):
         """Return all recordings."""
-        recordings = {}
+        recordings: dict[str, dict[str, RecordingDict]] = {}
         dirs = Path(self.recordings_folder)
         folders = dirs.walkdirs(date if date else "*-*-*")
         for folder in folders:
@@ -141,7 +150,7 @@ class RecorderBase:
 
     def get_latest_recording(self, date=None):
         """Return the latest recording."""
-        recordings = {}
+        recordings: dict[str, dict[str, RecordingDict]] = {}
         dirs = Path(self.recordings_folder)
         folders = dirs.walkdirs(date if date else "*-*-*")
         for folder in sorted(folders, reverse=True):
@@ -157,7 +166,7 @@ class RecorderBase:
 
     def get_latest_recording_daily(self):
         """Return the latest recording for each day."""
-        recordings = {}
+        recordings: dict[str, dict[str, RecordingDict]] = {}
         dirs = Path(self.recordings_folder)
         folders = dirs.walkdirs("*-*-*")
         for folder in sorted(folders, reverse=True):
@@ -349,9 +358,13 @@ class AbstractRecorder(ABC, RecorderBase):
     ):
         """Start the recorder."""
 
-    def stop(self, recording: Recording) -> None:
+    def stop(self, recording: Recording | None) -> None:
         """Stop recording."""
         self._logger.info("Stopping recorder")
+        if recording is None:
+            self._logger.error("No active recording to stop")
+            return
+
         end_time = datetime.datetime.now()
         recording.end_time = end_time
         recording.end_timestamp = end_time.timestamp()

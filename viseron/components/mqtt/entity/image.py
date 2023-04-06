@@ -5,11 +5,12 @@ import cv2
 
 from viseron.components.mqtt.const import CONFIG_CLIENT_ID
 from viseron.components.mqtt.helpers import PublishPayload
+from viseron.helpers.entity.image import ImageEntity
 
 from . import MQTTEntity
 
 
-class ImageMQTTEntity(MQTTEntity):
+class ImageMQTTEntity(MQTTEntity[ImageEntity]):
     """Base image MQTT entity class."""
 
     @property

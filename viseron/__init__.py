@@ -4,6 +4,7 @@ from __future__ import annotations
 import concurrent.futures
 import logging
 import multiprocessing
+import multiprocessing.process
 import os
 import sys
 import threading
@@ -103,7 +104,7 @@ def enable_logging() -> None:
     logging.getLogger("tornado.general").setLevel(logging.WARNING)
 
     sys.excepthook = lambda *args: logging.getLogger(None).exception(
-        "Uncaught exception", exc_info=args  # type: ignore
+        "Uncaught exception", exc_info=args  # type: ignore[arg-type]
     )
     threading.excepthook = lambda args: logging.getLogger(None).exception(
         "Uncaught thread exception",
@@ -136,7 +137,7 @@ def setup_viseron():
                     "nvr. This camera will not be processed"
                 )
     else:
-        nvr_config = {}
+        nvr_config: dict = {}
         nvr_config["nvr"] = {}
         cameras_to_setup = vis.data[DOMAINS_TO_SETUP].get(CAMERA_DOMAIN, {})
         if cameras_to_setup:
@@ -183,9 +184,9 @@ class Viseron:
     def __init__(self) -> None:
         self.states = States(self)
 
-        self.setup_threads = []
+        self.setup_threads: list[threading.Thread] = []
 
-        self.data = {}
+        self.data: dict[str, Any] = {}
         self.data[LOADING] = {}
         self.data[LOADED] = {}
         self.data[FAILED] = {}
@@ -199,7 +200,6 @@ class Viseron:
         self.data[DOMAIN_IDENTIFIERS] = {}
         self._domain_register_lock = threading.Lock()
         self.data[REGISTERED_DOMAINS] = {}
-        self._wait_for_domain_store = {}
 
         self._thread_watchdog = ThreadWatchDog()
         self._subprocess_watchdog = SubprocessWatchDog()
@@ -316,34 +316,7 @@ class Viseron:
         LOGGER.debug(f"Registering domain {domain} with identifier {identifier}")
         with self._domain_register_lock:
             self.data[REGISTERED_DOMAINS].setdefault(domain, {})[identifier] = instance
-
-            if listeners := self._wait_for_domain_store.get(domain, {}).get(
-                identifier, None
-            ):
-                for thread_event in listeners:
-                    thread_event.set()
-                del self._wait_for_domain_store[domain][identifier]
             self.dispatch_event(EVENT_DOMAIN_REGISTERED.format(domain=domain), instance)
-
-    def wait_for_domain(self, domain: SupportedDomains, identifier: str):
-        """Wait for a domain with a specific identifier to register."""
-        with self._domain_register_lock:
-            if (
-                domain in self.data[REGISTERED_DOMAINS]
-                and identifier in self.data[REGISTERED_DOMAINS][domain]
-            ):
-                return self.data[REGISTERED_DOMAINS][domain][identifier]
-
-            LOGGER.debug(
-                f"Waiting for domain {domain} with identifier {identifier} to register"
-            )
-            event = threading.Event()
-            self._wait_for_domain_store.setdefault(domain, {}).setdefault(
-                identifier, []
-            ).append(event)
-        event.wait()
-        LOGGER.debug(f"Done waiting for domain {domain} with identifier {identifier}")
-        return self.data[REGISTERED_DOMAINS][domain][identifier]
 
     @overload
     def get_registered_domain(
@@ -447,7 +420,11 @@ class Viseron:
         self._subprocess_watchdog.stop()
         self.background_scheduler.shutdown()
 
-        def join(thread_or_process: threading.Thread | multiprocessing.Process) -> None:
+        def join(
+            thread_or_process: threading.Thread
+            | multiprocessing.Process
+            | multiprocessing.process.BaseProcess,
+        ) -> None:
             thread_or_process.join(timeout=8)
             time.sleep(0.5)  # Wait for process to exit properly
             if thread_or_process.is_alive():
@@ -456,7 +433,11 @@ class Viseron:
                     LOGGER.error(f"Forcefully kill {thread_or_process.name}")
                     thread_or_process.kill()
 
-        threads_and_processes: list[threading.Thread | multiprocessing.Process] = [
+        threads_and_processes: list[
+            threading.Thread
+            | multiprocessing.Process
+            | multiprocessing.process.BaseProcess
+        ] = [
             thread
             for thread in threading.enumerate()
             if not thread.daemon and thread != threading.current_thread()

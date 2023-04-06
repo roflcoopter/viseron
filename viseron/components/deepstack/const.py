@@ -1,4 +1,5 @@
 """DeepStack constants."""
+from typing import Final
 
 COMPONENT = "deepstack"
 
@@ -11,7 +12,7 @@ CONFIG_PORT = "port"
 CONFIG_API_KEY = "api_key"
 CONFIG_TIMEOUT = "timeout"
 
-DEFAULT_API_KEY = None
+DEFAULT_API_KEY: Final = None
 DEFAULT_TIMEOUT = 10
 
 DESC_COMPONENT = "DeepStack configuration."
@@ -27,9 +28,9 @@ CONFIG_IMAGE_WIDTH = "image_width"
 CONFIG_IMAGE_HEIGHT = "image_height"
 CONFIG_CUSTOM_MODEL = "custom_model"
 
-DEFAULT_IMAGE_WIDTH = None
-DEFAULT_IMAGE_HEIGHT = None
-DEFAULT_CUSTOM_MODEL = None
+DEFAULT_IMAGE_WIDTH: Final = None
+DEFAULT_IMAGE_HEIGHT: Final = None
+DEFAULT_CUSTOM_MODEL: Final = None
 
 DESC_IMAGE_WIDTH = (
     "Frames will be resized to this width before inference to save computing power."

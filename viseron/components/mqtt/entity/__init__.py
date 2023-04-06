@@ -3,22 +3,24 @@ from __future__ import annotations
 
 import json
 from functools import partial
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from viseron.components.mqtt.const import COMPONENT as MQTT_COMPONENT, CONFIG_CLIENT_ID
 from viseron.components.mqtt.helpers import PublishPayload
+from viseron.helpers.entity import Entity
 from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.mqtt import MQTT
-    from viseron.helpers.entity import Entity
+
+T = TypeVar("T", bound=Entity)
 
 
-class MQTTEntity:
+class MQTTEntity(Generic[T]):
     """Class that relays Entity state and attributes to the MQTT broker."""
 
-    def __init__(self, vis: Viseron, config, entity: Entity) -> None:
+    def __init__(self, vis: Viseron, config, entity: T) -> None:
         self._vis = vis
         self._config = config
         self.entity = entity

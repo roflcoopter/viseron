@@ -1,4 +1,6 @@
 """Darknet object detection."""
+from __future__ import annotations
+
 import configparser
 import logging
 import multiprocessing as mp
@@ -6,6 +8,8 @@ import os
 import pwd
 import threading
 from abc import ABC, abstractmethod
+from queue import Queue
+from typing import Any
 
 import cv2
 import voluptuous as vol
@@ -112,7 +116,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config) -> bool:
+def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     """Set up the darknet component."""
     config = config[COMPONENT]
     if (
@@ -155,7 +159,11 @@ class LoadDarknetError(ViseronError):
 class BaseDarknet(ABC):
     """Base class for native Darknet and Darknet via OpenCV."""
 
-    def __init__(self, vis, config) -> None:
+    def __init__(
+        self,
+        vis: Viseron,
+        config: dict[str, Any],
+    ) -> None:
         self._vis = vis
         self._config = config
 
@@ -170,18 +178,16 @@ class BaseDarknet(ABC):
             f"{self._model_width}x{self._model_height}"
         )
 
-        self.load_labels(config[CONFIG_LABEL_PATH])
+        self.labels = self.load_labels(config[CONFIG_LABEL_PATH])
 
         self._nms = config[CONFIG_SUPPRESSION]
-        self._result_queues = {}
+        self._result_queues: dict[str, Queue] = {}
 
-    def load_labels(self, labels) -> None:
+    def load_labels(self, labels: str) -> list[str]:
         """Load labels from file."""
         # Load names of labels
-        self.labels = None
-        if labels:
-            with open(labels, encoding="utf-8") as labels_file:
-                self.labels = labels_file.read().rstrip("\n").split("\n")
+        with open(labels, encoding="utf-8") as labels_file:
+            return labels_file.read().rstrip("\n").split("\n")
 
     @property
     def model_width(self) -> int:
@@ -214,7 +220,11 @@ class BaseDarknet(ABC):
 class DarknetDNN(BaseDarknet):
     """Darknet object detector interface."""
 
-    def __init__(self, vis, config) -> None:
+    def __init__(
+        self,
+        vis: Viseron,
+        config: dict[str, Any],
+    ) -> None:
         LOGGER.debug("Using OpenCV DNN Darknet")
         super().__init__(vis, config)
         if cv2.ocl.haveOpenCL():
@@ -233,7 +243,9 @@ class DarknetDNN(BaseDarknet):
 
         self._detection_lock = threading.Lock()
 
-    def load_network(self, model, model_config, backend, target) -> None:
+    def load_network(
+        self, model: str, model_config: str, backend: int, target: int
+    ) -> None:
         """Load network."""
         self._net = cv2.dnn.readNet(model, model_config, "darknet")
         self._net.setPreferableBackend(backend)
@@ -283,7 +295,7 @@ class DarknetDNN(BaseDarknet):
         return _detections
 
     @property
-    def dnn_preferable_backend(self):
+    def dnn_preferable_backend(self) -> int:
         """Return DNN backend."""
         if self._config[CONFIG_DNN_BACKEND]:
             return DNN_BACKENDS[self._config[CONFIG_DNN_BACKEND]]
@@ -292,7 +304,7 @@ class DarknetDNN(BaseDarknet):
         return DNN_BACKENDS[DNN_DEFAULT]
 
     @property
-    def dnn_preferable_target(self):
+    def dnn_preferable_target(self) -> int:
         """Return DNN target."""
         if self._config[CONFIG_DNN_TARGET]:
             return DNN_TARGETS[self._config[CONFIG_DNN_TARGET]]
@@ -309,7 +321,11 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
     See https://github.com/opencv/opencv/issues/19643
     """
 
-    def __init__(self, vis, config) -> None:
+    def __init__(
+        self,
+        vis: Viseron,
+        config: dict[str, Any],
+    ) -> None:
         LOGGER.debug("Using native Darknet")
         BaseDarknet.__init__(self, vis, config)
 

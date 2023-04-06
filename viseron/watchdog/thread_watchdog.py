@@ -1,7 +1,7 @@
 """Watchdog for long-running threads."""
 import logging
 import threading
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, overload
 
 from viseron.watchdog import WatchDog
 
@@ -31,6 +31,7 @@ class RestartableThread(threading.Thread):
 
     thread_store: Dict[str, List[threading.Thread]] = {}
 
+    @overload
     def __init__(
         self,
         group=None,
@@ -41,14 +42,55 @@ class RestartableThread(threading.Thread):
         *,
         daemon=None,
         stop_target=None,
-        poll_method: Optional[Callable] = None,
-        poll_target: Optional[Callable] = None,
         thread_store_category=None,
         register=True,
         restart_method: Optional[Callable] = None,
         base_class=None,
         base_class_args=(),
     ) -> None:
+        ...
+
+    @overload
+    def __init__(
+        self,
+        group=None,
+        target=None,
+        name=None,
+        args=(),
+        kwargs=None,
+        *,
+        daemon=None,
+        stop_target=None,
+        poll_method: Callable,
+        poll_target: Callable,
+        thread_store_category=None,
+        register=True,
+        restart_method: Optional[Callable] = None,
+        base_class=None,
+        base_class_args=(),
+    ) -> None:
+        ...
+
+    def __init__(
+        self,
+        group=None,
+        target=None,
+        name=None,
+        args=(),
+        kwargs=None,
+        *,
+        daemon=None,
+        stop_target=None,
+        poll_method=None,
+        poll_target=None,
+        thread_store_category=None,
+        register=True,
+        restart_method: Optional[Callable] = None,
+        base_class=None,
+        base_class_args=(),
+    ) -> None:
+        # _started is set in Thread.__init__() but we set it here to make mypy happy
+        self._started = threading.Event()
         super().__init__(
             group=group,
             target=target,
@@ -151,7 +193,11 @@ class ThreadWatchDog(WatchDog):
             if not registered_thread.started:
                 continue
 
-            if registered_thread.poll_method and registered_thread.poll_method():
+            if (
+                registered_thread.poll_method
+                and registered_thread.poll_target
+                and registered_thread.poll_method()
+            ):
                 LOGGER.debug(f"Thread {registered_thread.name} is stuck")
                 registered_thread.poll_target()
                 registered_thread.join(timeout=5)

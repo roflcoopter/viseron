@@ -1,7 +1,8 @@
 """Watchdog basclass."""
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
-from typing import List
 
 from apscheduler.schedulers import (
     SchedulerAlreadyRunningError,
@@ -15,7 +16,7 @@ LOGGER = logging.getLogger(__name__)
 class WatchDog(ABC):
     """A watchdog for long running items."""
 
-    registered_items: List = []
+    registered_items: list = []
     _scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
 
     def __init__(self) -> None:

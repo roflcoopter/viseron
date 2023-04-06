@@ -1,11 +1,11 @@
-"""Class to interact with an FFmpeog stream."""
+"""Class to interact with an FFmpeg stream."""
 from __future__ import annotations
 
 import json
 import logging
 import os
 import subprocess as sp
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from tenacity import (
     Retrying,
@@ -83,8 +83,8 @@ class Stream:
 
         self._camera: Camera = camera
 
-        self._pipe = None
-        self._segment_process = None
+        self._pipe: sp.Popen | None = None
+        self._segment_process: RestartablePopen | None = None
         self._log_pipe = LogPipe(
             self._logger, FFMPEG_LOGLEVELS[config[CONFIG_FFMPEG_LOGLEVEL]]
         )
@@ -132,14 +132,17 @@ class Stream:
             if self._output_stream_config[CONFIG_FPS]
             else fps
         )
+
+        if self.width and self.height and self.fps and stream_codec:
+            pass
+        else:
+            raise StreamInformationError(
+                self.width, self.height, self.fps, stream_codec
+            )
+
         self.stream_codec = stream_codec
         self.stream_audio_codec = stream_audio_codec
         self._output_fps = self.fps
-
-        if self.width and self.height and self.fps:
-            pass
-        else:
-            raise StreamInformationError(self.width, self.height, self.fps)
 
         self.create_symlink(self.alias)
         self.create_symlink(self.segments_alias)
@@ -216,8 +219,13 @@ class Stream:
 
         This is done to know which FFmpeg command belongs to which camera.
         """
+        path = os.getenv(ENV_FFMPEG_PATH)
+
+        if not path:
+            raise RuntimeError("FFmpeg path not set")
+
         try:
-            os.symlink(os.getenv(ENV_FFMPEG_PATH), f"/home/abc/bin/{alias}")
+            os.symlink(path, f"/home/abc/bin/{alias}")
         except FileExistsError:
             pass
 
@@ -233,7 +241,7 @@ class Stream:
     def run_ffprobe(
         self,
         stream_url: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Run FFprobe command."""
         ffprobe_command = (
             [
@@ -260,7 +268,7 @@ class Stream:
             reraise=True,
         ):
             with attempt:
-                pipe = sp.Popen(  # type: ignore
+                pipe = sp.Popen(  # type: ignore[call-overload]
                     ffprobe_command,
                     stdout=sp.PIPE,
                     stderr=self._log_pipe,
@@ -292,13 +300,15 @@ class Stream:
 
         return output
 
-    def ffprobe_stream_information(self, stream_url):
+    def ffprobe_stream_information(
+        self, stream_url: str
+    ) -> tuple[int, int, int, str | None, str | None]:
         """Return stream information using FFprobe."""
         width, height, fps, codec, audio_codec = 0, 0, 0, None, None
         streams = self.run_ffprobe(stream_url)
 
-        video_stream = None
-        audio_stream = None
+        video_stream: dict[str, Any] | None = None
+        audio_stream: dict[str, Any] | None = None
         for stream in streams["streams"]:
             if video_stream and audio_stream:
                 break
@@ -310,14 +320,17 @@ class Stream:
         if audio_stream:
             audio_codec = audio_stream.get("codec_name", None)
 
+        if video_stream is None:
+            return (width, height, fps, codec, audio_codec)
+
         try:
-            numerator = int(video_stream.get("avg_frame_rate", 0).split("/")[0])
-            denominator = int(video_stream.get("avg_frame_rate", 0).split("/")[1])
+            numerator = int(video_stream["avg_frame_rate"].split("/")[0])
+            denominator = int(video_stream["avg_frame_rate"].split("/")[1])
         except KeyError:
             return (width, height, fps, codec, audio_codec)
 
         try:
-            fps = numerator / denominator
+            fps = int(numerator / denominator)
         except ZeroDivisionError:
             pass
 
@@ -373,11 +386,8 @@ class Stream:
         if stream_config[CONFIG_INPUT_ARGS]:
             input_args = stream_config[CONFIG_INPUT_ARGS]
         else:
-            input_args = (
-                CAMERA_INPUT_ARGS
-                + STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]][
-                    "timeout_option"
-                ]
+            input_args = CAMERA_INPUT_ARGS + list(
+                STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]]["timeout_option"]
             )
 
         return (
@@ -392,7 +402,12 @@ class Stream:
             + ["-i", stream_url]
         )
 
-    def get_audio_codec(self, stream_config, stream_audio_codec, extension):
+    def get_audio_codec(
+        self,
+        stream_config: dict[str, Any],
+        stream_audio_codec: str | None,
+        extension: str,
+    ) -> list[str]:
         """Return audio codec used for saving segments."""
         if (
             stream_config[CONFIG_AUDIO_CODEC]
@@ -502,7 +517,7 @@ class Stream:
                 stderr=self._log_pipe,
             )
 
-        return sp.Popen(
+        return sp.Popen(  # type: ignore[call-overload]
             self.build_command(),
             stdout=sp.PIPE,
             stderr=self._log_pipe,
@@ -523,6 +538,10 @@ class Stream:
         if self._segment_process:
             self._segment_process.terminate()
 
+        if not self._pipe:
+            self._logger.error("No pipe to close")
+            return
+
         try:
             self._pipe.terminate()
             try:
@@ -536,12 +555,13 @@ class Stream:
 
     def poll(self):
         """Poll pipe."""
-        return self._pipe.poll()
+        if self._pipe:
+            return self._pipe.poll()
 
     def read(self):
         """Return a single frame from FFmpeg pipe."""
-        if self._pipe:
-            try:
+        try:
+            if self._pipe and self._pipe.stdout:
                 frame_bytes = self._pipe.stdout.read(self._frame_bytes_size)
                 if len(frame_bytes) == self._frame_bytes_size:
                     shared_frame = SharedFrame(
@@ -553,6 +573,6 @@ class Stream:
                     )
                     self._camera.shared_frames.create(shared_frame, frame_bytes)
                     return shared_frame
-            except Exception as err:  # pylint: disable=broad-except
-                self._logger.error(f"Error reading frame from FFmpeg: {err}")
+        except Exception as err:  # pylint: disable=broad-except
+            self._logger.error(f"Error reading frame from pipe: {err}")
         return None

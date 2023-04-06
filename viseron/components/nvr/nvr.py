@@ -296,7 +296,7 @@ class NVR:
             elif self._motion_detector:
                 self._frame_scanners[MOTION_DETECTOR].scan = True
 
-        self._frame_queue: Queue[bytes] = Queue(maxsize=100)
+        self._frame_queue: Queue[SharedFrame] = Queue(maxsize=100)
         self._data_stream.subscribe_data(
             self._camera.frame_bytes_topic, self._frame_queue
         )
@@ -471,7 +471,7 @@ class NVR:
         if (
             obj.trigger_recorder
             and object_filters.get(obj.label)
-            and object_filters.get(obj.label).require_motion  # type: ignore
+            and object_filters.get(obj.label).require_motion  # type: ignore[union-attr]
             and self._motion_detector
             and not self._motion_detector.motion_detected
         ):
@@ -633,7 +633,7 @@ class NVR:
         while not self._kill_received:
             self.update_operation_state()
             try:
-                shared_frame: SharedFrame = self._frame_queue.get(timeout=1)
+                shared_frame = self._frame_queue.get(timeout=1)
             except Empty:
                 continue
 

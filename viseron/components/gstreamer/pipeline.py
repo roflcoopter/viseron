@@ -150,8 +150,6 @@ class BasePipeline(AbstractPipeline):
         """
         decoder_element = DECODER_ELEMENT_MAP.get(self._stream.stream_codec, None)
 
-        if decoder_element is False:
-            return []
         if decoder_element:
             return [
                 decoder_element,

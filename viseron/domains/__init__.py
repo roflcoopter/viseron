@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from viseron.const import LOADING
 
 if TYPE_CHECKING:
+    from viseron import Viseron
     from viseron.components import Component
     from viseron.types import SupportedDomains
 
@@ -37,10 +38,10 @@ class OptionalDomain(RequireDomain):
 
 
 def setup_domain(
-    vis,
-    component,
-    domain,
-    config,
+    vis: Viseron,
+    component: str,
+    domain: str,
+    config: dict[str, Any],
     identifier: str,
     require_domains: list[RequireDomain] | None = None,
     optional_domains: list[OptionalDomain] | None = None,

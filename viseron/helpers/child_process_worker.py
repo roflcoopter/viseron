@@ -9,9 +9,7 @@ import setproctitle
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.helpers import pop_if_full
-from viseron.helpers.mprt_monkeypatch import (  # type: ignore
-    remove_shm_from_resource_tracker,
-)
+from viseron.helpers.mprt_monkeypatch import remove_shm_from_resource_tracker
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 LOGGER = logging.getLogger(__name__)

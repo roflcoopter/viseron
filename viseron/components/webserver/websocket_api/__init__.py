@@ -59,7 +59,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
         self._last_id = 0
         self.subscriptions: dict[int, Callable[[], None]] = {}
 
-        self._message_queue: Queue[str] = Queue()
+        self._message_queue: Queue[str | None] = Queue()
         self._waiting_for_auth = True
         self._writer_exited = False
 

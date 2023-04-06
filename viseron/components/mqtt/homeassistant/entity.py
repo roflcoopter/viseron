@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from abc import ABC
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from viseron.components.mqtt.const import (
     COMPONENT as MQTT_COMPONENT,
@@ -16,19 +16,21 @@ from viseron.components.mqtt.const import (
     MQTT_CLIENT_CONNECTION_ONLINE,
     MQTT_CLIENT_CONNECTION_TOPIC,
 )
+from viseron.components.mqtt.entity import MQTTEntity
 from viseron.components.mqtt.helpers import PublishPayload
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.mqtt.entity import MQTTEntity
+
+T = TypeVar("T", bound=MQTTEntity)
 
 
-class HassMQTTEntity(ABC):
+class HassMQTTEntity(ABC, Generic[T]):
     """Base class for all Home Assistant MQTT entities."""
 
     domain: str = NotImplemented
 
-    def __init__(self, vis: Viseron, config, mqtt_entity: MQTTEntity) -> None:
+    def __init__(self, vis: Viseron, config, mqtt_entity: T) -> None:
         self._vis = vis
         self._config = config
         self._mqtt_entity = mqtt_entity

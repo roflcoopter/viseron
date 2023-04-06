@@ -1,6 +1,6 @@
 """FFmpeg constants."""
 import logging
-from typing import List
+from typing import Final, List
 
 COMPONENT = "ffmpeg"
 
@@ -94,11 +94,11 @@ CONFIG_PIX_FMT = "pix_fmt"
 CONFIG_FRAME_TIMEOUT = "frame_timeout"
 
 DEFAULT_STREAM_FORMAT = "rtsp"
-DEFAULT_PROTOCOL = None
-DEFAULT_WIDTH = None
-DEFAULT_HEIGHT = None
-DEFAULT_FPS = None
-DEFAULT_INPUT_ARGS = None
+DEFAULT_PROTOCOL: Final = None
+DEFAULT_WIDTH: Final = None
+DEFAULT_HEIGHT: Final = None
+DEFAULT_FPS: Final = None
+DEFAULT_INPUT_ARGS: Final = None
 DEFAULT_HWACCEL_ARGS: List["str"] = []
 DEFAULT_CODEC = "unset"
 DEFAULT_AUDIO_CODEC = "unset"
@@ -207,10 +207,10 @@ CONFIG_FFMPEG_RECOVERABLE_ERRORS = "ffmpeg_recoverable_errors"
 CONFIG_FFPROBE_LOGLEVEL = "ffprobe_loglevel"
 CONFIG_RECORDER = "recorder"
 
-DEFAULT_USERNAME = None
-DEFAULT_PASSWORD = None
+DEFAULT_USERNAME: Final = None
+DEFAULT_PASSWORD: Final = None
 DEFAULT_GLOBAL_ARGS = ["-hide_banner"]
-DEFAULT_SUBSTREAM = None
+DEFAULT_SUBSTREAM: Final = None
 DEFAULT_FFMPEG_LOGLEVEL = "error"
 DEFAULT_FFMPEG_RECOVERABLE_ERRORS = [
     "error while decoding MB",

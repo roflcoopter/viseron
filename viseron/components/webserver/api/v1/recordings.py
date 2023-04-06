@@ -160,7 +160,9 @@ class RecordingsAPIHandler(BaseAPIHandler):
         self.response_success(response=recordings)
         return
 
-    def get_recordings_camera(self, camera_identifier: str, date: str = None) -> None:
+    def get_recordings_camera(
+        self, camera_identifier: str, date: str | None = None
+    ) -> None:
         """Get recordings for a single camera."""
         camera = self._get_camera(
             camera_identifier, failed=self.request_arguments["failed"]
@@ -187,7 +189,10 @@ class RecordingsAPIHandler(BaseAPIHandler):
         return
 
     def delete_recording(
-        self, camera_identifier: str, date: str = None, filename: str = None
+        self,
+        camera_identifier: str,
+        date: str | None = None,
+        filename: str | None = None,
     ) -> None:
         """Delete recording(s)."""
         camera = self._get_camera(

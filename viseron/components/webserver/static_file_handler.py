@@ -17,17 +17,17 @@ class AccessTokenStaticFileHandler(
 ):
     """Static file handler."""
 
-    def initialize(  # type: ignore # pylint: disable=arguments-differ
+    def initialize(  # type: ignore[override] # pylint: disable=arguments-differ
         self,
         path: str,
         vis: Viseron,
-        camera_identifier,
+        camera_identifier: str,
         failed: bool,
         default_filename: str | None = None,
     ) -> None:
         """Initialize the handler."""
         tornado.web.StaticFileHandler.initialize(self, path, default_filename)
-        ViseronRequestHandler.initialize(self, vis)  # type: ignore
+        ViseronRequestHandler.initialize(self, vis)
         self._camera_identifier = camera_identifier
         self._failed = failed
 

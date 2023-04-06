@@ -1,4 +1,6 @@
 """EdgeTPU constants."""
+from typing import Final
+
 COMPONENT = "edgetpu"
 
 DEVICE_CPU = "cpu"
@@ -24,8 +26,8 @@ CONFIG_LABEL_PATH = "label_path"
 CONFIG_DEVICE = "device"
 
 DEFAULT_NAME = "edgetpu"
-DEFAULT_MODEL_PATH = None
-DEFAULT_DEVICE = None
+DEFAULT_MODEL_PATH: Final = None
+DEFAULT_DEVICE: Final = None
 
 DESC_COMPONENT = "EdgeTPU Configuration."
 DESC_OBJECT_DETECTOR = "Object detector domain config."

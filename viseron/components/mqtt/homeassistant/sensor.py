@@ -3,12 +3,14 @@ from __future__ import annotations
 
 from typing import Final
 
+from viseron.components.mqtt.entity.sensor import SensorMQTTEntity
+
 from .entity import HassMQTTEntity
 
 DOMAIN: Final = "sensor"
 
 
-class HassMQTTSensor(HassMQTTEntity):
+class HassMQTTSensor(HassMQTTEntity[SensorMQTTEntity]):
     """Base class for all Home Assistant MQTT sensors."""
 
     # These should NOT be overridden.

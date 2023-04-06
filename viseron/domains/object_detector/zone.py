@@ -51,7 +51,7 @@ class Zone:
         )
         self._camera_resolution = self._camera.resolution
 
-        self._name = zone_config[CONFIG_ZONE_NAME]
+        self._name: str = zone_config[CONFIG_ZONE_NAME]
         self._objects_in_zone: list[DetectedObject] = []
         self._object_filters = {}
         if zone_config[CONFIG_LABELS]:

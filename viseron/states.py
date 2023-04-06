@@ -146,7 +146,7 @@ class States:
 
             self._registry[entity_id] = entity
             if hasattr(entity, "setup"):
-                entity.setup()  # type: ignore
+                entity.setup()
 
             self._vis.dispatch_event(
                 EVENT_ENTITY_ADDED,

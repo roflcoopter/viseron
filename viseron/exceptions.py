@@ -1,5 +1,5 @@
 """Exceptions used by Viseron."""
-from typing import Union
+from __future__ import annotations
 
 
 class ViseronError(Exception):
@@ -41,7 +41,7 @@ class FFprobeError(ViseronError):
 
     def __init__(
         self,
-        ffprobe_output: Union[bytes, str, dict],
+        ffprobe_output: bytes | str | dict,
     ) -> None:
         """Initialize error."""
         super().__init__(self)
@@ -68,28 +68,33 @@ class FFprobeTimeout(ViseronError):
 class StreamInformationError(ViseronError):
     """Raised when FFprobe fails to get stream information."""
 
-    def __init__(self, width, height, fps) -> None:
+    def __init__(
+        self, width: int | None, height: int | None, fps: int, codec: str | None
+    ) -> None:
         """Initialize error."""
         super().__init__(self)
         self.width = width
         self.height = height
         self.fps = fps
+        self.codec = codec
 
     def __str__(self) -> str:
         """Return string representation."""
         return (
             "Could not get needed stream information. "
-            "Missing at least one of width, height or fps. "
+            "Missing at least one of width, height, fps or codec. "
+            "You can specify the missing information in the config to circumvent this."
             f"Width: {self.width} "
             f"Height: {self.height} "
             f"FPS: {self.fps} "
+            f"Codec: {self.codec}"
         )
 
 
 class DomainNotRegisteredError(ViseronError):
     """Raised when trying to get a domain that has not been registered."""
 
-    def __init__(self, domain: str, identifier: str = None) -> None:
+    def __init__(self, domain: str, identifier: str | None = None) -> None:
         """Initialize error."""
         super().__init__(self)
         self.domain = domain

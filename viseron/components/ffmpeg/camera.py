@@ -302,7 +302,7 @@ class Camera(AbstractCamera):
     """Represents a camera which is consumed via FFmpeg."""
 
     def __init__(self, vis: Viseron, config, identifier) -> None:
-        self._poll_timer = None
+        self._poll_timer = datetime.datetime.now().timestamp()
         self._frame_reader = None
         # Stream must be initialized before super().__init__ is called as it raises
         # FFprobeError/FFprobeTimeout which is caught in setup() and re-raised as
@@ -337,7 +337,6 @@ class Camera(AbstractCamera):
 
     def initialize_camera(self) -> None:
         """Start processing of camera frames."""
-        self._poll_timer = None
         self._logger.debug(f"Initializing camera {self.name}")
 
         self.resolution = self.stream.width, self.stream.height
@@ -382,7 +381,7 @@ class Camera(AbstractCamera):
                 return
 
             if self.stream.poll() is not None:
-                self._logger.error("FFmpeg process has exited")
+                self._logger.error("Frame reader process has exited")
                 self.decode_error.set()
                 continue
 
@@ -393,7 +392,7 @@ class Camera(AbstractCamera):
 
         self.connected = False
         self.stream.close_pipe()
-        self._logger.debug("FFmpeg frame reader stopped")
+        self._logger.debug("Frame reader stopped")
 
     def poll_target(self) -> None:
         """Close pipe when RestartableThread.poll_timeout has been reached."""

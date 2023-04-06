@@ -210,7 +210,8 @@ class AuthAPIHandler(BaseAPIHandler):
                 self.response_success(response=response)
                 return
             self.clear_all_cookies()
-            self.response_error(status, response)
+            # Mypy doesn't understand that status is HTTPStatus.BAD_REQUEST here
+            self.response_error(status, response)  # type: ignore[arg-type]
             return
 
         self.clear_all_cookies()

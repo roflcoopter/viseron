@@ -2,7 +2,10 @@
 
 Inspired by Home Assistant logger.
 """
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 
@@ -23,6 +26,9 @@ from .const import (
     DESC_LOGS,
     VALID_LOG_LEVELS,
 )
+
+if TYPE_CHECKING:
+    from viseron import Viseron
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -57,7 +63,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis, config) -> bool:
+def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     """Set up the logger component."""
     vis.data[COMPONENT] = {}
     vis.data[COMPONENT][CONFIG_LOGS] = {}
@@ -87,7 +93,7 @@ def setup(vis, config) -> bool:
     return True
 
 
-def _set_log_level(logger, level) -> None:
+def _set_log_level(logger: logging.Logger, level: str) -> None:
     """Set log level."""
     getattr(logger, "orig_setLevel", logger.setLevel)(VALID_LOG_LEVELS[level])
 

@@ -203,6 +203,12 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     ) -> AbstractCamera | FailedCamera | None:
         ...
 
+    @overload
+    def _get_camera(
+        self, camera_identifier: str, failed: bool
+    ) -> AbstractCamera | FailedCamera | None:
+        ...
+
     def _get_camera(self, camera_identifier: str, failed: bool = False):
         """Get camera instance.
 

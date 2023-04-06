@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Final
 
+from viseron.components.mqtt.entity.binary_sensor import BinarySensorMQTTEntity
 from viseron.const import STATE_OFF, STATE_ON
 
 from .entity import HassMQTTEntity
@@ -10,7 +11,7 @@ from .entity import HassMQTTEntity
 DOMAIN: Final = "binary_sensor"
 
 
-class HassMQTTBinarySensor(HassMQTTEntity):
+class HassMQTTBinarySensor(HassMQTTEntity[BinarySensorMQTTEntity]):
     """Base class for all Home Assistant MQTT binary sensors."""
 
     # These should NOT be overridden.

@@ -1,5 +1,7 @@
 """CompreFace constants."""
 
+from typing import Final
+
 COMPONENT = "compreface"
 
 
@@ -29,7 +31,7 @@ DEFAULT_DET_PROB_THRESHOLD = 0.8
 DEFAULT_SIMILARITTY_THRESHOLD = 0.5
 DEFAULT_LIMIT = 0
 DEFAULT_PREDICTION_COUNT = 1
-DEFAULT_FACE_PLUGINS = None
+DEFAULT_FACE_PLUGINS: Final = None
 DEFAULT_STATUS = False
 
 DESC_TRAIN = (

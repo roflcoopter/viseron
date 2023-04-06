@@ -1,4 +1,6 @@
 """Frames shared in memory."""
+from __future__ import annotations
+
 import logging
 import time
 import uuid
@@ -47,11 +49,11 @@ class SharedFrame:
 
     def __init__(
         self,
-        color_plane_width,
-        color_plane_height,
-        pixel_format,
-        resolution,
-        camera_identifier,
+        color_plane_width: int,
+        color_plane_height: int,
+        pixel_format: str,
+        resolution: tuple[int, int],
+        camera_identifier: str,
     ) -> None:
         self.name = uuid.uuid4()
         self.color_plane_width = color_plane_width
@@ -66,9 +68,9 @@ class SharedFrames:
     """Byte frame shared in memory."""
 
     def __init__(self) -> None:
-        self._frames = {}
+        self._frames: dict[uuid.UUID | str, np.ndarray] = {}
 
-    def create(self, shared_frame, frame_bytes) -> None:
+    def create(self, shared_frame: SharedFrame, frame_bytes: bytes) -> None:
         """Create frame in shared memory."""
         self._frames[shared_frame.name] = np.frombuffer(frame_bytes, np.uint8).reshape(
             shared_frame.color_plane_height, shared_frame.color_plane_width
@@ -79,7 +81,7 @@ class SharedFrames:
         return self._frames[shared_frame.name]
 
     @lru_cache(maxsize=2)
-    def _color_convert(self, shared_frame: SharedFrame, color_model) -> np.ndarray:
+    def _color_convert(self, shared_frame: SharedFrame, color_model: str) -> np.ndarray:
         """Return decoded frame in specified color format."""
         shared_frame_name = f"{shared_frame.name}_{color_model}"
         pixel_format = PIXEL_FORMATS[shared_frame.pixel_format]

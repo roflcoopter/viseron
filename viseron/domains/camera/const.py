@@ -83,7 +83,7 @@ DEFAULT_RETAIN = 7
 DEFAULT_FOLDER = "/recordings"
 DEFAULT_FILENAME_PATTERN = "%H:%M:%S"
 DEFAULT_EXTENSION = "mp4"
-DEFAULT_THUMBNAIL = None
+DEFAULT_THUMBNAIL: Final = None
 
 DESC_LOOKBACK = "Number of seconds to record before a detected object."
 DESC_IDLE_TIMEOUT = "Number of seconds to record after all events are over."
@@ -106,9 +106,9 @@ CONFIG_NAME = "name"
 CONFIG_MJPEG_STREAMS = "mjpeg_streams"
 CONFIG_RECORDER = "recorder"
 
-DEFAULT_NAME = None
-DEFAULT_MJPEG_STREAMS = None
-DEFAULT_RECORDER = None
+DEFAULT_NAME: Final = None
+DEFAULT_MJPEG_STREAMS: Final = None
+DEFAULT_RECORDER: Final = None
 
 DESC_NAME = "Camera friendly name."
 DESC_MJPEG_STREAMS = "MJPEG streams config."

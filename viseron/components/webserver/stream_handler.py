@@ -7,6 +7,7 @@ from typing import Dict, Tuple
 
 import cv2
 import imutils
+import numpy as np
 import tornado.ioloop
 import tornado.web
 from tornado.queues import Queue
@@ -46,6 +47,7 @@ class StreamHandler(ViseronRequestHandler):
                     reason="Missing camera identifier in request",
                 )
                 self.finish()
+                return
 
             camera = self._get_camera(camera_identifier)
             if not camera:
@@ -176,7 +178,7 @@ class DynamicStreamHandler(StreamHandler):
                 continue
             break
 
-        frame_queue = Queue(maxsize=1)
+        frame_queue: Queue[DataProcessedFrame] = Queue(maxsize=1)
         frame_topic = DATA_PROCESSED_FRAME_TOPIC.format(
             camera_identifier=nvr.camera.identifier
         )
@@ -188,7 +190,7 @@ class DynamicStreamHandler(StreamHandler):
 
         while True:
             try:
-                processed_frame: DataProcessedFrame = await frame_queue.get()
+                processed_frame = await frame_queue.get()
                 ret, jpg = await self.process_frame(
                     nvr, processed_frame, mjpeg_stream_config
                 )
@@ -204,13 +206,13 @@ class DynamicStreamHandler(StreamHandler):
 class StaticStreamHandler(StreamHandler):
     """Represents a static stream defined in config.yaml."""
 
-    active_streams: Dict[Tuple[str, str], object] = {}
+    active_streams: Dict[Tuple[str, str], int] = {}
 
     async def stream(
         self, nvr, mjpeg_stream, mjpeg_stream_config, publish_frame_topic
     ) -> None:
         """Subscribe to frames, draw on them, then publish processed frame."""
-        frame_queue = Queue(maxsize=1)
+        frame_queue: Queue[DataProcessedFrame] = Queue(maxsize=1)
         frame_topic = DATA_PROCESSED_FRAME_TOPIC.format(
             camera_identifier=nvr.camera.identifier
         )
@@ -219,7 +221,7 @@ class StaticStreamHandler(StreamHandler):
         )
 
         while self.active_streams[(nvr.camera.identifier, mjpeg_stream)]:
-            processed_frame: DataProcessedFrame = await frame_queue.get()
+            processed_frame = await frame_queue.get()
             ret, jpg = await self.process_frame(
                 nvr, processed_frame, mjpeg_stream_config
             )
@@ -260,7 +262,7 @@ class StaticStreamHandler(StreamHandler):
             self.finish()
             return
 
-        frame_queue = Queue(maxsize=1)
+        frame_queue: Queue[np.ndarray] = Queue(maxsize=1)
         frame_topic = (
             f"{TOPIC_STATIC_MJPEG_STREAMS}/{nvr.camera.identifier}/{mjpeg_stream}"
         )

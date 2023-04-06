@@ -163,8 +163,8 @@ class AbstractMotionDetector(ABC):
     def _motion_detected_setter(
         self,
         motion_detected,
-        shared_frame: SharedFrame = None,
-        contours: Contours = None,
+        shared_frame: SharedFrame | None = None,
+        contours: Contours | None = None,
     ) -> None:
         self._motion_contours = contours
         if self._motion_detected == motion_detected:

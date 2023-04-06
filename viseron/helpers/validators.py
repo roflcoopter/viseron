@@ -1,6 +1,6 @@
 """Custom voluptuous validators."""
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 import voluptuous as vol
 
@@ -50,14 +50,13 @@ def slug(value: Any) -> str:
     raise vol.Invalid(msg)
 
 
-def valid_camera_identifier(value):
+def valid_camera_identifier(value: Any) -> str:
     """Check if supplied camera identifier is valid."""
     if not isinstance(value, str):
         msg = f"Camera identifier should be a string. Got {value}"
         LOGGER.error(msg)
         raise vol.Invalid(msg)
-    if slug(value):
-        return value
+    return slug(value)
 
 
 def request_argument_no_value(value) -> bool:
@@ -72,7 +71,7 @@ class CameraIdentifier(vol.Required):
 
     def __init__(
         self,
-        description=(
+        description: str = (
             "Camera identifier. "
             "Valid characters are lowercase a-z, numbers and underscores."
         ),
@@ -89,7 +88,7 @@ class CoerceNoneToDict:
     def __init__(self) -> None:
         pass
 
-    def __call__(self, value):
+    def __call__(self, value: Optional[Dict[str, None]]) -> Dict[str, None]:
         """Coerce None to empty dict."""
         if isinstance(value, dict):
             return value
@@ -118,7 +117,7 @@ class Slug:
 
     def __init__(
         self,
-        description=(
+        description: str = (
             "Slug, valid characters are lowercase a-z, numbers and underscores."
         ),
     ) -> None:

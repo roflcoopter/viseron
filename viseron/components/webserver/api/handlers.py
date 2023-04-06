@@ -5,11 +5,13 @@ import json
 import logging
 from functools import partial
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any
+from re import Pattern
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 import tornado.routing
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
+from voluptuous.schema_builder import Schema
 
 from viseron.components.webserver.api.const import API_BASE
 from viseron.components.webserver.auth import Group
@@ -17,6 +19,8 @@ from viseron.components.webserver.request_handler import ViseronRequestHandler
 from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
+    from typing_extensions import NotRequired
+
     from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
@@ -29,15 +33,28 @@ METHOD_ALLOWED_GROUPS = {
 }
 
 
+class Route(TypedDict):
+    """Routes type."""
+
+    path_pattern: str | Pattern
+    supported_methods: list[Literal["GET", "POST", "PUT", "DELETE"]]
+    method: str
+    requires_auth: NotRequired[bool]
+    requires_camera_token: NotRequired[bool]
+    requires_group: NotRequired[list[Group]]
+    json_body_schema: NotRequired[Schema]
+    request_arguments_schema: NotRequired[Schema]
+
+
 class BaseAPIHandler(ViseronRequestHandler):
     """Base handler for all API endpoints."""
 
-    routes: list[dict[str, Any]] = []
+    routes: list[Route] = []
 
     def initialize(self, vis: Viseron) -> None:
         """Initialize."""
         super().initialize(vis)
-        self.route: dict[str, Any] = {}
+        self.route: Route = {}  # type: ignore[typeddict-item]
         self.request_arguments: dict[str, Any] = {}
         self.json_body = {}
         self.browser_request = False
@@ -86,7 +103,7 @@ class BaseAPIHandler(ViseronRequestHandler):
             HTTPStatus.METHOD_NOT_ALLOWED, f"Method '{self.request.method}' not allowed"
         )
 
-    def validate_json_body(self, route) -> bool:
+    def validate_json_body(self, route: Route) -> bool:
         """Validate JSON body."""
         if schema := route.get("json_body_schema", None):
             try:
@@ -102,13 +119,13 @@ class BaseAPIHandler(ViseronRequestHandler):
                 self.json_body = schema(json_body)
             except vol.Invalid as err:
                 LOGGER.error(
-                    f"Invalid body: {self.request.body}",
+                    f"Invalid body: {self.request.body.decode()}",
                     exc_info=True,
                 )
                 self.response_error(
                     HTTPStatus.BAD_REQUEST,
                     reason="Invalid body: {}. {}".format(
-                        self.request.body,
+                        self.request.body.decode(),
                         humanize_error(json_body, err),
                     ),
                 )
@@ -122,7 +139,7 @@ class BaseAPIHandler(ViseronRequestHandler):
             return None
         return self.request.headers.get("Authorization", "") + "." + signature.decode()
 
-    def validate_auth_header(self):
+    def validate_auth_header(self) -> bool:
         """Validate auth header."""
         # Call is coming from browser? Construct the JWT from the cookies
         if self.request.headers.get("X-Requested-With", "") == "XMLHttpRequest":
@@ -162,10 +179,17 @@ class BaseAPIHandler(ViseronRequestHandler):
                     unsupported_method = True
                     continue
 
+                self.route = route
                 if self._webserver.auth and route.get("requires_auth", True):
                     if not self.validate_auth_header():
                         self.response_error(
                             HTTPStatus.UNAUTHORIZED, reason="Authentication required"
+                        )
+                        return
+
+                    if not self.current_user:
+                        self.response_error(
+                            HTTPStatus.UNAUTHORIZED, reason="User not set"
                         )
                         return
 
@@ -196,6 +220,9 @@ class BaseAPIHandler(ViseronRequestHandler):
                             return
 
                 params = path_match.match(self.request)
+                if params is None:
+                    params = {}
+
                 request_arguments = {
                     k: self.get_argument(k) for k in self.request.arguments
                 }
@@ -253,15 +280,14 @@ class BaseAPIHandler(ViseronRequestHandler):
                         "Routing to {}.{}(*args={}, **kwargs={}, request_arguments={})"
                     ).format(
                         self.__class__.__name__,
-                        route.get("method"),
+                        route["method"],
                         path_args,
                         path_kwargs,
                         self.request_arguments,
                     ),
                 )
-                self.route = route
                 try:
-                    getattr(self, route.get("method"))(*path_args, **path_kwargs)
+                    getattr(self, route["method"])(*path_args, **path_kwargs)
                     return
                 except Exception as error:  # pylint: disable=broad-except
                     LOGGER.error(

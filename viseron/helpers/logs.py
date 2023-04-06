@@ -3,7 +3,7 @@ import logging
 import os
 import re
 import threading
-from typing import Literal
+from typing import Any, List, Literal
 
 from colorlog import ColoredFormatter
 
@@ -12,7 +12,7 @@ class DuplicateFilter(logging.Filter):
     """Formats identical log entries to overwrite the last."""
 
     # pylint: disable=attribute-defined-outside-init
-    def filter(self, record) -> bool:
+    def filter(self, record: logging.LogRecord) -> bool:
         """Filter log record."""
         current_log = (
             record.name,
@@ -39,7 +39,7 @@ class DuplicateFilter(logging.Filter):
 class SensitiveInformationFilter(logging.Filter):
     """Redacts sensitive information from logs."""
 
-    def filter(self, record) -> bool:
+    def filter(self, record: logging.LogRecord) -> bool:
         """Filter log record."""
         if isinstance(record.msg, str):
             record.msg = re.sub(r":\/\/(.*?)\@", r"://*****:*****@", record.msg)
@@ -62,7 +62,7 @@ class SensitiveInformationFilter(logging.Filter):
 class UnhelpfullLogFilter(logging.Filter):
     """Filter out unimportant logs."""
 
-    def __init__(self, errors_to_ignore, *args, **kwargs) -> None:
+    def __init__(self, errors_to_ignore: List[Any], *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.errors_to_ignore = errors_to_ignore
 
@@ -104,7 +104,7 @@ class ViseronLogFormat(ColoredFormatter):
         )
         self.current_count = 0
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         """Format log record."""
         # Save the original format configured by the user
         # when the logger formatter was instantiated
@@ -126,7 +126,7 @@ class ViseronLogFormat(ColoredFormatter):
 class LogPipe(threading.Thread):
     """Used to pipe stderr to python logging."""
 
-    def __init__(self, logger, output_level) -> None:
+    def __init__(self, logger: logging.Logger, output_level: int) -> None:
         """Log stdout without blocking."""
         super().__init__(name=f"{logger.name}.logpipe", daemon=True)
         self._logger = logger

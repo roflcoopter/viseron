@@ -6,18 +6,18 @@ from typing import TYPE_CHECKING
 from viseron.components.mqtt.const import CONFIG_CLIENT_ID
 from viseron.components.mqtt.helpers import SubscribeTopic
 from viseron.const import STATE_OFF, STATE_ON
+from viseron.helpers.entity.toggle import ToggleEntity
 
 from . import MQTTEntity
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.helpers.entity.toggle import Entity
 
 
-class ToggleMQTTEntity(MQTTEntity):
+class ToggleMQTTEntity(MQTTEntity[ToggleEntity]):
     """Base toggle MQTT entity class."""
 
-    def __init__(self, vis: Viseron, config, entity: Entity) -> None:
+    def __init__(self, vis: Viseron, config, entity: ToggleEntity) -> None:
         super().__init__(vis, config, entity)
         self._mqtt.subscribe(
             SubscribeTopic(topic=self.command_topic, callback=self.command_handler)

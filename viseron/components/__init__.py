@@ -81,7 +81,13 @@ LOGGER = logging.getLogger(__name__)
 class Component:
     """Represents a Viseron component."""
 
-    def __init__(self, vis: Viseron, path, name, config) -> None:
+    def __init__(
+        self,
+        vis: Viseron,
+        path: str,
+        name: str,
+        config: dict[str, Any],
+    ) -> None:
         self._vis = vis
         self._path = path
         self._name = name
@@ -94,7 +100,7 @@ class Component:
         return self._name
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Return component name."""
         return self._name
 
@@ -111,7 +117,7 @@ class Component:
         """Validate component config."""
         if hasattr(component_module, "CONFIG_SCHEMA"):
             try:
-                return component_module.CONFIG_SCHEMA(self._config)  # type: ignore
+                return component_module.CONFIG_SCHEMA(self._config)
             except vol.Invalid as ex:
                 LOGGER.exception(
                     f"Error validating config for component {self.name}: "
@@ -123,7 +129,7 @@ class Component:
                 return None
         return True
 
-    def setup_component(self, tries=1) -> bool:
+    def setup_component(self, tries: int = 1) -> bool:
         """Set up component."""
         LOGGER.info(
             "Setting up component %s%s",
@@ -145,7 +151,7 @@ class Component:
         config = self.validate_component_config(component_module)
 
         start = timer()
-        result = False
+        result: bool | Any = False
         if config:
             try:
                 slow_setup_warning.start()
@@ -168,7 +174,7 @@ class Component:
             except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.error(
                     f"Uncaught exception setting up component {self.name}: {ex}\n"
-                    f"{traceback.print_exc()}"
+                    f"{traceback.format_exc()}"
                 )
             finally:
                 slow_setup_warning.cancel()
@@ -202,7 +208,12 @@ class Component:
         return False
 
     def add_domain_to_setup(
-        self, domain, config, identifier, require_domains, optional_domains
+        self,
+        domain: str,
+        config: dict[str, Any],
+        identifier: str,
+        require_domains: list[RequireDomain] | None,
+        optional_domains: list[OptionalDomain] | None,
     ) -> None:
         """Add a domain to setup queue."""
         if (
@@ -239,7 +250,7 @@ class Component:
         """Validate domain config."""
         if hasattr(domain_module, "CONFIG_SCHEMA"):
             try:
-                return domain_module.CONFIG_SCHEMA(config), None  # type: ignore
+                return domain_module.CONFIG_SCHEMA(config), None
             except vol.Invalid as ex:
                 error = (
                     f"Error validating config for domain {domain} and "
@@ -348,8 +359,8 @@ class Component:
                 domain_to_setup.domain,
                 self.name,
                 [
-                    f"domain: {future.domain}, "  # type: ignore
-                    f"identifier: {future.identifier}"  # type: ignore
+                    f"domain: {future.domain}, "  # type: ignore[attr-defined]
+                    f"identifier: {future.identifier}"
                     for future in failed
                 ],
             )
@@ -400,7 +411,7 @@ class Component:
         )
 
         start = timer()
-        result = False
+        result: bool | Any = False
         if config:
             try:
                 slow_setup_warning.start()
@@ -491,7 +502,11 @@ class Component:
         return False
 
 
-def get_component(vis, component: Component, config):
+def get_component(
+    vis: Viseron,
+    component: str,
+    config: dict[str, Any],
+) -> Component:
     """Get configured component."""
     from viseron import (  # pylint: disable=import-outside-toplevel,import-self
         components,
@@ -500,8 +515,10 @@ def get_component(vis, component: Component, config):
     for _ in components.__path__:
         return Component(vis, f"{components.__name__}.{component}", component, config)
 
+    raise ModuleNotFoundError(f"Component {component} not found")
 
-def setup_component(vis, component: Component, tries=1) -> None:
+
+def setup_component(vis: Viseron, component: Component, tries: int = 1) -> None:
     """Set up single component."""
     # When tries is larger than one, it means we are in a retry loop.
     if tries > 1:
@@ -638,7 +655,7 @@ def setup_domains(vis: Viseron) -> None:
             future.result()
 
 
-def setup_components(vis: Viseron, config) -> None:
+def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
     """Set up configured components."""
     components_in_config = {key.split(" ")[0] for key in config}
     # Setup logger first
@@ -690,7 +707,7 @@ def domain_setup_status(
     vis: Viseron,
     domain: DomainToSetup,
     status: Literal["domain_loading", "domain_loaded", "domain_failed"],
-):
+) -> None:
     """Set the status of a domain setup.
 
     Sends an event when a domains setup status changes.

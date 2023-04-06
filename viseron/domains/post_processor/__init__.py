@@ -86,7 +86,9 @@ class AbstractPostProcessor(ABC):
         else:
             self._logger.debug(f"Post processor will run for labels: {self._labels}")
 
-        self._post_processor_queue: Queue = Queue(maxsize=1)
+        self._post_processor_queue: Queue[Event[EventDetectedObjectsData]] = Queue(
+            maxsize=1
+        )
         processor_thread = RestartableThread(
             name=__name__, target=self.post_process, daemon=True, register=True
         )
@@ -106,10 +108,12 @@ class AbstractPostProcessor(ABC):
     def post_process(self) -> None:
         """Post processor loop."""
         while True:
-            event_data: Event[
-                EventDetectedObjectsData
-            ] = self._post_processor_queue.get()
+            event_data = self._post_processor_queue.get()
             detected_objects_data = event_data.data
+
+            if detected_objects_data.shared_frame is None:
+                self._logger.debug("No frame, skipping post processing")
+                continue
 
             if self._labels:
                 filtered_objects = [

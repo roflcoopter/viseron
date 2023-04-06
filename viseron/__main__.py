@@ -1,13 +1,15 @@
 """Start Viseron."""
+from __future__ import annotations
+
 import signal
 import sys
 
-from viseron import setup_viseron
+from viseron import Viseron, setup_viseron
 
 
 def main():
     """Start Viseron."""
-    viseron = None
+    viseron: Viseron | None = None
 
     def signal_term(*_) -> None:
         if viseron:
@@ -20,7 +22,9 @@ def main():
     viseron = setup_viseron()
 
     signal.pause()
-    return viseron.exit_code
+    if viseron:
+        return viseron.exit_code
+    return 0
 
 
 def init():

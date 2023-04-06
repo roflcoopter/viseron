@@ -166,7 +166,7 @@ class MQTT:
         self._vis = vis
         self._config = config
 
-        self._client: mqtt.Client = None
+        self._client = mqtt.Client(self._config[CONFIG_CLIENT_ID])
         self._publish_queue: Queue = Queue(maxsize=1000)
         self._subscriptions: dict[str, list[Callable]] = {}
 
@@ -256,7 +256,6 @@ class MQTT:
 
     def connect(self) -> None:
         """Connect to broker."""
-        self._client = mqtt.Client(self._config[CONFIG_CLIENT_ID])
         self._client.on_connect = self.on_connect
         self._client.on_message = self.on_message
         self._client.enable_logger(logger=logging.getLogger(f"{__name__}.client"))

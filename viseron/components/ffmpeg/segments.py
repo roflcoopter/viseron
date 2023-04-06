@@ -126,7 +126,7 @@ class Segments:
     def get_segment_information(self):
         """Get information for all available segments."""
         segment_files = os.listdir(self._segments_folder)
-        segment_information: dict = {}
+        segment_information: dict[str, dict[str, float]] = {}
         for segment in segment_files:
             duration = self.segment_duration(
                 os.path.join(self._segments_folder, segment)
@@ -141,7 +141,12 @@ class Segments:
         self._logger.debug(f"Segment information: {segment_information}")
         return segment_information
 
-    def get_concat_segments(self, segments, start_segment, end_segment):
+    def get_concat_segments(
+        self,
+        segments: dict[str, dict[str, float]],
+        start_segment: str,
+        end_segment: str,
+    ) -> list[str] | None:
         """Return all segments between start_segment and end_segment."""
         # Sort segments by start time
         segment_list = sorted(
@@ -161,7 +166,11 @@ class Segments:
         return None
 
     def generate_segment_script(
-        self, segments_to_concat, segment_information, event_start, event_end
+        self,
+        segments_to_concat: list[str],
+        segment_information: dict[str, dict[str, float]],
+        event_start: float,
+        event_end: float,
     ) -> str:
         """Return a script string with information of each segment to concatenate."""
         segment_iterable = iter(segments_to_concat)
@@ -243,7 +252,7 @@ class Segments:
         self._logger.debug(f"Concatenation command: {' '.join(ffmpeg_cmd)}")
         self._logger.debug(f"Segment script: \n{segment_script}")
 
-        sp.run(
+        sp.run(  # type: ignore[call-overload]
             ffmpeg_cmd,
             input=segment_script,
             text=True,
@@ -253,10 +262,14 @@ class Segments:
 
     def concat_segments(self, recording: Recording) -> None:
         """Concatenate segments between event_start and event_end."""
-        event_start = (
+        event_start: float = (
             recording.start_timestamp - self._config[CONFIG_RECORDER][CONFIG_LOOKBACK]
         )
-        event_end = recording.end_timestamp
+        event_end = (
+            recording.end_timestamp
+            if recording.end_timestamp
+            else datetime.datetime.now().timestamp()
+        )
         self._logger.debug("Concatenating segments")
         segment_information = self.get_segment_information()
         if not segment_information:

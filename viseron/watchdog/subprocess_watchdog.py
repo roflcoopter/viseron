@@ -1,8 +1,9 @@
 """Watchdog for long-running threads."""
+from __future__ import annotations
+
 import datetime
 import logging
 import subprocess as sp
-from typing import List
 
 from viseron.watchdog import WatchDog
 
@@ -23,7 +24,7 @@ class RestartablePopen:
         self._name = name
         self._grace_period = grace_period
         self._kwargs = kwargs
-        self._subprocess = None
+        self._subprocess: sp.Popen | None = None
         self._started = False
         self.start()
         if register:
@@ -72,26 +73,28 @@ class RestartablePopen:
     def restart(self) -> None:
         """Restart the subprocess."""
         self._started = False
-        self._subprocess.terminate()
-        try:
-            self._subprocess.communicate(timeout=5)
-        except sp.TimeoutExpired:
-            LOGGER.debug("Subprocess did not terminate, killing instead.")
-            self._subprocess.kill()
-            self._subprocess.communicate()
+        if self._subprocess:
+            self._subprocess.terminate()
+            try:
+                self._subprocess.communicate(timeout=5)
+            except sp.TimeoutExpired:
+                LOGGER.debug("Subprocess did not terminate, killing instead.")
+                self._subprocess.kill()
+                self._subprocess.communicate()
         self.start()
 
     def terminate(self) -> None:
         """Terminate the subprocess."""
         self._started = False
         SubprocessWatchDog.unregister(self)
-        self._subprocess.terminate()
+        if self._subprocess:
+            self._subprocess.terminate()
 
 
 class SubprocessWatchDog(WatchDog):
     """A watchdog for long running processes."""
 
-    registered_items: List[RestartablePopen] = []
+    registered_items: list[RestartablePopen] = []
 
     def __init__(self) -> None:
         super().__init__()
