@@ -2,6 +2,12 @@
 *
 
 ## Include
+# Devcontainer
+!/.devcontainer
+!/.devcontainer/*
+!/.vscode
+!/.vscode/*
+
 # GitHub Workflows
 !/.github
 !/.github/*

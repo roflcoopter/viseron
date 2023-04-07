@@ -1,0 +1,6 @@
+{
+  "github-actions.workflows.pinned.workflows": [".github/workflows/ci.yaml"],
+  "python.testing.pytestArgs": ["tests/"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
+}
