@@ -3,9 +3,9 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import React, { Suspense } from "react";
 import ReactDOM from "react-dom";
 import { HashRouter as Router } from "react-router-dom";
-import { ToastContainer } from "react-toastify";
 
 import { Loading } from "components/loading/Loading";
+import ToastContainer from "components/toast/ToastContainer";
 import { AuthProvider } from "context/AuthContext";
 import { ColorModeProvider } from "context/ColorModeContext";
 
@@ -25,13 +25,7 @@ ReactDOM.render(
             </Suspense>
           </AuthProvider>
         </Router>
-        <ToastContainer
-          position="bottom-left"
-          pauseOnFocusLoss={false}
-          autoClose={5000}
-          draggablePercent={50}
-          theme="colored"
-        />
+        <ToastContainer />
       </QueryClientProvider>
     </ColorModeProvider>
   </React.StrictMode>,
