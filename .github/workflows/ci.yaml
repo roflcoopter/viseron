@@ -24,7 +24,7 @@ jobs:
     steps:
       # Create Python virtual env used for linters
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         id: python
         uses: actions/setup-python@v4.3.0
@@ -36,7 +36,7 @@ jobs:
         env:
           cache-name: cache-python-venv
         run: >-
-          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_test.txt') }}" >> $GITHUB_OUTPUT
+          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements_test.txt') }}" >> $GITHUB_OUTPUT
       - name: Restore Python virtual environment
         id: cache-venv
         uses: actions/cache@v3.0.11
@@ -48,7 +48,7 @@ jobs:
         run: |
           python -m venv venv
           . venv/bin/activate
-          pip install -r requirements_test.txt
+          pip install -r requirements.txt -r requirements_test.txt
 
   prepare-pre-commit:
     name: Prepare pre-commit
@@ -58,7 +58,7 @@ jobs:
       pre-commit-cache-key: ${{ steps.pre-commit-cache-key.outputs.key }}
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -81,6 +81,7 @@ jobs:
           cache-name: cache-pre-commit
         run: >-
           echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_test.txt') }}" >> $GITHUB_OUTPUT
+          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements_test.txt') }}" >> $GITHUB_OUTPUT
       # Install pre-commit hooks into the cached virtual environment
       - name: Restore pre-commit hooks
         id: cache-pre-commit
@@ -100,7 +101,7 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -139,7 +140,7 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -178,7 +179,7 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -217,7 +218,7 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -256,7 +257,7 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -287,7 +288,8 @@ jobs:
       - name: Run pylint
         run: |
           . venv/bin/activate
-          pre-commit run --hook-stage manual pylint --all-files --show-diff-on-failure
+          pylint --version
+          pylint viseron
 
   run-flake8:
     name: Run flake8
@@ -295,7 +297,7 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -334,7 +336,7 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -373,7 +375,7 @@ jobs:
     needs: prepare-python-venv
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
         with:
           fetch-depth: 2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
