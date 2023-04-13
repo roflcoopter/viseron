@@ -4,7 +4,6 @@ from __future__ import annotations
 import asyncio
 import concurrent
 import logging
-import os
 import secrets
 import threading
 from typing import TYPE_CHECKING
@@ -52,6 +51,8 @@ from .const import (
     DESC_MINUTES,
     DESC_PORT,
     DESC_SESSION_EXPIRY,
+    PATH_ASSETS,
+    PATH_INDEX,
     PATH_STATIC,
     WEBSERVER_STORAGE_KEY,
     WEBSOCKET_COMMANDS,
@@ -155,7 +156,7 @@ class IndexHandler(ViseronRequestHandler):
 
     def get(self) -> None:
         """GET request."""
-        self.render(os.path.join(PATH_STATIC, "index.html"))
+        self.render(PATH_INDEX)
 
 
 class DeprecatedStreamHandler(tornado.web.RequestHandler):
@@ -191,14 +192,14 @@ def create_application(vis: Viseron, config, cookie_secret, xsrf_cookies=True):
     application = tornado.web.Application(
         [
             (
-                r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-stream",
+                r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-stream$",
                 DynamicStreamHandler,
                 {"vis": vis},
             ),
             (
                 (
                     r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-streams/"
-                    r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)"
+                    r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)$"
                 ),
                 StaticStreamHandler,
                 {"vis": vis},
@@ -206,13 +207,19 @@ def create_application(vis: Viseron, config, cookie_secret, xsrf_cookies=True):
             (
                 (
                     r"/(?P<camera>[A-Za-z0-9_]+)/static-mjpeg-streams/"
-                    r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)"
+                    r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)$"
                 ),
                 StaticStreamHandler,
                 {"vis": vis},
             ),
-            (r"/websocket", WebSocketHandler, {"vis": vis}),
-            (r"/.*", IndexHandler, {"vis": vis}),
+            (r"/websocket$", WebSocketHandler, {"vis": vis}),
+            (
+                r"/assets/(.*)",
+                tornado.web.StaticFileHandler,
+                {"path": PATH_ASSETS},
+            ),
+            (r"/$", IndexHandler, {"vis": vis}),
+            (r"/index.html$", IndexHandler, {"vis": vis}),
         ],
         default_handler_class=NotFoundHandler,
         static_path=PATH_STATIC,

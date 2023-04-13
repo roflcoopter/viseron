@@ -123,11 +123,14 @@
 !/frontend/src/**
 !/frontend/.eslintrc.js
 !/frontend/.prettierrc.json
+!/frontend/404.html
+!/frontend/index.html
 !/frontend/lint-staged.config.js
 !/frontend/package-lock.json
 !/frontend/package.json
 !/frontend/README.md
 !/frontend/tsconfig.json
+!/frontend/vite.config.ts
 
 # Docs
 !/docs

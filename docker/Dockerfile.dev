@@ -6,7 +6,7 @@ RUN apt-get update \
     && apt-get install --no-install-recommends -y \
     curl \
     git \
-    && curl -fsSL https://deb.nodesource.com/setup_14.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_16.x | bash - \
     && apt-get install --no-install-recommends -y nodejs
 
 COPY requirements_test.txt requirements_test.txt

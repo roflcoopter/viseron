@@ -1,5 +1,4 @@
 import Container from "@mui/material/Container";
-import "monaco-editor";
 import { lazy } from "react";
 
 import { useTitle } from "hooks/UseTitle";

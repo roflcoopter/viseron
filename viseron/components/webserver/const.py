@@ -5,7 +5,10 @@ from typing import Final
 
 COMPONENT = "webserver"
 
-PATH_STATIC = "/src/viseron/frontend/static"
+PATH_INDEX: Final = "/src/viseron/frontend/index.html"
+PATH_404: Final = "/src/viseron/frontend/404.html"
+PATH_STATIC: Final = "/src/viseron/frontend/static"
+PATH_ASSETS: Final = "/src/viseron/frontend/assets"
 
 WEBSERVER_STORAGE_KEY = "webserver"
 AUTH_STORAGE_KEY = "auth"

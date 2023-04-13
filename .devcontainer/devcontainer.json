@@ -48,7 +48,9 @@
         "python.testing.pytestArgs": ["--no-cov"],
         "python.linting.mypyEnabled": true,
         "python.linting.mypyPath": "/usr/local/bin/mypy",
+        "editor.rulers": [80],
         "[python]": {
+          "editor.rulers": [88],
           "editor.codeActionsOnSave": {
             "source.organizeImports": true
           }
@@ -57,7 +59,13 @@
         "editor.formatOnSave": true,
         "editor.formatOnType": true,
         "files.trimTrailingWhitespace": true,
-        "yaml.customTags": ["!secret scalar"]
+        "yaml.customTags": ["!secret scalar"],
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[javascript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        }
       }
     }
   }
