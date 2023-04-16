@@ -13,7 +13,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Pytest",
+      "label": "Python: Pytest",
       "type": "shell",
       "command": "pytest tests/",
       "dependsOn": [
@@ -31,7 +31,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Pylint",
+      "label": "Python: Pylint",
       "type": "shell",
       "command": "pylint viseron",
       "dependsOn": [
@@ -49,8 +49,7 @@
       "problemMatcher": []
     },
     {
-      "label": "Code Coverage",
-      "detail": "Generate code coverage report.",
+      "label": "Python: Pytest Code Coverage",
       "type": "shell",
       "command": "pytest tests/ --cov=viseron/ --cov-report term-missing --durations-min=1 --durations=0",
       "group": {
@@ -64,7 +63,8 @@
       "problemMatcher": []
     },
     {
-      "label": "Install all Requirements",
+      "label": "Python: Install all Requirements",
+      "detail": "Install all requirements in requirements.txt",
       "type": "shell",
       "command": "pip3 install -r requirements.txt",
       "group": {
@@ -78,12 +78,94 @@
       "problemMatcher": []
     },
     {
-      "label": "Install all Test Requirements",
+      "label": "Python: Install all Test Requirements",
+      "detail": "Install all requirements in requirements_test.txt",
       "type": "shell",
       "command": "pip3 install -r requirements_test.txt",
       "group": {
         "kind": "build",
         "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    // Frontend tasks
+    {
+      "label": "Frontend: Build",
+      "type": "shell",
+      "command": "npm run build",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "group": {
+        "kind": "build"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: Start",
+      "type": "shell",
+      "command": "npm run start",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "group": {
+        "kind": "build"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: Vitest",
+      "type": "shell",
+      "command": "npm run test",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "group": {
+        "kind": "test"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: Vitest Code Coverage",
+      "type": "shell",
+      "command": "npm run test:coverage",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "group": {
+        "kind": "test"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Frontend: Lint",
+      "type": "shell",
+      "command": "npm run lint",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "group": {
+        "kind": "test"
       },
       "presentation": {
         "reveal": "always",

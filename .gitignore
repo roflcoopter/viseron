@@ -121,6 +121,8 @@
 !/frontend/public/static/*
 !/frontend/src
 !/frontend/src/**
+!/frontend/tests
+!/frontend/tests/**
 !/frontend/.eslintrc.js
 !/frontend/.prettierrc.json
 !/frontend/404.html

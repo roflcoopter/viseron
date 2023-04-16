@@ -17,7 +17,12 @@ module.exports = {
     project: "tsconfig.json",
     tsconfigRootDir: __dirname,
   },
-  ignorePatterns: [".eslintrc.js", "vite.config.ts"],
+  ignorePatterns: [
+    ".eslintrc.js",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "lint-staged.config.js",
+  ],
   rules: {
     "@typescript-eslint/no-non-null-assertion": "off",
     "@typescript-eslint/no-explicit-any": "off",
@@ -56,6 +61,19 @@ module.exports = {
     "no-restricted-syntax": ["error", "LabeledStatement", "WithStatement"],
     "import/extensions": "off",
     "import/prefer-default-export": "off",
+    "import/no-extraneous-dependencies": [
+      "error",
+      {
+        devDependencies: [
+          "**/*.test.ts",
+          "**/*.test.tsx",
+          "**/*.spec.ts",
+          "**/*.spec.tsx",
+          "**/tests/**/*.{tsx,ts}",
+        ],
+        optionalDependencies: false,
+      },
+    ],
     "no-console": "off",
     "no-plusplus": "off",
     "no-restricted-globals": "off",

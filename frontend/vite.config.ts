@@ -1,3 +1,5 @@
+/// <reference types="vitest" />
+/// <reference types="vite/client" />
 import react from "@vitejs/plugin-react";
 import { resolve } from "path";
 import { defineConfig, loadEnv } from "vite";
@@ -11,7 +13,6 @@ const proxyOptions = {
   proxyTimeout: 5000,
 };
 
-// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
 
@@ -46,6 +47,11 @@ export default defineConfig(({ mode }) => {
           ...proxyOptions,
         },
       },
+    },
+    test: {
+      globals: true,
+      environment: "jsdom",
+      setupFiles: "tests/setupTests.ts",
     },
   };
 });
