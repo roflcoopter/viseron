@@ -1,76 +1,76 @@
 [
-    {
-        "type": "map",
-        "value": [
-            {
-                "type": "string",
-                "name": "broker",
-                "description": "IP address or hostname of MQTT broker.",
-                "required": true,
-                "default": null
-            },
-            {
-                "type": "integer",
-                "name": "port",
-                "description": "Port the broker is listening on.",
-                "optional": true,
-                "default": 1883
-            },
-            {
-                "type": "string",
-                "name": "username",
-                "description": "Username for the broker.",
-                "inclusive": true,
-                "default": null
-            },
-            {
-                "type": "string",
-                "name": "password",
-                "description": "Password for the broker.",
-                "inclusive": true,
-                "default": null
-            },
-            {
-                "type": "string",
-                "name": "client_id",
-                "description": "Client ID used when connecting to broker.</br>Also used as the base for all topics.",
-                "optional": true,
-                "default": "viseron"
-            },
-            {
-                "type": "string",
-                "name": "last_will_topic",
-                "description": "Last will topic.",
-                "optional": true,
-                "default": null
-            },
-            {
-                "type": "map",
-                "value": [
-                    {
-                        "type": "string",
-                        "name": "discovery_prefix",
-                        "description": "<a href=https://www.home-assistant.io/docs/mqtt/discovery/#discovery_prefix>Discovery prefix.</a>",
-                        "optional": true,
-                        "default": "homeassistant"
-                    },
-                    {
-                        "type": "boolean",
-                        "name": "retain_config",
-                        "description": "Retain config topic messages.",
-                        "optional": true,
-                        "default": true
-                    }
-                ],
-                "name": "home_assistant",
-                "description": "See <a href=#home-assistant-mqtt-discovery>Home Assistant MQTT Discovery.</a>",
-                "optional": true,
-                "default": null
-            }
-        ],
-        "name": "mqtt",
-        "description": "MQTT configuration.",
+  {
+    "type": "map",
+    "value": [
+      {
+        "type": "string",
+        "name": "broker",
+        "description": "IP address or hostname of MQTT broker.",
         "required": true,
         "default": null
-    }
+      },
+      {
+        "type": "integer",
+        "name": "port",
+        "description": "Port the broker is listening on.",
+        "optional": true,
+        "default": 1883
+      },
+      {
+        "type": "string",
+        "name": "username",
+        "description": "Username for the broker.",
+        "inclusive": true,
+        "default": null
+      },
+      {
+        "type": "string",
+        "name": "password",
+        "description": "Password for the broker.",
+        "inclusive": true,
+        "default": null
+      },
+      {
+        "type": "string",
+        "name": "client_id",
+        "description": "Client ID used when connecting to broker.</br>Also used as the base for all topics.",
+        "optional": true,
+        "default": "viseron"
+      },
+      {
+        "type": "string",
+        "name": "last_will_topic",
+        "description": "Last will topic.",
+        "optional": true,
+        "default": null
+      },
+      {
+        "type": "map",
+        "value": [
+          {
+            "type": "string",
+            "name": "discovery_prefix",
+            "description": "<a href=https://www.home-assistant.io/docs/mqtt/discovery/#discovery_prefix>Discovery prefix.</a>",
+            "optional": true,
+            "default": "homeassistant"
+          },
+          {
+            "type": "boolean",
+            "name": "retain_config",
+            "description": "Retain config topic messages.",
+            "optional": true,
+            "default": true
+          }
+        ],
+        "name": "home_assistant",
+        "description": "See <a href=#home-assistant-mqtt-discovery>Home Assistant MQTT Discovery.</a>",
+        "optional": true,
+        "default": null
+      }
+    ],
+    "name": "mqtt",
+    "description": "MQTT configuration.",
+    "required": true,
+    "default": null
+  }
 ]

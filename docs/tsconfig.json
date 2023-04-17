@@ -5,5 +5,6 @@
     "baseUrl": ".",
     "resolveJsonModule": true
   },
+  "types": ["node", "webpack-env"],
   "include": ["src", ".eslintrc.js", "lint-staged-config.js"]
 }

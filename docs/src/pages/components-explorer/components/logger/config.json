@@ -1,123 +1,123 @@
 [
-    {
+  {
+    "type": "map",
+    "value": [
+      {
+        "lower": true,
+        "type": "select",
+        "options": [
+          {
+            "type": "constant",
+            "value": "critical"
+          },
+          {
+            "type": "constant",
+            "value": "error"
+          },
+          {
+            "type": "constant",
+            "value": "warning"
+          },
+          {
+            "type": "constant",
+            "value": "info"
+          },
+          {
+            "type": "constant",
+            "value": "debug"
+          }
+        ],
+        "name": "default_level",
+        "description": "Set default level for all logs.",
+        "optional": true,
+        "default": "info"
+      },
+      {
         "type": "map",
         "value": [
-            {
-                "lower": true,
-                "type": "select",
-                "options": [
-                    {
-                        "type": "constant",
-                        "value": "critical"
-                    },
-                    {
-                        "type": "constant",
-                        "value": "error"
-                    },
-                    {
-                        "type": "constant",
-                        "value": "warning"
-                    },
-                    {
-                        "type": "constant",
-                        "value": "info"
-                    },
-                    {
-                        "type": "constant",
-                        "value": "debug"
-                    }
-                ],
-                "name": "default_level",
-                "description": "Set default level for all logs.",
-                "optional": true,
-                "default": "info"
+          {
+            "lower": true,
+            "type": "select",
+            "options": [
+              {
+                "type": "constant",
+                "value": "critical"
+              },
+              {
+                "type": "constant",
+                "value": "error"
+              },
+              {
+                "type": "constant",
+                "value": "warning"
+              },
+              {
+                "type": "constant",
+                "value": "info"
+              },
+              {
+                "type": "constant",
+                "value": "debug"
+              }
+            ],
+            "name": {
+              "type": "string"
             },
-            {
-                "type": "map",
-                "value": [
-                    {
-                        "lower": true,
-                        "type": "select",
-                        "options": [
-                            {
-                                "type": "constant",
-                                "value": "critical"
-                            },
-                            {
-                                "type": "constant",
-                                "value": "error"
-                            },
-                            {
-                                "type": "constant",
-                                "value": "warning"
-                            },
-                            {
-                                "type": "constant",
-                                "value": "info"
-                            },
-                            {
-                                "type": "constant",
-                                "value": "debug"
-                            }
-                        ],
-                        "name": {
-                            "type": "string"
-                        },
-                        "description": "Set log level for a specific logger name.",
-                        "required": true,
-                        "default": null
-                    }
-                ],
-                "name": "logs",
-                "description": "Map of logger names and their log level. </br><b>Takes precedence over <code>default_level</code> config option.</b>",
-                "optional": true,
-                "default": null
-            },
-            {
-                "type": "map",
-                "value": [
-                    {
-                        "lower": true,
-                        "type": "select",
-                        "options": [
-                            {
-                                "type": "constant",
-                                "value": "critical"
-                            },
-                            {
-                                "type": "constant",
-                                "value": "error"
-                            },
-                            {
-                                "type": "constant",
-                                "value": "warning"
-                            },
-                            {
-                                "type": "constant",
-                                "value": "info"
-                            },
-                            {
-                                "type": "constant",
-                                "value": "debug"
-                            }
-                        ],
-                        "name": {
-                            "type": "CAMERA_IDENTIFIER"
-                        },
-                        "description": "Override level for all loggers that contain the given camera identifier.",
-                        "cameraidentifier": true,
-                        "default": null
-                    }
-                ],
-                "name": "cameras",
-                "description": "Map of camera identifiers and their log level. </br><b>Takes precedence over <code>logs</code> and <code>default_level</code> config options.</b>",
-                "optional": true,
-                "default": null
-            }
+            "description": "Set log level for a specific logger name.",
+            "required": true,
+            "default": null
+          }
         ],
-        "name": "logger",
-        "description": "Logger configuration.",
-        "required": true,
+        "name": "logs",
+        "description": "Map of logger names and their log level. </br><b>Takes precedence over <code>default_level</code> config option.</b>",
+        "optional": true,
         "default": null
-    }
+      },
+      {
+        "type": "map",
+        "value": [
+          {
+            "lower": true,
+            "type": "select",
+            "options": [
+              {
+                "type": "constant",
+                "value": "critical"
+              },
+              {
+                "type": "constant",
+                "value": "error"
+              },
+              {
+                "type": "constant",
+                "value": "warning"
+              },
+              {
+                "type": "constant",
+                "value": "info"
+              },
+              {
+                "type": "constant",
+                "value": "debug"
+              }
+            ],
+            "name": {
+              "type": "CAMERA_IDENTIFIER"
+            },
+            "description": "Override level for all loggers that contain the given camera identifier.",
+            "cameraidentifier": true,
+            "default": null
+          }
+        ],
+        "name": "cameras",
+        "description": "Map of camera identifiers and their log level. </br><b>Takes precedence over <code>logs</code> and <code>default_level</code> config options.</b>",
+        "optional": true,
+        "default": null
+      }
+    ],
+    "name": "logger",
+    "description": "Logger configuration.",
+    "required": true,
+    "default": null
+  }
 ]

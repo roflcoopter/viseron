@@ -44,6 +44,7 @@ from .const import (
     DEFAULT_DEBUG,
     DEFAULT_PORT,
     DEFAULT_SESSION_EXPIRY,
+    DESC_AUTH,
     DESC_COMPONENT,
     DESC_DAYS,
     DESC_DEBUG,
@@ -96,7 +97,7 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(
                     CONFIG_DEBUG, default=DEFAULT_DEBUG, description=DESC_DEBUG
                 ): bool,
-                vol.Optional(CONFIG_AUTH): vol.All(
+                vol.Optional(CONFIG_AUTH, description=DESC_AUTH): vol.All(
                     CoerceNoneToDict(),
                     {
                         vol.Optional(

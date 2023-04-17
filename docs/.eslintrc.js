@@ -17,6 +17,7 @@ module.exports = {
     project: "tsconfig.json",
     tsconfigRootDir: __dirname,
   },
+  ignorePatterns: ["src/pages/components-explorer/components/**/config.json"],
   rules: {
     "import/extensions": "off",
   },

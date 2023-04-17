@@ -32,7 +32,8 @@
         "GitHub.vscode-github-actions",
         "GitHub.copilot",
         "dbaeumer.vscode-eslint",
-        "ms-azuretools.vscode-docker"
+        "ms-azuretools.vscode-docker",
+        "unifiedjs.vscode-mdx"
       ],
       "settings": {
         "python.pythonPath": "/usr/local/bin/python",
@@ -61,6 +62,12 @@
         "files.trimTrailingWhitespace": true,
         "yaml.customTags": ["!secret scalar"],
         "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[json]": {
           "editor.defaultFormatter": "esbenp.prettier-vscode"
         },
         "[javascript]": {

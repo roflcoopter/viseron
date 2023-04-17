@@ -68,3 +68,21 @@ repos:
         types: [python]
         files: ^(viseron)/.+\.py$
         args: ["--install-types", "--non-interactive"]
+      - id: generate_docs
+        description: Check if docs needs to be regenerated
+        name: generate_docs
+        language: system
+        entry: python3 -m scripts.gen_docs -a
+        pass_filenames: false
+        always_run: true
+      - id: check_config_json
+        description: 'Fail if any config.json contains "description": null'
+        name: check docs config.json
+        language: system
+        entry: >
+          bash -c '
+          test=$(find ./docs/src/pages/components-explorer -iname "config.json" -type f -exec grep -Hn "\"description\": null" {} \;) &&
+          if [ -n "$test" ]; then echo "Found null description in config.json:"; echo "$test"; false; fi
+          '
+        pass_filenames: false
+        always_run: true

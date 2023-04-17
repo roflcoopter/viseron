@@ -18,6 +18,7 @@ from .const import (
     DOCS_IMPORTS,
     DOMAIN_CONTENT,
     DOMAIN_IMPORTS,
+    EXCLUDED_COMPONENTS,
     META_CONTENTS,
 )
 
@@ -343,7 +344,21 @@ def import_component(component):
             "w",
             encoding="utf-8",
         ) as data_file:
-            data_file.write(json.dumps(component_config, indent=4))
+            data_file.write(json.dumps(component_config, indent=2))
+
+
+def generate_docs(args):
+    """Generate docs for all or one component."""
+    if args.all:
+        for component in os.listdir("viseron/components/"):
+            if component[0:2] == "__":
+                continue
+            if component in EXCLUDED_COMPONENTS:
+                continue
+            print(component)
+            import_component(component)
+    else:
+        import_component(args.component)
 
 
 def main():
@@ -360,14 +375,23 @@ def main():
         return 1
 
     parser = argparse.ArgumentParser()
-    parser.add_argument(
+
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
         "-c",
         "--component",
         help="What component to generate doc skeleton for",
-        required=True,
+        default=None,
+    )
+    group.add_argument(
+        "-a",
+        "--all",
+        help="Generate doc skeleton for all components",
+        action="store_true",
+        default=False,
     )
     args = parser.parse_args()
-    import_component(args.component)
+    generate_docs(args)
     print("Done!")
 
 
