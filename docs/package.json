@@ -18,7 +18,7 @@
     "lint:prettier": "prettier \"src/**/**.{js,jsx,ts,tsx,json}\" --check",
     "format:prettier": "prettier \"src/**/**.{js,jsx,ts,tsx,json}\" --write",
     "format": "npm run format:prettier && npm run format:eslint",
-    "lint": "npm run lint:prettier && npm run lint:eslint"
+    "lint": "npm run lint:prettier && npm run lint:eslint && npm run typecheck"
   },
   "dependencies": {
     "@docusaurus/core": "^2.0.0-rc.1",
