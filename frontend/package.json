@@ -9,12 +9,12 @@
   "dependencies": {
     "@emotion/react": "^11.10.5",
     "@emotion/styled": "^11.10.5",
-    "@jy95/material-ui-image": "git://github.com/roflcoopter/material-ui-image",
     "@monaco-editor/react": "^4.5.0",
     "@mui/icons-material": "^5.3.1",
     "@mui/lab": "^5.0.0-alpha.69",
     "@mui/material": "^5.10.14",
     "@mui/utils": "^5.3.0",
+    "@roflcoopter/material-ui-image": "^4.0.9",
     "@tanstack/react-query": "^4.24.4",
     "@tanstack/react-query-devtools": "^4.24.4",
     "@types/node": "^16.11.19",
