@@ -83,7 +83,7 @@ class StreamInformationError(ViseronError):
         return (
             "Could not get needed stream information. "
             "Missing at least one of width, height, fps or codec. "
-            "You can specify the missing information in the config to circumvent this."
+            "You can specify the missing information in the config to circumvent this. "
             f"Width: {self.width} "
             f"Height: {self.height} "
             f"FPS: {self.fps} "

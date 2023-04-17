@@ -110,7 +110,12 @@ class Stream(FFmpegStream):
             else fps
         )
 
-        if self.width and self.height and self.fps and stream_codec:
+        if (
+            self.width
+            and self.height
+            and self.fps
+            and (stream_codec or config[CONFIG_CODEC])
+        ):
             pass
         else:
             raise StreamInformationError(
