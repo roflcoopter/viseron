@@ -153,15 +153,20 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
     <div
       ref={ref}
       style={{
-        // Vertically space items evenly to accommodate different aspect ratios
         height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
       }}
     >
       {cameraQuery.data && (
-        <Card variant="outlined">
+        <Card
+          variant="outlined"
+          sx={{
+            // Vertically space items evenly to accommodate different aspect ratios
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+          }}
+        >
           <CardContent>
             <Typography variant="h5" align="center">
               {cameraQuery.data.name}
