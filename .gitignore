@@ -109,8 +109,9 @@
 !/viseron/webserver/api/*
 !/viseron/webserver/api/v1
 !/viseron/webserver/api/v1/*
-!/requirements.txt
+!/requirements_ci.txt
 !/requirements_test.txt
+!/requirements.txt
 !setup.py
 
 # Frontend
