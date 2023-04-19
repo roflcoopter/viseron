@@ -462,6 +462,12 @@ jobs:
         run: |
           echo "Failed to restore pre-commit environment from cache"
           exit 1
+      - name: Install libedgetpu1 for edgetpu docs
+        run: |
+          curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+          sudo add-apt-repository "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libedgetpu1-std
       - name: Run script to check generated docs
         run: |
           . venv/bin/activate
