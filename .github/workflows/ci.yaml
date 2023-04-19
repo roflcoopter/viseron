@@ -45,10 +45,11 @@ jobs:
           key: ${{ steps.python-venv-cache-key.outputs.key }}
       - name: Create Python virtual environment
         if: steps.cache-venv.outputs.cache-hit != 'true'
+        # Install pycoral from Google Coral repo since it is not on PyPI
         run: |
           python -m venv venv
           . venv/bin/activate
-          pip install -r requirements.txt -r requirements_test.txt -r requirements_ci.txt
+          pip install --extra-index-url https://google-coral.github.io/py-repo/ -r requirements.txt -r requirements_test.txt -r requirements_ci.txt
 
   prepare-pre-commit:
     name: Prepare pre-commit
