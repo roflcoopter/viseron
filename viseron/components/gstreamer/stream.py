@@ -4,33 +4,21 @@ from __future__ import annotations
 import logging
 import os
 import subprocess as sp
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from viseron.components.ffmpeg.const import FFPROBE_LOGLEVELS, FFPROBE_TIMEOUT
-from viseron.components.ffmpeg.stream import Stream as FFmpegStream
+from viseron.components.ffmpeg.stream import FFprobe, Stream as FFmpegStream
 from viseron.const import (
     ENV_CUDA_SUPPORTED,
     ENV_JETSON_NANO,
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
-from viseron.exceptions import StreamInformationError
 from viseron.helpers.logs import LogPipe, UnhelpfullLogFilter
 
 from .const import (
-    CONFIG_AUDIO_CODEC,
-    CONFIG_AUDIO_PIPELINE,
-    CONFIG_CODEC,
-    CONFIG_FFPROBE_LOGLEVEL,
-    CONFIG_FPS,
     CONFIG_GSTREAMER_LOGLEVEL,
     CONFIG_GSTREAMER_RECOVERABLE_ERRORS,
-    CONFIG_HEIGHT,
     CONFIG_RAW_PIPELINE,
-    CONFIG_WIDTH,
-    DEFAULT_AUDIO_CODEC,
-    DEFAULT_AUDIO_PIPELINE,
-    DEFAULT_CODEC,
     ENV_GSTREAMER_PATH,
     LOGLEVEL_CONVERTER,
     PIXEL_FORMAT,
@@ -48,7 +36,7 @@ class Stream(FFmpegStream):
     """
 
     def __init__(  # pylint: disable=super-init-not-called
-        self, config, camera: Camera, camera_identifier
+        self, config: dict[str, Any], camera: Camera, camera_identifier: str
     ) -> None:
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.addFilter(
@@ -59,80 +47,24 @@ class Stream(FFmpegStream):
 
         self._camera: Camera = camera  # type: ignore[assignment]
 
-        self._pipe = None
+        self._pipe: sp.Popen | None = None
         self._log_pipe = LogPipe(
             self._logger, LOGLEVEL_CONVERTER[config[CONFIG_GSTREAMER_LOGLEVEL]]
         )
 
-        self._ffprobe_log_pipe = LogPipe(
-            self._logger, FFPROBE_LOGLEVELS[config[CONFIG_FFPROBE_LOGLEVEL]]
-        )
-        self._ffprobe_timeout = FFPROBE_TIMEOUT
+        self._ffprobe = FFprobe(config, camera_identifier)
 
-        self._output_stream_config = config
+        self._mainstream = self.get_stream_information(config)
+        self._substream = None  # Substream is not implemented for GStreamer
 
-        stream_codec = None
-        stream_audio_codec = None
-        # If any of the parameters are unset we need to fetch them using FFprobe
-        if (
-            not self._output_stream_config[CONFIG_WIDTH]
-            or not self._output_stream_config[CONFIG_HEIGHT]
-            or not self._output_stream_config[CONFIG_FPS]
-            or not self._output_stream_config[CONFIG_CODEC]
-            or self._output_stream_config[CONFIG_CODEC] == DEFAULT_CODEC
-            or (
-                self._output_stream_config[CONFIG_AUDIO_CODEC] == DEFAULT_AUDIO_CODEC
-                and self._output_stream_config[CONFIG_AUDIO_PIPELINE]
-                == DEFAULT_AUDIO_PIPELINE
-            )
-        ):
-            (
-                width,
-                height,
-                fps,
-                stream_codec,
-                stream_audio_codec,
-            ) = self.get_stream_information(self.output_stream_url)
-
-        self.width = (
-            self._output_stream_config[CONFIG_WIDTH]
-            if self._output_stream_config[CONFIG_WIDTH]
-            else width
-        )
-        self.height = (
-            self._output_stream_config[CONFIG_HEIGHT]
-            if self._output_stream_config[CONFIG_HEIGHT]
-            else height
-        )
-        self.fps = (
-            self._output_stream_config[CONFIG_FPS]
-            if self._output_stream_config[CONFIG_FPS]
-            else fps
-        )
-
-        if (
-            self.width
-            and self.height
-            and self.fps
-            and (stream_codec or config[CONFIG_CODEC])
-        ):
-            pass
-        else:
-            raise StreamInformationError(
-                self.width, self.height, self.fps, stream_codec
-            )
-
-        self.stream_codec = stream_codec
-        self.stream_audio_codec = stream_audio_codec
         self._output_fps = self.fps
-
-        self.create_symlink(self.alias)
-        self.create_symlink(self.segments_alias)
-
         self._pixel_format = PIXEL_FORMAT.lower()
         self._color_plane_width = self.width
         self._color_plane_height = int(self.height * 1.5)
         self._frame_bytes_size = int(self.width * self.height * 1.5)
+
+        self.create_symlink(self.alias)
+        self.create_symlink(self.segments_alias)
 
         # For now only the Nano has a specific pipeline
         self._pipeline: AbstractPipeline
@@ -150,9 +82,9 @@ class Stream(FFmpegStream):
             self._pipeline = BasePipeline(config, self, camera_identifier)
 
     @property
-    def output_stream_config(self):
-        """Return output stream config."""
-        return self._output_stream_config
+    def mainstream(self):
+        """Return the main stream."""
+        return self._mainstream
 
     @property
     def alias(self) -> str:
