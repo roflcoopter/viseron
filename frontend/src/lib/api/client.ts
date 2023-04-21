@@ -1,20 +1,32 @@
-import axios, { AxiosError } from "axios";
-import { QueryClient, useMutation } from "react-query";
+import { QueryClient, useMutation } from "@tanstack/react-query";
+import axios from "axios";
 
-import { useSnackbar } from "context/SnackbarContext";
-
-import * as types from "./types";
+import { useToast } from "hooks/UseToast";
+import * as types from "lib/types";
 
 export const API_V1_URL = "/api/v1";
+export const viseronAPI = axios.create({
+  baseURL: API_V1_URL,
+  // Match Tornado XSRF protection
+  xsrfCookieName: "_xsrf",
+  xsrfHeaderName: "X-Xsrftoken",
+  headers: {
+    "Content-Type": "application/json",
+    "X-Requested-With": "XMLHttpRequest",
+  },
+});
+export const clientId = (): string => `${location.protocol}//${location.host}/`;
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      retry: false,
       refetchOnWindowFocus: false,
-      staleTime: 30000,
+      staleTime: 1000 * 60 * 1,
+      cacheTime: 1000 * 60 * 5,
       queryFn: async ({ queryKey: [url] }) => {
         if (typeof url === "string") {
-          const response = await axios.get(`${API_V1_URL}${url.toLowerCase()}`);
+          const response = await viseronAPI.get(`${url.toLowerCase()}`);
           return response.data;
         }
         throw new Error("Invalid QueryKey");
@@ -27,31 +39,36 @@ export type deleteRecordingParams = {
   identifier: string;
   date?: string;
   filename?: string;
+  failed?: boolean;
 };
 
 async function deleteRecording({
   identifier,
   date,
   filename,
+  failed,
 }: deleteRecordingParams) {
-  const url = `${API_V1_URL}/recordings/${identifier}${date ? `/${date}` : ""}${
+  const url = `/recordings/${identifier}${date ? `/${date}` : ""}${
     filename ? `/${filename}` : ""
   }`;
 
-  const response = await axios.delete(url);
+  const response = await viseronAPI.delete(
+    url,
+    failed ? { params: { failed: true } } : undefined
+  );
   return response.data;
 }
 
 export const useDeleteRecording = () => {
-  const snackbar = useSnackbar();
+  const toast = useToast();
   return useMutation<
     types.APISuccessResponse,
-    AxiosError<types.APIErrorResponse>,
+    types.APIErrorResponse,
     deleteRecordingParams
   >({
     mutationFn: deleteRecording,
     onSuccess: async (_data, variables, _context) => {
-      snackbar.showSnackbar("Recording deleted successfully", "success");
+      toast.success("Recording deleted successfully");
       await queryClient.invalidateQueries({
         predicate: (query) =>
           (query.queryKey[0] as string).startsWith(
@@ -62,16 +79,11 @@ export const useDeleteRecording = () => {
         `/recordings/${variables.identifier}`,
       ]);
     },
-    onError: async (
-      error: AxiosError<types.APIErrorResponse>,
-      _variables: deleteRecordingParams,
-      _context
-    ) => {
-      snackbar.showSnackbar(
+    onError: async (error, _variables, _context) => {
+      toast.error(
         error.response && error.response.data.error
           ? `Error deleting recording: ${error.response.data.error}`
-          : `An error occurred: ${error.message}`,
-        "error"
+          : `An error occurred: ${error.message}`
       );
     },
   });

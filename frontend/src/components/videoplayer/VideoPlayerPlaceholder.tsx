@@ -4,7 +4,7 @@ import { useTheme } from "@mui/material/styles";
 import * as types from "lib/types";
 
 interface VideoPlayerPlaceholderProps {
-  camera: types.Camera;
+  camera: types.Camera | types.FailedCamera;
 }
 
 const blankImage =

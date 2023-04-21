@@ -5,16 +5,21 @@ from viseron.components.gstreamer.segments import Segments
 
 from tests.common import MockCamera
 
+CONFIG = {
+    "recorder": {
+        "ffmpeg_loglevel": "info",
+    },
+}
+
 
 class TestSegments:
     """Test the Segments class."""
 
     def test_get_concat_segments(self, vis):
         """Test that the segments are correctly sorted."""
-        config = {}
         logger = logging.getLogger("viseron.components.gstreamer")
         mocked_camera = MockCamera(identifier="test_camera_identifier")
-        segments = Segments(logger, config, vis, mocked_camera, "/testing")
+        segments = Segments(logger, CONFIG, vis, mocked_camera, "/testing")
 
         segs = {
             "38.mp4": {

@@ -14,9 +14,11 @@ from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import CONFIG_LOOKBACK
 from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE
 from viseron.domains.camera.recorder import EventRecorderData
+from viseron.helpers.logs import LogPipe
 
 from .const import (
     CAMERA_SEGMENT_DURATION,
+    CONFIG_FFMPEG_LOGLEVEL,
     CONFIG_RECORDER,
     CONFIG_RECORDER_AUDIO_CODEC,
     CONFIG_RECORDER_AUDIO_FILTERS,
@@ -25,6 +27,7 @@ from .const import (
     CONFIG_RECORDER_OUPTUT_ARGS,
     CONFIG_RECORDER_VIDEO_FILTERS,
     CONFIG_SEGMENTS_FOLDER,
+    FFMPEG_LOGLEVELS,
 )
 
 if TYPE_CHECKING:
@@ -49,6 +52,11 @@ class Segments:
         self._vis = vis
         self._camera = camera
         self._segments_folder = segments_folder
+
+        self._log_pipe = LogPipe(
+            self._logger,
+            FFMPEG_LOGLEVELS[config[CONFIG_RECORDER][CONFIG_FFMPEG_LOGLEVEL]],
+        )
 
     def segment_duration(self, segment_file):
         """Return the duration of a specified segment."""
@@ -154,36 +162,35 @@ class Segments:
 
     def generate_segment_script(
         self, segments_to_concat, segment_information, event_start, event_end
-    ):
+    ) -> str:
         """Return a script string with information of each segment to concatenate."""
         segment_iterable = iter(segments_to_concat)
         segment = next(segment_iterable)
-        concat_script = f"file 'file:{os.path.join(self._segments_folder, segment)}'"
-        concat_script += (
-            f"\ninpoint {int(event_start-segment_information[segment]['start_time'])}"
+        concat_script = []
+        concat_script.append(
+            f"file 'file:{os.path.join(self._segments_folder, segment)}'"
         )
+
+        inpoint = max(int(event_start - segment_information[segment]["start_time"]), 0)
+        if inpoint:
+            concat_script.append(f"inpoint {inpoint}")
 
         try:
             segment = next(segment_iterable)
-        except StopIteration:
-            concat_script += (
-                "\noutpoint "
-                f"{int(event_end-segment_information[segment]['start_time'])}"
-            )
-            return concat_script
-
-        while True:
-            try:
-                concat_script += (
-                    f"\nfile 'file:{os.path.join(self._segments_folder, segment)}'"
+            while True:
+                concat_script.append(
+                    f"file 'file:{os.path.join(self._segments_folder, segment)}'"
                 )
                 segment = next(segment_iterable)
-            except StopIteration:
-                concat_script += (
-                    "\noutpoint "
-                    f"{int(event_end-segment_information[segment]['start_time'])}"
-                )
-                return concat_script
+        except StopIteration:
+            outpoint = int(event_end - segment_information[segment]["start_time"])
+            # If outpoint is larger than segment duration, dont add it to the script
+            if (
+                outpoint + segment_information[segment]["start_time"]
+                < segment_information[segment]["end_time"]
+            ):
+                concat_script.append(f"outpoint {outpoint}")
+            return "\n".join(concat_script)
 
     def video_filter_args(self):
         """Return video filter arguments."""
@@ -210,7 +217,7 @@ class Segments:
                 "ffmpeg",
                 "-hide_banner",
                 "-loglevel",
-                "error",
+                self._config[CONFIG_RECORDER][CONFIG_FFMPEG_LOGLEVEL],
                 "-y",
             ]
             + self._config[CONFIG_RECORDER][CONFIG_RECORDER_HWACCEL_ARGS]
@@ -236,9 +243,13 @@ class Segments:
         self._logger.debug(f"Concatenation command: {' '.join(ffmpeg_cmd)}")
         self._logger.debug(f"Segment script: \n{segment_script}")
 
-        pipe = sp.run(ffmpeg_cmd, input=segment_script, encoding="ascii", check=True)
-        if pipe.returncode != 0:
-            self._logger.error(f"Error concatenating segments: {pipe.stderr}")
+        sp.run(
+            ffmpeg_cmd,
+            input=segment_script,
+            text=True,
+            check=True,
+            stderr=self._log_pipe,
+        )
 
     def concat_segments(self, recording: Recording):
         """Concatenate segments between event_start and event_end."""

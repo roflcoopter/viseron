@@ -1,7 +1,9 @@
 import GitHubIcon from "@mui/icons-material/GitHub";
-import { Typography, useTheme } from "@mui/material";
 import Link from "@mui/material/Link";
-import { styled } from "@mui/material/styles";
+import Typography from "@mui/material/Typography";
+import { styled, useTheme } from "@mui/material/styles";
+import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 const Footer = styled("footer")(() => ({
   position: "relative",
@@ -13,8 +15,18 @@ const Footer = styled("footer")(() => ({
 
 export default function AppFooter() {
   const theme = useTheme();
+  const [showFooter, setShowFooter] = useState(true);
+  const location = useLocation();
 
-  return (
+  useEffect(() => {
+    if (location.pathname === "/configuration") {
+      setShowFooter(false);
+      return;
+    }
+    setShowFooter(true);
+  }, [location]);
+
+  return showFooter ? (
     <Footer>
       <Typography
         align="center"
@@ -41,5 +53,5 @@ export default function AppFooter() {
         </Link>
       </Typography>
     </Footer>
-  );
+  ) : null;
 }

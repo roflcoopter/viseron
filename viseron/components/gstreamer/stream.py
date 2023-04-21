@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import subprocess as sp
+from typing import TYPE_CHECKING
 
 from tenacity import (
     Retrying,
@@ -26,7 +27,6 @@ from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationEr
 from viseron.helpers.logs import LogPipe, UnhelpfullLogFilter
 
 from .const import (
-    COMPONENT,
     CONFIG_AUDIO_CODEC,
     CONFIG_AUDIO_PIPELINE,
     CONFIG_CODEC,
@@ -40,6 +40,7 @@ from .const import (
     CONFIG_PATH,
     CONFIG_PORT,
     CONFIG_PROTOCOL,
+    CONFIG_RAW_PIPELINE,
     CONFIG_STREAM_FORMAT,
     CONFIG_USERNAME,
     CONFIG_WIDTH,
@@ -51,13 +52,16 @@ from .const import (
     PIXEL_FORMAT,
     STREAM_FORMAT_MAP,
 )
-from .pipeline import BasePipeline, JetsonPipeline
+from .pipeline import AbstractPipeline, BasePipeline, JetsonPipeline, RawPipeline
+
+if TYPE_CHECKING:
+    from viseron.components.gstreamer.camera import Camera
 
 
 class Stream:
     """Represents a stream of frames from a camera."""
 
-    def __init__(self, vis, config, camera_identifier):
+    def __init__(self, config, camera: Camera, camera_identifier):
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.addFilter(
             UnhelpfullLogFilter(config[CONFIG_GSTREAMER_RECOVERABLE_ERRORS])
@@ -65,8 +69,7 @@ class Stream:
         self._config = config
         self._camera_identifier = camera_identifier
 
-        self._camera = vis.data[COMPONENT][camera_identifier]
-        self._recorder = vis.data[COMPONENT][camera_identifier].recorder
+        self._camera: Camera = camera
 
         self._pipe = None
         self._segment_process = None
@@ -137,16 +140,19 @@ class Stream:
         self._frame_bytes_size = int(self.width * self.height * 1.5)
 
         # For now only the Nano has a specific pipeline
-        if os.getenv(ENV_RASPBERRYPI3) == "true":
-            self._pipeline = BasePipeline(vis, config, self, camera_identifier)
+        self._pipeline: AbstractPipeline
+        if self._config[CONFIG_RAW_PIPELINE]:
+            self._pipeline = RawPipeline(config)
+        elif os.getenv(ENV_RASPBERRYPI3) == "true":
+            self._pipeline = BasePipeline(config, self, camera_identifier)
         elif os.getenv(ENV_RASPBERRYPI4) == "true":
-            self._pipeline = BasePipeline(vis, config, self, camera_identifier)
+            self._pipeline = BasePipeline(config, self, camera_identifier)
         elif os.getenv(ENV_JETSON_NANO) == "true":
-            self._pipeline = JetsonPipeline(vis, config, self, camera_identifier)
+            self._pipeline = JetsonPipeline(config, self, camera_identifier)
         elif os.getenv(ENV_CUDA_SUPPORTED) == "true":
-            self._pipeline = BasePipeline(vis, config, self, camera_identifier)
+            self._pipeline = BasePipeline(config, self, camera_identifier)
         else:
-            self._pipeline = BasePipeline(vis, config, self, camera_identifier)
+            self._pipeline = BasePipeline(config, self, camera_identifier)
 
     @property
     def stream_url(self):
@@ -253,7 +259,7 @@ class Stream:
             reraise=True,
         ):
             with attempt:
-                pipe = sp.Popen(
+                pipe = sp.Popen(  # type: ignore
                     ffprobe_command,
                     stdout=sp.PIPE,
                     stderr=self._log_pipe,
@@ -267,8 +273,7 @@ class Stream:
                     ffprobe_timeout = self._ffprobe_timeout
                     self._ffprobe_timeout += FFPROBE_TIMEOUT
                     raise FFprobeTimeout(ffprobe_timeout) from error
-                else:
-                    self._ffprobe_timeout = FFPROBE_TIMEOUT
+                self._ffprobe_timeout = FFPROBE_TIMEOUT
 
         try:
             # Trim away any text before start of JSON object

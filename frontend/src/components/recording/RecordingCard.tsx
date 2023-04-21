@@ -6,17 +6,18 @@ import CardMedia from "@mui/material/CardMedia";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import LazyLoad from "react-lazyload";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayer from "components/videoplayer/VideoPlayer";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
-import { deleteRecordingParams, useDeleteRecording } from "lib/api";
+import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
 import { getRecordingVideoJSOptions } from "lib/helpers";
 import * as types from "lib/types";
 
 interface RecordingCardInterface {
-  camera: types.Camera;
+  camera: types.Camera | types.FailedCamera;
   recording: types.Recording;
 }
 
@@ -24,12 +25,26 @@ export default function RecordingCard({
   camera,
   recording,
 }: RecordingCardInterface) {
+  const theme = useTheme();
   const deleteRecording = useDeleteRecording();
   const videoJsOptions = getRecordingVideoJSOptions(recording);
 
   return (
     <LazyLoad height={200}>
-      <Card variant="outlined">
+      <Card
+        variant="outlined"
+        sx={
+          camera.failed
+            ? {
+                border: `2px solid ${
+                  camera.retrying
+                    ? theme.palette.warning.main
+                    : theme.palette.error.main
+                }`,
+              }
+            : undefined
+        }
+      >
         <CardContent>
           <Typography align="center">
             {recording.filename.split(".")[0]}
@@ -58,6 +73,7 @@ export default function RecordingCard({
                     identifier: camera.identifier,
                     date: recording.date,
                     filename: recording.filename,
+                    failed: camera.failed,
                   });
                 }}
               >

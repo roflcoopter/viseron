@@ -1,8 +1,16 @@
-import React, { FC, createContext, useEffect, useState } from "react";
-import { useQueryClient } from "react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import React, {
+  FC,
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { useNavigate } from "react-router-dom";
 
-import { getCameras, subscribeCameras, subscribeRecording } from "lib/commands";
-import { sortObj } from "lib/helpers";
+import { AuthContext } from "context/AuthContext";
+import { toastIds, useToast } from "hooks/UseToast";
+import { subscribeCameras, subscribeRecording } from "lib/commands";
 import * as types from "lib/types";
 import { Connection } from "lib/websockets";
 
@@ -13,13 +21,11 @@ export type ViseronProviderProps = {
 export type ViseronContextState = {
   connection: Connection | undefined;
   connected: boolean;
-  cameras: types.Cameras;
 };
 
 const contextDefaultValues: ViseronContextState = {
   connection: undefined,
   connected: false,
-  cameras: {},
 };
 
 export const ViseronContext =
@@ -28,22 +34,22 @@ export const ViseronContext =
 export const ViseronProvider: FC<ViseronProviderProps> = ({
   children,
 }: ViseronProviderProps) => {
+  const { auth } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const toast = useToast();
+
   const [connection, setConnection] = useState<Connection | undefined>(
     undefined
   );
   const [connected, setConnected] = useState<boolean>(false);
-  const [cameras, setCameras] = useState<types.Cameras>({});
-  const queryClient = useQueryClient();
+  const onConnectRef = React.useRef<() => void>();
+  const onDisconnectRef = React.useRef<() => void>();
+  const onConnectionErrorRef = React.useRef<() => void>();
 
   useEffect(() => {
     if (connection) {
       const cameraRegistered = async (camera: types.Camera) => {
-        setCameras((prevCameras) => {
-          let newCameras = { ...prevCameras };
-          newCameras[camera.identifier] = camera;
-          newCameras = sortObj(newCameras);
-          return newCameras;
-        });
         await queryClient.invalidateQueries({
           predicate: (query) =>
             (query.queryKey[0] as string).startsWith(
@@ -62,33 +68,73 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
         });
       };
 
-      const onConnect = async () => {
+      onConnectRef.current = async () => {
+        await queryClient.invalidateQueries({
+          queryKey: ["camera"],
+          refetchType: "none",
+        });
+        await queryClient.invalidateQueries(["cameras"]);
         setConnected(true);
-        const registeredCameras = await getCameras(connection);
-        setCameras(sortObj(registeredCameras));
       };
-      connection!.addEventListener("connected", onConnect);
-
-      const onDisonnect = async () => {
+      onDisconnectRef.current = async () => {
         setConnected(false);
       };
-      connection!.addEventListener("disconnected", onDisonnect);
+      onConnectionErrorRef.current = async () => {
+        if (auth.enabled) {
+          const url = auth.onboarding_complete ? "/login" : "/onboarding";
+          console.error(`Connection error, redirecting to ${url}`);
+          navigate(url);
+        }
+      };
+
+      connection.addEventListener("connected", onConnectRef.current);
+      connection.addEventListener("disconnected", onDisconnectRef.current);
+      connection.addEventListener(
+        "connection-error",
+        onConnectionErrorRef.current
+      );
 
       const connect = async () => {
         subscribeCameras(connection, cameraRegistered); // call without await to not block
         subscribeRecording(connection, newRecording); // call without await to not block
-        await connection!.connect();
+        await connection.connect();
       };
       connect();
     }
+    return () => {
+      if (connection) {
+        if (onConnectRef.current) {
+          connection.removeEventListener("connected", onConnectRef.current);
+        }
+        if (onDisconnectRef.current) {
+          connection.removeEventListener(
+            "disconnected",
+            onDisconnectRef.current
+          );
+        }
+
+        if (onConnectionErrorRef.current) {
+          connection.removeEventListener(
+            "connection-error",
+            onConnectionErrorRef.current
+          );
+        }
+        connection.disconnect();
+        setConnection(undefined);
+        toast.dismiss(toastIds.websocketConnecting);
+        toast.dismiss(toastIds.websocketConnectionLost);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connection, queryClient]);
 
   useEffect(() => {
-    setConnection(new Connection());
+    setConnection(new Connection(toast));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <ViseronContext.Provider value={{ connection, connected, cameras }}>
+    <ViseronContext.Provider value={{ connection, connected }}>
       {children}
     </ViseronContext.Provider>
   );

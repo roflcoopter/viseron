@@ -112,7 +112,14 @@ class EventScanFrames:
 
 
 class FrameIntervalCalculator:
-    """Mark frames for scanning."""
+    """Mark frames for scanning.
+
+    This class is used to mark frames for scanning. The class will calculate the
+    interval between frames that should be scanned. The interval is calculated based
+    on the output FPS and the scan FPS.
+
+    Note: This class should be refactored and moved into the Camera domain.
+    """
 
     def __init__(
         self,
@@ -131,7 +138,7 @@ class FrameIntervalCalculator:
         self._topic_scan = topic_scan
         if scan_fps > output_fps:
             logger.warning(
-                f"FPS for {name} is too high, " f"highest possible FPS is {output_fps}"
+                f"FPS for {name} is too high, highest possible FPS is {output_fps}"
             )
             scan_fps = output_fps
         self._scan: bool = False
@@ -303,7 +310,7 @@ class NVR:
         self._nvr_thread.start()
 
         if self._frame_scanners:
-            self.calculate_output_fps()
+            self.calculate_output_fps(list(self._frame_scanners.values()))
 
         vis.data.setdefault(COMPONENT, {})[camera_identifier] = self
         vis.add_entity(COMPONENT, OperationStateSensor(vis, self))
@@ -313,11 +320,10 @@ class NVR:
         self._camera.start_camera()
         self._logger.info(f"NVR for camera {self._camera.name} initialized")
 
-    def calculate_output_fps(self):
-        """Calculate the camera output fps based on registered frame scanners."""
-        highest_fps = max(scanner.scan_fps for scanner in self._frame_scanners.values())
-        self._camera.output_fps = highest_fps
-        for scanner in self._frame_scanners.values():
+    def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]):
+        """Calculate output fps based on fps of all scanners."""
+        self._camera.calculate_output_fps(scanners)
+        for scanner in scanners:
             scanner.calculate_scan_interval(self._camera.output_fps)
 
     @property

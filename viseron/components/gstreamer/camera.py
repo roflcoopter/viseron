@@ -10,7 +10,9 @@ import cv2
 import voluptuous as vol
 
 from viseron import Viseron
+from viseron.components.ffmpeg.camera import FFMPEG_LOGLEVEL_SCEHMA
 from viseron.components.ffmpeg.const import (
+    CONFIG_FFMPEG_LOGLEVEL,
     CONFIG_RECORDER_AUDIO_CODEC,
     CONFIG_RECORDER_AUDIO_FILTERS,
     CONFIG_RECORDER_CODEC,
@@ -18,6 +20,7 @@ from viseron.components.ffmpeg.const import (
     CONFIG_RECORDER_OUPTUT_ARGS,
     CONFIG_RECORDER_VIDEO_FILTERS,
     CONFIG_SEGMENTS_FOLDER,
+    DEFAULT_FFMPEG_LOGLEVEL,
     DEFAULT_RECORDER_AUDIO_CODEC,
     DEFAULT_RECORDER_AUDIO_FILTERS,
     DEFAULT_RECORDER_CODEC,
@@ -28,6 +31,7 @@ from viseron.components.ffmpeg.const import (
     DESC_RECORDER_AUDIO_CODEC,
     DESC_RECORDER_AUDIO_FILTERS,
     DESC_RECORDER_CODEC,
+    DESC_RECORDER_FFMPEG_LOGLEVEL,
     DESC_RECORDER_HWACCEL_ARGS,
     DESC_RECORDER_OUTPUT_ARGS,
     DESC_RECORDER_VIDEO_FILTERS,
@@ -44,6 +48,7 @@ from viseron.domains.camera.const import (
     EVENT_CAMERA_STARTED,
     EVENT_CAMERA_STOPPED,
 )
+from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict, Maybe
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -65,6 +70,7 @@ from .const import (
     CONFIG_PATH,
     CONFIG_PORT,
     CONFIG_PROTOCOL,
+    CONFIG_RAW_PIPELINE,
     CONFIG_RECORDER,
     CONFIG_RTSP_TRANSPORT,
     CONFIG_STREAM_FORMAT,
@@ -83,6 +89,7 @@ from .const import (
     DEFAULT_OUTPUT_ELEMENT,
     DEFAULT_PASSWORD,
     DEFAULT_PROTOCOL,
+    DEFAULT_RAW_PIPELINE,
     DEFAULT_RTSP_TRANSPORT,
     DEFAULT_STREAM_FORMAT,
     DEFAULT_USERNAME,
@@ -103,6 +110,7 @@ from .const import (
     DESC_PATH,
     DESC_PORT,
     DESC_PROTOCOL,
+    DESC_RAW_PIPELINE,
     DESC_RECORDER,
     DESC_RTSP_TRANSPORT,
     DESC_SEGMENTS_FOLDER,
@@ -116,6 +124,7 @@ from .recorder import Recorder
 from .stream import Stream
 
 if TYPE_CHECKING:
+    from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.object_detector.detected_object import DetectedObject
 
@@ -167,6 +176,11 @@ STREAM_SCEHMA_DICT = {
         default=DEFAULT_FRAME_TIMEOUT,
         description=DESC_FRAME_TIMEOUT,
     ): vol.All(int, vol.Range(1, 60)),
+    vol.Optional(
+        CONFIG_RAW_PIPELINE,
+        default=DEFAULT_RAW_PIPELINE,
+        description=DESC_RAW_PIPELINE,
+    ): Maybe(str),
 }
 
 RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
@@ -209,6 +223,11 @@ RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
         vol.Optional(
             CONFIG_MUXER, default=DEFAULT_MUXER, description=DESC_MUXER
         ): vol.In(["mp4mux", "avimux"]),
+        vol.Optional(
+            CONFIG_FFMPEG_LOGLEVEL,
+            default=DEFAULT_FFMPEG_LOGLEVEL,
+            description=DESC_RECORDER_FFMPEG_LOGLEVEL,
+        ): FFMPEG_LOGLEVEL_SCEHMA,
     }
 )
 
@@ -255,16 +274,23 @@ CONFIG_SCHEMA = vol.Schema(
 
 def setup(vis: Viseron, config, identifier):
     """Set up the gstreamer camera domain."""
-    Camera(vis, config[identifier], identifier)
+    try:
+        Camera(vis, config[identifier], identifier)
+    except (FFprobeError, FFprobeTimeout) as error:
+        raise DomainNotReady from error
     return True
 
 
 class Camera(AbstractCamera):
     """Represents a camera which is consumed via GStreamer."""
 
-    def __init__(self, vis, config, identifier):
+    def __init__(self, vis: Viseron, config, identifier):
         self._poll_timer = None
-        self._frame_reader = None
+        self._frame_reader: RestartableThread | None = None
+        # Stream must be initialized before super().__init__ is called as it raises
+        # FFprobeError/FFprobeTimeout which is caught in setup() and re-raised as
+        # DomainNotReady
+        self.stream = Stream(config, self, identifier)
 
         super().__init__(vis, COMPONENT, config, identifier)
         self._capture_frames = False
@@ -296,8 +322,6 @@ class Camera(AbstractCamera):
         """Start processing of camera frames."""
         self._poll_timer = None
         self._logger.debug(f"Initializing camera {self.name}")
-
-        self.stream = Stream(self._vis, self._config, self.identifier)
 
         self.resolution = self.stream.width, self.stream.height
         self._logger.debug(
@@ -374,6 +398,17 @@ class Camera(AbstractCamera):
         if now - self._poll_timer > self._config[CONFIG_FRAME_TIMEOUT]:
             return True
         return False
+
+    def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]):
+        """Calculate the camera output fps based on registered frame scanners.
+
+        Overrides AbstractCamera.calculate_output_fps since we can't use the default
+        implementation if the user has entered a raw pipeline.
+        """
+        if self._config[CONFIG_RAW_PIPELINE]:
+            return self.stream.fps
+
+        return super().calculate_output_fps(scanners)
 
     def start_camera(self):
         """Start capturing frames from camera."""

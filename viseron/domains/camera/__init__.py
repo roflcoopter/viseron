@@ -2,20 +2,25 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from abc import ABC, abstractmethod
+from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
 from threading import Timer
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import imutils
 import voluptuous as vol
 
+from viseron.components import DomainToSetup
 from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
+from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
+from viseron.domains.camera.recorder import FailedCameraRecorder
 from viseron.helpers.validators import CoerceNoneToDict, Slug
 
 from .const import (
@@ -84,12 +89,15 @@ from .const import (
     EVENT_STATUS,
     EVENT_STATUS_CONNECTED,
     EVENT_STATUS_DISCONNECTED,
+    UPDATE_TOKEN_INTERVAL_MINUTES,
 )
 from .entity.binary_sensor import ConnectionStatusBinarySensor
 from .entity.toggle import CameraConnectionToggle
 from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
+    from viseron import Viseron
+    from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.domains.object_detector.detected_object import DetectedObject
 
     from .recorder import AbstractRecorder
@@ -227,7 +235,7 @@ DATA_FRAME_BYTES_TOPIC = "{camera_identifier}/camera/frame_bytes"
 class AbstractCamera(ABC):
     """Represent a camera."""
 
-    def __init__(self, vis, component, config, identifier):
+    def __init__(self, vis: Viseron, component: str, config, identifier: str):
         self._vis = vis
         self._config = config
         self._identifier = identifier
@@ -236,15 +244,25 @@ class AbstractCamera(ABC):
 
         self._connected: bool = False
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
-        self.current_frame: SharedFrame = None
+        self.current_frame: SharedFrame | None = None
         self.shared_frames = SharedFrames()
         self.frame_bytes_topic = DATA_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
         )
+        self.access_tokens: deque = deque([], 2)
+        self.access_tokens.append(self.generate_token())
 
-        self._clear_cache_timer = None
+        self._clear_cache_timer: Timer | None = None
         vis.add_entity(component, ConnectionStatusBinarySensor(vis, self))
         vis.add_entity(component, CameraConnectionToggle(vis, self))
+        self._access_token_entity = vis.add_entity(
+            component, CamerAccessTokenSensor(vis, self)
+        )
+
+        self.update_token()
+        self._vis.background_scheduler.add_job(
+            self.update_token, "interval", minutes=UPDATE_TOKEN_INTERVAL_MINUTES
+        )
 
     def as_dict(self):
         """Return camera information as dict."""
@@ -253,8 +271,23 @@ class AbstractCamera(ABC):
             "name": self.name,
             "width": self.resolution[0],
             "height": self.resolution[1],
-            "recordings": self.recorder,
+            "access_token": self.access_token,
+            "failed": False,
         }
+
+    def generate_token(self):
+        """Generate a new access token."""
+        return secrets.token_hex(64)
+
+    def update_token(self):
+        """Update access token."""
+        self.access_tokens.append(self.generate_token())
+        self._access_token_entity.set_state()
+
+    def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]):
+        """Calculate the camera output fps based on registered frame scanners."""
+        highest_fps = max(scanner.scan_fps for scanner in scanners)
+        self.output_fps = highest_fps
 
     @abstractmethod
     def start_camera(self):
@@ -288,13 +321,22 @@ class AbstractCamera(ABC):
 
     @property
     def mjpeg_streams(self):
-        """Return mjpeg streamsr."""
+        """Return mjpeg streams."""
         return self._config[CONFIG_MJPEG_STREAMS]
+
+    @property
+    def access_token(self) -> str:
+        """Return access token."""
+        return self.access_tokens[-1]
 
     @property
     @abstractmethod
     def output_fps(self):
         """Return stream output fps."""
+
+    @output_fps.setter
+    def output_fps(self, fps):
+        """Set stream output fps."""
 
     @property
     @abstractmethod
@@ -390,3 +432,82 @@ class AbstractCamera(ABC):
         if ret:
             return ret, jpg.tobytes()
         return ret, False
+
+
+class FailedCamera:
+    """Failed camera.
+
+    This class is instantiated when a camera fails to initialize.
+    It allows us to expose the camera to the frontend, so that the user can
+    see that the camera has failed.
+    It also gives access to the cameras recordings.
+    """
+
+    def __init__(self, vis: Viseron, domain_to_setup: DomainToSetup):
+        """Initialize failed camera."""
+        self._vis = vis
+        self._domain_to_setup = domain_to_setup
+        self._config: dict[str, Any] = domain_to_setup.config[
+            domain_to_setup.identifier
+        ]
+
+        self._recorder = FailedCameraRecorder(vis, self._config, self)
+
+    def as_dict(self):
+        """Return camera as dict."""
+        return {
+            "name": self.name,
+            "identifier": self.identifier,
+            "width": self.width,
+            "height": self.height,
+            "error": self.error,
+            "retrying": self.retrying,
+            "failed": True,
+        }
+
+    @property
+    def name(self):
+        """Return camera name."""
+        return self._config.get(CONFIG_NAME, self._domain_to_setup.identifier)
+
+    @property
+    def identifier(self) -> str:
+        """Return camera identifier."""
+        return self._domain_to_setup.identifier
+
+    @property
+    def width(self) -> int:
+        """Return width."""
+        return 1920
+
+    @property
+    def height(self) -> int:
+        """Return height."""
+        return 1080
+
+    @property
+    def extension(self) -> str:
+        """Return recording file extension."""
+        return self._config.get(CONFIG_RECORDER, {}).get(
+            CONFIG_EXTENSION, DEFAULT_EXTENSION
+        )
+
+    @property
+    def error(self):
+        """Return error."""
+        return self._domain_to_setup.error
+
+    @property
+    def retrying(self):
+        """Return retrying."""
+        return self._domain_to_setup.retrying
+
+    @property
+    def recorder(self) -> FailedCameraRecorder:
+        """Return recorder."""
+        return self._recorder
+
+
+def setup_failed(vis: Viseron, domain_to_setup: DomainToSetup):
+    """Handle failed setup."""
+    return FailedCamera(vis, domain_to_setup)

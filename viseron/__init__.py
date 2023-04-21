@@ -32,7 +32,10 @@ from viseron.components.nvr.const import (
 )
 from viseron.config import load_config
 from viseron.const import (
+    DOMAIN_FAILED,
     DOMAIN_IDENTIFIERS,
+    DOMAIN_LOADED,
+    DOMAIN_LOADING,
     DOMAIN_SETUP_TASKS,
     DOMAINS_TO_SETUP,
     ENV_PROFILE_MEMORY,
@@ -186,6 +189,10 @@ class Viseron:
         self.data[LOADING] = {}
         self.data[LOADED] = {}
         self.data[FAILED] = {}
+
+        self.data[DOMAIN_LOADING] = {}
+        self.data[DOMAIN_LOADED] = {}
+        self.data[DOMAIN_FAILED] = {}
 
         self.data[DOMAINS_TO_SETUP] = {}
         self.data[DOMAIN_SETUP_TASKS] = {}
@@ -468,7 +475,7 @@ class Viseron:
         component_instance = self.data[LOADED].get(component, None)
         if not component_instance:
             component_instance = self.data[LOADING][component]
-        self.states.add_entity(component_instance, entity)
+        return self.states.add_entity(component_instance, entity)
 
     def add_entities(self, component: str, entities: list[Entity]):
         """Add entities to states registry."""

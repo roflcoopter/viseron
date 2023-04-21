@@ -155,3 +155,16 @@ gstreamer:
 ```
 
 </details>
+
+### Raw pipeline
+
+If you want to use a custom GStreamer pipeline, you can do so by specifying the `raw_pipeline` option.
+Viseron needs to be able to read frames, so you must make sure to output frames to stdout.
+By default this is done using the `fdsink` element, but other elements might work as well.
+
+You also need to make sure that you are outputting frames in the raw format (`video/x-raw`) that Viseron expects.
+
+The third consideration is that small segments need to be saved to disk for processing by the recorder.
+This is done by using the `splitmuxsink` element.
+
+Last but not least, if you create a pipeline that works well for your particular hardware, please consider contributing it to Viseron, either by opening a PR or an issue.

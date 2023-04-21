@@ -119,7 +119,7 @@ class DataStream:
         data: Any,
     ) -> None:
         """Run callbacks or put to queues."""
-        for callback in callbacks.values():
+        for callback in callbacks.copy().values():
             if callable(callback["callback"]) and callback["ioloop"] is None:
                 if data:
                     thread = threading.Thread(
@@ -156,7 +156,7 @@ class DataStream:
 
             LOGGER.error(
                 f"Callback {callback} is not valid. "
-                f"Needs to be of type Callable, Queue or "
+                "Needs to be of type Callable, Queue or "
                 f"Tornado Queue with ioloop supplied, got {type(callback['callback'])}"
             )
 

@@ -1,113 +1,77 @@
-import { createTheme, styled } from "@mui/material/styles";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import { Suspense, lazy, useEffect, useMemo, useState } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { ToastContainer } from "react-toastify";
+import PrivateLayout from "layouts/PrivateLayout";
+import { lazy } from "react";
+import { Navigate, useRoutes } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
 
-import { ScrollToTopFab } from "components/ScrollToTop";
-import Footer from "components/footer/Footer";
-import AppDrawer from "components/header/Drawer";
-import Header from "components/header/Header";
-import { Loading } from "components/loading/Loading";
-
-const Configuration = lazy(() => import("pages/Configuration"));
 const Cameras = lazy(() => import("pages/Cameras"));
-const Recordings = lazy(() => import("pages/recordings/Recordings"));
 const CameraRecordings = lazy(
   () => import("pages/recordings/CameraRecordings")
 );
 const CameraRecordingsDaily = lazy(
   () => import("pages/recordings/CameraRecordingsDaily")
 );
+const Configuration = lazy(() => import("pages/Configuration"));
 const Entities = lazy(() => import("pages/Entities"));
-
-const FullHeightContainer = styled("div")(() => ({
-  minHeight: "100%",
-}));
-
-const routes = [
-  {
-    path: "/cameras",
-    element: <Navigate to="/" replace />,
-  },
-  {
-    path: "/",
-    element: <Cameras />,
-  },
-  {
-    path: "/recordings",
-    element: <Recordings />,
-  },
-  {
-    path: "/recordings/:identifier",
-    element: <CameraRecordings />,
-  },
-  {
-    path: "/recordings/:identifier/:date",
-    element: <CameraRecordingsDaily />,
-  },
-  {
-    path: "/configuration",
-    element: <Configuration />,
-  },
-  {
-    path: "/entities",
-    element: <Entities />,
-  },
-].map(({ path, element }, key) => (
-  <Route path={path} element={element} key={key} />
-));
+const Login = lazy(() => import("pages/Login"));
+const Onboarding = lazy(() => import("pages/Onboarding"));
+const PublicLayout = lazy(() => import("layouts/PublicLayout"));
+const Recordings = lazy(() => import("pages/recordings/Recordings"));
 
 function App() {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
-  const theme = useMemo(
-    () =>
-      createTheme({
-        palette: {
-          mode: prefersDarkMode ? "dark" : "light",
+  const routes = useRoutes([
+    {
+      element: <PrivateLayout />,
+      children: [
+        {
+          path: "/cameras",
+          element: <Navigate to="/" replace />,
         },
-      }),
-    [prefersDarkMode]
-  );
+        {
+          path: "/",
+          element: <Cameras />,
+        },
+        {
+          path: "/recordings",
+          children: [
+            { index: true, element: <Recordings /> },
+            {
+              path: ":camera_identifier",
+              children: [
+                { index: true, element: <CameraRecordings /> },
+                {
+                  path: ":date",
+                  element: <CameraRecordingsDaily />,
+                },
+              ],
+            },
+          ],
+        },
+        {
+          path: "/configuration",
+          element: <Configuration />,
+        },
+        {
+          path: "/entities",
+          element: <Entities />,
+        },
+      ],
+    },
+    {
+      element: <PublicLayout />,
+      children: [
+        {
+          path: "/login",
+          element: <Login />,
+        },
+        {
+          path: "/onboarding",
+          element: <Onboarding />,
+        },
+      ],
+    },
+  ]);
 
-  const [showFooter, setShowFooter] = useState(true);
-  const location = useLocation();
-
-  useEffect(() => {
-    if (location.pathname === "/configuration") {
-      setShowFooter(false);
-      return;
-    }
-    setShowFooter(true);
-  }, [location]);
-
-  return (
-    <FullHeightContainer>
-      <FullHeightContainer>
-        <AppDrawer drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} />
-        <Header setDrawerOpen={setDrawerOpen} />
-        <ToastContainer
-          position="bottom-left"
-          autoClose={5000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          theme={theme.palette.mode}
-        />
-        <Suspense fallback={<Loading text="Loading" />}>
-          <Routes>{routes}</Routes>
-        </Suspense>
-      </FullHeightContainer>
-      {showFooter && <Footer />}
-      <ScrollToTopFab />
-    </FullHeightContainer>
-  );
+  return routes;
 }
 
 export default App;

@@ -1,39 +1,35 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
-import { useContext } from "react";
-import { useQuery } from "react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
 import { ScrollToTopOnMount } from "components/ScrollToTop";
 import { Loading } from "components/loading/Loading";
 import RecordingCardDaily from "components/recording/RecordingCardDaily";
-import { ViseronContext } from "context/ViseronContext";
 import { useTitle } from "hooks/UseTitle";
+import { useCamera } from "lib/api/camera";
 import { objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
 type CameraRecordingsParams = {
-  identifier: string;
+  camera_identifier: string;
 };
 const CameraRecordings = () => {
-  const viseron = useContext(ViseronContext);
-  const { identifier } = useParams<
+  const { camera_identifier } = useParams<
     keyof CameraRecordingsParams
   >() as CameraRecordingsParams;
+
+  const recordingsQuery = useQuery<types.RecordingsCamera>({
+    queryKey: [`/recordings/${camera_identifier}?latest&daily&failed=1`],
+  });
+  const cameraQuery = useCamera(camera_identifier, true);
+
   useTitle(
-    `Recordings${
-      identifier && identifier in viseron.cameras
-        ? ` | ${viseron.cameras[identifier].name}`
-        : ""
-    }`
+    `Recordings${cameraQuery.data ? ` | ${cameraQuery.data.name}` : ""}`
   );
 
-  const { status, data: recordings } = useQuery<types.RecordingsCamera>({
-    queryKey: [`/recordings/${identifier}?latest&daily`],
-  });
-
-  if (status === "error") {
+  if (recordingsQuery.isError || cameraQuery.isError) {
     return (
       <Container>
         <Typography
@@ -44,23 +40,20 @@ const CameraRecordings = () => {
     );
   }
 
-  if (
-    status === "loading" ||
-    !objHasValues<types.Cameras>(viseron.cameras) ||
-    !(identifier in viseron.cameras)
-  ) {
+  if (recordingsQuery.isLoading || cameraQuery.isLoading) {
     return <Loading text="Loading Recordings" />;
   }
 
-  const camera = viseron.cameras[identifier];
-
-  if (!recordings || !objHasValues<types.RecordingsCamera>(recordings)) {
+  if (
+    !recordingsQuery.data ||
+    !objHasValues<types.RecordingsCamera>(recordingsQuery.data)
+  ) {
     return (
       <Container>
         <Typography
           variant="h5"
           align="center"
-        >{`No recordings for ${camera.name}`}</Typography>
+        >{`No recordings for ${cameraQuery.data.name}`}</Typography>
       </Container>
     );
   }
@@ -69,17 +62,17 @@ const CameraRecordings = () => {
     <Container>
       <ScrollToTopOnMount />
       <Typography variant="h5" align="center">
-        {camera.name}
+        {cameraQuery.data.name}
       </Typography>
       <Grid container direction="row" spacing={2}>
-        {Object.keys(recordings)
+        {Object.keys(recordingsQuery.data)
           .sort()
           .reverse()
           .map((date) => (
             <Grid item key={date} xs={12} sm={12} md={6} lg={6} xl={4}>
               <RecordingCardDaily
-                camera={camera}
-                recording={Object.values(recordings[date])[0]}
+                camera={cameraQuery.data}
+                recording={Object.values(recordingsQuery.data[date])[0]}
                 date={date}
               />
             </Grid>

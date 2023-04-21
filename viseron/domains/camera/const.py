@@ -5,6 +5,7 @@ from typing import Final
 
 DOMAIN: Final = "camera"
 
+UPDATE_TOKEN_INTERVAL_MINUTES: Final = 5
 
 # Event topic constants
 EVENT_STATUS = "{camera_identifier}/camera/status"

@@ -9,7 +9,7 @@ DESC_COMPONENT = "FFmpeg Configuration."
 ENV_FFMPEG_PATH = "VISERON_FFMPEG_PATH"
 
 STREAM_FORMAT_MAP = {
-    "rtsp": {"protocol": "rtsp", "timeout_option": ["-stimeout", "5000000"]},
+    "rtsp": {"protocol": "rtsp", "timeout_option": ["-timeout", "5000000"]},
     "rtmp": {"protocol": "rtmp", "timeout_option": ["-rw_timeout", "5000000"]},
     "mjpeg": {"protocol": "http", "timeout_option": ["-timeout", "5000000"]},
 }
@@ -187,6 +187,10 @@ DESC_RECORDER_OUTPUT_ARGS = "FFmpeg encoder output arguments."
 DESC_SEGMENTS_FOLDER = (
     "What folder to store FFmpeg segments in. "
     "Segments are used to produce recordings so you should not need to change this."
+)
+DESC_RECORDER_FFMPEG_LOGLEVEL = (
+    "Sets the FFmpeg loglevel for the recorder.<br>Should only be used in debugging"
+    " purposes."
 )
 
 

@@ -30,10 +30,9 @@ RUN buildDeps="autoconf \
 RUN \
   DIR=/tmp && mkdir -p ${DIR} && cd ${DIR} && \
   git clone --branch v${DLIB_VERSION} --depth 1 https://github.com/davisking/dlib.git && \
-  cd dlib; python3 setup.py bdist_wheel --dist-dir=/wheels
-
-RUN \
-  pip3 wheel face_recognition dlib==${DLIB_VERSION} --wheel-dir=/wheels/ --find-links=/wheels/
+  cd dlib; python3 setup.py bdist_wheel --dist-dir=/wheels \
+  \
+  && ls -al /wheels/
 
 RUN [ "cross-build-end" ]
 

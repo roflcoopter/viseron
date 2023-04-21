@@ -35,6 +35,7 @@ RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
   python3-pip \
   python3-setuptools \
   python3-wheel \
+  && python3 -m pip install --upgrade pip \
   && apt-get autoremove -y && apt-get clean -y \
   && pip install numpy pybind11
 
@@ -43,8 +44,6 @@ RUN \
   mkdir -p /wheels \
   \
   && pip3 wheel --wheel-dir=/wheels --find-links=/wheels -r /requirements.txt \
-  # We need to install sklearn from pip since we are using self supplied Python3 and not the one from apt
-  && pip3 wheel --wheel-dir=/wheels --find-links=/wheels sklearn \
   \
   && ls -al /wheels/
 

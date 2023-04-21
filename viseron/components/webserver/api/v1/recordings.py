@@ -2,15 +2,12 @@
 from __future__ import annotations
 
 import logging
+from http import HTTPStatus
 
 import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.components.webserver.const import (
-    STATUS_ERROR_ENDPOINT_NOT_FOUND,
-    STATUS_ERROR_INTERNAL,
-)
-from viseron.helpers.validators import request_argument_no_value
+from viseron.helpers.validators import request_argument_bool, request_argument_no_value
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,7 +20,7 @@ class RecordingsAPIHandler(BaseAPIHandler):
 
     routes = [
         {
-            "path_pattern": (r"/recordings"),
+            "path_pattern": r"/recordings",
             "supported_methods": ["GET"],
             "method": "get_recordings",
             "request_arguments_schema": vol.Schema(
@@ -41,11 +38,13 @@ class RecordingsAPIHandler(BaseAPIHandler):
                             default=False,
                             msg=LATEST_DAILY_MSG,
                         ): request_argument_no_value,
+                        vol.Optional("failed", default=False): request_argument_bool,
                     },
                     {
                         vol.Optional(
                             "latest", default=False
                         ): request_argument_no_value,
+                        vol.Optional("failed", default=False): request_argument_bool,
                     },
                 ),
             ),
@@ -60,11 +59,12 @@ class RecordingsAPIHandler(BaseAPIHandler):
             "request_arguments_schema": vol.Schema(
                 {
                     vol.Optional("latest", default=False): request_argument_no_value,
+                    vol.Optional("failed", default=False): request_argument_bool,
                 },
             ),
         },
         {
-            "path_pattern": (r"/recordings/(?P<camera_identifier>[A-Za-z0-9_]+)"),
+            "path_pattern": r"/recordings/(?P<camera_identifier>[A-Za-z0-9_]+)",
             "supported_methods": ["GET"],
             "method": "get_recordings_camera",
             "request_arguments_schema": vol.Schema(
@@ -82,11 +82,13 @@ class RecordingsAPIHandler(BaseAPIHandler):
                             default=False,
                             msg=LATEST_DAILY_MSG,
                         ): request_argument_no_value,
+                        vol.Optional("failed", default=False): request_argument_bool,
                     },
                     {
                         vol.Optional(
                             "latest", default=False
                         ): request_argument_no_value,
+                        vol.Optional("failed", default=False): request_argument_bool,
                     },
                 ),
             ),
@@ -99,6 +101,11 @@ class RecordingsAPIHandler(BaseAPIHandler):
             ),
             "supported_methods": ["DELETE"],
             "method": "delete_recording",
+            "request_arguments_schema": vol.Schema(
+                {
+                    vol.Optional("failed", default=False): request_argument_bool,
+                },
+            ),
         },
         {
             "path_pattern": (
@@ -107,11 +114,21 @@ class RecordingsAPIHandler(BaseAPIHandler):
             ),
             "supported_methods": ["DELETE"],
             "method": "delete_recording",
+            "request_arguments_schema": vol.Schema(
+                {
+                    vol.Optional("failed", default=False): request_argument_bool,
+                },
+            ),
         },
         {
-            "path_pattern": (r"/recordings/(?P<camera_identifier>[A-Za-z0-9_]+)"),
+            "path_pattern": r"/recordings/(?P<camera_identifier>[A-Za-z0-9_]+)",
             "supported_methods": ["DELETE"],
             "method": "delete_recording",
+            "request_arguments_schema": vol.Schema(
+                {
+                    vol.Optional("failed", default=False): request_argument_bool,
+                },
+            ),
         },
     ]
 
@@ -121,7 +138,7 @@ class RecordingsAPIHandler(BaseAPIHandler):
 
         if not cameras:
             self.response_error(
-                STATUS_ERROR_ENDPOINT_NOT_FOUND,
+                HTTPStatus.NOT_FOUND,
                 reason="No cameras found",
             )
             return
@@ -140,16 +157,18 @@ class RecordingsAPIHandler(BaseAPIHandler):
                 continue
             recordings[camera.identifier] = camera.recorder.get_recordings()
 
-        self.response_success(recordings)
+        self.response_success(response=recordings)
         return
 
     def get_recordings_camera(self, camera_identifier: str, date: str = None):
         """Get recordings for a single camera."""
-        camera = self._get_camera(camera_identifier)
+        camera = self._get_camera(
+            camera_identifier, failed=self.request_arguments["failed"]
+        )
 
         if not camera:
             self.response_error(
-                STATUS_ERROR_ENDPOINT_NOT_FOUND,
+                HTTPStatus.NOT_FOUND,
                 reason=f"Camera {camera_identifier} not found",
             )
             return
@@ -157,25 +176,27 @@ class RecordingsAPIHandler(BaseAPIHandler):
         if self.request_arguments["latest"] and self.request_arguments.get(
             "daily", False
         ):
-            self.response_success(camera.recorder.get_latest_recording_daily())
+            self.response_success(response=camera.recorder.get_latest_recording_daily())
             return
 
         if self.request_arguments["latest"]:
-            self.response_success(camera.recorder.get_latest_recording(date))
+            self.response_success(response=camera.recorder.get_latest_recording(date))
             return
 
-        self.response_success(camera.recorder.get_recordings(date))
+        self.response_success(response=camera.recorder.get_recordings(date))
         return
 
     def delete_recording(
         self, camera_identifier: str, date: str = None, filename: str = None
     ):
         """Delete recording(s)."""
-        camera = self._get_camera(camera_identifier)
+        camera = self._get_camera(
+            camera_identifier, failed=self.request_arguments["failed"]
+        )
 
         if not camera:
             self.response_error(
-                STATUS_ERROR_ENDPOINT_NOT_FOUND,
+                HTTPStatus.NOT_FOUND,
                 reason=f"Camera {camera_identifier} not found",
             )
             return
@@ -185,7 +206,7 @@ class RecordingsAPIHandler(BaseAPIHandler):
             self.response_success()
             return
         self.response_error(
-            STATUS_ERROR_INTERNAL,
-            reason=(f"Failed to delete recording. Date={date} filename={filename}"),
+            HTTPStatus.INTERNAL_SERVER_ERROR,
+            reason=f"Failed to delete recording. Date={date} filename={filename}",
         )
         return

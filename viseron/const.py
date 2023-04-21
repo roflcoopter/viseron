@@ -1,8 +1,11 @@
 """Constants."""
+from typing import Final
+
 import cv2
 
 CONFIG_PATH = "/config/config.yaml"
 SECRETS_PATH = "/config/secrets.yaml"
+STORAGE_PATH = "/config/.viseron"
 DEFAULT_CONFIG = """# Thanks for trying out Viseron!
 # This is a small walkthrough of the configuration to get you started.
 # There are far more components and options available than what is listed here.
@@ -114,6 +117,11 @@ TOPIC_STATIC_MJPEG_STREAMS = "static_mjepg_streams"
 LOADING = "loading"
 LOADED = "loaded"
 FAILED = "failed"
+
+DOMAIN_LOADING: Final = "domain_loading"
+DOMAIN_LOADED: Final = "domain_loaded"
+DOMAIN_FAILED: Final = "domain_failed"
+
 DOMAINS_TO_SETUP = "domains_to_setup"
 DOMAIN_IDENTIFIERS = "domain_identifiers"
 DOMAIN_SETUP_TASKS = "domain_setup_tasks"
@@ -131,6 +139,7 @@ STATE_UNKNOWN = "unknown"
 EVENT_STATE_CHANGED = "state_changed"
 EVENT_ENTITY_ADDED = "entity_added"
 EVENT_DOMAIN_REGISTERED = "domain/registered/{domain}"
+EVENT_DOMAIN_SETUP_STATUS = "domain/setup/{status}/{domain}/{identifier}"
 
 # Setup constants
 COMPONENT_RETRY_INTERVAL = 10

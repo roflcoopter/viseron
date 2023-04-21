@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from viseron.components.ffmpeg.const import (
@@ -11,12 +12,12 @@ from viseron.components.ffmpeg.const import (
 from viseron.domains.camera.const import CONFIG_EXTENSION
 
 from .const import (
-    COMPONENT,
     CONFIG_AUDIO_CODEC,
     CONFIG_AUDIO_PIPELINE,
     CONFIG_GSTREAMER_LOGLEVEL,
     CONFIG_MUXER,
     CONFIG_OUTPUT_ELEMENT,
+    CONFIG_RAW_PIPELINE,
     CONFIG_RECORDER,
     CONFIG_RTSP_TRANSPORT,
     CONFIG_STREAM_FORMAT,
@@ -24,6 +25,7 @@ from .const import (
     DEFAULT_AUDIO_PIPELINE,
     DEPAY_ELEMENT_MAP,
     GSTREAMER_LOGLEVELS,
+    PARSE_ELEMENT_MAP,
     PIXEL_FORMAT,
     STREAM_FORMAT_MAP,
 )
@@ -32,14 +34,32 @@ if TYPE_CHECKING:
     from viseron.components.gstreamer.stream import Stream
 
 
-class BasePipeline:
+class AbstractPipeline(ABC):
+    """Abstract GStreamer pipeline."""
+
+    @abstractmethod
+    def build_pipeline(self):
+        """Build pipeline."""
+
+
+class RawPipeline(AbstractPipeline):
+    """Raw GStreamer pipeline."""
+
+    def __init__(self, config):
+        self._config = config
+
+    def build_pipeline(self):
+        """Build pipeline."""
+        return self._config[CONFIG_RAW_PIPELINE].split(" ")
+
+
+class BasePipeline(AbstractPipeline):
     """Base GStreamer pipeline."""
 
-    def __init__(self, vis, config, stream: Stream, camera_identifier):
-        self._vis = vis
+    def __init__(self, config, stream: Stream, camera_identifier):
         self._config = config
         self._stream = stream
-        self._camera = vis.data[COMPONENT][camera_identifier]
+        self._camera_identifier = camera_identifier
 
     def global_args(self):
         """Return GStreamer global args."""
@@ -164,8 +184,8 @@ class BasePipeline:
         Returns parse element from override map if it exists.
         Otherwise we assume the parse element shares name with the codec.
         """
-        if depay_element := DEPAY_ELEMENT_MAP.get(self._stream.stream_codec, None):
-            return ["!", depay_element]
+        if parse_element := PARSE_ELEMENT_MAP.get(self._stream.stream_codec, None):
+            return ["!", parse_element]
 
         return ["!", f"{self._stream.stream_codec}parse"]
 
@@ -173,7 +193,7 @@ class BasePipeline:
         """Generate GStreamer segment args."""
         segment_filepattern = os.path.join(
             self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
-            self._camera.identifier,
+            self._camera_identifier,
             f"%01d.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
         )
         return (

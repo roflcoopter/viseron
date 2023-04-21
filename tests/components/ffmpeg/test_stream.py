@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from viseron.components.ffmpeg.const import (
-    COMPONENT,
     CONFIG_AUDIO_CODEC,
     CONFIG_CODEC,
     CONFIG_FFMPEG_LOGLEVEL,
@@ -66,11 +65,8 @@ class TestStream:
     """Test the Stream class."""
 
     @pytest.mark.parametrize(
-        (
-            "config, stream_information, expected_width, expected_height, "
-            "expected_fps, expected_codec, expected_audio_codec, expected_extension, "
-            "expected_caplog, raises"
-        ),
+        "config, stream_information, expected_width, expected_height, "
+        "expected_fps, expected_codec, expected_audio_codec, raises",
         [
             (
                 CONFIG,
@@ -80,8 +76,6 @@ class TestStream:
                 30,
                 "h264",
                 "aac",
-                "mp4",
-                None,
                 nullcontext(),
             ),
             (
@@ -92,8 +86,6 @@ class TestStream:
                 31,
                 "h264",
                 "aac",
-                "mp4",
-                None,
                 nullcontext(),
             ),
             (
@@ -104,11 +96,6 @@ class TestStream:
                 30,
                 "h264",
                 "pcm_alaw",
-                "mkv",
-                (
-                    "Container mp4 does not support pcm_alaw audio codec, "
-                    "using mkv instead. Consider changing extension in your config"
-                ),
                 nullcontext(),
             ),
             (
@@ -119,15 +106,12 @@ class TestStream:
                 30,
                 "h264",
                 "pcm_alaw",
-                "mkv",
-                None,
                 pytest.raises(StreamInformationError),
             ),
         ],
     )
     def test_init(
         self,
-        vis,
         config,
         stream_information,
         expected_width,
@@ -135,16 +119,10 @@ class TestStream:
         expected_fps,
         expected_codec,
         expected_audio_codec,
-        expected_extension,
-        expected_caplog,
         raises,
-        caplog,
     ):
         """Test that the stream is correctly initialized."""
         mocked_camera = MockCamera(identifier="test_camera_identifier")
-        vis.data[COMPONENT] = {}
-        vis.data[COMPONENT]["test_camera_identifier"] = mocked_camera
-
         with raises, patch.object(
             Stream, "get_stream_information", MagicMock(return_value=stream_information)
         ) as mock_get_stream_information, patch.object(
@@ -152,7 +130,7 @@ class TestStream:
         ), patch.object(
             Stream, "output_stream_url", MagicMock()
         ):
-            stream = Stream(vis, config, "test_camera_identifier")
+            stream = Stream(config, mocked_camera, "test_camera_identifier")
             mock_get_stream_information.assert_called_once()
             assert stream._camera == mocked_camera  # pylint: disable=protected-access
             assert stream.width == expected_width
@@ -160,7 +138,30 @@ class TestStream:
             assert stream.fps == expected_fps
             assert stream.stream_codec == expected_codec
             assert stream.stream_audio_codec == expected_audio_codec
-            assert stream.extension == expected_extension
-        if expected_caplog:
-            assert expected_caplog in caplog.text
-        caplog.clear()
+
+    @pytest.mark.parametrize(
+        "config_audio_codec, stream_audio_codec, extension, expected_audio_cmd",
+        [
+            (DEFAULT_AUDIO_CODEC, "aac", "mp4", ["-c:a", "copy"]),
+            (DEFAULT_AUDIO_CODEC, "pcm_alaw", "mp4", ["-c:a", "aac"]),
+            ("test_codec", "pcm_alaw", "mkv", ["-c:a", "test_codec"]),
+            (DEFAULT_AUDIO_CODEC, None, "mp4", []),
+        ],
+    )
+    def test_get_audio_codec(
+        self, vis, config_audio_codec, stream_audio_codec, extension, expected_audio_cmd
+    ):
+        """Test that the correct audio codec is returned."""
+        mocked_camera = MockCamera(identifier="test_camera_identifier")
+        config = CONFIG
+        config[CONFIG_AUDIO_CODEC] = config_audio_codec
+
+        with patch.object(
+            Stream, "__init__", MagicMock(spec=Stream, return_value=None)
+        ):
+            stream = Stream(config, mocked_camera, "test_camera_identifier")
+            stream._logger = MagicMock()  # pylint: disable=protected-access
+            assert (
+                stream.get_audio_codec(config, stream_audio_codec, extension)
+                == expected_audio_cmd
+            )

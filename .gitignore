@@ -136,6 +136,7 @@
 !/scripts/gen_docs/*
 
 # Repo
+!/.coveragerc
 !/.flake8
 !/.gitignore
 !/.isort.cfg

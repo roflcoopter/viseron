@@ -302,6 +302,7 @@ function-naming-style=snake_case
 good-names=i,
            j,
            k,
+           id,
            ex,
            x1,
            x2,
@@ -406,7 +407,8 @@ redefining-builtins-modules=six.moves,past.builtins,future.builtins,io,builtins
 defining-attr-methods=__init__,
                       __new__,
                       setUp,
-                      initialize
+                      initialize, # for tornado
+                      setup_method # for pytest
 
 # List of member names, which should be excluded from the protected access
 # warning.

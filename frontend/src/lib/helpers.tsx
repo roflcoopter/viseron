@@ -1,6 +1,9 @@
-import VideoPlayer from "components/videoplayer/VideoPlayer";
+import { Suspense, lazy } from "react";
+
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import * as types from "lib/types";
+
+const VideoPlayer = lazy(() => import("components/videoplayer/VideoPlayer"));
 
 // No idea how to type this...
 export function sortObj(obj: any) {
@@ -29,18 +32,14 @@ export function getRecordingVideoJSOptions(recording: types.Recording) {
     playsinline: true,
     controls: true,
     loop: true,
-    poster: process.env.REACT_APP_PROXY_HOST
-      ? `http://${process.env.REACT_APP_PROXY_HOST}${recording.thumbnail_path}`
-      : `${recording.thumbnail_path}`,
+    poster: `${recording.thumbnail_path}`,
     preload: "none",
     responsive: true,
     fluid: true,
     playbackRates: [0.5, 1, 2, 5, 10],
     sources: [
       {
-        src: process.env.REACT_APP_PROXY_HOST
-          ? `http://${process.env.REACT_APP_PROXY_HOST}${recording.path}`
-          : `${recording.path}`,
+        src: `${recording.path}`,
         type: "video/mp4",
       },
     ],
@@ -48,7 +47,7 @@ export function getRecordingVideoJSOptions(recording: types.Recording) {
 }
 
 export function getVideoElement(
-  camera: types.Camera,
+  camera: types.Camera | types.FailedCamera,
   recording: types.Recording | null | undefined
 ) {
   if (!objHasValues(recording) || !recording) {
@@ -56,9 +55,16 @@ export function getVideoElement(
   }
 
   const videoJsOptions = getRecordingVideoJSOptions(recording);
-  return <VideoPlayer recording={recording} options={videoJsOptions} />;
+  return (
+    <Suspense fallback={<VideoPlayerPlaceholder camera={camera} />}>
+      <VideoPlayer recording={recording} options={videoJsOptions} />
+    </Suspense>
+  );
 }
 
 export function toTitleCase(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
+
+// eslint-disable-next-line no-promise-executor-return
+export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

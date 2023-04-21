@@ -100,7 +100,7 @@ class CoerceNoneToDict:
 
     def __repr__(self):
         """Return representation."""
-        return "CoerceNoneToDict(%s)" % ("dict")
+        return "CoerceNoneToDict(%s)" % "dict"
 
 
 class Maybe(vol.Any):
@@ -133,3 +133,22 @@ class Slug:
         if slug(value):
             return value
         raise vol.Invalid("Invalid slug.")
+
+
+def request_argument_bool(value):
+    """Boolean HTTP request argument.
+
+    Any boolean value works, but also accepts 'true' and 'false' as strings.
+    Examples:
+        1 => True
+        0 => False
+        'true' => True
+        'false' => False
+        'foo' => True
+        '' => False
+    """
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    return bool(value)

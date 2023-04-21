@@ -1,0 +1,7 @@
+[report]
+exclude_lines =
+    pragma: no cover
+    raise AssertionError
+    raise NotImplementedError
+    if TYPE_CHECKING:
+    @overload
