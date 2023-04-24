@@ -76,5 +76,10 @@
         }
       }
     }
-  }
+  },
+  "features": {
+    "ghcr.io/devcontainers-contrib/features/curl-apt-get:1": {},
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+}
 }

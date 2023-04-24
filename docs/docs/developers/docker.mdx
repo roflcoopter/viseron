@@ -1,0 +1,43 @@
+---
+title: "Docker"
+---
+
+Viseron is distributed as a Docker image. This makes deployment easy for the user and reduces the _"But it works on my machine"_ factor.
+
+### Develop Docker containers
+
+Viseron heavily uses multistage Docker builds, and compilation of different components are split into different Dockerfiles.
+To build all the `amd64` image from scratch the following commands can be used.
+
+```bash
+docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-ffmpeg && \
+docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-opencv && \
+docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-dlib && \
+docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-wheels && \
+docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-base && \
+docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron
+```
+
+Lets say you want to update to a newer version of OpenCV.
+To do this you would:
+
+- Edit `OPENCV_VERSION` in ./azure-pipelines/.env
+- Build the OpenCV image: `docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-opencv`
+- Build Viseron image: `docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron`
+
+#### Cross-building
+
+To support different CPU architectures i use [Balenas base images](https://www.balena.io/docs/reference/base-images/base-images/) that runs QEMU.
+To build these you need to first register QEMU on your builder.
+
+The easiest way to do that is to run:
+
+```bash
+docker run --rm --privileged tonistiigi/binfmt --install all
+```
+
+You can then simply build the containers like you normally would and QEMU will be invoked automatically.
+
+```bash
+docker-compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build aarch64-viseron
+```

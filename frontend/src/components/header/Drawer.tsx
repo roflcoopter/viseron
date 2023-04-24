@@ -72,7 +72,7 @@ const drawerItems: Array<DrawerItemTypes> = [
     type: "link",
     title: "Donations",
     icon: VolunteerActivismIcon,
-    path: "https://github.com/roflcoopter/sponsors",
+    path: "https://github.com/sponsors/roflcoopter",
     external: true,
   },
   { type: "divider" },

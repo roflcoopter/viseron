@@ -1,0 +1,23 @@
+---
+title: Pull Request
+---
+
+When you are done with your changes it is time to submit a pull request.
+
+Before you create a pull request, please make sure that you have done the following:
+
+- Tests are written for the changed code
+- Commits have meaningful messages
+- If you have made changes to the backend:
+  - `pre-commit run --all-files` passes without any errors
+  - `pytest tests/` passes without any errors
+- If you have made changes to the frontend:
+  - `npm run lint` passes without any errors
+  - `npm run test` passes without any errors
+
+### CI pipeline
+
+When submitting a Pull Request, it is automatically checked by the CI pipeline.
+If you followed the steps outlined above, you can be pretty confident that your changes won't fail the CI pipeline.
+
+I will review and incorporate your changes as fast as possible when the checks pass. If you do not understand how to fix any alerts by the pipeline, I will assist the best I can!

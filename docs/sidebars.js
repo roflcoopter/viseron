@@ -18,71 +18,119 @@ const sidebars = {
 
   // But you can create a sidebar manually
   docs: [
+    "documentation",
     {
       type: "category",
-      label: "Documentation",
+      label: "Installation",
       link: {
         type: "doc",
-        id: "documentation",
+        id: "documentation/installation",
       },
       collapsed: false,
       items: [
         {
-          type: "category",
-          label: "Installation",
-          link: {
-            type: "doc",
-            id: "documentation/installation",
-          },
-          collapsed: false,
-          items: [
-            {
-              type: "link",
-              label: "Supported architectures",
-              href: "/docs/documentation/installation#supported-architectures",
-            },
-            {
-              type: "link",
-              label: "Running Viseron",
-              href: "/docs/documentation/installation#running-viseron",
-            },
-            {
-              type: "link",
-              label: "User and Group Identifiers",
-              href: "/docs/documentation/installation#user-and-group-identifiers",
-            },
-          ],
+          type: "link",
+          label: "Supported architectures",
+          href: "/docs/documentation/installation#supported-architectures",
         },
         {
-          type: "category",
-          label: "Configuration",
-          link: {
-            type: "doc",
-            id: "documentation/configuration",
-          },
-          collapsed: false,
-          items: [
-            {
-              type: "link",
-              label: "Camera domain",
-              href: "/docs/documentation/configuration#camera-domain",
-            },
-            {
-              type: "link",
-              label: "Object Detector domain",
-              href: "/docs/documentation/configuration#object-detector-domain",
-            },
-            {
-              type: "link",
-              label: "Motion Detector domain",
-              href: "/docs/documentation/configuration#motion-detector-domain",
-            },
-          ],
+          type: "link",
+          label: "Running Viseron",
+          href: "/docs/documentation/installation#running-viseron",
+        },
+        {
+          type: "link",
+          label: "User and Group Identifiers",
+          href: "/docs/documentation/installation#user-and-group-identifiers",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Configuration",
+      link: {
+        type: "doc",
+        id: "documentation/configuration",
+      },
+      collapsed: false,
+      items: [
+        {
+          type: "link",
+          label: "Camera domain",
+          href: "/docs/documentation/configuration#camera-domain",
+        },
+        {
+          type: "link",
+          label: "Object Detector domain",
+          href: "/docs/documentation/configuration#object-detector-domain",
+        },
+        {
+          type: "link",
+          label: "Motion Detector domain",
+          href: "/docs/documentation/configuration#motion-detector-domain",
+        },
+        {
+          type: "link",
+          label: "Face Recognition domain",
+          href: "/docs/documentation/configuration#face-recognition",
+        },
+        {
+          type: "link",
+          label: "Image Classification domain",
+          href: "/docs/documentation/configuration#image-classification",
         },
       ],
     },
   ],
   contributing: [{}],
+  backend: [
+    "developers",
+    {
+      type: "category",
+      label: "Development Environment",
+      items: [
+        "developers/development_environment/setup",
+        "developers/development_environment/style_guidelines",
+        "developers/development_environment/pull_request",
+      ],
+    },
+    {
+      type: "category",
+      label: "Backend",
+      link: {
+        type: "doc",
+        id: "developers/backend",
+      },
+      items: [
+        "developers/backend/components",
+        "developers/backend/data_stream_component",
+        "developers/backend/domains",
+        "developers/backend/entities",
+        "developers/backend/events",
+        "developers/backend/vis_object",
+        "developers/backend/create_component",
+      ],
+    },
+    {
+      type: "category",
+      label: "Frontend",
+      link: {
+        type: "doc",
+        id: "developers/frontend",
+      },
+      items: ["developers/frontend"],
+    },
+    "developers/docker",
+    {
+      type: "category",
+      label: "Docs",
+      link: {
+        type: "doc",
+        id: "developers/docs",
+      },
+      items: ["developers/docs"],
+    },
+  ],
 };
 
 module.exports = sidebars;

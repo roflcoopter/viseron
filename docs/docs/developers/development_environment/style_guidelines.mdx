@@ -1,0 +1,81 @@
+---
+title: Style guidelines
+---
+
+Style guidelines are enforced for both the backend and frontend code.
+
+Code is automatically checked for style violations on commit (using `pre-commit` and `husky`).
+All Pull Requests are also checked for style violations. Therefore it is important that you make sure your code is compliant with the style guidelines before you commit it.
+
+## Backend
+
+All code is linted with quite strict [PEP 8 (Style Guide for Python Code)](https://www.python.org/dev/peps/pep-0008/) and [PEP 257 (Docstring Conventions)](https://www.python.org/dev/peps/pep-0257/) coding conventions.
+
+To accommodate this a few tools are used.
+
+- [pylint](https://www.pylint.org/) to enforce the PEP's above
+- [mypy](https://mypy-lang.org/) Static type checker
+- [flake8](https://flake8.pycqa.org/en/latest/) to enforce the PEP's above
+- [Black](https://black.readthedocs.io/en/stable/) is used for code formatting
+- [isort](https://pycqa.github.io/isort/) for sorted imports
+- [codespell](https://github.com/codespell-project/codespell) to catch common misspellings
+- [pytest](https://docs.pytest.org/en/6.2.x/) for testing
+
+:::tip
+
+If you develop using the [VSCode Dev Container](/docs/developers/development_environment/setup#developing-in-a-vscode-dev-container) all of the above tools are installed and configured for you.
+
+If you develop outside of the Dev Container, I suggest that you setup your IDE to match these requirements which makes development faster and easier.
+:::
+
+### Run linters manually
+
+You can use `pre-commit` to run the Python linters manually.
+
+To run all linters:
+
+```bash
+pre-commit run --all-files
+```
+
+To single out a specific linter (e.g. `pylint`):
+
+```bash
+pre-commit run pylint --all-files
+```
+
+:::tip
+
+The Dev Container has Tasks configured for running the linters. You can run them from the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`).
+
+:::
+
+### Typing
+
+Not all code is typed, but we are working towards typing all code. New code should be typed.
+
+## Frontend
+
+All frontend code is linted with [ESLint](https://eslint.org/) and formatted with [Prettier](https://prettier.io/).
+
+### Run linters manually
+
+You can use `npm` to run the TypeScript linters manually.
+
+To run all linters:
+
+```bash
+npm run lint
+```
+
+To single out a specific linter (e.g. `prettier`):
+
+```bash
+npm run lint:prettier
+```
+
+:::tip
+
+The Dev Container has Tasks configured for running the linters. You can run them from the Command Palette (`Ctrl+Shift+P` or `Cmd+Shift+P`).
+
+:::
