@@ -18,7 +18,7 @@ class ConfigAPIHandler(BaseAPIHandler):
         },
     ]
 
-    def get_config(self):
+    def get_config(self) -> None:
         """Return Viseron config."""
         with open(CONFIG_PATH, encoding="utf-8") as config_file:
             config = config_file.read()

@@ -6,7 +6,7 @@ import logging
 import os
 from tempfile import NamedTemporaryFile
 from threading import Lock
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from viseron.const import STORAGE_PATH
 from viseron.exceptions import ViseronError
@@ -29,7 +29,7 @@ class StorageReadError(ViseronError):
 class Storage:
     """Class used to store JSON data in files."""
 
-    def __init__(self, vis: Viseron, key: str, version=1) -> None:
+    def __init__(self, vis: Viseron, key: str, version: int = 1) -> None:
         """Initialize the storage class.
 
         Should only be used to save and load data, it does not HOLD the data.
@@ -79,7 +79,7 @@ class Storage:
             json_data = json.dumps(_data, indent=4, cls=JSONEncoder)
             self._write(json_data)
 
-    def _load(self):
+    def _load(self) -> dict[str, Any]:
         """Load data from file."""
         try:
             with open(self.path, encoding="utf-8") as file:

@@ -2,6 +2,12 @@
 *
 
 ## Include
+# Devcontainer
+!/.devcontainer
+!/.devcontainer/*
+!/.vscode
+!/.vscode/*
+
 # GitHub Workflows
 !/.github
 !/.github/*
@@ -103,8 +109,9 @@
 !/viseron/webserver/api/*
 !/viseron/webserver/api/v1
 !/viseron/webserver/api/v1/*
-!/requirements.txt
+!/requirements_ci.txt
 !/requirements_test.txt
+!/requirements.txt
 !setup.py
 
 # Frontend
@@ -115,13 +122,18 @@
 !/frontend/public/static/*
 !/frontend/src
 !/frontend/src/**
+!/frontend/tests
+!/frontend/tests/**
 !/frontend/.eslintrc.js
 !/frontend/.prettierrc.json
+!/frontend/404.html
+!/frontend/index.html
 !/frontend/lint-staged.config.js
 !/frontend/package-lock.json
 !/frontend/package.json
 !/frontend/README.md
 !/frontend/tsconfig.json
+!/frontend/vite.config.ts
 
 # Docs
 !/docs
@@ -140,6 +152,7 @@
 !/.flake8
 !/.gitignore
 !/.isort.cfg
+!/.mypy.ini
 !/.pre-commit-config.yaml
 !/.pylintrc
 !/codecov.yaml

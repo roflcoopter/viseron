@@ -74,7 +74,7 @@ def require_admin(func):
 
 
 @websocket_command({vol.Required("type"): "ping"})
-def ping(connection: WebSocketHandler, message):
+def ping(connection: WebSocketHandler, message) -> None:
     """Respond to ping."""
     connection.send_message(pong_message(message["command_id"]))
 
@@ -82,10 +82,10 @@ def ping(connection: WebSocketHandler, message):
 @websocket_command(
     {vol.Required("type"): "subscribe_event", vol.Required("event"): str}
 )
-def subscribe_event(connection: WebSocketHandler, message):
+def subscribe_event(connection: WebSocketHandler, message) -> None:
     """Subscribe to an event."""
 
-    def forward_event(event: Event):
+    def forward_event(event: Event) -> None:
         """Forward event to WebSocket connection."""
         connection.send_message(
             message_to_json(event_message(message["command_id"], event))
@@ -103,7 +103,7 @@ def subscribe_event(connection: WebSocketHandler, message):
         vol.Required("subscription"): int,
     }
 )
-def unsubscribe_event(connection: WebSocketHandler, message):
+def unsubscribe_event(connection: WebSocketHandler, message) -> None:
     """Unsubscribe to an event."""
     subscription = message["subscription"]
     if subscription in connection.subscriptions:
@@ -126,10 +126,10 @@ def unsubscribe_event(connection: WebSocketHandler, message):
         vol.Exclusive("entity_ids", "entity"): [str],
     }
 )
-def subscribe_states(connection: WebSocketHandler, message):
+def subscribe_states(connection: WebSocketHandler, message) -> None:
     """Subscribe to state changes for one or multiple entities."""
 
-    def forward_state_change(event: Event[EventStateChangedData]):
+    def forward_state_change(event: Event[EventStateChangedData]) -> None:
         """Forward state_changed event to WebSocket connection."""
         if "entity_id" in message:
             if event.data.entity_id == message["entity_id"]:
@@ -161,14 +161,14 @@ def subscribe_states(connection: WebSocketHandler, message):
         vol.Required("subscription"): int,
     }
 )
-def unsubscribe_states(connection: WebSocketHandler, message):
+def unsubscribe_states(connection: WebSocketHandler, message) -> None:
     """Unsubscribe to state changes."""
     message["type"] = "unsubscribe_event"
     unsubscribe_event(connection, message)
 
 
 @websocket_command({vol.Required("type"): "get_cameras"})
-def get_cameras(connection: WebSocketHandler, message):
+def get_cameras(connection: WebSocketHandler, message) -> None:
     """Get all registered cameras."""
     connection.send_message(
         message_to_json(
@@ -181,7 +181,7 @@ def get_cameras(connection: WebSocketHandler, message):
 
 
 @websocket_command({vol.Required("type"): "get_config"})
-def get_config(connection: WebSocketHandler, message):
+def get_config(connection: WebSocketHandler, message) -> None:
     """Return config in text format."""
     with open(CONFIG_PATH, encoding="utf-8") as config_file:
         config = config_file.read()
@@ -196,7 +196,7 @@ def get_config(connection: WebSocketHandler, message):
 
 @require_admin
 @websocket_command({vol.Required("type"): "save_config", vol.Required("config"): str})
-def save_config(connection: WebSocketHandler, message):
+def save_config(connection: WebSocketHandler, message) -> None:
     """Save config to file."""
     try:
         with open(CONFIG_PATH, "w", encoding="utf-8") as config_file:
@@ -220,7 +220,7 @@ def save_config(connection: WebSocketHandler, message):
 
 @require_admin
 @websocket_command({vol.Required("type"): "restart_viseron"})
-def restart_viseron(connection: WebSocketHandler, message):
+def restart_viseron(connection: WebSocketHandler, message) -> None:
     """Restart Viseron."""
     connection.vis.exit_code = RESTART_EXIT_CODE
     os.kill(os.getpid(), signal.SIGINT)
@@ -232,7 +232,7 @@ def restart_viseron(connection: WebSocketHandler, message):
 
 
 @websocket_command({vol.Required("type"): "get_entities"})
-def get_entities(connection: WebSocketHandler, message):
+def get_entities(connection: WebSocketHandler, message) -> None:
     """Get all registered entities."""
     connection.send_message(
         message_to_json(

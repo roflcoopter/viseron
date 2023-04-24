@@ -160,7 +160,7 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)) -> None:
 
 def draw_object(
     frame, obj, camera_resolution: tuple[int, int], color=(150, 0, 0), thickness=1
-):
+) -> None:
     """Draw a single object on supplied frame."""
     if obj.relevant:
         color = (0, 150, 0)
@@ -274,7 +274,13 @@ def draw_object_mask(frame, mask_points) -> None:
     draw_mask("Object mask", frame, mask_points, color=(255, 255, 255))
 
 
-def pop_if_full(queue: Queue, item: Any, logger=LOGGER, name="unknown", warn=False):
+def pop_if_full(
+    queue: Queue,
+    item: Any,
+    logger: logging.Logger = LOGGER,
+    name: str = "unknown",
+    warn: bool = False,
+) -> None:
     """If queue is full, pop oldest item and put the new item."""
     try:
         queue.put_nowait(item)
@@ -290,7 +296,7 @@ def slugify(text: str) -> str:
     return unicode_slug.slugify(text, separator="_")
 
 
-def create_directory(path):
+def create_directory(path) -> None:
     """Create a directory."""
     try:
         if not os.path.isdir(path):
@@ -351,8 +357,12 @@ def letterbox_resize(image: np.ndarray, width, height):
 
 
 def convert_letterboxed_bbox(
-    frame_width, frame_height, model_width, model_height, bbox
-):
+    frame_width: int,
+    frame_height: int,
+    model_width: int,
+    model_height: int,
+    bbox: tuple[int, int, int, int],
+) -> tuple[float, float, float, float]:
     """Convert boundingbox from a letterboxed image to the original image.
 
     To improve accuracy, images are resized with letterboxing before running
@@ -383,43 +393,48 @@ def convert_letterboxed_bbox(
     output_width = int(frame_width * scale)
 
     if output_width > output_height:  # Horizontal padding
-        y1 = (
+        new_x1 = (
+            x1 / model_width
+        ) * frame_width  # Scale width from model to frame width
+        new_x2 = (
+            x2 / model_width
+        ) * frame_width  # Scale width from model to frame width
+        new_y1 = (
             (y1 - 1 / 2 * (model_height - frame_height / frame_width * model_height))
             * frame_width
             / model_width
         )
-        y2 = (
+        new_y2 = (
             (y2 - 1 / 2 * (model_height - frame_height / frame_width * model_height))
             * frame_width
             / model_width
         )
-        return (
-            (x1 / model_width) * frame_width,  # Scale width from model to frame width
-            y1,
-            (x2 / model_width) * frame_width,  # Scale width from model to frame width
-            y2,
+    else:  # Vertical padding
+        new_x1 = (
+            (x1 - 1 / 2 * (model_height - frame_width / frame_height * model_height))
+            * frame_height
+            / model_width
         )
-
-    # Vertical padding
-    x1 = (
-        (x1 - 1 / 2 * (model_height - frame_width / frame_height * model_height))
-        * frame_height
-        / model_width
-    )
-    x2 = (
-        (x2 - 1 / 2 * (model_height - frame_width / frame_height * model_height))
-        * frame_height
-        / model_width
-    )
+        new_x2 = (
+            (x2 - 1 / 2 * (model_height - frame_width / frame_height * model_height))
+            * frame_height
+            / model_width
+        )
+        new_y1 = (
+            y1 / model_height * frame_height
+        )  # Scale height from model to frame height
+        new_y2 = (
+            y2 / model_height * frame_height
+        )  # Scale height from model to frame height
     return (
-        x1,
-        (y1 / model_height) * frame_height,  # Scale height from model to frame height
-        x2,
-        (y2 / model_height) * frame_height,  # Scale height from model to frame height
+        new_x1,
+        new_y1,
+        new_x2,
+        new_y2,
     )
 
 
-def memory_usage_profiler(logger, key_type="lineno", limit=5):
+def memory_usage_profiler(logger, key_type="lineno", limit=5) -> None:
     """Print a table with the lines that are using the most memory."""
     snapshot = tracemalloc.take_snapshot()
     snapshot = snapshot.filter_traces(

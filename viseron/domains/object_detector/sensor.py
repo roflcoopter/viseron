@@ -22,7 +22,7 @@ class ObjectDetectorFPSSensor(CameraSensor):
         vis: Viseron,
         object_detector: AbstractObjectDetector,
         camera: AbstractCamera,
-    ):
+    ) -> None:
         super().__init__(vis, camera)
         self._object_detector = object_detector
         self.object_id = f"{camera.identifier}_object_detector_fps"
@@ -30,7 +30,7 @@ class ObjectDetectorFPSSensor(CameraSensor):
         self.icon = "mdi:speedometer"
         self.entity_category = "diagnostic"
 
-    def setup(self):
+    def setup(self) -> None:
         """Set up state updates."""
         self._vis.schedule_periodic_update(self, UPDATE_INTERVAL)
 
@@ -48,6 +48,6 @@ class ObjectDetectorFPSSensor(CameraSensor):
         """Return entity state."""
         return self._object_detector.theoretical_max_fps
 
-    def update(self):
+    def update(self) -> None:
         """Update FPS sensors."""
         self.set_state()

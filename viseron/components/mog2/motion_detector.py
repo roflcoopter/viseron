@@ -16,7 +16,7 @@ from .const import (
 )
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the mog2 motion_detector domain."""
     MotionDetector(vis, config[DOMAIN], identifier)
 
@@ -26,7 +26,7 @@ def setup(vis: Viseron, config, identifier):
 class MotionDetector(AbstractMotionDetectorScanner):
     """Perform motion detection."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier):
+    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
         super().__init__(vis, COMPONENT, config, camera_identifier)
 
         self._camera_config = config[CONFIG_CAMERAS][camera_identifier]

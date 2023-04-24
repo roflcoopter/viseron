@@ -5,11 +5,13 @@ import json
 import logging
 from functools import partial
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any
+from re import Pattern
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 import tornado.routing
 import voluptuous as vol
 from voluptuous.humanize import humanize_error
+from voluptuous.schema_builder import Schema
 
 from viseron.components.webserver.api.const import API_BASE
 from viseron.components.webserver.auth import Group
@@ -17,6 +19,8 @@ from viseron.components.webserver.request_handler import ViseronRequestHandler
 from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
+    from typing_extensions import NotRequired
+
     from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
@@ -29,15 +33,28 @@ METHOD_ALLOWED_GROUPS = {
 }
 
 
+class Route(TypedDict):
+    """Routes type."""
+
+    path_pattern: str | Pattern
+    supported_methods: list[Literal["GET", "POST", "PUT", "DELETE"]]
+    method: str
+    requires_auth: NotRequired[bool]
+    requires_camera_token: NotRequired[bool]
+    requires_group: NotRequired[list[Group]]
+    json_body_schema: NotRequired[Schema]
+    request_arguments_schema: NotRequired[Schema]
+
+
 class BaseAPIHandler(ViseronRequestHandler):
     """Base handler for all API endpoints."""
 
-    routes: list[dict[str, Any]] = []
+    routes: list[Route] = []
 
-    def initialize(self, vis: Viseron):
+    def initialize(self, vis: Viseron) -> None:
         """Initialize."""
         super().initialize(vis)
-        self.route: dict[str, Any] = {}
+        self.route: Route = {}  # type: ignore[typeddict-item]
         self.request_arguments: dict[str, Any] = {}
         self.json_body = {}
         self.browser_request = False
@@ -48,13 +65,13 @@ class BaseAPIHandler(ViseronRequestHandler):
         return self._json_body
 
     @json_body.setter
-    def json_body(self, value):
+    def json_body(self, value) -> None:
         """Set JSON body."""
         self._json_body = value
 
     def response_success(
         self, *, status: HTTPStatus = HTTPStatus.OK, response=None, headers=None
-    ):
+    ) -> None:
         """Send successful response."""
         if response is None:
             response = {"success": True}
@@ -70,23 +87,23 @@ class BaseAPIHandler(ViseronRequestHandler):
 
         self.finish(response)
 
-    def response_error(self, status_code: HTTPStatus, reason: str):
+    def response_error(self, status_code: HTTPStatus, reason: str) -> None:
         """Send error response."""
         self.set_status(status_code, reason=reason.replace("\n", ""))
         response = {"status": status_code, "error": reason}
         self.finish(response)
 
-    def handle_endpoint_not_found(self):
+    def handle_endpoint_not_found(self) -> None:
         """Return 404."""
         self.response_error(HTTPStatus.NOT_FOUND, "Endpoint not found")
 
-    def handle_method_not_allowed(self):
+    def handle_method_not_allowed(self) -> None:
         """Return 405."""
         self.response_error(
             HTTPStatus.METHOD_NOT_ALLOWED, f"Method '{self.request.method}' not allowed"
         )
 
-    def validate_json_body(self, route):
+    def validate_json_body(self, route: Route) -> bool:
         """Validate JSON body."""
         if schema := route.get("json_body_schema", None):
             try:
@@ -102,13 +119,13 @@ class BaseAPIHandler(ViseronRequestHandler):
                 self.json_body = schema(json_body)
             except vol.Invalid as err:
                 LOGGER.error(
-                    f"Invalid body: {self.request.body}",
+                    f"Invalid body: {self.request.body.decode()}",
                     exc_info=True,
                 )
                 self.response_error(
                     HTTPStatus.BAD_REQUEST,
                     reason="Invalid body: {}. {}".format(
-                        self.request.body,
+                        self.request.body.decode(),
                         humanize_error(json_body, err),
                     ),
                 )
@@ -122,7 +139,7 @@ class BaseAPIHandler(ViseronRequestHandler):
             return None
         return self.request.headers.get("Authorization", "") + "." + signature.decode()
 
-    def validate_auth_header(self):
+    def validate_auth_header(self) -> bool:
         """Validate auth header."""
         # Call is coming from browser? Construct the JWT from the cookies
         if self.request.headers.get("X-Requested-With", "") == "XMLHttpRequest":
@@ -149,7 +166,7 @@ class BaseAPIHandler(ViseronRequestHandler):
             auth_val, check_refresh_token=self.browser_request
         )
 
-    def route_request(self):
+    def route_request(self) -> None:
         """Route request to correct API endpoint."""
         unsupported_method = False
 
@@ -162,10 +179,17 @@ class BaseAPIHandler(ViseronRequestHandler):
                     unsupported_method = True
                     continue
 
+                self.route = route
                 if self._webserver.auth and route.get("requires_auth", True):
                     if not self.validate_auth_header():
                         self.response_error(
                             HTTPStatus.UNAUTHORIZED, reason="Authentication required"
+                        )
+                        return
+
+                    if not self.current_user:
+                        self.response_error(
+                            HTTPStatus.UNAUTHORIZED, reason="User not set"
                         )
                         return
 
@@ -196,6 +220,9 @@ class BaseAPIHandler(ViseronRequestHandler):
                             return
 
                 params = path_match.match(self.request)
+                if params is None:
+                    params = {}
+
                 request_arguments = {
                     k: self.get_argument(k) for k in self.request.arguments
                 }
@@ -253,15 +280,14 @@ class BaseAPIHandler(ViseronRequestHandler):
                         "Routing to {}.{}(*args={}, **kwargs={}, request_arguments={})"
                     ).format(
                         self.__class__.__name__,
-                        route.get("method"),
+                        route["method"],
                         path_args,
                         path_kwargs,
                         self.request_arguments,
                     ),
                 )
-                self.route = route
                 try:
-                    getattr(self, route.get("method"))(*path_args, **path_kwargs)
+                    getattr(self, route["method"])(*path_args, **path_kwargs)
                     return
                 except Exception as error:  # pylint: disable=broad-except
                     LOGGER.error(
@@ -282,19 +308,19 @@ class BaseAPIHandler(ViseronRequestHandler):
             LOGGER.warning(f"Endpoint not found for URI: {self.request.uri}")
             self.handle_endpoint_not_found()
 
-    def delete(self):
+    def delete(self) -> None:
         """Route DELETE requests."""
         self.route_request()
 
-    def get(self):
+    def get(self) -> None:
         """Route GET requests."""
         self.route_request()
 
-    def post(self):
+    def post(self) -> None:
         """Route POST requests."""
         self.route_request()
 
-    def put(self):
+    def put(self) -> None:
         """Route PUT requests."""
         self.route_request()
 
@@ -302,6 +328,6 @@ class BaseAPIHandler(ViseronRequestHandler):
 class APINotFoundHandler(BaseAPIHandler):
     """Default handler."""
 
-    def get(self):
+    def get(self) -> None:
         """Catch all methods."""
         self.response_error(HTTPStatus.NOT_FOUND, "Endpoint not found")

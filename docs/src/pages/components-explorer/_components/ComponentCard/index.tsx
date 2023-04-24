@@ -2,7 +2,10 @@
 import React from "react";
 
 import Link from "@docusaurus/Link";
-import Image from "@theme/IdealImage";
+// This throws error in typechecking but works in runtime?
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import IdealImage from "@theme/IdealImage";
 import clsx from "clsx";
 
 import sortBy from "@site/src/lib/helpers";
@@ -46,7 +49,7 @@ function ComponentCard({ component }: { component: Component }) {
     <li key={component.title} className="card shadow--md outline">
       <a href={componentLink}>
         <div className={clsx("card__image", styles.componentCardImage)}>
-          <Image img={component.image} alt={component.title} />
+          <IdealImage img={component.image} alt={component.title} />
         </div>
       </a>
       <div className="card__body">

@@ -1,3 +1,4 @@
+import Editor, { Monaco, loader } from "@monaco-editor/react";
 import { RestartAlt } from "@mui/icons-material";
 import SaveIcon from "@mui/icons-material/Save";
 import LoadingButton from "@mui/lab/LoadingButton";
@@ -12,25 +13,20 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
-import List from "@mui/material/List";
-import ListItem, { listItemClasses } from "@mui/material/ListItem";
-import ListItemText from "@mui/material/ListItemText";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
-import "monaco-editor";
-import * as monacoEditor from "monaco-editor/esm/vs/editor/editor.api";
+import * as monaco from "monaco-editor";
+import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
 import { setDiagnosticsOptions } from "monaco-yaml";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
-import MonacoEditor, {
-  ChangeHandler,
-  EditorDidMount,
-  EditorWillUnmount,
-} from "react-monaco-editor";
 
+import Markers from "components/editor/Markers";
 import { Loading } from "components/loading/Loading";
 import { ViseronContext } from "context/ViseronContext";
 import { getConfig, restartViseron, saveConfig } from "lib/commands";
+
+import YamlWorker from "./yaml.worker.js?worker";
 
 type GlobalThis = typeof globalThis &
   Window & {
@@ -38,19 +34,16 @@ type GlobalThis = typeof globalThis &
   };
 
 (window as GlobalThis).MonacoEnvironment = {
-  getWorker(_moduleId: any, label: string) {
-    switch (label) {
-      case "editorWorkerService":
-        return new Worker(
-          new URL("monaco-editor/esm/vs/editor/editor.worker", import.meta.url)
-        );
-      case "yaml":
-        return new Worker(new URL("monaco-yaml/yaml.worker", import.meta.url));
-      default:
-        throw new Error(`Unknown label ${label}`);
+  getWorker(_: any, label: string) {
+    if (label === "yaml") {
+      return new YamlWorker();
     }
+    return new EditorWorker();
   },
 };
+
+loader.config({ monaco });
+loader.init().then();
 
 setDiagnosticsOptions({
   enableSchemaRequest: true,
@@ -76,128 +69,45 @@ const options = {
   renderIndentGuides: true,
 };
 
-interface ProblemsProps {
-  editor: monacoEditor.editor.IStandaloneCodeEditor | undefined;
-  problems: monacoEditor.editor.IMarker[];
-}
-
-const problemName = {
-  1: "hint",
-  2: "info",
-  4: "warning",
-  8: "error",
-};
-
-const problemColors = {
-  1: "green",
-  2: "green",
-  4: "yellow",
-  8: "red",
-};
-
 const editorWidth = "80vw";
 
-const Problems = ({ editor, problems }: ProblemsProps) => {
-  if (problems.length === 0) {
-    return null;
-  }
+const useResize = (
+  editorRef: React.MutableRefObject<
+    monaco.editor.IStandaloneCodeEditor | undefined
+  >
+) => {
+  const updateDimensions = useCallback(() => {
+    if (editorRef.current) {
+      editorRef.current.layout();
+    }
+  }, [editorRef]);
 
-  return (
-    <Box
-      sx={{
-        minHeight: "10vh",
-        maxHeight: "10vh",
-        overflow: "auto",
-        width: editorWidth,
-      }}
-    >
-      <List
-        sx={{
-          [`& .active, & .${listItemClasses.root}:hover`]: {
-            backgroundColor: "rgba(100, 100, 100, 0.7)",
-            cursor: "pointer",
-          },
-        }}
-      >
-        {problems.map((problem, index) => (
-          <ListItem
-            key={index}
-            dense={true}
-            disablePadding={true}
-            onClick={() => {
-              if (editor) {
-                editor.setPosition({
-                  lineNumber: problem.startLineNumber,
-                  column: problem.startColumn,
-                });
-                editor.revealLineInCenter(problem.startLineNumber);
-                editor.focus();
-              }
-            }}
-          >
-            <Box
-              className={`codicon codicon-${problemName[problem.severity]}`}
-              component="div"
-              sx={{
-                color: problemColors[problem.severity],
-                display: "inline",
-                paddingLeft: "5px",
-                paddingRight: "5px",
-              }}
-            />
-            <ListItemText
-              primary={problem.message}
-              primaryTypographyProps={{
-                display: "inline",
-              }}
-              secondary={` [${problem.startLineNumber}, ${problem.startColumn}]`}
-              secondaryTypographyProps={{
-                display: "inline",
-              }}
-              sx={{ marginTop: 0, marginBottom: 0 }}
-            />
-          </ListItem>
-        ))}
-      </List>
-    </Box>
-  );
+  useEffect(() => {
+    window.addEventListener("resize", updateDimensions, true);
+    return () => {
+      window.removeEventListener("resize", updateDimensions, true);
+    };
+  }, [updateDimensions]);
 };
 
-const Editor = () => {
+const ConfigEditor = () => {
   const viseron = useContext(ViseronContext);
-
   const theme = useTheme();
 
-  const editorInstance = useRef<monacoEditor.editor.IStandaloneCodeEditor>();
-  const monacoInstance = useRef<typeof monacoEditor>();
-  const problemsRef = useRef<monacoEditor.editor.IMarker[]>([]);
+  const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>();
+  const markersRef = useRef<monaco.editor.IMarker[]>([]);
+
+  useResize(editorInstance);
 
   const [configUnsaved, setConfigUnsaved] = useState<boolean>(false);
   const [savedConfig, setSavedConfig] = useState<string | undefined>(undefined);
-  const [problems, setProblems] = useState<monacoEditor.editor.IMarker[]>([]);
+  const [markers, setMarkers] = useState<monaco.editor.IMarker[]>([]);
   const [savePending, setSavePending] = useState(false);
   const [errorDialog, setErrorDialog] = useState({ open: false, text: "" });
   const [syntaxWarningDialog, setSyntaxWarningDialog] = useState(false);
 
   const [restartPending, setRestartPending] = useState(false);
   const [restartDialog, setRestartDialog] = useState({ open: false, text: "" });
-
-  const updateDimensions = useCallback(() => {
-    if (editorInstance) {
-      editorInstance!.current!.layout();
-    }
-  }, [editorInstance]);
-
-  const onChange: ChangeHandler = (editorContents, _event) => {
-    if (editorContents === savedConfig) {
-      setConfigUnsaved(false);
-      return;
-    }
-
-    if (configUnsaved === false) {
-      setConfigUnsaved(true);
-    }
-  };
 
   const save = () => {
     setSavePending(true);
@@ -218,7 +128,7 @@ const Editor = () => {
 
   const handleSave = () => {
     if (viseron.connection && editorInstance.current) {
-      if (problemsRef.current.length > 0) {
+      if (markersRef.current.length > 0) {
         setSyntaxWarningDialog(true);
         return;
       }
@@ -239,7 +149,7 @@ const Editor = () => {
   const handleRestart = () => {
     if (viseron.connection && editorInstance.current) {
       let text = "Are you sure you want to restart Viseron?";
-      if (problemsRef.current.length > 0) {
+      if (markersRef.current.length > 0) {
         text = `You have synxat errors in your config. ${text}`;
       } else if (configUnsaved) {
         text = `You have unsaved changes to your config. Do you want to restart Viseron anyway?`;
@@ -248,29 +158,39 @@ const Editor = () => {
     }
   };
 
-  const editorDidMount: EditorDidMount = (editor, monaco) => {
+  const onMount = (
+    editor: monaco.editor.IStandaloneCodeEditor,
+    _monaco: Monaco
+  ) => {
     editorInstance.current = editor;
-    monacoInstance.current = monaco;
-
     editor.focus();
-    window.addEventListener("resize", updateDimensions, true);
-    monaco.editor.onDidChangeMarkers(([resource]) => {
-      const markers = monaco.editor.getModelMarkers({ resource });
-      setProblems(markers);
-      problemsRef.current = markers;
-    });
-    editorInstance!.current!.addCommand(
+    editor.addCommand(
       // eslint-disable-next-line no-bitwise
-      monacoEditor.KeyMod.CtrlCmd | monacoEditor.KeyCode.KeyS,
+      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
       () => {
         handleSave();
       }
     );
   };
 
-  const editorWillUnmount: EditorWillUnmount = (_editor, _monaco) => {
-    window.removeEventListener("resize", updateDimensions, true);
+  const onChange = (
+    editorContents: string | undefined,
+    _event: monaco.editor.IModelContentChangedEvent
+  ) => {
+    if (editorContents === savedConfig) {
+      setConfigUnsaved(false);
+      return;
+    }
+
+    if (configUnsaved === false) {
+      setConfigUnsaved(true);
+    }
   };
+
+  function onValidate(currentMarkers: monaco.editor.IMarker[]) {
+    setMarkers(currentMarkers);
+    markersRef.current = currentMarkers;
+  }
 
   useEffect(() => {
     if (viseron.connection) {
@@ -438,7 +358,7 @@ const Editor = () => {
         <Box
           sx={{
             width: editorWidth,
-            height: problems.length > 0 ? "80vh" : "90vh",
+            height: markers.length > 0 ? "80vh" : "90vh",
             position: "relative",
           }}
         >
@@ -452,19 +372,22 @@ const Editor = () => {
                 theme.palette.mode === "dark" ? "#1e1e1e" : "#fffffe",
             }}
           >
-            <MonacoEditor
-              width="editorWidth"
-              height={problems.length > 0 ? "80vh" : "90vh"}
-              language="yaml"
+            <Editor
+              height={markers.length > 0 ? "80vh" : "90vh"}
+              defaultLanguage="yaml"
               theme={`${theme.palette.mode === "dark" ? "vs-dark" : "light"}`}
               defaultValue={savedConfig}
               options={options}
               onChange={onChange}
-              editorDidMount={editorDidMount}
-              editorWillUnmount={editorWillUnmount}
+              onMount={onMount}
+              onValidate={onValidate}
             />
-            {problems.length > 0 && <Divider />}
-            <Problems editor={editorInstance.current} problems={problems} />
+            {markers.length > 0 && <Divider />}
+            <Markers
+              editor={editorInstance.current}
+              markers={markers}
+              width={editorWidth}
+            />
           </Card>
         </Box>
       </Stack>
@@ -472,4 +395,4 @@ const Editor = () => {
   );
 };
 
-export default Editor;
+export default ConfigEditor;

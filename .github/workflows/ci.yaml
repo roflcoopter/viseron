@@ -24,7 +24,7 @@ jobs:
     steps:
       # Create Python virtual env used for linters
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         id: python
         uses: actions/setup-python@v4.3.0
@@ -36,7 +36,7 @@ jobs:
         env:
           cache-name: cache-python-venv
         run: >-
-          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_test.txt') }}" >> $GITHUB_OUTPUT
+          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements_test.txt') }}-${{ hashFiles('requirements_ci.txt') }}" >> $GITHUB_OUTPUT
       - name: Restore Python virtual environment
         id: cache-venv
         uses: actions/cache@v3.0.11
@@ -45,10 +45,11 @@ jobs:
           key: ${{ steps.python-venv-cache-key.outputs.key }}
       - name: Create Python virtual environment
         if: steps.cache-venv.outputs.cache-hit != 'true'
+        # Install pycoral from Google Coral repo since it is not on PyPI
         run: |
           python -m venv venv
           . venv/bin/activate
-          pip install -r requirements_test.txt
+          pip install --extra-index-url https://google-coral.github.io/py-repo/ -r requirements.txt -r requirements_test.txt -r requirements_ci.txt
 
   prepare-pre-commit:
     name: Prepare pre-commit
@@ -58,7 +59,7 @@ jobs:
       pre-commit-cache-key: ${{ steps.pre-commit-cache-key.outputs.key }}
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -80,7 +81,7 @@ jobs:
         env:
           cache-name: cache-pre-commit
         run: >-
-          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements_test.txt') }}" >> $GITHUB_OUTPUT
+          echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements_test.txt') }}-${{ hashFiles('requirements_ci.txt') }}" >> $GITHUB_OUTPUT
       # Install pre-commit hooks into the cached virtual environment
       - name: Restore pre-commit hooks
         id: cache-pre-commit
@@ -100,7 +101,7 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -139,7 +140,7 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -178,7 +179,7 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -211,13 +212,52 @@ jobs:
           . venv/bin/activate
           pre-commit run --hook-stage manual codespell --all-files --show-diff-on-failure
 
+  run-mypy:
+    name: Run mypy
+    runs-on: ubuntu-20.04
+    needs: [prepare-python-venv, prepare-pre-commit]
+    steps:
+      - name: Check out code from GitHub
+        uses: actions/checkout@v3.5.2
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v4.3.0
+        id: python
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+      - name: Restore base Python virtual environment
+        id: cache-venv
+        uses: actions/cache@v3.0.11
+        with:
+          path: venv
+          key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
+      - name: Fail job if Python cache restore failed
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          echo "Failed to restore Python virtual environment from cache"
+          exit 1
+      - name: Restore pre-commit environment from cache
+        id: cache-pre-commit
+        uses: actions/cache@v3.0.11
+        with:
+          path: ${{ env.PRE_COMMIT_CACHE }}
+          key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
+      - name: Fail job if pre-commit cache restore failed
+        if: steps.cache-pre-commit.outputs.cache-hit != 'true'
+        run: |
+          echo "Failed to restore pre-commit environment from cache"
+          exit 1
+      - name: Run mypy
+        run: |
+          . venv/bin/activate
+          pre-commit run --hook-stage manual mypy --all-files --show-diff-on-failure
+
   run-pylint:
     name: Run pylint
     runs-on: ubuntu-20.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -248,7 +288,6 @@ jobs:
       - name: Run pylint
         run: |
           . venv/bin/activate
-          python --version
           pylint --version
           pylint viseron
 
@@ -258,7 +297,7 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -297,7 +336,7 @@ jobs:
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
         uses: actions/setup-python@v4.3.0
         id: python
@@ -336,7 +375,7 @@ jobs:
     needs: prepare-python-venv
     steps:
       - name: Check out code from GitHub
-        uses: actions/checkout@v3.1.0
+        uses: actions/checkout@v3.5.2
         with:
           fetch-depth: 2
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
@@ -388,3 +427,49 @@ jobs:
           docker cp amd64-viseron-tests:/src/coverage.xml coverage.xml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
+
+  run-generated-docs:
+    name: Check generated docs
+    runs-on: ubuntu-20.04
+    needs: [prepare-python-venv, prepare-pre-commit]
+    steps:
+      - name: Check out code from GitHub
+        uses: actions/checkout@v3.5.2
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v4.3.0
+        id: python
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+      - name: Restore base Python virtual environment
+        id: cache-venv
+        uses: actions/cache@v3.0.11
+        with:
+          path: venv
+          key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
+      - name: Fail job if Python cache restore failed
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          echo "Failed to restore Python virtual environment from cache"
+          exit 1
+      - name: Restore pre-commit environment from cache
+        id: cache-pre-commit
+        uses: actions/cache@v3.0.11
+        with:
+          path: ${{ env.PRE_COMMIT_CACHE }}
+          key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
+      - name: Fail job if pre-commit cache restore failed
+        if: steps.cache-pre-commit.outputs.cache-hit != 'true'
+        run: |
+          echo "Failed to restore pre-commit environment from cache"
+          exit 1
+      - name: Install libedgetpu1 for edgetpu docs
+        run: |
+          curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
+          sudo add-apt-repository "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libedgetpu1-std
+      - name: Run script to check generated docs
+        run: |
+          . venv/bin/activate
+          pre-commit run --hook-stage manual generate_docs --all-files --show-diff-on-failure
+          pre-commit run --hook-stage manual check_config_json --all-files --show-diff-on-failure

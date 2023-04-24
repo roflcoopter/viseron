@@ -4,7 +4,6 @@ from __future__ import annotations
 import asyncio
 import concurrent
 import logging
-import os
 import secrets
 import threading
 from typing import TYPE_CHECKING
@@ -45,6 +44,7 @@ from .const import (
     DEFAULT_DEBUG,
     DEFAULT_PORT,
     DEFAULT_SESSION_EXPIRY,
+    DESC_AUTH,
     DESC_COMPONENT,
     DESC_DAYS,
     DESC_DEBUG,
@@ -52,6 +52,8 @@ from .const import (
     DESC_MINUTES,
     DESC_PORT,
     DESC_SESSION_EXPIRY,
+    PATH_ASSETS,
+    PATH_INDEX,
     PATH_STATIC,
     WEBSERVER_STORAGE_KEY,
     WEBSOCKET_COMMANDS,
@@ -95,7 +97,7 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(
                     CONFIG_DEBUG, default=DEFAULT_DEBUG, description=DESC_DEBUG
                 ): bool,
-                vol.Optional(CONFIG_AUTH): vol.All(
+                vol.Optional(CONFIG_AUTH, description=DESC_AUTH): vol.All(
                     CoerceNoneToDict(),
                     {
                         vol.Optional(
@@ -128,7 +130,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config) -> bool:
     """Set up the webserver component."""
     config = config[COMPONENT]
     webserver = Webserver(vis, config)
@@ -153,15 +155,15 @@ def setup(vis: Viseron, config):
 class IndexHandler(ViseronRequestHandler):
     """Handler for index page."""
 
-    def get(self):
+    def get(self) -> None:
         """GET request."""
-        self.render(os.path.join(PATH_STATIC, "index.html"))
+        self.render(PATH_INDEX)
 
 
 class DeprecatedStreamHandler(tornado.web.RequestHandler):
     """Socket handler."""
 
-    def get(self, camera):
+    def get(self, camera) -> None:
         """GET request."""
         LOGGER.warning(
             f"The endpoint /{camera}/stream is deprecated. "
@@ -173,7 +175,7 @@ class DeprecatedStreamHandler(tornado.web.RequestHandler):
 class WebserverStore:
     """Webserver storage."""
 
-    def __init__(self, vis: Viseron):
+    def __init__(self, vis: Viseron) -> None:
         self._store = Storage(vis, WEBSERVER_STORAGE_KEY)
         self._data = self._store.load()
 
@@ -191,14 +193,14 @@ def create_application(vis: Viseron, config, cookie_secret, xsrf_cookies=True):
     application = tornado.web.Application(
         [
             (
-                r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-stream",
+                r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-stream$",
                 DynamicStreamHandler,
                 {"vis": vis},
             ),
             (
                 (
                     r"/(?P<camera>[A-Za-z0-9_]+)/mjpeg-streams/"
-                    r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)"
+                    r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)$"
                 ),
                 StaticStreamHandler,
                 {"vis": vis},
@@ -206,13 +208,19 @@ def create_application(vis: Viseron, config, cookie_secret, xsrf_cookies=True):
             (
                 (
                     r"/(?P<camera>[A-Za-z0-9_]+)/static-mjpeg-streams/"
-                    r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)"
+                    r"(?P<mjpeg_stream>[A-Za-z0-9_\-]+)$"
                 ),
                 StaticStreamHandler,
                 {"vis": vis},
             ),
-            (r"/websocket", WebSocketHandler, {"vis": vis}),
-            (r"/.*", IndexHandler, {"vis": vis}),
+            (r"/websocket$", WebSocketHandler, {"vis": vis}),
+            (
+                r"/assets/(.*)",
+                tornado.web.StaticFileHandler,
+                {"path": PATH_ASSETS},
+            ),
+            (r"/$", IndexHandler, {"vis": vis}),
+            (r"/index.html$", IndexHandler, {"vis": vis}),
         ],
         default_handler_class=NotFoundHandler,
         static_path=PATH_STATIC,
@@ -233,7 +241,7 @@ def create_application(vis: Viseron, config, cookie_secret, xsrf_cookies=True):
 class Webserver(threading.Thread):
     """Webserver."""
 
-    def __init__(self, vis: Viseron, config):
+    def __init__(self, vis: Viseron, config) -> None:
         super().__init__(name="Tornado Webserver", daemon=True)
         self._vis = vis
         self._config = config
@@ -275,7 +283,7 @@ class Webserver(threading.Thread):
         """Return auth."""
         return self._auth
 
-    def register_websocket_command(self, handler):
+    def register_websocket_command(self, handler) -> None:
         """Register a websocket command."""
         if handler.command in self._vis.data[WEBSOCKET_COMMANDS]:
             LOGGER.error(f"Command {handler.command} has already been registered")
@@ -285,7 +293,7 @@ class Webserver(threading.Thread):
 
     def _serve_camera_recordings(
         self, camera: AbstractCamera | FailedCamera, failed=False
-    ):
+    ) -> None:
         """Serve recordings of each camera in a static file handler."""
         self.application.add_handlers(
             r".*",
@@ -306,7 +314,9 @@ class Webserver(threading.Thread):
             ],
         )
 
-    def camera_registered(self, event_data: Event[AbstractCamera | DomainToSetup]):
+    def camera_registered(
+        self, event_data: Event[AbstractCamera | DomainToSetup]
+    ) -> None:
         """Handle camera registering."""
         camera: AbstractCamera | FailedCamera | None = None
         failed = False
@@ -319,12 +329,12 @@ class Webserver(threading.Thread):
         if camera:
             self._serve_camera_recordings(camera, failed)
 
-    def run(self):
+    def run(self) -> None:
         """Start ioloop."""
         self._ioloop.start()
         self._ioloop.close()
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop ioloop."""
         LOGGER.debug("Stopping webserver")
         futures = []

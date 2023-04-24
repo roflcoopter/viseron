@@ -43,7 +43,7 @@ class CameraAPIHandler(BaseAPIHandler):
         },
     ]
 
-    def get_snapshot(self, camera_identifier: str):
+    def get_snapshot(self, camera_identifier: str) -> None:
         """Return camera snapshot."""
         camera = self._get_camera(camera_identifier)
 
@@ -68,7 +68,7 @@ class CameraAPIHandler(BaseAPIHandler):
         )
         return
 
-    def get_camera(self, camera_identifier: str):
+    def get_camera(self, camera_identifier: str) -> None:
         """Return camera."""
         camera = self._get_camera(
             camera_identifier, failed=self.request_arguments["failed"]

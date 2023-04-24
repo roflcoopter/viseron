@@ -1,8 +1,9 @@
 """Watchdog for long-running threads."""
+from __future__ import annotations
+
 import datetime
 import logging
 import subprocess as sp
-from typing import List
 
 from viseron.watchdog import WatchDog
 
@@ -16,12 +17,14 @@ class RestartablePopen:
     process.
     """
 
-    def __init__(self, *args, name=None, grace_period=20, register=True, **kwargs):
+    def __init__(
+        self, *args, name=None, grace_period=20, register=True, **kwargs
+    ) -> None:
         self._args = args
         self._name = name
         self._grace_period = grace_period
         self._kwargs = kwargs
-        self._subprocess = None
+        self._subprocess: sp.Popen | None = None
         self._started = False
         self.start()
         if register:
@@ -58,7 +61,7 @@ class RestartablePopen:
         """Return subprocess start time."""
         return self._start_time
 
-    def start(self):
+    def start(self) -> None:
         """Start the subprocess."""
         self._subprocess = sp.Popen(
             *self._args,
@@ -67,35 +70,37 @@ class RestartablePopen:
         self._start_time = datetime.datetime.now().timestamp()
         self._started = True
 
-    def restart(self):
+    def restart(self) -> None:
         """Restart the subprocess."""
         self._started = False
-        self._subprocess.terminate()
-        try:
-            self._subprocess.communicate(timeout=5)
-        except sp.TimeoutExpired:
-            LOGGER.debug("Subprocess did not terminate, killing instead.")
-            self._subprocess.kill()
-            self._subprocess.communicate()
+        if self._subprocess:
+            self._subprocess.terminate()
+            try:
+                self._subprocess.communicate(timeout=5)
+            except sp.TimeoutExpired:
+                LOGGER.debug("Subprocess did not terminate, killing instead.")
+                self._subprocess.kill()
+                self._subprocess.communicate()
         self.start()
 
-    def terminate(self):
+    def terminate(self) -> None:
         """Terminate the subprocess."""
         self._started = False
         SubprocessWatchDog.unregister(self)
-        self._subprocess.terminate()
+        if self._subprocess:
+            self._subprocess.terminate()
 
 
 class SubprocessWatchDog(WatchDog):
     """A watchdog for long running processes."""
 
-    registered_items: List[RestartablePopen] = []
+    registered_items: list[RestartablePopen] = []
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._scheduler.add_job(self.watchdog, "interval", seconds=15)
 
-    def watchdog(self):
+    def watchdog(self) -> None:
         """Check for stopped processes and restart them."""
         for registered_process in self.registered_items:
             if not registered_process.started:

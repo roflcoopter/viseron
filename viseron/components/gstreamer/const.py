@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Final, TypedDict
 
 COMPONENT = "gstreamer"
 
@@ -12,8 +13,16 @@ ENV_GSTREAMER_PATH = "VISERON_GSTREAMER_PATH"
 RECORDER = "recorder"
 
 
+class StreamFormat(TypedDict):
+    """Stream format."""
+
+    protocol: str
+    plugin: str
+    options: list[str]
+
+
 # Pipeline constants
-STREAM_FORMAT_MAP = {
+STREAM_FORMAT_MAP: dict[str, StreamFormat] = {
     "rtsp": {
         "protocol": "rtsp",
         "plugin": "rtspsrc",
@@ -90,17 +99,17 @@ CONFIG_RAW_PIPELINE = "raw_pipeline"
 
 
 DEFAULT_STREAM_FORMAT = "rtsp"
-DEFAULT_PROTOCOL = None
-DEFAULT_WIDTH = None
-DEFAULT_HEIGHT = None
-DEFAULT_FPS = None
+DEFAULT_PROTOCOL: Final = None
+DEFAULT_WIDTH: Final = None
+DEFAULT_HEIGHT: Final = None
+DEFAULT_FPS: Final = None
 DEFAULT_CODEC = "unset"
 DEFAULT_AUDIO_CODEC = "unset"
 DEFAULT_AUDIO_PIPELINE = "unset"
 DEFAULT_RTSP_TRANSPORT = "tcp"
 DEFAULT_FRAME_TIMEOUT = 60
 DEFAULT_OUTPUT_ELEMENT: str = ""
-DEFAULT_RAW_PIPELINE = None
+DEFAULT_RAW_PIPELINE: Final = None
 
 DESC_STREAM_FORMAT = "Stream format."
 DESC_PROTOCOL = "Stream protocol"
@@ -162,8 +171,8 @@ CONFIG_GSTREAMER_RECOVERABLE_ERRORS = "gstreamer_recoverable_errors"
 CONFIG_FFPROBE_LOGLEVEL = "ffprobe_loglevel"
 CONFIG_RECORDER = "recorder"
 
-DEFAULT_USERNAME = None
-DEFAULT_PASSWORD = None
+DEFAULT_USERNAME: Final = None
+DEFAULT_PASSWORD: Final = None
 DEFAULT_GSTREAMER_LOGLEVEL = "error"
 DEFAULT_GSTREAMER_RECOVERABLE_ERRORS: list[str] = [
     "Last message repeated",

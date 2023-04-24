@@ -45,7 +45,7 @@ class AbstractPipeline(ABC):
 class RawPipeline(AbstractPipeline):
     """Raw GStreamer pipeline."""
 
-    def __init__(self, config):
+    def __init__(self, config) -> None:
         self._config = config
 
     def build_pipeline(self):
@@ -56,7 +56,7 @@ class RawPipeline(AbstractPipeline):
 class BasePipeline(AbstractPipeline):
     """Base GStreamer pipeline."""
 
-    def __init__(self, config, stream: Stream, camera_identifier):
+    def __init__(self, config, stream: Stream, camera_identifier) -> None:
         self._config = config
         self._stream = stream
         self._camera_identifier = camera_identifier
@@ -75,7 +75,7 @@ class BasePipeline(AbstractPipeline):
         """Generate GStreamer input pipeline."""
         return (
             [STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]]["plugin"]]
-            + [f"location={self._stream.output_stream_url}"]
+            + [f"location={self._stream.mainstream.url}"]
             + [
                 "name=input_stream",
                 "do-timestamp=true",
@@ -100,12 +100,12 @@ class BasePipeline(AbstractPipeline):
         Returns depay element from override map if it exists.
         Otherwise we assume the depay element shares name with the codec.
         """
-        if depay_element := DEPAY_ELEMENT_MAP.get(self._stream.stream_codec, None):
+        if depay_element := DEPAY_ELEMENT_MAP.get(self._stream.mainstream.codec, None):
             _depay_element = ["!", depay_element]
         elif depay_element is False:
             return ["!"]
         else:
-            _depay_element = ["!", f"rtp{self._stream.stream_codec}depay"]
+            _depay_element = ["!", f"rtp{self._stream.mainstream.codec}depay"]
 
         return _depay_element + [
             "!",
@@ -148,17 +148,15 @@ class BasePipeline(AbstractPipeline):
         Returns decoder element from override map if it exists.
         Otherwise we assume the decoder element shares name with the codec.
         """
-        decoder_element = DECODER_ELEMENT_MAP.get(self._stream.stream_codec, None)
+        decoder_element = DECODER_ELEMENT_MAP.get(self._stream.mainstream.codec, None)
 
-        if decoder_element is False:
-            return []
         if decoder_element:
             return [
                 decoder_element,
                 "!",
             ]
         return [
-            f"avdec_{self._stream.stream_codec}",
+            f"avdec_{self._stream.mainstream.codec}",
             "!",
         ]
 
@@ -184,10 +182,10 @@ class BasePipeline(AbstractPipeline):
         Returns parse element from override map if it exists.
         Otherwise we assume the parse element shares name with the codec.
         """
-        if parse_element := PARSE_ELEMENT_MAP.get(self._stream.stream_codec, None):
+        if parse_element := PARSE_ELEMENT_MAP.get(self._stream.mainstream.codec, None):
             return ["!", parse_element]
 
-        return ["!", f"{self._stream.stream_codec}parse"]
+        return ["!", f"{self._stream.mainstream.codec}parse"]
 
     def segment_pipeline(self):
         """Generate GStreamer segment args."""
@@ -218,20 +216,15 @@ class BasePipeline(AbstractPipeline):
     def audio_pipeline(self):
         """Return audio pipeline."""
         if (
-            self._stream.output_stream_config[CONFIG_AUDIO_PIPELINE]
-            and self._stream.output_stream_config[CONFIG_AUDIO_PIPELINE]
-            != DEFAULT_AUDIO_PIPELINE
+            self._config[CONFIG_AUDIO_PIPELINE]
+            and self._config[CONFIG_AUDIO_PIPELINE] != DEFAULT_AUDIO_PIPELINE
         ):
-            return self._stream.output_stream_config[CONFIG_AUDIO_PIPELINE].split(" ")
+            return self._config[CONFIG_AUDIO_PIPELINE].split(" ")
 
         if (
-            self._stream.output_stream_config[CONFIG_AUDIO_CODEC]
-            and self._stream.output_stream_config[CONFIG_AUDIO_CODEC]
-            != DEFAULT_AUDIO_PIPELINE
-        ) or (
-            self._stream.stream_audio_codec
-            and self._stream.output_stream_config[CONFIG_AUDIO_CODEC]
-        ):
+            self._config[CONFIG_AUDIO_CODEC]
+            and self._config[CONFIG_AUDIO_CODEC] != DEFAULT_AUDIO_PIPELINE
+        ) or (self._stream.mainstream.audio_codec and self._config[CONFIG_AUDIO_CODEC]):
             return [
                 "input_stream.",
                 "!",

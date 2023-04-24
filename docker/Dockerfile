@@ -14,10 +14,7 @@ COPY frontend/package.json ./
 COPY frontend/package-lock.json ./
 COPY frontend/ ./
 
-RUN npm ci \
-  && npm run build \
-  # Move index.html into the static folder
-  && mv /frontend/build/index.html /frontend/build/static/
+RUN npm ci && npm run build
 
 FROM roflcoopter/${ARCH}-base:${BASE_VERSION}
 
@@ -101,5 +98,5 @@ COPY docker/ffmpeg_wrapper /home/abc/bin/ffmpeg
 COPY --from=opencv /opt/opencv /usr/local/
 COPY --from=ffmpeg /usr/local /ffmpeg/
 COPY rootfs/ /
-COPY --from=frontend /frontend/build/static /src/viseron/frontend/static
+COPY --from=frontend /frontend/dist /src/viseron/frontend/
 COPY viseron /src/viseron/

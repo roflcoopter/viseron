@@ -56,11 +56,7 @@ export default function RecordingCard({
             offset={500}
             placeholder={<VideoPlayerPlaceholder camera={camera} />}
           >
-            <VideoPlayer
-              recording={recording}
-              options={videoJsOptions}
-              overlay={false}
-            />
+            <VideoPlayer options={videoJsOptions} />
           </LazyLoad>
         </CardMedia>
         <CardActions>

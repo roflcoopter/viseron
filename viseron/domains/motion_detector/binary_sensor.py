@@ -23,14 +23,14 @@ class MotionDetectionBinarySensor(CameraBinarySensor):
         vis: Viseron,
         motion_detector: AbstractMotionDetector,
         camera: AbstractCamera,
-    ):
+    ) -> None:
         super().__init__(vis, camera)
         self._motion_detector = motion_detector
         self.device_class = "motion"
         self.object_id = f"{camera.identifier}_motion_detected"
         self.name = f"{camera.name} Motion Detected"
 
-    def setup(self):
+    def setup(self) -> None:
         """Set up event listener."""
         self._vis.listen_event(
             EVENT_MOTION_DETECTED.format(camera_identifier=self._camera.identifier),
@@ -41,6 +41,6 @@ class MotionDetectionBinarySensor(CameraBinarySensor):
     def _is_on(self):
         return self._motion_detector.motion_detected
 
-    def handle_event(self, _event_data: Event[EventMotionDetected]):
+    def handle_event(self, _event_data: Event[EventMotionDetected]) -> None:
         """Handle status event."""
         self.set_state()

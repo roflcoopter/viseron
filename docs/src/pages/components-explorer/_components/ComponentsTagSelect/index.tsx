@@ -10,8 +10,8 @@ import React, {
 
 import { useHistory, useLocation } from "@docusaurus/router";
 
-import type { DomainType } from "@site/src/data/components";
 import { prepareUserState } from "@site/src/pages/components-explorer";
+import { DomainType } from "@site/src/types";
 
 import styles from "./styles.module.css";
 

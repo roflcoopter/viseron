@@ -1,11 +1,12 @@
-"""Class to interact with an FFmpeog stream."""
+"""Class to interact with an FFmpeg stream."""
 from __future__ import annotations
 
 import json
 import logging
 import os
 import subprocess as sp
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from tenacity import (
     Retrying,
@@ -70,10 +71,25 @@ if TYPE_CHECKING:
     from viseron.components.ffmpeg.camera import Camera
 
 
+@dataclass
+class StreamInformation:
+    """Stream information class."""
+
+    width: int
+    height: int
+    fps: int
+    codec: str
+    audio_codec: str | None
+    url: str
+    config: dict[str, Any]
+
+
 class Stream:
     """Represents a stream of frames from a camera."""
 
-    def __init__(self, config, camera: Camera, camera_identifier):
+    def __init__(
+        self, config: dict[str, Any], camera: Camera, camera_identifier: str
+    ) -> None:
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.addFilter(
             UnhelpfullLogFilter(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS])
@@ -83,111 +99,30 @@ class Stream:
 
         self._camera: Camera = camera
 
-        self._pipe = None
-        self._segment_process = None
+        self._pipe: sp.Popen | None = None
+        self._segment_process: RestartablePopen | None = None
         self._log_pipe = LogPipe(
             self._logger, FFMPEG_LOGLEVELS[config[CONFIG_FFMPEG_LOGLEVEL]]
         )
+        self._ffprobe = FFprobe(config, camera_identifier)
 
-        self._ffprobe_log_pipe = LogPipe(
-            self._logger, FFPROBE_LOGLEVELS[config[CONFIG_FFPROBE_LOGLEVEL]]
-        )
-        self._ffprobe_timeout = FFPROBE_TIMEOUT
-
-        self._output_stream_config = config
+        self._mainstream = self.get_stream_information(config)
+        self._substream = None
         if config.get(CONFIG_SUBSTREAM, None):
-            self._output_stream_config = config[CONFIG_SUBSTREAM]
+            self._substream = self.get_stream_information(config[CONFIG_SUBSTREAM])
 
-        stream_codec = None
-        stream_audio_codec = None
-        # If any of the parameters are unset we need to fetch them using FFprobe
-        if (
-            not self._output_stream_config[CONFIG_WIDTH]
-            or not self._output_stream_config[CONFIG_HEIGHT]
-            or not self._output_stream_config[CONFIG_FPS]
-            or not self._output_stream_config[CONFIG_CODEC]
-            or self._output_stream_config[CONFIG_CODEC] == DEFAULT_CODEC
-            or self._output_stream_config[CONFIG_AUDIO_CODEC] == DEFAULT_AUDIO_CODEC
-        ):
-            (
-                width,
-                height,
-                fps,
-                stream_codec,
-                stream_audio_codec,
-            ) = self.get_stream_information(self.output_stream_url)
-
-        self.width = (
-            self._output_stream_config[CONFIG_WIDTH]
-            if self._output_stream_config[CONFIG_WIDTH]
-            else width
-        )
-        self.height = (
-            self._output_stream_config[CONFIG_HEIGHT]
-            if self._output_stream_config[CONFIG_HEIGHT]
-            else height
-        )
-        self.fps = (
-            self._output_stream_config[CONFIG_FPS]
-            if self._output_stream_config[CONFIG_FPS]
-            else fps
-        )
-        self.stream_codec = stream_codec
-        self.stream_audio_codec = stream_audio_codec
         self._output_fps = self.fps
-
-        if self.width and self.height and self.fps:
-            pass
-        else:
-            raise StreamInformationError(self.width, self.height, self.fps)
-
-        self.create_symlink(self.alias)
-        self.create_symlink(self.segments_alias)
-
-        self._pixel_format = self._output_stream_config[CONFIG_PIX_FMT]
+        self._pixel_format = (
+            self._substream.config[CONFIG_PIX_FMT]
+            if self._substream
+            else self._mainstream.config[CONFIG_PIX_FMT]
+        )
         self._color_plane_width = self.width
         self._color_plane_height = int(self.height * 1.5)
         self._frame_bytes_size = int(self.width * self.height * 1.5)
 
-    @property
-    def stream_url(self):
-        """Return stream url."""
-        auth = ""
-        if self._config[CONFIG_USERNAME] and self._config[CONFIG_PASSWORD]:
-            auth = f"{self._config[CONFIG_USERNAME]}:{self._config[CONFIG_PASSWORD]}@"
-
-        protocol = (
-            self._config[CONFIG_PROTOCOL]
-            if self._config[CONFIG_PROTOCOL]
-            else STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]]["protocol"]
-        )
-        return (
-            f"{protocol}://"
-            f"{auth}"
-            f"{self._config[CONFIG_HOST]}:{self._config[CONFIG_PORT]}"
-            f"{self._config[CONFIG_PATH]}"
-        )
-
-    @property
-    def output_stream_url(self):
-        """Return output stream url."""
-        auth = ""
-        if self._config[CONFIG_USERNAME] and self._config[CONFIG_PASSWORD]:
-            auth = f"{self._config[CONFIG_USERNAME]}:{self._config[CONFIG_PASSWORD]}@"
-
-        protocol = (
-            self._output_stream_config[CONFIG_PROTOCOL]
-            if self._output_stream_config[CONFIG_PROTOCOL]
-            else STREAM_FORMAT_MAP[self._output_stream_config[CONFIG_STREAM_FORMAT]][
-                "protocol"
-            ]
-        )
-        return (
-            f"{protocol}://"
-            f"{auth}"
-            f"{self._config[CONFIG_HOST]}:{self._output_stream_config[CONFIG_PORT]}"
-            f"{self._output_stream_config[CONFIG_PATH]}"
-        )
+        self.create_symlink(self.alias)
+        self.create_symlink(self.segments_alias)
 
     @property
     def output_args(self):
@@ -196,30 +131,56 @@ class Stream:
             "-f",
             "rawvideo",
             "-pix_fmt",
-            self._output_stream_config[CONFIG_PIX_FMT],
+            self._pixel_format,
             "pipe:1",
         ]
 
     @property
-    def alias(self):
+    def alias(self) -> str:
         """Return FFmpeg executable alias."""
         return f"ffmpeg_{self._camera_identifier}"
 
     @property
-    def segments_alias(self):
+    def segments_alias(self) -> str:
         """Return FFmpeg segments executable alias."""
         return f"ffmpeg_{self._camera_identifier}_seg"
 
     @staticmethod
-    def create_symlink(alias):
+    def create_symlink(alias) -> None:
         """Create a symlink to FFmpeg executable.
 
         This is done to know which FFmpeg command belongs to which camera.
         """
+        path = os.getenv(ENV_FFMPEG_PATH)
+
+        if not path:
+            raise RuntimeError("FFmpeg path not set")
+
         try:
-            os.symlink(os.getenv(ENV_FFMPEG_PATH), f"/home/abc/bin/{alias}")
+            os.symlink(path, f"/home/abc/bin/{alias}")
         except FileExistsError:
             pass
+
+    @property
+    def width(self) -> int:
+        """Return stream width."""
+        if self._substream:
+            return self._substream.width
+        return self._mainstream.width
+
+    @property
+    def height(self) -> int:
+        """Return stream height."""
+        if self._substream:
+            return self._substream.height
+        return self._mainstream.height
+
+    @property
+    def fps(self) -> int:
+        """Return stream FPS."""
+        if self._substream:
+            return self._substream.fps
+        return self._mainstream.fps
 
     @property
     def output_fps(self):
@@ -227,111 +188,61 @@ class Stream:
         return self._output_fps
 
     @output_fps.setter
-    def output_fps(self, fps):
+    def output_fps(self, fps) -> None:
         self._output_fps = fps
 
-    def run_ffprobe(
-        self,
-        stream_url: str,
-    ) -> dict:
-        """Run FFprobe command."""
-        ffprobe_command = (
-            [
-                "ffprobe",
-                "-hide_banner",
-                "-loglevel",
-            ]
-            + [self._config[CONFIG_FFPROBE_LOGLEVEL]]
-            + [
-                "-print_format",
-                "json",
-                "-show_error",
-                "-show_streams",
-            ]
-            + [stream_url]
+    def get_stream_url(self, stream_config: dict[str, Any]) -> str:
+        """Return stream url."""
+        auth = ""
+        if self._config[CONFIG_USERNAME] and self._config[CONFIG_PASSWORD]:
+            auth = f"{self._config[CONFIG_USERNAME]}:{self._config[CONFIG_PASSWORD]}@"
+
+        protocol = (
+            stream_config[CONFIG_PROTOCOL]
+            if stream_config[CONFIG_PROTOCOL]
+            else STREAM_FORMAT_MAP[stream_config[CONFIG_STREAM_FORMAT]]["protocol"]
         )
-        self._logger.debug(f"FFprobe command: {' '.join(ffprobe_command)}")
 
-        for attempt in Retrying(
-            retry=retry_if_exception_type((sp.TimeoutExpired, FFprobeTimeout)),
-            stop=stop_after_attempt(10),
-            wait=wait_exponential(multiplier=2, min=1, max=30),
-            before_sleep=before_sleep_log(self._logger, logging.ERROR),
-            reraise=True,
+        return (
+            f"{protocol}://"
+            f"{auth}"
+            f"{self._config[CONFIG_HOST]}:{stream_config[CONFIG_PORT]}"
+            f"{stream_config[CONFIG_PATH]}"
+        )
+
+    def get_stream_information(
+        self, stream_config: dict[str, Any]
+    ) -> StreamInformation:
+        """Return stream information."""
+        # If any of the parameters are unset we need to fetch them using FFprobe
+        stream_url = self.get_stream_url(stream_config)
+        if (
+            not stream_config[CONFIG_WIDTH]
+            or not stream_config[CONFIG_HEIGHT]
+            or not stream_config[CONFIG_FPS]
+            or not stream_config[CONFIG_CODEC]
+            or stream_config[CONFIG_CODEC] == DEFAULT_CODEC
+            or stream_config[CONFIG_AUDIO_CODEC] == DEFAULT_AUDIO_CODEC
         ):
-            with attempt:
-                pipe = sp.Popen(  # type: ignore
-                    ffprobe_command,
-                    stdout=sp.PIPE,
-                    stderr=self._log_pipe,
-                )
-                try:
-                    stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
-                    pipe.wait(timeout=FFPROBE_TIMEOUT)
-                except sp.TimeoutExpired as error:
-                    pipe.terminate()
-                    pipe.wait(timeout=FFPROBE_TIMEOUT)
-                    ffprobe_timeout = self._ffprobe_timeout
-                    self._ffprobe_timeout += FFPROBE_TIMEOUT
-                    raise FFprobeTimeout(ffprobe_timeout) from error
-                self._ffprobe_timeout = FFPROBE_TIMEOUT
-
-        try:
-            # Trim away any text before start of JSON object
-            trimmed_stdout = stdout[stdout.find(b"{") :]
-            output: dict = json.loads(trimmed_stdout)
-        except json.decoder.JSONDecodeError as error:
-            raise FFprobeError(
-                stdout,
-            ) from error
-
-        if output.get("error", None):
-            raise FFprobeError(
-                output,
+            self._logger.debug(f"Getting stream information for {stream_url}")
+            width, height, fps, codec, audio_codec = self._ffprobe.stream_information(
+                stream_url
             )
 
-        return output
-
-    def ffprobe_stream_information(self, stream_url):
-        """Return stream information using FFprobe."""
-        width, height, fps, codec, audio_codec = 0, 0, 0, None, None
-        streams = self.run_ffprobe(stream_url)
-
-        video_stream = None
-        audio_stream = None
-        for stream in streams["streams"]:
-            if video_stream and audio_stream:
-                break
-            if stream["codec_type"] == "video":
-                video_stream = stream
-            elif stream["codec_type"] == "audio":
-                audio_stream = stream
-
-        if audio_stream:
-            audio_codec = audio_stream.get("codec_name", None)
-
-        try:
-            numerator = int(video_stream.get("avg_frame_rate", 0).split("/")[0])
-            denominator = int(video_stream.get("avg_frame_rate", 0).split("/")[1])
-        except KeyError:
-            return (width, height, fps, codec, audio_codec)
-
-        try:
-            fps = numerator / denominator
-        except ZeroDivisionError:
-            pass
-
-        width = video_stream.get("width", 0)
-        height = video_stream.get("height", 0)
-        codec = video_stream.get("codec_name", None)
-
-        return (width, height, fps, codec, audio_codec)
-
-    def get_stream_information(self, stream_url):
-        """Return stream information."""
-        self._logger.debug(f"Getting stream information for {stream_url}")
-        width, height, fps, codec, audio_codec = self.ffprobe_stream_information(
-            stream_url
+        width = stream_config[CONFIG_WIDTH] if stream_config[CONFIG_WIDTH] else width
+        height = (
+            stream_config[CONFIG_HEIGHT] if stream_config[CONFIG_HEIGHT] else height
+        )
+        fps = stream_config[CONFIG_FPS] if stream_config[CONFIG_FPS] else fps
+        codec = (
+            stream_config[CONFIG_CODEC]
+            if stream_config[CONFIG_CODEC] != DEFAULT_CODEC
+            else codec
+        )
+        audio_codec = (
+            stream_config[CONFIG_AUDIO_CODEC]
+            if stream_config[CONFIG_AUDIO_CODEC] != DEFAULT_AUDIO_CODEC
+            else audio_codec
         )
 
         self._logger.debug(
@@ -342,7 +253,14 @@ class Stream:
             f"Video Codec: {codec} "
             f"Audio Codec: {audio_codec}"
         )
-        return width, height, fps, codec, audio_codec
+        if width and height and fps and codec:
+            pass
+        else:
+            raise StreamInformationError(width, height, fps, codec)
+
+        return StreamInformation(
+            width, height, fps, codec, audio_codec, stream_url, stream_config
+        )
 
     @staticmethod
     def get_codec(stream_config, stream_codec):
@@ -373,11 +291,8 @@ class Stream:
         if stream_config[CONFIG_INPUT_ARGS]:
             input_args = stream_config[CONFIG_INPUT_ARGS]
         else:
-            input_args = (
-                CAMERA_INPUT_ARGS
-                + STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]][
-                    "timeout_option"
-                ]
+            input_args = CAMERA_INPUT_ARGS + list(
+                STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]]["timeout_option"]
             )
 
         return (
@@ -392,7 +307,12 @@ class Stream:
             + ["-i", stream_url]
         )
 
-    def get_audio_codec(self, stream_config, stream_audio_codec, extension):
+    def get_audio_codec(
+        self,
+        stream_config: dict[str, Any],
+        stream_audio_codec: str | None,
+        extension: str,
+    ) -> list[str]:
         """Return audio codec used for saving segments."""
         if (
             stream_config[CONFIG_AUDIO_CODEC]
@@ -423,7 +343,7 @@ class Stream:
         return (
             CAMERA_SEGMENT_ARGS
             + self.get_audio_codec(
-                self._config, self.stream_audio_codec, self._camera.extension
+                self._config, self._mainstream.audio_codec, self._camera.extension
             )
             + [
                 os.path.join(
@@ -453,7 +373,7 @@ class Stream:
         Only used when a substream is configured.
         """
         stream_input_command = self.stream_command(
-            self._config, self.stream_codec, self.stream_url
+            self._config, self._mainstream.codec, self._mainstream.url
         )
         return (
             [self.segments_alias]
@@ -466,19 +386,19 @@ class Stream:
 
     def build_command(self):
         """Return full FFmpeg command."""
-        if self._config.get(CONFIG_SUBSTREAM, None):
+        if self._substream:
             stream_input_command = self.stream_command(
-                self._output_stream_config,
-                self.stream_codec,
-                self.output_stream_url,
+                self._substream.config,
+                self._substream.codec,
+                self._substream.url,
             )
+            camera_segment_args = []
         else:
             stream_input_command = self.stream_command(
-                self._config, self.stream_codec, self.stream_url
+                self._mainstream.config,
+                self._mainstream.config,
+                self._mainstream.url,
             )
-
-        camera_segment_args = []
-        if not self._config.get(CONFIG_SUBSTREAM, None):
             camera_segment_args = self.segment_args()
 
         return (
@@ -502,13 +422,13 @@ class Stream:
                 stderr=self._log_pipe,
             )
 
-        return sp.Popen(
+        return sp.Popen(  # type: ignore[call-overload]
             self.build_command(),
             stdout=sp.PIPE,
             stderr=self._log_pipe,
         )
 
-    def start_pipe(self):
+    def start_pipe(self) -> None:
         """Start piping frames from FFmpeg."""
         self._logger.debug(f"FFmpeg decoder command: {' '.join(self.build_command())}")
         if self._config.get(CONFIG_SUBSTREAM, None):
@@ -518,10 +438,14 @@ class Stream:
 
         self._pipe = self.pipe()
 
-    def close_pipe(self):
+    def close_pipe(self) -> None:
         """Close FFmpeg pipe."""
         if self._segment_process:
             self._segment_process.terminate()
+
+        if not self._pipe:
+            self._logger.error("No pipe to close")
+            return
 
         try:
             self._pipe.terminate()
@@ -536,12 +460,13 @@ class Stream:
 
     def poll(self):
         """Poll pipe."""
-        return self._pipe.poll()
+        if self._pipe:
+            return self._pipe.poll()
 
     def read(self):
         """Return a single frame from FFmpeg pipe."""
-        if self._pipe:
-            try:
+        try:
+            if self._pipe and self._pipe.stdout:
                 frame_bytes = self._pipe.stdout.read(self._frame_bytes_size)
                 if len(frame_bytes) == self._frame_bytes_size:
                     shared_frame = SharedFrame(
@@ -553,6 +478,120 @@ class Stream:
                     )
                     self._camera.shared_frames.create(shared_frame, frame_bytes)
                     return shared_frame
-            except Exception as err:  # pylint: disable=broad-except
-                self._logger.error(f"Error reading frame from FFmpeg: {err}")
+        except Exception as err:  # pylint: disable=broad-except
+            self._logger.error(f"Error reading frame from pipe: {err}")
         return None
+
+
+class FFprobe:
+    """FFprobe wrapper class."""
+
+    def __init__(self, config: dict[str, Any], camera_identifier: str) -> None:
+        self._logger = logging.getLogger(__name__ + "." + camera_identifier)
+        self._config = config
+        self._log_pipe = LogPipe(
+            self._logger, FFPROBE_LOGLEVELS[config[CONFIG_FFPROBE_LOGLEVEL]]
+        )
+        self._ffprobe_timeout = FFPROBE_TIMEOUT
+
+    def stream_information(
+        self, stream_url: str
+    ) -> tuple[int, int, int, str | None, str | None]:
+        """Return stream information using FFprobe."""
+        width, height, fps, codec, audio_codec = 0, 0, 0, None, None
+        streams = self.run_ffprobe(stream_url)
+
+        video_stream: dict[str, Any] | None = None
+        audio_stream: dict[str, Any] | None = None
+        for stream in streams["streams"]:
+            if video_stream and audio_stream:
+                break
+            if stream["codec_type"] == "video":
+                video_stream = stream
+            elif stream["codec_type"] == "audio":
+                audio_stream = stream
+
+        if audio_stream:
+            audio_codec = audio_stream.get("codec_name", None)
+
+        if video_stream is None:
+            return (width, height, fps, codec, audio_codec)
+
+        try:
+            numerator = int(video_stream["avg_frame_rate"].split("/")[0])
+            denominator = int(video_stream["avg_frame_rate"].split("/")[1])
+        except KeyError:
+            return (width, height, fps, codec, audio_codec)
+
+        try:
+            fps = int(numerator / denominator)
+        except ZeroDivisionError:
+            pass
+
+        width = video_stream.get("width", 0)
+        height = video_stream.get("height", 0)
+        codec = video_stream.get("codec_name", None)
+
+        return (width, height, fps, codec, audio_codec)
+
+    def run_ffprobe(
+        self,
+        stream_url: str,
+    ) -> dict[str, Any]:
+        """Run FFprobe command."""
+        ffprobe_command = (
+            [
+                "ffprobe",
+                "-hide_banner",
+                "-loglevel",
+            ]
+            + [self._config[CONFIG_FFPROBE_LOGLEVEL]]
+            + [
+                "-print_format",
+                "json",
+                "-show_error",
+                "-show_streams",
+            ]
+            + [stream_url]
+        )
+        self._logger.debug(f"FFprobe command: {' '.join(ffprobe_command)}")
+
+        for attempt in Retrying(
+            retry=retry_if_exception_type((sp.TimeoutExpired, FFprobeTimeout)),
+            stop=stop_after_attempt(10),
+            wait=wait_exponential(multiplier=2, min=1, max=30),
+            before_sleep=before_sleep_log(self._logger, logging.ERROR),
+            reraise=True,
+        ):
+            with attempt:
+                pipe = sp.Popen(  # type: ignore[call-overload]
+                    ffprobe_command,
+                    stdout=sp.PIPE,
+                    stderr=self._log_pipe,
+                )
+                try:
+                    stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
+                    pipe.wait(timeout=FFPROBE_TIMEOUT)
+                except sp.TimeoutExpired as error:
+                    pipe.terminate()
+                    pipe.wait(timeout=FFPROBE_TIMEOUT)
+                    ffprobe_timeout = self._ffprobe_timeout
+                    self._ffprobe_timeout += FFPROBE_TIMEOUT
+                    raise FFprobeTimeout(ffprobe_timeout) from error
+                self._ffprobe_timeout = FFPROBE_TIMEOUT
+
+        try:
+            # Trim away any text before start of JSON object
+            trimmed_stdout = stdout[stdout.find(b"{") :]
+            output: dict = json.loads(trimmed_stdout)
+        except json.decoder.JSONDecodeError as error:
+            raise FFprobeError(
+                stdout,
+            ) from error
+
+        if output.get("error", None):
+            raise FFprobeError(
+                output,
+            )
+
+        return output

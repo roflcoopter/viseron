@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 from abc import ABC
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from viseron.components.mqtt.const import (
     COMPONENT as MQTT_COMPONENT,
@@ -16,19 +16,21 @@ from viseron.components.mqtt.const import (
     MQTT_CLIENT_CONNECTION_ONLINE,
     MQTT_CLIENT_CONNECTION_TOPIC,
 )
+from viseron.components.mqtt.entity import MQTTEntity
 from viseron.components.mqtt.helpers import PublishPayload
 
 if TYPE_CHECKING:
     from viseron import Viseron
-    from viseron.components.mqtt.entity import MQTTEntity
+
+T = TypeVar("T", bound=MQTTEntity)
 
 
-class HassMQTTEntity(ABC):
+class HassMQTTEntity(ABC, Generic[T]):
     """Base class for all Home Assistant MQTT entities."""
 
     domain: str = NotImplemented
 
-    def __init__(self, vis: Viseron, config, mqtt_entity: MQTTEntity):
+    def __init__(self, vis: Viseron, config, mqtt_entity: T) -> None:
         self._vis = vis
         self._config = config
         self._mqtt_entity = mqtt_entity
@@ -118,7 +120,7 @@ class HassMQTTEntity(ABC):
         return self._mqtt_entity.attributes_topic
 
     @property
-    def config_topic(self):
+    def config_topic(self) -> str:
         """Return config topic."""
         return (
             f"{self._config[CONFIG_HOME_ASSISTANT][CONFIG_DISCOVERY_PREFIX]}/"
@@ -150,7 +152,7 @@ class HassMQTTEntity(ABC):
 
         return payload
 
-    def create(self):
+    def create(self) -> None:
         """Create config in Home Assistant."""
         self._mqtt.publish(
             PublishPayload(

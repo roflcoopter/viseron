@@ -8,7 +8,7 @@ import shutil
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 import cv2
 import numpy as np
@@ -37,6 +37,15 @@ from .shared_frames import SharedFrame
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains.camera import AbstractCamera, FailedCamera
+
+
+class RecordingDict(TypedDict):
+    """Recording dict."""
+
+    path: str
+    filename: str
+    date: str
+    thumbnail_path: str | None
 
 
 @dataclass
@@ -87,7 +96,9 @@ class Recording:
 class RecorderBase:
     """Base recorder."""
 
-    def __init__(self, vis: Viseron, config, camera: AbstractCamera | FailedCamera):
+    def __init__(
+        self, vis: Viseron, config, camera: AbstractCamera | FailedCamera
+    ) -> None:
         self._logger = logging.getLogger(self.__module__ + "." + camera.identifier)
         self._vis = vis
         self._config = config
@@ -103,7 +114,7 @@ class RecorderBase:
             self._camera.identifier,
         )
 
-    def _recording_file_dict(self, file: Path):
+    def _recording_file_dict(self, file: Path) -> RecordingDict:
         """Return a dict with recording file information."""
         return {
             "path": str(file),
@@ -114,7 +125,7 @@ class RecorderBase:
 
     def get_recordings(self, date=None):
         """Return all recordings."""
-        recordings = {}
+        recordings: dict[str, dict[str, RecordingDict]] = {}
         dirs = Path(self.recordings_folder)
         folders = dirs.walkdirs(date if date else "*-*-*")
         for folder in folders:
@@ -139,7 +150,7 @@ class RecorderBase:
 
     def get_latest_recording(self, date=None):
         """Return the latest recording."""
-        recordings = {}
+        recordings: dict[str, dict[str, RecordingDict]] = {}
         dirs = Path(self.recordings_folder)
         folders = dirs.walkdirs(date if date else "*-*-*")
         for folder in sorted(folders, reverse=True):
@@ -155,7 +166,7 @@ class RecorderBase:
 
     def get_latest_recording_daily(self):
         """Return the latest recording for each day."""
-        recordings = {}
+        recordings: dict[str, dict[str, RecordingDict]] = {}
         dirs = Path(self.recordings_folder)
         folders = dirs.walkdirs("*-*-*")
         for folder in sorted(folders, reverse=True):
@@ -169,7 +180,7 @@ class RecorderBase:
                     break
         return recordings
 
-    def delete_recording(self, date=None, filename=None):
+    def delete_recording(self, date=None, filename=None) -> bool:
         """Delete a single recording."""
         path = None
 
@@ -214,7 +225,7 @@ class RecorderBase:
 class AbstractRecorder(ABC, RecorderBase):
     """Abstract recorder."""
 
-    def __init__(self, vis: Viseron, component, config, camera: AbstractCamera):
+    def __init__(self, vis: Viseron, component, config, camera: AbstractCamera) -> None:
         super().__init__(vis, config, camera)
         self._camera: AbstractCamera = camera
 
@@ -242,7 +253,7 @@ class AbstractRecorder(ABC, RecorderBase):
         return self.get_recordings()
 
     @staticmethod
-    def subfolder_name(today):
+    def subfolder_name(today) -> str:
         """Generate name of folder for recording."""
         return f"{today.year:04}-{today.month:02}-{today.day:02}"
 
@@ -347,9 +358,13 @@ class AbstractRecorder(ABC, RecorderBase):
     ):
         """Start the recorder."""
 
-    def stop(self, recording: Recording):
+    def stop(self, recording: Recording | None) -> None:
         """Stop recording."""
         self._logger.info("Stopping recorder")
+        if recording is None:
+            self._logger.error("No active recording to stop")
+            return
+
         end_time = datetime.datetime.now()
         recording.end_time = end_time
         recording.end_timestamp = end_time.timestamp()
@@ -378,7 +393,7 @@ class AbstractRecorder(ABC, RecorderBase):
         """Return active recording."""
         return self._active_recording
 
-    def cleanup_recordings(self):
+    def cleanup_recordings(self) -> None:
         """Delete all recordings that have past the configured days to retain."""
         self._logger.debug("Running cleanup")
         retention_period = time.time() - (

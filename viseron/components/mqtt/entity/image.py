@@ -5,15 +5,16 @@ import cv2
 
 from viseron.components.mqtt.const import CONFIG_CLIENT_ID
 from viseron.components.mqtt.helpers import PublishPayload
+from viseron.helpers.entity.image import ImageEntity
 
 from . import MQTTEntity
 
 
-class ImageMQTTEntity(MQTTEntity):
+class ImageMQTTEntity(MQTTEntity[ImageEntity]):
     """Base image MQTT entity class."""
 
     @property
-    def state_topic(self):
+    def state_topic(self) -> str:
         """Return state topic."""
         return (
             f"{self._config[CONFIG_CLIENT_ID]}/{self.entity.domain}/"
@@ -21,7 +22,7 @@ class ImageMQTTEntity(MQTTEntity):
         )
 
     @property
-    def attributes_topic(self):
+    def attributes_topic(self) -> str:
         """Return attributes topic."""
         return (
             f"{self._config[CONFIG_CLIENT_ID]}/{self.entity.domain}/"
@@ -36,7 +37,7 @@ class ImageMQTTEntity(MQTTEntity):
                 return jpg.tobytes()
         return None
 
-    def publish_state(self):
+    def publish_state(self) -> None:
         """Publish state to MQTT."""
         image = self._create_bytes_image()
 

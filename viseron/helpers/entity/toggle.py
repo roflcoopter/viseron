@@ -18,9 +18,6 @@ class ToggleEntity(Entity):
     # These are safe to override
     _is_on: bool | None = None
 
-    # Used by Home Assistant, safe to override
-    device_class: str | None = None
-
     @property
     def is_on(self) -> bool | None:
         """Return true if the binary sensor is on."""
@@ -39,7 +36,7 @@ class ToggleEntity(Entity):
         """Turn off entity."""
         raise NotImplementedError()
 
-    def toggle(self):
+    def toggle(self) -> None:
         """Turn off entity."""
         if self.is_on:
             self.turn_off()

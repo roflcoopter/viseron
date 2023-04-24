@@ -3,10 +3,17 @@ from __future__ import annotations
 
 import importlib
 import logging
+from typing import TYPE_CHECKING, Any
 
 import tornado.routing
 
 from viseron.components.webserver.api.handlers import APINotFoundHandler
+
+if TYPE_CHECKING:
+    from tornado.httputil import HTTPServerRequest
+    from tornado.web import Application, _HandlerDelegate
+
+    from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
 
@@ -14,11 +21,15 @@ LOGGER = logging.getLogger(__name__)
 class APIRouter(tornado.routing.Router):
     """Catch-all API Router."""
 
-    def __init__(self, vis, application, **_kwargs):
+    def __init__(
+        self, vis: Viseron, application: Application, **_kwargs: dict[str, Any]
+    ) -> None:
         self._vis = vis
         self._application = application
 
-    def find_handler(self, request, **_kwargs):
+    def find_handler(
+        self, request: HTTPServerRequest, **_kwargs: dict[str, Any]
+    ) -> _HandlerDelegate:
         """Route to correct API handler."""
         api_version = request.path.split("/")[2]
         endpoint = request.path.split("/")[3]

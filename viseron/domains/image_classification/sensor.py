@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class ImageClassificationSensor(CameraSensor):
     """Entity that keeps track of image classification results."""
 
-    def __init__(self, vis: Viseron, camera: AbstractCamera):
+    def __init__(self, vis: Viseron, camera: AbstractCamera) -> None:
         super().__init__(vis, camera)
         self.object_id = f"{camera.identifier}_image_classification"
         self.name = f"{camera.name} Image Classification"
@@ -25,7 +25,7 @@ class ImageClassificationSensor(CameraSensor):
 
         self._image_classification_event: EventImageClassification | None = None
 
-    def setup(self):
+    def setup(self) -> None:
         """Set up event listener."""
         self._vis.listen_event(
             EVENT_IMAGE_CLASSIFICATION_RESULT.format(
@@ -54,12 +54,12 @@ class ImageClassificationSensor(CameraSensor):
             return {"result": self._image_classification_event.result}
         return {}
 
-    def result(self, event_data: Event):
+    def result(self, event_data: Event) -> None:
         """Handle image classification result event."""
         self._image_classification_event = event_data.data
         self.set_state()
 
-    def result_expired(self, _event_data: Event):
+    def result_expired(self, _event_data: Event) -> None:
         """Handle image classification expired event."""
         self._image_classification_event = None
         self.set_state()

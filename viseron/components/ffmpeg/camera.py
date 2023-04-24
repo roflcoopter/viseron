@@ -289,7 +289,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the ffmpeg camera domain."""
     try:
         Camera(vis, config[identifier], identifier)
@@ -301,8 +301,8 @@ def setup(vis: Viseron, config, identifier):
 class Camera(AbstractCamera):
     """Represents a camera which is consumed via FFmpeg."""
 
-    def __init__(self, vis: Viseron, config, identifier):
-        self._poll_timer = None
+    def __init__(self, vis: Viseron, config, identifier) -> None:
+        self._poll_timer = datetime.datetime.now().timestamp()
         self._frame_reader = None
         # Stream must be initialized before super().__init__ is called as it raises
         # FFprobeError/FFprobeTimeout which is caught in setup() and re-raised as
@@ -335,9 +335,8 @@ class Camera(AbstractCamera):
             restart_method=self.start_camera,
         )
 
-    def initialize_camera(self):
+    def initialize_camera(self) -> None:
         """Start processing of camera frames."""
-        self._poll_timer = None
         self._logger.debug(f"Initializing camera {self.name}")
 
         self.resolution = self.stream.width, self.stream.height
@@ -348,7 +347,7 @@ class Camera(AbstractCamera):
 
         self._logger.debug(f"Camera {self.name} initialized")
 
-    def read_frames(self):
+    def read_frames(self) -> None:
         """Read frames from camera."""
         self.decode_error.clear()
         self._poll_timer = datetime.datetime.now().timestamp()
@@ -382,7 +381,7 @@ class Camera(AbstractCamera):
                 return
 
             if self.stream.poll() is not None:
-                self._logger.error("FFmpeg process has exited")
+                self._logger.error("Frame reader process has exited")
                 self.decode_error.set()
                 continue
 
@@ -393,15 +392,15 @@ class Camera(AbstractCamera):
 
         self.connected = False
         self.stream.close_pipe()
-        self._logger.debug("FFmpeg frame reader stopped")
+        self._logger.debug("Frame reader stopped")
 
-    def poll_target(self):
+    def poll_target(self) -> None:
         """Close pipe when RestartableThread.poll_timeout has been reached."""
         self._logger.error("Timeout waiting for frame")
         self._thread_stuck = True
         self.stop_camera()
 
-    def poll_method(self):
+    def poll_method(self) -> bool:
         """Return true on frame timeout for RestartableThread to trigger a restart."""
         now = datetime.datetime.now().timestamp()
 
@@ -416,7 +415,7 @@ class Camera(AbstractCamera):
             return True
         return False
 
-    def start_camera(self):
+    def start_camera(self) -> None:
         """Start capturing frames from camera."""
         self._logger.debug("Starting capture thread")
         self._capture_frames = True
@@ -428,7 +427,7 @@ class Camera(AbstractCamera):
                 None,
             )
 
-    def stop_camera(self):
+    def stop_camera(self) -> None:
         """Release the connection to the camera."""
         self._logger.debug("Stopping capture thread")
         self._capture_frames = False
@@ -448,13 +447,13 @@ class Camera(AbstractCamera):
 
     def start_recorder(
         self, shared_frame: SharedFrame, objects_in_fov: list[DetectedObject] | None
-    ):
+    ) -> None:
         """Start camera recorder."""
         self._recorder.start(
             shared_frame, objects_in_fov if objects_in_fov else [], self.resolution
         )
 
-    def stop_recorder(self):
+    def stop_recorder(self) -> None:
         """Stop camera recorder."""
         self._recorder.stop(self.recorder.active_recording)
 
@@ -464,7 +463,7 @@ class Camera(AbstractCamera):
         return self.stream.output_fps
 
     @output_fps.setter
-    def output_fps(self, fps):
+    def output_fps(self, fps) -> None:
         self.stream.output_fps = fps
 
     @property
@@ -473,7 +472,7 @@ class Camera(AbstractCamera):
         return self._resolution
 
     @resolution.setter
-    def resolution(self, resolution):
+    def resolution(self, resolution) -> None:
         """Return stream resolution."""
         self._resolution = resolution
 

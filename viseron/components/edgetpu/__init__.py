@@ -1,7 +1,10 @@
 """EdgeTPU object detection."""
+from __future__ import annotations
+
 import logging
 import multiprocessing as mp
 from abc import abstractmethod
+from queue import Queue
 
 import numpy as np
 import tflite_runtime.interpreter as tflite
@@ -83,7 +86,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config) -> bool:
     """Set up the edgetpu component."""
     LOGGER.debug(f"Available devices: {list_edge_tpus()}")
     config = config[COMPONENT]
@@ -172,7 +175,7 @@ class MakeInterpreterError(ViseronError):
 class EdgeTPU(ChildProcessWorker):
     """EdgeTPU interface."""
 
-    def __init__(self, vis, config, domain):
+    def __init__(self, vis, config, domain) -> None:
         self._config = config
         self._device = get_default_device(config[CONFIG_DEVICE])
         self._model = get_default_model(domain, config[CONFIG_MODEL_PATH], self._device)
@@ -184,16 +187,15 @@ class EdgeTPU(ChildProcessWorker):
         LOGGER.debug(f"Using labels from {config[CONFIG_LABEL_PATH]}")
 
         # Create an interpreter to get the model size
-        interpreter = self.make_interpreter(self._device, self._model)
-        self.tensor_input_details = interpreter.get_input_details()
+        self.interpreter = self.make_interpreter(self._device, self._model)
+        self.tensor_input_details = self.interpreter.get_input_details()
         self._model_width = self.tensor_input_details[0]["shape"][1]
         self._model_height = self.tensor_input_details[0]["shape"][2]
         # Discard the interpreter to release the EdgeTPU
         # It is re-created inside the spawned child process in process_initialization
-        del interpreter
+        del self.interpreter
 
-        self.interpreter = None
-        self._result_queues = {}
+        self._result_queues: dict[str, Queue] = {}
         self._process_initialization_done = mp.Event()
         super().__init__(vis, f"{COMPONENT}.{domain}")
         self._process_initialization_done.wait(20)
@@ -219,7 +221,7 @@ class EdgeTPU(ChildProcessWorker):
         interpreter.allocate_tensors()
         return interpreter
 
-    def process_initialization(self):
+    def process_initialization(self) -> None:
         """Make interpreter inside the child process."""
         self.interpreter = self.make_interpreter(self._device, self._model)
         self._process_initialization_done.set()
@@ -232,7 +234,7 @@ class EdgeTPU(ChildProcessWorker):
     def work_input(self, item):
         """Perform work on input."""
 
-    def work_output(self, item):
+    def work_output(self, item) -> None:
         """Put result into queue."""
         pop_if_full(self._result_queues[item["camera_identifier"]], item)
 

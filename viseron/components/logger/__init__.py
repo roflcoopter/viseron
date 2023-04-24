@@ -2,7 +2,10 @@
 
 Inspired by Home Assistant logger.
 """
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 
@@ -23,6 +26,9 @@ from .const import (
     DESC_LOGS,
     VALID_LOG_LEVELS,
 )
+
+if TYPE_CHECKING:
+    from viseron import Viseron
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -57,7 +63,7 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis, config):
+def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     """Set up the logger component."""
     vis.data[COMPONENT] = {}
     vis.data[COMPONENT][CONFIG_LOGS] = {}
@@ -67,11 +73,11 @@ def setup(vis, config):
         )
     )
 
-    def set_default_log_level(level):
+    def set_default_log_level(level) -> None:
         """Set the default log level for components."""
         _set_log_level(logging.getLogger(""), level)
 
-    def set_log_levels(logpoints):
+    def set_log_levels(logpoints) -> None:
         """Set the specified log levels."""
         vis.data[COMPONENT][CONFIG_LOGS].update(logpoints)
         for key, value in logpoints.items():
@@ -87,7 +93,7 @@ def setup(vis, config):
     return True
 
 
-def _set_log_level(logger, level):
+def _set_log_level(logger: logging.Logger, level: str) -> None:
     """Set log level."""
     getattr(logger, "orig_setLevel", logger.setLevel)(VALID_LOG_LEVELS[level])
 
@@ -101,7 +107,7 @@ def _get_logger_class(log_overrides, camera_log_overrides):
     class ViseronLogger(logging.Logger):
         """Logger with built in level overrides."""
 
-        def __init__(self, name, level=logging.NOTSET):
+        def __init__(self, name, level=logging.NOTSET) -> None:
             for piece in name.split("."):
                 if piece in camera_log_overrides:
                     level = VALID_LOG_LEVELS[camera_log_overrides[piece]]

@@ -31,7 +31,7 @@ DOMAIN_MAP = {
 class HassMQTTInterface:
     """MQTT interface to Home Assistant."""
 
-    def __init__(self, vis: Viseron, config):
+    def __init__(self, vis: Viseron, config) -> None:
         self._vis = vis
         self._config = config
 
@@ -42,7 +42,7 @@ class HassMQTTInterface:
         vis.listen_event(EVENT_MQTT_ENTITY_ADDED, self.entity_added)
         self.create_entities(self._mqtt.get_entities())
 
-    def create_entity(self, mqtt_entity: MQTTEntity):
+    def create_entity(self, mqtt_entity: MQTTEntity) -> None:
         """Create entity in Home Assistant."""
         with self._entity_creation_lock:
             if mqtt_entity.entity.entity_id in self._entities:
@@ -64,12 +64,12 @@ class HassMQTTInterface:
             hass_entity.create()
             self._entities[mqtt_entity.entity.entity_id] = hass_entity
 
-    def create_entities(self, entities):
+    def create_entities(self, entities) -> None:
         """Create entities in Home Assistant."""
         for entity in entities.values():
             self.create_entity(entity)
 
-    def entity_added(self, event_data: Event):
+    def entity_added(self, event_data: Event) -> None:
         """Add entity to Home Assistant when its added to Viseron."""
         entity_added_data: EventMQTTEntityAddedData = event_data.data
         self.create_entity(entity_added_data.mqtt_entity)

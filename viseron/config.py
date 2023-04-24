@@ -11,14 +11,14 @@ LOGGER = logging.getLogger(__name__)
 UNSUPPORTED = object()
 
 
-def create_default_config():
+def create_default_config(config_path) -> bool:
     """Create default configuration."""
     try:
-        with open(CONFIG_PATH, "w", encoding="utf-8") as config_file:
+        with open(config_path, "w", encoding="utf-8") as config_file:
             config_file.write(DEFAULT_CONFIG)
     except OSError:
         LOGGER.error(
-            f"Unable to create default configuration file in path {CONFIG_PATH}"
+            f"Unable to create default configuration file in path {config_path}"
         )
         return False
     return True
@@ -62,7 +62,7 @@ def load_config(create_default=True):
                 f"Creating a default one in {CONFIG_PATH}. "
                 f"Navigate to the Web UI running on port {DEFAULT_PORT} and fill it in"
             )
-            create_default_config()
+            create_default_config(CONFIG_PATH)
             return load_config(create_default=False)
         raise error
 

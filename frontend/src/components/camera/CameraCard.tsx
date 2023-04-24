@@ -1,10 +1,10 @@
-import Image from "@jy95/material-ui-image";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
+import Image from "@roflcoopter/material-ui-image";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { usePageVisibility } from "react-page-visibility";
 
@@ -76,7 +76,7 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
   const { auth } = useContext(AuthContext);
   const theme = useTheme();
   const ref: any = useRef<HTMLDivElement>();
-  const onScreen = useOnScreen<HTMLDivElement>(ref, "-1px");
+  const onScreen = useOnScreen<HTMLDivElement>(ref);
   const isVisible = usePageVisibility();
   const [initialRender, setInitialRender] = useState(true);
   const cameraQuery = useCamera(camera_identifier, false, {
@@ -150,10 +150,14 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
   useCameraToken(camera_identifier, auth.enabled);
 
   return (
-    <div ref={ref}>
+    <div
+      ref={ref}
+      style={{
+        height: "100%",
+      }}
+    >
       {cameraQuery.data && (
         <Card
-          ref={ref}
           variant="outlined"
           sx={{
             // Vertically space items evenly to accommodate different aspect ratios

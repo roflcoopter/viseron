@@ -17,12 +17,12 @@ class Entity(ABC):
     """
 
     # The following variables should NOT be overridden
-    entity_id: str = None  # type:ignore
-    vis: Viseron = None  # type:ignore
-    domain: str = NotImplemented  # type:ignore
+    entity_id: str = None  # type:ignore[assignment]
+    vis: Viseron = None  # type:ignore[assignment]
+    domain: str = NotImplemented
 
     # These are safe to override
-    name: str = NotImplemented  # type:ignore
+    name: str = NotImplemented
     object_id: str | None = None
     _state: Any = "unknown"
 
@@ -30,6 +30,7 @@ class Entity(ABC):
     availability: list[dict[str, str]] | None = None
     availability_mode: str = "all"
     device_name: str | None = None
+    device_class: str | None = None
     device_identifiers: list[str] | None = None
     enabled_by_default: bool = True
     entity_category: str | None = None

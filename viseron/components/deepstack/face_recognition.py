@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the deepstack face_recognition domain."""
     FaceRecognition(vis, config, identifier)
 
@@ -45,7 +45,7 @@ def setup(vis: Viseron, config, identifier):
 class FaceRecognition(AbstractFaceRecognition):
     """DeepSTack face recognition processor."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier):
+    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
         super().__init__(
             vis, COMPONENT, config[CONFIG_FACE_RECOGNITION], camera_identifier
         )
@@ -59,7 +59,7 @@ class FaceRecognition(AbstractFaceRecognition):
             min_confidence=config[CONFIG_FACE_RECOGNITION][CONFIG_MIN_CONFIDENCE],
         )
 
-    def face_recognition(self, frame, detected_object: DetectedObject):
+    def face_recognition(self, frame, detected_object: DetectedObject) -> None:
         """Perform face recognition."""
         x1, y1, x2, y2 = calculate_absolute_coords(
             (
@@ -95,7 +95,7 @@ class FaceRecognition(AbstractFaceRecognition):
             elif self._config[CONFIG_SAVE_UNKNOWN_FACES]:
                 self.unknown_face_found(cropped_frame)
 
-    def process(self, post_processor_frame: PostProcessorFrame):
+    def process(self, post_processor_frame: PostProcessorFrame) -> None:
         """Process received frame."""
         decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(
             post_processor_frame.shared_frame
@@ -107,7 +107,7 @@ class FaceRecognition(AbstractFaceRecognition):
 class DeepstackTrain:
     """Train DeepStack to recognize faces."""
 
-    def __init__(self, config):
+    def __init__(self, config) -> None:
         self._config = config
         self._ds = DeepstackFace(
             ip=config[CONFIG_HOST],
@@ -118,7 +118,7 @@ class DeepstackTrain:
         )
         self.train()
 
-    def train(self):
+    def train(self) -> None:
         """Train DeepStack to recognize faces."""
         train_dir = self._config[CONFIG_FACE_RECOGNITION][CONFIG_FACE_RECOGNITION_PATH]
         try:

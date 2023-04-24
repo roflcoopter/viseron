@@ -25,13 +25,13 @@ class CameraToggle(CameraEntity, ToggleEntity):
 class CameraConnectionToggle(CameraToggle):
     """Entity that toggles camera connection on/off."""
 
-    def __init__(self, vis: Viseron, camera: AbstractCamera):
+    def __init__(self, vis: Viseron, camera: AbstractCamera) -> None:
         super().__init__(vis, camera)
         self.object_id = f"{camera.identifier}_connection"
         self.name = f"{camera.name} Connection"
         self.icon = "mdi:cctv"
 
-    def setup(self):
+    def setup(self) -> None:
         """Set up event listener."""
         self._vis.listen_event(
             EVENT_CAMERA_START.format(camera_identifier=self._camera.identifier),
@@ -55,22 +55,22 @@ class CameraConnectionToggle(CameraToggle):
         """Return if frame reader is active."""
         return self._camera.is_on
 
-    def turn_on(self):
+    def turn_on(self) -> None:
         """Turn on camera."""
         self._camera.start_camera()
 
-    def turn_off(self):
+    def turn_off(self) -> None:
         """Turn off camera."""
         self._camera.stop_camera()
 
-    def handle_start_event(self, _event_data: Event):
+    def handle_start_event(self, _event_data: Event) -> None:
         """Handle camera start event."""
         self.turn_on()
 
-    def handle_stop_event(self, _event_data: Event):
+    def handle_stop_event(self, _event_data: Event) -> None:
         """Handle recorder stop event."""
         self.turn_off()
 
-    def handle_started_stopped_event(self, _event_data: Event):
+    def handle_started_stopped_event(self, _event_data: Event) -> None:
         """Handle camera started/stopped event."""
         self.set_state()

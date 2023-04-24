@@ -1,4 +1,8 @@
 """Darknet constants."""
+from __future__ import annotations
+
+from typing import Final
+
 import cv2
 
 COMPONENT = "darknet"
@@ -18,8 +22,8 @@ DEFAULT_MODEL_PATH = "/detectors/models/darknet/default.weights"
 DEFAULT_MODEL_CONFIG = "/detectors/models/darknet/default.cfg"
 DEFAULT_LABEL_PATH = "/detectors/models/darknet/coco.names"
 DEFAULT_SUPPRESSION = 0.4
-DEFAULT_DNN_BACKEND = None
-DEFAULT_DNN_TARGET = None
+DEFAULT_DNN_BACKEND: Final = None
+DEFAULT_DNN_TARGET: Final = None
 DEFAULT_HALF_PRECISION = False
 
 DESC_COMPONENT = "Darknet configuration."
@@ -50,12 +54,12 @@ DNN_OPENCL = "opencl"
 DNN_OPENCL_FP16 = "opencl_fp16"
 DNN_OPENVINO = "openvino"
 
-DNN_BACKENDS = {
+DNN_BACKENDS: dict[str, int] = {
     DNN_DEFAULT: cv2.dnn.DNN_BACKEND_DEFAULT,
     DNN_OPENCV: cv2.dnn.DNN_BACKEND_OPENCV,
     DNN_OPENVINO: cv2.dnn.DNN_BACKEND_INFERENCE_ENGINE,
 }
-DNN_TARGETS = {
+DNN_TARGETS: dict[str, int] = {
     DNN_CPU: cv2.dnn.DNN_TARGET_CPU,
     DNN_OPENCL: cv2.dnn.DNN_TARGET_OPENCL,
     DNN_OPENCL_FP16: cv2.dnn.DNN_TARGET_OPENCL_FP16,

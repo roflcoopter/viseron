@@ -116,7 +116,7 @@ class AbstractMotionDetector(ABC):
         component: str,
         config: dict[Any, Any],
         camera_identifier: str,
-    ):
+    ) -> None:
         self._vis = vis
         self._config = config
 
@@ -163,9 +163,9 @@ class AbstractMotionDetector(ABC):
     def _motion_detected_setter(
         self,
         motion_detected,
-        shared_frame: SharedFrame = None,
-        contours: Contours = None,
-    ):
+        shared_frame: SharedFrame | None = None,
+        contours: Contours | None = None,
+    ) -> None:
         self._motion_contours = contours
         if self._motion_detected == motion_detected:
             return
@@ -209,7 +209,9 @@ CAMERA_SCHEMA_SCANNER = CAMERA_SCHEMA.extend(
 class AbstractMotionDetectorScanner(AbstractMotionDetector):
     """Abstract motion detector that works by scanning frames."""
 
-    def __init__(self, vis, component, config, camera_identifier, color_format="gray"):
+    def __init__(
+        self, vis, component, config, camera_identifier, color_format="gray"
+    ) -> None:
         super().__init__(vis, component, config, camera_identifier)
 
         self._get_frame_function = getattr(self, f"_get_decoded_frame_{color_format}")
@@ -283,7 +285,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         frame[self._mask_image] = [0]
         return frame
 
-    def _filter_motion(self, shared_frame: SharedFrame, contours: Contours):
+    def _filter_motion(self, shared_frame: SharedFrame, contours: Contours) -> None:
         """Filter motion."""
         self._logger.debug("Max motion area: %s", contours.max_area)
         self._motion_detected_setter(
@@ -303,7 +305,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         """Return frame in gray format."""
         return self._camera.shared_frames.get_decoded_frame_gray(shared_frame)
 
-    def _motion_detection(self):
+    def _motion_detection(self) -> None:
         """Perform object detection and publish the results."""
         while not self._kill_received:
             try:
@@ -345,12 +347,12 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         """Return motion detector area."""
         return self._config[CONFIG_CAMERAS][self._camera.identifier][CONFIG_AREA]
 
-    def handle_stop_scan(self, event_data: Event[EventScanFrames]):
+    def handle_stop_scan(self, event_data: Event[EventScanFrames]) -> None:
         """Handle event when stopping frame scans."""
         if event_data.data.scan is False:
             self._motion_detected_setter(False, None, None)
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop motion detector."""
         self._kill_received = True
         self._motion_detection_thread.join()

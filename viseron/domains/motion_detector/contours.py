@@ -7,7 +7,7 @@ from viseron.helpers import calculate_relative_contours
 class Contours:
     """Represents motion contours."""
 
-    def __init__(self, contours, resolution):
+    def __init__(self, contours, resolution) -> None:
         self._contours = contours
         self._rel_contours = calculate_relative_contours(contours, resolution)
 

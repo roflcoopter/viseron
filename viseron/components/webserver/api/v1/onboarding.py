@@ -32,7 +32,7 @@ class OnboardingAPIHandler(BaseAPIHandler):
         },
     ]
 
-    def onboarding(self):
+    def onboarding(self) -> None:
         """Onboard the first user."""
         if self._webserver.auth.users or self._webserver.auth.onboarding_complete:
             self.response_error(

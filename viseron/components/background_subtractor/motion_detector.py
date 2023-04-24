@@ -1,5 +1,8 @@
 """Background subtractor motion detection."""
+from __future__ import annotations
+
 import cv2
+import numpy as np
 
 from viseron import Viseron
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
@@ -9,7 +12,7 @@ from viseron.domains.motion_detector.contours import Contours
 from .const import COMPONENT, CONFIG_ALPHA, CONFIG_THRESHOLD
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the background_subtractor motion_detector domain."""
     MotionDetector(vis, config[DOMAIN], identifier)
 
@@ -19,15 +22,15 @@ def setup(vis: Viseron, config, identifier):
 class MotionDetector(AbstractMotionDetectorScanner):
     """Perform motion detection."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier):
+    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
         super().__init__(vis, COMPONENT, config, camera_identifier)
         self._camera_config = config[CONFIG_CAMERAS][camera_identifier]
 
-        self._avg = None
+        self._avg: np.ndarray | None = None
 
         vis.register_domain(DOMAIN, camera_identifier, self)
 
-    def preprocess(self, frame):
+    def preprocess(self, frame: np.ndarray):
         """Resize the frame to the desired width and height."""
         return cv2.resize(
             frame,
@@ -35,7 +38,7 @@ class MotionDetector(AbstractMotionDetectorScanner):
             interpolation=cv2.INTER_LINEAR,
         )
 
-    def return_motion(self, frame) -> Contours:
+    def return_motion(self, frame: np.ndarray) -> Contours:
         """Perform motion detection and return Contours."""
         frame = cv2.GaussianBlur(frame, (21, 21), 0)
 

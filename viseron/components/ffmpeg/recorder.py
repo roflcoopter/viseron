@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+from types import TracebackType
 from typing import TYPE_CHECKING
 
 from viseron.domains.camera.recorder import AbstractRecorder
@@ -26,7 +27,7 @@ class ConcatThreadsContext:
     Used to prevent cleanup from running while concat threads are running.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.count = 0
 
     def __enter__(self):
@@ -34,7 +35,12 @@ class ConcatThreadsContext:
         self.count += 1
         return self.count
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         """Decrement the counter when exiting the context."""
         self.count -= 1
 
@@ -42,7 +48,7 @@ class ConcatThreadsContext:
 class Recorder(AbstractRecorder):
     """Creates thumbnails and recordings."""
 
-    def __init__(self, vis: Viseron, config, camera: AbstractCamera):
+    def __init__(self, vis: Viseron, config, camera: AbstractCamera) -> None:
         super().__init__(vis, COMPONENT, config, camera)
         self._logger.debug("Initializing recorder")
         self._recorder_config = config[RECORDER]
@@ -63,7 +69,7 @@ class Recorder(AbstractRecorder):
             self._segment_thread_context,
         )
 
-    def concat_segments(self, recording: Recording):
+    def concat_segments(self, recording: Recording) -> None:
         """Concatenate FFmpeg segments to a single video."""
         with self._segment_thread_context:
             with self._concat_thread_lock:
@@ -73,9 +79,9 @@ class Recorder(AbstractRecorder):
                 if not self.is_recording:
                     self._segment_cleanup.resume()
 
-    def _start(self, recording, shared_frame, objects_in_fov, resolution):
+    def _start(self, recording, shared_frame, objects_in_fov, resolution) -> None:
         self._segment_cleanup.pause()
 
-    def _stop(self, recording):
+    def _stop(self, recording) -> None:
         concat_thread = threading.Thread(target=self.concat_segments, args=(recording,))
         concat_thread.start()

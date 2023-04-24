@@ -41,7 +41,7 @@ class Publish(TypedDict):
     data: Any
 
 
-def setup(vis, _):
+def setup(vis, _) -> bool:
     """Set up the data_stream component."""
     vis.data[COMPONENT] = DataStream(vis)
     return True

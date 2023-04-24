@@ -1,69 +1,69 @@
 [
-    {
+  {
+    "type": "map",
+    "value": [
+      {
+        "type": "integer",
+        "valueMin": 1024,
+        "valueMax": 49151,
+        "name": "port",
+        "description": "Port to run the webserver on.",
+        "optional": true,
+        "default": 8888
+      },
+      {
+        "type": "boolean",
+        "name": "debug",
+        "description": "Enable debug mode for the webserver. <b>WARNING: Dont have this enabled in production as it weakens security.</b>",
+        "optional": true,
+        "default": false
+      },
+      {
         "type": "map",
         "value": [
-            {
+          {
+            "type": "map",
+            "value": [
+              {
                 "type": "integer",
-                "valueMin": 1024,
-                "valueMax": 49151,
-                "name": "port",
-                "description": "Port to run the webserver on.",
-                "optional": true,
-                "default": 8888
-            },
-            {
-                "type": "boolean",
-                "name": "debug",
-                "description": "Enable debug mode for the webserver. <b>WARNING: Dont have this enabled in production as it weakens security.</b>",
-                "optional": true,
-                "default": false
-            },
-            {
-                "type": "map",
-                "value": [
-                    {
-                        "type": "map",
-                        "value": [
-                            {
-                                "type": "integer",
-                                "valueMin": 0,
-                                "name": "days",
-                                "description": "Days to expire session.",
-                                "optional": true,
-                                "default": null
-                            },
-                            {
-                                "type": "integer",
-                                "valueMin": 0,
-                                "name": "hours",
-                                "description": "Hours to expire session.",
-                                "optional": true,
-                                "default": null
-                            },
-                            {
-                                "type": "integer",
-                                "valueMin": 0,
-                                "name": "minutes",
-                                "description": "Minutes to expire session.",
-                                "optional": true,
-                                "default": null
-                            }
-                        ],
-                        "name": "session_expiry",
-                        "description": "Session expiry time. After this time the user will be logged out. By default the sessions are infinite.",
-                        "optional": true,
-                        "default": null
-                    }
-                ],
-                "name": "auth",
-                "description": null,
+                "valueMin": 0,
+                "name": "days",
+                "description": "Days to expire session.",
                 "optional": true,
                 "default": null
-            }
+              },
+              {
+                "type": "integer",
+                "valueMin": 0,
+                "name": "hours",
+                "description": "Hours to expire session.",
+                "optional": true,
+                "default": null
+              },
+              {
+                "type": "integer",
+                "valueMin": 0,
+                "name": "minutes",
+                "description": "Minutes to expire session.",
+                "optional": true,
+                "default": null
+              }
+            ],
+            "name": "session_expiry",
+            "description": "Session expiry time. After this time the user will be logged out. By default the sessions are infinite.",
+            "optional": true,
+            "default": null
+          }
         ],
-        "name": "webserver",
-        "description": "Webserver configuration.",
-        "required": true,
+        "name": "auth",
+        "description": "Authentication configuration.",
+        "optional": true,
         "default": null
-    }
+      }
+    ],
+    "name": "webserver",
+    "description": "Webserver configuration.",
+    "required": true,
+    "default": null
+  }
 ]

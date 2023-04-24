@@ -1,4 +1,4 @@
-import Image from "@jy95/material-ui-image";
+import Image from "@roflcoopter/material-ui-image";
 import { useTheme } from "@mui/material/styles";
 
 import * as types from "lib/types";

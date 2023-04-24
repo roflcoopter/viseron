@@ -2,6 +2,8 @@
 
 """gen_docs constants."""
 
+EXCLUDED_COMPONENTS = ["data_stream"]
+
 META_CONTENTS = """import {{ Component }} from "@site/src/types";
 
 const ComponentMetadata: Component = {{
