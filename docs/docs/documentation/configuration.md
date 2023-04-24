@@ -215,13 +215,13 @@ In the future more of these post processors will be added along with the ability
 
 If you have any ideas for a good post processor, please open an issue on [GitHub](https://github.com/roflcoopter/viseron/issues)
 
-#### Face Recognition
+#### Face Recognition domain
 
 The face recognition domain is a post processor designed to recognise individuals in images.
 
 [Link to all components with face recognition domain.](/components-explorer?tags=face_recognition)
 
-#### Image Classification
+#### Image Classification domain
 
 Image classification labels an entire image with a single label, in contrast to an object detector which labels multiple objects in an image.
 

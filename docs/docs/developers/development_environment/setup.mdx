@@ -1,0 +1,109 @@
+---
+title: Set up Development Environment
+---
+
+```mdx-code-block
+import {useState} from 'react';
+
+export const RepositoryOpener = () => {
+  const [value, setValue] = useState(0);
+  const repoUrl = `vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=${encodeURIComponent(value)}`;
+  return <div>
+    <input onInput={(ev) => setValue(ev.target.value)} style={{width: "80%", display: "inline-block", marginRight: 16}} />
+    <a href={repoUrl}><button style={{cursor: value == "" ? "default" : "pointer"}} disabled={value == ""}>Open</button></a>
+  </div>
+}
+// Code comes from https://github.com/home-assistant/developers.home-assistant/blob/94150fc27da070b57346e68cbb2a3766e54002b9/docs/development_environment.mdx
+```
+
+This section will explain how to set up a development environment for Viseron.
+
+## Developing in a VSCode Dev Container
+
+The easiest way to get started with development is to use the VSCode Dev Container.
+This will set up a development environment with all the tools you need to build and test the project.
+
+The Devcontainer contains everything you need to develop the Python backend, the React frontend and the Docusaurus documentation.
+
+### Prerequisites
+
+- [Visual Studio Code](https://code.visualstudio.com/)
+- [Git](https://git-scm.com/)
+- [Docker](https://docs.docker.com/get-docker/)
+
+### Getting started
+
+- Go to the [Viseron repository](https://github.com/roflcoopter/viseron) and click `fork`.
+- Once your fork is created, copy the URL of your fork and paste it below, then click `Open`:
+  <RepositoryOpener />
+- Your browser will prompt you if you want to use Visual Studio Code to open the link, click `Open Link`.
+- When Visual Studio Code asks if you want to install the Remote extension, click `Install`.
+- The Dev Container image will then be built (this may take a few minutes), after this your development environment will be ready.
+
+In the future, if you want to get back to your development environment: open Visual Studio Code, click on the `Remote Explorer` button in the sidebar, select `Containers` at the top of the sidebar.
+
+:::info
+
+This section was taken from the [Home Assistant documentation](https://developers.home-assistant.io/docs/development_environment/#developing-with-visual-studio-code--devcontainer).
+
+:::
+
+### Tasks
+
+There are a lot of useful tasks in the Devcontainer that can be run from the command palette (`Ctrl+Shift+P`) in VSCode.
+
+Some of the tasks that are available:
+
+- Run build, test and lint the backend and frontend
+- Run, build and lint the docs
+
+### Debugging in VSCode
+
+The Devcontainer also contains a launch configuration for debugging the Python backend in VSCode.
+If you go to the `Run and Debug` (`Ctrl+Shift+D`) tab in VSCode, you can select `Viseron` from the dropdown and click `Start Debugging` to start debugging the backend.
+
+There are also launch configurations for debugging the frontend.
+
+- `Frontend: Debug` launches a Chrome instance that can be used for debugging.<br />
+- `Frontend: Debug current Test File` runs the current Vitest file in debug mode.
+
+## Manual Environment
+
+Setting up a manual environment without using the Devcontainer is not something I recommend due to the large number of dependencies and tools that are required.
+
+If you still want to set up a manual environment, you can follow the steps below.
+
+:::warning
+
+I do not use this method myself, so I cannot guarantee that it will work and I will not provide support for it.
+
+:::
+
+- Install the dependencies: `pip3 install -r requirements.txt -r requirements_test.txt  -r requirements_test.txt`.
+  It might be wise to do this in a `virtualenv` but this is up to you.
+- Install `docker`
+- Install `docker-compose`
+- Install `tox`
+- Install `nodejs`
+- Install `npm`
+- Run `pre-commit install` to install the `pre-commit` hooks
+
+### Using tox
+
+`tox` is the main tool used for linting and testing your code when not using the Dev Container.
+Simply running the command `tox` will run all checks. You can single out a specific check by supplying the `-e` flag.
+For example:
+
+- Run pylint only: `tox -e pylint`
+- Run pytest only: `tox -e pytest`
+
+#### A note on pytest
+
+Viseron requires a lot of dependencies.
+To make testing with `pytest` as easy as possible, `tox` will build and run a Docker container which executes `pytest`.
+If you would like to run tests outside of `tox` you can build and run this container manually:
+
+```bash
+docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build amd64-viseron-tests
+docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env run --rm amd64-viseron-tests
+```

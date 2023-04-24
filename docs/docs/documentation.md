@@ -1,5 +1,5 @@
 ---
-title: Documentation
+title: Introduction
 ---
 
 Viseron is a self-hosted, local only NVR implemented in Python.

@@ -64,6 +64,12 @@ const config = {
             position: "left",
           },
           {
+            type: "doc",
+            docId: "developers",
+            position: "left",
+            label: "Developers",
+          },
+          {
             href: "https://github.com/roflcoopter/viseron",
             label: "GitHub",
             position: "right",
