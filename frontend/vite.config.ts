@@ -30,20 +30,28 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         "/api": {
-          target: `http://${env.VITE_PROXY_HOST}`,
+          target: `http://${
+            env.VITE_PROXY_HOST ? env.VITE_PROXY_HOST : "localhost:8888"
+          }`,
           ...proxyOptions,
         },
         "/websocket": {
-          target: `ws://${env.VITE_PROXY_HOST}`,
+          target: `ws://${
+            env.VITE_PROXY_HOST ? env.VITE_PROXY_HOST : "localhost:8888"
+          }`,
           ws: true,
           ...proxyOptions,
         },
         "/recordings": {
-          target: `http://${env.VITE_PROXY_HOST}`,
+          target: `http://${
+            env.VITE_PROXY_HOST ? env.VITE_PROXY_HOST : "localhost:8888"
+          }`,
           ...proxyOptions,
         },
         "/*/mjpeg-stream": {
-          target: `http://${env.VITE_PROXY_HOST}`,
+          target: `http://${
+            env.VITE_PROXY_HOST ? env.VITE_PROXY_HOST : "localhost:8888"
+          }`,
           ...proxyOptions,
         },
       },
