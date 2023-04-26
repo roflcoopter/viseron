@@ -118,7 +118,7 @@ const sidebars = {
         type: "doc",
         id: "developers/frontend",
       },
-      items: ["developers/frontend"],
+      items: ["developers/frontend/proxy"],
     },
     "developers/docker",
     {
