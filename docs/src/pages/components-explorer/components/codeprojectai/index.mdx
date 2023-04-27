@@ -1,0 +1,109 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import FaceRecognition from "@site/src/pages/components-explorer/_domains/face_recognition/index.mdx";
+import FaceRecognitionLabels from "@site/src/pages/components-explorer/_domains/face_recognition/labels.mdx";
+import FaceRecognitionTrain from "@site/src/pages/components-explorer/_domains/face_recognition/train.mdx";
+import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";
+import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
+import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
+import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
+
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+CodeProject.AI Server is a self-hosted, free and Open Source Artificial Intelligence Server for any platform, any language. Just like you would install a database server to provide data storage, you install CodeProject.AI Server to provide AI services.
+
+It can be installed locally, requires no off-device or out of network data transfer, and is easy to use.
+
+Head over to the [CodeProject.AI Documentation](https://www.codeproject.com/AI/docs/) for installation instructions.
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+codeprojectai:
+  host: codeprojectai
+  port: 32168
+  object_detector:
+    cameras:
+      viseron_CHANGEME_camera:
+        fps: 1
+        log_all_objects: true
+        labels:
+          - label: person
+            confidence: 0.8
+            trigger_recorder: true
+        zones:
+          - name: zone1
+            coordinates:
+              - x: 0
+                y: 500
+              - x: 1920
+                y: 500
+              - x: 1920
+                y: 1080
+              - x: 0
+                y: 1080
+            labels:
+              - label: person
+                confidence: 0.8
+                trigger_recorder: true
+        mask:
+          - coordinates:
+              - x: 400
+                y: 200
+              - x: 1000
+                y: 200
+              - x: 1000
+                y: 750
+              - x: 400
+                y: 750
+      camera_two:
+        fps: 1
+        labels:
+          - label: person
+            confidence: 0.7
+            trigger_recorder: true
+  face_recognition:
+    save_unknown_faces: true
+    cameras:
+      camera_two:
+    labels:
+      - person
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Face recognition
+
+<FaceRecognition />
+
+### Labels
+
+<FaceRecognitionLabels />
+
+### Train
+
+<FaceRecognitionTrain />
+
+## Object detector
+
+<ObjectDetector />
+
+### Labels
+
+<ObjectDetectorLabels label_path="/detectors/models/darknet/coco.names" />
+
+### Zones
+
+<ObjectDetectorZones meta={ComponentMetadata} />
+
+### Mask
+
+<ObjectDetectorMask meta={ComponentMetadata} />
