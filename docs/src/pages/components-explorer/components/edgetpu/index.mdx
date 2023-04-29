@@ -6,6 +6,7 @@ import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_
 import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
 import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
 import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
+
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
 
@@ -62,11 +63,11 @@ edgetpu:
 
 ### Zones
 
-<ObjectDetectorZones />
+<ObjectDetectorZones meta={ComponentMetadata} />
 
 ### Mask
 
-<ObjectDetectorMask />
+<ObjectDetectorMask meta={ComponentMetadata} />
 
 ### Pre-trained models
 

@@ -142,6 +142,7 @@
                               }
                             ]
                           ],
+                          "lengthMin": 3,
                           "name": "coordinates",
                           "description": "List of X and Y coordinates to form a polygon",
                           "required": true,
@@ -185,6 +186,7 @@
                               }
                             ]
                           ],
+                          "lengthMin": 3,
                           "name": "coordinates",
                           "description": "List of X and Y coordinates to form a polygon",
                           "required": true,

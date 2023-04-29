@@ -19,6 +19,9 @@
   --ifm-heading-margin-top: 35px;
   /* --ifm-list-paragraph-margin: 0px; */
   /* --ifm-paragraph-margin-bottom: 0px; */
+
+  /* Code */
+  --docusaurus-highlighted-code-line-bg: rgba(0, 17, 255, 0.1);
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */

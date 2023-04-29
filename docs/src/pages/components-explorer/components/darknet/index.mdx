@@ -1,12 +1,14 @@
 import Admonition from "@theme/Admonition";
 import TabItem from "@theme/TabItem";
 import Tabs from "@theme/Tabs";
+
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
 import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";
 import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
 import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
 import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
+
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
 
@@ -90,11 +92,11 @@ darknet:
 
 ### Zones
 
-<ObjectDetectorZones />
+<ObjectDetectorZones meta={ComponentMetadata} />
 
 ### Mask
 
-<ObjectDetectorMask />
+<ObjectDetectorMask meta={ComponentMetadata} />
 
 ### Pre-trained models
 

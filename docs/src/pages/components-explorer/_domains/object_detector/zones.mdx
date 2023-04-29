@@ -1,3 +1,5 @@
+import CodeBlock from "@theme/CodeBlock";
+
 Zones are used to define areas in the cameras field of view where you want to
 look for certain objects (labels).<br />
 Say you have a camera facing the sidewalk and have <code>labels</code> setup to
@@ -6,3 +8,39 @@ This would cause Viseron to start recording people who are walking past the
 camera on the sidewalk. Not ideal.<br />
 To remedy this you define a zone which covers <b>only</b> the area that you are
 actually interested in, excluding the sidewalk.
+
+<CodeBlock language="yaml" showLineNumbers>
+  {`${
+    props.meta && props.meta.name
+      ? props.meta.name
+      : "<object detector component>"
+  }:
+  object_detector:
+    cameras:
+      camera_one:
+        ...
+        // highlight-start
+        zones:
+          - name: sidewalk
+            coordinates:
+              - x: 522
+                y: 11
+              - x: 729
+                y: 275
+              - x: 333
+                y: 603
+              - x: 171
+                y: 97
+            labels:
+              - label: person
+                confidence: 0.8
+                trigger_recorder: true
+        // highlight-end`}
+
+</CodeBlock>
+
+:::tip
+
+See [Mask](#mask) for how to get the coordinates for a zone.
+
+:::
