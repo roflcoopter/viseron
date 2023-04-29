@@ -11,14 +11,15 @@ Viserons features include, but not limited to the following:
 
 - Object detection via:
   - YOLOv3, YOLOv4 and YOLOv7 Darknet using OpenCV
-  - Tensorflow via Google Coral EdgeTPU
-  - [DeepStack](https://docs.deepstack.cc/)
+  - Tensorflow via [Google Coral EdgeTPU](https://coral.ai/)
+  - [CodeProject.AI](https://www.codeproject.com/AI/index.aspx)
 - Motion detection
 - Face recognition via:
-  - dlib
-  - [DeepStack](https://docs.deepstack.cc/)
   - [CompreFace](https://github.com/exadel-inc/CompreFace)
-- Image classification
+  - [CodeProject.AI](https://www.codeproject.com/AI/index.aspx)
+  - [dlib](http://dlib.net/)
+- Image classification via:
+  - Tensorflow via [Google Coral EdgeTPU](https://coral.ai/)
 - Responsive, mobile friendly Web UI written in TypeScript React
 - MQTT support
 - [Home Assistant](https://home-assistant.io) MQTT Discovery

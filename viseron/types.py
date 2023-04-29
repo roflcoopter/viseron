@@ -6,6 +6,7 @@ SupportedDomains = Literal[
     "camera",
     "face_recognition",
     "image_classification",
+    "license_plate_recognition",
     "motion_detector",
     "nvr",
     "object_detector",

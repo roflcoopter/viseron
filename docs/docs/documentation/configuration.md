@@ -230,6 +230,12 @@ For instance, an object detector might be trained to detect the label birds, whi
 
 [Link to all components with image classification domain.](/components-explorer?tags=image_classification)
 
+#### License Plate Recognition domain
+
+The license plate recognition domain can detect car license plates and report their text.
+
+[Link to all components with license plate recognition domain.](/components-explorer?tags=license_plate_recognition)
+
 ## Secrets
 
 Any value in `config.yaml` can be substituted with secrets stored in `secrets.yaml`.<br />

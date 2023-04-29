@@ -65,6 +65,9 @@ if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.face_recognition import AbstractFaceRecognition
     from viseron.domains.image_classification import AbstractImageClassification
+    from viseron.domains.license_plate_recognition import (
+        AbstractLicensePlateRecognition,
+    )
     from viseron.domains.motion_detector import AbstractMotionDetectorScanner
     from viseron.domains.object_detector import AbstractObjectDetector
     from viseron.helpers.entity import Entity
@@ -233,7 +236,7 @@ class Viseron:
             f"viseron/signal/{viseron_signal}", callback
         )
 
-    def listen_event(self, event, callback, ioloop=None) -> Callable[[], None]:
+    def listen_event(self, event: str, callback, ioloop=None) -> Callable[[], None]:
         """Register a listener to an event."""
         if DATA_STREAM_COMPONENT not in self.data[LOADED]:
             LOGGER.error(
@@ -279,6 +282,15 @@ class Viseron:
         domain: Literal["image_classification"],
         identifier: str,
         instance: AbstractImageClassification,
+    ) -> None:
+        ...
+
+    @overload
+    def register_domain(
+        self,
+        domain: Literal["license_plate_recognition"],
+        identifier: str,
+        instance: AbstractLicensePlateRecognition,
     ) -> None:
         ...
 

@@ -32,11 +32,12 @@ function HomepageHeader() {
                 Motion Detection<br></br>
                 Face Recognition<br></br>
                 Image Classification<br></br>
+                License Plate Recognition<br></br>
                 Hardware Acceleration
               </div>
             </p>
           </div>
-        </div>{" "}
+        </div>
       </div>
     </header>
   );
