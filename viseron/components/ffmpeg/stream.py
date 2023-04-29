@@ -263,7 +263,7 @@ class Stream:
         )
 
     @staticmethod
-    def get_codec(stream_config, stream_codec):
+    def get_codec(stream_config: dict[str, Any], stream_codec: str):
         """Return codec set in config or from predefined codec map."""
         if stream_config[CONFIG_CODEC] and stream_config[CONFIG_CODEC] != DEFAULT_CODEC:
             return ["-c:v", stream_config[CONFIG_CODEC]]
@@ -286,7 +286,9 @@ class Stream:
             return ["-c:v", codec]
         return []
 
-    def stream_command(self, stream_config, stream_codec, stream_url):
+    def stream_command(
+        self, stream_config: dict[str, Any], stream_codec: str, stream_url: str
+    ):
         """Return FFmpeg input stream."""
         if stream_config[CONFIG_INPUT_ARGS]:
             input_args = stream_config[CONFIG_INPUT_ARGS]
@@ -396,7 +398,7 @@ class Stream:
         else:
             stream_input_command = self.stream_command(
                 self._mainstream.config,
-                self._mainstream.config,
+                self._mainstream.codec,
                 self._mainstream.url,
             )
             camera_segment_args = self.segment_args()
