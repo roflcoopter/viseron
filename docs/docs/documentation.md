@@ -20,6 +20,8 @@ Viserons features include, but not limited to the following:
   - [dlib](http://dlib.net/)
 - Image classification via:
   - Tensorflow via [Google Coral EdgeTPU](https://coral.ai/)
+- License plate recognition via:
+  - [CodeProject.AI](https://www.codeproject.com/AI/index.aspx)
 - Responsive, mobile friendly Web UI written in TypeScript React
 - MQTT support
 - [Home Assistant](https://home-assistant.io) MQTT Discovery

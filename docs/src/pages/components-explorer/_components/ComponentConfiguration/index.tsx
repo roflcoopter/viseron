@@ -69,6 +69,23 @@ function buildMinMax(item: any) {
       </div>
     );
   }
+  if (item.lengthMin !== undefined || item.lengthMax !== undefined) {
+    return (
+      <div className={styles.configVariablesMinMax}>
+        {item.lengthMin !== undefined ? (
+          <div className={styles.configVariablesMin}>
+            Minimum items: <code>{item.lengthMin}</code>
+          </div>
+        ) : null}
+
+        {item.lengthMax !== undefined ? (
+          <div className={styles.configVariablesMax}>
+            Maximum items: <code>{item.lengthMax}</code>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
   return null;
 }
 
