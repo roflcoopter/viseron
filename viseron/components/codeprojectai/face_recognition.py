@@ -220,7 +220,6 @@ class CodeProjectAIFace(cpai.CodeProjectAIFace):
             url=self._url_base + "/face/list",
             timeout=self.timeout,
         )
-        print(response)
         del response["success"]
         return response
 
@@ -231,7 +230,6 @@ class CodeProjectAIFace(cpai.CodeProjectAIFace):
             timeout=self.timeout,
             data={"userid": face},
         )
-        print(response)
         del response["success"]
         return response
 
