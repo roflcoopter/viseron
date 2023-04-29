@@ -8,13 +8,13 @@ from viseron import Viseron
 from viseron.domains.object_detector import AbstractObjectDetector
 from viseron.domains.object_detector.const import DOMAIN
 from viseron.domains.object_detector.detected_object import DetectedObject
+from viseron.helpers import letterbox_resize
 
 from .const import (
     COMPONENT,
     CONFIG_CUSTOM_MODEL,
     CONFIG_HOST,
-    CONFIG_IMAGE_HEIGHT,
-    CONFIG_IMAGE_WIDTH,
+    CONFIG_IMAGE_SIZE,
     CONFIG_OBJECT_DETECTOR,
     CONFIG_PORT,
     CONFIG_TIMEOUT,
@@ -48,11 +48,11 @@ class ObjectDetector(AbstractObjectDetector):
         )
 
         self._image_resolution = (
-            self._config[CONFIG_IMAGE_WIDTH]
-            if self._config[CONFIG_IMAGE_WIDTH]
+            self._config[CONFIG_IMAGE_SIZE]
+            if self._config[CONFIG_IMAGE_SIZE]
             else self._camera.resolution[0],
-            self._config[CONFIG_IMAGE_HEIGHT]
-            if self._config[CONFIG_IMAGE_HEIGHT]
+            self._config[CONFIG_IMAGE_SIZE]
+            if self._config[CONFIG_IMAGE_SIZE]
             else self._camera.resolution[1],
         )
 
@@ -60,11 +60,11 @@ class ObjectDetector(AbstractObjectDetector):
 
     def preprocess(self, frame):
         """Preprocess frame before detection."""
-        if self._config[CONFIG_IMAGE_WIDTH] and self._config[CONFIG_IMAGE_HEIGHT]:
-            frame = cv2.resize(
+        if self._config[CONFIG_IMAGE_SIZE]:
+            frame = letterbox_resize(
                 frame,
-                (self._config[CONFIG_IMAGE_WIDTH], self._config[CONFIG_IMAGE_HEIGHT]),
-                interpolation=cv2.INTER_LINEAR,
+                self._config[CONFIG_IMAGE_SIZE],
+                self._config[CONFIG_IMAGE_SIZE],
             )
         return cv2.imencode(".jpg", frame)[1].tobytes()
 
@@ -82,6 +82,8 @@ class ObjectDetector(AbstractObjectDetector):
                     detection["y_max"],
                     relative=False,
                     model_res=self._image_resolution,
+                    letterboxed=bool(self._config[CONFIG_IMAGE_SIZE]),
+                    frame_res=self._camera.resolution,
                 )
             )
         return objects

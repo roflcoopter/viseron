@@ -3,10 +3,13 @@ from typing import Final
 
 COMPONENT = "codeprojectai"
 
+PLATE_RECOGNITION_URL_BASE = "http://{host}:{port}/v1/image/alpr"
+
 
 # CONFIG_SCHEMA constants
 CONFIG_OBJECT_DETECTOR = "object_detector"
 CONFIG_FACE_RECOGNITION = "face_recognition"
+CONFIG_LICENSE_PLATE_RECOGNITION = "license_plate_recognition"
 CONFIG_HOST = "host"
 CONFIG_PORT = "port"
 CONFIG_TIMEOUT = "timeout"
@@ -17,24 +20,22 @@ DEFAULT_TIMEOUT = 10
 DESC_COMPONENT = "CodeProject.AI configuration."
 DESC_OBJECT_DETECTOR = "Object detector domain config."
 DESC_FACE_RECOGNITION = "Face recognition domain config."
+DESC_LICENSE_PLATE_RECOGNITION = "License plate recognition domain config."
 DESC_HOST = "IP or hostname to your CodeProject.AI server."
 DESC_PORT = "Port to your CodeProject.AI server."
 DESC_TIMEOUT = "Timeout for requests to your CodeProject.AI server."
 
 # OBJECT_DETECTOR_SCHEMA constants
-CONFIG_IMAGE_WIDTH = "image_width"
-CONFIG_IMAGE_HEIGHT = "image_height"
+CONFIG_IMAGE_SIZE = "image_size"
 CONFIG_CUSTOM_MODEL = "custom_model"
 
-DEFAULT_IMAGE_WIDTH: Final = None
-DEFAULT_IMAGE_HEIGHT: Final = None
+DEFAULT_IMAGE_SIZE: Final = None
 DEFAULT_CUSTOM_MODEL: Final = "ipcam-general"
 
-DESC_IMAGE_WIDTH = (
-    "Frames will be resized to this width before inference to save computing power."
-)
-DESC_IMAGE_HEIGHT = (
-    "Frames will be resized to this height before inference to save computing power."
+DESC_IMAGE_SIZE = (
+    "Frames will be resized to this width and height before inference to save "
+    "computing power. Resizing is done by adding black borders to the image to keep "
+    "the aspect ratio."
 )
 DESC_CUSTOM_MODEL = "Name of a custom CodeProject.AI model."
 

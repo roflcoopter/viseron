@@ -76,6 +76,7 @@ class FaceRecognition(AbstractFaceRecognition):
             )
         except cpai.CodeProjectAIException as error:
             self._logger.error("Error calling CodeProject.AI: %s", error)
+            return
 
         self._logger.debug("Face recognition result: %s", result)
         if not result["success"]:

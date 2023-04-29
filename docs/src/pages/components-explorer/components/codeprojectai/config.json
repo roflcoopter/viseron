@@ -313,15 +313,8 @@
           },
           {
             "type": "integer",
-            "name": "image_width",
-            "description": "Frames will be resized to this width before inference to save computing power.",
-            "optional": true,
-            "default": null
-          },
-          {
-            "type": "integer",
-            "name": "image_height",
-            "description": "Frames will be resized to this height before inference to save computing power.",
+            "name": "image_size",
+            "description": "Frames will be resized to this width and height before inference to save computing power. Resizing is done by adding black borders to the image to keep the aspect ratio.",
             "optional": true,
             "default": null
           },
@@ -433,6 +426,88 @@
         ],
         "name": "face_recognition",
         "description": "Face recognition domain config.",
+        "optional": true,
+        "default": null
+      },
+      {
+        "type": "map",
+        "value": [
+          {
+            "type": "map",
+            "value": [
+              {
+                "type": "map",
+                "value": [
+                  {
+                    "type": "list",
+                    "values": [
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "name": "labels",
+                    "description": "A list of labels that when detected will be sent to the post processor. Applies <b>only</b> to this specific camera.",
+                    "optional": true,
+                    "default": null
+                  }
+                ],
+                "name": {
+                  "type": "CAMERA_IDENTIFIER"
+                },
+                "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+                "cameraidentifier": true,
+                "default": null
+              }
+            ],
+            "name": "cameras",
+            "description": "Camera-specific configuration. All subordinate keys corresponds to the <code>camera_identifier</code> of a configured camera.",
+            "required": true,
+            "default": null
+          },
+          {
+            "type": "list",
+            "values": [
+              {
+                "type": "string"
+              }
+            ],
+            "name": "labels",
+            "description": "A list of labels that when detected will be sent to the post processor. Applies to <b>all</b> cameras defined under <code>cameras</code>.",
+            "optional": true,
+            "default": null
+          },
+          {
+            "type": "list",
+            "values": [
+              {
+                "type": "string"
+              }
+            ],
+            "name": "known_plates",
+            "description": "List of known license plates. Each plate will have its own sensor.",
+            "optional": true,
+            "default": []
+          },
+          {
+            "type": "float",
+            "valueMin": 0.0,
+            "valueMax": 1.0,
+            "name": "min_confidence",
+            "description": "Minimum confidence for a license plate detection.",
+            "optional": true,
+            "default": 0.6
+          },
+          {
+            "type": "float",
+            "valueMin": 0.0,
+            "name": "expire_after",
+            "description": "Time in seconds before a plate recognition expires.",
+            "optional": true,
+            "default": 5
+          }
+        ],
+        "name": "license_plate_recognition",
+        "description": "License plate recognition domain config.",
         "optional": true,
         "default": null
       }

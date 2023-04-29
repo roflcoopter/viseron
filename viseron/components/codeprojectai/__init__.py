@@ -9,6 +9,9 @@ from viseron.domains import OptionalDomain, RequireDomain, setup_domain
 from viseron.domains.face_recognition import (
     BASE_CONFIG_SCHEMA as FACE_RECOGNITION_BASE_CONFIG_SCHEMA,
 )
+from viseron.domains.license_plate_recognition import (
+    BASE_CONFIG_SCHEMA as LICENSE_PLATE_RECOGNITION_SCHEMA,
+)
 from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
 from viseron.domains.object_detector import (
     BASE_CONFIG_SCHEMA as OBJECT_DETECTOR_BASE_CONFIG_SCHEMA,
@@ -22,16 +25,15 @@ from .const import (
     CONFIG_CUSTOM_MODEL,
     CONFIG_FACE_RECOGNITION,
     CONFIG_HOST,
-    CONFIG_IMAGE_HEIGHT,
-    CONFIG_IMAGE_WIDTH,
+    CONFIG_IMAGE_SIZE,
+    CONFIG_LICENSE_PLATE_RECOGNITION,
     CONFIG_MIN_CONFIDENCE,
     CONFIG_OBJECT_DETECTOR,
     CONFIG_PORT,
     CONFIG_TIMEOUT,
     CONFIG_TRAIN,
     DEFAULT_CUSTOM_MODEL,
-    DEFAULT_IMAGE_HEIGHT,
-    DEFAULT_IMAGE_WIDTH,
+    DEFAULT_IMAGE_SIZE,
     DEFAULT_MIN_CONFIDENCE,
     DEFAULT_PORT,
     DEFAULT_TIMEOUT,
@@ -40,8 +42,8 @@ from .const import (
     DESC_CUSTOM_MODEL,
     DESC_FACE_RECOGNITION,
     DESC_HOST,
-    DESC_IMAGE_HEIGHT,
-    DESC_IMAGE_WIDTH,
+    DESC_IMAGE_SIZE,
+    DESC_LICENSE_PLATE_RECOGNITION,
     DESC_MIN_CONFIDENCE,
     DESC_OBJECT_DETECTOR,
     DESC_PORT,
@@ -54,14 +56,9 @@ LOGGER = logging.getLogger(__name__)
 OBJECT_DETECTOR_SCHEMA = OBJECT_DETECTOR_BASE_CONFIG_SCHEMA.extend(
     {
         vol.Optional(
-            CONFIG_IMAGE_WIDTH,
-            default=DEFAULT_IMAGE_WIDTH,
-            description=DESC_IMAGE_WIDTH,
-        ): Maybe(int),
-        vol.Optional(
-            CONFIG_IMAGE_HEIGHT,
-            default=DEFAULT_IMAGE_HEIGHT,
-            description=DESC_IMAGE_HEIGHT,
+            CONFIG_IMAGE_SIZE,
+            default=DEFAULT_IMAGE_SIZE,
+            description=DESC_IMAGE_SIZE,
         ): Maybe(int),
         vol.Optional(
             CONFIG_CUSTOM_MODEL,
@@ -99,6 +96,10 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(
                     CONFIG_FACE_RECOGNITION, description=DESC_FACE_RECOGNITION
                 ): FACE_RECOGNITION_SCHEMA,
+                vol.Optional(
+                    CONFIG_LICENSE_PLATE_RECOGNITION,
+                    description=DESC_LICENSE_PLATE_RECOGNITION,
+                ): LICENSE_PLATE_RECOGNITION_SCHEMA,
             }
         )
     },
@@ -150,5 +151,23 @@ def setup(vis: Viseron, config) -> bool:
 
         if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
             CodeProjectAITrain(config)
+
+    if config.get(CONFIG_LICENSE_PLATE_RECOGNITION, None):
+        for camera_identifier in config[CONFIG_LICENSE_PLATE_RECOGNITION][
+            CONFIG_CAMERAS
+        ].keys():
+            setup_domain(
+                vis,
+                COMPONENT,
+                CONFIG_LICENSE_PLATE_RECOGNITION,
+                config,
+                identifier=camera_identifier,
+                require_domains=[
+                    RequireDomain(
+                        domain="camera",
+                        identifier=camera_identifier,
+                    )
+                ],
+            )
 
     return True
