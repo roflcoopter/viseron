@@ -345,7 +345,7 @@ def letterbox_resize(image: np.ndarray, width, height):
     output_width = int(image_width * scale)
 
     image = cv2.resize(
-        image, (output_width, output_height), interpolation=cv2.INTER_CUBIC
+        image, (output_width, output_height), interpolation=cv2.INTER_AREA
     )
     output_image = np.full((height, width, 3), 0, dtype="uint8")
     output_image[
