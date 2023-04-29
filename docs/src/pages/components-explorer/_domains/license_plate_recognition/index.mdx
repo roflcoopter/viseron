@@ -1,0 +1,7 @@
+License plate recognition runs as a <a href="/docs/documentation/configuration#post-processors">post processor</a> when a specific object is detected.
+
+You can track known license plates by adding them to the `known_plates` list in the configuration.
+Known plates will be reported as binary sensors.
+
+There is also a sensor entity that reports **all** the plates that have been detected.
+This can be used to trigger actions in other platforms, eg Home Assistant, when an unknown plate is detected.

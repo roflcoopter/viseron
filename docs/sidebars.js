@@ -72,12 +72,17 @@ const sidebars = {
         {
           type: "link",
           label: "Face Recognition domain",
-          href: "/docs/documentation/configuration#face-recognition",
+          href: "/docs/documentation/configuration#face-recognition-domain",
         },
         {
           type: "link",
           label: "Image Classification domain",
-          href: "/docs/documentation/configuration#image-classification",
+          href: "/docs/documentation/configuration#image-classification-domain",
+        },
+        {
+          type: "link",
+          label: "License Plate Recognition domain",
+          href: "/docs/documentation/configuration#license-plate-recognition-domain",
         },
       ],
     },

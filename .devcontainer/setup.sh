@@ -2,6 +2,9 @@
 
 set -e
 
+# Install python deps
+pip3 install -r requirements.txt
+
 # Install frontend dependencies
 cd /workspaces/viseron/frontend
 npm install

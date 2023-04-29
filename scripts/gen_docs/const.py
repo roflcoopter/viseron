@@ -132,10 +132,21 @@ DOCS_CAMERA_CONTENTS = """## Camera
 
 """
 
+DOCS_LICENSE_PLATE_RECOGNITION_IMPORTS = """import LicensePlateRecognition from "@site/src/pages/components-explorer/_domains/license_plate_recognition/index.mdx";
+"""
+
+DOCS_LICENSE_PLATE_RECOGNITION_CONTENTS = """## License plate recognition
+
+<LicensePlateRecognition />
+
+"""
+
+
 DOMAIN_IMPORTS = {
     "camera": DOCS_CAMERA_IMPORTS,
     "face_recognition": DOCS_FACE_RECOGNITION_IMPORTS,
     "image_classification": DOCS_IMAGE_CLASSIFICATION_IMPORTS,
+    "license_plate_recognition": DOCS_LICENSE_PLATE_RECOGNITION_IMPORTS,
     "motion_detector": DOCS_MOTION_DETECTOR_IMPORTS,
     "object_detector": DOCS_OBJECT_DETECTOR_IMPORTS,
 }
@@ -144,6 +155,7 @@ DOMAIN_CONTENT = {
     "camera": DOCS_CAMERA_CONTENTS,
     "face_recognition": DOCS_FACE_RECOGNITION_CONTENTS,
     "image_classification": DOCS_IMAGE_CLASSIFICATION_CONTENTS,
+    "license_plate_recognition": DOCS_LICENSE_PLATE_RECOGNITION_CONTENTS,
     "motion_detector": DOCS_MOTION_DETECTOR_CONTENTS,
     "object_detector": DOCS_OBJECT_DETECTOR_CONTENTS,
 }

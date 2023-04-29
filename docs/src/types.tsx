@@ -2,6 +2,7 @@ export type DomainType =
   | "camera"
   | "face_recognition"
   | "image_classification"
+  | "license_plate_recognition"
   | "motion_detector"
   | "nvr"
   | "object_detector";
@@ -33,6 +34,11 @@ export const Domains: { [type in DomainType]: Domain } = {
   image_classification: {
     label: "Image Classification",
     color: "#fe6829",
+  },
+
+  license_plate_recognition: {
+    label: "License Plate Recognition",
+    color: "#821212",
   },
 
   motion_detector: {
