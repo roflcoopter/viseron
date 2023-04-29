@@ -15,7 +15,13 @@ pre-commit install
 
 # Set environment variables
 cd /var/run/environment
-for FILE in *; do echo "export $FILE=$(cat $FILE)" >> $HOME/.bashrc; done
+for FILE in *
+do
+    echo "export $FILE=$(cat $FILE)" >> $HOME/.bashrc
+    sed -i "s/$FILE=true/$FILE=false/g" $HOME/.bashrc
+done
+
+
 
 # Symlink config
 cd /workspaces/viseron
