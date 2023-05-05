@@ -13,16 +13,26 @@ ARG GMMLIB_VERSION
 ARG IGC_VERSION
 ARG LEVEL_ZERO_GPU
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y \
   ca-certificates \
   wget \
+  gpg-agent \
+  && wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
+  gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg \
+  && echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu focal main' | \
+  tee  /etc/apt/sources.list.d/intel.gpu.focal.list
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
   # VA-API
   vainfo \
+  va-driver-all \
   intel-media-va-driver-non-free \
   libva-drm2 \
   libva2 \
   i965-va-driver \
   mesa-va-drivers \
+  mesa-vdpau-drivers \
+  mesa-vulkan-drivers \
   libmfx1 \
   radeontop \
   intel-gpu-tools \
@@ -37,14 +47,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   # OpenCL
   mkdir /opencl &&\
   cd /opencl && \
-  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-gmmlib_${GMMLIB_VERSION}_amd64.deb --progress=bar:force:noscroll && \
   wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-${IGC_VERSION}/intel-igc-core_${IGC_VERSION}_amd64.deb --progress=bar:force:noscroll && \
   wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-${IGC_VERSION}/intel-igc-opencl_${IGC_VERSION}_amd64.deb --progress=bar:force:noscroll && \
-  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-opencl_${OPENCL_VERSION}_amd64.deb --progress=bar:force:noscroll && \
-  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-ocloc_${OPENCL_VERSION}_amd64.deb --progress=bar:force:noscroll && \
   wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-level-zero-gpu_${LEVEL_ZERO_GPU}_amd64.deb --progress=bar:force:noscroll && \
-  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/ww15.sum && \
-  sha256sum -c ww15.sum && \
+  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-opencl-icd_${OPENCL_VERSION}_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/libigdgmm12_${GMMLIB_VERSION}_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/ww09.sum --progress=bar:force:noscroll && \
+  sha256sum --ignore-missing -c ww09.sum && \
   dpkg -i *.deb && \
   rm -R /opencl && \
   ln -s /detectors/models/darknet/yolov7.weights /detectors/models/darknet/default.weights && \
