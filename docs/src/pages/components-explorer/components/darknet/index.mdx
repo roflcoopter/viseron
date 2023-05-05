@@ -51,6 +51,8 @@ darknet:
           - label: dog
             confidence: 0.7
             trigger_recorder: false
+          - label: cat
+            confidence: 0.8
         zones:
           - name: zone1
             coordinates:
@@ -119,6 +121,12 @@ This [GitHub issue](https://github.com/AlexeyAB/darknet/issues/7087#issue-758524
 
 To make an educated guess of what model to use, you can reference [this image.](https://user-images.githubusercontent.com/4096485/101356322-f1f5a180-38a8-11eb-9907-4fe4f188d887.png)<br></br>
 It will help you find the perfect trade-off between accuracy and latency.
+
+:::
+
+:::warning
+
+The image `roflcoopter/rpi3-viseron` only includes the `yolov7-tiny.weights` model.
 
 :::
 
