@@ -66,6 +66,7 @@ RUN \
   gstreamer1.0-vaapi \
   gstreamer1.0-gl \
   gstreamer1.0-pulseaudio \
+  python3-gst-1.0 \
   && rm -rf /var/lib/apt/lists/* \
   \
   && python3 -m pip install --upgrade pip \

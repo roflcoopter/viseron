@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING
 
 from viseron.components.ffmpeg.const import CONFIG_SEGMENTS_FOLDER
 from viseron.components.ffmpeg.recorder import ConcatThreadsContext
+from viseron.components.ffmpeg.segments import SegmentCleanup, Segments
 from viseron.domains.camera.recorder import AbstractRecorder
 from viseron.helpers import create_directory
 
 from .const import COMPONENT, RECORDER
-from .segments import SegmentCleanup, Segments
 
 if TYPE_CHECKING:
     from viseron import Viseron

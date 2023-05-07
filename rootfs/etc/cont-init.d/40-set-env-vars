@@ -39,4 +39,9 @@ else
     printf "false" > /var/run/environment/VISERON_CUDA_SUPPORTED
     log_warning "CUDA cannot be used"
 fi
+
+# Used by dconf cache in GStreamer
+export XDG_RUNTIME_DIR=/home/abc
+printf "/home/abc" > /var/run/environment/XDG_RUNTIME_DIR
+
 log_info "*********************** Done *****************************"
