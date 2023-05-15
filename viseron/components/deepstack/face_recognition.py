@@ -83,6 +83,7 @@ class FaceRecognition(AbstractFaceRecognition):
             if detection["userid"] != "unknown":
                 self._logger.debug(f"Face found: {detection}")
                 self.known_face_found(
+                    COMPONENT,
                     detection["userid"],
                     (
                         detection["x_min"],
@@ -93,7 +94,7 @@ class FaceRecognition(AbstractFaceRecognition):
                     confidence=detection["confidence"],
                 )
             elif self._config[CONFIG_SAVE_UNKNOWN_FACES]:
-                self.unknown_face_found(cropped_frame)
+                self.unknown_face_found(COMPONENT, cropped_frame)
 
     def process(self, post_processor_frame: PostProcessorFrame) -> None:
         """Process received frame."""

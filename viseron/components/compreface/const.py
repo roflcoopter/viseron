@@ -25,6 +25,7 @@ CONFIG_LIMIT = "limit"
 CONFIG_PREDICTION_COUNT = "prediction_count"
 CONFIG_FACE_PLUGINS = "face_plugins"
 CONFIG_STATUS = "status"
+CONFIG_DETECT_REMOTE_FACES = "detect_remote_faces"
 
 DEFAULT_TRAIN = False
 DEFAULT_DET_PROB_THRESHOLD = 0.8
@@ -33,6 +34,7 @@ DEFAULT_LIMIT = 0
 DEFAULT_PREDICTION_COUNT = 1
 DEFAULT_FACE_PLUGINS: Final = None
 DEFAULT_STATUS = False
+DEFAULT_DETECT_REMOTE_FACES = False
 
 DESC_TRAIN = (
     "Train CompreFace to recognize faces on Viseron start. "
@@ -65,3 +67,4 @@ DESC_FACE_PLUGINS = (
 DESC_STATUS = (
     "If true includes system information like execution_time and plugin_version fields."
 )
+DESC_DETECT_REMOTE_FACES = "If true faces trained using other methods will be detected."
