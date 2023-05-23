@@ -16,7 +16,7 @@ RECORDER = "recorder"
 
 # pylint: disable=wrong-import-position,wrong-import-order
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst  # type: ignore[attr-defined] # noqa: E402
+from gi.repository import Gst  # pyright: ignore[reportMissingImports] # noqa: E402
 
 # pylint: enable=wrong-import-position
 

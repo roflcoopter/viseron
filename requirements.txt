@@ -13,8 +13,10 @@ path.py==12.4.0
 pyjwt==2.6.0
 python-slugify==4.0.1
 PyYAML==5.3.1
+requests==2.31.0
 scikit-learn==1.2.2
 tenacity==7.0.0
 tornado==6.1
+urllib3==1.26.15
 voluptuous==0.12.2
 setproctitle==1.2.2

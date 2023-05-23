@@ -36,7 +36,7 @@ class AbstractPipeline(ABC):
     """Abstract GStreamer pipeline."""
 
     @abstractmethod
-    def build_pipeline(self):
+    def build_pipeline(self) -> str:
         """Build pipeline."""
 
 
@@ -46,7 +46,7 @@ class RawPipeline(AbstractPipeline):
     def __init__(self, config) -> None:
         self._config = config
 
-    def build_pipeline(self):
+    def build_pipeline(self) -> str:
         """Build pipeline."""
         return self._config[CONFIG_RAW_PIPELINE].split(" ")
 

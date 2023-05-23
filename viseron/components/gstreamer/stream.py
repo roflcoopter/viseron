@@ -44,7 +44,11 @@ if TYPE_CHECKING:
 # pylint: disable=wrong-import-position,wrong-import-order
 gi.require_version("Gst", "1.0")
 gi.require_version("GstApp", "1.0")
-from gi.repository import GLib, Gst, GstApp  # type: ignore[attr-defined] # noqa: E402
+from gi.repository import (  # pyright: ignore[reportMissingImports] # noqa: E402
+    GLib,
+    Gst,
+    GstApp,
+)
 
 _ = GstApp
 # pylint: enable=wrong-import-position
@@ -248,7 +252,7 @@ class Stream(FFmpegStream):
         self._logger.debug(f"{self.alias} exited")
 
     def poll(self) -> int | None:
-        """Mimick Popen poll."""
+        """Mimic Popen poll."""
         if self._process_frames_proc:
             return self._process_frames_proc.exitcode
         return None
