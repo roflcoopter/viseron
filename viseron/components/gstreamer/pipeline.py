@@ -14,7 +14,6 @@ from viseron.domains.camera.const import CONFIG_EXTENSION
 from .const import (
     CONFIG_AUDIO_CODEC,
     CONFIG_AUDIO_PIPELINE,
-    CONFIG_GSTREAMER_LOGLEVEL,
     CONFIG_MUXER,
     CONFIG_OUTPUT_ELEMENT,
     CONFIG_RAW_PIPELINE,
@@ -24,7 +23,6 @@ from .const import (
     DECODER_ELEMENT_MAP,
     DEFAULT_AUDIO_PIPELINE,
     DEPAY_ELEMENT_MAP,
-    GSTREAMER_LOGLEVELS,
     PARSE_ELEMENT_MAP,
     PIXEL_FORMAT,
     STREAM_FORMAT_MAP,
@@ -38,7 +36,7 @@ class AbstractPipeline(ABC):
     """Abstract GStreamer pipeline."""
 
     @abstractmethod
-    def build_pipeline(self):
+    def build_pipeline(self) -> str:
         """Build pipeline."""
 
 
@@ -48,7 +46,7 @@ class RawPipeline(AbstractPipeline):
     def __init__(self, config) -> None:
         self._config = config
 
-    def build_pipeline(self):
+    def build_pipeline(self) -> str:
         """Build pipeline."""
         return self._config[CONFIG_RAW_PIPELINE].split(" ")
 
@@ -60,16 +58,6 @@ class BasePipeline(AbstractPipeline):
         self._config = config
         self._stream = stream
         self._camera_identifier = camera_identifier
-
-    def global_args(self):
-        """Return GStreamer global args."""
-        return [self._stream.alias] + [
-            (
-                "--gst-debug-level="
-                f"{GSTREAMER_LOGLEVELS[self._config[CONFIG_GSTREAMER_LOGLEVEL]]}"
-            ),
-            "-q",
-        ]
 
     def input_pipeline(self):
         """Generate GStreamer input pipeline."""
@@ -86,8 +74,8 @@ class BasePipeline(AbstractPipeline):
                     f"protocols={self._config[CONFIG_RTSP_TRANSPORT]}",
                     "!",
                     "rtpjitterbuffer",
-                    "do-lost=true",
-                    "drop-on-latency=true",
+                    # "do-lost=true",
+                    # "drop-on-latency=true",
                 ]
                 if self._config[CONFIG_STREAM_FORMAT] == "rtsp"
                 else []
@@ -171,7 +159,12 @@ class BasePipeline(AbstractPipeline):
             + [
                 f"video/x-raw,format=(string){PIXEL_FORMAT}",
                 "!",
-                "fdsink",
+                "appsink",
+                "sync=true",
+                "max-buffers=1",
+                "drop=true",
+                "name=sink",
+                "emit-signals=true",
                 "depayed_stream.",
             ]
         )
@@ -246,8 +239,7 @@ class BasePipeline(AbstractPipeline):
     def build_pipeline(self):
         """Return pipeline."""
         return (
-            self.global_args()
-            + self.input_pipeline()
+            self.input_pipeline()
             + self.output_pipeline()
             + self.segment_pipeline()
             + self.audio_pipeline()

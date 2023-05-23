@@ -58,7 +58,7 @@ class Segments:
             FFMPEG_LOGLEVELS[config[CONFIG_RECORDER][CONFIG_FFMPEG_LOGLEVEL]],
         )
 
-    def segment_duration(self, segment_file):
+    def segment_duration(self, segment_file) -> float | None:
         """Return the duration of a specified segment."""
         ffprobe_cmd = [
             "ffprobe",
@@ -106,7 +106,7 @@ class Segments:
         return None
 
     @staticmethod
-    def find_segment(segments, timestamp):
+    def find_segment(segments, timestamp) -> None:
         """Find a segment which includes the given timestamp."""
         return next(
             (
@@ -117,13 +117,13 @@ class Segments:
             None,
         )
 
-    def get_start_time(self, segment):
+    def get_start_time(self, segment) -> float:
         """Get start time of segment."""
         return datetime.datetime.strptime(
             segment.split(".")[0], "%Y%m%d%H%M%S"
         ).timestamp()
 
-    def get_segment_information(self):
+    def get_segment_information(self) -> dict[str, dict[str, float]]:
         """Get information for all available segments."""
         segment_files = os.listdir(self._segments_folder)
         segment_information: dict[str, dict[str, float]] = {}
@@ -300,6 +300,14 @@ class Segments:
             return
 
         temp_file = os.path.join("/tmp", recording.path)
+
+        # Sanity check that all segments exist.
+        # Should never happen but better safe than sorry
+        segments_to_concat = [
+            segment
+            for segment in segments_to_concat
+            if os.path.exists(os.path.join(self._segments_folder, segment))
+        ]
 
         try:
             self.ffmpeg_concat(

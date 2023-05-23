@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 from typing import Final, TypedDict
 
+import gi
+
 COMPONENT = "gstreamer"
 
 DESC_COMPONENT = "GStreamer Configuration."
@@ -11,6 +13,12 @@ DESC_COMPONENT = "GStreamer Configuration."
 ENV_GSTREAMER_PATH = "VISERON_GSTREAMER_PATH"
 
 RECORDER = "recorder"
+
+# pylint: disable=wrong-import-position,wrong-import-order
+gi.require_version("Gst", "1.0")
+from gi.repository import Gst  # pyright: ignore[reportMissingImports] # noqa: E402
+
+# pylint: enable=wrong-import-position
 
 
 class StreamFormat(TypedDict):
@@ -63,22 +71,24 @@ DECODER_ELEMENT_MAP = {
 
 PIXEL_FORMAT = "NV12"
 
-GSTREAMER_LOGLEVELS = {
-    "error": 1,
-    "warning": 2,
-    "fixme": 3,
-    "info": 4,
-    "debug": 5,
-    "trace": 7,
+CONFIG_LOGLEVEL_TO_GSTREAMER = {
+    "error": Gst.DebugLevel.ERROR,
+    "warning": Gst.DebugLevel.WARNING,
+    "fixme": Gst.DebugLevel.FIXME,
+    "info": Gst.DebugLevel.INFO,
+    "debug": Gst.DebugLevel.DEBUG,
+    "trace": Gst.DebugLevel.TRACE,
 }
 
-LOGLEVEL_CONVERTER = {
-    "error": logging.ERROR,
-    "warning": logging.WARNING,
-    "fixme": logging.INFO,
-    "info": logging.INFO,
-    "debug": logging.DEBUG,
-    "trace": logging.DEBUG,
+GSTREAMER_LOGLEVEL_TO_PYTHON = {
+    Gst.DebugLevel.NONE: logging.NOTSET,
+    Gst.DebugLevel.ERROR: logging.ERROR,
+    Gst.DebugLevel.WARNING: logging.WARNING,
+    Gst.DebugLevel.FIXME: logging.INFO,
+    Gst.DebugLevel.INFO: logging.INFO,
+    Gst.DebugLevel.DEBUG: logging.DEBUG,
+    Gst.DebugLevel.LOG: logging.DEBUG,
+    Gst.DebugLevel.TRACE: logging.DEBUG,
 }
 
 # STREAM_SCHEMA constants
