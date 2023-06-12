@@ -21,7 +21,7 @@ from viseron.components.data_stream import (
 )
 from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
 from viseron.domains.camera.recorder import FailedCameraRecorder
-from viseron.helpers.validators import CoerceNoneToDict, Maybe, Slug
+from viseron.helpers.validators import CoerceNoneToDict, Deprecated, Maybe, Slug
 
 from .const import (
     AUTHENTICATION_BASIC,
@@ -72,12 +72,12 @@ from .const import (
     DEFAULT_PASSWORD,
     DEFAULT_RECORDER,
     DEFAULT_REFRESH_INTERVAL,
-    DEFAULT_RETAIN,
     DEFAULT_SAVE_TO_DISK,
     DEFAULT_STILL_IMAGE,
     DEFAULT_THUMBNAIL,
     DEFAULT_URL,
     DEFAULT_USERNAME,
+    DEPRECATED_RETAIN,
     DESC_AUTHENTICATION,
     DESC_EXTENSION,
     DESC_FILENAME_PATTERN,
@@ -201,8 +201,10 @@ RECORDER_SCHEMA = vol.Schema(
             default=DEFAULT_IDLE_TIMEOUT,
             description=DESC_IDLE_TIMEOUT,
         ): vol.All(int, vol.Range(min=0)),
-        vol.Optional(
-            CONFIG_RETAIN, default=DEFAULT_RETAIN, description=DESC_RETAIN
+        Deprecated(
+            CONFIG_RETAIN,
+            description=DESC_RETAIN,
+            message=DEPRECATED_RETAIN,
         ): vol.All(int, vol.Range(min=1)),
         vol.Optional(
             CONFIG_FOLDER, default=DEFAULT_FOLDER, description=DESC_FOLDER
@@ -450,6 +452,11 @@ class AbstractCamera(ABC):
                 else EVENT_STATUS_DISCONNECTED
             ),
         )
+
+    @property
+    def config(self) -> dict[str, Any]:
+        """Return camera config."""
+        return self._config
 
     @staticmethod
     def _clear_snapshot_cache(clear_cache) -> None:

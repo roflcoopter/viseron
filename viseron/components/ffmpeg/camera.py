@@ -25,7 +25,12 @@ from viseron.domains.camera.const import (
     EVENT_CAMERA_STOPPED,
 )
 from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
-from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict, Maybe
+from viseron.helpers.validators import (
+    CameraIdentifier,
+    CoerceNoneToDict,
+    Deprecated,
+    Maybe,
+)
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -84,7 +89,6 @@ from .const import (
     DEFAULT_RECORDER_OUTPUT_ARGS,
     DEFAULT_RECORDER_VIDEO_FILTERS,
     DEFAULT_RTSP_TRANSPORT,
-    DEFAULT_SEGMENTS_FOLDER,
     DEFAULT_STREAM_FORMAT,
     DEFAULT_SUBSTREAM,
     DEFAULT_USERNAME,
@@ -238,9 +242,8 @@ RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
             default=DEFAULT_RECORDER_OUTPUT_ARGS,
             description=DESC_RECORDER_OUTPUT_ARGS,
         ): [str],
-        vol.Optional(
+        Deprecated(
             CONFIG_SEGMENTS_FOLDER,
-            default=DEFAULT_SEGMENTS_FOLDER,
             description=DESC_SEGMENTS_FOLDER,
         ): str,
         vol.Optional(

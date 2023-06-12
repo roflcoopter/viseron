@@ -5,10 +5,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from viseron.components.ffmpeg.const import (
-    CAMERA_SEGMENT_DURATION,
-    CONFIG_SEGMENTS_FOLDER,
-)
+from viseron.components.ffmpeg.const import CAMERA_SEGMENT_DURATION
 from viseron.domains.camera.const import CONFIG_EXTENSION
 
 from .const import (
@@ -30,6 +27,7 @@ from .const import (
 
 if TYPE_CHECKING:
     from viseron.components.gstreamer.stream import Stream
+    from viseron.domains.camera import AbstractCamera
 
 
 class AbstractPipeline(ABC):
@@ -54,10 +52,10 @@ class RawPipeline(AbstractPipeline):
 class BasePipeline(AbstractPipeline):
     """Base GStreamer pipeline."""
 
-    def __init__(self, config, stream: Stream, camera_identifier) -> None:
+    def __init__(self, config, stream: Stream, camera: AbstractCamera) -> None:
         self._config = config
         self._stream = stream
-        self._camera_identifier = camera_identifier
+        self._camera = camera
 
     def input_pipeline(self):
         """Generate GStreamer input pipeline."""
@@ -183,8 +181,7 @@ class BasePipeline(AbstractPipeline):
     def segment_pipeline(self):
         """Generate GStreamer segment args."""
         segment_filepattern = os.path.join(
-            self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
-            self._camera_identifier,
+            self._camera.recorder.segments_folder,
             f"%01d.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
         )
         return (

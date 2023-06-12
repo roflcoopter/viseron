@@ -10,7 +10,13 @@ import typing_extensions
 import voluptuous as vol
 
 from viseron.config import UNSUPPORTED
-from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict, Maybe, Slug
+from viseron.helpers.validators import (
+    CameraIdentifier,
+    CoerceNoneToDict,
+    Deprecated,
+    Maybe,
+    Slug,
+)
 from viseron.types import SupportedDomains
 
 from .const import (
@@ -214,6 +220,13 @@ def convert(schema, custom_convert=None):  # noqa: C901
     if isinstance(schema, Slug):
         return {
             "type": "string",
+        }
+
+    if isinstance(schema, Deprecated):
+        return {
+            "type": "deprecated",
+            "name": schema.key,
+            "value": schema.message,
         }
 
     if callable(schema):

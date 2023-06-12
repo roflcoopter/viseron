@@ -5,6 +5,7 @@ ENV SHELL /bin/bash
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
     curl \
+    sqlite3 \
     && curl -fsSL https://deb.nodesource.com/setup_16.x | bash - \
     && apt-get install --no-install-recommends -y \
     nodejs

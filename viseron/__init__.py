@@ -45,7 +45,9 @@ from viseron.const import (
     LOADED,
     LOADING,
     REGISTERED_DOMAINS,
+    VISERON_SIGNAL_LAST_WRITE,
     VISERON_SIGNAL_SHUTDOWN,
+    VISERON_SIGNAL_STOPPING,
 )
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DataStreamNotLoaded, DomainNotRegisteredError
@@ -74,6 +76,8 @@ if TYPE_CHECKING:
 
 VISERON_SIGNALS = {
     VISERON_SIGNAL_SHUTDOWN: "viseron/signal/shutdown",
+    VISERON_SIGNAL_LAST_WRITE: "viseron/signal/last_write",
+    VISERON_SIGNAL_STOPPING: "viseron/signal/stopping",
 }
 
 SIGNAL_SCHEMA = vol.Schema(
@@ -107,6 +111,8 @@ def enable_logging() -> None:
     logging.getLogger("tornado.access").setLevel(logging.WARNING)
     logging.getLogger("tornado.application").setLevel(logging.WARNING)
     logging.getLogger("tornado.general").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    logging.getLogger("watchdog.observers.inotify_buffer").setLevel(logging.WARNING)
 
     sys.excepthook = lambda *args: logging.getLogger(None).exception(
         "Uncaught exception", exc_info=args  # type: ignore[arg-type]
@@ -121,7 +127,7 @@ def enable_logging() -> None:
     )
 
 
-def setup_viseron():
+def setup_viseron() -> Viseron:
     """Set up and run Viseron."""
     start = timer()
     enable_logging()
@@ -428,43 +434,15 @@ class Viseron:
 
         if self.data.get(DATA_STREAM_COMPONENT, None):
             data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
-            data_stream.publish_data(VISERON_SIGNALS["shutdown"])
 
         self._thread_watchdog.stop()
         self._subprocess_watchdog.stop()
         self.background_scheduler.shutdown()
 
-        def join(
-            thread_or_process: threading.Thread
-            | multiprocessing.Process
-            | multiprocessing.process.BaseProcess,
-        ) -> None:
-            thread_or_process.join(timeout=8)
-            time.sleep(0.5)  # Wait for process to exit properly
-            if thread_or_process.is_alive():
-                LOGGER.error(f"{thread_or_process.name} did not exit in time")
-                if isinstance(thread_or_process, multiprocessing.Process):
-                    LOGGER.error(f"Forcefully kill {thread_or_process.name}")
-                    thread_or_process.kill()
+        wait_for_threads_and_processes_to_exit(data_stream, VISERON_SIGNAL_SHUTDOWN)
+        wait_for_threads_and_processes_to_exit(data_stream, VISERON_SIGNAL_LAST_WRITE)
+        wait_for_threads_and_processes_to_exit(data_stream, VISERON_SIGNAL_STOPPING)
 
-        threads_and_processes: list[
-            threading.Thread
-            | multiprocessing.Process
-            | multiprocessing.process.BaseProcess
-        ] = [
-            thread
-            for thread in threading.enumerate()
-            if not thread.daemon and thread != threading.current_thread()
-        ]
-        threads_and_processes += multiprocessing.active_children()
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
-            thread_or_process_future = {
-                executor.submit(join, thread_or_process): thread_or_process
-                for thread_or_process in threads_and_processes
-            }
-            for future in concurrent.futures.as_completed(thread_or_process_future):
-                future.result()
         LOGGER.info("Shutdown complete")
 
     def add_entity(self, component: str, entity: Entity):
@@ -496,3 +474,45 @@ class Viseron:
             self.background_scheduler.add_job(
                 memory_usage_profiler, "interval", seconds=5, args=[LOGGER]
             )
+
+
+def wait_for_threads_and_processes_to_exit(
+    data_stream: DataStream,
+    stage: Literal["shutdown", "last_write", "stopping"],
+) -> None:
+    """Wait for all threads and processes to exit."""
+    data_stream.publish_data(VISERON_SIGNALS[stage])
+
+    LOGGER.debug(f"Waiting for threads and processes to exit in stage {stage}")
+
+    def join(
+        thread_or_process: threading.Thread
+        | multiprocessing.Process
+        | multiprocessing.process.BaseProcess,
+    ) -> None:
+        thread_or_process.join(timeout=10)
+        time.sleep(0.5)  # Wait for process to exit properly
+        if thread_or_process.is_alive():
+            LOGGER.error(f"{thread_or_process.name} did not exit in time")
+            if isinstance(thread_or_process, multiprocessing.Process):
+                LOGGER.error(f"Forcefully kill {thread_or_process.name}")
+                thread_or_process.kill()
+
+    threads_and_processes: list[
+        threading.Thread | multiprocessing.Process | multiprocessing.process.BaseProcess
+    ] = [
+        thread
+        for thread in threading.enumerate()
+        if not thread.daemon and thread != threading.current_thread()
+    ]
+    threads_and_processes += multiprocessing.active_children()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+        thread_or_process_future = {
+            executor.submit(join, thread_or_process): thread_or_process
+            for thread_or_process in threads_and_processes
+            if getattr(thread_or_process, "__stage__", stage) == stage
+        }
+        for future in concurrent.futures.as_completed(thread_or_process_future):
+            future.result()
+    LOGGER.debug(f"All threads and processes exited in stage {stage}")

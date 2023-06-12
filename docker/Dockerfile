@@ -29,7 +29,7 @@ ARG EXTRA_APT_PACKAGES
 ENV \
   DEBIAN_FRONTEND=noninteractive \
   S6_KEEP_ENV=1 \
-  S6_SERVICES_GRACETIME=20000 \
+  S6_SERVICES_GRACETIME=30000 \
   S6_KILL_GRACETIME=1000 \
   PATH=$PATH:/home/abc/bin \
   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib \
@@ -91,6 +91,8 @@ RUN \
 
 VOLUME /config
 VOLUME /recordings
+VOLUME /segments
+VOLUME /snapshots
 
 ENTRYPOINT ["/init"]
 

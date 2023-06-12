@@ -300,7 +300,7 @@ class Webserver(threading.Thread):
             [
                 (
                     (
-                        rf"\/recordings\/{camera.identifier}\/"
+                        rf"{camera.recorder.recordings_folder}\/"
                         rf"(.*\/.*\.(mp4$|mkv$|mov$|jpg$|{camera.extension}$))"
                     ),
                     AccessTokenStaticFileHandler,

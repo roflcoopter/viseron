@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from viseron.const import VISERON_SIGNAL_SHUTDOWN
+from viseron.const import TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import CONFIG_LOOKBACK
 from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE
 from viseron.domains.camera.recorder import EventRecorderData
@@ -26,7 +26,6 @@ from .const import (
     CONFIG_RECORDER_HWACCEL_ARGS,
     CONFIG_RECORDER_OUPTUT_ARGS,
     CONFIG_RECORDER_VIDEO_FILTERS,
-    CONFIG_SEGMENTS_FOLDER,
     FFMPEG_LOGLEVELS,
 )
 
@@ -119,9 +118,7 @@ class Segments:
 
     def get_start_time(self, segment) -> float:
         """Get start time of segment."""
-        return datetime.datetime.strptime(
-            segment.split(".")[0], "%Y%m%d%H%M%S"
-        ).timestamp()
+        return int(segment.split(".")[0])
 
     def get_segment_information(self) -> dict[str, dict[str, float]]:
         """Get information for all available segments."""
@@ -227,6 +224,7 @@ class Segments:
 
     def ffmpeg_concat(self, segment_script, file_name) -> None:
         """Generate and run FFmpeg command to concatenate segments."""
+        os.makedirs(os.path.dirname(file_name), exist_ok=True)
         ffmpeg_cmd = (
             [
                 "ffmpeg",
@@ -305,7 +303,7 @@ class Segments:
         if not segments_to_concat:
             return
 
-        temp_file = os.path.join("/tmp", recording.path)
+        temp_file = TEMP_DIR + recording.path
 
         # Sanity check that all segments exist.
         # Should never happen but better safe than sorry
@@ -346,12 +344,12 @@ class SegmentCleanup:
     """Clean up segments created by FFmpeg."""
 
     def __init__(
-        self, vis, config, camera_name, logger, segment_thread_context
+        self, vis, config, logger, segment_thread_context, segments_folder
     ) -> None:
         self._vis = vis
         self._logger = logger
         self._segment_thread_context = segment_thread_context
-        self._directory = os.path.join(config[CONFIG_SEGMENTS_FOLDER], camera_name)
+        self._segments_folder = segments_folder
         # Make sure we dont delete a segment which is needed by recorder
         self._max_age = config[CONFIG_LOOKBACK] + (CAMERA_SEGMENT_DURATION * 3)
         self._scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
@@ -367,9 +365,7 @@ class SegmentCleanup:
 
     def get_start_time(self, segment):
         """Get start time of segment."""
-        return datetime.datetime.strptime(
-            segment.split(".")[0], "%Y%m%d%H%M%S"
-        ).timestamp()
+        return int(segment.split(".")[0])
 
     def cleanup(self, force=False) -> None:
         """Delete all segments that are no longer needed."""
@@ -379,10 +375,10 @@ class SegmentCleanup:
             )
             return
 
-        now = datetime.datetime.now().timestamp()
-        for segment in os.listdir(self._directory):
+        now = time.time()
+        for segment in os.listdir(self._segments_folder):
             if force:
-                os.remove(os.path.join(self._directory, segment))
+                os.remove(os.path.join(self._segments_folder, segment))
                 continue
 
             try:
@@ -394,7 +390,7 @@ class SegmentCleanup:
                 continue
 
             if now - start_time > self._max_age:
-                os.remove(os.path.join(self._directory, segment))
+                os.remove(os.path.join(self._segments_folder, segment))
 
     def start(self) -> None:
         """Start the scheduler."""

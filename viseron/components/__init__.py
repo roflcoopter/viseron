@@ -71,7 +71,7 @@ LOGGING_COMPONENTS = {"logger"}
 # Core components are always loaded even if they are not present in config
 CORE_COMPONENTS = {"data_stream"}
 # Default components are always loaded even if they are not present in config
-DEFAULT_COMPONENTS = {"webserver"}
+DEFAULT_COMPONENTS = {"webserver", "storage"}
 
 DOMAIN_SETUP_LOCK = threading.Lock()
 

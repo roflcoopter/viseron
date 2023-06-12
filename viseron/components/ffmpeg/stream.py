@@ -47,9 +47,7 @@ from .const import (
     CONFIG_PORT,
     CONFIG_PROTOCOL,
     CONFIG_RAW_COMMAND,
-    CONFIG_RECORDER,
     CONFIG_RTSP_TRANSPORT,
-    CONFIG_SEGMENTS_FOLDER,
     CONFIG_STREAM_FORMAT,
     CONFIG_SUBSTREAM,
     CONFIG_USERNAME,
@@ -350,9 +348,8 @@ class Stream:
             )
             + [
                 os.path.join(
-                    self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
-                    self._camera.identifier,
-                    f"%Y%m%d%H%M%S.{self._camera.extension}",
+                    self._camera.recorder.segments_folder,
+                    f"%s.{self._camera.extension}",
                 )
             ]
         )

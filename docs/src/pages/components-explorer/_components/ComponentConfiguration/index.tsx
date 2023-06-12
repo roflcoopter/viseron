@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 // Have to disable no-explicit-any, since i have no idea how to type the complex JSON in the config.json files
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -6,6 +7,7 @@ import React from "react";
 import CodeBlock from "@theme/CodeBlock";
 import Tippy from "@tippyjs/react";
 import clsx from "clsx";
+import yaml from "js-yaml";
 import "tippy.js/dist/tippy.css";
 
 import styles from "./styles.module.css";
@@ -91,12 +93,16 @@ function buildMinMax(item: any) {
 
 // Return div with description
 function buildDescription(item: any) {
+  let { description } = item;
+  if (item.deprecated) {
+    description = `<b>DEPRECATED</b>. ${item.name.value}<br><br>${description}`;
+  }
   return (
     <div className={styles.configVariablesDescription}>
-      {item.description ? (
+      {description ? (
         <div
           dangerouslySetInnerHTML={{
-            __html: item.description,
+            __html: description,
           }}
         />
       ) : (
@@ -117,43 +123,70 @@ function getName(item: any) {
 }
 
 function getDefault(item: any) {
+  function getCodeBlock() {
+    return (
+      <span className={styles.configVariablesDefault}>
+        , default:
+        <Tippy
+          interactive={true}
+          content={
+            <span>
+              <CodeBlock language="yaml">
+                {styles.configVariablesDefault}
+                {yaml.dump(item.default, {
+                  noCompatMode: true,
+                  lineWidth: -1,
+                })}
+              </CodeBlock>
+            </span>
+          }
+        >
+          <span style={{ borderBottom: "#8792a2 dotted 0.5px" }}>
+            {" hover to show)"}
+          </span>
+        </Tippy>
+      </span>
+    );
+  }
+
+  // Handle object defaults
+  if (
+    item.optional &&
+    item.default !== null &&
+    typeof item.default === "object" &&
+    !Array.isArray(item.default) &&
+    Object.keys(item.default).length > 0
+  ) {
+    // Show object defaults in a CodeBlock tooltip
+    return getCodeBlock();
+  }
+
+  // Handle array defaults
   if (
     item.optional &&
     item.default !== null &&
     // Only display default values for arrays if the length is greater than zero
-    !(Array.isArray(item.default) && item.default.length === 0)
+    Array.isArray(item.default) &&
+    item.default.length > 0
   ) {
     // Show array defaults in a CodeBlock tooltip
-    if (Array.isArray(item.default)) {
-      return (
-        <span className={styles.configVariablesDefault}>
-          , default:
-          <Tippy
-            interactive={true}
-            content={
-              <span>
-                <CodeBlock language="yaml">
-                  {styles.configVariablesDefault}
-                  {item.default
-                    .map((default_entry) => `- ${default_entry}`)
-                    .join("\n")}
-                </CodeBlock>
-              </span>
-            }
-          >
-            <span style={{ borderBottom: "#8792a2 dotted 0.5px" }}>
-              {" hover to show)"}
-            </span>
-          </Tippy>
-        </span>
-      );
-    }
+    return getCodeBlock();
+  }
+
+  // Handle other defaults
+  if (
+    item.optional &&
+    item.default !== null &&
+    !Array.isArray(item.default) &&
+    !(typeof item.default === "object")
+  ) {
     return (
       <span className={styles.configVariablesDefault}>
         , default: <code>{item.default.toString()}</code>)
       </span>
     );
   }
+
   if (item.optional) {
     return ")";
   }
@@ -180,7 +213,11 @@ function buildHeader(item: any) {
             [styles.true]: !optional,
           })}
         >
-          {optional ? "optional" : " required"}
+          {optional
+            ? "optional"
+            : item.deprecated
+            ? " deprecated"
+            : " required"}
         </span>
         {getDefault(item)}
       </span>

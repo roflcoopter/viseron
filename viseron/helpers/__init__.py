@@ -22,7 +22,9 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def calculate_relative_contours(contours, resolution: tuple[int, int]):
+def calculate_relative_contours(
+    contours, resolution: tuple[int, int]
+) -> list[np.ndarray]:
     """Convert contours with absolute coords to relative."""
     relative_contours = []
     for contour in contours:

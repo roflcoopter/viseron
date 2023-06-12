@@ -15,6 +15,7 @@ import numpy as np
 from apscheduler.schedulers.background import BackgroundScheduler
 from path import Path
 
+from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.helpers import create_directory, draw_objects
 
@@ -26,7 +27,6 @@ from .const import (
     CONFIG_RETAIN,
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
-    DEFAULT_FOLDER,
     EVENT_RECORDER_START,
     EVENT_RECORDER_STOP,
 )
@@ -36,6 +36,7 @@ from .shared_frames import SharedFrame
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera, FailedCamera
 
 
@@ -109,10 +110,9 @@ class RecorderBase:
             ".mov",
         ]
 
-        self.recordings_folder = os.path.join(
-            self._config.get(CONFIG_RECORDER, {}).get(CONFIG_FOLDER, DEFAULT_FOLDER),
-            self._camera.identifier,
-        )
+        storage: Storage = vis.data[STORAGE_COMPONENT]
+        self.recordings_folder = storage.get_recordings_path(camera)
+        self.segments_folder = storage.get_segments_path(camera)
 
     def _recording_file_dict(self, file: Path) -> RecordingDict:
         """Return a dict with recording file information."""
@@ -123,7 +123,7 @@ class RecorderBase:
             "thumbnail_path": os.path.join(file.parent, f"{str(file.stem)}.jpg"),
         }
 
-    def get_recordings(self, date=None):
+    def get_recordings(self, date=None) -> dict[str, dict[str, RecordingDict]]:
         """Return all recordings."""
         recordings: dict[str, dict[str, RecordingDict]] = {}
         dirs = Path(self.recordings_folder)
@@ -164,7 +164,7 @@ class RecorderBase:
                     return recordings
         return {}
 
-    def get_latest_recording_daily(self):
+    def get_latest_recording_daily(self) -> dict[str, dict[str, RecordingDict]]:
         """Return the latest recording for each day."""
         recordings: dict[str, dict[str, RecordingDict]] = {}
         dirs = Path(self.recordings_folder)
@@ -239,6 +239,7 @@ class AbstractRecorder(ABC, RecorderBase):
         ]
 
         create_directory(self.recordings_folder)
+        create_directory(self.segments_folder)
 
         self._scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
         self._scheduler.add_job(self.cleanup_recordings, "cron", hour="1")
@@ -248,7 +249,7 @@ class AbstractRecorder(ABC, RecorderBase):
         vis.add_entity(component, RecorderBinarySensor(vis, self._camera))
         vis.add_entity(component, ThumbnailImage(vis, self._camera))
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, dict[str, RecordingDict]]:
         """Return recorder information as dict."""
         return self.get_recordings()
 

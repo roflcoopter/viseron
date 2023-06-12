@@ -26,3 +26,7 @@ pycodestyle==2.10.0
 pydocstyle==6.1.1
 pyflakes==3.0.1
 pyupgrade==3.2.2
+
+# types
+types-requests
+types-python-slugify

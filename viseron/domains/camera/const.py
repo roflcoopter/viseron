@@ -79,7 +79,6 @@ CONFIG_THUMBNAIL = "thumbnail"
 
 DEFAULT_LOOKBACK = 5
 DEFAULT_IDLE_TIMEOUT = 10
-DEFAULT_RETAIN = 7
 DEFAULT_FOLDER = "/recordings"
 DEFAULT_FILENAME_PATTERN = "%H:%M:%S"
 DEFAULT_EXTENSION = "mp4"
@@ -88,6 +87,10 @@ DEFAULT_THUMBNAIL: Final = None
 DESC_LOOKBACK = "Number of seconds to record before a detected object."
 DESC_IDLE_TIMEOUT = "Number of seconds to record after all events are over."
 DESC_RETAIN = "Number of days to save recordings before deletion."
+DEPRECATED_RETAIN = (
+    "Use the "
+    "<a href=/components-explorer/components/storage>storage component</a> instead."
+)
 DESC_FOLDER = "What folder to store recordings in."
 DESC_FILENAME_PATTERN = (
     "A <a href=https://strftime.org/>strftime</a> pattern for saved recordings.<br>"

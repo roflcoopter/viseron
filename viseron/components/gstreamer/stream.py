@@ -5,14 +5,12 @@ import logging
 import multiprocessing as mp
 import os
 import time
-from datetime import datetime
 from multiprocessing.synchronize import Event as EventClass
 from typing import TYPE_CHECKING, Any
 
 import gi
 import setproctitle
 
-from viseron.components.ffmpeg.const import CONFIG_SEGMENTS_FOLDER
 from viseron.components.ffmpeg.stream import FFprobe, Stream as FFmpegStream
 from viseron.const import (
     ENV_CUDA_SUPPORTED,
@@ -98,15 +96,15 @@ class Stream(FFmpegStream):
         if self._config[CONFIG_RAW_PIPELINE]:
             self._pipeline = RawPipeline(config)
         elif os.getenv(ENV_RASPBERRYPI3) == "true":
-            self._pipeline = BasePipeline(config, self, camera_identifier)
+            self._pipeline = BasePipeline(config, self, camera)
         elif os.getenv(ENV_RASPBERRYPI4) == "true":
-            self._pipeline = BasePipeline(config, self, camera_identifier)
+            self._pipeline = BasePipeline(config, self, camera)
         elif os.getenv(ENV_JETSON_NANO) == "true":
-            self._pipeline = JetsonPipeline(config, self, camera_identifier)
+            self._pipeline = JetsonPipeline(config, self, camera)
         elif os.getenv(ENV_CUDA_SUPPORTED) == "true":
-            self._pipeline = BasePipeline(config, self, camera_identifier)
+            self._pipeline = BasePipeline(config, self, camera)
         else:
-            self._pipeline = BasePipeline(config, self, camera_identifier)
+            self._pipeline = BasePipeline(config, self, camera)
 
     @property
     def mainstream(self):
@@ -167,10 +165,9 @@ class Stream(FFmpegStream):
 
     def on_format_location(self, _splitmux, _fragment_id, _udata) -> str:
         """Return the location of the next segment."""
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        timestamp = int(time.time())
         return os.path.join(
-            self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
-            self._camera_identifier,
+            self._camera.recorder.segments_folder,
             f"{timestamp}.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
         )
 

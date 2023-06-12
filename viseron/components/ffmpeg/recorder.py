@@ -2,15 +2,13 @@
 from __future__ import annotations
 
 import logging
-import os
 import threading
 from types import TracebackType
 from typing import TYPE_CHECKING
 
 from viseron.domains.camera.recorder import AbstractRecorder
-from viseron.helpers import create_directory
 
-from .const import COMPONENT, CONFIG_SEGMENTS_FOLDER, RECORDER
+from .const import COMPONENT, RECORDER
 from .segments import SegmentCleanup, Segments
 
 if TYPE_CHECKING:
@@ -56,17 +54,15 @@ class Recorder(AbstractRecorder):
         self._segment_thread_context = ConcatThreadsContext()
         self._concat_thread_lock = threading.Lock()
 
-        segments_folder = os.path.join(
-            self._recorder_config[CONFIG_SEGMENTS_FOLDER], self._camera.identifier
+        self._segmenter = Segments(
+            self._logger, config, vis, camera, self.segments_folder
         )
-        create_directory(segments_folder)
-        self._segmenter = Segments(self._logger, config, vis, camera, segments_folder)
         self._segment_cleanup = SegmentCleanup(
             vis,
             self._recorder_config,
-            self._camera.identifier,
             self._logger,
             self._segment_thread_context,
+            self.segments_folder,
         )
 
     def concat_segments(self, recording: Recording) -> None:

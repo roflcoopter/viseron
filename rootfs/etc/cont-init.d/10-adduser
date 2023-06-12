@@ -8,10 +8,16 @@ PGID=${PGID:-0}
 groupmod -o -g "$PGID" abc
 usermod -o -u "$PUID" abc
 
+mkdir -p /config
+mkdir -p /recordings
+mkdir -p /segments
+mkdir -p /snapshots
+
 chown -R abc:abc /home/abc/bin
 chown -R --silent abc:abc /config || :
 chown -R --silent abc:abc /recordings || :
 chown -R --silent abc:abc /segments || :
+chown -R --silent abc:abc /snapshots || :
 
 log_info "************************ UID/GID *************************"
 log_info "User uid:    $(id -u abc)"

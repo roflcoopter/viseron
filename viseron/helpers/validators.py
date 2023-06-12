@@ -10,7 +10,20 @@ LOGGER = logging.getLogger(__name__)
 
 
 def deprecated(key: str, replacement: Optional[str] = None) -> Callable[[dict], dict]:
-    """Mark key as deprecated and optionally replace it."""
+    """Mark key as deprecated and optionally replace it.
+
+    Usage example:
+    CONFIG_SCHEMA = vol.Schema(
+        vol.All(
+            {
+                vol.Optional(
+                    "this_key_is_deprecated"
+                ): str,
+            },
+            deprecated("this_key_is_deprecated", "this_key_is_replacement")
+        )
+    )
+    """
 
     def validator(config):
         """Warn if key is present. Replace it if a value is given."""
@@ -35,6 +48,48 @@ def deprecated(key: str, replacement: Optional[str] = None) -> Callable[[dict], 
         return config
 
     return validator
+
+
+class Deprecated(vol.Optional):
+    """Mark key as deprecated."""
+
+    def __init__(
+        self,
+        key: str,
+        raise_error=False,
+        message=None,
+        description=None,
+    ) -> None:
+        self._key = key
+        self._raise_error = raise_error
+        self._message = message
+
+        super().__init__(
+            self.warn,
+            description=description,
+        )
+
+    @property
+    def key(self) -> str:
+        """Return deprecated key."""
+        return self._key
+
+    @property
+    def message(self) -> str:
+        """Return deprecation message."""
+        return (
+            f"Config option {self._key} is deprecated "
+            "and will be removed in a future version. "
+            "Please remove it from your configuration."
+            if not self._message
+            else self._message
+        )
+
+    def warn(self, _value: Any) -> Any:
+        """Warn user about deprecated key."""
+        if self._raise_error:
+            raise vol.Invalid(self.message)
+        LOGGER.warning(self.message)
 
 
 def slug(value: Any) -> str:

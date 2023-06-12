@@ -25,7 +25,7 @@ do
     sed -i "s/$FILE=true/$FILE=false/g" $HOME/.bashrc
 done
 
-# Symlink config
+# Create default config if it is missing
 cd $WORKSPACE_DIR
 mkdir -p $WORKSPACE_DIR/config
 FILE=$WORKSPACE_DIR/config/config.yaml

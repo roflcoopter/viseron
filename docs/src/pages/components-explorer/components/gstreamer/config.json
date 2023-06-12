@@ -427,10 +427,14 @@
                   {
                     "type": "integer",
                     "valueMin": 1,
-                    "name": "retain",
+                    "name": {
+                      "type": "deprecated",
+                      "name": "retain",
+                      "value": "Use the <a href=/components-explorer/components/storage>storage component</a> instead."
+                    },
                     "description": "Number of days to save recordings before deletion.",
-                    "optional": true,
-                    "default": 7
+                    "deprecated": true,
+                    "default": null
                   },
                   {
                     "type": "string",
@@ -540,10 +544,14 @@
                   },
                   {
                     "type": "string",
-                    "name": "segments_folder",
+                    "name": {
+                      "type": "deprecated",
+                      "name": "segments_folder",
+                      "value": "Config option segments_folder is deprecated and will be removed in a future version. Please remove it from your configuration."
+                    },
                     "description": "What folder to store GStreamer segments in. Segments are used to produce recordings so you should not need to change this.",
-                    "optional": true,
-                    "default": "/segments"
+                    "deprecated": true,
+                    "default": null
                   },
                   {
                     "type": "select",
