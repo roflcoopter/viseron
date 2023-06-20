@@ -301,9 +301,9 @@ def get_files_to_move(
     """Get id of files to move."""
     now = datetime.utcnow()
 
-    min_age_seconds = int((now - min_age).timestamp())
+    min_age_seconds = (now - min_age).timestamp()
     if max_age:
-        max_age_seconds = int((now - max_age).timestamp())
+        max_age_seconds = (now - max_age).timestamp()
     else:
         max_age_seconds = 0
 

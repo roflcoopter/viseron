@@ -34,7 +34,9 @@ ENV \
   PATH=$PATH:/home/abc/bin \
   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib \
   PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.8/site-packages \
-  OPENCV_OPENCL_CACHE_ENABLE=false
+  OPENCV_OPENCL_CACHE_ENABLE=false \
+  PGDATA=/config/postgresql \
+  PG_COLOR="always"
 
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}-installer /tmp/s6-overlay-installer
 
@@ -50,6 +52,9 @@ RUN \
   libgomp1 \
   # dlib Dependencies
   libopenblas-base \
+  # PostgreSQL
+  postgresql \
+  postgresql-contrib \
   # Install extra apt packages from build-arg
   ${EXTRA_APT_PACKAGES} \
   # GStreamer

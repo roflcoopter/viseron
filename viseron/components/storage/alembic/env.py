@@ -6,7 +6,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from viseron.components.storage.const import SQLALCHEMY_DATABASE_URL
+from viseron.components.storage.const import DATABASE_URL
 from viseron.components.storage.models import Base
 
 # this is the Alembic Config object, which provides
@@ -28,7 +28,7 @@ target_metadata = Base.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
-config.set_main_option("sqlalchemy.url", SQLALCHEMY_DATABASE_URL)
+config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 
 def run_migrations_offline() -> None:
@@ -44,7 +44,7 @@ def run_migrations_offline() -> None:
 
     """
     context.configure(
-        url=SQLALCHEMY_DATABASE_URL,
+        url=DATABASE_URL,
         target_metadata=target_metadata,
         compare_type=True,
         compare_server_default=True,

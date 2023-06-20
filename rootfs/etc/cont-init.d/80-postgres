@@ -1,0 +1,30 @@
+#!/usr/bin/with-contenv bash
+
+source /helpers/logger.sh
+
+log_info "***************** Preparing PostgreSQL *******************"
+mkdir -p /config/postgresql
+mkdir -p /var/run/postgresql
+chown abc:abc /var/run/postgresql
+chown -R abc:abc /config/postgresql
+chmod 0700 /config/postgresql
+
+if [ -e /config/postgresql/postgresql.conf ]; then
+  log_info "Database has already been initialized."
+else
+  log_info "Database has not been initialized. Initializing..."
+  s6-setuidgid abc /usr/lib/postgresql/12/bin/initdb
+  log_info "Starting PostgreSQL..."
+  s6-setuidgid abc /usr/lib/postgresql/12/bin/pg_ctl -D /config/postgresql -l /config/postgresql/logfile start
+  if s6-setuidgid abc psql -q -d viseron -tc "SELECT 1 FROM pg_database WHERE datname = 'viseron'" ; then
+      log_info "Database has already been created."
+  else
+      log_info "Database has not been created. Creating..."
+      s6-setuidgid abc createuser viseron
+      s6-setuidgid abc createdb -U abc -O viseron viseron
+  fi
+  log_info "Stopping PostgreSQL..."
+  s6-setuidgid abc /usr/lib/postgresql/12/bin/pg_ctl -D /config/postgresql -l /config/postgresql/logfile stop
+fi
+
+log_info "*********************** Done *****************************"

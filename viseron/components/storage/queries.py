@@ -12,9 +12,9 @@ def files_to_move_query(
     tier_id: int,
     camera_identifier: str,
     max_bytes: int,
-    min_age_seconds: int,
+    min_age_seconds: float,
     min_bytes: int,
-    max_age_seconds: int,
+    max_age_seconds: float,
 ) -> TextualSelect:
     """Return query for files to move to next tier or delete."""
     LOGGER.debug(
@@ -59,10 +59,10 @@ def files_to_move_query(
         AND ((
             :max_bytes > 0 AND
             total_bytes >= :max_bytes AND
-            created_at <= datetime(:min_age_seconds, 'unixepoch', 'localtime')
+            created_at <= to_timestamp(:min_age_seconds)
         ) OR (
             :max_age_seconds > 0 AND
-            created_at <= datetime(:max_age_seconds, 'unixepoch', 'localtime') AND
+            created_at <= to_timestamp(:max_age_seconds) AND
             total_bytes >= :min_bytes
         ))
         ORDER BY created_at ASC

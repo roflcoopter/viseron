@@ -5,8 +5,7 @@ from typing import Any, Final
 
 COMPONENT = "storage"
 
-SQLALCHEMY_DATABASE_PATH = "/config/viseron.db"
-SQLALCHEMY_DATABASE_URL = f"sqlite:///{SQLALCHEMY_DATABASE_PATH}"
+DATABASE_URL = "postgresql://localhost/viseron"
 
 MOVE_FILES_THROTTLE_SECONDS = 10
 
