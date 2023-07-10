@@ -213,7 +213,7 @@ RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
             CONFIG_RECORDER_AUDIO_CODEC,
             default=DEFAULT_RECORDER_AUDIO_CODEC,
             description=DESC_RECORDER_AUDIO_CODEC,
-        ): str,
+        ): Maybe(str),
         vol.Optional(
             CONFIG_RECORDER_VIDEO_FILTERS,
             default=DEFAULT_RECORDER_VIDEO_FILTERS,
