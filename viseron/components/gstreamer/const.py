@@ -14,11 +14,13 @@ ENV_GSTREAMER_PATH = "VISERON_GSTREAMER_PATH"
 
 RECORDER = "recorder"
 
-# pylint: disable=wrong-import-position,wrong-import-order
+# pylint: disable=useless-suppression
+# pylint: disable=wrong-import-position,wrong-import-order,no-name-in-module
 gi.require_version("Gst", "1.0")
 from gi.repository import Gst  # pyright: ignore[reportMissingImports] # noqa: E402
 
-# pylint: enable=wrong-import-position
+# pylint: enable=wrong-import-position,wrong-import-order,no-name-in-module
+# pylint: enable=useless-suppression
 
 
 class StreamFormat(TypedDict):

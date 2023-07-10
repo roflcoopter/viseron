@@ -47,6 +47,8 @@ jobs:
         if: steps.cache-venv.outputs.cache-hit != 'true'
         # Install pycoral from Google Coral repo since it is not on PyPI
         run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgirepository1.0-dev
           python -m venv venv
           . venv/bin/activate
           pip install --extra-index-url https://google-coral.github.io/py-repo/ -r requirements.txt -r requirements_test.txt -r requirements_ci.txt
@@ -467,7 +469,7 @@ jobs:
           curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add -
           sudo add-apt-repository "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main"
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libedgetpu1-std
+          sudo apt-get install -y --no-install-recommends libedgetpu1-std python3-gi python3-gst-1.0
       - name: Run script to check generated docs
         run: |
           . venv/bin/activate
