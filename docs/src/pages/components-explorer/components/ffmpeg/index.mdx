@@ -1,9 +1,11 @@
 import TabItem from "@theme/TabItem";
 import Tabs from "@theme/Tabs";
+
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
 import Camera from "@site/src/pages/components-explorer/_domains/camera/index.mdx";
 import CameraMjpegStreams from "@site/src/pages/components-explorer/_domains/camera/mjpeg_streams.mdx";
+
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
 
@@ -171,9 +173,13 @@ Viseron needs to know the width, height, FPS and audio/video codecs of your stre
 FFprobe is used on initialization to figure all this information out.
 
 Some cameras dont play nice with this and fail to report some information.<br />
-To circumvent this you can manually specify all these options.
+To circumvent this you can manually specify the stream information.
 
-If you specify all of `width`, `height`, `fps`, `codec` and `audio_codec`, Viseron will not need to call FFprobe and startup will be significantly faster.
+#### FFprobe timeout
+
+Sometimes FFprobe fails to connect to the stream and times out.<br />
+If this is a recurring issue you should specify all of `width`, `height`, `fps`, `codec` and `audio_codec` manually.
+Viseron will then not need to call FFprobe and startup will be significantly faster.
 
 ### Recoverable Errors
 

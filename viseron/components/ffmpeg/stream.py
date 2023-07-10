@@ -552,7 +552,8 @@ class FFprobe:
                 "-print_format",
                 "json",
                 "-show_error",
-                "-show_streams",
+                "-show_entries",
+                "stream=codec_type,codec_name,width,height,avg_frame_rate",
             ]
             + [stream_url]
         )
