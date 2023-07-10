@@ -41,7 +41,8 @@ from .pipeline import AbstractPipeline, BasePipeline, JetsonPipeline, RawPipelin
 if TYPE_CHECKING:
     from viseron.components.gstreamer.camera import Camera
 
-# pylint: disable=wrong-import-position,wrong-import-order
+# pylint: disable=useless-suppression
+# pylint: disable=wrong-import-position,wrong-import-order,no-name-in-module
 gi.require_version("Gst", "1.0")
 gi.require_version("GstApp", "1.0")
 from gi.repository import (  # pyright: ignore[reportMissingImports] # noqa: E402
@@ -51,7 +52,8 @@ from gi.repository import (  # pyright: ignore[reportMissingImports] # noqa: E40
 )
 
 _ = GstApp
-# pylint: enable=wrong-import-position
+# pylint: enable=wrong-import-position,wrong-import-order,no-name-in-module
+# pylint: enable=useless-suppression
 
 
 class Stream(FFmpegStream):
