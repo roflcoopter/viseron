@@ -4,7 +4,7 @@ import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import Image from "@roflcoopter/material-ui-image";
+import Image from "@jy95/material-ui-image";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { usePageVisibility } from "react-page-visibility";
 
