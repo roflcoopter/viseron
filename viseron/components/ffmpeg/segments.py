@@ -219,6 +219,12 @@ class Segments:
             ]
         return []
 
+    def audio_codec_args(self):
+        """Return audio codec arguments."""
+        if codec_args := self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]:
+            return ["-c:a", codec_args]
+        return ["-an"]
+
     def ffmpeg_concat(self, segment_script, file_name) -> None:
         """Generate and run FFmpeg command to concatenate segments."""
         ffmpeg_cmd = (
@@ -242,9 +248,7 @@ class Segments:
             ]
             + ["-c:v", self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]]
             + self.video_filter_args()
-            + ["-c:a", self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]]
-            if self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]
-            else ["-an"]
+            + self.audio_codec_args()
             + self.audio_filter_args()
             + self._config[CONFIG_RECORDER][CONFIG_RECORDER_OUPTUT_ARGS]
             + ["-movflags", "+faststart"]
