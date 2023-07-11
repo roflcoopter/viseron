@@ -398,14 +398,15 @@ class Camera(AbstractCamera):
             return True
         return False
 
-    def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]):
+    def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]) -> None:
         """Calculate the camera output fps based on registered frame scanners.
 
         Overrides AbstractCamera.calculate_output_fps since we can't use the default
         implementation if the user has entered a raw pipeline.
         """
         if self._config[CONFIG_RAW_PIPELINE]:
-            return self.stream.fps
+            self.output_fps = self.stream.fps
+            return
 
         return super().calculate_output_fps(scanners)
 

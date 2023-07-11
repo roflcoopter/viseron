@@ -46,6 +46,7 @@ from .const import (
     CONFIG_PIX_FMT,
     CONFIG_PORT,
     CONFIG_PROTOCOL,
+    CONFIG_RAW_COMMAND,
     CONFIG_RECORDER,
     CONFIG_RTSP_TRANSPORT,
     CONFIG_SEGMENTS_FOLDER,
@@ -374,6 +375,9 @@ class Stream:
 
         Only used when a substream is configured.
         """
+        if self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND]:
+            return self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND].split(" ")
+
         stream_input_command = self.stream_command(
             self._config, self._mainstream.codec, self._mainstream.url
         )
@@ -388,6 +392,9 @@ class Stream:
 
     def build_command(self):
         """Return full FFmpeg command."""
+        if self._config[CONFIG_RAW_COMMAND]:
+            return self._config[CONFIG_RAW_COMMAND].split(" ")
+
         if self._substream:
             stream_input_command = self.stream_command(
                 self._substream.config,

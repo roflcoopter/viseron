@@ -304,3 +304,63 @@ ffmpeg:
 ```
 
 </details>
+
+### Raw command
+
+If you want to use a custom FFmpeg command, you can do so by specifying the `raw_command` option.
+Viseron needs to be able to read frames, so you must make sure to output frames to stdout.
+By default this is done using the `pipe:1` as the output file.
+
+You also need to make sure that you are outputting frames in the raw format (`-f rawvideo`) that Viseron expects.
+
+The third consideration is that small segments need to be saved to disk for processing by the recorder.
+This is done by using the format `-f segment`.
+
+To get the hang of it you can start by using the default command and then modify it to your liking.
+
+#### Raw command with substream
+
+If you specify `substream`, Viseron will use the substream for motion/object detection, which means that the raw command for the substream has to output to `pipe:1`.<br />
+The main stream raw command will be used for recordings, so it has to output segments using `-f segment`.
+
+<details>
+  <summary>Example using both main and substream</summary>
+
+```yaml title="/config/config.yaml"
+ffmpeg:
+  camera:
+    camera_one:
+      name: Camera 1
+      host: 192.168.XX.X
+      port: 554
+      path: /onvif_camera/profile.0
+      username: !secret camera_one_user
+      password: !secret camera_one_pass
+      width: 1920
+      height: 1080
+      fps: 30
+      substream:
+        port: 554
+        path: /onvif_camera/profile.1
+        width: 1920
+        height: 1080
+        fps: 1
+        raw_command: | # Output to pipe:1
+          ffmpeg -rtsp_transport tcp -i rtsp://user:pass@192.168.XX.X:554/onvif_camera/profile.1 -vf fps=1.0 -f rawvideo -pix_fmt nv12 pipe:1
+      raw_command: | # Output segments to /segments/viseron_vscode_camera
+        ffmpeg -rtsp_transport tcp -i rtsp://user:pass@192.168.XX.X:554/onvif_camera/profile.0 -f segment -segment_time 5 -reset_timestamps 1 -strftime 1 -c:v copy /segments/viseron_vscode_camera/%Y%m%d%H%M%S.mp4
+```
+
+</details>
+
+:::warning
+
+Most of the configuration options are ignored when using `raw_command`.
+
+:::
+
+:::note
+
+If you create a command that works well for your particular hardware, please share it with the community!
+
+:::
