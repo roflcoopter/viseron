@@ -121,6 +121,61 @@
                 "default": null
               },
               {
+                "type": "map",
+                "value": [
+                  {
+                    "type": "string",
+                    "name": "url",
+                    "description": "URL to the still image. If this is omitted, the camera stream will be used to get the image.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "string",
+                    "name": "username",
+                    "description": "Username for authentication.<br>Only applicable if <code>url</code> is set.",
+                    "inclusive": true,
+                    "default": null
+                  },
+                  {
+                    "type": "string",
+                    "name": "password",
+                    "description": "Password for authentication.<br>Only applicable if <code>url</code> is set.",
+                    "inclusive": true,
+                    "default": null
+                  },
+                  {
+                    "type": "select",
+                    "options": [
+                      {
+                        "type": "constant",
+                        "value": "basic"
+                      },
+                      {
+                        "type": "constant",
+                        "value": "digest"
+                      }
+                    ],
+                    "name": "authentication",
+                    "description": "Authentication method to use.<br>Only applicable if <code>url</code> is set.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "integer",
+                    "valueMin": 1,
+                    "name": "refresh_interval",
+                    "description": "Number of seconds between refreshes of the still image in the frontend.",
+                    "optional": true,
+                    "default": 10
+                  }
+                ],
+                "name": "still_image",
+                "description": "Options for still image.",
+                "optional": true,
+                "default": null
+              },
+              {
                 "type": "select",
                 "options": [
                   {

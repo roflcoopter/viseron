@@ -101,6 +101,44 @@ DESC_FILENAME_PATTERN_THUMBNAIL = (
 )
 
 
+# STILL_IMAGE_SCHEMA constants
+CONFIG_STILL_IMAGE = "still_image"
+CONFIG_URL = "url"
+CONFIG_USERNAME = "username"
+CONFIG_PASSWORD = "password"
+CONFIG_AUTHENTICATION = "authentication"
+CONFIG_REFRESH_INTERVAL = "refresh_interval"
+
+DEFAULT_STILL_IMAGE: Final = None
+DEFAULT_URL: Final = None
+DEFAULT_USERNAME: Final = None
+DEFAULT_PASSWORD: Final = None
+DEFAULT_AUTHENTICATION: Final = None
+DEFAULT_REFRESH_INTERVAL: Final = 10
+
+DESC_STILL_IMAGE = "Options for still image."
+DESC_URL = (
+    "URL to the still image. "
+    "If this is omitted, the camera stream will be used to get the image."
+)
+DESC_USERNAME = (
+    "Username for authentication.<br>Only applicable if <code>url</code> is set."
+)
+DESC_PASSWORD = (
+    "Password for authentication.<br>Only applicable if <code>url</code> is set."
+)
+DESC_AUTHENTICATION = (
+    "Authentication method to use.<br>Only applicable if <code>url</code> is set."
+)
+DESC_REFRESH_INTERVAL = (
+    "Number of seconds between refreshes of the still image in the frontend."
+)
+
+INCLUSION_GROUP_AUTHENTICATION = "authentication"
+
+AUTHENTICATION_BASIC = "basic"
+AUTHENTICATION_DIGEST = "digest"
+
 # BASE_CONFIG_SCHEMA constants
 CONFIG_NAME = "name"
 CONFIG_MJPEG_STREAMS = "mjpeg_streams"

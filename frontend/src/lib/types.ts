@@ -92,6 +92,7 @@ export interface Camera {
   width: number;
   height: number;
   access_token: string;
+  still_image_refresh_interval: number;
   failed: false;
 }
 

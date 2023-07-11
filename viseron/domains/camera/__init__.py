@@ -21,9 +21,12 @@ from viseron.components.data_stream import (
 )
 from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
 from viseron.domains.camera.recorder import FailedCameraRecorder
-from viseron.helpers.validators import CoerceNoneToDict, Slug
+from viseron.helpers.validators import CoerceNoneToDict, Maybe, Slug
 
 from .const import (
+    AUTHENTICATION_BASIC,
+    AUTHENTICATION_DIGEST,
+    CONFIG_AUTHENTICATION,
     CONFIG_EXTENSION,
     CONFIG_FILENAME_PATTERN,
     CONFIG_FOLDER,
@@ -40,10 +43,16 @@ from .const import (
     CONFIG_MJPEG_STREAMS,
     CONFIG_MJPEG_WIDTH,
     CONFIG_NAME,
+    CONFIG_PASSWORD,
     CONFIG_RECORDER,
+    CONFIG_REFRESH_INTERVAL,
     CONFIG_RETAIN,
     CONFIG_SAVE_TO_DISK,
+    CONFIG_STILL_IMAGE,
     CONFIG_THUMBNAIL,
+    CONFIG_URL,
+    CONFIG_USERNAME,
+    DEFAULT_AUTHENTICATION,
     DEFAULT_EXTENSION,
     DEFAULT_FILENAME_PATTERN,
     DEFAULT_FOLDER,
@@ -60,10 +69,16 @@ from .const import (
     DEFAULT_MJPEG_STREAMS,
     DEFAULT_MJPEG_WIDTH,
     DEFAULT_NAME,
+    DEFAULT_PASSWORD,
     DEFAULT_RECORDER,
+    DEFAULT_REFRESH_INTERVAL,
     DEFAULT_RETAIN,
     DEFAULT_SAVE_TO_DISK,
+    DEFAULT_STILL_IMAGE,
     DEFAULT_THUMBNAIL,
+    DEFAULT_URL,
+    DEFAULT_USERNAME,
+    DESC_AUTHENTICATION,
     DESC_EXTENSION,
     DESC_FILENAME_PATTERN,
     DESC_FILENAME_PATTERN_THUMBNAIL,
@@ -82,13 +97,19 @@ from .const import (
     DESC_MJPEG_STREAMS,
     DESC_MJPEG_WIDTH,
     DESC_NAME,
+    DESC_PASSWORD,
     DESC_RECORDER,
+    DESC_REFRESH_INTERVAL,
     DESC_RETAIN,
     DESC_SAVE_TO_DISK,
+    DESC_STILL_IMAGE,
     DESC_THUMBNAIL,
+    DESC_URL,
+    DESC_USERNAME,
     EVENT_STATUS,
     EVENT_STATUS_CONNECTED,
     EVENT_STATUS_DISCONNECTED,
+    INCLUSION_GROUP_AUTHENTICATION,
     UPDATE_TOKEN_INTERVAL_MINUTES,
 )
 from .entity.binary_sensor import ConnectionStatusBinarySensor
@@ -200,6 +221,38 @@ RECORDER_SCHEMA = vol.Schema(
     }
 )
 
+STILL_IMAGE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(
+            CONFIG_URL,
+            default=DEFAULT_URL,
+            description=DESC_URL,
+        ): Maybe(str),
+        vol.Inclusive(
+            CONFIG_USERNAME,
+            INCLUSION_GROUP_AUTHENTICATION,
+            default=DEFAULT_USERNAME,
+            description=DESC_USERNAME,
+        ): Maybe(str),
+        vol.Inclusive(
+            CONFIG_PASSWORD,
+            INCLUSION_GROUP_AUTHENTICATION,
+            default=DEFAULT_PASSWORD,
+            description=DESC_PASSWORD,
+        ): Maybe(str),
+        vol.Optional(
+            CONFIG_AUTHENTICATION,
+            default=DEFAULT_AUTHENTICATION,
+            description=DESC_AUTHENTICATION,
+        ): Maybe(vol.In([AUTHENTICATION_BASIC, AUTHENTICATION_DIGEST])),
+        vol.Optional(
+            CONFIG_REFRESH_INTERVAL,
+            default=DEFAULT_REFRESH_INTERVAL,
+            description=DESC_REFRESH_INTERVAL,
+        ): vol.All(int, vol.Range(min=1)),
+    }
+)
+
 BASE_CONFIG_SCHEMA = vol.Schema(
     {
         vol.Optional(CONFIG_NAME, default=DEFAULT_NAME, description=DESC_NAME): vol.All(
@@ -216,6 +269,11 @@ BASE_CONFIG_SCHEMA = vol.Schema(
         vol.Optional(
             CONFIG_RECORDER, default=DEFAULT_RECORDER, description=DESC_RECORDER
         ): vol.All(CoerceNoneToDict(), RECORDER_SCHEMA),
+        vol.Optional(
+            CONFIG_STILL_IMAGE,
+            default=DEFAULT_STILL_IMAGE,
+            description=DESC_STILL_IMAGE,
+        ): vol.All(CoerceNoneToDict(), STILL_IMAGE_SCHEMA),
     }
 )
 
@@ -264,7 +322,7 @@ class AbstractCamera(ABC):
             self.update_token, "interval", minutes=UPDATE_TOKEN_INTERVAL_MINUTES
         )
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, Any]:
         """Return camera information as dict."""
         return {
             "identifier": self.identifier,
@@ -272,7 +330,7 @@ class AbstractCamera(ABC):
             "width": self.resolution[0],
             "height": self.resolution[1],
             "access_token": self.access_token,
-            "failed": False,
+            "still_image_refresh_interval": self.still_image[CONFIG_REFRESH_INTERVAL],
         }
 
     def generate_token(self):
@@ -328,6 +386,11 @@ class AbstractCamera(ABC):
     def access_token(self) -> str:
         """Return access token."""
         return self.access_tokens[-1]
+
+    @property
+    def still_image(self) -> dict[str, Any]:
+        """Return still image config."""
+        return self._config[CONFIG_STILL_IMAGE]
 
     @property
     @abstractmethod

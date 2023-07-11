@@ -102,6 +102,8 @@ def enable_logging() -> None:
     logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("tornado.access").setLevel(logging.WARNING)
     logging.getLogger("tornado.application").setLevel(logging.WARNING)
     logging.getLogger("tornado.general").setLevel(logging.WARNING)

@@ -1,10 +1,10 @@
+import Image from "@jy95/material-ui-image";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import Image from "@jy95/material-ui-image";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { usePageVisibility } from "react-page-visibility";
 
@@ -132,9 +132,14 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
     // If element is on screen and browser is visible, start interval to fetch images
     if (onScreen && isVisible && connected && cameraQuery.isSuccess) {
       updateImage();
-      updateSnapshot.current = setInterval(() => {
-        updateImage();
-      }, 10000);
+      updateSnapshot.current = setInterval(
+        () => {
+          updateImage();
+        },
+        cameraQuery.data.still_image_refresh_interval
+          ? cameraQuery.data.still_image_refresh_interval * 1000
+          : 10000
+      );
       // If element is hidden or browser loses focus, stop updating images
     } else if (updateSnapshot.current) {
       clearInterval(updateSnapshot.current);
@@ -145,7 +150,14 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
         clearInterval(updateSnapshot.current);
       }
     };
-  }, [updateImage, isVisible, onScreen, connected, cameraQuery.isSuccess]);
+  }, [
+    updateImage,
+    isVisible,
+    onScreen,
+    connected,
+    cameraQuery.isSuccess,
+    cameraQuery.data,
+  ]);
 
   useCameraToken(camera_identifier, auth.enabled);
 
