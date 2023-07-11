@@ -47,6 +47,7 @@ from .const import (
     CONFIG_PIX_FMT,
     CONFIG_PORT,
     CONFIG_PROTOCOL,
+    CONFIG_RAW_COMMAND,
     CONFIG_RECORDER,
     CONFIG_RECORDER_AUDIO_CODEC,
     CONFIG_RECORDER_AUDIO_FILTERS,
@@ -75,6 +76,7 @@ from .const import (
     DEFAULT_PASSWORD,
     DEFAULT_PIX_FMT,
     DEFAULT_PROTOCOL,
+    DEFAULT_RAW_COMMAND,
     DEFAULT_RECORDER_AUDIO_CODEC,
     DEFAULT_RECORDER_AUDIO_FILTERS,
     DEFAULT_RECORDER_CODEC,
@@ -105,6 +107,7 @@ from .const import (
     DESC_PIX_FMT,
     DESC_PORT,
     DESC_PROTOCOL,
+    DESC_RAW_COMMAND,
     DESC_RECORDER,
     DESC_RECORDER_AUDIO_CODEC,
     DESC_RECORDER_AUDIO_FILTERS,
@@ -128,6 +131,7 @@ from .recorder import Recorder
 from .stream import Stream
 
 if TYPE_CHECKING:
+    from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.object_detector.detected_object import DetectedObject
 
@@ -193,6 +197,11 @@ STREAM_SCEHMA_DICT = {
         default=DEFAULT_FRAME_TIMEOUT,
         description=DESC_FRAME_TIMEOUT,
     ): vol.All(int, vol.Range(1, 60)),
+    vol.Optional(
+        CONFIG_RAW_COMMAND,
+        default=DEFAULT_RAW_COMMAND,
+        description=DESC_RAW_COMMAND,
+    ): Maybe(str),
 }
 
 FFMPEG_LOGLEVEL_SCEHMA = vol.Schema(vol.In(FFMPEG_LOGLEVELS.keys()))
@@ -414,6 +423,18 @@ class Camera(AbstractCamera):
         if now - self._poll_timer > self._config[CONFIG_FRAME_TIMEOUT]:
             return True
         return False
+
+    def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]) -> None:
+        """Calculate the camera output fps based on registered frame scanners.
+
+        Overrides AbstractCamera.calculate_output_fps since we can't use the default
+        implementation if the user has entered a raw pipeline.
+        """
+        if self._config[CONFIG_RAW_COMMAND]:
+            self.output_fps = self.stream.fps
+            return
+
+        return super().calculate_output_fps(scanners)
 
     def start_camera(self) -> None:
         """Start capturing frames from camera."""

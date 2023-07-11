@@ -206,6 +206,7 @@ CONFIG_FFMPEG_LOGLEVEL = "ffmpeg_loglevel"
 CONFIG_FFMPEG_RECOVERABLE_ERRORS = "ffmpeg_recoverable_errors"
 CONFIG_FFPROBE_LOGLEVEL = "ffprobe_loglevel"
 CONFIG_RECORDER = "recorder"
+CONFIG_RAW_COMMAND = "raw_command"
 
 DEFAULT_USERNAME: Final = None
 DEFAULT_PASSWORD: Final = None
@@ -221,6 +222,7 @@ DEFAULT_FFMPEG_RECOVERABLE_ERRORS = [
     "decode_slice_header error",
 ]
 DEFAULT_FFPROBE_LOGLEVEL = "error"
+DEFAULT_RAW_COMMAND: Final = None
 
 DESC_CAMERA = "Camera domain config."
 DESC_HOST = "IP or hostname of camera."
@@ -246,3 +248,9 @@ DESC_FFPROBE_LOGLEVEL = (
     "Sets the loglevel for FFprobe.<br> Should only be used in debugging purposes."
 )
 DESC_RECORDER = "Recorder config."
+DESC_RAW_COMMAND = (
+    "A raw FFmpeg command to use instead of the generated one. "
+    "This is useful if you want to use sources that Viseron does not support. "
+    "This is an advanced option and should only be used if you know what you are doing."
+    "<br>See <a href=#raw-command>Raw command</a> for more information."
+)

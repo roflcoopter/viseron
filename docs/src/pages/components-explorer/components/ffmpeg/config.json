@@ -280,6 +280,13 @@
               },
               {
                 "type": "string",
+                "name": "raw_command",
+                "description": "A raw FFmpeg command to use instead of the generated one. This is useful if you want to use sources that Viseron does not support. This is an advanced option and should only be used if you know what you are doing.<br>See <a href=#raw-command>Raw command</a> for more information.",
+                "optional": true,
+                "default": null
+              },
+              {
+                "type": "string",
                 "name": "username",
                 "description": "Username for the camera stream.",
                 "optional": true,
@@ -477,6 +484,13 @@
                     "description": "A timeout in seconds. If a frame has not been received in this time period FFmpeg will be restarted.",
                     "optional": true,
                     "default": 60
+                  },
+                  {
+                    "type": "string",
+                    "name": "raw_command",
+                    "description": "A raw FFmpeg command to use instead of the generated one. This is useful if you want to use sources that Viseron does not support. This is an advanced option and should only be used if you know what you are doing.<br>See <a href=#raw-command>Raw command</a> for more information.",
+                    "optional": true,
+                    "default": null
                   }
                 ],
                 "name": "substream",
