@@ -4,7 +4,9 @@ from __future__ import annotations
 import fnmatch
 import logging
 import multiprocessing as mp
+import subprocess
 import threading
+import time
 import uuid
 from queue import Queue
 from typing import Any, Callable, TypedDict
@@ -64,10 +66,33 @@ class DataStream:
 
     def __init__(self, vis) -> None:
         self._vis = vis
+        self._max_threads = self._get_max_threads()
+        LOGGER.debug(f"Max threads: {self._max_threads}")
+
         data_consumer = RestartableThread(
             name="data_stream", target=self.consume_data, daemon=True, register=True
         )
         data_consumer.start()
+
+    def _get_max_threads(self) -> int:
+        """Get the maximum number of threads allowed."""
+        command = ["ulimit", "-u"]
+        result = subprocess.run(
+            command, shell=True, capture_output=True, text=True, check=False
+        )
+
+        # Check if the command executed successfully
+        if result.returncode == 0:
+            ulimit_output = result.stdout.strip()
+            LOGGER.debug(f"ulimit -u output: {ulimit_output}")
+        else:
+            LOGGER.error(f"Error executing ulimit -u command: {result.stderr}")
+            return 999999
+
+        try:
+            return int(ulimit_output)
+        except ValueError:
+            return 999999
 
     @staticmethod
     def publish_data(data_topic: str, data: Any = None) -> None:
@@ -113,8 +138,8 @@ class DataStream:
 
         DataStream._subscribers[data_topic].pop(unique_id)
 
-    @staticmethod
     def run_callbacks(
+        self,
         callbacks: dict[uuid.UUID, DataSubscriber],
         data: Any,
     ) -> None:
@@ -132,7 +157,27 @@ class DataStream:
                         target=callback["callback"],
                         daemon=True,
                     )
-                thread.start()
+
+                while True:
+                    # Check if we can start a new thread
+                    active_threads = threading.active_count()
+                    if active_threads > self._max_threads:
+                        time.sleep(0.01)
+                        continue
+
+                    try:
+                        thread.start()
+                    except RuntimeError as err:
+                        if "can't start new thread" in str(err):
+                            LOGGER.debug(
+                                "Unable to start new thread, "
+                                "Max threads: %s, Active threads: %s",
+                                self._max_threads,
+                                active_threads,
+                            )
+                            self._max_threads = int(active_threads * 0.95)
+                            continue
+                    break
                 continue
 
             if callable(callback["callback"]) and callback["ioloop"] is not None:
@@ -169,7 +214,7 @@ class DataStream:
 
     def wildcard_subscriptions(self, data_item: dict[str, Any]) -> None:
         """Run callbacks for wildcard subscriptions."""
-        for data_topic, callbacks in DataStream._wildcard_subscribers.items():
+        for data_topic, callbacks in DataStream._wildcard_subscribers.copy().items():
             if fnmatch.fnmatch(data_item["data_topic"], data_topic):
                 # LOGGER.debug(
                 #     f"Got data on topic {data_item['data_topic']} "
