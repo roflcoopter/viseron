@@ -399,23 +399,9 @@ jobs:
       - name: Pull current Docker dev tag
         run: |
           docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-viseron
-      - name: Get changed files
-        id: changed-files
-        uses: tj-actions/changed-files@v32
-        with:
-          files: |
-            requirements.txt
-            docker/Dockerfile.wheels
-            azure-pipelines/.env
-      - name: List all modified files
-        run: |
-          for file in "${{ steps.changed-files.outputs.all_modified_files }}"; do
-            echo "$file was modified"
-          done
-      - name: Re-build wheels if requirements.txt or Dockerfile.wheels has changed
-        if: steps.changed-files.outputs.any_changed == 'true'
-        run: |
           docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-wheels
+      - name: Re-build wheels
+        run: |
           docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-wheels
           docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron
       - name: Build pytest Docker image

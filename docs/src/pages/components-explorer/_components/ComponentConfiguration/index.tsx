@@ -162,6 +162,7 @@ function getDefault(item: any) {
 
 // Return div with header containing item name/type/required/default value
 function buildHeader(item: any) {
+  const optional = item.optional || item.inclusive;
   return (
     <div className="config-variables-header">
       {item.name ? (
@@ -169,15 +170,17 @@ function buildHeader(item: any) {
       ) : null}
       {/* Zero width space to prevent selecting type when double clicking the name */}
       &#8203;
-      <span className={styles.configVariablesType}>{item.type}</span>
+      <span className={styles.configVariablesType}>
+        {item.format ? item.format : item.type}
+      </span>
       <span className={styles.configVariablesRequired}>
-        {item.optional ? " (" : null}
+        {optional ? " (" : null}
         <span
           className={clsx(styles.configVariablesRequired, {
-            [styles.true]: !item.optional,
+            [styles.true]: !optional,
           })}
         >
-          {item.optional ? "optional" : " required"}
+          {optional ? "optional" : " required"}
         </span>
         {getDefault(item)}
       </span>
