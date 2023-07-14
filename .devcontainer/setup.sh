@@ -36,3 +36,12 @@ else
     python3 -c "import viseron.config; viseron.config.create_default_config('$FILE')"
 fi
 ln -s $WORKSPACE_DIR/config/config.yaml /config/config.yaml
+
+# Create .env.local
+FILE=$WORKSPACE_DIR/frontend/.env.local
+if test -f "$FILE"; then
+    echo "Frontend .env.local already exists"
+else
+    echo "Creating frontend .env.local"
+    echo "VITE_PROXY_HOST=localhost:8888" > $FILE
+fi
