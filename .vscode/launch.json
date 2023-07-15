@@ -13,6 +13,18 @@
       "subProcess": true
     },
     {
+      "name": "Generate Docs",
+      "type": "python",
+      "request": "launch",
+      "module": "scripts.gen_docs",
+      "args": ["-c", "${input:component}"],
+      "justMyCode": true,
+      "autoReload": {
+        "enable": true
+      },
+      "subProcess": true
+    },
+    {
       "type": "chrome",
       "request": "launch",
       "name": "Frontend: Debug",
@@ -31,5 +43,12 @@
       "console": "integratedTerminal",
       "localRoot": "${workspaceRoot}/frontend"
     }
+  ],
+  "inputs": [
+    {
+      "id": "component",
+      "type": "promptString",
+      "description": "The component to generate docs for",
+    },
   ]
 }
