@@ -5,7 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import cv2
 import numpy as np
@@ -15,17 +15,8 @@ from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, MOTION_DETECTOR
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
-from viseron.helpers import generate_mask
-from viseron.helpers.schemas import (
-    COORDINATES_SCHEMA,
-    FLOAT_MIN_ZERO,
-    FLOAT_MIN_ZERO_MAX_ONE,
-)
-from viseron.helpers.validators import CameraIdentifier
-from viseron.watchdog.thread_watchdog import RestartableThread
-
-from .binary_sensor import MotionDetectionBinarySensor
-from .const import (
+from viseron.domains.motion_detector.binary_sensor import MotionDetectionBinarySensor
+from viseron.domains.motion_detector.const import (
     CONFIG_AREA,
     CONFIG_CAMERAS,
     CONFIG_COORDINATES,
@@ -58,9 +49,18 @@ from .const import (
     DESC_WIDTH,
     EVENT_MOTION_DETECTED,
 )
+from viseron.helpers import generate_mask
+from viseron.helpers.schemas import (
+    COORDINATES_SCHEMA,
+    FLOAT_MIN_ZERO,
+    FLOAT_MIN_ZERO_MAX_ONE,
+)
+from viseron.helpers.validators import CameraIdentifier
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
+    from viseron.components.data_stream import DataStream
     from viseron.components.nvr.nvr import EventScanFrames
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.camera.shared_frames import SharedFrame
@@ -210,11 +210,14 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
     """Abstract motion detector that works by scanning frames."""
 
     def __init__(
-        self, vis, component, config, camera_identifier, color_format="gray"
+        self, vis: Viseron, component, config, camera_identifier, color_format="gray"
     ) -> None:
         super().__init__(vis, component, config, camera_identifier)
 
-        self._get_frame_function = getattr(self, f"_get_decoded_frame_{color_format}")
+        self._get_frame_function: Callable[[SharedFrame], np.ndarray] = getattr(
+            self, f"_get_decoded_frame_{color_format}"
+        )
+        self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
 
         self._resolution = (
             config[CONFIG_CAMERAS][camera_identifier][CONFIG_WIDTH],
@@ -262,7 +265,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         )
         self._motion_detection_thread.start()
         topic = DATA_MOTION_DETECTOR_SCAN.format(camera_identifier=camera_identifier)
-        vis.data[DATA_STREAM_COMPONENT].subscribe_data(
+        self._data_stream.subscribe_data(
             data_topic=topic,
             callback=self.motion_detection_queue,
         )
@@ -277,10 +280,10 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
     @abstractmethod
-    def preprocess(self, frame):
+    def preprocess(self, frame: np.ndarray) -> np.ndarray:
         """Perform preprocessing of frame before running detection."""
 
-    def _apply_mask(self, frame):
+    def _apply_mask(self, frame: np.ndarray) -> np.ndarray:
         """Apply motion mask to frame."""
         frame[self._mask_image] = [0]
         return frame
@@ -297,30 +300,30 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
             contours,
         )
 
-    def _get_decoded_frame_rgb(self, shared_frame):
+    def _get_decoded_frame_rgb(self, shared_frame) -> np.ndarray:
         """Return frame in rgb format."""
         return self._camera.shared_frames.get_decoded_frame_rgb(shared_frame)
 
-    def _get_decoded_frame_gray(self, shared_frame):
+    def _get_decoded_frame_gray(self, shared_frame) -> np.ndarray:
         """Return frame in gray format."""
         return self._camera.shared_frames.get_decoded_frame_gray(shared_frame)
 
     def _motion_detection(self) -> None:
-        """Perform object detection and publish the results."""
+        """Perform motion detection and publish the results."""
         while not self._kill_received:
             try:
                 shared_frame: SharedFrame = self.motion_detection_queue.get(timeout=1)
             except Empty:
                 continue
 
-            decoded_frame = self._get_frame_function(shared_frame)
+            decoded_frame = self._get_frame_function(shared_frame).copy()
             preprocessed_frame = self.preprocess(decoded_frame)
             if self._mask:
                 preprocessed_frame = self._apply_mask(preprocessed_frame)
 
             contours = self.return_motion(preprocessed_frame)
             self._filter_motion(shared_frame, contours)
-            self._vis.data[DATA_STREAM_COMPONENT].publish_data(
+            self._data_stream.publish_data(
                 DATA_MOTION_DETECTOR_RESULT.format(
                     camera_identifier=shared_frame.camera_identifier
                 ),
@@ -329,7 +332,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         self._logger.debug("Motion detection thread stopped")
 
     @abstractmethod
-    def return_motion(self, frame):
+    def return_motion(self, frame) -> Contours:
         """Perform motion detection."""
 
     @property
