@@ -45,3 +45,10 @@ else
     echo "Creating frontend .env.local"
     echo "VITE_PROXY_HOST=localhost:8888" > $FILE
 fi
+
+# Ensure at least the en_US.UTF-8 UTF-8 locale is available.
+if [ "${LOCALE_ALREADY_SET}" != "true" ] && ! grep -o -E '^\s*en_US.UTF-8\s+UTF-8' /etc/locale.gen > /dev/null; then
+    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+    locale-gen
+    LOCALE_ALREADY_SET="true"
+fi

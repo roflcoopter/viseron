@@ -10,6 +10,6 @@
         "dbaeumer.vscode-eslint",
         "ms-azuretools.vscode-docker",
         "unifiedjs.vscode-mdx",
-        "alexcvzz.vscode-sqlite"
+        "ckolkman.vscode-postgres",
     ]
   }
