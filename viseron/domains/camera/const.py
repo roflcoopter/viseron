@@ -91,6 +91,10 @@ DEPRECATED_RETAIN = (
     "Use the "
     "<a href=/components-explorer/components/storage>storage component</a> instead."
 )
+WARNING_RETAIN = (
+    "Config option 'retain' is deprecated and will be removed in a future version. "
+    "Please use 'max_age' in the 'storage' component instead."
+)
 DESC_FOLDER = "What folder to store recordings in."
 DESC_FILENAME_PATTERN = (
     "A <a href=https://strftime.org/>strftime</a> pattern for saved recordings.<br>"

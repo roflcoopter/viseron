@@ -12,40 +12,40 @@ MOVE_FILES_THROTTLE_SECONDS = 10
 # Storage configuration
 DESC_COMPONENT = "Storage configuration."
 DEFAULT_COMPONENT: dict[str, Any] = {}
-CONFIG_PATH = "path"
-CONFIG_POLL = "poll"
-CONFIG_MOVE_ON_SHUTDOWN = "move_on_shutdown"
-CONFIG_MIN_SIZE = "min_size"
-CONFIG_MAX_SIZE = "max_size"
-CONFIG_MAX_AGE = "max_age"
-CONFIG_MIN_AGE = "min_age"
-CONFIG_GB = "gb"
-CONFIG_MB = "mb"
-CONFIG_DAYS = "days"
-CONFIG_HOURS = "hours"
-CONFIG_MINUTES = "minutes"
-CONFIG_RECORDINGS = "recordings"
-CONFIG_CREATE_EVENT_CLIP = "create_event_clip"
-CONFIG_TYPE = "type"
-CONFIG_TYPE_CONTINUOUS = "continuous"
-CONFIG_TYPE_EVENTS = "events"
-CONFIG_SNAPSHOTS = "snapshots"
-CONFIG_FACE_RECOGNITION = "face_recognition"
-CONFIG_OBJECT_DETECTION = "object_detection"
-CONFIG_TIERS = "tiers"
+CONFIG_PATH: Final = "path"
+CONFIG_POLL: Final = "poll"
+CONFIG_MOVE_ON_SHUTDOWN: Final = "move_on_shutdown"
+CONFIG_MIN_SIZE: Final = "min_size"
+CONFIG_MAX_SIZE: Final = "max_size"
+CONFIG_MAX_AGE: Final = "max_age"
+CONFIG_MIN_AGE: Final = "min_age"
+CONFIG_GB: Final = "gb"
+CONFIG_MB: Final = "mb"
+CONFIG_DAYS: Final = "days"
+CONFIG_HOURS: Final = "hours"
+CONFIG_MINUTES: Final = "minutes"
+CONFIG_RECORDER: Final = "recorder"
+CONFIG_CREATE_EVENT_CLIP: Final = "create_event_clip"
+CONFIG_CONTINUOUS: Final = "continuous"
+CONFIG_EVENTS: Final = "events"
+CONFIG_SNAPSHOTS: Final = "snapshots"
+CONFIG_FACE_RECOGNITION: Final = "face_recognition"
+CONFIG_OBJECT_DETECTION: Final = "object_detection"
+CONFIG_TIERS: Final = "tiers"
 
 
-DEFAULT_RECORDINGS: dict[str, Any] = {}
-DEFAULT_RECORDINGS_TIERS = [
+DEFAULT_RECORDER: dict[str, Any] = {}
+DEFAULT_RECORDER_TIERS = [
     {
         CONFIG_PATH: "/",
-        CONFIG_MAX_AGE: {
-            CONFIG_DAYS: 7,
+        CONFIG_EVENTS: {
+            CONFIG_MAX_AGE: {
+                CONFIG_DAYS: 7,
+            },
         },
     },
 ]
 DEFAULT_CREATE_EVENT_CLIP = False
-DEFAULT_TYPE = CONFIG_TYPE_EVENTS
 DEFAULT_SNAPSHOTS: dict[str, Any] = {}
 DEFAULT_SNAPSHOTS_TIERS = [
     {
@@ -61,7 +61,6 @@ DEFAULT_OBJECT_DETECTION: Final = None
 DEFAULT_POLL = False
 DEFAULT_MOVE_ON_SHUTDOWN = False
 DEFAULT_GB: Final = None
-DEFAULT_SNAPSHOTS_GB = 1
 DEFAULT_MB: Final = None
 DEFAULT_DAYS: Final = None
 DEFAULT_HOURS: Final = None
@@ -70,8 +69,10 @@ DEFAULT_MIN_SIZE: dict[str, Any] = {}
 DEFAULT_MAX_SIZE: dict[str, Any] = {}
 DEFAULT_MIN_AGE: dict[str, Any] = {}
 DEFAULT_MAX_AGE: dict[str, Any] = {}
+DEFAULT_CONTINUOUS: Final = None
+DEFAULT_EVENTS: Final = None
 
-DESC_RECORDINGS = "Configuration for recordings."
+DESC_RECORDER = "Configuration for recordings."
 DESC_CREATE_EVENT_CLIP = (
     "Concatenate segments to an MP4 file for each event. "
     "WARNING: Will store both the segments AND the MP4 file."
@@ -82,7 +83,7 @@ DESC_TYPE = (
     "Events are started by <code>trigger_recorder</code>, and ends when either no "
     "objects or no motion (or both) is detected, depending on the configuration."
 )
-DESC_RECORDINGS_TIERS = (
+DESC_RECORDER_TIERS = (
     "Tiers are used to move files between different storage locations. "
     "When a file reaches the max age or max size of a tier, it will be moved to the "
     "next tier. "
@@ -96,9 +97,9 @@ DESC_SNAPSHOTS = (
 )
 DESC_SNAPSHOTS_TIERS = (
     "Default tiers for all domains, unless overridden in the domain configuration.<br>"
-    f"{DESC_RECORDINGS_TIERS} "
+    f"{DESC_RECORDER_TIERS} "
 )
-DESC_DOMAIN_TIERS = DESC_RECORDINGS_TIERS
+DESC_DOMAIN_TIERS = DESC_RECORDER_TIERS
 DESC_FACE_RECOGNITION = (
     "Override the default snapshot tiers for face recognition. "
     "If not set, the default tiers will be used."
@@ -127,3 +128,5 @@ DESC_MIN_SIZE = "Minimum size of files to keep in this tier."
 DESC_MAX_SIZE = "Maximum size of files to keep in this tier."
 DESC_MIN_AGE = "Minimum age of files to keep in this tier."
 DESC_MAX_AGE = "Maximum age of files to keep in this tier."
+DESC_CONTINUOUS = "Retention rules for continuous recordings."
+DESC_EVENTS = "Retention rules for event recordings."

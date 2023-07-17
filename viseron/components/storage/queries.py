@@ -12,38 +12,38 @@ def files_to_move_query(
     tier_id: int,
     camera_identifier: str,
     max_bytes: int,
-    min_age_seconds: float,
+    min_age_timestamp: float,
     min_bytes: int,
-    max_age_seconds: float,
+    max_age_timestamp: float,
 ) -> TextualSelect:
     """Return query for files to move to next tier or delete."""
     LOGGER.debug(
         "Query bindparms: category(%s), tier_id(%s), camera_identifier(%s), "
-        "max_bytes(%s), min_age_seconds(%s), min_bytes(%s), max_age_seconds(%s)",
+        "max_bytes(%s), min_age_timestamp(%s), min_bytes(%s), max_age_timestamp(%s)",
         category,
         tier_id,
         camera_identifier,
         max_bytes,
-        min_age_seconds,
+        min_age_timestamp,
         min_bytes,
-        max_age_seconds,
+        max_age_timestamp,
     )
     return (
         text(
-            """
+            """--sql
         WITH size_sum AS (
-            SELECT
-                id
-                ,tier_id
-                ,camera_identifier
-                ,category
-                ,path
-                ,created_at
-                ,sum(size) FILTER (
-                    WHERE category = :category
-                    AND   tier_id = :tier_id
-                ) OVER win1 AS total_bytes
-            FROM files
+            SELECT id
+                  ,tier_id
+                  ,camera_identifier
+                  ,category
+                  ,path
+                  ,created_at
+                  ,sum(size) FILTER (
+                      WHERE category = :category
+                        AND tier_id = :tier_id
+                        AND camera_identifier = :camera_identifier
+                  ) OVER win1 AS total_bytes
+              FROM files
             WINDOW win1 AS (
                 PARTITION BY category, tier_id
                 ORDER BY created_at DESC
@@ -52,20 +52,20 @@ def files_to_move_query(
             ORDER BY created_at DESC
         )
         SELECT id, path
-        FROM size_sum
-        WHERE tier_id = :tier_id
-        AND   camera_identifier = :camera_identifier
-        AND   category = :category
-        AND ((
-            :max_bytes > 0 AND
-            total_bytes >= :max_bytes AND
-            created_at <= to_timestamp(:min_age_seconds)
-        ) OR (
-            :max_age_seconds > 0 AND
-            created_at <= to_timestamp(:max_age_seconds) AND
-            total_bytes >= :min_bytes
-        ))
-        ORDER BY created_at ASC
+          FROM size_sum
+         WHERE tier_id = :tier_id
+           AND camera_identifier = :camera_identifier
+           AND category = :category
+           AND (
+               :max_bytes > 0 AND
+               total_bytes >= :max_bytes AND
+               created_at <= to_timestamp(:min_age_timestamp)
+           ) OR (
+               :max_age_timestamp > 0 AND
+               created_at <= to_timestamp(:max_age_timestamp) AND
+               total_bytes >= :min_bytes
+           )
+        ORDER BY created_at ASC;
     """
         )
         .bindparams(
@@ -73,12 +73,99 @@ def files_to_move_query(
             tier_id=tier_id,
             camera_identifier=camera_identifier,
             max_bytes=max_bytes,
-            min_age_seconds=min_age_seconds,
+            min_age_timestamp=min_age_timestamp,
             min_bytes=min_bytes,
-            max_age_seconds=max_age_seconds,
+            max_age_timestamp=max_age_timestamp,
         )
         .columns(
             column("id", Integer),
+            column("path", String),
+        )
+    )
+
+
+def recordings_to_move_query(
+    segment_length: int,
+    tier_id: int,
+    camera_identifier: str,
+    max_bytes: int,
+    min_age_timestamp: float,
+    min_bytes: int,
+    max_age_timestamp: float,
+) -> TextualSelect:
+    """Return query for segments to move to next tier or delete."""
+    return (
+        text(
+            """--sql
+        WITH recording_files as (
+            SELECT f.id as file_id
+                  ,f.tier_id
+                  ,f.camera_identifier
+                  ,f.category
+                  ,f.path
+                  ,f.created_at as file_created_at
+                  ,f.size
+                  ,r.id as recording_id
+                  ,r.created_at as recording_created_at
+              FROM files f
+                   LEFT JOIN recordings r
+                   ON f.created_at BETWEEN r.start_time - INTERVAL ':segment_length sec'
+                                       AND r.end_time   + INTERVAL ':segment_length sec'
+             WHERE f.category = 'recorder'
+               AND f.tier_id = :tier_id
+               AND f.camera_identifier = :camera_identifier
+        ),
+
+        recordings_size AS (
+            SELECT recording_id
+                  ,sum(size) as recording_size
+              FROM recording_files
+          GROUP BY recording_id
+        ),
+
+        size_sum AS (
+            SELECT r.id
+                  ,sum(rs.recording_size) OVER (
+                        ORDER BY r.created_at DESC
+                        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                   ) AS total_bytes
+              FROM recordings r
+                   JOIN recordings_size rs
+                   ON r.id = rs.recording_id
+        )
+        SELECT rf.recording_id
+              ,rf.file_id
+              ,rf.path
+          FROM recording_files rf
+               LEFT JOIN size_sum s
+               ON rf.recording_id = s.id
+         WHERE (
+            (
+                :max_bytes > 0 AND
+                s.total_bytes >= :max_bytes AND
+                rf.recording_created_at <= to_timestamp(:min_age_timestamp)
+            ) OR (
+                :max_age_timestamp > 0 AND
+                rf.recording_created_at <= to_timestamp(:max_age_timestamp) AND
+                s.total_bytes >= :min_bytes
+            )
+        ) OR s.total_bytes IS NULL
+         ORDER BY rf.file_created_at ASC
+                 ,rf.recording_created_at ASC;
+        """
+        )
+        .bindparams(
+            tier_id=tier_id,
+            camera_identifier=camera_identifier,
+            segment_length=segment_length,
+            max_bytes=max_bytes,
+            min_age_timestamp=min_age_timestamp,
+            max_age_timestamp=max_age_timestamp,
+            min_bytes=min_bytes,
+        )
+        .columns(
+            column("recording_id", Integer),
+            column("file_id", Integer),
             column("path", String),
         )
     )

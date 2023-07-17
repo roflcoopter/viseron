@@ -1,9 +1,16 @@
 """Storage component configuration."""
+from __future__ import annotations
+
+from typing import Any, TypedDict
+
 import voluptuous as vol
 
 from viseron.components.storage.const import (
+    COMPONENT,
+    CONFIG_CONTINUOUS,
     CONFIG_CREATE_EVENT_CLIP,
     CONFIG_DAYS,
+    CONFIG_EVENTS,
     CONFIG_FACE_RECOGNITION,
     CONFIG_GB,
     CONFIG_HOURS,
@@ -17,14 +24,13 @@ from viseron.components.storage.const import (
     CONFIG_OBJECT_DETECTION,
     CONFIG_PATH,
     CONFIG_POLL,
-    CONFIG_RECORDINGS,
+    CONFIG_RECORDER,
     CONFIG_SNAPSHOTS,
     CONFIG_TIERS,
-    CONFIG_TYPE,
-    CONFIG_TYPE_CONTINUOUS,
-    CONFIG_TYPE_EVENTS,
+    DEFAULT_CONTINUOUS,
     DEFAULT_CREATE_EVENT_CLIP,
     DEFAULT_DAYS,
+    DEFAULT_EVENTS,
     DEFAULT_FACE_RECOGNITION,
     DEFAULT_GB,
     DEFAULT_HOURS,
@@ -37,14 +43,15 @@ from viseron.components.storage.const import (
     DEFAULT_MOVE_ON_SHUTDOWN,
     DEFAULT_OBJECT_DETECTION,
     DEFAULT_POLL,
-    DEFAULT_RECORDINGS,
-    DEFAULT_RECORDINGS_TIERS,
+    DEFAULT_RECORDER,
+    DEFAULT_RECORDER_TIERS,
     DEFAULT_SNAPSHOTS,
     DEFAULT_SNAPSHOTS_TIERS,
-    DEFAULT_TYPE,
+    DESC_CONTINUOUS,
     DESC_CREATE_EVENT_CLIP,
     DESC_DAYS,
     DESC_DOMAIN_TIERS,
+    DESC_EVENTS,
     DESC_FACE_RECOGNITION,
     DESC_GB,
     DESC_HOURS,
@@ -58,13 +65,14 @@ from viseron.components.storage.const import (
     DESC_OBJECT_DETECTION,
     DESC_PATH,
     DESC_POLL,
-    DESC_RECORDINGS,
-    DESC_RECORDINGS_TIERS,
+    DESC_RECORDER,
+    DESC_RECORDER_TIERS,
     DESC_SNAPSHOTS,
     DESC_SNAPSHOTS_TIERS,
-    DESC_TYPE,
 )
-from viseron.helpers.validators import Maybe
+from viseron.components.storage.util import calculate_age
+from viseron.const import TEMP_DIR
+from viseron.helpers.validators import CoerceNoneToDict, Maybe
 
 SIZE_SCHEMA = {
     vol.Optional(
@@ -97,22 +105,8 @@ AGE_SCHEMA = {
     ): Maybe(vol.Coerce(int)),
 }
 
-
-TIERS_SCHEMA_BASE = vol.Schema(
+TIER_SCHEMA_BASE = vol.Schema(
     {
-        vol.Required(CONFIG_PATH, description=DESC_PATH): vol.All(
-            str,
-        ),
-        vol.Optional(
-            CONFIG_POLL,
-            default=DEFAULT_POLL,
-            description=DESC_POLL,
-        ): bool,
-        vol.Optional(
-            CONFIG_MOVE_ON_SHUTDOWN,
-            default=DEFAULT_MOVE_ON_SHUTDOWN,
-            description=DESC_MOVE_ON_SHUTDOWN,
-        ): bool,
         vol.Optional(
             CONFIG_MIN_SIZE,
             default=DEFAULT_MIN_SIZE,
@@ -136,19 +130,60 @@ TIERS_SCHEMA_BASE = vol.Schema(
     }
 )
 
-TIERS_SCHEMA = vol.Schema(
-    vol.All(
-        [TIERS_SCHEMA_BASE],
-        vol.Length(min=1),
-    )
+TIER_SCHEMA_SNAPSHOTS = TIER_SCHEMA_BASE.extend(
+    {
+        vol.Required(
+            CONFIG_PATH,
+            description=DESC_PATH,
+        ): str,
+        vol.Optional(
+            CONFIG_POLL,
+            default=DEFAULT_POLL,
+            description=DESC_POLL,
+        ): bool,
+        vol.Optional(
+            CONFIG_MOVE_ON_SHUTDOWN,
+            default=DEFAULT_MOVE_ON_SHUTDOWN,
+            description=DESC_MOVE_ON_SHUTDOWN,
+        ): bool,
+    }
+)
+
+TIER_SCHEMA_RECORDER = vol.Schema(
+    {
+        vol.Required(
+            CONFIG_PATH,
+            description=DESC_PATH,
+        ): str,
+        vol.Optional(
+            CONFIG_POLL,
+            default=DEFAULT_POLL,
+            description=DESC_POLL,
+        ): bool,
+        vol.Optional(
+            CONFIG_MOVE_ON_SHUTDOWN,
+            default=DEFAULT_MOVE_ON_SHUTDOWN,
+            description=DESC_MOVE_ON_SHUTDOWN,
+        ): bool,
+        vol.Optional(
+            CONFIG_CONTINUOUS,
+            default=DEFAULT_CONTINUOUS,
+            description=DESC_CONTINUOUS,
+        ): vol.All(CoerceNoneToDict(), TIER_SCHEMA_BASE),
+        vol.Optional(
+            CONFIG_EVENTS,
+            default=DEFAULT_EVENTS,
+            description=DESC_EVENTS,
+        ): vol.All(CoerceNoneToDict(), TIER_SCHEMA_BASE),
+    }
 )
 
 STORAGE_SCHEMA = vol.Schema(
     {
         vol.Optional(
-            CONFIG_RECORDINGS,
-            default=DEFAULT_RECORDINGS,
-            description=DESC_RECORDINGS,
+            CONFIG_RECORDER,
+            default=DEFAULT_RECORDER,
+            description=DESC_RECORDER,
         ): {
             vol.Optional(
                 CONFIG_CREATE_EVENT_CLIP,
@@ -156,15 +191,13 @@ STORAGE_SCHEMA = vol.Schema(
                 description=DESC_CREATE_EVENT_CLIP,
             ): bool,
             vol.Optional(
-                CONFIG_TYPE,
-                default=DEFAULT_TYPE,
-                description=DESC_TYPE,
-            ): vol.In([CONFIG_TYPE_CONTINUOUS, CONFIG_TYPE_EVENTS]),
-            vol.Optional(
                 CONFIG_TIERS,
-                default=DEFAULT_RECORDINGS_TIERS,
-                description=DESC_RECORDINGS_TIERS,
-            ): TIERS_SCHEMA,
+                default=DEFAULT_RECORDER_TIERS,
+                description=DESC_RECORDER_TIERS,
+            ): vol.All(
+                [TIER_SCHEMA_RECORDER],
+                vol.Length(min=1),
+            ),
         },
         vol.Optional(
             CONFIG_SNAPSHOTS,
@@ -175,16 +208,20 @@ STORAGE_SCHEMA = vol.Schema(
                 CONFIG_TIERS,
                 default=DEFAULT_SNAPSHOTS_TIERS,
                 description=DESC_SNAPSHOTS_TIERS,
-            ): TIERS_SCHEMA,
+            ): vol.All(
+                [TIER_SCHEMA_SNAPSHOTS],
+                vol.Length(min=1),
+            ),
             vol.Optional(
                 CONFIG_FACE_RECOGNITION,
                 default=DEFAULT_FACE_RECOGNITION,
                 description=DESC_FACE_RECOGNITION,
             ): Maybe(
                 {
-                    vol.Required(
-                        CONFIG_TIERS, description=DESC_DOMAIN_TIERS
-                    ): TIERS_SCHEMA,
+                    vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(
+                        [TIER_SCHEMA_SNAPSHOTS],
+                        vol.Length(min=1),
+                    ),
                 }
             ),
             vol.Optional(
@@ -193,11 +230,88 @@ STORAGE_SCHEMA = vol.Schema(
                 description=DESC_OBJECT_DETECTION,
             ): Maybe(
                 {
-                    vol.Required(
-                        CONFIG_TIERS, description=DESC_DOMAIN_TIERS
-                    ): TIERS_SCHEMA,
+                    vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(
+                        [TIER_SCHEMA_SNAPSHOTS],
+                        vol.Length(min=1),
+                    ),
                 }
             ),
         },
     }
 )
+
+
+def _check_tier(tier: Tier, previous_tier: Tier | None, paths: list[str]):
+    """Check tier config."""
+    if tier[CONFIG_PATH] in ["/tmp", TEMP_DIR]:
+        raise vol.Invalid(
+            f"Tier {tier[CONFIG_PATH]} is a reserved path and cannot be used"
+        )
+
+    if tier[CONFIG_PATH] in paths:
+        raise vol.Invalid(f"Tier {tier[CONFIG_PATH]} is defined multiple times")
+    paths.append(tier[CONFIG_PATH])
+
+    if previous_tier is None:
+        return
+
+    tier_max_age = calculate_age(tier[CONFIG_MAX_AGE]).total_seconds()
+    previous_tier_max_age = calculate_age(previous_tier[CONFIG_MAX_AGE]).total_seconds()
+
+    if (
+        tier_max_age > 0  # pylint: disable=chained-comparison
+        and tier_max_age <= previous_tier_max_age
+    ):
+        raise vol.Invalid(
+            f"Tier {tier[CONFIG_PATH]} "
+            "max_age must be greater than previous tier max_age"
+        )
+
+
+class Tier(TypedDict):
+    """Tier."""
+
+    path: str
+    max_age: dict[str, Any]
+
+
+def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
+    """Validate tiers.
+
+    Paths cannot be reserved paths.
+    The same path cannot be defined multiple times.
+    max_age has to be greater than previous tier max_age.
+    """
+    component_config: dict[str, Any] = config[COMPONENT]
+
+    # Check events config
+    previous_tier: None | Tier = None
+    paths: list[str] = []
+    for tier in component_config.get(CONFIG_RECORDER, {}).get(CONFIG_TIERS, []):
+        if tier.get(CONFIG_EVENTS, None):
+            _tier = Tier(
+                path=tier[CONFIG_PATH], max_age=tier[CONFIG_EVENTS][CONFIG_MAX_AGE]
+            )
+            _check_tier(
+                _tier,
+                previous_tier,
+                paths,
+            )
+            previous_tier = _tier
+
+    # Check continuous config
+    previous_tier = None
+    paths = []
+    for tier in component_config.get(CONFIG_RECORDER, {}).get(CONFIG_TIERS, []):
+        if tier.get(CONFIG_CONTINUOUS, None):
+            _tier = Tier(
+                path=tier[CONFIG_PATH], max_age=tier[CONFIG_CONTINUOUS][CONFIG_MAX_AGE]
+            )
+            _check_tier(
+                _tier,
+                previous_tier,
+                paths,
+            )
+            previous_tier = _tier
+
+    return config

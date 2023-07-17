@@ -3,13 +3,12 @@ from __future__ import annotations
 
 import logging
 import threading
-from types import TracebackType
 from typing import TYPE_CHECKING
 
 from viseron.domains.camera.recorder import AbstractRecorder
 
 from .const import COMPONENT, RECORDER
-from .segments import SegmentCleanup, Segments
+from .segments import Segments
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -19,30 +18,6 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-class ConcatThreadsContext:
-    """Context manager for keeping track of number of concat threads.
-
-    Used to prevent cleanup from running while concat threads are running.
-    """
-
-    def __init__(self) -> None:
-        self.count = 0
-
-    def __enter__(self):
-        """Increment the counter when entering the context."""
-        self.count += 1
-        return self.count
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
-        """Decrement the counter when exiting the context."""
-        self.count -= 1
-
-
 class Recorder(AbstractRecorder):
     """Creates thumbnails and recordings."""
 
@@ -50,33 +25,18 @@ class Recorder(AbstractRecorder):
         super().__init__(vis, COMPONENT, config, camera)
         self._logger.debug("Initializing recorder")
         self._recorder_config = config[RECORDER]
-
-        self._segment_thread_context = ConcatThreadsContext()
         self._concat_thread_lock = threading.Lock()
-
         self._segmenter = Segments(
             self._logger, config, vis, camera, self.segments_folder
-        )
-        self._segment_cleanup = SegmentCleanup(
-            vis,
-            self._recorder_config,
-            self._logger,
-            self._segment_thread_context,
-            self.segments_folder,
         )
 
     def concat_segments(self, recording: Recording) -> None:
         """Concatenate FFmpeg segments to a single video."""
-        with self._segment_thread_context:
-            with self._concat_thread_lock:
-                self._segment_cleanup.pause()
-                self._segmenter.concat_segments(recording)
-                # Dont resume cleanup if new recording started during encoding
-                if not self.is_recording:
-                    self._segment_cleanup.resume()
+        with self._concat_thread_lock:
+            self._segmenter.concat_segments(recording)
 
     def _start(self, recording, shared_frame, objects_in_fov, resolution) -> None:
-        self._segment_cleanup.pause()
+        pass
 
     def _stop(self, recording) -> None:
         concat_thread = threading.Thread(target=self.concat_segments, args=(recording,))

@@ -23,6 +23,8 @@ from watchdog.observers.polling import PollingObserverVFS
 
 from viseron.components.storage.const import (
     COMPONENT,
+    CONFIG_CONTINUOUS,
+    CONFIG_EVENTS,
     CONFIG_MAX_AGE,
     CONFIG_MAX_SIZE,
     CONFIG_MIN_AGE,
@@ -33,9 +35,16 @@ from viseron.components.storage.const import (
     MOVE_FILES_THROTTLE_SECONDS,
 )
 from viseron.components.storage.models import Files
-from viseron.components.storage.queries import files_to_move_query
-from viseron.components.storage.util import calculate_age, calculate_bytes
-from viseron.const import VISERON_SIGNAL_LAST_WRITE
+from viseron.components.storage.queries import (
+    files_to_move_query,
+    recordings_to_move_query,
+)
+from viseron.components.storage.util import (
+    calculate_age,
+    calculate_bytes,
+    files_to_move_overlap,
+)
+from viseron.const import CAMERA_SEGMENT_DURATION, VISERON_SIGNAL_LAST_WRITE
 from viseron.domains.camera.const import CONFIG_RECORDER, CONFIG_RETAIN
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -70,26 +79,12 @@ class TierHandler(FileSystemEventHandler):
         self._subcategory = subcategory
         self._tier = tier
         self._next_tier = next_tier
+        self._path = os.path.join(
+            tier[CONFIG_PATH], category, subcategory, camera.identifier
+        )
 
-        self._max_bytes = calculate_bytes(tier[CONFIG_MAX_SIZE])
-        self._min_bytes = calculate_bytes(tier[CONFIG_MIN_SIZE])
-        if tier_id == 0 and self._camera.config.get(CONFIG_RECORDER, {}).get(
-            CONFIG_RETAIN, None
-        ):
-            LOGGER.warning(
-                f"Camera {self._camera.identifier} is using 'retain' for 'recorder' "
-                "which has been deprecated and will be removed in a future release. "
-                "Please use the new 'storage' component with the 'max_age' config "
-                "option instead. For now, the value of 'retain' will be used as "
-                "'max_age' for the first tier, but this WILL change and might cause "
-                "you to lose data."
-            )
-            self._max_age = timedelta(
-                days=self._camera.config[CONFIG_RECORDER][CONFIG_RETAIN]
-            )
-        else:
-            self._max_age = calculate_age(tier[CONFIG_MAX_AGE])
-        self._min_age = calculate_age(tier[CONFIG_MIN_AGE])
+        self.initialize()
+        vis.register_signal_handler(VISERON_SIGNAL_LAST_WRITE, self._shutdown)
 
         self._pending_updates: dict[str, Timer] = {}
         self._event_queue: Queue[FileSystemEvent | None] = Queue()
@@ -106,9 +101,6 @@ class TierHandler(FileSystemEventHandler):
         )
         self._time_of_last_call = datetime.min
 
-        self._path = os.path.join(
-            tier[CONFIG_PATH], category, subcategory, camera.identifier
-        )
         LOGGER.debug("Tier %s monitoring path: %s", tier_id, self._path)
         os.makedirs(self._path, exist_ok=True)
         self._observer = (
@@ -123,30 +115,25 @@ class TierHandler(FileSystemEventHandler):
         )
         self._observer.start()
 
-        vis.register_signal_handler(VISERON_SIGNAL_LAST_WRITE, self._shutdown)
-
-    def _process_events(self) -> None:
-        while True:
-            event = self._event_queue.get()
-            if event is None:
-                LOGGER.debug("Stopping event handler")
-                break
-            if isinstance(event, FileDeletedEvent):
-                self._on_deleted(event)
-            elif isinstance(event, FileCreatedEvent):
-                self._on_created(event)
-            elif isinstance(event, FileModifiedEvent):
-                self._on_modified(event)
+    def initialize(self):
+        """Tier handler specific initialization."""
+        self._max_bytes = calculate_bytes(self._tier[CONFIG_MAX_SIZE])
+        self._min_bytes = calculate_bytes(self._tier[CONFIG_MIN_SIZE])
+        self._max_age = calculate_age(self._tier[CONFIG_MAX_AGE])
+        self._min_age = calculate_age(self._tier[CONFIG_MIN_AGE])
 
     def check_tier(self) -> None:
         """Check if file should be moved to next tier."""
         now = datetime.now()
         time_since_last_call = now - self._time_of_last_call
         if time_since_last_call > self._throttle_period:
-            self._time_of_last_call = now
+            pass
         else:
             return
+        self._check_tier()
+        self._time_of_last_call = now
 
+    def _check_tier(self) -> None:
         file_ids = None
         with self._storage.get_session() as session:
             file_ids = get_files_to_move(
@@ -162,13 +149,26 @@ class TierHandler(FileSystemEventHandler):
 
             if file_ids is not None:
                 for file in file_ids:
-                    check_tier(
+                    handle_file(
                         session,
                         self._tier,
                         self._next_tier,
                         file.path,
                     )
             session.commit()
+
+    def _process_events(self) -> None:
+        while True:
+            event = self._event_queue.get()
+            if event is None:
+                LOGGER.debug("Stopping event handler")
+                break
+            if isinstance(event, FileDeletedEvent):
+                self._on_deleted(event)
+            elif isinstance(event, FileCreatedEvent):
+                self._on_created(event)
+            elif isinstance(event, FileModifiedEvent):
+                self._on_modified(event)
 
     def on_any_event(self, event: FileSystemEvent) -> None:
         """Handle file system events."""
@@ -202,12 +202,18 @@ class TierHandler(FileSystemEventHandler):
             Runs in a Timer to avoid spamming updates on duplicate events.
             """
             self._pending_updates.pop(event.src_path, None)
+            try:
+                size = os.path.getsize(event.src_path)
+            except FileNotFoundError:
+                LOGGER.debug("File not found: %s", event.src_path)
+                return
+
             with self._storage.get_session() as session:
                 with session.begin():
                     stmt = (
                         update(Files)
                         .where(Files.path == event.src_path)
-                        .values(size=os.path.getsize(event.src_path))
+                        .values(size=size)
                     )
                     session.execute(stmt)
 
@@ -247,7 +253,95 @@ class TierHandler(FileSystemEventHandler):
         self._observer.join()
 
 
-def check_tier(
+class RecorderTierHandler(TierHandler):
+    """Handle the recorder tiers."""
+
+    def initialize(self) -> None:
+        """Initialize recorder tier."""
+        self._path = os.path.join(
+            self._tier[CONFIG_PATH],
+            self._subcategory,
+            self._camera.identifier,
+        )
+
+        self._continuous_max_bytes = calculate_bytes(
+            self._tier[CONFIG_CONTINUOUS][CONFIG_MAX_SIZE]
+        )
+        self._continuous_min_bytes = calculate_bytes(
+            self._tier[CONFIG_CONTINUOUS][CONFIG_MIN_SIZE]
+        )
+        self._continuous_max_age = calculate_age(
+            self._tier[CONFIG_CONTINUOUS][CONFIG_MAX_AGE]
+        )
+        self._continuous_min_age = calculate_age(
+            self._tier[CONFIG_CONTINUOUS][CONFIG_MIN_AGE]
+        )
+
+        self._events_max_bytes = calculate_bytes(
+            self._tier[CONFIG_EVENTS][CONFIG_MAX_SIZE]
+        )
+        self._events_min_bytes = calculate_bytes(
+            self._tier[CONFIG_EVENTS][CONFIG_MIN_SIZE]
+        )
+        self._events_min_age = calculate_age(self._tier[CONFIG_EVENTS][CONFIG_MIN_AGE])
+
+        if self._tier_id == 0 and self._camera.config.get(CONFIG_RECORDER, {}).get(
+            CONFIG_RETAIN, None
+        ):
+            LOGGER.warning(
+                f"Camera {self._camera.identifier} is using 'retain' for 'recorder' "
+                "which has been deprecated and will be removed in a future release. "
+                "Please use the new 'storage' component with the 'max_age' config "
+                "option instead. For now, the value of 'retain' will be used as "
+                "'max_age' for the first tier, but this WILL change and might cause "
+                "you to lose data."
+            )
+            self._events_max_age = timedelta(
+                days=self._camera.config[CONFIG_RECORDER][CONFIG_RETAIN]
+            )
+        else:
+            self._events_max_age = calculate_age(
+                self._tier[CONFIG_EVENTS][CONFIG_MAX_AGE]
+            )
+
+    def _check_tier(self) -> None:
+        events_file_ids = None
+        continuous_file_ids = None
+        with self._storage.get_session() as session:
+            events_file_ids = get_recordings_to_move(
+                session,
+                self._tier_id,
+                self._camera.identifier,
+                self._events_max_bytes,
+                self._events_min_age,
+                self._events_min_bytes,
+                self._events_max_age,
+            )
+
+            continuous_file_ids = get_files_to_move(
+                session,
+                self._category,
+                self._tier_id,
+                self._camera.identifier,
+                self._continuous_max_bytes,
+                self._continuous_min_age,
+                self._continuous_min_bytes,
+                self._continuous_max_age,
+            )
+
+            overlap = files_to_move_overlap(events_file_ids, continuous_file_ids)
+            for file in overlap:
+                handle_file(
+                    session,
+                    self._tier,
+                    self._next_tier,
+                    file.path,
+                )
+
+            session.commit()
+
+
+def handle_file(
     session: Session,
     curr_tier: dict[str, Any],
     next_tier: dict[str, Any] | None,
@@ -301,20 +395,51 @@ def get_files_to_move(
     """Get id of files to move."""
     now = datetime.utcnow()
 
-    min_age_seconds = (now - min_age).timestamp()
+    min_age_timestamp = (now - min_age).timestamp()
     if max_age:
-        max_age_seconds = (now - max_age).timestamp()
+        max_age_timestamp = (now - max_age).timestamp()
     else:
-        max_age_seconds = 0
+        max_age_timestamp = 0
 
     stmt = files_to_move_query(
         category,
         tier_id,
         camera_identifier,
         max_bytes,
-        min_age_seconds,
+        min_age_timestamp,
         min_bytes,
-        max_age_seconds,
+        max_age_timestamp,
+    )
+    result = session.execute(stmt)
+    return result
+
+
+def get_recordings_to_move(
+    session: Session,
+    tier_id: int,
+    camera_identifier: str,
+    max_bytes: int,
+    min_age: timedelta,
+    min_bytes: int,
+    max_age: timedelta,
+) -> Result[Any]:
+    """Get id of recordings and segments to move."""
+    now = datetime.utcnow()
+
+    min_age_timestamp = (now - min_age).timestamp()
+    if max_age:
+        max_age_timestamp = (now - max_age).timestamp()
+    else:
+        max_age_timestamp = 0
+
+    stmt = recordings_to_move_query(
+        CAMERA_SEGMENT_DURATION,
+        tier_id,
+        camera_identifier,
+        max_bytes,
+        min_age_timestamp,
+        min_bytes,
+        max_age_timestamp,
     )
     result = session.execute(stmt)
     return result
@@ -338,5 +463,5 @@ def force_move_files(
         )
         result = session.execute(stmt)
         for file in result:
-            check_tier(session, curr_tier, next_tier, file.path)
+            handle_file(session, curr_tier, next_tier, file.path)
         session.commit()

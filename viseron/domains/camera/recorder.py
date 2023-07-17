@@ -14,8 +14,10 @@ import cv2
 import numpy as np
 from apscheduler.schedulers.background import BackgroundScheduler
 from path import Path
+from sqlalchemy import insert, update
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.models import Recordings
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.helpers import create_directory, draw_objects
 
@@ -68,6 +70,7 @@ class EventRecorderData:
 class Recording:
     """Recording dict representation."""
 
+    id: int
     start_time: datetime.datetime
     start_timestamp: float
     end_time: datetime.datetime | None
@@ -82,6 +85,7 @@ class Recording:
     def as_dict(self):
         """Return as dict."""
         return {
+            "id": self.id,
             "start_time": self.start_time,
             "start_timestamp": self.start_timestamp,
             "end_time": self.end_time,
@@ -227,6 +231,7 @@ class AbstractRecorder(ABC, RecorderBase):
 
     def __init__(self, vis: Viseron, component, config, camera: AbstractCamera) -> None:
         super().__init__(vis, config, camera)
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
         self._camera: AbstractCamera = camera
 
         self.is_recording = False
@@ -323,7 +328,21 @@ class AbstractRecorder(ABC, RecorderBase):
 
         start_time = datetime.datetime.now()
 
+        with self._storage.get_session() as session:
+            stmt = (
+                insert(Recordings)
+                .values(
+                    camera_identifier=self._camera.identifier,
+                    start_time=start_time,
+                )
+                .returning(Recordings.id)
+            )
+            result = session.execute(stmt).scalars()
+            recording_id = result.one()
+            session.commit()
+
         recording = Recording(
+            id=recording_id,
             start_time=start_time,
             start_timestamp=start_time.timestamp(),
             end_time=None,
@@ -369,6 +388,18 @@ class AbstractRecorder(ABC, RecorderBase):
         end_time = datetime.datetime.now()
         recording.end_time = end_time
         recording.end_timestamp = end_time.timestamp()
+
+        with self._storage.get_session() as session:
+            stmt = (
+                update(Recordings)
+                .where(Recordings.id == recording.id)
+                .values(
+                    end_time=recording.end_time,
+                )
+            )
+            session.execute(stmt)
+            session.commit()
+
         self._stop(recording)
         self._active_recording = None
         self._vis.dispatch_event(

@@ -54,11 +54,22 @@ def get_segments_path(
     tier: dict[str, Any], camera: AbstractCamera | FailedCamera
 ) -> str:
     """Get segments path for camera."""
-    return os.path.join(tier[CONFIG_PATH], "recordings/segments", camera.identifier)
+    return os.path.join(tier[CONFIG_PATH], "segments", camera.identifier)
 
 
 def get_recordings_path(
     tier: dict[str, Any], camera: AbstractCamera | FailedCamera
 ) -> str:
     """Get recordings path for camera."""
-    return os.path.join(tier[CONFIG_PATH], "recordings/recordings", camera.identifier)
+    return os.path.join(tier[CONFIG_PATH], "recordings", camera.identifier)
+
+
+def files_to_move_overlap(events_file_ids, continuous_file_ids):
+    """Find the files that are in both events and continuous delete list."""
+    events_dict = {row.file_id: row for row in events_file_ids}
+    continuous_dict = {row.id: row for row in continuous_file_ids}
+    # Find the matching tuples based on "file_id" and "id"
+    matched_ids = [
+        events_dict[file_id] for file_id in events_dict if file_id in continuous_dict
+    ]
+    return matched_ids

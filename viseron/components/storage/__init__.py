@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, TypedDict
 
 import voluptuous as vol
 from alembic import command, script
@@ -13,12 +13,10 @@ from alembic.migration import MigrationContext
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, scoped_session, sessionmaker
 
-from viseron.components.storage.config import STORAGE_SCHEMA
+from viseron.components.storage.config import STORAGE_SCHEMA, validate_tiers
 from viseron.components.storage.const import (
     COMPONENT,
-    CONFIG_MAX_AGE,
-    CONFIG_PATH,
-    CONFIG_RECORDINGS,
+    CONFIG_RECORDER,
     CONFIG_SNAPSHOTS,
     CONFIG_TIERS,
     DATABASE_URL,
@@ -26,13 +24,9 @@ from viseron.components.storage.const import (
     DESC_COMPONENT,
 )
 from viseron.components.storage.models import Base
-from viseron.components.storage.tier_handler import TierHandler
-from viseron.components.storage.util import (
-    calculate_age,
-    get_recordings_path,
-    get_segments_path,
-)
-from viseron.const import EVENT_DOMAIN_REGISTERED, TEMP_DIR, VISERON_SIGNAL_STOPPING
+from viseron.components.storage.tier_handler import RecorderTierHandler, TierHandler
+from viseron.components.storage.util import get_recordings_path, get_segments_path
+from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.helpers.logs import StreamToLogger
 
@@ -41,48 +35,6 @@ if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera, FailedCamera
 
 LOGGER = logging.getLogger(__name__)
-
-
-def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
-    """Validate tiers.
-
-    Paths cannot be reserved paths.
-    The same path cannot be defined multiple times.
-    max_age has to be greater than previous tier max_age.
-    """
-    component_config = config[COMPONENT]
-
-    previous_tier: None | dict[str, Any] = None
-    paths: list[str] = []
-    for tier in component_config[CONFIG_RECORDINGS][CONFIG_TIERS]:
-        if tier[CONFIG_PATH] in ["/tmp", TEMP_DIR]:
-            raise vol.Invalid(
-                f"Tier {tier[CONFIG_PATH]} is a reserved path and cannot be used"
-            )
-
-        if tier[CONFIG_PATH] in paths:
-            raise vol.Invalid(f"Tier {tier[CONFIG_PATH]} is defined multiple times")
-        paths.append(tier[CONFIG_PATH])
-
-        if previous_tier is None:
-            previous_tier = tier
-            continue
-
-        tier_max_age = calculate_age(tier[CONFIG_MAX_AGE]).total_seconds()
-        previous_tier_max_age = calculate_age(
-            previous_tier[CONFIG_MAX_AGE]
-        ).total_seconds()
-
-        if (
-            tier_max_age > 0  # pylint: disable=chained-comparison
-            and tier_max_age <= previous_tier_max_age
-        ):
-            raise vol.Invalid(
-                f"Tier {tier[CONFIG_PATH]} "
-                "max_age must be greater than previous tier max_age"
-            )
-        previous_tier = tier
-    return config
 
 
 CONFIG_SCHEMA = vol.Schema(
@@ -98,21 +50,40 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
+class TierSubcategory(TypedDict):
+    """Tier subcategory."""
+
+    subcategory: str
+    tier_handler: type[TierHandler | RecorderTierHandler]
+
+
 class TierCategories(TypedDict):
     """Tier categories."""
 
-    recordings: list[Literal["segments", "recordings"]]
-    snapshots: list[Literal["face_recognition", "object_detection"]]
+    recorder: list[TierSubcategory]
+    snapshots: list[TierSubcategory]
 
 
 TIER_CATEGORIES: TierCategories = {
-    "recordings": [
-        "segments",
-        "recordings",
+    "recorder": [
+        {
+            "subcategory": "segments",
+            "tier_handler": RecorderTierHandler,
+        },
+        {
+            "subcategory": "recordings",
+            "tier_handler": RecorderTierHandler,
+        },
     ],
     "snapshots": [
-        "face_recognition",
-        "object_detection",
+        {
+            "subcategory": "face_recognition",
+            "tier_handler": TierHandler,
+        },
+        {
+            "subcategory": "object_detection",
+            "tier_handler": TierHandler,
+        },
     ],
 }
 
@@ -135,7 +106,7 @@ class Storage:
     def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
         self._vis = vis
         self._config = config
-        self._recordings_tiers = config[CONFIG_RECORDINGS][CONFIG_TIERS]
+        self._recordings_tiers = config[CONFIG_RECORDER][CONFIG_TIERS]
         self._snapshots_tiers = config[CONFIG_SNAPSHOTS][CONFIG_TIERS]
 
         self.engine: Engine | None = None
@@ -229,12 +200,12 @@ class Storage:
                     next_tier = tiers[index + 1]
                 # pylint: disable-next=line-too-long
                 for subcategory in TIER_CATEGORIES[category]:  # type: ignore[literal-required]
-                    TierHandler(
+                    subcategory["tier_handler"](
                         self._vis,
                         camera,
                         index,
                         category,
-                        subcategory,
+                        subcategory["subcategory"],
                         tier,
                         next_tier,
                     )

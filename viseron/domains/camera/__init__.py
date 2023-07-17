@@ -111,6 +111,7 @@ from .const import (
     EVENT_STATUS_DISCONNECTED,
     INCLUSION_GROUP_AUTHENTICATION,
     UPDATE_TOKEN_INTERVAL_MINUTES,
+    WARNING_RETAIN,
 )
 from .entity.binary_sensor import ConnectionStatusBinarySensor
 from .entity.toggle import CameraConnectionToggle
@@ -205,6 +206,7 @@ RECORDER_SCHEMA = vol.Schema(
             CONFIG_RETAIN,
             description=DESC_RETAIN,
             message=DEPRECATED_RETAIN,
+            warning=WARNING_RETAIN,
         ): vol.All(int, vol.Range(min=1)),
         vol.Optional(
             CONFIG_FOLDER, default=DEFAULT_FOLDER, description=DESC_FOLDER

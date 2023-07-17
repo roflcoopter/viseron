@@ -1,40 +1,44 @@
 """Test storage component."""
 
-
-import pprint
 from contextlib import nullcontext
 
 import pytest
 import voluptuous as vol
 
 from viseron.components.storage import CONFIG_SCHEMA, validate_tiers
-from viseron.components.storage.const import CONFIG_RECORDINGS, CONFIG_TIERS
 
 DEFAULT_CONFIG = {
     "storage": {
-        "recordings": {
+        "recorder": {
             "create_event_clip": False,
             "tiers": [
                 {
                     "path": "/",
-                    "max_age": {"hours": None, "minutes": None, "days": 7},
-                    "min_age": {"minutes": None, "days": None, "hours": None},
-                    "min_size": {"mb": None, "gb": None},
-                    "max_size": {"mb": None, "gb": None},
+                    "events": {
+                        "max_age": {"days": 7, "hours": None, "minutes": None},
+                        "min_age": {"hours": None, "days": None, "minutes": None},
+                        "min_size": {"gb": None, "mb": None},
+                        "max_size": {"gb": None, "mb": None},
+                    },
                     "move_on_shutdown": False,
                     "poll": False,
+                    "continuous": {
+                        "min_age": {"minutes": None, "hours": None, "days": None},
+                        "max_size": {"gb": None, "mb": None},
+                        "max_age": {"minutes": None, "hours": None, "days": None},
+                        "min_size": {"gb": None, "mb": None},
+                    },
                 }
             ],
-            "type": "events",
         },
         "snapshots": {
             "tiers": [
                 {
                     "path": "/",
-                    "max_age": {"hours": None, "minutes": None, "days": 7},
-                    "min_age": {"minutes": None, "days": None, "hours": None},
-                    "min_size": {"mb": None, "gb": None},
-                    "max_size": {"mb": None, "gb": None},
+                    "max_age": {"days": 7, "hours": None, "minutes": None},
+                    "min_age": {"hours": None, "days": None, "minutes": None},
+                    "min_size": {"gb": None, "mb": None},
+                    "max_size": {"gb": None, "mb": None},
                     "move_on_shutdown": False,
                     "poll": False,
                 }
@@ -42,7 +46,7 @@ DEFAULT_CONFIG = {
             "face_recognition": None,
             "object_detection": None,
         },
-    }
+    },
 }
 
 
@@ -54,7 +58,6 @@ DEFAULT_CONFIG = {
 )
 def test_config_schema(config) -> None:
     """Test config schema."""
-    pprint.pprint(CONFIG_SCHEMA(config))
     assert CONFIG_SCHEMA(config) == DEFAULT_CONFIG
 
 
@@ -64,15 +67,27 @@ def test_config_schema(config) -> None:
         (
             {
                 "storage": {
-                    CONFIG_RECORDINGS: {
-                        CONFIG_TIERS: [
+                    "recorder": {
+                        "tiers": [
                             {
                                 "path": "/tier1",
-                                "max_age": {"hours": None, "minutes": None, "days": 7},
+                                "events": {
+                                    "max_age": {
+                                        "hours": None,
+                                        "minutes": None,
+                                        "days": 7,
+                                    },
+                                },
                             },
                             {
                                 "path": "/tier2",
-                                "max_age": {"hours": None, "minutes": None, "days": 14},
+                                "events": {
+                                    "max_age": {
+                                        "hours": None,
+                                        "minutes": None,
+                                        "days": 14,
+                                    },
+                                },
                             },
                         ]
                     },
@@ -83,11 +98,17 @@ def test_config_schema(config) -> None:
         (
             {
                 "storage": {
-                    CONFIG_RECORDINGS: {
-                        CONFIG_TIERS: [
+                    "recorder": {
+                        "tiers": [
                             {
                                 "path": "/tmp",
-                                "max_age": {"hours": None, "minutes": None, "days": 7},
+                                "events": {
+                                    "max_age": {
+                                        "hours": None,
+                                        "minutes": None,
+                                        "days": 7,
+                                    },
+                                },
                             },
                         ]
                     },
@@ -100,15 +121,27 @@ def test_config_schema(config) -> None:
         (
             {
                 "storage": {
-                    CONFIG_RECORDINGS: {
-                        CONFIG_TIERS: [
+                    "recorder": {
+                        "tiers": [
                             {
                                 "path": "/tier1",
-                                "max_age": {"hours": None, "minutes": None, "days": 7},
+                                "events": {
+                                    "max_age": {
+                                        "hours": None,
+                                        "minutes": None,
+                                        "days": 7,
+                                    },
+                                },
                             },
                             {
                                 "path": "/tier1",
-                                "max_age": {"hours": None, "minutes": None, "days": 14},
+                                "events": {
+                                    "max_age": {
+                                        "hours": None,
+                                        "minutes": None,
+                                        "days": 14,
+                                    },
+                                },
                             },
                         ]
                     },
@@ -119,18 +152,26 @@ def test_config_schema(config) -> None:
         (
             {
                 "storage": {
-                    CONFIG_RECORDINGS: {
-                        CONFIG_TIERS: [
+                    "recorder": {
+                        "tiers": [
                             {
                                 "path": "/tier1",
-                                "max_age": {"hours": None, "minutes": None, "days": 7},
+                                "events": {
+                                    "max_age": {
+                                        "hours": None,
+                                        "minutes": None,
+                                        "days": 7,
+                                    },
+                                },
                             },
                             {
                                 "path": "/tier2",
-                                "max_age": {
-                                    "hours": 168,
-                                    "minutes": None,
-                                    "days": None,
+                                "events": {
+                                    "max_age": {
+                                        "hours": 168,
+                                        "minutes": None,
+                                        "days": None,
+                                    },
                                 },
                             },
                         ]

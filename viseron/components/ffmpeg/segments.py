@@ -2,15 +2,14 @@
 from __future__ import annotations
 
 import datetime
+import logging
 import os
 import shutil
 import subprocess as sp
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from apscheduler.schedulers.background import BackgroundScheduler
-
-from viseron.const import TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
+from viseron.const import TEMP_DIR
 from viseron.domains.camera import CONFIG_LOOKBACK
 from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE
 from viseron.domains.camera.recorder import EventRecorderData
@@ -40,8 +39,8 @@ class Segments:
 
     def __init__(
         self,
-        logger,
-        config,
+        logger: logging.Logger,
+        config: dict[str, Any],
         vis: Viseron,
         camera: AbstractCamera,
         segments_folder,
@@ -338,77 +337,3 @@ class Segments:
             os.remove(os.path.join(self._segments_folder, segment))
 
         self._logger.debug("Segments concatenated")
-
-
-class SegmentCleanup:
-    """Clean up segments created by FFmpeg."""
-
-    def __init__(
-        self, vis, config, logger, segment_thread_context, segments_folder
-    ) -> None:
-        self._vis = vis
-        self._logger = logger
-        self._segment_thread_context = segment_thread_context
-        self._segments_folder = segments_folder
-        # Make sure we dont delete a segment which is needed by recorder
-        self._max_age = config[CONFIG_LOOKBACK] + (CAMERA_SEGMENT_DURATION * 3)
-        self._scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
-        self._scheduler.add_job(
-            self.cleanup,
-            "interval",
-            seconds=CAMERA_SEGMENT_DURATION,
-            id="segment_cleanup",
-        )
-        self._scheduler.start()
-
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.shutdown)
-
-    def get_start_time(self, segment):
-        """Get start time of segment."""
-        return int(segment.split(".")[0])
-
-    def cleanup(self, force=False) -> None:
-        """Delete all segments that are no longer needed."""
-        if not force and self._segment_thread_context.count > 0:
-            self._logger.debug(
-                "Skipping segment cleanup since segment concatenation is running"
-            )
-            return
-
-        now = time.time()
-        for segment in os.listdir(self._segments_folder):
-            if force:
-                os.remove(os.path.join(self._segments_folder, segment))
-                continue
-
-            try:
-                start_time = self.get_start_time(segment)
-            except ValueError as error:
-                self._logger.error(
-                    f"Could not extract timestamp from segment {segment}: {error}"
-                )
-                continue
-
-            if now - start_time > self._max_age:
-                os.remove(os.path.join(self._segments_folder, segment))
-
-    def start(self) -> None:
-        """Start the scheduler."""
-        self._logger.debug("Starting segment cleanup")
-        self._scheduler.start()
-
-    def pause(self) -> None:
-        """Pauise the scheduler."""
-        self._logger.debug("Pausing segment cleanup")
-        self._scheduler.pause_job("segment_cleanup")
-
-    def resume(self) -> None:
-        """Resume the scheduler."""
-        self._logger.debug("Resuming segment cleanup")
-        self._scheduler.resume_job("segment_cleanup")
-
-    def shutdown(self) -> None:
-        """Resume the scheduler."""
-        self._logger.debug("Shutting down segment cleanup")
-        self.cleanup(force=True)
-        self._scheduler.shutdown()
