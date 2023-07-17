@@ -13,6 +13,8 @@
 !/.github/*
 !/.github/workflows
 !/.github/workflows/*
+!/.github/templates
+!/.github/templates/**
 
 # Azure Pipelines
 !/azure-pipelines

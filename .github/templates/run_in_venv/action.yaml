@@ -1,0 +1,21 @@
+name: run_in_venv
+description: Set Python symlink and activate venv
+
+inputs:
+  command:
+    required: true
+    description: The command to run in the venv
+
+runs:
+  using: "composite"
+  steps:
+  - name: Set Python symlink and activate venv
+    shell: bash
+    run: |
+      PYTHON_PATH=$(which python3)
+      source venv/bin/activate
+      PYTHON_BROKEN_PATH=$(dirname $(which pip))
+      rm $PYTHON_BROKEN_PATH/python
+      ln -s $PYTHON_PATH $PYTHON_BROKEN_PATH/python
+      export PATH=$PATH:$(dirname $PYTHON_BROKEN_PATH)
+      ${{ inputs.command }}

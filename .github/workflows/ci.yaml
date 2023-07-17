@@ -49,9 +49,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libgirepository1.0-dev
-          python -m venv venv
-          . venv/bin/activate
-          pip install --extra-index-url https://google-coral.github.io/py-repo/ -r requirements.txt -r requirements_test.txt -r requirements_ci.txt
+          python3 -m venv venv
+      - name: Install requirements into Python virtual environment
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        uses: ./.github/templates/run_in_venv
+        with:
+          command: |
+            pip3 install --extra-index-url https://google-coral.github.io/py-repo/ -r requirements.txt -r requirements_test.txt -r requirements_ci.txt && \
+            pre-commit install
 
   prepare-pre-commit:
     name: Prepare pre-commit
@@ -93,9 +98,10 @@ jobs:
           key: ${{ steps.pre-commit-cache-key.outputs.key }}
       - name: Create pre-commit hooks
         if: steps.cache-pre-commit.outputs.cache-hit != 'true'
-        run: |
-          . venv/bin/activate
-          pre-commit install-hooks
+        uses: ./.github/templates/run_in_venv
+        with:
+          command: |
+            pre-commit install-hooks
 
   run-isort:
     name: Run isort
@@ -132,9 +138,10 @@ jobs:
           echo "Failed to restore pre-commit environment from cache"
           exit 1
       - name: Run isort
-        run: |
-          . venv/bin/activate
-          pre-commit run --hook-stage manual isort --all-files --show-diff-on-failure
+        uses: ./.github/templates/run_in_venv
+        with:
+          command: |
+            pre-commit run --hook-stage manual isort --all-files --show-diff-on-failure
 
   run-black:
     name: Run black
@@ -171,9 +178,10 @@ jobs:
           echo "Failed to restore pre-commit environment from cache"
           exit 1
       - name: Run black
-        run: |
-          . venv/bin/activate
-          pre-commit run --hook-stage manual black --all-files --show-diff-on-failure
+        uses: ./.github/templates/run_in_venv
+        with:
+          command: |
+            pre-commit run --hook-stage manual black --all-files --show-diff-on-failure
 
   run-codespell:
     name: Run codespell
@@ -210,9 +218,10 @@ jobs:
           echo "Failed to restore pre-commit environment from cache"
           exit 1
       - name: Run codespell
-        run: |
-          . venv/bin/activate
-          pre-commit run --hook-stage manual codespell --all-files --show-diff-on-failure
+        uses: ./.github/templates/run_in_venv
+        with:
+          command: |
+            pre-commit run --hook-stage manual codespell --all-files --show-diff-on-failure
 
   run-mypy:
     name: Run mypy
@@ -249,9 +258,10 @@ jobs:
           echo "Failed to restore pre-commit environment from cache"
           exit 1
       - name: Run mypy
-        run: |
-          . venv/bin/activate
-          pre-commit run --hook-stage manual mypy --all-files --show-diff-on-failure
+        uses: ./.github/templates/run_in_venv
+        with:
+          command: |
+            pre-commit run --hook-stage manual mypy --all-files --show-diff-on-failure
 
   run-pylint:
     name: Run pylint
@@ -288,10 +298,11 @@ jobs:
           echo "Failed to restore pre-commit environment from cache"
           exit 1
       - name: Run pylint
-        run: |
-          . venv/bin/activate
-          pylint --version
-          pylint viseron
+        uses: ./.github/templates/run_in_venv
+        with:
+          command: |
+            pylint --version
+            pylint viseron
 
   run-flake8:
     name: Run flake8
@@ -328,9 +339,10 @@ jobs:
           echo "Failed to restore pre-commit environment from cache"
           exit 1
       - name: Run flake8
-        run: |
-          . venv/bin/activate
-          pre-commit run --hook-stage manual flake8 --all-files --show-diff-on-failure
+        uses: ./.github/templates/run_in_venv
+        with:
+          command: |
+            pre-commit run --hook-stage manual flake8 --all-files --show-diff-on-failure
 
   run-pyupgrade:
     name: Run pyupgrade
@@ -367,9 +379,10 @@ jobs:
           echo "Failed to restore pre-commit environment from cache"
           exit 1
       - name: Run pyupgrade
-        run: |
-          . venv/bin/activate
-          pre-commit run --hook-stage manual pyupgrade --all-files --show-diff-on-failure
+        uses: ./.github/templates/run_in_venv
+        with:
+          command: |
+            pre-commit run --hook-stage manual pyupgrade --all-files --show-diff-on-failure
 
   run-pytest:
     name: Run pytest
@@ -457,7 +470,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libedgetpu1-std python3-gi python3-gst-1.0
       - name: Run script to check generated docs
-        run: |
-          . venv/bin/activate
-          pre-commit run --hook-stage manual generate_docs --all-files --show-diff-on-failure
-          pre-commit run --hook-stage manual check_config_json --all-files --show-diff-on-failure
+        uses: ./.github/templates/run_in_venv
+        with:
+          command: |
+            pre-commit run --hook-stage manual generate_docs --all-files --show-diff-on-failure
+            pre-commit run --hook-stage manual check_config_json --all-files --show-diff-on-failure
