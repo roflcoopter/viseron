@@ -51,21 +51,28 @@ def deprecated(key: str, replacement: Optional[str] = None) -> Callable[[dict], 
 
 
 class Deprecated(vol.Optional):
-    """Mark key as deprecated."""
+    """Mark key as deprecated.
+
+    message: Displayed in the generated documentation.
+    warning: Displayed in the logs.
+    """
 
     def __init__(
         self,
-        key: str,
+        schema: Any,
         raise_error=False,
         message=None,
         description=None,
+        warning=None,
     ) -> None:
-        self._key = key
+        self._key = schema
         self._raise_error = raise_error
         self._message = message
+        self._warning = warning
 
         super().__init__(
-            self.warn,
+            schema,
+            default=vol.UNDEFINED,
             description=description,
         )
 
@@ -78,18 +85,29 @@ class Deprecated(vol.Optional):
     def message(self) -> str:
         """Return deprecation message."""
         return (
-            f"Config option {self._key} is deprecated "
-            "and will be removed in a future version. "
-            "Please remove it from your configuration."
+            f"Config option '{self.key}' is deprecated "
+            "and will be removed in a future version."
             if not self._message
             else self._message
         )
 
-    def warn(self, _value: Any) -> Any:
+    @property
+    def warning(self) -> str:
+        """Return deprecation warning."""
+        return (
+            f"Config option '{self.key}' is deprecated "
+            "and will be removed in a future version. "
+            "Please remove it from your configuration."
+            if not self._warning
+            else self._warning
+        )
+
+    def __call__(self, v):
         """Warn user about deprecated key."""
         if self._raise_error:
-            raise vol.Invalid(self.message)
-        LOGGER.warning(self.message)
+            raise vol.Invalid(self.warning)
+        LOGGER.warning(self.warning)
+        return super().__call__(v)
 
 
 def slug(value: Any) -> str:

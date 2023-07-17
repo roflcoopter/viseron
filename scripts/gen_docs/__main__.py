@@ -69,13 +69,13 @@ def convert(schema, custom_convert=None):  # noqa: C901
             if isinstance(pval, list):
                 pval = {"type": "map", "value": pval}
 
-            if not isinstance(pkey, str):
+            if not isinstance(pkey, str) or isinstance(key, Deprecated):
                 pval["name"] = convert(key, custom_convert=custom_convert)
             else:
                 pval["name"] = pkey
             pval["description"] = description
 
-            if isinstance(key, (vol.Required, vol.Optional)):
+            if isinstance(key, (vol.Required, vol.Optional, Deprecated)):
                 pval[key.__class__.__name__.lower()] = True
 
                 if key.default is not vol.UNDEFINED:
