@@ -15,7 +15,7 @@ from viseron.domains.face_recognition.const import (
     CONFIG_FACE_RECOGNITION_PATH,
     CONFIG_SAVE_UNKNOWN_FACES,
 )
-from viseron.helpers import calculate_absolute_coords
+from viseron.helpers import calculate_absolute_coords, letterbox_resize
 
 from .const import (
     COMPONENT,
@@ -69,6 +69,9 @@ class FaceRecognition(AbstractFaceRecognition):
             self._camera.resolution,
         )
         cropped_frame = frame[y1:y2, x1:x2].copy()
+        width, height, _ = cropped_frame.shape
+        max_dimension = max(width, height)
+        cropped_frame = letterbox_resize(cropped_frame, max_dimension, max_dimension)
 
         try:
             result = self._cpai.recognize(
@@ -160,7 +163,11 @@ class CodeProjectAITrain:
 
             self._cpai.delete_face(face_dir)
             for img_path in img_paths:
-                face_image = cv2.imencode(".jpg", cv2.imread(img_path))[1].tobytes()
+                face_image = cv2.imread(img_path)
+                width, height, _ = face_image.shape
+                max_dimension = max(width, height)
+                face_image = letterbox_resize(face_image, max_dimension, max_dimension)
+                face_image = cv2.imencode(".jpg", face_image)[1].tobytes()
                 detections = self._cpai.detect(face_image)
                 LOGGER.debug("Face detection result: %s", detections)
                 if len(detections) != 1:
@@ -184,9 +191,8 @@ BAD_URL = 404
 class CodeProjectAIFace(cpai.CodeProjectAIFace):
     """Custom CodeProjectAIFace to add list and delete function."""
 
-    # pylint: disable=dangerous-default-value
     @staticmethod
-    def post_request(url, timeout=None, data: dict = {}):
+    def post_request(url, timeout=None, data: dict | None = None):
         """Send post req to CodeProject.AI."""
         try:
             response = requests.post(url, data=data, timeout=timeout)
@@ -243,6 +249,3 @@ class CodeProjectAIFace(cpai.CodeProjectAIFace):
         )
 
         return response
-
-
-# pylint enable
