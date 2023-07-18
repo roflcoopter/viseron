@@ -16,7 +16,7 @@ else
   s6-setuidgid abc /usr/lib/postgresql/12/bin/initdb
   log_info "Starting PostgreSQL..."
   s6-setuidgid abc /usr/lib/postgresql/12/bin/pg_ctl -D /config/postgresql -l /config/postgresql/logfile start
-  if s6-setuidgid abc psql -q -d viseron -tc "SELECT 1 FROM pg_database WHERE datname = 'viseron'" ; then
+  if s6-setuidgid abc psql -q -d viseron -tc "SELECT 1 FROM pg_database WHERE datname = 'viseron';" ; then
       log_info "Database has already been created."
   else
       log_info "Database has not been created. Creating..."

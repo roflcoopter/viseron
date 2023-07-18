@@ -1,4 +1,6 @@
 """Viseron fixtures."""
+from __future__ import annotations
+
 from typing import Any, Generator, Iterator
 from unittest.mock import MagicMock, patch
 
@@ -62,3 +64,30 @@ def db_session(test_db):
 def db_session_class(test_db):
     """Session for SQLAlchemy."""
     yield from _make_db_session(test_db)
+
+
+@pytest.fixture
+def alembic_config() -> dict[str, str]:
+    """Return config for pytest-alembic."""
+    return {
+        "file": "viseron/components/storage/alembic.ini",
+        "script_location": "viseron/components/storage/alembic",
+    }
+
+
+@pytest.fixture
+def alembic_engine(test_db):
+    """Return engine for pytest-alembic."""
+    with DatabaseJanitor(
+        test_db.user,
+        test_db.host,
+        test_db.port,
+        test_db.dbname,
+        test_db.version,
+        test_db.password,
+    ):
+        connection_str = (
+            "postgresql+psycopg2://"
+            f"{test_db.user}:@{test_db.host}:{test_db.port}/{test_db.dbname}"
+        )
+        yield create_engine(connection_str)

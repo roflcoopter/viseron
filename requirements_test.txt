@@ -5,8 +5,9 @@ pylint==2.16.4
 pylint-pytest==1.1.2
 pylint-strict-informational==0.1
 pytest==7.1.3
+pytest-alembic==0.10.7
 pytest-cov==3.0.0
-pytest-mock 
+pytest-mock
 pytest-postgresql==5.0.0
 pytest-sugar==0.9.4
 pytest-timeout==2.1.0

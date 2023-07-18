@@ -24,7 +24,7 @@ def upgrade() -> None:
         "motion",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("camera_identifier", sa.String(), nullable=False),
-        sa.Column("start_time", sa.Integer(), nullable=False),
+        sa.Column("start_time", sa.DateTime(), nullable=False),
         sa.Column(
             "created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=True
         ),
@@ -43,6 +43,7 @@ def upgrade() -> None:
         sa.Column("y1", sa.Float(), nullable=False),
         sa.Column("x2", sa.Float(), nullable=False),
         sa.Column("y2", sa.Float(), nullable=False),
+        sa.Column("zone", sa.String(), nullable=True),
         sa.Column(
             "created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=True
         ),
@@ -53,8 +54,8 @@ def upgrade() -> None:
         "recordings",
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column("camera_identifier", sa.String(), nullable=False),
-        sa.Column("start_time", sa.Integer(), nullable=False),
-        sa.Column("end_time", sa.Integer(), nullable=True),
+        sa.Column("start_time", sa.DateTime(), nullable=False),
+        sa.Column("end_time", sa.DateTime(), nullable=True),
         sa.Column(
             "created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=True
         ),

@@ -89,7 +89,7 @@ class Motion(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
-    start_time: Mapped[int] = mapped_column(Integer)
+    start_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
     created_at = mapped_column(
         DateTime(timezone=False),
         server_default=func.now(),  # pylint: disable=not-callable

@@ -35,7 +35,15 @@ else
     echo "Creating default config"
     python3 -c "import viseron.config; viseron.config.create_default_config('$FILE')"
 fi
-ln -s $WORKSPACE_DIR/config/config.yaml /config/config.yaml
+
+# Create symlink to config file
+FILE=/config/config.yaml
+if test -f "$FILE"; then
+    echo "Config symlink already exists"
+else
+    echo "Creating config symlink"
+    ln -s $WORKSPACE_DIR/config/config.yaml /config/config.yaml
+fi
 
 # Create .env.local
 FILE=$WORKSPACE_DIR/frontend/.env.local
@@ -46,9 +54,5 @@ else
     echo "VITE_PROXY_HOST=localhost:8888" > $FILE
 fi
 
-# Ensure at least the en_US.UTF-8 UTF-8 locale is available.
-if [ "${LOCALE_ALREADY_SET}" != "true" ] && ! grep -o -E '^\s*en_US.UTF-8\s+UTF-8' /etc/locale.gen > /dev/null; then
-    echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
-    locale-gen
-    LOCALE_ALREADY_SET="true"
-fi
+# Generate locale
+locale-gen
