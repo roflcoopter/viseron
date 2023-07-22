@@ -19,6 +19,17 @@ from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
+from viseron.components.storage.config import TIER_SCHEMA_BASE, TIER_SCHEMA_RECORDER
+from viseron.components.storage.const import (
+    CONFIG_CONTINUOUS,
+    CONFIG_EVENTS,
+    CONFIG_TIERS,
+    DEFAULT_CONTINUOUS,
+    DEFAULT_EVENTS,
+    DESC_CONTINUOUS,
+    DESC_EVENTS,
+    DESC_RECORDER_TIERS,
+)
 from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
 from viseron.domains.camera.recorder import FailedCameraRecorder
 from viseron.helpers.validators import CoerceNoneToDict, Deprecated, Maybe, Slug
@@ -49,6 +60,7 @@ from .const import (
     CONFIG_RETAIN,
     CONFIG_SAVE_TO_DISK,
     CONFIG_STILL_IMAGE,
+    CONFIG_STORAGE,
     CONFIG_THUMBNAIL,
     CONFIG_URL,
     CONFIG_USERNAME,
@@ -74,6 +86,7 @@ from .const import (
     DEFAULT_REFRESH_INTERVAL,
     DEFAULT_SAVE_TO_DISK,
     DEFAULT_STILL_IMAGE,
+    DEFAULT_STORAGE,
     DEFAULT_THUMBNAIL,
     DEFAULT_URL,
     DEFAULT_USERNAME,
@@ -103,6 +116,7 @@ from .const import (
     DESC_RETAIN,
     DESC_SAVE_TO_DISK,
     DESC_STILL_IMAGE,
+    DESC_STORAGE,
     DESC_THUMBNAIL,
     DESC_URL,
     DESC_USERNAME,
@@ -222,6 +236,28 @@ RECORDER_SCHEMA = vol.Schema(
         vol.Optional(
             CONFIG_THUMBNAIL, default=DEFAULT_THUMBNAIL, description=DESC_THUMBNAIL
         ): vol.All(CoerceNoneToDict(), THUMBNAIL_SCHEMA),
+        vol.Optional(
+            CONFIG_STORAGE,
+            default=DEFAULT_STORAGE,
+            description=DESC_STORAGE,
+        ): Maybe(
+            {
+                vol.Required(CONFIG_TIERS, description=DESC_RECORDER_TIERS,): vol.All(
+                    [TIER_SCHEMA_RECORDER],
+                    vol.Length(min=1),
+                )
+            },
+        ),
+        vol.Optional(
+            CONFIG_CONTINUOUS,
+            default=DEFAULT_CONTINUOUS,
+            description=DESC_CONTINUOUS,
+        ): Maybe(TIER_SCHEMA_BASE),
+        vol.Optional(
+            CONFIG_EVENTS,
+            default=DEFAULT_EVENTS,
+            description=DESC_EVENTS,
+        ): Maybe(TIER_SCHEMA_BASE),
     }
 )
 

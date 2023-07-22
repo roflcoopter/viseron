@@ -106,7 +106,16 @@ DESC_FILENAME_PATTERN_THUMBNAIL = (
     "A <a href=https://strftime.org/>strftime</a> pattern for saved thumbnails.<br>"
     "Default pattern results in filenames like: <code>23:59:59.jpg</code>."
 )
+CONFIG_STORAGE = "storage"
 
+DEFAULT_STORAGE: Final = None
+DEFAULT_RECORDER_TIERS: Final = None
+
+DESC_STORAGE = (
+    "Storage options for the camera.<br>"
+    "Overrides the configuration in the "
+    "<a href=/components-explorer/components/storage>storage component</a>."
+)
 
 # STILL_IMAGE_SCHEMA constants
 CONFIG_STILL_IMAGE = "still_image"

@@ -5,14 +5,12 @@ import datetime
 import logging
 import os
 import shutil
-import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, TypedDict
 
 import cv2
 import numpy as np
-from apscheduler.schedulers.background import BackgroundScheduler
 from path import Path
 from sqlalchemy import insert, update
 
@@ -26,7 +24,6 @@ from .const import (
     CONFIG_FOLDER,
     CONFIG_IDLE_TIMEOUT,
     CONFIG_RECORDER,
-    CONFIG_RETAIN,
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
     EVENT_RECORDER_START,
@@ -246,11 +243,6 @@ class AbstractRecorder(ABC, RecorderBase):
         create_directory(self.recordings_folder)
         create_directory(self.segments_folder)
 
-        self._scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
-        self._scheduler.add_job(self.cleanup_recordings, "cron", hour="1")
-        self._scheduler.start()
-        self.cleanup_recordings()
-
         vis.add_entity(component, RecorderBinarySensor(vis, self._camera))
         vis.add_entity(component, ThumbnailImage(vis, self._camera))
 
@@ -424,38 +416,6 @@ class AbstractRecorder(ABC, RecorderBase):
     def active_recording(self) -> Recording | None:
         """Return active recording."""
         return self._active_recording
-
-    def cleanup_recordings(self) -> None:
-        """Delete all recordings that have past the configured days to retain."""
-        self._logger.debug("Running cleanup")
-        retention_period = time.time() - (
-            self._config[CONFIG_RECORDER][CONFIG_RETAIN] * 24 * 60 * 60
-        )
-        dirs = Path(self.recordings_folder)
-
-        extensions = [
-            f"*.{self._camera.extension}",
-            "*.mov",
-            "*.mp4",
-            "*.mkv",
-            "*.jpg",
-        ]
-        for extension in extensions:
-            files = dirs.walkfiles(extension)
-            for file in files:
-                if file.mtime <= retention_period:
-                    self._logger.debug(f"Removing file {file}")
-                    file.remove()
-
-        folders = dirs.walkdirs("*-*-*")
-        for folder in folders:
-            self._logger.debug(f"Items in {folder}: {len(folder.listdir())}")
-            if len(folder.listdir()) == 0:
-                try:
-                    folder.rmdir()
-                    self._logger.debug(f"Removing directory {folder}")
-                except OSError:
-                    self._logger.error(f"Could not remove directory {folder}")
 
 
 class FailedCameraRecorder(RecorderBase):

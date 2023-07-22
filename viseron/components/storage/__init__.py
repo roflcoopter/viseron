@@ -1,6 +1,7 @@
 """Storage component."""
 from __future__ import annotations
 
+import copy
 import logging
 import os
 import pathlib
@@ -13,9 +14,18 @@ from alembic.migration import MigrationContext
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, scoped_session, sessionmaker
 
-from viseron.components.storage.config import STORAGE_SCHEMA, validate_tiers
+from viseron.components.storage.config import (
+    STORAGE_SCHEMA,
+    TIER_SCHEMA_BASE,
+    validate_tiers,
+)
 from viseron.components.storage.const import (
     COMPONENT,
+    CONFIG_CONTINUOUS,
+    CONFIG_EVENTS,
+    CONFIG_MOVE_ON_SHUTDOWN,
+    CONFIG_PATH,
+    CONFIG_POLL,
     CONFIG_RECORDER,
     CONFIG_SNAPSHOTS,
     CONFIG_TIERS,
@@ -27,7 +37,7 @@ from viseron.components.storage.models import Base
 from viseron.components.storage.tier_handler import RecorderTierHandler, TierHandler
 from viseron.components.storage.util import get_recordings_path, get_segments_path
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera.const import CONFIG_STORAGE, DOMAIN as CAMERA_DOMAIN
 from viseron.helpers.logs import StreamToLogger
 
 if TYPE_CHECKING:
@@ -108,6 +118,9 @@ class Storage:
         self._config = config
         self._recordings_tiers = config[CONFIG_RECORDER][CONFIG_TIERS]
         self._snapshots_tiers = config[CONFIG_SNAPSHOTS][CONFIG_TIERS]
+        self._camera_tier_handlers: dict[
+            str, dict[str, list[dict[str, TierHandler | RecorderTierHandler]]]
+        ] = {}
 
         self.engine: Engine | None = None
         self._get_session: Callable[[], Session] | None = None
@@ -181,26 +194,50 @@ class Storage:
 
     def get_recordings_path(self, camera: AbstractCamera | FailedCamera) -> str:
         """Get recordings path for camera."""
-        return get_recordings_path(self._recordings_tiers[0], camera)
+        self.create_tier_handlers(camera)
+        return get_recordings_path(
+            self._camera_tier_handlers[camera.identifier]["recorder"][0][
+                "recordings"
+            ].tier,
+            camera,
+        )
 
     def get_segments_path(self, camera: AbstractCamera | FailedCamera) -> str:
         """Get segments path for camera."""
-        return get_segments_path(self._recordings_tiers[0], camera)
+        self.create_tier_handlers(camera)
+        return get_segments_path(
+            self._camera_tier_handlers[camera.identifier]["recorder"][0][
+                "segments"
+            ].tier,
+            camera,
+        )
 
     def _camera_registered(self, event_data: Event[AbstractCamera]) -> None:
-        """Start observer for camera."""
         camera = event_data.data
+        self.create_tier_handlers(camera)
 
+    def create_tier_handlers(self, camera: AbstractCamera | FailedCamera) -> None:
+        """Start observer for camera."""
+        if camera.identifier in self._camera_tier_handlers:
+            return
+
+        self._camera_tier_handlers[camera.identifier] = {}
+
+        tier_config = _get_tier_config(self._config, camera)
         for category in TIER_CATEGORIES:
-            tiers = self._config[category][CONFIG_TIERS]
+            self._camera_tier_handlers[camera.identifier].setdefault(category, [])
+            tiers = tier_config[category][CONFIG_TIERS]
             for index, tier in enumerate(tiers):
+                self._camera_tier_handlers[camera.identifier][category].append({})
                 if index == len(tiers) - 1:
                     next_tier = None
                 else:
                     next_tier = tiers[index + 1]
                 # pylint: disable-next=line-too-long
-                for subcategory in TIER_CATEGORIES[category]:  # type: ignore[literal-required]
-                    subcategory["tier_handler"](
+                for subcategory in TIER_CATEGORIES[category]:  # type: ignore[literal-required] # noqa: E501
+                    self._camera_tier_handlers[camera.identifier][category][index][
+                        subcategory["subcategory"]
+                    ] = subcategory["tier_handler"](
                         self._vis,
                         camera,
                         index,
@@ -214,3 +251,47 @@ class Storage:
         """Shutdown."""
         if self.engine:
             self.engine.dispose()
+
+
+def _get_tier_config(
+    config: dict[str, Any], camera: AbstractCamera | FailedCamera
+) -> dict[str, Any]:
+    """Construct tier config for camera.
+
+    There are multiple ways to configure tiers for a camera, and this function
+    will construct the final tier config for the camera.
+    camera > recorder > continuous/events is looked at first.
+    camera > recorder > storage > tiers is looked at second.
+    storage > recorder > tiers is looked at last.
+    """
+    if isinstance(camera, FailedCamera):
+        return config
+
+    tier_config = copy.deepcopy(config)
+    _tier: dict[str, Any] = {}
+    if camera.config[CONFIG_RECORDER].get(CONFIG_CONTINUOUS, None) or camera.config[
+        CONFIG_RECORDER
+    ].get(CONFIG_EVENTS, None):
+        continuous = camera.config[CONFIG_RECORDER].get(CONFIG_CONTINUOUS, None)
+        events = camera.config[CONFIG_RECORDER].get(CONFIG_EVENTS, None)
+        if continuous is None:
+            continuous = TIER_SCHEMA_BASE({})
+        if events is None:
+            events = TIER_SCHEMA_BASE({})
+
+        _tier[CONFIG_PATH] = "/"
+        _tier[CONFIG_CONTINUOUS] = continuous
+        _tier[CONFIG_EVENTS] = events
+        _tier[CONFIG_MOVE_ON_SHUTDOWN] = False
+        _tier[CONFIG_POLL] = False
+        tier_config[CONFIG_RECORDER][CONFIG_TIERS] = [_tier]
+    elif camera.config[CONFIG_RECORDER][CONFIG_STORAGE]:
+        _tier = camera.config[CONFIG_RECORDER][CONFIG_STORAGE][CONFIG_TIERS]
+        tier_config[CONFIG_RECORDER][CONFIG_TIERS] = _tier
+
+    if _tier:
+        LOGGER.debug(
+            f"Camera {camera.name} has custom tiers, "
+            "overwriting storage recorder tiers"
+        )
+    return tier_config

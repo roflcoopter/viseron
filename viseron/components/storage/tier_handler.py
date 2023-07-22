@@ -6,7 +6,7 @@ import os
 import shutil
 from datetime import datetime, timedelta
 from queue import Queue
-from threading import Timer
+from threading import Lock, Timer
 from typing import TYPE_CHECKING, Any, Callable
 
 from sqlalchemy import Result, delete, insert, select, update
@@ -100,6 +100,7 @@ class TierHandler(FileSystemEventHandler):
             seconds=MOVE_FILES_THROTTLE_SECONDS,
         )
         self._time_of_last_call = datetime.min
+        self._check_tier_lock = Lock()
 
         LOGGER.debug("Tier %s monitoring path: %s", tier_id, self._path)
         os.makedirs(self._path, exist_ok=True)
@@ -115,6 +116,11 @@ class TierHandler(FileSystemEventHandler):
         )
         self._observer.start()
 
+    @property
+    def tier(self) -> dict[str, Any]:
+        """Tier configuration."""
+        return self._tier
+
     def initialize(self):
         """Tier handler specific initialization."""
         self._max_bytes = calculate_bytes(self._tier[CONFIG_MAX_SIZE])
@@ -125,11 +131,12 @@ class TierHandler(FileSystemEventHandler):
     def check_tier(self) -> None:
         """Check if file should be moved to next tier."""
         now = datetime.now()
-        time_since_last_call = now - self._time_of_last_call
-        if time_since_last_call > self._throttle_period:
-            pass
-        else:
-            return
+        with self._check_tier_lock:
+            time_since_last_call = now - self._time_of_last_call
+            if time_since_last_call > self._throttle_period:
+                self._time_of_last_call = now
+            else:
+                return
         self._check_tier()
         self._time_of_last_call = now
 
