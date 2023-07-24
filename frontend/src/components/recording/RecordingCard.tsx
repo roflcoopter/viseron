@@ -13,7 +13,7 @@ import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayer from "components/videoplayer/VideoPlayer";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
-import { getRecordingVideoJSOptions } from "lib/helpers";
+import { getRecordingVideoJSOptions, getTimeFromDate } from "lib/helpers";
 import * as types from "lib/types";
 
 interface RecordingCardInterface {
@@ -47,7 +47,7 @@ export default function RecordingCard({
       >
         <CardContent>
           <Typography align="center">
-            {recording.filename.split(".")[0]}
+            {getTimeFromDate(new Date(recording.start_time))}
           </Typography>
         </CardContent>
         <CardMedia>

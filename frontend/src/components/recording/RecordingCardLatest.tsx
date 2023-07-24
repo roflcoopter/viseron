@@ -17,7 +17,7 @@ import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import { useCamera } from "lib/api/camera";
 import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
-import { getVideoElement, objHasValues } from "lib/helpers";
+import { getTimeFromDate, getVideoElement, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
 interface RecordingCardLatestProps {
@@ -66,9 +66,9 @@ export default function RecordingCardLatest({
     objHasValues(recording) &&
     recording
   ) {
-    text = `Latest recording: ${recording.date} - ${
-      recording.filename.split(".")[0]
-    }`;
+    text = `Latest recording: ${recording.date} - ${getTimeFromDate(
+      new Date(recording.start_time)
+    )}`;
   }
 
   if (cameraQuery.isLoading || !cameraQuery.data) {

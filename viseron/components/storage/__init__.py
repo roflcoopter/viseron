@@ -264,9 +264,8 @@ def _get_tier_config(
     camera > recorder > storage > tiers is looked at second.
     storage > recorder > tiers is looked at last.
     """
-    if isinstance(camera, FailedCamera):
+    if not hasattr(camera, "config"):
         return config
-
     tier_config = copy.deepcopy(config)
     _tier: dict[str, Any] = {}
     if camera.config[CONFIG_RECORDER].get(CONFIG_CONTINUOUS, None) or camera.config[

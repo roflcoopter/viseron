@@ -62,6 +62,7 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(), nullable=True),
         sa.Column("trigger_type", sa.String(), nullable=True),
         sa.Column("trigger_id", sa.Integer(), nullable=True),
+        sa.Column("thumbnail_path", sa.String(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
 

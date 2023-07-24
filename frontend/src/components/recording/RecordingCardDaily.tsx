@@ -15,7 +15,7 @@ import { Link } from "react-router-dom";
 import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
-import { getVideoElement, objHasValues } from "lib/helpers";
+import { getTimeFromDate, getVideoElement, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
 interface RecordingCardDailyProps {
@@ -53,9 +53,9 @@ export default function RecordingCardDaily({
             {date}
           </Typography>
           {objHasValues<types.Recording>(recording) ? (
-            <Typography align="center">{`Last recording: ${
-              recording.filename.split(".")[0]
-            }`}</Typography>
+            <Typography align="center">{`Last recording: ${getTimeFromDate(
+              new Date(recording.start_time)
+            )}`}</Typography>
           ) : (
             <Typography align="center">No recordings found</Typography>
           )}

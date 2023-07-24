@@ -54,6 +54,7 @@ class Recordings(Base):
 
     trigger_type: Mapped[str] = mapped_column(String, nullable=True)
     trigger_id: Mapped[int] = mapped_column(Integer, nullable=True)
+    thumbnail_path: Mapped[str] = mapped_column(String)
 
 
 class Objects(Base):

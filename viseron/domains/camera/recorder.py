@@ -7,12 +7,13 @@ import os
 import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Callable, TypedDict
 
 import cv2
 import numpy as np
 from path import Path
-from sqlalchemy import insert, update
+from sqlalchemy import func, insert, select, update
+from sqlalchemy.orm import Session
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Recordings
@@ -42,10 +43,16 @@ if TYPE_CHECKING:
 class RecordingDict(TypedDict):
     """Recording dict."""
 
-    path: str
-    filename: str
+    id: int
+    camera_identifier: str
+    start_time: datetime.datetime
+    start_timestamp: float
+    end_time: datetime.datetime
+    end_timestamp: float
     date: str
-    thumbnail_path: str | None
+    trigger_type: str
+    trigger_id: int
+    thumbnail_path: str
 
 
 @dataclass
@@ -111,75 +118,25 @@ class RecorderBase:
             ".mov",
         ]
 
-        storage: Storage = vis.data[STORAGE_COMPONENT]
-        self.recordings_folder = storage.get_recordings_path(camera)
-        self.segments_folder = storage.get_segments_path(camera)
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self.recordings_folder = self._storage.get_recordings_path(camera)
+        self.segments_folder = self._storage.get_segments_path(camera)
 
-    def _recording_file_dict(self, file: Path) -> RecordingDict:
-        """Return a dict with recording file information."""
-        return {
-            "path": str(file),
-            "date": str(file.parent.name),
-            "filename": str(file.name),
-            "thumbnail_path": os.path.join(file.parent, f"{str(file.stem)}.jpg"),
-        }
-
-    def get_recordings(self, date=None) -> dict[str, dict[str, RecordingDict]]:
+    def get_recordings(self, date=None) -> dict[str, dict[int, RecordingDict]]:
         """Return all recordings."""
-        recordings: dict[str, dict[str, RecordingDict]] = {}
-        dirs = Path(self.recordings_folder)
-        folders = dirs.walkdirs(date if date else "*-*-*")
-        for folder in folders:
-            recordings[folder.name] = {}
-            if len(folder.listdir()) == 0:
-                continue
+        return get_recordings(self._storage.get_session, self._camera.identifier, date)
 
-            for file in sorted(
-                folder.walkfiles("*.*"),
-                reverse=True,
-            ):
-                if file.ext in self._extensions:
-                    recordings[folder.name][file.name] = self._recording_file_dict(file)
-        return recordings
-
-    def get_recording(self, date, filename):
-        """Return a recording."""
-        file = Path(os.path.join(self.recordings_folder, date, filename))
-        if file.exists():
-            return self._recording_file_dict(file)
-        return {}
-
-    def get_latest_recording(self, date=None):
+    def get_latest_recording(self, date=None) -> dict[str, dict[int, RecordingDict]]:
         """Return the latest recording."""
-        recordings: dict[str, dict[str, RecordingDict]] = {}
-        dirs = Path(self.recordings_folder)
-        folders = dirs.walkdirs(date if date else "*-*-*")
-        for folder in sorted(folders, reverse=True):
-            recordings[folder.name] = {}
-            for file in sorted(
-                folder.walkfiles("*.*"),
-                reverse=True,
-            ):
-                if file.ext in self._extensions:
-                    recordings[folder.name][file.name] = self._recording_file_dict(file)
-                    return recordings
-        return {}
+        return get_recordings(
+            self._storage.get_session, self._camera.identifier, date, latest=True
+        )
 
-    def get_latest_recording_daily(self) -> dict[str, dict[str, RecordingDict]]:
+    def get_latest_recording_daily(self) -> dict[str, dict[int, RecordingDict]]:
         """Return the latest recording for each day."""
-        recordings: dict[str, dict[str, RecordingDict]] = {}
-        dirs = Path(self.recordings_folder)
-        folders = dirs.walkdirs("*-*-*")
-        for folder in sorted(folders, reverse=True):
-            recordings[folder.name] = {}
-            for file in sorted(
-                folder.walkfiles("*.*"),
-                reverse=True,
-            ):
-                if file.ext in self._extensions:
-                    recordings[folder.name][file.name] = self._recording_file_dict(file)
-                    break
-        return recordings
+        return get_recordings(
+            self._storage.get_session, self._camera.identifier, latest=True, daily=True
+        )
 
     def delete_recording(self, date=None, filename=None) -> bool:
         """Delete a single recording."""
@@ -246,7 +203,7 @@ class AbstractRecorder(ABC, RecorderBase):
         vis.add_entity(component, RecorderBinarySensor(vis, self._camera))
         vis.add_entity(component, ThumbnailImage(vis, self._camera))
 
-    def as_dict(self) -> dict[str, dict[str, RecordingDict]]:
+    def as_dict(self) -> dict[str, dict[int, RecordingDict]]:
         """Return recorder information as dict."""
         return self.get_recordings()
 
@@ -326,6 +283,7 @@ class AbstractRecorder(ABC, RecorderBase):
                 .values(
                     camera_identifier=self._camera.identifier,
                     start_time=start_time,
+                    thumbnail_path=thumbnail_path,
                 )
                 .returning(Recordings.id)
             )
@@ -423,3 +381,50 @@ class FailedCameraRecorder(RecorderBase):
 
     Provides access to the recordings for failed cameras.
     """
+
+
+def get_recordings(
+    get_session: Callable[[], Session],
+    camera_identifier,
+    date=None,
+    latest=False,
+    daily=False,
+) -> dict[str, dict[int, RecordingDict]]:
+    """Return all recordings."""
+    recordings: dict[str, dict[int, RecordingDict]] = {}
+    stmt = (
+        select(Recordings)
+        .where(Recordings.camera_identifier == camera_identifier)
+        .order_by(func.DATE(Recordings.start_time).desc(), Recordings.start_time.desc())
+    )
+    if date:
+        stmt = stmt.where(func.DATE(Recordings.start_time) == date)
+    if latest and daily:
+        stmt = stmt.distinct(func.DATE(Recordings.start_time))
+    elif latest:
+        stmt = stmt.limit(1)
+    with get_session() as session:
+        for recording in session.execute(stmt).scalars():
+            if recording.start_time.date().isoformat() not in recordings:
+                recordings[recording.start_time.date().isoformat()] = {}
+            recordings[recording.start_time.date().isoformat()][
+                recording.id
+            ] = _recording_file_dict(recording)
+
+    return recordings
+
+
+def _recording_file_dict(recording: Recordings) -> RecordingDict:
+    """Return a dict with recording file information."""
+    return {
+        "id": recording.id,
+        "camera_identifier": recording.camera_identifier,
+        "start_time": recording.start_time,
+        "start_timestamp": recording.start_time.timestamp(),
+        "end_time": recording.end_time,
+        "end_timestamp": recording.end_time.timestamp(),
+        "date": recording.start_time.date().isoformat(),
+        "trigger_type": recording.trigger_type,
+        "trigger_id": recording.trigger_id,
+        "thumbnail_path": recording.thumbnail_path,
+    }

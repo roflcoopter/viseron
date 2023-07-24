@@ -66,9 +66,15 @@ export type AuthLoginResponse = AuthTokenResponse;
 export type OnboardingResponse = AuthTokenResponse;
 
 export interface Recording {
+  id: number;
+  camera_identifier: string;
+  start_time: string;
+  start_timestamp: number;
+  end_time: string;
+  end_timestamp: number;
   date: string;
-  filename: string;
-  path: string;
+  trigger_type: string;
+  trigger_id: number;
   thumbnail_path: string;
 }
 

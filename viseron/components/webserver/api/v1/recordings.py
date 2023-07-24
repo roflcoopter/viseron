@@ -3,11 +3,15 @@ from __future__ import annotations
 
 import logging
 from http import HTTPStatus
+from typing import TYPE_CHECKING
 
 import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.helpers.validators import request_argument_bool, request_argument_no_value
+
+if TYPE_CHECKING:
+    from viseron.domains.camera import AbstractCamera, FailedCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -164,7 +168,7 @@ class RecordingsAPIHandler(BaseAPIHandler):
         self, camera_identifier: str, date: str | None = None
     ) -> None:
         """Get recordings for a single camera."""
-        camera = self._get_camera(
+        camera: AbstractCamera | FailedCamera = self._get_camera(
             camera_identifier, failed=self.request_arguments["failed"]
         )
 
