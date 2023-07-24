@@ -61,6 +61,7 @@ class TestMoveQueries:
                 start_time=self._now + datetime.timedelta(seconds=7),
                 end_time=self._now + datetime.timedelta(seconds=10),
                 created_at=self._now + datetime.timedelta(seconds=7),
+                thumbnail_path="/test/test1.jpg",
             )
         )
         self._session.execute(
@@ -69,6 +70,7 @@ class TestMoveQueries:
                 start_time=self._now + datetime.timedelta(seconds=26),
                 end_time=self._now + datetime.timedelta(seconds=36),
                 created_at=self._now + datetime.timedelta(seconds=26),
+                thumbnail_path="/test/test2.jpg",
             )
         )
         self._session.execute(
@@ -77,6 +79,7 @@ class TestMoveQueries:
                 start_time=self._now + datetime.timedelta(seconds=40),
                 end_time=self._now + datetime.timedelta(seconds=45),
                 created_at=self._now + datetime.timedelta(seconds=40),
+                thumbnail_path="/test/test3.jpg",
             )
         )
         yield

@@ -1,195 +1,102 @@
 """Test storage component."""
 
-from contextlib import nullcontext
+from __future__ import annotations
 
 import pytest
-import voluptuous as vol
 
-from viseron.components.storage import CONFIG_SCHEMA, validate_tiers
+from viseron.components.storage import _get_tier_config
+from viseron.components.storage.const import (
+    CONFIG_CONTINUOUS,
+    CONFIG_EVENTS,
+    CONFIG_MOVE_ON_SHUTDOWN,
+    CONFIG_PATH,
+    CONFIG_POLL,
+    CONFIG_RECORDER,
+    CONFIG_SNAPSHOTS,
+    CONFIG_TIERS,
+    DEFAULT_RECORDER_TIERS,
+)
+from viseron.domains.camera.const import CONFIG_STORAGE
 
-DEFAULT_CONFIG = {
-    "storage": {
-        "recorder": {
-            "create_event_clip": False,
-            "tiers": [
-                {
-                    "path": "/",
-                    "events": {
-                        "max_age": {"days": 7, "hours": None, "minutes": None},
-                        "min_age": {"hours": None, "days": None, "minutes": None},
-                        "min_size": {"gb": None, "mb": None},
-                        "max_size": {"gb": None, "mb": None},
-                    },
-                    "move_on_shutdown": False,
-                    "poll": False,
-                    "continuous": {
-                        "min_age": {"minutes": None, "hours": None, "days": None},
-                        "max_size": {"gb": None, "mb": None},
-                        "max_age": {"minutes": None, "hours": None, "days": None},
-                        "min_size": {"gb": None, "mb": None},
-                    },
-                }
-            ],
-        },
-        "snapshots": {
-            "tiers": [
-                {
-                    "path": "/",
-                    "max_age": {"days": 7, "hours": None, "minutes": None},
-                    "min_age": {"hours": None, "days": None, "minutes": None},
-                    "min_size": {"gb": None, "mb": None},
-                    "max_size": {"gb": None, "mb": None},
-                    "move_on_shutdown": False,
-                    "poll": False,
-                }
-            ],
-            "face_recognition": None,
-            "object_detection": None,
-        },
-    },
+from tests.common import MockCamera
+
+CONFIG = {
+    CONFIG_RECORDER: {CONFIG_TIERS: DEFAULT_RECORDER_TIERS},
+    CONFIG_SNAPSHOTS: {"test": "test"},
 }
 
 
 @pytest.mark.parametrize(
-    "config",
+    "config, camera_config, expected",
     [
-        {"storage": {}},
-    ],
-)
-def test_config_schema(config) -> None:
-    """Test config schema."""
-    assert CONFIG_SCHEMA(config) == DEFAULT_CONFIG
-
-
-@pytest.mark.parametrize(
-    "config, raises",
-    [
-        (
+        (  # Test default config
+            CONFIG,
             {
-                "storage": {
-                    "recorder": {
-                        "tiers": [
-                            {
-                                "path": "/tier1",
-                                "events": {
-                                    "max_age": {
-                                        "hours": None,
-                                        "minutes": None,
-                                        "days": 7,
-                                    },
-                                },
-                            },
-                            {
-                                "path": "/tier2",
-                                "events": {
-                                    "max_age": {
-                                        "hours": None,
-                                        "minutes": None,
-                                        "days": 14,
-                                    },
-                                },
-                            },
-                        ]
-                    },
-                }
+                CONFIG_RECORDER: {
+                    CONFIG_CONTINUOUS: {},
+                    CONFIG_EVENTS: {},
+                    CONFIG_STORAGE: {},
+                },
             },
-            nullcontext(),
+            CONFIG,
         ),
-        (
+        (  # Test overriding using events/continuous
+            CONFIG,
             {
-                "storage": {
-                    "recorder": {
-                        "tiers": [
-                            {
-                                "path": "/tmp",
-                                "events": {
-                                    "max_age": {
-                                        "hours": None,
-                                        "minutes": None,
-                                        "days": 7,
-                                    },
-                                },
-                            },
-                        ]
-                    },
+                CONFIG_RECORDER: {
+                    CONFIG_CONTINUOUS: {"test": 123},
+                    CONFIG_EVENTS: {"test": 456},
+                    CONFIG_STORAGE: {},
                 }
             },
-            pytest.raises(
-                vol.Invalid, match="Tier /tmp is a reserved path and cannot be used"
-            ),
+            {
+                CONFIG_RECORDER: {
+                    CONFIG_TIERS: [
+                        {
+                            CONFIG_PATH: "/",
+                            CONFIG_CONTINUOUS: {"test": 123},
+                            CONFIG_EVENTS: {"test": 456},
+                            CONFIG_MOVE_ON_SHUTDOWN: False,
+                            CONFIG_POLL: False,
+                        },
+                    ]
+                },
+                CONFIG_SNAPSHOTS: CONFIG[CONFIG_SNAPSHOTS],
+            },
         ),
-        (
+        (  # Test overriding using tiers
+            CONFIG,
             {
-                "storage": {
-                    "recorder": {
-                        "tiers": [
+                CONFIG_RECORDER: {
+                    CONFIG_CONTINUOUS: {},
+                    CONFIG_EVENTS: {},
+                    CONFIG_STORAGE: {
+                        CONFIG_TIERS: [
                             {
-                                "path": "/tier1",
-                                "events": {
-                                    "max_age": {
-                                        "hours": None,
-                                        "minutes": None,
-                                        "days": 7,
-                                    },
-                                },
-                            },
-                            {
-                                "path": "/tier1",
-                                "events": {
-                                    "max_age": {
-                                        "hours": None,
-                                        "minutes": None,
-                                        "days": 14,
-                                    },
-                                },
+                                CONFIG_PATH: "/test",
+                                CONFIG_CONTINUOUS: {"test": 123},
+                                CONFIG_EVENTS: {"test": 456},
                             },
                         ]
                     },
                 }
             },
-            pytest.raises(vol.Invalid, match="Tier /tier1 is defined multiple times"),
-        ),
-        (
             {
-                "storage": {
-                    "recorder": {
-                        "tiers": [
-                            {
-                                "path": "/tier1",
-                                "events": {
-                                    "max_age": {
-                                        "hours": None,
-                                        "minutes": None,
-                                        "days": 7,
-                                    },
-                                },
-                            },
-                            {
-                                "path": "/tier2",
-                                "events": {
-                                    "max_age": {
-                                        "hours": 168,
-                                        "minutes": None,
-                                        "days": None,
-                                    },
-                                },
-                            },
-                        ]
-                    },
-                }
+                CONFIG_RECORDER: {
+                    CONFIG_TIERS: [
+                        {
+                            CONFIG_PATH: "/test",
+                            CONFIG_CONTINUOUS: {"test": 123},
+                            CONFIG_EVENTS: {"test": 456},
+                        },
+                    ]
+                },
+                CONFIG_SNAPSHOTS: CONFIG[CONFIG_SNAPSHOTS],
             },
-            pytest.raises(
-                vol.Invalid,
-                match="Tier /tier2 max_age must be greater than previous tier max_age",
-            ),
         ),
     ],
 )
-def test_validate_tiers(config, raises):
-    """Test validate_tiers."""
-    _config = None
-    with raises:
-        _config = validate_tiers(config)
-
-    if _config:
-        assert _config == config
+def test_get_tier_config(config, camera_config, expected) -> None:
+    """Test get_tier_config."""
+    mocked_camera = MockCamera(config=camera_config)
+    assert _get_tier_config(config, mocked_camera) == expected

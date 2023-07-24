@@ -14,6 +14,8 @@ from viseron import Viseron
 from viseron.components.data_stream import COMPONENT as DATA_STREAM, DataStream
 from viseron.components.storage.models import Base
 
+from tests.common import MockCamera
+
 test_db = factories.postgresql_proc(port=None, dbname="test_db")
 
 
@@ -23,6 +25,12 @@ def vis() -> Viseron:
     viseron = Viseron()
     viseron.data[DATA_STREAM] = MagicMock(spec=DataStream)
     return viseron
+
+
+@pytest.fixture
+def camera() -> MockCamera:
+    """Fixture to test camera."""
+    return MockCamera()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -54,6 +62,26 @@ def _make_db_session(database) -> Generator[Session, Any, None]:
         Base.metadata.drop_all(engine)
 
 
+def _get_db_session(database) -> Generator[sessionmaker[Session], Any, None]:
+    """Create a DB session."""
+    with DatabaseJanitor(
+        database.user,
+        database.host,
+        database.port,
+        database.dbname,
+        database.version,
+        database.password,
+    ):
+        connection_str = (
+            "postgresql+psycopg2://"
+            f"{database.user}:@{database.host}:{database.port}/{database.dbname}"
+        )
+        engine = create_engine(connection_str)
+        Base.metadata.create_all(engine)
+        yield sessionmaker(bind=engine, expire_on_commit=False)
+        Base.metadata.drop_all(engine)
+
+
 @pytest.fixture(scope="function")
 def db_session(test_db):
     """Session for SQLAlchemy."""
@@ -64,6 +92,12 @@ def db_session(test_db):
 def db_session_class(test_db):
     """Session for SQLAlchemy."""
     yield from _make_db_session(test_db)
+
+
+@pytest.fixture(scope="function")
+def get_db_session(test_db):
+    """Session for SQLAlchemy."""
+    yield from _get_db_session(test_db)
 
 
 @pytest.fixture
