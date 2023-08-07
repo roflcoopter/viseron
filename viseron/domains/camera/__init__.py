@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
-from threading import Timer
+from threading import Event, Timer
 from typing import TYPE_CHECKING, Any
 
 import cv2
@@ -21,6 +21,7 @@ from viseron.components.data_stream import (
 )
 from viseron.components.storage.config import TIER_SCHEMA_BASE, TIER_SCHEMA_RECORDER
 from viseron.components.storage.const import (
+    COMPONENT as STORAGE_COMPONENT,
     CONFIG_CONTINUOUS,
     CONFIG_EVENTS,
     CONFIG_TIERS,
@@ -30,7 +31,9 @@ from viseron.components.storage.const import (
     DESC_EVENTS,
     DESC_RECORDER_TIERS,
 )
+from viseron.const import TEMP_DIR
 from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
+from viseron.domains.camera.fragmenter import Fragmenter
 from viseron.domains.camera.recorder import FailedCameraRecorder
 from viseron.helpers.validators import CoerceNoneToDict, Deprecated, Maybe, Slug
 
@@ -120,6 +123,8 @@ from .const import (
     DESC_THUMBNAIL,
     DESC_URL,
     DESC_USERNAME,
+    EVENT_CAMERA_STARTED,
+    EVENT_CAMERA_STOPPED,
     EVENT_STATUS,
     EVENT_STATUS_CONNECTED,
     EVENT_STATUS_DISCONNECTED,
@@ -134,6 +139,7 @@ from .shared_frames import SharedFrames
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.nvr.nvr import FrameIntervalCalculator
+    from viseron.components.storage import Storage
     from viseron.domains.object_detector.detected_object import DetectedObject
 
     from .recorder import AbstractRecorder
@@ -341,6 +347,7 @@ class AbstractCamera(ABC):
         self._logger = logging.getLogger(f"{self.__module__}.{self.identifier}")
 
         self._connected: bool = False
+        self.stopped = Event()
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self.current_frame: SharedFrame | None = None
         self.shared_frames = SharedFrames()
@@ -361,6 +368,13 @@ class AbstractCamera(ABC):
         self._vis.background_scheduler.add_job(
             self.update_token, "interval", minutes=UPDATE_TOKEN_INTERVAL_MINUTES
         )
+
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self.recordings_folder = self._storage.get_recordings_path(self)
+        self.segments_folder = self._storage.get_segments_path(self)
+        self.temp_segments_folder = TEMP_DIR + self.segments_folder
+
+        self._fragmenter = Fragmenter(vis, self)
 
     def as_dict(self) -> dict[str, Any]:
         """Return camera information as dict."""
@@ -387,12 +401,32 @@ class AbstractCamera(ABC):
         highest_fps = max(scanner.scan_fps for scanner in scanners)
         self.output_fps = highest_fps
 
-    @abstractmethod
     def start_camera(self):
         """Start camera streaming."""
+        self.stopped.clear()
+        self._start_camera()
+        self._vis.dispatch_event(
+            EVENT_CAMERA_STARTED.format(camera_identifier=self.identifier),
+            None,
+        )
 
     @abstractmethod
+    def _start_camera(self):
+        """Start camera streaming."""
+
     def stop_camera(self):
+        """Stop camera streaming."""
+        self._stop_camera()
+        self.stopped.set()
+        self._vis.dispatch_event(
+            EVENT_CAMERA_STOPPED.format(camera_identifier=self.identifier),
+            None,
+        )
+        if self.is_recording:
+            self.stop_recorder()
+
+    @abstractmethod
+    def _stop_camera(self):
         """Stop camera streaming."""
 
     @abstractmethod
@@ -559,6 +593,9 @@ class FailedCamera:
             domain_to_setup.identifier
         ]
 
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self.recordings_folder = self._storage.get_recordings_path(self)
+        self.segments_folder = self._storage.get_segments_path(self)
         self._recorder = FailedCameraRecorder(vis, self._config, self)
 
     def as_dict(self):

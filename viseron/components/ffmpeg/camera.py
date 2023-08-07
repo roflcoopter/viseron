@@ -18,12 +18,7 @@ from viseron.domains.camera import (
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
     AbstractCamera,
 )
-from viseron.domains.camera.const import (
-    CONFIG_EXTENSION,
-    DOMAIN,
-    EVENT_CAMERA_STARTED,
-    EVENT_CAMERA_STOPPED,
-)
+from viseron.domains.camera.const import CONFIG_EXTENSION, DOMAIN
 from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
 from viseron.helpers.validators import (
     CameraIdentifier,
@@ -439,19 +434,15 @@ class Camera(AbstractCamera):
 
         return super().calculate_output_fps(scanners)
 
-    def start_camera(self) -> None:
+    def _start_camera(self) -> None:
         """Start capturing frames from camera."""
         self._logger.debug("Starting capture thread")
         self._capture_frames = True
         if not self._frame_reader or not self._frame_reader.is_alive():
             self._frame_reader = self._create_frame_reader()
             self._frame_reader.start()
-            self._vis.dispatch_event(
-                EVENT_CAMERA_STARTED.format(camera_identifier=self.identifier),
-                None,
-            )
 
-    def stop_camera(self) -> None:
+    def _stop_camera(self) -> None:
         """Release the connection to the camera."""
         self._logger.debug("Stopping capture thread")
         self._capture_frames = False
@@ -461,13 +452,6 @@ class Camera(AbstractCamera):
             if self._frame_reader.is_alive():
                 self._logger.debug("Timed out trying to stop camera. Killing pipe")
                 self.stream.close_pipe()
-
-        self._vis.dispatch_event(
-            EVENT_CAMERA_STOPPED.format(camera_identifier=self.identifier),
-            None,
-        )
-        if self.is_recording:
-            self.stop_recorder()
 
     def start_recorder(
         self, shared_frame: SharedFrame, objects_in_fov: list[DetectedObject] | None

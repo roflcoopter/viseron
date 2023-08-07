@@ -27,7 +27,7 @@ class Recorder(AbstractRecorder):
         self._recorder_config = config[RECORDER]
         self._concat_thread_lock = threading.Lock()
         self._segmenter = Segments(
-            self._logger, config, vis, camera, self.segments_folder
+            self._logger, config, vis, camera, camera.segments_folder
         )
 
     def concat_segments(self, recording: Recording) -> None:

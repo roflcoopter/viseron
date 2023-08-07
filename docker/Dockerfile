@@ -3,9 +3,37 @@ ARG BASE_VERSION
 ARG OPENCV_VERSION
 ARG FFMPEG_VERSION
 ARG WHEELS_VERSION
+ARG UBUNTU_VERSION
 FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} as opencv
 FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION} as ffmpeg
 FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} as wheels
+
+# Build GPAC
+FROM ubuntu:${UBUNTU_VERSION} AS gpac
+
+ENV \
+  DEBIAN_FRONTEND=noninteractive
+
+RUN \
+  apt-get update && apt-get install -y --no-install-recommends \
+  build-essential \
+  ca-certificates \
+  pkg-config \
+  g++ \
+  git \
+  cmake \
+  yasm \
+  zlib1g-dev
+
+RUN \
+  git clone https://github.com/gpac/gpac.git
+RUN \
+  cd gpac && \
+  ./configure --static-bin / && \
+  make -j$(nproc)
+
+
+# Build frontend
 FROM node:14.18.3 as frontend
 
 WORKDIR /frontend
@@ -16,6 +44,8 @@ COPY frontend/ ./
 
 RUN npm ci && npm run build
 
+
+# Build Viseron
 FROM roflcoopter/${ARCH}-base:${BASE_VERSION}
 
 WORKDIR /src
@@ -105,6 +135,7 @@ COPY docker/ffprobe_wrapper /home/abc/bin/ffprobe
 COPY docker/ffmpeg_wrapper /home/abc/bin/ffmpeg
 COPY --from=opencv /opt/opencv /usr/local/
 COPY --from=ffmpeg /usr/local /ffmpeg/
+COPY --from=gpac /gpac/bin/gcc /usr/bin
 COPY rootfs/ /
 COPY --from=frontend /frontend/dist /src/viseron/frontend/
 COPY viseron /src/viseron/

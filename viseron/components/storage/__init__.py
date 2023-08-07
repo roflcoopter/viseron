@@ -35,6 +35,7 @@ from viseron.components.storage.const import (
 )
 from viseron.components.storage.models import Base
 from viseron.components.storage.tier_handler import RecorderTierHandler, TierHandler
+from viseron.components.storage.triggers import setup_triggers
 from viseron.components.storage.util import get_recordings_path, get_segments_path
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera.const import CONFIG_STORAGE, DOMAIN as CAMERA_DOMAIN
@@ -126,6 +127,7 @@ class Storage:
         self._get_session: Callable[[], Session] | None = None
         self._alembic_cfg = self._get_alembic_config()
         self.create_database()
+        setup_triggers(self.engine)
 
         vis.listen_event(
             EVENT_DOMAIN_REGISTERED.format(domain=CAMERA_DOMAIN),

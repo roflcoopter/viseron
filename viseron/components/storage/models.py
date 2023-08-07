@@ -1,12 +1,18 @@
 """Database models for storage component."""
 import datetime
+from typing import Dict
 
 from sqlalchemy import DateTime, Float, Integer, String, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+ColumnMeta = Dict[str, str]
 
 
 class Base(DeclarativeBase):
     """Base class for database models."""
+
+    type_annotation_map = {ColumnMeta: JSONB}
 
 
 class Files(Base):
@@ -22,6 +28,27 @@ class Files(Base):
     directory: Mapped[str] = mapped_column(String)
     filename: Mapped[str] = mapped_column(String)
     size: Mapped[int] = mapped_column(Integer)
+    created_at = mapped_column(
+        DateTime(timezone=False),
+        server_default=func.now(),  # pylint: disable=not-callable
+    )
+    updated_at = mapped_column(
+        DateTime(timezone=False),
+        onupdate=func.now(),  # pylint: disable=not-callable
+    )
+
+
+class FilesMeta(Base):
+    """Database model for files metadata.
+
+    Used to store arbitrary metadata about files.
+    """
+
+    __tablename__ = "files_meta"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    path: Mapped[str] = mapped_column(String, unique=True)
+    meta: Mapped[ColumnMeta] = mapped_column(JSONB)
     created_at = mapped_column(
         DateTime(timezone=False),
         server_default=func.now(),  # pylint: disable=not-callable

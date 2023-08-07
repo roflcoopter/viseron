@@ -348,7 +348,7 @@ class Stream:
             )
             + [
                 os.path.join(
-                    self._camera.recorder.segments_folder,
+                    self._camera.temp_segments_folder,
                     f"%s.{self._camera.extension}",
                 )
             ]

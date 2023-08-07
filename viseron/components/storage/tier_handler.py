@@ -385,8 +385,8 @@ def delete_file(session: Session, path: str) -> None:
 
     try:
         os.remove(path)
-    except FileNotFoundError:
-        LOGGER.error(f"Failed to delete file {path}")
+    except FileNotFoundError as error:
+        LOGGER.error(f"Failed to delete file {path}: {error}")
 
 
 def get_files_to_move(

@@ -119,8 +119,6 @@ class RecorderBase:
         ]
 
         self._storage: Storage = vis.data[STORAGE_COMPONENT]
-        self.recordings_folder = self._storage.get_recordings_path(camera)
-        self.segments_folder = self._storage.get_segments_path(camera)
 
     def get_recordings(self, date=None) -> dict[str, dict[int, RecordingDict]]:
         """Return all recordings."""
@@ -143,11 +141,11 @@ class RecorderBase:
         path = None
 
         if date and filename:
-            path = os.path.join(self.recordings_folder, date, filename)
+            path = os.path.join(self._camera.recordings_folder, date, filename)
         elif date and filename is None:
-            path = os.path.join(self.recordings_folder, date)
+            path = os.path.join(self._camera.recordings_folder, date)
         elif date is None and filename is None:
-            path = self.recordings_folder
+            path = self._camera.recordings_folder
         else:
             self._logger.error("Could not remove file, incorrect path given")
             return False
@@ -158,7 +156,9 @@ class RecorderBase:
                 os.remove(path)
                 thumbnail = Path(
                     os.path.join(
-                        self.recordings_folder, date, filename.split(".")[0] + ".jpg"
+                        self._camera.recordings_folder,
+                        date,
+                        filename.split(".")[0] + ".jpg",
                     )
                 )
                 try:
@@ -170,7 +170,7 @@ class RecorderBase:
                 shutil.rmtree(path)
 
             else:
-                dirs = Path(self.recordings_folder)
+                dirs = Path(self._camera.recordings_folder)
                 folders = dirs.walkdirs("*-*-*")
                 for folder in folders:
                     shutil.rmtree(folder)
@@ -197,8 +197,9 @@ class AbstractRecorder(ABC, RecorderBase):
             ".mov",
         ]
 
-        create_directory(self.recordings_folder)
-        create_directory(self.segments_folder)
+        create_directory(self._camera.recordings_folder)
+        create_directory(self._camera.segments_folder)
+        create_directory(self._camera.temp_segments_folder)
 
         vis.add_entity(component, RecorderBinarySensor(vis, self._camera))
         vis.add_entity(component, ThumbnailImage(vis, self._camera))
@@ -264,7 +265,7 @@ class AbstractRecorder(ABC, RecorderBase):
 
         # Create foldername
         subfolder = self.subfolder_name(start_time)
-        full_path = os.path.join(self.recordings_folder, subfolder)
+        full_path = os.path.join(self._camera.recordings_folder, subfolder)
         create_directory(full_path)
 
         thumbnail_path = os.path.join(full_path, thumbnail_name)

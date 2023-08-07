@@ -150,7 +150,9 @@ class LogPipe(threading.Thread):
     def run(self) -> None:
         """Run the thread, logging everything."""
         for line in iter(self.pipe_reader.readline, ""):
-            self._logger.log(self._output_level, line.strip().strip("\n"))
+            log_str = line.strip().strip("\n")
+            if log_str:
+                self._logger.log(self._output_level, log_str)
 
         self.pipe_reader.close()
 

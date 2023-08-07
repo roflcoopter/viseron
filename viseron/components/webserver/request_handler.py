@@ -209,13 +209,15 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     ) -> AbstractCamera | FailedCamera | None:
         ...
 
-    def _get_camera(self, camera_identifier: str, failed: bool = False):
+    def _get_camera(
+        self, camera_identifier: str, failed: bool = False
+    ) -> AbstractCamera | FailedCamera | None:
         """Get camera instance.
 
         If failed is True, check for failed camera instances
         if the camera is not found.
         """
-        camera = None
+        camera: AbstractCamera | FailedCamera | None = None
         try:
             camera = self._vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
         except DomainNotRegisteredError:

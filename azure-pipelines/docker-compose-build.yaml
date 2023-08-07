@@ -120,6 +120,7 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: amd64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
       cache_from:
         - roflcoopter/amd64-viseron:dev
     image: roflcoopter/amd64-viseron:dev
@@ -247,6 +248,7 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: amd64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
       cache_from:
         - roflcoopter/amd64-cuda-viseron:dev
     image: roflcoopter/amd64-cuda-viseron:dev
@@ -343,6 +345,7 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: armhf
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
       cache_from:
         - roflcoopter/rpi3-viseron:dev
     image: roflcoopter/rpi3-viseron:dev
@@ -430,6 +433,7 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
       cache_from:
         - roflcoopter/aarch64-viseron:dev
     image: roflcoopter/aarch64-viseron:dev
@@ -568,6 +572,7 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
       cache_from:
         - roflcoopter/jetson-nano-viseron:dev
     image: roflcoopter/jetson-nano-viseron:dev
