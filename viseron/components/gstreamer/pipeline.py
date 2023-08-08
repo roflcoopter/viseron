@@ -181,7 +181,7 @@ class BasePipeline(AbstractPipeline):
     def segment_pipeline(self):
         """Generate GStreamer segment args."""
         segment_filepattern = os.path.join(
-            self._camera.recorder.segments_folder,
+            self._camera.segments_folder,
             f"%01d.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
         )
         return (

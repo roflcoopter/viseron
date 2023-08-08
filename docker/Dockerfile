@@ -128,6 +128,7 @@ VOLUME /config
 VOLUME /recordings
 VOLUME /segments
 VOLUME /snapshots
+VOLUME /thumbnails
 
 ENTRYPOINT ["/init"]
 

@@ -22,7 +22,6 @@ from viseron.helpers import create_directory, draw_objects
 
 from .const import (
     CONFIG_FILENAME_PATTERN,
-    CONFIG_FOLDER,
     CONFIG_IDLE_TIMEOUT,
     CONFIG_RECORDER,
     CONFIG_SAVE_TO_DISK,
@@ -200,6 +199,7 @@ class AbstractRecorder(ABC, RecorderBase):
         create_directory(self._camera.recordings_folder)
         create_directory(self._camera.segments_folder)
         create_directory(self._camera.temp_segments_folder)
+        create_directory(self._camera.thumbnails_folder)
 
         vis.add_entity(component, RecorderBinarySensor(vis, self._camera))
         vis.add_entity(component, ThumbnailImage(vis, self._camera))
@@ -208,70 +208,63 @@ class AbstractRecorder(ABC, RecorderBase):
         """Return recorder information as dict."""
         return self.get_recordings()
 
-    @staticmethod
-    def subfolder_name(today) -> str:
-        """Generate name of folder for recording."""
-        return f"{today.year:04}-{today.month:02}-{today.day:02}"
-
-    def create_thumbnail(self, file_name, frame, objects, resolution):
+    def create_thumbnail(
+        self,
+        start_time: datetime.datetime,
+        frame: np.ndarray,
+        objects: list[DetectedObject],
+        resolution: tuple[int, int],
+    ) -> tuple[np.ndarray, str]:
         """Create thumbnails, sent to MQTT and/or saved to disk based on config."""
+        self._logger.debug(f"Saving thumbnail in {self._camera.thumbnails_folder}")
+        thumbnail_name = start_time.strftime(
+            self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_FILENAME_PATTERN]
+        )
+        thumbnail_name = f"{thumbnail_name}.jpg"
+        thumbnail_path = os.path.join(self._camera.thumbnails_folder, thumbnail_name)
+
         draw_objects(
             frame,
             objects,
             resolution,
         )
-        cv2.imwrite(file_name, frame)
+        if not cv2.imwrite(thumbnail_path, frame):
+            self._logger.error(f"Failed saving thumbnail {thumbnail_path} to disk")
 
         if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]:
-            thumbnail_folder = os.path.join(
-                self._config[CONFIG_RECORDER][CONFIG_FOLDER],
-                "thumbnails",
-                self._camera.name,
-            )
-            create_directory(thumbnail_folder)
-
-            self._logger.debug(f"Saving thumbnail in {thumbnail_folder}")
             if not cv2.imwrite(
-                os.path.join(thumbnail_folder, "latest_thumbnail.jpg"),
+                os.path.join(self._camera.thumbnails_folder, "latest_thumbnail.jpg"),
                 frame,
             ):
-                self._logger.error("Failed saving thumbnail to disk")
-        return frame
+                self._logger.error("Failed saving latest_thumbnail.jpg to disk")
+        return frame, thumbnail_path
 
     def start(
         self,
         shared_frame: SharedFrame,
         objects_in_fov: list[DetectedObject],
-        resolution,
-    ):
+        resolution: tuple[int, int],
+    ) -> Recording:
         """Start recording."""
         self._logger.info("Starting recorder")
         self.is_recording = True
         start_time = datetime.datetime.now()
-
-        if self._config[CONFIG_RECORDER][CONFIG_FOLDER] is None:
-            self._logger.error("Output directory is not specified")
-            return
 
         # Create filename
         filename_pattern = start_time.strftime(
             self._config[CONFIG_RECORDER][CONFIG_FILENAME_PATTERN]
         )
         video_name = f"{filename_pattern}.{self._camera.extension}"
-        thumbnail_name = start_time.strftime(
-            self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_FILENAME_PATTERN]
-        )
-        thumbnail_name = f"{thumbnail_name}.jpg"
 
         # Create foldername
-        subfolder = self.subfolder_name(start_time)
-        full_path = os.path.join(self._camera.recordings_folder, subfolder)
+        full_path = os.path.join(
+            self._camera.recordings_folder, start_time.date().isoformat()
+        )
         create_directory(full_path)
 
-        thumbnail_path = os.path.join(full_path, thumbnail_name)
-        thumbnail = self.create_thumbnail(
-            thumbnail_path,
-            self._camera.shared_frames.get_decoded_frame_rgb(shared_frame),
+        thumbnail, thumbnail_path = self.create_thumbnail(
+            start_time,
+            self._camera.shared_frames.get_decoded_frame_rgb(shared_frame).copy(),
             objects_in_fov,
             resolution,
         )
@@ -298,7 +291,7 @@ class AbstractRecorder(ABC, RecorderBase):
             start_timestamp=start_time.timestamp(),
             end_time=None,
             end_timestamp=None,
-            date=subfolder,
+            date=start_time.date().isoformat(),
             path=os.path.join(full_path, video_name),
             filename=video_name,
             thumbnail=thumbnail,

@@ -64,6 +64,13 @@ def get_recordings_path(
     return os.path.join(tier[CONFIG_PATH], "recordings", camera.identifier)
 
 
+def get_thumbnails_path(
+    tier: dict[str, Any], camera: AbstractCamera | FailedCamera
+) -> str:
+    """Get thumbnails path for camera."""
+    return os.path.join(tier[CONFIG_PATH], "thumbnails", camera.identifier)
+
+
 def files_to_move_overlap(events_file_ids, continuous_file_ids):
     """Find the files that are in both events and continuous delete list."""
     events_dict = {row.file_id: row for row in events_file_ids}

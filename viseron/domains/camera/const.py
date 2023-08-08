@@ -64,7 +64,10 @@ DEFAULT_SAVE_TO_DISK = True
 
 DESC_SAVE_TO_DISK = (
     "If <code>true</code>, the thumbnail that is created on start of recording is "
-    "saved to <code>{folder}/{camera_identifier}/latest_thumbnail.jpg</code>"
+    "saved to <code>{camera_identifier}/latest_thumbnail.jpg</code><br>"
+    "Full path depends on the "
+    "<a href=/components-explorer/components/storage>storage component</a> "
+    "tier configuration."
 )
 
 
@@ -79,7 +82,6 @@ CONFIG_THUMBNAIL = "thumbnail"
 
 DEFAULT_LOOKBACK = 5
 DEFAULT_IDLE_TIMEOUT = 10
-DEFAULT_FOLDER = "/recordings"
 DEFAULT_FILENAME_PATTERN = "%H:%M:%S"
 DEFAULT_EXTENSION = "mp4"
 DEFAULT_THUMBNAIL: Final = None
@@ -96,6 +98,14 @@ WARNING_RETAIN = (
     "Please use 'max_age' in the 'storage' component instead."
 )
 DESC_FOLDER = "What folder to store recordings in."
+DEPRECATED_FOLDER = (
+    "Use the "
+    "<a href=/components-explorer/components/storage>storage component</a> instead."
+)
+WARNING_FOLDER = (
+    "Config option 'folder' is deprecated and will be removed in a future version. "
+    "Please use the 'storage' component instead."
+)
 DESC_FILENAME_PATTERN = (
     "A <a href=https://strftime.org/>strftime</a> pattern for saved recordings.<br>"
     "Default pattern results in filenames like: <code>23:59:59.jpg</code>."

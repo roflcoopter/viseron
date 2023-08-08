@@ -12,12 +12,14 @@ mkdir -p /config
 mkdir -p /recordings
 mkdir -p /segments
 mkdir -p /snapshots
+mkdir -p /thumbnails
 
 chown -R abc:abc /home/abc/bin
 chown -R --silent abc:abc /config || :
 chown -R --silent abc:abc /recordings || :
 chown -R --silent abc:abc /segments || :
 chown -R --silent abc:abc /snapshots || :
+chown -R --silent abc:abc /thumbnails || :
 
 log_info "************************ UID/GID *************************"
 log_info "User uid:    $(id -u abc)"

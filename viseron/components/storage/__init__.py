@@ -36,7 +36,11 @@ from viseron.components.storage.const import (
 from viseron.components.storage.models import Base
 from viseron.components.storage.tier_handler import RecorderTierHandler, TierHandler
 from viseron.components.storage.triggers import setup_triggers
-from viseron.components.storage.util import get_recordings_path, get_segments_path
+from viseron.components.storage.util import (
+    get_recordings_path,
+    get_segments_path,
+    get_thumbnails_path,
+)
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera.const import CONFIG_STORAGE, DOMAIN as CAMERA_DOMAIN
 from viseron.helpers.logs import StreamToLogger
@@ -210,6 +214,21 @@ class Storage:
         return get_segments_path(
             self._camera_tier_handlers[camera.identifier]["recorder"][0][
                 "segments"
+            ].tier,
+            camera,
+        )
+
+    def get_thumbnails_path(self, camera: AbstractCamera | FailedCamera) -> str:
+        """Get thumbnails path for camera.
+
+        This is an UNMONITORED path, meaning that the files in this path will not be
+        moved up tiers. Files are cleaned up automatically with the corresponding
+        recording.
+        """
+        self.create_tier_handlers(camera)
+        return get_thumbnails_path(
+            self._camera_tier_handlers[camera.identifier]["recorder"][0][
+                "recordings"
             ].tier,
             camera,
         )

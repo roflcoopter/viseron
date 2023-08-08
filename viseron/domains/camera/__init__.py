@@ -70,7 +70,6 @@ from .const import (
     DEFAULT_AUTHENTICATION,
     DEFAULT_EXTENSION,
     DEFAULT_FILENAME_PATTERN,
-    DEFAULT_FOLDER,
     DEFAULT_IDLE_TIMEOUT,
     DEFAULT_LOOKBACK,
     DEFAULT_MJPEG_DRAW_MOTION,
@@ -93,6 +92,7 @@ from .const import (
     DEFAULT_THUMBNAIL,
     DEFAULT_URL,
     DEFAULT_USERNAME,
+    DEPRECATED_FOLDER,
     DEPRECATED_RETAIN,
     DESC_AUTHENTICATION,
     DESC_EXTENSION,
@@ -130,6 +130,7 @@ from .const import (
     EVENT_STATUS_DISCONNECTED,
     INCLUSION_GROUP_AUTHENTICATION,
     UPDATE_TOKEN_INTERVAL_MINUTES,
+    WARNING_FOLDER,
     WARNING_RETAIN,
 )
 from .entity.binary_sensor import ConnectionStatusBinarySensor
@@ -228,8 +229,11 @@ RECORDER_SCHEMA = vol.Schema(
             message=DEPRECATED_RETAIN,
             warning=WARNING_RETAIN,
         ): vol.All(int, vol.Range(min=1)),
-        vol.Optional(
-            CONFIG_FOLDER, default=DEFAULT_FOLDER, description=DESC_FOLDER
+        Deprecated(
+            CONFIG_FOLDER,
+            description=DESC_FOLDER,
+            message=DEPRECATED_FOLDER,
+            warning=WARNING_FOLDER,
         ): str,
         vol.Optional(
             CONFIG_FILENAME_PATTERN,
@@ -372,6 +376,7 @@ class AbstractCamera(ABC):
         self._storage: Storage = vis.data[STORAGE_COMPONENT]
         self.recordings_folder = self._storage.get_recordings_path(self)
         self.segments_folder = self._storage.get_segments_path(self)
+        self.thumbnails_folder = self._storage.get_thumbnails_path(self)
         self.temp_segments_folder = TEMP_DIR + self.segments_folder
 
         self._fragmenter = Fragmenter(vis, self)
