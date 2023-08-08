@@ -41,7 +41,7 @@ from viseron.domains.camera import (
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
     AbstractCamera,
 )
-from viseron.domains.camera.const import CONFIG_EXTENSION, DOMAIN
+from viseron.domains.camera.const import DOMAIN
 from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
 from viseron.helpers.validators import (
     CameraIdentifier,
@@ -457,11 +457,6 @@ class Camera(AbstractCamera):
     def resolution(self, resolution) -> None:
         """Return stream resolution."""
         self._resolution = resolution
-
-    @property
-    def extension(self) -> str:
-        """Return recording file extension."""
-        return self._config[CONFIG_RECORDER][CONFIG_EXTENSION]
 
     @property
     def recorder(self) -> Recorder:

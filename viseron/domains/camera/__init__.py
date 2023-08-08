@@ -68,7 +68,6 @@ from .const import (
     CONFIG_URL,
     CONFIG_USERNAME,
     DEFAULT_AUTHENTICATION,
-    DEFAULT_EXTENSION,
     DEFAULT_FILENAME_PATTERN,
     DEFAULT_IDLE_TIMEOUT,
     DEFAULT_LOOKBACK,
@@ -92,6 +91,7 @@ from .const import (
     DEFAULT_THUMBNAIL,
     DEFAULT_URL,
     DEFAULT_USERNAME,
+    DEPRECATED_EXTENSION,
     DEPRECATED_FOLDER,
     DEPRECATED_RETAIN,
     DESC_AUTHENTICATION,
@@ -130,6 +130,8 @@ from .const import (
     EVENT_STATUS_DISCONNECTED,
     INCLUSION_GROUP_AUTHENTICATION,
     UPDATE_TOKEN_INTERVAL_MINUTES,
+    VIDEO_CONTAINER,
+    WARNING_EXTENSION,
     WARNING_FOLDER,
     WARNING_RETAIN,
 )
@@ -240,8 +242,11 @@ RECORDER_SCHEMA = vol.Schema(
             default=DEFAULT_FILENAME_PATTERN,
             description=DESC_FILENAME_PATTERN,
         ): str,
-        vol.Optional(
-            CONFIG_EXTENSION, default=DEFAULT_EXTENSION, description=DESC_EXTENSION
+        Deprecated(
+            CONFIG_EXTENSION,
+            description=DESC_EXTENSION,
+            message=DEPRECATED_EXTENSION,
+            warning=WARNING_EXTENSION,
         ): str,
         vol.Optional(
             CONFIG_THUMBNAIL, default=DEFAULT_THUMBNAIL, description=DESC_THUMBNAIL
@@ -486,9 +491,9 @@ class AbstractCamera(ABC):
         """Return stream resolution."""
 
     @property
-    @abstractmethod
     def extension(self) -> str:
         """Return recording file extension."""
+        return VIDEO_CONTAINER
 
     @property
     @abstractmethod
@@ -638,9 +643,7 @@ class FailedCamera:
     @property
     def extension(self) -> str:
         """Return recording file extension."""
-        return self._config.get(CONFIG_RECORDER, {}).get(
-            CONFIG_EXTENSION, DEFAULT_EXTENSION
-        )
+        return VIDEO_CONTAINER
 
     @property
     def error(self):

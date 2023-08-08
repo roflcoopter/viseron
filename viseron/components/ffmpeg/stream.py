@@ -312,7 +312,6 @@ class Stream:
         self,
         stream_config: dict[str, Any],
         stream_audio_codec: str | None,
-        extension: str,
     ) -> list[str]:
         """Return audio codec used for saving segments."""
         if (
@@ -321,7 +320,7 @@ class Stream:
         ):
             return ["-c:a", stream_config[CONFIG_AUDIO_CODEC]]
 
-        if extension == "mp4" and stream_audio_codec in [
+        if stream_audio_codec in [
             "pcm_alaw",
             "pcm_mulaw",
         ]:
@@ -343,9 +342,7 @@ class Stream:
         """Generate FFmpeg segment args."""
         return (
             CAMERA_SEGMENT_ARGS
-            + self.get_audio_codec(
-                self._config, self._mainstream.audio_codec, self._camera.extension
-            )
+            + self.get_audio_codec(self._config, self._mainstream.audio_codec)
             + [
                 os.path.join(
                     self._camera.temp_segments_folder,

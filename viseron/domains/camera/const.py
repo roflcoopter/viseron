@@ -7,6 +7,8 @@ DOMAIN: Final = "camera"
 
 UPDATE_TOKEN_INTERVAL_MINUTES: Final = 5
 
+VIDEO_CONTAINER = "mp4"
+
 # Event topic constants
 EVENT_STATUS = "{camera_identifier}/camera/status"
 EVENT_STATUS_DISCONNECTED = "disconnected"
@@ -83,7 +85,6 @@ CONFIG_THUMBNAIL = "thumbnail"
 DEFAULT_LOOKBACK = 5
 DEFAULT_IDLE_TIMEOUT = 10
 DEFAULT_FILENAME_PATTERN = "%H:%M:%S"
-DEFAULT_EXTENSION = "mp4"
 DEFAULT_THUMBNAIL: Final = None
 
 DESC_LOOKBACK = "Number of seconds to record before a detected object."
@@ -111,6 +112,12 @@ DESC_FILENAME_PATTERN = (
     "Default pattern results in filenames like: <code>23:59:59.jpg</code>."
 )
 DESC_EXTENSION = "The file extension used for recordings."
+DEPRECATED_EXTENSION = "<code>mp4</code> is the only supported extension."
+WARNING_EXTENSION = (
+    "Config option 'extension' is deprecated and will be removed in a "
+    "future version. 'mp4' is the only supported extension."
+)
+
 DESC_THUMBNAIL = "Options for the thumbnail created on start of a recording."
 DESC_FILENAME_PATTERN_THUMBNAIL = (
     "A <a href=https://strftime.org/>strftime</a> pattern for saved thumbnails.<br>"

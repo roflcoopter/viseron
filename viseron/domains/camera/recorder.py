@@ -111,11 +111,6 @@ class RecorderBase:
         self._vis = vis
         self._config = config
         self._camera = camera
-        self._extensions = [
-            ".mp4",
-            ".mkv",
-            ".mov",
-        ]
 
         self._storage: Storage = vis.data[STORAGE_COMPONENT]
 
@@ -189,12 +184,6 @@ class AbstractRecorder(ABC, RecorderBase):
 
         self.is_recording = False
         self._active_recording: Recording | None = None
-        self._extensions = [
-            f".{self._camera.extension}",
-            ".mp4",
-            ".mkv",
-            ".mov",
-        ]
 
         create_directory(self._camera.recordings_folder)
         create_directory(self._camera.segments_folder)

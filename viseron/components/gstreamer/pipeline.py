@@ -6,7 +6,6 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from viseron.components.ffmpeg.const import CAMERA_SEGMENT_DURATION
-from viseron.domains.camera.const import CONFIG_EXTENSION
 
 from .const import (
     CONFIG_AUDIO_CODEC,
@@ -167,7 +166,7 @@ class BasePipeline(AbstractPipeline):
             ]
         )
 
-    def parse_element(self):
+    def parse_element(self) -> list[str]:
         """Return parse element.
 
         Returns parse element from override map if it exists.
@@ -178,11 +177,11 @@ class BasePipeline(AbstractPipeline):
 
         return ["!", f"{self._stream.mainstream.codec}parse"]
 
-    def segment_pipeline(self):
+    def segment_pipeline(self) -> list[str]:
         """Generate GStreamer segment args."""
         segment_filepattern = os.path.join(
             self._camera.segments_folder,
-            f"%01d.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
+            f"%01d.{self._camera.extension}",
         )
         return (
             [

@@ -18,7 +18,6 @@ from viseron.const import (
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
-from viseron.domains.camera.const import CONFIG_EXTENSION
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.helpers import pop_if_full
 from viseron.helpers.logs import UnhelpfullLogFilter
@@ -29,7 +28,6 @@ from .const import (
     CONFIG_GSTREAMER_RECOVERABLE_ERRORS,
     CONFIG_LOGLEVEL_TO_GSTREAMER,
     CONFIG_RAW_PIPELINE,
-    CONFIG_RECORDER,
     ENV_GSTREAMER_PATH,
     GSTREAMER_LOGLEVEL_TO_PYTHON,
     PIXEL_FORMAT,
@@ -167,8 +165,8 @@ class Stream(FFmpegStream):
         """Return the location of the next segment."""
         timestamp = int(time.time())
         return os.path.join(
-            self._camera.recorder.segments_folder,
-            f"{timestamp}.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
+            self._camera.segments_folder,
+            f"{timestamp}.{self._camera.extension}",
         )
 
     def on_gst_log_message(
