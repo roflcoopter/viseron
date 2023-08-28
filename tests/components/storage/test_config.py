@@ -10,7 +10,6 @@ from viseron.components.storage import CONFIG_SCHEMA, validate_tiers
 DEFAULT_CONFIG = {
     "storage": {
         "recorder": {
-            "create_event_clip": False,
             "tiers": [
                 {
                     "path": "/",

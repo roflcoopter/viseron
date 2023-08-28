@@ -41,6 +41,7 @@ from .const import (
     AUTHENTICATION_BASIC,
     AUTHENTICATION_DIGEST,
     CONFIG_AUTHENTICATION,
+    CONFIG_CREATE_EVENT_CLIP,
     CONFIG_EXTENSION,
     CONFIG_FILENAME_PATTERN,
     CONFIG_FOLDER,
@@ -68,6 +69,7 @@ from .const import (
     CONFIG_URL,
     CONFIG_USERNAME,
     DEFAULT_AUTHENTICATION,
+    DEFAULT_CREATE_EVENT_CLIP,
     DEFAULT_FILENAME_PATTERN,
     DEFAULT_IDLE_TIMEOUT,
     DEFAULT_LOOKBACK,
@@ -95,6 +97,7 @@ from .const import (
     DEPRECATED_FOLDER,
     DEPRECATED_RETAIN,
     DESC_AUTHENTICATION,
+    DESC_CREATE_EVENT_CLIP,
     DESC_EXTENSION,
     DESC_FILENAME_PATTERN,
     DESC_FILENAME_PATTERN_THUMBNAIL,
@@ -273,6 +276,11 @@ RECORDER_SCHEMA = vol.Schema(
             default=DEFAULT_EVENTS,
             description=DESC_EVENTS,
         ): Maybe(TIER_SCHEMA_BASE),
+        vol.Optional(
+            CONFIG_CREATE_EVENT_CLIP,
+            default=DEFAULT_CREATE_EVENT_CLIP,
+            description=DESC_CREATE_EVENT_CLIP,
+        ): bool,
     }
 )
 
@@ -384,7 +392,7 @@ class AbstractCamera(ABC):
         self.thumbnails_folder = self._storage.get_thumbnails_path(self)
         self.temp_segments_folder = TEMP_DIR + self.segments_folder
 
-        self._fragmenter = Fragmenter(vis, self)
+        self.fragmenter = Fragmenter(vis, self)
 
     def as_dict(self) -> dict[str, Any]:
         """Return camera information as dict."""

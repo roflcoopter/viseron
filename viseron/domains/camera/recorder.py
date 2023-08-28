@@ -5,6 +5,7 @@ import datetime
 import logging
 import os
 import shutil
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, TypedDict
@@ -16,16 +17,20 @@ from sqlalchemy import func, insert, select, update
 from sqlalchemy.orm import Session
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
-from viseron.components.storage.models import Recordings
+from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.domains.camera.fragmenter import Fragment
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.helpers import create_directory, draw_objects
 
 from .const import (
+    CONFIG_CREATE_EVENT_CLIP,
     CONFIG_FILENAME_PATTERN,
     CONFIG_IDLE_TIMEOUT,
+    CONFIG_LOOKBACK,
     CONFIG_RECORDER,
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
+    EVENT_RECORDER_COMPLETE,
     EVENT_RECORDER_START,
     EVENT_RECORDER_STOP,
 )
@@ -99,6 +104,49 @@ class Recording:
             "thumbnail_path": self.thumbnail_path,
             "objects": self.objects,
         }
+
+    def get_fragments(self, lookback: int, get_session: Callable[[], Session]):
+        """Return a list of files for this recording.
+
+        We must sort on the filename and not created_at as the created_at timestamp is
+        not accurate for m4s files that are created from the original mp4 file after
+        it has been recorded. The filename is the timestamp of the original mp4 file
+        and is therefore accurate.
+        """
+        if self.end_timestamp is None:
+            raise ValueError("Recording has not ended yet")
+
+        start: float = self.start_timestamp - lookback
+        with get_session() as session:
+            stmt = (
+                select(
+                    Files.tier_id,
+                    Files.camera_identifier,
+                    Files.category,
+                    Files.path,
+                    Files.directory,
+                    Files.filename,
+                    Files.size,
+                    Files.created_at,
+                    Files.updated_at,
+                    FilesMeta.meta,
+                )
+                .join(
+                    Recordings, Files.camera_identifier == Recordings.camera_identifier
+                )
+                .join(FilesMeta, Files.path == FilesMeta.path)
+                .where(Recordings.id == self.id)
+                .where(Files.category == "recorder")
+                .where(Files.path.endswith(".m4s"))
+                .where(
+                    func.substr(Files.filename, 1, 10).between(
+                        str(int(start)), str(int(self.end_timestamp))
+                    ),
+                )
+                .order_by(Files.filename.asc())
+            )
+            fragments = list(session.execute(stmt).fetchall())
+        return fragments
 
 
 class RecorderBase:
@@ -343,6 +391,37 @@ class AbstractRecorder(ABC, RecorderBase):
             ),
         )
         self.is_recording = False
+
+        if self._config[CONFIG_RECORDER][CONFIG_CREATE_EVENT_CLIP]:
+            concat_thread = threading.Thread(
+                target=self._concatenate_fragments, args=(recording,)
+            )
+            concat_thread.start()
+
+    def _concatenate_fragments(self, recording: Recording) -> None:
+        files = recording.get_fragments(
+            self._config[CONFIG_RECORDER][CONFIG_LOOKBACK],
+            self._storage.get_session,
+        )
+        fragments = [
+            Fragment(file.path, file.meta["m3u8"]["EXTINF"])
+            for file in files
+            if file.meta.get("m3u8", False).get("EXTINF", False)
+        ]
+        event_clip = self._camera.fragmenter.concatenate_fragments(fragments)
+        if event_clip:
+            shutil.move(
+                event_clip,
+                recording.path,
+            )
+            self._logger.debug(f"Moved event clip to {recording.path}")
+            self._vis.dispatch_event(
+                EVENT_RECORDER_COMPLETE,
+                EventRecorderData(
+                    camera=self._camera,
+                    recording=recording,
+                ),
+            )
 
     @abstractmethod
     def _stop(self, recording: Recording):

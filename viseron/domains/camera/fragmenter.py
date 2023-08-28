@@ -6,7 +6,9 @@ import os
 import re
 import shutil
 import subprocess as sp
-from typing import TYPE_CHECKING
+import uuid
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal
 
 import psutil
 from path import Path
@@ -14,7 +16,7 @@ from sqlalchemy import insert
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import FilesMeta
-from viseron.const import VISERON_SIGNAL_SHUTDOWN
+from viseron.const import TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
 from viseron.helpers.logs import LogPipe
 
 if TYPE_CHECKING:
@@ -76,6 +78,10 @@ class Fragmenter:
             logging.getLogger(f"{self.__module__}.{camera.identifier}.mp4box"),
             logging.DEBUG,
         )
+        self._log_pipe_ffmpeg = LogPipe(
+            logging.getLogger(f"{self.__module__}.{camera.identifier}.ffmpeg"),
+            logging.ERROR,
+        )
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self._shutdown)
         self._fragment_job_id = f"fragment_{self._camera.identifier}"
         self._vis.background_scheduler.add_job(
@@ -131,16 +137,6 @@ class Fragmenter:
                 ),
                 os.path.join(self._camera.segments_folder, "init.mp4"),
             )
-            shutil.move(
-                os.path.join(
-                    self._camera.temp_segments_folder,
-                    file.split(".")[0],
-                    "master_1.m3u8",
-                ),
-                os.path.join(
-                    self._camera.segments_folder, file.split(".")[0] + ".m3u8"
-                ),
-            )
         except FileNotFoundError:
             self._logger.debug(f"{file} not found")
 
@@ -158,7 +154,9 @@ class Fragmenter:
         )
         with self._storage.get_session() as session:
             stmt = insert(FilesMeta).values(
-                path=os.path.join(self._camera.segments_folder, file),
+                path=os.path.join(
+                    self._camera.segments_folder, file.split(".")[0] + ".m4s"
+                ),
                 meta={"m3u8": {"EXTINF": extinf}},
             )
             session.execute(stmt)
@@ -185,3 +183,89 @@ class Fragmenter:
         self._logger.debug("Camera stopped, running final fragmentation")
         self._create_fragmented_mp4()
         self._logger.debug("Fragment thread shutdown complete")
+
+    def concatenate_fragments(
+        self, fragments: list[Fragment], sequence_number=0
+    ) -> str | Literal[False]:
+        """Concatenate fragments into a single mp4 file."""
+        filename = os.path.join(TEMP_DIR, f"{str(uuid.uuid4())}.mp4")
+        playlist = generate_playlist(
+            fragments,
+            os.path.join(self._camera.segments_folder, "init.mp4"),
+            sequence_number=sequence_number,
+            end=True,
+            file_directive=True,
+        )
+        self._logger.debug(f"HLS Playlist for contatenation: {playlist}")
+        try:
+            sp.run(  # type: ignore[call-overload]
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-protocol_whitelist",
+                    "file,pipe",
+                    "-i",
+                    "-",
+                    "-acodec",
+                    "copy",
+                    "-vcodec",
+                    "copy",
+                    filename,
+                ],
+                input=playlist.encode("utf-8"),
+                stdout=self._log_pipe_ffmpeg,
+                stderr=self._log_pipe_ffmpeg,
+                check=True,
+            )
+        except sp.CalledProcessError as err:
+            self._logger.error(err)
+            return False
+        return filename
+
+
+def _get_file_path(
+    file: str,
+    file_directive: bool,
+) -> str:
+    """Prepend 'file:' directive to file path if file_directive is True.
+
+    'file:' Needed when ffmpeg reads a playlist from stdin.
+    """
+    if file_directive:
+        return f"file:{file}"
+    return file
+
+
+def generate_playlist(
+    fragments: list[Fragment],
+    init_file: str,
+    sequence_number=0,
+    end=False,
+    file_directive=False,
+) -> str:
+    """Generate a playlist from a list of fragments."""
+    playlist = []
+    playlist.append("#EXTM3U")
+    playlist.append("#EXT-X-VERSION:6")
+    playlist.append(f"#EXT-X-MEDIA-SEQUENCE:{sequence_number}")
+    playlist.append(f"#EXT-X-DISCONTINUITY-SEQUENCE:{sequence_number}")
+    playlist.append("#EXT-X-TARGETDURATION:6")
+    playlist.append("#EXT-X-INDEPENDENT-SEGMENTS")
+    playlist.append(f'#EXT-X-MAP:URI="{_get_file_path(init_file, file_directive)}"')
+    for fragment in fragments:
+        playlist.append(f"#EXTINF:{fragment.duration},")
+        playlist.append(_get_file_path(fragment.path, file_directive))
+        playlist.append("#EXT-X-DISCONTINUITY")
+    if end:
+        playlist.append("#EXT-X-ENDLIST")
+    return "\n".join(playlist)
+
+
+@dataclass
+class Fragment:
+    """Represents a fragment of a mp4 file."""
+
+    path: str
+    duration: float

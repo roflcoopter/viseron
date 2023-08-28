@@ -52,6 +52,8 @@
 !/tests/*
 !/tests/components
 !/tests/components/**
+!/tests/domains
+!/tests/domains/**
 !/tests/helpers
 !/tests/helpers/*
 

@@ -25,7 +25,6 @@ CONFIG_DAYS: Final = "days"
 CONFIG_HOURS: Final = "hours"
 CONFIG_MINUTES: Final = "minutes"
 CONFIG_RECORDER: Final = "recorder"
-CONFIG_CREATE_EVENT_CLIP: Final = "create_event_clip"
 CONFIG_CONTINUOUS: Final = "continuous"
 CONFIG_EVENTS: Final = "events"
 CONFIG_SNAPSHOTS: Final = "snapshots"
@@ -45,7 +44,6 @@ DEFAULT_RECORDER_TIERS = [
         },
     },
 ]
-DEFAULT_CREATE_EVENT_CLIP = False
 DEFAULT_SNAPSHOTS: dict[str, Any] = {}
 DEFAULT_SNAPSHOTS_TIERS = [
     {
@@ -73,10 +71,6 @@ DEFAULT_CONTINUOUS: Final = None
 DEFAULT_EVENTS: Final = None
 
 DESC_RECORDER = "Configuration for recordings."
-DESC_CREATE_EVENT_CLIP = (
-    "Concatenate segments to an MP4 file for each event. "
-    "WARNING: Will store both the segments AND the MP4 file."
-)
 DESC_TYPE = (
     "<code>continuous</code>: Will save everything but highlight Events.<br>"
     "<code>events</code>: Will only save Events.<br>"

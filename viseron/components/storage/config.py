@@ -8,7 +8,6 @@ import voluptuous as vol
 from viseron.components.storage.const import (
     COMPONENT,
     CONFIG_CONTINUOUS,
-    CONFIG_CREATE_EVENT_CLIP,
     CONFIG_DAYS,
     CONFIG_EVENTS,
     CONFIG_FACE_RECOGNITION,
@@ -28,7 +27,6 @@ from viseron.components.storage.const import (
     CONFIG_SNAPSHOTS,
     CONFIG_TIERS,
     DEFAULT_CONTINUOUS,
-    DEFAULT_CREATE_EVENT_CLIP,
     DEFAULT_DAYS,
     DEFAULT_EVENTS,
     DEFAULT_FACE_RECOGNITION,
@@ -48,7 +46,6 @@ from viseron.components.storage.const import (
     DEFAULT_SNAPSHOTS,
     DEFAULT_SNAPSHOTS_TIERS,
     DESC_CONTINUOUS,
-    DESC_CREATE_EVENT_CLIP,
     DESC_DAYS,
     DESC_DOMAIN_TIERS,
     DESC_EVENTS,
@@ -185,11 +182,6 @@ STORAGE_SCHEMA = vol.Schema(
             default=DEFAULT_RECORDER,
             description=DESC_RECORDER,
         ): {
-            vol.Optional(
-                CONFIG_CREATE_EVENT_CLIP,
-                default=DEFAULT_CREATE_EVENT_CLIP,
-                description=DESC_CREATE_EVENT_CLIP,
-            ): bool,
             vol.Optional(
                 CONFIG_TIERS,
                 default=DEFAULT_RECORDER_TIERS,
