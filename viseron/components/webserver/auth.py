@@ -169,15 +169,13 @@ class Auth:
             ),
         )
 
-    @property
     def onboarding_path(self) -> str:
         """Return onboarding path."""
         return os.path.join(STORAGE_PATH, ONBOARDING_STORAGE_KEY)
 
-    @property
     def onboarding_complete(self) -> bool:
         """Return onboarding status."""
-        if self.users or os.path.exists(self.onboarding_path):
+        if self.users or os.path.exists(self.onboarding_path()):
             return True
         return False
 
@@ -226,7 +224,7 @@ class Auth:
     ):
         """Onboard the first user."""
         user = self.add_user(name, username, password, Group.ADMIN)
-        Path(self.onboarding_path).touch()
+        Path(self.onboarding_path()).touch()
         return user
 
     def validate_user(self, username: str, password: str) -> User:

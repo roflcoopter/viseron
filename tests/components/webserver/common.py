@@ -115,8 +115,8 @@ class TestAppBaseAuth(TestAppBase):
             os.remove(
                 self.webserver.auth._auth_store.path  # pylint: disable=protected-access
             )
-        if os.path.exists(self.webserver.auth.onboarding_path):
-            os.remove(self.webserver.auth.onboarding_path)
+        if os.path.exists(self.webserver.auth.onboarding_path()):
+            os.remove(self.webserver.auth.onboarding_path())
         return super().tearDown()
 
     def fetch_with_auth(

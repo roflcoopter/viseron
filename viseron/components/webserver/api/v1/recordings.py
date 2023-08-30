@@ -136,7 +136,7 @@ class RecordingsAPIHandler(BaseAPIHandler):
         },
     ]
 
-    def get_recordings(self) -> None:
+    async def get_recordings(self) -> None:
         """Get recordings for all cameras."""
         cameras = self._get_cameras()
 
@@ -152,19 +152,23 @@ class RecordingsAPIHandler(BaseAPIHandler):
             if self.request_arguments["latest"] and self.request_arguments.get(
                 "daily", False
             ):
-                recordings[
-                    camera.identifier
-                ] = camera.recorder.get_latest_recording_daily()
+                recordings[camera.identifier] = await self.run_in_executor(
+                    camera.recorder.get_latest_recording_daily
+                )
                 continue
             if self.request_arguments["latest"]:
-                recordings[camera.identifier] = camera.recorder.get_latest_recording()
+                recordings[camera.identifier] = await self.run_in_executor(
+                    camera.recorder.get_latest_recording
+                )
                 continue
-            recordings[camera.identifier] = camera.recorder.get_recordings()
+            recordings[camera.identifier] = await self.run_in_executor(
+                camera.recorder.get_recordings
+            )
 
         self.response_success(response=recordings)
         return
 
-    def get_recordings_camera(
+    async def get_recordings_camera(
         self, camera_identifier: str, date: str | None = None
     ) -> None:
         """Get recordings for a single camera."""
@@ -182,14 +186,24 @@ class RecordingsAPIHandler(BaseAPIHandler):
         if self.request_arguments["latest"] and self.request_arguments.get(
             "daily", False
         ):
-            self.response_success(response=camera.recorder.get_latest_recording_daily())
+            self.response_success(
+                response=await self.run_in_executor(
+                    camera.recorder.get_latest_recording_daily
+                )
+            )
             return
 
         if self.request_arguments["latest"]:
-            self.response_success(response=camera.recorder.get_latest_recording(date))
+            self.response_success(
+                response=await self.run_in_executor(
+                    camera.recorder.get_latest_recording, date
+                )
+            )
             return
 
-        self.response_success(response=camera.recorder.get_recordings(date))
+        self.response_success(
+            response=await self.run_in_executor(camera.recorder.get_recordings, date)
+        )
         return
 
     def delete_recording(

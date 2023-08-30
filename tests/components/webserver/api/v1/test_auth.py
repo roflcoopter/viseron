@@ -42,14 +42,14 @@ class TestAuthAPIHandler(TestAppBaseAuth):
             "onboarding_complete": False,
         }
 
-        Path(self.webserver.auth.onboarding_path).touch()
+        Path(self.webserver.auth.onboarding_path()).touch()
         response = self.fetch("/api/v1/auth/enabled")
         assert response.code == 200
         assert json.loads(response.body) == {
             "enabled": True,
             "onboarding_complete": True,
         }
-        os.remove(self.webserver.auth.onboarding_path)
+        os.remove(self.webserver.auth.onboarding_path())
 
     def test_auth_create(self):
         """Test the auth create endpoint."""
