@@ -1,10 +1,12 @@
 """Database models for storage component."""
-import datetime
-from typing import Dict
+from __future__ import annotations
 
-from sqlalchemy import DateTime, Float, Integer, String, func
+import datetime
+from typing import Callable, Dict
+
+from sqlalchemy import DateTime, Float, Integer, String, and_, cast, func, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 ColumnMeta = Dict[str, str]
 
@@ -82,6 +84,40 @@ class Recordings(Base):
     trigger_type: Mapped[str] = mapped_column(String, nullable=True)
     trigger_id: Mapped[int] = mapped_column(Integer, nullable=True)
     thumbnail_path: Mapped[str] = mapped_column(String)
+
+    def get_files(
+        self, lookback: float, get_session: Callable[[], Session]
+    ) -> list[tuple[Files, FilesMeta]]:
+        """Get all files for this recording."""
+        start = self.start_time.timestamp() - lookback
+        end = self.end_time.timestamp() or datetime.datetime.now().timestamp()
+        with get_session() as session:
+            stmt = (
+                select(Files, FilesMeta)
+                .join(FilesMeta, Files.path == FilesMeta.path)
+                .where(Files.camera_identifier == self.camera_identifier)
+                .where(Files.category == "recorder")
+                .where(Files.path.endswith(".m4s"))
+                .where(
+                    or_(
+                        # Fetch all files that start within the recording
+                        func.substr(Files.filename, 1, 10).between(
+                            str(int(start)), str(int(end))
+                        ),
+                        # Fetch the first file that starts before the recording but
+                        # ends during the recording
+                        and_(
+                            start >= cast(func.substr(Files.filename, 1, 10), Float),
+                            start
+                            <= cast(func.substr(Files.filename, 1, 10), Float)
+                            + cast(FilesMeta.meta["m3u8"]["EXTINF"], Float),
+                        ),
+                    )
+                )
+                .order_by(Files.filename.asc())
+            )
+            fragments = session.execute(stmt)
+            return [(row[0], row[1]) for row in fragments]
 
 
 class Objects(Base):

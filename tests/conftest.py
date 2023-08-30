@@ -100,6 +100,12 @@ def get_db_session(test_db):
     yield from _get_db_session(test_db)
 
 
+@pytest.fixture(scope="class")
+def get_db_session_class(test_db):
+    """Session for SQLAlchemy."""
+    yield from _get_db_session(test_db)
+
+
 @pytest.fixture
 def alembic_config() -> dict[str, str]:
     """Return config for pytest-alembic."""
