@@ -3,7 +3,7 @@
 import logging
 import os
 
-from sqlalchemy import Connection, delete, event
+from sqlalchemy import Connection, delete, event, select
 from sqlalchemy.dialects.postgresql import insert
 
 from viseron.components.storage.models import Files, FilesMeta, Recordings
@@ -47,7 +47,7 @@ def delete_from_files_meta(
 
 
 def delete_thumbnail(
-    _conn: Connection,
+    conn: Connection,
     clauseelement,
     _multiparams,
     _params,
@@ -55,18 +55,18 @@ def delete_thumbnail(
 ) -> None:
     """Delete a thumbnail when a row is deleted from Recordings."""
     if clauseelement.is_delete and clauseelement.table.name == Recordings.__tablename__:
-        compiled = clauseelement.compile()
-        try:
-            os.remove(compiled.params["path_1"])
-        except FileNotFoundError as error:
-            LOGGER.error(
-                f"Failed to delete thumbnail {compiled.params['path_1']}: {error}"
-            )
+        query = select(Recordings.thumbnail_path)
+        if clauseelement.whereclause is not None:
+            query = query.where(clauseelement.whereclause)
+        for thumbnail_path in conn.execute(query):
+            try:
+                os.remove(thumbnail_path[0])
+            except Exception as error:  # pylint: disable=broad-except
+                LOGGER.error(f"Failed to delete thumbnail {thumbnail_path[0]}: {error}")
 
 
 def setup_triggers(engine) -> None:
     """Set up database triggers."""
     event.listen(engine, "before_execute", insert_into_files_meta)
     event.listen(engine, "after_execute", delete_from_files_meta)
-
     event.listen(engine, "before_execute", delete_thumbnail)

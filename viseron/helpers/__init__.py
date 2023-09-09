@@ -4,6 +4,7 @@ from __future__ import annotations
 import linecache
 import logging
 import math
+import multiprocessing as mp
 import os
 import tracemalloc
 from queue import Full, Queue
@@ -277,7 +278,7 @@ def draw_object_mask(frame, mask_points) -> None:
 
 
 def pop_if_full(
-    queue: Queue,
+    queue: Queue | mp.Queue | tq.Queue,
     item: Any,
     logger: logging.Logger = LOGGER,
     name: str = "unknown",

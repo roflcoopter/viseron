@@ -2,14 +2,25 @@
 from __future__ import annotations
 
 import datetime
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
 from viseron.components.storage.models import Files, FilesMeta, Recordings
-from viseron.domains.camera.recorder import Recording, get_recordings
+from viseron.domains.camera.recorder import (
+    RecorderBase,
+    Recording,
+    delete_recordings,
+    get_recordings,
+)
+
+from tests.common import MockCamera
+
+if TYPE_CHECKING:
+    from viseron import Viseron
 
 
 @pytest.fixture(scope="function")
@@ -148,6 +159,40 @@ def test_get_recordings_date_latest(
     )
 
 
+def test_delete_recordings_single(get_db_session_recordings: Callable[[], Session]):
+    """Test deleting a single recording."""
+    recordings = delete_recordings(get_db_session_recordings, "test1", recording_id=1)
+    assert len(recordings) == 1
+    assert recordings[0].id == 1
+    assert recordings[0].camera_identifier == "test1"
+
+
+def test_delete_recordings_all(get_db_session_recordings: Callable[[], Session]):
+    """Test deleting all recordings for a camera."""
+    recordings = delete_recordings(get_db_session_recordings, "test1")
+    assert len(recordings) == 6
+    assert recordings[0].id == 1
+    assert recordings[0].camera_identifier == "test1"
+
+
+def test_delete_recordings_date(get_db_session_recordings: Callable[[], Session]):
+    """Test deleting all recordings for a specific date for camera."""
+    recordings = delete_recordings(
+        get_db_session_recordings, "test1", date="2023-03-02"
+    )
+    assert len(recordings) == 2
+    assert recordings[0].id == 3
+    assert recordings[0].camera_identifier == "test1"
+
+
+def test_delete_recordings_missing(get_db_session_recordings: Callable[[], Session]):
+    """Test deleting a missing recording."""
+    recordings = delete_recordings(
+        get_db_session_recordings, "test_missing", recording_id=1
+    )
+    assert len(recordings) == 0
+
+
 class TestRecording:
     """Test the Recording dataclass."""
 
@@ -221,3 +266,29 @@ class TestRecording:
         assert files[0].created_at == datetime.datetime(2023, 3, 1, 11, 59, 55)
         assert files[-1].created_at == datetime.datetime(2023, 3, 1, 12, 0, 50)
         assert files[8].tier_id == 2
+
+
+class TestRecorderBase:
+    """Test the RecorderBase class."""
+
+    @patch("viseron.domains.camera.recorder.delete_recordings")
+    @patch("viseron.domains.camera.recorder.os.remove")
+    def test_delete_recording(
+        self,
+        mock_remove: Mock,
+        mock_delete_recording: Mock,
+        vis: Viseron,
+    ):
+        """Test delete_recording."""
+        mock_delete_recording.return_value = []
+        recorder_base = RecorderBase(vis, MagicMock(), MockCamera())
+        result = recorder_base.delete_recording()
+        assert result is False
+
+        mock_delete_recording.return_value = [
+            MagicMock(spec=Recordings),
+            MagicMock(spec=Recordings),
+        ]
+        result = recorder_base.delete_recording()
+        assert result is True
+        assert mock_remove.call_count == 2

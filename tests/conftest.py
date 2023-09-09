@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from viseron import Viseron
 from viseron.components.data_stream import COMPONENT as DATA_STREAM, DataStream
+from viseron.components.storage import COMPONENT as STORAGE, Storage
 from viseron.components.storage.models import Base
 
 from tests.common import MockCamera
@@ -24,6 +25,7 @@ def vis() -> Viseron:
     """Fixture to test Viseron instance."""
     viseron = Viseron()
     viseron.data[DATA_STREAM] = MagicMock(spec=DataStream)
+    viseron.data[STORAGE] = MagicMock(spec=Storage)
     return viseron
 
 

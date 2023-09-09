@@ -8,12 +8,11 @@ import shutil
 import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, TypedDict
+from typing import TYPE_CHECKING, Callable, Sequence, TypedDict
 
 import cv2
 import numpy as np
-from path import Path
-from sqlalchemy import desc, func, insert, select, update
+from sqlalchemy import delete, desc, func, insert, select, update
 from sqlalchemy.orm import Session
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
@@ -193,48 +192,20 @@ class RecorderBase:
             self._storage.get_session, self._camera.identifier, latest=True, daily=True
         )
 
-    def delete_recording(self, date=None, filename=None) -> bool:
-        """Delete a single recording."""
-        path = None
+    def delete_recording(self, date=None, recording_id=None) -> bool:
+        """Delete a single recording.
 
-        if date and filename:
-            path = os.path.join(self._camera.recordings_folder, date, filename)
-        elif date and filename is None:
-            path = os.path.join(self._camera.recordings_folder, date)
-        elif date is None and filename is None:
-            path = self._camera.recordings_folder
-        else:
-            self._logger.error("Could not remove file, incorrect path given")
-            return False
-
-        self._logger.debug(f"Removing {path}")
-        try:
-            if filename:
-                os.remove(path)
-                thumbnail = Path(
-                    os.path.join(
-                        self._camera.recordings_folder,
-                        date,
-                        filename.split(".")[0] + ".jpg",
-                    )
-                )
-                try:
-                    os.remove(thumbnail)
-                except FileNotFoundError:
-                    pass
-
-            elif date:
-                shutil.rmtree(path)
-
-            else:
-                dirs = Path(self._camera.recordings_folder)
-                folders = dirs.walkdirs("*-*-*")
-                for folder in folders:
-                    shutil.rmtree(folder)
-        except (OSError, FileNotFoundError) as error:
-            self._logger.error(f"Could not remove {path}", exc_info=error)
-            return False
-        return True
+        We dont have to delete the segments as they will be deleted by the tier
+        handler the next time it runs.
+        """
+        return bool(
+            delete_recordings(
+                self._storage.get_session,
+                self._camera.identifier,
+                date=date,
+                recording_id=recording_id,
+            )
+        )
 
 
 class AbstractRecorder(ABC, RecorderBase):
@@ -489,6 +460,31 @@ def get_recordings(
             ] = _recording_file_dict(recording)
 
     return recordings
+
+
+def delete_recordings(
+    get_session: Callable[[], Session],
+    camera_identifier,
+    date=None,
+    recording_id=None,
+) -> Sequence[Recordings]:
+    """Delete recordings from the database.
+
+    Returns the deleted recordings so that they can be deleted from disk.
+    """
+    stmt = (
+        delete(Recordings)
+        .where(Recordings.camera_identifier == camera_identifier)
+        .returning(Recordings)
+    )
+    if date:
+        stmt = stmt.where(func.DATE(Recordings.start_time) == date)
+    if recording_id:
+        stmt = stmt.where(Recordings.id == recording_id)
+    with get_session() as session:
+        _deleted_recordings = session.execute(stmt).scalars().all()
+        session.commit()
+    return _deleted_recordings
 
 
 def _recording_file_dict(recording: Recordings) -> RecordingDict:

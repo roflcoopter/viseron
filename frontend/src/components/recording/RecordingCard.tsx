@@ -68,7 +68,7 @@ export default function RecordingCard({
                   deleteRecording.mutate({
                     identifier: camera.identifier,
                     date: recording.date,
-                    filename: recording.filename,
+                    recording_id: recording.id,
                     failed: camera.failed,
                   });
                 }}

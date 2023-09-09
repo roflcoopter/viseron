@@ -11,7 +11,7 @@ from viseron.domains.camera.fragmenter import Fragment, Fragmenter, generate_pla
 
 def test_generate_playlist() -> None:
     """Test generate_playlist."""
-    fragments = [Fragment("/test/test1.mp4", 5.0), Fragment("/test/test2.mp4", 4.123)]
+    fragments = [Fragment("/test/test1.mp4", 5.1), Fragment("/test/test2.mp4", 4.123)]
 
     playlist = generate_playlist(fragments, "/test/init.mp4", end=True)
     assert (
@@ -19,11 +19,10 @@ def test_generate_playlist() -> None:
         == """#EXTM3U
 #EXT-X-VERSION:6
 #EXT-X-MEDIA-SEQUENCE:0
-#EXT-X-DISCONTINUITY-SEQUENCE:0
 #EXT-X-TARGETDURATION:6
 #EXT-X-INDEPENDENT-SEGMENTS
 #EXT-X-MAP:URI="/test/init.mp4"
-#EXTINF:5.0,
+#EXTINF:5.1,
 /test/test1.mp4
 #EXT-X-DISCONTINUITY
 #EXTINF:4.123,

@@ -8,6 +8,7 @@ import shutil
 import subprocess as sp
 import uuid
 from dataclasses import dataclass
+from math import ceil
 from typing import TYPE_CHECKING, Literal
 
 import psutil
@@ -256,7 +257,7 @@ def generate_playlist(
         playlist.append(f"#EXT-X-DISCONTINUITY-SEQUENCE:{sequence_number}")
 
     if fragments:
-        target_duration = round(max(f.duration for f in fragments))
+        target_duration = ceil(max(f.duration for f in fragments))
         playlist.append(f"#EXT-X-TARGETDURATION:{target_duration}")
 
     playlist.append("#EXT-X-INDEPENDENT-SEGMENTS")

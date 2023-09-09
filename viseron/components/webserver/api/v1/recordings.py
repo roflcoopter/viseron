@@ -3,15 +3,12 @@ from __future__ import annotations
 
 import logging
 from http import HTTPStatus
-from typing import TYPE_CHECKING
+from typing import cast
 
 import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.helpers.validators import request_argument_bool, request_argument_no_value
-
-if TYPE_CHECKING:
-    from viseron.domains.camera import AbstractCamera, FailedCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -101,7 +98,7 @@ class RecordingsAPIHandler(BaseAPIHandler):
             "path_pattern": (
                 r"/recordings/(?P<camera_identifier>[A-Za-z0-9_]+)"
                 r"/(?P<date>[0-9]{4}-[0-9]{2}-[0-9]{2})"
-                r"/(?P<filename>.*\..*)"
+                r"/(?P<recording_id>[0-9]+)"
             ),
             "supported_methods": ["DELETE"],
             "method": "delete_recording",
@@ -172,8 +169,8 @@ class RecordingsAPIHandler(BaseAPIHandler):
         self, camera_identifier: str, date: str | None = None
     ) -> None:
         """Get recordings for a single camera."""
-        camera: AbstractCamera | FailedCamera = self._get_camera(
-            camera_identifier, failed=self.request_arguments["failed"]
+        camera = self._get_camera(
+            camera_identifier, failed=cast(bool, self.request_arguments["failed"])
         )
 
         if not camera:
@@ -206,15 +203,15 @@ class RecordingsAPIHandler(BaseAPIHandler):
         )
         return
 
-    def delete_recording(
+    async def delete_recording(
         self,
         camera_identifier: str,
         date: str | None = None,
-        filename: str | None = None,
+        recording_id: str | None = None,
     ) -> None:
         """Delete recording(s)."""
         camera = self._get_camera(
-            camera_identifier, failed=self.request_arguments["failed"]
+            camera_identifier, failed=cast(bool, self.request_arguments["failed"])
         )
 
         if not camera:
@@ -225,11 +222,15 @@ class RecordingsAPIHandler(BaseAPIHandler):
             return
 
         # Try to delete recording
-        if camera.recorder.delete_recording(date, filename):
+        if await self.run_in_executor(
+            camera.recorder.delete_recording, date, recording_id
+        ):
             self.response_success()
             return
         self.response_error(
             HTTPStatus.INTERNAL_SERVER_ERROR,
-            reason=f"Failed to delete recording. Date={date} filename={filename}",
+            reason=(
+                f"Failed to delete recording. Date={date} recording_id={recording_id}"
+            ),
         )
         return
