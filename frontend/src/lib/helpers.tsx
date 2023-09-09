@@ -36,10 +36,19 @@ export function getRecordingVideoJSOptions(recording: types.Recording) {
     responsive: true,
     fluid: true,
     playbackRates: [0.5, 1, 2, 5, 10],
+    liveui: true,
+    liveTracker: {
+      trackingThreshold: 0,
+    },
+    html5: {
+      vhs: {
+        experimentalLLHLS: true,
+      },
+    },
     sources: [
       {
-        src: `${recording.path}`,
-        type: "video/mp4",
+        src: recording.hls_url,
+        type: "application/x-mpegURL",
       },
     ],
   };

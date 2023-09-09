@@ -73,6 +73,7 @@ class Fragmenter:
         self._camera = camera
         self._storage: Storage = vis.data[STORAGE_COMPONENT]
         os.makedirs(camera.temp_segments_folder, exist_ok=True)
+        self._storage.ignore_file("init.mp4")
 
         self._log_pipe = LogPipe(
             logging.getLogger(f"{self.__module__}.{camera.identifier}.mp4box"),
@@ -249,9 +250,15 @@ def generate_playlist(
     playlist = []
     playlist.append("#EXTM3U")
     playlist.append("#EXT-X-VERSION:6")
+
     playlist.append(f"#EXT-X-MEDIA-SEQUENCE:{sequence_number}")
-    playlist.append(f"#EXT-X-DISCONTINUITY-SEQUENCE:{sequence_number}")
-    playlist.append("#EXT-X-TARGETDURATION:6")
+    if sequence_number:
+        playlist.append(f"#EXT-X-DISCONTINUITY-SEQUENCE:{sequence_number}")
+
+    if fragments:
+        target_duration = round(max(f.duration for f in fragments))
+        playlist.append(f"#EXT-X-TARGETDURATION:{target_duration}")
+
     playlist.append("#EXT-X-INDEPENDENT-SEGMENTS")
     playlist.append(f'#EXT-X-MAP:URI="{_get_file_path(init_file, file_directive)}"')
     for fragment in fragments:

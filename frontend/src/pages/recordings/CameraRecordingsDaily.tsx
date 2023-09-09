@@ -65,7 +65,6 @@ const CameraRecordingsDaily = () => {
       </Typography>
       <Grid container direction="row" spacing={2}>
         {Object.keys(recordingsQuery.data[date])
-          .sort()
           .reverse()
           .map((recording) => (
             <Grid item key={recording} xs={12} sm={12} md={6} lg={6} xl={4}>

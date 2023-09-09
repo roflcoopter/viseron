@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => {
           ws: true,
           ...proxyOptions,
         },
-        "/recordings": {
+        "/files": {
           target: `http://${
             env.VITE_PROXY_HOST ? env.VITE_PROXY_HOST : "localhost:8888"
           }`,

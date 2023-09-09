@@ -5,6 +5,8 @@ import copy
 import logging
 import os
 import pathlib
+import threading
+from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, TypedDict
 
 import voluptuous as vol
@@ -106,6 +108,7 @@ TIER_CATEGORIES: TierCategories = {
 def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     """Set up storage component."""
     vis.data[COMPONENT] = Storage(vis, config[COMPONENT])
+    vis.data[COMPONENT].initialize()
     return True
 
 
@@ -126,18 +129,23 @@ class Storage:
         self._camera_tier_handlers: dict[
             str, dict[str, list[dict[str, TierHandler | RecorderTierHandler]]]
         ] = {}
+        self.camera_requested_files_count: dict[str, RequestedFilesCount] = {}
 
+        self.ignored_files: list[str] = []
         self.engine: Engine | None = None
         self._get_session: Callable[[], Session] | None = None
+
+    def initialize(self) -> None:
+        """Initialize storage component."""
         self._alembic_cfg = self._get_alembic_config()
         self.create_database()
         setup_triggers(self.engine)
 
-        vis.listen_event(
+        self._vis.listen_event(
             EVENT_DOMAIN_REGISTERED.format(domain=CAMERA_DOMAIN),
             self._camera_registered,
         )
-        vis.register_signal_handler(VISERON_SIGNAL_STOPPING, self._shutdown)
+        self._vis.register_signal_handler(VISERON_SIGNAL_STOPPING, self._shutdown)
 
     def _get_alembic_config(self) -> Config:
         base_path = pathlib.Path(__file__).parent.resolve()
@@ -233,6 +241,36 @@ class Storage:
             camera,
         )
 
+    def search_file(
+        self, camera_identifier: str, category: str, subcategory: str, path: str
+    ) -> str | None:
+        """Search for file in tiers."""
+        prev_tier_handler = None
+        for tier_handler in self._camera_tier_handlers[camera_identifier][category]:
+            if tier_handler[subcategory].tier[CONFIG_PATH] in path:
+                prev_tier_handler = tier_handler
+                continue
+
+            if prev_tier_handler is None:
+                continue
+
+            new_path = path.replace(
+                prev_tier_handler[subcategory].tier[CONFIG_PATH],
+                tier_handler[subcategory].tier[CONFIG_PATH],
+                1,
+            )
+            if os.path.exists(new_path):
+                LOGGER.debug(
+                    f"Found file in tier: {tier_handler[subcategory].tier[CONFIG_PATH]}"
+                )
+                return new_path
+        return None
+
+    def ignore_file(self, filename: str) -> None:
+        """Add filename to ignore list."""
+        if filename not in self.ignored_files:
+            self.ignored_files.append(filename)
+
     def _camera_registered(self, event_data: Event[AbstractCamera]) -> None:
         camera = event_data.data
         self.create_tier_handlers(camera)
@@ -243,6 +281,7 @@ class Storage:
             return
 
         self._camera_tier_handlers[camera.identifier] = {}
+        self.camera_requested_files_count[camera.identifier] = RequestedFilesCount()
 
         tier_config = _get_tier_config(self._config, camera)
         for category in TIER_CATEGORIES:
@@ -315,3 +354,36 @@ def _get_tier_config(
             "overwriting storage recorder tiers"
         )
     return tier_config
+
+
+class RequestedFilesCount:
+    """Context manager for keeping track of recently requested files."""
+
+    def __init__(self) -> None:
+        self.count = 0
+        self.filenames: list[str] = []
+
+    def remove_filename(self, filename: str) -> None:
+        """Remove a filename from the list of active filenames."""
+        self.filenames.remove(filename)
+
+    def __call__(self, filename: str) -> RequestedFilesCount:
+        """Add a filename to the list of active filenames."""
+        self.filenames.append(filename)
+        timer = threading.Timer(2, self.remove_filename, args=(filename,))
+        timer.start()
+        return self
+
+    def __enter__(self):
+        """Increment the counter when entering the context."""
+        self.count += 1
+        return self.count
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """Decrement the counter when exiting the context."""
+        self.count -= 1

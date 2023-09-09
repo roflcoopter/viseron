@@ -26,16 +26,32 @@ export const subscribeCameras = async (
   return subscription;
 };
 
-export const subscribeRecording = async (
+export const subscribeRecordingStart = async (
   connection: Connection,
-  recordingCallback: (recordingEvent: types.EventRecorderComplete) => void
+  recordingCallback: (recordingEvent: types.EventRecorderStart) => void
 ) => {
   const storedRecordingCallback = recordingCallback;
-  const _recordingCallback = (message: types.EventRecorderComplete) => {
+  const _recordingCallback = (message: types.EventRecorderStart) => {
     storedRecordingCallback(message);
   };
   const subscription = await connection.subscribeEvent(
-    "*/recorder/complete",
+    "*/recorder/start",
+    _recordingCallback,
+    true
+  );
+  return subscription;
+};
+
+export const subscribeRecordingStop = async (
+  connection: Connection,
+  recordingCallback: (recordingEvent: types.EventRecorderStop) => void
+) => {
+  const storedRecordingCallback = recordingCallback;
+  const _recordingCallback = (message: types.EventRecorderStop) => {
+    storedRecordingCallback(message);
+  };
+  const subscription = await connection.subscribeEvent(
+    "*/recorder/stop",
     _recordingCallback,
     true
   );

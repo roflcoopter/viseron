@@ -88,6 +88,7 @@ def recordings_to_move_query(
     segment_length: int,
     tier_id: int,
     camera_identifier: str,
+    lookback: int,
     max_bytes: int,
     min_age_timestamp: float,
     min_bytes: int,
@@ -103,14 +104,32 @@ def recordings_to_move_query(
                   ,f.camera_identifier
                   ,f.category
                   ,f.path
+                  ,f.filename
                   ,f.created_at as file_created_at
                   ,f.size
                   ,r.id as recording_id
                   ,r.created_at as recording_created_at
               FROM files f
-                   LEFT JOIN recordings r
-                   ON f.created_at BETWEEN r.start_time - INTERVAL ':segment_length sec'
-                                       AND r.end_time   + INTERVAL ':segment_length sec'
+         LEFT JOIN recordings r
+                ON substr(f.filename, 1, 10) BETWEEN cast(
+                  extract(
+                    epoch
+                    from
+                      (
+                        r.start_time - INTERVAL ':lookback sec'
+                                     - INTERVAL ':segment_length sec'
+                      )
+                  ) as char(10)
+                )
+                AND cast(
+                  extract(
+                    epoch
+                    from
+                      case when r.end_time is null then now() else (
+                        r.end_time + INTERVAL ':segment_length sec'
+                      ) end
+                  ) as char(10)
+                )
              WHERE f.category = 'recorder'
                AND f.tier_id = :tier_id
                AND f.camera_identifier = :camera_identifier
@@ -150,7 +169,7 @@ def recordings_to_move_query(
                 s.total_bytes >= :min_bytes
             )
         ) OR s.total_bytes IS NULL
-         ORDER BY rf.file_created_at ASC
+         ORDER BY rf.filename ASC
                  ,rf.recording_created_at ASC;
         """
         )
@@ -162,6 +181,7 @@ def recordings_to_move_query(
             min_age_timestamp=min_age_timestamp,
             max_age_timestamp=max_age_timestamp,
             min_bytes=min_bytes,
+            lookback=lookback,
         )
         .columns(
             column("recording_id", Integer),

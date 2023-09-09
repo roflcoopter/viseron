@@ -71,6 +71,19 @@ from viseron.components.storage.util import calculate_age
 from viseron.const import TEMP_DIR
 from viseron.helpers.validators import CoerceNoneToDict, Maybe
 
+
+def ends_with_slash(value: str) -> str:
+    """Validate that a path ends with slash.
+
+    Returns the path without the slash.
+    """
+    if value == "/":
+        return value
+    if value[-1] != "/":
+        return value + "/"
+    return value
+
+
 SIZE_SCHEMA = {
     vol.Optional(
         CONFIG_GB,
@@ -151,7 +164,7 @@ TIER_SCHEMA_RECORDER = vol.Schema(
         vol.Required(
             CONFIG_PATH,
             description=DESC_PATH,
-        ): str,
+        ): vol.All(str, ends_with_slash),
         vol.Optional(
             CONFIG_POLL,
             default=DEFAULT_POLL,

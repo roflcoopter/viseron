@@ -177,6 +177,30 @@ class TestRecording:
                         created_at=timestamp,
                     )
                 )
+            # Simulate a file that has been moved a up tier but have not been removed
+            # from the previous tier yet
+            created_at = timestamp + datetime.timedelta(seconds=5)
+            timestamp = timestamp - datetime.timedelta(seconds=25)
+            filename = f"{int(timestamp.timestamp())}.m4s"
+            session.execute(
+                insert(Files).values(
+                    tier_id=2,
+                    camera_identifier="test1",
+                    category="recorder",
+                    path=f"/test2/{filename}",
+                    directory="test2",
+                    filename=filename,
+                    size=10,
+                    created_at=created_at,
+                )
+            )
+            session.execute(
+                insert(FilesMeta).values(
+                    path=f"/test2/{filename}",
+                    meta={"m3u8": {"EXTINF": 5}},
+                    created_at=created_at,
+                )
+            )
             session.commit()
 
         recording = Recording(
@@ -196,3 +220,4 @@ class TestRecording:
         assert len(files) == 12
         assert files[0].created_at == datetime.datetime(2023, 3, 1, 11, 59, 55)
         assert files[-1].created_at == datetime.datetime(2023, 3, 1, 12, 0, 50)
+        assert files[8].tier_id == 2

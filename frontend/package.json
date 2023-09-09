@@ -23,6 +23,7 @@
     "ajv": "^8.10.0",
     "axios": "^1.2.2",
     "buffer": "^6.0.3",
+    "hls.js": "^1.4.10",
     "http-proxy-middleware": "^2.0.2",
     "js-cookie": "^3.0.1",
     "monaco-editor": "^0.31.1",
@@ -34,7 +35,7 @@
     "react-router-dom": "^6.6.1",
     "react-toastify": "^8.1.0",
     "typescript": "^4.5.4",
-    "video.js": "^7.17.0"
+    "video.js": "^7.21.5"
   },
   "devDependencies": {
     "@testing-library/react": "^12.0.0",
@@ -43,7 +44,7 @@
     "@types/mocha": "^9.1.0",
     "@types/react-lazyload": "^3.2.0",
     "@types/react-page-visibility": "^6.4.1",
-    "@types/video.js": "^7.3.30",
+    "@types/video.js": "^7.3.52",
     "@typescript-eslint/eslint-plugin": "^5.10.2",
     "@typescript-eslint/parser": "^5.10.2",
     "@vitejs/plugin-react": "^3.1.0",

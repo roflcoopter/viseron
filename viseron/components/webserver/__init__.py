@@ -15,17 +15,7 @@ import voluptuous as vol
 from tornado.routing import PathMatches
 
 from viseron.components.webserver.auth import Auth
-from viseron.components.webserver.static_file_handler import (
-    AccessTokenStaticFileHandler,
-)
-from viseron.const import (
-    DOMAIN_FAILED,
-    EVENT_DOMAIN_REGISTERED,
-    EVENT_DOMAIN_SETUP_STATUS,
-    VISERON_SIGNAL_SHUTDOWN,
-)
-from viseron.domains.camera import AbstractCamera, FailedCamera
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers.storage import Storage
 from viseron.helpers.validators import CoerceNoneToDict
@@ -77,8 +67,7 @@ from .websocket_api.commands import (
 )
 
 if TYPE_CHECKING:
-    from viseron import Event, Viseron
-    from viseron.components import DomainToSetup
+    from viseron import Viseron
 
 
 LOGGER = logging.getLogger(__name__)
@@ -188,7 +177,9 @@ class WebserverStore:
         return self._data["cookie_secret"]
 
 
-def create_application(vis: Viseron, config, cookie_secret, xsrf_cookies=True):
+def create_application(
+    vis: Viseron, config, cookie_secret, xsrf_cookies=True
+) -> tornado.web.Application:
     """Return tornado web app."""
     application = tornado.web.Application(
         [
@@ -268,16 +259,6 @@ class Webserver(threading.Thread):
             raise error
         self._ioloop = tornado.ioloop.IOLoop.current()
 
-        self._vis.listen_event(
-            EVENT_DOMAIN_REGISTERED.format(domain=CAMERA_DOMAIN), self.camera_registered
-        )
-        self._vis.listen_event(
-            EVENT_DOMAIN_SETUP_STATUS.format(
-                status=DOMAIN_FAILED, domain=CAMERA_DOMAIN, identifier="*"
-            ),
-            self.camera_registered,
-        )
-
     @property
     def auth(self):
         """Return auth."""
@@ -290,44 +271,6 @@ class Webserver(threading.Thread):
             return
 
         self._vis.data[WEBSOCKET_COMMANDS][handler.command] = (handler, handler.schema)
-
-    def _serve_camera_recordings(
-        self, camera: AbstractCamera | FailedCamera, failed=False
-    ) -> None:
-        """Serve recordings of each camera in a static file handler."""
-        self.application.add_handlers(
-            r".*",
-            [
-                (
-                    (
-                        rf"{camera.recorder.recordings_folder}\/"
-                        rf"(.*\/.*\.(mp4$|mkv$|mov$|jpg$|{camera.extension}$))"
-                    ),
-                    AccessTokenStaticFileHandler,
-                    {
-                        "path": camera.recorder.recordings_folder,
-                        "vis": self._vis,
-                        "camera_identifier": camera.identifier,
-                        "failed": failed,
-                    },
-                )
-            ],
-        )
-
-    def camera_registered(
-        self, event_data: Event[AbstractCamera | DomainToSetup]
-    ) -> None:
-        """Handle camera registering."""
-        camera: AbstractCamera | FailedCamera | None = None
-        failed = False
-        if isinstance(event_data.data, AbstractCamera):
-            camera = event_data.data
-        else:
-            camera = event_data.data.error_instance
-            failed = True
-
-        if camera:
-            self._serve_camera_recordings(camera, failed)
 
     def run(self) -> None:
         """Start ioloop."""

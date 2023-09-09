@@ -76,19 +76,20 @@ export interface Recording {
   trigger_type: string;
   trigger_id: number;
   thumbnail_path: string;
+  hls_url: string;
 }
 
 export interface RecordingsAll {
   [identifier: string]: {
     [date: string]: {
-      [filename: string]: Recording;
+      [id: string]: Recording;
     };
   };
 }
 
 export interface RecordingsCamera {
   [date: string]: {
-    [filename: string]: Recording;
+    [id: string]: Recording;
   };
 }
 
@@ -145,8 +146,7 @@ export type EventCameraRegistered = Event & {
   data: Camera;
 };
 
-export type EventRecorderComplete = Event & {
-  name: "recorder_complete";
+export type EventRecorder = Event & {
   data: {
     camera: Camera;
     recording: Recording & {
@@ -157,6 +157,16 @@ export type EventRecorderComplete = Event & {
       objects: [DetectedObject];
     };
   };
+};
+
+export type EventRecorderStart = EventRecorder & {
+  name: "recorder_start";
+};
+export type EventRecorderStop = EventRecorder & {
+  name: "recorder_stop";
+};
+export type EventRecorderComplete = EventRecorder & {
+  name: "recorder_complete";
 };
 
 export interface EntityAttributes {

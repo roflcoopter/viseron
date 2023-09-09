@@ -10,7 +10,11 @@ import { useNavigate } from "react-router-dom";
 
 import { AuthContext } from "context/AuthContext";
 import { toastIds, useToast } from "hooks/UseToast";
-import { subscribeCameras, subscribeRecording } from "lib/commands";
+import {
+  subscribeCameras,
+  subscribeRecordingStart,
+  subscribeRecordingStop,
+} from "lib/commands";
 import * as types from "lib/types";
 import { Connection } from "lib/websockets";
 
@@ -57,13 +61,16 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
             ),
         });
       };
-      const newRecording = async (
-        recordingEvent: types.EventRecorderComplete
+      const recorderEvent = async (
+        event:
+          | types.EventRecorderStart
+          | types.EventRecorderStop
+          | types.EventRecorderComplete
       ) => {
         await queryClient.invalidateQueries({
           predicate: (query) =>
             (query.queryKey[0] as string).startsWith(
-              `/recordings/${recordingEvent.data.camera.identifier}`
+              `/recordings/${event.data.camera.identifier}`
             ),
         });
       };
@@ -96,7 +103,8 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
 
       const connect = async () => {
         subscribeCameras(connection, cameraRegistered); // call without await to not block
-        subscribeRecording(connection, newRecording); // call without await to not block
+        subscribeRecordingStart(connection, recorderEvent); // call without await to not block
+        subscribeRecordingStop(connection, recorderEvent); // call without await to not block
         await connection.connect();
       };
       connect();

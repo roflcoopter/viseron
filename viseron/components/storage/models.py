@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import datetime
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 
 from sqlalchemy import DateTime, Float, Integer, String, and_, cast, func, or_, select
 from sqlalchemy.dialects.postgresql import JSONB
@@ -69,7 +69,7 @@ class Recordings(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
     start_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
-    end_time: Mapped[datetime.datetime] = mapped_column(
+    end_time: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime(timezone=False), nullable=True
     )
     created_at = mapped_column(
@@ -81,8 +81,8 @@ class Recordings(Base):
         onupdate=func.now(),  # pylint: disable=not-callable
     )
 
-    trigger_type: Mapped[str] = mapped_column(String, nullable=True)
-    trigger_id: Mapped[int] = mapped_column(Integer, nullable=True)
+    trigger_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    trigger_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     thumbnail_path: Mapped[str] = mapped_column(String)
 
     def get_files(
@@ -90,7 +90,10 @@ class Recordings(Base):
     ) -> list[tuple[Files, FilesMeta]]:
         """Get all files for this recording."""
         start = self.start_time.timestamp() - lookback
-        end = self.end_time.timestamp() or datetime.datetime.now().timestamp()
+        if self.end_time is None:
+            end = datetime.datetime.now().timestamp()
+        else:
+            end = self.end_time.timestamp()
         with get_session() as session:
             stmt = (
                 select(Files, FilesMeta)
@@ -135,7 +138,7 @@ class Objects(Base):
     y1: Mapped[float] = mapped_column(Float)
     x2: Mapped[float] = mapped_column(Float)
     y2: Mapped[float] = mapped_column(Float)
-    zone: Mapped[str] = mapped_column(String, nullable=True)
+    zone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at = mapped_column(
         DateTime(timezone=False),
         server_default=func.now(),  # pylint: disable=not-callable

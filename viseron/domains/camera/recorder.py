@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Callable, TypedDict
 import cv2
 import numpy as np
 from path import Path
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import desc, func, insert, select, update
 from sqlalchemy.orm import Session
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
@@ -51,12 +51,13 @@ class RecordingDict(TypedDict):
     camera_identifier: str
     start_time: datetime.datetime
     start_timestamp: float
-    end_time: datetime.datetime
-    end_timestamp: float
+    end_time: datetime.datetime | None
+    end_timestamp: float | None
     date: str
-    trigger_type: str
-    trigger_id: int
+    trigger_type: str | None
+    trigger_id: int | None
     thumbnail_path: str
+    hls_url: str
 
 
 @dataclass
@@ -105,46 +106,60 @@ class Recording:
             "objects": self.objects,
         }
 
-    def get_fragments(self, lookback: int, get_session: Callable[[], Session]):
+    def get_fragments(self, lookback: float, get_session: Callable[[], Session]):
         """Return a list of files for this recording.
 
         We must sort on the filename and not created_at as the created_at timestamp is
         not accurate for m4s files that are created from the original mp4 file after
         it has been recorded. The filename is the timestamp of the original mp4 file
         and is therefore accurate.
+
+        Only the latest occurrence of each file is selected using the CTE row_number.
+        This is to accommodate for the case where a file has been copied to a succeeding
+        tier but has not been deleted from the original tier yet.
         """
         if self.end_timestamp is None:
             raise ValueError("Recording has not ended yet")
 
-        start: float = self.start_timestamp - lookback
-        with get_session() as session:
-            stmt = (
-                select(
-                    Files.tier_id,
-                    Files.camera_identifier,
-                    Files.category,
-                    Files.path,
-                    Files.directory,
-                    Files.filename,
-                    Files.size,
-                    Files.created_at,
-                    Files.updated_at,
-                    FilesMeta.meta,
-                )
-                .join(
-                    Recordings, Files.camera_identifier == Recordings.camera_identifier
-                )
-                .join(FilesMeta, Files.path == FilesMeta.path)
-                .where(Recordings.id == self.id)
-                .where(Files.category == "recorder")
-                .where(Files.path.endswith(".m4s"))
-                .where(
-                    func.substr(Files.filename, 1, 10).between(
-                        str(int(start)), str(int(self.end_timestamp))
-                    ),
-                )
-                .order_by(Files.filename.asc())
+        start_timestamp = self.start_timestamp - lookback
+        row_number = (
+            func.row_number()
+            .over(partition_by=Files.filename, order_by=desc(Files.created_at))
+            .label("row_number")
+        )
+        recording_files = (
+            select(
+                Files.tier_id,
+                Files.camera_identifier,
+                Files.category,
+                Files.path,
+                Files.directory,
+                Files.filename,
+                Files.size,
+                Files.created_at,
+                Files.updated_at,
+                FilesMeta.meta,
             )
+            .add_columns(row_number)
+            .join(Recordings, Files.camera_identifier == Recordings.camera_identifier)
+            .join(FilesMeta, Files.path == FilesMeta.path)
+            .where(Recordings.id == self.id)
+            .where(Files.category == "recorder")
+            .where(Files.path.endswith(".m4s"))
+            .where(
+                func.substr(Files.filename, 1, 10).between(
+                    str(int(start_timestamp)), str(int(self.end_timestamp))
+                ),
+            )
+            .order_by(Files.filename.asc())
+            .cte("recording_files")
+        )
+        stmt = (
+            select(recording_files)
+            .where(recording_files.c.row_number == 1)
+            .order_by(recording_files.c.filename.asc())
+        )
+        with get_session() as session:
             fragments = list(session.execute(stmt).fetchall())
         return fragments
 
@@ -484,9 +499,12 @@ def _recording_file_dict(recording: Recordings) -> RecordingDict:
         "start_time": recording.start_time,
         "start_timestamp": recording.start_time.timestamp(),
         "end_time": recording.end_time,
-        "end_timestamp": recording.end_time.timestamp(),
+        "end_timestamp": recording.end_time.timestamp() if recording.end_time else None,
         "date": recording.start_time.date().isoformat(),
         "trigger_type": recording.trigger_type,
         "trigger_id": recording.trigger_id,
-        "thumbnail_path": recording.thumbnail_path,
+        "thumbnail_path": f"/files{recording.thumbnail_path}",
+        "hls_url": (
+            f"/api/v1/hls/{recording.camera_identifier}/{recording.id}/index.m3u8"
+        ),
     }

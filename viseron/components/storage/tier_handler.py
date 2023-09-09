@@ -10,6 +10,7 @@ from threading import Lock, Timer
 from typing import TYPE_CHECKING, Any, Callable
 
 from sqlalchemy import Result, delete, insert, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from watchdog.events import (
     FileCreatedEvent,
@@ -34,7 +35,7 @@ from viseron.components.storage.const import (
     CONFIG_POLL,
     MOVE_FILES_THROTTLE_SECONDS,
 )
-from viseron.components.storage.models import Files
+from viseron.components.storage.models import Files, FilesMeta
 from viseron.components.storage.queries import (
     files_to_move_query,
     recordings_to_move_query,
@@ -44,13 +45,15 @@ from viseron.components.storage.util import (
     calculate_bytes,
     files_to_move_overlap,
 )
+from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import CAMERA_SEGMENT_DURATION, VISERON_SIGNAL_LAST_WRITE
-from viseron.domains.camera.const import CONFIG_RECORDER, CONFIG_RETAIN
+from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER, CONFIG_RETAIN
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.storage import Storage
+    from viseron.components.webserver import Webserver
     from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
@@ -73,6 +76,7 @@ class TierHandler(FileSystemEventHandler):
 
         self._vis = vis
         self._storage: Storage = vis.data[COMPONENT]
+        self._webserver: Webserver = self._vis.data[WEBSERVER_COMPONENT]
         self._camera = camera
         self._tier_id = tier_id
         self._category = category
@@ -121,6 +125,31 @@ class TierHandler(FileSystemEventHandler):
         """Tier configuration."""
         return self._tier
 
+    def add_file_handler(self, path: str, pattern: str):
+        """Add file handler to webserver."""
+        # We have to import this here to avoid circular imports
+        # pylint: disable-next=import-outside-toplevel
+        from viseron.components.webserver.tiered_file_handler import TieredFileHandler
+
+        LOGGER.error(f"Adding handler for /files{pattern}")
+        self._webserver.application.add_handlers(
+            r".*",
+            [
+                (
+                    (rf"/files{pattern}"),
+                    TieredFileHandler,
+                    {
+                        "path": path,
+                        "vis": self._vis,
+                        "camera_identifier": self._camera.identifier,
+                        "failed": False,
+                        "category": self._category,
+                        "subcategory": self._subcategory,
+                    },
+                )
+            ],
+        )
+
     def initialize(self):
         """Tier handler specific initialization."""
         self._max_bytes = calculate_bytes(self._tier[CONFIG_MAX_SIZE])
@@ -158,6 +187,8 @@ class TierHandler(FileSystemEventHandler):
                 for file in file_ids:
                     handle_file(
                         session,
+                        self._storage,
+                        self._camera.identifier,
                         self._tier,
                         self._next_tier,
                         file.path,
@@ -179,6 +210,8 @@ class TierHandler(FileSystemEventHandler):
 
     def on_any_event(self, event: FileSystemEvent) -> None:
         """Handle file system events."""
+        if os.path.basename(event.src_path) in self._storage.ignored_files:
+            return
         self._event_queue.put(event)
 
     def _on_created(self, event: FileCreatedEvent) -> None:
@@ -201,13 +234,13 @@ class TierHandler(FileSystemEventHandler):
 
     def _on_modified(self, event: FileModifiedEvent) -> None:
         """Update database when file is moved."""
-        LOGGER.debug("File modified: %s", event.src_path)
 
         def _update_size() -> None:
             """Update the size of a file in the database.
 
             Runs in a Timer to avoid spamming updates on duplicate events.
             """
+            LOGGER.debug("File modified (delayed event): %s", event.src_path)
             self._pending_updates.pop(event.src_path, None)
             try:
                 size = os.path.getsize(event.src_path)
@@ -245,6 +278,7 @@ class TierHandler(FileSystemEventHandler):
         if self._tier[CONFIG_MOVE_ON_SHUTDOWN]:
             LOGGER.debug("Forcing move of files")
             force_move_files(
+                self._storage,
                 self._storage.get_session,
                 self._category,
                 self._tier_id,
@@ -283,6 +317,12 @@ class RecorderTierHandler(TierHandler):
         self._continuous_min_age = calculate_age(
             self._tier[CONFIG_CONTINUOUS][CONFIG_MIN_AGE]
         )
+        self._continuous_params = [
+            self._continuous_max_bytes,
+            self._continuous_min_age,
+            self._continuous_min_bytes,
+            self._continuous_max_age,
+        ]
 
         self._events_max_bytes = calculate_bytes(
             self._tier[CONFIG_EVENTS][CONFIG_MAX_SIZE]
@@ -310,67 +350,133 @@ class RecorderTierHandler(TierHandler):
             self._events_max_age = calculate_age(
                 self._tier[CONFIG_EVENTS][CONFIG_MAX_AGE]
             )
+        self._events_params = [
+            self._events_max_bytes,
+            self._events_max_age,
+            self._events_min_bytes,
+            self._events_min_age,
+        ]
+
+        thumbnail_path = os.path.join(
+            self._tier[CONFIG_PATH],
+            "thumbnails",
+            self._camera.identifier,
+        )
+
+        self.add_file_handler(self._path, rf"{self._path}/(.*.m4s$)")
+        self.add_file_handler(self._path, rf"{self._path}/(.*.mp4$)")
+        self.add_file_handler(thumbnail_path, rf"{thumbnail_path}/(.*.jpg$)")
 
     def _check_tier(self) -> None:
-        events_file_ids = None
-        continuous_file_ids = None
+        events_enabled = False
+        continuous_enabled = False
+        events_file_ids: Result[Any] | list = []
+        continuous_file_ids: Result[Any] | list = []
         with self._storage.get_session() as session:
-            events_file_ids = get_recordings_to_move(
-                session,
-                self._tier_id,
-                self._camera.identifier,
-                self._events_max_bytes,
-                self._events_min_age,
-                self._events_min_bytes,
-                self._events_max_age,
-            )
-
-            continuous_file_ids = get_files_to_move(
-                session,
-                self._category,
-                self._tier_id,
-                self._camera.identifier,
-                self._continuous_max_bytes,
-                self._continuous_min_age,
-                self._continuous_min_bytes,
-                self._continuous_max_age,
-            )
-
-            overlap = files_to_move_overlap(events_file_ids, continuous_file_ids)
-            for file in overlap:
-                handle_file(
+            if any(self._events_params):
+                events_enabled = True
+                events_file_ids = get_recordings_to_move(
                     session,
-                    self._tier,
-                    self._next_tier,
-                    file.path,
+                    self._tier_id,
+                    self._camera.identifier,
+                    self._camera.config[CONFIG_RECORDER][CONFIG_LOOKBACK],
+                    self._events_max_bytes,
+                    self._events_min_age,
+                    self._events_min_bytes,
+                    self._events_max_age,
                 )
+
+            if any(self._continuous_params):
+                continuous_enabled = True
+                continuous_file_ids = get_files_to_move(
+                    session,
+                    self._category,
+                    self._tier_id,
+                    self._camera.identifier,
+                    self._continuous_max_bytes,
+                    self._continuous_min_age,
+                    self._continuous_min_bytes,
+                    self._continuous_max_age,
+                )
+
+            if events_enabled and not continuous_enabled:
+                for file in events_file_ids:
+                    handle_file(
+                        session,
+                        self._storage,
+                        self._camera.identifier,
+                        self._tier,
+                        self._next_tier,
+                        file.path,
+                    )
+            if continuous_enabled and not events_enabled:
+                for file in continuous_file_ids:
+                    handle_file(
+                        session,
+                        self._storage,
+                        self._camera.identifier,
+                        self._tier,
+                        self._next_tier,
+                        file.path,
+                    )
+            else:
+                overlap = files_to_move_overlap(events_file_ids, continuous_file_ids)
+                for file in overlap:
+                    handle_file(
+                        session,
+                        self._storage,
+                        self._camera.identifier,
+                        self._tier,
+                        self._next_tier,
+                        file.path,
+                    )
 
             session.commit()
 
 
 def handle_file(
     session: Session,
+    storage: Storage,
+    camera_identifier: str,
     curr_tier: dict[str, Any],
     next_tier: dict[str, Any] | None,
     path: str,
 ) -> None:
-    """Move file if there is a preceding tier, else delete the file."""
+    """Move file if there is a succeeding tier, else delete the file."""
+    if path in storage.camera_requested_files_count[camera_identifier].filenames:
+        LOGGER.debug("File %s is recently requested, skipping", path)
+        return
+
     if next_tier is None:
         delete_file(session, path)
     else:
         move_file(
             session,
             path,
-            path.replace(curr_tier[CONFIG_PATH], next_tier[CONFIG_PATH]),
+            path.replace(curr_tier[CONFIG_PATH], next_tier[CONFIG_PATH], 1),
         )
 
 
 def move_file(session: Session, src: str, dst: str) -> None:
-    """Move file from src to dst."""
+    """Move file from src to dst.
+
+    To avoid race conditions where a file is referenced at the same time as it is being
+    moved, causing a 404 in the browser, we copy the file to the new location and then
+    delete the old one.
+    """
     LOGGER.debug("Moving file from %s to %s", src, dst)
+    sel = select(FilesMeta.meta).where(FilesMeta.path == src)
+    res = session.execute(sel).scalar_one()
+    try:
+        ins = insert(FilesMeta).values(path=dst, meta=res)
+        session.execute(ins)
+    except IntegrityError:
+        LOGGER.error(f"Failed to insert metadata for {dst}")
+
     try:
         os.makedirs(os.path.dirname(dst), exist_ok=True)
-        shutil.move(src, dst)
+        shutil.copy(src, dst)
+        os.remove(src)
     except FileNotFoundError as error:
         LOGGER.error(f"Failed to move file {src} to {dst}: {error}")
         stmt = delete(Files).where(Files.path == src)
@@ -402,7 +508,13 @@ def get_files_to_move(
     """Get id of files to move."""
     now = datetime.utcnow()
 
-    min_age_timestamp = (now - min_age).timestamp()
+    # If min_age is not set, we want to ignore files that are less than 5 seconds old
+    # This is to avoid moving files that are still being written to
+    if min_age:
+        min_age_timestamp = (now - min_age).timestamp()
+    else:
+        min_age_timestamp = (now - timedelta(seconds=5)).timestamp()
+
     if max_age:
         max_age_timestamp = (now - max_age).timestamp()
     else:
@@ -425,6 +537,7 @@ def get_recordings_to_move(
     session: Session,
     tier_id: int,
     camera_identifier: str,
+    lookback: int,
     max_bytes: int,
     min_age: timedelta,
     min_bytes: int,
@@ -443,6 +556,7 @@ def get_recordings_to_move(
         CAMERA_SEGMENT_DURATION,
         tier_id,
         camera_identifier,
+        lookback,
         max_bytes,
         min_age_timestamp,
         min_bytes,
@@ -453,6 +567,7 @@ def get_recordings_to_move(
 
 
 def force_move_files(
+    storage: Storage,
     get_session: Callable[..., Session],
     category: str,
     tier_id: int,
@@ -470,5 +585,7 @@ def force_move_files(
         )
         result = session.execute(stmt)
         for file in result:
-            handle_file(session, curr_tier, next_tier, file.path)
+            handle_file(
+                session, storage, camera_identifier, curr_tier, next_tier, file.path
+            )
         session.commit()
