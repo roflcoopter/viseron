@@ -4,6 +4,8 @@ import { styled } from "@mui/material/styles";
 import Cookies from "js-cookie";
 import { Suspense, useContext, useEffect, useState } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
+import CSSTransition from "react-transition-group/CSSTransition";
+import TransitionGroup from "react-transition-group/TransitionGroup";
 
 import { ScrollToTopFab } from "components/ScrollToTop";
 import { Error } from "components/error/Error";
@@ -102,7 +104,15 @@ export default function PrivateLayout() {
           <AppDrawer drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} />
           <Header setDrawerOpen={setDrawerOpen} />
           <Suspense fallback={<Loading text="Loading" />}>
-            <Outlet />
+            <TransitionGroup>
+              <CSSTransition
+                key={location.key}
+                timeout={1000}
+                classNames="page"
+              >
+                <Outlet />
+              </CSSTransition>
+            </TransitionGroup>
           </Suspense>
         </FullHeightContainer>
         <Footer />

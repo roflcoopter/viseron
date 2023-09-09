@@ -1,9 +1,13 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
+import Grow from "@mui/material/Grow";
 import Typography from "@mui/material/Typography";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
+import { ReactComponent as ServerDown } from "svg/undraw/server_down.svg";
+import { ReactComponent as VoidSvg } from "svg/undraw/void.svg";
 
+import { Error } from "components/error/Error";
 import { Loading } from "components/loading/Loading";
 import RecordingCard from "components/recording/RecordingCard";
 import { useTitle } from "hooks/UseTitle";
@@ -30,12 +34,12 @@ const CameraRecordingsDaily = () => {
 
   if (recordingsQuery.isError || cameraQuery.isError) {
     return (
-      <Container>
-        <Typography
-          variant="h5"
-          align="center"
-        >{`Error loading recordings`}</Typography>
-      </Container>
+      <Error
+        text={`Error loading recordings`}
+        image={
+          <ServerDown width={150} height={150} role="img" aria-label="Void" />
+        }
+      />
     );
   }
 
@@ -49,12 +53,12 @@ const CameraRecordingsDaily = () => {
     !objHasValues(recordingsQuery.data[date])
   ) {
     return (
-      <Container>
-        <Typography
-          variant="h5"
-          align="center"
-        >{`No recordings for ${cameraQuery.data.name} - ${date}`}</Typography>
-      </Container>
+      <Error
+        text={`No recordings for ${cameraQuery.data.name} - ${date}`}
+        image={
+          <VoidSvg width={150} height={150} role="img" aria-label="Void" />
+        }
+      />
     );
   }
 
@@ -67,12 +71,14 @@ const CameraRecordingsDaily = () => {
         {Object.keys(recordingsQuery.data[date])
           .reverse()
           .map((recording) => (
-            <Grid item key={recording} xs={12} sm={12} md={6} lg={6} xl={4}>
-              <RecordingCard
-                camera={cameraQuery.data}
-                recording={recordingsQuery.data[date][recording]}
-              />
-            </Grid>
+            <Grow in appear key={recording}>
+              <Grid item key={recording} xs={12} sm={12} md={6} lg={6} xl={4}>
+                <RecordingCard
+                  camera={cameraQuery.data}
+                  recording={recordingsQuery.data[date][recording]}
+                />
+              </Grid>
+            </Grow>
           ))}
       </Grid>
     </Container>

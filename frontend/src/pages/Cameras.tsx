@@ -1,5 +1,6 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
+import Grow from "@mui/material/Grow";
 import Typography from "@mui/material/Typography";
 
 import CameraCard from "components/camera/CameraCard";
@@ -37,36 +38,40 @@ const Cameras = () => {
           ? Object.keys(failedCameras.data)
               .sort()
               .map((camera_identifier) => (
-                <Grid
-                  item
-                  xs={12}
-                  sm={12}
-                  md={6}
-                  lg={6}
-                  xl={4}
-                  key={camera_identifier}
-                >
-                  <FailedCameraCard
-                    failedCamera={failedCameras.data[camera_identifier]}
-                  />
-                </Grid>
+                <Grow in appear key={camera_identifier}>
+                  <Grid
+                    item
+                    xs={12}
+                    sm={12}
+                    md={6}
+                    lg={6}
+                    xl={4}
+                    key={camera_identifier}
+                  >
+                    <FailedCameraCard
+                      failedCamera={failedCameras.data[camera_identifier]}
+                    />
+                  </Grid>
+                </Grow>
               ))
           : null}
         {cameras.data
           ? Object.keys(cameras.data)
               .sort()
               .map((camera_identifier) => (
-                <Grid
-                  item
-                  xs={12}
-                  sm={12}
-                  md={6}
-                  lg={6}
-                  xl={4}
-                  key={camera_identifier}
-                >
-                  <CameraCard camera_identifier={camera_identifier} />
-                </Grid>
+                <Grow in appear key={camera_identifier}>
+                  <Grid
+                    item
+                    xs={12}
+                    sm={12}
+                    md={6}
+                    lg={6}
+                    xl={4}
+                    key={camera_identifier}
+                  >
+                    <CameraCard camera_identifier={camera_identifier} />
+                  </Grid>
+                </Grow>
               ))
           : null}
       </Grid>

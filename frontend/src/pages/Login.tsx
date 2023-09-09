@@ -5,8 +5,8 @@ import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useContext, useEffect, useReducer, useRef } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { ReactComponent as ViseronLogo } from "viseron-logo.svg";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ReactComponent as ViseronLogo } from "svg/viseron-logo.svg";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
 import { AuthContext } from "context/AuthContext";
@@ -72,11 +72,11 @@ const Login = () => {
   }, []);
 
   if (auth.enabled && !auth.onboarding_complete) {
-    return <Navigate to="/onboarding" />;
+    navigate("/onboarding");
   }
 
   if (!auth.enabled) {
-    return <Navigate to="/" />;
+    navigate("/");
   }
 
   return (

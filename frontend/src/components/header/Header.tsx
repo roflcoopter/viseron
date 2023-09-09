@@ -13,6 +13,7 @@ import { alpha, styled, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useContext, useRef, useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { ReactComponent as ViseronLogo } from "svg/viseron-logo.svg";
 
 import { AuthContext } from "context/AuthContext";
 import { ColorModeContext } from "context/ColorModeContext";
@@ -20,7 +21,6 @@ import { useScrollPosition } from "hooks/UseScrollPosition";
 import { useToast } from "hooks/UseToast";
 import { useAuthLogout } from "lib/api/auth";
 
-import { ReactComponent as ViseronLogo } from "../../viseron-logo.svg";
 import Breadcrumbs from "./Breadcrumbs";
 
 interface AppHeaderProps {

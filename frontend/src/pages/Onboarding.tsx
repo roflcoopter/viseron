@@ -6,7 +6,7 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useContext, useReducer } from "react";
 import { Navigate } from "react-router-dom";
-import { ReactComponent as ViseronLogo } from "viseron-logo.svg";
+import { ReactComponent as ViseronLogo } from "svg/viseron-logo.svg";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
 import { AuthContext } from "context/AuthContext";
