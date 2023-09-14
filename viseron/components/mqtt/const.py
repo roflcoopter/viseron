@@ -1,4 +1,5 @@
 """mqtt component constants."""
+from typing import Final
 
 COMPONENT = "mqtt"
 DESC_COMPONENT = "MQTT configuration."
@@ -45,10 +46,10 @@ CONFIG_HOME_ASSISTANT = "home_assistant"
 CONFIG_LAST_WILL_TOPIC = "last_will_topic"
 
 DEFAULT_PORT = 1883
-DEFAULT_USERNAME = None
-DEFAULT_PASSWORD = None
+DEFAULT_USERNAME: Final = None
+DEFAULT_PASSWORD: Final = None
 DEFAULT_CLIENT_ID = "viseron"
-DEFAULT_LAST_WILL_TOPIC = None
+DEFAULT_LAST_WILL_TOPIC: Final = None
 
 DESC_BROKER = "IP address or hostname of MQTT broker."
 DESC_PORT = "Port the broker is listening on."

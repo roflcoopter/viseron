@@ -21,7 +21,7 @@ class OperationStateSensor(CameraSensor):
         self,
         vis: Viseron,
         nvr: NVR,
-    ):
+    ) -> None:
         super().__init__(vis, nvr.camera)
         self.nvr = nvr
 
@@ -29,14 +29,14 @@ class OperationStateSensor(CameraSensor):
         self.object_id = f"{nvr.camera.identifier}_operation_state"
         self.name = f"{nvr.camera.name} Operation State"
 
-    def setup(self):
+    def setup(self) -> None:
         """Set up event listener."""
         self._vis.listen_event(
             EVENT_OPERATION_STATE.format(camera_identifier=self.nvr.camera.identifier),
             self.handle_event,
         )
 
-    def handle_event(self, event_data: Event[EventOperationState]):
+    def handle_event(self, event_data: Event[EventOperationState]) -> None:
         """Update sensor state."""
         self._state = event_data.data.operation_state
         self.set_state()

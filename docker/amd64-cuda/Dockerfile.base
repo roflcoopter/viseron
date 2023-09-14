@@ -44,14 +44,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   # OpenCL
   mkdir /opencl &&\
   cd /opencl && \
-  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-gmmlib_${GMMLIB_VERSION}_amd64.deb --progress=bar:force:noscroll && \
   wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-${IGC_VERSION}/intel-igc-core_${IGC_VERSION}_amd64.deb --progress=bar:force:noscroll && \
   wget https://github.com/intel/intel-graphics-compiler/releases/download/igc-${IGC_VERSION}/intel-igc-opencl_${IGC_VERSION}_amd64.deb --progress=bar:force:noscroll && \
-  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-opencl_${OPENCL_VERSION}_amd64.deb --progress=bar:force:noscroll && \
-  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-ocloc_${OPENCL_VERSION}_amd64.deb --progress=bar:force:noscroll && \
   wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-level-zero-gpu_${LEVEL_ZERO_GPU}_amd64.deb --progress=bar:force:noscroll && \
-  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/ww15.sum && \
-  sha256sum -c ww15.sum && \
+  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-opencl-icd_${OPENCL_VERSION}_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/libigdgmm12_${GMMLIB_VERSION}_amd64.deb --progress=bar:force:noscroll && \
+  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/ww09.sum --progress=bar:force:noscroll && \
+  sha256sum --ignore-missing -c ww09.sum && \
   dpkg -i *.deb && \
   rm -R /opencl && \
   # Add NVIDIA to OpenCL runtime

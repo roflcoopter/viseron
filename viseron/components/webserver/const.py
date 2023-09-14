@@ -1,11 +1,14 @@
 """Webserver constants."""
 
-
 from datetime import timedelta
+from typing import Final
 
 COMPONENT = "webserver"
 
-PATH_STATIC = "/src/viseron/frontend/static"
+PATH_INDEX: Final = "/src/viseron/frontend/index.html"
+PATH_404: Final = "/src/viseron/frontend/404.html"
+PATH_STATIC: Final = "/src/viseron/frontend/static"
+PATH_ASSETS: Final = "/src/viseron/frontend/assets"
 
 WEBSERVER_STORAGE_KEY = "webserver"
 AUTH_STORAGE_KEY = "auth"
@@ -17,7 +20,7 @@ ACCESS_TOKEN_EXPIRATION = timedelta(minutes=30)
 CONFIG_PORT = "port"
 CONFIG_DEBUG = "debug"
 
-DEFAULT_COMPONENT = None
+DEFAULT_COMPONENT: Final = None
 DEFAULT_PORT = 8888
 DEFAULT_DEBUG = False
 
@@ -36,7 +39,7 @@ CONFIG_DAYS = "days"
 CONFIG_HOURS = "hours"
 CONFIG_MINUTES = "minutes"
 
-DEFAULT_SESSION_EXPIRY = None
+DEFAULT_SESSION_EXPIRY: Final = None
 
 DESC_AUTH = "Authentication configuration."
 DESC_SESSION_EXPIRY = (

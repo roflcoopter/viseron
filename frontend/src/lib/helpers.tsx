@@ -5,11 +5,10 @@ import * as types from "lib/types";
 
 const VideoPlayer = lazy(() => import("components/videoplayer/VideoPlayer"));
 
-// No idea how to type this...
-export function sortObj(obj: any) {
+export function sortObj(obj: Record<string, unknown>): Record<string, unknown> {
   return Object.keys(obj)
     .sort()
-    .reduce((result: any, key: any) => {
+    .reduce((result: Record<string, unknown>, key: string) => {
       result[key] = obj[key];
       return result;
     }, {});
@@ -33,7 +32,7 @@ export function getRecordingVideoJSOptions(recording: types.Recording) {
     controls: true,
     loop: true,
     poster: `${recording.thumbnail_path}`,
-    preload: "none",
+    preload: undefined,
     responsive: true,
     fluid: true,
     playbackRates: [0.5, 1, 2, 5, 10],
@@ -57,7 +56,7 @@ export function getVideoElement(
   const videoJsOptions = getRecordingVideoJSOptions(recording);
   return (
     <Suspense fallback={<VideoPlayerPlaceholder camera={camera} />}>
-      <VideoPlayer recording={recording} options={videoJsOptions} />
+      <VideoPlayer options={videoJsOptions} />
     </Suspense>
   );
 }

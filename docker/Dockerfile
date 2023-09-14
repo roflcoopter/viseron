@@ -14,10 +14,7 @@ COPY frontend/package.json ./
 COPY frontend/package-lock.json ./
 COPY frontend/ ./
 
-RUN npm ci \
-  && npm run build \
-  # Move index.html into the static folder
-  && mv /frontend/build/index.html /frontend/build/static/
+RUN npm ci && npm run build
 
 FROM roflcoopter/${ARCH}-base:${BASE_VERSION}
 
@@ -69,6 +66,7 @@ RUN \
   gstreamer1.0-vaapi \
   gstreamer1.0-gl \
   gstreamer1.0-pulseaudio \
+  python3-gst-1.0 \
   && rm -rf /var/lib/apt/lists/* \
   \
   && python3 -m pip install --upgrade pip \
@@ -101,5 +99,5 @@ COPY docker/ffmpeg_wrapper /home/abc/bin/ffmpeg
 COPY --from=opencv /opt/opencv /usr/local/
 COPY --from=ffmpeg /usr/local /ffmpeg/
 COPY rootfs/ /
-COPY --from=frontend /frontend/build/static /src/viseron/frontend/static
+COPY --from=frontend /frontend/dist /src/viseron/frontend/
 COPY viseron /src/viseron/

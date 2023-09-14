@@ -1,6 +1,6 @@
 """FFmpeg constants."""
 import logging
-from typing import List
+from typing import Final, List
 
 COMPONENT = "ffmpeg"
 
@@ -94,11 +94,11 @@ CONFIG_PIX_FMT = "pix_fmt"
 CONFIG_FRAME_TIMEOUT = "frame_timeout"
 
 DEFAULT_STREAM_FORMAT = "rtsp"
-DEFAULT_PROTOCOL = None
-DEFAULT_WIDTH = None
-DEFAULT_HEIGHT = None
-DEFAULT_FPS = None
-DEFAULT_INPUT_ARGS = None
+DEFAULT_PROTOCOL: Final = None
+DEFAULT_WIDTH: Final = None
+DEFAULT_HEIGHT: Final = None
+DEFAULT_FPS: Final = None
+DEFAULT_INPUT_ARGS: Final = None
 DEFAULT_HWACCEL_ARGS: List["str"] = []
 DEFAULT_CODEC = "unset"
 DEFAULT_AUDIO_CODEC = "unset"
@@ -206,11 +206,12 @@ CONFIG_FFMPEG_LOGLEVEL = "ffmpeg_loglevel"
 CONFIG_FFMPEG_RECOVERABLE_ERRORS = "ffmpeg_recoverable_errors"
 CONFIG_FFPROBE_LOGLEVEL = "ffprobe_loglevel"
 CONFIG_RECORDER = "recorder"
+CONFIG_RAW_COMMAND = "raw_command"
 
-DEFAULT_USERNAME = None
-DEFAULT_PASSWORD = None
+DEFAULT_USERNAME: Final = None
+DEFAULT_PASSWORD: Final = None
 DEFAULT_GLOBAL_ARGS = ["-hide_banner"]
-DEFAULT_SUBSTREAM = None
+DEFAULT_SUBSTREAM: Final = None
 DEFAULT_FFMPEG_LOGLEVEL = "error"
 DEFAULT_FFMPEG_RECOVERABLE_ERRORS = [
     "error while decoding MB",
@@ -221,6 +222,7 @@ DEFAULT_FFMPEG_RECOVERABLE_ERRORS = [
     "decode_slice_header error",
 ]
 DEFAULT_FFPROBE_LOGLEVEL = "error"
+DEFAULT_RAW_COMMAND: Final = None
 
 DESC_CAMERA = "Camera domain config."
 DESC_HOST = "IP or hostname of camera."
@@ -246,3 +248,9 @@ DESC_FFPROBE_LOGLEVEL = (
     "Sets the loglevel for FFprobe.<br> Should only be used in debugging purposes."
 )
 DESC_RECORDER = "Recorder config."
+DESC_RAW_COMMAND = (
+    "A raw FFmpeg command to use instead of the generated one. "
+    "This is useful if you want to use sources that Viseron does not support. "
+    "This is an advanced option and should only be used if you know what you are doing."
+    "<br>See <a href=#raw-command>Raw command</a> for more information."
+)

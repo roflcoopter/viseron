@@ -1,465 +1,467 @@
 [
-    {
+  {
+    "type": "map",
+    "value": [
+      {
         "type": "map",
         "value": [
-            {
+          {
+            "type": "map",
+            "value": [
+              {
                 "type": "map",
                 "value": [
-                    {
-                        "type": "map",
-                        "value": [
-                            {
-                                "type": "map",
-                                "value": [
-                                    {
-                                        "type": "float",
-                                        "valueMin": 0.0,
-                                        "name": "fps",
-                                        "description": "The FPS at which the object detector runs.<br>Higher values will result in more scanning, which uses more resources.",
-                                        "optional": true,
-                                        "default": 1
-                                    },
-                                    {
-                                        "type": "boolean",
-                                        "name": "scan_on_motion_only",
-                                        "description": "When set to <code>true</code> and a <code>motion_detector</code> is configured, the object detector will only scan while motion is detected.",
-                                        "optional": true,
-                                        "default": true
-                                    },
-                                    {
-                                        "type": "list",
-                                        "values": [
-                                            [
-                                                {
-                                                    "type": "string",
-                                                    "name": "label",
-                                                    "description": "The label to track.",
-                                                    "required": true,
-                                                    "default": null
-                                                },
-                                                {
-                                                    "type": "float",
-                                                    "valueMin": 0.0,
-                                                    "valueMax": 1.0,
-                                                    "name": "confidence",
-                                                    "description": "Lowest confidence allowed for detected objects. The lower the value, the more sensitive the detector will be, and the risk of false positives will increase.",
-                                                    "optional": true,
-                                                    "default": 0.8
-                                                },
-                                                {
-                                                    "type": "float",
-                                                    "valueMin": 0.0,
-                                                    "valueMax": 1.0,
-                                                    "name": "height_min",
-                                                    "description": "Minimum height allowed for detected objects, relative to stream height.",
-                                                    "optional": true,
-                                                    "default": 0
-                                                },
-                                                {
-                                                    "type": "float",
-                                                    "valueMin": 0.0,
-                                                    "valueMax": 1.0,
-                                                    "name": "height_max",
-                                                    "description": "Maximum height allowed for detected objects, relative to stream height.",
-                                                    "optional": true,
-                                                    "default": 1
-                                                },
-                                                {
-                                                    "type": "float",
-                                                    "valueMin": 0.0,
-                                                    "valueMax": 1.0,
-                                                    "name": "width_min",
-                                                    "description": "Minimum width allowed for detected objects, relative to stream width.",
-                                                    "optional": true,
-                                                    "default": 0
-                                                },
-                                                {
-                                                    "type": "float",
-                                                    "valueMin": 0.0,
-                                                    "valueMax": 1.0,
-                                                    "name": "width_max",
-                                                    "description": "Maximum width allowed for detected objects, relative to stream width.",
-                                                    "optional": true,
-                                                    "default": 1
-                                                },
-                                                {
-                                                    "type": "boolean",
-                                                    "name": "trigger_recorder",
-                                                    "description": "If set to <code>true</code>, objects matching this filter will start the recorder.",
-                                                    "optional": true,
-                                                    "default": true
-                                                },
-                                                {
-                                                    "type": "boolean",
-                                                    "name": "require_motion",
-                                                    "description": "If set to <code>true</code>, the recorder will stop as soon as motion is no longer detected, even if the object still is. This is useful to avoid never ending recordings of stationary objects, such as a car on a driveway",
-                                                    "optional": true,
-                                                    "default": false
-                                                }
-                                            ]
-                                        ],
-                                        "name": "labels",
-                                        "description": "A list of labels (objects) to track.",
-                                        "optional": true,
-                                        "default": []
-                                    },
-                                    {
-                                        "type": "float",
-                                        "valueMin": 0.0,
-                                        "name": "max_frame_age",
-                                        "description": "Drop frames that are older than the given number. Specified in seconds.",
-                                        "optional": true,
-                                        "default": 2
-                                    },
-                                    {
-                                        "type": "boolean",
-                                        "name": "log_all_objects",
-                                        "description": "When set to true and loglevel is <code>DEBUG</code>, <b>all</b> found objects will be logged, including the ones not tracked by <code>labels</code>.",
-                                        "optional": true,
-                                        "default": false
-                                    },
-                                    {
-                                        "type": "list",
-                                        "values": [
-                                            [
-                                                {
-                                                    "type": "list",
-                                                    "values": [
-                                                        [
-                                                            {
-                                                                "type": "integer",
-                                                                "name": "x",
-                                                                "description": "X-coordinate (horizontal axis).",
-                                                                "required": true,
-                                                                "default": null
-                                                            },
-                                                            {
-                                                                "type": "integer",
-                                                                "name": "y",
-                                                                "description": "Y-coordinate (vertical axis).",
-                                                                "required": true,
-                                                                "default": null
-                                                            }
-                                                        ]
-                                                    ],
-                                                    "name": "coordinates",
-                                                    "description": "List of X and Y coordinates to form a polygon",
-                                                    "required": true,
-                                                    "default": null
-                                                }
-                                            ]
-                                        ],
-                                        "name": "mask",
-                                        "description": "A mask is used to exclude certain areas in the image from object detection. ",
-                                        "optional": true,
-                                        "default": []
-                                    },
-                                    {
-                                        "type": "list",
-                                        "values": [
-                                            [
-                                                {
-                                                    "type": "string",
-                                                    "name": "name",
-                                                    "description": "Name of the zone. Has to be unique per camera.",
-                                                    "required": true,
-                                                    "default": null
-                                                },
-                                                {
-                                                    "type": "list",
-                                                    "values": [
-                                                        [
-                                                            {
-                                                                "type": "integer",
-                                                                "name": "x",
-                                                                "description": "X-coordinate (horizontal axis).",
-                                                                "required": true,
-                                                                "default": null
-                                                            },
-                                                            {
-                                                                "type": "integer",
-                                                                "name": "y",
-                                                                "description": "Y-coordinate (vertical axis).",
-                                                                "required": true,
-                                                                "default": null
-                                                            }
-                                                        ]
-                                                    ],
-                                                    "name": "coordinates",
-                                                    "description": "List of X and Y coordinates to form a polygon",
-                                                    "required": true,
-                                                    "default": null
-                                                },
-                                                {
-                                                    "type": "list",
-                                                    "values": [
-                                                        [
-                                                            {
-                                                                "type": "string",
-                                                                "name": "label",
-                                                                "description": "The label to track.",
-                                                                "required": true,
-                                                                "default": null
-                                                            },
-                                                            {
-                                                                "type": "float",
-                                                                "valueMin": 0.0,
-                                                                "valueMax": 1.0,
-                                                                "name": "confidence",
-                                                                "description": "Lowest confidence allowed for detected objects. The lower the value, the more sensitive the detector will be, and the risk of false positives will increase.",
-                                                                "optional": true,
-                                                                "default": 0.8
-                                                            },
-                                                            {
-                                                                "type": "float",
-                                                                "valueMin": 0.0,
-                                                                "valueMax": 1.0,
-                                                                "name": "height_min",
-                                                                "description": "Minimum height allowed for detected objects, relative to stream height.",
-                                                                "optional": true,
-                                                                "default": 0
-                                                            },
-                                                            {
-                                                                "type": "float",
-                                                                "valueMin": 0.0,
-                                                                "valueMax": 1.0,
-                                                                "name": "height_max",
-                                                                "description": "Maximum height allowed for detected objects, relative to stream height.",
-                                                                "optional": true,
-                                                                "default": 1
-                                                            },
-                                                            {
-                                                                "type": "float",
-                                                                "valueMin": 0.0,
-                                                                "valueMax": 1.0,
-                                                                "name": "width_min",
-                                                                "description": "Minimum width allowed for detected objects, relative to stream width.",
-                                                                "optional": true,
-                                                                "default": 0
-                                                            },
-                                                            {
-                                                                "type": "float",
-                                                                "valueMin": 0.0,
-                                                                "valueMax": 1.0,
-                                                                "name": "width_max",
-                                                                "description": "Maximum width allowed for detected objects, relative to stream width.",
-                                                                "optional": true,
-                                                                "default": 1
-                                                            },
-                                                            {
-                                                                "type": "boolean",
-                                                                "name": "trigger_recorder",
-                                                                "description": "If set to <code>true</code>, objects matching this filter will start the recorder.",
-                                                                "optional": true,
-                                                                "default": true
-                                                            },
-                                                            {
-                                                                "type": "boolean",
-                                                                "name": "require_motion",
-                                                                "description": "If set to <code>true</code>, the recorder will stop as soon as motion is no longer detected, even if the object still is. This is useful to avoid never ending recordings of stationary objects, such as a car on a driveway",
-                                                                "optional": true,
-                                                                "default": false
-                                                            }
-                                                        ]
-                                                    ],
-                                                    "name": "labels",
-                                                    "description": "A list of labels (objects) to track.",
-                                                    "optional": true,
-                                                    "default": []
-                                                }
-                                            ]
-                                        ],
-                                        "name": "zones",
-                                        "description": "Zones are used to define areas in the cameras field of view where you want to look for certain objects (labels).",
-                                        "optional": true,
-                                        "default": []
-                                    }
-                                ],
-                                "name": {
-                                    "type": "CAMERA_IDENTIFIER"
-                                },
-                                "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
-                                "cameraidentifier": true,
+                  {
+                    "type": "float",
+                    "valueMin": 0.0,
+                    "name": "fps",
+                    "description": "The FPS at which the object detector runs.<br>Higher values will result in more scanning, which uses more resources.",
+                    "optional": true,
+                    "default": 1
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "scan_on_motion_only",
+                    "description": "When set to <code>true</code> and a <code>motion_detector</code> is configured, the object detector will only scan while motion is detected.",
+                    "optional": true,
+                    "default": true
+                  },
+                  {
+                    "type": "list",
+                    "values": [
+                      [
+                        {
+                          "type": "string",
+                          "name": "label",
+                          "description": "The label to track.",
+                          "required": true,
+                          "default": null
+                        },
+                        {
+                          "type": "float",
+                          "valueMin": 0.0,
+                          "valueMax": 1.0,
+                          "name": "confidence",
+                          "description": "Lowest confidence allowed for detected objects. The lower the value, the more sensitive the detector will be, and the risk of false positives will increase.",
+                          "optional": true,
+                          "default": 0.8
+                        },
+                        {
+                          "type": "float",
+                          "valueMin": 0.0,
+                          "valueMax": 1.0,
+                          "name": "height_min",
+                          "description": "Minimum height allowed for detected objects, relative to stream height.",
+                          "optional": true,
+                          "default": 0
+                        },
+                        {
+                          "type": "float",
+                          "valueMin": 0.0,
+                          "valueMax": 1.0,
+                          "name": "height_max",
+                          "description": "Maximum height allowed for detected objects, relative to stream height.",
+                          "optional": true,
+                          "default": 1
+                        },
+                        {
+                          "type": "float",
+                          "valueMin": 0.0,
+                          "valueMax": 1.0,
+                          "name": "width_min",
+                          "description": "Minimum width allowed for detected objects, relative to stream width.",
+                          "optional": true,
+                          "default": 0
+                        },
+                        {
+                          "type": "float",
+                          "valueMin": 0.0,
+                          "valueMax": 1.0,
+                          "name": "width_max",
+                          "description": "Maximum width allowed for detected objects, relative to stream width.",
+                          "optional": true,
+                          "default": 1
+                        },
+                        {
+                          "type": "boolean",
+                          "name": "trigger_recorder",
+                          "description": "If set to <code>true</code>, objects matching this filter will start the recorder.",
+                          "optional": true,
+                          "default": true
+                        },
+                        {
+                          "type": "boolean",
+                          "name": "require_motion",
+                          "description": "If set to <code>true</code>, the recorder will stop as soon as motion is no longer detected, even if the object still is. This is useful to avoid never ending recordings of stationary objects, such as a car on a driveway",
+                          "optional": true,
+                          "default": false
+                        }
+                      ]
+                    ],
+                    "name": "labels",
+                    "description": "A list of labels (objects) to track.",
+                    "optional": true,
+                    "default": []
+                  },
+                  {
+                    "type": "float",
+                    "valueMin": 0.0,
+                    "name": "max_frame_age",
+                    "description": "Drop frames that are older than the given number. Specified in seconds.",
+                    "optional": true,
+                    "default": 2
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "log_all_objects",
+                    "description": "When set to true and loglevel is <code>DEBUG</code>, <b>all</b> found objects will be logged, including the ones not tracked by <code>labels</code>.",
+                    "optional": true,
+                    "default": false
+                  },
+                  {
+                    "type": "list",
+                    "values": [
+                      [
+                        {
+                          "type": "list",
+                          "values": [
+                            [
+                              {
+                                "type": "integer",
+                                "name": "x",
+                                "description": "X-coordinate (horizontal axis).",
+                                "required": true,
                                 "default": null
-                            }
-                        ],
-                        "name": "cameras",
-                        "description": "Camera-specific configuration. All subordinate keys corresponds to the <code>camera_identifier</code> of a configured camera.",
-                        "required": true,
-                        "default": null
-                    },
-                    {
-                        "type": "string",
-                        "name": "model_path",
-                        "description": "Path to model.",
-                        "optional": true,
-                        "default": null
-                    },
-                    {
-                        "type": "select",
-                        "options": [
-                            {
-                                "value": "<N>",
-                                "description": "Use N-th Edge TPU"
-                            },
-                            {
-                                "value": "usb",
-                                "description": "Use any USB Edge TPU"
-                            },
-                            {
-                                "value": "usb:<N>",
-                                "description": "Use N-th USB Edge TPU"
-                            },
-                            {
-                                "value": "pci",
-                                "description": "Use any PCIe Edge TPU"
-                            },
-                            {
-                                "value": "pci:<N>",
-                                "description": "Use N-th PCIe Edge TPU"
-                            },
-                            {
-                                "value": "cpu",
-                                "description": "Run on the CPU"
-                            }
-                        ],
-                        "name": "device",
-                        "description": "Which EdgeTPU to use. Change this if you have multiple devices and want to use a specific one.",
-                        "optional": true,
-                        "default": null
-                    },
-                    {
-                        "type": "string",
-                        "name": "label_path",
-                        "description": "Path to the file containing labels for the model.",
-                        "optional": true,
-                        "default": "/detectors/models/edgetpu/labels.txt"
-                    }
-                ],
-                "name": "object_detector",
-                "description": "Object detector domain config.",
-                "optional": true,
-                "default": null
-            },
-            {
-                "type": "map",
-                "value": [
-                    {
-                        "type": "map",
-                        "value": [
-                            {
-                                "type": "map",
-                                "value": [
-                                    {
-                                        "type": "list",
-                                        "values": [
-                                            {
-                                                "type": "string"
-                                            }
-                                        ],
-                                        "name": "labels",
-                                        "description": "A list of labels that when detected will be sent to the post processor. Applies <b>only</b> to this specific camera.",
-                                        "optional": true,
-                                        "default": null
-                                    }
-                                ],
-                                "name": {
-                                    "type": "CAMERA_IDENTIFIER"
-                                },
-                                "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
-                                "cameraidentifier": true,
+                              },
+                              {
+                                "type": "integer",
+                                "name": "y",
+                                "description": "Y-coordinate (vertical axis).",
+                                "required": true,
                                 "default": null
-                            }
-                        ],
-                        "name": "cameras",
-                        "description": "Camera-specific configuration. All subordinate keys corresponds to the <code>camera_identifier</code> of a configured camera.",
-                        "required": true,
-                        "default": null
-                    },
-                    {
-                        "type": "list",
-                        "values": [
-                            {
-                                "type": "string"
-                            }
-                        ],
-                        "name": "labels",
-                        "description": "A list of labels that when detected will be sent to the post processor. Applies to <b>all</b> cameras defined under <code>cameras</code>.",
-                        "optional": true,
-                        "default": null
-                    },
-                    {
-                        "type": "float",
-                        "valueMin": 0.0,
-                        "name": "expire_after",
-                        "description": "Time in seconds before a classification expires.",
-                        "optional": true,
-                        "default": 5
-                    },
-                    {
-                        "type": "string",
-                        "name": "model_path",
-                        "description": "Path to model.",
-                        "optional": true,
-                        "default": null
-                    },
-                    {
-                        "type": "select",
-                        "options": [
-                            {
-                                "value": "<N>",
-                                "description": "Use N-th Edge TPU"
-                            },
-                            {
-                                "value": "usb",
-                                "description": "Use any USB Edge TPU"
-                            },
-                            {
-                                "value": "usb:<N>",
-                                "description": "Use N-th USB Edge TPU"
-                            },
-                            {
-                                "value": "pci",
-                                "description": "Use any PCIe Edge TPU"
-                            },
-                            {
-                                "value": "pci:<N>",
-                                "description": "Use N-th PCIe Edge TPU"
-                            },
-                            {
-                                "value": "cpu",
-                                "description": "Run on the CPU"
-                            }
-                        ],
-                        "name": "device",
-                        "description": "Which EdgeTPU to use. Change this if you have multiple devices and want to use a specific one.",
-                        "optional": true,
-                        "default": null
-                    },
-                    {
-                        "type": "string",
-                        "name": "label_path",
-                        "description": "Path to the file containing labels for the model.",
-                        "optional": true,
-                        "default": "/classifiers/models/edgetpu/labels.txt"
-                    },
-                    {
-                        "type": "integer",
-                        "name": "crop_correction",
-                        "description": "Pad with this many pixels around the detected object.</br>The image sent to the classifier is cropped to the bounding box of the detected object. Without crop correction the accuracy of the classifier is reduced since most models are trained on images where the subject is centered in the image with some background around it.",
-                        "optional": true,
-                        "default": 150
-                    }
+                              }
+                            ]
+                          ],
+                          "lengthMin": 3,
+                          "name": "coordinates",
+                          "description": "List of X and Y coordinates to form a polygon",
+                          "required": true,
+                          "default": null
+                        }
+                      ]
+                    ],
+                    "name": "mask",
+                    "description": "A mask is used to exclude certain areas in the image from object detection. ",
+                    "optional": true,
+                    "default": []
+                  },
+                  {
+                    "type": "list",
+                    "values": [
+                      [
+                        {
+                          "type": "string",
+                          "name": "name",
+                          "description": "Name of the zone. Has to be unique per camera.",
+                          "required": true,
+                          "default": null
+                        },
+                        {
+                          "type": "list",
+                          "values": [
+                            [
+                              {
+                                "type": "integer",
+                                "name": "x",
+                                "description": "X-coordinate (horizontal axis).",
+                                "required": true,
+                                "default": null
+                              },
+                              {
+                                "type": "integer",
+                                "name": "y",
+                                "description": "Y-coordinate (vertical axis).",
+                                "required": true,
+                                "default": null
+                              }
+                            ]
+                          ],
+                          "lengthMin": 3,
+                          "name": "coordinates",
+                          "description": "List of X and Y coordinates to form a polygon",
+                          "required": true,
+                          "default": null
+                        },
+                        {
+                          "type": "list",
+                          "values": [
+                            [
+                              {
+                                "type": "string",
+                                "name": "label",
+                                "description": "The label to track.",
+                                "required": true,
+                                "default": null
+                              },
+                              {
+                                "type": "float",
+                                "valueMin": 0.0,
+                                "valueMax": 1.0,
+                                "name": "confidence",
+                                "description": "Lowest confidence allowed for detected objects. The lower the value, the more sensitive the detector will be, and the risk of false positives will increase.",
+                                "optional": true,
+                                "default": 0.8
+                              },
+                              {
+                                "type": "float",
+                                "valueMin": 0.0,
+                                "valueMax": 1.0,
+                                "name": "height_min",
+                                "description": "Minimum height allowed for detected objects, relative to stream height.",
+                                "optional": true,
+                                "default": 0
+                              },
+                              {
+                                "type": "float",
+                                "valueMin": 0.0,
+                                "valueMax": 1.0,
+                                "name": "height_max",
+                                "description": "Maximum height allowed for detected objects, relative to stream height.",
+                                "optional": true,
+                                "default": 1
+                              },
+                              {
+                                "type": "float",
+                                "valueMin": 0.0,
+                                "valueMax": 1.0,
+                                "name": "width_min",
+                                "description": "Minimum width allowed for detected objects, relative to stream width.",
+                                "optional": true,
+                                "default": 0
+                              },
+                              {
+                                "type": "float",
+                                "valueMin": 0.0,
+                                "valueMax": 1.0,
+                                "name": "width_max",
+                                "description": "Maximum width allowed for detected objects, relative to stream width.",
+                                "optional": true,
+                                "default": 1
+                              },
+                              {
+                                "type": "boolean",
+                                "name": "trigger_recorder",
+                                "description": "If set to <code>true</code>, objects matching this filter will start the recorder.",
+                                "optional": true,
+                                "default": true
+                              },
+                              {
+                                "type": "boolean",
+                                "name": "require_motion",
+                                "description": "If set to <code>true</code>, the recorder will stop as soon as motion is no longer detected, even if the object still is. This is useful to avoid never ending recordings of stationary objects, such as a car on a driveway",
+                                "optional": true,
+                                "default": false
+                              }
+                            ]
+                          ],
+                          "name": "labels",
+                          "description": "A list of labels (objects) to track.",
+                          "optional": true,
+                          "default": []
+                        }
+                      ]
+                    ],
+                    "name": "zones",
+                    "description": "Zones are used to define areas in the cameras field of view where you want to look for certain objects (labels).",
+                    "optional": true,
+                    "default": []
+                  }
                 ],
-                "name": "image_classification",
-                "description": "Image classification domain config.",
-                "optional": true,
+                "name": {
+                  "type": "CAMERA_IDENTIFIER"
+                },
+                "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+                "cameraidentifier": true,
                 "default": null
-            }
+              }
+            ],
+            "name": "cameras",
+            "description": "Camera-specific configuration. All subordinate keys corresponds to the <code>camera_identifier</code> of a configured camera.",
+            "required": true,
+            "default": null
+          },
+          {
+            "type": "string",
+            "name": "model_path",
+            "description": "Path to model.",
+            "optional": true,
+            "default": null
+          },
+          {
+            "type": "select",
+            "options": [
+              {
+                "value": "<N>",
+                "description": "Use N-th Edge TPU"
+              },
+              {
+                "value": "usb",
+                "description": "Use any USB Edge TPU"
+              },
+              {
+                "value": "usb:<N>",
+                "description": "Use N-th USB Edge TPU"
+              },
+              {
+                "value": "pci",
+                "description": "Use any PCIe Edge TPU"
+              },
+              {
+                "value": "pci:<N>",
+                "description": "Use N-th PCIe Edge TPU"
+              },
+              {
+                "value": "cpu",
+                "description": "Run on the CPU"
+              }
+            ],
+            "name": "device",
+            "description": "Which EdgeTPU to use. Change this if you have multiple devices and want to use a specific one.",
+            "optional": true,
+            "default": null
+          },
+          {
+            "type": "string",
+            "name": "label_path",
+            "description": "Path to the file containing labels for the model.",
+            "optional": true,
+            "default": "/detectors/models/edgetpu/labels.txt"
+          }
         ],
-        "name": "edgetpu",
-        "description": "EdgeTPU Configuration.",
-        "required": true,
+        "name": "object_detector",
+        "description": "Object detector domain config.",
+        "optional": true,
         "default": null
-    }
+      },
+      {
+        "type": "map",
+        "value": [
+          {
+            "type": "map",
+            "value": [
+              {
+                "type": "map",
+                "value": [
+                  {
+                    "type": "list",
+                    "values": [
+                      {
+                        "type": "string"
+                      }
+                    ],
+                    "name": "labels",
+                    "description": "A list of labels that when detected will be sent to the post processor. Applies <b>only</b> to this specific camera.",
+                    "optional": true,
+                    "default": null
+                  }
+                ],
+                "name": {
+                  "type": "CAMERA_IDENTIFIER"
+                },
+                "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+                "cameraidentifier": true,
+                "default": null
+              }
+            ],
+            "name": "cameras",
+            "description": "Camera-specific configuration. All subordinate keys corresponds to the <code>camera_identifier</code> of a configured camera.",
+            "required": true,
+            "default": null
+          },
+          {
+            "type": "list",
+            "values": [
+              {
+                "type": "string"
+              }
+            ],
+            "name": "labels",
+            "description": "A list of labels that when detected will be sent to the post processor. Applies to <b>all</b> cameras defined under <code>cameras</code>.",
+            "optional": true,
+            "default": null
+          },
+          {
+            "type": "float",
+            "valueMin": 0.0,
+            "name": "expire_after",
+            "description": "Time in seconds before a classification expires.",
+            "optional": true,
+            "default": 5
+          },
+          {
+            "type": "string",
+            "name": "model_path",
+            "description": "Path to model.",
+            "optional": true,
+            "default": null
+          },
+          {
+            "type": "select",
+            "options": [
+              {
+                "value": "<N>",
+                "description": "Use N-th Edge TPU"
+              },
+              {
+                "value": "usb",
+                "description": "Use any USB Edge TPU"
+              },
+              {
+                "value": "usb:<N>",
+                "description": "Use N-th USB Edge TPU"
+              },
+              {
+                "value": "pci",
+                "description": "Use any PCIe Edge TPU"
+              },
+              {
+                "value": "pci:<N>",
+                "description": "Use N-th PCIe Edge TPU"
+              },
+              {
+                "value": "cpu",
+                "description": "Run on the CPU"
+              }
+            ],
+            "name": "device",
+            "description": "Which EdgeTPU to use. Change this if you have multiple devices and want to use a specific one.",
+            "optional": true,
+            "default": null
+          },
+          {
+            "type": "string",
+            "name": "label_path",
+            "description": "Path to the file containing labels for the model.",
+            "optional": true,
+            "default": "/classifiers/models/edgetpu/labels.txt"
+          },
+          {
+            "type": "integer",
+            "name": "crop_correction",
+            "description": "Pad with this many pixels around the detected object.</br>The image sent to the classifier is cropped to the bounding box of the detected object. Without crop correction the accuracy of the classifier is reduced since most models are trained on images where the subject is centered in the image with some background around it.",
+            "optional": true,
+            "default": 150
+          }
+        ],
+        "name": "image_classification",
+        "description": "Image classification domain config.",
+        "optional": true,
+        "default": null
+      }
+    ],
+    "name": "edgetpu",
+    "description": "EdgeTPU Configuration.",
+    "required": true,
+    "default": null
+  }
 ]

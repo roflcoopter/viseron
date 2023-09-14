@@ -3,7 +3,7 @@ import logging
 import os
 import re
 import threading
-from typing import Literal
+from typing import Any, List, Literal
 
 from colorlog import ColoredFormatter
 
@@ -12,7 +12,7 @@ class DuplicateFilter(logging.Filter):
     """Formats identical log entries to overwrite the last."""
 
     # pylint: disable=attribute-defined-outside-init
-    def filter(self, record):
+    def filter(self, record: logging.LogRecord) -> bool:
         """Filter log record."""
         current_log = (
             record.name,
@@ -39,7 +39,7 @@ class DuplicateFilter(logging.Filter):
 class SensitiveInformationFilter(logging.Filter):
     """Redacts sensitive information from logs."""
 
-    def filter(self, record):
+    def filter(self, record: logging.LogRecord) -> bool:
         """Filter log record."""
         if isinstance(record.msg, str):
             record.msg = re.sub(r":\/\/(.*?)\@", r"://*****:*****@", record.msg)
@@ -62,11 +62,11 @@ class SensitiveInformationFilter(logging.Filter):
 class UnhelpfullLogFilter(logging.Filter):
     """Filter out unimportant logs."""
 
-    def __init__(self, errors_to_ignore, *args, **kwargs):
+    def __init__(self, errors_to_ignore: List[Any], *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.errors_to_ignore = errors_to_ignore
 
-    def filter(self, record):
+    def filter(self, record) -> bool:
         """Filter log record."""
         if any(error in record.msg for error in self.errors_to_ignore):
             return False
@@ -86,7 +86,7 @@ class ViseronLogFormat(ColoredFormatter):
     )
     overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K" + base_format
 
-    def __init__(self):
+    def __init__(self) -> None:
         log_colors = {
             "DEBUG": "cyan",
             "INFO": "green",
@@ -104,7 +104,7 @@ class ViseronLogFormat(ColoredFormatter):
         )
         self.current_count = 0
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         """Format log record."""
         # Save the original format configured by the user
         # when the logger formatter was instantiated
@@ -126,7 +126,7 @@ class ViseronLogFormat(ColoredFormatter):
 class LogPipe(threading.Thread):
     """Used to pipe stderr to python logging."""
 
-    def __init__(self, logger, output_level):
+    def __init__(self, logger: logging.Logger, output_level: int) -> None:
         """Log stdout without blocking."""
         super().__init__(name=f"{logger.name}.logpipe", daemon=True)
         self._logger = logger
@@ -139,14 +139,14 @@ class LogPipe(threading.Thread):
         """Return the write file descriptor of the pipe."""
         return self._write_filedescriptor
 
-    def run(self):
+    def run(self) -> None:
         """Run the thread, logging everything."""
         for line in iter(self.pipe_reader.readline, ""):
             self._logger.log(self._output_level, line.strip().strip("\n"))
 
         self.pipe_reader.close()
 
-    def close(self):
+    def close(self) -> None:
         """Close the write end of the pipe."""
         os.close(self._write_filedescriptor)
 
@@ -158,7 +158,7 @@ class CTypesLogPipe(threading.Thread):
     Otherwise its logged at the requested loglevel.
     """
 
-    def __init__(self, logger, loglevel, fd: Literal[1, 2]):
+    def __init__(self, logger, loglevel, fd: Literal[1, 2]) -> None:
         super().__init__(name=f"{logger.name}.fd{str(fd)}", daemon=True)
         self._logger = logger
         self._loglevel = loglevel
@@ -174,7 +174,7 @@ class CTypesLogPipe(threading.Thread):
         """Return the write file descriptor of the pipe."""
         return self._write_filedescriptor
 
-    def run(self):
+    def run(self) -> None:
         """Run the thread, logging everything."""
         for line in iter(self.pipe_reader.readline, ""):
             if line.startswith("ERRORLOG"):
@@ -186,7 +186,7 @@ class CTypesLogPipe(threading.Thread):
 
         self.pipe_reader.close()
 
-    def close(self):
+    def close(self) -> None:
         """Close the write end of the pipe."""
         os.close(self._write_filedescriptor)
         os.dup2(self._old_fd, self._fd)

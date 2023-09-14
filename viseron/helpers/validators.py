@@ -1,6 +1,6 @@
 """Custom voluptuous validators."""
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, Optional
 
 import voluptuous as vol
 
@@ -50,17 +50,16 @@ def slug(value: Any) -> str:
     raise vol.Invalid(msg)
 
 
-def valid_camera_identifier(value):
+def valid_camera_identifier(value: Any) -> str:
     """Check if supplied camera identifier is valid."""
     if not isinstance(value, str):
         msg = f"Camera identifier should be a string. Got {value}"
         LOGGER.error(msg)
         raise vol.Invalid(msg)
-    if slug(value):
-        return value
+    return slug(value)
 
 
-def request_argument_no_value(value):
+def request_argument_no_value(value) -> bool:
     """Return true for given request arguments without value."""
     if value or (isinstance(value, str) and value == ""):
         return True
@@ -72,11 +71,11 @@ class CameraIdentifier(vol.Required):
 
     def __init__(
         self,
-        description=(
+        description: str = (
             "Camera identifier. "
             "Valid characters are lowercase a-z, numbers and underscores."
         ),
-    ):
+    ) -> None:
         super().__init__(
             valid_camera_identifier,
             description=description,
@@ -86,10 +85,10 @@ class CameraIdentifier(vol.Required):
 class CoerceNoneToDict:
     """Coerce None to empty dict."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def __call__(self, value):
+    def __call__(self, value: Optional[Dict[str, None]]) -> Dict[str, None]:
         """Coerce None to empty dict."""
         if isinstance(value, dict):
             return value
@@ -98,7 +97,7 @@ class CoerceNoneToDict:
             return {}
         raise vol.CoerceInvalid("expected dict or None")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return representation."""
         return "CoerceNoneToDict(%s)" % "dict"
 
@@ -109,7 +108,7 @@ class Maybe(vol.Any):
     This allows for special handling when generating docs with scripts/gen_docs.py.
     """
 
-    def __init__(self, *validators, **kwargs):
+    def __init__(self, *validators, **kwargs) -> None:
         super().__init__(*validators + (None,), **kwargs)
 
 
@@ -118,10 +117,10 @@ class Slug:
 
     def __init__(
         self,
-        description=(
+        description: str = (
             "Slug, valid characters are lowercase a-z, numbers and underscores."
         ),
-    ):
+    ) -> None:
         self.description = description
 
     def __call__(self, value):

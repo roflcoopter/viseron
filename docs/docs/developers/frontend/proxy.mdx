@@ -1,0 +1,23 @@
+---
+title: Local Development proxy
+---
+
+In order to develop the frontend efficiently, the best way is to run the frontend locally using `npm run start` in the `frontend` directory. This will start a local development server on port `5173`.
+
+:::tip
+
+To run the frontend locally you can also use the VSCode task `Frontend: Start`.
+
+:::
+
+However, this will not work with the backend since it is running on a different port. To solve this, we use a proxy in the `vite.config.ts` file.
+The proxy is configured to forward all requests to the host in the `VITE_PROXY_HOST` environment variable. If this variable is not set, it will default to `localhost:8888`.
+
+The `VITE_PROXY_HOST` variable can be set in a [Vite .env file](https://vitejs.dev/guide/env-and-mode.html#env-files).
+This file should be placed in the `frontend` directory and should be named `.env.local`. This file is ignored by git, so it will not be committed.
+
+:::tip
+
+You can point the proxy to your production Viseron instance to avoid having to run two instances of Viseron.
+
+:::

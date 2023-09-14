@@ -24,7 +24,7 @@ from .const import (
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the deepstack object_detector domain."""
     ObjectDetector(vis, config, identifier)
 
@@ -34,7 +34,7 @@ def setup(vis: Viseron, config, identifier):
 class ObjectDetector(AbstractObjectDetector):
     """Deepstack object detection."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier):
+    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
         super().__init__(
             vis, COMPONENT, config[CONFIG_OBJECT_DETECTOR], camera_identifier
         )

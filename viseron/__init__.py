@@ -4,6 +4,7 @@ from __future__ import annotations
 import concurrent.futures
 import logging
 import multiprocessing
+import multiprocessing.process
 import os
 import sys
 import threading
@@ -64,6 +65,9 @@ if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.face_recognition import AbstractFaceRecognition
     from viseron.domains.image_classification import AbstractImageClassification
+    from viseron.domains.license_plate_recognition import (
+        AbstractLicensePlateRecognition,
+    )
     from viseron.domains.motion_detector import AbstractMotionDetectorScanner
     from viseron.domains.object_detector import AbstractObjectDetector
     from viseron.helpers.entity import Entity
@@ -81,7 +85,7 @@ SIGNAL_SCHEMA = vol.Schema(
 LOGGER = logging.getLogger(f"{__name__}.core")
 
 
-def enable_logging():
+def enable_logging() -> None:
     """Enable logging."""
     root_logger = logging.getLogger()
     root_logger.propagate = False
@@ -98,12 +102,14 @@ def enable_logging():
     logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("tornado.access").setLevel(logging.WARNING)
     logging.getLogger("tornado.application").setLevel(logging.WARNING)
     logging.getLogger("tornado.general").setLevel(logging.WARNING)
 
     sys.excepthook = lambda *args: logging.getLogger(None).exception(
-        "Uncaught exception", exc_info=args  # type: ignore
+        "Uncaught exception", exc_info=args  # type: ignore[arg-type]
     )
     threading.excepthook = lambda args: logging.getLogger(None).exception(
         "Uncaught thread exception",
@@ -136,7 +142,7 @@ def setup_viseron():
                     "nvr. This camera will not be processed"
                 )
     else:
-        nvr_config = {}
+        nvr_config: dict = {}
         nvr_config["nvr"] = {}
         cameras_to_setup = vis.data[DOMAINS_TO_SETUP].get(CAMERA_DOMAIN, {})
         if cameras_to_setup:
@@ -180,12 +186,12 @@ class Event(Generic[T]):
 class Viseron:
     """Viseron."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.states = States(self)
 
-        self.setup_threads = []
+        self.setup_threads: list[threading.Thread] = []
 
-        self.data = {}
+        self.data: dict[str, Any] = {}
         self.data[LOADING] = {}
         self.data[LOADED] = {}
         self.data[FAILED] = {}
@@ -199,7 +205,6 @@ class Viseron:
         self.data[DOMAIN_IDENTIFIERS] = {}
         self._domain_register_lock = threading.Lock()
         self.data[REGISTERED_DOMAINS] = {}
-        self._wait_for_domain_store = {}
 
         self._thread_watchdog = ThreadWatchDog()
         self._subprocess_watchdog = SubprocessWatchDog()
@@ -233,7 +238,7 @@ class Viseron:
             f"viseron/signal/{viseron_signal}", callback
         )
 
-    def listen_event(self, event, callback, ioloop=None) -> Callable[[], None]:
+    def listen_event(self, event: str, callback, ioloop=None) -> Callable[[], None]:
         """Register a listener to an event."""
         if DATA_STREAM_COMPONENT not in self.data[LOADED]:
             LOGGER.error(
@@ -246,12 +251,12 @@ class Viseron:
         topic = f"event/{event}"
         uuid = data_stream.subscribe_data(topic, callback, ioloop=ioloop)
 
-        def unsubscribe():
+        def unsubscribe() -> None:
             data_stream.unsubscribe_data(topic, uuid)
 
         return unsubscribe
 
-    def dispatch_event(self, event, data):
+    def dispatch_event(self, event, data) -> None:
         """Dispatch an event."""
         event = f"event/{event}"
         self.data[DATA_STREAM_COMPONENT].publish_data(
@@ -261,7 +266,7 @@ class Viseron:
     @overload
     def register_domain(
         self, domain: Literal["camera"], identifier: str, instance: AbstractCamera
-    ):
+    ) -> None:
         ...
 
     @overload
@@ -270,7 +275,7 @@ class Viseron:
         domain: Literal["face_recognition"],
         identifier: str,
         instance: AbstractFaceRecognition,
-    ):
+    ) -> None:
         ...
 
     @overload
@@ -279,7 +284,16 @@ class Viseron:
         domain: Literal["image_classification"],
         identifier: str,
         instance: AbstractImageClassification,
-    ):
+    ) -> None:
+        ...
+
+    @overload
+    def register_domain(
+        self,
+        domain: Literal["license_plate_recognition"],
+        identifier: str,
+        instance: AbstractLicensePlateRecognition,
+    ) -> None:
         ...
 
     @overload
@@ -288,7 +302,7 @@ class Viseron:
         domain: Literal["motion_detector"],
         identifier: str,
         instance: AbstractMotionDetectorScanner,
-    ):
+    ) -> None:
         ...
 
     @overload
@@ -297,7 +311,7 @@ class Viseron:
         domain: Literal["object_detector"],
         identifier: str,
         instance: AbstractObjectDetector,
-    ):
+    ) -> None:
         ...
 
     @overload
@@ -306,42 +320,17 @@ class Viseron:
         domain: Literal["nvr"],
         identifier: str,
         instance: NVR,
-    ):
+    ) -> None:
         ...
 
-    def register_domain(self, domain: SupportedDomains, identifier: str, instance):
+    def register_domain(
+        self, domain: SupportedDomains, identifier: str, instance
+    ) -> None:
         """Register a domain with a specific identifier."""
         LOGGER.debug(f"Registering domain {domain} with identifier {identifier}")
         with self._domain_register_lock:
             self.data[REGISTERED_DOMAINS].setdefault(domain, {})[identifier] = instance
-
-            if listeners := self._wait_for_domain_store.get(domain, {}).get(
-                identifier, None
-            ):
-                for thread_event in listeners:
-                    thread_event.set()
-                del self._wait_for_domain_store[domain][identifier]
             self.dispatch_event(EVENT_DOMAIN_REGISTERED.format(domain=domain), instance)
-
-    def wait_for_domain(self, domain: SupportedDomains, identifier: str):
-        """Wait for a domain with a specific identifier to register."""
-        with self._domain_register_lock:
-            if (
-                domain in self.data[REGISTERED_DOMAINS]
-                and identifier in self.data[REGISTERED_DOMAINS][domain]
-            ):
-                return self.data[REGISTERED_DOMAINS][domain][identifier]
-
-            LOGGER.debug(
-                f"Waiting for domain {domain} with identifier {identifier} to register"
-            )
-            event = threading.Event()
-            self._wait_for_domain_store.setdefault(domain, {}).setdefault(
-                identifier, []
-            ).append(event)
-        event.wait()
-        LOGGER.debug(f"Done waiting for domain {domain} with identifier {identifier}")
-        return self.data[REGISTERED_DOMAINS][domain][identifier]
 
     @overload
     def get_registered_domain(
@@ -433,7 +422,7 @@ class Viseron:
             domain,
         )
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Shut down Viseron."""
         LOGGER.info("Initiating shutdown")
 
@@ -445,7 +434,11 @@ class Viseron:
         self._subprocess_watchdog.stop()
         self.background_scheduler.shutdown()
 
-        def join(thread_or_process: threading.Thread | multiprocessing.Process):
+        def join(
+            thread_or_process: threading.Thread
+            | multiprocessing.Process
+            | multiprocessing.process.BaseProcess,
+        ) -> None:
             thread_or_process.join(timeout=8)
             time.sleep(0.5)  # Wait for process to exit properly
             if thread_or_process.is_alive():
@@ -454,7 +447,11 @@ class Viseron:
                     LOGGER.error(f"Forcefully kill {thread_or_process.name}")
                     thread_or_process.kill()
 
-        threads_and_processes: list[threading.Thread | multiprocessing.Process] = [
+        threads_and_processes: list[
+            threading.Thread
+            | multiprocessing.Process
+            | multiprocessing.process.BaseProcess
+        ] = [
             thread
             for thread in threading.enumerate()
             if not thread.daemon and thread != threading.current_thread()
@@ -477,7 +474,7 @@ class Viseron:
             component_instance = self.data[LOADING][component]
         return self.states.add_entity(component_instance, entity)
 
-    def add_entities(self, component: str, entities: list[Entity]):
+    def add_entities(self, component: str, entities: list[Entity]) -> None:
         """Add entities to states registry."""
         for entity in entities:
             self.add_entity(component, entity)
@@ -486,13 +483,13 @@ class Viseron:
         """Return all registered entities."""
         return self.states.get_entities()
 
-    def schedule_periodic_update(self, entity: Entity, update_interval: int):
+    def schedule_periodic_update(self, entity: Entity, update_interval: int) -> None:
         """Schedule entity update at a fixed interval."""
         self.background_scheduler.add_job(
             entity.update, "interval", seconds=update_interval
         )
 
-    def setup(self):
+    def setup(self) -> None:
         """Set up Viseron."""
         if os.getenv(ENV_PROFILE_MEMORY) == "true":
             tracemalloc.start()

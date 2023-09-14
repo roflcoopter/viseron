@@ -28,7 +28,7 @@ LOGGER = logging.getLogger(__name__)
 class ViseronRequestHandler(tornado.web.RequestHandler):
     """Base request handler."""
 
-    def initialize(self, vis: Viseron):
+    def initialize(self, vis: Viseron) -> None:
         """Initialize request handler."""
         self._vis = vis
         self._webserver: Webserver = vis.data[COMPONENT]
@@ -40,7 +40,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         """Run function in executor."""
         return await IOLoop.current().run_in_executor(None, func, *args)
 
-    async def prepare(self):  # pylint: disable=invalid-overridden-method
+    async def prepare(self) -> None:  # pylint: disable=invalid-overridden-method
         """Prepare request handler.
 
         get_current_user cannot be async, so we set self.current_user here.
@@ -87,7 +87,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         access_token: str,
         user: User,
         new_session=False,
-    ):
+    ) -> None:
         """Set session cookies."""
         now = datetime.utcnow()
 
@@ -200,6 +200,12 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     @overload
     def _get_camera(
         self, camera_identifier: str, failed: Literal[True]
+    ) -> AbstractCamera | FailedCamera | None:
+        ...
+
+    @overload
+    def _get_camera(
+        self, camera_identifier: str, failed: bool
     ) -> AbstractCamera | FailedCamera | None:
         ...
 

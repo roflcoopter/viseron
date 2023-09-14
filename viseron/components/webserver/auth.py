@@ -126,7 +126,7 @@ def token_response(
 class Auth:
     """Users."""
 
-    def __init__(self, vis: Viseron, config):
+    def __init__(self, vis: Viseron, config) -> None:
         self._vis = vis
         self._config = config
         self._users: dict[str, User] | None = None
@@ -265,7 +265,7 @@ class Auth:
                 found = user
         return found
 
-    def _load(self):
+    def _load(self) -> None:
         """Load users from storage."""
         LOGGER.debug("Loading data from auth store")
         data = self._auth_store.load()
@@ -306,7 +306,7 @@ class Auth:
         self._users = users
         self._refresh_tokens = refresh_tokens
 
-    def save(self):
+    def save(self) -> None:
         """Save users to storage."""
         self._auth_store.save(
             {"users": self.users, "refresh_tokens": self.refresh_tokens}
@@ -347,13 +347,13 @@ class Auth:
 
         return found_token
 
-    def delete_refresh_token(self, refresh_token: RefreshToken):
+    def delete_refresh_token(self, refresh_token: RefreshToken) -> None:
         """Delete refresh token."""
         if refresh_token.id in self.refresh_tokens:
             del self.refresh_tokens[refresh_token.id]
             self.save()
 
-    def validate_refresh_token(self, refresh_token: RefreshToken):
+    def validate_refresh_token(self, refresh_token: RefreshToken) -> None:
         """Validate refresh token."""
 
     def generate_access_token(

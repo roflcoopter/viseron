@@ -9,12 +9,15 @@ DESC_X = "X-coordinate (horizontal axis)."
 DESC_Y = "Y-coordinate (vertical axis)."
 
 COORDINATES_SCHEMA = vol.Schema(
-    [
-        {
-            vol.Required(CONFIG_X, description=DESC_X): int,
-            vol.Required(CONFIG_Y, description=DESC_Y): int,
-        }
-    ]
+    vol.All(
+        [
+            {
+                vol.Required(CONFIG_X, description=DESC_X): int,
+                vol.Required(CONFIG_Y, description=DESC_Y): int,
+            }
+        ],
+        vol.Length(min=3),
+    )
 )
 
 FLOAT_MIN_ZERO_MAX_ONE = vol.Schema(

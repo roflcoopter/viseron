@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import logging
+from typing import Final, TypedDict
+
+import gi
 
 COMPONENT = "gstreamer"
 
@@ -11,9 +14,25 @@ ENV_GSTREAMER_PATH = "VISERON_GSTREAMER_PATH"
 
 RECORDER = "recorder"
 
+# pylint: disable=useless-suppression
+# pylint: disable=wrong-import-position,wrong-import-order,no-name-in-module
+gi.require_version("Gst", "1.0")
+from gi.repository import Gst  # pyright: ignore[reportMissingImports] # noqa: E402
+
+# pylint: enable=wrong-import-position,wrong-import-order,no-name-in-module
+# pylint: enable=useless-suppression
+
+
+class StreamFormat(TypedDict):
+    """Stream format."""
+
+    protocol: str
+    plugin: str
+    options: list[str]
+
 
 # Pipeline constants
-STREAM_FORMAT_MAP = {
+STREAM_FORMAT_MAP: dict[str, StreamFormat] = {
     "rtsp": {
         "protocol": "rtsp",
         "plugin": "rtspsrc",
@@ -54,22 +73,24 @@ DECODER_ELEMENT_MAP = {
 
 PIXEL_FORMAT = "NV12"
 
-GSTREAMER_LOGLEVELS = {
-    "error": 1,
-    "warning": 2,
-    "fixme": 3,
-    "info": 4,
-    "debug": 5,
-    "trace": 7,
+CONFIG_LOGLEVEL_TO_GSTREAMER = {
+    "error": Gst.DebugLevel.ERROR,
+    "warning": Gst.DebugLevel.WARNING,
+    "fixme": Gst.DebugLevel.FIXME,
+    "info": Gst.DebugLevel.INFO,
+    "debug": Gst.DebugLevel.DEBUG,
+    "trace": Gst.DebugLevel.TRACE,
 }
 
-LOGLEVEL_CONVERTER = {
-    "error": logging.ERROR,
-    "warning": logging.WARNING,
-    "fixme": logging.INFO,
-    "info": logging.INFO,
-    "debug": logging.DEBUG,
-    "trace": logging.DEBUG,
+GSTREAMER_LOGLEVEL_TO_PYTHON = {
+    Gst.DebugLevel.NONE: logging.NOTSET,
+    Gst.DebugLevel.ERROR: logging.ERROR,
+    Gst.DebugLevel.WARNING: logging.WARNING,
+    Gst.DebugLevel.FIXME: logging.INFO,
+    Gst.DebugLevel.INFO: logging.INFO,
+    Gst.DebugLevel.DEBUG: logging.DEBUG,
+    Gst.DebugLevel.LOG: logging.DEBUG,
+    Gst.DebugLevel.TRACE: logging.DEBUG,
 }
 
 # STREAM_SCHEMA constants
@@ -90,17 +111,17 @@ CONFIG_RAW_PIPELINE = "raw_pipeline"
 
 
 DEFAULT_STREAM_FORMAT = "rtsp"
-DEFAULT_PROTOCOL = None
-DEFAULT_WIDTH = None
-DEFAULT_HEIGHT = None
-DEFAULT_FPS = None
+DEFAULT_PROTOCOL: Final = None
+DEFAULT_WIDTH: Final = None
+DEFAULT_HEIGHT: Final = None
+DEFAULT_FPS: Final = None
 DEFAULT_CODEC = "unset"
 DEFAULT_AUDIO_CODEC = "unset"
 DEFAULT_AUDIO_PIPELINE = "unset"
 DEFAULT_RTSP_TRANSPORT = "tcp"
 DEFAULT_FRAME_TIMEOUT = 60
 DEFAULT_OUTPUT_ELEMENT: str = ""
-DEFAULT_RAW_PIPELINE = None
+DEFAULT_RAW_PIPELINE: Final = None
 
 DESC_STREAM_FORMAT = "Stream format."
 DESC_PROTOCOL = "Stream protocol"
@@ -162,8 +183,8 @@ CONFIG_GSTREAMER_RECOVERABLE_ERRORS = "gstreamer_recoverable_errors"
 CONFIG_FFPROBE_LOGLEVEL = "ffprobe_loglevel"
 CONFIG_RECORDER = "recorder"
 
-DEFAULT_USERNAME = None
-DEFAULT_PASSWORD = None
+DEFAULT_USERNAME: Final = None
+DEFAULT_PASSWORD: Final = None
 DEFAULT_GSTREAMER_LOGLEVEL = "error"
 DEFAULT_GSTREAMER_RECOVERABLE_ERRORS: list[str] = [
     "Last message repeated",

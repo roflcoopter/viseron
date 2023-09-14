@@ -1,0 +1,19 @@
+FROM roflcoopter/amd64-viseron:dev
+
+ENV SHELL /bin/bash
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_16.x | bash - \
+    && apt-get install --no-install-recommends -y \
+    nodejs
+
+COPY requirements_test.txt requirements_test.txt
+RUN pip3 install -r requirements_test.txt \
+    && yes | mypy --install-types || true \
+    && rm -rf requirements_test.txt
+
+RUN rm -r /etc/services.d/viseron
+
+WORKDIR /workspaces/viseron

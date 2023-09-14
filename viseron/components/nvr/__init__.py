@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 
@@ -33,7 +33,10 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config):
+def setup(
+    vis: Viseron,
+    config: dict[str, Any],
+) -> bool:
     """Set up the nvr component."""
     config = config[COMPONENT]
 

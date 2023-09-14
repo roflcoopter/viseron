@@ -46,7 +46,7 @@ class Segments:
         vis: Viseron,
         camera: AbstractCamera,
         segments_folder,
-    ):
+    ) -> None:
         self._logger = logger
         self._config = config
         self._vis = vis
@@ -58,7 +58,7 @@ class Segments:
             FFMPEG_LOGLEVELS[config[CONFIG_RECORDER][CONFIG_FFMPEG_LOGLEVEL]],
         )
 
-    def segment_duration(self, segment_file):
+    def segment_duration(self, segment_file) -> float | None:
         """Return the duration of a specified segment."""
         ffprobe_cmd = [
             "ffprobe",
@@ -106,7 +106,7 @@ class Segments:
         return None
 
     @staticmethod
-    def find_segment(segments, timestamp):
+    def find_segment(segments, timestamp) -> None:
         """Find a segment which includes the given timestamp."""
         return next(
             (
@@ -117,16 +117,16 @@ class Segments:
             None,
         )
 
-    def get_start_time(self, segment):
+    def get_start_time(self, segment) -> float:
         """Get start time of segment."""
         return datetime.datetime.strptime(
             segment.split(".")[0], "%Y%m%d%H%M%S"
         ).timestamp()
 
-    def get_segment_information(self):
+    def get_segment_information(self) -> dict[str, dict[str, float]]:
         """Get information for all available segments."""
         segment_files = os.listdir(self._segments_folder)
-        segment_information: dict = {}
+        segment_information: dict[str, dict[str, float]] = {}
         for segment in segment_files:
             duration = self.segment_duration(
                 os.path.join(self._segments_folder, segment)
@@ -141,7 +141,12 @@ class Segments:
         self._logger.debug(f"Segment information: {segment_information}")
         return segment_information
 
-    def get_concat_segments(self, segments, start_segment, end_segment):
+    def get_concat_segments(
+        self,
+        segments: dict[str, dict[str, float]],
+        start_segment: str,
+        end_segment: str,
+    ) -> list[str] | None:
         """Return all segments between start_segment and end_segment."""
         # Sort segments by start time
         segment_list = sorted(
@@ -161,7 +166,11 @@ class Segments:
         return None
 
     def generate_segment_script(
-        self, segments_to_concat, segment_information, event_start, event_end
+        self,
+        segments_to_concat: list[str],
+        segment_information: dict[str, dict[str, float]],
+        event_start: float,
+        event_end: float,
     ) -> str:
         """Return a script string with information of each segment to concatenate."""
         segment_iterable = iter(segments_to_concat)
@@ -210,7 +219,13 @@ class Segments:
             ]
         return []
 
-    def ffmpeg_concat(self, segment_script, file_name):
+    def audio_codec_args(self):
+        """Return audio codec arguments."""
+        if codec_args := self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]:
+            return ["-c:a", codec_args]
+        return ["-an"]
+
+    def ffmpeg_concat(self, segment_script, file_name) -> None:
         """Generate and run FFmpeg command to concatenate segments."""
         ffmpeg_cmd = (
             [
@@ -233,7 +248,7 @@ class Segments:
             ]
             + ["-c:v", self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]]
             + self.video_filter_args()
-            + ["-c:a", self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]]
+            + self.audio_codec_args()
             + self.audio_filter_args()
             + self._config[CONFIG_RECORDER][CONFIG_RECORDER_OUPTUT_ARGS]
             + ["-movflags", "+faststart"]
@@ -243,7 +258,7 @@ class Segments:
         self._logger.debug(f"Concatenation command: {' '.join(ffmpeg_cmd)}")
         self._logger.debug(f"Segment script: \n{segment_script}")
 
-        sp.run(
+        sp.run(  # type: ignore[call-overload]
             ffmpeg_cmd,
             input=segment_script,
             text=True,
@@ -251,12 +266,16 @@ class Segments:
             stderr=self._log_pipe,
         )
 
-    def concat_segments(self, recording: Recording):
+    def concat_segments(self, recording: Recording) -> None:
         """Concatenate segments between event_start and event_end."""
-        event_start = (
+        event_start: float = (
             recording.start_timestamp - self._config[CONFIG_RECORDER][CONFIG_LOOKBACK]
         )
-        event_end = recording.end_timestamp
+        event_end = (
+            recording.end_timestamp
+            if recording.end_timestamp
+            else datetime.datetime.now().timestamp()
+        )
         self._logger.debug("Concatenating segments")
         segment_information = self.get_segment_information()
         if not segment_information:
@@ -288,6 +307,14 @@ class Segments:
 
         temp_file = os.path.join("/tmp", recording.path)
 
+        # Sanity check that all segments exist.
+        # Should never happen but better safe than sorry
+        segments_to_concat = [
+            segment
+            for segment in segments_to_concat
+            if os.path.exists(os.path.join(self._segments_folder, segment))
+        ]
+
         try:
             self.ffmpeg_concat(
                 self.generate_segment_script(
@@ -318,7 +345,9 @@ class Segments:
 class SegmentCleanup:
     """Clean up segments created by FFmpeg."""
 
-    def __init__(self, vis, config, camera_name, logger, segment_thread_context):
+    def __init__(
+        self, vis, config, camera_name, logger, segment_thread_context
+    ) -> None:
         self._vis = vis
         self._logger = logger
         self._segment_thread_context = segment_thread_context
@@ -342,7 +371,7 @@ class SegmentCleanup:
             segment.split(".")[0], "%Y%m%d%H%M%S"
         ).timestamp()
 
-    def cleanup(self, force=False):
+    def cleanup(self, force=False) -> None:
         """Delete all segments that are no longer needed."""
         if not force and self._segment_thread_context.count > 0:
             self._logger.debug(
@@ -367,22 +396,22 @@ class SegmentCleanup:
             if now - start_time > self._max_age:
                 os.remove(os.path.join(self._directory, segment))
 
-    def start(self):
+    def start(self) -> None:
         """Start the scheduler."""
         self._logger.debug("Starting segment cleanup")
         self._scheduler.start()
 
-    def pause(self):
+    def pause(self) -> None:
         """Pauise the scheduler."""
         self._logger.debug("Pausing segment cleanup")
         self._scheduler.pause_job("segment_cleanup")
 
-    def resume(self):
+    def resume(self) -> None:
         """Resume the scheduler."""
         self._logger.debug("Resuming segment cleanup")
         self._scheduler.resume_job("segment_cleanup")
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Resume the scheduler."""
         self._logger.debug("Shutting down segment cleanup")
         self.cleanup(force=True)

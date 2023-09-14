@@ -2,11 +2,19 @@
 *
 
 ## Include
+# Devcontainer
+!/.devcontainer
+!/.devcontainer/*
+!/.vscode
+!/.vscode/*
+
 # GitHub Workflows
 !/.github
 !/.github/*
 !/.github/workflows
 !/.github/workflows/*
+!/.github/templates
+!/.github/templates/**
 
 # Azure Pipelines
 !/azure-pipelines
@@ -44,67 +52,23 @@
 !/tests/*
 !/tests/components
 !/tests/components/**
-!/tests/config
-!/tests/config/*
-!/tests/detector
-!/tests/detector/*
-!/tests/detector/*/
-!/tests/detector/*/*
 !/tests/helpers
 !/tests/helpers/*
-!/tests/motion
-!/tests/motion/*
-!/tests/motion/*/
-!/tests/motion/*/*
 
 # Source
 !/viseron
 !/viseron/*
-!/viseron/camera
-!/viseron/camera/*
 !/viseron/components
 !/viseron/components/**
-!/viseron/config
-!/viseron/config/*
-!/viseron/detector
-!/viseron/detector/*
-!/viseron/detector/darknet
-!/viseron/detector/darknet/*
-!/viseron/detector/deepstack
-!/viseron/detector/deepstack/*
-!/viseron/detector/edgetpu
-!/viseron/detector/edgetpu/*
 !/viseron/domains
 !/viseron/domains/**
 !/viseron/helpers
 !/viseron/helpers/**
-!/viseron/motion
-!/viseron/motion/*
-!/viseron/motion/background_subtractor
-!/viseron/motion/background_subtractor/*
-!/viseron/motion/mog2
-!/viseron/motion/mog2/*
-!/viseron/post_processors
-!/viseron/mqtt
-!/viseron/mqtt/*
-!/viseron/post_processors
-!/viseron/post_processors/*
-!/viseron/post_processors/face_recognition
-!/viseron/post_processors/face_recognition/*
-!/viseron/post_processors/face_recognition/dlib
-!/viseron/post_processors/face_recognition/dlib/*
-!/viseron/post_processors/face_recognition/deepstack
-!/viseron/post_processors/face_recognition/deepstack/*
 !/viseron/watchdog
 !/viseron/watchdog/*
-!/viseron/webserver
-!/viseron/webserver/*
-!/viseron/webserver/api
-!/viseron/webserver/api/*
-!/viseron/webserver/api/v1
-!/viseron/webserver/api/v1/*
-!/requirements.txt
+!/requirements_ci.txt
 !/requirements_test.txt
+!/requirements.txt
 !setup.py
 
 # Frontend
@@ -115,13 +79,18 @@
 !/frontend/public/static/*
 !/frontend/src
 !/frontend/src/**
+!/frontend/tests
+!/frontend/tests/**
 !/frontend/.eslintrc.js
 !/frontend/.prettierrc.json
+!/frontend/404.html
+!/frontend/index.html
 !/frontend/lint-staged.config.js
 !/frontend/package-lock.json
 !/frontend/package.json
 !/frontend/README.md
 !/frontend/tsconfig.json
+!/frontend/vite.config.ts
 
 # Docs
 !/docs
@@ -140,6 +109,7 @@
 !/.flake8
 !/.gitignore
 !/.isort.cfg
+!/.mypy.ini
 !/.pre-commit-config.yaml
 !/.pylintrc
 !/codecov.yaml

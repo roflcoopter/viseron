@@ -81,7 +81,7 @@ class EventFaceDetected:
 class AbstractFaceRecognition(AbstractPostProcessor):
     """Abstract face recognition."""
 
-    def __init__(self, vis, component, config, camera_identifier):
+    def __init__(self, vis, component, config, camera_identifier) -> None:
         super().__init__(vis, config, camera_identifier)
         self._faces: dict[str, FaceDict] = {}
         if config[CONFIG_SAVE_UNKNOWN_FACES]:
@@ -100,7 +100,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         coordinates: tuple[int, int, int, int],
         confidence=None,
         extra_attributes=None,
-    ):
+    ) -> None:
         """Adds/expires known faces."""
         # Cancel the expiry timer if face has already been detected
         if self._faces.get(face, None):
@@ -127,7 +127,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         )
         self._faces[face] = face_dict
 
-    def unknown_face_found(self, frame):
+    def unknown_face_found(self, frame) -> None:
         """Save unknown faces."""
         unique_id = (
             f"{datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S-')}"
@@ -139,7 +139,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         if not cv2.imwrite(file_name, frame):
             self._logger.error("Failed saving unknown face image to disk")
 
-    def expire_face(self, face):
+    def expire_face(self, face) -> None:
         """Expire no longer found face."""
         self._logger.debug(f"Expiring face {face}")
         self._vis.dispatch_event(

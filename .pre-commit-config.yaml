@@ -1,9 +1,13 @@
+default_language_version:
+  python: python3
+
 repos:
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.2.2
     hooks:
       - id: pyupgrade
         args: [--py38-plus]
+        files: ^(viseron|tests)/.+\.py$
   - repo: https://github.com/PyCQA/autoflake
     rev: v2.0.0
     hooks:
@@ -11,10 +15,12 @@ repos:
         args:
           - --in-place
           - --remove-all-unused-imports
+        files: ^(viseron|tests)/.+\.py$
   - repo: https://github.com/PyCQA/isort
     rev: 5.11.5
     hooks:
       - id: isort
+        files: ^(viseron|tests)/.+\.py$
   - repo: https://github.com/psf/black
     rev: 22.10.0
     hooks:
@@ -22,7 +28,7 @@ repos:
         args:
           - --safe
           - --quiet
-        files: ^((viseron|tests)/.+)?[^/]+\.py$
+        files: ^(viseron|tests)/.+\.py$
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.2
     hooks:
@@ -57,3 +63,29 @@ repos:
             "-sn", # Don't display the score
             "--rcfile=.pylintrc", # Link to your config file
           ]
+        files: ^(viseron|tests)/.+\.py$
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: system
+        types: [python]
+        files: ^(viseron)/.+\.py$
+        args: ["--install-types", "--non-interactive"]
+      - id: generate_docs
+        description: Check if docs needs to be regenerated
+        name: generate_docs
+        language: system
+        entry: python3 -m scripts.gen_docs -a
+        pass_filenames: false
+        always_run: true
+      - id: check_config_json
+        description: 'Fail if any config.json contains "description": null'
+        name: check docs config.json
+        language: system
+        entry: >
+          bash -c '
+          test=$(find ./docs/src/pages/components-explorer -iname "config.json" -type f -exec grep -Hn "\"description\": null" {} \;) &&
+          if [ -n "$test" ]; then echo "Found null description in config.json:"; echo "$test"; false; fi
+          '
+        pass_filenames: false
+        always_run: true

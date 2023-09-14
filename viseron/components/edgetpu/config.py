@@ -73,7 +73,7 @@ class DeviceValidator:
 class DefaultLabelPath:
     """Return default label path for specified domain."""
 
-    def __init__(self, domain, msg=None):
+    def __init__(self, domain, msg=None) -> None:
         self.msg = msg
         self.domain = domain
 

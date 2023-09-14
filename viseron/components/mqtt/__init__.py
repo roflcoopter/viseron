@@ -146,7 +146,7 @@ DOMAIN_MAP = {
 }
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config) -> bool:
     """Set up the mqtt component."""
     config = config[COMPONENT]
     mqtt_client = MQTT(vis, config)
@@ -162,11 +162,11 @@ def setup(vis: Viseron, config):
 class MQTT:
     """MQTT interface."""
 
-    def __init__(self, vis, config):
+    def __init__(self, vis, config) -> None:
         self._vis = vis
         self._config = config
 
-        self._client: mqtt.Client = None
+        self._client = mqtt.Client(self._config[CONFIG_CLIENT_ID])
         self._publish_queue: Queue = Queue(maxsize=1000)
         self._subscriptions: dict[str, list[Callable]] = {}
 
@@ -177,7 +177,7 @@ class MQTT:
         self._entity_creation_lock = threading.Lock()
         self._entities: dict[str, MQTTEntity] = {}
 
-    def create_entity(self, entity: Entity):
+    def create_entity(self, entity: Entity) -> None:
         """Create entity in Home Assistant."""
         with self._entity_creation_lock:
             if entity.entity_id in self._entities:
@@ -196,12 +196,12 @@ class MQTT:
                 EventMQTTEntityAddedData(mqtt_entity),
             )
 
-    def create_entities(self, entities):
+    def create_entities(self, entities) -> None:
         """Create entities in Home Assistant."""
         for entity in entities.values():
             self.create_entity(entity)
 
-    def entity_added(self, event_data: Event):
+    def entity_added(self, event_data: Event) -> None:
         """Add entity to Home Assistant when its added to Viseron."""
         entity_added_data: EventEntityAddedData = event_data.data
         self.create_entity(entity_added_data.entity)
@@ -210,7 +210,7 @@ class MQTT:
         """Return registered MQTT entities."""
         return self._entities
 
-    def on_connect(self, _client, _userdata, _flags, returncode):
+    def on_connect(self, _client, _userdata, _flags, returncode) -> None:
         """On established MQTT connection."""
         LOGGER.debug(f"MQTT connected with returncode {str(returncode)}")
         if returncode != 0:
@@ -240,7 +240,7 @@ class MQTT:
             )
         )
 
-    def on_message(self, _client, _userdata, msg):
+    def on_message(self, _client, _userdata, msg) -> None:
         """On message received."""
         LOGGER.debug(
             f"Message received on topic {msg.topic}, "
@@ -254,9 +254,8 @@ class MQTT:
                 daemon=True,
             ).start()
 
-    def connect(self):
+    def connect(self) -> None:
         """Connect to broker."""
-        self._client = mqtt.Client(self._config[CONFIG_CLIENT_ID])
         self._client.on_connect = self.on_connect
         self._client.on_message = self.on_message
         self._client.enable_logger(logger=logging.getLogger(f"{__name__}.client"))
@@ -282,7 +281,7 @@ class MQTT:
         # Start threaded loop to read/publish messages
         self._client.loop_start()
 
-    def subscribe(self, subscription: SubscribeTopic):
+    def subscribe(self, subscription: SubscribeTopic) -> None:
         """Subscribe to a topic."""
         if subscription.topic not in self._subscriptions:
             self._client.subscribe(subscription.topic)
@@ -291,11 +290,11 @@ class MQTT:
         self._subscriptions.setdefault(subscription.topic, [])
         self._subscriptions[subscription.topic].append(subscription.callback)
 
-    def publish(self, payload: PublishPayload):
+    def publish(self, payload: PublishPayload) -> None:
         """Put payload in publish queue."""
         self._publish_queue.put(payload)
 
-    def publisher(self):
+    def publisher(self) -> None:
         """Publish thread."""
         while not self._kill_received:
             try:
@@ -309,7 +308,7 @@ class MQTT:
                 retain=message.retain,
             )
 
-    def state_changed(self, event_data: Event):
+    def state_changed(self, event_data: Event) -> None:
         """Relay entity state change to MQTT."""
         with self._entity_creation_lock:
             entity_id = event_data.data.entity_id
@@ -320,7 +319,7 @@ class MQTT:
 
             self._entities[entity_id].publish_state()
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop mqtt client."""
         LOGGER.debug("Stopping MQTT client")
         # Publish using client directly so we are sure its published

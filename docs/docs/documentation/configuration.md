@@ -215,13 +215,13 @@ In the future more of these post processors will be added along with the ability
 
 If you have any ideas for a good post processor, please open an issue on [GitHub](https://github.com/roflcoopter/viseron/issues)
 
-#### Face Recognition
+#### Face Recognition domain
 
 The face recognition domain is a post processor designed to recognise individuals in images.
 
 [Link to all components with face recognition domain.](/components-explorer?tags=face_recognition)
 
-#### Image Classification
+#### Image Classification domain
 
 Image classification labels an entire image with a single label, in contrast to an object detector which labels multiple objects in an image.
 
@@ -229,6 +229,12 @@ Image classifiers generally support more specific detections than an object dete
 For instance, an object detector might be trained to detect the label birds, while an image classifier can be trained to detect multiple different species of birds.
 
 [Link to all components with image classification domain.](/components-explorer?tags=image_classification)
+
+#### License Plate Recognition domain
+
+The license plate recognition domain can detect car license plates and report their text.
+
+[Link to all components with license plate recognition domain.](/components-explorer?tags=license_plate_recognition)
 
 ## Secrets
 
@@ -238,17 +244,30 @@ This can be used to remove any private information from your `config.yaml` to ma
 Here is a simple usage example.<br />
 
 ```yaml title="/config/secrets.yaml"
-camera_ip: 192.168.1.2
-username: coolusername
-password: supersecretpassword
+camera_one_host: 192.168.1.2
+camera_one_username: coolusername
+camera_one_password: supersecretpassword
+
+camera_two_host: 192.168.1.3
+camera_two_username: anotherusername
+camera_two_password: moresecretpassword
 ```
 
 ```yaml title="/config/config.yaml"
-cameras:
-  - name: Front Door
-    host: !secret camera_ip
-    username: !secret username
-    password: !secret password
+ffmpeg:
+  camera:
+    camera_one:
+      name: Camera 1
+      host: !secret camera_one_host
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_username
+      password: !secret camera_one_password
+    camera_two:
+      name: Camera 2
+      host: !secret camera_two_host
+      path: /Streaming/Channels/101/
+      username: !secret camera_two_username
+      password: !secret camera_two_password
 ```
 
 :::info

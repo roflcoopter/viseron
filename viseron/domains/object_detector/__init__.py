@@ -217,7 +217,7 @@ class AbstractObjectDetector(ABC):
         component: str,
         config: dict[Any, Any],
         camera_identifier: str,
-    ):
+    ) -> None:
         self._vis = vis
         self._config = config
         self._camera_identifier = camera_identifier
@@ -316,7 +316,9 @@ class AbstractObjectDetector(ABC):
 
         return list(self.object_filters.values()) + zone_filters
 
-    def filter_fov(self, shared_frame: SharedFrame, objects: list[DetectedObject]):
+    def filter_fov(
+        self, shared_frame: SharedFrame, objects: list[DetectedObject]
+    ) -> None:
         """Filter field of view."""
         objects_in_fov = []
         for obj in objects:
@@ -349,7 +351,7 @@ class AbstractObjectDetector(ABC):
 
     def _objects_in_fov_setter(
         self, shared_frame: SharedFrame | None, objects: list[DetectedObject]
-    ):
+    ) -> None:
         """Set objects in field of view."""
         if objects == self._objects_in_fov:
             return
@@ -364,7 +366,9 @@ class AbstractObjectDetector(ABC):
             ),
         )
 
-    def filter_zones(self, shared_frame: SharedFrame, objects: list[DetectedObject]):
+    def filter_zones(
+        self, shared_frame: SharedFrame, objects: list[DetectedObject]
+    ) -> None:
         """Filter all zones."""
         for zone in self.zones:
             zone.filter_zone(shared_frame, objects)
@@ -373,7 +377,7 @@ class AbstractObjectDetector(ABC):
     def preprocess(self, frame):
         """Perform preprocessing of frame before running detection."""
 
-    def _object_detection(self):
+    def _object_detection(self) -> None:
         """Perform object detection and publish the results."""
         while not self._kill_received:
             try:
@@ -455,14 +459,14 @@ class AbstractObjectDetector(ABC):
         """Return the theoretical max average fps."""
         return self._avg_fps(self._theoretical_max_fps)
 
-    def handle_stop_scan(self, event_data: Event[EventScanFrames]):
+    def handle_stop_scan(self, event_data: Event[EventScanFrames]) -> None:
         """Handle event when stopping frame scans."""
         if event_data.data.scan is False:
             self._objects_in_fov_setter(None, [])
             for zone in self.zones:
                 zone.objects_in_zone_setter(None, [])
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop object detector."""
         self._kill_received = True
         self._object_detection_thread.join()

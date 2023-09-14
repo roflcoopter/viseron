@@ -31,7 +31,7 @@ class DetectedObject:
         model_res=None,
         letterboxed=False,
         frame_res=None,
-    ):
+    ) -> None:
         self._label = label
         self._confidence = round(float(confidence), 3)
 
@@ -129,7 +129,7 @@ class DetectedObject:
         return self._trigger_recorder
 
     @trigger_recorder.setter
-    def trigger_recorder(self, value):
+    def trigger_recorder(self, value) -> None:
         self._trigger_recorder = value
 
     @property
@@ -142,7 +142,7 @@ class DetectedObject:
         return self._relevant
 
     @relevant.setter
-    def relevant(self, value):
+    def relevant(self, value) -> None:
         self._relevant = value
 
     @property
@@ -151,7 +151,7 @@ class DetectedObject:
         return self._filter_hit
 
     @filter_hit.setter
-    def filter_hit(self, value):
+    def filter_hit(self, value) -> None:
         self._filter_hit = value
 
     def as_dict(self) -> dict[str, Any]:

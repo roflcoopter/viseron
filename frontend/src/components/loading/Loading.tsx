@@ -32,7 +32,12 @@ export const Loading = ({ text, fullScreen = true }: LoadingProps) => (
     {fullScreen && (
       <Grid item>
         <Box display="flex" justifyContent="center" alignItems="center">
-          <ViseronLogo width={150} height={150} />
+          <ViseronLogo
+            width={150}
+            height={150}
+            role="img"
+            aria-label="Viseron Logo"
+          />
         </Box>
       </Grid>
     )}

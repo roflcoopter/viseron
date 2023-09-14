@@ -7,6 +7,7 @@ from typing import Dict, Tuple
 
 import cv2
 import imutils
+import numpy as np
 import tornado.ioloop
 import tornado.web
 from tornado.queues import Queue
@@ -36,7 +37,7 @@ BOUNDARY = "--jpgboundary"
 class StreamHandler(ViseronRequestHandler):
     """Represents a stream."""
 
-    async def prepare(self):
+    async def prepare(self) -> None:
         """Validate access token."""
         if self._webserver.auth:
             camera_identifier = self.path_kwargs.get("camera", None)
@@ -46,6 +47,7 @@ class StreamHandler(ViseronRequestHandler):
                     reason="Missing camera identifier in request",
                 )
                 self.finish()
+                return
 
             camera = self._get_camera(camera_identifier)
             if not camera:
@@ -66,7 +68,7 @@ class StreamHandler(ViseronRequestHandler):
 
         await super().prepare()
 
-    def _set_stream_headers(self):
+    def _set_stream_headers(self) -> None:
         """Set the headers for the stream."""
         self.set_header(
             "Cache-Control",
@@ -78,7 +80,7 @@ class StreamHandler(ViseronRequestHandler):
         )
         self.set_header("Pragma", "no-cache")
 
-    async def write_jpg(self, jpg):
+    async def write_jpg(self, jpg) -> None:
         """Set the headers and write the jpg data."""
         self.write(f"{BOUNDARY}\r\n")
         self.write("Content-type: image/jpeg\r\n")
@@ -150,7 +152,7 @@ class StreamHandler(ViseronRequestHandler):
 class DynamicStreamHandler(StreamHandler):
     """Represents a dynamic stream using query parameters."""
 
-    async def get(self, camera):
+    async def get(self, camera) -> None:
         """Handle a GET request."""
         request_arguments = {k: self.get_argument(k) for k in self.request.arguments}
         mjpeg_stream_config = MJPEG_STREAM_SCHEMA(request_arguments)
@@ -176,7 +178,7 @@ class DynamicStreamHandler(StreamHandler):
                 continue
             break
 
-        frame_queue = Queue(maxsize=1)
+        frame_queue: Queue[DataProcessedFrame] = Queue(maxsize=1)
         frame_topic = DATA_PROCESSED_FRAME_TOPIC.format(
             camera_identifier=nvr.camera.identifier
         )
@@ -188,7 +190,7 @@ class DynamicStreamHandler(StreamHandler):
 
         while True:
             try:
-                processed_frame: DataProcessedFrame = await frame_queue.get()
+                processed_frame = await frame_queue.get()
                 ret, jpg = await self.process_frame(
                     nvr, processed_frame, mjpeg_stream_config
                 )
@@ -204,11 +206,13 @@ class DynamicStreamHandler(StreamHandler):
 class StaticStreamHandler(StreamHandler):
     """Represents a static stream defined in config.yaml."""
 
-    active_streams: Dict[Tuple[str, str], object] = {}
+    active_streams: Dict[Tuple[str, str], int] = {}
 
-    async def stream(self, nvr, mjpeg_stream, mjpeg_stream_config, publish_frame_topic):
+    async def stream(
+        self, nvr, mjpeg_stream, mjpeg_stream_config, publish_frame_topic
+    ) -> None:
         """Subscribe to frames, draw on them, then publish processed frame."""
-        frame_queue = Queue(maxsize=1)
+        frame_queue: Queue[DataProcessedFrame] = Queue(maxsize=1)
         frame_topic = DATA_PROCESSED_FRAME_TOPIC.format(
             camera_identifier=nvr.camera.identifier
         )
@@ -217,7 +221,7 @@ class StaticStreamHandler(StreamHandler):
         )
 
         while self.active_streams[(nvr.camera.identifier, mjpeg_stream)]:
-            processed_frame: DataProcessedFrame = await frame_queue.get()
+            processed_frame = await frame_queue.get()
             ret, jpg = await self.process_frame(
                 nvr, processed_frame, mjpeg_stream_config
             )
@@ -228,7 +232,7 @@ class StaticStreamHandler(StreamHandler):
         DataStream.unsubscribe_data(frame_topic, unique_id)
         LOGGER.debug(f"Closing stream {mjpeg_stream}")
 
-    async def get(self, camera, mjpeg_stream):
+    async def get(self, camera, mjpeg_stream) -> None:
         """Handle GET request."""
         tries = 0
         while True:
@@ -258,7 +262,7 @@ class StaticStreamHandler(StreamHandler):
             self.finish()
             return
 
-        frame_queue = Queue(maxsize=1)
+        frame_queue: Queue[np.ndarray] = Queue(maxsize=1)
         frame_topic = (
             f"{TOPIC_STATIC_MJPEG_STREAMS}/{nvr.camera.identifier}/{mjpeg_stream}"
         )

@@ -83,7 +83,7 @@ DEFAULT_RETAIN = 7
 DEFAULT_FOLDER = "/recordings"
 DEFAULT_FILENAME_PATTERN = "%H:%M:%S"
 DEFAULT_EXTENSION = "mp4"
-DEFAULT_THUMBNAIL = None
+DEFAULT_THUMBNAIL: Final = None
 
 DESC_LOOKBACK = "Number of seconds to record before a detected object."
 DESC_IDLE_TIMEOUT = "Number of seconds to record after all events are over."
@@ -101,14 +101,52 @@ DESC_FILENAME_PATTERN_THUMBNAIL = (
 )
 
 
+# STILL_IMAGE_SCHEMA constants
+CONFIG_STILL_IMAGE = "still_image"
+CONFIG_URL = "url"
+CONFIG_USERNAME = "username"
+CONFIG_PASSWORD = "password"
+CONFIG_AUTHENTICATION = "authentication"
+CONFIG_REFRESH_INTERVAL = "refresh_interval"
+
+DEFAULT_STILL_IMAGE: Final = None
+DEFAULT_URL: Final = None
+DEFAULT_USERNAME: Final = None
+DEFAULT_PASSWORD: Final = None
+DEFAULT_AUTHENTICATION: Final = None
+DEFAULT_REFRESH_INTERVAL: Final = 10
+
+DESC_STILL_IMAGE = "Options for still image."
+DESC_URL = (
+    "URL to the still image. "
+    "If this is omitted, the camera stream will be used to get the image."
+)
+DESC_USERNAME = (
+    "Username for authentication.<br>Only applicable if <code>url</code> is set."
+)
+DESC_PASSWORD = (
+    "Password for authentication.<br>Only applicable if <code>url</code> is set."
+)
+DESC_AUTHENTICATION = (
+    "Authentication method to use.<br>Only applicable if <code>url</code> is set."
+)
+DESC_REFRESH_INTERVAL = (
+    "Number of seconds between refreshes of the still image in the frontend."
+)
+
+INCLUSION_GROUP_AUTHENTICATION = "authentication"
+
+AUTHENTICATION_BASIC = "basic"
+AUTHENTICATION_DIGEST = "digest"
+
 # BASE_CONFIG_SCHEMA constants
 CONFIG_NAME = "name"
 CONFIG_MJPEG_STREAMS = "mjpeg_streams"
 CONFIG_RECORDER = "recorder"
 
-DEFAULT_NAME = None
-DEFAULT_MJPEG_STREAMS = None
-DEFAULT_RECORDER = None
+DEFAULT_NAME: Final = None
+DEFAULT_MJPEG_STREAMS: Final = None
+DEFAULT_RECORDER: Final = None
 
 DESC_NAME = "Camera friendly name."
 DESC_MJPEG_STREAMS = "MJPEG streams config."

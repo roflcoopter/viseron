@@ -1,161 +1,162 @@
 [
-    {
+  {
+    "type": "map",
+    "value": [
+      {
         "type": "map",
         "value": [
-            {
+          {
+            "type": "map",
+            "value": [
+              {
                 "type": "map",
                 "value": [
-                    {
-                        "type": "map",
-                        "value": [
-                            {
-                                "type": "map",
-                                "value": [
-                                    {
-                                        "type": "boolean",
-                                        "name": "trigger_recorder",
-                                        "description": "If true, detected motion will start the recorder.",
-                                        "optional": true,
-                                        "default": false
-                                    },
-                                    {
-                                        "type": "boolean",
-                                        "name": "recorder_keepalive",
-                                        "description": "If true, recording will continue until no motion is detected.",
-                                        "optional": true,
-                                        "default": true
-                                    },
-                                    {
-                                        "type": "integer",
-                                        "valueMin": 0,
-                                        "name": "max_recorder_keepalive",
-                                        "description": "Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected.<br>Use this to prevent never-ending recordings.<br>Only applicable if <code>recorder_keepalive: true</code>.<br><b>A value of <code>0</code> disables this functionality.</b>",
-                                        "optional": true,
-                                        "default": 30
-                                    },
-                                    {
-                                        "type": "float",
-                                        "valueMin": 0.0,
-                                        "name": "fps",
-                                        "description": "The FPS at which the motion detector runs.<br>Higher values will result in more scanning, which uses more resources.",
-                                        "optional": true,
-                                        "default": 1
-                                    },
-                                    {
-                                        "type": "float",
-                                        "valueMin": 0.0,
-                                        "valueMax": 1.0,
-                                        "name": "area",
-                                        "description": "How big the detected area must be in order to trigger motion.",
-                                        "optional": true,
-                                        "default": 0.08
-                                    },
-                                    {
-                                        "type": "integer",
-                                        "name": "width",
-                                        "description": "Frames will be resized to this width before applying the motion detection algorithm to save computing power.",
-                                        "optional": true,
-                                        "default": 300
-                                    },
-                                    {
-                                        "type": "integer",
-                                        "name": "height",
-                                        "description": "Frames will be resized to this height before applying the motion detection algorithm to save computing power.",
-                                        "optional": true,
-                                        "default": 300
-                                    },
-                                    {
-                                        "type": "list",
-                                        "values": [
-                                            [
-                                                {
-                                                    "type": "list",
-                                                    "values": [
-                                                        [
-                                                            {
-                                                                "type": "integer",
-                                                                "name": "x",
-                                                                "description": "X-coordinate (horizontal axis).",
-                                                                "required": true,
-                                                                "default": null
-                                                            },
-                                                            {
-                                                                "type": "integer",
-                                                                "name": "y",
-                                                                "description": "Y-coordinate (vertical axis).",
-                                                                "required": true,
-                                                                "default": null
-                                                            }
-                                                        ]
-                                                    ],
-                                                    "name": "coordinates",
-                                                    "description": "List of X and Y coordinates to form a polygon",
-                                                    "required": true,
-                                                    "default": null
-                                                }
-                                            ]
-                                        ],
-                                        "name": "mask",
-                                        "description": "A mask is used to exclude certain areas in the image from motion detection. ",
-                                        "optional": true,
-                                        "default": []
-                                    },
-                                    {
-                                        "type": "integer",
-                                        "valueMin": 0,
-                                        "valueMax": 255,
-                                        "name": "threshold",
-                                        "description": "The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. A smaller value leads to higher sensitivity and a larger value leads to lower sensitivity.",
-                                        "optional": true,
-                                        "default": 15
-                                    },
-                                    {
-                                        "type": "integer",
-                                        "name": "history",
-                                        "description": "The number of last frames that affect the background model.",
-                                        "optional": true,
-                                        "default": 500
-                                    },
-                                    {
-                                        "type": "boolean",
-                                        "name": "detect_shadows",
-                                        "description": "Enable/disable shadow detection. If enabled, shadows will be considered as motion at the expense of some extra resources.",
-                                        "optional": true,
-                                        "default": false
-                                    },
-                                    {
-                                        "type": "float",
-                                        "valueMin": -1,
-                                        "valueMax": 1.0,
-                                        "name": "learning_rate",
-                                        "description": "How fast the background model learns. 0 means that the background model is not updated at all, 1 means that the background model is completely reinitialized from the last frame. Negative values gives an automatically chosen learning rate.",
-                                        "optional": true,
-                                        "default": 0.01
-                                    }
-                                ],
-                                "name": {
-                                    "type": "CAMERA_IDENTIFIER"
-                                },
-                                "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
-                                "cameraidentifier": true,
+                  {
+                    "type": "boolean",
+                    "name": "trigger_recorder",
+                    "description": "If true, detected motion will start the recorder.",
+                    "optional": true,
+                    "default": false
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "recorder_keepalive",
+                    "description": "If true, recording will continue until no motion is detected.",
+                    "optional": true,
+                    "default": true
+                  },
+                  {
+                    "type": "integer",
+                    "valueMin": 0,
+                    "name": "max_recorder_keepalive",
+                    "description": "Value in seconds for how long motion is allowed to keep the recorder going when no objects are detected.<br>Use this to prevent never-ending recordings.<br>Only applicable if <code>recorder_keepalive: true</code>.<br><b>A value of <code>0</code> disables this functionality.</b>",
+                    "optional": true,
+                    "default": 30
+                  },
+                  {
+                    "type": "float",
+                    "valueMin": 0.0,
+                    "name": "fps",
+                    "description": "The FPS at which the motion detector runs.<br>Higher values will result in more scanning, which uses more resources.",
+                    "optional": true,
+                    "default": 1
+                  },
+                  {
+                    "type": "float",
+                    "valueMin": 0.0,
+                    "valueMax": 1.0,
+                    "name": "area",
+                    "description": "How big the detected area must be in order to trigger motion.",
+                    "optional": true,
+                    "default": 0.08
+                  },
+                  {
+                    "type": "integer",
+                    "name": "width",
+                    "description": "Frames will be resized to this width before applying the motion detection algorithm to save computing power.",
+                    "optional": true,
+                    "default": 300
+                  },
+                  {
+                    "type": "integer",
+                    "name": "height",
+                    "description": "Frames will be resized to this height before applying the motion detection algorithm to save computing power.",
+                    "optional": true,
+                    "default": 300
+                  },
+                  {
+                    "type": "list",
+                    "values": [
+                      [
+                        {
+                          "type": "list",
+                          "values": [
+                            [
+                              {
+                                "type": "integer",
+                                "name": "x",
+                                "description": "X-coordinate (horizontal axis).",
+                                "required": true,
                                 "default": null
-                            }
-                        ],
-                        "name": "cameras",
-                        "description": "Camera-specific configuration. All subordinate keys corresponds to the <code>camera_identifier</code> of a configured camera.",
-                        "required": true,
-                        "default": null
-                    }
+                              },
+                              {
+                                "type": "integer",
+                                "name": "y",
+                                "description": "Y-coordinate (vertical axis).",
+                                "required": true,
+                                "default": null
+                              }
+                            ]
+                          ],
+                          "lengthMin": 3,
+                          "name": "coordinates",
+                          "description": "List of X and Y coordinates to form a polygon",
+                          "required": true,
+                          "default": null
+                        }
+                      ]
+                    ],
+                    "name": "mask",
+                    "description": "A mask is used to exclude certain areas in the image from motion detection. ",
+                    "optional": true,
+                    "default": []
+                  },
+                  {
+                    "type": "integer",
+                    "valueMin": 0,
+                    "valueMax": 255,
+                    "name": "threshold",
+                    "description": "The minimum allowed difference between our current frame and averaged frame for a given pixel to be considered motion. A smaller value leads to higher sensitivity and a larger value leads to lower sensitivity.",
+                    "optional": true,
+                    "default": 15
+                  },
+                  {
+                    "type": "integer",
+                    "name": "history",
+                    "description": "The number of last frames that affect the background model.",
+                    "optional": true,
+                    "default": 500
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "detect_shadows",
+                    "description": "Enable/disable shadow detection. If enabled, shadows will be considered as motion at the expense of some extra resources.",
+                    "optional": true,
+                    "default": false
+                  },
+                  {
+                    "type": "float",
+                    "valueMin": -1,
+                    "valueMax": 1.0,
+                    "name": "learning_rate",
+                    "description": "How fast the background model learns. 0 means that the background model is not updated at all, 1 means that the background model is completely reinitialized from the last frame. Negative values gives an automatically chosen learning rate.",
+                    "optional": true,
+                    "default": 0.01
+                  }
                 ],
-                "name": "motion_detector",
-                "description": "Motion detector domain config.",
-                "required": true,
+                "name": {
+                  "type": "CAMERA_IDENTIFIER"
+                },
+                "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+                "cameraidentifier": true,
                 "default": null
-            }
+              }
+            ],
+            "name": "cameras",
+            "description": "Camera-specific configuration. All subordinate keys corresponds to the <code>camera_identifier</code> of a configured camera.",
+            "required": true,
+            "default": null
+          }
         ],
-        "name": "mog2",
-        "description": "MOG2 configuration.",
+        "name": "motion_detector",
+        "description": "Motion detector domain config.",
         "required": true,
         "default": null
-    }
+      }
+    ],
+    "name": "mog2",
+    "description": "MOG2 configuration.",
+    "required": true,
+    "default": null
+  }
 ]

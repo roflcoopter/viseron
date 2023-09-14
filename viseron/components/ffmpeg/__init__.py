@@ -1,6 +1,8 @@
 """FFmpeg component."""
+from __future__ import annotations
 
 import logging
+from typing import Any
 
 import voluptuous as vol
 
@@ -22,7 +24,7 @@ CONFIG_SCHEMA = vol.Schema(
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config):
+def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     """Set up the ffmpeg component."""
     config = config[COMPONENT]
     vis.data[COMPONENT] = {}

@@ -1,5 +1,6 @@
 import Admonition from "@theme/Admonition";
 import CodeBlock from "@theme/CodeBlock";
+
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
 import FaceRecognition from "@site/src/pages/components-explorer/_domains/face_recognition/index.mdx";
@@ -9,6 +10,7 @@ import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_
 import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
 import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
 import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
+
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
 
@@ -39,7 +41,8 @@ deepstack:
         labels:
           - label: person
             confidence: 0.8
-
+          - label: cat
+            confidence: 0.8
   face_recognition:
     save_unknown_faces: false
     cameras:
@@ -78,11 +81,11 @@ deepstack:
 
 ### Zones
 
-<ObjectDetectorZones />
+<ObjectDetectorZones meta={ComponentMetadata} />
 
 ### Mask
 
-<ObjectDetectorMask />
+<ObjectDetectorMask meta={ComponentMetadata} />
 
 ## Face recognition
 

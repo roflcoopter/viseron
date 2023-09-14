@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Final
 
+from viseron.components.mqtt.entity.toggle import ToggleMQTTEntity
 from viseron.const import STATE_OFF, STATE_ON
 
 from .entity import HassMQTTEntity
@@ -10,7 +11,7 @@ from .entity import HassMQTTEntity
 DOMAIN: Final = "switch"
 
 
-class HassMQTTSwitch(HassMQTTEntity):
+class HassMQTTSwitch(HassMQTTEntity[ToggleMQTTEntity]):
     """Base class for all Home Assistant MQTT switches."""
 
     # These should NOT be overridden.

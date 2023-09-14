@@ -1,4 +1,3 @@
-import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import { styled } from "@mui/material/styles";
@@ -54,13 +53,20 @@ export default function PrivateLayout() {
       toastId: toastIds.userLoadError,
     });
     return (
-      <Container>
+      <Container
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 2,
+          height: "100vh",
+        }}
+      >
         <Error text="Error loading user" />
-        <Box display="flex" justifyContent="center" alignItems="center">
-          <Button variant="contained" component={Link} to="/login">
-            Navigate to Login
-          </Button>
-        </Box>
+        <Button variant="contained" component={Link} to="/login">
+          Navigate to Login
+        </Button>
       </Container>
     );
   }

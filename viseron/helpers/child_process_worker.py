@@ -9,9 +9,7 @@ import setproctitle
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.helpers import pop_if_full
-from viseron.helpers.mprt_monkeypatch import (  # type: ignore
-    remove_shm_from_resource_tracker,
-)
+from viseron.helpers.mprt_monkeypatch import remove_shm_from_resource_tracker
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 LOGGER = logging.getLogger(__name__)
@@ -25,7 +23,7 @@ class ChildProcessWorker(ABC):
     Work is then performed in the child process and returned through output queue.
     """
 
-    def __init__(self, vis, name):
+    def __init__(self, vis, name) -> None:
         self._name = name
 
         self._process_frames_proc_exit = mp.Event()
@@ -64,11 +62,11 @@ class ChildProcessWorker(ABC):
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
     @property
-    def child_process_name(self):
+    def child_process_name(self) -> str:
         """Return spawned child process name."""
         return f"child_process.{self._name}.process"
 
-    def _process_input_queue(self):
+    def _process_input_queue(self) -> None:
         """Read from thread queue and put to multiprocessing queue."""
         while not self._process_frames_proc_exit.is_set():
             try:
@@ -85,10 +83,10 @@ class ChildProcessWorker(ABC):
     def work_output(self, item):
         """Perform work on output item from child process."""
 
-    def process_initialization(self):
+    def process_initialization(self) -> None:
         """Run initializations inside spawned process."""
 
-    def _process_frames(self, exit_event, process_queue, output_queue):
+    def _process_frames(self, exit_event, process_queue, output_queue) -> None:
         """Process frame and send it to the detector."""
         remove_shm_from_resource_tracker()
         setproctitle.setproctitle(self.child_process_name)
@@ -104,7 +102,7 @@ class ChildProcessWorker(ABC):
 
         LOGGER.debug(f"Exiting {self.child_process_name}")
 
-    def _process_output_queue(self):
+    def _process_output_queue(self) -> None:
         """Read from multiprocessing queue and put to thread queue."""
         while not self._process_frames_proc_exit.is_set():
             try:
@@ -113,7 +111,7 @@ class ChildProcessWorker(ABC):
                 continue
             self.work_output(item)
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop detection process."""
         LOGGER.debug(f"Sending exit event to {self.child_process_name}")
         self._process_frames_proc_exit.set()

@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 MAKE_INTERPRETER_LOCK = threading.Lock()
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the edgetpu image_classification domain."""
     with MAKE_INTERPRETER_LOCK:
         if not vis.data[COMPONENT].get(CONFIG_IMAGE_CLASSIFICATION, None):
@@ -49,7 +49,7 @@ def setup(vis: Viseron, config, identifier):
 class ImageClassification(AbstractImageClassification):
     """Perform EdgeTPU image classification."""
 
-    def __init__(self, vis, component, config, camera_identifier):
+    def __init__(self, vis, component, config, camera_identifier) -> None:
         self._edgetpu: EdgeTPUClassification = vis.data[COMPONENT][
             CONFIG_IMAGE_CLASSIFICATION
         ]

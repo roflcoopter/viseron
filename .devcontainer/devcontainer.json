@@ -1,0 +1,85 @@
+{
+  "name": "Viseron Development",
+  "context": "..",
+  "dockerFile": "../docker/Dockerfile.dev",
+  "postCreateCommand": ".devcontainer/setup.sh",
+  "overrideCommand": false,
+  "containerEnv": {
+    "DEVCONTAINER": "1",
+    "PUID": "1000",
+    "PGID": "1000"
+  },
+  "containerUser": "root",
+  "remoteUser": "abc",
+  "forwardPorts": [8888],
+  "portsAttributes": {
+    "8888": {
+      "label": "Viseron",
+      "onAutoForward": "silent"
+    }
+  },
+  "runArgs": ["-e", "GIT_EDITOR=code --wait"],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.isort",
+        "ms-python.flake8",
+        "redhat.vscode-yaml",
+        "esbenp.prettier-vscode",
+        "GitHub.vscode-pull-request-github",
+        "GitHub.vscode-github-actions",
+        "GitHub.copilot",
+        "eamodio.gitlens",
+        "dbaeumer.vscode-eslint",
+        "ms-azuretools.vscode-docker",
+        "unifiedjs.vscode-mdx"
+      ],
+      "settings": {
+        "python.pythonPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": true,
+        "python.linting.pylintPath": "/usr/local/bin/pylint",
+        "python.linting.flake8Enabled": true,
+        "python.linting.flake8Path": "/usr/local/bin/flake8",
+        "python.linting.pycodestylePath": "/usr/local/bin/pycodestyle",
+        "python.linting.pydocstylePath": "/usr/local/bin/pydocstyle",
+        "python.formatting.blackPath": "/usr/local/bin/black",
+        "python.formatting.provider": "black",
+        "python.testing.pytestArgs": ["--no-cov"],
+        "python.linting.mypyEnabled": true,
+        "python.linting.mypyPath": "/usr/local/bin/mypy",
+        "editor.rulers": [80],
+        "[python]": {
+          "editor.rulers": [88],
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+          }
+        },
+        "editor.formatOnPaste": false,
+        "editor.formatOnSave": true,
+        "editor.formatOnType": true,
+        "files.trimTrailingWhitespace": true,
+        "yaml.customTags": ["!secret scalar"],
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[typescriptreact]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[json]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[javascript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        }
+      }
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers-contrib/features/curl-apt-get:1": {},
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  }
+}

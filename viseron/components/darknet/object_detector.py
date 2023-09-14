@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def setup(vis: Viseron, config, identifier):
+def setup(vis: Viseron, config, identifier) -> bool:
     """Set up the darknet object_detector domain."""
     ObjectDetector(vis, config[DOMAIN], identifier)
 
@@ -29,7 +29,7 @@ def setup(vis: Viseron, config, identifier):
 class ObjectDetector(AbstractObjectDetector):
     """Performs object detection."""
 
-    def __init__(self, vis: Viseron, config, camera_identifier):
+    def __init__(self, vis: Viseron, config, camera_identifier) -> None:
         super().__init__(vis, COMPONENT, config, camera_identifier)
         self._darknet: BaseDarknet = vis.data[COMPONENT]
         self._object_result_queue: Queue[list[DetectedObject]] = Queue(maxsize=1)

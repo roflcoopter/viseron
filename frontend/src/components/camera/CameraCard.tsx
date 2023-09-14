@@ -76,7 +76,7 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
   const { auth } = useContext(AuthContext);
   const theme = useTheme();
   const ref: any = useRef<HTMLDivElement>();
-  const onScreen = useOnScreen<HTMLDivElement>(ref, "-1px");
+  const onScreen = useOnScreen<HTMLDivElement>(ref);
   const isVisible = usePageVisibility();
   const [initialRender, setInitialRender] = useState(true);
   const cameraQuery = useCamera(camera_identifier, false, {
@@ -132,9 +132,14 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
     // If element is on screen and browser is visible, start interval to fetch images
     if (onScreen && isVisible && connected && cameraQuery.isSuccess) {
       updateImage();
-      updateSnapshot.current = setInterval(() => {
-        updateImage();
-      }, 10000);
+      updateSnapshot.current = setInterval(
+        () => {
+          updateImage();
+        },
+        cameraQuery.data.still_image_refresh_interval
+          ? cameraQuery.data.still_image_refresh_interval * 1000
+          : 10000
+      );
       // If element is hidden or browser loses focus, stop updating images
     } else if (updateSnapshot.current) {
       clearInterval(updateSnapshot.current);
@@ -145,15 +150,26 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
         clearInterval(updateSnapshot.current);
       }
     };
-  }, [updateImage, isVisible, onScreen, connected, cameraQuery.isSuccess]);
+  }, [
+    updateImage,
+    isVisible,
+    onScreen,
+    connected,
+    cameraQuery.isSuccess,
+    cameraQuery.data,
+  ]);
 
   useCameraToken(camera_identifier, auth.enabled);
 
   return (
-    <div ref={ref}>
+    <div
+      ref={ref}
+      style={{
+        height: "100%",
+      }}
+    >
       {cameraQuery.data && (
         <Card
-          ref={ref}
           variant="outlined"
           sx={{
             // Vertically space items evenly to accommodate different aspect ratios

@@ -64,7 +64,7 @@ class EventImageClassification:
 class AbstractImageClassification(AbstractPostProcessor):
     """Abstract image classification."""
 
-    def __init__(self, vis, component, config, camera_identifier):
+    def __init__(self, vis, component, config, camera_identifier) -> None:
         super().__init__(vis, config, camera_identifier)
         self._expire_timer: Timer | None = None
         vis.add_entity(component, ImageClassificationSensor(vis, self._camera))
@@ -79,7 +79,7 @@ class AbstractImageClassification(AbstractPostProcessor):
     ) -> list[ImageClassificationResult]:
         """Perform image classification."""
 
-    def process(self, post_processor_frame: PostProcessorFrame):
+    def process(self, post_processor_frame: PostProcessorFrame) -> None:
         """Process frame and run image classification."""
         if self._expire_timer:
             self._expire_timer.cancel()
@@ -101,7 +101,7 @@ class AbstractImageClassification(AbstractPostProcessor):
             )
             self._expire_timer.start()
 
-    def expire_result(self, result: ImageClassificationResult):
+    def expire_result(self, result: ImageClassificationResult) -> None:
         """Expire result after a given number of seconds."""
         self._logger.debug(f"Expiring image classification result {result}")
         self._vis.dispatch_event(

@@ -23,7 +23,7 @@ class CamerAccessTokenSensor(CameraSensor):
         self,
         vis: Viseron,
         camera: AbstractCamera,
-    ):
+    ) -> None:
         super().__init__(vis, camera)
 
         self.entity_category = "diagnostic"
