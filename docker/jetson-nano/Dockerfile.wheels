@@ -35,6 +35,8 @@ RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
   python3-pip \
   python3-setuptools \
   python3-wheel \
+  libgirepository1.0-dev\
+  libcairo2-dev \
   && python3 -m pip install --upgrade pip \
   && apt-get autoremove -y && apt-get clean -y \
   && pip install numpy pybind11
