@@ -1,6 +1,7 @@
-"""Class to interact with an FFmpeog stream."""
+"""Class to interact with a GStreamer stream."""
 from __future__ import annotations
 
+import datetime
 import logging
 import multiprocessing as mp
 import os
@@ -163,9 +164,9 @@ class Stream(FFmpegStream):
 
     def on_format_location(self, _splitmux, _fragment_id, _udata) -> str:
         """Return the location of the next segment."""
-        timestamp = int(time.time())
+        timestamp = int(datetime.datetime.utcnow().timestamp())
         return os.path.join(
-            self._camera.segments_folder,
+            self._camera.temp_segments_folder,
             f"{timestamp}.{self._camera.extension}",
         )
 

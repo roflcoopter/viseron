@@ -1,7 +1,6 @@
 """GStreamer pipelines."""
 from __future__ import annotations
 
-import os
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
@@ -179,10 +178,6 @@ class BasePipeline(AbstractPipeline):
 
     def segment_pipeline(self) -> list[str]:
         """Generate GStreamer segment args."""
-        segment_filepattern = os.path.join(
-            self._camera.segments_folder,
-            f"%01d.{self._camera.extension}",
-        )
         return (
             [
                 "!",
@@ -199,7 +194,6 @@ class BasePipeline(AbstractPipeline):
                 f"muxer={self._config[CONFIG_RECORDER][CONFIG_MUXER]}",
                 f"max-size-time={str(CAMERA_SEGMENT_DURATION)}000000000",
             ]
-            + [f"location={segment_filepattern}"]
         )
 
     def audio_pipeline(self):

@@ -45,7 +45,8 @@ def _get_mp4_files_to_fragment(path: str) -> list[str]:
     files_in_use = []
     for process in psutil.process_iter():
         try:
-            if process.name() in ["ffmpeg", "gstreamer"]:
+            process_name = process.name()
+            if any(pattern in process_name for pattern in ["ffmpeg", "gstreamer"]):
                 files_in_use.extend(_get_open_files(path, process))
         except psutil.Error:
             pass
