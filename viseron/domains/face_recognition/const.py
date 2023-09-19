@@ -16,11 +16,13 @@ CONFIG_FACE_RECOGNITION_PATH = "face_recognition_path"
 CONFIG_SAVE_UNKNOWN_FACES = "save_unknown_faces"
 CONFIG_UNKNOWN_FACES_PATH = "unknown_faces_path"
 CONFIG_EXPIRE_AFTER = "expire_after"
+CONFIG_DETECT_REMOTE_FACES = "detect_remote_faces"
 
 DEFAULT_FACE_RECOGNITION_PATH = "/config/face_recognition/faces"
 DEFAULT_SAVE_UNKNOWN_FACES = False
 DEFAULT_UNKNOWN_FACES_PATH = f"{DEFAULT_FACE_RECOGNITION_PATH}/unknown"
 DEFAULT_EXPIRE_AFTER = 5
+DEFAULT_DETECT_REMOTE_FACES = False
 
 DESC_FACE_RECOGNITION_PATH = (
     "Path to folder which contains subdirectories with images for each face to track."
@@ -33,4 +35,7 @@ DESC_SAVE_UNKNOWN_FACES = (
 DESC_UNKNOWN_FACES_PATH = "Path to folder where unknown faces will be stored."
 DESC_EXPIRE_AFTER = (
     "Time in seconds before a detected face is no longer considered detected."
+)
+DESC_DETECT_REMOTE_FACES = (
+    "If true, faces trained using other methods will be detected."
 )

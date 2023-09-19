@@ -109,6 +109,7 @@ class FaceRecognition(AbstractFaceRecognition):
             if subject["similarity"] >= self._config[CONFIG_SIMILARITTY_THRESHOLD]:
                 self._logger.debug(f"Face found: {subject}")
                 self.known_face_found(
+                    COMPONENT,
                     subject["subject"],
                     (
                         result["box"]["x_min"],
@@ -120,7 +121,7 @@ class FaceRecognition(AbstractFaceRecognition):
                     extra_attributes=result,
                 )
             elif self._config[CONFIG_SAVE_UNKNOWN_FACES]:
-                self.unknown_face_found(cropped_frame)
+                self.unknown_face_found(COMPONENT, cropped_frame)
 
     def process(self, post_processor_frame: PostProcessorFrame) -> None:
         """Process received frame."""

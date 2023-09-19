@@ -17,14 +17,17 @@ from viseron.helpers.schemas import FLOAT_MIN_ZERO
 
 from .binary_sensor import FaceDetectionBinarySensor
 from .const import (
+    CONFIG_DETECT_REMOTE_FACES,
     CONFIG_EXPIRE_AFTER,
     CONFIG_FACE_RECOGNITION_PATH,
     CONFIG_SAVE_UNKNOWN_FACES,
     CONFIG_UNKNOWN_FACES_PATH,
+    DEFAULT_DETECT_REMOTE_FACES,
     DEFAULT_EXPIRE_AFTER,
     DEFAULT_FACE_RECOGNITION_PATH,
     DEFAULT_SAVE_UNKNOWN_FACES,
     DEFAULT_UNKNOWN_FACES_PATH,
+    DESC_DETECT_REMOTE_FACES,
     DESC_EXPIRE_AFTER,
     DESC_FACE_RECOGNITION_PATH,
     DESC_SAVE_UNKNOWN_FACES,
@@ -55,6 +58,11 @@ BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
             default=DEFAULT_EXPIRE_AFTER,
             description=DESC_EXPIRE_AFTER,
         ): FLOAT_MIN_ZERO,
+        vol.Optional(
+            CONFIG_DETECT_REMOTE_FACES,
+            default=DEFAULT_DETECT_REMOTE_FACES,
+            description=DESC_DETECT_REMOTE_FACES,
+        ): bool,
     }
 )
 
@@ -87,15 +95,17 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         if config[CONFIG_SAVE_UNKNOWN_FACES]:
             create_directory(config[CONFIG_UNKNOWN_FACES_PATH])
 
-        for face_dir in os.listdir(config[CONFIG_FACE_RECOGNITION_PATH]):
-            if face_dir == "unknown":
-                continue
-            vis.add_entity(
-                component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
-            )
+        if os.path.isdir(config[CONFIG_FACE_RECOGNITION_PATH]):
+            for face_dir in os.listdir(config[CONFIG_FACE_RECOGNITION_PATH]):
+                if face_dir == "unknown":
+                    continue
+                vis.add_entity(
+                    component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
+                )
 
     def known_face_found(
         self,
+        component: str,
         face: str,
         coordinates: tuple[int, int, int, int],
         confidence=None,
@@ -105,6 +115,11 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         # Cancel the expiry timer if face has already been detected
         if self._faces.get(face, None):
             self._faces[face].timer.cancel()
+
+        if self._config[CONFIG_DETECT_REMOTE_FACES] and not self._faces.get(face, None):
+            self._vis.add_entity(
+                component, FaceDetectionBinarySensor(self._vis, self._camera, face)
+            )
 
         # Adds a detected face and schedules an expiry timer
         face_dict = FaceDict(
@@ -127,11 +142,11 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         )
         self._faces[face] = face_dict
 
-    def unknown_face_found(self, frame) -> None:
+    def unknown_face_found(self, component: str, frame) -> None:
         """Save unknown faces."""
         unique_id = (
             f"{datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S-')}"
-            f"{str(uuid4())}.jpg"
+            f"{component}-{str(uuid4())}.jpg"
         )
         file_name = os.path.join(self._config[CONFIG_UNKNOWN_FACES_PATH], unique_id)
         self._logger.debug(f"Unknown face found, saving to {file_name}")
@@ -151,4 +166,3 @@ class AbstractFaceRecognition(AbstractPostProcessor):
                 face=self._faces[face],
             ),
         )
-        del self._faces[face]

@@ -83,9 +83,9 @@ class FaceRecognition(AbstractFaceRecognition):
 
         for face, coordinates in faces:
             if face != "unknown":
-                self.known_face_found(face, coordinates)
+                self.known_face_found(COMPONENT, face, coordinates)
             elif self._config[CONFIG_SAVE_UNKNOWN_FACES]:
-                self.unknown_face_found(cropped_frame)
+                self.unknown_face_found(COMPONENT, cropped_frame)
 
     def process(self, post_processor_frame: PostProcessorFrame) -> None:
         """Process received frame."""

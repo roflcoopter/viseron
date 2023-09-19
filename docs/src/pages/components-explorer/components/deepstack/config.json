@@ -425,6 +425,13 @@
           },
           {
             "type": "boolean",
+            "name": "detect_remote_faces",
+            "description": "If true, faces trained using other methods will be detected.",
+            "optional": true,
+            "default": false
+          },
+          {
+            "type": "boolean",
             "name": "train",
             "description": "Train DeepStack to recognize faces on Viseron start. Disable this when you have a good model trained.",
             "optional": true,

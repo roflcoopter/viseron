@@ -79,6 +79,13 @@
             "default": 5
           },
           {
+            "type": "boolean",
+            "name": "detect_remote_faces",
+            "description": "If true, faces trained using other methods will be detected.",
+            "optional": true,
+            "default": false
+          },
+          {
             "type": "select",
             "options": [
               {
