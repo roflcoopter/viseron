@@ -247,9 +247,9 @@ class Webserver(threading.Thread):
 
         self._asyncio_ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._asyncio_ioloop)
-        self.application = create_application(vis, config, self._store.cookie_secret)
+        self._application = create_application(vis, config, self._store.cookie_secret)
         try:
-            self.application.listen(
+            self._application.listen(
                 config[CONFIG_PORT],
                 xheaders=True,
             )
@@ -263,6 +263,11 @@ class Webserver(threading.Thread):
     def auth(self):
         """Return auth."""
         return self._auth
+
+    @property
+    def application(self):
+        """Return application."""
+        return self._application
 
     def register_websocket_command(self, handler) -> None:
         """Register a websocket command."""

@@ -35,7 +35,7 @@ from viseron.components.storage.const import (
     CONFIG_POLL,
     MOVE_FILES_THROTTLE_SECONDS,
 )
-from viseron.components.storage.models import Files, FilesMeta
+from viseron.components.storage.models import Files, FilesMeta, Recordings
 from viseron.components.storage.queries import (
     files_to_move_query,
     recordings_to_move_query,
@@ -166,12 +166,12 @@ class TierHandler(FileSystemEventHandler):
                 self._time_of_last_call = now
             else:
                 return
-        self._check_tier()
+        self._check_tier(self._storage.get_session)
         self._time_of_last_call = now
 
-    def _check_tier(self) -> None:
+    def _check_tier(self, get_session: Callable[[], Session]) -> None:
         file_ids = None
-        with self._storage.get_session() as session:
+        with get_session() as session:
             file_ids = get_files_to_move(
                 session,
                 self._category,
@@ -367,12 +367,12 @@ class RecorderTierHandler(TierHandler):
         self.add_file_handler(self._path, rf"{self._path}/(.*.mp4$)")
         self.add_file_handler(thumbnail_path, rf"{thumbnail_path}/(.*.jpg$)")
 
-    def _check_tier(self) -> None:
+    def _check_tier(self, get_session: Callable[[], Session]) -> None:
         events_enabled = False
         continuous_enabled = False
         events_file_ids: Result[Any] | list = []
         continuous_file_ids: Result[Any] | list = []
-        with self._storage.get_session() as session:
+        with get_session() as session:
             if any(self._events_params):
                 events_enabled = True
                 events_file_ids = get_recordings_to_move(
@@ -430,6 +430,16 @@ class RecorderTierHandler(TierHandler):
                         self._next_tier,
                         file.path,
                     )
+
+            # Delete recordings from Recordings table
+            recording_ids: list[int] = []
+            for recording in events_file_ids:
+                if recording.recording_id not in recording_ids:
+                    recording_ids.append(recording.recording_id)
+
+            if recording_ids:
+                stmt = delete(Recordings).where(Recordings.id.in_(recording_ids))
+                session.execute(stmt)
 
             session.commit()
 

@@ -1,7 +1,15 @@
 """Common mocks for Viseron tests."""
 
 
+import datetime
+from typing import Any, Callable, Generator
 from unittest.mock import MagicMock
+
+import pytest
+from sqlalchemy import insert
+from sqlalchemy.orm import Session
+
+from viseron.components.storage.models import Files, FilesMeta, Recordings
 
 
 class MockComponent:
@@ -49,3 +57,65 @@ def return_any(cls):
             return True
 
     return Any()
+
+
+class BaseTestWithRecordings:
+    """Test class that provides a database with recordings."""
+
+    _get_db_session: Callable[[], Session]
+    _now: datetime.datetime
+
+    def insert_data(self, get_session: Callable[[], Session]):
+        """Insert data used tests."""
+        with get_session() as session:
+            for i in range(15):
+                timestamp = self._now + datetime.timedelta(seconds=5 * i)
+                filename = f"{int(timestamp.timestamp())}.m4s"
+                session.execute(
+                    insert(Files).values(
+                        tier_id=0,
+                        camera_identifier="test",
+                        category="recorder",
+                        path=f"/test/{filename}",
+                        directory="test",
+                        filename=filename,
+                        size=10,
+                        created_at=timestamp,
+                    )
+                )
+                session.execute(
+                    insert(FilesMeta).values(
+                        path=f"/test/{filename}",
+                        meta={"m3u8": {"EXTINF": 5}},
+                        created_at=timestamp,
+                    )
+                )
+            session.execute(
+                insert(Recordings).values(
+                    camera_identifier="test",
+                    start_time=self._now + datetime.timedelta(seconds=17),
+                    end_time=self._now + datetime.timedelta(seconds=27),
+                    created_at=self._now + datetime.timedelta(seconds=17),
+                    thumbnail_path="/test/test1.jpg",
+                )
+            )
+            session.execute(
+                insert(Recordings).values(
+                    camera_identifier="test",
+                    start_time=self._now + datetime.timedelta(seconds=35),
+                    end_time=self._now + datetime.timedelta(seconds=55),
+                    created_at=self._now + datetime.timedelta(seconds=35),
+                    thumbnail_path="/test/test2.jpg",
+                )
+            )
+            session.commit()
+            yield
+
+    @pytest.fixture(autouse=True, scope="function")
+    def setup_get_db_session(
+        self, get_db_session: Callable[[], Session]
+    ) -> Generator[None, Any, None]:
+        """Insert data used by all tests."""
+        BaseTestWithRecordings._get_db_session = get_db_session
+        BaseTestWithRecordings._now = datetime.datetime.now()
+        yield from self.insert_data(get_db_session)

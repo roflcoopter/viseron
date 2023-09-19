@@ -14,6 +14,7 @@ from viseron import Viseron
 from viseron.components.data_stream import COMPONENT as DATA_STREAM, DataStream
 from viseron.components.storage import COMPONENT as STORAGE, Storage
 from viseron.components.storage.models import Base
+from viseron.components.webserver import COMPONENT as WEBSERVER, Webserver
 
 from tests.common import MockCamera
 
@@ -26,6 +27,7 @@ def vis() -> Viseron:
     viseron = Viseron()
     viseron.data[DATA_STREAM] = MagicMock(spec=DataStream)
     viseron.data[STORAGE] = MagicMock(spec=Storage)
+    viseron.data[WEBSERVER] = MagicMock(spec=Webserver)
     return viseron
 
 
@@ -98,13 +100,13 @@ def db_session_class(test_db):
 
 @pytest.fixture(scope="function")
 def get_db_session(test_db):
-    """Session for SQLAlchemy."""
+    """Session for SQLAlchemy with function scope."""
     yield from _get_db_session(test_db)
 
 
 @pytest.fixture(scope="class")
 def get_db_session_class(test_db):
-    """Session for SQLAlchemy."""
+    """Session for SQLAlchemy with class scope."""
     yield from _get_db_session(test_db)
 
 
