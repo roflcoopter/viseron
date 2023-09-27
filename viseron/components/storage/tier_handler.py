@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-from datetime import datetime, timedelta
+from datetime import timedelta
 from queue import Queue
 from threading import Lock, Timer
 from typing import TYPE_CHECKING, Any, Callable
@@ -48,6 +48,7 @@ from viseron.components.storage.util import (
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import CAMERA_SEGMENT_DURATION, VISERON_SIGNAL_LAST_WRITE
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER, CONFIG_RETAIN
+from viseron.helpers import utcnow
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
@@ -103,7 +104,7 @@ class TierHandler(FileSystemEventHandler):
         self._throttle_period = timedelta(
             seconds=MOVE_FILES_THROTTLE_SECONDS,
         )
-        self._time_of_last_call = datetime.min
+        self._time_of_last_call = utcnow()
         self._check_tier_lock = Lock()
 
         LOGGER.debug("Tier %s monitoring path: %s", tier_id, self._path)
@@ -159,7 +160,7 @@ class TierHandler(FileSystemEventHandler):
 
     def check_tier(self) -> None:
         """Check if file should be moved to next tier."""
-        now = datetime.now()
+        now = utcnow()
         with self._check_tier_lock:
             time_since_last_call = now - self._time_of_last_call
             if time_since_last_call > self._throttle_period:
@@ -475,13 +476,15 @@ def move_file(session: Session, src: str, dst: str) -> None:
     delete the old one.
     """
     LOGGER.debug("Moving file from %s to %s", src, dst)
-    sel = select(FilesMeta.meta).where(FilesMeta.path == src)
+    sel = select(FilesMeta).where(FilesMeta.path == src)
     res = session.execute(sel).scalar_one()
     try:
-        ins = insert(FilesMeta).values(path=dst, meta=res)
+        ins = insert(FilesMeta).values(
+            path=dst, meta=res.meta, orig_ctime=res.orig_ctime
+        )
         session.execute(ins)
     except IntegrityError:
-        LOGGER.error(f"Failed to insert metadata for {dst}")
+        LOGGER.error(f"Failed to insert metadata for {dst}", exc_info=True)
 
     try:
         os.makedirs(os.path.dirname(dst), exist_ok=True)
@@ -516,7 +519,7 @@ def get_files_to_move(
     max_age: timedelta,
 ) -> Result[Any]:
     """Get id of files to move."""
-    now = datetime.utcnow()
+    now = utcnow()
 
     # If min_age is not set, we want to ignore files that are less than 5 seconds old
     # This is to avoid moving files that are still being written to
@@ -554,7 +557,7 @@ def get_recordings_to_move(
     max_age: timedelta,
 ) -> Result[Any]:
     """Get id of recordings and segments to move."""
-    now = datetime.utcnow()
+    now = utcnow()
 
     min_age_timestamp = (now - min_age).timestamp()
     if max_age:

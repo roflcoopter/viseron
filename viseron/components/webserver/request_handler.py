@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import hmac
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Callable, Literal, TypeVar, overload
 
 import tornado.web
+from sqlalchemy.orm import Session
 from tornado.ioloop import IOLoop
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
@@ -16,6 +17,7 @@ from viseron.const import DOMAIN_FAILED
 from viseron.domains.camera import FailedCamera
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
+from viseron.helpers import utcnow
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -94,7 +96,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         new_session=False,
     ) -> None:
         """Set session cookies."""
-        now = datetime.utcnow()
+        now = utcnow()
 
         _header, _payload, signature = access_token.split(".")
 
@@ -235,6 +237,10 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
                 if domain_to_setup:
                     camera = domain_to_setup.error_instance
         return camera
+
+    def _get_session(self) -> Session:
+        """Get a database session."""
+        return self._storage.get_session()
 
     def validate_camera_token(self, camera: AbstractCamera) -> bool:
         """Validate camera token."""

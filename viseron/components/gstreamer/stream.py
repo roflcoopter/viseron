@@ -1,7 +1,6 @@
 """Class to interact with a GStreamer stream."""
 from __future__ import annotations
 
-import datetime
 import logging
 import multiprocessing as mp
 import os
@@ -20,7 +19,7 @@ from viseron.const import (
     ENV_RASPBERRYPI4,
 )
 from viseron.domains.camera.shared_frames import SharedFrame
-from viseron.helpers import pop_if_full
+from viseron.helpers import pop_if_full, utcnow
 from viseron.helpers.logs import UnhelpfullLogFilter
 from viseron.watchdog.process_watchdog import RestartableProcess
 
@@ -164,7 +163,7 @@ class Stream(FFmpegStream):
 
     def on_format_location(self, _splitmux, _fragment_id, _udata) -> str:
         """Return the location of the next segment."""
-        timestamp = int(datetime.datetime.utcnow().timestamp())
+        timestamp = int(utcnow().timestamp())
         return os.path.join(
             self._camera.temp_segments_folder,
             f"{timestamp}.{self._camera.extension}",

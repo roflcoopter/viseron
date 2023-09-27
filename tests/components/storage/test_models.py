@@ -13,8 +13,8 @@ class TestRecordings(BaseTestWithRecordings):
     def test_get_files(self):
         """Test get_files."""
         with self._get_db_session() as session:
-            recording = session.query(Recordings).filter_by(id=1).one()
-        rows = recording.get_files(5, self._get_db_session)
+            recording = session.query(Recordings).filter_by(id=2).one()
+        rows = recording.get_fragments(5, self._get_db_session)
         assert len(rows) == 4
-        assert rows[0][0].created_at == self._now + datetime.timedelta(seconds=10)
-        assert rows[3][0].created_at == self._now + datetime.timedelta(seconds=25)
+        assert rows[0].created_at == self._now + datetime.timedelta(seconds=20)
+        assert rows[3].created_at == self._now + datetime.timedelta(seconds=35)

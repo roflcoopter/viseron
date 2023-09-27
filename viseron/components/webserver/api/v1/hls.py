@@ -13,6 +13,7 @@ from viseron.components.storage.models import Recordings
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
 from viseron.domains.camera.fragmenter import Fragment, generate_playlist
+from viseron.helpers import utcnow
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -50,7 +51,7 @@ class HlsAPIHandler(BaseAPIHandler):
             return
 
         playlist = await self.run_in_executor(
-            _generate_playlist, self._storage.get_session, camera, recording_id
+            _generate_playlist, self._get_session, camera, recording_id
         )
         if not playlist:
             self.response_error(
@@ -65,33 +66,38 @@ class HlsAPIHandler(BaseAPIHandler):
 
 
 def _generate_playlist(
-    get_session: Callable[[], Session], camera: AbstractCamera, recording_id: int
+    get_session: Callable[[], Session],
+    camera: AbstractCamera,
+    recording_id: int,
 ) -> str | None:
     """Generate the HLS playlist for a recording."""
+    now = utcnow()
+
     with get_session() as session:
         stmt = select(Recordings).where(Recordings.id == recording_id)
         recording = session.execute(stmt).scalar()
         if recording is None:
             return None
 
-    files = recording.get_files(
-        camera.config[CONFIG_RECORDER][CONFIG_LOOKBACK], get_session
+    files = recording.get_fragments(
+        camera.config[CONFIG_RECORDER][CONFIG_LOOKBACK],
+        get_session,
+        now=now,
     )
     fragments = [
         Fragment(
             f"/files{file.path}",
             float(
-                meta.meta["m3u8"]["EXTINF"],  # type: ignore[index]
+                file.meta["m3u8"]["EXTINF"],
             ),
         )
-        for file, meta in files
-        if meta.meta.get("m3u8", False,).get(  # type: ignore[union-attr]
+        for file in files
+        if file.meta.get("m3u8", False,).get(
             "EXTINF",
             False,
         )
     ]
 
-    now = datetime.datetime.now()
     end: bool = True
     # Recording has not ended yet
     if recording.end_time is None:
@@ -105,10 +111,8 @@ def _generate_playlist(
         end = True
     # Recording has ended but the last file is not finished yet
     elif len(files) > 0 and recording.end_time.timestamp() > float(
-        files[-1][0].filename.split(".")[0]
-    ) + float(
-        files[-1][1].meta["m3u8"]["EXTINF"]  # type: ignore[index]
-    ):
+        files[-1].filename.split(".")[0]
+    ) + float(files[-1].meta["m3u8"]["EXTINF"]):
         LOGGER.debug("Recording has ended but the last file is not finished yet")
         end = False
 

@@ -9,7 +9,7 @@ import os
 import secrets
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -29,6 +29,7 @@ from viseron.components.webserver.const import (
 )
 from viseron.const import STORAGE_PATH
 from viseron.exceptions import ViseronError
+from viseron.helpers import utcnow
 from viseron.helpers.storage import Storage
 
 if TYPE_CHECKING:
@@ -61,7 +62,7 @@ class RefreshToken:
     session_expiration: timedelta
     access_token_type: Literal["normal"]
     access_token_expiration: timedelta = ACCESS_TOKEN_EXPIRATION
-    created_at: float = field(default_factory=lambda: datetime.now().timestamp())
+    created_at: float = field(default_factory=lambda: utcnow().timestamp())
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     token: str = field(default_factory=lambda: secrets.token_hex(64))
     jwt_key: str = field(default_factory=lambda: secrets.token_hex(64))
@@ -113,7 +114,7 @@ def token_response(
             payload=payload,
             expires_in=int(refresh_token.access_token_expiration.total_seconds()),
             expires_at=int(
-                (datetime.now() + refresh_token.access_token_expiration).timestamp()
+                (utcnow() + refresh_token.access_token_expiration).timestamp()
             ),
             session_expires_at=int(
                 refresh_token.created_at
@@ -359,7 +360,7 @@ class Auth:
     ):
         """Generate access token using JWT."""
         self.validate_refresh_token(refresh_token)
-        now = datetime.utcnow()
+        now = utcnow()
         refresh_token.used_at = now.timestamp()
         refresh_token.used_by = remote_ip
         self.save()

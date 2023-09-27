@@ -4,9 +4,11 @@ from __future__ import annotations
 import datetime
 from typing import Callable, Dict, Optional
 
-from sqlalchemy import DateTime, Float, Integer, String, and_, cast, func, or_, select
+from sqlalchemy import DateTime, Float, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
+
+from viseron.helpers import utcnow
 
 ColumnMeta = Dict[str, str]
 
@@ -50,6 +52,7 @@ class FilesMeta(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     path: Mapped[str] = mapped_column(String, unique=True)
+    orig_ctime = mapped_column(DateTime(timezone=False), nullable=False)
     meta: Mapped[ColumnMeta] = mapped_column(JSONB)
     created_at = mapped_column(
         DateTime(timezone=False),
@@ -85,42 +88,17 @@ class Recordings(Base):
     trigger_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     thumbnail_path: Mapped[str] = mapped_column(String)
 
-    def get_files(
-        self, lookback: float, get_session: Callable[[], Session]
-    ) -> list[tuple[Files, FilesMeta]]:
-        """Get all files for this recording."""
-        start = self.start_time.timestamp() - lookback
-        if self.end_time is None:
-            end = datetime.datetime.now().timestamp()
-        else:
-            end = self.end_time.timestamp()
-        with get_session() as session:
-            stmt = (
-                select(Files, FilesMeta)
-                .join(FilesMeta, Files.path == FilesMeta.path)
-                .where(Files.camera_identifier == self.camera_identifier)
-                .where(Files.category == "recorder")
-                .where(Files.path.endswith(".m4s"))
-                .where(
-                    or_(
-                        # Fetch all files that start within the recording
-                        func.substr(Files.filename, 1, 10).between(
-                            str(int(start)), str(int(end))
-                        ),
-                        # Fetch the first file that starts before the recording but
-                        # ends during the recording
-                        and_(
-                            start >= cast(func.substr(Files.filename, 1, 10), Float),
-                            start
-                            <= cast(func.substr(Files.filename, 1, 10), Float)
-                            + cast(FilesMeta.meta["m3u8"]["EXTINF"], Float),
-                        ),
-                    )
-                )
-                .order_by(Files.filename.asc())
-            )
-            fragments = session.execute(stmt)
-            return [(row[0], row[1]) for row in fragments]
+    def get_fragments(
+        self, lookback: float, get_session: Callable[[], Session], now=utcnow()
+    ):
+        """Get all files for this recording.
+
+        Local import to avoid circular imports.
+        """
+        # pylint: disable-next=import-outside-toplevel
+        from viseron.components.storage.queries import get_recording_fragments
+
+        return get_recording_fragments(self.id, lookback, get_session, now)
 
 
 class Objects(Base):

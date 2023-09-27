@@ -1,6 +1,7 @@
 """General helper functions."""
 from __future__ import annotations
 
+import datetime
 import linecache
 import logging
 import math
@@ -21,6 +22,11 @@ if TYPE_CHECKING:
     from viseron.domains.object_detector.detected_object import DetectedObject
 
 LOGGER = logging.getLogger(__name__)
+
+
+def utcnow() -> datetime.datetime:
+    """Return current UTC time."""
+    return datetime.datetime.utcnow()
 
 
 def calculate_relative_contours(

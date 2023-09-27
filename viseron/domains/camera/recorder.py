@@ -12,14 +12,15 @@ from typing import TYPE_CHECKING, Callable, Sequence, TypedDict
 
 import cv2
 import numpy as np
-from sqlalchemy import delete, desc, func, insert, select, update
+from sqlalchemy import delete, func, insert, select, update
 from sqlalchemy.orm import Session
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
-from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.components.storage.models import Recordings
+from viseron.components.storage.queries import get_recording_fragments
 from viseron.domains.camera.fragmenter import Fragment
 from viseron.domains.object_detector.detected_object import DetectedObject
-from viseron.helpers import create_directory, draw_objects
+from viseron.helpers import create_directory, draw_objects, utcnow
 
 from .const import (
     CONFIG_CREATE_EVENT_CLIP,
@@ -105,62 +106,11 @@ class Recording:
             "objects": self.objects,
         }
 
-    def get_fragments(self, lookback: float, get_session: Callable[[], Session]):
-        """Return a list of files for this recording.
-
-        We must sort on the filename and not created_at as the created_at timestamp is
-        not accurate for m4s files that are created from the original mp4 file after
-        it has been recorded. The filename is the timestamp of the original mp4 file
-        and is therefore accurate.
-
-        Only the latest occurrence of each file is selected using the CTE row_number.
-        This is to accommodate for the case where a file has been copied to a succeeding
-        tier but has not been deleted from the original tier yet.
-        """
-        if self.end_timestamp is None:
-            raise ValueError("Recording has not ended yet")
-
-        start_timestamp = self.start_timestamp - lookback
-        row_number = (
-            func.row_number()
-            .over(partition_by=Files.filename, order_by=desc(Files.created_at))
-            .label("row_number")
-        )
-        recording_files = (
-            select(
-                Files.tier_id,
-                Files.camera_identifier,
-                Files.category,
-                Files.path,
-                Files.directory,
-                Files.filename,
-                Files.size,
-                Files.created_at,
-                Files.updated_at,
-                FilesMeta.meta,
-            )
-            .add_columns(row_number)
-            .join(Recordings, Files.camera_identifier == Recordings.camera_identifier)
-            .join(FilesMeta, Files.path == FilesMeta.path)
-            .where(Recordings.id == self.id)
-            .where(Files.category == "recorder")
-            .where(Files.path.endswith(".m4s"))
-            .where(
-                func.substr(Files.filename, 1, 10).between(
-                    str(int(start_timestamp)), str(int(self.end_timestamp))
-                ),
-            )
-            .order_by(Files.filename.asc())
-            .cte("recording_files")
-        )
-        stmt = (
-            select(recording_files)
-            .where(recording_files.c.row_number == 1)
-            .order_by(recording_files.c.filename.asc())
-        )
-        with get_session() as session:
-            fragments = list(session.execute(stmt).fetchall())
-        return fragments
+    def get_fragments(
+        self, lookback: float, get_session: Callable[[], Session], now=utcnow()
+    ):
+        """Return a list of files for this recording."""
+        return get_recording_fragments(self.id, lookback, get_session, now)
 
 
 class RecorderBase:
@@ -271,7 +221,7 @@ class AbstractRecorder(ABC, RecorderBase):
         """Start recording."""
         self._logger.info("Starting recorder")
         self.is_recording = True
-        start_time = datetime.datetime.now()
+        start_time = utcnow()
 
         # Create filename
         filename_pattern = start_time.strftime(
@@ -291,8 +241,6 @@ class AbstractRecorder(ABC, RecorderBase):
             objects_in_fov,
             resolution,
         )
-
-        start_time = datetime.datetime.now()
 
         with self._storage.get_session() as session:
             stmt = (
@@ -352,7 +300,7 @@ class AbstractRecorder(ABC, RecorderBase):
             self._logger.error("No active recording to stop")
             return
 
-        end_time = datetime.datetime.now()
+        end_time = utcnow()
         recording.end_time = end_time
         recording.end_timestamp = end_time.timestamp()
 

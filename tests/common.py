@@ -2,7 +2,7 @@
 
 
 import datetime
-from typing import Any, Callable, Generator
+from typing import Any, Callable, Generator, Literal, Type
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,6 +10,7 @@ from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
 from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.helpers import utcnow
 
 
 class MockComponent:
@@ -47,16 +48,16 @@ class MockCamera(MagicMock):
         )
 
 
-def return_any(cls):
+def return_any(cls: Type[Any]):
     """Mock any return value."""
 
-    class Any(cls):
+    class MockAny(cls):
         """Mock any return value."""
 
-        def __eq__(self, other):
+        def __eq__(self, other) -> Literal[True]:
             return True
 
-    return Any()
+    return MockAny()
 
 
 class BaseTestWithRecordings:
@@ -86,6 +87,27 @@ class BaseTestWithRecordings:
                 session.execute(
                     insert(FilesMeta).values(
                         path=f"/test/{filename}",
+                        orig_ctime=timestamp,
+                        meta={"m3u8": {"EXTINF": 5}},
+                        created_at=timestamp,
+                    )
+                )
+                session.execute(
+                    insert(Files).values(
+                        tier_id=0,
+                        camera_identifier="test2",
+                        category="recorder",
+                        path=f"/test2/{filename}",
+                        directory="test2",
+                        filename=filename,
+                        size=10,
+                        created_at=timestamp,
+                    )
+                )
+                session.execute(
+                    insert(FilesMeta).values(
+                        path=f"/test2/{filename}",
+                        orig_ctime=timestamp,
                         meta={"m3u8": {"EXTINF": 5}},
                         created_at=timestamp,
                     )
@@ -93,19 +115,28 @@ class BaseTestWithRecordings:
             session.execute(
                 insert(Recordings).values(
                     camera_identifier="test",
-                    start_time=self._now + datetime.timedelta(seconds=17),
-                    end_time=self._now + datetime.timedelta(seconds=27),
-                    created_at=self._now + datetime.timedelta(seconds=17),
+                    start_time=self._now + datetime.timedelta(seconds=7),
+                    end_time=self._now + datetime.timedelta(seconds=10),
+                    created_at=self._now + datetime.timedelta(seconds=7),
                     thumbnail_path="/test/test1.jpg",
                 )
             )
             session.execute(
                 insert(Recordings).values(
                     camera_identifier="test",
-                    start_time=self._now + datetime.timedelta(seconds=35),
-                    end_time=self._now + datetime.timedelta(seconds=55),
-                    created_at=self._now + datetime.timedelta(seconds=35),
+                    start_time=self._now + datetime.timedelta(seconds=26),
+                    end_time=self._now + datetime.timedelta(seconds=36),
+                    created_at=self._now + datetime.timedelta(seconds=26),
                     thumbnail_path="/test/test2.jpg",
+                )
+            )
+            session.execute(
+                insert(Recordings).values(
+                    camera_identifier="test",
+                    start_time=self._now + datetime.timedelta(seconds=40),
+                    end_time=self._now + datetime.timedelta(seconds=45),
+                    created_at=self._now + datetime.timedelta(seconds=40),
+                    thumbnail_path="/test/test3.jpg",
                 )
             )
             session.commit()
@@ -117,5 +148,5 @@ class BaseTestWithRecordings:
     ) -> Generator[None, Any, None]:
         """Insert data used by all tests."""
         BaseTestWithRecordings._get_db_session = get_db_session
-        BaseTestWithRecordings._now = datetime.datetime.now()
+        BaseTestWithRecordings._now = utcnow()
         yield from self.insert_data(get_db_session)

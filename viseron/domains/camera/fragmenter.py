@@ -1,6 +1,7 @@
 """Convert MP4 to fragmented MP4 for streaming."""
 from __future__ import annotations
 
+import datetime
 import logging
 import os
 import re
@@ -117,7 +118,7 @@ class Fragmenter:
                 check=True,
             )
         except sp.CalledProcessError as err:
-            self._logger.error(err)
+            self._logger.error("MP4Box command failed", exc_info=err)
             return False
         return True
 
@@ -160,6 +161,9 @@ class Fragmenter:
                 path=os.path.join(
                     self._camera.segments_folder, file.split(".")[0] + ".m4s"
                 ),
+                orig_ctime=datetime.datetime.fromtimestamp(
+                    int(file.split(".")[0]), tz=None
+                ),
                 meta={"m3u8": {"EXTINF": extinf}},
             )
             session.execute(stmt)
@@ -171,13 +175,20 @@ class Fragmenter:
         mp4s = _get_mp4_files_to_fragment(self._camera.temp_segments_folder)
         for mp4 in sorted(mp4s):
             self._logger.debug(f"Processing {mp4}")
-            if self._mp4box_command(mp4):
-                self._write_files_metadata(mp4)
-                self._move_to_segments_folder(mp4)
-            os.remove(os.path.join(self._camera.temp_segments_folder, mp4))
-            shutil.rmtree(
-                os.path.join(self._camera.temp_segments_folder, mp4.split(".")[0])
-            )
+            try:
+                if self._mp4box_command(mp4):
+                    self._write_files_metadata(mp4)
+                    self._move_to_segments_folder(mp4)
+            except Exception as err:  # pylint: disable=broad-except
+                self._logger.error(f"Failed to fragment {mp4}", exc_info=err)
+
+            try:
+                os.remove(os.path.join(self._camera.temp_segments_folder, mp4))
+                shutil.rmtree(
+                    os.path.join(self._camera.temp_segments_folder, mp4.split(".")[0]),
+                )
+            except FileNotFoundError as err:
+                self._logger.error("Failed to delete broken fragment", exc_info=err)
 
     def _shutdown(self) -> None:
         """Handle shutdown event."""

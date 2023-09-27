@@ -92,9 +92,9 @@ class TestRecorderTierHandler(BaseTestWithRecordings):
             "recordings_amount, first_recording_id"
         ),
         [
-            (_get_tier_config(events=True, continuous=False), True, False, 1, 2),
-            (_get_tier_config(events=True, continuous=True), True, True, 1, 2),
-            (_get_tier_config(events=False, continuous=True), False, True, 2, 1),
+            (_get_tier_config(events=True, continuous=False), True, False, 2, 2),
+            (_get_tier_config(events=True, continuous=True), True, True, 2, 2),
+            (_get_tier_config(events=False, continuous=True), False, True, 3, 1),
         ],
     )
     def test__check_tier(

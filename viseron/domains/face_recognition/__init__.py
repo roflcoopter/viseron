@@ -1,7 +1,6 @@
 """Face recognition module."""
 from __future__ import annotations
 
-import datetime
 import os
 from dataclasses import dataclass
 from threading import Timer
@@ -12,7 +11,7 @@ import cv2
 import voluptuous as vol
 
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
-from viseron.helpers import create_directory
+from viseron.helpers import create_directory, utcnow
 from viseron.helpers.schemas import FLOAT_MIN_ZERO
 
 from .binary_sensor import FaceDetectionBinarySensor
@@ -129,10 +128,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
 
     def unknown_face_found(self, frame) -> None:
         """Save unknown faces."""
-        unique_id = (
-            f"{datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S-')}"
-            f"{str(uuid4())}.jpg"
-        )
+        unique_id = f"{utcnow().strftime('%Y-%m-%d-%H:%M:%S-')}" f"{str(uuid4())}.jpg"
         file_name = os.path.join(self._config[CONFIG_UNKNOWN_FACES_PATH], unique_id)
         self._logger.debug(f"Unknown face found, saving to {file_name}")
 

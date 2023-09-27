@@ -7,6 +7,7 @@ from sqlalchemy import Connection, delete, event, select
 from sqlalchemy.dialects.postgresql import insert
 
 from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.helpers import utcnow
 
 LOGGER = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ def insert_into_files_meta(
             insert(FilesMeta)
             .values(
                 path=compiled.params["path"],
+                orig_ctime=utcnow(),
                 meta={},
             )
             .on_conflict_do_nothing(index_elements=["path"])
