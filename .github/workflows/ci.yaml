@@ -422,7 +422,11 @@ jobs:
           docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron-tests
       - name: Run pytest
         run: |
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env up amd64-viseron-tests
+          if docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env up amd64-viseron-tests; then
+            exit 0
+          else
+            exit 1
+          fi
       - name: Copy .coverage to host
         run: |
           docker cp amd64-viseron-tests:/src/coverage.xml coverage.xml
