@@ -26,7 +26,7 @@ export const Loading = ({ text, fullScreen = true }: LoadingProps) => (
             margin: "auto 0",
             width: "100%",
           }
-        : undefined
+        : { marginTop: "10px" }
     }
   >
     {fullScreen && (

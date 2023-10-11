@@ -1,5 +1,6 @@
 import Image from "@jy95/material-ui-image";
 import Card from "@mui/material/Card";
+import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
@@ -23,6 +24,12 @@ import { SubscriptionUnsubscribe } from "lib/websockets";
 
 interface CameraCardProps {
   camera_identifier: string;
+  buttons?: boolean;
+  compact?: boolean;
+  onClick?: (
+    event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+    camera: types.Camera
+  ) => void;
 }
 
 const blankImage =
@@ -71,7 +78,12 @@ const useCameraToken = (camera_identifier: string, auth_enabled: boolean) => {
   }, [auth_enabled, camera_identifier, connected, connection]);
 };
 
-export default function CameraCard({ camera_identifier }: CameraCardProps) {
+export default function CameraCard({
+  camera_identifier,
+  buttons = true,
+  compact = false,
+  onClick,
+}: CameraCardProps) {
   const { connected } = useContext(ViseronContext);
   const { auth } = useContext(AuthContext);
   const theme = useTheme();
@@ -173,61 +185,72 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
           variant="outlined"
           sx={{
             // Vertically space items evenly to accommodate different aspect ratios
-            height: "100%",
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
+            ...(compact ? null : { height: "100%" }),
           }}
         >
-          <CardContent>
-            <Typography variant="h5" align="center">
-              {cameraQuery.data.name}
-            </Typography>
-          </CardContent>
-          <CardMedia>
-            {/* 'alt=""' in combination with textIndent is a neat trick to hide the broken image icon */}
-            <Image
-              alt=""
-              imageStyle={{ textIndent: "-10000px" }}
-              src={`${snapshotURL.url}${
-                auth.enabled
-                  ? `&access_token=${cameraQuery.data?.access_token}`
-                  : ""
-              }`}
-              disableSpinner={snapshotURL.disableSpinner}
-              disableTransition={snapshotURL.disableTransition}
-              animationDuration={1000}
-              aspectRatio={cameraQuery.data.width / cameraQuery.data.height}
-              color={theme.palette.background.default}
-              onLoad={() => {
-                setSnapshotURL((prevSnapshotURL) => ({
-                  ...prevSnapshotURL,
-                  disableSpinner: true,
-                  disableTransition: true,
-                  loading: false,
-                }));
-              }}
-              errorIcon={Image.defaultProps!.loading}
-              onError={() => {
-                setSnapshotURL((prevSnapshotURL) => ({
-                  ...prevSnapshotURL,
-                  disableSpinner: false,
-                  disableTransition: false,
-                  loading: false,
-                }));
-              }}
-            />
-          </CardMedia>
-          <CardActions>
-            <CardActionButtonLink
-              title="Recordings"
-              target={`/recordings/${cameraQuery.data.identifier}`}
-            />
-            <CardActionButtonHref
-              title="Live View"
-              target={`/${cameraQuery.data.identifier}/mjpeg-stream`}
-            />
-          </CardActions>
+          {!compact && (
+            <CardContent>
+              <Typography variant="h5" align="center">
+                {cameraQuery.data.name}
+              </Typography>
+            </CardContent>
+          )}
+          <CardActionArea
+            onClick={
+              onClick ? (event) => onClick(event, cameraQuery.data) : undefined
+            }
+            sx={onClick ? null : { pointerEvents: "none" }}
+          >
+            <CardMedia>
+              {/* 'alt=""' in combination with textIndent is a neat trick to hide the broken image icon */}
+              <Image
+                alt=""
+                imageStyle={{ textIndent: "-10000px" }}
+                src={`${snapshotURL.url}${
+                  auth.enabled
+                    ? `&access_token=${cameraQuery.data?.access_token}`
+                    : ""
+                }`}
+                disableSpinner={snapshotURL.disableSpinner}
+                disableTransition={snapshotURL.disableTransition}
+                animationDuration={1000}
+                aspectRatio={cameraQuery.data.width / cameraQuery.data.height}
+                color={theme.palette.background.default}
+                onLoad={() => {
+                  setSnapshotURL((prevSnapshotURL) => ({
+                    ...prevSnapshotURL,
+                    disableSpinner: true,
+                    disableTransition: true,
+                    loading: false,
+                  }));
+                }}
+                errorIcon={Image.defaultProps!.loading}
+                onError={() => {
+                  setSnapshotURL((prevSnapshotURL) => ({
+                    ...prevSnapshotURL,
+                    disableSpinner: false,
+                    disableTransition: false,
+                    loading: false,
+                  }));
+                }}
+              />
+            </CardMedia>
+          </CardActionArea>
+          {buttons && (
+            <CardActions>
+              <CardActionButtonLink
+                title="Recordings"
+                target={`/recordings/${cameraQuery.data.identifier}`}
+              />
+              <CardActionButtonHref
+                title="Live View"
+                target={`/${cameraQuery.data.identifier}/mjpeg-stream`}
+              />
+            </CardActions>
+          )}
         </Card>
       )}
     </div>

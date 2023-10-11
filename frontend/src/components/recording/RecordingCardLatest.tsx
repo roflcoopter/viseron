@@ -103,7 +103,11 @@ export default function RecordingCardLatest({
         <CardMedia>
           <LazyLoad
             height={200}
-            placeholder={<VideoPlayerPlaceholder camera={cameraQuery.data} />}
+            placeholder={
+              <VideoPlayerPlaceholder
+                aspectRatio={cameraQuery.data.width / cameraQuery.data.height}
+              />
+            }
           >
             {getVideoElement(cameraQuery.data, recording)}
           </LazyLoad>

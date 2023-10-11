@@ -12,6 +12,7 @@ const CameraRecordingsDaily = lazy(
 );
 const Configuration = lazy(() => import("pages/Configuration"));
 const Entities = lazy(() => import("pages/Entities"));
+const Events = lazy(() => import("pages/Events"));
 const Login = lazy(() => import("pages/Login"));
 const NotFound = lazy(() => import("pages/NotFound"));
 const Onboarding = lazy(() => import("pages/Onboarding"));
@@ -46,6 +47,10 @@ function App() {
               ],
             },
           ],
+        },
+        {
+          path: "/events",
+          element: <Events />,
         },
         {
           path: "/configuration",

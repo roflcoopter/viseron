@@ -1,4 +1,6 @@
 import CssBaseline from "@mui/material/CssBaseline";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { QueryClientProvider } from "@tanstack/react-query";
 import React, { Suspense } from "react";
 import ReactDOM from "react-dom";
@@ -16,17 +18,19 @@ import queryClient from "./lib/api/client";
 ReactDOM.render(
   <React.StrictMode>
     <ColorModeProvider>
-      <CssBaseline enableColorScheme />
-      <QueryClientProvider client={queryClient}>
-        <Router>
-          <AuthProvider>
-            <Suspense fallback={<Loading text="Loading chunk" />}>
-              <App />
-            </Suspense>
-          </AuthProvider>
-        </Router>
-        <ToastContainer />
-      </QueryClientProvider>
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <CssBaseline enableColorScheme />
+        <QueryClientProvider client={queryClient}>
+          <Router>
+            <AuthProvider>
+              <Suspense fallback={<Loading text="Loading chunk" />}>
+                <App />
+              </Suspense>
+            </AuthProvider>
+          </Router>
+          <ToastContainer />
+        </QueryClientProvider>
+      </LocalizationProvider>
     </ColorModeProvider>
   </React.StrictMode>,
   document.getElementById("root")

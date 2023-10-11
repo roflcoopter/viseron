@@ -64,7 +64,11 @@ export default function RecordingCardDaily({
           <LazyLoad
             height={200}
             offset={500}
-            placeholder={<VideoPlayerPlaceholder camera={camera} />}
+            placeholder={
+              <VideoPlayerPlaceholder
+                aspectRatio={camera.width / camera.height}
+              />
+            }
           >
             {getVideoElement(camera, recording)}
           </LazyLoad>

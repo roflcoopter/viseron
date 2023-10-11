@@ -1,5 +1,6 @@
 import { SvgIconComponent } from "@mui/icons-material";
 import GitHubIcon from "@mui/icons-material/GitHub";
+import ImageSearchIcon from "@mui/icons-material/ImageSearch";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SettingsIcon from "@mui/icons-material/Settings";
 import VideoFileIcon from "@mui/icons-material/VideoFile";
@@ -41,6 +42,12 @@ const drawerItems: Array<DrawerItemTypes> = [
     title: "Recordings",
     icon: VideoFileIcon,
     path: "/recordings",
+  },
+  {
+    type: "link",
+    title: "Events",
+    icon: ImageSearchIcon,
+    path: "/events",
   },
   { type: "link", title: "Entities", icon: ViewListIcon, path: "/entities" },
   { type: "divider" },

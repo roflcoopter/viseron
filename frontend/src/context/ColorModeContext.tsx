@@ -1,3 +1,4 @@
+import darkScrollbar from "@mui/material/darkScrollbar";
 import {
   Theme,
   ThemeOptions,
@@ -42,6 +43,12 @@ declare module "@mui/material/styles" {
   }
   interface ThemeOptions {
     headerHeight?: number;
+  }
+}
+
+declare module "@mui/material/Typography" {
+  interface TypographyPropsVariantOverrides {
+    uppercase: true;
   }
 }
 
@@ -157,6 +164,11 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
           h5: {
             color: mode === "dark" ? blue[300] : blue.main,
           },
+          uppercase: {
+            textTransform: "uppercase",
+            letterSpacing: "0.0333333333em",
+            fontWeight: 800,
+          },
         },
       } as ThemeOptions),
     [mode]
@@ -165,6 +177,22 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
   function getThemedComponents(theme: Theme) {
     return {
       components: {
+        MuiCssBaseline: {
+          styleOverrides: (themeParam: Theme) => ({
+            body:
+              themeParam.palette.mode === "dark"
+                ? darkScrollbar({
+                    track: "#0f2740",
+                    thumb: "#1f5286",
+                    active: "#2867a9",
+                  })
+                : darkScrollbar({
+                    track: "#f1f1f1",
+                    thumb: "#c1c1c1",
+                    active: "#a8a8a8",
+                  }),
+          }),
+        },
         MuiContainer: {
           defaultProps: {
             maxWidth: false,

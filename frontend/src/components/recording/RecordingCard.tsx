@@ -54,7 +54,7 @@ export default function RecordingCard({
           <LazyLoad
             height={200}
             offset={500}
-            placeholder={<VideoPlayerPlaceholder camera={camera} />}
+            placeholder={<VideoPlayerPlaceholder aspectRatio={camera.width/camera.height} />}
           >
             <VideoPlayer options={videoJsOptions} />
           </LazyLoad>

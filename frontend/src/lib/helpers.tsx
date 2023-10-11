@@ -59,12 +59,18 @@ export function getVideoElement(
   recording: types.Recording | null | undefined
 ) {
   if (!objHasValues(recording) || !recording) {
-    return <VideoPlayerPlaceholder camera={camera} />;
+    return (
+      <VideoPlayerPlaceholder aspectRatio={camera.width / camera.height} />
+    );
   }
 
   const videoJsOptions = getRecordingVideoJSOptions(recording);
   return (
-    <Suspense fallback={<VideoPlayerPlaceholder camera={camera} />}>
+    <Suspense
+      fallback={
+        <VideoPlayerPlaceholder aspectRatio={camera.width / camera.height} />
+      }
+    >
       <VideoPlayer options={videoJsOptions} />
     </Suspense>
   );
