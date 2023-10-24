@@ -184,7 +184,9 @@ class Storage:
 
     def create_database(self) -> None:
         """Create database."""
-        self.engine = create_engine(DATABASE_URL)
+        self.engine = create_engine(
+            DATABASE_URL, connect_args={"options": "-c timezone=utc"}
+        )
 
         conn = self.engine.connect()
         context = MigrationContext.configure(conn)

@@ -2,15 +2,30 @@
 from __future__ import annotations
 
 import datetime
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Literal, Optional
 
-from sqlalchemy import DateTime, Float, Integer, String, func
+from sqlalchemy import DateTime, Float, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
-
-from viseron.helpers import utcnow
+from sqlalchemy.sql import expression
 
 ColumnMeta = Dict[str, str]
+
+
+class UTCNow(expression.FunctionElement):
+    """Return the current timestamp in UTC."""
+
+    type = DateTime()
+    inherit_cache = True
+
+
+@compiles(UTCNow, "postgresql")
+def pg_utcnow(
+    _element, _compiler, **_kw
+) -> Literal["TIMEZONE('utc', CURRENT_TIMESTAMP)"]:
+    """Compile utcnow function for postgresql."""
+    return "TIMEZONE('utc', CURRENT_TIMESTAMP)"
 
 
 class Base(DeclarativeBase):
@@ -32,14 +47,8 @@ class Files(Base):
     directory: Mapped[str] = mapped_column(String)
     filename: Mapped[str] = mapped_column(String)
     size: Mapped[int] = mapped_column(Integer)
-    created_at = mapped_column(
-        DateTime(timezone=False),
-        server_default=func.now(),  # pylint: disable=not-callable
-    )
-    updated_at = mapped_column(
-        DateTime(timezone=False),
-        onupdate=func.now(),  # pylint: disable=not-callable
-    )
+    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
 
 
 class FilesMeta(Base):
@@ -54,14 +63,8 @@ class FilesMeta(Base):
     path: Mapped[str] = mapped_column(String, unique=True)
     orig_ctime = mapped_column(DateTime(timezone=False), nullable=False)
     meta: Mapped[ColumnMeta] = mapped_column(JSONB)
-    created_at = mapped_column(
-        DateTime(timezone=False),
-        server_default=func.now(),  # pylint: disable=not-callable
-    )
-    updated_at = mapped_column(
-        DateTime(timezone=False),
-        onupdate=func.now(),  # pylint: disable=not-callable
-    )
+    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
 
 
 class Recordings(Base):
@@ -75,21 +78,15 @@ class Recordings(Base):
     end_time: Mapped[Optional[datetime.datetime]] = mapped_column(
         DateTime(timezone=False), nullable=True
     )
-    created_at = mapped_column(
-        DateTime(timezone=False),
-        server_default=func.now(),  # pylint: disable=not-callable
-    )
-    updated_at = mapped_column(
-        DateTime(timezone=False),
-        onupdate=func.now(),  # pylint: disable=not-callable
-    )
+    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
 
     trigger_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     trigger_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     thumbnail_path: Mapped[str] = mapped_column(String)
 
     def get_fragments(
-        self, lookback: float, get_session: Callable[[], Session], now=utcnow()
+        self, lookback: float, get_session: Callable[[], Session], now=UTCNow()
     ):
         """Get all files for this recording.
 
@@ -117,14 +114,8 @@ class Objects(Base):
     x2: Mapped[float] = mapped_column(Float)
     y2: Mapped[float] = mapped_column(Float)
     zone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    created_at = mapped_column(
-        DateTime(timezone=False),
-        server_default=func.now(),  # pylint: disable=not-callable
-    )
-    updated_at = mapped_column(
-        DateTime(timezone=False),
-        onupdate=func.now(),  # pylint: disable=not-callable
-    )
+    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
 
 
 class Motion(Base):
@@ -135,11 +126,5 @@ class Motion(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
     start_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
-    created_at = mapped_column(
-        DateTime(timezone=False),
-        server_default=func.now(),  # pylint: disable=not-callable
-    )
-    updated_at = mapped_column(
-        DateTime(timezone=False),
-        onupdate=func.now(),  # pylint: disable=not-callable
-    )
+    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())

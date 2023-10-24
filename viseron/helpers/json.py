@@ -12,7 +12,7 @@ class JSONEncoder(json.JSONEncoder):
     def default(self, o: Any) -> Any:
         """Convert objects."""
         if isinstance(o, datetime.datetime):
-            return o.isoformat()
+            return o.replace(tzinfo=datetime.timezone.utc).isoformat()
         if hasattr(o, "as_dict"):
             return o.as_dict()
         if dataclasses.is_dataclass(o):

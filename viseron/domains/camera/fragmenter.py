@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess as sp
+import time
 import uuid
 from dataclasses import dataclass
 from math import ceil
@@ -157,13 +158,15 @@ class Fragmenter:
             ).read()
         )
         with self._storage.get_session() as session:
+            orig_ctime = datetime.datetime.fromtimestamp(
+                int(file.split(".")[0]), tz=None
+            ) - datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+
             stmt = insert(FilesMeta).values(
                 path=os.path.join(
                     self._camera.segments_folder, file.split(".")[0] + ".m4s"
                 ),
-                orig_ctime=datetime.datetime.fromtimestamp(
-                    int(file.split(".")[0]), tz=None
-                ),
+                orig_ctime=orig_ctime,
                 meta={"m3u8": {"EXTINF": extinf}},
             )
             session.execute(stmt)

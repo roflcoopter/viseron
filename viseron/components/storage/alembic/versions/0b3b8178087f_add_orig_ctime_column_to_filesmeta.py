@@ -20,7 +20,15 @@ depends_on: str | None = None
 
 def upgrade() -> None:
     """Run the upgrade migrations."""
-    op.add_column("files_meta", sa.Column("orig_ctime", sa.DateTime(), nullable=False))
+    op.add_column("files_meta", sa.Column("orig_ctime", sa.DateTime(), nullable=True))
+    # Set orig_ctime to created_at for all existing files
+    op.execute(
+        "UPDATE files_meta "
+        "SET orig_ctime = ("
+        "SELECT created_at FROM files WHERE files.path = files_meta.path"
+        ");"
+    )
+    op.alter_column("files_meta", "orig_ctime", nullable=False)
 
 
 def downgrade() -> None:
