@@ -1,11 +1,12 @@
 import Badge from "@mui/material/Badge";
-import Box from "@mui/material/Box";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import Dialog from "@mui/material/Dialog";
 import { PickersDay, PickersDayProps } from "@mui/x-date-pickers/PickersDay";
+import { StaticDatePicker } from "@mui/x-date-pickers/StaticDatePicker";
 import {
   DateValidationError,
   PickerChangeHandlerContext,
 } from "@mui/x-date-pickers/models";
+import { useQuery } from "@tanstack/react-query";
 import dayjs, { Dayjs } from "dayjs";
 import { useMemo } from "react";
 
@@ -28,7 +29,17 @@ function HasEvent(
           ? highlightedDays[date]
           : undefined
       }
-      max={9}
+      max={99}
+      color="info"
+      slotProps={{
+        badge: {
+          style: {
+            fontSize: "0.7rem",
+            top: "10%",
+            height: "15px",
+          },
+        },
+      }}
     >
       <PickersDay
         {...other}
@@ -43,15 +54,6 @@ function HasEvent(
   );
 }
 
-type EventDatePickerProps = {
-  date: Dayjs | null;
-  recordings: types.RecordingsCamera;
-  onChange?: (
-    value: Dayjs | null,
-    context: PickerChangeHandlerContext<DateValidationError>
-  ) => void;
-};
-
 export function getHighlightedDays(recordings: types.RecordingsCamera) {
   const result: Record<string, number> = {};
   for (const date of Object.keys(recordings)) {
@@ -60,32 +62,45 @@ export function getHighlightedDays(recordings: types.RecordingsCamera) {
   return result;
 }
 
-export function EventDatePicker({
+type EventDatePickerDialogProps = {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  date: Dayjs | null;
+  camera: types.Camera | null;
+  onChange?: (
+    value: Dayjs | null,
+    context: PickerChangeHandlerContext<DateValidationError>
+  ) => void;
+};
+
+export function EventDatePickerDialog({
+  open,
+  setOpen,
   date,
-  recordings,
+  camera,
   onChange,
-}: EventDatePickerProps) {
+}: EventDatePickerDialogProps) {
+  const recordingsQuery = useQuery<types.RecordingsCamera>({
+    queryKey: [`/recordings/${camera ? camera.identifier : null}`],
+    enabled: !!camera,
+  });
   const highlightedDays = useMemo(
-    () => getHighlightedDays(recordings),
-    [recordings]
+    () =>
+      recordingsQuery.data ? getHighlightedDays(recordingsQuery.data) : {},
+    [recordingsQuery.data]
   );
+
+  const handleClose = () => {
+    setOpen(false);
+  };
+
   return (
-    <Box
-      sx={{
-        width: "100%",
-        padding: "10px",
-        position: "sticky",
-        top: 0,
-        zIndex: 999,
-        backgroundColor: (theme) => theme.palette.background.paper,
-      }}
-    >
-      <DatePicker
-        label="Date"
-        format="YYYY-MM-DD"
+    <Dialog open={open} onClose={handleClose}>
+      <StaticDatePicker
         onChange={onChange}
+        onAccept={handleClose}
+        onClose={handleClose}
         value={dayjs(date)}
-        sx={{ width: "100%" }}
         slots={{
           day: HasEvent,
         }}
@@ -93,8 +108,11 @@ export function EventDatePicker({
           day: {
             highlightedDays,
           } as any,
+          actionBar: {
+            actions: ["today", "cancel"],
+          },
         }}
       />
-    </Box>
+    </Dialog>
   );
 }

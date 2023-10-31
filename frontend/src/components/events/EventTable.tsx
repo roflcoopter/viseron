@@ -2,17 +2,12 @@ import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
-import {
-  DateValidationError,
-  PickerChangeHandlerContext,
-} from "@mui/x-date-pickers/models";
 import { useQuery } from "@tanstack/react-query";
 import dayjs, { Dayjs } from "dayjs";
 import { memo } from "react";
 import { ReactComponent as ServerDown } from "svg/undraw/server_down.svg";
 
 import { Error } from "components/error/Error";
-import { EventDatePicker } from "components/events/EventDatePicker";
 import { EventTableItem } from "components/events/EventTableItem";
 import { Loading } from "components/loading/Loading";
 import * as types from "lib/types";
@@ -20,15 +15,11 @@ import * as types from "lib/types";
 type EventTableProps = {
   camera: types.Camera;
   date: Dayjs | null;
-  onDateChange?: (
-    value: Dayjs | null,
-    context: PickerChangeHandlerContext<DateValidationError>
-  ) => void;
   setSelectedRecording: (recording: types.Recording) => void;
 };
 
 export const EventTable = memo(
-  ({ camera, date, onDateChange, setSelectedRecording }: EventTableProps) => {
+  ({ camera, date, setSelectedRecording }: EventTableProps) => {
     const recordingsQuery = useQuery<types.RecordingsCamera>({
       queryKey: [`/recordings/${camera.identifier}`],
     });
@@ -63,11 +54,6 @@ export const EventTable = memo(
 
     return (
       <Box>
-        <EventDatePicker
-          date={date}
-          recordings={recordingsQuery.data}
-          onChange={onDateChange}
-        />
         {formattedDate in recordingsQuery.data ? (
           <Grid container direction="row" columns={1}>
             {Object.values(
@@ -95,8 +81,8 @@ export const EventTable = memo(
               ))}
           </Grid>
         ) : (
-          <Typography align="center">
-            No recordings found for the selected date
+          <Typography align="center" padding={2}>
+            No recordings found for {formattedDate}
           </Typography>
         )}
       </Box>

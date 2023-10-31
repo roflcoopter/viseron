@@ -13,6 +13,7 @@ import {
   CardActionButtonHref,
   CardActionButtonLink,
 } from "components/CardActionButton";
+import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { AuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
 import useOnScreen from "hooks/UseOnScreen";
@@ -188,10 +189,12 @@ export default function CameraCard({
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
-            ...(compact ? null : { height: "100%" }),
+            ...(compact ? { position: "relative" } : { height: "100%" }),
           }}
         >
-          {!compact && (
+          {compact ? (
+            <CameraNameOverlay camera={cameraQuery.data} />
+          ) : (
             <CardContent>
               <Typography variant="h5" align="center">
                 {cameraQuery.data.name}

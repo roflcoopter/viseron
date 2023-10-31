@@ -5,7 +5,9 @@ import CardMedia from "@mui/material/CardMedia";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
+import LazyLoad from "react-lazyload";
 
+import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import { getTimeFromDate } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -33,24 +35,33 @@ export const EventTableItem = ({
           justifyContent="flex-end"
           alignItems="center"
         >
-          <Grid item xs={4}>
+          <Grid item xs={6}>
             <Typography variant="body2" align="center">
               {getTimeFromDate(new Date(recording.start_time))}
             </Typography>
           </Grid>
-          <Grid item xs={8}>
+          <Grid item xs={6}>
             <CardMedia
               sx={{
                 borderRadius: "5px",
                 overflow: "hidden",
               }}
             >
-              <Image
-                src={recording.thumbnail_path}
-                aspectRatio={camera.width / camera.height}
-                color={theme.palette.background.default}
-                animationDuration={1000}
-              />
+              <LazyLoad
+                overflow
+                placeholder={
+                  <VideoPlayerPlaceholder
+                    aspectRatio={camera.width / camera.height}
+                  />
+                }
+              >
+                <Image
+                  src={recording.thumbnail_path}
+                  aspectRatio={camera.width / camera.height}
+                  color={theme.palette.background.default}
+                  animationDuration={1000}
+                />
+              </LazyLoad>
             </CardMedia>
           </Grid>
         </Grid>

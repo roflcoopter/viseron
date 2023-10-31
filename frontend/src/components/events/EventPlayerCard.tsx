@@ -3,6 +3,7 @@ import CardMedia from "@mui/material/CardMedia";
 import { useEffect, useRef } from "react";
 import videojs from "video.js";
 
+import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import * as types from "lib/types";
 
@@ -85,8 +86,10 @@ export const PlayerCard = ({ camera, recording }: PlayerCardProps) => (
     variant="outlined"
     sx={{
       marginBottom: "10px",
+      position: "relative",
     }}
   >
+    {camera && <CameraNameOverlay camera={camera} />}
     <CardMedia>
       {recording ? (
         <EventPlayer recording={recording} />

@@ -1,6 +1,6 @@
 import { describe, expect } from "vitest";
 
-import { getHighlightedDays } from "components/events/EventDatePicker";
+import { getHighlightedDays } from "components/events/EventDatePickerDialog";
 
 describe("getHighlightedDays", () => {
   it("should return an empty object for an empty input", () => {
