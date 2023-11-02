@@ -15,11 +15,17 @@ import * as types from "lib/types";
 type EventTableProps = {
   camera: types.Camera;
   date: Dayjs | null;
+  selectedRecording: types.Recording | null;
   setSelectedRecording: (recording: types.Recording) => void;
 };
 
 export const EventTable = memo(
-  ({ camera, date, setSelectedRecording }: EventTableProps) => {
+  ({
+    camera,
+    date,
+    selectedRecording,
+    setSelectedRecording,
+  }: EventTableProps) => {
     const recordingsQuery = useQuery<types.RecordingsCamera>({
       queryKey: [`/recordings/${camera.identifier}`],
     });
@@ -75,6 +81,10 @@ export const EventTable = memo(
                     camera={camera}
                     recording={recording}
                     setSelectedRecording={setSelectedRecording}
+                    selected={
+                      !!selectedRecording &&
+                      selectedRecording.id === recording.id
+                    }
                   />
                   <Divider sx={{ marginTop: "5px", marginBottom: "5px" }} />
                 </Grid>

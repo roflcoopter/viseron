@@ -31,6 +31,7 @@ interface CameraCardProps {
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
     camera: types.Camera
   ) => void;
+  border?: string;
 }
 
 const blankImage =
@@ -84,6 +85,7 @@ export default function CameraCard({
   buttons = true,
   compact = false,
   onClick,
+  border,
 }: CameraCardProps) {
   const { connected } = useContext(ViseronContext);
   const { auth } = useContext(AuthContext);
@@ -190,6 +192,7 @@ export default function CameraCard({
             flexDirection: "column",
             justifyContent: "space-between",
             ...(compact ? { position: "relative" } : { height: "100%" }),
+            ...(border ? { border } : null),
           }}
         >
           {compact ? (

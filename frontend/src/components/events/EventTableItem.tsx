@@ -15,18 +15,26 @@ type EventTableItemProps = {
   camera: types.Camera;
   recording: types.Recording;
   setSelectedRecording: (recording: types.Recording) => void;
+  selected: boolean;
 };
 export const EventTableItem = ({
   camera,
   recording,
   setSelectedRecording,
+  selected,
 }: EventTableItemProps) => {
   const theme = useTheme();
   return (
     <Card
       variant="outlined"
       square
-      sx={{ border: "none", boxShadow: "none", paddingRight: "5px" }}
+      sx={{
+        border: selected
+          ? `2px solid ${theme.palette.primary[400]}`
+          : "2px solid transparent",
+        borderRadius: "5px",
+        boxShadow: "none",
+      }}
     >
       <CardActionArea onClick={() => setSelectedRecording(recording)}>
         <Grid

@@ -1,5 +1,6 @@
 import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
+import { useTheme } from "@mui/material/styles";
 
 import CameraCard from "components/camera/CameraCard";
 import * as types from "lib/types";
@@ -10,11 +11,14 @@ type EventsCameraGridProps = {
     ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
     camera: types.Camera
   ) => void;
+  selectedCamera: types.Camera | null;
 };
 export function EventsCameraGrid({
   cameras,
   changeSource,
+  selectedCamera,
 }: EventsCameraGridProps) {
+  const theme = useTheme();
   return (
     <Grid container spacing={1}>
       {cameras
@@ -36,6 +40,12 @@ export function EventsCameraGrid({
                     compact
                     buttons={false}
                     onClick={changeSource}
+                    border={
+                      selectedCamera &&
+                      camera_identifier === selectedCamera.identifier
+                        ? `2px solid ${theme.palette.primary[400]}`
+                        : "2px solid transparent"
+                    }
                   />
                 </Grid>
               </Grow>

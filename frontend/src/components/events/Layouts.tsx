@@ -53,6 +53,7 @@ const Filters = memo(
           setOpen={setCameraDialogOpen}
           cameras={cameras}
           changeSource={changeSource}
+          selectedCamera={selectedCamera}
         />
         <EventDatePickerDialog
           open={dateDialogOpen}
@@ -122,7 +123,7 @@ export const Layout = memo(
     const theme = useTheme();
 
     return (
-      <Container maxWidth={false} style={{ display: "flex" }}>
+      <Container style={{ display: "flex" }}>
         <div
           style={{
             width: "100%",
@@ -135,6 +136,7 @@ export const Layout = memo(
           <EventsCameraGrid
             cameras={cameras}
             changeSource={changeSource}
+            selectedCamera={selectedCamera}
           ></EventsCameraGrid>
         </div>
         <Card
@@ -150,6 +152,7 @@ export const Layout = memo(
               <EventTable
                 camera={selectedCamera}
                 date={date}
+                selectedRecording={selectedRecording}
                 setSelectedRecording={setSelectedRecording}
               />
             ) : (
@@ -219,6 +222,7 @@ export const LayoutSmall = memo(
               <EventTable
                 camera={selectedCamera}
                 date={date}
+                selectedRecording={selectedRecording}
                 setSelectedRecording={setSelectedRecording}
               />
             ) : (
