@@ -145,10 +145,11 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
             ? {
                 // palette values for light mode
                 background: {
-                  paper: "#fff",
-                  default: "#fafafa",
+                  paper: "#f7f7f7",
+                  default: "#ebebeb",
                 },
-                divider: grey[300],
+                primary: blue,
+                divider: blue[200],
               }
             : {
                 // palette values for dark mode
@@ -194,8 +195,15 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
           }),
         },
         MuiContainer: {
+          styleOverrides: {
+            root: {
+              paddingLeft: 10,
+              paddingRight: 10,
+            },
+          },
           defaultProps: {
             maxWidth: false,
+            disableGutters: true,
           },
         },
         MuiButton: {
@@ -216,7 +224,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
                 border: `1px solid ${
                   theme.palette.mode === "dark"
                     ? theme.palette.primary[900]
-                    : theme.palette.grey[300]
+                    : theme.palette.primary[200]
                 }`,
                 borderRadius: theme.shape.borderRadius,
               },
@@ -231,7 +239,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
               borderRight: `1px solid ${
                 theme.palette.mode === "dark"
                   ? theme.palette.primary[900]
-                  : theme.palette.grey[300]
+                  : theme.palette.primary[200]
               }`,
             },
           },
@@ -242,8 +250,9 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
               border: `1px solid ${
                 theme.palette.mode === "dark"
                   ? theme.palette.primary[900]
-                  : theme.palette.grey[300]
+                  : theme.palette.primary[200]
               }`,
+              boxShadow: "5px 5px 8px 0px rgba(0,0,0,0.40)",
             },
           },
         },
