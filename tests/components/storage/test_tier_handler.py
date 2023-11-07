@@ -25,8 +25,9 @@ def test_handle_file_delete(
     }
     tier_2 = None
     session = MagicMock()
-    handle_file(session, MagicMock(), "test", tier_1, tier_2, file)
-    mock_delete_file.assert_called_once_with(session, file)
+    logger = MagicMock()
+    handle_file(session, MagicMock(), "test", tier_1, tier_2, file, logger)
+    mock_delete_file.assert_called_once_with(session, file, logger)
 
 
 @patch("viseron.components.storage.tier_handler.move_file")
@@ -43,8 +44,9 @@ def test_handle_file_move(
         "path": "/tmp/tier2",
     }
     session = MagicMock()
-    handle_file(session, MagicMock(), "test", tier_1, tier_2, tier_1_file)
-    mock_move_file.assert_called_once_with(session, tier_1_file, tier_2_file)
+    logger = MagicMock()
+    handle_file(session, MagicMock(), "test", tier_1, tier_2, tier_1_file, logger)
+    mock_move_file.assert_called_once_with(session, tier_1_file, tier_2_file, logger)
 
 
 @dataclass
@@ -92,8 +94,8 @@ class TestRecorderTierHandler(BaseTestWithRecordings):
             "recordings_amount, first_recording_id"
         ),
         [
-            (_get_tier_config(events=True, continuous=False), True, False, 2, 2),
-            (_get_tier_config(events=True, continuous=True), True, True, 2, 2),
+            (_get_tier_config(events=True, continuous=False), True, False, 2, 3),
+            (_get_tier_config(events=True, continuous=True), True, True, 2, 3),
             (_get_tier_config(events=False, continuous=True), False, True, 3, 1),
         ],
     )
@@ -109,7 +111,7 @@ class TestRecorderTierHandler(BaseTestWithRecordings):
         """Test _check_tier."""
 
         mock_camera = Mock()
-        mock_camera.identifier = "test_camera"
+        mock_camera.identifier = "test"
         mock_camera.config = {CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
 
         tier_handler = RecorderTierHandler(
@@ -154,7 +156,9 @@ class TestRecorderTierHandler(BaseTestWithRecordings):
                 mock_files_to_move_overlap.assert_called_once()
 
         with self._get_db_session() as session:
-            stmt = select(Recordings)
+            stmt = select(Recordings).where(
+                Recordings.camera_identifier == mock_camera.identifier
+            )
             recordings = session.execute(stmt).scalars().fetchall()
             assert len(recordings) == recordings_amount
             assert recordings[0].id == first_recording_id

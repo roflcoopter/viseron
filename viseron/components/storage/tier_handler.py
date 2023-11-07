@@ -57,8 +57,6 @@ if TYPE_CHECKING:
     from viseron.components.webserver import Webserver
     from viseron.domains.camera import AbstractCamera
 
-LOGGER = logging.getLogger(__name__)
-
 
 class TierHandler(FileSystemEventHandler):
     """Moves files up configured tiers."""
@@ -73,6 +71,7 @@ class TierHandler(FileSystemEventHandler):
         tier: dict[str, Any],
         next_tier: dict[str, Any] | None,
     ) -> None:
+        self._logger = logging.getLogger(f"{__name__}.{camera.identifier}")
         super().__init__()
 
         self._vis = vis
@@ -107,7 +106,7 @@ class TierHandler(FileSystemEventHandler):
         self._time_of_last_call = utcnow()
         self._check_tier_lock = Lock()
 
-        LOGGER.debug("Tier %s monitoring path: %s", tier_id, self._path)
+        self._logger.debug("Tier %s monitoring path: %s", tier_id, self._path)
         os.makedirs(self._path, exist_ok=True)
         self._observer = (
             PollingObserverVFS(stat=os.stat, listdir=os.scandir, polling_interval=1)
@@ -132,7 +131,7 @@ class TierHandler(FileSystemEventHandler):
         # pylint: disable-next=import-outside-toplevel
         from viseron.components.webserver.tiered_file_handler import TieredFileHandler
 
-        LOGGER.error(f"Adding handler for /files{pattern}")
+        self._logger.debug(f"Adding handler for /files{pattern}")
         self._webserver.application.add_handlers(
             r".*",
             [
@@ -193,6 +192,7 @@ class TierHandler(FileSystemEventHandler):
                         self._tier,
                         self._next_tier,
                         file.path,
+                        self._logger,
                     )
             session.commit()
 
@@ -200,7 +200,7 @@ class TierHandler(FileSystemEventHandler):
         while True:
             event = self._event_queue.get()
             if event is None:
-                LOGGER.debug("Stopping event handler")
+                self._logger.debug("Stopping event handler")
                 break
             if isinstance(event, FileDeletedEvent):
                 self._on_deleted(event)
@@ -217,7 +217,7 @@ class TierHandler(FileSystemEventHandler):
 
     def _on_created(self, event: FileCreatedEvent) -> None:
         """Insert into database when file is created."""
-        LOGGER.debug("File created: %s", event.src_path)
+        self._logger.debug("File created: %s", event.src_path)
         with self._storage.get_session() as session:
             stmt = insert(Files).values(
                 tier_id=self._tier_id,
@@ -241,12 +241,12 @@ class TierHandler(FileSystemEventHandler):
 
             Runs in a Timer to avoid spamming updates on duplicate events.
             """
-            LOGGER.debug("File modified (delayed event): %s", event.src_path)
+            self._logger.debug("File modified (delayed event): %s", event.src_path)
             self._pending_updates.pop(event.src_path, None)
             try:
                 size = os.path.getsize(event.src_path)
             except FileNotFoundError:
-                LOGGER.debug("File not found: %s", event.src_path)
+                self._logger.debug("File not found: %s", event.src_path)
                 return
 
             with self._storage.get_session() as session:
@@ -267,7 +267,7 @@ class TierHandler(FileSystemEventHandler):
 
     def _on_deleted(self, event: FileDeletedEvent) -> None:
         """Remove file from database when it is deleted."""
-        LOGGER.debug("File deleted: %s", event.src_path)
+        self._logger.debug("File deleted: %s", event.src_path)
         with self._storage.get_session() as session:
             with session.begin():
                 stmt = delete(Files).where(Files.path == event.src_path)
@@ -275,9 +275,9 @@ class TierHandler(FileSystemEventHandler):
 
     def _shutdown(self) -> None:
         """Shutdown the observer and event handler."""
-        LOGGER.debug("Stopping observer")
+        self._logger.debug("Stopping observer")
         if self._tier[CONFIG_MOVE_ON_SHUTDOWN]:
-            LOGGER.debug("Forcing move of files")
+            self._logger.debug("Forcing move of files")
             force_move_files(
                 self._storage,
                 self._storage.get_session,
@@ -286,6 +286,7 @@ class TierHandler(FileSystemEventHandler):
                 self._camera.identifier,
                 self._tier,
                 self._next_tier,
+                self._logger,
             )
         for pending_update in self._pending_updates.copy().values():
             pending_update.join()
@@ -336,7 +337,7 @@ class RecorderTierHandler(TierHandler):
         if self._tier_id == 0 and self._camera.config.get(CONFIG_RECORDER, {}).get(
             CONFIG_RETAIN, None
         ):
-            LOGGER.warning(
+            self._logger.warning(
                 f"Camera {self._camera.identifier} is using 'retain' for 'recorder' "
                 "which has been deprecated and will be removed in a future release. "
                 "Please use the new 'storage' component with the 'max_age' config "
@@ -400,8 +401,14 @@ class RecorderTierHandler(TierHandler):
                     self._continuous_max_age,
                 )
 
+            events_file_ids = list(events_file_ids)
+            # A file can be in multiple recordings, so we need to keep track of which
+            # files we have already processed using processed_paths
+            processed_paths = []
             if events_enabled and not continuous_enabled:
                 for file in events_file_ids:
+                    if file.path in processed_paths:
+                        continue
                     handle_file(
                         session,
                         self._storage,
@@ -409,7 +416,9 @@ class RecorderTierHandler(TierHandler):
                         self._tier,
                         self._next_tier,
                         file.path,
+                        self._logger,
                     )
+                    processed_paths.append(file.path)
             if continuous_enabled and not events_enabled:
                 for file in continuous_file_ids:
                     handle_file(
@@ -419,10 +428,13 @@ class RecorderTierHandler(TierHandler):
                         self._tier,
                         self._next_tier,
                         file.path,
+                        self._logger,
                     )
             else:
                 overlap = files_to_move_overlap(events_file_ids, continuous_file_ids)
                 for file in overlap:
+                    if file.path in processed_paths:
+                        continue
                     handle_file(
                         session,
                         self._storage,
@@ -430,15 +442,21 @@ class RecorderTierHandler(TierHandler):
                         self._tier,
                         self._next_tier,
                         file.path,
+                        self._logger,
                     )
+                    processed_paths.append(file.path)
 
             # Delete recordings from Recordings table
             recording_ids: list[int] = []
             for recording in events_file_ids:
-                if recording.recording_id not in recording_ids:
+                if (
+                    recording.recording_id
+                    and recording.recording_id not in recording_ids
+                ):
                     recording_ids.append(recording.recording_id)
 
             if recording_ids:
+                self._logger.warning("Deleting recordings: %s", recording_ids)
                 stmt = delete(Recordings).where(Recordings.id.in_(recording_ids))
                 session.execute(stmt)
 
@@ -452,30 +470,37 @@ def handle_file(
     curr_tier: dict[str, Any],
     next_tier: dict[str, Any] | None,
     path: str,
+    logger: logging.Logger,
 ) -> None:
     """Move file if there is a succeeding tier, else delete the file."""
     if path in storage.camera_requested_files_count[camera_identifier].filenames:
-        LOGGER.debug("File %s is recently requested, skipping", path)
+        logger.debug("File %s is recently requested, skipping", path)
         return
 
     if next_tier is None:
-        delete_file(session, path)
+        delete_file(session, path, logger)
     else:
         move_file(
             session,
             path,
             path.replace(curr_tier[CONFIG_PATH], next_tier[CONFIG_PATH], 1),
+            logger,
         )
 
 
-def move_file(session: Session, src: str, dst: str) -> None:
+def move_file(
+    session: Session,
+    src: str,
+    dst: str,
+    logger: logging.Logger,
+) -> None:
     """Move file from src to dst.
 
     To avoid race conditions where a file is referenced at the same time as it is being
     moved, causing a 404 in the browser, we copy the file to the new location and then
     delete the old one.
     """
-    LOGGER.debug("Moving file from %s to %s", src, dst)
+    logger.debug("Moving file from %s to %s", src, dst)
     sel = select(FilesMeta).where(FilesMeta.path == src)
     res = session.execute(sel).scalar_one()
     try:
@@ -484,28 +509,32 @@ def move_file(session: Session, src: str, dst: str) -> None:
         )
         session.execute(ins)
     except IntegrityError:
-        LOGGER.error(f"Failed to insert metadata for {dst}", exc_info=True)
+        logger.error(f"Failed to insert metadata for {dst}", exc_info=True)
 
     try:
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copy(src, dst)
         os.remove(src)
     except FileNotFoundError as error:
-        LOGGER.error(f"Failed to move file {src} to {dst}: {error}")
+        logger.error(f"Failed to move file {src} to {dst}: {error}")
         stmt = delete(Files).where(Files.path == src)
         session.execute(stmt)
 
 
-def delete_file(session: Session, path: str) -> None:
+def delete_file(
+    session: Session,
+    path: str,
+    logger: logging.Logger,
+) -> None:
     """Delete file."""
-    LOGGER.debug("Deleting file %s", path)
+    logger.debug("Deleting file %s", path)
     stmt = delete(Files).where(Files.path == path)
     session.execute(stmt)
 
     try:
         os.remove(path)
     except FileNotFoundError as error:
-        LOGGER.error(f"Failed to delete file {path}: {error}")
+        logger.error(f"Failed to delete file {path}: {error}")
 
 
 def get_files_to_move(
@@ -587,6 +616,7 @@ def force_move_files(
     camera_identifier: str,
     curr_tier: dict[str, Any],
     next_tier: dict[str, Any] | None,
+    logger: logging.Logger,
 ) -> None:
     """Get and move/delete all files in tier."""
     with get_session() as session:
@@ -599,6 +629,12 @@ def force_move_files(
         result = session.execute(stmt)
         for file in result:
             handle_file(
-                session, storage, camera_identifier, curr_tier, next_tier, file.path
+                session,
+                storage,
+                camera_identifier,
+                curr_tier,
+                next_tier,
+                file.path,
+                logger,
             )
         session.commit()

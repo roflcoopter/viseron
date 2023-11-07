@@ -42,7 +42,7 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
 
     def test_get_recording_hls_ongoing(self):
         """Test getting a recording HLS playlist for a recording that has not ended."""
-        recording_id = 2
+        recording_id = 3
         with self._get_db_session() as session:
             session.execute(
                 update(Recordings)

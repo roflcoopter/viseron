@@ -135,7 +135,8 @@ def recordings_to_move_query(
               JOIN files_meta meta
                 ON f.path = meta.path
          LEFT JOIN recordings r
-                ON meta.orig_ctime BETWEEN
+                ON f.camera_identifier = r.camera_identifier
+               AND meta.orig_ctime BETWEEN
                     r.start_time - INTERVAL ':lookback sec'
                                  - INTERVAL ':segment_length sec' AND
                     COALESCE(r.end_time + INTERVAL ':segment_length sec', now())

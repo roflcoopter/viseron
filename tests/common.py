@@ -123,6 +123,15 @@ class BaseTestWithRecordings:
             )
             session.execute(
                 insert(Recordings).values(
+                    camera_identifier="test2",
+                    start_time=self._now + datetime.timedelta(seconds=7),
+                    end_time=self._now + datetime.timedelta(seconds=10),
+                    created_at=self._now + datetime.timedelta(seconds=7),
+                    thumbnail_path="/test2/test4.jpg",
+                )
+            )
+            session.execute(
+                insert(Recordings).values(
                     camera_identifier="test",
                     start_time=self._now + datetime.timedelta(seconds=26),
                     end_time=self._now + datetime.timedelta(seconds=36),

@@ -186,13 +186,13 @@ class TestMoveQueries(BaseTestWithRecordings):
         assert results[3].file_id == 7
         assert results[4].recording_id is None
         assert results[4].file_id == 9
-        assert results[5].recording_id == 2
+        assert results[5].recording_id == 3
         assert results[5].file_id == 11
-        assert results[6].recording_id == 2
+        assert results[6].recording_id == 3
         assert results[6].file_id == 13
-        assert results[7].recording_id == 2
+        assert results[7].recording_id == 3
         assert results[7].file_id == 15
-        assert results[8].recording_id == 2
+        assert results[8].recording_id == 3
         assert results[8].file_id == 17
         assert results[9].recording_id is None
         assert results[9].file_id == 23
@@ -252,7 +252,7 @@ class TestMoveQueries(BaseTestWithRecordings):
             )
             session.commit()
 
-        files = get_recording_fragments(2, 5, self._get_db_session)
+        files = get_recording_fragments(3, 5, self._get_db_session)
         assert len(files) == 4
         assert files[0].id == 9
         assert files[1].id == 31
