@@ -90,3 +90,30 @@ export function getTimeFromDate(date: Date) {
     second: "2-digit",
   });
 }
+
+export function removeURLParameter(url: string, parameter: string) {
+  const [base, queryString] = url.split("?");
+  if (!queryString) {
+    return url;
+  }
+  const params = queryString
+    .split("&")
+    .filter((param) => !param.startsWith(`${parameter}=`));
+  return params.length ? `${base}?${params.join("&")}` : base;
+}
+
+export function insertURLParameter(key: string, value: string | number) {
+  // remove any param for the same key
+  const currentURL = removeURLParameter(window.location.href, key);
+
+  // figure out if we need to add the param with a ? or a &
+  let queryStart;
+  if (currentURL.indexOf("?") !== -1) {
+    queryStart = "&";
+  } else {
+    queryStart = "?";
+  }
+
+  const newurl = `${currentURL + queryStart + key}=${value}`;
+  window.history.pushState({ path: newurl }, "", newurl);
+}
