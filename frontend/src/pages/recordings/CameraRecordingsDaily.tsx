@@ -7,7 +7,7 @@ import { useParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
 import VoidSvg from "svg/undraw/void.svg?react";
 
-import { Error } from "components/error/Error";
+import { ErrorMessage } from "components/error/ErrorMessage";
 import { Loading } from "components/loading/Loading";
 import RecordingCard from "components/recording/RecordingCard";
 import { useTitle } from "hooks/UseTitle";
@@ -29,12 +29,12 @@ const CameraRecordingsDaily = () => {
   const cameraQuery = useCamera(camera_identifier, true);
 
   useTitle(
-    `Recordings${cameraQuery.data ? ` | ${cameraQuery.data.name}` : ""}`
+    `Recordings${cameraQuery.data ? ` | ${cameraQuery.data.name}` : ""}`,
   );
 
   if (recordingsQuery.isError || cameraQuery.isError) {
     return (
-      <Error
+      <ErrorMessage
         text={`Error loading recordings`}
         image={
           <ServerDown width={150} height={150} role="img" aria-label="Void" />
@@ -53,7 +53,7 @@ const CameraRecordingsDaily = () => {
     !objHasValues(recordingsQuery.data[date])
   ) {
     return (
-      <Error
+      <ErrorMessage
         text={`No recordings for ${cameraQuery.data.name} - ${date}`}
         image={
           <VoidSvg width={150} height={150} role="img" aria-label="Void" />

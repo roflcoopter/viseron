@@ -154,25 +154,8 @@ async function authEnabled() {
   return response.data;
 }
 
-interface AuthEnabledVariables {
-  setAuth: React.Dispatch<React.SetStateAction<types.AuthEnabledResponse>>;
-}
-
-export const useAuthEnabled = ({ setAuth }: AuthEnabledVariables) =>
+export const useAuthEnabled = () =>
   useQuery<types.AuthEnabledResponse, types.APIErrorResponse>(
     ["auth", "enabled"],
     async () => authEnabled(),
-    {
-      onSuccess: async (data) => {
-        setAuth((prevAuth) => {
-          if (
-            prevAuth.enabled === data.enabled &&
-            prevAuth.onboarding_complete === data.onboarding_complete
-          ) {
-            return prevAuth;
-          }
-          return data;
-        });
-      },
-    },
   );

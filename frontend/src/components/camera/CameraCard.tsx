@@ -14,7 +14,7 @@ import {
   CardActionButtonLink,
 } from "components/CardActionButton";
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
-import { AuthContext } from "context/AuthContext";
+import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
 import useOnScreen from "hooks/UseOnScreen";
 import { useCamera } from "lib/api/camera";
@@ -88,7 +88,7 @@ export default function CameraCard({
   border,
 }: CameraCardProps) {
   const { connected } = useContext(ViseronContext);
-  const { auth } = useContext(AuthContext);
+  const { auth } = useAuthContext();
   const theme = useTheme();
   const ref: any = useRef<HTMLDivElement>();
   const onScreen = useOnScreen<HTMLDivElement>(ref);

@@ -4,12 +4,12 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
-interface ErrorProps {
+interface ErrorMessageProps {
   text: string;
   image?: React.ReactNode;
 }
 
-export const Error = ({ text, image }: ErrorProps) => (
+export const ErrorMessage = ({ text, image }: ErrorMessageProps) => (
   <Grow in appear>
     <Stack
       direction="row"

@@ -7,7 +7,7 @@ import { useSearchParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
 import "video.js/dist/video-js.css";
 
-import { Error } from "components/error/Error";
+import { ErrorMessage } from "components/error/ErrorMessage";
 import { Layout, LayoutSmall } from "components/events/Layouts";
 import { Loading } from "components/loading/Loading";
 import { useTitle } from "hooks/UseTitle";
@@ -24,7 +24,7 @@ const Events = () => {
   const [selectedCamera, setSelectedCamera] = useState<types.Camera | null>(
     cameraQuery.data && searchParams.has("camera")
       ? cameraQuery.data[searchParams.get("camera") as string]
-      : null
+      : null,
   );
   const [selectedRecording, setSelectedRecording] =
     useState<types.Recording | null>(null);
@@ -32,7 +32,7 @@ const Events = () => {
 
   const changeSource = (
     ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera
+    camera: types.Camera,
   ) => {
     setSelectedCamera(camera);
   };
@@ -50,7 +50,7 @@ const Events = () => {
 
   if (cameraQuery.isError) {
     return (
-      <Error
+      <ErrorMessage
         text={`Error loading cameras`}
         image={
           <ServerDown

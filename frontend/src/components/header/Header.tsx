@@ -15,7 +15,7 @@ import { useContext, useRef, useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
-import { AuthContext } from "context/AuthContext";
+import { useAuthContext } from "context/AuthContext";
 import { ColorModeContext } from "context/ColorModeContext";
 import { useScrollPosition } from "hooks/UseScrollPosition";
 import { useToast } from "hooks/UseToast";
@@ -58,7 +58,7 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
   const mediaQueryMedium = useMediaQuery(theme.breakpoints.up("md"));
   const [showHeader, setShowHeader] = useState(true);
   const lastTogglePos = useRef(0);
-  const { auth } = useContext(AuthContext);
+  const { auth } = useAuthContext();
 
   useScrollPosition((prevPos: any, currPos: any) => {
     // Always show header if we haven't scrolled down more than theme.headerHeight

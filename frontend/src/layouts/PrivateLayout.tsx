@@ -2,18 +2,18 @@ import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import { styled } from "@mui/material/styles";
 import Cookies from "js-cookie";
-import { Suspense, useContext, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import CSSTransition from "react-transition-group/CSSTransition";
 import TransitionGroup from "react-transition-group/TransitionGroup";
 
 import { ScrollToTopFab } from "components/ScrollToTop";
-import { Error } from "components/error/Error";
+import { ErrorMessage } from "components/error/ErrorMessage";
 import Footer from "components/footer/Footer";
 import AppDrawer from "components/header/Drawer";
 import Header from "components/header/Header";
 import { Loading } from "components/loading/Loading";
-import { AuthContext } from "context/AuthContext";
+import { useAuthContext } from "context/AuthContext";
 import { ViseronProvider } from "context/ViseronContext";
 import { toastIds, useToast } from "hooks/UseToast";
 import { useAuthUser } from "lib/api/auth";
@@ -28,7 +28,7 @@ export default function PrivateLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
 
-  const { auth } = useContext(AuthContext);
+  const { auth } = useAuthContext();
   const cookies = Cookies.get();
   const [_user, setUser] = useState<types.AuthUserResponse | undefined>(
     undefined,
@@ -65,7 +65,7 @@ export default function PrivateLayout() {
           height: "100vh",
         }}
       >
-        <Error text="Error loading user" />
+        <ErrorMessage text="Error loading user" />
         <Button variant="contained" component={Link} to="/login">
           Navigate to Login
         </Button>
@@ -84,7 +84,6 @@ export default function PrivateLayout() {
   }
 
   if (auth.enabled && sessionExpired()) {
-    console.log("PrivateLayout 2 navigating to /login");
     toast.error("Session expired, please log in again", {
       toastId: toastIds.sessionExpired,
     });

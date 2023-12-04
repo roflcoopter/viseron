@@ -21,7 +21,7 @@ function customRender(
     enabled: true,
     onboarding_complete: true,
   },
-  options?: Omit<RenderOptions, "wrapper">
+  options?: Omit<RenderOptions, "wrapper">,
 ) {
   function ProvidersWrapper({ children }: ProvidersWrapperProps) {
     return (

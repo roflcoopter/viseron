@@ -7,12 +7,11 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import { useContext } from "react";
 import LazyLoad from "react-lazyload";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
-import { AuthContext } from "context/AuthContext";
+import { useAuthContext } from "context/AuthContext";
 import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
 import { getTimeFromDate, getVideoElement } from "lib/helpers";
 import * as types from "lib/types";
@@ -27,7 +26,7 @@ export default function RecordingCard({
   recording,
 }: RecordingCardInterface) {
   const theme = useTheme();
-  const { auth } = useContext(AuthContext);
+  const { auth } = useAuthContext();
   const deleteRecording = useDeleteRecording();
 
   return (

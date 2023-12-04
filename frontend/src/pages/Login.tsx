@@ -4,12 +4,12 @@ import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import { useContext, useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
-import { AuthContext } from "context/AuthContext";
+import { useAuthContext } from "context/AuthContext";
 import { useTitle } from "hooks/UseTitle";
 import { useAuthLogin } from "lib/api/auth";
 import queryClient from "lib/api/client";
@@ -43,7 +43,7 @@ function reducer(state: InputState, action: InputAction): InputState {
 
 const Login = () => {
   useTitle("Login");
-  const { auth } = useContext(AuthContext);
+  const { auth } = useAuthContext();
   const location = useLocation();
   const navigate = useNavigate();
   const login = useAuthLogin();

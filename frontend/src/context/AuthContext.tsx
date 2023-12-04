@@ -1,9 +1,17 @@
 import { AxiosHeaders } from "axios";
 import Cookies from "js-cookie";
-import { FC, createContext, useLayoutEffect, useRef, useState } from "react";
+import {
+  FC,
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
 import SessionExpired from "components/dialog/SessionExpired";
+import { ErrorMessage } from "components/error/ErrorMessage";
 import { Loading } from "components/loading/Loading";
 import { useToast } from "hooks/UseToast";
 import { authToken, useAuthEnabled } from "lib/api/auth";
@@ -11,7 +19,7 @@ import { clientId, viseronAPI } from "lib/api/client";
 import { loadTokens, tokenExpired } from "lib/tokens";
 import * as types from "lib/types";
 
-export type AuthContextState = {
+type AuthContextState = {
   auth: types.AuthEnabledResponse;
   setAuth: React.Dispatch<React.SetStateAction<AuthContextState["auth"]>>;
 };
@@ -21,7 +29,7 @@ export const AuthContext = createContext<AuthContextState>({
   setAuth: () => {},
 });
 
-export type AuthProviderProps = {
+type AuthProviderProps = {
   children: React.ReactNode;
 };
 
@@ -30,11 +38,11 @@ let tokenPromise: Promise<types.AuthTokenResponse>;
 export const AuthProvider: FC<AuthProviderProps> = ({
   children,
 }: AuthProviderProps) => {
-  const [auth, setAuth] = useState<types.AuthEnabledResponse>({
+  const [_auth, setAuth] = useState<types.AuthEnabledResponse>({
     enabled: true,
     onboarding_complete: true,
   });
-  const authQuery = useAuthEnabled({ setAuth });
+  const authQuery = useAuthEnabled();
   const toast = useToast();
   const location = useLocation();
 
@@ -47,7 +55,17 @@ export const AuthProvider: FC<AuthProviderProps> = ({
 
     requestInterceptorRef.current = viseronAPI.interceptors.request.use(
       async (config) => {
-        if (!auth.enabled) {
+        // if auth is not loaded yet, allow requests to check if auth is enabled
+        if (!authQuery.data && config.url?.includes("/auth/enabled")) {
+          return config;
+        }
+        // if auth is not loaded yet, block all other requests
+        if (!authQuery.data) {
+          throw new Error("Request blocked, auth not loaded yet.");
+        }
+
+        // If auth is disabled, proceed without checking tokens
+        if (!authQuery.data.enabled) {
           return config;
         }
 
@@ -99,24 +117,35 @@ export const AuthProvider: FC<AuthProviderProps> = ({
         return config;
       },
     );
-  }, [auth, toast]);
+  }, [authQuery.data, toast]);
 
-  if (authQuery.isInitialLoading) {
+  if (authQuery.isLoading || authQuery.isInitialLoading) {
     return <Loading text="Loading Auth" />;
+  }
+  if (authQuery.isError) {
+    return <ErrorMessage text="Error loading auth, check logs for details" />;
   }
 
   if (
-    auth.enabled &&
-    !auth.onboarding_complete &&
+    authQuery.data.enabled &&
+    !authQuery.data.onboarding_complete &&
     location.pathname !== "/onboarding"
   ) {
     return <Navigate to="/onboarding" replace />;
   }
 
   return (
-    <AuthContext.Provider value={{ auth, setAuth }}>
-      {auth.enabled ? <SessionExpired /> : null}
+    <AuthContext.Provider value={{ auth: authQuery.data, setAuth }}>
+      {authQuery.data.enabled ? <SessionExpired /> : null}
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuthContext = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuthContext must be used within AuthProvider Context");
+  }
+  return context;
 };

@@ -1,14 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
-import React, {
-  FC,
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import React, { FC, createContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { AuthContext } from "context/AuthContext";
+import { useAuthContext } from "context/AuthContext";
 import { toastIds, useToast } from "hooks/UseToast";
 import {
   subscribeCameras,
@@ -38,7 +32,7 @@ export const ViseronContext =
 export const ViseronProvider: FC<ViseronProviderProps> = ({
   children,
 }: ViseronProviderProps) => {
-  const { auth } = useContext(AuthContext);
+  const { auth } = useAuthContext();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const toast = useToast();

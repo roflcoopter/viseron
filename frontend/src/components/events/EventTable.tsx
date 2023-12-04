@@ -7,7 +7,7 @@ import dayjs, { Dayjs } from "dayjs";
 import { memo } from "react";
 import ServerDown from "svg/undraw/server_down.svg?react";
 
-import { Error } from "components/error/Error";
+import { ErrorMessage } from "components/error/ErrorMessage";
 import { EventTableItem } from "components/events/EventTableItem";
 import { Loading } from "components/loading/Loading";
 import * as types from "lib/types";
@@ -32,7 +32,7 @@ export const EventTable = memo(
 
     if (recordingsQuery.isError) {
       return (
-        <Error
+        <ErrorMessage
           text={`Error loading recordings`}
           image={
             <ServerDown width={150} height={150} role="img" aria-label="Void" />
@@ -47,7 +47,7 @@ export const EventTable = memo(
 
     if (!recordingsQuery.data) {
       return (
-        <Error
+        <ErrorMessage
           text={`No recordings found for ${camera.name}`}
           image={
             <ServerDown width={150} height={150} role="img" aria-label="Void" />
@@ -63,7 +63,7 @@ export const EventTable = memo(
         {formattedDate in recordingsQuery.data ? (
           <Grid container direction="row" columns={1}>
             {Object.values(
-              recordingsQuery.data[dayjs(date).format("YYYY-MM-DD")]
+              recordingsQuery.data[dayjs(date).format("YYYY-MM-DD")],
             )
               .sort()
               .reverse()
@@ -97,5 +97,5 @@ export const EventTable = memo(
         )}
       </Box>
     );
-  }
+  },
 );
