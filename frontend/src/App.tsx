@@ -5,10 +5,10 @@ import "react-toastify/dist/ReactToastify.css";
 
 const Cameras = lazy(() => import("pages/Cameras"));
 const CameraRecordings = lazy(
-  () => import("pages/recordings/CameraRecordings")
+  () => import("pages/recordings/CameraRecordings"),
 );
 const CameraRecordingsDaily = lazy(
-  () => import("pages/recordings/CameraRecordingsDaily")
+  () => import("pages/recordings/CameraRecordingsDaily"),
 );
 const Configuration = lazy(() => import("pages/Configuration"));
 const Entities = lazy(() => import("pages/Entities"));

@@ -18,7 +18,7 @@ import ListItemText from "@mui/material/ListItemText";
 import ListSubheader from "@mui/material/ListSubheader";
 import Typography from "@mui/material/Typography";
 import { Link, Location, useLocation } from "react-router-dom";
-import { ReactComponent as ViseronLogo } from "svg/viseron-logo.svg";
+import ViseronLogo from "svg/viseron-logo.svg?react";
 
 type DrawerItemHeader = { type: "header"; title: string };
 

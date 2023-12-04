@@ -5,7 +5,7 @@ import Typography from "@mui/material/Typography";
 import { useQuery } from "@tanstack/react-query";
 import dayjs, { Dayjs } from "dayjs";
 import { memo } from "react";
-import { ReactComponent as ServerDown } from "svg/undraw/server_down.svg";
+import ServerDown from "svg/undraw/server_down.svg?react";
 
 import { Error } from "components/error/Error";
 import { EventTableItem } from "components/events/EventTableItem";

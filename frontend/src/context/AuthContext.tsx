@@ -8,7 +8,7 @@ import { Loading } from "components/loading/Loading";
 import { useToast } from "hooks/UseToast";
 import { authToken, useAuthEnabled } from "lib/api/auth";
 import { clientId, viseronAPI } from "lib/api/client";
-import { loadTokens } from "lib/tokens";
+import { loadTokens, tokenExpired } from "lib/tokens";
 import * as types from "lib/types";
 
 export type AuthContextState = {
@@ -71,12 +71,11 @@ export const AuthProvider: FC<AuthProviderProps> = ({
           throw new Error("Invalid session.");
         }
 
-        // Refresh tokens if they expire within 10 seconds
+        // Refresh expired token
         let storedTokens = loadTokens();
         if (
           !storedTokens ||
-          (Date.now() - 10000 > storedTokens.expires_at &&
-            !(config as any)._tokenRefreshed)
+          (tokenExpired() && !(config as any)._tokenRefreshed)
         ) {
           if (!isFetchingTokens) {
             isFetchingTokens = true;
@@ -94,11 +93,11 @@ export const AuthProvider: FC<AuthProviderProps> = ({
         if (storedTokens) {
           (config.headers as AxiosHeaders).set(
             "Authorization",
-            `Bearer ${storedTokens.header}.${storedTokens.payload}`
+            `Bearer ${storedTokens.header}.${storedTokens.payload}`,
           );
         }
         return config;
-      }
+      },
     );
   }, [auth, toast]);
 

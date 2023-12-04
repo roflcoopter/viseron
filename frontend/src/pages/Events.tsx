@@ -4,7 +4,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import dayjs, { Dayjs } from "dayjs";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ReactComponent as ServerDown } from "svg/undraw/server_down.svg";
+import ServerDown from "svg/undraw/server_down.svg?react";
 import "video.js/dist/video-js.css";
 
 import { Error } from "components/error/Error";

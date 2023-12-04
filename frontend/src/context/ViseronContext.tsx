@@ -44,7 +44,7 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
   const toast = useToast();
 
   const [connection, setConnection] = useState<Connection | undefined>(
-    undefined
+    undefined,
   );
   const [connected, setConnected] = useState<boolean>(false);
   const onConnectRef = React.useRef<() => void>();
@@ -57,7 +57,7 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
         await queryClient.invalidateQueries({
           predicate: (query) =>
             (query.queryKey[0] as string).startsWith(
-              `/recordings/${camera.identifier}`
+              `/recordings/${camera.identifier}`,
             ),
         });
       };
@@ -65,12 +65,12 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
         event:
           | types.EventRecorderStart
           | types.EventRecorderStop
-          | types.EventRecorderComplete
+          | types.EventRecorderComplete,
       ) => {
         await queryClient.invalidateQueries({
           predicate: (query) =>
             (query.queryKey[0] as string).startsWith(
-              `/recordings/${event.data.camera.identifier}`
+              `/recordings/${event.data.camera.identifier}`,
             ),
         });
       };
@@ -98,7 +98,7 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
       connection.addEventListener("disconnected", onDisconnectRef.current);
       connection.addEventListener(
         "connection-error",
-        onConnectionErrorRef.current
+        onConnectionErrorRef.current,
       );
 
       const connect = async () => {
@@ -117,14 +117,14 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
         if (onDisconnectRef.current) {
           connection.removeEventListener(
             "disconnected",
-            onDisconnectRef.current
+            onDisconnectRef.current,
           );
         }
 
         if (onConnectionErrorRef.current) {
           connection.removeEventListener(
             "connection-error",
-            onConnectionErrorRef.current
+            onConnectionErrorRef.current,
           );
         }
         connection.disconnect();

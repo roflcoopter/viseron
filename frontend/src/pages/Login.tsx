@@ -5,8 +5,8 @@ import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useContext, useEffect, useReducer, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { ReactComponent as ViseronLogo } from "svg/viseron-logo.svg";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import ViseronLogo from "svg/viseron-logo.svg?react";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
 import { AuthContext } from "context/AuthContext";
@@ -67,16 +67,18 @@ const Login = () => {
     fromRef.current =
       location.state && location.state.from ? location.state.from : null;
     // Clear the state parameter
-    navigate(location.pathname, { replace: true });
+    if (fromRef.current) {
+      navigate(location.pathname, { replace: true });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (auth.enabled && !auth.onboarding_complete) {
-    navigate("/onboarding");
+    return <Navigate to="/onboarding" />;
   }
 
   if (!auth.enabled) {
-    navigate("/");
+    return <Navigate to="/" />;
   }
 
   return (
@@ -145,7 +147,7 @@ const Login = () => {
                         onSuccess: async (_data, _variables, _context) => {
                           navigate(fromRef.current ? fromRef.current : "/");
                         },
-                      }
+                      },
                     );
                   }}
                 >

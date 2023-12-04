@@ -54,7 +54,7 @@ export default function RecordingCardDaily({
           </Typography>
           {objHasValues<types.Recording>(recording) ? (
             <Typography align="center">{`Last recording: ${getTimeFromDate(
-              new Date(recording.start_time)
+              new Date(recording.start_time),
             )}`}</Typography>
           ) : (
             <Typography align="center">No recordings found</Typography>

@@ -49,7 +49,7 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
 
   function connect(
     promResolve: (socket: WebSocket) => void,
-    promReject: (err: Error) => void
+    promReject: (err: Error) => void,
   ) {
     if (DEBUG) {
       console.debug("[Socket] New connection", wsURL);
@@ -121,8 +121,8 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
           }
           socket.send(
             JSON.stringify(
-              messages.auth(`${storedTokens.header}.${storedTokens.payload}`)
-            )
+              messages.auth(`${storedTokens.header}.${storedTokens.payload}`),
+            ),
           );
           break;
 
@@ -156,7 +156,7 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
 
   return new Promise((resolve, reject) =>
     // eslint-disable-next-line no-promise-executor-return
-    connect(resolve, reject)
+    connect(resolve, reject),
   );
 }
 
@@ -275,7 +275,7 @@ export class Connection {
               subscription.resolve();
             });
           }
-        }
+        },
       );
     }
 
@@ -310,11 +310,11 @@ export class Connection {
       case "event":
         if (command_info) {
           command_info.callback(
-            (message as types.WebSocketEventResponse).event
+            (message as types.WebSocketEventResponse).event,
           );
         } else {
           console.warn(
-            `Received event for unknown subscription ${message.command_id}. Unsubscribing.`
+            `Received event for unknown subscription ${message.command_id}. Unsubscribing.`,
           );
           // TODO UNSUB HERE
         }
@@ -451,7 +451,7 @@ export class Connection {
 
   fireEvent(eventType: Events, eventData?: any) {
     (this.eventListeners.get(eventType) || []).forEach((callback: any) =>
-      callback(this, eventData)
+      callback(this, eventData),
     );
   }
 
@@ -517,7 +517,7 @@ export class Connection {
       | messages.SubscribeEventMessage
       | messages.SubscribeStatesMessage,
     unsubMessage: (subscription: number) => Message,
-    resubscribe = true
+    resubscribe = true,
   ): Promise<SubscriptionUnsubscribe> {
     if (this.queuedMessages) {
       await new Promise((resolve, reject) => {
@@ -563,7 +563,7 @@ export class Connection {
   async subscribeEvent<EventType>(
     event: string,
     callback: (message: EventType) => void,
-    resubscribe = true
+    resubscribe = true,
   ): Promise<SubscriptionUnsubscribe> {
     if (this.queuedMessages) {
       await new Promise((resolve, reject) => {
@@ -577,7 +577,7 @@ export class Connection {
       callback,
       messages.subscribeEvent(event),
       (subscription) => messages.unsubscribeEvent(subscription),
-      resubscribe
+      resubscribe,
     );
     return unsub;
   }
@@ -586,7 +586,7 @@ export class Connection {
     callback: (message: types.StateChangedEvent) => void,
     entity_id?: string,
     entity_ids?: string[],
-    resubscribe = true
+    resubscribe = true,
   ): Promise<SubscriptionUnsubscribe> {
     if (this.queuedMessages) {
       await new Promise((resolve, reject) => {
@@ -600,7 +600,7 @@ export class Connection {
       callback,
       messages.subscribeStates(entity_id, entity_ids),
       (subscription) => messages.unsubscribeStates(subscription),
-      resubscribe
+      resubscribe,
     );
     return unsub;
   }

@@ -31,7 +31,7 @@ export default function PrivateLayout() {
   const { auth } = useContext(AuthContext);
   const cookies = Cookies.get();
   const [_user, setUser] = useState<types.AuthUserResponse | undefined>(
-    undefined
+    undefined,
   );
   const toast = useToast();
 
@@ -84,6 +84,7 @@ export default function PrivateLayout() {
   }
 
   if (auth.enabled && sessionExpired()) {
+    console.log("PrivateLayout 2 navigating to /login");
     toast.error("Session expired, please log in again", {
       toastId: toastIds.sessionExpired,
     });

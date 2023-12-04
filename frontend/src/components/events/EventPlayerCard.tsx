@@ -2,12 +2,13 @@ import Card from "@mui/material/Card";
 import CardMedia from "@mui/material/CardMedia";
 import { useEffect, useRef } from "react";
 import videojs from "video.js";
+import Player from "video.js/dist/types/player";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import * as types from "lib/types";
 
-const _videoJsOptions: videojs.PlayerOptions = {
+const _videoJsOptions = {
   autoplay: true,
   playsinline: true,
   controls: true,
@@ -34,7 +35,7 @@ type EventPlayerProps = {
 };
 const EventPlayer = ({ recording }: EventPlayerProps) => {
   const videoNode = useRef<HTMLVideoElement>(null);
-  const player = useRef<videojs.Player>();
+  const player = useRef<Player>();
 
   useEffect(() => {
     if (!player.current) {
@@ -44,7 +45,7 @@ const EventPlayer = ({ recording }: EventPlayerProps) => {
           ..._videoJsOptions,
           sources: [{ src: recording.hls_url, type: "application/x-mpegURL" }],
         },
-        () => {}
+        () => {},
       );
     }
     return () => {

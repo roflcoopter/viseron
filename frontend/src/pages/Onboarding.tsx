@@ -6,7 +6,7 @@ import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useContext, useReducer } from "react";
 import { Navigate } from "react-router-dom";
-import { ReactComponent as ViseronLogo } from "svg/viseron-logo.svg";
+import ViseronLogo from "svg/viseron-logo.svg?react";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
 import { AuthContext } from "context/AuthContext";
@@ -152,7 +152,7 @@ const Onboarding = () => {
                           // Invalidate auth query to force a re-fetch, which will redirect to the dashboard
                           await queryClient.invalidateQueries(["auth"]);
                         },
-                      }
+                      },
                     );
                   }}
                 >

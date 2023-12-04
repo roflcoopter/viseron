@@ -34,15 +34,18 @@ RUN \
 
 
 # Build frontend
-FROM node:14.18.3 as frontend
+FROM node:20.10.0 as frontend
 
 WORKDIR /frontend
 
 COPY frontend/package.json ./
 COPY frontend/package-lock.json ./
-COPY frontend/ ./
+# npm 10+ fails to install in Docker for some reason
+RUN npm install -g npm@9
+RUN npm ci --legacy-peer-deps
 
-RUN npm ci && npm run build
+COPY frontend/ ./
+RUN npm run build
 
 
 # Build Viseron

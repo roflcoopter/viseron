@@ -44,10 +44,10 @@ export default function RecordingCardLatest({
   if (
     objHasValues<types.RecordingsCamera>(recordingsQuery.data) &&
     objHasValues<types.RecordingsCamera>(
-      Object.values(recordingsQuery.data)[0]
+      Object.values(recordingsQuery.data)[0],
     ) &&
     objHasValues<types.RecordingsCamera>(
-      Object.values(Object.values(recordingsQuery.data)[0])[0]
+      Object.values(Object.values(recordingsQuery.data)[0])[0],
     )
   ) {
     const recordingDate = Object.values(recordingsQuery.data)[0];
@@ -67,7 +67,7 @@ export default function RecordingCardLatest({
     recording
   ) {
     text = `Latest recording: ${recording.date} - ${getTimeFromDate(
-      new Date(recording.start_time)
+      new Date(recording.start_time),
     )}`;
   }
 

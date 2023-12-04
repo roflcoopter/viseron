@@ -53,7 +53,7 @@ export function CardActionButtonLink({
 export function CardActionButtonHref({ title, target }: CardActionButtonProps) {
   return (
     <StyledButton
-      component="a"
+      component={"a" as React.ElementType}
       target="_blank"
       href={target}
       variant="outlined"

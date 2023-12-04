@@ -33,5 +33,5 @@ ReactDOM.render(
       </LocalizationProvider>
     </ColorModeProvider>
   </React.StrictMode>,
-  document.getElementById("root")
+  document.getElementById("root"),
 );

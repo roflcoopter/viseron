@@ -13,7 +13,7 @@ import { alpha, styled, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useContext, useRef, useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
-import { ReactComponent as ViseronLogo } from "svg/viseron-logo.svg";
+import ViseronLogo from "svg/viseron-logo.svg?react";
 
 import { AuthContext } from "context/AuthContext";
 import { ColorModeContext } from "context/ColorModeContext";

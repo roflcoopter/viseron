@@ -18,7 +18,7 @@ import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 import * as monaco from "monaco-editor";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import { setDiagnosticsOptions } from "monaco-yaml";
+import { configureMonacoYaml } from "monaco-yaml";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import Markers from "components/editor/Markers";
@@ -45,7 +45,7 @@ type GlobalThis = typeof globalThis &
 loader.config({ monaco });
 loader.init().then();
 
-setDiagnosticsOptions({
+configureMonacoYaml(monaco, {
   enableSchemaRequest: true,
   hover: true,
   completion: true,
@@ -74,7 +74,7 @@ const editorWidth = "80vw";
 const useResize = (
   editorRef: React.MutableRefObject<
     monaco.editor.IStandaloneCodeEditor | undefined
-  >
+  >,
 ) => {
   const updateDimensions = useCallback(() => {
     if (editorRef.current) {
@@ -122,7 +122,7 @@ const ConfigEditor = () => {
       (reason) => {
         setSavePending(false);
         setErrorDialog({ open: true, text: reason.message });
-      }
+      },
     );
   };
 
@@ -140,7 +140,7 @@ const ConfigEditor = () => {
     const _restart = async () => {
       setRestartPending(true);
       await restartViseron(viseron.connection!).catch(() =>
-        setRestartPending(false)
+        setRestartPending(false),
       );
     };
     _restart();
@@ -160,7 +160,7 @@ const ConfigEditor = () => {
 
   const onMount = (
     editor: monaco.editor.IStandaloneCodeEditor,
-    _monaco: Monaco
+    _monaco: Monaco,
   ) => {
     editorInstance.current = editor;
     editor.focus();
@@ -169,13 +169,13 @@ const ConfigEditor = () => {
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
       () => {
         handleSave();
-      }
+      },
     );
   };
 
   const onChange = (
     editorContents: string | undefined,
-    _event: monaco.editor.IModelContentChangedEvent
+    _event: monaco.editor.IModelContentChangedEvent,
   ) => {
     if (editorContents === savedConfig) {
       setConfigUnsaved(false);

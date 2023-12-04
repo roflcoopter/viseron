@@ -18,7 +18,7 @@ export default function VideoPlayerPlaceholder({
   const theme = useTheme();
 
   return (
-    <Box sx={{ position: "relative" }}>
+    <Box sx={{ position: "relative" }} data-testid="video-player-placeholder">
       <Image
         src={blankImage}
         aspectRatio={aspectRatio}

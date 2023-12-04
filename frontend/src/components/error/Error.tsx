@@ -2,7 +2,7 @@ import Box from "@mui/material/Box";
 import Grow from "@mui/material/Grow";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { ReactComponent as ViseronLogo } from "svg/viseron-logo.svg";
+import ViseronLogo from "svg/viseron-logo.svg?react";
 
 interface ErrorProps {
   text: string;

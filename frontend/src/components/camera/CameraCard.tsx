@@ -29,7 +29,7 @@ interface CameraCardProps {
   compact?: boolean;
   onClick?: (
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera
+    camera: types.Camera,
   ) => void;
   border?: string;
 }
@@ -47,7 +47,7 @@ const useCameraToken = (camera_identifier: string, auth_enabled: boolean) => {
       return;
     }
     const stateChanged = async (
-      _stateChangedEvent: types.StateChangedEvent
+      _stateChangedEvent: types.StateChangedEvent,
     ) => {
       queryClient.invalidateQueries(["camera", camera_identifier]);
     };
@@ -66,7 +66,7 @@ const useCameraToken = (camera_identifier: string, auth_enabled: boolean) => {
           stateChanged,
           `sensor.${camera_identifier}_access_token`,
           undefined,
-          false
+          false,
         );
       } else if (connection && !connected && unsubRef.current) {
         await unsubscribeEntities();
@@ -103,7 +103,7 @@ export default function CameraCard({
       `/api/v1/camera/${camera_identifier}/snapshot?rand=${(Math.random() + 1)
         .toString(36)
         .substring(7)}${width ? `&width=${Math.trunc(width)}` : ""}`,
-    [camera_identifier]
+    [camera_identifier],
   );
   const [snapshotURL, setSnapshotURL] = useState({
     // Show blank image on start
@@ -112,7 +112,7 @@ export default function CameraCard({
     disableTransition: false,
     loading: true,
   });
-  const updateSnapshot = useRef<NodeJS.Timer | null>();
+  const updateSnapshot = useRef<NodeJS.Timeout | null>();
   const updateImage = useCallback(() => {
     setSnapshotURL((prevSnapshotURL) => {
       if (cameraQuery.isFetching) {
@@ -128,7 +128,7 @@ export default function CameraCard({
         setInitialRender(false);
         return {
           url: generateSnapshotURL(
-            ref.current ? ref.current.offsetWidth : null
+            ref.current ? ref.current.offsetWidth : null,
           ),
           disableSpinner: false,
           disableTransition: false,
@@ -153,7 +153,7 @@ export default function CameraCard({
         },
         cameraQuery.data.still_image_refresh_interval
           ? cameraQuery.data.still_image_refresh_interval * 1000
-          : 10000
+          : 10000,
       );
       // If element is hidden or browser loses focus, stop updating images
     } else if (updateSnapshot.current) {

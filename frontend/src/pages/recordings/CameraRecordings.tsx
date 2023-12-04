@@ -4,8 +4,8 @@ import Grow from "@mui/material/Grow";
 import Typography from "@mui/material/Typography";
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { ReactComponent as ServerDown } from "svg/undraw/server_down.svg";
-import { ReactComponent as VoidSvg } from "svg/undraw/void.svg";
+import ServerDown from "svg/undraw/server_down.svg?react";
+import VoidSvg from "svg/undraw/void.svg?react";
 
 import { ScrollToTopOnMount } from "components/ScrollToTop";
 import { Error } from "components/error/Error";

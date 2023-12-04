@@ -42,7 +42,7 @@ export const useAuthCreate = () => {
       toast.error(
         error.response && error.response.data.error
           ? `Error creating user: ${error.response.data.error}`
-          : `An error occurred: ${error.message}`
+          : `An error occurred: ${error.message}`,
       );
     },
   });
@@ -65,7 +65,7 @@ type AuthUserVariables = {
 
 async function authUser({ username }: AuthUserRequest) {
   const response = await viseronAPI.get<types.AuthUserResponse>(
-    `/auth/user/${username}`
+    `/auth/user/${username}`,
   );
   return response.data;
 }
@@ -86,7 +86,7 @@ export const useAuthUser = ({
         setUser(undefined);
       },
       ...configOptions,
-    }
+    },
   );
 
 interface AuthLoginVariables {
@@ -149,9 +149,8 @@ export async function authToken({
 }
 
 async function authEnabled() {
-  const response = await viseronAPI.get<types.AuthEnabledResponse>(
-    "/auth/enabled"
-  );
+  const response =
+    await viseronAPI.get<types.AuthEnabledResponse>("/auth/enabled");
   return response.data;
 }
 
@@ -175,5 +174,5 @@ export const useAuthEnabled = ({ setAuth }: AuthEnabledVariables) =>
           return data;
         });
       },
-    }
+    },
   );

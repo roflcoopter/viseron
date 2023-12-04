@@ -1,4 +1,5 @@
 import { AxiosError } from "axios";
+import { Dayjs } from "dayjs";
 
 type WebSocketPongResponse = {
   command_id: number;
@@ -51,9 +52,21 @@ export type AuthEnabledResponse = {
 export type AuthTokenResponse = {
   header: string;
   payload: string;
-  expires_in: number;
-  expires_at: number;
-  session_expires_at: number;
+  expiration: number;
+  expires_at: string;
+  expires_at_timestamp: number;
+  session_expires_at: string;
+  session_expires_at_timestamp: number;
+};
+
+export type StoredTokens = {
+  header: string;
+  payload: string;
+  expiration: number;
+  expires_at: Dayjs;
+  expires_at_timestamp: number;
+  session_expires_at: Dayjs;
+  session_expires_at_timestamp: number;
 };
 
 export type AuthUserResponse = {
