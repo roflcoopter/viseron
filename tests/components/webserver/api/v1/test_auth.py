@@ -149,7 +149,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
         )
         assert response.code == 200
         body = json.loads(response.body)
-        assert "expires_in" in body
+        assert "expiration" in body
         assert "expires_at" in body
         assert "header" in body
         assert "payload" in body
@@ -220,7 +220,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
         )
         assert response.code == 200
         body = json.loads(response.body)
-        assert "expires_in" in body
+        assert "expiration" in body
         assert "expires_at" in body
         assert "header" in body
         assert "payload" in body

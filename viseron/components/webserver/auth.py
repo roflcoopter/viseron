@@ -9,7 +9,7 @@ import os
 import secrets
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -97,9 +97,11 @@ class TokenResponse:
 
     header: str
     payload: str
-    expires_in: int
-    expires_at: int
-    session_expires_at: int
+    expiration: int
+    expires_at: datetime
+    expires_at_timestamp: int
+    session_expires_at: datetime
+    session_expires_at_timestamp: int
 
 
 def token_response(
@@ -108,18 +110,19 @@ def token_response(
 ) -> dict[str, Any]:
     """Create token response."""
     header, payload, _signature = access_token.split(".")
+    expires_at = utcnow() + refresh_token.access_token_expiration
+    session_expires_at = datetime.utcfromtimestamp(
+        refresh_token.created_at + refresh_token.session_expiration.total_seconds()
+    )
     return asdict(
         TokenResponse(
             header=header,
             payload=payload,
-            expires_in=int(refresh_token.access_token_expiration.total_seconds()),
-            expires_at=int(
-                (utcnow() + refresh_token.access_token_expiration).timestamp()
-            ),
-            session_expires_at=int(
-                refresh_token.created_at
-                + refresh_token.session_expiration.total_seconds()
-            ),
+            expiration=int(refresh_token.access_token_expiration.total_seconds()),
+            expires_at=expires_at,
+            expires_at_timestamp=int(expires_at.timestamp()),
+            session_expires_at=session_expires_at,
+            session_expires_at_timestamp=int(session_expires_at.timestamp()),
         )
     )
 
