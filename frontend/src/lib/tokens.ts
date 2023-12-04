@@ -68,7 +68,7 @@ export const sessionExpired = (): boolean => {
 export const getAuthHeader = (): string | null => {
   const storedTokens = loadTokens();
   if (storedTokens) {
-    return `Bearer ${storedTokens.header}.${storedTokens.payload}`;
+    return `${storedTokens.header}.${storedTokens.payload}`;
   }
   return null;
 };
