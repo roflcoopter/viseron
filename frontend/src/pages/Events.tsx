@@ -52,6 +52,7 @@ const Events = () => {
     return (
       <ErrorMessage
         text={`Error loading cameras`}
+        subtext={cameraQuery.error.message}
         image={
           <ServerDown
             width={150}

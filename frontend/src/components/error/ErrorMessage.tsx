@@ -6,10 +6,11 @@ import ViseronLogo from "svg/viseron-logo.svg?react";
 
 interface ErrorMessageProps {
   text: string;
+  subtext?: string;
   image?: React.ReactNode;
 }
 
-export const ErrorMessage = ({ text, image }: ErrorMessageProps) => (
+export const ErrorMessage = ({ text, subtext, image }: ErrorMessageProps) => (
   <Grow in appear>
     <Stack
       direction="row"
@@ -30,6 +31,11 @@ export const ErrorMessage = ({ text, image }: ErrorMessageProps) => (
         <Typography variant="h5" align="center">
           {text}
         </Typography>
+        {subtext && (
+          <Typography variant="h6" align="center">
+            {subtext}
+          </Typography>
+        )}
       </Box>
     </Stack>
   </Grow>

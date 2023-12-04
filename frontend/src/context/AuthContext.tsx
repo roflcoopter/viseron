@@ -113,8 +113,14 @@ export const AuthProvider: FC<AuthProviderProps> = ({
   if (authQuery.isLoading || authQuery.isInitialLoading) {
     return <Loading text="Loading Auth" />;
   }
+
   if (authQuery.isError) {
-    return <ErrorMessage text="Error loading auth, check logs for details" />;
+    return (
+      <ErrorMessage
+        text="Error connecting to server"
+        subtext={authQuery.error.message}
+      />
+    );
   }
 
   if (

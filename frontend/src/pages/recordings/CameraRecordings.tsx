@@ -24,7 +24,10 @@ const CameraRecordings = () => {
     keyof CameraRecordingsParams
   >() as CameraRecordingsParams;
 
-  const recordingsQuery = useQuery<types.RecordingsCamera>({
+  const recordingsQuery = useQuery<
+    types.RecordingsCamera,
+    types.APIErrorResponse
+  >({
     queryKey: [`/recordings/${camera_identifier}?latest&daily&failed=1`],
   });
   const cameraQuery = useCamera(camera_identifier, true);
@@ -37,6 +40,7 @@ const CameraRecordings = () => {
     return (
       <ErrorMessage
         text={`Error loading recordings`}
+        subtext={recordingsQuery.error?.message || cameraQuery.error?.message}
         image={
           <ServerDown width={150} height={150} role="img" aria-label="Void" />
         }

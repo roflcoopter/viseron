@@ -57,7 +57,10 @@ export default function PrivateLayout() {
           height: "100vh",
         }}
       >
-        <ErrorMessage text="Error loading user" />
+        <ErrorMessage
+          text="Error loading user"
+          subtext={userQuery.error.message}
+        />
         <Button variant="contained" component={Link} to="/login">
           Navigate to Login
         </Button>
