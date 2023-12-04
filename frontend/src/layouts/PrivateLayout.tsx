@@ -2,7 +2,7 @@ import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import { styled } from "@mui/material/styles";
 import Cookies from "js-cookie";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import CSSTransition from "react-transition-group/CSSTransition";
 import TransitionGroup from "react-transition-group/TransitionGroup";
@@ -18,7 +18,6 @@ import { ViseronProvider } from "context/ViseronContext";
 import { toastIds, useToast } from "hooks/UseToast";
 import { useAuthUser } from "lib/api/auth";
 import { sessionExpired } from "lib/tokens";
-import * as types from "lib/types";
 
 const FullHeightContainer = styled("div")(() => ({
   minHeight: "100%",
@@ -30,26 +29,19 @@ export default function PrivateLayout() {
 
   const { auth } = useAuthContext();
   const cookies = Cookies.get();
-  const [_user, setUser] = useState<types.AuthUserResponse | undefined>(
-    undefined,
-  );
   const toast = useToast();
 
   const userQuery = useAuthUser({
     username: cookies.user,
-    setUser,
     configOptions: { enabled: auth.enabled && !!cookies.user },
   });
-
-  useEffect(() => {
-    setUser(userQuery.data);
-  }, [userQuery.data]);
 
   // isInitialLoading instead of isLoading because query might be disabled
   if (userQuery.isInitialLoading) {
     return <Loading text="Loading User" />;
   }
 
+  // Failed to load user
   if (userQuery.isError) {
     toast.error("Failed to load user", {
       toastId: toastIds.userLoadError,
@@ -72,6 +64,8 @@ export default function PrivateLayout() {
       </Container>
     );
   }
+
+  // User is not logged in
   if (auth.enabled && (!cookies.user || !userQuery.data)) {
     return (
       <Navigate
@@ -83,8 +77,9 @@ export default function PrivateLayout() {
     );
   }
 
+  // Session expired
   if (auth.enabled && sessionExpired()) {
-    toast.error("Session expired, please log in again", {
+    toast.warning("Session expired, please log in again", {
       toastId: toastIds.sessionExpired,
     });
     return (

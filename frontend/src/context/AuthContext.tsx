@@ -1,13 +1,6 @@
 import { AxiosHeaders } from "axios";
 import Cookies from "js-cookie";
-import {
-  FC,
-  createContext,
-  useContext,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { FC, createContext, useContext, useLayoutEffect, useRef } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
 import SessionExpired from "components/dialog/SessionExpired";
@@ -19,33 +12,12 @@ import { clientId, viseronAPI } from "lib/api/client";
 import { loadTokens, tokenExpired } from "lib/tokens";
 import * as types from "lib/types";
 
-type AuthContextState = {
-  auth: types.AuthEnabledResponse;
-  setAuth: React.Dispatch<React.SetStateAction<AuthContextState["auth"]>>;
-};
-
-export const AuthContext = createContext<AuthContextState>({
-  auth: { enabled: true, onboarding_complete: true },
-  setAuth: () => {},
-});
-
-type AuthProviderProps = {
-  children: React.ReactNode;
-};
-
 let isFetchingTokens = false;
 let tokenPromise: Promise<types.AuthTokenResponse>;
-export const AuthProvider: FC<AuthProviderProps> = ({
-  children,
-}: AuthProviderProps) => {
-  const [_auth, setAuth] = useState<types.AuthEnabledResponse>({
-    enabled: true,
-    onboarding_complete: true,
-  });
-  const authQuery = useAuthEnabled();
+const useAuthAxiosInterceptor = (
+  auth: types.AuthEnabledResponse | undefined,
+) => {
   const toast = useToast();
-  const location = useLocation();
-
   const requestInterceptorRef = useRef<number | undefined>(undefined);
 
   useLayoutEffect(() => {
@@ -56,16 +28,16 @@ export const AuthProvider: FC<AuthProviderProps> = ({
     requestInterceptorRef.current = viseronAPI.interceptors.request.use(
       async (config) => {
         // if auth is not loaded yet, allow requests to check if auth is enabled
-        if (!authQuery.data && config.url?.includes("/auth/enabled")) {
+        if (!auth && config.url?.includes("/auth/enabled")) {
           return config;
         }
         // if auth is not loaded yet, block all other requests
-        if (!authQuery.data) {
+        if (!auth) {
           throw new Error("Request blocked, auth not loaded yet.");
         }
 
         // If auth is disabled, proceed without checking tokens
-        if (!authQuery.data.enabled) {
+        if (!auth.enabled) {
           return config;
         }
 
@@ -117,7 +89,26 @@ export const AuthProvider: FC<AuthProviderProps> = ({
         return config;
       },
     );
-  }, [authQuery.data, toast]);
+  }, [auth, toast]);
+};
+
+type AuthContextState = {
+  auth: types.AuthEnabledResponse;
+};
+
+export const AuthContext = createContext<AuthContextState | null>(null);
+
+type AuthProviderProps = {
+  children: React.ReactNode;
+};
+
+export const AuthProvider: FC<AuthProviderProps> = ({
+  children,
+}: AuthProviderProps) => {
+  const authQuery = useAuthEnabled();
+  const location = useLocation();
+
+  useAuthAxiosInterceptor(authQuery.data);
 
   if (authQuery.isLoading || authQuery.isInitialLoading) {
     return <Loading text="Loading Auth" />;
@@ -135,7 +126,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({
   }
 
   return (
-    <AuthContext.Provider value={{ auth: authQuery.data, setAuth }}>
+    <AuthContext.Provider value={{ auth: authQuery.data }}>
       {authQuery.data.enabled ? <SessionExpired /> : null}
       {children}
     </AuthContext.Provider>

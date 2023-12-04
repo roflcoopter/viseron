@@ -32,7 +32,6 @@ function customRender(
             <AuthContext.Provider
               value={{
                 auth,
-                setAuth: vi.fn(),
               }}
             >
               <ViseronContext.Provider

@@ -54,9 +54,6 @@ type AuthUserRequest = {
 
 type AuthUserVariables = {
   username: string;
-  setUser: React.Dispatch<
-    React.SetStateAction<types.AuthUserResponse | undefined>
-  >;
   configOptions?: UseQueryOptions<
     types.AuthUserResponse,
     types.APIErrorResponse
@@ -70,23 +67,11 @@ async function authUser({ username }: AuthUserRequest) {
   return response.data;
 }
 
-export const useAuthUser = ({
-  username,
-  setUser,
-  configOptions,
-}: AuthUserVariables) =>
+export const useAuthUser = ({ username, configOptions }: AuthUserVariables) =>
   useQuery<types.AuthUserResponse, types.APIErrorResponse>(
     ["auth", "user", username],
     async () => authUser({ username }),
-    {
-      onSuccess: async (data) => {
-        setUser(data);
-      },
-      onError: async (_error) => {
-        setUser(undefined);
-      },
-      ...configOptions,
-    },
+    configOptions,
   );
 
 interface AuthLoginVariables {
