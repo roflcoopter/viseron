@@ -10,11 +10,13 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { useQuery } from "@tanstack/react-query";
+import { useContext } from "react";
 import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
+import { AuthContext } from "context/AuthContext";
 import { useCamera } from "lib/api/camera";
 import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
 import { getTimeFromDate, getVideoElement, objHasValues } from "lib/helpers";
@@ -30,6 +32,7 @@ export default function RecordingCardLatest({
   failed,
 }: RecordingCardLatestProps) {
   const theme = useTheme();
+  const { auth } = useContext(AuthContext);
   const deleteRecording = useDeleteRecording();
 
   const recordingsQuery = useQuery<types.RecordingsCamera>({
@@ -109,7 +112,7 @@ export default function RecordingCardLatest({
               />
             }
           >
-            {getVideoElement(cameraQuery.data, recording)}
+            {getVideoElement(cameraQuery.data, recording, auth.enabled)}
           </LazyLoad>
         </CardMedia>
         <CardActions>

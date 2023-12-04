@@ -120,7 +120,11 @@ class TestAppBaseAuth(TestAppBase):
         return super().tearDown()
 
     def fetch_with_auth(
-        self, path: str, raise_error: bool = False, **kwargs: Any
+        self,
+        path: str,
+        raise_error: bool = False,
+        token_parameter: bool = False,
+        **kwargs: Any,
     ) -> HTTPResponse:
         """Add authentication headers when running fetch."""
         os.makedirs(
@@ -139,20 +143,22 @@ class TestAppBaseAuth(TestAppBase):
         if "headers" not in kwargs:
             kwargs["headers"] = {}
 
+        # Add refresh token cookie
         refresh_token = self.webserver.auth.get_refresh_token(REFRESH_TOKEN_ID)
-        access_token = self.webserver.auth.generate_access_token(
-            refresh_token, "dummy.lan"
-        )
-
         refresh_token_cookie = create_signed_value(
             self._app.settings["cookie_secret"],
             "refresh_token",
             "token",
         ).decode()
-
         kwargs["headers"][
             "Cookie"
         ] = f"refresh_token={refresh_token_cookie};user={USER_ID};"
+
+        # Create access token
+        access_token = self.webserver.auth.generate_access_token(
+            refresh_token, "dummy.lan"
+        )
+        header, payload, signature = access_token.split(".")
 
         # Add optional static asset key cookie
         static_asset_key_cookie = create_signed_value(
@@ -162,6 +168,20 @@ class TestAppBaseAuth(TestAppBase):
         ).decode()
         kwargs["headers"]["Cookie"] += f"static_asset_key={static_asset_key_cookie};"
 
-        kwargs["headers"]["Authorization"] = "Bearer " + access_token
+        if token_parameter:
+            if "?" in path:
+                path += "&"
+            else:
+                path += "?"
+            path += f"token={header}.{payload}"
+            signature_token_cookie = create_signed_value(
+                self._app.settings["cookie_secret"],
+                "signature_cookie",
+                signature,
+            ).decode()
+            kwargs["headers"]["Cookie"] += f"signature_cookie={signature_token_cookie};"
+        else:
+            if not kwargs["headers"].get("Authorization", False):
+                kwargs["headers"]["Authorization"] = "Bearer " + access_token
 
         return self.fetch(path, raise_error, **kwargs)

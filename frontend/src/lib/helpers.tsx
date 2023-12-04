@@ -3,6 +3,8 @@ import { Suspense, lazy } from "react";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import * as types from "lib/types";
 
+import { getAuthHeader } from "./tokens";
+
 const VideoPlayer = lazy(() => import("components/videoplayer/VideoPlayer"));
 
 export function sortObj(obj: Record<string, unknown>): Record<string, unknown> {
@@ -25,14 +27,17 @@ export function objHasValues<T = Record<never, never>>(obj: unknown): obj is T {
   return typeof obj === "object" && obj !== null && Object.keys(obj).length > 0;
 }
 
-export function getRecordingVideoJSOptions(recording: types.Recording) {
+export function getRecordingVideoJSOptions(
+  recording: types.Recording,
+  auth_token?: string,
+) {
   return {
     autoplay: false,
     playsinline: true,
     controls: true,
     loop: true,
     poster: `${recording.thumbnail_path}`,
-    preload: undefined,
+    preload: "none",
     responsive: true,
     fluid: true,
     playbackRates: [0.5, 1, 2, 5, 10],
@@ -47,7 +52,7 @@ export function getRecordingVideoJSOptions(recording: types.Recording) {
     },
     sources: [
       {
-        src: recording.hls_url,
+        src: recording.hls_url + (auth_token ? `?token=${auth_token}` : ""),
         type: "application/x-mpegURL",
       },
     ],
@@ -56,7 +61,8 @@ export function getRecordingVideoJSOptions(recording: types.Recording) {
 
 export function getVideoElement(
   camera: types.Camera | types.FailedCamera,
-  recording: types.Recording | null | undefined
+  recording: types.Recording | null | undefined,
+  auth: boolean,
 ) {
   if (!objHasValues(recording) || !recording) {
     return (
@@ -64,7 +70,14 @@ export function getVideoElement(
     );
   }
 
-  const videoJsOptions = getRecordingVideoJSOptions(recording);
+  let authHeader: string | null = null;
+  if (auth) {
+    authHeader = getAuthHeader();
+  }
+  const videoJsOptions = getRecordingVideoJSOptions(
+    recording,
+    authHeader || undefined,
+  );
   return (
     <Suspense
       fallback={

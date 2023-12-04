@@ -7,13 +7,14 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
+import { useContext } from "react";
 import LazyLoad from "react-lazyload";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
-import VideoPlayer from "components/videoplayer/VideoPlayer";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
+import { AuthContext } from "context/AuthContext";
 import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
-import { getRecordingVideoJSOptions, getTimeFromDate } from "lib/helpers";
+import { getTimeFromDate, getVideoElement } from "lib/helpers";
 import * as types from "lib/types";
 
 interface RecordingCardInterface {
@@ -26,8 +27,8 @@ export default function RecordingCard({
   recording,
 }: RecordingCardInterface) {
   const theme = useTheme();
+  const { auth } = useContext(AuthContext);
   const deleteRecording = useDeleteRecording();
-  const videoJsOptions = getRecordingVideoJSOptions(recording);
 
   return (
     <LazyLoad height={200}>
@@ -60,7 +61,7 @@ export default function RecordingCard({
               />
             }
           >
-            <VideoPlayer options={videoJsOptions} />
+            {getVideoElement(camera, recording, auth.enabled)}
           </LazyLoad>
         </CardMedia>
         <CardActions>

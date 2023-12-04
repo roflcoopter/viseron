@@ -9,11 +9,13 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
+import { useContext } from "react";
 import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
+import { AuthContext } from "context/AuthContext";
 import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
 import { getTimeFromDate, getVideoElement, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
@@ -30,6 +32,7 @@ export default function RecordingCardDaily({
   recording,
 }: RecordingCardDailyProps) {
   const theme = useTheme();
+  const { auth } = useContext(AuthContext);
   const deleteRecording = useDeleteRecording();
 
   return (
@@ -70,7 +73,7 @@ export default function RecordingCardDaily({
               />
             }
           >
-            {getVideoElement(camera, recording)}
+            {getVideoElement(camera, recording, auth.enabled)}
           </LazyLoad>
         </CardMedia>
         <CardActions>

@@ -43,6 +43,7 @@ class Route(TypedDict):
     requires_auth: NotRequired[bool]
     requires_camera_token: NotRequired[bool]
     requires_group: NotRequired[list[Group]]
+    allow_token_parameter: NotRequired[bool]
     json_body_schema: NotRequired[Schema]
     request_arguments_schema: NotRequired[Schema]
 
@@ -130,20 +131,38 @@ class BaseAPIHandler(ViseronRequestHandler):
                 )
         return True, None
 
-    def _construct_jwt_from_cookies(self) -> str | None:
-        """Construct JWT from cookies."""
+    def _construct_jwt_from_header_and_cookies(self) -> str | None:
+        """Construct JWT from Header and Cookies."""
         signature = self.get_secure_cookie("signature_cookie")
         if signature is None:
             return None
-        return self.request.headers.get("Authorization", "") + "." + signature.decode()
+        jwt_header_payload = self.request.headers.get("Authorization", None)
+        if jwt_header_payload is None:
+            return None
+        return jwt_header_payload + "." + signature.decode()
+
+    def _construct_jwt_from_parameter_and_cookies(self) -> str | None:
+        """Construct JWT from Query parameter 'token' and Cookies."""
+        signature = self.get_secure_cookie("signature_cookie")
+        if signature is None:
+            return None
+        jwt_header_payload = self.get_argument("token", None)
+        if jwt_header_payload is None:
+            return None
+        return "Bearer " + jwt_header_payload + "." + signature.decode()
 
     def validate_auth_header(self) -> bool:
         """Validate auth header."""
         # Call is coming from browser? Construct the JWT from the cookies
+        auth_header = None
         if self.request.headers.get("X-Requested-With", "") == "XMLHttpRequest":
             self.browser_request = True
-            auth_header = self._construct_jwt_from_cookies()
-        else:
+            auth_header = self._construct_jwt_from_header_and_cookies()
+        # Route allows JWT Header + Payload in URL parameter
+        if auth_header is None and self.route.get("allow_token_parameter", False):
+            auth_header = self._construct_jwt_from_parameter_and_cookies()
+        # Header could not be constructed from cookies or URL parameter
+        if auth_header is None:
             auth_header = self.request.headers.get("Authorization", None)
 
         if auth_header is None:

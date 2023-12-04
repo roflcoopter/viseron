@@ -34,6 +34,7 @@ class HlsAPIHandler(BaseAPIHandler):
             ),
             "supported_methods": ["GET"],
             "method": "get_recording_hls_playlist",
+            "allow_token_parameter": True,
         },
     ]
 
@@ -92,10 +93,7 @@ def _generate_playlist(
             ),
         )
         for file in files
-        if file.meta.get("m3u8", False,).get(
-            "EXTINF",
-            False,
-        )
+        if file.meta.get("m3u8", False).get("EXTINF", False)
     ]
 
     end: bool = True

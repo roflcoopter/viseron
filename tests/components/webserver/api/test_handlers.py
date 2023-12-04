@@ -24,6 +24,13 @@ class DummyAPIHandler(BaseAPIHandler):
             "method": "test_get",
         },
         {
+            "path_pattern": r"/allow_token_parameter",
+            "requires_auth": True,
+            "allow_token_parameter": True,
+            "supported_methods": ["GET"],
+            "method": "test_get",
+        },
+        {
             "path_pattern": r"/requires_group",
             "supported_methods": ["GET"],
             "method": "test_get",
@@ -322,3 +329,30 @@ class TestBaseAPIHandler(TestAppBaseAuth):
             "error": "Internal server error",
             "status": HTTPStatus.INTERNAL_SERVER_ERROR,
         }
+
+    def test_allow_token_parameter(self):
+        """Test endpoint with allow_token_parameter setting."""
+        response = self.fetch_with_auth(
+            "/api/v1/allow_token_parameter",
+            method="GET",
+            token_parameter=True,
+        )
+        assert response.code == HTTPStatus.OK
+
+        # Should work with normal access token as well
+        response = self.fetch_with_auth(
+            "/api/v1/allow_token_parameter",
+            method="GET",
+            token_parameter=False,
+        )
+        assert response.code == HTTPStatus.OK
+
+    def test_allow_token_parameter_missing(self):
+        """Test endpoint with allow_token_parameter setting."""
+        response = self.fetch_with_auth(
+            "/api/v1/allow_token_parameter",
+            method="GET",
+            token_parameter=False,
+            headers={"Authorization": "Bearer test_access_token"},
+        )
+        assert response.code == HTTPStatus.UNAUTHORIZED
