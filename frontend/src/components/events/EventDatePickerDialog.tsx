@@ -6,14 +6,14 @@ import {
   DateValidationError,
   PickerChangeHandlerContext,
 } from "@mui/x-date-pickers/models";
-import { useQuery } from "@tanstack/react-query";
 import dayjs, { Dayjs } from "dayjs";
 import { useMemo } from "react";
 
+import { useRecordings } from "lib/api/recordings";
 import * as types from "lib/types";
 
 function HasEvent(
-  props: PickersDayProps<Dayjs> & { highlightedDays?: Record<string, any> }
+  props: PickersDayProps<Dayjs> & { highlightedDays?: Record<string, any> },
 ) {
   const { highlightedDays = {}, day, outsideCurrentMonth, ...other } = props;
 
@@ -69,7 +69,7 @@ type EventDatePickerDialogProps = {
   camera: types.Camera | null;
   onChange?: (
     value: Dayjs | null,
-    context: PickerChangeHandlerContext<DateValidationError>
+    context: PickerChangeHandlerContext<DateValidationError>,
   ) => void;
 };
 
@@ -80,14 +80,14 @@ export function EventDatePickerDialog({
   camera,
   onChange,
 }: EventDatePickerDialogProps) {
-  const recordingsQuery = useQuery<types.RecordingsCamera>({
-    queryKey: [`/recordings/${camera ? camera.identifier : null}`],
-    enabled: !!camera,
+  const recordingsQuery = useRecordings({
+    camera_identifier: camera ? camera.identifier : null,
+    configOptions: { enabled: !!camera },
   });
   const highlightedDays = useMemo(
     () =>
       recordingsQuery.data ? getHighlightedDays(recordingsQuery.data) : {},
-    [recordingsQuery.data]
+    [recordingsQuery.data],
   );
 
   const handleClose = () => {

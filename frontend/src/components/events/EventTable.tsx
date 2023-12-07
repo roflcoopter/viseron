@@ -2,7 +2,6 @@ import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
-import { useQuery } from "@tanstack/react-query";
 import dayjs, { Dayjs } from "dayjs";
 import { memo } from "react";
 import ServerDown from "svg/undraw/server_down.svg?react";
@@ -10,6 +9,7 @@ import ServerDown from "svg/undraw/server_down.svg?react";
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { EventTableItem } from "components/events/EventTableItem";
 import { Loading } from "components/loading/Loading";
+import { useRecordings } from "lib/api/recordings";
 import * as types from "lib/types";
 
 type EventTableProps = {
@@ -26,14 +26,15 @@ export const EventTable = memo(
     selectedRecording,
     setSelectedRecording,
   }: EventTableProps) => {
-    const recordingsQuery = useQuery<types.RecordingsCamera>({
-      queryKey: [`/recordings/${camera.identifier}`],
+    const recordingsQuery = useRecordings({
+      camera_identifier: camera.identifier,
     });
 
     if (recordingsQuery.isError) {
       return (
         <ErrorMessage
-          text={`Error loading recordings`}
+          text={"Error loading recordings"}
+          subtext={recordingsQuery.error.message}
           image={
             <ServerDown width={150} height={150} role="img" aria-label="Void" />
           }

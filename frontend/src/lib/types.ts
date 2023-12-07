@@ -178,10 +178,6 @@ export type EventRecorderStart = EventRecorder & {
 export type EventRecorderStop = EventRecorder & {
   name: "recorder_stop";
 };
-export type EventRecorderComplete = EventRecorder & {
-  name: "recorder_complete";
-};
-
 export interface EntityAttributes {
   name: string;
   domain: string;

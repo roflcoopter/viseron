@@ -2,7 +2,6 @@ import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
 import Typography from "@mui/material/Typography";
-import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
 import VoidSvg from "svg/undraw/void.svg?react";
@@ -12,6 +11,7 @@ import { Loading } from "components/loading/Loading";
 import RecordingCard from "components/recording/RecordingCard";
 import { useTitle } from "hooks/UseTitle";
 import { useCamera } from "lib/api/camera";
+import { useRecordings } from "lib/api/recordings";
 import { objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -23,11 +23,11 @@ const CameraRecordingsDaily = () => {
   const { camera_identifier, date } = useParams<
     keyof CameraRecordingsDailyParams
   >() as CameraRecordingsDailyParams;
-  const recordingsQuery = useQuery<
-    types.RecordingsCamera,
-    types.APIErrorResponse
-  >({
-    queryKey: [`/recordings/${camera_identifier}/${date}?failed=1`],
+
+  const recordingsQuery = useRecordings({
+    camera_identifier,
+    date,
+    failed: true,
   });
   const cameraQuery = useCamera(camera_identifier, true);
 

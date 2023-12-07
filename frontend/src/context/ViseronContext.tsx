@@ -4,12 +4,6 @@ import { useNavigate } from "react-router-dom";
 
 import { useAuthContext } from "context/AuthContext";
 import { toastIds, useToast } from "hooks/UseToast";
-import {
-  subscribeCameras,
-  subscribeRecordingStart,
-  subscribeRecordingStop,
-} from "lib/commands";
-import * as types from "lib/types";
 import { Connection } from "lib/websockets";
 
 export type ViseronProviderProps = {
@@ -47,28 +41,6 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
 
   useEffect(() => {
     if (connection) {
-      const cameraRegistered = async (camera: types.Camera) => {
-        await queryClient.invalidateQueries({
-          predicate: (query) =>
-            (query.queryKey[0] as string).startsWith(
-              `/recordings/${camera.identifier}`,
-            ),
-        });
-      };
-      const recorderEvent = async (
-        event:
-          | types.EventRecorderStart
-          | types.EventRecorderStop
-          | types.EventRecorderComplete,
-      ) => {
-        await queryClient.invalidateQueries({
-          predicate: (query) =>
-            (query.queryKey[0] as string).startsWith(
-              `/recordings/${event.data.camera.identifier}`,
-            ),
-        });
-      };
-
       onConnectRef.current = async () => {
         await queryClient.invalidateQueries({
           queryKey: ["camera"],
@@ -96,9 +68,6 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
       );
 
       const connect = async () => {
-        subscribeCameras(connection, cameraRegistered); // call without await to not block
-        subscribeRecordingStart(connection, recorderEvent); // call without await to not block
-        subscribeRecordingStop(connection, recorderEvent); // call without await to not block
         await connection.connect();
       };
       connect();

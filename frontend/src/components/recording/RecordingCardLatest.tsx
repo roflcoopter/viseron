@@ -9,7 +9,6 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import { useQuery } from "@tanstack/react-query";
 import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
 
@@ -18,6 +17,7 @@ import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholde
 import { useAuthContext } from "context/AuthContext";
 import { useCamera } from "lib/api/camera";
 import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
+import { useRecordings } from "lib/api/recordings";
 import { getTimeFromDate, getVideoElement, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -34,10 +34,10 @@ export default function RecordingCardLatest({
   const { auth } = useAuthContext();
   const deleteRecording = useDeleteRecording();
 
-  const recordingsQuery = useQuery<types.RecordingsCamera>({
-    queryKey: [
-      `/recordings/${camera_identifier}?latest${failed ? "&failed=1" : ""}`,
-    ],
+  const recordingsQuery = useRecordings({
+    camera_identifier,
+    latest: true,
+    failed,
   });
 
   const cameraQuery = useCamera(camera_identifier, failed);
