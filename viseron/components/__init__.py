@@ -31,6 +31,7 @@ from viseron.const import (
     LOADING,
     SLOW_DEPENDENCY_WARNING,
     SLOW_SETUP_WARNING,
+    VISERON_SIGNAL_SHUTDOWN,
 )
 from viseron.exceptions import ComponentNotReady, DomainNotReady
 
@@ -165,12 +166,26 @@ class Component:
                     f"Retrying in {wait_time} seconds in the background. "
                     f"Error: {str(error)}"
                 )
-                threading.Timer(
+                retry_timer = threading.Timer(
                     wait_time,
                     setup_component,
                     args=(self._vis, self),
                     kwargs={"tries": tries + 1},
-                ).start()
+                )
+
+                def cancel_retry_timer() -> None:
+                    """Cancel retry timer."""
+                    LOGGER.debug(
+                        "Cancelling retry timer for component %s and try number %s",
+                        self.name,
+                        tries,
+                    )
+                    retry_timer.cancel()
+
+                self._vis.register_signal_handler(
+                    VISERON_SIGNAL_SHUTDOWN, cancel_retry_timer
+                )
+                retry_timer.start()
             except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.error(
                     f"Uncaught exception setting up component {self.name}: {ex}\n"
@@ -683,6 +698,7 @@ def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
                 target=setup_component,
                 args=(vis, get_component(vis, component, config)),
                 name=f"{component}_setup",
+                daemon=True,
             )
         )
     for thread in setup_threads:

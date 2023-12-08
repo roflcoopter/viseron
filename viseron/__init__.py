@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, TypeVar, over
 
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.base import SchedulerNotRunningError
 
 from viseron.components import (
     get_component,
@@ -437,7 +438,10 @@ class Viseron:
 
         self._thread_watchdog.stop()
         self._subprocess_watchdog.stop()
-        self.background_scheduler.shutdown()
+        try:
+            self.background_scheduler.shutdown()
+        except SchedulerNotRunningError as err:
+            LOGGER.warning(f"Failed to shutdown scheduler: {err}")
 
         wait_for_threads_and_processes_to_exit(data_stream, VISERON_SIGNAL_SHUTDOWN)
         wait_for_threads_and_processes_to_exit(data_stream, VISERON_SIGNAL_LAST_WRITE)

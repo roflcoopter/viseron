@@ -217,6 +217,7 @@ def create_application(
         static_path=PATH_STATIC,
         websocket_ping_interval=10,
         debug=config[CONFIG_DEBUG],
+        autoreload=False,
         cookie_secret=cookie_secret,
         xsrf_cookies=xsrf_cookies,
     )
@@ -248,8 +249,9 @@ class Webserver(threading.Thread):
         self._asyncio_ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._asyncio_ioloop)
         self._application = create_application(vis, config, self._store.cookie_secret)
+        self._httpserver = None
         try:
-            self._application.listen(
+            self._httpserver = self._application.listen(
                 config[CONFIG_PORT],
                 xheaders=True,
             )
@@ -303,4 +305,9 @@ class Webserver(threading.Thread):
         for task in asyncio.Task.all_tasks():
             task.cancel()
 
+        if self._httpserver:
+            LOGGER.debug("Stopping HTTPServer")
+            self._httpserver.stop()
+
+        LOGGER.debug("Stopping IOloop")
         self._ioloop.stop()
