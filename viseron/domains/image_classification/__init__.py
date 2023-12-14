@@ -10,6 +10,7 @@ import numpy as np
 import voluptuous as vol
 
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
+from viseron.events import EventData
 from viseron.helpers.schemas import FLOAT_MIN_ZERO
 
 from .const import (
@@ -54,7 +55,7 @@ class ImageClassificationResult:
 
 
 @dataclass
-class EventImageClassification:
+class EventImageClassification(EventData):
     """Hold information on image classification event."""
 
     camera_identifier: str

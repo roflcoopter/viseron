@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import json
 import logging
 import multiprocessing
 import multiprocessing.process
@@ -10,13 +11,14 @@ import sys
 import threading
 import time
 import tracemalloc
-from dataclasses import dataclass
+from functools import partial
 from timeit import default_timer as timer
-from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Callable, Literal, overload
 
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import SchedulerNotRunningError
+from sqlalchemy import insert
 
 from viseron.components import (
     get_component,
@@ -32,6 +34,9 @@ from viseron.components.nvr.const import (
     COMPONENT as NVR_COMPONENT,
     DOMAIN as NVR_DOMAIN,
 )
+from viseron.components.storage import Storage
+from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.models import Events
 from viseron.config import load_config
 from viseron.const import (
     DOMAIN_FAILED,
@@ -51,8 +56,10 @@ from viseron.const import (
     VISERON_SIGNAL_STOPPING,
 )
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.events import Event, EventData
 from viseron.exceptions import DataStreamNotLoaded, DomainNotRegisteredError
-from viseron.helpers import memory_usage_profiler
+from viseron.helpers import memory_usage_profiler, utcnow
+from viseron.helpers.json import JSONEncoder
 from viseron.helpers.logs import (
     DuplicateFilter,
     SensitiveInformationFilter,
@@ -141,6 +148,8 @@ def setup_viseron() -> Viseron:
 
     setup_components(vis, config)
 
+    vis.storage = vis.data[STORAGE_COMPONENT]
+
     if NVR_COMPONENT in vis.data[LOADED]:
         for camera in vis.data[DOMAINS_TO_SETUP].get(CAMERA_DOMAIN, {}).keys():
             if camera not in vis.data[DOMAINS_TO_SETUP].get(NVR_DOMAIN, {}).keys():
@@ -170,26 +179,6 @@ def setup_viseron() -> Viseron:
     return vis
 
 
-T = TypeVar("T")
-
-
-@dataclass
-class Event(Generic[T]):
-    """Dataclass that holds an event."""
-
-    name: str
-    data: T
-    timestamp: float
-
-    def as_dict(self) -> dict[str, Any]:
-        """Convert Event to dict."""
-        return {
-            "name": self.name.split("/", 1)[1],
-            "data": self.data,
-            "timestamp": self.timestamp,
-        }
-
-
 class Viseron:
     """Viseron."""
 
@@ -217,6 +206,8 @@ class Viseron:
         self._subprocess_watchdog = SubprocessWatchDog()
         self.background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
         self.background_scheduler.start()
+
+        self.storage: Storage | None = None
 
         self.exit_code = 0
 
@@ -263,8 +254,34 @@ class Viseron:
 
         return unsubscribe
 
-    def dispatch_event(self, event, data) -> None:
+    def _insert_event(self, event: Event[EventData]) -> None:
+        """Insert event into database."""
+        if self.storage:
+            event_data_json = "{}"
+            if event.data and event.data.json_serializable:
+                try:
+                    event_data_json = partial(
+                        json.dumps, cls=JSONEncoder, allow_nan=False
+                    )(event.data)
+                except (TypeError, ValueError, json.JSONDecodeError) as error:
+                    LOGGER.warning(
+                        f"Failed to decode event {event.name} to JSON: {error}"
+                    )
+                    return
+
+            with self.storage.get_session() as session:
+                stmt = insert(Events).values(
+                    name=event.name,
+                    data=event_data_json,
+                )
+                session.execute(stmt)
+                session.commit()
+
+    def dispatch_event(self, event: str, data: EventData, store: bool = True) -> None:
         """Dispatch an event."""
+        _event: Event[EventData] = Event(event, data, utcnow().timestamp())
+        if store:
+            self._insert_event(_event)
         event = f"event/{event}"
         self.data[DATA_STREAM_COMPONENT].publish_data(
             event, data=Event(event, data, time.time())
@@ -337,7 +354,9 @@ class Viseron:
         LOGGER.debug(f"Registering domain {domain} with identifier {identifier}")
         with self._domain_register_lock:
             self.data[REGISTERED_DOMAINS].setdefault(domain, {})[identifier] = instance
-            self.dispatch_event(EVENT_DOMAIN_REGISTERED.format(domain=domain), instance)
+            self.dispatch_event(
+                EVENT_DOMAIN_REGISTERED.format(domain=domain), instance, store=False
+            )
 
     @overload
     def get_registered_domain(

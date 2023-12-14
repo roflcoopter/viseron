@@ -11,6 +11,7 @@ import cv2
 import voluptuous as vol
 
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
+from viseron.events import EventData
 from viseron.helpers import create_directory, utcnow
 from viseron.helpers.schemas import FLOAT_MIN_ZERO
 
@@ -70,7 +71,7 @@ class FaceDict:
 
 
 @dataclass
-class EventFaceDetected:
+class EventFaceDetected(EventData):
     """Hold information on face detection event."""
 
     camera_identifier: str

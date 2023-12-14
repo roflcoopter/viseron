@@ -28,6 +28,7 @@ from viseron.domains.object_detector.const import (
     DATA_OBJECT_DETECTOR_SCAN,
 )
 from viseron.domains.object_detector.detected_object import DetectedObject
+from viseron.events import EventData
 from viseron.exceptions import DomainNotRegisteredError
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -96,7 +97,7 @@ class DataProcessedFrame:
 
 
 @dataclass
-class EventOperationState:
+class EventOperationState(EventData):
     """Hold information of current state of operation."""
 
     camera_identifier: str
@@ -104,7 +105,7 @@ class EventOperationState:
 
 
 @dataclass
-class EventScanFrames:
+class EventScanFrames(EventData):
     """Event dispatched on starting/stopping scan of frames."""
 
     camera_identifier: str
@@ -183,6 +184,7 @@ class FrameIntervalCalculator:
                 camera_identifier=self._camera_identifier, scanner_name=self._name
             ),
             EventScanFrames(camera_identifier=self._camera_identifier, scan=value),
+            store=False,
         )
 
     @property

@@ -49,6 +49,7 @@ from viseron.domains.motion_detector.const import (
     DESC_WIDTH,
     EVENT_MOTION_DETECTED,
 )
+from viseron.events import EventData
 from viseron.helpers import generate_mask
 from viseron.helpers.schemas import (
     COORDINATES_SCHEMA,
@@ -98,13 +99,21 @@ BASE_CONFIG_SCHEMA = vol.Schema(
 
 
 @dataclass
-class EventMotionDetected:
+class EventMotionDetected(EventData):
     """Hold information on motion event."""
 
     camera_identifier: str
     motion_detected: bool
     shared_frame: SharedFrame | None = None
     motion_contours: Contours | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return event data as dict."""
+        return {
+            "camera_identifier": self.camera_identifier,
+            "motion_detected": self.motion_detected,
+            "motion_contours": self.motion_contours,
+        }
 
 
 class AbstractMotionDetector(ABC):

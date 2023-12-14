@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from viseron.domains.camera.shared_frames import SharedFrame
+from viseron.events import EventData
 from viseron.helpers import (
     calculate_absolute_coords,
     calculate_relative_coords,
@@ -172,10 +173,18 @@ def zero_if_negative(value):
 
 
 @dataclass
-class EventDetectedObjectsData:
+class EventDetectedObjectsData(EventData):
     """Event with information on objects in field of view or zone."""
 
     camera_identifier: str
     shared_frame: SharedFrame | None
     objects: list[DetectedObject]
     zone: Any = None
+
+    def as_dict(self) -> dict[str, Any]:
+        """Convert to dict."""
+        return {
+            "camera_identifier": self.camera_identifier,
+            "objects": [obj.as_dict() for obj in self.objects],
+            "zone": self.zone,
+        }

@@ -5,6 +5,8 @@ import json
 from enum import Enum
 from typing import Any
 
+import numpy as np
+
 
 class JSONEncoder(json.JSONEncoder):
     """Helper to convert objects to JSON."""
@@ -21,5 +23,7 @@ class JSONEncoder(json.JSONEncoder):
             return int(o.total_seconds())
         if isinstance(o, Enum):
             return o.value
+        if isinstance(o, np.ndarray):
+            return o.tolist()
 
         return json.JSONEncoder.default(self, o)

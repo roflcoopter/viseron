@@ -33,6 +33,7 @@ from viseron.const import (
     SLOW_SETUP_WARNING,
     VISERON_SIGNAL_SHUTDOWN,
 )
+from viseron.events import EventData
 from viseron.exceptions import ComponentNotReady, DomainNotReady
 
 if TYPE_CHECKING:
@@ -66,6 +67,11 @@ class DomainToSetup:
             "optional_domains": self.optional_domains,
             "error": self.error,
         }
+
+
+@dataclass
+class EventDomanSetupStatusData(EventData, DomainToSetup):
+    """Event with information on domain setup status."""
 
 
 LOGGING_COMPONENTS = {"logger"}
@@ -762,5 +768,6 @@ def domain_setup_status(
         EVENT_DOMAIN_SETUP_STATUS.format(
             status=status, domain=domain.domain, identifier=domain.identifier
         ),
-        domain,
+        EventDomanSetupStatusData(**domain.__dict__),
+        store=False,
     )

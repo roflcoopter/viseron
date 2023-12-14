@@ -20,6 +20,7 @@ from viseron.components.storage.models import Recordings
 from viseron.components.storage.queries import get_recording_fragments
 from viseron.domains.camera.fragmenter import Fragment
 from viseron.domains.object_detector.detected_object import DetectedObject
+from viseron.events import EventData
 from viseron.helpers import create_directory, draw_objects, utcnow
 
 from .const import (
@@ -61,7 +62,7 @@ class RecordingDict(TypedDict):
 
 
 @dataclass
-class EventRecorderData:
+class EventRecorderData(EventData):
     """Hold information on recorder start/stop/complete event."""
 
     camera: AbstractCamera

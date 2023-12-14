@@ -35,6 +35,7 @@ from viseron.const import TEMP_DIR
 from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
 from viseron.domains.camera.fragmenter import Fragmenter
 from viseron.domains.camera.recorder import FailedCameraRecorder
+from viseron.events import EventData, EventEmptyData
 from viseron.helpers.validators import CoerceNoneToDict, Deprecated, Maybe, Slug
 
 from .const import (
@@ -344,7 +345,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class EventStatusData:
+class EventStatusData(EventData):
     """Hold information on camera status event."""
 
     status: str
@@ -387,12 +388,12 @@ class AbstractCamera(ABC):
         )
 
         self._storage: Storage = vis.data[STORAGE_COMPONENT]
-        self.recordings_folder = self._storage.get_recordings_path(self)
-        self.segments_folder = self._storage.get_segments_path(self)
-        self.thumbnails_folder = self._storage.get_thumbnails_path(self)
-        self.temp_segments_folder = TEMP_DIR + self.segments_folder
+        self.recordings_folder: str = self._storage.get_recordings_path(self)
+        self.segments_folder: str = self._storage.get_segments_path(self)
+        self.thumbnails_folder: str = self._storage.get_thumbnails_path(self)
+        self.temp_segments_folder: str = TEMP_DIR + self.segments_folder
 
-        self.fragmenter = Fragmenter(vis, self)
+        self.fragmenter: Fragmenter = Fragmenter(vis, self)
 
     def as_dict(self) -> dict[str, Any]:
         """Return camera information as dict."""
@@ -425,7 +426,7 @@ class AbstractCamera(ABC):
         self._start_camera()
         self._vis.dispatch_event(
             EVENT_CAMERA_STARTED.format(camera_identifier=self.identifier),
-            None,
+            EventEmptyData(),
         )
 
     @abstractmethod
@@ -438,7 +439,7 @@ class AbstractCamera(ABC):
         self.stopped.set()
         self._vis.dispatch_event(
             EVENT_CAMERA_STOPPED.format(camera_identifier=self.identifier),
-            None,
+            EventEmptyData(),
         )
         if self.is_recording:
             self.stop_recorder()

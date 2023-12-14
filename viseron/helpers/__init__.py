@@ -118,7 +118,7 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)) -> None:
         thickness=FONT_THICKNESS,
     )[0]
 
-    filter_text = None
+    filter_text = ""
     if obj.filter_hit:
         filter_text = f"Filter: {obj.filter_hit}"
         (filter_text_width, filter_text_height) = cv2.getTextSize(
@@ -305,7 +305,7 @@ def slugify(text: str) -> str:
     return unicode_slug.slugify(text, separator="_")
 
 
-def create_directory(path) -> None:
+def create_directory(path: str) -> None:
     """Create a directory."""
     try:
         if not os.path.isdir(path):

@@ -128,3 +128,15 @@ class Motion(Base):
     start_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
     created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
     updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
+
+
+class Events(Base):
+    """Database model for dispatched events."""
+
+    __tablename__ = "events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String)
+    data: Mapped[ColumnMeta] = mapped_column(JSONB)
+    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())

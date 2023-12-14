@@ -34,3 +34,12 @@ class Contours:
     def max_area(self):
         """Return the size of the biggest contour."""
         return self._max_area
+
+    def as_dict(self):
+        """Return motion contours as dict."""
+        return {
+            "contours": self._contours,
+            "rel_contours": self._rel_contours,
+            "contour_areas": self._contour_areas,
+            "max_area": self._max_area,
+        }
