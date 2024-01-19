@@ -85,7 +85,7 @@ describe("getRecordingVideoJSOptions", () => {
       controls: true,
       loop: true,
       poster: "thumbnail.jpg",
-      preload: undefined,
+      preload: "none",
       responsive: true,
       fluid: true,
       playbackRates: [0.5, 1, 2, 5, 10],

@@ -1,21 +1,29 @@
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import FilterAltIcon from "@mui/icons-material/FilterAlt";
 import VideocamIcon from "@mui/icons-material/Videocam";
+import TabContext from "@mui/lab/TabContext";
+import TabList from "@mui/lab/TabList";
+import TabPanel from "@mui/lab/TabPanel";
+import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Container from "@mui/material/Container";
 import SpeedDial from "@mui/material/SpeedDial";
 import SpeedDialAction from "@mui/material/SpeedDialAction";
+import Tab from "@mui/material/Tab";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { Dayjs } from "dayjs";
-import { memo, useEffect, useRef, useState } from "react";
+import { SyntheticEvent, memo, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { CameraPickerDialog } from "components/events/CameraPickerDialog";
 import { EventDatePickerDialog } from "components/events/EventDatePickerDialog";
 import { PlayerCard } from "components/events/EventPlayerCard";
 import { EventTable } from "components/events/EventTable";
 import { EventsCameraGrid } from "components/events/EventsCameraGrid";
+import { TimelineTable } from "components/events/timeline/TimelineTable";
+import { insertURLParameter } from "lib/helpers";
 import * as types from "lib/types";
 
 type FiltersProps = {
@@ -25,14 +33,20 @@ type FiltersProps = {
   date: Dayjs | null;
   setDate: (date: Dayjs | null) => void;
 
-  changeSource: (
+  changeSelectedCamera: (
     ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera
+    camera: types.Camera,
   ) => void;
 };
 
 const Filters = memo(
-  ({ cameras, selectedCamera, date, setDate, changeSource }: FiltersProps) => {
+  ({
+    cameras,
+    selectedCamera,
+    date,
+    setDate,
+    changeSelectedCamera,
+  }: FiltersProps) => {
     const [open, setOpen] = useState(false);
     const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
     const [dateDialogOpen, setDateDialogOpen] = useState(false);
@@ -52,7 +66,7 @@ const Filters = memo(
           open={cameraDialogOpen}
           setOpen={setCameraDialogOpen}
           cameras={cameras}
-          changeSource={changeSource}
+          changeSelectedCamera={changeSelectedCamera}
           selectedCamera={selectedCamera}
         />
         <EventDatePickerDialog
@@ -94,7 +108,7 @@ const Filters = memo(
         </SpeedDial>
       </>
     );
-  }
+  },
 );
 
 type LayoutProps = {
@@ -102,12 +116,24 @@ type LayoutProps = {
   selectedCamera: types.Camera | null;
   selectedRecording: types.Recording | null;
   setSelectedRecording: (recording: types.Recording) => void;
-  changeSource: (
+  changeSelectedCamera: (
     ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera
+    camera: types.Camera,
   ) => void;
   date: Dayjs | null;
   setDate: (date: Dayjs | null) => void;
+  setSource: (source: string | null) => void;
+};
+
+const getDefaultTab = (searchParams: URLSearchParams) => {
+  if (
+    searchParams.has("tab") &&
+    (searchParams.get("tab") === "events" ||
+      searchParams.get("tab") === "timeline")
+  ) {
+    return searchParams.get("tab") as "events" | "timeline";
+  }
+  return "events";
 };
 
 export const Layout = memo(
@@ -116,11 +142,27 @@ export const Layout = memo(
     selectedCamera,
     selectedRecording,
     setSelectedRecording,
-    changeSource,
+    changeSelectedCamera,
     date,
     setDate,
+    setSource,
   }: LayoutProps) => {
     const theme = useTheme();
+    const [searchParams] = useSearchParams();
+    const [selectedTab, setSelectedTab] = useState<"events" | "timeline">(
+      getDefaultTab(searchParams),
+    );
+
+    const handleChange = (
+      event: SyntheticEvent,
+      tab: "events" | "timeline",
+    ) => {
+      setSelectedTab(tab);
+    };
+
+    useEffect(() => {
+      insertURLParameter("tab", selectedTab);
+    }, [selectedTab]);
 
     return (
       <Container style={{ display: "flex" }}>
@@ -132,34 +174,73 @@ export const Layout = memo(
             marginRight: "10px",
           }}
         >
-          <PlayerCard camera={selectedCamera} recording={selectedRecording} />
+          <PlayerCard
+            camera={selectedCamera}
+            eventSource={selectedRecording ? selectedRecording.hls_url : null}
+            timelineSource={null}
+            selectedTab={selectedTab}
+          />
           <EventsCameraGrid
             cameras={cameras}
-            changeSource={changeSource}
+            changeSelectedCamera={changeSelectedCamera}
             selectedCamera={selectedCamera}
           ></EventsCameraGrid>
         </div>
         <Card
           variant="outlined"
           sx={{
-            width: "550px",
+            width: "650px",
             height: `calc(98dvh - ${theme.headerHeight}px)`,
             overflow: "auto",
+            overflowX: "hidden",
           }}
         >
           <CardContent sx={{ padding: 0 }}>
-            {selectedCamera ? (
-              <EventTable
-                camera={selectedCamera}
-                date={date}
-                selectedRecording={selectedRecording}
-                setSelectedRecording={setSelectedRecording}
-              />
-            ) : (
-              <Typography align="center" sx={{ marginTop: "20px" }}>
-                Select a camera to load events
-              </Typography>
-            )}
+            <TabContext value={selectedTab}>
+              <Box
+                sx={{
+                  borderBottom: 1,
+                  borderColor: "divider",
+                  display: "flex",
+                  justifyContent: "space-evenly",
+                }}
+              >
+                <TabList onChange={handleChange} sx={{ width: "100%" }}>
+                  <Tab label="Events" value="events" sx={{ width: "50%" }} />
+                  <Tab
+                    label="Timeline"
+                    value="timeline"
+                    sx={{ width: "50%" }}
+                  />
+                </TabList>
+              </Box>
+              <TabPanel value="events" sx={{ padding: 0 }}>
+                {selectedCamera ? (
+                  <EventTable
+                    camera={selectedCamera}
+                    date={date}
+                    selectedRecording={selectedRecording}
+                    setSelectedRecording={setSelectedRecording}
+                  />
+                ) : (
+                  <Typography align="center" sx={{ marginTop: "20px" }}>
+                    Select a camera to load events
+                  </Typography>
+                )}
+              </TabPanel>
+              <TabPanel value="timeline" sx={{ padding: 0, paddingTop: "5px" }}>
+                {selectedCamera ? (
+                  <TimelineTable
+                    camera={selectedCamera}
+                    setSource={setSource}
+                  />
+                ) : (
+                  <Typography align="center" sx={{ marginTop: "20px" }}>
+                    Select a camera to load events
+                  </Typography>
+                )}
+              </TabPanel>
+            </TabContext>
           </CardContent>
         </Card>
         <Filters
@@ -167,11 +248,11 @@ export const Layout = memo(
           selectedCamera={selectedCamera}
           date={date}
           setDate={setDate}
-          changeSource={changeSource}
+          changeSelectedCamera={changeSelectedCamera}
         />
       </Container>
     );
-  }
+  },
 );
 
 export const LayoutSmall = memo(
@@ -180,9 +261,10 @@ export const LayoutSmall = memo(
     selectedCamera,
     selectedRecording,
     setSelectedRecording,
-    changeSource,
+    changeSelectedCamera,
     date,
     setDate,
+    setSource,
   }: LayoutProps) => {
     const theme = useTheme();
 
@@ -204,10 +286,19 @@ export const LayoutSmall = memo(
       };
     }, [theme.headerHeight]);
 
+    useEffect(() => {
+      setSource(selectedRecording ? selectedRecording.hls_url : null);
+    }, [selectedRecording, setSource]);
+
     return (
       <Container maxWidth={false} sx={{ height: "100%" }}>
         <div ref={observedDiv}>
-          <PlayerCard camera={selectedCamera} recording={selectedRecording} />
+          <PlayerCard
+            camera={selectedCamera}
+            eventSource={selectedRecording ? selectedRecording.hls_url : null}
+            timelineSource={null}
+            selectedTab="events"
+          />
         </div>
         <Card
           variant="outlined"
@@ -237,9 +328,9 @@ export const LayoutSmall = memo(
           selectedCamera={selectedCamera}
           date={date}
           setDate={setDate}
-          changeSource={changeSource}
+          changeSelectedCamera={changeSelectedCamera}
         />
       </Container>
     );
-  }
+  },
 );

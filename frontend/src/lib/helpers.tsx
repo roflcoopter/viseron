@@ -96,13 +96,19 @@ export function toTitleCase(str: string) {
 // eslint-disable-next-line no-promise-executor-return
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function getTimeFromDate(date: Date) {
+export function getTimeFromDate(date: Date, seconds = true) {
   return date.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
+    ...(seconds && { second: "2-digit" }),
   });
 }
+
+export const dateToTimestamp = (date: Date) =>
+  Math.floor(date.getTime() / 1000);
+
+export const timestampToDate = (timestamp: number) =>
+  new Date(timestamp * 1000);
 
 export function removeURLParameter(url: string, parameter: string) {
   const [base, queryString] = url.split("?");

@@ -7,15 +7,15 @@ import * as types from "lib/types";
 
 type EventsCameraGridProps = {
   cameras: types.Cameras;
-  changeSource: (
+  changeSelectedCamera: (
     ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera
+    camera: types.Camera,
   ) => void;
   selectedCamera: types.Camera | null;
 };
 export function EventsCameraGrid({
   cameras,
-  changeSource,
+  changeSelectedCamera,
   selectedCamera,
 }: EventsCameraGridProps) {
   const theme = useTheme();
@@ -39,7 +39,7 @@ export function EventsCameraGrid({
                     camera_identifier={camera_identifier}
                     compact
                     buttons={false}
-                    onClick={changeSource}
+                    onClick={changeSelectedCamera}
                     border={
                       selectedCamera &&
                       camera_identifier === selectedCamera.identifier

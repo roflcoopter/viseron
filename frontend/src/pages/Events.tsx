@@ -22,21 +22,29 @@ const Events = () => {
   const [searchParams] = useSearchParams();
   const cameraQuery = useCameras({});
   const [selectedCamera, setSelectedCamera] = useState<types.Camera | null>(
-    cameraQuery.data && searchParams.has("camera")
-      ? cameraQuery.data[searchParams.get("camera") as string]
-      : null,
+    null,
   );
   const [selectedRecording, setSelectedRecording] =
     useState<types.Recording | null>(null);
-  const [date, setDate] = useState<Dayjs | null>(dayjs());
+  const [date, setDate] = useState<Dayjs | null>(
+    searchParams.has("date")
+      ? dayjs(searchParams.get("date") as string)
+      : dayjs(),
+  );
+  const [source, setSource] = useState<string | null>(null);
 
-  const changeSource = (
+  const changeSelectedCamera = (
     ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
     camera: types.Camera,
   ) => {
     setSelectedCamera(camera);
   };
 
+  useEffect(() => {
+    if (cameraQuery.data && searchParams.has("camera") && !selectedCamera) {
+      setSelectedCamera(cameraQuery.data[searchParams.get("camera") as string]);
+    }
+  }, [cameraQuery.data, searchParams, selectedCamera]);
   useEffect(() => {
     if (selectedCamera) {
       insertURLParameter("camera", selectedCamera.identifier);
@@ -80,9 +88,10 @@ const Events = () => {
         selectedCamera={selectedCamera}
         selectedRecording={selectedRecording}
         setSelectedRecording={setSelectedRecording}
-        changeSource={changeSource}
+        changeSelectedCamera={changeSelectedCamera}
         date={date}
         setDate={setDate}
+        setSource={setSource}
       />
     );
   }
@@ -92,9 +101,10 @@ const Events = () => {
       selectedCamera={selectedCamera}
       selectedRecording={selectedRecording}
       setSelectedRecording={setSelectedRecording}
-      changeSource={changeSource}
+      changeSelectedCamera={changeSelectedCamera}
       date={date}
       setDate={setDate}
+      setSource={setSource}
     />
   );
 };

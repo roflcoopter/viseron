@@ -34,6 +34,8 @@ declare module "@mui/material/styles/createPalette" {
 
   interface Palette {
     primaryDark: PaletteColor;
+    motion: string;
+    recording: string;
   }
 }
 
@@ -102,7 +104,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         });
       },
     }),
-    []
+    [],
   );
 
   useEffect(() => {
@@ -141,6 +143,8 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         headerHeight: 56,
         palette: {
           mode,
+          motion: "#f9b4f6",
+          recording: "#5df15d",
           ...(requestedMode === "light"
             ? {
                 // palette values for light mode
@@ -171,8 +175,8 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
             fontWeight: 800,
           },
         },
-      } as ThemeOptions),
-    [mode]
+      }) as ThemeOptions,
+    [mode],
   );
 
   function getThemedComponents(theme: Theme) {
@@ -262,12 +266,12 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
 
   const viseronTheme = useMemo(
     () => createTheme(getDesignTokens(mode)),
-    [mode, getDesignTokens]
+    [mode, getDesignTokens],
   );
   const theme = useMemo(
     () =>
       createTheme(deepmerge(viseronTheme, getThemedComponents(viseronTheme))),
-    [viseronTheme]
+    [viseronTheme],
   );
   return (
     <ColorModeContext.Provider value={colorMode}>

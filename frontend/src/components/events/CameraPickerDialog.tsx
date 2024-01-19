@@ -11,9 +11,9 @@ type CameraPickerDialogProps = {
   open: boolean;
   setOpen: (open: boolean) => void;
   cameras: types.Cameras;
-  changeSource: (
+  changeSelectedCamera: (
     ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera
+    camera: types.Camera,
   ) => void;
   selectedCamera: types.Camera | null;
 };
@@ -21,7 +21,7 @@ export const CameraPickerDialog = ({
   open,
   setOpen,
   cameras,
-  changeSource,
+  changeSelectedCamera,
   selectedCamera,
 }: CameraPickerDialogProps) => {
   const handleClose = () => {
@@ -34,7 +34,7 @@ export const CameraPickerDialog = ({
       <DialogContent onClick={handleClose}>
         <EventsCameraGrid
           cameras={cameras}
-          changeSource={changeSource}
+          changeSelectedCamera={changeSelectedCamera}
           selectedCamera={selectedCamera}
         />
       </DialogContent>

@@ -184,6 +184,43 @@ export interface EntityAttributes {
   [key: string]: any;
 }
 
+type CameraBaseEvent = {
+  created_at: string;
+};
+type CameraTimedEvent = CameraBaseEvent & {
+  start_time: string;
+  start_timestamp: number;
+  end_time: string;
+  end_timestamp: number;
+};
+export type CameraMotionEvent = CameraTimedEvent & {
+  type: "motion";
+};
+export type CameraRecordingEvent = CameraTimedEvent & {
+  type: "recording";
+};
+type CameraSnapshotEvent = CameraBaseEvent & {
+  time: string;
+  timestamp: number;
+  snapshot_path: string;
+};
+export type CameraObjectEvent = CameraSnapshotEvent & {
+  type: "object";
+  time: string;
+  timestamp: number;
+  label: string;
+  confidence: number;
+};
+
+export type CameraEvent =
+  | CameraMotionEvent
+  | CameraObjectEvent
+  | CameraRecordingEvent;
+
+export type CameraEvents = {
+  events: [CameraEvent];
+};
+
 export interface Entity {
   entity_id: string;
   state: string;
