@@ -2,7 +2,7 @@ import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import { styled } from "@mui/material/styles";
 import Cookies from "js-cookie";
-import { Suspense, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import CSSTransition from "react-transition-group/CSSTransition";
 import TransitionGroup from "react-transition-group/TransitionGroup";
@@ -24,6 +24,7 @@ const FullHeightContainer = styled("div")(() => ({
 }));
 
 export default function PrivateLayout() {
+  const nodeRef = useRef(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
 
@@ -104,6 +105,7 @@ export default function PrivateLayout() {
           <Suspense fallback={<Loading text="Loading" />}>
             <TransitionGroup>
               <CSSTransition
+                nodeRef={nodeRef}
                 key={location.key}
                 timeout={1000}
                 classNames="page"
