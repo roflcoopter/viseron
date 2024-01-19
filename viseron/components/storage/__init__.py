@@ -7,7 +7,7 @@ import os
 import pathlib
 import threading
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
 
 import voluptuous as vol
 from alembic import command, script
@@ -36,11 +36,14 @@ from viseron.components.storage.const import (
     DESC_COMPONENT,
 )
 from viseron.components.storage.models import Base
-from viseron.components.storage.tier_handler import RecorderTierHandler, TierHandler
+from viseron.components.storage.tier_handler import (
+    RecorderTierHandler,
+    SnapshotTierHandler,
+)
 from viseron.components.storage.triggers import setup_triggers
 from viseron.components.storage.util import (
-    get_recordings_path,
-    get_segments_path,
+    get_recorder_path,
+    get_snapshots_path,
     get_thumbnails_path,
 )
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
@@ -71,7 +74,7 @@ class TierSubcategory(TypedDict):
     """Tier subcategory."""
 
     subcategory: str
-    tier_handler: type[TierHandler | RecorderTierHandler]
+    tier_handler: type[SnapshotTierHandler | RecorderTierHandler]
 
 
 class TierCategories(TypedDict):
@@ -95,11 +98,11 @@ TIER_CATEGORIES: TierCategories = {
     "snapshots": [
         {
             "subcategory": "face_recognition",
-            "tier_handler": TierHandler,
+            "tier_handler": SnapshotTierHandler,
         },
         {
-            "subcategory": "object_detection",
-            "tier_handler": TierHandler,
+            "subcategory": "object_detector",
+            "tier_handler": SnapshotTierHandler,
         },
     ],
 }
@@ -127,7 +130,7 @@ class Storage:
         self._recordings_tiers = config[CONFIG_RECORDER][CONFIG_TIERS]
         self._snapshots_tiers = config[CONFIG_SNAPSHOTS][CONFIG_TIERS]
         self._camera_tier_handlers: dict[
-            str, dict[str, list[dict[str, TierHandler | RecorderTierHandler]]]
+            str, dict[str, list[dict[str, SnapshotTierHandler | RecorderTierHandler]]]
         ] = {}
         self.camera_requested_files_count: dict[str, RequestedFilesCount] = {}
 
@@ -211,21 +214,23 @@ class Storage:
     def get_recordings_path(self, camera: AbstractCamera | FailedCamera) -> str:
         """Get recordings path for camera."""
         self.create_tier_handlers(camera)
-        return get_recordings_path(
+        return get_recorder_path(
             self._camera_tier_handlers[camera.identifier]["recorder"][0][
                 "recordings"
             ].tier,
             camera,
+            "recordings",
         )
 
     def get_segments_path(self, camera: AbstractCamera | FailedCamera) -> str:
         """Get segments path for camera."""
         self.create_tier_handlers(camera)
-        return get_segments_path(
+        return get_recorder_path(
             self._camera_tier_handlers[camera.identifier]["recorder"][0][
                 "segments"
             ].tier,
             camera,
+            "segments",
         )
 
     def get_thumbnails_path(self, camera: AbstractCamera | FailedCamera) -> str:
@@ -241,6 +246,21 @@ class Storage:
                 "recordings"
             ].tier,
             camera,
+        )
+
+    def get_snapshots_path(
+        self,
+        camera: AbstractCamera | FailedCamera,
+        domain: Literal["object_detector"]
+        | Literal["face_recognition"]
+        | Literal["license_plate_recognition"],
+    ) -> str:
+        """Get snapshots path for camera."""
+        self.create_tier_handlers(camera)
+        return get_snapshots_path(
+            self._camera_tier_handlers[camera.identifier]["snapshots"][0][domain].tier,
+            camera,
+            domain,
         )
 
     def search_file(

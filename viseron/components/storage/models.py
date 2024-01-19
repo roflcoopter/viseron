@@ -4,7 +4,7 @@ from __future__ import annotations
 import datetime
 from typing import Callable, Dict, Literal, Optional
 
-from sqlalchemy import DateTime, Float, Integer, String
+from sqlalchemy import DateTime, Float, Integer, LargeBinary, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
@@ -113,6 +113,7 @@ class Objects(Base):
     y1: Mapped[float] = mapped_column(Float)
     x2: Mapped[float] = mapped_column(Float)
     y2: Mapped[float] = mapped_column(Float)
+    snapshot_path: Mapped[str] = mapped_column(String, nullable=True)
     zone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
     updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
@@ -126,6 +127,21 @@ class Motion(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
     start_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
+    end_time: Mapped[Optional[datetime.datetime]] = mapped_column(
+        DateTime(timezone=False), nullable=True
+    )
+    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
+
+
+class MotionContours(Base):
+    """Database model for motion contours."""
+
+    __tablename__ = "motion_contours"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    motion_id: Mapped[int] = mapped_column(Integer)
+    contour: Mapped[LargeBinary] = mapped_column(LargeBinary)
     created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
     updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
 

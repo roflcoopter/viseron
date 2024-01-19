@@ -67,6 +67,7 @@ class DetectedObject:
         self._rel_width = float(round(self._rel_x2 - self._rel_x1, 3))
         self._rel_height = float(round(self._rel_y2 - self._rel_y1, 3))
         self._trigger_recorder = False
+        self._store = False
         self._relevant = False
         self._filter_hit = None
 
@@ -132,6 +133,15 @@ class DetectedObject:
     @trigger_recorder.setter
     def trigger_recorder(self, value) -> None:
         self._trigger_recorder = value
+
+    @property
+    def store(self):
+        """Return if object should be stored in database."""
+        return self._store
+
+    @store.setter
+    def store(self, value) -> None:
+        self._store = value
 
     @property
     def relevant(self):

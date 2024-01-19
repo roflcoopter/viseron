@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
 from threading import Event, Timer
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
+from uuid import uuid4
 
 import cv2
 import imutils
@@ -36,6 +38,7 @@ from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
 from viseron.domains.camera.fragmenter import Fragmenter
 from viseron.domains.camera.recorder import FailedCameraRecorder
 from viseron.events import EventData, EventEmptyData
+from viseron.helpers import calculate_absolute_coords, utcnow, zoom_boundingbox
 from viseron.helpers.validators import CoerceNoneToDict, Deprecated, Maybe, Slug
 
 from .const import (
@@ -392,6 +395,12 @@ class AbstractCamera(ABC):
         self.segments_folder: str = self._storage.get_segments_path(self)
         self.thumbnails_folder: str = self._storage.get_thumbnails_path(self)
         self.temp_segments_folder: str = TEMP_DIR + self.segments_folder
+        self.snapshots_object_folder: str = self._storage.get_snapshots_path(
+            self, "object_detector"
+        )
+        self.snapshots_face_folder: str = self._storage.get_snapshots_path(
+            self, "face_recognition"
+        )
 
         self.fragmenter: Fragmenter = Fragmenter(vis, self)
 
@@ -593,6 +602,35 @@ class AbstractCamera(ABC):
         if ret:
             return ret, jpg.tobytes()
         return ret, False
+
+    def save_snapshot(
+        self,
+        shared_frame: SharedFrame,
+        obj: DetectedObject,
+        domain: Literal["object_detector"]
+        | Literal["face_recognition"]
+        | Literal["license_plate_recognition"],
+    ) -> str:
+        """Save snapshot to disk."""
+        decoded_frame = self.shared_frames.get_decoded_frame_rgb(shared_frame)
+        absolute_coords = calculate_absolute_coords(
+            (obj.rel_x1, obj.rel_y1, obj.rel_x2, obj.rel_y2), self.resolution
+        )
+        zoomed_frame = zoom_boundingbox(decoded_frame, absolute_coords)
+
+        if domain == "object_detector":
+            folder = self.snapshots_object_folder
+        elif domain == "face_recognition":
+            folder = self.snapshots_face_folder
+
+        filename = f"{utcnow().strftime('%Y-%m-%d-%H:%M:%S-')}{str(uuid4())}.jpg"
+        path = os.path.join(folder, filename)
+        self._logger.debug(f"Saving snapshot to {path}")
+        cv2.imwrite(
+            path,
+            zoomed_frame,
+        )
+        return path
 
 
 class FailedCamera:

@@ -50,18 +50,11 @@ def convert_gb_to_bytes(gb: int) -> int:
     return gb * 1024 * 1024 * 1024
 
 
-def get_segments_path(
-    tier: dict[str, Any], camera: AbstractCamera | FailedCamera
+def get_recorder_path(
+    tier: dict[str, Any], camera: AbstractCamera | FailedCamera, subcategory: str
 ) -> str:
-    """Get segments path for camera."""
-    return os.path.join(tier[CONFIG_PATH], "segments", camera.identifier)
-
-
-def get_recordings_path(
-    tier: dict[str, Any], camera: AbstractCamera | FailedCamera
-) -> str:
-    """Get recordings path for camera."""
-    return os.path.join(tier[CONFIG_PATH], "recordings", camera.identifier)
+    """Get recorder path for camera."""
+    return os.path.join(tier[CONFIG_PATH], subcategory, camera.identifier)
 
 
 def get_thumbnails_path(
@@ -69,6 +62,15 @@ def get_thumbnails_path(
 ) -> str:
     """Get thumbnails path for camera."""
     return os.path.join(tier[CONFIG_PATH], "thumbnails", camera.identifier)
+
+
+def get_snapshots_path(
+    tier: dict[str, Any],
+    camera: AbstractCamera | FailedCamera,
+    domain: str,
+) -> str:
+    """Get snapshots path for camera."""
+    return os.path.join(tier[CONFIG_PATH], "snapshots", domain, camera.identifier)
 
 
 def files_to_move_overlap(events_file_ids, continuous_file_ids):

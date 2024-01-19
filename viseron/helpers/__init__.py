@@ -443,6 +443,26 @@ def convert_letterboxed_bbox(
     )
 
 
+def zoom_boundingbox(
+    frame: np.ndarray,
+    bounding_box: tuple[int, int, int, int],
+    min_size=300,
+    crop_correction_factor=1,
+) -> np.ndarray:
+    """Zoom in on a bounding box in an image."""
+    x1, y1, x2, y2 = bounding_box
+    size = max(int(max(x2 - x1, y2 - y1) * crop_correction_factor), min_size)
+
+    x_offset = max(
+        0, min(int((x2 - x1) / 2.0 + x1 - size / 2.0), frame.shape[1] - size)
+    )
+    y_offset = max(
+        0, min(int((y2 - y1) / 2.0 + y1 - size / 2.0), frame.shape[0] - size)
+    )
+
+    return frame.copy()[y_offset : y_offset + size, x_offset : x_offset + size]
+
+
 def memory_usage_profiler(logger, key_type="lineno", limit=5) -> None:
     """Print a table with the lines that are using the most memory."""
     snapshot = tracemalloc.take_snapshot()

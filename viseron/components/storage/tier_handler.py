@@ -44,6 +44,8 @@ from viseron.components.storage.util import (
     calculate_age,
     calculate_bytes,
     files_to_move_overlap,
+    get_recorder_path,
+    get_snapshots_path,
 )
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import CAMERA_SEGMENT_DURATION, VISERON_SIGNAL_LAST_WRITE
@@ -83,9 +85,6 @@ class TierHandler(FileSystemEventHandler):
         self._subcategory = subcategory
         self._tier = tier
         self._next_tier = next_tier
-        self._path = os.path.join(
-            tier[CONFIG_PATH], category, subcategory, camera.identifier
-        )
 
         self.initialize()
         vis.register_signal_handler(VISERON_SIGNAL_LAST_WRITE, self._shutdown)
@@ -152,6 +151,13 @@ class TierHandler(FileSystemEventHandler):
 
     def initialize(self):
         """Tier handler specific initialization."""
+        self._path = os.path.join(
+            self._tier[CONFIG_PATH],
+            self._category,
+            self._subcategory,
+            self._camera.identifier,
+        )
+
         self._max_bytes = calculate_bytes(self._tier[CONFIG_MAX_SIZE])
         self._min_bytes = calculate_bytes(self._tier[CONFIG_MIN_SIZE])
         self._max_age = calculate_age(self._tier[CONFIG_MAX_AGE])
@@ -301,11 +307,7 @@ class RecorderTierHandler(TierHandler):
 
     def initialize(self) -> None:
         """Initialize recorder tier."""
-        self._path = os.path.join(
-            self._tier[CONFIG_PATH],
-            self._subcategory,
-            self._camera.identifier,
-        )
+        self._path = get_recorder_path(self._tier, self._camera, self._subcategory)
 
         self._continuous_max_bytes = calculate_bytes(
             self._tier[CONFIG_CONTINUOUS][CONFIG_MAX_SIZE]
@@ -461,6 +463,16 @@ class RecorderTierHandler(TierHandler):
                 session.execute(stmt)
 
             session.commit()
+
+
+class SnapshotTierHandler(TierHandler):
+    """Handle the snapshot tiers."""
+
+    def initialize(self):
+        """Initialize snapshot tier."""
+        super().initialize()
+        self._path = get_snapshots_path(self._tier, self._camera, self._subcategory)
+        self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
 
 
 def handle_file(
