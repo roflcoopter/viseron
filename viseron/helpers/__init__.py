@@ -26,7 +26,7 @@ LOGGER = logging.getLogger(__name__)
 
 def utcnow() -> datetime.datetime:
     """Return current UTC time."""
-    return datetime.datetime.utcnow()
+    return datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
 
 
 def calculate_relative_contours(

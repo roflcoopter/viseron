@@ -4,7 +4,7 @@ from __future__ import annotations
 import datetime
 from typing import Callable, Dict, Literal, Optional
 
-from sqlalchemy import DateTime, Float, Integer, LargeBinary, String
+from sqlalchemy import DateTime, Float, Integer, LargeBinary, String, types
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
@@ -13,10 +13,29 @@ from sqlalchemy.sql import expression
 ColumnMeta = Dict[str, str]
 
 
+class UTCDateTime(types.TypeDecorator):
+    """A DateTime type which can only store UTC datetimes."""
+
+    impl = DateTime
+    cache_ok = True
+
+    def process_bind_param(self, value, _dialect):
+        """Remove timezone info from datetime."""
+        if isinstance(value, datetime.datetime):
+            return value.replace(tzinfo=None)
+        return value
+
+    def process_result_value(self, value, _dialect):
+        """Add timezone info to datetime."""
+        if isinstance(value, datetime.datetime):
+            return value.replace(tzinfo=datetime.timezone.utc)
+        return value
+
+
 class UTCNow(expression.FunctionElement):
     """Return the current timestamp in UTC."""
 
-    type = DateTime()
+    type = UTCDateTime()
     inherit_cache = True
 
 
@@ -47,8 +66,8 @@ class Files(Base):
     directory: Mapped[str] = mapped_column(String)
     filename: Mapped[str] = mapped_column(String)
     size: Mapped[int] = mapped_column(Integer)
-    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
+    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
 
 
 class FilesMeta(Base):
@@ -61,10 +80,10 @@ class FilesMeta(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     path: Mapped[str] = mapped_column(String, unique=True)
-    orig_ctime = mapped_column(DateTime(timezone=False), nullable=False)
+    orig_ctime = mapped_column(UTCDateTime(timezone=False), nullable=False)
     meta: Mapped[ColumnMeta] = mapped_column(JSONB)
-    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
+    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
 
 
 class Recordings(Base):
@@ -74,12 +93,12 @@ class Recordings(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
-    start_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
+    start_time: Mapped[datetime.datetime] = mapped_column(UTCDateTime(timezone=False))
     end_time: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime(timezone=False), nullable=True
+        UTCDateTime(timezone=False), nullable=True
     )
-    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
+    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
 
     trigger_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     trigger_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
@@ -115,8 +134,8 @@ class Objects(Base):
     y2: Mapped[float] = mapped_column(Float)
     snapshot_path: Mapped[str] = mapped_column(String, nullable=True)
     zone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
+    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
 
 
 class Motion(Base):
@@ -126,12 +145,12 @@ class Motion(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
-    start_time: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=False))
+    start_time: Mapped[datetime.datetime] = mapped_column(UTCDateTime(timezone=False))
     end_time: Mapped[Optional[datetime.datetime]] = mapped_column(
-        DateTime(timezone=False), nullable=True
+        UTCDateTime(timezone=False), nullable=True
     )
-    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
+    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
 
 
 class MotionContours(Base):
@@ -142,8 +161,8 @@ class MotionContours(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     motion_id: Mapped[int] = mapped_column(Integer)
     contour: Mapped[LargeBinary] = mapped_column(LargeBinary)
-    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
+    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
 
 
 class Events(Base):
@@ -154,5 +173,5 @@ class Events(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String)
     data: Mapped[ColumnMeta] = mapped_column(JSONB)
-    created_at = mapped_column(DateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(DateTime(timezone=False), onupdate=UTCNow())
+    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
