@@ -14,7 +14,7 @@ import { dateToTimestamp } from "lib/helpers";
 import * as types from "lib/types";
 
 export const TICK_HEIGHT = 8;
-export const SCALE = 15;
+export const SCALE = 60;
 export const EXTRA_TICKS = 10;
 
 const round = (num: number) => Math.ceil(num / SCALE) * SCALE;
@@ -135,7 +135,7 @@ const useAddTicks = (
   setLines: React.Dispatch<React.SetStateAction<JSX.Element[]>>,
   setEvents: React.Dispatch<React.SetStateAction<JSX.Element[]>>,
 ) => {
-  const interval = useRef<NodeJS.Timeout>();
+  const timeout = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     const addTicks = (ticksToAdd: number) => {
@@ -173,19 +173,19 @@ const useAddTicks = (
       setEvents((prevEvents) => [..._events, ...prevEvents]);
     };
 
-    interval.current = setInterval(() => {
+    const recursiveTimeout = () => {
       const timeDiff =
         dayjs().unix() - (startRef.current - SCALE * EXTRA_TICKS);
-      if (timeDiff < SCALE) {
-        return;
+      if (timeDiff >= SCALE) {
+        const ticksToAdd = Math.floor(timeDiff / SCALE);
+        addTicks(ticksToAdd);
       }
-
-      const ticksToAdd = Math.floor(timeDiff / SCALE);
-      addTicks(ticksToAdd);
-    }, SCALE * 1000);
+      timeout.current = setTimeout(recursiveTimeout, SCALE * 1000);
+    };
+    recursiveTimeout();
     return () => {
-      if (interval.current) {
-        clearInterval(interval.current);
+      if (timeout.current) {
+        clearTimeout(timeout.current);
       }
     };
   }, [setEvents, setLines, setRows, setTimeTicks, startRef]);

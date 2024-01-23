@@ -15,7 +15,6 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { Dayjs } from "dayjs";
 import { SyntheticEvent, memo, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 
 import { CameraPickerDialog } from "components/events/CameraPickerDialog";
 import { EventDatePickerDialog } from "components/events/EventDatePickerDialog";
@@ -111,6 +110,77 @@ const Filters = memo(
   },
 );
 
+type TabsProps = {
+  date: Dayjs | null;
+  selectedTab: "events" | "timeline";
+  setSelectedTab: (tab: "events" | "timeline") => void;
+  selectedCamera: types.Camera | null;
+  selectedRecording: types.Recording | null;
+  setSelectedRecording: (recording: types.Recording) => void;
+  setSource: (source: string | null) => void;
+};
+const Tabs = ({
+  date,
+  selectedTab,
+  setSelectedTab,
+  selectedCamera,
+  selectedRecording,
+  setSelectedRecording,
+  setSource,
+}: TabsProps) => {
+  const handleTabChange = (
+    event: SyntheticEvent,
+    tab: "events" | "timeline",
+  ) => {
+    setSelectedTab(tab);
+  };
+
+  useEffect(() => {
+    insertURLParameter("tab", selectedTab);
+  }, [selectedTab]);
+
+  return (
+    <TabContext value={selectedTab}>
+      <Box
+        sx={{
+          borderBottom: 1,
+          borderColor: "divider",
+          display: "flex",
+          justifyContent: "space-evenly",
+        }}
+      >
+        <TabList onChange={handleTabChange} sx={{ width: "100%" }}>
+          <Tab label="Events" value="events" sx={{ width: "50%" }} />
+          <Tab label="Timeline" value="timeline" sx={{ width: "50%" }} />
+        </TabList>
+      </Box>
+      <TabPanel value="events" sx={{ padding: 0, paddingTop: "5px" }}>
+        {selectedCamera ? (
+          <EventTable
+            camera={selectedCamera}
+            date={date}
+            selectedRecording={selectedRecording}
+            setSelectedRecording={setSelectedRecording}
+          />
+        ) : (
+          <Typography align="center" sx={{ marginTop: "20px" }}>
+            Select a camera to load Events
+          </Typography>
+        )}
+      </TabPanel>
+      <TabPanel value="timeline" sx={{ padding: 0, paddingTop: "5px" }}>
+        {selectedCamera ? (
+          <TimelineTable camera={selectedCamera} setSource={setSource} />
+        ) : (
+          <Typography align="center" sx={{ marginTop: "20px" }}>
+            Select a camera to load Timeline
+          </Typography>
+        )}
+      </TabPanel>
+    </TabContext>
+  );
+};
+
 type LayoutProps = {
   cameras: types.Cameras;
   selectedCamera: types.Camera | null;
@@ -123,17 +193,8 @@ type LayoutProps = {
   date: Dayjs | null;
   setDate: (date: Dayjs | null) => void;
   setSource: (source: string | null) => void;
-};
-
-const getDefaultTab = (searchParams: URLSearchParams) => {
-  if (
-    searchParams.has("tab") &&
-    (searchParams.get("tab") === "events" ||
-      searchParams.get("tab") === "timeline")
-  ) {
-    return searchParams.get("tab") as "events" | "timeline";
-  }
-  return "events";
+  selectedTab: "events" | "timeline";
+  setSelectedTab: (tab: "events" | "timeline") => void;
 };
 
 export const Layout = memo(
@@ -146,113 +207,60 @@ export const Layout = memo(
     date,
     setDate,
     setSource,
-  }: LayoutProps) => {
-    const theme = useTheme();
-    const [searchParams] = useSearchParams();
-    const [selectedTab, setSelectedTab] = useState<"events" | "timeline">(
-      getDefaultTab(searchParams),
-    );
-
-    const handleChange = (
-      event: SyntheticEvent,
-      tab: "events" | "timeline",
-    ) => {
-      setSelectedTab(tab);
-    };
-
-    useEffect(() => {
-      insertURLParameter("tab", selectedTab);
-    }, [selectedTab]);
-
-    return (
-      <Container style={{ display: "flex" }}>
-        <div
-          style={{
-            width: "100%",
-            display: "flex",
-            flexDirection: "column",
-            marginRight: "10px",
-          }}
-        >
-          <PlayerCard
-            camera={selectedCamera}
-            eventSource={selectedRecording ? selectedRecording.hls_url : null}
-            timelineSource={null}
-            selectedTab={selectedTab}
-          />
-          <EventsCameraGrid
-            cameras={cameras}
-            changeSelectedCamera={changeSelectedCamera}
-            selectedCamera={selectedCamera}
-          ></EventsCameraGrid>
-        </div>
-        <Card
-          variant="outlined"
-          sx={{
-            width: "650px",
-            height: `calc(98dvh - ${theme.headerHeight}px)`,
-            overflow: "auto",
-            overflowX: "hidden",
-          }}
-        >
-          <CardContent sx={{ padding: 0 }}>
-            <TabContext value={selectedTab}>
-              <Box
-                sx={{
-                  borderBottom: 1,
-                  borderColor: "divider",
-                  display: "flex",
-                  justifyContent: "space-evenly",
-                }}
-              >
-                <TabList onChange={handleChange} sx={{ width: "100%" }}>
-                  <Tab label="Events" value="events" sx={{ width: "50%" }} />
-                  <Tab
-                    label="Timeline"
-                    value="timeline"
-                    sx={{ width: "50%" }}
-                  />
-                </TabList>
-              </Box>
-              <TabPanel value="events" sx={{ padding: 0 }}>
-                {selectedCamera ? (
-                  <EventTable
-                    camera={selectedCamera}
-                    date={date}
-                    selectedRecording={selectedRecording}
-                    setSelectedRecording={setSelectedRecording}
-                  />
-                ) : (
-                  <Typography align="center" sx={{ marginTop: "20px" }}>
-                    Select a camera to load events
-                  </Typography>
-                )}
-              </TabPanel>
-              <TabPanel value="timeline" sx={{ padding: 0, paddingTop: "5px" }}>
-                {selectedCamera ? (
-                  <TimelineTable
-                    camera={selectedCamera}
-                    setSource={setSource}
-                  />
-                ) : (
-                  <Typography align="center" sx={{ marginTop: "20px" }}>
-                    Select a camera to load events
-                  </Typography>
-                )}
-              </TabPanel>
-            </TabContext>
-          </CardContent>
-        </Card>
-        <Filters
-          cameras={cameras}
-          selectedCamera={selectedCamera}
-          date={date}
-          setDate={setDate}
-          changeSelectedCamera={changeSelectedCamera}
+    selectedTab,
+    setSelectedTab,
+  }: LayoutProps) => (
+    <Container style={{ display: "flex" }}>
+      <div
+        style={{
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          marginRight: "10px",
+        }}
+      >
+        <PlayerCard
+          camera={selectedCamera}
+          eventSource={selectedRecording ? selectedRecording.hls_url : null}
+          timelineSource={null}
+          selectedTab={selectedTab}
         />
-      </Container>
-    );
-  },
+        <EventsCameraGrid
+          cameras={cameras}
+          changeSelectedCamera={changeSelectedCamera}
+          selectedCamera={selectedCamera}
+        ></EventsCameraGrid>
+      </div>
+      <Card
+        variant="outlined"
+        sx={(theme) => ({
+          width: "650px",
+          height: `calc(98dvh - ${theme.headerHeight}px)`,
+          overflow: "auto",
+          overflowX: "hidden",
+        })}
+      >
+        <CardContent sx={{ padding: 0 }}>
+          <Tabs
+            date={date}
+            selectedTab={selectedTab}
+            setSelectedTab={setSelectedTab}
+            selectedCamera={selectedCamera}
+            selectedRecording={selectedRecording}
+            setSelectedRecording={setSelectedRecording}
+            setSource={setSource}
+          />
+        </CardContent>
+      </Card>
+      <Filters
+        cameras={cameras}
+        selectedCamera={selectedCamera}
+        date={date}
+        setDate={setDate}
+        changeSelectedCamera={changeSelectedCamera}
+      />
+    </Container>
+  ),
 );
 
 export const LayoutSmall = memo(
@@ -265,6 +273,8 @@ export const LayoutSmall = memo(
     date,
     setDate,
     setSource,
+    selectedTab,
+    setSelectedTab,
   }: LayoutProps) => {
     const theme = useTheme();
 
@@ -309,18 +319,15 @@ export const LayoutSmall = memo(
           }}
         >
           <CardContent sx={{ padding: 0 }}>
-            {selectedCamera ? (
-              <EventTable
-                camera={selectedCamera}
-                date={date}
-                selectedRecording={selectedRecording}
-                setSelectedRecording={setSelectedRecording}
-              />
-            ) : (
-              <Typography align="center" sx={{ marginTop: "20px" }}>
-                Select a camera to load events
-              </Typography>
-            )}
+            <Tabs
+              date={date}
+              selectedTab={selectedTab}
+              setSelectedTab={setSelectedTab}
+              selectedCamera={selectedCamera}
+              selectedRecording={selectedRecording}
+              setSelectedRecording={setSelectedRecording}
+              setSource={setSource}
+            />
           </CardContent>
         </Card>
         <Filters

@@ -5,7 +5,9 @@ import PersonIcon from "@mui/icons-material/Person";
 import Box from "@mui/material/Box";
 import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
-import { useState } from "react";
+// eslint-disable-next-line import/no-extraneous-dependencies
+import { Instance } from "@popperjs/core";
+import { useRef, useState } from "react";
 
 import * as types from "lib/types";
 
@@ -22,8 +24,9 @@ const labelToIcon = (label: string) => {
   }
 };
 
-const Divider = () => (
+const Divider = ({ boxRef }: { boxRef?: React.Ref<HTMLDivElement> }) => (
   <Box
+    ref={boxRef}
     sx={(theme) => ({
       height: "1px",
       width: "15%",
@@ -36,13 +39,15 @@ const Divider = () => (
 const DetectionDetails = ({
   objectEvent,
   scale,
+  boxRef,
 }: {
   objectEvent: types.CameraObjectEvent;
   scale: number;
+  boxRef?: React.Ref<HTMLDivElement>;
 }) => {
   const Icon = labelToIcon(objectEvent.label);
   return (
-    <Box color="primary" sx={{ height: "25px", width: "25px" }}>
+    <Box ref={boxRef} color="primary" sx={{ height: "25px", width: "25px" }}>
       <Icon
         color="primary"
         sx={{
@@ -100,11 +105,12 @@ type ObjectEventProps = {
 };
 export const ObjectEvent = ({ objectEvent, eventIndex }: ObjectEventProps) => {
   const [scale, setScale] = useState(1);
+  const popperRef = useRef<Instance>(null);
+  const tooltipAnchor = useRef<HTMLDivElement>(null);
   const date = new Date(objectEvent.time);
 
   return (
     <Tooltip
-      placement="left"
       arrow
       title={
         <Box>
@@ -113,6 +119,10 @@ export const ObjectEvent = ({ objectEvent, eventIndex }: ObjectEventProps) => {
           <Box>{`Timestamp: ${date.toLocaleString()}`}</Box>
         </Box>
       }
+      PopperProps={{
+        popperRef,
+        anchorEl: tooltipAnchor.current,
+      }}
     >
       <Box
         onMouseEnter={() => setScale(1.05)}
@@ -125,7 +135,11 @@ export const ObjectEvent = ({ objectEvent, eventIndex }: ObjectEventProps) => {
         }}
       >
         <Divider />
-        <DetectionDetails objectEvent={objectEvent} scale={scale} />
+        <DetectionDetails
+          boxRef={tooltipAnchor}
+          objectEvent={objectEvent}
+          scale={scale}
+        />
         <Divider />
         <DetectionSnapshot
           objectEvent={objectEvent}

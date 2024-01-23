@@ -15,6 +15,17 @@ import { useCameras } from "lib/api/cameras";
 import { insertURLParameter } from "lib/helpers";
 import * as types from "lib/types";
 
+const getDefaultTab = (searchParams: URLSearchParams) => {
+  if (
+    searchParams.has("tab") &&
+    (searchParams.get("tab") === "events" ||
+      searchParams.get("tab") === "timeline")
+  ) {
+    return searchParams.get("tab") as "events" | "timeline";
+  }
+  return "events";
+};
+
 const Events = () => {
   useTitle("Events");
   const theme = useTheme();
@@ -32,7 +43,9 @@ const Events = () => {
       : dayjs(),
   );
   const [source, setSource] = useState<string | null>(null);
-
+  const [selectedTab, setSelectedTab] = useState<"events" | "timeline">(
+    getDefaultTab(searchParams),
+  );
   const changeSelectedCamera = (
     ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
     camera: types.Camera,
@@ -92,6 +105,8 @@ const Events = () => {
         date={date}
         setDate={setDate}
         setSource={setSource}
+        selectedTab={selectedTab}
+        setSelectedTab={setSelectedTab}
       />
     );
   }
@@ -105,6 +120,8 @@ const Events = () => {
       date={date}
       setDate={setDate}
       setSource={setSource}
+      selectedTab={selectedTab}
+      setSelectedTab={setSelectedTab}
     />
   );
 };
