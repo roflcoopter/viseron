@@ -190,8 +190,8 @@ type CameraBaseEvent = {
 type CameraTimedEvent = CameraBaseEvent & {
   start_time: string;
   start_timestamp: number;
-  end_time: string;
-  end_timestamp: number;
+  end_time: string | null;
+  end_timestamp: number | null;
 };
 export type CameraMotionEvent = CameraTimedEvent & {
   type: "motion";
@@ -199,6 +199,7 @@ export type CameraMotionEvent = CameraTimedEvent & {
 export type CameraRecordingEvent = CameraTimedEvent & {
   type: "recording";
 };
+export type CameraTimedEvents = CameraMotionEvent | CameraRecordingEvent;
 type CameraSnapshotEvent = CameraBaseEvent & {
   time: string;
   timestamp: number;

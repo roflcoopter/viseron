@@ -19,6 +19,7 @@
     "@mui/x-date-pickers": "^6.13.0",
     "@tanstack/react-query": "^4.24.4",
     "@tanstack/react-query-devtools": "^4.24.4",
+    "@tanstack/react-virtual": "^3.0.2",
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.38",
     "@types/react-dom": "^18.2.17",

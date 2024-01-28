@@ -111,6 +111,7 @@ const Filters = memo(
 );
 
 type TabsProps = {
+  parentRef: React.MutableRefObject<HTMLDivElement | null>;
   date: Dayjs | null;
   selectedTab: "events" | "timeline";
   setSelectedTab: (tab: "events" | "timeline") => void;
@@ -120,6 +121,7 @@ type TabsProps = {
   setSource: (source: string | null) => void;
 };
 const Tabs = ({
+  parentRef,
   date,
   selectedTab,
   setSelectedTab,
@@ -170,7 +172,11 @@ const Tabs = ({
       </TabPanel>
       <TabPanel value="timeline" sx={{ padding: 0, paddingTop: "5px" }}>
         {selectedCamera ? (
-          <TimelineTable camera={selectedCamera} setSource={setSource} />
+          <TimelineTable
+            parentRef={parentRef}
+            camera={selectedCamera}
+            setSource={setSource}
+          />
         ) : (
           <Typography align="center" sx={{ marginTop: "20px" }}>
             Select a camera to load Timeline
@@ -209,58 +215,63 @@ export const Layout = memo(
     setSource,
     selectedTab,
     setSelectedTab,
-  }: LayoutProps) => (
-    <Container style={{ display: "flex" }}>
-      <div
-        style={{
-          width: "100%",
-          display: "flex",
-          flexDirection: "column",
-          marginRight: "10px",
-        }}
-      >
-        <PlayerCard
-          camera={selectedCamera}
-          eventSource={selectedRecording ? selectedRecording.hls_url : null}
-          timelineSource={null}
-          selectedTab={selectedTab}
-        />
-        <EventsCameraGrid
-          cameras={cameras}
-          changeSelectedCamera={changeSelectedCamera}
-          selectedCamera={selectedCamera}
-        ></EventsCameraGrid>
-      </div>
-      <Card
-        variant="outlined"
-        sx={(theme) => ({
-          width: "650px",
-          height: `calc(98dvh - ${theme.headerHeight}px)`,
-          overflow: "auto",
-          overflowX: "hidden",
-        })}
-      >
-        <CardContent sx={{ padding: 0 }}>
-          <Tabs
-            date={date}
+  }: LayoutProps) => {
+    const parentRef = useRef<HTMLDivElement | null>(null);
+    return (
+      <Container style={{ display: "flex" }}>
+        <div
+          style={{
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            marginRight: "10px",
+          }}
+        >
+          <PlayerCard
+            camera={selectedCamera}
+            eventSource={selectedRecording ? selectedRecording.hls_url : null}
+            timelineSource={null}
             selectedTab={selectedTab}
-            setSelectedTab={setSelectedTab}
-            selectedCamera={selectedCamera}
-            selectedRecording={selectedRecording}
-            setSelectedRecording={setSelectedRecording}
-            setSource={setSource}
           />
-        </CardContent>
-      </Card>
-      <Filters
-        cameras={cameras}
-        selectedCamera={selectedCamera}
-        date={date}
-        setDate={setDate}
-        changeSelectedCamera={changeSelectedCamera}
-      />
-    </Container>
-  ),
+          <EventsCameraGrid
+            cameras={cameras}
+            changeSelectedCamera={changeSelectedCamera}
+            selectedCamera={selectedCamera}
+          ></EventsCameraGrid>
+        </div>
+        <Card
+          ref={parentRef}
+          variant="outlined"
+          sx={(theme) => ({
+            width: "650px",
+            height: `calc(98dvh - ${theme.headerHeight}px)`,
+            overflow: "auto",
+            overflowX: "hidden",
+          })}
+        >
+          <CardContent sx={{ padding: 0 }}>
+            <Tabs
+              parentRef={parentRef}
+              date={date}
+              selectedTab={selectedTab}
+              setSelectedTab={setSelectedTab}
+              selectedCamera={selectedCamera}
+              selectedRecording={selectedRecording}
+              setSelectedRecording={setSelectedRecording}
+              setSource={setSource}
+            />
+          </CardContent>
+        </Card>
+        <Filters
+          cameras={cameras}
+          selectedCamera={selectedCamera}
+          date={date}
+          setDate={setDate}
+          changeSelectedCamera={changeSelectedCamera}
+        />
+      </Container>
+    );
+  },
 );
 
 export const LayoutSmall = memo(
@@ -277,6 +288,7 @@ export const LayoutSmall = memo(
     setSelectedTab,
   }: LayoutProps) => {
     const theme = useTheme();
+    const parentRef = useRef<HTMLDivElement | null>(null);
 
     // Observe div height to calculate the height of the EventTable
     const [height, setHeight] = useState();
@@ -311,6 +323,7 @@ export const LayoutSmall = memo(
           />
         </div>
         <Card
+          ref={parentRef}
           variant="outlined"
           sx={{
             width: "100%",
@@ -320,6 +333,7 @@ export const LayoutSmall = memo(
         >
           <CardContent sx={{ padding: 0 }}>
             <Tabs
+              parentRef={parentRef}
               date={date}
               selectedTab={selectedTab}
               setSelectedTab={setSelectedTab}

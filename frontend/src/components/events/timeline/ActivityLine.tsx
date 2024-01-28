@@ -1,5 +1,6 @@
 import Box from "@mui/material/Box";
 import Tooltip from "@mui/material/Tooltip";
+import { memo } from "react";
 
 import * as types from "lib/types";
 
@@ -15,59 +16,65 @@ type ActivityLinePropsInactive = {
   cameraEvent: null;
   variant: null;
 };
-type ActivityLineProps = ActivityLinePropsActive | ActivityLinePropsInactive;
+export type ActivityLineProps =
+  | ActivityLinePropsActive
+  | ActivityLinePropsInactive;
 
-export const ActivityLine = ({
-  active,
-  cameraEvent,
-  variant,
-}: ActivityLineProps) => {
-  if (active && cameraEvent) {
-    const borderTopLeftRadius = variant === "first" ? "50%" : undefined;
-    const borderTopRightRadius = variant === "first" ? "50%" : undefined;
-    const borderBottomLeftRadius = variant === "last" ? "50%" : undefined;
-    const borderBottomRightRadius = variant === "last" ? "50%" : undefined;
-    const borderRadius = variant === "round" ? "50%" : undefined;
-    return (
-      <Tooltip
-        placement="left"
-        arrow
-        title={
-          <Box>
-            <Box>{`Event: ${cameraEvent.type}`}</Box>
-            <Box>{`Start: ${new Date(
-              cameraEvent.start_time,
-            ).toLocaleString()}`}</Box>
-            <Box>{`End:   ${new Date(
-              cameraEvent.end_time,
-            ).toLocaleString()}`}</Box>
+export const ActivityLine = memo(
+  ({ active, cameraEvent, variant }: ActivityLineProps) => {
+    if (active && cameraEvent) {
+      const borderTopLeftRadius = variant === "first" ? "40%" : undefined;
+      const borderTopRightRadius = variant === "first" ? "40%" : undefined;
+      const borderBottomLeftRadius = variant === "last" ? "40%" : undefined;
+      const borderBottomRightRadius = variant === "last" ? "40%" : undefined;
+      const borderRadius = variant === "round" ? "40%" : undefined;
+      return (
+        <Tooltip
+          placement="left"
+          arrow
+          title={
+            <Box>
+              <Box>{`Event: ${cameraEvent.type}`}</Box>
+              <Box>{`Start: ${new Date(
+                cameraEvent.start_time,
+              ).toLocaleString()}`}</Box>
+              {cameraEvent.end_time ? (
+                <Box>{`End:   ${new Date(
+                  cameraEvent.end_time,
+                ).toLocaleString()}`}</Box>
+              ) : null}
+            </Box>
+          }
+        >
+          <Box sx={{ width: "6px" }}>
+            <Box
+              sx={(theme) => ({
+                height: TICK_HEIGHT,
+                width: "6px",
+                margin: "auto",
+                backgroundColor: theme.palette[cameraEvent.type],
+                borderRadius,
+                borderTopLeftRadius,
+                borderTopRightRadius,
+                borderBottomLeftRadius,
+                borderBottomRightRadius,
+              })}
+            />
           </Box>
-        }
-      >
+        </Tooltip>
+      );
+    }
+    return (
+      <Box sx={{ width: "6px" }}>
         <Box
           sx={(theme) => ({
-            height: TICK_HEIGHT,
-            width: "6px",
             margin: "auto",
-            backgroundColor: theme.palette[cameraEvent.type],
-            borderRadius,
-            borderTopLeftRadius,
-            borderTopRightRadius,
-            borderBottomLeftRadius,
-            borderBottomRightRadius,
+            height: TICK_HEIGHT,
+            width: "2px",
+            backgroundColor: theme.palette.divider,
           })}
         />
-      </Tooltip>
+      </Box>
     );
-  }
-  return (
-    <Box
-      sx={(theme) => ({
-        margin: "auto",
-        height: TICK_HEIGHT,
-        width: "2px",
-        backgroundColor: theme.palette.divider,
-      })}
-    />
-  );
-};
+  },
+);

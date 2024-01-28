@@ -1,11 +1,14 @@
 import Box from "@mui/material/Box";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import dayjs from "dayjs";
 import { memo, useEffect, useRef, useState } from "react";
 
-import { ActivityLine } from "components/events/timeline/ActivityLine";
+import {
+  ActivityLine,
+  ActivityLineProps,
+} from "components/events/timeline/ActivityLine";
 import { HoverLine } from "components/events/timeline/HoverLine";
 import { ObjectEvent } from "components/events/timeline/ObjectEvent";
-import { Spacer } from "components/events/timeline/Spacer";
 import { TimeTick } from "components/events/timeline/TimeTick";
 import { Loading } from "components/loading/Loading";
 import queryClient from "lib/api/client";
@@ -20,108 +23,112 @@ export const EXTRA_TICKS = 10;
 const round = (num: number) => Math.ceil(num / SCALE) * SCALE;
 
 const activityLine = (
-  start: number,
-  cameraEvent: types.CameraMotionEvent | types.CameraRecordingEvent,
-  lines: JSX.Element[],
-  timeTicks: number[],
+  startRef: React.MutableRefObject<number>,
+  item: TimelineItem,
+  index: number,
 ) => {
-  const indexStart = Math.round((start - cameraEvent.end_timestamp) / SCALE);
-  const indexEnd = Math.round((start - cameraEvent.start_timestamp) / SCALE);
-  if (cameraEvent.end_timestamp - cameraEvent.start_timestamp <= SCALE) {
-    lines[indexStart] = (
+  const { time, timedEvent } = item;
+
+  if (timedEvent === null) {
+    return (
       <ActivityLine
-        key={`line-${timeTicks[indexStart]}`}
-        active={true}
-        cameraEvent={cameraEvent}
-        variant="round"
-      />
-    );
-    return;
-  }
-  lines[indexStart] = (
-    <ActivityLine
-      key={`line-${timeTicks[indexStart]}`}
-      active={true}
-      cameraEvent={cameraEvent}
-      variant="first"
-    />
-  );
-  lines[indexEnd] = (
-    <ActivityLine
-      key={`line-${timeTicks[indexEnd]}`}
-      active={true}
-      cameraEvent={cameraEvent}
-      variant="last"
-    />
-  );
-  for (let i = indexStart + 1; i < indexEnd; i++) {
-    lines[i] = (
-      <ActivityLine
-        key={`line-${timeTicks[i]}`}
-        active={true}
-        cameraEvent={cameraEvent}
-        variant="middle"
+        key={`line-${time}`}
+        active={false}
+        cameraEvent={null}
+        variant={null}
       />
     );
   }
+
+  const indexStart = Math.round(
+    (startRef.current - (timedEvent.end_timestamp || dayjs().unix())) / SCALE,
+  );
+  const indexEnd = Math.round(
+    (startRef.current - timedEvent.start_timestamp) / SCALE,
+  );
+
+  let variant: ActivityLineProps["variant"] = null;
+  if (indexStart === indexEnd) {
+    variant = "round";
+  } else if (indexStart === index) {
+    variant = "first";
+  } else if (indexEnd === index) {
+    variant = "last";
+  } else if (indexStart < index && index < indexEnd) {
+    variant = "middle";
+  }
+
+  return (
+    <ActivityLine
+      key={`line-${time}`}
+      active={variant !== null}
+      cameraEvent={timedEvent}
+      variant={variant}
+    />
+  );
 };
 
 const objectEvent = (
-  start: number,
-  cameraEvent: types.CameraObjectEvent,
-  cameraEventIndex: number,
-  events: JSX.Element[],
-  timeTicks: number[],
+  startRef: React.MutableRefObject<number>,
+  item: TimelineItem,
+  index: number,
 ) => {
-  const index = Math.round((start - cameraEvent.timestamp) / SCALE);
-  events[index] = (
+  const { time, snapshotEvent } = item;
+  if (snapshotEvent === null) {
+    return null;
+  }
+  return (
     <ObjectEvent
-      key={`object-${timeTicks[index]}-${cameraEventIndex}`}
-      objectEvent={cameraEvent}
-      eventIndex={cameraEventIndex}
+      key={`object-${time}`}
+      objectEvent={snapshotEvent}
+      eventIndex={index}
     />
   );
+};
+
+const renderItem = (
+  startRef: React.MutableRefObject<number>,
+  item: TimelineItem,
+  index: number,
+): JSX.Element => (
+  <Box
+    sx={{
+      display: "flex",
+      justifyContent: "start",
+    }}
+  >
+    <TimeTick key={`tick-${item.time}`} time={item.time} />
+    {activityLine(startRef, item, index)}
+    {objectEvent(startRef, item, index)}
+  </Box>
+);
+
+type TimelineItem = {
+  startRef: React.MutableRefObject<number>;
+  time: number;
+  timedEvent: null | types.CameraMotionEvent | types.CameraRecordingEvent;
+  snapshotEvent: null | types.CameraObjectEvent;
 };
 
 // Generate initial timeline with no event data
 const useInitialTimeline = (
   startRef: React.MutableRefObject<number>,
   end: number,
-  setTimeTicks: React.Dispatch<React.SetStateAction<number[]>>,
-  setRows: React.Dispatch<React.SetStateAction<JSX.Element[]>>,
-  setLines: React.Dispatch<React.SetStateAction<JSX.Element[]>>,
-  setEvents: React.Dispatch<React.SetStateAction<JSX.Element[]>>,
+  setItems: React.Dispatch<React.SetStateAction<TimelineItem[]>>,
 ) => {
   useEffect(() => {
     let timeTick = startRef.current;
-    const _timeTicks: number[] = [];
-    const _rows: JSX.Element[] = [];
-    const _lines: JSX.Element[] = [];
-    const _events: JSX.Element[] = [];
+    const items: TimelineItem[] = [];
     while (timeTick >= end) {
-      _timeTicks.push(timeTick);
-      _rows.push(<TimeTick key={`tick-${timeTick}`} time={timeTick} />);
-      _lines.push(
-        <ActivityLine
-          key={`line-${timeTick}`}
-          active={false}
-          cameraEvent={null}
-          variant={null}
-        />,
-      );
-      _events.push(
-        <Spacer
-          key={`spacer-${timeTick}`}
-          time={timeTick}
-          height={TICK_HEIGHT}
-        />,
-      );
+      items.push({
+        startRef,
+        time: timeTick,
+        timedEvent: null,
+        snapshotEvent: null,
+      });
       timeTick -= SCALE;
     }
-    setTimeTicks(_timeTicks);
-    setRows(_rows);
-    setLines(_lines);
-    setEvents(_events);
+    setItems(items);
     // Should only run once on initial render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -130,47 +137,27 @@ const useInitialTimeline = (
 // Add timeticks every SCALE seconds
 const useAddTicks = (
   startRef: React.MutableRefObject<number>,
-  setTimeTicks: React.Dispatch<React.SetStateAction<number[]>>,
-  setRows: React.Dispatch<React.SetStateAction<JSX.Element[]>>,
-  setLines: React.Dispatch<React.SetStateAction<JSX.Element[]>>,
-  setEvents: React.Dispatch<React.SetStateAction<JSX.Element[]>>,
+  setItems: React.Dispatch<React.SetStateAction<TimelineItem[]>>,
 ) => {
   const timeout = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     const addTicks = (ticksToAdd: number) => {
       let timeTick = startRef.current;
-      const _timeTicks: number[] = [];
-      const _rows: JSX.Element[] = [];
-      const _lines: JSX.Element[] = [];
-      const _events: JSX.Element[] = [];
+      const _items: TimelineItem[] = [];
 
       for (let i = 0; i < ticksToAdd; i++) {
         timeTick += SCALE;
-        _timeTicks.push(timeTick);
-        _rows.push(<TimeTick key={`tick-${timeTick}`} time={timeTick} />);
-        _lines.push(
-          <ActivityLine
-            key={`line-${timeTick}`}
-            active={false}
-            cameraEvent={null}
-            variant={null}
-          />,
-        );
-        _events.push(
-          <Spacer
-            key={`spacer-${timeTick}`}
-            time={timeTick}
-            height={TICK_HEIGHT}
-          />,
-        );
+        _items.push({
+          startRef,
+          time: timeTick,
+          timedEvent: null,
+          snapshotEvent: null,
+        });
       }
 
       startRef.current = timeTick;
-      setTimeTicks((prevTimeTicks) => [..._timeTicks, ...prevTimeTicks]);
-      setRows((prevRows) => [..._rows, ...prevRows]);
-      setLines((prevLines) => [..._lines, ...prevLines]);
-      setEvents((prevEvents) => [..._events, ...prevEvents]);
+      setItems((prevItems) => [..._items, ...prevItems]);
     };
 
     const recursiveTimeout = () => {
@@ -188,75 +175,89 @@ const useAddTicks = (
         clearTimeout(timeout.current);
       }
     };
-  }, [setEvents, setLines, setRows, setTimeTicks, startRef]);
+  }, [setItems, startRef]);
 };
 
 // Update timeline with event data
 const useUpdateTimeline = (
   startRef: React.MutableRefObject<number>,
   eventsData: types.CameraEvent[],
-  timeTicks: number[],
-  setTimeTicks: React.Dispatch<React.SetStateAction<number[]>>,
-  rows: JSX.Element[],
-  setRows: React.Dispatch<React.SetStateAction<JSX.Element[]>>,
-  lines: JSX.Element[],
-  setLines: React.Dispatch<React.SetStateAction<JSX.Element[]>>,
-  events: JSX.Element[],
-  setEvents: React.Dispatch<React.SetStateAction<JSX.Element[]>>,
+  setItems: React.Dispatch<React.SetStateAction<TimelineItem[]>>,
 ) => {
   useEffect(() => {
     if (eventsData.length === 0) {
       return;
     }
-    const _timeTicks = [...timeTicks];
-    const _rows = [...rows];
-    const _lines = [...lines];
-    const _events = [...events];
 
-    // Loop over events where type is motion
-    eventsData
-      .filter(
-        (cameraEvent): cameraEvent is types.CameraMotionEvent =>
-          cameraEvent.type === "motion",
-      )
-      .forEach((cameraEvent) => {
-        activityLine(startRef.current, cameraEvent, _lines, _timeTicks);
-      });
-    // Loop over events where type is recording
-    eventsData
-      .filter(
-        (cameraEvent): cameraEvent is types.CameraRecordingEvent =>
-          cameraEvent.type === "recording",
-      )
-      .forEach((cameraEvent) => {
-        activityLine(startRef.current, cameraEvent, _lines, _timeTicks);
-      });
-    // Loop over events where type is object
-    eventsData
-      .filter(
-        (cameraEvent): cameraEvent is types.CameraObjectEvent =>
-          cameraEvent.type === "object",
-      )
-      .forEach((cameraEvent, index) => {
-        objectEvent(startRef.current, cameraEvent, index, _events, _timeTicks);
-      });
+    setItems((prevItems) => {
+      const newItems = [...prevItems];
+      // Loop over events where type is motion
+      eventsData
+        .filter(
+          (cameraEvent): cameraEvent is types.CameraTimedEvents =>
+            cameraEvent.type === "motion" || cameraEvent.type === "recording",
+        )
+        .forEach((cameraEvent) => {
+          const indexStart = Math.round(
+            (startRef.current - (cameraEvent.end_timestamp || dayjs().unix())) /
+              SCALE,
+          );
+          const indexEnd = Math.round(
+            (startRef.current - cameraEvent.start_timestamp) / SCALE,
+          );
+          if (indexStart === indexEnd) {
+            newItems[indexStart] = {
+              ...newItems[indexStart],
+              timedEvent: cameraEvent,
+            };
+            return;
+          }
+          newItems[indexStart] = {
+            ...newItems[indexStart],
+            timedEvent: cameraEvent,
+          };
+          newItems[indexEnd] = {
+            ...newItems[indexEnd],
+            timedEvent: cameraEvent,
+          };
+          for (let i = indexStart + 1; i < indexEnd; i++) {
+            newItems[i] = {
+              ...newItems[i],
+              timedEvent: cameraEvent,
+            };
+          }
+        });
+      // Loop over events where type is object
+      eventsData
+        .filter(
+          (cameraEvent): cameraEvent is types.CameraObjectEvent =>
+            cameraEvent.type === "object",
+        )
+        .forEach((cameraEvent) => {
+          const indexStart = Math.round(
+            (startRef.current - cameraEvent.timestamp) / SCALE,
+          );
+          newItems[indexStart] = {
+            ...newItems[indexStart],
+            snapshotEvent: cameraEvent,
+          };
+        });
+      return newItems;
+    });
 
-    setTimeTicks(_timeTicks);
-    setRows(_rows);
-    setLines(_lines);
-    setEvents(_events);
     /// Run only when eventsData changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventsData]);
 };
 
 type TimelineTableProps = {
+  parentRef: React.MutableRefObject<HTMLDivElement | null>;
   camera: types.Camera;
   setSource: (source: string | null) => void;
 };
 export const TimelineTable = memo(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ({ camera, setSource }: TimelineTableProps) => {
+  ({ parentRef, camera, setSource }: TimelineTableProps) => {
     const firstRenderRef = useRef(true);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const startRef = useRef<number>(
@@ -265,10 +266,7 @@ export const TimelineTable = memo(
     const endRef = useRef<number>(
       dateToTimestamp(new Date(new Date().setHours(0, 0, 0, 0))),
     );
-    const [timeTicks, setTimeTicks] = useState<number[]>([]);
-    const [rows, setRows] = useState<JSX.Element[]>([]);
-    const [lines, setLines] = useState<JSX.Element[]>([]);
-    const [events, setEvents] = useState<JSX.Element[]>([]);
+    const [items, setItems] = useState<TimelineItem[]>([]);
     const eventsQuery = useEvents({
       camera_identifier: camera.identifier,
       time_from: endRef.current,
@@ -280,39 +278,27 @@ export const TimelineTable = memo(
     const eventsData = eventsQuery.data?.events || [];
 
     // Generate initial timeline with no event data
-    useInitialTimeline(
-      startRef,
-      endRef.current,
-      setTimeTicks,
-      setRows,
-      setLines,
-      setEvents,
-    );
+    useInitialTimeline(startRef, endRef.current, setItems);
     // Add timeticks every SCALE seconds
-    useAddTicks(startRef, setTimeTicks, setRows, setLines, setEvents);
+    useAddTicks(startRef, setItems);
     // Update timeline with event data
-    useUpdateTimeline(
-      startRef,
-      eventsData,
-      timeTicks,
-      setTimeTicks,
-      rows,
-      setRows,
-      lines,
-      setLines,
-      events,
-      setEvents,
-    );
+    useUpdateTimeline(startRef, eventsData, setItems);
+
+    // The virtualizer
+    const rowVirtualizer = useVirtualizer({
+      count: items.length,
+      getScrollElement: () => parentRef!.current,
+      estimateSize: () => TICK_HEIGHT,
+      overscan: 100,
+    });
 
     if (eventsQuery.isLoading && firstRenderRef.current) {
       return <Loading text="Loading Timeline" fullScreen={false} />;
     }
     firstRenderRef.current = false;
-
     return (
       <Box
         ref={containerRef}
-        style={{ display: "flex" }}
         onClick={() => queryClient.invalidateQueries(["events"])}
       >
         <HoverLine
@@ -320,9 +306,38 @@ export const TimelineTable = memo(
           startRef={startRef}
           endRef={endRef}
         />
-        <Box>{rows}</Box>
-        <Box>{lines}</Box>
-        <Box sx={{ width: "100%" }}>{events}</Box>
+        <div
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            position: "relative",
+            width: "100%",
+          }}
+        >
+          {rowVirtualizer.getVirtualItems().map((virtualItem) => (
+            <div
+              key={virtualItem.key}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                height: `${virtualItem.size}px`,
+                width: "100%",
+                transform: `translateY(${virtualItem.start}px)`,
+                zIndex:
+                  items[virtualItem.index] &&
+                  items[virtualItem.index].snapshotEvent
+                    ? 999
+                    : 1,
+              }}
+            >
+              {renderItem(
+                startRef,
+                items[virtualItem.index],
+                virtualItem.index,
+              )}
+            </div>
+          ))}
+        </div>
       </Box>
     );
   },

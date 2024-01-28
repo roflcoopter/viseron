@@ -29,8 +29,7 @@ const Divider = ({ boxRef }: { boxRef?: React.Ref<HTMLDivElement> }) => (
     ref={boxRef}
     sx={(theme) => ({
       height: "1px",
-      width: "15%",
-      margin: "auto",
+      flexGrow: 1,
       backgroundColor: theme.palette.divider,
     })}
   />
@@ -38,23 +37,15 @@ const Divider = ({ boxRef }: { boxRef?: React.Ref<HTMLDivElement> }) => (
 
 const DetectionDetails = ({
   objectEvent,
-  scale,
   boxRef,
 }: {
   objectEvent: types.CameraObjectEvent;
-  scale: number;
   boxRef?: React.Ref<HTMLDivElement>;
 }) => {
   const Icon = labelToIcon(objectEvent.label);
   return (
     <Box ref={boxRef} color="primary" sx={{ height: "25px", width: "25px" }}>
-      <Icon
-        color="primary"
-        sx={{
-          transform: `scale(${scale > 1 ? scale * 1.5 : scale})`,
-          transition: "transform 0.15s ease-in-out",
-        }}
-      />
+      <Icon color="primary" />
     </Box>
   );
 };
@@ -72,7 +63,7 @@ const DetectionSnapshot = ({
   return (
     <Box
       sx={{
-        width: "50%",
+        width: scale > 1 ? "70%" : "35%",
         margin: "auto",
         marginLeft: eventIndex % 2 === 0 ? "20px" : "10px",
         marginRight: eventIndex % 2 === 0 ? "10px" : "20px",
@@ -83,11 +74,8 @@ const DetectionSnapshot = ({
             ? theme.palette.primary[900]
             : theme.palette.primary[200]
         }`,
-        transform: `translateY(calc(-50% + ${
-          TICK_HEIGHT / 2
-        }px)) scale(${scale})`,
-        transition: "transform 0.15s ease-in-out",
-        zIndex: scale > 1 ? 1 : null,
+        transform: `translateY(calc(-50% + ${TICK_HEIGHT / 2}px))`,
+        transition: "width 0.15s ease-in-out",
       }}
     >
       <Image
@@ -125,21 +113,20 @@ export const ObjectEvent = ({ objectEvent, eventIndex }: ObjectEventProps) => {
       }}
     >
       <Box
-        onMouseEnter={() => setScale(1.05)}
+        onMouseEnter={() => {
+          setScale(1.05);
+        }}
         onMouseLeave={() => setScale(1)}
         sx={{
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           height: TICK_HEIGHT,
+          width: "100%",
         }}
       >
         <Divider />
-        <DetectionDetails
-          boxRef={tooltipAnchor}
-          objectEvent={objectEvent}
-          scale={scale}
-        />
+        <DetectionDetails boxRef={tooltipAnchor} objectEvent={objectEvent} />
         <Divider />
         <DetectionSnapshot
           objectEvent={objectEvent}
