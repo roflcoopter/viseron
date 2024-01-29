@@ -173,8 +173,10 @@ const Tabs = ({
       <TabPanel value="timeline" sx={{ padding: 0, paddingTop: "5px" }}>
         {selectedCamera ? (
           <TimelineTable
+            key={date?.unix().toString()} // Force re-render when date changes
             parentRef={parentRef}
             camera={selectedCamera}
+            date={date}
             setSource={setSource}
           />
         ) : (

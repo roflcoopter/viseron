@@ -1,5 +1,5 @@
 import { VirtualItem, useVirtualizer } from "@tanstack/react-virtual";
-import dayjs from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 import { memo, useEffect, useRef, useState } from "react";
 
 import {
@@ -26,6 +26,29 @@ type TimelineItem = {
 };
 
 const round = (num: number) => Math.ceil(num / SCALE) * SCALE;
+
+// Calculate the start time of the timeline, called on first render
+const calculateStart = (date: Dayjs | null) => {
+  if (!date) {
+    return round(dateToTimestamp(new Date()) + SCALE * EXTRA_TICKS);
+  }
+  // if date is today, start at current time
+  if (date.isSame(dayjs(), "day")) {
+    return round(dateToTimestamp(new Date()) + SCALE * EXTRA_TICKS);
+  }
+  // Otherwise start at midnight the next day
+  return dateToTimestamp(
+    new Date(date.add(1, "day").toDate().setHours(0, 0, 0, 0)),
+  );
+};
+
+// Calculate the end time of the timeline, called on first render
+const calculateEnd = (date: Dayjs | null) =>
+  dateToTimestamp(
+    date
+      ? new Date(date.toDate().setHours(0, 0, 0, 0))
+      : new Date(new Date().setHours(0, 0, 0, 0)),
+  );
 
 const activityLine = (
   startRef: React.MutableRefObject<number>,
@@ -113,12 +136,17 @@ const useInitialTimeline = (
 
 // Add timeticks every SCALE seconds
 const useAddTicks = (
+  date: Dayjs | null,
   startRef: React.MutableRefObject<number>,
   setItems: React.Dispatch<React.SetStateAction<TimelineItem[]>>,
 ) => {
   const timeout = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
+    // If date is not today, don't add ticks
+    if (!date || !date.isSame(dayjs(), "day")) {
+      return () => {};
+    }
     const addTicks = (ticksToAdd: number) => {
       let timeTick = 0;
       setItems((prevItems) => {
@@ -152,7 +180,7 @@ const useAddTicks = (
         clearTimeout(timeout.current);
       }
     };
-  }, [setItems, startRef]);
+  }, [date, setItems, startRef]);
 };
 
 // Update timeline with event data
@@ -294,34 +322,29 @@ const VirtualList = memo(
 type TimelineTableProps = {
   parentRef: React.MutableRefObject<HTMLDivElement | null>;
   camera: types.Camera;
+  date: Dayjs | null;
   setSource: (source: string | null) => void;
 };
 export const TimelineTable = memo(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  ({ parentRef, camera, setSource }: TimelineTableProps) => {
+  ({ parentRef, camera, date, setSource }: TimelineTableProps) => {
     const firstRenderRef = useRef(true);
     const containerRef = useRef<HTMLDivElement | null>(null);
-    const startRef = useRef<number>(
-      round(dateToTimestamp(new Date()) + SCALE * EXTRA_TICKS),
-    );
-    const endRef = useRef<number>(
-      dateToTimestamp(new Date(new Date().setHours(0, 0, 0, 0))),
-    );
+    const startRef = useRef<number>(calculateStart(date));
+    const endRef = useRef<number>(calculateEnd(date));
+
     const [items, setItems] = useState<TimelineItem[]>([]);
     const eventsQuery = useEvents({
       camera_identifier: camera.identifier,
       time_from: endRef.current,
       time_to: startRef.current,
-      configOptions: {
-        notifyOnChangeProps: ["data"],
-      },
     });
     const eventsData = eventsQuery.data?.events || [];
 
     // Generate initial timeline with no event data
     useInitialTimeline(startRef, endRef.current, setItems);
     // Add timeticks every SCALE seconds
-    useAddTicks(startRef, setItems);
+    useAddTicks(date, startRef, setItems);
     // Update timeline with event data
     useUpdateTimeline(startRef, eventsData, setItems);
 
