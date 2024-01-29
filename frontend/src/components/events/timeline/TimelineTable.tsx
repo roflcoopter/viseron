@@ -1,5 +1,4 @@
-import Box from "@mui/material/Box";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { VirtualItem, useVirtualizer } from "@tanstack/react-virtual";
 import dayjs from "dayjs";
 import { memo, useEffect, useRef, useState } from "react";
 
@@ -68,11 +67,7 @@ const activityLine = (
   );
 };
 
-const objectEvent = (
-  startRef: React.MutableRefObject<number>,
-  item: TimelineItem,
-  index: number,
-) => {
+const objectEvent = (item: TimelineItem, index: number) => {
   const { time, snapshotEvent } = item;
   if (snapshotEvent === null) {
     return null;
@@ -86,21 +81,32 @@ const objectEvent = (
   );
 };
 
-const renderItem = (
-  startRef: React.MutableRefObject<number>,
-  item: TimelineItem,
-  index: number,
-): JSX.Element => (
-  <Box
-    sx={{
-      display: "flex",
-      justifyContent: "start",
-    }}
-  >
-    <TimeTick key={`tick-${item.time}`} time={item.time} />
-    {activityLine(startRef, item, index)}
-    {objectEvent(startRef, item, index)}
-  </Box>
+type ItemProps = {
+  startRef: React.MutableRefObject<number>;
+  virtualItem: VirtualItem;
+  item: TimelineItem;
+};
+const Item = memo(
+  ({ startRef, virtualItem, item }: ItemProps): JSX.Element => (
+    <div
+      key={item.time}
+      style={{
+        display: "flex",
+        justifyContent: "start",
+        position: "absolute",
+        top: 0,
+        left: 0,
+        height: `${virtualItem.size}px`,
+        width: "100%",
+        transform: `translateY(${virtualItem.start}px)`,
+        zIndex: item.snapshotEvent ? 999 : 1,
+      }}
+    >
+      <TimeTick key={`tick-${item.time}`} time={item.time} />
+      {activityLine(startRef, item, virtualItem.index)}
+      {objectEvent(item, virtualItem.index)}
+    </div>
+  ),
 );
 
 type TimelineItem = {
@@ -143,21 +149,22 @@ const useAddTicks = (
 
   useEffect(() => {
     const addTicks = (ticksToAdd: number) => {
-      let timeTick = startRef.current;
-      const _items: TimelineItem[] = [];
+      setItems((prevItems) => {
+        const newItems = [...prevItems];
+        let timeTick = startRef.current;
+        for (let i = 0; i < ticksToAdd; i++) {
+          timeTick += SCALE;
+          newItems.unshift({
+            startRef,
+            time: timeTick,
+            timedEvent: null,
+            snapshotEvent: null,
+          });
+        }
 
-      for (let i = 0; i < ticksToAdd; i++) {
-        timeTick += SCALE;
-        _items.push({
-          startRef,
-          time: timeTick,
-          timedEvent: null,
-          snapshotEvent: null,
-        });
-      }
-
-      startRef.current = timeTick;
-      setItems((prevItems) => [..._items, ...prevItems]);
+        startRef.current = timeTick;
+        return newItems;
+      });
     };
 
     const recursiveTimeout = () => {
@@ -250,6 +257,41 @@ const useUpdateTimeline = (
   }, [eventsData]);
 };
 
+type VirtualListProps = {
+  parentRef: React.MutableRefObject<HTMLDivElement | null>;
+  items: TimelineItem[];
+  startRef: React.MutableRefObject<number>;
+};
+const VirtualList = memo(
+  ({ parentRef, items, startRef }: VirtualListProps): JSX.Element => {
+    const rowVirtualizer = useVirtualizer({
+      count: items.length,
+      getScrollElement: () => parentRef!.current,
+      estimateSize: () => TICK_HEIGHT,
+      overscan: 10,
+    });
+
+    return (
+      <div
+        style={{
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          position: "relative",
+          width: "100%",
+        }}
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualItem) => (
+          <Item
+            key={`item-${items[virtualItem.index].time}`}
+            startRef={startRef}
+            virtualItem={virtualItem}
+            item={items[virtualItem.index]}
+          />
+        ))}
+      </div>
+    );
+  },
+);
+
 type TimelineTableProps = {
   parentRef: React.MutableRefObject<HTMLDivElement | null>;
   camera: types.Camera;
@@ -284,20 +326,12 @@ export const TimelineTable = memo(
     // Update timeline with event data
     useUpdateTimeline(startRef, eventsData, setItems);
 
-    // The virtualizer
-    const rowVirtualizer = useVirtualizer({
-      count: items.length,
-      getScrollElement: () => parentRef!.current,
-      estimateSize: () => TICK_HEIGHT,
-      overscan: 100,
-    });
-
     if (eventsQuery.isLoading && firstRenderRef.current) {
       return <Loading text="Loading Timeline" fullScreen={false} />;
     }
     firstRenderRef.current = false;
     return (
-      <Box
+      <div
         ref={containerRef}
         onClick={() => queryClient.invalidateQueries(["events"])}
       >
@@ -306,39 +340,8 @@ export const TimelineTable = memo(
           startRef={startRef}
           endRef={endRef}
         />
-        <div
-          style={{
-            height: `${rowVirtualizer.getTotalSize()}px`,
-            position: "relative",
-            width: "100%",
-          }}
-        >
-          {rowVirtualizer.getVirtualItems().map((virtualItem) => (
-            <div
-              key={virtualItem.key}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                height: `${virtualItem.size}px`,
-                width: "100%",
-                transform: `translateY(${virtualItem.start}px)`,
-                zIndex:
-                  items[virtualItem.index] &&
-                  items[virtualItem.index].snapshotEvent
-                    ? 999
-                    : 1,
-              }}
-            >
-              {renderItem(
-                startRef,
-                items[virtualItem.index],
-                virtualItem.index,
-              )}
-            </div>
-          ))}
-        </div>
-      </Box>
+        <VirtualList parentRef={parentRef} items={items} startRef={startRef} />
+      </div>
     );
   },
 );

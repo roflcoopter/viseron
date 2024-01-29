@@ -7,7 +7,7 @@ import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { Instance } from "@popperjs/core";
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 
 import * as types from "lib/types";
 
@@ -91,49 +91,51 @@ type ObjectEventProps = {
   objectEvent: types.CameraObjectEvent;
   eventIndex: number;
 };
-export const ObjectEvent = ({ objectEvent, eventIndex }: ObjectEventProps) => {
-  const [scale, setScale] = useState(1);
-  const popperRef = useRef<Instance>(null);
-  const tooltipAnchor = useRef<HTMLDivElement>(null);
-  const date = new Date(objectEvent.time);
+export const ObjectEvent = memo(
+  ({ objectEvent, eventIndex }: ObjectEventProps) => {
+    const [scale, setScale] = useState(1);
+    const popperRef = useRef<Instance>(null);
+    const tooltipAnchor = useRef<HTMLDivElement>(null);
+    const date = new Date(objectEvent.time);
 
-  return (
-    <Tooltip
-      arrow
-      title={
-        <Box>
-          <Box>{`Label: ${objectEvent.label}`}</Box>
-          <Box>{`Confidence: ${objectEvent.confidence}`}</Box>
-          <Box>{`Timestamp: ${date.toLocaleString()}`}</Box>
-        </Box>
-      }
-      PopperProps={{
-        popperRef,
-        anchorEl: tooltipAnchor.current,
-      }}
-    >
-      <Box
-        onMouseEnter={() => {
-          setScale(1.05);
-        }}
-        onMouseLeave={() => setScale(1)}
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          height: TICK_HEIGHT,
-          width: "100%",
+    return (
+      <Tooltip
+        arrow
+        title={
+          <Box>
+            <Box>{`Label: ${objectEvent.label}`}</Box>
+            <Box>{`Confidence: ${objectEvent.confidence}`}</Box>
+            <Box>{`Timestamp: ${date.toLocaleString()}`}</Box>
+          </Box>
+        }
+        PopperProps={{
+          popperRef,
+          anchorEl: tooltipAnchor.current,
         }}
       >
-        <Divider />
-        <DetectionDetails boxRef={tooltipAnchor} objectEvent={objectEvent} />
-        <Divider />
-        <DetectionSnapshot
-          objectEvent={objectEvent}
-          eventIndex={eventIndex}
-          scale={scale}
-        />
-      </Box>
-    </Tooltip>
-  );
-};
+        <Box
+          onMouseEnter={() => {
+            setScale(1.05);
+          }}
+          onMouseLeave={() => setScale(1)}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            height: TICK_HEIGHT,
+            width: "100%",
+          }}
+        >
+          <Divider />
+          <DetectionDetails boxRef={tooltipAnchor} objectEvent={objectEvent} />
+          <Divider />
+          <DetectionSnapshot
+            objectEvent={objectEvent}
+            eventIndex={eventIndex}
+            scale={scale}
+          />
+        </Box>
+      </Tooltip>
+    );
+  },
+);

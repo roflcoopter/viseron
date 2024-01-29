@@ -1,5 +1,5 @@
-import Box from "@mui/material/Box";
 import Tooltip from "@mui/material/Tooltip";
+import { useTheme } from "@mui/material/styles";
 import { memo } from "react";
 
 import * as types from "lib/types";
@@ -22,59 +22,64 @@ export type ActivityLineProps =
 
 export const ActivityLine = memo(
   ({ active, cameraEvent, variant }: ActivityLineProps) => {
+    const theme = useTheme();
+
     if (active && cameraEvent) {
-      const borderTopLeftRadius = variant === "first" ? "40%" : undefined;
-      const borderTopRightRadius = variant === "first" ? "40%" : undefined;
-      const borderBottomLeftRadius = variant === "last" ? "40%" : undefined;
-      const borderBottomRightRadius = variant === "last" ? "40%" : undefined;
-      const borderRadius = variant === "round" ? "40%" : undefined;
       return (
         <Tooltip
           placement="left"
           arrow
           title={
-            <Box>
-              <Box>{`Event: ${cameraEvent.type}`}</Box>
-              <Box>{`Start: ${new Date(
+            <div>
+              <div>{`Event: ${cameraEvent.type}`}</div>
+              <div>{`Start: ${new Date(
                 cameraEvent.start_time,
-              ).toLocaleString()}`}</Box>
+              ).toLocaleString()}`}</div>
               {cameraEvent.end_time ? (
-                <Box>{`End:   ${new Date(
+                <div>{`End:   ${new Date(
                   cameraEvent.end_time,
-                ).toLocaleString()}`}</Box>
+                ).toLocaleString()}`}</div>
               ) : null}
-            </Box>
+            </div>
           }
         >
-          <Box sx={{ width: "6px" }}>
-            <Box
-              sx={(theme) => ({
-                height: TICK_HEIGHT,
-                width: "6px",
-                margin: "auto",
-                backgroundColor: theme.palette[cameraEvent.type],
-                borderRadius,
-                borderTopLeftRadius,
-                borderTopRightRadius,
-                borderBottomLeftRadius,
-                borderBottomRightRadius,
-              })}
-            />
-          </Box>
+          <div
+            className={variant || undefined}
+            style={{
+              height: TICK_HEIGHT,
+              minWidth: "6px",
+              background: `linear-gradient(${
+                theme.palette[cameraEvent.type]
+              }, ${theme.palette[cameraEvent.type]}) no-repeat center/6px 100%`,
+              ...(variant === "first" && {
+                borderTopLeftRadius: "40%",
+                borderTopRightRadius: "40%",
+              }),
+              ...(variant === "last" && {
+                borderBottomLeftRadius: "40%",
+                borderBottomRightRadius: "40%",
+              }),
+              ...(variant === "middle" && {
+                borderRadius: "0",
+              }),
+              ...(variant === "round" && {
+                borderRadius: "40%",
+              }),
+              overflow: "hidden",
+            }}
+          />
         </Tooltip>
       );
     }
     return (
-      <Box sx={{ width: "6px" }}>
-        <Box
-          sx={(theme) => ({
-            margin: "auto",
-            height: TICK_HEIGHT,
-            width: "2px",
-            backgroundColor: theme.palette.divider,
-          })}
-        />
-      </Box>
+      <div
+        className={variant || undefined}
+        style={{
+          height: TICK_HEIGHT,
+          width: "6px",
+          background: `linear-gradient(${theme.palette.divider}, ${theme.palette.divider}) no-repeat center/1px 100%`,
+        }}
+      />
     );
   },
 );
