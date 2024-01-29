@@ -19,6 +19,12 @@ export const TICK_HEIGHT = 8;
 export const SCALE = 60;
 export const EXTRA_TICKS = 10;
 
+type TimelineItem = {
+  time: number;
+  timedEvent: null | types.CameraMotionEvent | types.CameraRecordingEvent;
+  snapshotEvent: null | types.CameraObjectEvent;
+};
+
 const round = (num: number) => Math.ceil(num / SCALE) * SCALE;
 
 const activityLine = (
@@ -81,42 +87,8 @@ const objectEvent = (item: TimelineItem, index: number) => {
   );
 };
 
-type ItemProps = {
-  startRef: React.MutableRefObject<number>;
-  virtualItem: VirtualItem;
-  item: TimelineItem;
-};
-const Item = memo(
-  ({ startRef, virtualItem, item }: ItemProps): JSX.Element => (
-    <div
-      key={item.time}
-      className={item.time.toString()}
-      style={{
-        display: "flex",
-        justifyContent: "start",
-        position: "absolute",
-        top: 0,
-        left: 0,
-        height: `${virtualItem.size}px`,
-        width: "100%",
-        transform: `translateY(${virtualItem.start}px)`,
-        zIndex: item.snapshotEvent ? 999 : 1,
-      }}
-    >
-      <TimeTick key={`tick-${item.time}`} time={item.time} />
-      {activityLine(startRef, item, virtualItem.index)}
-      {objectEvent(item, virtualItem.index)}
-    </div>
-  ),
-);
-
-type TimelineItem = {
-  time: number;
-  timedEvent: null | types.CameraMotionEvent | types.CameraRecordingEvent;
-  snapshotEvent: null | types.CameraObjectEvent;
-};
-
 // Generate initial timeline with no event data
+// Implemented as a hook instead of initial state to quickly show the Loading Timeline message
 const useInitialTimeline = (
   startRef: React.MutableRefObject<number>,
   end: number,
@@ -254,6 +226,35 @@ const useUpdateTimeline = (
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventsData]);
 };
+
+type ItemProps = {
+  startRef: React.MutableRefObject<number>;
+  virtualItem: VirtualItem;
+  item: TimelineItem;
+};
+const Item = memo(
+  ({ startRef, virtualItem, item }: ItemProps): JSX.Element => (
+    <div
+      key={item.time}
+      className={item.time.toString()}
+      style={{
+        display: "flex",
+        justifyContent: "start",
+        position: "absolute",
+        top: 0,
+        left: 0,
+        height: `${virtualItem.size}px`,
+        width: "100%",
+        transform: `translateY(${virtualItem.start}px)`,
+        zIndex: item.snapshotEvent ? 999 : 1,
+      }}
+    >
+      <TimeTick key={`tick-${item.time}`} time={item.time} />
+      {activityLine(startRef, item, virtualItem.index)}
+      {objectEvent(item, virtualItem.index)}
+    </div>
+  ),
+);
 
 type VirtualListProps = {
   parentRef: React.MutableRefObject<HTMLDivElement | null>;
