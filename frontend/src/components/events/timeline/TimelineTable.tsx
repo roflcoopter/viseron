@@ -90,6 +90,7 @@ const Item = memo(
   ({ startRef, virtualItem, item }: ItemProps): JSX.Element => (
     <div
       key={item.time}
+      className={item.time.toString()}
       style={{
         display: "flex",
         justifyContent: "start",
@@ -110,7 +111,6 @@ const Item = memo(
 );
 
 type TimelineItem = {
-  startRef: React.MutableRefObject<number>;
   time: number;
   timedEvent: null | types.CameraMotionEvent | types.CameraRecordingEvent;
   snapshotEvent: null | types.CameraObjectEvent;
@@ -127,7 +127,6 @@ const useInitialTimeline = (
     const items: TimelineItem[] = [];
     while (timeTick >= end) {
       items.push({
-        startRef,
         time: timeTick,
         timedEvent: null,
         snapshotEvent: null,
@@ -149,22 +148,21 @@ const useAddTicks = (
 
   useEffect(() => {
     const addTicks = (ticksToAdd: number) => {
+      let timeTick = 0;
       setItems((prevItems) => {
+        timeTick = prevItems[0].time;
         const newItems = [...prevItems];
-        let timeTick = startRef.current;
         for (let i = 0; i < ticksToAdd; i++) {
           timeTick += SCALE;
           newItems.unshift({
-            startRef,
             time: timeTick,
             timedEvent: null,
             snapshotEvent: null,
           });
         }
-
-        startRef.current = timeTick;
         return newItems;
       });
+      startRef.current = timeTick;
     };
 
     const recursiveTimeout = () => {
