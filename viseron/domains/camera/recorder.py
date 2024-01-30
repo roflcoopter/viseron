@@ -339,7 +339,7 @@ class AbstractRecorder(ABC, RecorderBase):
             self._storage.get_session,
         )
         fragments = [
-            Fragment(file.path, file.meta["m3u8"]["EXTINF"])
+            Fragment(file.path, file.meta["m3u8"]["EXTINF"], file.orig_ctime)
             for file in files
             if file.meta.get("m3u8", False).get("EXTINF", False)
         ]

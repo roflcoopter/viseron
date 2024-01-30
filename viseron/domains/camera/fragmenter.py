@@ -278,6 +278,10 @@ def generate_playlist(
     playlist.append("#EXT-X-INDEPENDENT-SEGMENTS")
     playlist.append(f'#EXT-X-MAP:URI="{_get_file_path(init_file, file_directive)}"')
     for fragment in fragments:
+        program_date_time = fragment.creation_time.replace(
+            tzinfo=datetime.timezone.utc
+        ).isoformat(timespec="milliseconds")
+        playlist.append(f"#EXT-X-PROGRAM-DATE-TIME:{program_date_time}")
         playlist.append(f"#EXTINF:{fragment.duration},")
         playlist.append(_get_file_path(fragment.path, file_directive))
         playlist.append("#EXT-X-DISCONTINUITY")
@@ -292,3 +296,4 @@ class Fragment:
 
     path: str
     duration: float
+    creation_time: datetime.datetime
