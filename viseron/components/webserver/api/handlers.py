@@ -245,6 +245,9 @@ class BaseAPIHandler(ViseronRequestHandler):
                 }
                 if schema := route.get("request_arguments_schema", None):
                     try:
+                        # Implicitly allow token parameter if route allows it
+                        if route.get("allow_token_parameter", True):
+                            schema = schema.extend({vol.Optional("token"): str})
                         self.request_arguments = schema(request_arguments)
                     except vol.Invalid as err:
                         LOGGER.error(

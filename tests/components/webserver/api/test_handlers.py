@@ -29,6 +29,11 @@ class DummyAPIHandler(BaseAPIHandler):
             "allow_token_parameter": True,
             "supported_methods": ["GET"],
             "method": "test_get",
+            "request_arguments_schema": vol.Schema(
+                {
+                    vol.Required("test_key"): str,
+                }
+            ),
         },
         {
             "path_pattern": r"/requires_group",
@@ -333,7 +338,7 @@ class TestBaseAPIHandler(TestAppBaseAuth):
     def test_allow_token_parameter(self):
         """Test endpoint with allow_token_parameter setting."""
         response = self.fetch_with_auth(
-            "/api/v1/allow_token_parameter",
+            "/api/v1/allow_token_parameter?test_key=test",
             method="GET",
             token_parameter=True,
         )
@@ -341,7 +346,7 @@ class TestBaseAPIHandler(TestAppBaseAuth):
 
         # Should work with normal access token as well
         response = self.fetch_with_auth(
-            "/api/v1/allow_token_parameter",
+            "/api/v1/allow_token_parameter?test_key=test",
             method="GET",
             token_parameter=False,
         )
@@ -350,7 +355,7 @@ class TestBaseAPIHandler(TestAppBaseAuth):
     def test_allow_token_parameter_missing(self):
         """Test endpoint with allow_token_parameter setting."""
         response = self.fetch_with_auth(
-            "/api/v1/allow_token_parameter",
+            "/api/v1/allow_token_parameter?test_key=test",
             method="GET",
             token_parameter=False,
             headers={"Authorization": "Bearer test_access_token"},
