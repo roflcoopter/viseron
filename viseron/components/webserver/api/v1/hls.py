@@ -7,9 +7,11 @@ import os
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Callable
 
+import voluptuous as vol
 from sqlalchemy import select
 
 from viseron.components.storage.models import Recordings
+from viseron.components.storage.queries import get_time_period_fragments
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
 from viseron.domains.camera.fragmenter import Fragment, generate_playlist
@@ -36,6 +38,20 @@ class HlsAPIHandler(BaseAPIHandler):
             "method": "get_recording_hls_playlist",
             "allow_token_parameter": True,
         },
+        {
+            "path_pattern": (r"/hls/(?P<camera_identifier>[A-Za-z0-9_]+)/index.m3u8"),
+            "supported_methods": ["GET"],
+            "method": "get_hls_playlist_time_period",
+            "allow_token_parameter": True,
+            "request_arguments_schema": vol.Schema(
+                {
+                    vol.Required("start_timestamp"): vol.Coerce(int),
+                    vol.Optional("end_timestamp", default=None): vol.Maybe(
+                        vol.Coerce(int)
+                    ),
+                }
+            ),
+        },
     ]
 
     async def get_recording_hls_playlist(
@@ -57,6 +73,38 @@ class HlsAPIHandler(BaseAPIHandler):
         if not playlist:
             self.response_error(
                 HTTPStatus.NOT_FOUND, f"Recording with id {recording_id} not found"
+            )
+            return
+
+        self.set_header("Content-Type", "application/x-mpegURL")
+        self.set_header("Cache-Control", "no-cache")
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.response_success(response=playlist)
+
+    async def get_hls_playlist_time_period(
+        self,
+        camera_identifier: str,
+    ):
+        """Get the HLS playlist for a time period."""
+        camera = self._get_camera(camera_identifier)
+
+        if not camera:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
+            )
+            return
+
+        playlist = await self.run_in_executor(
+            _generate_playlist_time_period,
+            self._get_session,
+            camera,
+            self.request_arguments["start_timestamp"],
+            self.request_arguments["end_timestamp"],
+        )
+        if not playlist:
+            self.response_error(
+                HTTPStatus.NOT_FOUND, "HLS playlist could not be generated"
             )
             return
 
@@ -91,9 +139,10 @@ def _generate_playlist(
             float(
                 file.meta["m3u8"]["EXTINF"],
             ),
+            file.orig_ctime,
         )
         for file in files
-        if file.meta.get("m3u8", False).get("EXTINF", False)
+        if file.meta.get("m3u8", {}).get("EXTINF", False)
     ]
 
     end: bool = True
@@ -118,6 +167,37 @@ def _generate_playlist(
         fragments,
         f"/files{os.path.join(camera.segments_folder,'init.mp4')}",
         end=end,
+        file_directive=False,
+    )
+    return playlist
+
+
+def _generate_playlist_time_period(
+    get_session: Callable[[], Session],
+    camera: AbstractCamera,
+    start_timestamp: int,
+    end_timestamp: int | None = None,
+) -> str | None:
+    """Generate the HLS playlist for a time period."""
+    files = get_time_period_fragments(
+        camera.identifier, start_timestamp, end_timestamp, get_session
+    )
+    fragments = [
+        Fragment(
+            f"/files{file.path}",
+            float(
+                file.meta["m3u8"]["EXTINF"],
+            ),
+            file.orig_ctime,
+        )
+        for file in files
+        if file.meta.get("m3u8", {}).get("EXTINF", False)
+    ]
+
+    playlist = generate_playlist(
+        fragments,
+        f"/files{os.path.join(camera.segments_folder,'init.mp4')}",
+        end=bool(end_timestamp),
         file_directive=False,
     )
     return playlist

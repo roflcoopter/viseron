@@ -7,6 +7,7 @@ from viseron.components.storage.models import Files, FilesMeta, Recordings
 from viseron.components.storage.queries import (
     files_to_move_query,
     get_recording_fragments,
+    get_time_period_fragments,
     recordings_to_move_query,
 )
 
@@ -259,3 +260,44 @@ class TestMoveQueries(BaseTestWithRecordings):
         assert files[1].tier_id == 1
         assert files[2].id == 13
         assert files[3].id == 15
+
+    def test_get_time_period_fragments(self):
+        """Test get_recording_fragments."""
+        # Simulate a file that has been moved a up tier but have not been removed
+        # from the previous tier yet
+        with self._get_db_session() as session:
+            created_at = self._now + datetime.timedelta(seconds=55)
+            timestamp = self._now + datetime.timedelta(seconds=25)
+            filename = f"{int(timestamp.timestamp())}.m4s"
+            session.execute(
+                insert(Files).values(
+                    tier_id=1,
+                    camera_identifier="test",
+                    category="recorder",
+                    path=f"/tier2/{filename}",
+                    directory="tier2",
+                    filename=filename,
+                    size=10,
+                    created_at=created_at,
+                )
+            )
+            session.execute(
+                insert(FilesMeta).values(
+                    path=f"/tier2/{filename}",
+                    orig_ctime=timestamp,
+                    meta={"m3u8": {"EXTINF": 5}},
+                    created_at=created_at,
+                )
+            )
+            session.commit()
+
+        files = get_time_period_fragments(
+            "test",
+            0,
+            None,
+            self._get_db_session,
+            self._now + datetime.timedelta(days=365),
+        )
+        assert len(files) == 15
+        assert files[4].tier_id == 0
+        assert files[5].tier_id == 1

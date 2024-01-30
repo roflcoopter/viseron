@@ -263,3 +263,60 @@ def get_recording_fragments(
     with get_session() as session:
         fragments = session.execute(stmt).all()
     return fragments
+
+
+def get_time_period_fragments(
+    camera_identifier: str,
+    start_timestamp: int,
+    end_timestamp: int | None,
+    get_session: Callable[[], Session],
+    now=utcnow(),
+):
+    """Return a list of files for the requested time period."""
+    start = datetime.datetime.utcfromtimestamp(start_timestamp)
+    if end_timestamp:
+        end = datetime.datetime.utcfromtimestamp(end_timestamp)
+    else:
+        end = now
+
+    row_number = (
+        func.row_number()
+        .over(partition_by=Files.filename, order_by=desc(Files.created_at))
+        .label("row_number")
+    )
+    files = (
+        select(Files, FilesMeta)
+        .add_columns(row_number)
+        .join(FilesMeta, Files.path == FilesMeta.path)
+        .where(Files.camera_identifier == camera_identifier)
+        .where(Files.category == "recorder")
+        .where(Files.path.endswith(".m4s"))
+        .where(
+            or_(
+                # Fetch all files that start within the recording
+                FilesMeta.orig_ctime.between(
+                    start,
+                    end,
+                ),
+                # Fetch the first file that starts before the recording but
+                # ends during the recording
+                and_(
+                    start >= FilesMeta.orig_ctime,
+                    start
+                    <= FilesMeta.orig_ctime
+                    + cast(
+                        concat(FilesMeta.meta["m3u8"]["EXTINF"], " sec"),
+                        INTERVAL,
+                    ),
+                ),
+            )
+        )
+        .order_by(FilesMeta.orig_ctime.asc())
+        .cte("files")
+    )
+    stmt = (
+        select(files).where(files.c.row_number == 1).order_by(files.c.orig_ctime.asc())
+    )
+    with get_session() as session:
+        fragments = session.execute(stmt).all()
+    return fragments
