@@ -95,7 +95,7 @@ export const HoverLine = ({
         backgroundColor: theme.palette.divider,
         textShadow: "rgba(0, 0, 0, 0.88) 0px 0px 4px",
         fontSize: "0.7rem",
-        zIndex: 1,
+        zIndex: 100,
       })}
     ></Box>
   );

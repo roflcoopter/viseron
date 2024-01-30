@@ -96,18 +96,12 @@ const activityLine = (
   );
 };
 
-const objectEvent = (item: TimelineItem, index: number) => {
+const objectEvent = (item: TimelineItem) => {
   const { time, snapshotEvent } = item;
   if (snapshotEvent === null) {
     return null;
   }
-  return (
-    <ObjectEvent
-      key={`object-${time}`}
-      objectEvent={snapshotEvent}
-      eventIndex={index}
-    />
-  );
+  return <ObjectEvent key={`object-${time}`} objectEvent={snapshotEvent} />;
 };
 
 // Generate initial timeline with no event data
@@ -260,11 +254,24 @@ type ItemProps = {
   virtualItem: VirtualItem;
   item: TimelineItem;
 };
-const Item = memo(
-  ({ startRef, virtualItem, item }: ItemProps): JSX.Element => (
+const Item = memo(({ startRef, virtualItem, item }: ItemProps): JSX.Element => {
+  const [hover, setHover] = useState(false);
+
+  return (
     <div
       key={item.time}
-      className={item.time.toString()}
+      onMouseEnter={() => {
+        if (!item.snapshotEvent) {
+          return;
+        }
+        setHover(true);
+      }}
+      onMouseLeave={() => {
+        if (!item.snapshotEvent) {
+          return;
+        }
+        setHover(false);
+      }}
       style={{
         display: "flex",
         justifyContent: "start",
@@ -274,15 +281,17 @@ const Item = memo(
         height: `${virtualItem.size}px`,
         width: "100%",
         transform: `translateY(${virtualItem.start}px)`,
-        zIndex: item.snapshotEvent ? 999 : 1,
+        zIndex:
+          // eslint-disable-next-line no-nested-ternary
+          item.snapshotEvent && hover ? 999 : item.snapshotEvent ? 998 : 1,
       }}
     >
       <TimeTick key={`tick-${item.time}`} time={item.time} />
       {activityLine(startRef, item, virtualItem.index)}
-      {objectEvent(item, virtualItem.index)}
+      {objectEvent(item)}
     </div>
-  ),
-);
+  );
+});
 
 type VirtualListProps = {
   parentRef: React.MutableRefObject<HTMLDivElement | null>;

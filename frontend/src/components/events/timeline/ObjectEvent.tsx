@@ -42,21 +42,34 @@ const DetectionDetails = ({
   objectEvent: types.CameraObjectEvent;
   boxRef?: React.Ref<HTMLDivElement>;
 }) => {
+  const theme = useTheme();
   const Icon = labelToIcon(objectEvent.label);
   return (
-    <Box ref={boxRef} color="primary" sx={{ height: "25px", width: "25px" }}>
-      <Icon color="primary" />
+    <Box
+      ref={boxRef}
+      color="primary"
+      sx={{
+        height: "25px",
+        width: "25px",
+      }}
+    >
+      <Icon
+        style={{
+          color:
+            theme.palette.mode === "dark"
+              ? theme.palette.primary[600]
+              : theme.palette.primary[300],
+        }}
+      />
     </Box>
   );
 };
 
 const DetectionSnapshot = ({
   objectEvent,
-  eventIndex,
   scale,
 }: {
   objectEvent: types.CameraObjectEvent;
-  eventIndex: number;
   scale: number;
 }) => {
   const theme = useTheme();
@@ -65,8 +78,8 @@ const DetectionSnapshot = ({
       sx={{
         width: scale > 1 ? "70%" : "35%",
         margin: "auto",
-        marginLeft: eventIndex % 2 === 0 ? "20px" : "10px",
-        marginRight: eventIndex % 2 === 0 ? "10px" : "20px",
+        marginLeft: "10px",
+        marginRight: "10px",
         overflow: "hidden",
         borderRadius: "5px",
         border: `1px solid ${
@@ -75,7 +88,11 @@ const DetectionSnapshot = ({
             : theme.palette.primary[200]
         }`,
         transform: `translateY(calc(-50% + ${TICK_HEIGHT / 2}px))`,
-        transition: "width 0.15s ease-in-out",
+        transition: "width 0.15s ease-in-out, box-shadow 0.15s ease-in-out",
+        boxShadow:
+          scale > 1
+            ? "0px 0px 10px 5px rgba(0,0,0,0.75)"
+            : "0px 0px 5px 0px rgba(0,0,0,0.75)",
       }}
     >
       <Image
@@ -89,53 +106,46 @@ const DetectionSnapshot = ({
 
 type ObjectEventProps = {
   objectEvent: types.CameraObjectEvent;
-  eventIndex: number;
 };
-export const ObjectEvent = memo(
-  ({ objectEvent, eventIndex }: ObjectEventProps) => {
-    const [scale, setScale] = useState(1);
-    const popperRef = useRef<Instance>(null);
-    const tooltipAnchor = useRef<HTMLDivElement>(null);
-    const date = new Date(objectEvent.time);
+export const ObjectEvent = memo(({ objectEvent }: ObjectEventProps) => {
+  const [scale, setScale] = useState(1);
+  const popperRef = useRef<Instance>(null);
+  const tooltipAnchor = useRef<HTMLDivElement>(null);
+  const date = new Date(objectEvent.time);
 
-    return (
-      <Tooltip
-        arrow
-        title={
-          <Box>
-            <Box>{`Label: ${objectEvent.label}`}</Box>
-            <Box>{`Confidence: ${objectEvent.confidence}`}</Box>
-            <Box>{`Timestamp: ${date.toLocaleString()}`}</Box>
-          </Box>
-        }
-        PopperProps={{
-          popperRef,
-          anchorEl: tooltipAnchor.current,
+  return (
+    <Tooltip
+      arrow
+      title={
+        <Box>
+          <Box>{`Label: ${objectEvent.label}`}</Box>
+          <Box>{`Confidence: ${objectEvent.confidence}`}</Box>
+          <Box>{`Timestamp: ${date.toLocaleString()}`}</Box>
+        </Box>
+      }
+      PopperProps={{
+        popperRef,
+        anchorEl: tooltipAnchor.current,
+      }}
+    >
+      <Box
+        onMouseEnter={() => {
+          setScale(1.05);
+        }}
+        onMouseLeave={() => setScale(1)}
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: TICK_HEIGHT,
+          width: "100%",
         }}
       >
-        <Box
-          onMouseEnter={() => {
-            setScale(1.05);
-          }}
-          onMouseLeave={() => setScale(1)}
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            height: TICK_HEIGHT,
-            width: "100%",
-          }}
-        >
-          <Divider />
-          <DetectionDetails boxRef={tooltipAnchor} objectEvent={objectEvent} />
-          <Divider />
-          <DetectionSnapshot
-            objectEvent={objectEvent}
-            eventIndex={eventIndex}
-            scale={scale}
-          />
-        </Box>
-      </Tooltip>
-    );
-  },
-);
+        <Divider />
+        <DetectionDetails boxRef={tooltipAnchor} objectEvent={objectEvent} />
+        <Divider />
+        <DetectionSnapshot objectEvent={objectEvent} scale={scale} />
+      </Box>
+    </Tooltip>
+  );
+});
