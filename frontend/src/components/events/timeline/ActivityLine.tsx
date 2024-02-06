@@ -71,6 +71,7 @@ export const ActivityLine = memo(
                 theme.palette[cameraEvent.type]
               }, ${theme.palette[cameraEvent.type]}) no-repeat center/6px 100%`,
               overflow: "hidden",
+              transition: "background 0.5s",
               ...style,
             }}
           />
@@ -89,6 +90,7 @@ export const ActivityLine = memo(
           width: "6px",
           flexShrink: 0,
           background: `linear-gradient(${background}, ${background}) no-repeat center/${thickness}px 100%`,
+          transition: "background 0.2s linear",
           ...style,
         }}
       />

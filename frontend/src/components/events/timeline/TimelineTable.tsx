@@ -25,6 +25,7 @@ type TimelineItem = {
   timedEvent: null | types.CameraMotionEvent | types.CameraRecordingEvent;
   snapshotEvent: null | types.CameraObjectEvent;
   availableTimespan: null | types.HlsAvailableTimespan;
+  timespanVariant: "first" | "middle" | "last" | "round" | null;
 };
 
 const round = (num: number) => Math.ceil(num / SCALE) * SCALE;
@@ -129,6 +130,7 @@ const useInitialTimeline = (
         timedEvent: null,
         snapshotEvent: null,
         availableTimespan: null,
+        timespanVariant: null,
       });
       timeTick -= SCALE;
     }
@@ -163,6 +165,7 @@ const useAddTicks = (
             timedEvent: null,
             snapshotEvent: null,
             availableTimespan: null,
+            timespanVariant: null,
           });
         }
         return newItems;
@@ -215,21 +218,25 @@ const useUpdateTimeline = (
           newItems[indexStart] = {
             ...newItems[indexStart],
             availableTimespan: timespan,
+            timespanVariant: "round",
           };
           return;
         }
         newItems[indexStart] = {
           ...newItems[indexStart],
           availableTimespan: timespan,
+          timespanVariant: "first",
         };
         newItems[indexEnd] = {
           ...newItems[indexEnd],
           availableTimespan: timespan,
+          timespanVariant: "last",
         };
         for (let i = indexStart + 1; i < indexEnd; i++) {
           newItems[i] = {
             ...newItems[i],
             availableTimespan: timespan,
+            timespanVariant: "middle",
           };
         }
       });
@@ -293,12 +300,41 @@ const useUpdateTimeline = (
   }, [eventsData, availableTimespansData]);
 };
 
+const itemEqual = (
+  prevItem: Readonly<ItemProps>,
+  nextItem: Readonly<ItemProps>,
+) =>
+  prevItem.item.time === nextItem.item.time &&
+  prevItem.item.timespanVariant === nextItem.item.timespanVariant &&
+  prevItem.item.timedEvent?.start_timestamp ===
+    nextItem.item.timedEvent?.start_timestamp &&
+  prevItem.item.timedEvent?.end_timestamp ===
+    nextItem.item.timedEvent?.end_timestamp &&
+  prevItem.item.snapshotEvent?.timestamp ===
+    nextItem.item.snapshotEvent?.timestamp;
+
 type ItemProps = {
   startRef: React.MutableRefObject<number>;
   virtualItem: VirtualItem;
   item: TimelineItem;
 };
-const Item = memo(({ startRef, virtualItem, item }: ItemProps): JSX.Element => {
+const Item = memo(
+  ({ startRef, virtualItem, item }: ItemProps): JSX.Element => (
+    <>
+      <TimeTick key={`tick-${item.time}`} time={item.time} />
+      {activityLine(startRef, item, virtualItem.index)}
+      {objectEvent(item)}
+    </>
+  ),
+  itemEqual,
+);
+
+type RowProps = {
+  startRef: React.MutableRefObject<number>;
+  virtualItem: VirtualItem;
+  item: TimelineItem;
+};
+const Row = memo(({ startRef, virtualItem, item }: RowProps): JSX.Element => {
   const [hover, setHover] = useState(false);
 
   return (
@@ -325,14 +361,13 @@ const Item = memo(({ startRef, virtualItem, item }: ItemProps): JSX.Element => {
         height: `${virtualItem.size}px`,
         width: "100%",
         transform: `translateY(${virtualItem.start}px)`,
+        transition: "transform 0.2s linear",
         zIndex:
           // eslint-disable-next-line no-nested-ternary
           item.snapshotEvent && hover ? 999 : item.snapshotEvent ? 998 : 1,
       }}
     >
-      <TimeTick key={`tick-${item.time}`} time={item.time} />
-      {activityLine(startRef, item, virtualItem.index)}
-      {objectEvent(item)}
+      <Item startRef={startRef} virtualItem={virtualItem} item={item} />
     </div>
   );
 });
@@ -360,7 +395,7 @@ const VirtualList = memo(
         }}
       >
         {rowVirtualizer.getVirtualItems().map((virtualItem) => (
-          <Item
+          <Row
             key={`item-${items[virtualItem.index].time}`}
             startRef={startRef}
             virtualItem={virtualItem}
