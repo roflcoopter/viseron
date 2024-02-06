@@ -1,11 +1,12 @@
 """Test the HLS API handler."""
 
 import datetime
+import json
 from unittest.mock import patch
 
-from sqlalchemy import update
+from sqlalchemy import insert, update
 
-from viseron.components.storage.models import Recordings
+from viseron.components.storage.models import Files, FilesMeta, Recordings
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
 
 from tests.common import BaseTestWithRecordings, MockCamera
@@ -77,3 +78,62 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         assert response_string.count("#EXTINF") == 4
         assert response_string.count("#EXT-X-DISCONTINUITY") == 4
         assert response_string.count("#EXT-X-ENDLIST") == 0
+
+    def test_get_available_timespans(self):
+        """Test getting available HLS timespans."""
+        mocked_camera = MockCamera(
+            identifier="test", config={CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
+        )
+
+        # Insert some files in the future to mimick a gap in the timespans
+        with self._get_db_session() as session:
+            for i in range(5):
+                timestamp = (
+                    self._now
+                    + datetime.timedelta(seconds=5 * i)
+                    + datetime.timedelta(hours=5)
+                )
+                filename = f"{int(timestamp.timestamp())}.m4s"
+                session.execute(
+                    insert(Files).values(
+                        tier_id=0,
+                        camera_identifier="test",
+                        category="recorder",
+                        path=f"/test/{filename}",
+                        directory="test",
+                        filename=filename,
+                        size=10,
+                        created_at=timestamp,
+                    )
+                )
+                session.execute(
+                    insert(FilesMeta).values(
+                        path=f"/test/{filename}",
+                        orig_ctime=timestamp,
+                        meta={"m3u8": {"EXTINF": 5}},
+                        created_at=timestamp,
+                    )
+                )
+            session.commit()
+
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=mocked_camera,
+        ), patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                "._get_session"
+            ),
+            return_value=self._get_db_session(),
+        ):
+            time_from = 0
+            time_to = int((self._now + datetime.timedelta(days=365)).timestamp())
+            response = self.fetch(
+                f"/api/v1/hls/test/available_timespans"
+                f"?time_from={time_from}&time_to={time_to}"
+            )
+        assert response.code == 200
+        assert len(json.loads(response.body)["timespans"]) == 2

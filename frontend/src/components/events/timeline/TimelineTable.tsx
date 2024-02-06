@@ -12,6 +12,7 @@ import { TimeTick } from "components/events/timeline/TimeTick";
 import { Loading } from "components/loading/Loading";
 import queryClient from "lib/api/client";
 import { useEvents } from "lib/api/events";
+import { useHlsAvailableTimespans } from "lib/api/hls";
 import { dateToTimestamp } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -23,6 +24,7 @@ type TimelineItem = {
   time: number;
   timedEvent: null | types.CameraMotionEvent | types.CameraRecordingEvent;
   snapshotEvent: null | types.CameraObjectEvent;
+  availableTimespan: null | types.HlsAvailableTimespan;
 };
 
 const round = (num: number) => Math.ceil(num / SCALE) * SCALE;
@@ -55,43 +57,50 @@ const activityLine = (
   item: TimelineItem,
   index: number,
 ) => {
-  const { time, timedEvent } = item;
+  const { time, timedEvent, availableTimespan } = item;
 
-  if (timedEvent === null) {
+  if (timedEvent || availableTimespan) {
+    let startTimestamp = 0;
+    let endTimestamp = 0;
+    if (timedEvent) {
+      startTimestamp = timedEvent.start_timestamp;
+      endTimestamp = timedEvent.end_timestamp || dayjs().unix();
+    }
+    if (availableTimespan) {
+      startTimestamp = availableTimespan.start;
+      endTimestamp = availableTimespan.end || dayjs().unix();
+    }
+    const indexStart = Math.round((startRef.current - endTimestamp) / SCALE);
+    const indexEnd = Math.round((startRef.current - startTimestamp) / SCALE);
+    let variant: ActivityLineProps["variant"] = null;
+    if (indexStart === indexEnd) {
+      variant = "round";
+    } else if (indexStart === index) {
+      variant = "first";
+    } else if (indexEnd === index) {
+      variant = "last";
+    } else if (indexStart < index && index < indexEnd) {
+      variant = "middle";
+    }
+
     return (
       <ActivityLine
         key={`line-${time}`}
-        active={false}
-        cameraEvent={null}
-        variant={null}
+        active={variant !== null}
+        cameraEvent={timedEvent}
+        variant={variant}
+        availableTimespan={item.availableTimespan !== null}
       />
     );
-  }
-
-  const indexStart = Math.round(
-    (startRef.current - (timedEvent.end_timestamp || dayjs().unix())) / SCALE,
-  );
-  const indexEnd = Math.round(
-    (startRef.current - timedEvent.start_timestamp) / SCALE,
-  );
-
-  let variant: ActivityLineProps["variant"] = null;
-  if (indexStart === indexEnd) {
-    variant = "round";
-  } else if (indexStart === index) {
-    variant = "first";
-  } else if (indexEnd === index) {
-    variant = "last";
-  } else if (indexStart < index && index < indexEnd) {
-    variant = "middle";
   }
 
   return (
     <ActivityLine
       key={`line-${time}`}
-      active={variant !== null}
-      cameraEvent={timedEvent}
-      variant={variant}
+      active={false}
+      cameraEvent={null}
+      variant={null}
+      availableTimespan={false}
     />
   );
 };
@@ -119,6 +128,7 @@ const useInitialTimeline = (
         time: timeTick,
         timedEvent: null,
         snapshotEvent: null,
+        availableTimespan: null,
       });
       timeTick -= SCALE;
     }
@@ -152,6 +162,7 @@ const useAddTicks = (
             time: timeTick,
             timedEvent: null,
             snapshotEvent: null,
+            availableTimespan: null,
           });
         }
         return newItems;
@@ -181,16 +192,49 @@ const useAddTicks = (
 const useUpdateTimeline = (
   startRef: React.MutableRefObject<number>,
   eventsData: types.CameraEvent[],
+  availableTimespansData: types.HlsAvailableTimespan[],
   setItems: React.Dispatch<React.SetStateAction<TimelineItem[]>>,
 ) => {
   useEffect(() => {
-    if (eventsData.length === 0) {
+    if (eventsData.length === 0 && availableTimespansData.length === 0) {
       return;
     }
 
     setItems((prevItems) => {
       const newItems = [...prevItems];
-      // Loop over events where type is motion
+
+      // Loop over available HLS files
+      availableTimespansData.forEach((timespan) => {
+        const indexStart = Math.round(
+          (startRef.current - (timespan.end || dayjs().unix())) / SCALE,
+        );
+        const indexEnd = Math.round(
+          (startRef.current - timespan.start) / SCALE,
+        );
+        if (indexStart === indexEnd) {
+          newItems[indexStart] = {
+            ...newItems[indexStart],
+            availableTimespan: timespan,
+          };
+          return;
+        }
+        newItems[indexStart] = {
+          ...newItems[indexStart],
+          availableTimespan: timespan,
+        };
+        newItems[indexEnd] = {
+          ...newItems[indexEnd],
+          availableTimespan: timespan,
+        };
+        for (let i = indexStart + 1; i < indexEnd; i++) {
+          newItems[i] = {
+            ...newItems[i],
+            availableTimespan: timespan,
+          };
+        }
+      });
+
+      // Loop over events where type is motion or recording
       eventsData
         .filter(
           (cameraEvent): cameraEvent is types.CameraTimedEvents =>
@@ -244,9 +288,9 @@ const useUpdateTimeline = (
       return newItems;
     });
 
-    /// Run only when eventsData changes
+    /// Run only when eventsData or availableTimespansData changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventsData]);
+  }, [eventsData, availableTimespansData]);
 };
 
 type ItemProps = {
@@ -349,13 +393,20 @@ export const TimelineTable = memo(
       time_to: startRef.current,
     });
     const eventsData = eventsQuery.data?.events || [];
+    const availableTimespansQuery = useHlsAvailableTimespans({
+      camera_identifier: camera.identifier,
+      time_from: endRef.current,
+      time_to: startRef.current,
+    });
+    const availableTimespansData =
+      availableTimespansQuery.data?.timespans || [];
 
     // Generate initial timeline with no event data
     useInitialTimeline(startRef, endRef.current, setItems);
     // Add timeticks every SCALE seconds
     useAddTicks(date, startRef, setItems);
     // Update timeline with event data
-    useUpdateTimeline(startRef, eventsData, setItems);
+    useUpdateTimeline(startRef, eventsData, availableTimespansData, setItems);
 
     if (eventsQuery.isLoading && firstRenderRef.current) {
       return <Loading text="Loading Timeline" fullScreen={false} />;

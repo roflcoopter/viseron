@@ -291,6 +291,7 @@ def get_time_period_fragments(
         .where(Files.camera_identifier == camera_identifier)
         .where(Files.category == "recorder")
         .where(Files.path.endswith(".m4s"))
+        .where(FilesMeta.meta.comparator.has_key("m3u8"))  # type: ignore
         .where(
             or_(
                 # Fetch all files that start within the recording

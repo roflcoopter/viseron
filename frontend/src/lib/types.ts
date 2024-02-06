@@ -247,3 +247,13 @@ export type StateChangedEvent = EventBase & {
     previous_state: State;
   };
 };
+
+export type HlsAvailableTimespan = {
+  start: number;
+  end: number;
+  duration: number;
+};
+
+export type HlsAvailableTimespans = {
+  timespans: [HlsAvailableTimespan];
+};

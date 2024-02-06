@@ -52,6 +52,19 @@ class HlsAPIHandler(BaseAPIHandler):
                 }
             ),
         },
+        {
+            "path_pattern": (
+                r"/hls/(?P<camera_identifier>[A-Za-z0-9_]+)/available_timespans"
+            ),
+            "supported_methods": ["GET"],
+            "method": "get_available_timespans",
+            "request_arguments_schema": vol.Schema(
+                {
+                    vol.Required("time_from"): vol.Coerce(int),
+                    vol.Optional("time_to", default=None): vol.Maybe(vol.Coerce(int)),
+                }
+            ),
+        },
     ]
 
     async def get_recording_hls_playlist(
@@ -112,6 +125,74 @@ class HlsAPIHandler(BaseAPIHandler):
         self.set_header("Cache-Control", "no-cache")
         self.set_header("Access-Control-Allow-Origin", "*")
         self.response_success(response=playlist)
+
+    async def get_available_timespans(
+        self,
+        camera_identifier: str,
+    ):
+        """Get the available timespans of HLS fragments for a time period."""
+        camera = self._get_camera(camera_identifier)
+
+        if not camera:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
+            )
+            return
+
+        timespans = await self.run_in_executor(
+            _get_available_timespans,
+            self._get_session,
+            camera,
+            self.request_arguments["time_from"],
+            self.request_arguments["time_to"],
+        )
+        self.response_success(response={"timespans": timespans})
+
+
+def _get_available_timespans(
+    get_session: Callable[[], Session],
+    camera: AbstractCamera,
+    time_from: int,
+    time_to: int | None = None,
+):
+    """Get the available timespans of HLS fragments for a time period."""
+    files = get_time_period_fragments(
+        camera.identifier, time_from, time_to, get_session
+    )
+    fragments = [
+        Fragment(
+            f"/files{file.path}",
+            float(
+                file.meta["m3u8"]["EXTINF"],
+            ),
+            file.orig_ctime,
+        )
+        for file in files
+        if file.meta.get("m3u8", {}).get("EXTINF", False)
+    ]
+
+    timespans = []
+    start = None
+    end = None
+    for fragment in fragments:
+        if start is None:
+            start = fragment.creation_time.timestamp()
+        if end is None:
+            end = fragment.creation_time.timestamp() + fragment.duration
+        if fragment.creation_time.timestamp() > end + fragment.duration:
+            timespans.append(
+                {"start": int(start), "end": int(end), "duration": int(end - start)}
+            )
+            start = fragment.creation_time.timestamp()
+            end = None
+        else:
+            end = fragment.creation_time.timestamp() + fragment.duration
+    if start is not None and end is not None:
+        timespans.append(
+            {"start": int(start), "end": int(end), "duration": int(end - start)}
+        )
+    return timespans
 
 
 def _generate_playlist(
