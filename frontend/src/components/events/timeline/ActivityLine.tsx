@@ -6,6 +6,22 @@ import * as types from "lib/types";
 
 import { TICK_HEIGHT } from "./TimelineTable";
 
+function activityLineEqual(
+  prevProps: ActivityLineProps,
+  nextProps: ActivityLineProps,
+) {
+  return (
+    prevProps.active === nextProps.active &&
+    prevProps.cameraEvent?.type === nextProps.cameraEvent?.type &&
+    prevProps.cameraEvent?.start_timestamp ===
+      nextProps.cameraEvent?.start_timestamp &&
+    prevProps.cameraEvent?.end_timestamp ===
+      nextProps.cameraEvent?.end_timestamp &&
+    prevProps.variant === nextProps.variant &&
+    prevProps.availableTimespan === nextProps.availableTimespan
+  );
+}
+
 type ActivityLinePropsActive = {
   active: boolean;
   cameraEvent: types.CameraMotionEvent | types.CameraRecordingEvent | null;
@@ -96,4 +112,5 @@ export const ActivityLine = memo(
       />
     );
   },
+  activityLineEqual,
 );

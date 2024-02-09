@@ -85,5 +85,6 @@ module.exports = defineConfig({
         patterns: ["@mui/*/*/*", "!@mui/material/test-utils/*"],
       },
     ],
+    "no-nested-ternary": "off",
   },
 });

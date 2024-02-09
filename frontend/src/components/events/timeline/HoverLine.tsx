@@ -38,8 +38,8 @@ export const HoverLine = memo(
         const percentage = y / bounds.height;
 
         // First time tick is preceded by a margin of half the time tick height
-        // so to get the correct time we add 1/3 of the scale (not entirely sure why 1/3 works)
-        const _start = startRef.current * 1000 + (SCALE * 1000) / 3;
+        // so we add half the scale to get the correct time
+        const _start = startRef.current * 1000 + (SCALE * 1000) / 2;
         // Last time tick is followed by a margin of half the time tick height
         // so we subtract half the scale to get the correct time
         const _end = endRef.current * 1000 - (SCALE * 1000) / 2;
