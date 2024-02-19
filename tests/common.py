@@ -65,6 +65,8 @@ class BaseTestWithRecordings:
 
     _get_db_session: Callable[[], Session]
     _now: datetime.datetime
+    # Represents the timestamp of the last inserted file
+    _simulated_now: datetime.datetime
 
     def insert_data(self, get_session: Callable[[], Session]):
         """Insert data used tests."""
@@ -112,6 +114,7 @@ class BaseTestWithRecordings:
                         created_at=timestamp,
                     )
                 )
+            BaseTestWithRecordings._simulated_now = timestamp
             session.execute(
                 insert(Recordings).values(
                     camera_identifier="test",

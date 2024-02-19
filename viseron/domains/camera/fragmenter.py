@@ -202,14 +202,14 @@ class Fragmenter:
         self._logger.debug("Fragment thread shutdown complete")
 
     def concatenate_fragments(
-        self, fragments: list[Fragment], sequence_number=0
+        self, fragments: list[Fragment], media_sequence=0
     ) -> str | Literal[False]:
         """Concatenate fragments into a single mp4 file."""
         filename = os.path.join(TEMP_DIR, f"{str(uuid.uuid4())}.mp4")
         playlist = generate_playlist(
             fragments,
             os.path.join(self._camera.segments_folder, "init.mp4"),
-            sequence_number=sequence_number,
+            media_sequence=media_sequence,
             end=True,
             file_directive=True,
         )
@@ -258,7 +258,7 @@ def _get_file_path(
 def generate_playlist(
     fragments: list[Fragment],
     init_file: str,
-    sequence_number=0,
+    media_sequence=0,
     end=False,
     file_directive=False,
 ) -> str:
@@ -267,9 +267,9 @@ def generate_playlist(
     playlist.append("#EXTM3U")
     playlist.append("#EXT-X-VERSION:6")
 
-    playlist.append(f"#EXT-X-MEDIA-SEQUENCE:{sequence_number}")
-    if sequence_number:
-        playlist.append(f"#EXT-X-DISCONTINUITY-SEQUENCE:{sequence_number}")
+    playlist.append(f"#EXT-X-MEDIA-SEQUENCE:{media_sequence}")
+    if media_sequence:
+        playlist.append(f"#EXT-X-DISCONTINUITY-SEQUENCE:{media_sequence}")
 
     if fragments:
         target_duration = ceil(max(f.duration for f in fragments))
@@ -294,6 +294,7 @@ def generate_playlist(
 class Fragment:
     """Represents a fragment of a mp4 file."""
 
+    filename: str
     path: str
     duration: float
     creation_time: datetime.datetime

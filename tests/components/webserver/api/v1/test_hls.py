@@ -1,4 +1,5 @@
 """Test the HLS API handler."""
+from __future__ import annotations
 
 import datetime
 import json
@@ -7,7 +8,10 @@ from unittest.mock import patch
 from sqlalchemy import insert, update
 
 from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.components.webserver.api.v1.hls import count_files_removed
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
+from viseron.domains.camera.fragmenter import Fragment
+from viseron.helpers import utcnow
 
 from tests.common import BaseTestWithRecordings, MockCamera
 from tests.components.webserver.common import TestAppBaseNoAuth
@@ -85,7 +89,7 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
             identifier="test", config={CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
         )
 
-        # Insert some files in the future to mimick a gap in the timespans
+        # Insert some files in the future to mimic a gap in the timespans
         with self._get_db_session() as session:
             for i in range(5):
                 timestamp = (
@@ -137,3 +141,69 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
             )
         assert response.code == 200
         assert len(json.loads(response.body)["timespans"]) == 2
+
+
+def test_count_files_removed_no_files_removed():
+    """Test count_files_removed with no files removed."""
+    prev_list = [
+        Fragment("file1", "file1", 1, utcnow()),
+        Fragment("file2", "file2", 1, utcnow()),
+        Fragment("file3", "file3", 1, utcnow()),
+    ]
+    curr_list = [
+        Fragment("file1", "file1", 1, utcnow()),
+        Fragment("file2", "file2", 1, utcnow()),
+        Fragment("file3", "file3", 1, utcnow()),
+    ]
+    assert count_files_removed(prev_list, curr_list) == 0
+
+
+def test_count_files_removed_one_file_removed():
+    """Test count_files_removed with one file removed."""
+    prev_list = [
+        Fragment("file1", "file1", 1, utcnow()),
+        Fragment("file2", "file2", 1, utcnow()),
+        Fragment("file3", "file3", 1, utcnow()),
+    ]
+    curr_list = [
+        Fragment("file2", "file2", 1, utcnow()),
+        Fragment("file3", "file3", 1, utcnow()),
+    ]
+    assert count_files_removed(prev_list, curr_list) == 1
+
+
+def test_count_files_removed_all_files_removed():
+    """Test count_files_removed with all files removed."""
+    prev_list = [
+        Fragment("file1", "file1", 1, utcnow()),
+        Fragment("file2", "file2", 1, utcnow()),
+        Fragment("file3", "file3", 1, utcnow()),
+    ]
+    curr_list: list[Fragment] = []
+    assert count_files_removed(prev_list, curr_list) == 3
+
+
+def test_count_files_removed_empty_previous_list():
+    """Test count_files_removed with an empty previous list."""
+    prev_list: list[Fragment] = []
+    curr_list = [
+        Fragment("file1", "file1", 1, utcnow()),
+        Fragment("file2", "file2", 1, utcnow()),
+        Fragment("file3", "file3", 1, utcnow()),
+    ]
+    assert count_files_removed(prev_list, curr_list) == 0
+
+
+def test_count_files_removed_all_files_changed():
+    """Test count_files_removed with all files changed."""
+    prev_list = [
+        Fragment("file1", "file1", 1, utcnow()),
+        Fragment("file2", "file2", 1, utcnow()),
+        Fragment("file3", "file3", 1, utcnow()),
+    ]
+    curr_list = [
+        Fragment("file4", "file4", 1, utcnow()),
+        Fragment("file5", "file5", 1, utcnow()),
+        Fragment("file6", "file6", 1, utcnow()),
+    ]
+    assert count_files_removed(prev_list, curr_list) == 3

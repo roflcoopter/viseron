@@ -108,7 +108,7 @@ class Recording:
         }
 
     def get_fragments(
-        self, lookback: float, get_session: Callable[[], Session], now=utcnow()
+        self, lookback: float, get_session: Callable[[], Session], now=None
     ):
         """Return a list of files for this recording."""
         return get_recording_fragments(self.id, lookback, get_session, now)
@@ -339,7 +339,9 @@ class AbstractRecorder(ABC, RecorderBase):
             self._storage.get_session,
         )
         fragments = [
-            Fragment(file.path, file.meta["m3u8"]["EXTINF"], file.orig_ctime)
+            Fragment(
+                file.filename, file.path, file.meta["m3u8"]["EXTINF"], file.orig_ctime
+            )
             for file in files
             if file.meta.get("m3u8", False).get("EXTINF", False)
         ]

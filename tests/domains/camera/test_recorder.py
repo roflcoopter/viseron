@@ -88,10 +88,10 @@ def test_get_recordings(get_db_session_recordings: Callable[[], Session]) -> Non
     assert len(recordings["2023-03-02"].items()) == 2
     assert len(recordings["2023-03-03"].items()) == 2
     assert recordings["2023-03-01"][1]["start_time"] == datetime.datetime(
-        2023, 3, 1, 12, 0
+        2023, 3, 1, 12, 0, tzinfo=datetime.timezone.utc
     )
     assert recordings["2023-03-01"][1]["end_time"] == datetime.datetime(
-        2023, 3, 1, 12, 3
+        2023, 3, 1, 12, 3, tzinfo=datetime.timezone.utc
     )
 
 
@@ -100,10 +100,10 @@ def test_get_recordings_date(get_db_session_recordings: Callable[[], Session]) -
     recordings = get_recordings(get_db_session_recordings, "test1", date="2023-03-03")
     assert len(recordings.items()) == 1
     assert recordings["2023-03-03"][6]["start_time"] == datetime.datetime(
-        2023, 3, 3, 12, 10
+        2023, 3, 3, 12, 10, tzinfo=datetime.timezone.utc
     )
     assert recordings["2023-03-03"][6]["end_time"] == datetime.datetime(
-        2023, 3, 3, 12, 12
+        2023, 3, 3, 12, 12, tzinfo=datetime.timezone.utc
     )
 
 
@@ -115,10 +115,10 @@ def test_get_recordings_latest(
     assert len(recordings.items()) == 1
     assert len(recordings["2023-03-03"].items()) == 1
     assert recordings["2023-03-03"][6]["start_time"] == datetime.datetime(
-        2023, 3, 3, 12, 10
+        2023, 3, 3, 12, 10, tzinfo=datetime.timezone.utc
     )
     assert recordings["2023-03-03"][6]["end_time"] == datetime.datetime(
-        2023, 3, 3, 12, 12
+        2023, 3, 3, 12, 12, tzinfo=datetime.timezone.utc
     )
 
 
@@ -134,10 +134,10 @@ def test_get_recordings_latest_daily(
     assert len(recordings["2023-03-02"].items()) == 1
     assert len(recordings["2023-03-03"].items()) == 1
     assert recordings["2023-03-03"][6]["start_time"] == datetime.datetime(
-        2023, 3, 3, 12, 10
+        2023, 3, 3, 12, 10, tzinfo=datetime.timezone.utc
     )
     assert recordings["2023-03-03"][6]["end_time"] == datetime.datetime(
-        2023, 3, 3, 12, 12
+        2023, 3, 3, 12, 12, tzinfo=datetime.timezone.utc
     )
 
 
@@ -151,10 +151,10 @@ def test_get_recordings_date_latest(
     assert len(recordings.items()) == 1
     assert len(recordings["2023-03-01"].items()) == 1
     assert recordings["2023-03-01"][2]["start_time"] == datetime.datetime(
-        2023, 3, 1, 12, 10
+        2023, 3, 1, 12, 10, tzinfo=datetime.timezone.utc
     )
     assert recordings["2023-03-01"][2]["end_time"] == datetime.datetime(
-        2023, 3, 1, 12, 12
+        2023, 3, 1, 12, 12, tzinfo=datetime.timezone.utc
     )
 
 

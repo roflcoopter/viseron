@@ -40,16 +40,16 @@ class TestMoveQueries(BaseTestWithRecordings):
 
     def test_recordings_to_move_query_max_bytes(self) -> None:
         """Test recordings_to_move_query using max_bytes."""
-        min_age_timestamp = (self._now + datetime.timedelta(seconds=360)).timestamp()
         stmt = recordings_to_move_query(
             segment_length=5,
             tier_id=0,
             camera_identifier="test",
             lookback=0,
             max_bytes=80,
-            min_age_timestamp=min_age_timestamp,
+            min_age_timestamp=self._simulated_now.timestamp(),
             max_age_timestamp=0,
             min_bytes=0,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
         )
         with self._get_db_session() as session:
             results = session.execute(stmt).fetchall()
@@ -78,6 +78,7 @@ class TestMoveQueries(BaseTestWithRecordings):
             min_age_timestamp=min_age_timestamp,
             max_age_timestamp=0,
             min_bytes=0,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
         )
         with self._get_db_session() as session:
             results = session.execute(stmt).fetchall()
@@ -103,9 +104,10 @@ class TestMoveQueries(BaseTestWithRecordings):
             camera_identifier="test",
             lookback=0,
             max_bytes=0,
-            min_age_timestamp=self._now.timestamp(),
+            min_age_timestamp=self._simulated_now.timestamp(),
             max_age_timestamp=max_age_timestamp,
             min_bytes=0,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
         )
         with self._get_db_session() as session:
             results = session.execute(stmt).fetchall()
@@ -136,9 +138,10 @@ class TestMoveQueries(BaseTestWithRecordings):
             camera_identifier="test",
             lookback=0,
             max_bytes=0,
-            min_age_timestamp=self._now.timestamp(),
+            min_age_timestamp=self._simulated_now.timestamp(),
             max_age_timestamp=max_age_timestamp,
             min_bytes=100,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
         )
         with self._get_db_session() as session:
             results = session.execute(stmt).fetchall()
@@ -161,7 +164,6 @@ class TestMoveQueries(BaseTestWithRecordings):
 
     def test_recordings_to_move_query_max_bytes_and_age(self) -> None:
         """Test recordings_to_move_query using max_bytes + max_age."""
-        min_age_timestamp = (self._now + datetime.timedelta(seconds=360)).timestamp()
         max_age_timestamp = (self._now + datetime.timedelta(seconds=26)).timestamp()
         stmt = recordings_to_move_query(
             segment_length=5,
@@ -169,9 +171,10 @@ class TestMoveQueries(BaseTestWithRecordings):
             camera_identifier="test",
             lookback=0,
             max_bytes=110,
-            min_age_timestamp=min_age_timestamp,
+            min_age_timestamp=self._simulated_now.timestamp(),
             max_age_timestamp=max_age_timestamp,
             min_bytes=0,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
         )
         with self._get_db_session() as session:
             results = session.execute(stmt).fetchall()
@@ -208,20 +211,41 @@ class TestMoveQueries(BaseTestWithRecordings):
             )
             session.commit()
 
-        min_age_timestamp = (self._now + datetime.timedelta(seconds=360)).timestamp()
         stmt = recordings_to_move_query(
             segment_length=5,
             tier_id=0,
             camera_identifier="test",
             lookback=0,
             max_bytes=80,
-            min_age_timestamp=min_age_timestamp,
+            min_age_timestamp=self._simulated_now.timestamp(),
             max_age_timestamp=0,
             min_bytes=0,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
         )
         with self._get_db_session() as session:
             results = session.execute(stmt).fetchall()
         assert len(results) == 13
+
+    def test_recordings_to_move_query_file_min_age_timestamp(self) -> None:
+        """Test recordings_to_move_query using file_min_age_timestamp.
+
+        Make sure that the file_min_age_timestamp is used to save the last few segments.
+        """
+        stmt = recordings_to_move_query(
+            segment_length=5,
+            tier_id=0,
+            camera_identifier="test",
+            lookback=0,
+            max_bytes=1,
+            min_age_timestamp=self._simulated_now.timestamp(),
+            max_age_timestamp=0,
+            min_bytes=0,
+            file_min_age_timestamp=self._simulated_now.timestamp() - 35,
+        )
+        with self._get_db_session() as session:
+            results = session.execute(stmt).fetchall()
+
+        assert len(results) == 8
 
     def test_get_recording_fragments(self):
         """Test get_recording_fragments."""

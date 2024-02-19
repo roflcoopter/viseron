@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-from datetime import timedelta
+from datetime import datetime, timedelta
 from queue import Queue
 from threading import Lock, Timer
 from typing import TYPE_CHECKING, Any, Callable
@@ -421,7 +421,7 @@ class RecorderTierHandler(TierHandler):
                         self._logger,
                     )
                     processed_paths.append(file.path)
-            if continuous_enabled and not events_enabled:
+            elif continuous_enabled and not events_enabled:
                 for file in continuous_file_ids:
                     handle_file(
                         session,
@@ -596,15 +596,21 @@ def get_recordings_to_move(
     min_age: timedelta,
     min_bytes: int,
     max_age: timedelta,
+    now: datetime | None = None,
 ) -> Result[Any]:
     """Get id of recordings and segments to move."""
-    now = utcnow()
+    if now is None:
+        now = utcnow()
 
     min_age_timestamp = (now - min_age).timestamp()
     if max_age:
         max_age_timestamp = (now - max_age).timestamp()
     else:
         max_age_timestamp = 0
+
+    # We want to ignore files that are less than 5 times the
+    # segment duration old. This is to improve HLS streaming
+    file_min_age = (now - timedelta(seconds=CAMERA_SEGMENT_DURATION * 5)).timestamp()
 
     stmt = recordings_to_move_query(
         CAMERA_SEGMENT_DURATION,
@@ -615,6 +621,7 @@ def get_recordings_to_move(
         min_age_timestamp,
         min_bytes,
         max_age_timestamp,
+        file_min_age,
     )
     result = session.execute(stmt)
     return result

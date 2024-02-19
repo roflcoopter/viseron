@@ -4,6 +4,7 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+from dataclasses import dataclass
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Callable
 
@@ -16,6 +17,7 @@ from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
 from viseron.domains.camera.fragmenter import Fragment, generate_playlist
 from viseron.helpers import utcnow
+from viseron.helpers.fixed_size_dict import FixedSizeDict
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -25,8 +27,35 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
+def count_files_removed(
+    previous_list: list[Fragment], current_list: list[Fragment]
+) -> int:
+    """Count the number of Fragments removed from the previous playlist."""
+    if not previous_list:
+        return 0
+    if not current_list:
+        return len(previous_list)
+
+    index = 0
+    for index, file in enumerate(previous_list):
+        if file.filename == current_list[0].filename:
+            return index
+    return index + 1
+
+
+@dataclass
+class HlsClient:
+    """Dataclass for HLS client to keep track of removed files in live playlists."""
+
+    client_id: str
+    fragments: list[Fragment]
+    media_sequence: int
+
+
 class HlsAPIHandler(BaseAPIHandler):
     """API handler for HLS."""
+
+    hls_client_ids: FixedSizeDict[str, HlsClient] = FixedSizeDict(maxlen=10)
 
     routes = [
         {
@@ -108,10 +137,12 @@ class HlsAPIHandler(BaseAPIHandler):
             )
             return
 
+        hls_client_id = self.request.headers.get("Hls-Client-Id", None)
         playlist = await self.run_in_executor(
             _generate_playlist_time_period,
             self._get_session,
             camera,
+            hls_client_id,
             self.request_arguments["start_timestamp"],
             self.request_arguments["end_timestamp"],
         )
@@ -122,7 +153,7 @@ class HlsAPIHandler(BaseAPIHandler):
             return
 
         self.set_header("Content-Type", "application/x-mpegURL")
-        self.set_header("Cache-Control", "no-cache")
+        self.set_header("Cache-control", "no-cache, must-revalidate, max-age=0")
         self.set_header("Access-Control-Allow-Origin", "*")
         self.response_success(response=playlist)
 
@@ -162,6 +193,7 @@ def _get_available_timespans(
     )
     fragments = [
         Fragment(
+            file.filename,
             f"/files{file.path}",
             float(
                 file.meta["m3u8"]["EXTINF"],
@@ -216,6 +248,7 @@ def _generate_playlist(
     )
     fragments = [
         Fragment(
+            file.filename,
             f"/files{file.path}",
             float(
                 file.meta["m3u8"]["EXTINF"],
@@ -256,6 +289,7 @@ def _generate_playlist(
 def _generate_playlist_time_period(
     get_session: Callable[[], Session],
     camera: AbstractCamera,
+    hls_client_id: str | None,
     start_timestamp: int,
     end_timestamp: int | None = None,
 ) -> str | None:
@@ -265,6 +299,7 @@ def _generate_playlist_time_period(
     )
     fragments = [
         Fragment(
+            file.filename,
             f"/files{file.path}",
             float(
                 file.meta["m3u8"]["EXTINF"],
@@ -275,9 +310,23 @@ def _generate_playlist_time_period(
         if file.meta.get("m3u8", {}).get("EXTINF", False)
     ]
 
+    media_sequence = 0
+    if end_timestamp is None and hls_client_id:
+        hls_client = HlsAPIHandler.hls_client_ids.get(hls_client_id, None)
+        if hls_client:
+            media_sequence = hls_client.media_sequence
+            media_sequence += count_files_removed(hls_client.fragments, fragments)
+            hls_client.fragments = fragments
+            hls_client.media_sequence = media_sequence
+        else:
+            HlsAPIHandler.hls_client_ids[hls_client_id] = HlsClient(
+                hls_client_id, fragments, media_sequence
+            )
+
     playlist = generate_playlist(
         fragments,
         f"/files{os.path.join(camera.segments_folder,'init.mp4')}",
+        media_sequence=media_sequence,
         end=bool(end_timestamp),
         file_directive=False,
     )

@@ -7,24 +7,32 @@ import tempfile
 from unittest.mock import MagicMock, Mock, patch
 
 from viseron.domains.camera.fragmenter import Fragment, Fragmenter, generate_playlist
+from viseron.helpers import utcnow
 
 
 def test_generate_playlist() -> None:
     """Test generate_playlist."""
-    fragments = [Fragment("/test/test1.mp4", 5.1), Fragment("/test/test2.mp4", 4.123)]
+    now = utcnow()
+    fragments = [
+        Fragment("test1.mp4", "/test/test1.mp4", 5.1, now),
+        Fragment("test2.mp4", "/test/test2.mp4", 4.123, now),
+    ]
+    program_date_time = now.isoformat(timespec="milliseconds")
 
     playlist = generate_playlist(fragments, "/test/init.mp4", end=True)
     assert (
         playlist
-        == """#EXTM3U
+        == f"""#EXTM3U
 #EXT-X-VERSION:6
 #EXT-X-MEDIA-SEQUENCE:0
 #EXT-X-TARGETDURATION:6
 #EXT-X-INDEPENDENT-SEGMENTS
 #EXT-X-MAP:URI="/test/init.mp4"
+#EXT-X-PROGRAM-DATE-TIME:{program_date_time}
 #EXTINF:5.1,
 /test/test1.mp4
 #EXT-X-DISCONTINUITY
+#EXT-X-PROGRAM-DATE-TIME:{program_date_time}
 #EXTINF:4.123,
 /test/test2.mp4
 #EXT-X-DISCONTINUITY

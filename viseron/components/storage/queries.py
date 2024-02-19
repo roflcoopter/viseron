@@ -82,10 +82,10 @@ def files_to_move_query(
            AND (
                :max_bytes > 0 AND
                total_bytes >= :max_bytes AND
-               orig_ctime <= to_timestamp(:min_age_timestamp)
+               orig_ctime <= to_timestamp(:min_age_timestamp) AT TIME ZONE 'UTC'
            ) OR (
                :max_age_timestamp > 0 AND
-               orig_ctime <= to_timestamp(:max_age_timestamp) AND
+               orig_ctime <= to_timestamp(:max_age_timestamp) AT TIME ZONE 'UTC' AND
                total_bytes >= :min_bytes
            )
         ORDER BY orig_ctime ASC;
@@ -116,6 +116,7 @@ def recordings_to_move_query(
     min_age_timestamp: float,
     min_bytes: int,
     max_age_timestamp: float,
+    file_min_age_timestamp: float,
 ) -> TextualSelect:
     """Return query for segments to move to next tier or delete."""
     return (
@@ -162,7 +163,8 @@ def recordings_to_move_query(
                    JOIN recordings_size rs
                    ON r.id = rs.recording_id
         )
-        SELECT rf.recording_id
+        SELECT DISTINCT ON (rf.file_id)
+               rf.recording_id
               ,rf.file_id
               ,rf.path
           FROM recording_files rf
@@ -170,16 +172,22 @@ def recordings_to_move_query(
                ON rf.recording_id = s.id
          WHERE (
             (
-                :max_bytes > 0 AND
-                s.total_bytes >= :max_bytes AND
-                rf.recording_created_at <= to_timestamp(:min_age_timestamp)
-            ) OR (
-                :max_age_timestamp > 0 AND
-                rf.recording_created_at <= to_timestamp(:max_age_timestamp) AND
-                s.total_bytes >= :min_bytes
-            )
-        ) OR s.total_bytes IS NULL
-         ORDER BY rf.orig_ctime ASC
+              (
+                  :max_bytes > 0 AND
+                  s.total_bytes >= :max_bytes AND
+                  rf.recording_created_at <= to_timestamp(:min_age_timestamp)
+                                             AT TIME ZONE 'UTC'
+              ) OR (
+                  :max_age_timestamp > 0 AND
+                  rf.recording_created_at <= to_timestamp(:max_age_timestamp)
+                                             AT TIME ZONE 'UTC' AND
+                  s.total_bytes >= :min_bytes
+              )
+            ) OR s.total_bytes IS NULL
+         )
+         AND rf.orig_ctime <= to_timestamp(:file_min_age_timestamp) AT TIME ZONE 'UTC'
+         ORDER BY rf.file_id ASC
+                 ,rf.orig_ctime ASC
                  ,rf.recording_created_at ASC;
         """
         )
@@ -192,6 +200,7 @@ def recordings_to_move_query(
             max_age_timestamp=max_age_timestamp,
             min_bytes=min_bytes,
             lookback=lookback,
+            file_min_age_timestamp=file_min_age_timestamp,
         )
         .columns(
             column("recording_id", Integer),
@@ -205,7 +214,7 @@ def get_recording_fragments(
     recording_id,
     lookback: float,
     get_session: Callable[[], Session],
-    now=utcnow(),
+    now=None,
 ):
     """Return a list of files for this recording.
 
@@ -236,7 +245,7 @@ def get_recording_fragments(
                 # Fetch all files that start within the recording
                 FilesMeta.orig_ctime.between(
                     Recordings.start_time - datetime.timedelta(seconds=lookback),
-                    coalesce(Recordings.end_time, now),
+                    coalesce(Recordings.end_time, now if now else utcnow()),
                 ),
                 # Fetch the first file that starts before the recording but
                 # ends during the recording
@@ -270,14 +279,14 @@ def get_time_period_fragments(
     start_timestamp: int,
     end_timestamp: int | None,
     get_session: Callable[[], Session],
-    now=utcnow(),
+    now=None,
 ):
     """Return a list of files for the requested time period."""
     start = datetime.datetime.utcfromtimestamp(start_timestamp)
     if end_timestamp:
         end = datetime.datetime.utcfromtimestamp(end_timestamp)
     else:
-        end = now
+        end = now if now else utcnow()
 
     row_number = (
         func.row_number()
@@ -291,7 +300,7 @@ def get_time_period_fragments(
         .where(Files.camera_identifier == camera_identifier)
         .where(Files.category == "recorder")
         .where(Files.path.endswith(".m4s"))
-        .where(FilesMeta.meta.comparator.has_key("m3u8"))  # type: ignore
+        .where(FilesMeta.meta.comparator.has_key("m3u8"))  # type: ignore[attr-defined]
         .where(
             or_(
                 # Fetch all files that start within the recording

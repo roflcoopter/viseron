@@ -105,7 +105,7 @@ class Recordings(Base):
     thumbnail_path: Mapped[str] = mapped_column(String)
 
     def get_fragments(
-        self, lookback: float, get_session: Callable[[], Session], now=UTCNow()
+        self, lookback: float, get_session: Callable[[], Session], now=None
     ):
         """Get all files for this recording.
 
