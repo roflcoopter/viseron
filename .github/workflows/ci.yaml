@@ -48,14 +48,13 @@ jobs:
         # Install pycoral from Google Coral repo since it is not on PyPI
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libgirepository1.0-dev
+          sudo apt-get install -y --no-install-recommends libgirepository1.0-dev python3-setuptools
           python3 -m venv venv
       - name: Install requirements into Python virtual environment
         if: steps.cache-venv.outputs.cache-hit != 'true'
         uses: ./.github/templates/run_in_venv
         with:
           command: |
-            pip3 install setuptools
             pip3 install --extra-index-url https://google-coral.github.io/py-repo/ -r requirements.txt -r requirements_test.txt -r requirements_ci.txt && \
             pre-commit install
 
