@@ -55,7 +55,7 @@ jobs:
         uses: ./.github/templates/run_in_venv
         with:
           command: |
-            pip3 install python-setuptools
+            pip3 install setuptools
             pip3 install --extra-index-url https://google-coral.github.io/py-repo/ -r requirements.txt -r requirements_test.txt -r requirements_ci.txt && \
             pre-commit install
 
