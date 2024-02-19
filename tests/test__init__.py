@@ -3,23 +3,30 @@
 from unittest.mock import MagicMock, patch
 
 from viseron import setup_viseron
-from viseron.components import DomainToSetup
+from viseron.components import Component, DomainToSetup
 from viseron.components.nvr.const import (
     COMPONENT as NVR_COMPONENT,
     DOMAIN as NVR_DOMAIN,
 )
+from viseron.components.storage.const import COMPONENT as STORAGE_COMPOMEMT
 from viseron.const import DOMAINS_TO_SETUP, LOADED
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 
 
-def test_setup_viseron_nvr_loaded(caplog):
+def test_setup_viseron_nvr_loaded(vis, caplog):
     """Test setup viseron when NVR is loaded."""
     data = {
+        STORAGE_COMPOMEMT: MagicMock(),
         LOADED: {NVR_COMPONENT: "Testing"},
         DOMAINS_TO_SETUP: {
             CAMERA_DOMAIN: {
                 "camera1": DomainToSetup(
-                    "test_component", CAMERA_DOMAIN, {}, "camera1", [], []
+                    Component(vis, "test_component", "test_component", {}),
+                    CAMERA_DOMAIN,
+                    {},
+                    "camera1",
+                    [],
+                    [],
                 ),
                 "camera2": "Testing",
             },
@@ -50,14 +57,20 @@ def test_setup_viseron_nvr_loaded(caplog):
     caplog.clear()
 
 
-def test_setup_viseron_nvr_missing(caplog):
+def test_setup_viseron_nvr_missing(vis, caplog):
     """Test setup viseron when NVR is NOT loaded."""
     data = {
+        STORAGE_COMPOMEMT: MagicMock(),
         LOADED: {},
         DOMAINS_TO_SETUP: {
             CAMERA_DOMAIN: {
                 "camera1": DomainToSetup(
-                    "test_component", CAMERA_DOMAIN, {}, "camera1", [], []
+                    Component(vis, "test_component", "test_component", {}),
+                    CAMERA_DOMAIN,
+                    {},
+                    "camera1",
+                    [],
+                    [],
                 ),
                 "camera2": "Testing",
             },
@@ -93,6 +106,7 @@ def test_setup_viseron_nvr_missing(caplog):
 def test_setup_viseron_cameras_missing(caplog):
     """Test setup viseron when no cameras are loaded."""
     data = {
+        STORAGE_COMPOMEMT: MagicMock(),
         LOADED: {},
         DOMAINS_TO_SETUP: {},
     }
@@ -117,6 +131,7 @@ def test_setup_viseron_cameras_missing(caplog):
 def test_setup_viseron_cameras_missing_nvr_loaded(caplog):
     """Test setup viseron when no cameras are loaded but nvr is loaded."""
     data = {
+        STORAGE_COMPOMEMT: MagicMock(),
         LOADED: {NVR_COMPONENT: "Testing"},
         DOMAINS_TO_SETUP: {},
     }
