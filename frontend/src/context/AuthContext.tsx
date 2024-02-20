@@ -7,13 +7,11 @@ import SessionExpired from "components/dialog/SessionExpired";
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { Loading } from "components/loading/Loading";
 import { useToast } from "hooks/UseToast";
-import { authToken, useAuthEnabled } from "lib/api/auth";
-import { clientId, viseronAPI } from "lib/api/client";
-import { loadTokens, tokenExpired } from "lib/tokens";
+import { useAuthEnabled } from "lib/api/auth";
+import { viseronAPI } from "lib/api/client";
+import { getToken } from "lib/tokens";
 import * as types from "lib/types";
 
-let isFetchingTokens = false;
-let tokenPromise: Promise<types.AuthTokenResponse>;
 const useAuthAxiosInterceptor = (
   auth: types.AuthEnabledResponse | undefined,
 ) => {
@@ -61,29 +59,11 @@ const useAuthAxiosInterceptor = (
           throw new Error("Invalid session.");
         }
 
-        // Refresh expired token
-        let storedTokens = loadTokens();
-        if (
-          !storedTokens ||
-          (tokenExpired() && !(config as any)._tokenRefreshed)
-        ) {
-          if (!isFetchingTokens) {
-            isFetchingTokens = true;
-            tokenPromise = authToken({
-              grant_type: "refresh_token",
-              client_id: clientId(),
-            });
-          }
-          const _token = await tokenPromise;
-          isFetchingTokens = false;
-          storedTokens = loadTokens();
-          (config as any)._tokenRefreshed = true;
-        }
-
-        if (storedTokens) {
+        const token = await getToken(config);
+        if (token) {
           (config.headers as AxiosHeaders).set(
             "Authorization",
-            `Bearer ${storedTokens.header}.${storedTokens.payload}`,
+            `Bearer ${token}`,
           );
         }
         return config;

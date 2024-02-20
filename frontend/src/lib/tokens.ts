@@ -1,5 +1,8 @@
+import { InternalAxiosRequestConfig } from "axios";
 import dayjs, { Dayjs } from "dayjs";
 
+import { authToken } from "lib/api/auth";
+import { clientId } from "lib/api/client";
 import { dispatchCustomEvent } from "lib/events";
 import * as types from "lib/types";
 
@@ -67,6 +70,38 @@ export const sessionExpired = (): boolean => {
 
 export const getAuthHeader = (): string | null => {
   const storedTokens = loadTokens();
+  if (storedTokens) {
+    return `${storedTokens.header}.${storedTokens.payload}`;
+  }
+  return null;
+};
+
+let isFetchingTokens = false;
+let tokenPromise: Promise<types.AuthTokenResponse>;
+export const getToken = async (
+  axiosConfig?: InternalAxiosRequestConfig<any>,
+) => {
+  let storedTokens = loadTokens();
+  // Refresh expired token
+  if (!storedTokens || tokenExpired()) {
+    if (
+      !isFetchingTokens &&
+      (!axiosConfig || !(axiosConfig as any)._tokenRefreshed)
+    ) {
+      isFetchingTokens = true;
+      tokenPromise = authToken({
+        grant_type: "refresh_token",
+        client_id: clientId(),
+      });
+    }
+    const _token = await tokenPromise;
+    isFetchingTokens = false;
+    storedTokens = loadTokens();
+    if (axiosConfig) {
+      (axiosConfig as any)._tokenRefreshed = true;
+    }
+  }
+
   if (storedTokens) {
     return `${storedTokens.header}.${storedTokens.payload}`;
   }
