@@ -183,6 +183,19 @@ class BaseAPIHandler(ViseronRequestHandler):
             auth_val, check_refresh_token=self.browser_request
         )
 
+    def _allow_token_parameter(self, schema: Schema, route: Route) -> Schema:
+        """Allow token parameter in schema."""
+        if route.get("allow_token_parameter", True):
+            try:
+                schema = schema.extend({vol.Optional("token"): str})
+            except AssertionError:
+                LOGGER.warning(
+                    "Schema is not a dict, cannot extend with token parameter "
+                    "for route %s",
+                    self.request.uri,
+                )
+        return schema
+
     async def route_request(self) -> None:
         """Route request to correct API endpoint."""
         unsupported_method = False
@@ -246,8 +259,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                 if schema := route.get("request_arguments_schema", None):
                     try:
                         # Implicitly allow token parameter if route allows it
-                        if route.get("allow_token_parameter", True):
-                            schema = schema.extend({vol.Optional("token"): str})
+                        schema = self._allow_token_parameter(schema, route)
                         self.request_arguments = schema(request_arguments)
                     except vol.Invalid as err:
                         LOGGER.error(
