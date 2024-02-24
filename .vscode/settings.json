@@ -2,5 +2,15 @@
   "github-actions.workflows.pinned.workflows": [".github/workflows/ci.yaml"],
   "python.testing.pytestArgs": ["tests/"],
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true
+  "python.testing.pytestEnabled": true,
+  "pylint.severity": {
+    "convention": "Warning"
+  },
+  "[python]": {
+    "editor.rulers": [88],
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+    "editor.defaultFormatter": "ms-python.black-formatter"
+  }
 }
