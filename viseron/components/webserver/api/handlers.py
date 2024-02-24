@@ -185,7 +185,7 @@ class BaseAPIHandler(ViseronRequestHandler):
 
     def _allow_token_parameter(self, schema: Schema, route: Route) -> Schema:
         """Allow token parameter in schema."""
-        if route.get("allow_token_parameter", True):
+        if route.get("allow_token_parameter", False):
             try:
                 schema = schema.extend({vol.Optional("token"): str})
             except AssertionError:
