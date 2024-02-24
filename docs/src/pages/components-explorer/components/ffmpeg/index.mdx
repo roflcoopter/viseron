@@ -347,8 +347,8 @@ ffmpeg:
         fps: 1
         raw_command: | # Output to pipe:1
           ffmpeg -rtsp_transport tcp -i rtsp://user:pass@192.168.XX.X:554/onvif_camera/profile.1 -vf fps=1.0 -f rawvideo -pix_fmt nv12 pipe:1
-      raw_command: | # Output segments to /segments/viseron_vscode_camera
-        ffmpeg -rtsp_transport tcp -i rtsp://user:pass@192.168.XX.X:554/onvif_camera/profile.0 -f segment -segment_time 5 -reset_timestamps 1 -strftime 1 -c:v copy /segments/viseron_vscode_camera/%Y%m%d%H%M%S.mp4
+      raw_command: | # Output segments to /segments/camera_one
+        ffmpeg -rtsp_transport tcp -i rtsp://user:pass@192.168.XX.X:554/onvif_camera/profile.0 -f segment -segment_time 5 -reset_timestamps 1 -strftime 1 -c:v copy /segments/camera_one/%Y%m%d%H%M%S.mp4
 ```
 
 </details>
