@@ -69,7 +69,7 @@ DESC_LABEL_STORE = (
     "be stored when a recording starts, regardless of this setting."
 )
 DESC_LABEL_STORE_INTERVAL = (
-    "The interval at which the label should be stored in the database, in seconds."
+    "The interval at which the label should be stored in the database, in seconds. "
     "If set to 0, the label will be stored every time it is detected."
 )
 
