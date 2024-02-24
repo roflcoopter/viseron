@@ -9,9 +9,11 @@ import { useTheme } from "@mui/material/styles";
 import { Instance } from "@popperjs/core";
 import { memo, useRef, useState } from "react";
 
+import {
+  TICK_HEIGHT,
+  convertToPercentage,
+} from "components/events/timeline/utils";
 import * as types from "lib/types";
-
-import { TICK_HEIGHT } from "./TimelineTable";
 
 const labelToIcon = (label: string) => {
   switch (label) {
@@ -119,7 +121,9 @@ export const ObjectEvent = memo(({ objectEvent }: ObjectEventProps) => {
       title={
         <Box>
           <Box>{`Label: ${objectEvent.label}`}</Box>
-          <Box>{`Confidence: ${objectEvent.confidence}`}</Box>
+          <Box>{`Confidence: ${convertToPercentage(
+            objectEvent.confidence,
+          )}%`}</Box>
           <Box>{`Timestamp: ${date.toLocaleString()}`}</Box>
         </Box>
       }

@@ -2,9 +2,8 @@ import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 import { memo } from "react";
 
+import { TICK_HEIGHT } from "components/events/timeline/utils";
 import * as types from "lib/types";
-
-import { TICK_HEIGHT } from "./TimelineTable";
 
 function activityLineEqual(
   prevProps: ActivityLineProps,
@@ -65,7 +64,7 @@ export const ActivityLine = memo(
           placement="left"
           arrow
           title={
-            <div>
+            <>
               <div>{`Event: ${cameraEvent.type}`}</div>
               <div>{`Start: ${new Date(
                 cameraEvent.start_time,
@@ -75,7 +74,7 @@ export const ActivityLine = memo(
                   cameraEvent.end_time,
                 ).toLocaleString()}`}</div>
               ) : null}
-            </div>
+            </>
           }
         >
           <div

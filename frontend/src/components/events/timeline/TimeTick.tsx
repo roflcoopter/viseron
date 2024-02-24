@@ -2,9 +2,8 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { memo } from "react";
 
+import { TICK_HEIGHT } from "components/events/timeline/utils";
 import { getTimeFromDate, timestampToDate } from "lib/helpers";
-
-import { TICK_HEIGHT } from "./TimelineTable";
 
 type TimeTickProps = {
   time: number;

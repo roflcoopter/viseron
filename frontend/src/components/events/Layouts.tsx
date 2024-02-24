@@ -14,6 +14,7 @@ import Tab from "@mui/material/Tab";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { Dayjs } from "dayjs";
+import Hls from "hls.js";
 import { SyntheticEvent, memo, useEffect, useRef, useState } from "react";
 
 import { CameraPickerDialog } from "components/events/CameraPickerDialog";
@@ -112,23 +113,25 @@ const Filters = memo(
 
 type TabsProps = {
   parentRef: React.MutableRefObject<HTMLDivElement | null>;
+  hlsRef: React.MutableRefObject<Hls | null>;
   date: Dayjs | null;
   selectedTab: "events" | "timeline";
   setSelectedTab: (tab: "events" | "timeline") => void;
   selectedCamera: types.Camera | null;
   selectedRecording: types.Recording | null;
   setSelectedRecording: (recording: types.Recording) => void;
-  setSource: (source: string | null) => void;
+  setRequestedTimestamp: (timestamp: number | null) => void;
 };
 const Tabs = ({
   parentRef,
+  hlsRef,
   date,
   selectedTab,
   setSelectedTab,
   selectedCamera,
   selectedRecording,
   setSelectedRecording,
-  setSource,
+  setRequestedTimestamp,
 }: TabsProps) => {
   const handleTabChange = (
     event: SyntheticEvent,
@@ -173,11 +176,13 @@ const Tabs = ({
       <TabPanel value="timeline" sx={{ padding: 0, paddingTop: "5px" }}>
         {selectedCamera ? (
           <TimelineTable
-            key={date?.unix().toString()} // Force re-render when date changes
+            // Force re-render when camera or date changes
+            key={`${selectedCamera.identifier}-${date?.unix().toString()}`}
             parentRef={parentRef}
+            hlsRef={hlsRef}
             camera={selectedCamera}
             date={date}
-            setSource={setSource}
+            setRequestedTimestamp={setRequestedTimestamp}
           />
         ) : (
           <Typography align="center" sx={{ marginTop: "20px" }}>
@@ -200,7 +205,8 @@ type LayoutProps = {
   ) => void;
   date: Dayjs | null;
   setDate: (date: Dayjs | null) => void;
-  setSource: (source: string | null) => void;
+  requestedTimestamp: number | null;
+  setRequestedTimestamp: (timestamp: number | null) => void;
   selectedTab: "events" | "timeline";
   setSelectedTab: (tab: "events" | "timeline") => void;
 };
@@ -214,11 +220,13 @@ export const Layout = memo(
     changeSelectedCamera,
     date,
     setDate,
-    setSource,
+    requestedTimestamp,
+    setRequestedTimestamp,
     selectedTab,
     setSelectedTab,
   }: LayoutProps) => {
     const parentRef = useRef<HTMLDivElement | null>(null);
+    const hlsRef = useRef<Hls | null>(null);
     return (
       <Container style={{ display: "flex" }}>
         <div
@@ -232,8 +240,9 @@ export const Layout = memo(
           <PlayerCard
             camera={selectedCamera}
             eventSource={selectedRecording ? selectedRecording.hls_url : null}
-            timelineSource={null}
+            requestedTimestamp={requestedTimestamp}
             selectedTab={selectedTab}
+            hlsRef={hlsRef}
           />
           <EventsCameraGrid
             cameras={cameras}
@@ -254,13 +263,14 @@ export const Layout = memo(
           <CardContent sx={{ padding: 0 }}>
             <Tabs
               parentRef={parentRef}
+              hlsRef={hlsRef}
               date={date}
               selectedTab={selectedTab}
               setSelectedTab={setSelectedTab}
               selectedCamera={selectedCamera}
               selectedRecording={selectedRecording}
               setSelectedRecording={setSelectedRecording}
-              setSource={setSource}
+              setRequestedTimestamp={setRequestedTimestamp}
             />
           </CardContent>
         </Card>
@@ -285,12 +295,14 @@ export const LayoutSmall = memo(
     changeSelectedCamera,
     date,
     setDate,
-    setSource,
+    requestedTimestamp,
+    setRequestedTimestamp,
     selectedTab,
     setSelectedTab,
   }: LayoutProps) => {
     const theme = useTheme();
     const parentRef = useRef<HTMLDivElement | null>(null);
+    const hlsRef = useRef<Hls | null>(null);
 
     // Observe div height to calculate the height of the EventTable
     const [height, setHeight] = useState();
@@ -310,18 +322,15 @@ export const LayoutSmall = memo(
       };
     }, [theme.headerHeight]);
 
-    useEffect(() => {
-      setSource(selectedRecording ? selectedRecording.hls_url : null);
-    }, [selectedRecording, setSource]);
-
     return (
       <Container maxWidth={false} sx={{ height: "100%" }}>
         <div ref={observedDiv}>
           <PlayerCard
             camera={selectedCamera}
             eventSource={selectedRecording ? selectedRecording.hls_url : null}
-            timelineSource={null}
-            selectedTab="events"
+            requestedTimestamp={requestedTimestamp}
+            selectedTab={selectedTab}
+            hlsRef={hlsRef}
           />
         </div>
         <Card
@@ -336,13 +345,14 @@ export const LayoutSmall = memo(
           <CardContent sx={{ padding: 0 }}>
             <Tabs
               parentRef={parentRef}
+              hlsRef={hlsRef}
               date={date}
               selectedTab={selectedTab}
               setSelectedTab={setSelectedTab}
               selectedCamera={selectedCamera}
               selectedRecording={selectedRecording}
               setSelectedRecording={setSelectedRecording}
-              setSource={setSource}
+              setRequestedTimestamp={setRequestedTimestamp}
             />
           </CardContent>
         </Card>

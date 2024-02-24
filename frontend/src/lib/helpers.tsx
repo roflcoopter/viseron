@@ -1,9 +1,8 @@
 import { Suspense, lazy } from "react";
 
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
+import { getAuthHeader } from "lib/tokens";
 import * as types from "lib/types";
-
-import { getAuthHeader } from "./tokens";
 
 const VideoPlayer = lazy(() => import("components/videoplayer/VideoPlayer"));
 

@@ -15,13 +15,12 @@ import { useContext, useRef, useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
+import Breadcrumbs from "components/header/Breadcrumbs";
 import { useAuthContext } from "context/AuthContext";
 import { ColorModeContext } from "context/ColorModeContext";
 import { useScrollPosition } from "hooks/UseScrollPosition";
 import { useToast } from "hooks/UseToast";
 import { useAuthLogout } from "lib/api/auth";
-
-import Breadcrumbs from "./Breadcrumbs";
 
 interface AppHeaderProps {
   setDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;

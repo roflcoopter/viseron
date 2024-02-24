@@ -1,7 +1,6 @@
 import * as messages from "lib/messages";
 import * as types from "lib/types";
-
-import { Connection } from "./websockets";
+import { Connection } from "lib/websockets";
 
 export const getCameras = async (
   connection: Connection,

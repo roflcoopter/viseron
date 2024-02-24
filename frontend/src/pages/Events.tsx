@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import dayjs, { Dayjs } from "dayjs";
@@ -42,7 +41,9 @@ const Events = () => {
       ? dayjs(searchParams.get("date") as string)
       : dayjs(),
   );
-  const [source, setSource] = useState<string | null>(null);
+  const [requestedTimestamp, setRequestedTimestamp] = useState<number | null>(
+    null,
+  );
   const [selectedTab, setSelectedTab] = useState<"events" | "timeline">(
     getDefaultTab(searchParams),
   );
@@ -51,6 +52,8 @@ const Events = () => {
     camera: types.Camera,
   ) => {
     setSelectedCamera(camera);
+    setRequestedTimestamp(null);
+    setSelectedRecording(null);
   };
 
   useEffect(() => {
@@ -94,24 +97,9 @@ const Events = () => {
     return null;
   }
 
-  if (matches) {
-    return (
-      <Layout
-        cameras={cameraQuery.data}
-        selectedCamera={selectedCamera}
-        selectedRecording={selectedRecording}
-        setSelectedRecording={setSelectedRecording}
-        changeSelectedCamera={changeSelectedCamera}
-        date={date}
-        setDate={setDate}
-        setSource={setSource}
-        selectedTab={selectedTab}
-        setSelectedTab={setSelectedTab}
-      />
-    );
-  }
+  const LayoutVariant = matches ? Layout : LayoutSmall;
   return (
-    <LayoutSmall
+    <LayoutVariant
       cameras={cameraQuery.data}
       selectedCamera={selectedCamera}
       selectedRecording={selectedRecording}
@@ -119,7 +107,8 @@ const Events = () => {
       changeSelectedCamera={changeSelectedCamera}
       date={date}
       setDate={setDate}
-      setSource={setSource}
+      requestedTimestamp={requestedTimestamp}
+      setRequestedTimestamp={setRequestedTimestamp}
       selectedTab={selectedTab}
       setSelectedTab={setSelectedTab}
     />

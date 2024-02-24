@@ -10,10 +10,10 @@ import { Loading } from "components/loading/Loading";
 import ToastContainer from "components/toast/ToastContainer";
 import { AuthProvider } from "context/AuthContext";
 import { ColorModeProvider } from "context/ColorModeContext";
+import queryClient from "lib/api/client";
 
 import App from "./App";
 import "./index.css";
-import queryClient from "./lib/api/client";
 
 ReactDOM.render(
   <React.StrictMode>
