@@ -102,11 +102,17 @@ DESC_OBJECT_DETECTION = (
     "Override the default snapshot tiers for object detection. "
     "If not set, the default tiers will be used."
 )
-DESC_GB = "Max size in GB. Added together with <code>max_mb</code>."
-DESC_MB = "Max size in MB. Added together with <code>max_gb</code>."
-DESC_DAYS = "Max age in days."
-DESC_HOURS = "Max age in hours."
-DESC_MINUTES = "Max age in minutes."
+DESC_MIN_GB = "Min size in GB. Added together with <code>min_mb</code>."
+DESC_MIN_MB = "Min size in MB. Added together with <code>min_gb</code>."
+DESC_MAX_GB = "Max size in GB. Added together with <code>max_mb</code>."
+DESC_MAX_MB = "Max size in MB. Added together with <code>max_gb</code>."
+
+DESC_MIN_DAYS = "Min age in days."
+DESC_MIN_HOURS = "Min age in hours."
+DESC_MIN_MINUTES = "Min age in minutes."
+DESC_MAX_DAYS = "Max age in days."
+DESC_MAX_HOURS = "Max age in hours."
+DESC_MAX_MINUTES = "Max age in minutes."
 DESC_PATH = (
     "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>."
 )

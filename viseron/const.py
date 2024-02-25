@@ -3,6 +3,7 @@ from typing import Final
 
 import cv2
 
+DEFAULT_PORT = 8888
 CONFIG_PATH = "/config/config.yaml"
 SECRETS_PATH = "/config/secrets.yaml"
 STORAGE_PATH = "/config/.viseron"

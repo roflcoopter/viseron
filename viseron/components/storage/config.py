@@ -1,7 +1,7 @@
 """Storage component configuration."""
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 
 import voluptuous as vol
 
@@ -46,18 +46,23 @@ from viseron.components.storage.const import (
     DEFAULT_SNAPSHOTS,
     DEFAULT_SNAPSHOTS_TIERS,
     DESC_CONTINUOUS,
-    DESC_DAYS,
     DESC_DOMAIN_TIERS,
     DESC_EVENTS,
     DESC_FACE_RECOGNITION,
-    DESC_GB,
-    DESC_HOURS,
     DESC_MAX_AGE,
+    DESC_MAX_DAYS,
+    DESC_MAX_GB,
+    DESC_MAX_HOURS,
+    DESC_MAX_MB,
+    DESC_MAX_MINUTES,
     DESC_MAX_SIZE,
-    DESC_MB,
     DESC_MIN_AGE,
+    DESC_MIN_DAYS,
+    DESC_MIN_GB,
+    DESC_MIN_HOURS,
+    DESC_MIN_MB,
+    DESC_MIN_MINUTES,
     DESC_MIN_SIZE,
-    DESC_MINUTES,
     DESC_MOVE_ON_SHUTDOWN,
     DESC_OBJECT_DETECTION,
     DESC_PATH,
@@ -68,52 +73,71 @@ from viseron.components.storage.const import (
     DESC_SNAPSHOTS_TIERS,
 )
 from viseron.components.storage.util import calculate_age
+from viseron.config import UNSUPPORTED
 from viseron.const import TEMP_DIR
 from viseron.helpers.validators import CoerceNoneToDict, Maybe
 
 
-def ends_with_slash(value: str) -> str:
-    """Validate that a path ends with slash.
+def custom_convert(value) -> dict[str, str] | object:
+    """Convert custom validators for the script gen_docs."""
+    if isinstance(value, CoerceEndsWithSlash):
+        return {
+            "type": "string",
+        }
+    return UNSUPPORTED
 
-    Returns the path without the slash.
-    """
-    if value == "/":
+
+class CoerceEndsWithSlash:
+    """Validate that a path ends with slash."""
+
+    def __init__(self) -> None:
+        pass
+
+    def __call__(self, value: str) -> str:
+        """Validate that a path ends with slash."""
+        if value == "/":
+            return value
+        if value[-1] != "/":
+            return value + "/"
         return value
-    if value[-1] != "/":
-        return value + "/"
-    return value
 
 
-SIZE_SCHEMA = {
-    vol.Optional(
-        CONFIG_GB,
-        default=DEFAULT_GB,
-        description=DESC_GB,
-    ): Maybe(vol.Coerce(float)),
-    vol.Optional(
-        CONFIG_MB,
-        default=DEFAULT_MB,
-        description=DESC_MB,
-    ): Maybe(vol.Coerce(float)),
-}
+def get_size_schema(age_type: Literal["min"] | Literal["max"]) -> vol.Schema:
+    """Get size schema."""
+    return {
+        vol.Optional(
+            CONFIG_GB,
+            default=DEFAULT_GB,
+            description=DESC_MIN_GB if age_type == "min" else DESC_MAX_GB,
+        ): Maybe(vol.Coerce(float)),
+        vol.Optional(
+            CONFIG_MB,
+            default=DEFAULT_MB,
+            description=DESC_MIN_MB if age_type == "min" else DESC_MAX_MB,
+        ): Maybe(vol.Coerce(float)),
+    }
 
-AGE_SCHEMA = {
-    vol.Optional(
-        CONFIG_DAYS,
-        default=DEFAULT_DAYS,
-        description=DESC_DAYS,
-    ): Maybe(vol.Coerce(int)),
-    vol.Optional(
-        CONFIG_HOURS,
-        default=DEFAULT_HOURS,
-        description=DESC_HOURS,
-    ): Maybe(vol.Coerce(int)),
-    vol.Optional(
-        CONFIG_MINUTES,
-        default=DEFAULT_MINUTES,
-        description=DESC_MINUTES,
-    ): Maybe(vol.Coerce(int)),
-}
+
+def get_age_schema(age_type: Literal["min"] | Literal["max"]) -> vol.Schema:
+    """Get age schema."""
+    return {
+        vol.Optional(
+            CONFIG_DAYS,
+            default=DEFAULT_DAYS,
+            description=DESC_MIN_DAYS if age_type == "min" else DESC_MAX_DAYS,
+        ): Maybe(vol.Coerce(int)),
+        vol.Optional(
+            CONFIG_HOURS,
+            default=DEFAULT_HOURS,
+            description=DESC_MIN_HOURS if age_type == "min" else DESC_MAX_HOURS,
+        ): Maybe(vol.Coerce(int)),
+        vol.Optional(
+            CONFIG_MINUTES,
+            default=DEFAULT_MINUTES,
+            description=DESC_MIN_MINUTES if age_type == "min" else DESC_MAX_MINUTES,
+        ): Maybe(vol.Coerce(int)),
+    }
+
 
 TIER_SCHEMA_BASE = vol.Schema(
     {
@@ -121,22 +145,22 @@ TIER_SCHEMA_BASE = vol.Schema(
             CONFIG_MIN_SIZE,
             default=DEFAULT_MIN_SIZE,
             description=DESC_MIN_SIZE,
-        ): SIZE_SCHEMA,
+        ): get_size_schema("min"),
         vol.Optional(
             CONFIG_MAX_SIZE,
             default=DEFAULT_MAX_SIZE,
             description=DESC_MAX_SIZE,
-        ): SIZE_SCHEMA,
+        ): get_size_schema("max"),
         vol.Optional(
             CONFIG_MAX_AGE,
             default=DEFAULT_MAX_AGE,
             description=DESC_MAX_AGE,
-        ): AGE_SCHEMA,
+        ): get_age_schema("max"),
         vol.Optional(
             CONFIG_MIN_AGE,
             default=DEFAULT_MIN_AGE,
             description=DESC_MIN_AGE,
-        ): AGE_SCHEMA,
+        ): get_age_schema("min"),
     }
 )
 
@@ -164,7 +188,7 @@ TIER_SCHEMA_RECORDER = vol.Schema(
         vol.Required(
             CONFIG_PATH,
             description=DESC_PATH,
-        ): vol.All(str, ends_with_slash),
+        ): vol.All(str, CoerceEndsWithSlash()),
         vol.Optional(
             CONFIG_POLL,
             default=DEFAULT_POLL,

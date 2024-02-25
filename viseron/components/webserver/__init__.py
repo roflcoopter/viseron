@@ -15,7 +15,7 @@ import voluptuous as vol
 from tornado.routing import PathMatches
 
 from viseron.components.webserver.auth import Auth
-from viseron.const import VISERON_SIGNAL_SHUTDOWN
+from viseron.const import DEFAULT_PORT, VISERON_SIGNAL_SHUTDOWN
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers.storage import Storage
 from viseron.helpers.validators import CoerceNoneToDict
@@ -32,7 +32,6 @@ from .const import (
     CONFIG_SESSION_EXPIRY,
     DEFAULT_COMPONENT,
     DEFAULT_DEBUG,
-    DEFAULT_PORT,
     DEFAULT_SESSION_EXPIRY,
     DESC_AUTH,
     DESC_COMPONENT,

@@ -251,8 +251,19 @@ services:
 ```
 
 ```yaml title="/config/config.yaml"
-recorder:
-  segments_folder: /tmp
+storage:
+  recorder:
+    tiers:
+      # Store 50 MB of segments in RAM disk
+      - path: /tmp/tier1
+        events:
+          max_size:
+            mb: 50
+      # Keep 50 GB of segments on a normal drive
+      - path: /config/tier2
+        events:
+          max_size:
+            gb: 50
 ```
 
 </details>

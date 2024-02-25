@@ -6,30 +6,6 @@
         "type": "map",
         "value": [
           {
-            "type": "boolean",
-            "name": "create_event_clip",
-            "description": "Concatenate segments to an MP4 file for each event. WARNING: Will store both the segments AND the MP4 file.",
-            "optional": true,
-            "default": false
-          },
-          {
-            "type": "select",
-            "options": [
-              {
-                "type": "constant",
-                "value": "continuous"
-              },
-              {
-                "type": "constant",
-                "value": "events"
-              }
-            ],
-            "name": "type",
-            "description": "<code>continuous</code>: Will save everything but highlight Events.<br><code>events</code>: Will only save Events.<br>Events are started by <code>trigger_recorder</code>, and ends when either no objects or no motion (or both) is detected, depending on the configuration.",
-            "optional": true,
-            "default": "events"
-          },
-          {
             "type": "list",
             "values": [
               [
@@ -58,107 +34,231 @@
                   "type": "map",
                   "value": [
                     {
-                      "type": "float",
-                      "name": "gb",
-                      "description": "Max size in GB. Added together with <code>max_mb</code>.",
+                      "type": "map",
+                      "value": [
+                        {
+                          "type": "float",
+                          "name": "gb",
+                          "description": "Min size in GB. Added together with <code>min_mb</code>.",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "float",
+                          "name": "mb",
+                          "description": "Min size in MB. Added together with <code>min_gb</code>.",
+                          "optional": true,
+                          "default": null
+                        }
+                      ],
+                      "name": "min_size",
+                      "description": "Minimum size of files to keep in this tier.",
                       "optional": true,
-                      "default": null
+                      "default": {}
                     },
                     {
-                      "type": "float",
-                      "name": "mb",
-                      "description": "Max size in MB. Added together with <code>max_gb</code>.",
+                      "type": "map",
+                      "value": [
+                        {
+                          "type": "float",
+                          "name": "gb",
+                          "description": "Max size in GB. Added together with <code>max_mb</code>.",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "float",
+                          "name": "mb",
+                          "description": "Max size in MB. Added together with <code>max_gb</code>.",
+                          "optional": true,
+                          "default": null
+                        }
+                      ],
+                      "name": "max_size",
+                      "description": "Maximum size of files to keep in this tier.",
                       "optional": true,
-                      "default": null
+                      "default": {}
+                    },
+                    {
+                      "type": "map",
+                      "value": [
+                        {
+                          "type": "integer",
+                          "name": "days",
+                          "description": "Max age in days.",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "integer",
+                          "name": "hours",
+                          "description": "Max age in hours.",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "integer",
+                          "name": "minutes",
+                          "description": "Max age in minutes.",
+                          "optional": true,
+                          "default": null
+                        }
+                      ],
+                      "name": "max_age",
+                      "description": "Maximum age of files to keep in this tier.",
+                      "optional": true,
+                      "default": {}
+                    },
+                    {
+                      "type": "map",
+                      "value": [
+                        {
+                          "type": "integer",
+                          "name": "days",
+                          "description": "Min age in days.",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "integer",
+                          "name": "hours",
+                          "description": "Min age in hours.",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "integer",
+                          "name": "minutes",
+                          "description": "Min age in minutes.",
+                          "optional": true,
+                          "default": null
+                        }
+                      ],
+                      "name": "min_age",
+                      "description": "Minimum age of files to keep in this tier.",
+                      "optional": true,
+                      "default": {}
                     }
                   ],
-                  "name": "min_size",
-                  "description": "Minimum size of files to keep in this tier.",
+                  "name": "continuous",
+                  "description": "Retention rules for continuous recordings.",
                   "optional": true,
-                  "default": {}
+                  "default": null
                 },
                 {
                   "type": "map",
                   "value": [
                     {
-                      "type": "float",
-                      "name": "gb",
-                      "description": "Max size in GB. Added together with <code>max_mb</code>.",
+                      "type": "map",
+                      "value": [
+                        {
+                          "type": "float",
+                          "name": "gb",
+                          "description": "Min size in GB. Added together with <code>min_mb</code>.",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "float",
+                          "name": "mb",
+                          "description": "Min size in MB. Added together with <code>min_gb</code>.",
+                          "optional": true,
+                          "default": null
+                        }
+                      ],
+                      "name": "min_size",
+                      "description": "Minimum size of files to keep in this tier.",
                       "optional": true,
-                      "default": null
+                      "default": {}
                     },
                     {
-                      "type": "float",
-                      "name": "mb",
-                      "description": "Max size in MB. Added together with <code>max_gb</code>.",
+                      "type": "map",
+                      "value": [
+                        {
+                          "type": "float",
+                          "name": "gb",
+                          "description": "Max size in GB. Added together with <code>max_mb</code>.",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "float",
+                          "name": "mb",
+                          "description": "Max size in MB. Added together with <code>max_gb</code>.",
+                          "optional": true,
+                          "default": null
+                        }
+                      ],
+                      "name": "max_size",
+                      "description": "Maximum size of files to keep in this tier.",
                       "optional": true,
-                      "default": null
+                      "default": {}
+                    },
+                    {
+                      "type": "map",
+                      "value": [
+                        {
+                          "type": "integer",
+                          "name": "days",
+                          "description": "Max age in days.",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "integer",
+                          "name": "hours",
+                          "description": "Max age in hours.",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "integer",
+                          "name": "minutes",
+                          "description": "Max age in minutes.",
+                          "optional": true,
+                          "default": null
+                        }
+                      ],
+                      "name": "max_age",
+                      "description": "Maximum age of files to keep in this tier.",
+                      "optional": true,
+                      "default": {}
+                    },
+                    {
+                      "type": "map",
+                      "value": [
+                        {
+                          "type": "integer",
+                          "name": "days",
+                          "description": "Min age in days.",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "integer",
+                          "name": "hours",
+                          "description": "Min age in hours.",
+                          "optional": true,
+                          "default": null
+                        },
+                        {
+                          "type": "integer",
+                          "name": "minutes",
+                          "description": "Min age in minutes.",
+                          "optional": true,
+                          "default": null
+                        }
+                      ],
+                      "name": "min_age",
+                      "description": "Minimum age of files to keep in this tier.",
+                      "optional": true,
+                      "default": {}
                     }
                   ],
-                  "name": "max_size",
-                  "description": "Maximum size of files to keep in this tier.",
+                  "name": "events",
+                  "description": "Retention rules for event recordings.",
                   "optional": true,
-                  "default": {}
-                },
-                {
-                  "type": "map",
-                  "value": [
-                    {
-                      "type": "integer",
-                      "name": "days",
-                      "description": "Max age in days.",
-                      "optional": true,
-                      "default": null
-                    },
-                    {
-                      "type": "integer",
-                      "name": "hours",
-                      "description": "Max age in hours.",
-                      "optional": true,
-                      "default": null
-                    },
-                    {
-                      "type": "integer",
-                      "name": "minutes",
-                      "description": "Max age in minutes.",
-                      "optional": true,
-                      "default": null
-                    }
-                  ],
-                  "name": "max_age",
-                  "description": "Maximum age of files to keep in this tier.",
-                  "optional": true,
-                  "default": {}
-                },
-                {
-                  "type": "map",
-                  "value": [
-                    {
-                      "type": "integer",
-                      "name": "days",
-                      "description": "Max age in days.",
-                      "optional": true,
-                      "default": null
-                    },
-                    {
-                      "type": "integer",
-                      "name": "hours",
-                      "description": "Max age in hours.",
-                      "optional": true,
-                      "default": null
-                    },
-                    {
-                      "type": "integer",
-                      "name": "minutes",
-                      "description": "Max age in minutes.",
-                      "optional": true,
-                      "default": null
-                    }
-                  ],
-                  "name": "min_age",
-                  "description": "Minimum age of files to keep in this tier.",
-                  "optional": true,
-                  "default": {}
+                  "default": null
                 }
               ]
             ],
@@ -169,14 +269,16 @@
             "default": [
               {
                 "path": "/",
-                "max_age": {
-                  "days": 7
+                "events": {
+                  "max_age": {
+                    "days": 7
+                  }
                 }
               }
             ]
           }
         ],
-        "name": "recordings",
+        "name": "recorder",
         "description": "Configuration for recordings.",
         "optional": true,
         "default": {}
@@ -189,40 +291,19 @@
             "values": [
               [
                 {
-                  "type": "string",
-                  "name": "path",
-                  "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
-                  "required": true,
-                  "default": null
-                },
-                {
-                  "type": "boolean",
-                  "name": "poll",
-                  "description": "Poll the file system for new files. Much slower than non-polling but required for some file systems like NTFS mounts.",
-                  "optional": true,
-                  "default": false
-                },
-                {
-                  "type": "boolean",
-                  "name": "move_on_shutdown",
-                  "description": "Move/delete files to the next tier when Viseron shuts down. Useful to not lose files when shutting down Viseron if using a RAM disk.",
-                  "optional": true,
-                  "default": false
-                },
-                {
                   "type": "map",
                   "value": [
                     {
                       "type": "float",
                       "name": "gb",
-                      "description": "Max size in GB. Added together with <code>max_mb</code>.",
+                      "description": "Min size in GB. Added together with <code>min_mb</code>.",
                       "optional": true,
                       "default": null
                     },
                     {
                       "type": "float",
                       "name": "mb",
-                      "description": "Max size in MB. Added together with <code>max_gb</code>.",
+                      "description": "Min size in MB. Added together with <code>min_gb</code>.",
                       "optional": true,
                       "default": null
                     }
@@ -291,21 +372,21 @@
                     {
                       "type": "integer",
                       "name": "days",
-                      "description": "Max age in days.",
+                      "description": "Min age in days.",
                       "optional": true,
                       "default": null
                     },
                     {
                       "type": "integer",
                       "name": "hours",
-                      "description": "Max age in hours.",
+                      "description": "Min age in hours.",
                       "optional": true,
                       "default": null
                     },
                     {
                       "type": "integer",
                       "name": "minutes",
-                      "description": "Max age in minutes.",
+                      "description": "Min age in minutes.",
                       "optional": true,
                       "default": null
                     }
@@ -314,6 +395,27 @@
                   "description": "Minimum age of files to keep in this tier.",
                   "optional": true,
                   "default": {}
+                },
+                {
+                  "type": "string",
+                  "name": "path",
+                  "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
+                  "required": true,
+                  "default": null
+                },
+                {
+                  "type": "boolean",
+                  "name": "poll",
+                  "description": "Poll the file system for new files. Much slower than non-polling but required for some file systems like NTFS mounts.",
+                  "optional": true,
+                  "default": false
+                },
+                {
+                  "type": "boolean",
+                  "name": "move_on_shutdown",
+                  "description": "Move/delete files to the next tier when Viseron shuts down. Useful to not lose files when shutting down Viseron if using a RAM disk.",
+                  "optional": true,
+                  "default": false
                 }
               ]
             ],
@@ -338,40 +440,19 @@
                 "values": [
                   [
                     {
-                      "type": "string",
-                      "name": "path",
-                      "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
-                      "required": true,
-                      "default": null
-                    },
-                    {
-                      "type": "boolean",
-                      "name": "poll",
-                      "description": "Poll the file system for new files. Much slower than non-polling but required for some file systems like NTFS mounts.",
-                      "optional": true,
-                      "default": false
-                    },
-                    {
-                      "type": "boolean",
-                      "name": "move_on_shutdown",
-                      "description": "Move/delete files to the next tier when Viseron shuts down. Useful to not lose files when shutting down Viseron if using a RAM disk.",
-                      "optional": true,
-                      "default": false
-                    },
-                    {
                       "type": "map",
                       "value": [
                         {
                           "type": "float",
                           "name": "gb",
-                          "description": "Max size in GB. Added together with <code>max_mb</code>.",
+                          "description": "Min size in GB. Added together with <code>min_mb</code>.",
                           "optional": true,
                           "default": null
                         },
                         {
                           "type": "float",
                           "name": "mb",
-                          "description": "Max size in MB. Added together with <code>max_gb</code>.",
+                          "description": "Min size in MB. Added together with <code>min_gb</code>.",
                           "optional": true,
                           "default": null
                         }
@@ -440,21 +521,21 @@
                         {
                           "type": "integer",
                           "name": "days",
-                          "description": "Max age in days.",
+                          "description": "Min age in days.",
                           "optional": true,
                           "default": null
                         },
                         {
                           "type": "integer",
                           "name": "hours",
-                          "description": "Max age in hours.",
+                          "description": "Min age in hours.",
                           "optional": true,
                           "default": null
                         },
                         {
                           "type": "integer",
                           "name": "minutes",
-                          "description": "Max age in minutes.",
+                          "description": "Min age in minutes.",
                           "optional": true,
                           "default": null
                         }
@@ -463,6 +544,27 @@
                       "description": "Minimum age of files to keep in this tier.",
                       "optional": true,
                       "default": {}
+                    },
+                    {
+                      "type": "string",
+                      "name": "path",
+                      "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "type": "boolean",
+                      "name": "poll",
+                      "description": "Poll the file system for new files. Much slower than non-polling but required for some file systems like NTFS mounts.",
+                      "optional": true,
+                      "default": false
+                    },
+                    {
+                      "type": "boolean",
+                      "name": "move_on_shutdown",
+                      "description": "Move/delete files to the next tier when Viseron shuts down. Useful to not lose files when shutting down Viseron if using a RAM disk.",
+                      "optional": true,
+                      "default": false
                     }
                   ]
                 ],
@@ -486,40 +588,19 @@
                 "values": [
                   [
                     {
-                      "type": "string",
-                      "name": "path",
-                      "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
-                      "required": true,
-                      "default": null
-                    },
-                    {
-                      "type": "boolean",
-                      "name": "poll",
-                      "description": "Poll the file system for new files. Much slower than non-polling but required for some file systems like NTFS mounts.",
-                      "optional": true,
-                      "default": false
-                    },
-                    {
-                      "type": "boolean",
-                      "name": "move_on_shutdown",
-                      "description": "Move/delete files to the next tier when Viseron shuts down. Useful to not lose files when shutting down Viseron if using a RAM disk.",
-                      "optional": true,
-                      "default": false
-                    },
-                    {
                       "type": "map",
                       "value": [
                         {
                           "type": "float",
                           "name": "gb",
-                          "description": "Max size in GB. Added together with <code>max_mb</code>.",
+                          "description": "Min size in GB. Added together with <code>min_mb</code>.",
                           "optional": true,
                           "default": null
                         },
                         {
                           "type": "float",
                           "name": "mb",
-                          "description": "Max size in MB. Added together with <code>max_gb</code>.",
+                          "description": "Min size in MB. Added together with <code>min_gb</code>.",
                           "optional": true,
                           "default": null
                         }
@@ -588,21 +669,21 @@
                         {
                           "type": "integer",
                           "name": "days",
-                          "description": "Max age in days.",
+                          "description": "Min age in days.",
                           "optional": true,
                           "default": null
                         },
                         {
                           "type": "integer",
                           "name": "hours",
-                          "description": "Max age in hours.",
+                          "description": "Min age in hours.",
                           "optional": true,
                           "default": null
                         },
                         {
                           "type": "integer",
                           "name": "minutes",
-                          "description": "Max age in minutes.",
+                          "description": "Min age in minutes.",
                           "optional": true,
                           "default": null
                         }
@@ -611,6 +692,27 @@
                       "description": "Minimum age of files to keep in this tier.",
                       "optional": true,
                       "default": {}
+                    },
+                    {
+                      "type": "string",
+                      "name": "path",
+                      "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "type": "boolean",
+                      "name": "poll",
+                      "description": "Poll the file system for new files. Much slower than non-polling but required for some file systems like NTFS mounts.",
+                      "optional": true,
+                      "default": false
+                    },
+                    {
+                      "type": "boolean",
+                      "name": "move_on_shutdown",
+                      "description": "Move/delete files to the next tier when Viseron shuts down. Useful to not lose files when shutting down Viseron if using a RAM disk.",
+                      "optional": true,
+                      "default": false
                     }
                   ]
                 ],
