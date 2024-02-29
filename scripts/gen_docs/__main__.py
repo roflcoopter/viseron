@@ -21,6 +21,7 @@ from viseron.types import SupportedDomains
 
 from .const import (
     DOCS_CONTENTS,
+    DOCS_FOOTER,
     DOCS_IMPORTS,
     DOMAIN_CONTENT,
     DOMAIN_IMPORTS,
@@ -271,6 +272,7 @@ def generate_index(supported_domains):
     docs += DOCS_CONTENTS
     for domain in sorted_domains:
         docs += DOMAIN_CONTENT.get(domain, "")
+    docs += DOCS_FOOTER
 
     return docs
 
