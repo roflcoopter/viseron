@@ -1,0 +1,178 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting";
+
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+The Storage component manages Viserons database and how to store files.
+It helps you to organize segments, recordings and snapshots across multiple storage locations.
+
+Files can be retained based on age and/or space used so that you never run out of storage.
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+storage:
+  recorder:
+    tiers:
+      - path: /ssd/tier1
+        events:
+          max_age:
+            days: 1
+        continuous:
+          max_age:
+            days: 1
+      - path: /hdd/tier2
+        events:
+          max_age:
+            days: 7
+  snapshots:
+    tiers:
+      - path: /config/tier1
+        max_age:
+          days: 1
+```
+
+:::tip
+
+The above example will store recordings/events on `/ssd/tier1` for 1 day, and then move them to `/hdd/tier2` for 7 days.
+
+It will also store continuous recordings on `/ssd/tier1` for 1 day, after which they are deleted.
+
+:::
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+:::caution
+
+Be aware that the age of a file is calculated from the time it was created, not the time it was moved to the current tier.
+It is **NOT** additive. In the <code>Configuration example</code> above, a file will be completely deleted after **7 days**, not 8 days.
+
+:::
+
+## Tiers
+
+Tiers is list of directories that Viseron can use to store files.
+
+Viseron will always write to the first tier. `max_size`/`max_age` then decides when files are moved to the next tier or deleted.
+
+**It is of utmost importance that the first tier is a local disk or a RAM disk.**<br></br>
+Viseron will not be able to detect new files and will not be able to gather file metadata if the first tier is a network share/NTFS mount.
+
+:::danger
+
+The first tier **cannot** be a network share/NTFS mount. Viseron will not be able to detect new files and will not be able to gather file metadata.
+The first tier should be a local disk or a RAM disk. The other tiers can be network shares/NTFS mounts.
+
+:::
+
+When the `max_size` is hit the oldest files will be moved to the next tier.<br></br>
+When the age of a file exceeds the `max_age`, it will be moved to the next tier.<br></br>
+If the current tier is the last one, the file is deleted instead.
+
+:::caution
+
+If you change a tier path, you need to manually move the files to the new path.
+
+:::
+
+:::info
+
+For technical reasons it is very likely that there will be a few extra megabytes of files than the `max_size` allows, so leave some extra space on the disk.
+
+:::
+
+### Continuous (24/7) recordings
+
+To enable continuous recordings for **all** cameras you use the `continuous` configuration option for a tier.
+The below example will store 10gb of continuous recordings in the default location `/segments`.
+No events will be stored.
+
+<details>
+  <summary>Continuous recordings configuration example</summary>
+
+```yaml title="/config/config.yaml"
+storage:
+  recordings:
+    tiers:
+      - path: / # Will store segments in /segments folder inside the container
+        continuous:
+          max_size:
+            gb: 10
+```
+
+</details>
+
+:::tip
+
+To set camera specific options, you can use `continuous` or override the entire `storage` configuration under your camera configuration.
+See the `recorder` documentation for the component that provides your cameras.
+
+[FFmpeg](/components-explorer/components/FFmpeg)<br></br>
+[GStreamer](/components-explorer/components/GStreamer)
+
+:::
+
+### Advanced configuration
+
+For more advanced setups, `min_size` and `min_age` can be used.
+They are best explained in a `config.yaml` example:
+
+<details>
+  <summary>Advanced configuration example</summary>
+
+```yaml title="/config/config.yaml"
+storage:
+  recordings:
+    tiers:
+      - path: /mnt/ramdisk # Store continuous recordings and events here
+        continuous:
+          max_size: # If this target is hit, segments will be moved to the next tier
+            gb: 1
+          max_age: # If this target is hit, segments will be moved to the next tier
+            days: 1
+        events:
+          max_size: # If this target is hit, segments will be moved to the next tier
+            gb: 1
+          max_age: # If this target is hit, segments will be moved to the next tier
+            days: 1
+      - path: /mnt/ssd # Store only events here
+        events:
+          min_size: # If max_age is hit, keep at least 1gb
+            gb: 1
+          max_size: # If this target is hit, segments will be moved to the next tier
+            gb: 10
+          max_age: # If this target is hit, segments will be moved to the next tier ONLY if size is larger than min_size
+            days: 7
+      - path: /mnt/nas # Store only events here
+        events:
+          min_age: # If max_size is hit, keep at least 30 days worth of recordings. DOES NOT AFFECT max_age
+            days: 30
+          max_size: # If this target is hit, recordings/segments will be DELETED ONLY if they are older than 30 days
+            gb: 100
+```
+
+:::tip
+
+The same strategy can be applied for snapshots (images of detected objects, faces etc)
+
+:::
+
+</details>
+
+## Database Migrations
+
+Viseron will sometimes require database migrations to be run when you upgrade Viseron.
+This is done automatically on startup, and you should **avoid** stopping Viseron while migrations are running.
+
+## Troubleshooting
+
+<ComponentTroubleshooting meta={ComponentMetadata} logs={["sqlalchemy.engine"]} />
