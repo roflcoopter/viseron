@@ -44,7 +44,7 @@ def generate_tier_path(path: str, camera_identifier: str, category: str) -> str:
 
 def upgrade() -> None:
     """Run the upgrade migrations."""
-    op.add_column("files", sa.Column("tier_path", sa.String()))
+    op.add_column("files", sa.Column("tier_path", sa.String(), nullable=True))
 
     # Declare ORM table view of the NEW database table.
     t_files = sa.Table(
@@ -77,6 +77,8 @@ def upgrade() -> None:
                 tier_path=tier_path,
             )
         )
+
+    op.alter_column("files", "tier_path", nullable=False)
 
 
 def downgrade() -> None:
