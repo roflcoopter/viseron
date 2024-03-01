@@ -198,6 +198,7 @@ class TierHandler(FileSystemEventHandler):
                         self._tier,
                         self._next_tier,
                         file.path,
+                        file.tier_path,
                         self._logger,
                     )
             session.commit()
@@ -227,6 +228,7 @@ class TierHandler(FileSystemEventHandler):
         with self._storage.get_session() as session:
             stmt = insert(Files).values(
                 tier_id=self._tier_id,
+                tier_path=self._tier[CONFIG_PATH],
                 camera_identifier=self._camera.identifier,
                 category=self._category,
                 path=event.src_path,
@@ -256,13 +258,11 @@ class TierHandler(FileSystemEventHandler):
                 return
 
             with self._storage.get_session() as session:
-                with session.begin():
-                    stmt = (
-                        update(Files)
-                        .where(Files.path == event.src_path)
-                        .values(size=size)
-                    )
-                    session.execute(stmt)
+                stmt = (
+                    update(Files).where(Files.path == event.src_path).values(size=size)
+                )
+                session.execute(stmt)
+                session.commit()
 
             self.check_tier()
 
@@ -275,9 +275,9 @@ class TierHandler(FileSystemEventHandler):
         """Remove file from database when it is deleted."""
         self._logger.debug("File deleted: %s", event.src_path)
         with self._storage.get_session() as session:
-            with session.begin():
-                stmt = delete(Files).where(Files.path == event.src_path)
-                session.execute(stmt)
+            stmt = delete(Files).where(Files.path == event.src_path)
+            session.execute(stmt)
+            session.commit()
 
     def _shutdown(self) -> None:
         """Shutdown the observer and event handler."""
@@ -418,6 +418,7 @@ class RecorderTierHandler(TierHandler):
                         self._tier,
                         self._next_tier,
                         file.path,
+                        file.tier_path,
                         self._logger,
                     )
                     processed_paths.append(file.path)
@@ -430,6 +431,7 @@ class RecorderTierHandler(TierHandler):
                         self._tier,
                         self._next_tier,
                         file.path,
+                        file.tier_path,
                         self._logger,
                     )
             else:
@@ -444,6 +446,7 @@ class RecorderTierHandler(TierHandler):
                         self._tier,
                         self._next_tier,
                         file.path,
+                        file.tier_path,
                         self._logger,
                     )
                     processed_paths.append(file.path)
@@ -459,8 +462,9 @@ class RecorderTierHandler(TierHandler):
 
             if recording_ids:
                 self._logger.warning("Deleting recordings: %s", recording_ids)
-                stmt = delete(Recordings).where(Recordings.id.in_(recording_ids))
-                session.execute(stmt)
+                with session.begin_nested():
+                    stmt = delete(Recordings).where(Recordings.id.in_(recording_ids))
+                    session.execute(stmt)
 
             session.commit()
 
@@ -482,6 +486,7 @@ def handle_file(
     curr_tier: dict[str, Any],
     next_tier: dict[str, Any] | None,
     path: str,
+    tier_path: str,
     logger: logging.Logger,
 ) -> None:
     """Move file if there is a succeeding tier, else delete the file."""
@@ -492,12 +497,30 @@ def handle_file(
     if next_tier is None:
         delete_file(session, path, logger)
     else:
-        move_file(
-            session,
-            path,
-            path.replace(curr_tier[CONFIG_PATH], next_tier[CONFIG_PATH], 1),
-            logger,
-        )
+        new_path = path.replace(tier_path, next_tier[CONFIG_PATH], 1)
+        if new_path == path:
+            logger.warning(
+                "Failed to move file %s to next tier, new path is the same as old. "
+                "Viseron tries to mitigate this, but it can happen if you recently "
+                "changed the tier paths.",
+                path,
+            )
+        else:
+            move_file(
+                session,
+                path,
+                new_path,
+                logger,
+            )
+
+    # Delete the file from the database if tier_path is not the same as
+    # curr_tier[CONFIG_PATH]. This is an indication that the tier configuration
+    # has changed and since the old path is not monitored, the delete signal
+    # will not be received by Viseron
+    if tier_path != curr_tier[CONFIG_PATH]:
+        with session.begin_nested():
+            stmt = delete(Files).where(Files.path == path)
+            session.execute(stmt)
 
 
 def move_file(
@@ -513,13 +536,14 @@ def move_file(
     delete the old one.
     """
     logger.debug("Moving file from %s to %s", src, dst)
-    sel = select(FilesMeta).where(FilesMeta.path == src)
-    res = session.execute(sel).scalar_one()
     try:
-        ins = insert(FilesMeta).values(
-            path=dst, meta=res.meta, orig_ctime=res.orig_ctime
-        )
-        session.execute(ins)
+        with session.begin_nested():
+            sel = select(FilesMeta).where(FilesMeta.path == src)
+            res = session.execute(sel).scalar_one()
+            ins = insert(FilesMeta).values(
+                path=dst, meta=res.meta, orig_ctime=res.orig_ctime
+            )
+            session.execute(ins)
     except IntegrityError:
         logger.error(f"Failed to insert metadata for {dst}", exc_info=True)
 
@@ -529,8 +553,9 @@ def move_file(
         os.remove(src)
     except FileNotFoundError as error:
         logger.error(f"Failed to move file {src} to {dst}: {error}")
-        stmt = delete(Files).where(Files.path == src)
-        session.execute(stmt)
+        with session.begin_nested():
+            stmt = delete(Files).where(Files.path == src)
+            session.execute(stmt)
 
 
 def delete_file(
@@ -540,8 +565,9 @@ def delete_file(
 ) -> None:
     """Delete file."""
     logger.debug("Deleting file %s", path)
-    stmt = delete(Files).where(Files.path == path)
-    session.execute(stmt)
+    with session.begin_nested():
+        stmt = delete(Files).where(Files.path == path)
+        session.execute(stmt)
 
     try:
         os.remove(path)
@@ -654,6 +680,7 @@ def force_move_files(
                 curr_tier,
                 next_tier,
                 file.path,
+                file.tier_path,
                 logger,
             )
         session.commit()

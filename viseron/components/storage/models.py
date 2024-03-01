@@ -60,6 +60,7 @@ class Files(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     tier_id: Mapped[int] = mapped_column(Integer)
+    tier_path: Mapped[str] = mapped_column(String)
     camera_identifier: Mapped[str] = mapped_column(String)
     category: Mapped[str] = mapped_column(String)
     path: Mapped[str] = mapped_column(String, unique=True)

@@ -55,6 +55,7 @@ def files_to_move_query(
         WITH size_sum AS (
             SELECT f.id
                   ,f.tier_id
+                  ,f.tier_path
                   ,f.camera_identifier
                   ,f.category
                   ,f.path
@@ -74,7 +75,7 @@ def files_to_move_query(
             )
             ORDER BY fm.orig_ctime DESC
         )
-        SELECT id, path
+        SELECT id, path, tier_path
           FROM size_sum
          WHERE tier_id = :tier_id
            AND camera_identifier = :camera_identifier
@@ -103,6 +104,7 @@ def files_to_move_query(
         .columns(
             column("id", Integer),
             column("path", String),
+            column("tier_path", String),
         )
     )
 
@@ -125,6 +127,7 @@ def recordings_to_move_query(
         WITH recording_files as (
             SELECT f.id as file_id
                   ,f.tier_id
+                  ,f.tier_path
                   ,f.camera_identifier
                   ,f.category
                   ,f.path
@@ -167,6 +170,7 @@ def recordings_to_move_query(
                rf.recording_id
               ,rf.file_id
               ,rf.path
+              ,rf.tier_path
           FROM recording_files rf
                LEFT JOIN size_sum s
                ON rf.recording_id = s.id
@@ -206,6 +210,7 @@ def recordings_to_move_query(
             column("recording_id", Integer),
             column("file_id", Integer),
             column("path", String),
+            column("tier_path", String),
         )
     )
 
