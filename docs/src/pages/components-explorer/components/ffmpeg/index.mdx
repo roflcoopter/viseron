@@ -224,6 +224,9 @@ Example Docker command
 ```bash
 docker run --rm \
   -v {recordings path}:/recordings \
+  -v {recordings path}:/segments \
+  -v {recordings path}:/snapshots \
+  -v {recordings path}:/thumbnails \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -243,6 +246,9 @@ services:
     container_name: viseron
     volumes:
       - {recordings path}:/recordings
+      - {recordings path}:/segments
+      - {recordings path}:/snapshots
+      - {recordings path}:/thumbnails
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
