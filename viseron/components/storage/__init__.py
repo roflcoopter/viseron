@@ -52,7 +52,7 @@ from viseron.helpers.logs import StreamToLogger
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
-    from viseron.domains.camera import AbstractCamera, FailedCamera
+    from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -220,7 +220,7 @@ class Storage:
             raise RuntimeError("The database connection has not been established")
         return self._get_session()
 
-    def get_recordings_path(self, camera: AbstractCamera | FailedCamera) -> str:
+    def get_recordings_path(self, camera: AbstractCamera) -> str:
         """Get recordings path for camera."""
         self.create_tier_handlers(camera)
         return get_recorder_path(
@@ -231,7 +231,7 @@ class Storage:
             "recordings",
         )
 
-    def get_segments_path(self, camera: AbstractCamera | FailedCamera) -> str:
+    def get_segments_path(self, camera: AbstractCamera) -> str:
         """Get segments path for camera."""
         self.create_tier_handlers(camera)
         return get_recorder_path(
@@ -242,7 +242,7 @@ class Storage:
             "segments",
         )
 
-    def get_thumbnails_path(self, camera: AbstractCamera | FailedCamera) -> str:
+    def get_thumbnails_path(self, camera: AbstractCamera) -> str:
         """Get thumbnails path for camera.
 
         This is an UNMONITORED path, meaning that the files in this path will not be
@@ -259,7 +259,7 @@ class Storage:
 
     def get_snapshots_path(
         self,
-        camera: AbstractCamera | FailedCamera,
+        camera: AbstractCamera,
         domain: Literal["object_detector"]
         | Literal["face_recognition"]
         | Literal["license_plate_recognition"],
@@ -309,7 +309,7 @@ class Storage:
         camera = event_data.data
         self.create_tier_handlers(camera)
 
-    def create_tier_handlers(self, camera: AbstractCamera | FailedCamera) -> None:
+    def create_tier_handlers(self, camera: AbstractCamera) -> None:
         """Start observer for camera."""
         if camera.identifier in self._camera_tier_handlers:
             return
@@ -347,9 +347,7 @@ class Storage:
             self.engine.dispose()
 
 
-def _get_tier_config(
-    config: dict[str, Any], camera: AbstractCamera | FailedCamera
-) -> dict[str, Any]:
+def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str, Any]:
     """Construct tier config for camera.
 
     There are multiple ways to configure tiers for a camera, and this function
