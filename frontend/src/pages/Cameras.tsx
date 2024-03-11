@@ -3,8 +3,8 @@ import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
 import Typography from "@mui/material/Typography";
 
-import CameraCard from "components/camera/CameraCard";
-import FailedCameraCard from "components/camera/FailedCameraCard";
+import { CameraCard } from "components/camera/CameraCard";
+import { FailedCameraCard } from "components/camera/FailedCameraCard";
 import { Loading } from "components/loading/Loading";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras, useCamerasFailed } from "lib/api/cameras";

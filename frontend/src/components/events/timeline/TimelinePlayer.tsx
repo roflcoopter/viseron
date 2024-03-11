@@ -20,7 +20,7 @@ const initializePlayer = (
   intervalRef: React.MutableRefObject<NodeJS.Timeout | null>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   auth: types.AuthEnabledResponse,
-  camera: types.Camera,
+  camera: types.Camera | types.FailedCamera,
   requestedTimestamp: number,
 ) => {
   const requestedTimestampMillis = requestedTimestamp * 1000;
@@ -135,7 +135,7 @@ const useInitializePlayer = (
   videoRef: React.RefObject<HTMLVideoElement>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   requestedTimestamp: number,
-  camera: types.Camera,
+  camera: types.Camera | types.FailedCamera,
 ) => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { auth } = useAuthContext();
@@ -206,7 +206,7 @@ const useSeekToTimestamp = (
 interface TimelinePlayerProps {
   containerRef: React.RefObject<HTMLDivElement>;
   hlsRef: React.MutableRefObject<Hls | null>;
-  camera: types.Camera;
+  camera: types.Camera | types.FailedCamera;
   requestedTimestamp: number;
 }
 

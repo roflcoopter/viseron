@@ -27,15 +27,15 @@ import { insertURLParameter } from "lib/helpers";
 import * as types from "lib/types";
 
 type FiltersProps = {
-  cameras: types.Cameras;
-  selectedCamera: types.Camera | null;
+  cameras: types.CamerasOrFailedCameras;
+  selectedCamera: types.Camera | types.FailedCamera | null;
 
   date: Dayjs | null;
   setDate: (date: Dayjs | null) => void;
 
   changeSelectedCamera: (
     ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera,
+    camera: types.Camera | types.FailedCamera,
   ) => void;
 };
 
@@ -117,7 +117,7 @@ type TabsProps = {
   date: Dayjs | null;
   selectedTab: "events" | "timeline";
   setSelectedTab: (tab: "events" | "timeline") => void;
-  selectedCamera: types.Camera | null;
+  selectedCamera: types.Camera | types.FailedCamera | null;
   selectedRecording: types.Recording | null;
   setSelectedRecording: (recording: types.Recording) => void;
   setRequestedTimestamp: (timestamp: number | null) => void;
@@ -195,13 +195,13 @@ const Tabs = ({
 };
 
 type LayoutProps = {
-  cameras: types.Cameras;
-  selectedCamera: types.Camera | null;
+  cameras: types.CamerasOrFailedCameras;
+  selectedCamera: types.Camera | types.FailedCamera | null;
   selectedRecording: types.Recording | null;
   setSelectedRecording: (recording: types.Recording) => void;
   changeSelectedCamera: (
     ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera,
+    camera: types.Camera | types.FailedCamera,
   ) => void;
   date: Dayjs | null;
   setDate: (date: Dayjs | null) => void;

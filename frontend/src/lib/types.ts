@@ -134,6 +134,10 @@ export interface FailedCameras {
   [identifier: string]: FailedCamera;
 }
 
+export interface CamerasOrFailedCameras {
+  [identifier: string]: Camera | FailedCamera;
+}
+
 export interface DetectedObject {
   label: string;
   confidence: number;

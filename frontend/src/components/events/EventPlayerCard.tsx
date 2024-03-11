@@ -113,7 +113,7 @@ const EventPlayer = ({ source }: EventPlayerProps) => {
 };
 
 type PlayerCardProps = {
-  camera: types.Camera | null;
+  camera: types.Camera | types.FailedCamera | null;
   eventSource: string | null;
   requestedTimestamp: number | null;
   selectedTab: "events" | "timeline";

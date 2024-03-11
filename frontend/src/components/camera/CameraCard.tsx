@@ -23,14 +23,31 @@ import { subscribeStates } from "lib/commands";
 import * as types from "lib/types";
 import { SubscriptionUnsubscribe } from "lib/websockets";
 
+import { FailedCameraCard } from "./FailedCameraCard";
+
+type OnClick = (
+  event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  camera: types.Camera,
+) => void;
+
+type FailedOnClick = (
+  event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  camera: types.FailedCamera,
+) => void;
+
+interface SuccessCameraCardProps {
+  camera_identifier: string;
+  buttons?: boolean;
+  compact?: boolean;
+  onClick?: OnClick;
+  border?: string;
+}
+
 interface CameraCardProps {
   camera_identifier: string;
   buttons?: boolean;
   compact?: boolean;
-  onClick?: (
-    event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera,
-  ) => void;
+  onClick?: OnClick | FailedOnClick;
   border?: string;
 }
 
@@ -80,13 +97,13 @@ const useCameraToken = (camera_identifier: string, auth_enabled: boolean) => {
   }, [auth_enabled, camera_identifier, connected, connection]);
 };
 
-export default function CameraCard({
+const SuccessCameraCard = ({
   camera_identifier,
   buttons = true,
   compact = false,
   onClick,
   border,
-}: CameraCardProps) {
+}: SuccessCameraCardProps) => {
   const { connected } = useContext(ViseronContext);
   const { auth } = useAuthContext();
   const theme = useTheme();
@@ -206,7 +223,9 @@ export default function CameraCard({
           )}
           <CardActionArea
             onClick={
-              onClick ? (event) => onClick(event, cameraQuery.data) : undefined
+              onClick
+                ? (event) => (onClick as OnClick)(event, cameraQuery.data)
+                : undefined
             }
             sx={onClick ? null : { pointerEvents: "none" }}
           >
@@ -261,4 +280,40 @@ export default function CameraCard({
       )}
     </div>
   );
-}
+};
+
+export const CameraCard = ({
+  camera_identifier,
+  buttons = true,
+  compact = false,
+  onClick,
+  border,
+}: CameraCardProps) => {
+  const { connected } = useContext(ViseronContext);
+  const cameraQuery = useCamera(camera_identifier, true, {
+    enabled: connected,
+  });
+
+  if (!cameraQuery.data) {
+    return null;
+  }
+
+  if (cameraQuery.data.failed) {
+    return (
+      <FailedCameraCard
+        failedCamera={cameraQuery.data}
+        compact={compact}
+        onClick={(onClick as FailedOnClick) || undefined}
+      />
+    );
+  }
+  return (
+    <SuccessCameraCard
+      camera_identifier={camera_identifier}
+      buttons={buttons}
+      compact={compact}
+      onClick={onClick as OnClick | undefined}
+      border={border}
+    />
+  );
+};

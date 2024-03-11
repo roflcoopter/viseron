@@ -2,16 +2,16 @@ import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
 import { useTheme } from "@mui/material/styles";
 
-import CameraCard from "components/camera/CameraCard";
+import { CameraCard } from "components/camera/CameraCard";
 import * as types from "lib/types";
 
 type EventsCameraGridProps = {
-  cameras: types.Cameras;
+  cameras: types.CamerasOrFailedCameras;
   changeSelectedCamera: (
     ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera,
+    camera: types.Camera | types.FailedCamera,
   ) => void;
-  selectedCamera: types.Camera | null;
+  selectedCamera: types.Camera | types.FailedCamera | null;
 };
 export function EventsCameraGrid({
   cameras,

@@ -66,7 +66,7 @@ type EventDatePickerDialogProps = {
   open: boolean;
   setOpen: (open: boolean) => void;
   date: Dayjs | null;
-  camera: types.Camera | null;
+  camera: types.Camera | types.FailedCamera | null;
   onChange?: (
     value: Dayjs | null,
     context: PickerChangeHandlerContext<DateValidationError>,
@@ -82,6 +82,7 @@ export function EventDatePickerDialog({
 }: EventDatePickerDialogProps) {
   const recordingsQuery = useRecordings({
     camera_identifier: camera ? camera.identifier : null,
+    failed: camera ? camera.failed : false,
     configOptions: { enabled: !!camera },
   });
   const highlightedDays = useMemo(

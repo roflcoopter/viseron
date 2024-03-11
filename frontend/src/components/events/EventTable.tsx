@@ -13,7 +13,7 @@ import { useRecordings } from "lib/api/recordings";
 import * as types from "lib/types";
 
 type EventTableProps = {
-  camera: types.Camera;
+  camera: types.Camera | types.FailedCamera;
   date: Dayjs | null;
   selectedRecording: types.Recording | null;
   setSelectedRecording: (recording: types.Recording) => void;
@@ -28,6 +28,7 @@ export const EventTable = memo(
   }: EventTableProps) => {
     const recordingsQuery = useRecordings({
       camera_identifier: camera.identifier,
+      failed: camera.failed,
     });
 
     if (recordingsQuery.isError) {

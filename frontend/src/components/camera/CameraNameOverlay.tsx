@@ -3,7 +3,7 @@ import Typography from "@mui/material/Typography";
 import * as types from "lib/types";
 
 type CameraNameOverlayProps = {
-  camera: types.Camera;
+  camera: types.Camera | types.FailedCamera;
 };
 export const CameraNameOverlay = ({ camera }: CameraNameOverlayProps) => (
   <Typography

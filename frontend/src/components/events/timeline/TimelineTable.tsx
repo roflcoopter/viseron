@@ -90,7 +90,7 @@ const timelineClick = (
 type TimelineTableProps = {
   parentRef: React.MutableRefObject<HTMLDivElement | null>;
   hlsRef: React.MutableRefObject<Hls | null>;
-  camera: types.Camera;
+  camera: types.Camera | types.FailedCamera;
   date: Dayjs | null;
   setRequestedTimestamp: (timestamp: number | null) => void;
 };

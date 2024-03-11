@@ -260,5 +260,7 @@ export const findFragmentByTimestamp = (
 };
 
 // Calculate the height of the camera while maintaining aspect ratio
-export const calculateHeight = (camera: types.Camera, width: number): number =>
-  (width * camera.height) / camera.width;
+export const calculateHeight = (
+  camera: types.Camera | types.FailedCamera,
+  width: number,
+): number => (width * camera.height) / camera.width;

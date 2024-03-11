@@ -12,7 +12,7 @@ import { getTimeFromDate } from "lib/helpers";
 import * as types from "lib/types";
 
 type EventTableItemProps = {
-  camera: types.Camera;
+  camera: types.Camera | types.FailedCamera;
   recording: types.Recording;
   setSelectedRecording: (recording: types.Recording) => void;
   selected: boolean;
