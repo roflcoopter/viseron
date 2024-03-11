@@ -45,11 +45,11 @@ from viseron.components.storage.util import (
     calculate_bytes,
     files_to_move_overlap,
     get_recorder_path,
-    get_snapshots_path,
 )
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import CAMERA_SEGMENT_DURATION, VISERON_SIGNAL_LAST_WRITE
-from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER, CONFIG_RETAIN
+from viseron.domains.camera import FailedCamera
+from viseron.domains.camera.const import CONFIG_RECORDER, CONFIG_RETAIN
 from viseron.helpers import utcnow
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -73,7 +73,9 @@ class TierHandler(FileSystemEventHandler):
         tier: dict[str, Any],
         next_tier: dict[str, Any] | None,
     ) -> None:
-        self._logger = logging.getLogger(f"{__name__}.{camera.identifier}")
+        self._logger = logging.getLogger(
+            f"{__name__}.{camera.identifier}.tier_{tier_id}"
+        )
         super().__init__()
 
         self._vis = vis
@@ -126,27 +128,15 @@ class TierHandler(FileSystemEventHandler):
 
     def add_file_handler(self, path: str, pattern: str):
         """Add file handler to webserver."""
-        # We have to import this here to avoid circular imports
-        # pylint: disable-next=import-outside-toplevel
-        from viseron.components.webserver.tiered_file_handler import TieredFileHandler
-
         self._logger.debug(f"Adding handler for /files{pattern}")
-        self._webserver.application.add_handlers(
-            r".*",
-            [
-                (
-                    (rf"/files{pattern}"),
-                    TieredFileHandler,
-                    {
-                        "path": path,
-                        "vis": self._vis,
-                        "camera_identifier": self._camera.identifier,
-                        "failed": False,
-                        "category": self._category,
-                        "subcategory": self._subcategory,
-                    },
-                )
-            ],
+        add_file_handler(
+            self._vis,
+            self._webserver,
+            path,
+            pattern,
+            self._camera,
+            self._category,
+            self._subcategory,
         )
 
     def initialize(self):
@@ -181,6 +171,7 @@ class TierHandler(FileSystemEventHandler):
             file_ids = get_files_to_move(
                 session,
                 self._category,
+                self._subcategory,
                 self._tier_id,
                 self._camera.identifier,
                 self._max_bytes,
@@ -192,7 +183,7 @@ class TierHandler(FileSystemEventHandler):
             if file_ids is not None:
                 for file in file_ids:
                     handle_file(
-                        session,
+                        get_session,
                         self._storage,
                         self._camera.identifier,
                         self._tier,
@@ -231,6 +222,7 @@ class TierHandler(FileSystemEventHandler):
                 tier_path=self._tier[CONFIG_PATH],
                 camera_identifier=self._camera.identifier,
                 category=self._category,
+                subcategory=self._subcategory,
                 path=event.src_path,
                 directory=os.path.dirname(event.src_path),
                 filename=os.path.basename(event.src_path),
@@ -361,15 +353,8 @@ class RecorderTierHandler(TierHandler):
             self._events_min_age,
         ]
 
-        thumbnail_path = os.path.join(
-            self._tier[CONFIG_PATH],
-            "thumbnails",
-            self._camera.identifier,
-        )
-
         self.add_file_handler(self._path, rf"{self._path}/(.*.m4s$)")
         self.add_file_handler(self._path, rf"{self._path}/(.*.mp4$)")
-        self.add_file_handler(thumbnail_path, rf"{thumbnail_path}/(.*.jpg$)")
 
     def _check_tier(self, get_session: Callable[[], Session]) -> None:
         events_enabled = False
@@ -383,7 +368,7 @@ class RecorderTierHandler(TierHandler):
                     session,
                     self._tier_id,
                     self._camera.identifier,
-                    self._camera.config[CONFIG_RECORDER][CONFIG_LOOKBACK],
+                    self._camera.recorder.lookback,
                     self._events_max_bytes,
                     self._events_min_age,
                     self._events_min_bytes,
@@ -395,6 +380,7 @@ class RecorderTierHandler(TierHandler):
                 continuous_file_ids = get_files_to_move(
                     session,
                     self._category,
+                    self._subcategory,
                     self._tier_id,
                     self._camera.identifier,
                     self._continuous_max_bytes,
@@ -412,7 +398,7 @@ class RecorderTierHandler(TierHandler):
                     if file.path in processed_paths:
                         continue
                     handle_file(
-                        session,
+                        get_session,
                         self._storage,
                         self._camera.identifier,
                         self._tier,
@@ -425,7 +411,7 @@ class RecorderTierHandler(TierHandler):
             elif continuous_enabled and not events_enabled:
                 for file in continuous_file_ids:
                     handle_file(
-                        session,
+                        get_session,
                         self._storage,
                         self._camera.identifier,
                         self._tier,
@@ -440,7 +426,7 @@ class RecorderTierHandler(TierHandler):
                     if file.path in processed_paths:
                         continue
                     handle_file(
-                        session,
+                        get_session,
                         self._storage,
                         self._camera.identifier,
                         self._tier,
@@ -451,7 +437,6 @@ class RecorderTierHandler(TierHandler):
                     )
                     processed_paths.append(file.path)
 
-            # Delete recordings from Recordings table
             recording_ids: list[int] = []
             for recording in events_file_ids:
                 if (
@@ -460,11 +445,26 @@ class RecorderTierHandler(TierHandler):
                 ):
                     recording_ids.append(recording.recording_id)
 
+            # Signal to the thumbnail tier that the recording has been moved
             if recording_ids:
-                self._logger.warning("Deleting recordings: %s", recording_ids)
-                with session.begin_nested():
+                self._logger.debug(
+                    "Handle thumbnails for recordings: %s", recording_ids
+                )
+                for recording_id in recording_ids:
+                    thumbnail_tier_handler: ThumbnailTierHandler = (
+                        self._storage.camera_tier_handlers[self._camera.identifier][
+                            self._category
+                        ][self._tier_id]["thumbnails"]
+                    )
+                    thumbnail_tier_handler.move_thumbnail(recording_id)
+
+            # Delete recordings from Recordings table if this is the last tier
+            if recording_ids and self._next_tier is None:
+                self._logger.debug("Deleting recordings: %s", recording_ids)
+                with get_session() as _session:
                     stmt = delete(Recordings).where(Recordings.id.in_(recording_ids))
-                    session.execute(stmt)
+                    _session.execute(stmt)
+                    _session.commit()
 
             session.commit()
 
@@ -475,12 +475,69 @@ class SnapshotTierHandler(TierHandler):
     def initialize(self):
         """Initialize snapshot tier."""
         super().initialize()
-        self._path = get_snapshots_path(self._tier, self._camera, self._subcategory)
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
 
 
+class ThumbnailTierHandler(TierHandler):
+    """Handle thumbnails."""
+
+    def initialize(self):
+        """Initialize thumbnail tier."""
+        self._path = os.path.join(
+            self._tier[CONFIG_PATH],
+            "thumbnails",
+            self._camera.identifier,
+        )
+        self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
+
+    def check_tier(self) -> None:
+        """Do nothing, as we don't want to move thumbnails."""
+
+    def on_any_event(self, event: FileSystemEvent) -> None:
+        """Ignore changes to latest_thumbnail.jpg."""
+        if os.path.basename(event.src_path) == "latest_thumbnail.jpg":
+            return
+        return super().on_any_event(event)
+
+    def _on_created(self, event: FileCreatedEvent) -> None:
+        try:
+            with self._storage.get_session() as session:
+                stmt = (
+                    update(Recordings)
+                    .where(
+                        Recordings.id == os.path.basename(event.src_path).split(".")[0]
+                    )
+                    .values(thumbnail_path=event.src_path)
+                )
+                session.execute(stmt)
+                session.commit()
+        except Exception as error:  # pylint: disable=broad-except
+            self._logger.error(
+                "Failed to update thumbnail path for recording with path: "
+                f"{event.src_path}: {error}"
+            )
+        super()._on_created(event)
+
+    def move_thumbnail(self, recording_id: int) -> None:
+        """Move thumbnail to next tier."""
+        with self._storage.get_session() as session:
+            sel = select(Recordings).where(Recordings.id == recording_id)
+            recording = session.execute(sel).scalar_one()
+            handle_file(
+                self._storage.get_session,
+                self._storage,
+                self._camera.identifier,
+                self._tier,
+                self._next_tier,
+                recording.thumbnail_path,
+                self._tier[CONFIG_PATH],
+                self._logger,
+            )
+            session.commit()
+
+
 def handle_file(
-    session: Session,
+    get_session: Callable[..., Session],
     storage: Storage,
     camera_identifier: str,
     curr_tier: dict[str, Any],
@@ -495,7 +552,7 @@ def handle_file(
         return
 
     if next_tier is None:
-        delete_file(session, path, logger)
+        delete_file(get_session, path, logger)
     else:
         new_path = path.replace(tier_path, next_tier[CONFIG_PATH], 1)
         if new_path == path:
@@ -507,7 +564,7 @@ def handle_file(
             )
         else:
             move_file(
-                session,
+                get_session,
                 path,
                 new_path,
                 logger,
@@ -518,13 +575,21 @@ def handle_file(
     # has changed and since the old path is not monitored, the delete signal
     # will not be received by Viseron
     if tier_path != curr_tier[CONFIG_PATH]:
-        with session.begin_nested():
+        logger.debug(
+            "Deleting file %s from database since tier paths are different. "
+            "file tier_path: %s, current tier_path: %s",
+            path,
+            tier_path,
+            curr_tier[CONFIG_PATH],
+        )
+        with get_session() as session:
             stmt = delete(Files).where(Files.path == path)
             session.execute(stmt)
+            session.commit()
 
 
 def move_file(
-    session: Session,
+    get_session: Callable[..., Session],
     src: str,
     dst: str,
     logger: logging.Logger,
@@ -537,13 +602,14 @@ def move_file(
     """
     logger.debug("Moving file from %s to %s", src, dst)
     try:
-        with session.begin_nested():
+        with get_session() as session:
             sel = select(FilesMeta).where(FilesMeta.path == src)
             res = session.execute(sel).scalar_one()
             ins = insert(FilesMeta).values(
                 path=dst, meta=res.meta, orig_ctime=res.orig_ctime
             )
             session.execute(ins)
+            session.commit()
     except IntegrityError:
         logger.error(f"Failed to insert metadata for {dst}", exc_info=True)
 
@@ -553,21 +619,23 @@ def move_file(
         os.remove(src)
     except FileNotFoundError as error:
         logger.error(f"Failed to move file {src} to {dst}: {error}")
-        with session.begin_nested():
+        with get_session() as session:
             stmt = delete(Files).where(Files.path == src)
             session.execute(stmt)
+            session.commit()
 
 
 def delete_file(
-    session: Session,
+    get_session: Callable[..., Session],
     path: str,
     logger: logging.Logger,
 ) -> None:
     """Delete file."""
     logger.debug("Deleting file %s", path)
-    with session.begin_nested():
+    with get_session() as session:
         stmt = delete(Files).where(Files.path == path)
         session.execute(stmt)
+        session.commit()
 
     try:
         os.remove(path)
@@ -578,6 +646,7 @@ def delete_file(
 def get_files_to_move(
     session: Session,
     category: str,
+    subcategory: str,
     tier_id: int,
     camera_identifier: str,
     max_bytes: int,
@@ -602,6 +671,7 @@ def get_files_to_move(
 
     stmt = files_to_move_query(
         category,
+        subcategory,
         tier_id,
         camera_identifier,
         max_bytes,
@@ -674,7 +744,7 @@ def force_move_files(
         result = session.execute(stmt)
         for file in result:
             handle_file(
-                session,
+                get_session,
                 storage,
                 camera_identifier,
                 curr_tier,
@@ -684,3 +754,36 @@ def force_move_files(
                 logger,
             )
         session.commit()
+
+
+def add_file_handler(
+    vis: Viseron,
+    webserver: Webserver,
+    path: str,
+    pattern: str,
+    camera: AbstractCamera | FailedCamera,
+    category: str,
+    subcategory: str,
+) -> None:
+    """Add file handler to webserver."""
+    # We have to import this here to avoid circular imports
+    # pylint: disable-next=import-outside-toplevel
+    from viseron.components.webserver.tiered_file_handler import TieredFileHandler
+
+    webserver.application.add_handlers(
+        r".*",
+        [
+            (
+                (rf"/files{pattern}"),
+                TieredFileHandler,
+                {
+                    "path": path,
+                    "vis": vis,
+                    "camera_identifier": camera.identifier,
+                    "failed": bool(isinstance(camera, FailedCamera)),
+                    "category": category,
+                    "subcategory": subcategory,
+                },
+            )
+        ],
+    )

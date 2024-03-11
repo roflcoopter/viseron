@@ -54,7 +54,7 @@ class DomainToSetup:
     optional_domains: list[OptionalDomain]
     error: str | None = None
     error_instance: FailedCamera | None = None
-    retrying = False
+    retrying: bool = False
 
     def as_dict(self):
         """Return as dict."""
@@ -763,7 +763,6 @@ def domain_setup_status(
         handle_failed_domain()
     else:
         raise ValueError(f"Invalid domain status: {status}")
-
     vis.dispatch_event(
         EVENT_DOMAIN_SETUP_STATUS.format(
             status=status, domain=domain.domain, identifier=domain.identifier

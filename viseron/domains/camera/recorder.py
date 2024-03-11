@@ -8,7 +8,7 @@ import shutil
 import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Sequence, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, Sequence, TypedDict
 
 import cv2
 import numpy as np
@@ -31,6 +31,7 @@ from .const import (
     CONFIG_RECORDER,
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
+    DEFAULT_LOOKBACK,
     EVENT_RECORDER_COMPLETE,
     EVENT_RECORDER_START,
     EVENT_RECORDER_STOP,
@@ -118,7 +119,10 @@ class RecorderBase:
     """Base recorder."""
 
     def __init__(
-        self, vis: Viseron, config, camera: AbstractCamera | FailedCamera
+        self,
+        vis: Viseron,
+        config: dict[str, Any],
+        camera: AbstractCamera | FailedCamera,
     ) -> None:
         self._logger = logging.getLogger(self.__module__ + "." + camera.identifier)
         self._vis = vis
@@ -158,6 +162,11 @@ class RecorderBase:
             )
         )
 
+    @property
+    @abstractmethod
+    def lookback(self) -> int:
+        """Return lookback."""
+
 
 class AbstractRecorder(ABC, RecorderBase):
     """Abstract recorder."""
@@ -184,17 +193,14 @@ class AbstractRecorder(ABC, RecorderBase):
 
     def create_thumbnail(
         self,
-        start_time: datetime.datetime,
+        recording_id: int,
         frame: np.ndarray,
         objects: list[DetectedObject],
         resolution: tuple[int, int],
     ) -> tuple[np.ndarray, str]:
         """Create thumbnails, sent to MQTT and/or saved to disk based on config."""
         self._logger.debug(f"Saving thumbnail in {self._camera.thumbnails_folder}")
-        thumbnail_name = start_time.strftime(
-            self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_FILENAME_PATTERN]
-        )
-        thumbnail_name = f"{thumbnail_name}.jpg"
+        thumbnail_name = f"{recording_id}.jpg"
         thumbnail_path = os.path.join(self._camera.thumbnails_folder, thumbnail_name)
 
         draw_objects(
@@ -236,25 +242,31 @@ class AbstractRecorder(ABC, RecorderBase):
         )
         create_directory(full_path)
 
-        thumbnail, thumbnail_path = self.create_thumbnail(
-            start_time,
-            self._camera.shared_frames.get_decoded_frame_rgb(shared_frame).copy(),
-            objects_in_fov,
-            resolution,
-        )
-
         with self._storage.get_session() as session:
             stmt = (
                 insert(Recordings)
                 .values(
                     camera_identifier=self._camera.identifier,
                     start_time=start_time,
-                    thumbnail_path=thumbnail_path,
                 )
                 .returning(Recordings.id)
             )
             result = session.execute(stmt).scalars()
             recording_id = result.one()
+            thumbnail, thumbnail_path = self.create_thumbnail(
+                recording_id,
+                self._camera.shared_frames.get_decoded_frame_rgb(shared_frame).copy(),
+                objects_in_fov,
+                resolution,
+            )
+            stmt2 = (
+                update(Recordings)
+                .values(
+                    thumbnail_path=thumbnail_path,
+                )
+                .where(Recordings.id == recording_id)
+            )
+            session.execute(stmt2)
             session.commit()
 
         recording = Recording(
@@ -335,7 +347,7 @@ class AbstractRecorder(ABC, RecorderBase):
 
     def _concatenate_fragments(self, recording: Recording) -> None:
         files = recording.get_fragments(
-            self._config[CONFIG_RECORDER][CONFIG_LOOKBACK],
+            self.lookback,
             self._storage.get_session,
         )
         fragments = [
@@ -374,12 +386,24 @@ class AbstractRecorder(ABC, RecorderBase):
         """Return active recording."""
         return self._active_recording
 
+    @property
+    def lookback(self) -> int:
+        """Return lookback."""
+        return self._config[CONFIG_RECORDER][CONFIG_LOOKBACK]
+
 
 class FailedCameraRecorder(RecorderBase):
     """Failed camera recorder.
 
     Provides access to the recordings for failed cameras.
     """
+
+    @property
+    def lookback(self) -> int:
+        """Return lookback."""
+        return self._config.get(CONFIG_RECORDER, {}).get(
+            CONFIG_LOOKBACK, DEFAULT_LOOKBACK
+        )
 
 
 def get_recordings(

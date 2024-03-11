@@ -15,6 +15,7 @@ from uuid import uuid4
 import cv2
 import imutils
 import voluptuous as vol
+from sqlalchemy import or_, select
 
 from viseron.components import DomainToSetup
 from viseron.components.data_stream import (
@@ -33,6 +34,8 @@ from viseron.components.storage.const import (
     DESC_EVENTS,
     DESC_RECORDER_TIERS,
 )
+from viseron.components.storage.models import Files
+from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import TEMP_DIR
 from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
 from viseron.domains.camera.fragmenter import Fragmenter
@@ -98,6 +101,7 @@ from .const import (
     DEFAULT_URL,
     DEFAULT_USERNAME,
     DEPRECATED_EXTENSION,
+    DEPRECATED_FILENAME_PATTERN_THUMBNAIL,
     DEPRECATED_FOLDER,
     DEPRECATED_RETAIN,
     DESC_AUTHENTICATION,
@@ -139,6 +143,7 @@ from .const import (
     UPDATE_TOKEN_INTERVAL_MINUTES,
     VIDEO_CONTAINER,
     WARNING_EXTENSION,
+    WARNING_FILENAME_PATTERN_THUMBNAIL,
     WARNING_FOLDER,
     WARNING_RETAIN,
 )
@@ -150,6 +155,7 @@ if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.components.storage import Storage
+    from viseron.components.webserver import Webserver
     from viseron.domains.object_detector.detected_object import DetectedObject
 
     from .recorder import AbstractRecorder
@@ -213,10 +219,11 @@ THUMBNAIL_SCHEMA = vol.Schema(
             default=DEFAULT_SAVE_TO_DISK,
             description=DESC_SAVE_TO_DISK,
         ): bool,
-        vol.Optional(
+        Deprecated(
             CONFIG_FILENAME_PATTERN,
-            default=DEFAULT_FILENAME_PATTERN,
             description=DESC_FILENAME_PATTERN_THUMBNAIL,
+            message=DEPRECATED_FILENAME_PATTERN_THUMBNAIL,
+            warning=WARNING_FILENAME_PATTERN_THUMBNAIL,
         ): str,
     }
 )
@@ -644,6 +651,10 @@ class FailedCamera:
 
     def __init__(self, vis: Viseron, domain_to_setup: DomainToSetup) -> None:
         """Initialize failed camera."""
+        # Local import to avoid circular import
+        # pylint: disable=import-outside-toplevel
+        from viseron.components.storage.tier_handler import add_file_handler
+
         self._vis = vis
         self._domain_to_setup = domain_to_setup
         self._config: dict[str, Any] = domain_to_setup.config[
@@ -651,9 +662,63 @@ class FailedCamera:
         ]
 
         self._storage: Storage = vis.data[STORAGE_COMPONENT]
-        self.recordings_folder = self._storage.get_recordings_path(self)
-        self.segments_folder = self._storage.get_segments_path(self)
+        self._webserver: Webserver = vis.data[WEBSERVER_COMPONENT]
         self._recorder = FailedCameraRecorder(vis, self._config, self)
+
+        # Try to guess the path to the camera recordings
+        with self._storage.get_session() as session:
+            recorder_dir_stmt = (
+                select(Files)
+                .distinct(Files.directory)
+                .where(Files.camera_identifier == self.identifier)
+                .where(Files.category == "recorder")
+                .where(Files.subcategory == "segments")
+                .order_by(Files.directory, Files.created_at.desc())
+            )
+            for file in session.execute(recorder_dir_stmt).scalars():
+                add_file_handler(
+                    vis,
+                    self._webserver,
+                    file.directory,
+                    rf"{file.directory}/(.*.m4s$)",
+                    self,
+                    "recorder",
+                    "segments",
+                )
+                add_file_handler(
+                    vis,
+                    self._webserver,
+                    file.directory,
+                    rf"{file.directory}/(.*.mp4$)",
+                    self,
+                    "recorder",
+                    "segments",
+                )
+
+        # Try to guess the path to the camera snapshots and thumbnails
+        with self._storage.get_session() as session:
+            jpg_dir_stmt = (
+                select(Files)
+                .distinct(Files.directory)
+                .where(Files.camera_identifier == self.identifier)
+                .where(
+                    or_(
+                        Files.subcategory == "thumbnails",
+                        Files.subcategory == "snapshots",
+                    )
+                )
+                .order_by(Files.directory, Files.created_at.desc())
+            )
+            for file in session.execute(jpg_dir_stmt).scalars():
+                add_file_handler(
+                    vis,
+                    self._webserver,
+                    file.directory,
+                    rf"{file.directory}/(.*.jpg$)",
+                    self,
+                    file.category,
+                    file.subcategory,
+                )
 
     def as_dict(self):
         """Return camera as dict."""
@@ -666,6 +731,11 @@ class FailedCamera:
             "retrying": self.retrying,
             "failed": True,
         }
+
+    @property
+    def config(self) -> dict[str, Any]:
+        """Return camera config."""
+        return self._config
 
     @property
     def name(self):

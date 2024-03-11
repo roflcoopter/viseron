@@ -26,7 +26,9 @@ def test_handle_file_delete(
     tier_2 = None
     session = MagicMock()
     logger = MagicMock()
-    handle_file(session, MagicMock(), "test", tier_1, tier_2, file, logger)
+    handle_file(
+        session, MagicMock(), "test", tier_1, tier_2, file, "/tmp/tier1/", logger
+    )
     mock_delete_file.assert_called_once_with(session, file, logger)
 
 
@@ -38,14 +40,16 @@ def test_handle_file_move(
     tier_1_file = "/tmp/tier1/file1"
     tier_2_file = "/tmp/tier2/file1"
     tier_1 = {
-        "path": "/tmp/tier1",
+        "path": "/tmp/tier1/",
     }
     tier_2 = {
-        "path": "/tmp/tier2",
+        "path": "/tmp/tier2/",
     }
     session = MagicMock()
     logger = MagicMock()
-    handle_file(session, MagicMock(), "test", tier_1, tier_2, tier_1_file, logger)
+    handle_file(
+        session, MagicMock(), "test", tier_1, tier_2, tier_1_file, "/tmp/tier1/", logger
+    )
     mock_move_file.assert_called_once_with(session, tier_1_file, tier_2_file, logger)
 
 
@@ -56,6 +60,7 @@ class MockQueryResult:
     recording_id: int
     file_id: int
     path: str
+    tier_path: str
 
 
 def _get_tier_config(events: bool, continuous: bool):
@@ -134,12 +139,12 @@ class TestRecorderTierHandler(BaseTestWithRecordings):
             "viseron.components.storage.tier_handler.handle_file"
         ):
             mock_get_recordings_to_move.return_value = [
-                MockQueryResult(1, 1, "/tmp/test1.mp4"),
-                MockQueryResult(1, 2, "/tmp/test2.mp4"),
+                MockQueryResult(1, 1, "/tmp/test1.mp4", "/tmp/"),
+                MockQueryResult(1, 2, "/tmp/test2.mp4", "/tmp/"),
             ]
             mock_get_files_to_move.return_value = [
-                MockQueryResult(1, 1, "/tmp/test1.mp4"),
-                MockQueryResult(1, 2, "/tmp/test2.mp4"),
+                MockQueryResult(1, 1, "/tmp/test1.mp4", "/tmp/"),
+                MockQueryResult(1, 2, "/tmp/test2.mp4", "/tmp/"),
             ]
             tier_handler._check_tier(  # pylint: disable=protected-access
                 self._get_db_session

@@ -734,10 +734,14 @@
                       },
                       {
                         "type": "string",
-                        "name": "filename_pattern",
+                        "name": {
+                          "type": "deprecated",
+                          "name": "filename_pattern",
+                          "value": "Thumbnails are stored with the same filename as the recording ID in the database, for example: 1.jpg, 2.jpg, 3.jpg etc."
+                        },
                         "description": "A <a href=https://strftime.org/>strftime</a> pattern for saved thumbnails.<br>Default pattern results in filenames like: <code>23:59:59.jpg</code>.",
-                        "optional": true,
-                        "default": "%H:%M:%S"
+                        "deprecated": true,
+                        "default": null
                       }
                     ],
                     "name": "thumbnail",

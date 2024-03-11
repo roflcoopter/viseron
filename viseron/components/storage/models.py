@@ -63,6 +63,7 @@ class Files(Base):
     tier_path: Mapped[str] = mapped_column(String)
     camera_identifier: Mapped[str] = mapped_column(String)
     category: Mapped[str] = mapped_column(String)
+    subcategory: Mapped[str] = mapped_column(String)
     path: Mapped[str] = mapped_column(String, unique=True)
     directory: Mapped[str] = mapped_column(String)
     filename: Mapped[str] = mapped_column(String)
@@ -103,7 +104,7 @@ class Recordings(Base):
 
     trigger_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     trigger_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    thumbnail_path: Mapped[str] = mapped_column(String)
+    thumbnail_path: Mapped[str] = mapped_column(String, nullable=True)
 
     def get_fragments(
         self, lookback: float, get_session: Callable[[], Session], now=None

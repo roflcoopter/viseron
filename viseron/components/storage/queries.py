@@ -30,6 +30,7 @@ LOGGER = logging.getLogger(__name__)
 
 def files_to_move_query(
     category: str,
+    subcategory: str,
     tier_id: int,
     camera_identifier: str,
     max_bytes: int,
@@ -39,9 +40,11 @@ def files_to_move_query(
 ) -> TextualSelect:
     """Return query for files to move to next tier or delete."""
     LOGGER.debug(
-        "Query bindparms: category(%s), tier_id(%s), camera_identifier(%s), "
+        "Files to move query bindparms: "
+        "category(%s), subcategory(%s), tier_id(%s), camera_identifier(%s), "
         "max_bytes(%s), min_age_timestamp(%s), min_bytes(%s), max_age_timestamp(%s)",
         category,
+        subcategory,
         tier_id,
         camera_identifier,
         max_bytes,
@@ -58,10 +61,12 @@ def files_to_move_query(
                   ,f.tier_path
                   ,f.camera_identifier
                   ,f.category
+                  ,f.subcategory
                   ,f.path
                   ,fm.orig_ctime
                   ,sum(f.size) FILTER (
                       WHERE f.category = :category
+                        AND f.subcategory = :subcategory
                         AND f.tier_id = :tier_id
                         AND f.camera_identifier = :camera_identifier
                   ) OVER win1 AS total_bytes
@@ -80,6 +85,7 @@ def files_to_move_query(
          WHERE tier_id = :tier_id
            AND camera_identifier = :camera_identifier
            AND category = :category
+           AND subcategory = :subcategory
            AND (
                :max_bytes > 0 AND
                total_bytes >= :max_bytes AND
@@ -94,6 +100,7 @@ def files_to_move_query(
         )
         .bindparams(
             category=category,
+            subcategory=subcategory,
             tier_id=tier_id,
             camera_identifier=camera_identifier,
             max_bytes=max_bytes,
@@ -121,6 +128,21 @@ def recordings_to_move_query(
     file_min_age_timestamp: float,
 ) -> TextualSelect:
     """Return query for segments to move to next tier or delete."""
+    LOGGER.debug(
+        "Recordings to move query bindparms: "
+        "segment_length(%s), tier_id(%s), camera_identifier(%s), "
+        "lookback(%s), max_bytes(%s), min_age_timestamp(%s), min_bytes(%s), "
+        "max_age_timestamp(%s), file_min_age_timestamp(%s)",
+        segment_length,
+        tier_id,
+        camera_identifier,
+        lookback,
+        max_bytes,
+        min_age_timestamp,
+        min_bytes,
+        max_age_timestamp,
+        file_min_age_timestamp,
+    )
     return (
         text(
             """--sql
@@ -130,6 +152,7 @@ def recordings_to_move_query(
                   ,f.tier_path
                   ,f.camera_identifier
                   ,f.category
+                  ,f.subcategory
                   ,f.path
                   ,f.size
                   ,r.id as recording_id
@@ -145,6 +168,8 @@ def recordings_to_move_query(
                                  - INTERVAL ':segment_length sec' AND
                     COALESCE(r.end_time + INTERVAL ':segment_length sec', now())
              WHERE f.category = 'recorder'
+               -- Count the size of both segments and thumbnails
+               AND f.subcategory IN ('segments', 'thumbnails')
                AND f.tier_id = :tier_id
                AND f.camera_identifier = :camera_identifier
         ),
@@ -190,6 +215,8 @@ def recordings_to_move_query(
             ) OR s.total_bytes IS NULL
          )
          AND rf.orig_ctime <= to_timestamp(:file_min_age_timestamp) AT TIME ZONE 'UTC'
+         -- Only select segments and not thumbnails
+         AND rf.subcategory = 'segments'
          ORDER BY rf.file_id ASC
                  ,rf.orig_ctime ASC
                  ,rf.recording_created_at ASC;

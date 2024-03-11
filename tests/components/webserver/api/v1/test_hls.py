@@ -37,6 +37,9 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                 "._get_session"
             ),
             return_value=self._get_db_session(),
+        ), patch(
+            "viseron.components.webserver.api.v1.hls._get_init_file",
+            return_value="/test/init.mp4",
         ):
             response = self.fetch("/api/v1/hls/test/1/index.m3u8")
         assert response.code == 200
@@ -72,6 +75,9 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
             ),
             return_value=self._get_db_session(),
         ), patch(
+            "viseron.components.webserver.api.v1.hls._get_init_file",
+            return_value="/test/init.mp4",
+        ), patch(
             "viseron.components.webserver.api.v1.hls.utcnow",
             return_value=self._now + datetime.timedelta(seconds=36),
         ):
@@ -101,8 +107,10 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                 session.execute(
                     insert(Files).values(
                         tier_id=0,
+                        tier_path="/test/",
                         camera_identifier="test",
                         category="recorder",
+                        subcategory="segments",
                         path=f"/test/{filename}",
                         directory="test",
                         filename=filename,

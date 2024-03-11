@@ -11,10 +11,9 @@ from typing import TYPE_CHECKING, Callable
 import voluptuous as vol
 from sqlalchemy import select
 
-from viseron.components.storage.models import Recordings
+from viseron.components.storage.models import Files, Recordings
 from viseron.components.storage.queries import get_time_period_fragments
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
 from viseron.domains.camera.fragmenter import Fragment, generate_playlist
 from viseron.helpers import utcnow
 from viseron.helpers.fixed_size_dict import FixedSizeDict
@@ -22,7 +21,7 @@ from viseron.helpers.fixed_size_dict import FixedSizeDict
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
-    from viseron.domains.camera import AbstractCamera
+    from viseron.domains.camera import AbstractCamera, FailedCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -100,7 +99,7 @@ class HlsAPIHandler(BaseAPIHandler):
         self, camera_identifier: str, recording_id: int
     ):
         """Get the HLS playlist for a recording."""
-        camera = self._get_camera(camera_identifier)
+        camera = self._get_camera(camera_identifier, failed=True)
 
         if not camera:
             self.response_error(
@@ -128,7 +127,7 @@ class HlsAPIHandler(BaseAPIHandler):
         camera_identifier: str,
     ):
         """Get the HLS playlist for a time period."""
-        camera = self._get_camera(camera_identifier)
+        camera = self._get_camera(camera_identifier, failed=True)
 
         if not camera:
             self.response_error(
@@ -162,7 +161,7 @@ class HlsAPIHandler(BaseAPIHandler):
         camera_identifier: str,
     ):
         """Get the available timespans of HLS fragments for a time period."""
-        camera = self._get_camera(camera_identifier)
+        camera = self._get_camera(camera_identifier, failed=True)
 
         if not camera:
             self.response_error(
@@ -183,7 +182,7 @@ class HlsAPIHandler(BaseAPIHandler):
 
 def _get_available_timespans(
     get_session: Callable[[], Session],
-    camera: AbstractCamera,
+    camera: AbstractCamera | FailedCamera,
     time_from: int,
     time_to: int | None = None,
 ):
@@ -227,9 +226,31 @@ def _get_available_timespans(
     return timespans
 
 
+def _get_init_file(
+    get_session: Callable[[], Session], camera: AbstractCamera | FailedCamera
+) -> str | None:
+    """Get the init file for a camera."""
+    with get_session() as session:
+        stmt = (
+            select(Files)
+            .distinct(Files.directory)
+            .where(Files.camera_identifier == camera.identifier)
+            .where(Files.category == "recorder")
+            .where(Files.subcategory == "segments")
+            .order_by(Files.directory, Files.created_at.desc())
+        )
+        files = session.execute(stmt).scalars().all()
+
+    for file in files:
+        if os.path.exists(os.path.join(file.directory, "init.mp4")):
+            return os.path.join(file.directory, "init.mp4")
+    LOGGER.error(f"Could not find init.mp4 file for camera {camera.identifier}")
+    return None
+
+
 def _generate_playlist(
     get_session: Callable[[], Session],
-    camera: AbstractCamera,
+    camera: AbstractCamera | FailedCamera,
     recording_id: int,
 ) -> str | None:
     """Generate the HLS playlist for a recording."""
@@ -242,7 +263,7 @@ def _generate_playlist(
             return None
 
     files = recording.get_fragments(
-        camera.config[CONFIG_RECORDER][CONFIG_LOOKBACK],
+        camera.recorder.lookback,
         get_session,
         now=now,
     )
@@ -277,9 +298,13 @@ def _generate_playlist(
         LOGGER.debug("Recording has ended but the last file is not finished yet")
         end = False
 
+    init_file = _get_init_file(get_session, camera)
+    if not init_file:
+        return None
+
     playlist = generate_playlist(
         fragments,
-        f"/files{os.path.join(camera.segments_folder,'init.mp4')}",
+        f"/files{init_file}",
         end=end,
         file_directive=False,
     )
@@ -288,7 +313,7 @@ def _generate_playlist(
 
 def _generate_playlist_time_period(
     get_session: Callable[[], Session],
-    camera: AbstractCamera,
+    camera: AbstractCamera | FailedCamera,
     hls_client_id: str | None,
     start_timestamp: int,
     end_timestamp: int | None = None,
@@ -323,9 +348,13 @@ def _generate_playlist_time_period(
                 hls_client_id, fragments, media_sequence
             )
 
+    init_file = _get_init_file(get_session, camera)
+    if not init_file:
+        return None
+
     playlist = generate_playlist(
         fragments,
-        f"/files{os.path.join(camera.segments_folder,'init.mp4')}",
+        f"/files{init_file}",
         media_sequence=media_sequence,
         end=bool(end_timestamp),
         file_directive=False,

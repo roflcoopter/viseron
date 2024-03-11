@@ -128,6 +128,15 @@ DESC_FILENAME_PATTERN_THUMBNAIL = (
     "A <a href=https://strftime.org/>strftime</a> pattern for saved thumbnails.<br>"
     "Default pattern results in filenames like: <code>23:59:59.jpg</code>."
 )
+DEPRECATED_FILENAME_PATTERN_THUMBNAIL = (
+    "Thumbnails are stored with the same filename as the recording ID in the "
+    "database, for example: 1.jpg, 2.jpg, 3.jpg etc."
+)
+WARNING_FILENAME_PATTERN_THUMBNAIL = (
+    "Config option 'filename_pattern' is deprecated and will be removed in a future "
+    "version. {DEPRECATED_FILENAME_PATTERN_THUMBNAIL}"
+)
+
 DESC_STORAGE = (
     "Storage options for the camera.<br>"
     "Overrides the configuration in the "

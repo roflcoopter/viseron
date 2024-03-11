@@ -5,8 +5,6 @@ import copy
 import logging
 import os
 import pathlib
-import threading
-from types import TracebackType
 from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
 
 import voluptuous as vol
@@ -39,9 +37,11 @@ from viseron.components.storage.models import Base
 from viseron.components.storage.tier_handler import (
     RecorderTierHandler,
     SnapshotTierHandler,
+    ThumbnailTierHandler,
 )
 from viseron.components.storage.triggers import setup_triggers
 from viseron.components.storage.util import (
+    RequestedFilesCount,
     get_recorder_path,
     get_snapshots_path,
     get_thumbnails_path,
@@ -74,7 +74,7 @@ class TierSubcategory(TypedDict):
     """Tier subcategory."""
 
     subcategory: str
-    tier_handler: type[SnapshotTierHandler | RecorderTierHandler]
+    tier_handler: type[SnapshotTierHandler | RecorderTierHandler | ThumbnailTierHandler]
 
 
 class TierCategories(TypedDict):
@@ -93,6 +93,10 @@ TIER_CATEGORIES: TierCategories = {
         {
             "subcategory": "recordings",
             "tier_handler": RecorderTierHandler,
+        },
+        {
+            "subcategory": "thumbnails",
+            "tier_handler": ThumbnailTierHandler,
         },
     ],
     "snapshots": [
@@ -137,6 +141,11 @@ class Storage:
         self.ignored_files: list[str] = []
         self.engine: Engine | None = None
         self._get_session: Callable[[], Session] | None = None
+
+    @property
+    def camera_tier_handlers(self):
+        """Return camera tier handlers."""
+        return self._camera_tier_handlers
 
     def initialize(self) -> None:
         """Initialize storage component."""
@@ -289,7 +298,10 @@ class Storage:
         return None
 
     def ignore_file(self, filename: str) -> None:
-        """Add filename to ignore list."""
+        """Add filename to ignore list.
+
+        Ignored files will not be moved up tiers and are not stored in the database.
+        """
         if filename not in self.ignored_files:
             self.ignored_files.append(filename)
 
@@ -376,36 +388,3 @@ def _get_tier_config(
             "overwriting storage recorder tiers"
         )
     return tier_config
-
-
-class RequestedFilesCount:
-    """Context manager for keeping track of recently requested files."""
-
-    def __init__(self) -> None:
-        self.count = 0
-        self.filenames: list[str] = []
-
-    def remove_filename(self, filename: str) -> None:
-        """Remove a filename from the list of active filenames."""
-        self.filenames.remove(filename)
-
-    def __call__(self, filename: str) -> RequestedFilesCount:
-        """Add a filename to the list of active filenames."""
-        self.filenames.append(filename)
-        timer = threading.Timer(2, self.remove_filename, args=(filename,))
-        timer.start()
-        return self
-
-    def __enter__(self):
-        """Increment the counter when entering the context."""
-        self.count += 1
-        return self.count
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_value: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
-        """Decrement the counter when exiting the context."""
-        self.count -= 1

@@ -38,17 +38,20 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
         self._redirect = False
 
     def _search_file(self, path: str) -> str | None:
+        """Search for a file in the tiers."""
+        _path = os.path.join(self.root, path)
+        LOGGER.debug("Searching for file %s", _path)
         with self._storage.camera_requested_files_count[self._camera_identifier](
-            os.path.basename(path)
+            os.path.basename(_path)
         ):
-            if os.path.exists(path):
-                LOGGER.warning("File %s exists, not searching tiers", path)
+            if os.path.exists(_path):
+                LOGGER.debug("File %s exists, not searching tiers", _path)
                 return None
             return self._storage.search_file(
                 self._camera_identifier,
                 self._category,
                 self._subcategory,
-                os.path.join(self.root, path),
+                _path,
             )
 
     def compute_etag(self) -> str | None:
@@ -59,17 +62,18 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
 
     async def get(self, path, include_body=True) -> None:
         """Look through tiers to find a potentially moved file."""
-        while self._tries < 10:
-            self._tries += 1
-            redirect_path = await self.run_in_executor(self._search_file, path)
-            if redirect_path:
-                LOGGER.debug("Redirecting to /files%s", redirect_path)
-                self._redirect = True
-                self.redirect(f"/files{redirect_path}", permanent=True)
-                return
+        if not self._failed:
+            while self._tries < 10:
+                self._tries += 1
+                redirect_path = await self.run_in_executor(self._search_file, path)
+                if redirect_path:
+                    LOGGER.debug("Redirecting to /files%s", redirect_path)
+                    self._redirect = True
+                    self.redirect(f"/files{redirect_path}", permanent=True)
+                    return
 
-            if not os.path.exists(os.path.join(self.root, path)):
-                await asyncio.sleep(0.1)
-                continue
-            break
+                if not os.path.exists(os.path.join(self.root, path)):
+                    await asyncio.sleep(0.1)
+                    continue
+                break
         await super().get(path, include_body)

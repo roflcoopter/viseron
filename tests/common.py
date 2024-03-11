@@ -35,11 +35,12 @@ class MockCamera(MagicMock):
         resolution=(1920, 1080),
         extension="mp4",
         access_tokens=["test_access_token", "test_access_token_2"],
+        lookback: int = 5,
         **kwargs,
     ):
         """Initialize the mock camera."""
         super().__init__(
-            recorder=MagicMock(),
+            recorder=MagicMock(lookback=lookback),
             identifier=identifier,
             resolution=resolution,
             extension=extension,
@@ -77,8 +78,10 @@ class BaseTestWithRecordings:
                 session.execute(
                     insert(Files).values(
                         tier_id=0,
+                        tier_path="/test/",
                         camera_identifier="test",
                         category="recorder",
+                        subcategory="segments",
                         path=f"/test/{filename}",
                         directory="test",
                         filename=filename,
@@ -97,8 +100,10 @@ class BaseTestWithRecordings:
                 session.execute(
                     insert(Files).values(
                         tier_id=0,
+                        tier_path="/test2/",
                         camera_identifier="test2",
                         category="recorder",
+                        subcategory="segments",
                         path=f"/test2/{filename}",
                         directory="test2",
                         filename=filename,

@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from viseron.components.storage.models import Motion, Objects, Recordings
 from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.domains.camera import FailedCamera
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -40,7 +41,7 @@ class EventsAPIHandler(BaseAPIHandler):
     def _motion_events(
         self,
         get_session: Callable[[], Session],
-        camera: AbstractCamera,
+        camera: AbstractCamera | FailedCamera,
         time_from: int,
         time_to: int,
     ):
@@ -75,7 +76,7 @@ class EventsAPIHandler(BaseAPIHandler):
     def _object_event(
         self,
         get_session: Callable[[], Session],
-        camera: AbstractCamera,
+        camera: AbstractCamera | FailedCamera,
         time_from: int,
         time_to: int,
     ):
@@ -108,7 +109,7 @@ class EventsAPIHandler(BaseAPIHandler):
     def _recording_events(
         self,
         get_session: Callable[[], Session],
-        camera: AbstractCamera,
+        camera: AbstractCamera | FailedCamera,
         time_from: int,
         time_to: int,
     ):
@@ -145,7 +146,7 @@ class EventsAPIHandler(BaseAPIHandler):
         camera_identifier: str,
     ):
         """Get events."""
-        camera = self._get_camera(camera_identifier)
+        camera = self._get_camera(camera_identifier, failed=True)
 
         if not camera:
             self.response_error(

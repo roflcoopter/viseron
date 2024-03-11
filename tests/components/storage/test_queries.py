@@ -22,6 +22,7 @@ class TestMoveQueries(BaseTestWithRecordings):
         min_age_timestamp = (self._now + datetime.timedelta(seconds=15)).timestamp()
         stmt = files_to_move_query(
             category="recorder",
+            subcategory="segments",
             tier_id=0,
             camera_identifier="test",
             max_bytes=1,
@@ -258,8 +259,10 @@ class TestMoveQueries(BaseTestWithRecordings):
             session.execute(
                 insert(Files).values(
                     tier_id=1,
+                    tier_path="/tier2/",
                     camera_identifier="test",
                     category="recorder",
+                    subcategory="segments",
                     path=f"/tier2/{filename}",
                     directory="tier2",
                     filename=filename,
@@ -296,8 +299,10 @@ class TestMoveQueries(BaseTestWithRecordings):
             session.execute(
                 insert(Files).values(
                     tier_id=1,
+                    tier_path="/tier2/",
                     camera_identifier="test",
                     category="recorder",
+                    subcategory="segments",
                     path=f"/tier2/{filename}",
                     directory="tier2",
                     filename=filename,

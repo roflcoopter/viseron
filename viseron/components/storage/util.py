@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import os
+import threading
 from datetime import timedelta
+from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
 from viseron.components.storage.const import (
@@ -82,3 +84,36 @@ def files_to_move_overlap(events_file_ids, continuous_file_ids):
         events_dict[file_id] for file_id in events_dict if file_id in continuous_dict
     ]
     return matched_ids
+
+
+class RequestedFilesCount:
+    """Context manager for keeping track of recently requested files."""
+
+    def __init__(self) -> None:
+        self.count = 0
+        self.filenames: list[str] = []
+
+    def remove_filename(self, filename: str) -> None:
+        """Remove a filename from the list of active filenames."""
+        self.filenames.remove(filename)
+
+    def __call__(self, filename: str) -> RequestedFilesCount:
+        """Add a filename to the list of active filenames."""
+        self.filenames.append(filename)
+        timer = threading.Timer(2, self.remove_filename, args=(filename,))
+        timer.start()
+        return self
+
+    def __enter__(self):
+        """Increment the counter when entering the context."""
+        self.count += 1
+        return self.count
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """Decrement the counter when exiting the context."""
+        self.count -= 1
