@@ -90,7 +90,7 @@ export const useRecordings = ({
   }
 
   return useQuery<types.RecordingsCamera, types.APIErrorResponse>(
-    ["recordings", camera_identifier, date],
+    ["recordings", camera_identifier, date, latest, daily, failed],
     async () => recordings({ camera_identifier, date, latest, daily, failed }),
     configOptions,
   );
