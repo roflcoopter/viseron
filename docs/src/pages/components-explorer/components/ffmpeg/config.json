@@ -683,6 +683,14 @@
                   },
                   {
                     "type": "integer",
+                    "valueMin": 0,
+                    "name": "max_recording_time",
+                    "description": "Maximum number of seconds to record.",
+                    "optional": true,
+                    "default": 300
+                  },
+                  {
+                    "type": "integer",
                     "valueMin": 1,
                     "name": {
                       "type": "deprecated",

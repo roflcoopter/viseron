@@ -573,8 +573,17 @@ class NVR:
             self._frame_scanners[MOTION_DETECTOR].scan = True
             self._logger.info("Starting motion detector")
 
-    def stop_recorder(self) -> None:
+    def stop_recorder(self, force=False) -> None:
         """Stop recorder."""
+
+        def _stop():
+            self._idle_frames = 0
+            self._camera.stop_recorder()
+
+        if force:
+            _stop()
+            return
+
         if self._idle_frames % self._camera.output_fps == 0:
             self._logger.info(
                 "Stopping recording in: {}".format(
@@ -596,8 +605,7 @@ class NVR:
             ):
                 self._frame_scanners[MOTION_DETECTOR].scan = False
                 self._logger.info("Pausing motion detector")
-            self._idle_frames = 0
-            self._camera.stop_recorder()
+            _stop()
 
     def process_frame(self, shared_frame: SharedFrame) -> None:
         """Process frame."""
@@ -611,6 +619,13 @@ class NVR:
         if self._start_recorder:
             self._start_recorder = False
             self.start_recorder(shared_frame)
+        # Stop recording if max_recording_time is exceeded
+        elif (
+            self._camera.is_recording
+            and self._camera.recorder.max_recording_time_exceeded
+        ):
+            self._logger.info("Max recording time exceeded, stopping recorder")
+            self.stop_recorder(force=True)
         elif self._camera.is_recording and self.event_over():
             self._idle_frames += 1
             self.stop_recorder()

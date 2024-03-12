@@ -76,6 +76,7 @@ DESC_SAVE_TO_DISK = (
 # RECORDER_SCHEMA constants
 CONFIG_LOOKBACK = "lookback"
 CONFIG_IDLE_TIMEOUT = "idle_timeout"
+CONFIG_MAX_RECORDING_TIME = "max_recording_time"
 CONFIG_RETAIN = "retain"
 CONFIG_FOLDER = "folder"
 CONFIG_FILENAME_PATTERN = "filename_pattern"
@@ -86,6 +87,7 @@ CONFIG_STORAGE = "storage"
 
 DEFAULT_LOOKBACK = 5
 DEFAULT_IDLE_TIMEOUT = 10
+DEFAULT_MAX_RECORDING_TIME: Final = 300
 DEFAULT_FILENAME_PATTERN = "%H:%M:%S"
 DEFAULT_THUMBNAIL: Final = None
 DEFAULT_CREATE_EVENT_CLIP = False
@@ -94,6 +96,7 @@ DEFAULT_RECORDER_TIERS: Final = None
 
 DESC_LOOKBACK = "Number of seconds to record before a detected object."
 DESC_IDLE_TIMEOUT = "Number of seconds to record after all events are over."
+DESC_MAX_RECORDING_TIME = "Maximum number of seconds to record."
 DESC_RETAIN = "Number of days to save recordings before deletion."
 DEPRECATED_RETAIN = (
     "Use the "

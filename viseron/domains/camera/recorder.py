@@ -28,6 +28,7 @@ from .const import (
     CONFIG_FILENAME_PATTERN,
     CONFIG_IDLE_TIMEOUT,
     CONFIG_LOOKBACK,
+    CONFIG_MAX_RECORDING_TIME,
     CONFIG_RECORDER,
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
@@ -390,6 +391,20 @@ class AbstractRecorder(ABC, RecorderBase):
     def lookback(self) -> int:
         """Return lookback."""
         return self._config[CONFIG_RECORDER][CONFIG_LOOKBACK]
+
+    @property
+    def max_recording_time(self) -> int:
+        """Return max_recording_time."""
+        return self._config[CONFIG_RECORDER][CONFIG_MAX_RECORDING_TIME]
+
+    @property
+    def max_recording_time_exceeded(self) -> bool:
+        """Return True if the maximum recording time has been exceeded."""
+        if self._active_recording is None:
+            return False
+        return (
+            utcnow() - self._active_recording.start_time
+        ).total_seconds() > self.max_recording_time
 
 
 class FailedCameraRecorder(RecorderBase):
