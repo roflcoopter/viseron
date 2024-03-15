@@ -69,7 +69,7 @@ const Cameras = () => {
                     xl={4}
                     key={camera_identifier}
                   >
-                    <CameraCard camera_identifier={camera_identifier} />
+                    <CameraCard camera_identifier={camera_identifier} compact />
                   </Grid>
                 </Grow>
               ))
