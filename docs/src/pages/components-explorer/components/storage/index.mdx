@@ -134,6 +134,7 @@ storage:
   recordings:
     tiers:
       - path: /mnt/ramdisk # Store continuous recordings and events here
+        move_on_shutdown: true
         continuous:
           max_size: # If this target is hit, segments will be moved to the next tier
             gb: 1

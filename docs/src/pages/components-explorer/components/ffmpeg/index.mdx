@@ -263,6 +263,7 @@ storage:
     tiers:
       # Store 50 MB of segments in RAM disk
       - path: /tmp/tier1
+        move_on_shutdown: true # Important to not lose segments on shutdown
         events:
           max_size:
             mb: 50
