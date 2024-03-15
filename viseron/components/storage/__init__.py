@@ -11,7 +11,7 @@ import voluptuous as vol
 from alembic import command, script
 from alembic.config import Config
 from alembic.migration import MigrationContext
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, update
 from sqlalchemy.orm import Session, scoped_session, sessionmaker
 
 from viseron.components.storage.config import (
@@ -33,7 +33,7 @@ from viseron.components.storage.const import (
     DEFAULT_COMPONENT,
     DESC_COMPONENT,
 )
-from viseron.components.storage.models import Base
+from viseron.components.storage.models import Base, Motion, Recordings
 from viseron.components.storage.tier_handler import (
     RecorderTierHandler,
     SnapshotTierHandler,
@@ -48,6 +48,7 @@ from viseron.components.storage.util import (
 )
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera.const import CONFIG_STORAGE, DOMAIN as CAMERA_DOMAIN
+from viseron.helpers import utcnow
 from viseron.helpers.logs import StreamToLogger
 
 if TYPE_CHECKING:
@@ -117,6 +118,27 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     vis.data[COMPONENT] = Storage(vis, config[COMPONENT])
     vis.data[COMPONENT].initialize()
     return True
+
+
+def startup_chores(get_session: Callable[[], Session]) -> None:
+    """Various database startup chores."""
+    # Set Recordings.end_time and Motion.end_time on startup in case of crashes
+    with get_session() as session:
+        stmt = (
+            update(Recordings)
+            .where(Recordings.end_time == None)  # noqa: E711 pylint: disable=C0121
+            .values(end_time=utcnow())
+        )
+        session.execute(stmt)
+        session.commit()
+    with get_session() as session:
+        stmt = (
+            update(Motion)
+            .where(Motion.end_time == None)  # noqa: E711 pylint: disable=C0121
+            .values(end_time=utcnow())
+        )
+        session.execute(stmt)
+        session.commit()
 
 
 class Storage:
@@ -213,6 +235,7 @@ class Storage:
             self._run_migrations()
 
         self._get_session = scoped_session(sessionmaker(bind=self.engine, future=True))
+        startup_chores(self._get_session)
 
     def get_session(self) -> Session:
         """Get a new sqlalchemy session."""
