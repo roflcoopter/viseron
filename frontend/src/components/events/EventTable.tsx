@@ -26,9 +26,12 @@ export const EventTable = memo(
     selectedRecording,
     setSelectedRecording,
   }: EventTableProps) => {
+    const formattedDate = dayjs(date).format("YYYY-MM-DD");
     const recordingsQuery = useRecordings({
       camera_identifier: camera.identifier,
       failed: camera.failed,
+      date: formattedDate,
+      configOptions: { enabled: !!date },
     });
 
     if (recordingsQuery.isError) {
@@ -58,15 +61,11 @@ export const EventTable = memo(
       );
     }
 
-    const formattedDate = dayjs(date).format("YYYY-MM-DD");
-
     return (
       <Box>
         {formattedDate in recordingsQuery.data ? (
           <Grid container direction="row" columns={1}>
-            {Object.values(
-              recordingsQuery.data[dayjs(date).format("YYYY-MM-DD")],
-            )
+            {Object.values(recordingsQuery.data[formattedDate])
               .sort()
               .reverse()
               .map((recording) => (
