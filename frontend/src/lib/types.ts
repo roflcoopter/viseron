@@ -1,6 +1,38 @@
 import { AxiosError } from "axios";
 import { Dayjs } from "dayjs";
 
+export type SystemInformation = {
+  safe_mode: boolean;
+};
+
+type WebSocketAuthOkResponse = {
+  type: "auth_ok";
+  message: string;
+  system_information: SystemInformation;
+};
+
+type WebSocketAuthRequiredResponse = {
+  type: "auth_required";
+  message: string;
+};
+
+type WebSocketAuthNotRequiredResponse = {
+  type: "auth_not_required";
+  message: string;
+  system_information: SystemInformation;
+};
+
+type WebSocketAuthInvalidResponse = {
+  type: "auth_failed";
+  message: string;
+};
+
+export type WebSocketAuthResponse =
+  | WebSocketAuthOkResponse
+  | WebSocketAuthRequiredResponse
+  | WebSocketAuthNotRequiredResponse
+  | WebSocketAuthInvalidResponse;
+
 type WebSocketPongResponse = {
   command_id: number;
   type: "pong";

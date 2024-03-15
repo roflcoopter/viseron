@@ -9,6 +9,7 @@ import Container from "@mui/material/Container";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 import { alpha, styled, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { useContext, useRef, useState } from "react";
@@ -18,6 +19,7 @@ import ViseronLogo from "svg/viseron-logo.svg?react";
 import Breadcrumbs from "components/header/Breadcrumbs";
 import { useAuthContext } from "context/AuthContext";
 import { ColorModeContext } from "context/ColorModeContext";
+import { ViseronContext } from "context/ViseronContext";
 import { useScrollPosition } from "hooks/UseScrollPosition";
 import { useToast } from "hooks/UseToast";
 import { useAuthLogout } from "lib/api/auth";
@@ -58,6 +60,7 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
   const [showHeader, setShowHeader] = useState(true);
   const lastTogglePos = useRef(0);
   const { auth } = useAuthContext();
+  const { safeMode } = useContext(ViseronContext);
 
   useScrollPosition((prevPos: any, currPos: any) => {
     // Always show header if we haven't scrolled down more than theme.headerHeight
@@ -175,6 +178,29 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
           )}
         </Stack>
       </Container>
+      {safeMode ? (
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 2,
+            backgroundColor: theme.palette.error.main,
+          }}
+        >
+          <Typography
+            align="center"
+            style={{
+              textShadow: "rgba(0, 0, 0, 1) 0px 0px 4px",
+              margin: "5px",
+            }}
+          >
+            Viseron is running in safe mode. Cameras are not loaded and no
+            recordings are made. Please check the logs for more information.
+          </Typography>
+        </Box>
+      ) : null}
     </Header>
   );
 }

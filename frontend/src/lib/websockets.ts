@@ -42,13 +42,18 @@ interface SubscribeEventCommmandInFlight<T> {
   unsubscribe: SubscriptionUnsubscribe;
 }
 
-export function createSocket(wsURL: string): Promise<WebSocket> {
+export type SocketPromise = {
+  socket: WebSocket;
+  system_information: types.SystemInformation;
+};
+
+export function createSocket(wsURL: string): Promise<SocketPromise> {
   if (DEBUG) {
     console.debug("[Socket] Initializing", wsURL);
   }
 
   function connect(
-    promResolve: (socket: WebSocket) => void,
+    promResolve: ({ socket, system_information }: SocketPromise) => void,
     promReject: (err: Error) => void,
   ) {
     if (DEBUG) {
@@ -75,7 +80,7 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
 
     const handleMessage = async (event: MessageEvent) => {
       let storedTokens = loadTokens();
-      const message = JSON.parse(event.data);
+      const message: types.WebSocketAuthResponse = JSON.parse(event.data);
 
       if (DEBUG) {
         console.debug("[Socket] Received", message);
@@ -102,7 +107,10 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
             // Since we authenticate by partly using cookies, we need to close the
             // socket and open a new one so the refreshed signature_cookie is sent.
             socket.close();
-            let newSocket: WebSocket;
+            let newSocket: {
+              socket: WebSocket;
+              system_information: types.SystemInformation;
+            };
             try {
               newSocket = await createSocket(wsURL);
             } catch (error) {
@@ -139,7 +147,10 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
           socket.removeEventListener("message", handleMessage);
           socket.removeEventListener("close", closeMessage);
           socket.removeEventListener("error", closeMessage);
-          promResolve(socket);
+          promResolve({
+            socket,
+            system_information: message.system_information,
+          });
           break;
 
         default:
@@ -162,6 +173,8 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
 
 export class Connection {
   socket: WebSocket | null = null;
+
+  system_information: types.SystemInformation | null = null;
 
   reconnectTimer: NodeJS.Timeout | null = null;
 
@@ -206,8 +219,9 @@ export class Connection {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
-        // eslint-disable-next-line no-await-in-loop
-        this.socket = await createSocket(wsURL);
+        ({ socket: this.socket, system_information: this.system_information } =
+          // eslint-disable-next-line no-await-in-loop
+          await createSocket(wsURL));
         break;
       } catch (error) {
         if (error === ERR_INVALID_AUTH) {
