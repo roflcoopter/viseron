@@ -1,19 +1,23 @@
 import Image from "@jy95/material-ui-image";
+import ImageSearchIcon from "@mui/icons-material/ImageSearch";
+import LiveTvIcon from "@mui/icons-material/LiveTv";
+import VideoFileIcon from "@mui/icons-material/VideoFile";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
+import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { usePageVisibility } from "react-page-visibility";
+import { Link } from "react-router-dom";
 
-import {
-  CardActionButtonHref,
-  CardActionButtonLink,
-} from "components/CardActionButton";
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
+import { FailedCameraCard } from "components/camera/FailedCameraCard";
 import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
 import useOnScreen from "hooks/UseOnScreen";
@@ -22,8 +26,6 @@ import queryClient from "lib/api/client";
 import { subscribeStates } from "lib/commands";
 import * as types from "lib/types";
 import { SubscriptionUnsubscribe } from "lib/websockets";
-
-import { FailedCameraCard } from "./FailedCameraCard";
 
 type OnClick = (
   event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
@@ -266,14 +268,34 @@ const SuccessCameraCard = ({
           </CardActionArea>
           {buttons && (
             <CardActions>
-              <CardActionButtonLink
-                title="Recordings"
-                target={`/recordings/${cameraQuery.data.identifier}`}
-              />
-              <CardActionButtonHref
-                title="Live View"
-                target={`/${cameraQuery.data.identifier}/mjpeg-stream`}
-              />
+              <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
+                <Tooltip title="Events">
+                  <IconButton
+                    component={Link}
+                    to={`/events?camera=${cameraQuery.data.identifier}&tab=events`}
+                  >
+                    <ImageSearchIcon />
+                  </IconButton>
+                </Tooltip>
+
+                <Tooltip title="Recordings">
+                  <IconButton
+                    component={Link}
+                    to={`/recordings/${cameraQuery.data.identifier}`}
+                  >
+                    <VideoFileIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Live View">
+                  <IconButton
+                    component={"a" as React.ElementType}
+                    target="_blank"
+                    href={`/${cameraQuery.data.identifier}/mjpeg-stream`}
+                  >
+                    <LiveTvIcon />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
             </CardActions>
           )}
         </Card>
