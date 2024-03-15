@@ -183,7 +183,9 @@ export default function AppDrawer({
     >
       <AppDrawerHeader />
       <List>
-        {drawerItems.map((item, index) => getItem(index, location, item))}
+        <Box onClick={() => setDrawerOpen(false)}>
+          {drawerItems.map((item, index) => getItem(index, location, item))}
+        </Box>
       </List>
     </Drawer>
   );
