@@ -35,7 +35,11 @@ function customRender(
               }}
             >
               <ViseronContext.Provider
-                value={{ connection: undefined, connected: true }}
+                value={{
+                  connection: undefined,
+                  connected: true,
+                  safeMode: false,
+                }}
               >
                 {children}
               </ViseronContext.Provider>
