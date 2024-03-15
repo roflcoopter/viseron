@@ -35,6 +35,7 @@ from viseron.const import (
 )
 from viseron.events import EventData
 from viseron.exceptions import ComponentNotReady, DomainNotReady
+from viseron.helpers.storage import Storage
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -79,6 +80,9 @@ LOGGING_COMPONENTS = {"logger"}
 CORE_COMPONENTS = {"data_stream"}
 # Default components are always loaded even if they are not present in config
 DEFAULT_COMPONENTS = {"webserver", "storage"}
+# Critical components are required for Viseron to function properly
+# If one of these components fail to load, Viseron will activate safe mode
+CRITICAL_COMPONENTS = LOGGING_COMPONENTS | CORE_COMPONENTS | DEFAULT_COMPONENTS
 
 DOMAIN_SETUP_LOCK = threading.Lock()
 
@@ -676,6 +680,62 @@ def setup_domains(vis: Viseron) -> None:
             future.result()
 
 
+STORAGE_KEY = "critical_components_config"
+
+
+class CriticalComponentsConfigStore:
+    """Storage for critical components config.
+
+    Used to store the last known good config for critical components.
+    """
+
+    def __init__(self, vis) -> None:
+        self._vis = vis
+        self._store = Storage(vis, STORAGE_KEY)
+
+    def load(self) -> dict[str, Any]:
+        """Load config."""
+        return self._store.load()
+
+    def save(self, config: dict[str, Any]) -> None:
+        """Save config.
+
+        Extracts only the critical components from the config.
+        """
+        critical_components_config = {
+            component: config[component]
+            for component in CRITICAL_COMPONENTS
+            if component in config
+        }
+        self._store.save(critical_components_config)
+
+
+def activate_safe_mode(vis: Viseron) -> None:
+    """Activate safe mode."""
+    vis.safe_mode = True
+    # Get the last known good config
+    critical_components_config = vis.critical_components_config_store.load()
+    if not critical_components_config:
+        LOGGER.warning(
+            "No last known good config for critical components found, "
+            "running with default config"
+        )
+        critical_components_config = {}
+
+    loaded_set = set(vis.data[LOADED])
+    # Setup logger first
+    for component in LOGGING_COMPONENTS - loaded_set:
+        setup_component(vis, get_component(vis, component, critical_components_config))
+
+    # Setup core components
+    for component in CORE_COMPONENTS - loaded_set:
+        setup_component(vis, get_component(vis, component, critical_components_config))
+
+    # Setup default components
+    for component in DEFAULT_COMPONENTS - loaded_set:
+        setup_component(vis, get_component(vis, component, critical_components_config))
+
+
 def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
     """Set up configured components."""
     components_in_config = {key.split(" ")[0] for key in config}
@@ -690,6 +750,15 @@ def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
     # Setup default components
     for component in DEFAULT_COMPONENTS:
         setup_component(vis, get_component(vis, component, config))
+
+    if vis.safe_mode:
+        return
+
+    # If any of the critical components failed to load, we activate safe mode
+    if any(component in vis.data[FAILED] for component in CRITICAL_COMPONENTS):
+        LOGGER.warning("Critical components failed to load. Activating safe mode")
+        activate_safe_mode(vis)
+        return
 
     # Setup components in parallel
     setup_threads = []

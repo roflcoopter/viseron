@@ -21,6 +21,7 @@ from apscheduler.schedulers.base import SchedulerNotRunningError
 from sqlalchemy import insert
 
 from viseron.components import (
+    CriticalComponentsConfigStore,
     get_component,
     setup_component,
     setup_components,
@@ -174,6 +175,11 @@ def setup_viseron() -> Viseron:
     setup_domains(vis)
     vis.setup()
 
+    if vis.safe_mode:
+        LOGGER.warning("Viseron is running in safe mode")
+    else:
+        vis.critical_components_config_store.save(config)
+
     end = timer()
     LOGGER.info("Viseron initialized in %.1f seconds", end - start)
     return vis
@@ -209,6 +215,8 @@ class Viseron:
 
         self.storage: Storage | None = None
 
+        self.critical_components_config_store = CriticalComponentsConfigStore(self)
+        self.safe_mode = False
         self.exit_code = 0
 
     def register_signal_handler(self, viseron_signal, callback):
