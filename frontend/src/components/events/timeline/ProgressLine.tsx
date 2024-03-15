@@ -23,9 +23,9 @@ const useTimeUpdate = (
       if (!currentTime) {
         return;
       }
-      if (hlsRef.current.playingDate) {
+      if (hlsRef.current.playingDate && containerRef.current) {
         const playingTimestamp = dateToTimestamp(hlsRef.current.playingDate);
-        const bounds = containerRef.current!.getBoundingClientRect();
+        const bounds = containerRef.current.getBoundingClientRect();
         const top = `${Math.floor(
           getYPosition(
             startRef.current,
@@ -46,7 +46,7 @@ const useTimeUpdate = (
             ref.current.style.top = top;
           }
           ref.current.style.display = "block";
-          ref.current.style.width = `${containerRef.current!.offsetWidth}px`;
+          ref.current.style.width = `${containerRef.current.offsetWidth}px`;
         }
       }
     };
