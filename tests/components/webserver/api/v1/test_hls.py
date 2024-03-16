@@ -5,7 +5,7 @@ import datetime
 import json
 from unittest.mock import patch
 
-from sqlalchemy import insert, update
+from sqlalchemy import delete, insert, update
 
 from viseron.components.storage.models import Files, FilesMeta, Recordings
 from viseron.components.webserver.api.v1.hls import count_files_removed
@@ -46,6 +46,41 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         response_string = response.body.decode()
         assert response_string.count("#EXTINF") == 3
         assert response_string.count("#EXT-X-DISCONTINUITY") == 3
+        assert response_string.count("#EXT-X-ENDLIST") == 1
+
+    def test_get_recording_hls_playlist_gap(self):
+        """Test getting a recording HLS playlist with gap in segments."""
+        with self._get_db_session() as session:
+            session.execute(delete(Files).where(Files.id.in_([15, 17, 19, 21])))
+            session.commit()
+
+        mocked_camera = MockCamera(
+            identifier="test", config={CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
+        )
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=mocked_camera,
+        ), patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                "._get_session"
+            ),
+            return_value=self._get_db_session(),
+        ), patch(
+            "viseron.components.webserver.api.v1.hls._get_init_file",
+            return_value="/test/init.mp4",
+        ), patch(
+            "viseron.components.storage.queries.utcnow",
+            return_value=self._now + datetime.timedelta(seconds=3600),
+        ):
+            response = self.fetch("/api/v1/hls/test/index.m3u8?start_timestamp=0")
+        assert response.code == 200
+        response_string = response.body.decode()
+        assert response_string.count("#EXTINF") == 7
+        assert response_string.count("#EXT-X-DISCONTINUITY") == 7
         assert response_string.count("#EXT-X-ENDLIST") == 1
 
     def test_get_recording_hls_ongoing(self):

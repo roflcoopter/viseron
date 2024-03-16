@@ -6,14 +6,15 @@ import logging
 import os
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 import voluptuous as vol
-from sqlalchemy import select
+from sqlalchemy import Row, select
 
 from viseron.components.storage.models import Files, Recordings
 from viseron.components.storage.queries import get_time_period_fragments
 from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.domains.camera.fragmenter import Fragment, generate_playlist
 from viseron.helpers import utcnow
 from viseron.helpers.fixed_size_dict import FixedSizeDict
@@ -322,18 +323,29 @@ def _generate_playlist_time_period(
     files = get_time_period_fragments(
         camera.identifier, start_timestamp, end_timestamp, get_session
     )
-    fragments = [
-        Fragment(
-            file.filename,
-            f"/files{file.path}",
-            float(
-                file.meta["m3u8"]["EXTINF"],
-            ),
-            file.orig_ctime,
-        )
-        for file in files
-        if file.meta.get("m3u8", {}).get("EXTINF", False)
-    ]
+    fragments = []
+    prev_file: Row[Any] | None = None
+    end_playlist = bool(end_timestamp)
+    for file in files:
+        # Break if there is a gap in segments
+        if prev_file and file.orig_ctime - prev_file.orig_ctime > datetime.timedelta(
+            seconds=CAMERA_SEGMENT_DURATION * 3
+        ):
+            end_playlist = True
+            break
+
+        if file.meta.get("m3u8", {}).get("EXTINF", False):
+            fragments.append(
+                Fragment(
+                    file.filename,
+                    f"/files{file.path}",
+                    float(
+                        file.meta["m3u8"]["EXTINF"],
+                    ),
+                    file.orig_ctime,
+                )
+            )
+            prev_file = file
 
     media_sequence = 0
     if end_timestamp is None and hls_client_id:
@@ -356,7 +368,7 @@ def _generate_playlist_time_period(
         fragments,
         f"/files{init_file}",
         media_sequence=media_sequence,
-        end=bool(end_timestamp),
+        end=end_playlist,
         file_directive=False,
     )
     return playlist
