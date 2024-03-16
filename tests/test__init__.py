@@ -33,7 +33,7 @@ def test_setup_viseron_nvr_loaded(vis, caplog):
             NVR_DOMAIN: {},
         },
     }
-    mocked_viseron = MagicMock(data=data, spec=["setup"])
+    mocked_viseron = MagicMock(data=data)
 
     with patch("viseron.Viseron", return_value=mocked_viseron):
         with patch("viseron.setup_components") as mocked_setup_components:
@@ -77,7 +77,7 @@ def test_setup_viseron_nvr_missing(vis, caplog):
             NVR_DOMAIN: {},
         },
     }
-    mocked_viseron = MagicMock(data=data, spec=["setup"])
+    mocked_viseron = MagicMock(data=data)
 
     with patch("viseron.Viseron", return_value=mocked_viseron):
         with patch("viseron.setup_components") as mocked_setup_components:
@@ -110,7 +110,7 @@ def test_setup_viseron_cameras_missing(caplog):
         LOADED: {},
         DOMAINS_TO_SETUP: {},
     }
-    mocked_viseron = MagicMock(data=data, spec=["setup"])
+    mocked_viseron = MagicMock(data=data)
 
     with patch("viseron.Viseron", return_value=mocked_viseron):
         with patch("viseron.setup_components") as mocked_setup_components:
@@ -135,7 +135,7 @@ def test_setup_viseron_cameras_missing_nvr_loaded(caplog):
         LOADED: {NVR_COMPONENT: "Testing"},
         DOMAINS_TO_SETUP: {},
     }
-    mocked_viseron = MagicMock(data=data, spec=["setup"])
+    mocked_viseron = MagicMock(data=data)
 
     with patch("viseron.Viseron", return_value=mocked_viseron):
         with patch("viseron.setup_components") as mocked_setup_components:
