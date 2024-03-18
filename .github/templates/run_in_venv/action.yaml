@@ -12,9 +12,9 @@ runs:
   - name: Set Python symlink and activate venv
     shell: bash
     run: |
-      export PYTHONWARNINGS=ignore::yaml.YAMLLoadWarning
       PYTHON_PATH=$(which python3)
       source venv/bin/activate
+      export PYTHONWARNINGS=ignore::yaml.YAMLLoadWarning
       PYTHON_BROKEN_PATH=$(dirname $(which pip))
       rm $PYTHON_BROKEN_PATH/python
       ln -s $PYTHON_PATH $PYTHON_BROKEN_PATH/python
