@@ -1,15 +1,10 @@
 """GStreamer pipelines."""
 from __future__ import annotations
 
-import os
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from viseron.components.ffmpeg.const import (
-    CAMERA_SEGMENT_DURATION,
-    CONFIG_SEGMENTS_FOLDER,
-)
-from viseron.domains.camera.const import CONFIG_EXTENSION
+from viseron.components.ffmpeg.const import CAMERA_SEGMENT_DURATION
 
 from .const import (
     CONFIG_AUDIO_CODEC,
@@ -30,6 +25,7 @@ from .const import (
 
 if TYPE_CHECKING:
     from viseron.components.gstreamer.stream import Stream
+    from viseron.domains.camera import AbstractCamera
 
 
 class AbstractPipeline(ABC):
@@ -54,10 +50,10 @@ class RawPipeline(AbstractPipeline):
 class BasePipeline(AbstractPipeline):
     """Base GStreamer pipeline."""
 
-    def __init__(self, config, stream: Stream, camera_identifier) -> None:
+    def __init__(self, config, stream: Stream, camera: AbstractCamera) -> None:
         self._config = config
         self._stream = stream
-        self._camera_identifier = camera_identifier
+        self._camera = camera
 
     def input_pipeline(self):
         """Generate GStreamer input pipeline."""
@@ -169,7 +165,7 @@ class BasePipeline(AbstractPipeline):
             ]
         )
 
-    def parse_element(self):
+    def parse_element(self) -> list[str]:
         """Return parse element.
 
         Returns parse element from override map if it exists.
@@ -180,13 +176,8 @@ class BasePipeline(AbstractPipeline):
 
         return ["!", f"{self._stream.mainstream.codec}parse"]
 
-    def segment_pipeline(self):
+    def segment_pipeline(self) -> list[str]:
         """Generate GStreamer segment args."""
-        segment_filepattern = os.path.join(
-            self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
-            self._camera_identifier,
-            f"%01d.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
-        )
         return (
             [
                 "!",
@@ -203,7 +194,6 @@ class BasePipeline(AbstractPipeline):
                 f"muxer={self._config[CONFIG_RECORDER][CONFIG_MUXER]}",
                 f"max-size-time={str(CAMERA_SEGMENT_DURATION)}000000000",
             ]
-            + [f"location={segment_filepattern}"]
         )
 
     def audio_pipeline(self):

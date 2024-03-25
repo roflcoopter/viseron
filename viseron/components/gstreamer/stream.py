@@ -1,18 +1,17 @@
-"""Class to interact with an FFmpeog stream."""
+"""Class to interact with a GStreamer stream."""
 from __future__ import annotations
 
+import datetime
 import logging
 import multiprocessing as mp
 import os
 import time
-from datetime import datetime
 from multiprocessing.synchronize import Event as EventClass
 from typing import TYPE_CHECKING, Any
 
 import gi
 import setproctitle
 
-from viseron.components.ffmpeg.const import CONFIG_SEGMENTS_FOLDER
 from viseron.components.ffmpeg.stream import FFprobe, Stream as FFmpegStream
 from viseron.const import (
     ENV_CUDA_SUPPORTED,
@@ -20,7 +19,6 @@ from viseron.const import (
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
-from viseron.domains.camera.const import CONFIG_EXTENSION
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.helpers import pop_if_full
 from viseron.helpers.logs import UnhelpfullLogFilter
@@ -31,7 +29,6 @@ from .const import (
     CONFIG_GSTREAMER_RECOVERABLE_ERRORS,
     CONFIG_LOGLEVEL_TO_GSTREAMER,
     CONFIG_RAW_PIPELINE,
-    CONFIG_RECORDER,
     ENV_GSTREAMER_PATH,
     GSTREAMER_LOGLEVEL_TO_PYTHON,
     PIXEL_FORMAT,
@@ -98,15 +95,15 @@ class Stream(FFmpegStream):
         if self._config[CONFIG_RAW_PIPELINE]:
             self._pipeline = RawPipeline(config)
         elif os.getenv(ENV_RASPBERRYPI3) == "true":
-            self._pipeline = BasePipeline(config, self, camera_identifier)
+            self._pipeline = BasePipeline(config, self, camera)
         elif os.getenv(ENV_RASPBERRYPI4) == "true":
-            self._pipeline = BasePipeline(config, self, camera_identifier)
+            self._pipeline = BasePipeline(config, self, camera)
         elif os.getenv(ENV_JETSON_NANO) == "true":
-            self._pipeline = JetsonPipeline(config, self, camera_identifier)
+            self._pipeline = JetsonPipeline(config, self, camera)
         elif os.getenv(ENV_CUDA_SUPPORTED) == "true":
-            self._pipeline = BasePipeline(config, self, camera_identifier)
+            self._pipeline = BasePipeline(config, self, camera)
         else:
-            self._pipeline = BasePipeline(config, self, camera_identifier)
+            self._pipeline = BasePipeline(config, self, camera)
 
     @property
     def mainstream(self):
@@ -167,11 +164,10 @@ class Stream(FFmpegStream):
 
     def on_format_location(self, _splitmux, _fragment_id, _udata) -> str:
         """Return the location of the next segment."""
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        timestamp = int(datetime.datetime.now().timestamp())
         return os.path.join(
-            self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
-            self._camera_identifier,
-            f"{timestamp}.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
+            self._camera.temp_segments_folder,
+            f"{timestamp}.{self._camera.extension}",
         )
 
     def on_gst_log_message(

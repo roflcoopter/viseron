@@ -7,6 +7,8 @@ DOMAIN: Final = "camera"
 
 UPDATE_TOKEN_INTERVAL_MINUTES: Final = 5
 
+VIDEO_CONTAINER = "mp4"
+
 # Event topic constants
 EVENT_STATUS = "{camera_identifier}/camera/status"
 EVENT_STATUS_DISCONNECTED = "disconnected"
@@ -64,42 +66,89 @@ DEFAULT_SAVE_TO_DISK = True
 
 DESC_SAVE_TO_DISK = (
     "If <code>true</code>, the thumbnail that is created on start of recording is "
-    "saved to <code>{folder}/{camera_identifier}/latest_thumbnail.jpg</code>"
+    "saved to <code>{camera_identifier}/latest_thumbnail.jpg</code><br>"
+    "Full path depends on the "
+    "<a href=/components-explorer/components/storage>storage component</a> "
+    "tier configuration."
 )
 
 
 # RECORDER_SCHEMA constants
 CONFIG_LOOKBACK = "lookback"
 CONFIG_IDLE_TIMEOUT = "idle_timeout"
+CONFIG_MAX_RECORDING_TIME = "max_recording_time"
 CONFIG_RETAIN = "retain"
 CONFIG_FOLDER = "folder"
 CONFIG_FILENAME_PATTERN = "filename_pattern"
 CONFIG_EXTENSION = "extension"
 CONFIG_THUMBNAIL = "thumbnail"
+CONFIG_CREATE_EVENT_CLIP: Final = "create_event_clip"
+CONFIG_STORAGE = "storage"
 
 DEFAULT_LOOKBACK = 5
 DEFAULT_IDLE_TIMEOUT = 10
-DEFAULT_RETAIN = 7
-DEFAULT_FOLDER = "/recordings"
+DEFAULT_MAX_RECORDING_TIME: Final = 300
 DEFAULT_FILENAME_PATTERN = "%H:%M:%S"
-DEFAULT_EXTENSION = "mp4"
 DEFAULT_THUMBNAIL: Final = None
+DEFAULT_CREATE_EVENT_CLIP = False
+DEFAULT_STORAGE: Final = None
+DEFAULT_RECORDER_TIERS: Final = None
 
 DESC_LOOKBACK = "Number of seconds to record before a detected object."
 DESC_IDLE_TIMEOUT = "Number of seconds to record after all events are over."
+DESC_MAX_RECORDING_TIME = "Maximum number of seconds to record."
 DESC_RETAIN = "Number of days to save recordings before deletion."
+DEPRECATED_RETAIN = (
+    "Use the "
+    "<a href=/components-explorer/components/storage>storage component</a> instead."
+)
+WARNING_RETAIN = (
+    "Config option 'retain' is deprecated and will be removed in a future version. "
+    "Please use 'max_age' in the 'storage' component instead."
+)
 DESC_FOLDER = "What folder to store recordings in."
+DEPRECATED_FOLDER = (
+    "Use the "
+    "<a href=/components-explorer/components/storage>storage component</a> instead."
+)
+WARNING_FOLDER = (
+    "Config option 'folder' is deprecated and will be removed in a future version. "
+    "Please use the 'storage' component instead."
+)
 DESC_FILENAME_PATTERN = (
     "A <a href=https://strftime.org/>strftime</a> pattern for saved recordings.<br>"
     "Default pattern results in filenames like: <code>23:59:59.jpg</code>."
 )
 DESC_EXTENSION = "The file extension used for recordings."
+DEPRECATED_EXTENSION = "<code>mp4</code> is the only supported extension."
+WARNING_EXTENSION = (
+    "Config option 'extension' is deprecated and will be removed in a "
+    "future version. 'mp4' is the only supported extension."
+)
+
 DESC_THUMBNAIL = "Options for the thumbnail created on start of a recording."
 DESC_FILENAME_PATTERN_THUMBNAIL = (
     "A <a href=https://strftime.org/>strftime</a> pattern for saved thumbnails.<br>"
     "Default pattern results in filenames like: <code>23:59:59.jpg</code>."
 )
+DEPRECATED_FILENAME_PATTERN_THUMBNAIL = (
+    "Thumbnails are stored with the same filename as the recording ID in the "
+    "database, for example: 1.jpg, 2.jpg, 3.jpg etc."
+)
+WARNING_FILENAME_PATTERN_THUMBNAIL = (
+    "Config option 'filename_pattern' is deprecated and will be removed in a future "
+    "version. {DEPRECATED_FILENAME_PATTERN_THUMBNAIL}"
+)
 
+DESC_STORAGE = (
+    "Storage options for the camera.<br>"
+    "Overrides the configuration in the "
+    "<a href=/components-explorer/components/storage>storage component</a>."
+)
+DESC_CREATE_EVENT_CLIP = (
+    "Concatenate fragments to an MP4 file for each event. "
+    "WARNING: Will store both the fragments AND the MP4 file, using more storage space."
+)
 
 # STILL_IMAGE_SCHEMA constants
 CONFIG_STILL_IMAGE = "still_image"

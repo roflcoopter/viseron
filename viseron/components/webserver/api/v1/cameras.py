@@ -26,13 +26,13 @@ class CamerasAPIHandler(BaseAPIHandler):
         },
     ]
 
-    def get_cameras(self) -> None:
+    async def get_cameras(self) -> None:
         """Return cameras."""
         self.response_success(
             response=self._vis.data[REGISTERED_DOMAINS].get(CAMERA_DOMAIN, {})
         )
 
-    def get_failed_cameras(self) -> None:
+    async def get_failed_cameras(self) -> None:
         """Return failed cameras."""
         failed_cameras = {}
         for failed_camera in (

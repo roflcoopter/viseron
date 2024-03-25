@@ -21,7 +21,6 @@ CONFIG_PORT = "port"
 CONFIG_DEBUG = "debug"
 
 DEFAULT_COMPONENT: Final = None
-DEFAULT_PORT = 8888
 DEFAULT_DEBUG = False
 
 DESC_COMPONENT = "Webserver configuration."

@@ -3,9 +3,11 @@ from typing import Final
 
 import cv2
 
+DEFAULT_PORT = 8888
 CONFIG_PATH = "/config/config.yaml"
 SECRETS_PATH = "/config/secrets.yaml"
 STORAGE_PATH = "/config/.viseron"
+TEMP_DIR = "/tmp/viseron"
 DEFAULT_CONFIG = """# Thanks for trying out Viseron!
 # This is a small walkthrough of the configuration to get you started.
 # There are far more components and options available than what is listed here.
@@ -128,7 +130,9 @@ DOMAIN_SETUP_TASKS = "domain_setup_tasks"
 REGISTERED_DOMAINS = "registered_domains"
 
 # Signal constants
-VISERON_SIGNAL_SHUTDOWN = "shutdown"
+VISERON_SIGNAL_SHUTDOWN: Final = "shutdown"
+VISERON_SIGNAL_LAST_WRITE: Final = "last_write"
+VISERON_SIGNAL_STOPPING: Final = "stopping"
 
 # State constants
 STATE_ON = "on"

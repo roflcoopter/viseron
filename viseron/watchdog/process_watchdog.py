@@ -1,10 +1,10 @@
 """Watchdog for long-running processes."""
 from __future__ import annotations
 
-import datetime
 import logging
 import multiprocessing as mp
 
+from viseron.helpers import utcnow
 from viseron.watchdog import WatchDog
 
 LOGGER = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ class RestartableProcess:
             *self._args,
             **self._kwargs,
         )
-        self._start_time = datetime.datetime.now().timestamp()
+        self._start_time = utcnow().timestamp()
         self._started = True
         self._process.start()
         if self._register:
@@ -131,7 +131,7 @@ class ProcessWatchDog(WatchDog):
             if registered_process.is_alive():
                 continue
 
-            now = datetime.datetime.now().timestamp()
+            now = utcnow().timestamp()
             if (
                 registered_process.start_time
                 and now - registered_process.start_time

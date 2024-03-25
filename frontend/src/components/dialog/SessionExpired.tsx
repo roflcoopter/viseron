@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { clearSessionExpiredTimeout } from "lib/tokens";
 
 const useSessionExpiredEvent = (
-  setOpen: React.Dispatch<React.SetStateAction<boolean>>
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>,
 ) => {
   const navigate = useNavigate();
 

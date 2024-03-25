@@ -1,9 +1,14 @@
 """Logging helpers Viseron."""
+from __future__ import annotations
+
+import io
 import logging
 import os
 import re
 import threading
-from typing import Any, List, Literal
+import typing
+from types import TracebackType
+from typing import Any, AnyStr, Iterable, Iterator, Literal, TextIO
 
 from colorlog import ColoredFormatter
 
@@ -62,17 +67,20 @@ class SensitiveInformationFilter(logging.Filter):
 class UnhelpfullLogFilter(logging.Filter):
     """Filter out unimportant logs."""
 
-    def __init__(self, errors_to_ignore: List[Any], *args, **kwargs) -> None:
+    def __init__(self, errors_to_ignore: list[Any], *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.errors_to_ignore = errors_to_ignore
 
     def filter(self, record) -> bool:
         """Filter log record."""
-        if any(error in record.msg for error in self.errors_to_ignore):
-            return False
         if isinstance(record.msg, str) and (
-            record.msg == "" or record.msg.isspace() or not record.msg.strip()
+            record.msg == ""
+            or record.msg.isspace()
+            or not record.msg.strip()
+            or record.msg == "\n"
         ):
+            return False
+        if any(error in record.msg for error in self.errors_to_ignore):
             return False
         return True
 
@@ -142,7 +150,9 @@ class LogPipe(threading.Thread):
     def run(self) -> None:
         """Run the thread, logging everything."""
         for line in iter(self.pipe_reader.readline, ""):
-            self._logger.log(self._output_level, line.strip().strip("\n"))
+            log_str = line.strip().strip("\n")
+            if log_str:
+                self._logger.log(self._output_level, log_str)
 
         self.pipe_reader.close()
 
@@ -190,3 +200,95 @@ class CTypesLogPipe(threading.Thread):
         """Close the write end of the pipe."""
         os.close(self._write_filedescriptor)
         os.dup2(self._old_fd, self._fd)
+
+
+class StreamToLogger(typing.TextIO):
+    """Stream object that redirects its output to standard logging."""
+
+    def __init__(self, logger: logging.Logger, log_level: int) -> None:
+        """Initialize the object."""
+        self.logger = logger
+        self.log_level = log_level
+
+    def __enter__(self) -> TextIO:
+        """Enter context manager."""
+        raise io.UnsupportedOperation
+
+    def close(self) -> None:
+        """Close the stream."""
+        raise io.UnsupportedOperation
+
+    def fileno(self) -> int:
+        """Return the file descriptor."""
+        raise io.UnsupportedOperation
+
+    def flush(self) -> None:
+        """Flush the stream."""
+        raise io.UnsupportedOperation
+
+    def isatty(self) -> bool:
+        """Return if the stream is a tty."""
+        raise io.UnsupportedOperation
+
+    def read(self, n: int = -1) -> AnyStr:
+        """Read from the stream."""
+        raise io.UnsupportedOperation
+
+    def readable(self) -> bool:
+        """Return if the stream is readable."""
+        raise io.UnsupportedOperation
+
+    def readline(self, limit: int = -1) -> AnyStr:
+        """Read a line from the stream."""
+        raise io.UnsupportedOperation
+
+    def readlines(self, hint: int = -1) -> list[AnyStr]:
+        """Read lines from the stream."""
+        raise io.UnsupportedOperation
+
+    def seek(self, offset: int, whence: int = 0) -> int:
+        """Seek in the stream."""
+        raise io.UnsupportedOperation
+
+    def seekable(self) -> bool:
+        """Return if the stream is seekable."""
+        raise io.UnsupportedOperation
+
+    def tell(self) -> int:
+        """Return the current position in the stream."""
+        raise io.UnsupportedOperation
+
+    def truncate(self, size: int | None = None) -> int:
+        """Truncate the stream."""
+        raise io.UnsupportedOperation
+
+    def writable(self) -> bool:
+        """Return if the stream is writable."""
+        raise io.UnsupportedOperation
+
+    def writelines(self, lines: Iterable[AnyStr]) -> None:
+        """Write lines to the stream."""
+        raise io.UnsupportedOperation
+
+    def __next__(self) -> AnyStr:
+        """Return the next line from the stream."""
+        raise io.UnsupportedOperation
+
+    def __iter__(self) -> Iterator[AnyStr]:
+        """Return an iterator over the stream."""
+        raise io.UnsupportedOperation
+
+    def __exit__(
+        self,
+        t: type[BaseException] | None,
+        value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """Exit context manager."""
+        raise io.UnsupportedOperation
+
+    def write(self, text: str):  # pylint: disable=arguments-renamed
+        """Write to the logger."""
+        if text == "\n":
+            return
+        self.logger.log(self.log_level, text.rstrip())

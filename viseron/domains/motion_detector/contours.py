@@ -1,5 +1,10 @@
 """Motion contours."""
+from __future__ import annotations
+
+from typing import Any
+
 import cv2
+import numpy as np
 
 from viseron.helpers import calculate_relative_contours
 
@@ -21,7 +26,7 @@ class Contours:
         return self._contours
 
     @property
-    def rel_contours(self):
+    def rel_contours(self) -> list[np.ndarray]:
         """Return contours with relative coordinates."""
         return self._rel_contours
 
@@ -31,6 +36,15 @@ class Contours:
         return self._contour_areas
 
     @property
-    def max_area(self):
+    def max_area(self) -> int:
         """Return the size of the biggest contour."""
         return self._max_area
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return motion contours as dict."""
+        return {
+            "contours": self._contours,
+            "rel_contours": self._rel_contours,
+            "contour_areas": self._contour_areas,
+            "max_area": self._max_area,
+        }

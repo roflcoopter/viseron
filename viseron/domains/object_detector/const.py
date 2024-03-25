@@ -22,6 +22,8 @@ CONFIG_LABEL_HEIGHT_MAX = "height_max"
 CONFIG_LABEL_WIDTH_MIN = "width_min"
 CONFIG_LABEL_WIDTH_MAX = "width_max"
 CONFIG_LABEL_TRIGGER_RECORDER = "trigger_recorder"
+CONFIG_LABEL_STORE = "store"
+CONFIG_LABEL_STORE_INTERVAL = "store_interval"
 CONFIG_LABEL_REQUIRE_MOTION = "require_motion"
 
 DEFAULT_LABEL_CONFIDENCE = 0.8
@@ -30,6 +32,8 @@ DEFAULT_LABEL_HEIGHT_MAX = 1
 DEFAULT_LABEL_WIDTH_MIN = 0
 DEFAULT_LABEL_WIDTH_MAX = 1
 DEFAULT_LABEL_TRIGGER_RECORDER = True
+DEFAULT_LABEL_STORE = True
+DEFAULT_LABEL_STORE_INTERVAL = 60
 DEFAULT_LABEL_REQUIRE_MOTION = False
 
 DESC_LABEL_LABEL = "The label to track."
@@ -57,6 +61,16 @@ DESC_LABEL_REQUIRE_MOTION = (
     "If set to <code>true</code>, the recorder will stop as soon as motion is no "
     "longer detected, even if the object still is. This is useful to avoid never "
     "ending recordings of stationary objects, such as a car on a driveway"
+)
+DESC_LABEL_STORE = (
+    "If set to <code>true</code>, objects matching this filter will be stored "
+    "in the database, as well as having a snapshot saved. "
+    "Labels with <code>trigger_recorder</code> set to <code>true</code> will always "
+    "be stored when a recording starts, regardless of this setting."
+)
+DESC_LABEL_STORE_INTERVAL = (
+    "The interval at which the label should be stored in the database, in seconds. "
+    "If set to 0, the label will be stored every time it is detected."
 )
 
 # CAMERA_SCHEMA constants

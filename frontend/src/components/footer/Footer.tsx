@@ -19,7 +19,7 @@ export default function AppFooter() {
   const location = useLocation();
 
   useEffect(() => {
-    if (location.pathname === "/configuration") {
+    if (["/configuration", "/events"].includes(location.pathname)) {
       setShowFooter(false);
       return;
     }

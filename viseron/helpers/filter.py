@@ -1,16 +1,20 @@
 """Used to filter out unwanted objects."""
+from datetime import timedelta
+
 from viseron.domains.object_detector.const import (
     CONFIG_LABEL_CONFIDENCE,
     CONFIG_LABEL_HEIGHT_MAX,
     CONFIG_LABEL_HEIGHT_MIN,
     CONFIG_LABEL_LABEL,
     CONFIG_LABEL_REQUIRE_MOTION,
+    CONFIG_LABEL_STORE,
+    CONFIG_LABEL_STORE_INTERVAL,
     CONFIG_LABEL_TRIGGER_RECORDER,
     CONFIG_LABEL_WIDTH_MAX,
     CONFIG_LABEL_WIDTH_MIN,
 )
 from viseron.domains.object_detector.detected_object import DetectedObject
-from viseron.helpers import object_in_polygon
+from viseron.helpers import object_in_polygon, utcnow
 
 
 class Filter:
@@ -26,7 +30,13 @@ class Filter:
         self._height_min = object_filter[CONFIG_LABEL_HEIGHT_MIN]
         self._height_max = object_filter[CONFIG_LABEL_HEIGHT_MAX]
         self._trigger_recorder = object_filter[CONFIG_LABEL_TRIGGER_RECORDER]
+        self._store = object_filter[CONFIG_LABEL_STORE]
+        self._store_interval = timedelta(
+            seconds=object_filter[CONFIG_LABEL_STORE_INTERVAL]
+        )
         self._require_motion = object_filter[CONFIG_LABEL_REQUIRE_MOTION]
+
+        self._last_stored = utcnow() - self._store_interval
 
     def filter_confidence(self, obj: DetectedObject) -> bool:
         """Return if confidence filter is met."""
@@ -66,6 +76,17 @@ class Filter:
             and self.filter_mask(obj)
         )
 
+    def should_store(self, obj: DetectedObject) -> bool:
+        """Return True if object should be stored."""
+        # Only store if store interval has passed
+        if self._store and utcnow() - self._last_stored > self._store_interval:
+            obj.store = True
+            self._last_stored = utcnow()
+            return True
+
+        obj.store = False
+        return False
+
     @property
     def confidence(self) -> bool:
         """Return configured confidence of filter."""
@@ -75,6 +96,11 @@ class Filter:
     def trigger_recorder(self) -> bool:
         """Return if label triggers recorder."""
         return self._trigger_recorder
+
+    @property
+    def store(self) -> bool:
+        """Return if label should be stored in database."""
+        return self._store
 
     @property
     def require_motion(self) -> bool:

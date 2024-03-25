@@ -3,6 +3,7 @@ import Tabs from "@theme/Tabs";
 
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting";
 import Camera from "@site/src/pages/components-explorer/_domains/camera/index.mdx";
 import CameraMjpegStreams from "@site/src/pages/components-explorer/_domains/camera/mjpeg_streams.mdx";
 
@@ -223,6 +224,9 @@ Example Docker command
 ```bash
 docker run --rm \
   -v {recordings path}:/recordings \
+  -v {recordings path}:/segments \
+  -v {recordings path}:/snapshots \
+  -v {recordings path}:/thumbnails \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -242,6 +246,9 @@ services:
     container_name: viseron
     volumes:
       - {recordings path}:/recordings
+      - {recordings path}:/segments
+      - {recordings path}:/snapshots
+      - {recordings path}:/thumbnails
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -251,8 +258,20 @@ services:
 ```
 
 ```yaml title="/config/config.yaml"
-recorder:
-  segments_folder: /tmp
+storage:
+  recorder:
+    tiers:
+      # Store 50 MB of segments in RAM disk
+      - path: /tmp/tier1
+        move_on_shutdown: true # Important to not lose segments on shutdown
+        events:
+          max_size:
+            mb: 50
+      # Keep 50 GB of segments on a normal drive
+      - path: /config/tier2
+        events:
+          max_size:
+            gb: 50
 ```
 
 </details>
@@ -347,8 +366,8 @@ ffmpeg:
         fps: 1
         raw_command: | # Output to pipe:1
           ffmpeg -rtsp_transport tcp -i rtsp://user:pass@192.168.XX.X:554/onvif_camera/profile.1 -vf fps=1.0 -f rawvideo -pix_fmt nv12 pipe:1
-      raw_command: | # Output segments to /segments/viseron_vscode_camera
-        ffmpeg -rtsp_transport tcp -i rtsp://user:pass@192.168.XX.X:554/onvif_camera/profile.0 -f segment -segment_time 5 -reset_timestamps 1 -strftime 1 -c:v copy /segments/viseron_vscode_camera/%Y%m%d%H%M%S.mp4
+      raw_command: | # Output segments to /segments/camera_one
+        ffmpeg -rtsp_transport tcp -i rtsp://user:pass@192.168.XX.X:554/onvif_camera/profile.0 -f segment -segment_time 5 -reset_timestamps 1 -strftime 1 -c:v copy /segments/camera_one/%Y%m%d%H%M%S.mp4
 ```
 
 </details>
@@ -364,3 +383,7 @@ Most of the configuration options are ignored when using `raw_command`.
 If you create a command that works well for your particular hardware, please share it with the community!
 
 :::
+
+## Troubleshooting
+
+<ComponentTroubleshooting meta={ComponentMetadata} />

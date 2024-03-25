@@ -1,18 +1,24 @@
 import Image from "@jy95/material-ui-image";
+import ImageSearchIcon from "@mui/icons-material/ImageSearch";
+import LiveTvIcon from "@mui/icons-material/LiveTv";
+import VideoFileIcon from "@mui/icons-material/VideoFile";
 import Card from "@mui/material/Card";
+import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
+import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { usePageVisibility } from "react-page-visibility";
+import { Link } from "react-router-dom";
 
-import {
-  CardActionButtonHref,
-  CardActionButtonLink,
-} from "components/CardActionButton";
-import { AuthContext } from "context/AuthContext";
+import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
+import { FailedCameraCard } from "components/camera/FailedCameraCard";
+import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
 import useOnScreen from "hooks/UseOnScreen";
 import { useCamera } from "lib/api/camera";
@@ -21,8 +27,30 @@ import { subscribeStates } from "lib/commands";
 import * as types from "lib/types";
 import { SubscriptionUnsubscribe } from "lib/websockets";
 
+type OnClick = (
+  event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  camera: types.Camera,
+) => void;
+
+type FailedOnClick = (
+  event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  camera: types.FailedCamera,
+) => void;
+
+interface SuccessCameraCardProps {
+  camera_identifier: string;
+  buttons?: boolean;
+  compact?: boolean;
+  onClick?: OnClick;
+  border?: string;
+}
+
 interface CameraCardProps {
   camera_identifier: string;
+  buttons?: boolean;
+  compact?: boolean;
+  onClick?: OnClick | FailedOnClick;
+  border?: string;
 }
 
 const blankImage =
@@ -38,7 +66,7 @@ const useCameraToken = (camera_identifier: string, auth_enabled: boolean) => {
       return;
     }
     const stateChanged = async (
-      _stateChangedEvent: types.StateChangedEvent
+      _stateChangedEvent: types.StateChangedEvent,
     ) => {
       queryClient.invalidateQueries(["camera", camera_identifier]);
     };
@@ -57,7 +85,7 @@ const useCameraToken = (camera_identifier: string, auth_enabled: boolean) => {
           stateChanged,
           `sensor.${camera_identifier}_access_token`,
           undefined,
-          false
+          false,
         );
       } else if (connection && !connected && unsubRef.current) {
         await unsubscribeEntities();
@@ -71,9 +99,15 @@ const useCameraToken = (camera_identifier: string, auth_enabled: boolean) => {
   }, [auth_enabled, camera_identifier, connected, connection]);
 };
 
-export default function CameraCard({ camera_identifier }: CameraCardProps) {
+const SuccessCameraCard = ({
+  camera_identifier,
+  buttons = true,
+  compact = false,
+  onClick,
+  border,
+}: SuccessCameraCardProps) => {
   const { connected } = useContext(ViseronContext);
-  const { auth } = useContext(AuthContext);
+  const { auth } = useAuthContext();
   const theme = useTheme();
   const ref: any = useRef<HTMLDivElement>();
   const onScreen = useOnScreen<HTMLDivElement>(ref);
@@ -88,7 +122,7 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
       `/api/v1/camera/${camera_identifier}/snapshot?rand=${(Math.random() + 1)
         .toString(36)
         .substring(7)}${width ? `&width=${Math.trunc(width)}` : ""}`,
-    [camera_identifier]
+    [camera_identifier],
   );
   const [snapshotURL, setSnapshotURL] = useState({
     // Show blank image on start
@@ -97,7 +131,7 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
     disableTransition: false,
     loading: true,
   });
-  const updateSnapshot = useRef<NodeJS.Timer | null>();
+  const updateSnapshot = useRef<NodeJS.Timeout | null>();
   const updateImage = useCallback(() => {
     setSnapshotURL((prevSnapshotURL) => {
       if (cameraQuery.isFetching) {
@@ -113,7 +147,7 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
         setInitialRender(false);
         return {
           url: generateSnapshotURL(
-            ref.current ? ref.current.offsetWidth : null
+            ref.current ? ref.current.offsetWidth : null,
           ),
           disableSpinner: false,
           disableTransition: false,
@@ -138,7 +172,7 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
         },
         cameraQuery.data.still_image_refresh_interval
           ? cameraQuery.data.still_image_refresh_interval * 1000
-          : 10000
+          : 10000,
       );
       // If element is hidden or browser loses focus, stop updating images
     } else if (updateSnapshot.current) {
@@ -173,63 +207,135 @@ export default function CameraCard({ camera_identifier }: CameraCardProps) {
           variant="outlined"
           sx={{
             // Vertically space items evenly to accommodate different aspect ratios
-            height: "100%",
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
+            ...(compact ? { position: "relative" } : { height: "100%" }),
+            ...(border ? { border } : null),
           }}
         >
-          <CardContent>
-            <Typography variant="h5" align="center">
-              {cameraQuery.data.name}
-            </Typography>
-          </CardContent>
-          <CardMedia>
-            {/* 'alt=""' in combination with textIndent is a neat trick to hide the broken image icon */}
-            <Image
-              alt=""
-              imageStyle={{ textIndent: "-10000px" }}
-              src={`${snapshotURL.url}${
-                auth.enabled
-                  ? `&access_token=${cameraQuery.data?.access_token}`
-                  : ""
-              }`}
-              disableSpinner={snapshotURL.disableSpinner}
-              disableTransition={snapshotURL.disableTransition}
-              animationDuration={1000}
-              aspectRatio={cameraQuery.data.width / cameraQuery.data.height}
-              color={theme.palette.background.default}
-              onLoad={() => {
-                setSnapshotURL((prevSnapshotURL) => ({
-                  ...prevSnapshotURL,
-                  disableSpinner: true,
-                  disableTransition: true,
-                  loading: false,
-                }));
-              }}
-              errorIcon={Image.defaultProps!.loading}
-              onError={() => {
-                setSnapshotURL((prevSnapshotURL) => ({
-                  ...prevSnapshotURL,
-                  disableSpinner: false,
-                  disableTransition: false,
-                  loading: false,
-                }));
-              }}
-            />
-          </CardMedia>
-          <CardActions>
-            <CardActionButtonLink
-              title="Recordings"
-              target={`/recordings/${cameraQuery.data.identifier}`}
-            />
-            <CardActionButtonHref
-              title="Live View"
-              target={`/${cameraQuery.data.identifier}/mjpeg-stream`}
-            />
-          </CardActions>
+          {compact ? (
+            <CameraNameOverlay camera={cameraQuery.data} />
+          ) : (
+            <CardContent>
+              <Typography variant="h5" align="center">
+                {cameraQuery.data.name}
+              </Typography>
+            </CardContent>
+          )}
+          <CardActionArea
+            onClick={
+              onClick
+                ? (event) => (onClick as OnClick)(event, cameraQuery.data)
+                : undefined
+            }
+            sx={onClick ? null : { pointerEvents: "none" }}
+          >
+            <CardMedia>
+              {/* 'alt=""' in combination with textIndent is a neat trick to hide the broken image icon */}
+              <Image
+                alt=""
+                imageStyle={{ textIndent: "-10000px" }}
+                src={`${snapshotURL.url}${
+                  auth.enabled
+                    ? `&access_token=${cameraQuery.data?.access_token}`
+                    : ""
+                }`}
+                disableSpinner={snapshotURL.disableSpinner}
+                disableTransition={snapshotURL.disableTransition}
+                animationDuration={1000}
+                aspectRatio={cameraQuery.data.width / cameraQuery.data.height}
+                color={theme.palette.background.default}
+                onLoad={() => {
+                  setSnapshotURL((prevSnapshotURL) => ({
+                    ...prevSnapshotURL,
+                    disableSpinner: true,
+                    disableTransition: true,
+                    loading: false,
+                  }));
+                }}
+                errorIcon={Image.defaultProps!.loading}
+                onError={() => {
+                  setSnapshotURL((prevSnapshotURL) => ({
+                    ...prevSnapshotURL,
+                    disableSpinner: false,
+                    disableTransition: false,
+                    loading: false,
+                  }));
+                }}
+              />
+            </CardMedia>
+          </CardActionArea>
+          {buttons && (
+            <CardActions>
+              <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
+                <Tooltip title="Events">
+                  <IconButton
+                    component={Link}
+                    to={`/events?camera=${cameraQuery.data.identifier}&tab=events`}
+                  >
+                    <ImageSearchIcon />
+                  </IconButton>
+                </Tooltip>
+
+                <Tooltip title="Recordings">
+                  <IconButton
+                    component={Link}
+                    to={`/recordings/${cameraQuery.data.identifier}`}
+                  >
+                    <VideoFileIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Live View">
+                  <IconButton
+                    component={"a" as React.ElementType}
+                    target="_blank"
+                    href={`/${cameraQuery.data.identifier}/mjpeg-stream`}
+                  >
+                    <LiveTvIcon />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
+            </CardActions>
+          )}
         </Card>
       )}
     </div>
   );
-}
+};
+
+export const CameraCard = ({
+  camera_identifier,
+  buttons = true,
+  compact = false,
+  onClick,
+  border,
+}: CameraCardProps) => {
+  const { connected } = useContext(ViseronContext);
+  const cameraQuery = useCamera(camera_identifier, true, {
+    enabled: connected,
+  });
+
+  if (!cameraQuery.data) {
+    return null;
+  }
+
+  if (cameraQuery.data.failed) {
+    return (
+      <FailedCameraCard
+        failedCamera={cameraQuery.data}
+        compact={compact}
+        onClick={(onClick as FailedOnClick) || undefined}
+      />
+    );
+  }
+  return (
+    <SuccessCameraCard
+      camera_identifier={camera_identifier}
+      buttons={buttons}
+      compact={compact}
+      onClick={onClick as OnClick | undefined}
+      border={border}
+    />
+  );
+};

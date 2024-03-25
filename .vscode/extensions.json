@@ -1,14 +1,18 @@
 {
-    "recommendations": [
-        "ms-python.python",
-        "ms-python.vscode-pylance",
-        "ms-python.isort",
-        "ms-python.flake8",
-        "redhat.vscode-yaml",
-        "esbenp.prettier-vscode",
-        "eamodio.gitlens",
-        "dbaeumer.vscode-eslint",
-        "ms-azuretools.vscode-docker",
-        "unifiedjs.vscode-mdx"
-    ]
-  }
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.isort",
+    "ms-python.flake8",
+    "ms-python.black-formatter",
+    "ms-python.pylint",
+    "ms-python.mypy-type-checker",
+    "redhat.vscode-yaml",
+    "esbenp.prettier-vscode",
+    "eamodio.gitlens",
+    "dbaeumer.vscode-eslint",
+    "ms-azuretools.vscode-docker",
+    "unifiedjs.vscode-mdx",
+    "ckolkman.vscode-postgres"
+  ]
+}

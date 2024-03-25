@@ -33,7 +33,8 @@ function HomepageHeader() {
                 Face Recognition<br></br>
                 Image Classification<br></br>
                 License Plate Recognition<br></br>
-                Hardware Acceleration
+                Hardware Acceleration<br></br>
+                24/7 recordings
               </div>
             </p>
           </div>

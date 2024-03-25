@@ -9,9 +9,12 @@ from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any, Deque
 
 import voluptuous as vol
+from sqlalchemy import insert
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, OBJECT_DETECTOR
+from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.models import Objects
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.camera.shared_frames import SharedFrame
@@ -40,6 +43,8 @@ from .const import (
     CONFIG_LABEL_HEIGHT_MIN,
     CONFIG_LABEL_LABEL,
     CONFIG_LABEL_REQUIRE_MOTION,
+    CONFIG_LABEL_STORE,
+    CONFIG_LABEL_STORE_INTERVAL,
     CONFIG_LABEL_TRIGGER_RECORDER,
     CONFIG_LABEL_WIDTH_MAX,
     CONFIG_LABEL_WIDTH_MIN,
@@ -57,6 +62,8 @@ from .const import (
     DEFAULT_LABEL_HEIGHT_MAX,
     DEFAULT_LABEL_HEIGHT_MIN,
     DEFAULT_LABEL_REQUIRE_MOTION,
+    DEFAULT_LABEL_STORE,
+    DEFAULT_LABEL_STORE_INTERVAL,
     DEFAULT_LABEL_TRIGGER_RECORDER,
     DEFAULT_LABEL_WIDTH_MAX,
     DEFAULT_LABEL_WIDTH_MIN,
@@ -74,6 +81,8 @@ from .const import (
     DESC_LABEL_HEIGHT_MIN,
     DESC_LABEL_LABEL,
     DESC_LABEL_REQUIRE_MOTION,
+    DESC_LABEL_STORE,
+    DESC_LABEL_STORE_INTERVAL,
     DESC_LABEL_TRIGGER_RECORDER,
     DESC_LABEL_WIDTH_MAX,
     DESC_LABEL_WIDTH_MIN,
@@ -93,6 +102,7 @@ from .zone import Zone
 if TYPE_CHECKING:
     from viseron import Event, Viseron
     from viseron.components.nvr.nvr import EventScanFrames
+    from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera
 
 
@@ -141,6 +151,16 @@ LABEL_SCHEMA = vol.Schema(
             default=DEFAULT_LABEL_TRIGGER_RECORDER,
             description=DESC_LABEL_TRIGGER_RECORDER,
         ): bool,
+        vol.Optional(
+            CONFIG_LABEL_STORE,
+            default=DEFAULT_LABEL_STORE,
+            description=DESC_LABEL_STORE,
+        ): bool,
+        vol.Optional(
+            CONFIG_LABEL_STORE_INTERVAL,
+            default=DEFAULT_LABEL_STORE_INTERVAL,
+            description=DESC_LABEL_STORE_INTERVAL,
+        ): int,
         vol.Optional(
             CONFIG_LABEL_REQUIRE_MOTION,
             default=DEFAULT_LABEL_REQUIRE_MOTION,
@@ -219,6 +239,7 @@ class AbstractObjectDetector(ABC):
         camera_identifier: str,
     ) -> None:
         self._vis = vis
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
         self._config = config
         self._camera_identifier = camera_identifier
         self._camera: AbstractCamera = vis.get_registered_domain(
@@ -330,6 +351,7 @@ class AbstractObjectDetector(ABC):
 
                 if self.object_filters[obj.label].trigger_recorder:
                     obj.trigger_recorder = True
+                self.object_filters[obj.label].should_store(obj)
 
         self._objects_in_fov_setter(shared_frame, objects_in_fov)
         if self._config[CONFIG_CAMERAS][self._camera.identifier][
@@ -349,12 +371,42 @@ class AbstractObjectDetector(ABC):
         """Return all objects in field of view."""
         return self._objects_in_fov
 
+    def _insert_object(
+        self, obj: DetectedObject, snapshot_path: str | None, zone=None
+    ) -> None:
+        """Insert object into database."""
+        with self._storage.get_session() as session:
+            stmt = insert(Objects).values(
+                camera_identifier=self._camera.identifier,
+                label=obj.label,
+                confidence=obj.confidence,
+                width=obj.rel_width,
+                height=obj.rel_height,
+                x1=obj.rel_x1,
+                y1=obj.rel_y1,
+                x2=obj.rel_x2,
+                y2=obj.rel_y2,
+                snapshot_path=snapshot_path,
+                zone=zone,
+            )
+            session.execute(stmt)
+            session.commit()
+
     def _objects_in_fov_setter(
         self, shared_frame: SharedFrame | None, objects: list[DetectedObject]
     ) -> None:
         """Set objects in field of view."""
         if objects == self._objects_in_fov:
             return
+
+        for obj in objects:
+            if obj.store:
+                snapshot_path = None
+                if shared_frame:
+                    snapshot_path = self._camera.save_snapshot(
+                        shared_frame, obj, "object_detector"
+                    )
+                self._insert_object(obj, snapshot_path)
 
         self._objects_in_fov = objects
         self._vis.dispatch_event(

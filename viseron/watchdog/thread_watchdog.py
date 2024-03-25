@@ -3,6 +3,7 @@ import logging
 import threading
 from typing import Callable, Dict, List, Optional, overload
 
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.watchdog import WatchDog
 
 LOGGER = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ class RestartableThread(threading.Thread):
         restart_method: Optional[Callable] = None,
         base_class=None,
         base_class_args=(),
+        stage: Optional[str] = VISERON_SIGNAL_SHUTDOWN,
     ) -> None:
         ...
 
@@ -68,6 +70,7 @@ class RestartableThread(threading.Thread):
         restart_method: Optional[Callable] = None,
         base_class=None,
         base_class_args=(),
+        stage: Optional[str] = VISERON_SIGNAL_SHUTDOWN,
     ) -> None:
         ...
 
@@ -88,6 +91,7 @@ class RestartableThread(threading.Thread):
         restart_method: Optional[Callable] = None,
         base_class=None,
         base_class_args=(),
+        stage: Optional[str] = VISERON_SIGNAL_SHUTDOWN,
     ) -> None:
         # _started is set in Thread.__init__() but we set it here to make mypy happy
         self._started = threading.Event()
@@ -117,6 +121,8 @@ class RestartableThread(threading.Thread):
         self._restart_method = restart_method
         self._base_class = base_class
         self._base_class_args = base_class_args
+        self._stage = stage
+        setattr(self, "stage", stage)
 
     @property
     def started(self):
@@ -172,6 +178,7 @@ class RestartableThread(threading.Thread):
             restart_method=self._restart_method,
             base_class=self._base_class,
             base_class_args=self._base_class_args,
+            stage=self._stage,
         )
 
 

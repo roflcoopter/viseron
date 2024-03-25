@@ -9,15 +9,16 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import { useQuery } from "@tanstack/react-query";
 import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
+import { useAuthContext } from "context/AuthContext";
 import { useCamera } from "lib/api/camera";
 import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
-import { getVideoElement, objHasValues } from "lib/helpers";
+import { useRecordings } from "lib/api/recordings";
+import { getTimeFromDate, getVideoElement, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
 interface RecordingCardLatestProps {
@@ -30,12 +31,13 @@ export default function RecordingCardLatest({
   failed,
 }: RecordingCardLatestProps) {
   const theme = useTheme();
+  const { auth } = useAuthContext();
   const deleteRecording = useDeleteRecording();
 
-  const recordingsQuery = useQuery<types.RecordingsCamera>({
-    queryKey: [
-      `/recordings/${camera_identifier}?latest${failed ? "&failed=1" : ""}`,
-    ],
+  const recordingsQuery = useRecordings({
+    camera_identifier,
+    latest: true,
+    failed,
   });
 
   const cameraQuery = useCamera(camera_identifier, failed);
@@ -44,10 +46,10 @@ export default function RecordingCardLatest({
   if (
     objHasValues<types.RecordingsCamera>(recordingsQuery.data) &&
     objHasValues<types.RecordingsCamera>(
-      Object.values(recordingsQuery.data)[0]
+      Object.values(recordingsQuery.data)[0],
     ) &&
     objHasValues<types.RecordingsCamera>(
-      Object.values(Object.values(recordingsQuery.data)[0])[0]
+      Object.values(Object.values(recordingsQuery.data)[0])[0],
     )
   ) {
     const recordingDate = Object.values(recordingsQuery.data)[0];
@@ -66,9 +68,9 @@ export default function RecordingCardLatest({
     objHasValues(recording) &&
     recording
   ) {
-    text = `Latest recording: ${recording.date} - ${
-      recording.filename.split(".")[0]
-    }`;
+    text = `Latest recording: ${recording.date} - ${getTimeFromDate(
+      new Date(recording.start_time),
+    )}`;
   }
 
   if (cameraQuery.isLoading || !cameraQuery.data) {
@@ -103,9 +105,13 @@ export default function RecordingCardLatest({
         <CardMedia>
           <LazyLoad
             height={200}
-            placeholder={<VideoPlayerPlaceholder camera={cameraQuery.data} />}
+            placeholder={
+              <VideoPlayerPlaceholder
+                aspectRatio={cameraQuery.data.width / cameraQuery.data.height}
+              />
+            }
           >
-            {getVideoElement(cameraQuery.data, recording)}
+            {getVideoElement(cameraQuery.data, recording, auth.enabled)}
           </LazyLoad>
         </CardMedia>
         <CardActions>

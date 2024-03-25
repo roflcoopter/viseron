@@ -1,7 +1,6 @@
 """Face recognition module."""
 from __future__ import annotations
 
-import datetime
 import os
 from dataclasses import dataclass
 from threading import Timer
@@ -12,7 +11,8 @@ import cv2
 import voluptuous as vol
 
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
-from viseron.helpers import create_directory
+from viseron.events import EventData
+from viseron.helpers import create_directory, utcnow
 from viseron.helpers.schemas import FLOAT_MIN_ZERO
 
 from .binary_sensor import FaceDetectionBinarySensor
@@ -69,13 +69,29 @@ class FaceDict:
     timer: Timer
     extra_attributes: None | dict[str, Any] = None
 
+    def as_dict(self) -> dict[str, Any]:
+        """Return as dict."""
+        return {
+            "name": self.name,
+            "coordinates": self.coordinates,
+            "confidence": self.confidence,
+            "extra_attributes": self.extra_attributes,
+        }
+
 
 @dataclass
-class EventFaceDetected:
+class EventFaceDetected(EventData):
     """Hold information on face detection event."""
 
     camera_identifier: str
     face: FaceDict
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return as dict."""
+        return {
+            "camera_identifier": self.camera_identifier,
+            "face": self.face.as_dict(),
+        }
 
 
 class AbstractFaceRecognition(AbstractPostProcessor):
@@ -129,10 +145,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
 
     def unknown_face_found(self, frame) -> None:
         """Save unknown faces."""
-        unique_id = (
-            f"{datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S-')}"
-            f"{str(uuid4())}.jpg"
-        )
+        unique_id = f"{utcnow().strftime('%Y-%m-%d-%H:%M:%S-')}{str(uuid4())}.jpg"
         file_name = os.path.join(self._config[CONFIG_UNKNOWN_FACES_PATH], unique_id)
         self._logger.debug(f"Unknown face found, saving to {file_name}")
 

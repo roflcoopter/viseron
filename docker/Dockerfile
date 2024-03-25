@@ -3,19 +3,52 @@ ARG BASE_VERSION
 ARG OPENCV_VERSION
 ARG FFMPEG_VERSION
 ARG WHEELS_VERSION
+ARG UBUNTU_VERSION
 FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} as opencv
 FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION} as ffmpeg
 FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} as wheels
-FROM node:14.18.3 as frontend
+
+# Build GPAC
+FROM ubuntu:${UBUNTU_VERSION} AS gpac
+
+ENV \
+  DEBIAN_FRONTEND=noninteractive
+
+RUN \
+  apt-get update && apt-get install -y --no-install-recommends \
+  build-essential \
+  ca-certificates \
+  pkg-config \
+  g++ \
+  git \
+  cmake \
+  yasm \
+  zlib1g-dev
+
+RUN \
+  git clone https://github.com/gpac/gpac.git
+RUN \
+  cd gpac && \
+  ./configure --static-bin / && \
+  make -j$(nproc)
+
+
+# Build frontend
+FROM node:20.10.0 as frontend
 
 WORKDIR /frontend
 
 COPY frontend/package.json ./
 COPY frontend/package-lock.json ./
+# npm 10+ fails to install in Docker for some reason
+RUN npm install -g npm@9
+RUN npm ci --legacy-peer-deps
+
 COPY frontend/ ./
+RUN npm run build
 
-RUN npm ci && npm run build
 
+# Build Viseron
 FROM roflcoopter/${ARCH}-base:${BASE_VERSION}
 
 WORKDIR /src
@@ -29,12 +62,14 @@ ARG EXTRA_APT_PACKAGES
 ENV \
   DEBIAN_FRONTEND=noninteractive \
   S6_KEEP_ENV=1 \
-  S6_SERVICES_GRACETIME=20000 \
+  S6_SERVICES_GRACETIME=30000 \
   S6_KILL_GRACETIME=1000 \
   PATH=$PATH:/home/abc/bin \
   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib \
   PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.8/site-packages \
-  OPENCV_OPENCL_CACHE_ENABLE=false
+  OPENCV_OPENCL_CACHE_ENABLE=false \
+  PGDATA=/config/postgresql \
+  PG_COLOR="always"
 
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}-installer /tmp/s6-overlay-installer
 
@@ -50,6 +85,9 @@ RUN \
   libgomp1 \
   # dlib Dependencies
   libopenblas-base \
+  # PostgreSQL
+  postgresql \
+  postgresql-contrib \
   # Install extra apt packages from build-arg
   ${EXTRA_APT_PACKAGES} \
   # GStreamer
@@ -91,6 +129,9 @@ RUN \
 
 VOLUME /config
 VOLUME /recordings
+VOLUME /segments
+VOLUME /snapshots
+VOLUME /thumbnails
 
 ENTRYPOINT ["/init"]
 
@@ -98,6 +139,7 @@ COPY docker/ffprobe_wrapper /home/abc/bin/ffprobe
 COPY docker/ffmpeg_wrapper /home/abc/bin/ffmpeg
 COPY --from=opencv /opt/opencv /usr/local/
 COPY --from=ffmpeg /usr/local /ffmpeg/
+COPY --from=gpac /gpac/bin/gcc /usr/bin
 COPY rootfs/ /
 COPY --from=frontend /frontend/dist /src/viseron/frontend/
 COPY viseron /src/viseron/

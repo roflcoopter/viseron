@@ -5,9 +5,13 @@ ENV SHELL /bin/bash
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
     curl \
-    && curl -fsSL https://deb.nodesource.com/setup_16.x | bash - \
+    locales \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install --no-install-recommends -y \
-    nodejs
+    nodejs \
+    && npm install -g npm@latest \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements_test.txt requirements_test.txt
 RUN pip3 install -r requirements_test.txt \
@@ -15,5 +19,11 @@ RUN pip3 install -r requirements_test.txt \
     && rm -rf requirements_test.txt
 
 RUN rm -r /etc/services.d/viseron
+
+# Ensure at least the en_US.UTF-8 UTF-8 locale is available.
+RUN echo "LC_ALL=en_US.UTF-8" >> /etc/environment \
+    && echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen \
+    && echo "LANG=en_US.UTF-8" > /etc/locale.conf \
+    && locale-gen en_US.UTF-8
 
 WORKDIR /workspaces/viseron

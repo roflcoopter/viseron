@@ -31,10 +31,22 @@ class APIRouter(tornado.routing.Router):
         self, request: HTTPServerRequest, **_kwargs: dict[str, Any]
     ) -> _HandlerDelegate:
         """Route to correct API handler."""
-        api_version = request.path.split("/")[2]
-        endpoint = request.path.split("/")[3]
-        endpoint_handler = f"{endpoint.title()}APIHandler"
+        try:
+            api_version = request.path.split("/")[2]
+            endpoint = request.path.split("/")[3]
+        except IndexError:
+            LOGGER.warning(
+                f"Invalid API request URL: {request.path}",
+                exc_info=True,
+            )
+            handler = APINotFoundHandler
+            return self._application.get_handler_delegate(
+                request=request,
+                target_class=handler,
+                target_kwargs={"vis": self._vis},
+            )
 
+        endpoint_handler = f"{endpoint.title()}APIHandler"
         try:
             handler = getattr(
                 importlib.import_module(

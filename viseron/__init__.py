@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import json
 import logging
 import multiprocessing
 import multiprocessing.process
@@ -10,14 +11,17 @@ import sys
 import threading
 import time
 import tracemalloc
-from dataclasses import dataclass
+from functools import partial
 from timeit import default_timer as timer
-from typing import TYPE_CHECKING, Any, Callable, Generic, Literal, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Callable, Literal, overload
 
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.base import SchedulerNotRunningError
+from sqlalchemy import insert
 
 from viseron.components import (
+    CriticalComponentsConfigStore,
     get_component,
     setup_component,
     setup_components,
@@ -31,6 +35,9 @@ from viseron.components.nvr.const import (
     COMPONENT as NVR_COMPONENT,
     DOMAIN as NVR_DOMAIN,
 )
+from viseron.components.storage import Storage
+from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.models import Events
 from viseron.config import load_config
 from viseron.const import (
     DOMAIN_FAILED,
@@ -45,11 +52,15 @@ from viseron.const import (
     LOADED,
     LOADING,
     REGISTERED_DOMAINS,
+    VISERON_SIGNAL_LAST_WRITE,
     VISERON_SIGNAL_SHUTDOWN,
+    VISERON_SIGNAL_STOPPING,
 )
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.events import Event, EventData
 from viseron.exceptions import DataStreamNotLoaded, DomainNotRegisteredError
-from viseron.helpers import memory_usage_profiler
+from viseron.helpers import memory_usage_profiler, utcnow
+from viseron.helpers.json import JSONEncoder
 from viseron.helpers.logs import (
     DuplicateFilter,
     SensitiveInformationFilter,
@@ -74,6 +85,8 @@ if TYPE_CHECKING:
 
 VISERON_SIGNALS = {
     VISERON_SIGNAL_SHUTDOWN: "viseron/signal/shutdown",
+    VISERON_SIGNAL_LAST_WRITE: "viseron/signal/last_write",
+    VISERON_SIGNAL_STOPPING: "viseron/signal/stopping",
 }
 
 SIGNAL_SCHEMA = vol.Schema(
@@ -107,6 +120,8 @@ def enable_logging() -> None:
     logging.getLogger("tornado.access").setLevel(logging.WARNING)
     logging.getLogger("tornado.application").setLevel(logging.WARNING)
     logging.getLogger("tornado.general").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    logging.getLogger("watchdog.observers.inotify_buffer").setLevel(logging.WARNING)
 
     sys.excepthook = lambda *args: logging.getLogger(None).exception(
         "Uncaught exception", exc_info=args  # type: ignore[arg-type]
@@ -121,7 +136,7 @@ def enable_logging() -> None:
     )
 
 
-def setup_viseron():
+def setup_viseron() -> Viseron:
     """Set up and run Viseron."""
     start = timer()
     enable_logging()
@@ -133,6 +148,8 @@ def setup_viseron():
     vis = Viseron()
 
     setup_components(vis, config)
+
+    vis.storage = vis.data[STORAGE_COMPONENT]
 
     if NVR_COMPONENT in vis.data[LOADED]:
         for camera in vis.data[DOMAINS_TO_SETUP].get(CAMERA_DOMAIN, {}).keys():
@@ -158,29 +175,14 @@ def setup_viseron():
     setup_domains(vis)
     vis.setup()
 
+    if vis.safe_mode:
+        LOGGER.warning("Viseron is running in safe mode")
+    else:
+        vis.critical_components_config_store.save(config)
+
     end = timer()
     LOGGER.info("Viseron initialized in %.1f seconds", end - start)
     return vis
-
-
-T = TypeVar("T")
-
-
-@dataclass
-class Event(Generic[T]):
-    """Dataclass that holds an event."""
-
-    name: str
-    data: T
-    timestamp: float
-
-    def as_dict(self) -> dict[str, Any]:
-        """Convert Event to dict."""
-        return {
-            "name": self.name.split("/", 1)[1],
-            "data": self.data,
-            "timestamp": self.timestamp,
-        }
 
 
 class Viseron:
@@ -211,6 +213,10 @@ class Viseron:
         self.background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
         self.background_scheduler.start()
 
+        self.storage: Storage | None = None
+
+        self.critical_components_config_store = CriticalComponentsConfigStore(self)
+        self.safe_mode = False
         self.exit_code = 0
 
     def register_signal_handler(self, viseron_signal, callback):
@@ -256,8 +262,34 @@ class Viseron:
 
         return unsubscribe
 
-    def dispatch_event(self, event, data) -> None:
+    def _insert_event(self, event: Event[EventData]) -> None:
+        """Insert event into database."""
+        if self.storage:
+            event_data_json = "{}"
+            if event.data and event.data.json_serializable:
+                try:
+                    event_data_json = partial(
+                        json.dumps, cls=JSONEncoder, allow_nan=False
+                    )(event.data)
+                except (TypeError, ValueError, json.JSONDecodeError) as error:
+                    LOGGER.warning(
+                        f"Failed to decode event {event.name} to JSON: {error}"
+                    )
+                    return
+
+            with self.storage.get_session() as session:
+                stmt = insert(Events).values(
+                    name=event.name,
+                    data=event_data_json,
+                )
+                session.execute(stmt)
+                session.commit()
+
+    def dispatch_event(self, event: str, data: EventData, store: bool = True) -> None:
         """Dispatch an event."""
+        _event: Event[EventData] = Event(event, data, utcnow().timestamp())
+        if store:
+            self._insert_event(_event)
         event = f"event/{event}"
         self.data[DATA_STREAM_COMPONENT].publish_data(
             event, data=Event(event, data, time.time())
@@ -330,7 +362,9 @@ class Viseron:
         LOGGER.debug(f"Registering domain {domain} with identifier {identifier}")
         with self._domain_register_lock:
             self.data[REGISTERED_DOMAINS].setdefault(domain, {})[identifier] = instance
-            self.dispatch_event(EVENT_DOMAIN_REGISTERED.format(domain=domain), instance)
+            self.dispatch_event(
+                EVENT_DOMAIN_REGISTERED.format(domain=domain), instance, store=False
+            )
 
     @overload
     def get_registered_domain(
@@ -428,43 +462,18 @@ class Viseron:
 
         if self.data.get(DATA_STREAM_COMPONENT, None):
             data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
-            data_stream.publish_data(VISERON_SIGNALS["shutdown"])
 
         self._thread_watchdog.stop()
         self._subprocess_watchdog.stop()
-        self.background_scheduler.shutdown()
+        try:
+            self.background_scheduler.shutdown()
+        except SchedulerNotRunningError as err:
+            LOGGER.warning(f"Failed to shutdown scheduler: {err}")
 
-        def join(
-            thread_or_process: threading.Thread
-            | multiprocessing.Process
-            | multiprocessing.process.BaseProcess,
-        ) -> None:
-            thread_or_process.join(timeout=8)
-            time.sleep(0.5)  # Wait for process to exit properly
-            if thread_or_process.is_alive():
-                LOGGER.error(f"{thread_or_process.name} did not exit in time")
-                if isinstance(thread_or_process, multiprocessing.Process):
-                    LOGGER.error(f"Forcefully kill {thread_or_process.name}")
-                    thread_or_process.kill()
+        wait_for_threads_and_processes_to_exit(data_stream, VISERON_SIGNAL_SHUTDOWN)
+        wait_for_threads_and_processes_to_exit(data_stream, VISERON_SIGNAL_LAST_WRITE)
+        wait_for_threads_and_processes_to_exit(data_stream, VISERON_SIGNAL_STOPPING)
 
-        threads_and_processes: list[
-            threading.Thread
-            | multiprocessing.Process
-            | multiprocessing.process.BaseProcess
-        ] = [
-            thread
-            for thread in threading.enumerate()
-            if not thread.daemon and thread != threading.current_thread()
-        ]
-        threads_and_processes += multiprocessing.active_children()
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
-            thread_or_process_future = {
-                executor.submit(join, thread_or_process): thread_or_process
-                for thread_or_process in threads_and_processes
-            }
-            for future in concurrent.futures.as_completed(thread_or_process_future):
-                future.result()
         LOGGER.info("Shutdown complete")
 
     def add_entity(self, component: str, entity: Entity):
@@ -496,3 +505,45 @@ class Viseron:
             self.background_scheduler.add_job(
                 memory_usage_profiler, "interval", seconds=5, args=[LOGGER]
             )
+
+
+def wait_for_threads_and_processes_to_exit(
+    data_stream: DataStream,
+    stage: Literal["shutdown", "last_write", "stopping"],
+) -> None:
+    """Wait for all threads and processes to exit."""
+    data_stream.publish_data(VISERON_SIGNALS[stage])
+
+    LOGGER.debug(f"Waiting for threads and processes to exit in stage {stage}")
+
+    def join(
+        thread_or_process: threading.Thread
+        | multiprocessing.Process
+        | multiprocessing.process.BaseProcess,
+    ) -> None:
+        thread_or_process.join(timeout=10)
+        time.sleep(0.5)  # Wait for process to exit properly
+        if thread_or_process.is_alive():
+            LOGGER.error(f"{thread_or_process.name} did not exit in time")
+            if isinstance(thread_or_process, multiprocessing.Process):
+                LOGGER.error(f"Forcefully kill {thread_or_process.name}")
+                thread_or_process.kill()
+
+    threads_and_processes: list[
+        threading.Thread | multiprocessing.Process | multiprocessing.process.BaseProcess
+    ] = [
+        thread
+        for thread in threading.enumerate()
+        if not thread.daemon and thread != threading.current_thread()
+    ]
+    threads_and_processes += multiprocessing.active_children()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+        thread_or_process_future = {
+            executor.submit(join, thread_or_process): thread_or_process
+            for thread_or_process in threads_and_processes
+            if getattr(thread_or_process, "__stage__", stage) == stage
+        }
+        for future in concurrent.futures.as_completed(thread_or_process_future):
+            future.result()
+    LOGGER.debug(f"All threads and processes exited in stage {stage}")

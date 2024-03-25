@@ -10,9 +10,12 @@ from typing import TYPE_CHECKING, Any, Callable
 import cv2
 import numpy as np
 import voluptuous as vol
+from sqlalchemy import insert, update
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, MOTION_DETECTOR
+from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.models import Motion, MotionContours
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.motion_detector.binary_sensor import MotionDetectionBinarySensor
@@ -49,7 +52,8 @@ from viseron.domains.motion_detector.const import (
     DESC_WIDTH,
     EVENT_MOTION_DETECTED,
 )
-from viseron.helpers import generate_mask
+from viseron.events import EventData
+from viseron.helpers import generate_mask, utcnow
 from viseron.helpers.schemas import (
     COORDINATES_SCHEMA,
     FLOAT_MIN_ZERO,
@@ -62,6 +66,7 @@ if TYPE_CHECKING:
     from viseron import Event, Viseron
     from viseron.components.data_stream import DataStream
     from viseron.components.nvr.nvr import EventScanFrames
+    from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.camera.shared_frames import SharedFrame
 
@@ -98,13 +103,21 @@ BASE_CONFIG_SCHEMA = vol.Schema(
 
 
 @dataclass
-class EventMotionDetected:
+class EventMotionDetected(EventData):
     """Hold information on motion event."""
 
     camera_identifier: str
     motion_detected: bool
     shared_frame: SharedFrame | None = None
     motion_contours: Contours | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return event data as dict."""
+        return {
+            "camera_identifier": self.camera_identifier,
+            "motion_detected": self.motion_detected,
+            "motion_contours": self.motion_contours,
+        }
 
 
 class AbstractMotionDetector(ABC):
@@ -119,6 +132,7 @@ class AbstractMotionDetector(ABC):
     ) -> None:
         self._vis = vis
         self._config = config
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
 
         self._camera: AbstractCamera = vis.get_registered_domain(
             CAMERA_DOMAIN, camera_identifier
@@ -126,6 +140,7 @@ class AbstractMotionDetector(ABC):
         self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
         self._motion_detected = False
         self._motion_contours: Contours | None = None
+        self._motion_id: int | None = None
 
         vis.add_entity(component, MotionDetectionBinarySensor(vis, self, self._camera))
 
@@ -160,6 +175,43 @@ class AbstractMotionDetector(ABC):
         """Return motion contours."""
         return self._motion_contours
 
+    def _insert_motion(self) -> None:
+        """Insert motion event into database."""
+        with self._storage.get_session() as session:
+            stmt = (
+                insert(Motion)
+                .values(
+                    camera_identifier=self._camera.identifier,
+                    start_time=utcnow(),
+                    end_time=None,
+                )
+                .returning(Motion.id)
+            )
+            result = session.execute(stmt).scalars()
+            self._motion_id = result.one()
+            if self._motion_contours:
+                for contour in self._motion_contours.contours:
+                    stmt2 = insert(MotionContours).values(
+                        motion_id=self._motion_id,
+                        contour=contour,
+                    )
+                    session.execute(stmt2)
+
+            session.commit()
+
+    def _update_motion(self) -> None:
+        """Update motion event to set end_time."""
+        with self._storage.get_session() as session:
+            stmt = (
+                update(Motion)
+                .values(
+                    end_time=utcnow(),
+                )
+                .where(Motion.id == self._motion_id)
+            )
+            session.execute(stmt)
+            session.commit()
+
     def _motion_detected_setter(
         self,
         motion_detected,
@@ -169,6 +221,12 @@ class AbstractMotionDetector(ABC):
         self._motion_contours = contours
         if self._motion_detected == motion_detected:
             return
+
+        if self._motion_id is None:
+            self._insert_motion()
+        else:
+            self._update_motion()
+            self._motion_id = None
 
         self._motion_detected = motion_detected
         self._logger.debug("Motion detected" if motion_detected else "Motion stopped")

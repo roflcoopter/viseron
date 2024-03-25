@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from viseron.domains.camera.shared_frames import SharedFrame
+from viseron.events import EventData
 from viseron.helpers import (
     calculate_absolute_coords,
     calculate_relative_coords,
@@ -66,6 +67,7 @@ class DetectedObject:
         self._rel_width = float(round(self._rel_x2 - self._rel_x1, 3))
         self._rel_height = float(round(self._rel_y2 - self._rel_y1, 3))
         self._trigger_recorder = False
+        self._store = False
         self._relevant = False
         self._filter_hit = None
 
@@ -133,6 +135,15 @@ class DetectedObject:
         self._trigger_recorder = value
 
     @property
+    def store(self):
+        """Return if object should be stored in database."""
+        return self._store
+
+    @store.setter
+    def store(self, value) -> None:
+        self._store = value
+
+    @property
     def relevant(self):
         """Return if object is relevant.
 
@@ -172,10 +183,18 @@ def zero_if_negative(value):
 
 
 @dataclass
-class EventDetectedObjectsData:
+class EventDetectedObjectsData(EventData):
     """Event with information on objects in field of view or zone."""
 
     camera_identifier: str
     shared_frame: SharedFrame | None
     objects: list[DetectedObject]
     zone: Any = None
+
+    def as_dict(self) -> dict[str, Any]:
+        """Convert to dict."""
+        return {
+            "camera_identifier": self.camera_identifier,
+            "objects": [obj.as_dict() for obj in self.objects],
+            "zone": self.zone,
+        }
