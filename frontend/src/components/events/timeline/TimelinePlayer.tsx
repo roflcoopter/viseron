@@ -1,10 +1,11 @@
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import Hls from "hls.js";
+import Hls, { LevelLoadedData } from "hls.js";
 import React, { useEffect, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 
 import {
+  SCALE,
   calculateHeight,
   findFragmentByTimestamp,
 } from "components/events/timeline/utils";
@@ -14,16 +15,95 @@ import * as types from "lib/types";
 
 dayjs.extend(utc);
 
+const loadSource = (
+  hlsRef: React.MutableRefObject<Hls | null>,
+  requestedTimestamp: number,
+  camera: types.Camera | types.FailedCamera,
+) => {
+  if (!hlsRef.current) {
+    return;
+  }
+  const source = `/api/v1/hls/${camera.identifier}/index.m3u8?start_timestamp=${requestedTimestamp}&daily=true`;
+  hlsRef.current.loadSource(source);
+};
+
+const onLevelLoaded = (
+  data: LevelLoadedData,
+  hlsRef: React.MutableRefObject<Hls | null>,
+  videoRef: React.RefObject<HTMLVideoElement>,
+  initialProgramDateTime: React.MutableRefObject<number | null>,
+  requestedTimestampRef: React.MutableRefObject<number>,
+) => {
+  const requestedTimestampMillis = requestedTimestampRef.current * 1000;
+  const fragments = data.details.fragments;
+  if (!hlsRef.current || !videoRef.current) {
+    return;
+  }
+
+  if (fragments.length > 0) {
+    initialProgramDateTime.current = fragments[0].programDateTime!;
+  }
+
+  // Seek to the requested timestamp
+  const fragment = findFragmentByTimestamp(fragments, requestedTimestampMillis);
+  if (fragment) {
+    let seekTarget = fragment.start;
+    if (requestedTimestampMillis > fragment.programDateTime!) {
+      seekTarget =
+        fragment.start +
+        (requestedTimestampMillis - fragment.programDateTime!) / 1000;
+    } else {
+      seekTarget = fragment.start;
+    }
+    videoRef.current.currentTime = seekTarget;
+  }
+  videoRef.current.play();
+};
+
+const onManifestParsed = (
+  hlsRef: React.MutableRefObject<Hls | null>,
+  videoRef: React.RefObject<HTMLVideoElement>,
+) => {
+  if (!hlsRef.current || !videoRef.current) {
+    return;
+  }
+
+  videoRef.current.muted = true;
+  hlsRef.current.startLoad();
+};
+
+const onMediaAttached = (
+  hlsRef: React.MutableRefObject<Hls | null>,
+  videoRef: React.RefObject<HTMLVideoElement>,
+  initialProgramDateTime: React.MutableRefObject<number | null>,
+  requestedTimestampRef: React.MutableRefObject<number>,
+) => {
+  hlsRef.current!.once(Hls.Events.MANIFEST_PARSED, () => {
+    onManifestParsed(hlsRef, videoRef);
+  });
+
+  hlsRef.current!.once(
+    Hls.Events.LEVEL_LOADED,
+    (event: any, data: LevelLoadedData) => {
+      onLevelLoaded(
+        data,
+        hlsRef,
+        videoRef,
+        initialProgramDateTime,
+        requestedTimestampRef,
+      );
+    },
+  );
+};
+
 const initializePlayer = (
   hlsRef: React.MutableRefObject<Hls | null>,
   videoRef: React.RefObject<HTMLVideoElement>,
-  intervalRef: React.MutableRefObject<NodeJS.Timeout | null>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   auth: types.AuthEnabledResponse,
   camera: types.Camera | types.FailedCamera,
-  requestedTimestamp: number,
+  requestedTimestampRef: React.MutableRefObject<number>,
 ) => {
-  const requestedTimestampMillis = requestedTimestamp * 1000;
   // Destroy the previous hls instance if it exists
   if (hlsRef.current) {
     hlsRef.current.destroy();
@@ -55,53 +135,16 @@ const initializePlayer = (
   }
 
   // Load the source and start the hls instance
+  loadSource(hlsRef, requestedTimestampRef.current, camera);
+
+  // Handle MEDIA_ATTACHED event
   hlsRef.current.on(Hls.Events.MEDIA_ATTACHED, () => {
-    const source = `/api/v1/hls/${
-      camera.identifier
-    }/index.m3u8?start_timestamp=${requestedTimestamp - 3600}`;
-    hlsRef.current!.loadSource(source);
-    hlsRef.current!.on(Hls.Events.MANIFEST_PARSED, () => {
-      if (!hlsRef.current || !videoRef.current) {
-        return;
-      }
-
-      videoRef.current.muted = true;
-      hlsRef.current.startLoad();
-
-      // Wait for the manifest to be parsed and then seek to the requested timestamp
-      intervalRef.current = setInterval(() => {
-        if (
-          hlsRef.current &&
-          hlsRef.current.levels[hlsRef.current.currentLevel]
-        ) {
-          const fragments =
-            hlsRef.current.levels[hlsRef.current.currentLevel].details
-              ?.fragments || [];
-
-          if (fragments.length > 0) {
-            initialProgramDateTime.current = fragments[0].programDateTime!;
-          }
-
-          const fragment = findFragmentByTimestamp(
-            hlsRef.current.levels[hlsRef.current.currentLevel].details
-              ?.fragments || [],
-            requestedTimestampMillis,
-          );
-
-          if (fragment && videoRef.current) {
-            let seekTarget = fragment.start;
-            if (requestedTimestampMillis > fragment.programDateTime!) {
-              seekTarget =
-                fragment.start +
-                (requestedTimestampMillis - fragment.programDateTime!) / 1000;
-            }
-            videoRef.current.currentTime = seekTarget;
-            videoRef.current.play();
-          }
-          clearInterval(intervalRef.current as NodeJS.Timeout);
-        }
-      }, 50);
-    });
+    onMediaAttached(
+      hlsRef,
+      videoRef,
+      initialProgramDateTime,
+      requestedTimestampRef,
+    );
   });
 
   // Handle errors
@@ -118,11 +161,10 @@ const initializePlayer = (
           initializePlayer(
             hlsRef,
             videoRef,
-            intervalRef,
             initialProgramDateTime,
             auth,
             camera,
-            requestedTimestamp,
+            requestedTimestampRef,
           );
           break;
       }
@@ -134,10 +176,9 @@ const useInitializePlayer = (
   hlsRef: React.MutableRefObject<Hls | null>,
   videoRef: React.RefObject<HTMLVideoElement>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
-  requestedTimestamp: number,
+  requestedTimestampRef: React.MutableRefObject<number>,
   camera: types.Camera | types.FailedCamera,
 ) => {
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { auth } = useAuthContext();
 
   useEffect(() => {
@@ -145,22 +186,17 @@ const useInitializePlayer = (
       initializePlayer(
         hlsRef,
         videoRef,
-        intervalRef,
         initialProgramDateTime,
         auth,
         camera,
-        requestedTimestamp,
+        requestedTimestampRef,
       );
     }
     const hls = hlsRef.current;
-    const interval = intervalRef.current;
     return () => {
       if (hls) {
         hls.destroy();
         hlsRef.current = null;
-      }
-      if (interval) {
-        clearInterval(interval);
       }
     };
     // Must disable this warning since we dont want to ever run this twice
@@ -168,70 +204,65 @@ const useInitializePlayer = (
   }, []);
 };
 
+// Seek to the requestedTimestamp if it is within the seekable range
 const useSeekToTimestamp = (
   hlsRef: React.MutableRefObject<Hls | null>,
   videoRef: React.RefObject<HTMLVideoElement>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   requestedTimestamp: number,
+  camera: types.Camera | types.FailedCamera,
 ) => {
   useEffect(() => {
-    // Seek to the requestedTimestamp if it is within the seekable range
-    if (hlsRef.current && videoRef.current && initialProgramDateTime.current) {
-      const seekTarget =
-        requestedTimestamp - initialProgramDateTime.current / 1000;
-      if (hlsRef.current.media) {
-        const seekable = hlsRef.current.media.seekable;
-        for (let i = 0; i < seekable.length; i++) {
-          if (
-            seekTarget >= seekable.start(i) &&
-            seekTarget <= seekable.end(i)
-          ) {
-            videoRef.current.currentTime = seekTarget;
-            videoRef.current.play();
-            break;
-          } else if (seekTarget < seekable.start(i)) {
-            videoRef.current.currentTime = seekable.start(i);
-            videoRef.current.play();
-            break;
-          } else if (seekTarget > seekable.end(i)) {
-            videoRef.current.currentTime = seekable.end(i);
-            videoRef.current.play();
-          }
-        }
+    if (!hlsRef.current || !videoRef.current || !hlsRef.current.media) {
+      return;
+    }
+
+    // Set seek target timestamp
+    let seekTarget = requestedTimestamp;
+    if (initialProgramDateTime.current) {
+      seekTarget = requestedTimestamp - initialProgramDateTime.current / 1000;
+    }
+
+    // Seek to the requested timestamp
+    const seekable = hlsRef.current.media.seekable;
+    let seeked = false;
+    for (let i = 0; i < seekable.length; i++) {
+      if (seekTarget >= seekable.start(i) && seekTarget <= seekable.end(i)) {
+        videoRef.current.currentTime = seekTarget;
+        seeked = true;
+        break;
+      } else if (
+        // Seek to start if target is less than start and within SCALE seconds of start
+        seekTarget < seekable.start(i) &&
+        seekable.start(i) - seekTarget < SCALE
+      ) {
+        videoRef.current.currentTime = seekable.start(i);
+        seeked = true;
+        break;
+      } else if (
+        // Seek to end if target is greater than end and within SCALE seconds of end
+        seekTarget > seekable.end(i) &&
+        seekTarget - seekable.end(i) < SCALE
+      ) {
+        videoRef.current.currentTime = seekable.end(i);
+        seeked = true;
+        break;
       }
     }
-  }, [hlsRef, initialProgramDateTime, requestedTimestamp, videoRef]);
+
+    if (!seeked) {
+      loadSource(hlsRef, requestedTimestamp, camera);
+    }
+    videoRef.current.play();
+  }, [camera, hlsRef, initialProgramDateTime, requestedTimestamp, videoRef]);
 };
 
-interface TimelinePlayerProps {
-  containerRef: React.RefObject<HTMLDivElement>;
-  hlsRef: React.MutableRefObject<Hls | null>;
-  camera: types.Camera | types.FailedCamera;
-  requestedTimestamp: number;
-}
-
-export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
-  containerRef,
-  hlsRef,
-  camera,
-  requestedTimestamp,
-}) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const initialProgramDateTime = useRef<number | null>(null);
+const useResizeObserver = (
+  containerRef: React.RefObject<HTMLDivElement>,
+  videoRef: React.RefObject<HTMLVideoElement>,
+  camera: types.Camera | types.FailedCamera,
+) => {
   const resizeObserver = useRef<ResizeObserver>();
-  useInitializePlayer(
-    hlsRef,
-    videoRef,
-    initialProgramDateTime,
-    requestedTimestamp,
-    camera,
-  );
-  useSeekToTimestamp(
-    hlsRef,
-    videoRef,
-    initialProgramDateTime,
-    requestedTimestamp,
-  );
 
   useEffect(() => {
     if (containerRef.current) {
@@ -248,7 +279,40 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
         resizeObserver.current.disconnect();
       }
     };
-  }, [camera, containerRef]);
+  }, [camera, containerRef, videoRef]);
+};
+interface TimelinePlayerProps {
+  containerRef: React.RefObject<HTMLDivElement>;
+  hlsRef: React.MutableRefObject<Hls | null>;
+  camera: types.Camera | types.FailedCamera;
+  requestedTimestamp: number;
+}
+
+export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
+  containerRef,
+  hlsRef,
+  camera,
+  requestedTimestamp,
+}) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const initialProgramDateTime = useRef<number | null>(null);
+  const requestedTimestampRef = useRef<number>(requestedTimestamp);
+  requestedTimestampRef.current = requestedTimestamp;
+  useInitializePlayer(
+    hlsRef,
+    videoRef,
+    initialProgramDateTime,
+    requestedTimestampRef,
+    camera,
+  );
+  useSeekToTimestamp(
+    hlsRef,
+    videoRef,
+    initialProgramDateTime,
+    requestedTimestamp,
+    camera,
+  );
+  useResizeObserver(containerRef, videoRef, camera);
 
   return (
     <video
