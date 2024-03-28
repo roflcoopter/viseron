@@ -21,7 +21,7 @@ function customRender(
     enabled: true,
     onboarding_complete: true,
   },
-  options?: Omit<RenderOptions, "wrapper">
+  options?: Omit<RenderOptions, "wrapper">,
 ) {
   function ProvidersWrapper({ children }: ProvidersWrapperProps) {
     return (
@@ -32,11 +32,14 @@ function customRender(
             <AuthContext.Provider
               value={{
                 auth,
-                setAuth: vi.fn(),
               }}
             >
               <ViseronContext.Provider
-                value={{ connection: undefined, connected: true }}
+                value={{
+                  connection: undefined,
+                  connected: true,
+                  safeMode: false,
+                }}
               >
                 {children}
               </ViseronContext.Provider>

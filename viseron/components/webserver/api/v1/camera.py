@@ -123,9 +123,9 @@ class CameraAPIHandler(BaseAPIHandler):
                 return jpg
         return None
 
-    def get_snapshot(self, camera_identifier: str) -> None:
+    async def get_snapshot(self, camera_identifier: str) -> None:
         """Return camera snapshot."""
-        camera = self._get_camera(camera_identifier)
+        camera = await self.run_in_executor(self._get_camera, camera_identifier)
 
         if not camera:
             self.response_error(
@@ -136,9 +136,9 @@ class CameraAPIHandler(BaseAPIHandler):
 
         jpg = None
         if camera.still_image[CONFIG_URL]:
-            jpg = self._snapshot_from_url(camera)
+            jpg = await self.run_in_executor(self._snapshot_from_url, camera)
         else:
-            jpg = self._snapshot_from_memory(camera)
+            jpg = await self.run_in_executor(self._snapshot_from_memory, camera)
 
         if jpg is None:
             self.response_error(
@@ -150,7 +150,7 @@ class CameraAPIHandler(BaseAPIHandler):
         self.response_success(response=jpg, headers={"Content-Type": "image/jpeg"})
         return
 
-    def get_camera(self, camera_identifier: str) -> None:
+    async def get_camera(self, camera_identifier: str) -> None:
         """Return camera."""
         camera = self._get_camera(
             camera_identifier, failed=self.request_arguments["failed"]

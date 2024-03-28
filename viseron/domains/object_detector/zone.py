@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.object_detector.const import CONFIG_LABEL_LABEL
@@ -44,6 +44,7 @@ class Zone:
     ) -> None:
         self._vis = vis
         self._camera = vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
+        self._zone_config = zone_config
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
 
         self._coordinates = generate_numpy_from_coordinates(
@@ -135,3 +136,11 @@ class Zone:
     def name(self) -> str:
         """Return name of zone."""
         return self._name
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return zone as dict."""
+        return {
+            "coordinates": self._zone_config,
+            "name": self._name,
+            "camera_identifier": self._camera.identifier,
+        }

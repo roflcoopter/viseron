@@ -1,16 +1,17 @@
 import { FC, useEffect, useRef, useState } from "react";
 import videojs from "video.js";
+import Player from "video.js/dist/types/player";
 import "video.js/dist/video-js.css";
 
 import "./VideoPlayer.css";
 
 interface VideoPlayerPropsInferface {
-  options: videojs.PlayerOptions;
+  options: Record<string, any>;
 }
 
 const VideoPlayer: FC<VideoPlayerPropsInferface> = ({ options }) => {
   const videoNode = useRef<HTMLVideoElement>(null);
-  const player = useRef<videojs.Player>();
+  const player = useRef<Player>();
   const [source, setSource] = useState<string>(options.sources![0].src);
 
   useEffect(() => {
@@ -19,7 +20,11 @@ const VideoPlayer: FC<VideoPlayerPropsInferface> = ({ options }) => {
     }
     return () => {
       if (player.current) {
-        player.current.dispose();
+        try {
+          player.current.dispose();
+        } catch (e) {
+          console.error(e);
+        }
       }
     };
     // Must disable this warning since we dont want to ever run this twice
@@ -34,7 +39,7 @@ const VideoPlayer: FC<VideoPlayerPropsInferface> = ({ options }) => {
   }
 
   return (
-    <div data-vjs-player>
+    <div data-vjs-player data-testid="video-player">
       <video ref={videoNode} className="video-js vjs-big-play-centered" />
     </div>
   );

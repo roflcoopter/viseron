@@ -1,7 +1,6 @@
 """GStreamer camera."""
 from __future__ import annotations
 
-import datetime
 import time
 from threading import Event
 from typing import TYPE_CHECKING
@@ -27,7 +26,6 @@ from viseron.components.ffmpeg.const import (
     DEFAULT_RECORDER_HWACCEL_ARGS,
     DEFAULT_RECORDER_OUTPUT_ARGS,
     DEFAULT_RECORDER_VIDEO_FILTERS,
-    DEFAULT_SEGMENTS_FOLDER,
     DESC_RECORDER_AUDIO_CODEC,
     DESC_RECORDER_AUDIO_FILTERS,
     DESC_RECORDER_CODEC,
@@ -42,14 +40,15 @@ from viseron.domains.camera import (
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
     AbstractCamera,
 )
-from viseron.domains.camera.const import (
-    CONFIG_EXTENSION,
-    DOMAIN,
-    EVENT_CAMERA_STARTED,
-    EVENT_CAMERA_STOPPED,
-)
+from viseron.domains.camera.const import DOMAIN
 from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
-from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict, Maybe
+from viseron.helpers import utcnow
+from viseron.helpers.validators import (
+    CameraIdentifier,
+    CoerceNoneToDict,
+    Deprecated,
+    Maybe,
+)
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -215,9 +214,8 @@ RECORDER_SCHEMA = BASE_RECORDER_SCHEMA.extend(
             default=DEFAULT_RECORDER_OUTPUT_ARGS,
             description=DESC_RECORDER_OUTPUT_ARGS,
         ): [str],
-        vol.Optional(
+        Deprecated(
             CONFIG_SEGMENTS_FOLDER,
-            default=DEFAULT_SEGMENTS_FOLDER,
             description=DESC_SEGMENTS_FOLDER,
         ): str,
         vol.Optional(
@@ -285,7 +283,7 @@ class Camera(AbstractCamera):
     """Represents a camera which is consumed via GStreamer."""
 
     def __init__(self, vis: Viseron, config, identifier) -> None:
-        self._poll_timer = datetime.datetime.now().timestamp()
+        self._poll_timer = utcnow().timestamp()
         self._frame_reader = None
         # Stream must be initialized before super().__init__ is called as it raises
         # FFprobeError/FFprobeTimeout which is caught in setup() and re-raised as
@@ -333,7 +331,7 @@ class Camera(AbstractCamera):
     def read_frames(self) -> None:
         """Read frames from camera."""
         self.decode_error.clear()
-        self._poll_timer = datetime.datetime.now().timestamp()
+        self._poll_timer = utcnow().timestamp()
         empty_frames = 0
         self._thread_stuck = False
 
@@ -341,7 +339,7 @@ class Camera(AbstractCamera):
 
         while self._capture_frames:
             if self.decode_error.is_set():
-                self._poll_timer = datetime.datetime.now().timestamp()
+                self._poll_timer = utcnow().timestamp()
                 self.connected = False
                 time.sleep(5)
                 self._logger.error("Restarting frame pipe")
@@ -354,7 +352,7 @@ class Camera(AbstractCamera):
             if self.current_frame:
                 self.connected = True
                 empty_frames = 0
-                self._poll_timer = datetime.datetime.now().timestamp()
+                self._poll_timer = utcnow().timestamp()
                 self._data_stream.publish_data(
                     self.frame_bytes_topic, self.current_frame
                 )
@@ -385,7 +383,7 @@ class Camera(AbstractCamera):
 
     def poll_method(self) -> bool:
         """Return true on frame timeout for RestartableThread to trigger a restart."""
-        now = datetime.datetime.now().timestamp()
+        now = utcnow().timestamp()
 
         # Make sure we timeout at some point if we never get the first frame.
         if now - self._poll_timer > (DEFAULT_FRAME_TIMEOUT * 2):
@@ -410,19 +408,15 @@ class Camera(AbstractCamera):
 
         return super().calculate_output_fps(scanners)
 
-    def start_camera(self) -> None:
+    def _start_camera(self) -> None:
         """Start capturing frames from camera."""
         self._logger.debug("Starting capture thread")
         self._capture_frames = True
         if not self._frame_reader or not self._frame_reader.is_alive():
             self._frame_reader = self._create_frame_reader()
             self._frame_reader.start()
-            self._vis.dispatch_event(
-                EVENT_CAMERA_STARTED.format(camera_identifier=self.identifier),
-                None,
-            )
 
-    def stop_camera(self) -> None:
+    def _stop_camera(self) -> None:
         """Release the connection to the camera."""
         self._logger.debug("Stopping capture thread")
         self._capture_frames = False
@@ -432,13 +426,6 @@ class Camera(AbstractCamera):
             if self._frame_reader.is_alive():
                 self._logger.debug("Timed out trying to stop camera. Killing pipe")
                 self.stream.close_pipe()
-
-        self._vis.dispatch_event(
-            EVENT_CAMERA_STOPPED.format(camera_identifier=self.identifier),
-            None,
-        )
-        if self.is_recording:
-            self.stop_recorder()
 
     def start_recorder(
         self, shared_frame: SharedFrame, objects_in_fov: list[DetectedObject] | None
@@ -470,11 +457,6 @@ class Camera(AbstractCamera):
     def resolution(self, resolution) -> None:
         """Return stream resolution."""
         self._resolution = resolution
-
-    @property
-    def extension(self) -> str:
-        """Return recording file extension."""
-        return self._config[CONFIG_RECORDER][CONFIG_EXTENSION]
 
     @property
     def recorder(self) -> Recorder:

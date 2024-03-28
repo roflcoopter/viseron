@@ -1,4 +1,37 @@
 import { AxiosError } from "axios";
+import { Dayjs } from "dayjs";
+
+export type SystemInformation = {
+  safe_mode: boolean;
+};
+
+type WebSocketAuthOkResponse = {
+  type: "auth_ok";
+  message: string;
+  system_information: SystemInformation;
+};
+
+type WebSocketAuthRequiredResponse = {
+  type: "auth_required";
+  message: string;
+};
+
+type WebSocketAuthNotRequiredResponse = {
+  type: "auth_not_required";
+  message: string;
+  system_information: SystemInformation;
+};
+
+type WebSocketAuthInvalidResponse = {
+  type: "auth_failed";
+  message: string;
+};
+
+export type WebSocketAuthResponse =
+  | WebSocketAuthOkResponse
+  | WebSocketAuthRequiredResponse
+  | WebSocketAuthNotRequiredResponse
+  | WebSocketAuthInvalidResponse;
 
 type WebSocketPongResponse = {
   command_id: number;
@@ -51,9 +84,21 @@ export type AuthEnabledResponse = {
 export type AuthTokenResponse = {
   header: string;
   payload: string;
-  expires_in: number;
-  expires_at: number;
-  session_expires_at: number;
+  expiration: number;
+  expires_at: string;
+  expires_at_timestamp: number;
+  session_expires_at: string;
+  session_expires_at_timestamp: number;
+};
+
+export type StoredTokens = {
+  header: string;
+  payload: string;
+  expiration: number;
+  expires_at: Dayjs;
+  expires_at_timestamp: number;
+  session_expires_at: Dayjs;
+  session_expires_at_timestamp: number;
 };
 
 export type AuthUserResponse = {
@@ -66,23 +111,30 @@ export type AuthLoginResponse = AuthTokenResponse;
 export type OnboardingResponse = AuthTokenResponse;
 
 export interface Recording {
+  id: number;
+  camera_identifier: string;
+  start_time: string;
+  start_timestamp: number;
+  end_time: string;
+  end_timestamp: number;
   date: string;
-  filename: string;
-  path: string;
+  trigger_type: string;
+  trigger_id: number;
   thumbnail_path: string;
+  hls_url: string;
 }
 
 export interface RecordingsAll {
   [identifier: string]: {
     [date: string]: {
-      [filename: string]: Recording;
+      [id: string]: Recording;
     };
   };
 }
 
 export interface RecordingsCamera {
   [date: string]: {
-    [filename: string]: Recording;
+    [id: string]: Recording;
   };
 }
 
@@ -114,6 +166,10 @@ export interface FailedCameras {
   [identifier: string]: FailedCamera;
 }
 
+export interface CamerasOrFailedCameras {
+  [identifier: string]: Camera | FailedCamera;
+}
+
 export interface DetectedObject {
   label: string;
   confidence: number;
@@ -139,8 +195,7 @@ export type EventCameraRegistered = Event & {
   data: Camera;
 };
 
-export type EventRecorderComplete = Event & {
-  name: "recorder_complete";
+export type EventRecorder = Event & {
   data: {
     camera: Camera;
     recording: Recording & {
@@ -153,11 +208,55 @@ export type EventRecorderComplete = Event & {
   };
 };
 
+export type EventRecorderStart = EventRecorder & {
+  name: "recorder_start";
+};
+export type EventRecorderStop = EventRecorder & {
+  name: "recorder_stop";
+};
 export interface EntityAttributes {
   name: string;
   domain: string;
   [key: string]: any;
 }
+
+type CameraBaseEvent = {
+  created_at: string;
+};
+type CameraTimedEvent = CameraBaseEvent & {
+  start_time: string;
+  start_timestamp: number;
+  end_time: string | null;
+  end_timestamp: number | null;
+};
+export type CameraMotionEvent = CameraTimedEvent & {
+  type: "motion";
+};
+export type CameraRecordingEvent = CameraTimedEvent & {
+  type: "recording";
+};
+export type CameraTimedEvents = CameraMotionEvent | CameraRecordingEvent;
+type CameraSnapshotEvent = CameraBaseEvent & {
+  time: string;
+  timestamp: number;
+  snapshot_path: string;
+};
+export type CameraObjectEvent = CameraSnapshotEvent & {
+  type: "object";
+  time: string;
+  timestamp: number;
+  label: string;
+  confidence: number;
+};
+
+export type CameraEvent =
+  | CameraMotionEvent
+  | CameraObjectEvent
+  | CameraRecordingEvent;
+
+export type CameraEvents = {
+  events: [CameraEvent];
+};
 
 export interface Entity {
   entity_id: string;
@@ -183,4 +282,14 @@ export type StateChangedEvent = EventBase & {
     current_state: State;
     previous_state: State;
   };
+};
+
+export type HlsAvailableTimespan = {
+  start: number;
+  end: number;
+  duration: number;
+};
+
+export type HlsAvailableTimespans = {
+  timespans: [HlsAvailableTimespan];
 };

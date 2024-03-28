@@ -5,28 +5,35 @@ import datetime
 import logging
 import os
 import shutil
-import time
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, Sequence, TypedDict
 
 import cv2
 import numpy as np
-from apscheduler.schedulers.background import BackgroundScheduler
-from path import Path
+from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy.orm import Session
 
+from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.models import Recordings
+from viseron.components.storage.queries import get_recording_fragments
+from viseron.domains.camera.fragmenter import Fragment
 from viseron.domains.object_detector.detected_object import DetectedObject
-from viseron.helpers import create_directory, draw_objects
+from viseron.events import EventData
+from viseron.helpers import create_directory, draw_objects, utcnow
 
 from .const import (
+    CONFIG_CREATE_EVENT_CLIP,
     CONFIG_FILENAME_PATTERN,
-    CONFIG_FOLDER,
     CONFIG_IDLE_TIMEOUT,
+    CONFIG_LOOKBACK,
+    CONFIG_MAX_RECORDING_TIME,
     CONFIG_RECORDER,
-    CONFIG_RETAIN,
     CONFIG_SAVE_TO_DISK,
     CONFIG_THUMBNAIL,
-    DEFAULT_FOLDER,
+    DEFAULT_LOOKBACK,
+    EVENT_RECORDER_COMPLETE,
     EVENT_RECORDER_START,
     EVENT_RECORDER_STOP,
 )
@@ -36,20 +43,28 @@ from .shared_frames import SharedFrame
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera, FailedCamera
 
 
 class RecordingDict(TypedDict):
     """Recording dict."""
 
-    path: str
-    filename: str
+    id: int
+    camera_identifier: str
+    start_time: datetime.datetime
+    start_timestamp: float
+    end_time: datetime.datetime | None
+    end_timestamp: float | None
     date: str
-    thumbnail_path: str | None
+    trigger_type: str | None
+    trigger_id: int | None
+    thumbnail_path: str
+    hls_url: str
 
 
 @dataclass
-class EventRecorderData:
+class EventRecorderData(EventData):
     """Hold information on recorder start/stop/complete event."""
 
     camera: AbstractCamera
@@ -67,6 +82,7 @@ class EventRecorderData:
 class Recording:
     """Recording dict representation."""
 
+    id: int
     start_time: datetime.datetime
     start_timestamp: float
     end_time: datetime.datetime | None
@@ -81,6 +97,7 @@ class Recording:
     def as_dict(self):
         """Return as dict."""
         return {
+            "id": self.id,
             "start_time": self.start_time,
             "start_timestamp": self.start_timestamp,
             "end_time": self.end_time,
@@ -92,134 +109,64 @@ class Recording:
             "objects": self.objects,
         }
 
+    def get_fragments(
+        self, lookback: float, get_session: Callable[[], Session], now=None
+    ):
+        """Return a list of files for this recording."""
+        return get_recording_fragments(self.id, lookback, get_session, now)
+
 
 class RecorderBase:
     """Base recorder."""
 
     def __init__(
-        self, vis: Viseron, config, camera: AbstractCamera | FailedCamera
+        self,
+        vis: Viseron,
+        config: dict[str, Any],
+        camera: AbstractCamera | FailedCamera,
     ) -> None:
         self._logger = logging.getLogger(self.__module__ + "." + camera.identifier)
         self._vis = vis
         self._config = config
         self._camera = camera
-        self._extensions = [
-            ".mp4",
-            ".mkv",
-            ".mov",
-        ]
 
-        self.recordings_folder = os.path.join(
-            self._config.get(CONFIG_RECORDER, {}).get(CONFIG_FOLDER, DEFAULT_FOLDER),
-            self._camera.identifier,
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+
+    def get_recordings(self, date=None) -> dict[str, dict[int, RecordingDict]]:
+        """Return all recordings."""
+        return get_recordings(self._storage.get_session, self._camera.identifier, date)
+
+    def get_latest_recording(self, date=None) -> dict[str, dict[int, RecordingDict]]:
+        """Return the latest recording."""
+        return get_recordings(
+            self._storage.get_session, self._camera.identifier, date, latest=True
         )
 
-    def _recording_file_dict(self, file: Path) -> RecordingDict:
-        """Return a dict with recording file information."""
-        return {
-            "path": str(file),
-            "date": str(file.parent.name),
-            "filename": str(file.name),
-            "thumbnail_path": os.path.join(file.parent, f"{str(file.stem)}.jpg"),
-        }
-
-    def get_recordings(self, date=None):
-        """Return all recordings."""
-        recordings: dict[str, dict[str, RecordingDict]] = {}
-        dirs = Path(self.recordings_folder)
-        folders = dirs.walkdirs(date if date else "*-*-*")
-        for folder in folders:
-            recordings[folder.name] = {}
-            if len(folder.listdir()) == 0:
-                continue
-
-            for file in sorted(
-                folder.walkfiles("*.*"),
-                reverse=True,
-            ):
-                if file.ext in self._extensions:
-                    recordings[folder.name][file.name] = self._recording_file_dict(file)
-        return recordings
-
-    def get_recording(self, date, filename):
-        """Return a recording."""
-        file = Path(os.path.join(self.recordings_folder, date, filename))
-        if file.exists():
-            return self._recording_file_dict(file)
-        return {}
-
-    def get_latest_recording(self, date=None):
-        """Return the latest recording."""
-        recordings: dict[str, dict[str, RecordingDict]] = {}
-        dirs = Path(self.recordings_folder)
-        folders = dirs.walkdirs(date if date else "*-*-*")
-        for folder in sorted(folders, reverse=True):
-            recordings[folder.name] = {}
-            for file in sorted(
-                folder.walkfiles("*.*"),
-                reverse=True,
-            ):
-                if file.ext in self._extensions:
-                    recordings[folder.name][file.name] = self._recording_file_dict(file)
-                    return recordings
-        return {}
-
-    def get_latest_recording_daily(self):
+    def get_latest_recording_daily(self) -> dict[str, dict[int, RecordingDict]]:
         """Return the latest recording for each day."""
-        recordings: dict[str, dict[str, RecordingDict]] = {}
-        dirs = Path(self.recordings_folder)
-        folders = dirs.walkdirs("*-*-*")
-        for folder in sorted(folders, reverse=True):
-            recordings[folder.name] = {}
-            for file in sorted(
-                folder.walkfiles("*.*"),
-                reverse=True,
-            ):
-                if file.ext in self._extensions:
-                    recordings[folder.name][file.name] = self._recording_file_dict(file)
-                    break
-        return recordings
+        return get_recordings(
+            self._storage.get_session, self._camera.identifier, latest=True, daily=True
+        )
 
-    def delete_recording(self, date=None, filename=None) -> bool:
-        """Delete a single recording."""
-        path = None
+    def delete_recording(self, date=None, recording_id=None) -> bool:
+        """Delete a single recording.
 
-        if date and filename:
-            path = os.path.join(self.recordings_folder, date, filename)
-        elif date and filename is None:
-            path = os.path.join(self.recordings_folder, date)
-        elif date is None and filename is None:
-            path = self.recordings_folder
-        else:
-            self._logger.error("Could not remove file, incorrect path given")
-            return False
+        We dont have to delete the segments as they will be deleted by the tier
+        handler the next time it runs.
+        """
+        return bool(
+            delete_recordings(
+                self._storage.get_session,
+                self._camera.identifier,
+                date=date,
+                recording_id=recording_id,
+            )
+        )
 
-        self._logger.debug(f"Removing {path}")
-        try:
-            if filename:
-                os.remove(path)
-                thumbnail = Path(
-                    os.path.join(
-                        self.recordings_folder, date, filename.split(".")[0] + ".jpg"
-                    )
-                )
-                try:
-                    os.remove(thumbnail)
-                except FileNotFoundError:
-                    pass
-
-            elif date:
-                shutil.rmtree(path)
-
-            else:
-                dirs = Path(self.recordings_folder)
-                folders = dirs.walkdirs("*-*-*")
-                for folder in folders:
-                    shutil.rmtree(folder)
-        except (OSError, FileNotFoundError) as error:
-            self._logger.error(f"Could not remove {path}", exc_info=error)
-            return False
-        return True
+    @property
+    @abstractmethod
+    def lookback(self) -> int:
+        """Return lookback."""
 
 
 class AbstractRecorder(ABC, RecorderBase):
@@ -227,107 +174,109 @@ class AbstractRecorder(ABC, RecorderBase):
 
     def __init__(self, vis: Viseron, component, config, camera: AbstractCamera) -> None:
         super().__init__(vis, config, camera)
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
         self._camera: AbstractCamera = camera
 
         self.is_recording = False
         self._active_recording: Recording | None = None
-        self._extensions = [
-            f".{self._camera.extension}",
-            ".mp4",
-            ".mkv",
-            ".mov",
-        ]
 
-        create_directory(self.recordings_folder)
-
-        self._scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
-        self._scheduler.add_job(self.cleanup_recordings, "cron", hour="1")
-        self._scheduler.start()
-        self.cleanup_recordings()
+        create_directory(self._camera.recordings_folder)
+        create_directory(self._camera.segments_folder)
+        create_directory(self._camera.temp_segments_folder)
+        create_directory(self._camera.thumbnails_folder)
 
         vis.add_entity(component, RecorderBinarySensor(vis, self._camera))
         vis.add_entity(component, ThumbnailImage(vis, self._camera))
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, dict[int, RecordingDict]]:
         """Return recorder information as dict."""
         return self.get_recordings()
 
-    @staticmethod
-    def subfolder_name(today) -> str:
-        """Generate name of folder for recording."""
-        return f"{today.year:04}-{today.month:02}-{today.day:02}"
-
-    def create_thumbnail(self, file_name, frame, objects, resolution):
+    def create_thumbnail(
+        self,
+        recording_id: int,
+        frame: np.ndarray,
+        objects: list[DetectedObject],
+        resolution: tuple[int, int],
+    ) -> tuple[np.ndarray, str]:
         """Create thumbnails, sent to MQTT and/or saved to disk based on config."""
+        self._logger.debug(f"Saving thumbnail in {self._camera.thumbnails_folder}")
+        thumbnail_name = f"{recording_id}.jpg"
+        thumbnail_path = os.path.join(self._camera.thumbnails_folder, thumbnail_name)
+
         draw_objects(
             frame,
             objects,
             resolution,
         )
-        cv2.imwrite(file_name, frame)
+        if not cv2.imwrite(thumbnail_path, frame):
+            self._logger.error(f"Failed saving thumbnail {thumbnail_path} to disk")
 
         if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]:
-            thumbnail_folder = os.path.join(
-                self._config[CONFIG_RECORDER][CONFIG_FOLDER],
-                "thumbnails",
-                self._camera.name,
-            )
-            create_directory(thumbnail_folder)
-
-            self._logger.debug(f"Saving thumbnail in {thumbnail_folder}")
             if not cv2.imwrite(
-                os.path.join(thumbnail_folder, "latest_thumbnail.jpg"),
+                os.path.join(self._camera.thumbnails_folder, "latest_thumbnail.jpg"),
                 frame,
             ):
-                self._logger.error("Failed saving thumbnail to disk")
-        return frame
+                self._logger.error("Failed saving latest_thumbnail.jpg to disk")
+        return frame, thumbnail_path
 
     def start(
         self,
         shared_frame: SharedFrame,
         objects_in_fov: list[DetectedObject],
-        resolution,
-    ):
+        resolution: tuple[int, int],
+    ) -> Recording:
         """Start recording."""
         self._logger.info("Starting recorder")
         self.is_recording = True
-        start_time = datetime.datetime.now()
-
-        if self._config[CONFIG_RECORDER][CONFIG_FOLDER] is None:
-            self._logger.error("Output directory is not specified")
-            return
+        start_time = utcnow()
 
         # Create filename
         filename_pattern = start_time.strftime(
             self._config[CONFIG_RECORDER][CONFIG_FILENAME_PATTERN]
         )
         video_name = f"{filename_pattern}.{self._camera.extension}"
-        thumbnail_name = start_time.strftime(
-            self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_FILENAME_PATTERN]
-        )
-        thumbnail_name = f"{thumbnail_name}.jpg"
 
         # Create foldername
-        subfolder = self.subfolder_name(start_time)
-        full_path = os.path.join(self.recordings_folder, subfolder)
+        full_path = os.path.join(
+            self._camera.recordings_folder, start_time.date().isoformat()
+        )
         create_directory(full_path)
 
-        thumbnail_path = os.path.join(full_path, thumbnail_name)
-        thumbnail = self.create_thumbnail(
-            thumbnail_path,
-            self._camera.shared_frames.get_decoded_frame_rgb(shared_frame),
-            objects_in_fov,
-            resolution,
-        )
-
-        start_time = datetime.datetime.now()
+        with self._storage.get_session() as session:
+            stmt = (
+                insert(Recordings)
+                .values(
+                    camera_identifier=self._camera.identifier,
+                    start_time=start_time,
+                )
+                .returning(Recordings.id)
+            )
+            result = session.execute(stmt).scalars()
+            recording_id = result.one()
+            thumbnail, thumbnail_path = self.create_thumbnail(
+                recording_id,
+                self._camera.shared_frames.get_decoded_frame_rgb(shared_frame).copy(),
+                objects_in_fov,
+                resolution,
+            )
+            stmt2 = (
+                update(Recordings)
+                .values(
+                    thumbnail_path=thumbnail_path,
+                )
+                .where(Recordings.id == recording_id)
+            )
+            session.execute(stmt2)
+            session.commit()
 
         recording = Recording(
+            id=recording_id,
             start_time=start_time,
             start_timestamp=start_time.timestamp(),
             end_time=None,
             end_timestamp=None,
-            date=subfolder,
+            date=start_time.date().isoformat(),
             path=os.path.join(full_path, video_name),
             filename=video_name,
             thumbnail=thumbnail,
@@ -365,9 +314,21 @@ class AbstractRecorder(ABC, RecorderBase):
             self._logger.error("No active recording to stop")
             return
 
-        end_time = datetime.datetime.now()
+        end_time = utcnow()
         recording.end_time = end_time
         recording.end_timestamp = end_time.timestamp()
+
+        with self._storage.get_session() as session:
+            stmt = (
+                update(Recordings)
+                .where(Recordings.id == recording.id)
+                .values(
+                    end_time=recording.end_time,
+                )
+            )
+            session.execute(stmt)
+            session.commit()
+
         self._stop(recording)
         self._active_recording = None
         self._vis.dispatch_event(
@@ -378,6 +339,39 @@ class AbstractRecorder(ABC, RecorderBase):
             ),
         )
         self.is_recording = False
+
+        if self._config[CONFIG_RECORDER][CONFIG_CREATE_EVENT_CLIP]:
+            concat_thread = threading.Thread(
+                target=self._concatenate_fragments, args=(recording,)
+            )
+            concat_thread.start()
+
+    def _concatenate_fragments(self, recording: Recording) -> None:
+        files = recording.get_fragments(
+            self.lookback,
+            self._storage.get_session,
+        )
+        fragments = [
+            Fragment(
+                file.filename, file.path, file.meta["m3u8"]["EXTINF"], file.orig_ctime
+            )
+            for file in files
+            if file.meta.get("m3u8", False).get("EXTINF", False)
+        ]
+        event_clip = self._camera.fragmenter.concatenate_fragments(fragments)
+        if event_clip:
+            shutil.move(
+                event_clip,
+                recording.path,
+            )
+            self._logger.debug(f"Moved event clip to {recording.path}")
+            self._vis.dispatch_event(
+                EVENT_RECORDER_COMPLETE,
+                EventRecorderData(
+                    camera=self._camera,
+                    recording=recording,
+                ),
+            )
 
     @abstractmethod
     def _stop(self, recording: Recording):
@@ -393,37 +387,24 @@ class AbstractRecorder(ABC, RecorderBase):
         """Return active recording."""
         return self._active_recording
 
-    def cleanup_recordings(self) -> None:
-        """Delete all recordings that have past the configured days to retain."""
-        self._logger.debug("Running cleanup")
-        retention_period = time.time() - (
-            self._config[CONFIG_RECORDER][CONFIG_RETAIN] * 24 * 60 * 60
-        )
-        dirs = Path(self.recordings_folder)
+    @property
+    def lookback(self) -> int:
+        """Return lookback."""
+        return self._config[CONFIG_RECORDER][CONFIG_LOOKBACK]
 
-        extensions = [
-            f"*.{self._camera.extension}",
-            "*.mov",
-            "*.mp4",
-            "*.mkv",
-            "*.jpg",
-        ]
-        for extension in extensions:
-            files = dirs.walkfiles(extension)
-            for file in files:
-                if file.mtime <= retention_period:
-                    self._logger.debug(f"Removing file {file}")
-                    file.remove()
+    @property
+    def max_recording_time(self) -> int:
+        """Return max_recording_time."""
+        return self._config[CONFIG_RECORDER][CONFIG_MAX_RECORDING_TIME]
 
-        folders = dirs.walkdirs("*-*-*")
-        for folder in folders:
-            self._logger.debug(f"Items in {folder}: {len(folder.listdir())}")
-            if len(folder.listdir()) == 0:
-                try:
-                    folder.rmdir()
-                    self._logger.debug(f"Removing directory {folder}")
-                except OSError:
-                    self._logger.error(f"Could not remove directory {folder}")
+    @property
+    def max_recording_time_exceeded(self) -> bool:
+        """Return True if the maximum recording time has been exceeded."""
+        if self._active_recording is None:
+            return False
+        return (
+            utcnow() - self._active_recording.start_time
+        ).total_seconds() > self.max_recording_time
 
 
 class FailedCameraRecorder(RecorderBase):
@@ -431,3 +412,85 @@ class FailedCameraRecorder(RecorderBase):
 
     Provides access to the recordings for failed cameras.
     """
+
+    @property
+    def lookback(self) -> int:
+        """Return lookback."""
+        return self._config.get(CONFIG_RECORDER, {}).get(
+            CONFIG_LOOKBACK, DEFAULT_LOOKBACK
+        )
+
+
+def get_recordings(
+    get_session: Callable[[], Session],
+    camera_identifier,
+    date=None,
+    latest=False,
+    daily=False,
+) -> dict[str, dict[int, RecordingDict]]:
+    """Return all recordings."""
+    recordings: dict[str, dict[int, RecordingDict]] = {}
+    stmt = (
+        select(Recordings)
+        .where(Recordings.camera_identifier == camera_identifier)
+        .order_by(func.DATE(Recordings.start_time).desc(), Recordings.start_time.desc())
+    )
+    if date:
+        stmt = stmt.where(func.DATE(Recordings.start_time) == date)
+    if latest and daily:
+        stmt = stmt.distinct(func.DATE(Recordings.start_time))
+    elif latest:
+        stmt = stmt.limit(1)
+    with get_session() as session:
+        for recording in session.execute(stmt).scalars():
+            if recording.start_time.date().isoformat() not in recordings:
+                recordings[recording.start_time.date().isoformat()] = {}
+            recordings[recording.start_time.date().isoformat()][
+                recording.id
+            ] = _recording_file_dict(recording)
+
+    return recordings
+
+
+def delete_recordings(
+    get_session: Callable[[], Session],
+    camera_identifier,
+    date=None,
+    recording_id=None,
+) -> Sequence[Recordings]:
+    """Delete recordings from the database.
+
+    Returns the deleted recordings so that they can be deleted from disk.
+    """
+    stmt = (
+        delete(Recordings)
+        .where(Recordings.camera_identifier == camera_identifier)
+        .returning(Recordings)
+    )
+    if date:
+        stmt = stmt.where(func.DATE(Recordings.start_time) == date)
+    if recording_id:
+        stmt = stmt.where(Recordings.id == recording_id)
+    with get_session() as session:
+        _deleted_recordings = session.execute(stmt).scalars().all()
+        session.commit()
+    return _deleted_recordings
+
+
+def _recording_file_dict(recording: Recordings) -> RecordingDict:
+    """Return a dict with recording file information."""
+    return {
+        "id": recording.id,
+        "camera_identifier": recording.camera_identifier,
+        "start_time": recording.start_time,
+        "start_timestamp": recording.start_time.timestamp(),
+        "end_time": recording.end_time,
+        "end_timestamp": recording.end_time.timestamp() if recording.end_time else None,
+        "date": recording.start_time.date().isoformat(),
+        "trigger_type": recording.trigger_type,
+        "trigger_id": recording.trigger_id,
+        "thumbnail_path": f"/files{recording.thumbnail_path}",
+        "hls_url": (
+            f"/api/v1/hls/{recording.camera_identifier}/{recording.id}/index.m3u8"
+        ),
+    }

@@ -43,7 +43,8 @@ You have to change the values between the brackets `{}` to match your setup.
 
 :::
 
-<details><summary>64-bit Linux machine</summary>
+<details>
+<summary>64-bit Linux machine</summary>
 
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
@@ -51,6 +52,9 @@ You have to change the values between the brackets `{}` to match your setup.
 ```bash
 docker run --rm \
   -v {recordings path}:/recordings \
+  -v {recordings path}:/segments \
+  -v {recordings path}:/snapshots \
+  -v {recordings path}:/thumbnails \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -70,6 +74,9 @@ services:
     container_name: viseron
     volumes:
       - {recordings path}:/recordings
+      - {recordings path}:/segments
+      - {recordings path}:/snapshots
+      - {recordings path}:/thumbnails
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -80,7 +87,8 @@ services:
 </Tabs>
 
 </details>
-<details><summary>64-bit Linux machine with VAAPI (Intel NUC for example)</summary>
+<details>
+<summary>64-bit Linux machine with VAAPI (Intel NUC for example)</summary>
 
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
@@ -88,6 +96,9 @@ services:
 ```bash
 docker run --rm \
   -v {recordings path}:/recordings \
+  -v {recordings path}:/segments \
+  -v {recordings path}:/snapshots \
+  -v {recordings path}:/thumbnails \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -108,6 +119,9 @@ services:
     container_name: viseron
     volumes:
       - {recordings path}:/recordings
+      - {recordings path}:/segments
+      - {recordings path}:/snapshots
+      - {recordings path}:/thumbnails
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -129,6 +143,9 @@ services:
 ```bash
 docker run --rm \
   -v {recordings path}:/recordings \
+  -v {recordings path}:/segments \
+  -v {recordings path}:/snapshots \
+  -v {recordings path}:/thumbnails \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -149,6 +166,9 @@ services:
     container_name: viseron
     volumes:
       - {recordings path}:/recordings
+      - {recordings path}:/segments
+      - {recordings path}:/snapshots
+      - {recordings path}:/thumbnails
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -176,6 +196,9 @@ Make sure [NVIDIA Docker](https://github.com/NVIDIA/nvidia-docker) is installed.
 ```bash
 docker run --rm \
   -v {recordings path}:/recordings \
+  -v {recordings path}:/segments \
+  -v {recordings path}:/snapshots \
+  -v {recordings path}:/thumbnails \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -204,6 +227,9 @@ services:
     container_name: viseron
     volumes:
       - {recordings path}:/recordings
+      - {recordings path}:/segments
+      - {recordings path}:/snapshots
+      - {recordings path}:/thumbnails
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -233,6 +259,9 @@ You can probably get around this by manually mounting all the needed devices but
 docker run --rm \
   --privileged \
   -v {recordings path}:/recordings \
+  -v {recordings path}:/segments \
+  -v {recordings path}:/snapshots \
+  -v {recordings path}:/thumbnails \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -v /dev/bus/usb:/dev/bus/usb \
@@ -257,6 +286,9 @@ services:
     container_name: viseron
     volumes:
       - {recordings path}:/recordings
+      - {recordings path}:/segments
+      - {recordings path}:/snapshots
+      - {recordings path}:/thumbnails
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     devices:
@@ -288,7 +320,8 @@ Configure a substream if you plan on running Viseron on an RPi.
 
 </details>
 
-<details><summary>RaspberryPi 3b+</summary>
+<details>
+<summary>RaspberryPi 3b+</summary>
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
 
@@ -296,6 +329,9 @@ Configure a substream if you plan on running Viseron on an RPi.
 docker run --rm \
   --privileged \
   -v {recordings path}:/recordings \
+  -v {recordings path}:/segments \
+  -v {recordings path}:/snapshots \
+  -v {recordings path}:/thumbnails \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -v /opt/vc/lib:/opt/vc/lib \
@@ -318,6 +354,9 @@ services:
     container_name: viseron
     volumes:
       - {recordings path}:/recordings
+      - {recordings path}:/segments
+      - {recordings path}:/snapshots
+      - {recordings path}:/thumbnails
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
       - /opt/vc/lib:/opt/vc/lib
@@ -383,6 +422,9 @@ To solve this, you can specify the user `PUID` and group `PGID` as environment v
 ```bash
 docker run --rm \
   -v {recordings path}:/recordings \
+  -v {recordings path}:/segments \
+  -v {recordings path}:/snapshots \
+  -v {recordings path}:/thumbnails \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -408,6 +450,9 @@ services:
     container_name: viseron
     volumes:
       - {recordings path}:/recordings
+      - {recordings path}:/segments
+      - {recordings path}:/snapshots
+      - {recordings path}:/thumbnails
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:

@@ -115,7 +115,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             if await self.run_in_executor(self.handle_auth, message):
                 LOGGER.debug("Authentication successful.")
                 self._waiting_for_auth = False
-                await self.async_send_message(auth_ok_message())
+                await self.async_send_message(auth_ok_message(self.vis))
                 return
             LOGGER.warning("Authentication failed.")
             await self.async_send_message(
@@ -199,7 +199,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             IOLoop.current().spawn_callback(self.send_message, auth_required_message())
         else:
             IOLoop.current().spawn_callback(
-                self.send_message, auth_not_required_message()
+                self.send_message, auth_not_required_message(self.vis)
             )
             self._waiting_for_auth = False
         IOLoop.current().spawn_callback(self._write_message)

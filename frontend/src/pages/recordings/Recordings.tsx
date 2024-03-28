@@ -1,5 +1,6 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
+import Grow from "@mui/material/Grow";
 import Typography from "@mui/material/Typography";
 
 import { ScrollToTopOnMount } from "components/ScrollToTop";
@@ -16,12 +17,14 @@ const GridItem = ({
   camera_identifier: string;
   failed?: boolean;
 }) => (
-  <Grid item xs={12} sm={12} md={6} lg={6} xl={4} key={camera_identifier}>
-    <RecordingCardLatest
-      camera_identifier={camera_identifier}
-      failed={failed}
-    />
-  </Grid>
+  <Grow in appear key={camera_identifier}>
+    <Grid item xs={12} sm={12} md={6} lg={6} xl={4} key={camera_identifier}>
+      <RecordingCardLatest
+        camera_identifier={camera_identifier}
+        failed={failed}
+      />
+    </Grid>
+  </Grow>
 );
 
 const Recordings = () => {

@@ -194,6 +194,7 @@ class MQTT:
             self._vis.dispatch_event(
                 EVENT_MQTT_ENTITY_ADDED,
                 EventMQTTEntityAddedData(mqtt_entity),
+                store=False,
             )
 
     def create_entities(self, entities) -> None:

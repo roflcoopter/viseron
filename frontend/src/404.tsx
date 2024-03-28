@@ -14,5 +14,5 @@ ReactDOM.render(
       <NotFound />
     </ColorModeProvider>
   </React.StrictMode>,
-  document.getElementById("root")
+  document.getElementById("root"),
 );

@@ -3,8 +3,7 @@ import logging
 
 import yaml
 
-from viseron.components.webserver.const import DEFAULT_PORT
-from viseron.const import CONFIG_PATH, DEFAULT_CONFIG, SECRETS_PATH
+from viseron.const import CONFIG_PATH, DEFAULT_CONFIG, DEFAULT_PORT, SECRETS_PATH
 
 LOGGER = logging.getLogger(__name__)
 

@@ -42,22 +42,33 @@ jobs:
           command: login
           containerRegistry: "Docker Hub"
 
+      - script: |
+          df -h
+        displayName: List free space before cleaning
+      - script: |
+          docker rmi -f $(docker images -aq)
+          docker system prune --force --all --volumes
+        displayName: Clean up Docker images
+      - script: |
+          df -h
+        displayName: List free space after cleaning
+
       - script: docker run --rm --privileged tonistiigi/binfmt --install all
         displayName: Register QEMU for cross-builds
         condition: and(succeeded(), eq('${{ parameters.crossBuild }}', true))
 
-      - script: |
-          cd $(Agent.BuildDirectory)/s/docker
-          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull $(arch)-${{ parameters.image }}
-        displayName: Pull image for Docker layer caching
-        continueOnError: true
-        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false))
-      - script: |
-          cd $(Agent.BuildDirectory)/s/docker
-          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull ${{ parameters.image }}
-        displayName: Pull image for Docker layer caching
-        continueOnError: true
-        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true))
+      # - script: |
+      #     cd $(Agent.BuildDirectory)/s/docker
+      #     docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull $(arch)-${{ parameters.image }}
+      #   displayName: Pull image for Docker layer caching
+      #   continueOnError: true
+      #   condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false))
+      # - script: |
+      #     cd $(Agent.BuildDirectory)/s/docker
+      #     docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull ${{ parameters.image }}
+      #   displayName: Pull image for Docker layer caching
+      #   continueOnError: true
+      #   condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true))
 
       - script: |
           cd $(Agent.BuildDirectory)/s/docker

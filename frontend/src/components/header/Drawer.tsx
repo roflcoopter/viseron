@@ -1,5 +1,6 @@
 import { SvgIconComponent } from "@mui/icons-material";
 import GitHubIcon from "@mui/icons-material/GitHub";
+import ImageSearchIcon from "@mui/icons-material/ImageSearch";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SettingsIcon from "@mui/icons-material/Settings";
 import VideoFileIcon from "@mui/icons-material/VideoFile";
@@ -17,8 +18,7 @@ import ListItemText from "@mui/material/ListItemText";
 import ListSubheader from "@mui/material/ListSubheader";
 import Typography from "@mui/material/Typography";
 import { Link, Location, useLocation } from "react-router-dom";
-
-import { ReactComponent as ViseronLogo } from "../../viseron-logo.svg";
+import ViseronLogo from "svg/viseron-logo.svg?react";
 
 type DrawerItemHeader = { type: "header"; title: string };
 
@@ -42,6 +42,12 @@ const drawerItems: Array<DrawerItemTypes> = [
     title: "Recordings",
     icon: VideoFileIcon,
     path: "/recordings",
+  },
+  {
+    type: "link",
+    title: "Events",
+    icon: ImageSearchIcon,
+    path: "/events",
   },
   { type: "link", title: "Entities", icon: ViewListIcon, path: "/entities" },
   { type: "divider" },
@@ -177,7 +183,9 @@ export default function AppDrawer({
     >
       <AppDrawerHeader />
       <List>
-        {drawerItems.map((item, index) => getItem(index, location, item))}
+        <Box onClick={() => setDrawerOpen(false)}>
+          {drawerItems.map((item, index) => getItem(index, location, item))}
+        </Box>
       </List>
     </Drawer>
   );

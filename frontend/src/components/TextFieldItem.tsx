@@ -30,7 +30,6 @@ export function TextFieldItem<T extends string>(props: TextFieldItemProps<T>) {
   const defaultProps = {
     fullWidth: true,
     autoComplete: "off",
-    // eslint-disable-next-line no-nested-ternary
     type: props.password ? (showPassword ? "text" : "password") : "text",
     label: props.inputState[props.inputKind].label,
     helperText: props.inputState[props.inputKind].error
@@ -38,7 +37,7 @@ export function TextFieldItem<T extends string>(props: TextFieldItemProps<T>) {
       : " ",
     error: !!props.inputState[props.inputKind].error,
     onChange: (
-      event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>
+      event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
     ) =>
       props.dispatch({
         type: props.inputKind,

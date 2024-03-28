@@ -121,6 +121,20 @@
                         },
                         {
                           "type": "boolean",
+                          "name": "store",
+                          "description": "If set to <code>true</code>, objects matching this filter will be stored in the database, as well as having a snapshot saved. Labels with <code>trigger_recorder</code> set to <code>true</code> will always be stored when a recording starts, regardless of this setting.",
+                          "optional": true,
+                          "default": true
+                        },
+                        {
+                          "type": "integer",
+                          "name": "store_interval",
+                          "description": "The interval at which the label should be stored in the database, in seconds. If set to 0, the label will be stored every time it is detected.",
+                          "optional": true,
+                          "default": 60
+                        },
+                        {
+                          "type": "boolean",
                           "name": "require_motion",
                           "description": "If set to <code>true</code>, the recorder will stop as soon as motion is no longer detected, even if the object still is. This is useful to avoid never ending recordings of stationary objects, such as a car on a driveway",
                           "optional": true,
@@ -284,6 +298,20 @@
                                 "description": "If set to <code>true</code>, objects matching this filter will start the recorder.",
                                 "optional": true,
                                 "default": true
+                              },
+                              {
+                                "type": "boolean",
+                                "name": "store",
+                                "description": "If set to <code>true</code>, objects matching this filter will be stored in the database, as well as having a snapshot saved. Labels with <code>trigger_recorder</code> set to <code>true</code> will always be stored when a recording starts, regardless of this setting.",
+                                "optional": true,
+                                "default": true
+                              },
+                              {
+                                "type": "integer",
+                                "name": "store_interval",
+                                "description": "The interval at which the label should be stored in the database, in seconds. If set to 0, the label will be stored every time it is detected.",
+                                "optional": true,
+                                "default": 60
                               },
                               {
                                 "type": "boolean",

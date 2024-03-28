@@ -1,9 +1,11 @@
 """General helper functions."""
 from __future__ import annotations
 
+import datetime
 import linecache
 import logging
 import math
+import multiprocessing as mp
 import os
 import tracemalloc
 from queue import Full, Queue
@@ -22,7 +24,14 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def calculate_relative_contours(contours, resolution: tuple[int, int]):
+def utcnow() -> datetime.datetime:
+    """Return current UTC time."""
+    return datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+
+
+def calculate_relative_contours(
+    contours, resolution: tuple[int, int]
+) -> list[np.ndarray]:
     """Convert contours with absolute coords to relative."""
     relative_contours = []
     for contour in contours:
@@ -109,7 +118,7 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)) -> None:
         thickness=FONT_THICKNESS,
     )[0]
 
-    filter_text = None
+    filter_text = ""
     if obj.filter_hit:
         filter_text = f"Filter: {obj.filter_hit}"
         (filter_text_width, filter_text_height) = cv2.getTextSize(
@@ -275,7 +284,7 @@ def draw_object_mask(frame, mask_points) -> None:
 
 
 def pop_if_full(
-    queue: Queue,
+    queue: Queue | mp.Queue | tq.Queue,
     item: Any,
     logger: logging.Logger = LOGGER,
     name: str = "unknown",
@@ -296,7 +305,7 @@ def slugify(text: str) -> str:
     return unicode_slug.slugify(text, separator="_")
 
 
-def create_directory(path) -> None:
+def create_directory(path: str) -> None:
     """Create a directory."""
     try:
         if not os.path.isdir(path):
@@ -432,6 +441,26 @@ def convert_letterboxed_bbox(
         new_x2,
         new_y2,
     )
+
+
+def zoom_boundingbox(
+    frame: np.ndarray,
+    bounding_box: tuple[int, int, int, int],
+    min_size=300,
+    crop_correction_factor=1,
+) -> np.ndarray:
+    """Zoom in on a bounding box in an image."""
+    x1, y1, x2, y2 = bounding_box
+    size = max(int(max(x2 - x1, y2 - y1) * crop_correction_factor), min_size)
+
+    x_offset = max(
+        0, min(int((x2 - x1) / 2.0 + x1 - size / 2.0), frame.shape[1] - size)
+    )
+    y_offset = max(
+        0, min(int((y2 - y1) / 2.0 + y1 - size / 2.0), frame.shape[0] - size)
+    )
+
+    return frame.copy()[y_offset : y_offset + size, x_offset : x_offset + size]
 
 
 def memory_usage_profiler(logger, key_type="lineno", limit=5) -> None:

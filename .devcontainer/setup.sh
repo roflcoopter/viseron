@@ -25,7 +25,7 @@ do
     sed -i "s/$FILE=true/$FILE=false/g" $HOME/.bashrc
 done
 
-# Symlink config
+# Create default config if it is missing
 cd $WORKSPACE_DIR
 mkdir -p $WORKSPACE_DIR/config
 FILE=$WORKSPACE_DIR/config/config.yaml
@@ -35,7 +35,15 @@ else
     echo "Creating default config"
     python3 -c "import viseron.config; viseron.config.create_default_config('$FILE')"
 fi
-ln -s $WORKSPACE_DIR/config/config.yaml /config/config.yaml
+
+# Create symlink to config file
+FILE=/config/config.yaml
+if test -f "$FILE"; then
+    echo "Config symlink already exists"
+else
+    echo "Creating config symlink"
+    ln -s $WORKSPACE_DIR/config/config.yaml /config/config.yaml
+fi
 
 # Create .env.local
 FILE=$WORKSPACE_DIR/frontend/.env.local
@@ -45,3 +53,6 @@ else
     echo "Creating frontend .env.local"
     echo "VITE_PROXY_HOST=localhost:8888" > $FILE
 fi
+
+# Generate locale
+locale-gen

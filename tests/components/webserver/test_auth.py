@@ -32,8 +32,8 @@ class TestAuth:
             self.auth._auth_store.path  # pylint: disable=protected-access
         ):
             os.remove(self.auth._auth_store.path)  # pylint: disable=protected-access
-        if os.path.exists(self.auth.onboarding_path):
-            os.remove(self.auth.onboarding_path)
+        if os.path.exists(self.auth.onboarding_path()):
+            os.remove(self.auth.onboarding_path())
 
     def test_add_user(self):
         """Test adding user."""
@@ -57,9 +57,9 @@ class TestAuth:
 
     def test_onboard_user(self):
         """Test oboarding user."""
-        assert self.auth.onboarding_complete is False
+        assert self.auth.onboarding_complete() is False
         self.auth.onboard_user("Test", "Test ", "test")
-        assert self.auth.onboarding_complete is True
+        assert self.auth.onboarding_complete() is True
 
     def test_add_user_invalid_group(self):
         """Test adding user with invalid group."""

@@ -1,10 +1,10 @@
 """Watchdog for long-running threads."""
 from __future__ import annotations
 
-import datetime
 import logging
 import subprocess as sp
 
+from viseron.helpers import utcnow
 from viseron.watchdog import WatchDog
 
 LOGGER = logging.getLogger(__name__)
@@ -67,7 +67,7 @@ class RestartablePopen:
             *self._args,
             **self._kwargs,
         )
-        self._start_time = datetime.datetime.now().timestamp()
+        self._start_time = utcnow().timestamp()
         self._started = True
 
     def restart(self) -> None:
@@ -107,7 +107,7 @@ class SubprocessWatchDog(WatchDog):
                 continue
             if registered_process.subprocess.poll() is None:
                 continue
-            now = datetime.datetime.now().timestamp()
+            now = utcnow().timestamp()
             if now - registered_process.start_time < registered_process.grace_period:
                 continue
 

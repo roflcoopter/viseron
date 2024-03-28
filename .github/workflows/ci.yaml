@@ -49,7 +49,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libgirepository1.0-dev
-          python3 -m venv venv
+          python3 -m venv --system-site-packages venv
       - name: Install requirements into Python virtual environment
         if: steps.cache-venv.outputs.cache-hit != 'true'
         uses: ./.github/templates/run_in_venv
@@ -422,7 +422,11 @@ jobs:
           docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron-tests
       - name: Run pytest
         run: |
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env up amd64-viseron-tests
+          if docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env up amd64-viseron-tests; then
+            exit 0
+          else
+            exit 1
+          fi
       - name: Copy .coverage to host
         run: |
           docker cp amd64-viseron-tests:/src/coverage.xml coverage.xml

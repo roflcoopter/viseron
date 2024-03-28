@@ -1,9 +1,11 @@
-module.exports = {
+const { defineConfig } = require("eslint-define-config");
+
+module.exports = defineConfig({
   extends: [
-    "react-app",
     "airbnb-base",
     "airbnb-typescript/base",
     "plugin:@typescript-eslint/recommended",
+    "plugin:react-hooks/recommended",
     "prettier",
   ],
   plugins: ["prettier"],
@@ -18,7 +20,7 @@ module.exports = {
     tsconfigRootDir: __dirname,
   },
   ignorePatterns: [
-    ".eslintrc.js",
+    ".eslintrc.cjs",
     "vite.config.ts",
     "vitest.config.ts",
     "lint-staged.config.js",
@@ -83,5 +85,6 @@ module.exports = {
         patterns: ["@mui/*/*/*", "!@mui/material/test-utils/*"],
       },
     ],
+    "no-nested-ternary": "off",
   },
-};
+});

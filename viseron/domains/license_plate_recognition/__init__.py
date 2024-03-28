@@ -13,6 +13,7 @@ from viseron.domains.license_plate_recognition.binary_sensor import (
     LicensePlateRecognitionBinarySensor,
 )
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
+from viseron.events import EventData
 from viseron.helpers.schemas import FLOAT_MIN_ZERO, FLOAT_MIN_ZERO_MAX_ONE
 
 from .const import (
@@ -88,7 +89,7 @@ class LicensePlateRecognitionResult:
 
 
 @dataclass
-class EventLicensePlateRecognition:
+class EventLicensePlateRecognition(EventData):
     """Hold information on license plate recognition event."""
 
     camera_identifier: str

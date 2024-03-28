@@ -2,7 +2,7 @@ import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
-import { ReactComponent as ViseronLogo } from "viseron-logo.svg";
+import ViseronLogo from "svg/viseron-logo.svg?react";
 
 interface LoadingProps {
   text: string;
@@ -26,7 +26,7 @@ export const Loading = ({ text, fullScreen = true }: LoadingProps) => (
             margin: "auto 0",
             width: "100%",
           }
-        : undefined
+        : { marginTop: "10px" }
     }
   >
     {fullScreen && (

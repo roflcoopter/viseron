@@ -42,7 +42,6 @@ from viseron.const import (
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
-from viseron.domains.camera.const import CONFIG_EXTENSION
 from viseron.exceptions import StreamInformationError
 
 from tests.common import MockCamera
@@ -64,9 +63,7 @@ CONFIG = {
     CONFIG_CODEC: DEFAULT_CODEC,
     CONFIG_AUDIO_CODEC: DEFAULT_AUDIO_CODEC,
     CONFIG_PIX_FMT: "yuv420p",
-    CONFIG_RECORDER: {
-        CONFIG_EXTENSION: "mp4",
-    },
+    CONFIG_RECORDER: {},
 }
 
 CONFIG_WITH_SUBSTREAM: dict[str, Any] = {
@@ -184,16 +181,16 @@ class TestStream:
             assert stream.get_codec(config, stream_codec) == expected_cmd
 
     @pytest.mark.parametrize(
-        "config_audio_codec, stream_audio_codec, extension, expected_audio_cmd",
+        "config_audio_codec, stream_audio_codec, expected_audio_cmd",
         [
-            (DEFAULT_AUDIO_CODEC, "aac", "mp4", ["-c:a", "copy"]),
-            (DEFAULT_AUDIO_CODEC, "pcm_alaw", "mp4", ["-c:a", "aac"]),
-            ("test_codec", "pcm_alaw", "mkv", ["-c:a", "test_codec"]),
-            (DEFAULT_AUDIO_CODEC, None, "mp4", []),
+            (DEFAULT_AUDIO_CODEC, "aac", ["-c:a", "copy"]),
+            (DEFAULT_AUDIO_CODEC, "pcm_alaw", ["-c:a", "aac"]),
+            ("test_codec", "pcm_alaw", ["-c:a", "test_codec"]),
+            (DEFAULT_AUDIO_CODEC, None, []),
         ],
     )
     def test_get_audio_codec(
-        self, vis, config_audio_codec, stream_audio_codec, extension, expected_audio_cmd
+        self, vis, config_audio_codec, stream_audio_codec, expected_audio_cmd
     ) -> None:
         """Test that the correct audio codec is returned."""
         mocked_camera = MockCamera(identifier="test_camera_identifier")
@@ -206,8 +203,7 @@ class TestStream:
             stream = Stream(config, mocked_camera, "test_camera_identifier")
             stream._logger = MagicMock()  # pylint: disable=protected-access
             assert (
-                stream.get_audio_codec(config, stream_audio_codec, extension)
-                == expected_audio_cmd
+                stream.get_audio_codec(config, stream_audio_codec) == expected_audio_cmd
             )
 
     def test_get_stream_url(self) -> None:

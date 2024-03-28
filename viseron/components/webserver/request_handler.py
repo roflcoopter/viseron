@@ -3,24 +3,30 @@ from __future__ import annotations
 
 import hmac
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Literal, overload
+from typing import TYPE_CHECKING, Callable, Literal, TypeVar, overload
 
 import tornado.web
+from sqlalchemy.orm import Session
 from tornado.ioloop import IOLoop
 
+from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.webserver.const import COMPONENT
 from viseron.const import DOMAIN_FAILED
 from viseron.domains.camera import FailedCamera
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
+from viseron.helpers import utcnow
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.components.storage import Storage
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.auth import RefreshToken, User
     from viseron.domains.camera import AbstractCamera
+
+_T = TypeVar("_T")
 
 LOGGER = logging.getLogger(__name__)
 
@@ -32,11 +38,12 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         """Initialize request handler."""
         self._vis = vis
         self._webserver: Webserver = vis.data[COMPONENT]
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
         self.current_user = None
         # Manually set xsrf cookie
         self.xsrf_token  # pylint: disable=pointless-statement
 
-    async def run_in_executor(self, func, *args):
+    async def run_in_executor(self, func: Callable[..., _T], *args) -> _T:
         """Run function in executor."""
         return await IOLoop.current().run_in_executor(None, func, *args)
 
@@ -89,7 +96,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         new_session=False,
     ) -> None:
         """Set session cookies."""
-        now = datetime.utcnow()
+        now = utcnow()
 
         _header, _payload, signature = access_token.split(".")
 
@@ -209,13 +216,15 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     ) -> AbstractCamera | FailedCamera | None:
         ...
 
-    def _get_camera(self, camera_identifier: str, failed: bool = False):
+    def _get_camera(
+        self, camera_identifier: str, failed: bool = False
+    ) -> AbstractCamera | FailedCamera | None:
         """Get camera instance.
 
         If failed is True, check for failed camera instances
         if the camera is not found.
         """
-        camera = None
+        camera: AbstractCamera | FailedCamera | None = None
         try:
             camera = self._vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
         except DomainNotRegisteredError:
@@ -228,6 +237,10 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
                 if domain_to_setup:
                     camera = domain_to_setup.error_instance
         return camera
+
+    def _get_session(self) -> Session:
+        """Get a database session."""
+        return self._storage.get_session()
 
     def validate_camera_token(self, camera: AbstractCamera) -> bool:
         """Validate camera token."""

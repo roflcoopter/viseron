@@ -52,6 +52,8 @@
 !/tests/*
 !/tests/components
 !/tests/components/**
+!/tests/domains
+!/tests/domains/**
 !/tests/helpers
 !/tests/helpers/*
 
@@ -81,7 +83,7 @@
 !/frontend/src/**
 !/frontend/tests
 !/frontend/tests/**
-!/frontend/.eslintrc.js
+!/frontend/.eslintrc.cjs
 !/frontend/.prettierrc.json
 !/frontend/404.html
 !/frontend/index.html

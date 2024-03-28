@@ -38,18 +38,18 @@ const queryClient = new QueryClient({
 export type deleteRecordingParams = {
   identifier: string;
   date?: string;
-  filename?: string;
+  recording_id?: number;
   failed?: boolean;
 };
 
 async function deleteRecording({
   identifier,
   date,
-  filename,
+  recording_id,
   failed,
 }: deleteRecordingParams) {
   const url = `/recordings/${identifier}${date ? `/${date}` : ""}${
-    filename ? `/${filename}` : ""
+    recording_id ? `/${recording_id}` : ""
   }`;
 
   const response = await viseronAPI.delete(

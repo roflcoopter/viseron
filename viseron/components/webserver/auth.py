@@ -29,6 +29,7 @@ from viseron.components.webserver.const import (
 )
 from viseron.const import STORAGE_PATH
 from viseron.exceptions import ViseronError
+from viseron.helpers import utcnow
 from viseron.helpers.storage import Storage
 
 if TYPE_CHECKING:
@@ -61,7 +62,7 @@ class RefreshToken:
     session_expiration: timedelta
     access_token_type: Literal["normal"]
     access_token_expiration: timedelta = ACCESS_TOKEN_EXPIRATION
-    created_at: float = field(default_factory=lambda: datetime.now().timestamp())
+    created_at: float = field(default_factory=lambda: utcnow().timestamp())
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     token: str = field(default_factory=lambda: secrets.token_hex(64))
     jwt_key: str = field(default_factory=lambda: secrets.token_hex(64))
@@ -96,9 +97,11 @@ class TokenResponse:
 
     header: str
     payload: str
-    expires_in: int
-    expires_at: int
-    session_expires_at: int
+    expiration: int
+    expires_at: datetime
+    expires_at_timestamp: int
+    session_expires_at: datetime
+    session_expires_at_timestamp: int
 
 
 def token_response(
@@ -107,18 +110,19 @@ def token_response(
 ) -> dict[str, Any]:
     """Create token response."""
     header, payload, _signature = access_token.split(".")
+    expires_at = utcnow() + refresh_token.access_token_expiration
+    session_expires_at = datetime.utcfromtimestamp(
+        refresh_token.created_at + refresh_token.session_expiration.total_seconds()
+    )
     return asdict(
         TokenResponse(
             header=header,
             payload=payload,
-            expires_in=int(refresh_token.access_token_expiration.total_seconds()),
-            expires_at=int(
-                (datetime.now() + refresh_token.access_token_expiration).timestamp()
-            ),
-            session_expires_at=int(
-                refresh_token.created_at
-                + refresh_token.session_expiration.total_seconds()
-            ),
+            expiration=int(refresh_token.access_token_expiration.total_seconds()),
+            expires_at=expires_at,
+            expires_at_timestamp=int(expires_at.timestamp()),
+            session_expires_at=session_expires_at,
+            session_expires_at_timestamp=int(session_expires_at.timestamp()),
         )
     )
 
@@ -169,15 +173,13 @@ class Auth:
             ),
         )
 
-    @property
     def onboarding_path(self) -> str:
         """Return onboarding path."""
         return os.path.join(STORAGE_PATH, ONBOARDING_STORAGE_KEY)
 
-    @property
     def onboarding_complete(self) -> bool:
         """Return onboarding status."""
-        if self.users or os.path.exists(self.onboarding_path):
+        if self.users or os.path.exists(self.onboarding_path()):
             return True
         return False
 
@@ -226,7 +228,7 @@ class Auth:
     ):
         """Onboard the first user."""
         user = self.add_user(name, username, password, Group.ADMIN)
-        Path(self.onboarding_path).touch()
+        Path(self.onboarding_path()).touch()
         return user
 
     def validate_user(self, username: str, password: str) -> User:
@@ -361,7 +363,7 @@ class Auth:
     ):
         """Generate access token using JWT."""
         self.validate_refresh_token(refresh_token)
-        now = datetime.utcnow()
+        now = utcnow()
         refresh_token.used_at = now.timestamp()
         refresh_token.used_by = remote_ip
         self.save()

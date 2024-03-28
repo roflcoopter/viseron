@@ -5,7 +5,8 @@ export type DomainType =
   | "license_plate_recognition"
   | "motion_detector"
   | "nvr"
-  | "object_detector";
+  | "object_detector"
+  | "system";
 
 export type Domain = {
   label: string;
@@ -54,6 +55,11 @@ export const Domains: { [type in DomainType]: Domain } = {
   object_detector: {
     label: "Object Detector",
     color: "#e9669e",
+  },
+
+  system: {
+    label: "System",
+    color: "#30cac8",
   },
 };
 

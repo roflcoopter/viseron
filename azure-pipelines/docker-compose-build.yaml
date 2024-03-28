@@ -120,6 +120,7 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: amd64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
       cache_from:
         - roflcoopter/amd64-viseron:dev
     image: roflcoopter/amd64-viseron:dev
@@ -133,14 +134,20 @@ services:
         VISERON_VERSION: dev
     image: roflcoopter/amd64-viseron-tests:dev
     container_name: amd64-viseron-tests
-    entrypoint: ""
+    environment:
+      - PGID=1000
+      - PUID=1000
     command: >
-      bash -c "pytest --cov=viseron/ --cov-report term-missing -s tests
-      && coverage xml"
-
+      bash -c "
+        chown -R abc:abc /src &&
+        su abc -c '
+          cd /src &&
+          pytest --cov=viseron/ --cov-report term-missing -s tests &&
+          coverage xml
+        '
+      "
   amd64-viseron-tests-tox:
     <<: *amd64-viseron-tests
-    entrypoint: pytest
 
   amd64-viseron-vulture:
     <<: *amd64-viseron-tests
@@ -247,6 +254,7 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: amd64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
       cache_from:
         - roflcoopter/amd64-cuda-viseron:dev
     image: roflcoopter/amd64-cuda-viseron:dev
@@ -343,6 +351,7 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: armhf
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
       cache_from:
         - roflcoopter/rpi3-viseron:dev
     image: roflcoopter/rpi3-viseron:dev
@@ -430,6 +439,7 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
       cache_from:
         - roflcoopter/aarch64-viseron:dev
     image: roflcoopter/aarch64-viseron:dev
@@ -568,6 +578,7 @@ services:
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
       cache_from:
         - roflcoopter/jetson-nano-viseron:dev
     image: roflcoopter/jetson-nano-viseron:dev

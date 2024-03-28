@@ -2,36 +2,59 @@
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
-from threading import Timer
-from typing import TYPE_CHECKING, Any
+from threading import Event, Timer
+from typing import TYPE_CHECKING, Any, Literal
+from uuid import uuid4
 
 import cv2
 import imutils
 import voluptuous as vol
+from sqlalchemy import or_, select
 
 from viseron.components import DomainToSetup
 from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
+from viseron.components.storage.config import TIER_SCHEMA_BASE, TIER_SCHEMA_RECORDER
+from viseron.components.storage.const import (
+    COMPONENT as STORAGE_COMPONENT,
+    CONFIG_CONTINUOUS,
+    CONFIG_EVENTS,
+    CONFIG_TIERS,
+    DEFAULT_CONTINUOUS,
+    DEFAULT_EVENTS,
+    DESC_CONTINUOUS,
+    DESC_EVENTS,
+    DESC_RECORDER_TIERS,
+)
+from viseron.components.storage.models import Files
+from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
+from viseron.const import TEMP_DIR
 from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
+from viseron.domains.camera.fragmenter import Fragmenter
 from viseron.domains.camera.recorder import FailedCameraRecorder
-from viseron.helpers.validators import CoerceNoneToDict, Maybe, Slug
+from viseron.events import EventData, EventEmptyData
+from viseron.helpers import calculate_absolute_coords, utcnow, zoom_boundingbox
+from viseron.helpers.validators import CoerceNoneToDict, Deprecated, Maybe, Slug
 
 from .const import (
     AUTHENTICATION_BASIC,
     AUTHENTICATION_DIGEST,
     CONFIG_AUTHENTICATION,
+    CONFIG_CREATE_EVENT_CLIP,
     CONFIG_EXTENSION,
     CONFIG_FILENAME_PATTERN,
     CONFIG_FOLDER,
     CONFIG_IDLE_TIMEOUT,
     CONFIG_LOOKBACK,
+    CONFIG_MAX_RECORDING_TIME,
     CONFIG_MJPEG_DRAW_MOTION,
     CONFIG_MJPEG_DRAW_MOTION_MASK,
     CONFIG_MJPEG_DRAW_OBJECT_MASK,
@@ -49,15 +72,16 @@ from .const import (
     CONFIG_RETAIN,
     CONFIG_SAVE_TO_DISK,
     CONFIG_STILL_IMAGE,
+    CONFIG_STORAGE,
     CONFIG_THUMBNAIL,
     CONFIG_URL,
     CONFIG_USERNAME,
     DEFAULT_AUTHENTICATION,
-    DEFAULT_EXTENSION,
+    DEFAULT_CREATE_EVENT_CLIP,
     DEFAULT_FILENAME_PATTERN,
-    DEFAULT_FOLDER,
     DEFAULT_IDLE_TIMEOUT,
     DEFAULT_LOOKBACK,
+    DEFAULT_MAX_RECORDING_TIME,
     DEFAULT_MJPEG_DRAW_MOTION,
     DEFAULT_MJPEG_DRAW_MOTION_MASK,
     DEFAULT_MJPEG_DRAW_OBJECT_MASK,
@@ -72,19 +96,25 @@ from .const import (
     DEFAULT_PASSWORD,
     DEFAULT_RECORDER,
     DEFAULT_REFRESH_INTERVAL,
-    DEFAULT_RETAIN,
     DEFAULT_SAVE_TO_DISK,
     DEFAULT_STILL_IMAGE,
+    DEFAULT_STORAGE,
     DEFAULT_THUMBNAIL,
     DEFAULT_URL,
     DEFAULT_USERNAME,
+    DEPRECATED_EXTENSION,
+    DEPRECATED_FILENAME_PATTERN_THUMBNAIL,
+    DEPRECATED_FOLDER,
+    DEPRECATED_RETAIN,
     DESC_AUTHENTICATION,
+    DESC_CREATE_EVENT_CLIP,
     DESC_EXTENSION,
     DESC_FILENAME_PATTERN,
     DESC_FILENAME_PATTERN_THUMBNAIL,
     DESC_FOLDER,
     DESC_IDLE_TIMEOUT,
     DESC_LOOKBACK,
+    DESC_MAX_RECORDING_TIME,
     DESC_MJPEG_DRAW_MOTION,
     DESC_MJPEG_DRAW_MOTION_MASK,
     DESC_MJPEG_DRAW_OBJECT_MASK,
@@ -103,14 +133,22 @@ from .const import (
     DESC_RETAIN,
     DESC_SAVE_TO_DISK,
     DESC_STILL_IMAGE,
+    DESC_STORAGE,
     DESC_THUMBNAIL,
     DESC_URL,
     DESC_USERNAME,
+    EVENT_CAMERA_STARTED,
+    EVENT_CAMERA_STOPPED,
     EVENT_STATUS,
     EVENT_STATUS_CONNECTED,
     EVENT_STATUS_DISCONNECTED,
     INCLUSION_GROUP_AUTHENTICATION,
     UPDATE_TOKEN_INTERVAL_MINUTES,
+    VIDEO_CONTAINER,
+    WARNING_EXTENSION,
+    WARNING_FILENAME_PATTERN_THUMBNAIL,
+    WARNING_FOLDER,
+    WARNING_RETAIN,
 )
 from .entity.binary_sensor import ConnectionStatusBinarySensor
 from .entity.toggle import CameraConnectionToggle
@@ -119,6 +157,8 @@ from .shared_frames import SharedFrames
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.nvr.nvr import FrameIntervalCalculator
+    from viseron.components.storage import Storage
+    from viseron.components.webserver import Webserver
     from viseron.domains.object_detector.detected_object import DetectedObject
 
     from .recorder import AbstractRecorder
@@ -182,10 +222,11 @@ THUMBNAIL_SCHEMA = vol.Schema(
             default=DEFAULT_SAVE_TO_DISK,
             description=DESC_SAVE_TO_DISK,
         ): bool,
-        vol.Optional(
+        Deprecated(
             CONFIG_FILENAME_PATTERN,
-            default=DEFAULT_FILENAME_PATTERN,
             description=DESC_FILENAME_PATTERN_THUMBNAIL,
+            message=DEPRECATED_FILENAME_PATTERN_THUMBNAIL,
+            warning=WARNING_FILENAME_PATTERN_THUMBNAIL,
         ): str,
     }
 )
@@ -202,22 +243,63 @@ RECORDER_SCHEMA = vol.Schema(
             description=DESC_IDLE_TIMEOUT,
         ): vol.All(int, vol.Range(min=0)),
         vol.Optional(
-            CONFIG_RETAIN, default=DEFAULT_RETAIN, description=DESC_RETAIN
+            CONFIG_MAX_RECORDING_TIME,
+            default=DEFAULT_MAX_RECORDING_TIME,
+            description=DESC_MAX_RECORDING_TIME,
+        ): vol.All(int, vol.Range(min=0)),
+        Deprecated(
+            CONFIG_RETAIN,
+            description=DESC_RETAIN,
+            message=DEPRECATED_RETAIN,
+            warning=WARNING_RETAIN,
         ): vol.All(int, vol.Range(min=1)),
-        vol.Optional(
-            CONFIG_FOLDER, default=DEFAULT_FOLDER, description=DESC_FOLDER
+        Deprecated(
+            CONFIG_FOLDER,
+            description=DESC_FOLDER,
+            message=DEPRECATED_FOLDER,
+            warning=WARNING_FOLDER,
         ): str,
         vol.Optional(
             CONFIG_FILENAME_PATTERN,
             default=DEFAULT_FILENAME_PATTERN,
             description=DESC_FILENAME_PATTERN,
         ): str,
-        vol.Optional(
-            CONFIG_EXTENSION, default=DEFAULT_EXTENSION, description=DESC_EXTENSION
+        Deprecated(
+            CONFIG_EXTENSION,
+            description=DESC_EXTENSION,
+            message=DEPRECATED_EXTENSION,
+            warning=WARNING_EXTENSION,
         ): str,
         vol.Optional(
             CONFIG_THUMBNAIL, default=DEFAULT_THUMBNAIL, description=DESC_THUMBNAIL
         ): vol.All(CoerceNoneToDict(), THUMBNAIL_SCHEMA),
+        vol.Optional(
+            CONFIG_STORAGE,
+            default=DEFAULT_STORAGE,
+            description=DESC_STORAGE,
+        ): Maybe(
+            {
+                vol.Required(CONFIG_TIERS, description=DESC_RECORDER_TIERS,): vol.All(
+                    [TIER_SCHEMA_RECORDER],
+                    vol.Length(min=1),
+                )
+            },
+        ),
+        vol.Optional(
+            CONFIG_CONTINUOUS,
+            default=DEFAULT_CONTINUOUS,
+            description=DESC_CONTINUOUS,
+        ): Maybe(TIER_SCHEMA_BASE),
+        vol.Optional(
+            CONFIG_EVENTS,
+            default=DEFAULT_EVENTS,
+            description=DESC_EVENTS,
+        ): Maybe(TIER_SCHEMA_BASE),
+        vol.Optional(
+            CONFIG_CREATE_EVENT_CLIP,
+            default=DEFAULT_CREATE_EVENT_CLIP,
+            description=DESC_CREATE_EVENT_CLIP,
+        ): bool,
     }
 )
 
@@ -281,7 +363,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class EventStatusData:
+class EventStatusData(EventData):
     """Hold information on camera status event."""
 
     status: str
@@ -301,6 +383,7 @@ class AbstractCamera(ABC):
         self._logger = logging.getLogger(f"{self.__module__}.{self.identifier}")
 
         self._connected: bool = False
+        self.stopped = Event()
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self.current_frame: SharedFrame | None = None
         self.shared_frames = SharedFrames()
@@ -321,6 +404,20 @@ class AbstractCamera(ABC):
         self._vis.background_scheduler.add_job(
             self.update_token, "interval", minutes=UPDATE_TOKEN_INTERVAL_MINUTES
         )
+
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self.recordings_folder: str = self._storage.get_recordings_path(self)
+        self.segments_folder: str = self._storage.get_segments_path(self)
+        self.thumbnails_folder: str = self._storage.get_thumbnails_path(self)
+        self.temp_segments_folder: str = TEMP_DIR + self.segments_folder
+        self.snapshots_object_folder: str = self._storage.get_snapshots_path(
+            self, "object_detector"
+        )
+        self.snapshots_face_folder: str = self._storage.get_snapshots_path(
+            self, "face_recognition"
+        )
+
+        self.fragmenter: Fragmenter = Fragmenter(vis, self)
 
     def as_dict(self) -> dict[str, Any]:
         """Return camera information as dict."""
@@ -347,12 +444,32 @@ class AbstractCamera(ABC):
         highest_fps = max(scanner.scan_fps for scanner in scanners)
         self.output_fps = highest_fps
 
-    @abstractmethod
     def start_camera(self):
         """Start camera streaming."""
+        self.stopped.clear()
+        self._start_camera()
+        self._vis.dispatch_event(
+            EVENT_CAMERA_STARTED.format(camera_identifier=self.identifier),
+            EventEmptyData(),
+        )
 
     @abstractmethod
+    def _start_camera(self):
+        """Start camera streaming."""
+
     def stop_camera(self):
+        """Stop camera streaming."""
+        self._stop_camera()
+        self.stopped.set()
+        self._vis.dispatch_event(
+            EVENT_CAMERA_STOPPED.format(camera_identifier=self.identifier),
+            EventEmptyData(),
+        )
+        if self.is_recording:
+            self.stop_recorder()
+
+    @abstractmethod
+    def _stop_camera(self):
         """Stop camera streaming."""
 
     @abstractmethod
@@ -407,9 +524,9 @@ class AbstractCamera(ABC):
         """Return stream resolution."""
 
     @property
-    @abstractmethod
     def extension(self) -> str:
         """Return recording file extension."""
+        return VIDEO_CONTAINER
 
     @property
     @abstractmethod
@@ -450,6 +567,11 @@ class AbstractCamera(ABC):
                 else EVENT_STATUS_DISCONNECTED
             ),
         )
+
+    @property
+    def config(self) -> dict[str, Any]:
+        """Return camera config."""
+        return self._config
 
     @staticmethod
     def _clear_snapshot_cache(clear_cache) -> None:
@@ -496,6 +618,35 @@ class AbstractCamera(ABC):
             return ret, jpg.tobytes()
         return ret, False
 
+    def save_snapshot(
+        self,
+        shared_frame: SharedFrame,
+        obj: DetectedObject,
+        domain: Literal["object_detector"]
+        | Literal["face_recognition"]
+        | Literal["license_plate_recognition"],
+    ) -> str:
+        """Save snapshot to disk."""
+        decoded_frame = self.shared_frames.get_decoded_frame_rgb(shared_frame)
+        absolute_coords = calculate_absolute_coords(
+            (obj.rel_x1, obj.rel_y1, obj.rel_x2, obj.rel_y2), self.resolution
+        )
+        zoomed_frame = zoom_boundingbox(decoded_frame, absolute_coords)
+
+        if domain == "object_detector":
+            folder = self.snapshots_object_folder
+        elif domain == "face_recognition":
+            folder = self.snapshots_face_folder
+
+        filename = f"{utcnow().strftime('%Y-%m-%d-%H:%M:%S-')}{str(uuid4())}.jpg"
+        path = os.path.join(folder, filename)
+        self._logger.debug(f"Saving snapshot to {path}")
+        cv2.imwrite(
+            path,
+            zoomed_frame,
+        )
+        return path
+
 
 class FailedCamera:
     """Failed camera.
@@ -508,13 +659,74 @@ class FailedCamera:
 
     def __init__(self, vis: Viseron, domain_to_setup: DomainToSetup) -> None:
         """Initialize failed camera."""
+        # Local import to avoid circular import
+        # pylint: disable=import-outside-toplevel
+        from viseron.components.storage.tier_handler import add_file_handler
+
         self._vis = vis
         self._domain_to_setup = domain_to_setup
         self._config: dict[str, Any] = domain_to_setup.config[
             domain_to_setup.identifier
         ]
 
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        self._webserver: Webserver = vis.data[WEBSERVER_COMPONENT]
         self._recorder = FailedCameraRecorder(vis, self._config, self)
+
+        # Try to guess the path to the camera recordings
+        with self._storage.get_session() as session:
+            recorder_dir_stmt = (
+                select(Files)
+                .distinct(Files.directory)
+                .where(Files.camera_identifier == self.identifier)
+                .where(Files.category == "recorder")
+                .where(Files.subcategory == "segments")
+                .order_by(Files.directory, Files.created_at.desc())
+            )
+            for file in session.execute(recorder_dir_stmt).scalars():
+                add_file_handler(
+                    vis,
+                    self._webserver,
+                    file.directory,
+                    rf"{file.directory}/(.*.m4s$)",
+                    self,
+                    "recorder",
+                    "segments",
+                )
+                add_file_handler(
+                    vis,
+                    self._webserver,
+                    file.directory,
+                    rf"{file.directory}/(.*.mp4$)",
+                    self,
+                    "recorder",
+                    "segments",
+                )
+
+        # Try to guess the path to the camera snapshots and thumbnails
+        with self._storage.get_session() as session:
+            jpg_dir_stmt = (
+                select(Files)
+                .distinct(Files.directory)
+                .where(Files.camera_identifier == self.identifier)
+                .where(
+                    or_(
+                        Files.subcategory == "thumbnails",
+                        Files.subcategory == "snapshots",
+                    )
+                )
+                .order_by(Files.directory, Files.created_at.desc())
+            )
+            for file in session.execute(jpg_dir_stmt).scalars():
+                add_file_handler(
+                    vis,
+                    self._webserver,
+                    file.directory,
+                    rf"{file.directory}/(.*.jpg$)",
+                    self,
+                    file.category,
+                    file.subcategory,
+                )
 
     def as_dict(self):
         """Return camera as dict."""
@@ -527,6 +739,11 @@ class FailedCamera:
             "retrying": self.retrying,
             "failed": True,
         }
+
+    @property
+    def config(self) -> dict[str, Any]:
+        """Return camera config."""
+        return self._config
 
     @property
     def name(self):
@@ -551,9 +768,7 @@ class FailedCamera:
     @property
     def extension(self) -> str:
         """Return recording file extension."""
-        return self._config.get(CONFIG_RECORDER, {}).get(
-            CONFIG_EXTENSION, DEFAULT_EXTENSION
-        )
+        return VIDEO_CONTAINER
 
     @property
     def error(self):
