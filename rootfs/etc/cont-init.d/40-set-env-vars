@@ -44,4 +44,8 @@ fi
 export XDG_RUNTIME_DIR=/home/abc
 printf "/home/abc" > /var/run/environment/XDG_RUNTIME_DIR
 
+# Set HOME to /home/abc
+export HOME=/home/abc
+printf "/home/abc" > /var/run/environment/HOME
+
 log_info "*********************** Done *****************************"

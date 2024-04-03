@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import coalesce, concat
 
 from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.helpers import utcnow
 
 LOGGER = logging.getLogger(__name__)
@@ -331,7 +332,7 @@ def get_time_period_fragments(
         .join(FilesMeta, Files.path == FilesMeta.path)
         .where(Files.camera_identifier == camera_identifier)
         .where(Files.category == "recorder")
-        .where(Files.path.endswith(".m4s"))
+        .where(Files.path.like("%.m4s"))
         .where(FilesMeta.meta.comparator.has_key("m3u8"))  # type: ignore[attr-defined]
         .where(
             or_(
@@ -346,10 +347,7 @@ def get_time_period_fragments(
                     start >= FilesMeta.orig_ctime,
                     start
                     <= FilesMeta.orig_ctime
-                    + cast(
-                        concat(FilesMeta.meta["m3u8"]["EXTINF"], " sec"),
-                        INTERVAL,
-                    ),
+                    + datetime.timedelta(seconds=CAMERA_SEGMENT_DURATION),
                 ),
             )
         )
