@@ -57,6 +57,7 @@ export const EventTableItem = ({
             >
               <LazyLoad
                 overflow
+                offset={100}
                 placeholder={
                   <VideoPlayerPlaceholder
                     aspectRatio={camera.width / camera.height}

@@ -3,16 +3,36 @@ import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 import dayjs, { Dayjs } from "dayjs";
-import { memo } from "react";
+import { memo, useEffect } from "react";
+import { forceCheck } from "react-lazyload";
 import ServerDown from "svg/undraw/server_down.svg?react";
 
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { EventTableItem } from "components/events/EventTableItem";
 import { Loading } from "components/loading/Loading";
 import { useRecordings } from "lib/api/recordings";
+import { throttle } from "lib/helpers";
 import * as types from "lib/types";
 
+const useOnScroll = (parentRef: React.RefObject<HTMLDivElement>) => {
+  useEffect(() => {
+    const container = parentRef.current;
+    if (!container) return () => {};
+
+    const throttleForceCheck = throttle(() => {
+      console.log("scrolling");
+      forceCheck();
+    }, 100);
+    container.addEventListener("scroll", throttleForceCheck);
+
+    return () => {
+      container.removeEventListener("scroll", throttleForceCheck);
+    };
+  });
+};
+
 type EventTableProps = {
+  parentRef: React.RefObject<HTMLDivElement>;
   camera: types.Camera | types.FailedCamera;
   date: Dayjs | null;
   selectedRecording: types.Recording | null;
@@ -21,6 +41,7 @@ type EventTableProps = {
 
 export const EventTable = memo(
   ({
+    parentRef,
     camera,
     date,
     selectedRecording,
@@ -33,6 +54,8 @@ export const EventTable = memo(
       date: formattedDate,
       configOptions: { enabled: !!date },
     });
+
+    useOnScroll(parentRef);
 
     if (recordingsQuery.isError) {
       return (

@@ -162,6 +162,7 @@ const Tabs = ({
       <TabPanel value="events" sx={{ padding: 0, paddingTop: "5px" }}>
         {selectedCamera ? (
           <EventTable
+            parentRef={parentRef}
             camera={selectedCamera}
             date={date}
             selectedRecording={selectedRecording}
