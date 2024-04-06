@@ -48,7 +48,7 @@ const Header = styled("header", {
     theme.palette.mode === "dark"
       ? alpha(theme.palette.background.default, 0.72)
       : "rgba(255,255,255,0.72)",
-  marginBottom: "10px",
+  marginBottom: theme.margin,
   transform: showHeader ? "translateY(0)" : "translateY(-100%)",
   transition: "transform 300ms ease-in",
 }));
