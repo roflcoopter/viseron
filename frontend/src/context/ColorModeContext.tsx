@@ -204,8 +204,8 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         MuiContainer: {
           styleOverrides: {
             root: {
-              paddingLeft: 10,
-              paddingRight: 10,
+              paddingLeft: 5,
+              paddingRight: 5,
             },
           },
           defaultProps: {
