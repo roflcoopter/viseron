@@ -281,7 +281,8 @@ const useResizeObserver = (
     if (containerRef.current) {
       resizeObserver.current = new ResizeObserver(() => {
         videoRef.current!.style.height = `${calculateHeight(
-          camera,
+          camera.width,
+          camera.height,
           containerRef.current!.offsetWidth,
         )}px`;
       });
@@ -337,7 +338,11 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
         width: "100%",
         verticalAlign: "top",
         height: containerRef.current
-          ? calculateHeight(camera, containerRef.current.offsetWidth)
+          ? calculateHeight(
+              camera.width,
+              camera.height,
+              containerRef.current.offsetWidth,
+            )
           : undefined,
       }}
       controls

@@ -7,6 +7,7 @@ import * as types from "lib/types";
 export const TICK_HEIGHT = 8;
 export const SCALE = 60;
 export const EXTRA_TICKS = 10;
+export const COLUMN_HEIGHT = "99dvh";
 export const DEFAULT_ITEM: TimelineItem = {
   time: 0,
   timedEvent: null,
@@ -261,6 +262,7 @@ export const findFragmentByTimestamp = (
 
 // Calculate the height of the camera while maintaining aspect ratio
 export const calculateHeight = (
-  camera: types.Camera | types.FailedCamera,
+  cameraWidth: number,
+  cameraHeight: number,
   width: number,
-): number => (width * camera.height) / camera.width;
+): number => (width * cameraHeight) / cameraWidth;

@@ -1,11 +1,45 @@
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
 import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
 import { useTheme } from "@mui/material/styles";
+import { useEffect, useRef } from "react";
 
 import { CameraCard } from "components/camera/CameraCard";
+import { COLUMN_HEIGHT } from "components/events/timeline/utils";
 import * as types from "lib/types";
 
-type EventsCameraGridProps = {
+const useResizeObserver = (
+  divRef: React.RefObject<HTMLDivElement>,
+  playerCardRef: React.RefObject<HTMLDivElement> | undefined,
+) => {
+  const theme = useTheme();
+  const resizeObserver = useRef<ResizeObserver>();
+
+  useEffect(() => {
+    if (!divRef.current || !playerCardRef || !playerCardRef.current) {
+      return () => {};
+    }
+
+    resizeObserver.current = new ResizeObserver(() => {
+      if (!divRef.current || !playerCardRef.current) {
+        return;
+      }
+
+      divRef.current.style.maxHeight = `calc(${COLUMN_HEIGHT} - ${theme.headerHeight}px - ${theme.margin} - ${playerCardRef.current.offsetHeight}px)`;
+    });
+
+    resizeObserver.current.observe(playerCardRef.current);
+
+    return () => {
+      if (resizeObserver.current) {
+        resizeObserver.current.disconnect();
+      }
+    };
+  }, [divRef, playerCardRef, theme.headerHeight, theme.margin]);
+};
+
+type CameraGridProps = {
   cameras: types.CamerasOrFailedCameras;
   changeSelectedCamera: (
     ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
@@ -13,14 +47,15 @@ type EventsCameraGridProps = {
   ) => void;
   selectedCamera: types.Camera | types.FailedCamera | null;
 };
-export function EventsCameraGrid({
+function CameraGrid({
   cameras,
   changeSelectedCamera,
   selectedCamera,
-}: EventsCameraGridProps) {
+}: CameraGridProps) {
   const theme = useTheme();
+
   return (
-    <Grid container spacing={1}>
+    <Grid container spacing={0.5}>
       {cameras
         ? Object.keys(cameras)
             .sort()
@@ -52,5 +87,72 @@ export function EventsCameraGrid({
             ))
         : null}
     </Grid>
+  );
+}
+
+type EventsCameraGridPropsCard = {
+  variant: "card";
+  playerCardRef: React.RefObject<HTMLDivElement>;
+  cameras: types.CamerasOrFailedCameras;
+  changeSelectedCamera: (
+    ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+    camera: types.Camera | types.FailedCamera,
+  ) => void;
+  selectedCamera: types.Camera | types.FailedCamera | null;
+};
+type EventsCameraGridPropsGrid = {
+  variant?: "grid";
+  cameras: types.CamerasOrFailedCameras;
+  changeSelectedCamera: (
+    ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+    camera: types.Camera | types.FailedCamera,
+  ) => void;
+  selectedCamera: types.Camera | types.FailedCamera | null;
+};
+type EventsCameraGridProps =
+  | EventsCameraGridPropsCard
+  | EventsCameraGridPropsGrid;
+export function EventsCameraGrid(props: EventsCameraGridProps) {
+  const {
+    variant = "card",
+    cameras,
+    changeSelectedCamera,
+    selectedCamera,
+  } = props;
+
+  const playerCardRef =
+    variant === "card"
+      ? (props as EventsCameraGridPropsCard).playerCardRef
+      : undefined;
+
+  const ref = useRef<HTMLDivElement>(null);
+  useResizeObserver(ref, playerCardRef);
+
+  if (variant === "grid") {
+    return (
+      <CameraGrid
+        cameras={cameras}
+        changeSelectedCamera={changeSelectedCamera}
+        selectedCamera={selectedCamera}
+      />
+    );
+  }
+  return (
+    <Card
+      ref={ref}
+      variant="outlined"
+      sx={{
+        overflow: "auto",
+        overflowX: "hidden",
+      }}
+    >
+      <CardContent sx={{ padding: 0 }}>
+        <CameraGrid
+          cameras={cameras}
+          changeSelectedCamera={changeSelectedCamera}
+          selectedCamera={selectedCamera}
+        />
+      </CardContent>
+    </Card>
   );
 }

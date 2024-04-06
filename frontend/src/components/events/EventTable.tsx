@@ -20,7 +20,6 @@ const useOnScroll = (parentRef: React.RefObject<HTMLDivElement>) => {
     if (!container) return () => {};
 
     const throttleForceCheck = throttle(() => {
-      console.log("scrolling");
       forceCheck();
     }, 100);
     container.addEventListener("scroll", throttleForceCheck);

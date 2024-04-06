@@ -23,6 +23,7 @@ import { PlayerCard } from "components/events/EventPlayerCard";
 import { EventTable } from "components/events/EventTable";
 import { EventsCameraGrid } from "components/events/EventsCameraGrid";
 import { TimelineTable } from "components/events/timeline/TimelineTable";
+import { COLUMN_HEIGHT } from "components/events/timeline/utils";
 import { insertURLParameter } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -226,8 +227,10 @@ export const Layout = memo(
     selectedTab,
     setSelectedTab,
   }: LayoutProps) => {
+    const theme = useTheme();
     const parentRef = useRef<HTMLDivElement | null>(null);
     const hlsRef = useRef<Hls | null>(null);
+    const playerCardRef = useRef<HTMLDivElement | null>(null);
     return (
       <Container style={{ display: "flex" }}>
         <div
@@ -235,7 +238,7 @@ export const Layout = memo(
             width: "100%",
             display: "flex",
             flexDirection: "column",
-            marginRight: "10px",
+            marginRight: theme.margin,
           }}
         >
           <PlayerCard
@@ -244,8 +247,10 @@ export const Layout = memo(
             requestedTimestamp={requestedTimestamp}
             selectedTab={selectedTab}
             hlsRef={hlsRef}
+            playerCardRef={playerCardRef}
           />
           <EventsCameraGrid
+            playerCardRef={playerCardRef}
             cameras={cameras}
             changeSelectedCamera={changeSelectedCamera}
             selectedCamera={selectedCamera}
@@ -254,12 +259,12 @@ export const Layout = memo(
         <Card
           ref={parentRef}
           variant="outlined"
-          sx={(theme) => ({
+          sx={{
             width: "650px",
-            height: `calc(98dvh - ${theme.headerHeight}px)`,
+            height: `calc(${COLUMN_HEIGHT} - ${theme.headerHeight}px)`,
             overflow: "auto",
             overflowX: "hidden",
-          })}
+          }}
         >
           <CardContent sx={{ padding: 0 }}>
             <Tabs
@@ -304,6 +309,7 @@ export const LayoutSmall = memo(
     const theme = useTheme();
     const parentRef = useRef<HTMLDivElement | null>(null);
     const hlsRef = useRef<Hls | null>(null);
+    const playerCardRef = useRef<HTMLDivElement | null>(null);
 
     // Observe div height to calculate the height of the EventTable
     const [height, setHeight] = useState();
@@ -332,6 +338,7 @@ export const LayoutSmall = memo(
             requestedTimestamp={requestedTimestamp}
             selectedTab={selectedTab}
             hlsRef={hlsRef}
+            playerCardRef={playerCardRef}
           />
         </div>
         <Card
