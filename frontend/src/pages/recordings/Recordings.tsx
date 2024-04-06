@@ -52,7 +52,7 @@ const Recordings = () => {
       <Typography variant="h5" align="center">
         Recordings
       </Typography>
-      <Grid container direction="row" spacing={2}>
+      <Grid container direction="row" spacing={1}>
         {failedCameras.data
           ? Object.keys(failedCameras.data)
               .sort()

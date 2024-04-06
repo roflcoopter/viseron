@@ -33,7 +33,7 @@ const Cameras = () => {
       <Typography variant="h5" align="center">
         Cameras
       </Typography>
-      <Grid container direction="row" spacing={2}>
+      <Grid container direction="row" spacing={1}>
         {failedCameras.data
           ? Object.keys(failedCameras.data)
               .sort()

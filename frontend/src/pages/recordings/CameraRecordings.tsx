@@ -72,7 +72,7 @@ const CameraRecordings = () => {
       <Typography variant="h5" align="center">
         {cameraQuery.data.name}
       </Typography>
-      <Grid container direction="row" spacing={2}>
+      <Grid container direction="row" spacing={1}>
         {Object.keys(recordingsQuery.data)
           .sort()
           .reverse()
