@@ -24,7 +24,7 @@ const useSetPosition = (
       if (y === 0) {
         return;
       }
-      const top = e.clientY;
+      const top = e.clientY + window.scrollY;
 
       const dateAtCursor = getDateAtPosition(
         y,
