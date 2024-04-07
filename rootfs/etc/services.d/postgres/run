@@ -1,4 +1,4 @@
 #!/usr/bin/with-contenv bash
 
 echo "Starting PostgreSQL Server..."
-s6-setuidgid abc /usr/lib/postgresql/12/bin/postgres -D /config/postgresql
+s6-setuidgid postgres /usr/lib/postgresql/12/bin/postgres -D /config/postgresql
