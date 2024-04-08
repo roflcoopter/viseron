@@ -19,7 +19,7 @@ from sqlalchemy import insert
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import FilesMeta
-from viseron.const import TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
+from viseron.const import CAMERA_SEGMENT_DURATION, TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
 from viseron.helpers.logs import LogPipe
 
 if TYPE_CHECKING:
@@ -145,18 +145,8 @@ class Fragmenter:
         except FileNotFoundError:
             self._logger.debug(f"{file} not found")
 
-    def _write_files_metadata(self, file: str):
+    def _write_files_metadata(self, file: str, extinf: float):
         """Write metadata about the fragmented mp4 to the database."""
-        extinf = _extract_extinf_number(
-            open(
-                os.path.join(
-                    self._camera.temp_segments_folder,
-                    file.split(".")[0],
-                    "master_1.m3u8",
-                ),
-                encoding="utf-8",
-            ).read()
-        )
         with self._storage.get_session() as session:
             orig_ctime = datetime.datetime.fromtimestamp(
                 int(file.split(".")[0]), tz=None
@@ -172,6 +162,16 @@ class Fragmenter:
             session.execute(stmt)
             session.commit()
 
+    def _read_m3u8(self, file: str) -> str:
+        return open(
+            os.path.join(
+                self._camera.temp_segments_folder,
+                file.split(".")[0],
+                "master_1.m3u8",
+            ),
+            encoding="utf-8",
+        ).read()
+
     def _create_fragmented_mp4(self):
         """Create fragmented mp4 from mp4 using MP4Box."""
         self._logger.debug("Checking for new segments to fragment")
@@ -180,7 +180,10 @@ class Fragmenter:
             self._logger.debug(f"Processing {mp4}")
             try:
                 if self._mp4box_command(mp4):
-                    self._write_files_metadata(mp4)
+                    extinf = _extract_extinf_number(self._read_m3u8(mp4))
+                    self._write_files_metadata(
+                        mp4, extinf if extinf else float(CAMERA_SEGMENT_DURATION)
+                    )
                     self._move_to_segments_folder(mp4)
             except Exception as err:  # pylint: disable=broad-except
                 self._logger.error(f"Failed to fragment {mp4}", exc_info=err)
