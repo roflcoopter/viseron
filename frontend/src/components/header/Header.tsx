@@ -1,6 +1,5 @@
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
-import GitHubIcon from "@mui/icons-material/GitHub";
 import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -11,7 +10,6 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { alpha, styled, useTheme } from "@mui/material/styles";
-import useMediaQuery from "@mui/material/useMediaQuery";
 import { useContext, useRef, useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
@@ -48,7 +46,7 @@ const Header = styled("header", {
     theme.palette.mode === "dark"
       ? alpha(theme.palette.background.default, 0.72)
       : "rgba(255,255,255,0.72)",
-  marginBottom: "10px",
+  marginBottom: theme.margin,
   transform: showHeader ? "translateY(0)" : "translateY(-100%)",
   transition: "transform 300ms ease-in",
 }));
@@ -56,7 +54,6 @@ const Header = styled("header", {
 export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
   const colorMode = useContext(ColorModeContext);
   const theme = useTheme();
-  const mediaQueryMedium = useMediaQuery(theme.breakpoints.up("md"));
   const [showHeader, setShowHeader] = useState(true);
   const lastTogglePos = useRef(0);
   const { auth } = useAuthContext();
@@ -101,39 +98,47 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
           minHeight: theme.headerHeight,
         }}
       >
-        <Tooltip title="Menu" enterDelay={300}>
-          <IconButton
-            color="primary"
-            onClick={() => {
-              setDrawerOpen(true);
-            }}
-          >
-            <MenuIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Home" enterDelay={300}>
-          <Box
-            component={RouterLink}
-            to={"/"}
-            aria-label="Home"
-            sx={{ marginTop: "auto", marginLeft: "16px" }}
-          >
-            <ViseronLogo width={45} height={45} />
-          </Box>
-        </Tooltip>
-        {mediaQueryMedium && <Breadcrumbs />}
-        <Box sx={{ ml: "auto" }} />
-        <Stack direction="row" spacing={1}>
-          <Tooltip title="GitHub" enterDelay={300}>
+        <Stack
+          direction="row"
+          spacing={1}
+          justifyContent="left"
+          alignItems="center"
+          sx={{ width: "12%" }}
+        >
+          <Tooltip title="Menu" enterDelay={300}>
             <IconButton
-              component="a"
               color="primary"
-              target="_blank"
-              href="https://github.com/roflcoopter/viseron"
+              onClick={() => {
+                setDrawerOpen(true);
+              }}
             >
-              <GitHubIcon fontSize="small" />
+              <MenuIcon fontSize="small" />
             </IconButton>
           </Tooltip>
+          <Tooltip title="Home" enterDelay={300}>
+            <Box
+              component={RouterLink}
+              to={"/"}
+              aria-label="Home"
+              sx={{ marginLeft: "16px" }}
+            >
+              <ViseronLogo
+                width={45}
+                height={45}
+                style={{ marginTop: "4px" }}
+              />
+            </Box>
+          </Tooltip>
+        </Stack>
+        <Box sx={{ width: "76%" }}>
+          <Breadcrumbs />
+        </Box>
+        <Stack
+          direction="row"
+          spacing={1}
+          justifyContent="end"
+          sx={{ width: "12%" }}
+        >
           <Tooltip
             title={
               theme.palette.mode === "dark"

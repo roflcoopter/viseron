@@ -1,7 +1,6 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
-import Typography from "@mui/material/Typography";
 
 import { ScrollToTopOnMount } from "components/ScrollToTop";
 import { Loading } from "components/loading/Loading";
@@ -49,10 +48,7 @@ const Recordings = () => {
   return (
     <Container>
       <ScrollToTopOnMount />
-      <Typography variant="h5" align="center">
-        Recordings
-      </Typography>
-      <Grid container direction="row" spacing={2}>
+      <Grid container direction="row" spacing={1}>
         {failedCameras.data
           ? Object.keys(failedCameras.data)
               .sort()

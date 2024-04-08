@@ -71,7 +71,7 @@ const CameraRecordingsDaily = () => {
       <Typography variant="h5" align="center">
         {`${cameraQuery.data.name} - ${date}`}
       </Typography>
-      <Grid container direction="row" spacing={2}>
+      <Grid container direction="row" spacing={1}>
         {Object.keys(recordingsQuery.data[date])
           .reverse()
           .map((recording) => (

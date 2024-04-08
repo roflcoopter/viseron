@@ -33,6 +33,7 @@ export const CameraPickerDialog = ({
       <DialogTitle>Cameras</DialogTitle>
       <DialogContent onClick={handleClose}>
         <EventsCameraGrid
+          variant="grid"
           cameras={cameras}
           changeSelectedCamera={changeSelectedCamera}
           selectedCamera={selectedCamera}

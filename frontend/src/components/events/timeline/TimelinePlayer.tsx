@@ -17,6 +17,7 @@ dayjs.extend(utc);
 
 const loadSource = (
   hlsRef: React.MutableRefObject<Hls | null>,
+  hlsClientIdRef: React.MutableRefObject<string>,
   requestedTimestamp: number,
   camera: types.Camera | types.FailedCamera,
 ) => {
@@ -24,6 +25,7 @@ const loadSource = (
     return;
   }
   const source = `/api/v1/hls/${camera.identifier}/index.m3u8?start_timestamp=${requestedTimestamp}&daily=true`;
+  hlsClientIdRef.current = uuidv4();
   hlsRef.current.loadSource(source);
 };
 
@@ -98,6 +100,7 @@ const onMediaAttached = (
 
 const initializePlayer = (
   hlsRef: React.MutableRefObject<Hls | null>,
+  hlsClientIdRef: React.MutableRefObject<string>,
   videoRef: React.RefObject<HTMLVideoElement>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   auth: types.AuthEnabledResponse,
@@ -111,7 +114,6 @@ const initializePlayer = (
   }
 
   // Create a new hls instance
-  const hlsClientId = uuidv4();
   hlsRef.current = new Hls({
     maxBufferLength: 30, // 30 seconds of forward buffer
     backBufferLength: 15, // 15 seconds of back buffer
@@ -125,7 +127,7 @@ const initializePlayer = (
           xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
           xhr.setRequestHeader("Authorization", `Bearer ${token}`);
         }
-        xhr.setRequestHeader("Hls-Client-Id", hlsClientId);
+        xhr.setRequestHeader("Hls-Client-Id", hlsClientIdRef.current);
       }
     },
   });
@@ -135,7 +137,7 @@ const initializePlayer = (
   }
 
   // Load the source and start the hls instance
-  loadSource(hlsRef, requestedTimestampRef.current, camera);
+  loadSource(hlsRef, hlsClientIdRef, requestedTimestampRef.current, camera);
 
   // Handle MEDIA_ATTACHED event
   hlsRef.current.on(Hls.Events.MEDIA_ATTACHED, () => {
@@ -160,6 +162,7 @@ const initializePlayer = (
         default:
           initializePlayer(
             hlsRef,
+            hlsClientIdRef,
             videoRef,
             initialProgramDateTime,
             auth,
@@ -174,6 +177,7 @@ const initializePlayer = (
 
 const useInitializePlayer = (
   hlsRef: React.MutableRefObject<Hls | null>,
+  hlsClientIdRef: React.MutableRefObject<string>,
   videoRef: React.RefObject<HTMLVideoElement>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   requestedTimestampRef: React.MutableRefObject<number>,
@@ -185,6 +189,7 @@ const useInitializePlayer = (
     if (Hls.isSupported()) {
       initializePlayer(
         hlsRef,
+        hlsClientIdRef,
         videoRef,
         initialProgramDateTime,
         auth,
@@ -207,6 +212,7 @@ const useInitializePlayer = (
 // Seek to the requestedTimestamp if it is within the seekable range
 const useSeekToTimestamp = (
   hlsRef: React.MutableRefObject<Hls | null>,
+  hlsClientIdRef: React.MutableRefObject<string>,
   videoRef: React.RefObject<HTMLVideoElement>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   requestedTimestamp: number,
@@ -251,10 +257,17 @@ const useSeekToTimestamp = (
     }
 
     if (!seeked) {
-      loadSource(hlsRef, requestedTimestamp, camera);
+      loadSource(hlsRef, hlsClientIdRef, requestedTimestamp, camera);
     }
     videoRef.current.play();
-  }, [camera, hlsRef, initialProgramDateTime, requestedTimestamp, videoRef]);
+  }, [
+    camera,
+    hlsClientIdRef,
+    hlsRef,
+    initialProgramDateTime,
+    requestedTimestamp,
+    videoRef,
+  ]);
 };
 
 const useResizeObserver = (
@@ -268,7 +281,8 @@ const useResizeObserver = (
     if (containerRef.current) {
       resizeObserver.current = new ResizeObserver(() => {
         videoRef.current!.style.height = `${calculateHeight(
-          camera,
+          camera.width,
+          camera.height,
           containerRef.current!.offsetWidth,
         )}px`;
       });
@@ -295,11 +309,13 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
   requestedTimestamp,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsClientIdRef = useRef<string>(uuidv4());
   const initialProgramDateTime = useRef<number | null>(null);
   const requestedTimestampRef = useRef<number>(requestedTimestamp);
   requestedTimestampRef.current = requestedTimestamp;
   useInitializePlayer(
     hlsRef,
+    hlsClientIdRef,
     videoRef,
     initialProgramDateTime,
     requestedTimestampRef,
@@ -307,6 +323,7 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
   );
   useSeekToTimestamp(
     hlsRef,
+    hlsClientIdRef,
     videoRef,
     initialProgramDateTime,
     requestedTimestamp,
@@ -321,7 +338,11 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
         width: "100%",
         verticalAlign: "top",
         height: containerRef.current
-          ? calculateHeight(camera, containerRef.current.offsetWidth)
+          ? calculateHeight(
+              camera.width,
+              camera.height,
+              containerRef.current.offsetWidth,
+            )
           : undefined,
       }}
       controls

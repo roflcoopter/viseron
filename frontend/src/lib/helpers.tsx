@@ -135,3 +135,14 @@ export function insertURLParameter(key: string, value: string | number) {
   const newurl = `${currentURL + queryStart + key}=${value}`;
   window.history.pushState({ path: newurl }, "", newurl);
 }
+
+export function throttle(func: () => void, timeFrame: number) {
+  let lastTime = 0;
+  return () => {
+    const now = new Date().getTime();
+    if (now - lastTime >= timeFrame) {
+      func();
+      lastTime = now;
+    }
+  };
+}

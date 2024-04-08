@@ -42,9 +42,11 @@ declare module "@mui/material/styles/createPalette" {
 declare module "@mui/material/styles" {
   interface Theme {
     headerHeight: number;
+    margin: string;
   }
   interface ThemeOptions {
     headerHeight?: number;
+    margin?: string;
   }
 }
 
@@ -141,6 +143,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         }),
         grey,
         headerHeight: 56,
+        margin: "0.5dvh",
         palette: {
           mode,
           motion: "#f9b4f6",
@@ -201,8 +204,8 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         MuiContainer: {
           styleOverrides: {
             root: {
-              paddingLeft: 10,
-              paddingRight: 10,
+              paddingLeft: 5,
+              paddingRight: 5,
             },
           },
           defaultProps: {

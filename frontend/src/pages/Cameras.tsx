@@ -1,7 +1,6 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
-import Typography from "@mui/material/Typography";
 
 import { CameraCard } from "components/camera/CameraCard";
 import { FailedCameraCard } from "components/camera/FailedCameraCard";
@@ -30,10 +29,7 @@ const Cameras = () => {
 
   return (
     <Container>
-      <Typography variant="h5" align="center">
-        Cameras
-      </Typography>
-      <Grid container direction="row" spacing={2}>
+      <Grid container direction="row" spacing={1}>
         {failedCameras.data
           ? Object.keys(failedCameras.data)
               .sort()

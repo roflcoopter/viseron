@@ -118,6 +118,7 @@ type PlayerCardProps = {
   requestedTimestamp: number | null;
   selectedTab: "events" | "timeline";
   hlsRef: React.MutableRefObject<Hls | null>;
+  playerCardRef: React.RefObject<HTMLDivElement>;
 };
 
 export const PlayerCard = ({
@@ -126,35 +127,33 @@ export const PlayerCard = ({
   requestedTimestamp,
   selectedTab,
   hlsRef,
-}: PlayerCardProps) => {
-  const ref = useRef<HTMLDivElement>(null);
-  return (
-    <Card
-      ref={ref}
-      variant="outlined"
-      sx={{
-        marginBottom: "10px",
-        position: "relative",
-      }}
-    >
-      {camera && <CameraNameOverlay camera={camera} />}
-      <CardMedia>
-        {eventSource && selectedTab === "events" ? (
-          <EventPlayer source={eventSource} />
-        ) : camera && requestedTimestamp && selectedTab === "timeline" ? (
-          <TimelinePlayer
-            containerRef={ref}
-            hlsRef={hlsRef}
-            camera={camera}
-            requestedTimestamp={requestedTimestamp}
-          />
-        ) : (
-          <VideoPlayerPlaceholder
-            aspectRatio={camera ? camera.width / camera.height : undefined}
-            text={camera ? "Select an event" : "Select a camera"}
-          />
-        )}
-      </CardMedia>
-    </Card>
-  );
-};
+  playerCardRef,
+}: PlayerCardProps) => (
+  <Card
+    ref={playerCardRef}
+    variant="outlined"
+    sx={(theme) => ({
+      marginBottom: theme.margin,
+      position: "relative",
+    })}
+  >
+    {camera && <CameraNameOverlay camera={camera} />}
+    <CardMedia>
+      {eventSource && selectedTab === "events" ? (
+        <EventPlayer source={eventSource} />
+      ) : camera && requestedTimestamp && selectedTab === "timeline" ? (
+        <TimelinePlayer
+          containerRef={playerCardRef}
+          hlsRef={hlsRef}
+          camera={camera}
+          requestedTimestamp={requestedTimestamp}
+        />
+      ) : (
+        <VideoPlayerPlaceholder
+          aspectRatio={camera ? camera.width / camera.height : undefined}
+          text={camera ? "Select an event" : "Select a camera"}
+        />
+      )}
+    </CardMedia>
+  </Card>
+);

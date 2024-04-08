@@ -2,6 +2,8 @@ import NavigateNextIcon from "@mui/icons-material/NavigateNext";
 import MuiBreadcrumbs from "@mui/material/Breadcrumbs";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 
 import queryClient from "lib/api/client";
@@ -9,10 +11,20 @@ import { toTitleCase } from "lib/helpers";
 import * as types from "lib/types";
 
 export default function Breadcrumbs() {
+  const theme = useTheme();
+  const mediaQueryMedium = useMediaQuery(theme.breakpoints.up("sm"));
   const location = useLocation();
   const pathnames = location.pathname.split("/").filter((x) => x);
   if (pathnames.length === 0) {
-    return null;
+    pathnames.push("cameras");
+  }
+
+  if (!mediaQueryMedium) {
+    return (
+      <Typography color="textPrimary" align="center" style={{ width: "100%" }}>
+        {toTitleCase(pathnames[0])}
+      </Typography>
+    );
   }
 
   return (

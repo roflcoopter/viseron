@@ -63,7 +63,8 @@ ENV \
   DEBIAN_FRONTEND=noninteractive \
   S6_KEEP_ENV=1 \
   S6_SERVICES_GRACETIME=30000 \
-  S6_KILL_GRACETIME=1000 \
+  S6_KILL_GRACETIME=30000 \
+  S6_KILL_FINISH_MAXTIME=30000 \
   PATH=$PATH:/home/abc/bin \
   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib \
   PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.8/site-packages \

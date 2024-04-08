@@ -7,7 +7,7 @@ pkill -f ffmpeg_
 pkill -f gstreamer_
 
 # Wait until PostgreSQL is ready
-until s6-setuidgid abc pg_isready -d viseron; do
+until s6-setuidgid postgres pg_isready -d viseron; do
   log_info "Waiting for PostgreSQL Server to start..."
   sleep 1
 done

@@ -5,7 +5,7 @@ from typing import Any, Final
 
 COMPONENT = "storage"
 
-DATABASE_URL = "postgresql://localhost/viseron"
+DATABASE_URL = "postgresql://postgres@localhost/viseron"
 
 MOVE_FILES_THROTTLE_SECONDS = 10
 
