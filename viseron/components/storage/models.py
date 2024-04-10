@@ -105,6 +105,7 @@ class Recordings(Base):
     trigger_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     trigger_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     thumbnail_path: Mapped[str] = mapped_column(String, nullable=True)
+    clip_path: Mapped[str] = mapped_column(String, nullable=True)
 
     def get_fragments(
         self, lookback: float, get_session: Callable[[], Session], now=None

@@ -6,6 +6,7 @@ import logging
 from typing import Callable
 
 from sqlalchemy import (
+    Float,
     Integer,
     String,
     TextualSelect,
@@ -23,7 +24,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import coalesce, concat
 
 from viseron.components.storage.models import Files, FilesMeta, Recordings
-from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.helpers import utcnow
 
 LOGGER = logging.getLogger(__name__)
@@ -169,8 +169,8 @@ def recordings_to_move_query(
                                  - INTERVAL ':segment_length sec' AND
                     COALESCE(r.end_time + INTERVAL ':segment_length sec', now())
              WHERE f.category = 'recorder'
-               -- Count the size of both segments and thumbnails
-               AND f.subcategory IN ('segments', 'thumbnails')
+               -- Count the size of both segments, thumbnails and recordings
+               AND f.subcategory IN ('segments', 'thumbnails', 'recordings')
                AND f.tier_id = :tier_id
                AND f.camera_identifier = :camera_identifier
         ),
@@ -216,7 +216,7 @@ def recordings_to_move_query(
             ) OR s.total_bytes IS NULL
          )
          AND rf.orig_ctime <= to_timestamp(:file_min_age_timestamp) AT TIME ZONE 'UTC'
-         -- Only select segments and not thumbnails
+         -- Only select segments
          AND rf.subcategory = 'segments'
          ORDER BY rf.file_id ASC
                  ,rf.orig_ctime ASC
@@ -273,6 +273,13 @@ def get_recording_fragments(
         .where(Recordings.id == recording_id)
         .where(Files.category == "recorder")
         .where(Files.path.endswith(".m4s"))
+        .where(FilesMeta.meta.comparator.has_key("m3u8"))  # type: ignore[attr-defined]
+        .where(
+            FilesMeta.meta["m3u8"].comparator.has_key(  # type: ignore[attr-defined]
+                "EXTINF"
+            ),
+        )
+        .where(FilesMeta.meta["m3u8"]["EXTINF"].astext.cast(Float) > 0)
         .where(
             or_(
                 # Fetch all files that start within the recording
@@ -332,8 +339,14 @@ def get_time_period_fragments(
         .join(FilesMeta, Files.path == FilesMeta.path)
         .where(Files.camera_identifier == camera_identifier)
         .where(Files.category == "recorder")
-        .where(Files.path.like("%.m4s"))
+        .where(Files.path.endswith(".m4s"))
         .where(FilesMeta.meta.comparator.has_key("m3u8"))  # type: ignore[attr-defined]
+        .where(
+            FilesMeta.meta["m3u8"].comparator.has_key(  # type: ignore[attr-defined]
+                "EXTINF"
+            ),
+        )
+        .where(FilesMeta.meta["m3u8"]["EXTINF"].astext.cast(Float) > 0)
         .where(
             or_(
                 # Fetch all files that start within the recording
@@ -347,7 +360,10 @@ def get_time_period_fragments(
                     start >= FilesMeta.orig_ctime,
                     start
                     <= FilesMeta.orig_ctime
-                    + datetime.timedelta(seconds=CAMERA_SEGMENT_DURATION),
+                    + cast(
+                        concat(FilesMeta.meta["m3u8"]["EXTINF"], " sec"),
+                        INTERVAL,
+                    ),
                 ),
             )
         )

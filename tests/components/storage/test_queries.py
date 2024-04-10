@@ -290,9 +290,9 @@ class TestMoveQueries(BaseTestWithRecordings):
 
     def test_get_time_period_fragments(self):
         """Test get_recording_fragments."""
-        # Simulate a file that has been moved a up tier but have not been removed
-        # from the previous tier yet
         with self._get_db_session() as session:
+            # Simulate a file that has been moved a up tier but have not been removed
+            # from the previous tier yet
             created_at = self._now + datetime.timedelta(seconds=55)
             timestamp = self._now + datetime.timedelta(seconds=25)
             filename = f"{int(timestamp.timestamp())}.m4s"
@@ -315,6 +315,33 @@ class TestMoveQueries(BaseTestWithRecordings):
                     path=f"/tier2/{filename}",
                     orig_ctime=timestamp,
                     meta={"m3u8": {"EXTINF": 5}},
+                    created_at=created_at,
+                )
+            )
+
+            # Simulate a file that has broken metadata
+            created_at = self._now + datetime.timedelta(seconds=500)
+            timestamp = self._now + datetime.timedelta(seconds=500)
+            filename = f"{int(timestamp.timestamp())}.m4s"
+            session.execute(
+                insert(Files).values(
+                    tier_id=0,
+                    tier_path="/tier1/",
+                    camera_identifier="test",
+                    category="recorder",
+                    subcategory="segments",
+                    path=f"/tier1/{filename}",
+                    directory="tier1",
+                    filename=filename,
+                    size=10,
+                    created_at=created_at,
+                )
+            )
+            session.execute(
+                insert(FilesMeta).values(
+                    path=f"/tier1/{filename}",
+                    orig_ctime=timestamp,
+                    meta={"m3u8": {"EXTINF": None}},
                     created_at=created_at,
                 )
             )

@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from viseron.components.storage.const import CONFIG_RECORDER
 from viseron.components.storage.models import Recordings
-from viseron.components.storage.tier_handler import RecorderTierHandler, handle_file
+from viseron.components.storage.tier_handler import SegmentsTierHandler, handle_file
 from viseron.domains.camera.const import CONFIG_LOOKBACK
 
 from tests.common import BaseTestWithRecordings
@@ -90,8 +90,8 @@ def _get_tier_config(events: bool, continuous: bool):
     }
 
 
-class TestRecorderTierHandler(BaseTestWithRecordings):
-    """Test the RecorderTierHandler class."""
+class TestSegmentsTierHandler(BaseTestWithRecordings):
+    """Test the SegmentsTierHandler class."""
 
     @pytest.mark.parametrize(
         (
@@ -119,7 +119,7 @@ class TestRecorderTierHandler(BaseTestWithRecordings):
         mock_camera.identifier = "test"
         mock_camera.config = {CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
 
-        tier_handler = RecorderTierHandler(
+        tier_handler = SegmentsTierHandler(
             vis,
             mock_camera,
             0,
