@@ -21,6 +21,7 @@ else
   else
       log_info "Database has not been created. Creating..."
       s6-setuidgid postgres createdb -U postgres -O postgres viseron
+      s6-setuidgid postgres createuser abc
   fi
   log_info "Stopping PostgreSQL..."
   s6-setuidgid postgres /usr/lib/postgresql/12/bin/pg_ctl -D /config/postgresql -l /config/postgresql/logfile stop
