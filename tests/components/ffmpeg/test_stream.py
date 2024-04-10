@@ -222,3 +222,70 @@ class TestStream:
                 CONFIG_USERNAME
             ] = DEFAULT_USERNAME
             assert stream.get_stream_url(CONFIG) == "rtsp://test_host:1234/"
+
+    def test_get_stream_information(self):
+        """Test that the correct stream information is returned."""
+        mocked_camera = MockCamera(identifier="test_camera_identifier")
+        config = CONFIG
+        config[CONFIG_CODEC] = DEFAULT_CODEC
+        config[CONFIG_AUDIO_CODEC] = DEFAULT_AUDIO_CODEC
+
+        with patch.object(
+            Stream, "__init__", MagicMock(spec=Stream, return_value=None)
+        ), patch.object(
+            Stream, "get_stream_url", MagicMock(return_value="test_stream_url")
+        ):
+            stream = Stream(config, mocked_camera, "test_camera_identifier")
+            mock_ffprobe = MagicMock(spec=FFprobe)
+            mock_ffprobe.stream_information.return_value = (
+                1920,
+                1080,
+                30,
+                "h264",
+                "aac",
+            )
+            stream._ffprobe = mock_ffprobe  # pylint: disable=protected-access
+            mock_logger = MagicMock()
+            stream._logger = mock_logger  # pylint: disable=protected-access
+
+            result = stream.get_stream_information(config)
+
+            assert result.width == 1920
+            assert result.height == 1080
+            assert result.fps == 30
+            assert result.codec == "h264"
+            assert result.audio_codec == "aac"
+
+            mock_ffprobe.stream_information.assert_called_once_with("test_stream_url")
+
+    def test_get_stream_information_missing_parameters(self):
+        """Test that StreamInformationError is raised when parameters are missing."""
+        mocked_camera = MockCamera(identifier="test_camera_identifier")
+        config = CONFIG
+        config[CONFIG_CODEC] = DEFAULT_CODEC
+        config[CONFIG_AUDIO_CODEC] = DEFAULT_AUDIO_CODEC
+
+        with patch.object(
+            Stream, "__init__", MagicMock(spec=Stream, return_value=None)
+        ), patch.object(
+            Stream, "get_stream_url", MagicMock(return_value="test_stream_url")
+        ):
+            stream = Stream(config, mocked_camera, "test_camera_identifier")
+            mock_ffprobe = MagicMock(spec=FFprobe)
+            mock_ffprobe.stream_information.return_value = (
+                None,
+                1080,
+                30,
+                "h264",
+                "mp4",
+            )
+            stream._ffprobe = mock_ffprobe  # pylint: disable=protected-access
+            mock_logger = MagicMock()
+            stream._logger = mock_logger  # pylint: disable=protected-access
+
+            with pytest.raises(StreamInformationError) as excinfo:
+                stream.get_stream_information(config)
+
+            assert "Width: None Height: 1080 FPS: 30 Codec: h264" in str(excinfo.value)
+
+            mock_ffprobe.stream_information.assert_called_once_with("test_stream_url")
