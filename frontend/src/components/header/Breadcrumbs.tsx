@@ -12,14 +12,14 @@ import * as types from "lib/types";
 
 export default function Breadcrumbs() {
   const theme = useTheme();
-  const mediaQueryMedium = useMediaQuery(theme.breakpoints.up("sm"));
+  const mediaQuerySmall = useMediaQuery(theme.breakpoints.up("sm"));
   const location = useLocation();
   const pathnames = location.pathname.split("/").filter((x) => x);
   if (pathnames.length === 0) {
     pathnames.push("cameras");
   }
 
-  if (!mediaQueryMedium) {
+  if (!mediaQuerySmall) {
     return (
       <Typography color="textPrimary" align="center" style={{ width: "100%" }}>
         {toTitleCase(pathnames[0])}

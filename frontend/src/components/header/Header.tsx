@@ -10,6 +10,7 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { alpha, styled, useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { useContext, useRef, useState } from "react";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
@@ -54,6 +55,7 @@ const Header = styled("header", {
 export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
   const colorMode = useContext(ColorModeContext);
   const theme = useTheme();
+  const mediaQuerySmall = useMediaQuery(theme.breakpoints.up("sm"));
   const [showHeader, setShowHeader] = useState(true);
   const lastTogglePos = useRef(0);
   const { auth } = useAuthContext();
@@ -103,7 +105,7 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
           spacing={1}
           justifyContent="left"
           alignItems="center"
-          sx={{ width: "12%" }}
+          sx={{ width: !mediaQuerySmall ? "12%" : undefined }}
         >
           <Tooltip title="Menu" enterDelay={300}>
             <IconButton
@@ -130,14 +132,20 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
             </Box>
           </Tooltip>
         </Stack>
-        <Box sx={{ width: "76%" }}>
+        <Box
+          sx={
+            !mediaQuerySmall
+              ? { width: "76%", pointerEvents: "none" }
+              : undefined
+          }
+        >
           <Breadcrumbs />
         </Box>
         <Stack
           direction="row"
           spacing={1}
           justifyContent="end"
-          sx={{ width: "12%" }}
+          sx={{ width: !mediaQuerySmall ? "12%" : { marginLeft: "auto" } }}
         >
           <Tooltip
             title={
