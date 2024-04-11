@@ -40,6 +40,8 @@ MINIMAL_MESSAGE_SCHEMA = BASE_MESSAGE_SCHEMA.extend(
 def system_information(vis: Viseron) -> dict[str, Any]:
     """Return system information."""
     return {
+        "version": vis.version,
+        "git_commit": vis.git_commit,
         "safe_mode": vis.safe_mode,
     }
 

@@ -219,6 +219,19 @@ class Viseron:
         self.safe_mode = False
         self.exit_code = 0
 
+    @property
+    def version(self) -> str:
+        """Return the version of Viseron."""
+        return os.getenv("VISERON_VERSION", "unknown")
+
+    @property
+    def git_commit(self) -> str:
+        """Return the git commit of Viseron."""
+        git_commit = os.getenv("VISERON_GIT_COMMIT")
+        if git_commit:
+            return git_commit[:7]
+        return "unknown"
+
     def register_signal_handler(self, viseron_signal, callback):
         """Register a callback which gets called on signals emitted by Viseron.
 
