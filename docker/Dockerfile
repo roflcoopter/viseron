@@ -144,3 +144,8 @@ COPY --from=gpac /gpac/bin/gcc /usr/bin
 COPY rootfs/ /
 COPY --from=frontend /frontend/dist /src/viseron/frontend/
 COPY viseron /src/viseron/
+
+ARG VISERON_VERSION="dev"
+ARG VISERON_GIT_COMMIT="unknown"
+ENV VISERON_VERSION=${VISERON_VERSION}
+ENV VISERON_GIT_COMMIT=${VISERON_GIT_COMMIT}
