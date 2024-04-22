@@ -76,6 +76,7 @@ ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLA
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \
+  software-properties-common \
   curl \
   gnupg \
   tzdata \
@@ -109,15 +110,23 @@ RUN \
   && rm -rf /var/lib/apt/lists/* \
   \
   && python3 -m pip install --upgrade pip \
-  && pip3 install /wheels/*.whl \
+  && python3 -m pip install install /wheels/*.whl \
   && rm -r /wheels \
   \
+  # Install Coral Edge TPU
   && echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" | tee /etc/apt/sources.list.d/coral-edgetpu.list \
   && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
   && echo "libedgetpu1-max libedgetpu/accepted-eula select true" | debconf-set-selections \
-  && apt-get -qq update && apt-get -qq install --no-install-recommends -y \
+  && add-apt-repository -y ppa:deadsnakes/ppa \
+  && apt-get -qq update && apt-get -qq install -y --no-install-recommends \
   libedgetpu1-max \
-  python3-pycoral \
+  python3.9 \
+  python3.9-distutils \
+  && curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
+  && python3.9 get-pip.py \
+  && python3.9 -m pip install \
+  --extra-index-url https://google-coral.github.io/py-repo/ \
+  pycoral~=2.0 \
   \
   && chmod +x /tmp/s6-overlay-installer && /tmp/s6-overlay-installer / \
   && apt-get autoremove -y \
@@ -125,6 +134,7 @@ RUN \
   && rm -rf /var/lib/apt/lists/* \
   && rm -rf /wheels \
   && rm -r /tmp/s6-overlay-installer \
+  && rm get-pip.py \
   && useradd --uid 911 --user-group --create-home abc \
   && mkdir -p /home/abc/bin /segments
 
