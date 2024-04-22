@@ -1,5 +1,3 @@
-version: "2.4"
-
 services:
   ################ amd64 #######################################¤
   amd64-ffmpeg:
@@ -20,8 +18,6 @@ services:
         LIBASS_VERSION: "$LIBASS_VERSION"
         LIBPTHREAD_STUBS_VERSION: "$LIBPTHREAD_STUBS_VERSION"
         LIBVIDSTAB_VERSION: "$LIBVIDSTAB_VERSION"
-        LIBXCB_VERSION: "$LIBXCB_VERSION"
-        XCBPROTO_VERSION: "$XCBPROTO_VERSION"
         OGG_VERSION: "$OGG_VERSION"
         OPENCOREAMR_VERSION: "$OPENCOREAMR_VERSION"
         OPUS_VERSION: "$OPUS_VERSION"
@@ -61,6 +57,7 @@ services:
       dockerfile: ./docker/amd64/Dockerfile.opencv
       args:
         UBUNTU_VERSION: "$UBUNTU_VERSION"
+        UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         MAKEFLAGS: "$MAKEFLAGS"
         OPENCV_VERSION: "$OPENCV_VERSION"
         OPENVINO_VERSION: "$OPENVINO_VERSION"
@@ -97,7 +94,9 @@ services:
     build:
       args:
         UBUNTU_VERSION: "$UBUNTU_VERSION"
+        UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         OPENCV_VERSION: "$OPENCV_VERSION"
+        OPENVINO_VERSION: "$OPENVINO_VERSION"
         OPENCL_VERSION: "$OPENCL_VERSION"
         GMMLIB_VERSION: "$GMMLIB_VERSION"
         IGC_VERSION: "$IGC_VERSION"
@@ -148,9 +147,11 @@ services:
       "
   amd64-viseron-tests-tox:
     <<: *amd64-viseron-tests
+    container_name: amd64-viseron-tests-tox
 
   amd64-viseron-vulture:
     <<: *amd64-viseron-tests
+    container_name: amd64-viseron-vulture
     entrypoint: ""
     command: >
       bash -c "vulture viseron/"
@@ -234,6 +235,7 @@ services:
         UBUNTU_VERSION_NUMBER: "$UBUNTU_VERSION_NUMBER"
         DARKNET_COMMIT: "$DARKNET_COMMIT"
         OPENCV_VERSION: "$OPENCV_VERSION"
+        OPENVINO_VERSION: "$OPENVINO_VERSION"
         OPENCL_VERSION: "$OPENCL_VERSION"
         GMMLIB_VERSION: "$GMMLIB_VERSION"
         IGC_VERSION: "$IGC_VERSION"

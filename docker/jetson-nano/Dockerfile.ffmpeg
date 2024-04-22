@@ -1,6 +1,6 @@
 # This is a monster of a Dockerfile.
 # For some reason the command autoreconf CANNOT be run under QEMU, which breaks cross-building.
-# To work around this, each library that needs autoreconf is downloaded and "autoreconf'd" in a amd64 image 
+# To work around this, each library that needs autoreconf is downloaded and "autoreconf'd" in a amd64 image
 # and the result is then copied back into the aarch64 image using multistages to run configure and make.
 
 ARG UBUNTU_VERSION
@@ -93,18 +93,6 @@ RUN \
   make install && \
   rm -rf ${DIR}
 
-ARG LIBXCB_VERSION
-RUN \
-  DIR=/tmp/libxcb && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sLO https://xcb.freedesktop.org/dist/libxcb-${LIBXCB_VERSION}.tar.gz && \
-  tar -zx --strip-components=1 -f libxcb-${LIBXCB_VERSION}.tar.gz && \
-  export NOCONFIGURE=1 && \
-  DIR=/tmp/libxcb && \
-  cd ${DIR} && \
-  ACLOCAL_PATH="${PREFIX}/share/aclocal" ./autogen.sh
-
 FROM amd64-build as libxml2
 ENV PREFIX=/opt/ffmpeg
 ARG LIBXML2_VERSION
@@ -184,7 +172,7 @@ RUN \
   nasm \
   perl \
   pkg-config \
-  python \
+  python3 \
   libssl-dev \
   yasm \
   libgomp1 \
@@ -497,28 +485,6 @@ RUN \
   make && \
   make install && \
   rm -rf ${DIR}
-
-ARG XCBPROTO_VERSION
-RUN \
-  DIR=/tmp/libxcb-proto && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sLO https://xcb.freedesktop.org/dist/xcb-proto-${XCBPROTO_VERSION}.tar.gz && \
-  tar -zx --strip-components=1 -f xcb-proto-${XCBPROTO_VERSION}.tar.gz && \
-  ACLOCAL_PATH="${PREFIX}/share/aclocal" ./autogen.sh && \
-  ./configure --prefix="${PREFIX}" && \
-  make && \
-  make install && \
-  rm -rf ${DIR}
-
-COPY --from=libxcb /tmp /tmp
-RUN \
-  DIR=/tmp/libxcb && \
-  cd ${DIR} && \
-  ./configure --prefix="${PREFIX}" --disable-static --enable-shared && \
-  make && \
-  make install && \
-  rm -rf ${DIR}
 ### libxml2 - for libbluray
 COPY --from=libxml2 /tmp /tmp
 RUN \
@@ -587,7 +553,6 @@ RUN  \
   --enable-libvorbis \
   --enable-libvpx \
   --enable-libwebp \
-  --enable-libxcb \
   --enable-libx265 \
   --enable-libxvid \
   --enable-libx264 \

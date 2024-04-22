@@ -31,7 +31,7 @@ RUN buildDeps="autoconf \
   nasm \
   perl \
   pkg-config \
-  python \
+  python3 \
   libssl-dev \
   yasm \
   libgomp1 \
@@ -406,41 +406,6 @@ RUN \
   make && \
   make install && \
   rm -rf ${DIR}
-
-ARG XCBPROTO_VERSION
-RUN \
-  DIR=/tmp/libxcb-proto && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sLO https://xcb.freedesktop.org/dist/xcb-proto-${XCBPROTO_VERSION}.tar.gz && \
-  tar -zx --strip-components=1 -f xcb-proto-${XCBPROTO_VERSION}.tar.gz && \
-  ACLOCAL_PATH="${PREFIX}/share/aclocal" ./autogen.sh && \
-  ./configure --prefix="${PREFIX}" && \
-  make && \
-  make install && \
-  rm -rf ${DIR}
-
-ARG LIBXCB_VERSION
-RUN \
-  DIR=/tmp/libxcb && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sLO https://xcb.freedesktop.org/dist/libxcb-${LIBXCB_VERSION}.tar.gz && \
-  tar -zx --strip-components=1 -f libxcb-${LIBXCB_VERSION}.tar.gz
-RUN ["cross-build-end"]
-RUN \
-  export NOCONFIGURE=1 && \
-  DIR=/tmp/libxcb && \
-  cd ${DIR} && \
-  ACLOCAL_PATH="${PREFIX}/share/aclocal" ./autogen.sh
-RUN ["cross-build-start"]
-RUN \
-  DIR=/tmp/libxcb && \
-  cd ${DIR} && \
-  ./configure --prefix="${PREFIX}" --disable-static --enable-shared && \
-  make && \
-  make install && \
-  rm -rf ${DIR}
 ### libxml2 - for libbluray
 ARG LIBXML2_VERSION
 ARG LIBXML2_SHA256SUM
@@ -525,7 +490,6 @@ RUN  \
   --enable-libvorbis \
   --enable-libvpx \
   --enable-libwebp \
-  --enable-libxcb \
   --enable-libx265 \
   --enable-libxvid \
   --enable-libx264 \
