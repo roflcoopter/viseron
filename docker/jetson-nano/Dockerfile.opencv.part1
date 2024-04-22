@@ -70,7 +70,7 @@ RUN buildDeps="autoconf \
   libcublas-dev" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps} && \
-  pip3 install numpy
+  python3 -m pip install numpy
 
 # Minimal cuda install does not create symlink so we do it manually
 RUN ln -s /usr/local/cuda-10.2 /usr/local/cuda
