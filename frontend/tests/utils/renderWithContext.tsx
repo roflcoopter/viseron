@@ -39,6 +39,8 @@ function customRender(
                   connection: undefined,
                   connected: true,
                   safeMode: false,
+                  version: "0.0.0",
+                  gitCommit: "0000000",
                 }}
               >
                 {children}
