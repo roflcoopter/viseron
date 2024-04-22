@@ -39,13 +39,13 @@ RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
   libcairo2-dev \
   && python3 -m pip install --upgrade pip \
   && apt-get autoremove -y && apt-get clean -y \
-  && pip install numpy pybind11
+  && python3 -m pip install numpy pybind11
 
 ADD requirements.txt requirements.txt
 RUN \
   mkdir -p /wheels \
   \
-  && pip3 wheel --wheel-dir=/wheels --find-links=/wheels -r /requirements.txt \
+  && python3 -m pip wheel --wheel-dir=/wheels --find-links=/wheels -r /requirements.txt \
   \
   && ls -al /wheels/
 
