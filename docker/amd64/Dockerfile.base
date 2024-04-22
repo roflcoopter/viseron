@@ -12,6 +12,8 @@ ARG OPENCL_VERSION
 ARG GMMLIB_VERSION
 ARG IGC_VERSION
 ARG LEVEL_ZERO_GPU
+ARG UBUNTU_VERSION_NUMBER
+ARG OPENVINO_VERSION
 
 RUN apt-get update && apt-get install -y \
   ca-certificates \
@@ -44,6 +46,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   clinfo \
   # FFmpeg
   libnuma1 && \
+  # OpenVINO
+  UBUNTU_YEAR=$(echo $UBUNTU_VERSION_NUMBER | cut -d'.' -f1) && \
+  OPENVINO_YEAR=$(echo $OPENVINO_VERSION | cut -d'.' -f1) && \
+  echo "deb https://apt.repos.intel.com/openvino/${OPENVINO_YEAR} ubuntu${UBUNTU_YEAR} main" | tee /etc/apt/sources.list.d/intel-openvino-${OPENVINO_YEAR}.list && \
+  wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
+  apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB  && \
+  apt-get update && apt-get install -y --no-install-recommends openvino-${OPENVINO_VERSION} && \
   # OpenCL
   mkdir /opencl &&\
   cd /opencl && \
@@ -58,6 +67,3 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   rm -R /opencl && \
   ln -s /detectors/models/darknet/yolov7.weights /detectors/models/darknet/default.weights && \
   ln -s /detectors/models/darknet/yolov7.cfg /detectors/models/darknet/default.cfg
-
-# OpenVINO
-COPY --from=opencv /usr/local/runtime /usr/local/runtime/
