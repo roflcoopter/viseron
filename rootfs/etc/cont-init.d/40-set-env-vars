@@ -48,4 +48,8 @@ printf "/home/abc" > /var/run/environment/XDG_RUNTIME_DIR
 export HOME=/home/abc
 printf "/home/abc" > /var/run/environment/HOME
 
+# Find latest version of postgresql
+export PG_BIN="$(find /usr/lib/postgresql -maxdepth 1 -type d | sort -V | tail -n 1)/bin"
+printf "$PG_BIN" > /var/run/environment/PG_BIN
+log_info "Found PostgreSQL bin: $PG_BIN"
 log_info "*********************** Done *****************************"

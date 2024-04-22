@@ -1,6 +1,7 @@
 #!/usr/bin/with-contenv bash
 #
 source /helpers/logger.sh
+source /helpers/set_env.sh
 
 log_info "Wait for Viseron to stop..."
 PID=$(pgrep -f ^viseron)
@@ -10,7 +11,7 @@ done
 log_info "Viseron has stopped!"
 
 log_info "Stopping PostgreSQL..."
-s6-setuidgid postgres /usr/lib/postgresql/12/bin/pg_ctl -D /config/postgresql -l /config/postgresql/logfile stop
+s6-setuidgid postgres $PG_BIN/pg_ctl -D /config/postgresql -l /config/postgresql/logfile stop
 
 # Wait until PostgreSQL has stopped
 log_info "Waiting for PostgreSQL Server to stop..."
