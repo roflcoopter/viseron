@@ -67,7 +67,7 @@ ENV \
   S6_KILL_FINISH_MAXTIME=30000 \
   PATH=$PATH:/home/abc/bin \
   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib \
-  PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.8/site-packages \
+  PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.10/site-packages \
   OPENCV_OPENCL_CACHE_ENABLE=false \
   PGDATA=/config/postgresql \
   PG_COLOR="always"
@@ -113,17 +113,22 @@ RUN \
   && python3 -m pip install install /wheels/*.whl \
   && rm -r /wheels \
   \
+  # Install Python 3.9 if it doesn't exist
+  && if [ ! -f /usr/local/bin/python3.9 ]; then \
+  add-apt-repository ppa:deadsnakes/ppa -y && \
+  apt-get update && apt-get install -y --no-install-recommends \
+  python3.9 \
+  python3.9-distutils \
+  # Get pip
+  && curl -s https://bootstrap.pypa.io/get-pip.py | python3.9 - ; \
+  fi \
+  \
   # Install Coral Edge TPU
   && echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" | tee /etc/apt/sources.list.d/coral-edgetpu.list \
   && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
   && echo "libedgetpu1-max libedgetpu/accepted-eula select true" | debconf-set-selections \
-  && add-apt-repository -y ppa:deadsnakes/ppa \
   && apt-get -qq update && apt-get -qq install -y --no-install-recommends \
   libedgetpu1-max \
-  python3.9 \
-  python3.9-distutils \
-  && curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py \
-  && python3.9 get-pip.py \
   && python3.9 -m pip install \
   --extra-index-url https://google-coral.github.io/py-repo/ \
   pycoral~=2.0 \
@@ -134,7 +139,6 @@ RUN \
   && rm -rf /var/lib/apt/lists/* \
   && rm -rf /wheels \
   && rm -r /tmp/s6-overlay-installer \
-  && rm get-pip.py \
   && useradd --uid 911 --user-group --create-home abc \
   && mkdir -p /home/abc/bin /segments
 

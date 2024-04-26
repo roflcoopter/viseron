@@ -455,10 +455,24 @@ services:
         JETPACK_VERSION: "$JETPACK_VERSION_MAJOR.$JETPACK_VERSION_MINOR.$JETPACK_VERSION_PATCH"
         UBUNTU_VERSION: $JETSON_NANO_UBUNTU_VERSION
         PYTHON_VERSION: "$PYTHON_VERSION"
+        PYTHON_GPG_KEY: "$PYTHON_GPG_KEY"
         PYTHON_PIP_VERSION: "$PYTHON_PIP_VERSION"
       cache_from:
         - roflcoopter/jetson-nano-python:$PYTHON_VERSION
     image: roflcoopter/jetson-nano-python:$PYTHON_VERSION
+  jetson-nano-python-3.9.19:
+    build:
+      context: ..
+      dockerfile: ./docker/jetson-nano/Dockerfile.python
+      args:
+        JETPACK_VERSION: "$JETPACK_VERSION_MAJOR.$JETPACK_VERSION_MINOR.$JETPACK_VERSION_PATCH"
+        UBUNTU_VERSION: $JETSON_NANO_UBUNTU_VERSION
+        PYTHON_VERSION: 3.9.19
+        PYTHON_GPG_KEY: "E3FF2839C048B25C084DEBE9B26995E310250568"
+        PYTHON_PIP_VERSION: "$PYTHON_PIP_VERSION"
+      cache_from:
+        - roflcoopter/jetson-nano-python:3.9.19
+    image: roflcoopter/jetson-nano-python:3.9.19
 
   jetson-nano-ffmpeg:
     build:

@@ -51,5 +51,3 @@ RUN \
 
 FROM scratch
 COPY --from=build /wheels /wheels
-COPY docker/jetson-nano/pycoral-2.0.0-cp38-cp38-linux_aarch64.whl /wheels/
-COPY docker/jetson-nano/tflite_runtime-2.5.0.post1-cp38-cp38-linux_aarch64.whl /wheels/
