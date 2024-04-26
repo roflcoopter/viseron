@@ -140,8 +140,9 @@ def setup_viseron() -> Viseron:
     """Set up and run Viseron."""
     start = timer()
     enable_logging()
+    viseron_version = os.getenv("VISERON_VERSION")
     LOGGER.info("-------------------------------------------")
-    LOGGER.info("Initializing Viseron")
+    LOGGER.info(f"Initializing Viseron {viseron_version if viseron_version else ''}")
 
     config = load_config()
 
