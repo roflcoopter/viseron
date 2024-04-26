@@ -66,7 +66,7 @@
       "label": "Python: Install all Requirements",
       "detail": "Install all requirements in requirements.txt",
       "type": "shell",
-      "command": "pip3 install -r requirements.txt",
+      "command": "python3 -m pip install -r requirements.txt",
       "group": {
         "kind": "build",
         "isDefault": true
@@ -81,7 +81,7 @@
       "label": "Python: Install all Test Requirements",
       "detail": "Install all requirements in requirements_test.txt",
       "type": "shell",
-      "command": "pip3 install -r requirements_test.txt",
+      "command": "python3 -m pip install -r requirements_test.txt",
       "group": {
         "kind": "build",
         "isDefault": true
@@ -283,17 +283,18 @@
         "panel": "new"
       },
       "problemMatcher": []
-    },
+    }
   ],
   "inputs": [
     {
       "id": "component",
       "type": "promptString",
-      "description": "The component to generate docs for",
+      "description": "The component to generate docs for"
     },
     {
       "id": "revision_message",
       "type": "promptString",
-      "description": "Revision message (should end with a period)",}
+      "description": "Revision message (should end with a period)"
+    }
   ]
 }

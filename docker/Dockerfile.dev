@@ -4,8 +4,15 @@ ENV SHELL /bin/bash
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
+    build-essential \
+    cmake \
+    git \
     curl \
     locales \
+    libcairo2-dev \
+    libgirepository1.0-dev \
+    python3-dev \
+    python3.9-dev \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install --no-install-recommends -y \
     nodejs \
@@ -14,7 +21,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements_test.txt requirements_test.txt
-RUN pip3 install -r requirements_test.txt \
+RUN python3 -m pip install -r requirements_test.txt \
     && yes | mypy --install-types || true \
     && rm -rf requirements_test.txt
 

@@ -7,7 +7,7 @@ export WORKSPACE_DIR=$PWD
 echo "export WORKSPACE_DIR=$PWD" >> $HOME/.bashrc
 
 # Install python deps
-pip3 install -r requirements.txt
+python3 -m pip install -r requirements.txt
 
 # Install frontend dependencies
 cd $WORKSPACE_DIR/frontend
@@ -24,6 +24,9 @@ do
     echo "export $FILE=$(cat $FILE)" >> $HOME/.bashrc
     sed -i "s/$FILE=true/$FILE=false/g" $HOME/.bashrc
 done
+
+# Enable terminal colors
+sed -i 's/#force_color_prompt=yes/force_color_prompt=yes/g' $HOME/.bashrc
 
 # Create default config if it is missing
 cd $WORKSPACE_DIR
