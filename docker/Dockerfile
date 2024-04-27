@@ -131,6 +131,7 @@ RUN \
   libedgetpu1-max \
   && python3.9 -m pip install \
   --extra-index-url https://google-coral.github.io/py-repo/ \
+  --extra-index-url https://www.piwheels.org/simple \
   pycoral~=2.0 \
   \
   && chmod +x /tmp/s6-overlay-installer && /tmp/s6-overlay-installer / \
