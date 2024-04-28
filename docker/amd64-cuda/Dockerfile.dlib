@@ -30,7 +30,7 @@ RUN buildDeps="autoconf \
 RUN \
   DIR=/tmp && mkdir -p ${DIR} && cd ${DIR} && \
   git clone --branch v${DLIB_VERSION} --depth 1 https://github.com/davisking/dlib.git && \
-  cd dlib; python3 setup.py --set DLIB_USE_CUDA_COMPUTE_CAPABILITIES:STRING=35,50,52,53,60,61,70,72,75,80,86 bdist_wheel --dist-dir=/wheels \
+  cd dlib; python3 setup.py --set DLIB_USE_CUDA_COMPUTE_CAPABILITIES:STRING=50,52,53,60,61,70,72,75,80,86,87,89,90 bdist_wheel --dist-dir=/wheels \
   \
   && ls -al /wheels/
 

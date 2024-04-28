@@ -19,8 +19,8 @@ ENV \
   LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib" \
   PYTHONPATH=$PYTHONPATH:/opt/opencv/lib/python3.10/dist-packages \
   # OpenCV supports CC Arch 3.0 and higher. https://github.com/opencv/opencv/blob/master/cmake/OpenCVDetectCUDA.cmake
-  # However, CUDA 11 only supports >= 3.5
-  CUDA_ARCH_BIN="35 50 52 53 60 61 70 72 75 80 86" \
+  # However, CUDA 12 only supports >= 50
+  CUDA_ARCH_BIN="50 52 53 60 61 70 72 75 80 86 87 89 90" \
   CUDA_ARCH_PTX="70"
 
 RUN buildDeps="autoconf \
@@ -70,21 +70,6 @@ RUN \
   apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB  && \
   apt-get update && apt-get install -y --no-install-recommends openvino-${OPENVINO_VERSION}
 
-RUN cd /opt/openvino && \
-  chmod +x install_build_dependencies.sh && \
-  ./install_build_dependencies.sh && \
-  python3 -m pip install --upgrade pip && \
-  python3 -m pip install -r src/bindings/python/wheel/requirements-dev.txt && \
-  mkdir build && cd build && \
-  cmake -DCMAKE_BUILD_TYPE=Release .. \
-  -DENABLE_OPENCV=OFF \
-  -DNGRAPH_PYTHON_BUILD_ENABLE=ON \
-  -DNGRAPH_ONNX_IMPORT_ENABLE=ON \
-  -DENABLE_PYTHON=ON && \
-  make --jobs=$(nproc --all) && \
-  make install
-
-
 ## OpenCV
 RUN  \
   DIR=/tmp/opencv && mkdir -p ${DIR} && cd ${DIR} && \
@@ -96,7 +81,6 @@ RUN  \
   tar -x --strip-components=1 -f opencv_contrib-${OPENCV_VERSION}.tar.gz
 
 RUN \
-  /bin/bash /opt/openvino/scripts/setupvars/setupvars.sh && \
   DIR=/tmp/opencv/build && mkdir -p ${DIR} && cd ${DIR} && \
   cmake -D CMAKE_BUILD_TYPE=RELEASE \
   -DBUILD_TIFF=ON \
@@ -158,5 +142,4 @@ RUN python3 -c 'import cv2; print(cv2.getBuildInformation())'
 
 FROM scratch
 
-COPY --from=build /usr/local /usr/local/
 COPY --from=build /opt/opencv /opt/opencv/
