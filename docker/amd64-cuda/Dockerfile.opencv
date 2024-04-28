@@ -2,7 +2,7 @@ ARG FFMPEG_VERSION
 ARG CUDA_VERSION
 ARG UBUNTU_VERSION_NUMBER
 FROM roflcoopter/amd64-cuda-ffmpeg:${FFMPEG_VERSION} as ffmpeg
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
 
 COPY --from=ffmpeg /usr/local /usr/local/
 

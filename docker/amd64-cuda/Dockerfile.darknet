@@ -3,7 +3,7 @@ ARG OPENCV_VERSION
 ARG CUDA_VERSION
 ARG UBUNTU_VERSION_NUMBER
 FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} as opencv
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
 
 COPY --from=opencv /opt/opencv /opt/opencv/
 COPY --from=opencv /usr/local/runtime /usr/local/runtime/
@@ -36,7 +36,7 @@ RUN buildDeps="autoconf \
   python3-setuptools \
   python3-wheel" && \
   apt-get -yqq update && \
-  apt-get install -yq --no-install-recommends ${buildDeps} 
+  apt-get install -yq --no-install-recommends ${buildDeps}
 
 # Compile Darknet
 RUN \
