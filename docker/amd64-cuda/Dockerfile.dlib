@@ -12,6 +12,7 @@ ENV \
 RUN buildDeps="autoconf \
   automake \
   ca-certificates \
+  wget \
   cmake \
   g++ \
   gcc \

@@ -2,7 +2,7 @@ alembic==1.10.4
 apscheduler==3.6.3
 bcrypt==4.0.1
 deepstack-python==0.8
-dlib==19.22
+dlib==19.24.4
 codeproject-ai-api==0.1
 colorlog==5.0.1
 compreface-sdk==0.6.0

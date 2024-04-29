@@ -6,7 +6,6 @@ FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} as opencv
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn9-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
 
 COPY --from=opencv /opt/opencv /opt/opencv/
-COPY --from=opencv /usr/local/runtime /usr/local/runtime/
 
 ARG MAKEFLAGS="-j2"
 ARG DARKNET_COMMIT
@@ -22,6 +21,7 @@ RUN buildDeps="autoconf \
   pkg-config \
   automake \
   ca-certificates \
+  wget \
   cmake \
   g++ \
   gcc \
@@ -48,6 +48,16 @@ RUN \
   apt-get update && \
   apt-get install -y libcudnn8 libcudnn8-dev && \
   rm cudnn-local-repo.deb
+
+## Install OpenVINO
+ARG OPENVINO_VERSION
+RUN \
+  UBUNTU_YEAR=$(echo $UBUNTU_VERSION_NUMBER | cut -d'.' -f1) && \
+  OPENVINO_YEAR=$(echo $OPENVINO_VERSION | cut -d'.' -f1) && \
+  echo "deb https://apt.repos.intel.com/openvino/${OPENVINO_YEAR} ubuntu${UBUNTU_YEAR} main" | tee /etc/apt/sources.list.d/intel-openvino-${OPENVINO_YEAR}.list && \
+  wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
+  apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB  && \
+  apt-get update && apt-get install -y --no-install-recommends openvino-${OPENVINO_VERSION}
 
 # Compile Darknet
 RUN \
