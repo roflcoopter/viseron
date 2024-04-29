@@ -1,7 +1,5 @@
-ARG OPENCV_VERSION
 ARG UBUNTU_VERSION
 FROM roflcoopter/viseron-models:latest as models
-FROM roflcoopter/amd64-opencv:${OPENCV_VERSION} as opencv
 FROM ubuntu:${UBUNTU_VERSION} as base
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet

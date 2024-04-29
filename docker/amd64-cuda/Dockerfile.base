@@ -1,11 +1,9 @@
 ARG DARKNET_COMMIT
-ARG OPENCV_VERSION
 ARG CUDA_VERSION
 ARG UBUNTU_VERSION_NUMBER
 FROM roflcoopter/viseron-models:latest as models
 FROM roflcoopter/amd64-cuda-darknet:${DARKNET_COMMIT} as darknet
-FROM roflcoopter/amd64-cuda-opencv:${OPENCV_VERSION} as opencv
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn-runtime-ubuntu${UBUNTU_VERSION_NUMBER}
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn9-runtime-ubuntu${UBUNTU_VERSION_NUMBER}
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
@@ -66,6 +64,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   mkdir -p /etc/OpenCL/vendors && \
   echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd && \
   ln -s /detectors/models/darknet/yolov7.weights /detectors/models/darknet/default.weights && \
-  ln -s /detectors/models/darknet/yolov7.cfg /detectors/models/darknet/default.cfg
+  ln -s /detectors/models/darknet/yolov7.cfg /detectors/models/darknet/default.cfg  && \
+  # Install CUDNN 8 since OpenCV 4.9 does not support CUDNN 9
+  UBUNTU_VERSION=$(echo $UBUNTU_VERSION_NUMBER | tr -d '.') && \
+  wget "https://developer.download.nvidia.com/compute/redist/cudnn/v8.8.0/local_installers/12.0/cudnn-local-repo-ubuntu$UBUNTU_VERSION-8.8.0.121_1.0-1_amd64.deb" -O cudnn-local-repo.deb && \
+  dpkg -i cudnn-local-repo.deb && \
+  cp /var/cudnn-local-repo-ubuntu$UBUNTU_VERSION-8.8.0.121/cudnn-local-04B81517-keyring.gpg /usr/share/keyrings/ && \
+  apt-get update && \
+  apt-get install -y libcudnn8 libcudnn8-dev && \
+  rm cudnn-local-repo.deb
 
 COPY --from=darknet /darknet/lib /usr/local/lib

@@ -1,6 +1,6 @@
 ARG CUDA_VERSION
 ARG UBUNTU_VERSION_NUMBER
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn9-devel-ubuntu${UBUNTU_VERSION_NUMBER} AS build
 
 ARG DLIB_VERSION
 ARG MAKEFLAGS="-j2"
@@ -25,6 +25,17 @@ RUN buildDeps="autoconf \
   python3-wheel" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps}
+
+ARG UBUNTU_VERSION_NUMBER
+RUN \
+  # Install CUDNN 8 since OpenCV 4.9 does not support CUDNN 9
+  UBUNTU_VERSION=$(echo $UBUNTU_VERSION_NUMBER | tr -d '.') && \
+  wget "https://developer.download.nvidia.com/compute/redist/cudnn/v8.8.0/local_installers/12.0/cudnn-local-repo-ubuntu$UBUNTU_VERSION-8.8.0.121_1.0-1_amd64.deb" -O cudnn-local-repo.deb && \
+  dpkg -i cudnn-local-repo.deb && \
+  cp /var/cudnn-local-repo-ubuntu$UBUNTU_VERSION-8.8.0.121/cudnn-local-04B81517-keyring.gpg /usr/share/keyrings/ && \
+  apt-get update && \
+  apt-get install -y libcudnn8 libcudnn8-dev && \
+  rm cudnn-local-repo.deb
 
 # Create dlib wheel
 RUN \
