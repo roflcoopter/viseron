@@ -7,8 +7,9 @@ import os
 import re
 import threading
 import typing
+from collections.abc import Callable, Iterable, Iterator
 from types import TracebackType
-from typing import Any, AnyStr, Iterable, Iterator, Literal, TextIO
+from typing import Any, AnyStr, Literal, TextIO
 
 from colorlog import ColoredFormatter
 
@@ -134,11 +135,17 @@ class ViseronLogFormat(ColoredFormatter):
 class LogPipe(threading.Thread):
     """Used to pipe stderr to python logging."""
 
-    def __init__(self, logger: logging.Logger, output_level: int) -> None:
+    def __init__(
+        self,
+        logger: logging.Logger,
+        output_level: int | None = logging.ERROR,
+        output_level_func: Callable[[str], tuple[int, str]] | None = None,
+    ) -> None:
         """Log stdout without blocking."""
         super().__init__(name=f"{logger.name}.logpipe", daemon=True)
         self._logger = logger
         self._output_level = output_level
+        self._output_level_func = output_level_func
         self._read_filedescriptor, self._write_filedescriptor = os.pipe()
         self.pipe_reader = os.fdopen(self._read_filedescriptor)
         self.start()
@@ -151,8 +158,26 @@ class LogPipe(threading.Thread):
         """Run the thread, logging everything."""
         for line in iter(self.pipe_reader.readline, ""):
             log_str = line.strip().strip("\n")
-            if log_str:
-                self._logger.log(self._output_level, log_str)
+            if not log_str:
+                continue
+
+            output_level: int | None
+            if self._output_level_func:
+                output_level, log_str = self._output_level_func(log_str)
+            else:
+                output_level = self._output_level
+
+            # Check if the log level is set to DEBUG, INFO etc
+            if output_level in [
+                logging.DEBUG,
+                logging.INFO,
+                logging.WARNING,
+                logging.ERROR,
+                logging.CRITICAL,
+            ]:
+                self._logger.log(output_level, log_str)
+            else:
+                self._logger.log(logging.ERROR, log_str)
 
         self.pipe_reader.close()
 
@@ -230,7 +255,7 @@ class StreamToLogger(typing.TextIO):
         """Return if the stream is a tty."""
         raise io.UnsupportedOperation
 
-    def read(self, n: int = -1) -> AnyStr:
+    def read(self, num: int = -1) -> AnyStr:
         """Read from the stream."""
         raise io.UnsupportedOperation
 
@@ -280,15 +305,16 @@ class StreamToLogger(typing.TextIO):
 
     def __exit__(
         self,
-        t: type[BaseException] | None,
+        exception_type: type[BaseException] | None,
         value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
         """Exit context manager."""
         raise io.UnsupportedOperation
 
-    def write(self, text: str):  # pylint: disable=arguments-renamed
+    def write(self, text: str) -> int:
         """Write to the logger."""
         if text == "\n":
-            return
+            return 0
         self.logger.log(self.log_level, text.rstrip())
+        return 1

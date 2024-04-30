@@ -158,6 +158,7 @@ COPY --from=ffmpeg /usr/local /ffmpeg/
 COPY --from=gpac /gpac/bin/gcc /usr/bin
 COPY rootfs/ /
 COPY --from=frontend /frontend/dist /src/viseron/frontend/
+COPY manager.py /src/manager.py
 COPY viseron /src/viseron/
 
 ARG VISERON_VERSION="dev"

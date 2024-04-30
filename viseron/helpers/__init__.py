@@ -7,6 +7,7 @@ import logging
 import math
 import multiprocessing as mp
 import os
+import socket
 import tracemalloc
 from queue import Full, Queue
 from typing import TYPE_CHECKING, Any
@@ -229,14 +230,19 @@ def draw_contours(frame, contours, resolution, threshold) -> None:
     cv2.drawContours(frame, filtered_contours, -1, (130, 0, 75), thickness=1)
 
 
-def draw_mask(text, frame, mask_points, color=(255, 255, 255)) -> None:
+def draw_mask(
+    text: str,
+    frame: np.ndarray,
+    mask_points: list[np.ndarray],
+    color: tuple[int, int, int] = (255, 255, 255),
+) -> None:
     """Draw mask on supplied frame."""
-    mask_overlay = frame.copy()
+    mask_overlay: np.ndarray = frame.copy()
     # Draw polygon filled with black color
     cv2.fillPoly(
         mask_overlay,
         pts=mask_points,
-        color=(0),
+        color=(0, 0, 0),  # Specify the color as a tuple of three integers
     )
     # Apply overlay on frame with 70% opacity
     cv2.addWeighted(
@@ -461,6 +467,19 @@ def zoom_boundingbox(
     )
 
     return frame.copy()[y_offset : y_offset + size, x_offset : x_offset + size]
+
+
+def get_free_port(port=1024, max_port=65535) -> int:
+    """Find a free port."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    while port <= max_port:
+        try:
+            sock.bind(("", port))
+            sock.close()
+            return port
+        except OSError:
+            port += 1
+    raise OSError("no free ports")
 
 
 def memory_usage_profiler(logger, key_type="lineno", limit=5) -> None:

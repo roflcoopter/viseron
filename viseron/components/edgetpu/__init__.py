@@ -1,17 +1,14 @@
 """EdgeTPU object detection."""
 from __future__ import annotations
 
+import ast
 import logging
 import multiprocessing as mp
+import subprocess as sp
 from abc import abstractmethod
 from queue import Queue
 
-import numpy as np
-import tflite_runtime.interpreter as tflite
 import voluptuous as vol
-from pycoral.adapters import classify, common, detect
-from pycoral.utils.dataset import read_label_file
-from pycoral.utils.edgetpu import list_edge_tpus, make_interpreter
 
 from viseron import Viseron
 from viseron.domains import OptionalDomain, RequireDomain, setup_domain
@@ -25,8 +22,9 @@ from viseron.domains.object_detector.const import CONFIG_CAMERAS
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.exceptions import ViseronError
 from viseron.helpers import pop_if_full
-from viseron.helpers.child_process_worker import ChildProcessWorker
+from viseron.helpers.subprocess_worker import SubProcessWorker
 from viseron.helpers.validators import Maybe
+from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 from .config import DeviceValidator, get_label_schema
 from .const import (
@@ -88,7 +86,7 @@ CONFIG_SCHEMA = vol.Schema(
 
 def setup(vis: Viseron, config) -> bool:
     """Set up the edgetpu component."""
-    LOGGER.debug(f"Available devices: {list_edge_tpus()}")
+    LOGGER.debug(f"Available devices: {available_devices()}")
     config = config[COMPONENT]
     vis.data[COMPONENT] = {}
 
@@ -133,6 +131,75 @@ def setup(vis: Viseron, config) -> bool:
     return True
 
 
+def available_devices():
+    """Get available devices by running list_edge_tpus in python3.9."""
+    try:
+        result = sp.run(
+            [
+                "python3.9",
+                "-c",
+                "from pycoral.utils.edgetpu import list_edge_tpus;"
+                "print(list_edge_tpus())",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return ast.literal_eval(result.stdout)
+    except Exception as error:
+        LOGGER.error(f"Failed to get available devices: {error}")
+        raise error
+
+
+def read_label_file(file_path):
+    """Read label file by running read_label_file in python3.9 using Popen."""
+    try:
+        result = sp.run(
+            [
+                "python3.9",
+                "-c",
+                (
+                    f"from pycoral.utils.dataset import read_label_file; "
+                    f"print(read_label_file('{file_path}'))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return ast.literal_eval(result.stdout)
+    except Exception as error:
+        LOGGER.error(f"Failed to read label file: {error}")
+        raise error
+
+
+def get_available_devices():
+    """Get available devices by running list_edge_tpus in python3.9 using Popen."""
+    try:
+        result = sp.run(
+            [
+                "python3.9",
+                "-c",
+                (
+                    "from pycoral.utils.edgetpu import list_edge_tpus; "
+                    "print(list_edge_tpus())"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return ast.literal_eval(result.stdout)
+    except Exception as error:
+        LOGGER.error(f"Failed to get available devices: {error}")
+        raise error
+
+
+def get_model_size(process_queue: Queue):
+    """Get model size by sending a job to the subprocess."""
+    process_queue.put("get_model_size")
+
+
 def get_default_device(device):
     """Get default device based on what's available.
 
@@ -141,8 +208,8 @@ def get_default_device(device):
     if device:
         return device
 
-    available_devices = list_edge_tpus()
-    if available_devices:
+    _available_devices = get_available_devices()
+    if _available_devices:
         return ":0"
     return DEVICE_CPU
 
@@ -172,11 +239,12 @@ class MakeInterpreterError(ViseronError):
     """Error raised on all failures to make interpreter."""
 
 
-class EdgeTPU(ChildProcessWorker):
+class EdgeTPU(SubProcessWorker):
     """EdgeTPU interface."""
 
     def __init__(self, vis, config, domain) -> None:
         self._config = config
+        self._domain = domain
         self._device = get_default_device(config[CONFIG_DEVICE])
         self._model = get_default_model(domain, config[CONFIG_MODEL_PATH], self._device)
         self.labels = read_label_file(config[CONFIG_LABEL_PATH])
@@ -186,57 +254,49 @@ class EdgeTPU(ChildProcessWorker):
         )
         LOGGER.debug(f"Using labels from {config[CONFIG_LABEL_PATH]}")
 
-        # Create an interpreter to get the model size
-        self.interpreter = self.make_interpreter(self._device, self._model)
-        self.tensor_input_details = self.interpreter.get_input_details()
-        self._model_width = self.tensor_input_details[0]["shape"][1]
-        self._model_height = self.tensor_input_details[0]["shape"][2]
-        # Discard the interpreter to release the EdgeTPU
-        # It is re-created inside the spawned child process in process_initialization
-        del self.interpreter
-
         self._result_queues: dict[str, Queue] = {}
         self._process_initialization_done = mp.Event()
+        self._process_initialization_error = mp.Event()
         super().__init__(vis, f"{COMPONENT}.{domain}")
-        self._process_initialization_done.wait(20)
-        if not self._process_initialization_done.wait(timeout=15):
-            LOGGER.exception("Failed to load EdgeTPU in child process")
+        self._process_initialization_done.wait(10)
+        if (
+            not self._process_initialization_done.is_set()
+            or self._process_initialization_error.is_set()
+        ):
+            LOGGER.error("Failed to load EdgeTPU in subprocess")
+            self.stop()
             raise MakeInterpreterError
 
-    def make_interpreter(self, device, model):
-        """Make interpreter."""
-        if device == DEVICE_CPU:
-            interpreter = tflite.Interpreter(
-                model_path=model,
-            )
-        else:
-            try:
-                interpreter = make_interpreter(
-                    model,
-                    device=self._config[CONFIG_DEVICE],
-                )
-            except Exception as error:
-                LOGGER.error(f"Error when trying to load EdgeTPU: {error}")
-                raise MakeInterpreterError from error
-        interpreter.allocate_tensors()
-        return interpreter
-
-    def process_initialization(self) -> None:
-        """Make interpreter inside the child process."""
-        self.interpreter = self.make_interpreter(self._device, self._model)
-        self._process_initialization_done.set()
+        self._model_size_event = mp.Event()
+        self._model_width = 0
+        self._model_height = 0
+        get_model_size(self._process_queue)
+        self._model_size_event.wait(10)
+        if not self._model_size_event.is_set():
+            LOGGER.error("Failed to get model size")
+            self.stop()
+            raise MakeInterpreterError("Failed to get model size")
 
     @abstractmethod
     def post_process(self, item):
         """Post process after invoke."""
 
-    @abstractmethod
-    def work_input(self, item):
-        """Perform work on input."""
-
-    def work_output(self, item) -> None:
-        """Put result into queue."""
-        pop_if_full(self._result_queues[item["camera_identifier"]], item)
+    def spawn_subprocess(self) -> RestartablePopen:
+        """Spawn subprocess."""
+        return RestartablePopen(
+            (
+                "python3.9 -u viseron/components/edgetpu/edgetpu_subprocess.py "
+                f"--manager-port {self._server_port} "
+                f"--manager-authkey {self._authkey_store.authkey} "
+                f"--device {self._device} "
+                f"--model {self._model} "
+                f"--model-type {self._domain} "
+                f"--loglevel DEBUG"
+            ).split(" "),
+            name=self.subprocess_name,
+            stdout=self._log_pipe,
+            stderr=self._log_pipe,
+        )
 
     def invoke(self, frame, camera_identifier, result_queue):
         """Invoke interpreter."""
@@ -246,6 +306,27 @@ class EdgeTPU(ChildProcessWorker):
         )
         item = result_queue.get()
         return item["result"]
+
+    def work_output(self, item) -> None:
+        """Put result into queue."""
+        if item == "init_done":
+            self._process_initialization_done.set()
+            LOGGER.debug("EdgeTPU initialized")
+            return
+
+        if item.get("get_model_size", None):
+            self._model_width = item["get_model_size"]["model_width"]
+            self._model_height = item["get_model_size"]["model_height"]
+            self._model_size_event.set()
+            return
+
+        if item == "init_failed":
+            LOGGER.error("Failed to initialize EdgeTPU")
+            self._process_initialization_error.set()
+            self._process_initialization_done.set()
+            return
+        self.post_process(item)
+        pop_if_full(self._result_queues[item["camera_identifier"]], item)
 
     @property
     def model_width(self) -> int:
@@ -261,68 +342,31 @@ class EdgeTPU(ChildProcessWorker):
 class EdgeTPUDetection(EdgeTPU):
     """EdgeTPU object detector interface."""
 
-    def work_input(self, item):
-        """Perform object detection."""
-        common.set_input(self.interpreter, item["frame"])
-        self.interpreter.invoke()
-        item["result"] = self.post_process(item)
-        return item
-
-    def post_process(self, _item):
+    def post_process(self, item):
         """Post process detections."""
         processed_objects = []
-        objects = detect.get_objects(self.interpreter, 0.1)
-
-        for obj in objects:
+        for obj in item["result"]:
             processed_objects.append(
                 DetectedObject(
-                    self.labels.get(obj.id, obj.id),
-                    float(obj.score),
-                    obj.bbox.xmin,
-                    obj.bbox.ymin,
-                    obj.bbox.xmax,
-                    obj.bbox.ymax,
+                    self.labels.get(obj["label"], obj["label"]),
+                    float(obj["score"]),
+                    obj["bbox"]["xmin"],
+                    obj["bbox"]["ymin"],
+                    obj["bbox"]["xmax"],
+                    obj["bbox"]["ymax"],
                     relative=False,
                     model_res=(self.model_width, self.model_height),
                 )
             )
-
-        return processed_objects
+        item["result"] = processed_objects
 
 
 class EdgeTPUClassification(EdgeTPU):
     """EdgeTPU image classification interface."""
 
-    def work_input(self, item):
-        """Perform image classification.
-
-        Some models have unique input quantization values and require additional
-        preprocessing.
-        """
-        params = common.input_details(self.interpreter, "quantization_parameters")
-        scale = params["scales"]
-        zero_point = params["zero_points"]
-        mean = 128.0
-        std = 128.0
-        if abs(scale * std - 1) < 1e-5 and abs(mean - zero_point) < 1e-5:
-            # Input data does not require preprocessing.
-            common.set_input(self.interpreter, item["frame"])
-        else:
-            # Input data requires preprocessing
-            normalized_input = (np.asarray(item["frame"]) - mean) / (
-                std * scale
-            ) + zero_point
-            np.clip(normalized_input, 0, 255, out=normalized_input)
-            common.set_input(self.interpreter, normalized_input.astype(np.uint8))
-
-        self.interpreter.invoke()
-        item["result"] = self.post_process(item)
-        return item
-
-    def post_process(self, item):
+    def post_process(self, item) -> ImageClassificationResult | None:
         """Post process classifications."""
-        classifications = classify.get_classes(self.interpreter, top_k=1)
-        for classification in classifications:
+        for classification in item["result"]:
             return ImageClassificationResult(
                 item["camera_identifier"],
                 self.labels.get(classification.id, int(classification.id)),

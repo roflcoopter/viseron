@@ -72,6 +72,7 @@
 !/requirements_test.txt
 !/requirements.txt
 !setup.py
+!manager.py
 
 # Frontend
 !/frontend
