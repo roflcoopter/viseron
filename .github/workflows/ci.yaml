@@ -54,7 +54,7 @@ jobs:
         uses: ./.github/templates/run_in_venv
         with:
           command: |
-            pip3 install --extra-index-url -r requirements.txt -r requirements_test.txt -r requirements_ci.txt && \
+            pip3 install -r requirements.txt -r requirements_test.txt -r requirements_ci.txt && \
             pre-commit install
 
   prepare-pre-commit:
