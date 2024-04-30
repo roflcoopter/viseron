@@ -9,7 +9,7 @@ on:
 
 env:
   CACHE_VERSION: 1
-  DEFAULT_PYTHON: 3.10
+  DEFAULT_PYTHON: "3.10"
   PRE_COMMIT_CACHE: ~/.cache/pre-commit
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
@@ -18,7 +18,7 @@ env:
 jobs:
   prepare-python-venv:
     name: Prepare Python venv
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       python-venv-cache-key: ${{ steps.python-venv-cache-key.outputs.key }}
     steps:
@@ -60,7 +60,7 @@ jobs:
 
   prepare-pre-commit:
     name: Prepare pre-commit
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: prepare-python-venv
     outputs:
       pre-commit-cache-key: ${{ steps.pre-commit-cache-key.outputs.key }}
@@ -105,7 +105,7 @@ jobs:
 
   run-isort:
     name: Run isort
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -145,7 +145,7 @@ jobs:
 
   run-black:
     name: Run black
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -185,7 +185,7 @@ jobs:
 
   run-codespell:
     name: Run codespell
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -225,7 +225,7 @@ jobs:
 
   run-mypy:
     name: Run mypy
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -265,7 +265,7 @@ jobs:
 
   run-pylint:
     name: Run pylint
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -306,7 +306,7 @@ jobs:
 
   run-flake8:
     name: Run flake8
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -346,7 +346,7 @@ jobs:
 
   run-pyupgrade:
     name: Run pyupgrade
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -386,7 +386,7 @@ jobs:
 
   run-pytest:
     name: Run pytest
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: prepare-python-venv
     steps:
       - name: Check out code from GitHub
@@ -435,7 +435,7 @@ jobs:
 
   run-generated-docs:
     name: Check generated docs
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
