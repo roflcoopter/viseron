@@ -4,10 +4,11 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from queue import Queue
 from threading import Lock, Timer
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Result, delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
@@ -221,20 +222,25 @@ class TierHandler(FileSystemEventHandler):
     def _on_created(self, event: FileCreatedEvent) -> None:
         """Insert into database when file is created."""
         self._logger.debug("File created: %s", event.src_path)
-        with self._storage.get_session() as session:
-            stmt = insert(Files).values(
-                tier_id=self._tier_id,
-                tier_path=self._tier[CONFIG_PATH],
-                camera_identifier=self._camera.identifier,
-                category=self._category,
-                subcategory=self._subcategory,
-                path=event.src_path,
-                directory=os.path.dirname(event.src_path),
-                filename=os.path.basename(event.src_path),
-                size=os.path.getsize(event.src_path),
+        try:
+            with self._storage.get_session() as session:
+                stmt = insert(Files).values(
+                    tier_id=self._tier_id,
+                    tier_path=self._tier[CONFIG_PATH],
+                    camera_identifier=self._camera.identifier,
+                    category=self._category,
+                    subcategory=self._subcategory,
+                    path=event.src_path,
+                    directory=os.path.dirname(event.src_path),
+                    filename=os.path.basename(event.src_path),
+                    size=os.path.getsize(event.src_path),
+                )
+                session.execute(stmt)
+                session.commit()
+        except IntegrityError:
+            self._logger.error(
+                "Failed to insert file %s into database, already exists", event.src_path
             )
-            session.execute(stmt)
-            session.commit()
 
         self.check_tier()
 
@@ -646,7 +652,7 @@ def handle_file(
             logger.warning(
                 "Failed to move file %s to next tier, new path is the same as old. "
                 "Viseron tries to mitigate this, but it can happen if you recently "
-                "changed the tier paths.",
+                "changed the tier paths or a previous move failed.",
                 path,
             )
         else:
