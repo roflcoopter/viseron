@@ -254,7 +254,7 @@ class DarknetDNN(BaseDarknet):
         self._net.setPreferableBackend(backend)
         self._net.setPreferableTarget(target)
 
-        self._model = cv2.dnn_DetectionModel(self._net)
+        self._model = cv2.dnn_DetectionModel(self._net)  # type: ignore[attr-defined]
         self._model.setInputParams(
             size=(self.model_width, self.model_height), scale=1 / 255
         )

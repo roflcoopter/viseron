@@ -1,8 +1,8 @@
-astroid==2.14.2
+astroid==3.1.0
 coverage===6.4.4
 pre-commit==2.20.0
-pylint==2.16.4
-pylint-pytest==1.1.2
+pylint==3.1.0
+pylint-pytest==2.0.0a0
 pylint-strict-informational==0.1
 pytest==7.1.3
 pytest-alembic==0.10.7
