@@ -167,7 +167,7 @@ class CodeProjectAITrain:
                 width, height, _ = face_image.shape
                 max_dimension = max(width, height)
                 face_image = letterbox_resize(face_image, max_dimension, max_dimension)
-                face_image = cv2.imencode(".jpg", face_image)[1].tobytes()
+                face_image_jpg = cv2.imencode(".jpg", face_image)[1].tobytes()
                 detections = self._cpai.detect(face_image)
                 LOGGER.debug("Face detection result: %s", detections)
                 if len(detections) != 1:
@@ -181,7 +181,7 @@ class CodeProjectAITrain:
                         )
                     )
                 else:
-                    self._cpai.register(face_dir, face_image)
+                    self._cpai.register(face_dir, face_image_jpg)
 
 
 HTTP_OK = 200
