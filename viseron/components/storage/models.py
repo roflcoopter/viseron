@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import datetime
-from typing import Callable, Dict, Literal, Optional
+from collections.abc import Callable
+from typing import Literal
 
 from sqlalchemy import DateTime, Float, Integer, LargeBinary, String, types
 from sqlalchemy.dialects.postgresql import JSONB
@@ -10,7 +11,7 @@ from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 from sqlalchemy.sql import expression
 
-ColumnMeta = Dict[str, str]
+ColumnMeta = dict[str, str]
 
 
 class UTCDateTime(types.TypeDecorator):
@@ -96,14 +97,14 @@ class Recordings(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
     start_time: Mapped[datetime.datetime] = mapped_column(UTCDateTime(timezone=False))
-    end_time: Mapped[Optional[datetime.datetime]] = mapped_column(
+    end_time: Mapped[datetime.datetime | None] = mapped_column(
         UTCDateTime(timezone=False), nullable=True
     )
     created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
     updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
 
-    trigger_type: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    trigger_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    trigger_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    trigger_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     thumbnail_path: Mapped[str] = mapped_column(String, nullable=True)
     clip_path: Mapped[str] = mapped_column(String, nullable=True)
 
@@ -136,7 +137,7 @@ class Objects(Base):
     x2: Mapped[float] = mapped_column(Float)
     y2: Mapped[float] = mapped_column(Float)
     snapshot_path: Mapped[str] = mapped_column(String, nullable=True)
-    zone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    zone: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
     updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
 
@@ -149,7 +150,7 @@ class Motion(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
     start_time: Mapped[datetime.datetime] = mapped_column(UTCDateTime(timezone=False))
-    end_time: Mapped[Optional[datetime.datetime]] = mapped_column(
+    end_time: Mapped[datetime.datetime | None] = mapped_column(
         UTCDateTime(timezone=False), nullable=True
     )
     created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())

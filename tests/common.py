@@ -1,8 +1,7 @@
 """Common mocks for Viseron tests."""
-
-
 import datetime
-from typing import Any, Callable, Generator, Literal, Type
+from collections.abc import Callable, Generator
+from typing import Any, Literal
 from unittest.mock import MagicMock
 
 import pytest
@@ -49,7 +48,7 @@ class MockCamera(MagicMock):
         )
 
 
-def return_any(cls: Type[Any]):
+def return_any(cls: type[Any]):
     """Mock any return value."""
 
     class MockAny(cls):

@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import hmac
 import logging
+from collections.abc import Callable
 from datetime import timedelta
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Callable, Literal, TypeVar, overload
+from typing import TYPE_CHECKING, Literal, TypeVar, overload
 
 import tornado.web
 from sqlalchemy.orm import Session

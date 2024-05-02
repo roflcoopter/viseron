@@ -4,16 +4,16 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import logging
-import multiprocessing
 import multiprocessing.process
 import os
 import sys
 import threading
 import time
 import tracemalloc
+from collections.abc import Callable
 from functools import partial
 from timeit import default_timer as timer
-from typing import TYPE_CHECKING, Any, Callable, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler

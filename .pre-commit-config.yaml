@@ -10,6 +10,18 @@ repos:
           - --py38-plus
           - --keep-runtime-typing
         files: ^(viseron|tests)/.+\.py$
+  - repo: https://github.com/cdce8p/python-typing-update
+    rev: v0.6.0
+    hooks:
+      # Run `python-typing-update` hook manually:
+      # pre-commit run --hook-stage manual python-typing-update --all-files
+      - id: python-typing-update
+        stages: [manual]
+        args:
+          - --py310-plus
+          - --force
+          - --keep-updates
+        files: ^(viseron|tests)/.+\.py$
   - repo: https://github.com/PyCQA/autoflake
     rev: v2.0.0
     hooks:

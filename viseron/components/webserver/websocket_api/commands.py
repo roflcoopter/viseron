@@ -4,8 +4,9 @@ from __future__ import annotations
 import logging
 import os
 import signal
+from collections.abc import Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import tornado
 import voluptuous as vol

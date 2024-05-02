@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import datetime
 import logging
+from collections.abc import Callable
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 import voluptuous as vol
 from sqlalchemy import select

@@ -1,6 +1,7 @@
 """Custom voluptuous validators."""
 import logging
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 import voluptuous as vol
 
@@ -9,7 +10,7 @@ from viseron.helpers import slugify
 LOGGER = logging.getLogger(__name__)
 
 
-def deprecated(key: str, replacement: Optional[str] = None) -> Callable[[dict], dict]:
+def deprecated(key: str, replacement: str | None = None) -> Callable[[dict], dict]:
     """Mark key as deprecated and optionally replace it.
 
     Usage example:
@@ -161,7 +162,7 @@ class CoerceNoneToDict:
     def __init__(self) -> None:
         pass
 
-    def __call__(self, value: Optional[Dict[str, None]]) -> Dict[str, None]:
+    def __call__(self, value: dict[str, None] | None) -> dict[str, None]:
         """Coerce None to empty dict."""
         if isinstance(value, dict):
             return value

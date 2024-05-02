@@ -1,5 +1,5 @@
 """Object detector domain constants."""
-from typing import Any, Dict, Final, List
+from typing import Any, Final
 
 DOMAIN: Final = "object_detector"
 
@@ -87,11 +87,11 @@ CONFIG_COORDINATES = "coordinates"
 
 DEFAULT_FPS = 1
 DEFAULT_SCAN_ON_MOTION_ONLY = True
-DEFAULT_LABELS: List[Dict[str, str]] = []
+DEFAULT_LABELS: list[dict[str, str]] = []
 DEFAULT_MAX_FRAME_AGE = 2
 DEFAULT_LOG_ALL_OBJECTS = False
-DEFAULT_MASK: List[Dict[str, int]] = []
-DEFAULT_ZONES: List[Dict[str, Any]] = []
+DEFAULT_MASK: list[dict[str, int]] = []
+DEFAULT_ZONES: list[dict[str, Any]] = []
 
 DESC_CAMERAS = (
     "Camera-specific configuration. All subordinate "

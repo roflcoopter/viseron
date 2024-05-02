@@ -5,7 +5,8 @@ import copy
 import logging
 import os
 import pathlib
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 import voluptuous as vol
 from alembic import command, script

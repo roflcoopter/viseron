@@ -7,8 +7,9 @@ import os
 import shutil
 import threading
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Sequence, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import cv2
 import numpy as np

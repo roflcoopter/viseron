@@ -8,8 +8,9 @@ import subprocess
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from queue import Queue
-from typing import Any, Callable, TypedDict
+from typing import Any, TypedDict
 
 from tornado.ioloop import IOLoop
 from tornado.queues import Queue as tornado_queue
