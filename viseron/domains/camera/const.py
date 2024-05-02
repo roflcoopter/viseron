@@ -204,3 +204,14 @@ DESC_MJPEG_STREAM = (
     "Name of the MJPEG stream. Used to build the URL to access the stream.<br>"
     "Valid characters are lowercase a-z, numbers and underscores."
 )
+
+
+# Constants copied from FFmpeg component to avoid circular imports
+CONFIG_RECORDER_HWACCEL_ARGS = "hwaccel_args"
+CONFIG_RECORDER_CODEC = "codec"
+CONFIG_RECORDER_AUDIO_CODEC = "audio_codec"
+CONFIG_RECORDER_VIDEO_FILTERS = "video_filters"
+CONFIG_RECORDER_AUDIO_FILTERS = "audio_filters"
+CONFIG_RECORDER_OUPTUT_ARGS = "output_args"
+CONFIG_RECORDER = "recorder"
+CONFIG_FFMPEG_LOGLEVEL = "ffmpeg_loglevel"
