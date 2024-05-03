@@ -6,10 +6,7 @@
 !tests/*
 !viseron/
 !viseron/*
-!docker/jetson-nano/pycoral-2.0.0-cp38-cp38-linux_aarch64.whl
-!docker/jetson-nano/tflite_runtime-2.5.0.post1-cp38-cp38-linux_aarch64.whl
-!docker/yolov4.cfg
-!docker/yolov4-tiny.cfg
+!manager.py
 !docker/ffmpeg_wrapper
 !docker/ffprobe_wrapper
 !requirements.txt

@@ -7,8 +7,9 @@ import os
 import shutil
 import threading
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Sequence, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import cv2
 import numpy as np
@@ -359,19 +360,33 @@ class AbstractRecorder(ABC, RecorderBase):
             if file.meta.get("m3u8", False).get("EXTINF", False)
         ]
         event_clip = self._camera.fragmenter.concatenate_fragments(fragments)
-        if event_clip:
-            shutil.move(
-                event_clip,
-                recording.path,
+        if not event_clip:
+            return
+
+        shutil.move(
+            event_clip,
+            recording.path,
+        )
+        self._logger.debug(f"Moved event clip to {recording.path}")
+
+        with self._storage.get_session() as session:
+            stmt = (
+                update(Recordings)
+                .where(Recordings.id == recording.id)
+                .values(
+                    clip_path=recording.path,
+                )
             )
-            self._logger.debug(f"Moved event clip to {recording.path}")
-            self._vis.dispatch_event(
-                EVENT_RECORDER_COMPLETE,
-                EventRecorderData(
-                    camera=self._camera,
-                    recording=recording,
-                ),
-            )
+            session.execute(stmt)
+            session.commit()
+
+        self._vis.dispatch_event(
+            EVENT_RECORDER_COMPLETE,
+            EventRecorderData(
+                camera=self._camera,
+                recording=recording,
+            ),
+        )
 
     @abstractmethod
     def _stop(self, recording: Recording):

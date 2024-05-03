@@ -20,6 +20,16 @@ from sqlalchemy import insert
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import FilesMeta
 from viseron.const import CAMERA_SEGMENT_DURATION, TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
+from viseron.domains.camera.const import (
+    CONFIG_FFMPEG_LOGLEVEL,
+    CONFIG_RECORDER,
+    CONFIG_RECORDER_AUDIO_CODEC,
+    CONFIG_RECORDER_AUDIO_FILTERS,
+    CONFIG_RECORDER_CODEC,
+    CONFIG_RECORDER_HWACCEL_ARGS,
+    CONFIG_RECORDER_OUPTUT_ARGS,
+    CONFIG_RECORDER_VIDEO_FILTERS,
+)
 from viseron.helpers.logs import LogPipe
 
 if TYPE_CHECKING:
@@ -204,11 +214,49 @@ class Fragmenter:
         self._create_fragmented_mp4()
         self._logger.debug("Fragment thread shutdown complete")
 
+    def video_filter_args(self) -> list[str] | list:
+        """Return video filter arguments."""
+        if filters := self._camera.config[CONFIG_RECORDER][
+            CONFIG_RECORDER_VIDEO_FILTERS
+        ]:
+            return [
+                "-vf",
+                ",".join(filters),
+            ]
+        return []
+
+    def audio_filter_args(self) -> list[str] | list:
+        """Return audio filter arguments."""
+        if filters := self._camera.config[CONFIG_RECORDER][
+            CONFIG_RECORDER_AUDIO_FILTERS
+        ]:
+            return [
+                "-af",
+                ",".join(filters),
+            ]
+        return []
+
+    def audio_codec_args(self) -> list | list[str]:
+        """Return audio codec arguments."""
+        if codec_args := self._camera.config[CONFIG_RECORDER][
+            CONFIG_RECORDER_AUDIO_CODEC
+        ]:
+            return ["-c:a", codec_args]
+        return ["-an"]
+
     def concatenate_fragments(
         self, fragments: list[Fragment], media_sequence=0
     ) -> str | Literal[False]:
-        """Concatenate fragments into a single mp4 file."""
-        filename = os.path.join(TEMP_DIR, f"{str(uuid.uuid4())}.mp4")
+        """Concatenate fragments into a single mp4 file.
+
+        HLS playlist is first concatenated to a temporary mp4 file without
+        transcoding. The temporary mp4 file is then transcoded to the final
+        mp4 file with the desired codecs and filters.
+        """
+        file_uuid = str(uuid.uuid4())
+        first_pass_filename = os.path.join(TEMP_DIR, f"temp-{file_uuid}.mp4")
+        filename = os.path.join(TEMP_DIR, f"{file_uuid}.mp4")
+
         playlist = generate_playlist(
             fragments,
             os.path.join(self._camera.segments_folder, "init.mp4"),
@@ -232,7 +280,7 @@ class Fragmenter:
                     "copy",
                     "-vcodec",
                     "copy",
-                    filename,
+                    first_pass_filename,
                 ],
                 input=playlist.encode("utf-8"),
                 stdout=self._log_pipe_ffmpeg,
@@ -242,6 +290,40 @@ class Fragmenter:
         except sp.CalledProcessError as err:
             self._logger.error(err)
             return False
+
+        ffmpeg_cmd = (
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                self._camera.config[CONFIG_RECORDER][CONFIG_FFMPEG_LOGLEVEL],
+                "-y",
+            ]
+            + self._camera.config[CONFIG_RECORDER][CONFIG_RECORDER_HWACCEL_ARGS]
+            + [
+                "-i",
+                first_pass_filename,
+            ]
+            + ["-c:v", self._camera.config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]]
+            + self.video_filter_args()
+            + self.audio_codec_args()
+            + self.audio_filter_args()
+            + self._camera.config[CONFIG_RECORDER][CONFIG_RECORDER_OUPTUT_ARGS]
+            + ["-movflags", "+faststart"]
+            + [filename]
+        )
+        self._logger.debug(f"Concatenation command: {' '.join(ffmpeg_cmd)}")
+        try:
+            sp.run(  # type: ignore[call-overload]
+                ffmpeg_cmd,
+                stdout=self._log_pipe_ffmpeg,
+                stderr=self._log_pipe_ffmpeg,
+                check=True,
+            )
+        except sp.CalledProcessError as err:
+            self._logger.error(err)
+            return False
+
         return filename
 
 

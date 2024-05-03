@@ -1,11 +1,9 @@
 ARG DARKNET_COMMIT
-ARG OPENCV_VERSION
 ARG CUDA_VERSION
 ARG UBUNTU_VERSION_NUMBER
 FROM roflcoopter/viseron-models:latest as models
 FROM roflcoopter/amd64-cuda-darknet:${DARKNET_COMMIT} as darknet
-FROM roflcoopter/amd64-cuda-opencv:${OPENCV_VERSION} as opencv
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-runtime-ubuntu${UBUNTU_VERSION_NUMBER}
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn9-runtime-ubuntu${UBUNTU_VERSION_NUMBER}
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
@@ -15,6 +13,8 @@ ARG OPENCL_VERSION
 ARG GMMLIB_VERSION
 ARG IGC_VERSION
 ARG LEVEL_ZERO_GPU
+ARG UBUNTU_VERSION_NUMBER
+ARG OPENVINO_VERSION
 
 ENV \
   NVIDIA_DRIVER_CAPABILITIES=all \
@@ -41,6 +41,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   clinfo \
   # FFmpeg
   libnuma1 && \
+  # OpenVINO
+  UBUNTU_YEAR=$(echo $UBUNTU_VERSION_NUMBER | cut -d'.' -f1) && \
+  OPENVINO_YEAR=$(echo $OPENVINO_VERSION | cut -d'.' -f1) && \
+  echo "deb https://apt.repos.intel.com/openvino/${OPENVINO_YEAR} ubuntu${UBUNTU_YEAR} main" | tee /etc/apt/sources.list.d/intel-openvino-${OPENVINO_YEAR}.list && \
+  wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
+  apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB  && \
+  apt-get update && apt-get install -y --no-install-recommends openvino-${OPENVINO_VERSION} && \
   # OpenCL
   mkdir /opencl &&\
   cd /opencl && \
@@ -59,6 +66,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ln -s /detectors/models/darknet/yolov7.weights /detectors/models/darknet/default.weights && \
   ln -s /detectors/models/darknet/yolov7.cfg /detectors/models/darknet/default.cfg
 
+# Install CUDNN 8 since OpenCV 4.9 does not support CUDNN 9
+RUN UBUNTU_VERSION=$(echo $UBUNTU_VERSION_NUMBER | tr -d '.') && \
+  wget "https://developer.download.nvidia.com/compute/redist/cudnn/v8.8.0/local_installers/12.0/cudnn-local-repo-ubuntu$UBUNTU_VERSION-8.8.0.121_1.0-1_amd64.deb" -O cudnn-local-repo.deb && \
+  dpkg -i cudnn-local-repo.deb && \
+  cp /var/cudnn-local-repo-ubuntu$UBUNTU_VERSION-8.8.0.121/cudnn-local-04B81517-keyring.gpg /usr/share/keyrings/ && \
+  apt-get update && \
+  apt-get install -y libcudnn8 libcudnn8-dev && \
+  rm cudnn-local-repo.deb
+
 COPY --from=darknet /darknet/lib /usr/local/lib
-# OpenVINO
-COPY --from=opencv /usr/local/runtime /usr/local/runtime/

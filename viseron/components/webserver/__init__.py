@@ -301,7 +301,7 @@ class Webserver(threading.Thread):
             future.result()
 
         asyncio.set_event_loop(self._asyncio_ioloop)
-        for task in asyncio.Task.all_tasks():
+        for task in asyncio.all_tasks(self._asyncio_ioloop):
             task.cancel()
 
         if self._httpserver:

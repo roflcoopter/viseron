@@ -14,12 +14,16 @@ export type ViseronContextState = {
   connection: Connection | undefined;
   connected: boolean;
   safeMode: boolean;
+  version: string | undefined;
+  gitCommit: string | undefined;
 };
 
 const contextDefaultValues: ViseronContextState = {
   connection: undefined,
   connected: false,
   safeMode: false,
+  version: undefined,
+  gitCommit: undefined,
 };
 
 export const ViseronContext =
@@ -54,6 +58,8 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
           ...prevContextValue,
           connected: true,
           safeMode: !!connection.system_information?.safe_mode,
+          version: connection.system_information?.version,
+          gitCommit: connection.system_information?.git_commit,
         }));
       };
       onDisconnectRef.current = async () => {

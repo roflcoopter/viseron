@@ -1,7 +1,8 @@
 """Watchdog for long-running threads."""
 import logging
 import threading
-from typing import Callable, Dict, List, Optional, overload
+from collections.abc import Callable
+from typing import overload
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.watchdog import WatchDog
@@ -30,7 +31,7 @@ class RestartableThread(threading.Thread):
         restart in case of an exception.
     """
 
-    thread_store: Dict[str, List[threading.Thread]] = {}
+    thread_store: dict[str, list[threading.Thread]] = {}
 
     @overload
     def __init__(
@@ -45,10 +46,10 @@ class RestartableThread(threading.Thread):
         stop_target=None,
         thread_store_category=None,
         register=True,
-        restart_method: Optional[Callable] = None,
+        restart_method: Callable | None = None,
         base_class=None,
         base_class_args=(),
-        stage: Optional[str] = VISERON_SIGNAL_SHUTDOWN,
+        stage: str | None = VISERON_SIGNAL_SHUTDOWN,
     ) -> None:
         ...
 
@@ -67,10 +68,10 @@ class RestartableThread(threading.Thread):
         poll_target: Callable,
         thread_store_category=None,
         register=True,
-        restart_method: Optional[Callable] = None,
+        restart_method: Callable | None = None,
         base_class=None,
         base_class_args=(),
-        stage: Optional[str] = VISERON_SIGNAL_SHUTDOWN,
+        stage: str | None = VISERON_SIGNAL_SHUTDOWN,
     ) -> None:
         ...
 
@@ -88,10 +89,10 @@ class RestartableThread(threading.Thread):
         poll_target=None,
         thread_store_category=None,
         register=True,
-        restart_method: Optional[Callable] = None,
+        restart_method: Callable | None = None,
         base_class=None,
         base_class_args=(),
-        stage: Optional[str] = VISERON_SIGNAL_SHUTDOWN,
+        stage: str | None = VISERON_SIGNAL_SHUTDOWN,
     ) -> None:
         # _started is set in Thread.__init__() but we set it here to make mypy happy
         self._started = threading.Event()
@@ -130,22 +131,22 @@ class RestartableThread(threading.Thread):
         return self._started.is_set()
 
     @property
-    def poll_method(self) -> Optional[Callable]:
+    def poll_method(self) -> Callable | None:
         """Return poll method."""
         return self._poll_method
 
     @property
-    def poll_target(self) -> Optional[Callable]:
+    def poll_target(self) -> Callable | None:
         """Return poll target method."""
         return self._poll_target
 
     @property
-    def restart_method(self) -> Optional[Callable]:
+    def restart_method(self) -> Callable | None:
         """Return restart method."""
         return self._restart_method
 
     @property
-    def thread_store_category(self) -> Optional[str]:
+    def thread_store_category(self) -> str | None:
         """Return given thread store category."""
         return self._thread_store_category
 
@@ -185,7 +186,7 @@ class RestartableThread(threading.Thread):
 class ThreadWatchDog(WatchDog):
     """A watchdog for long running threads."""
 
-    registered_items: List[RestartableThread] = []
+    registered_items: list[RestartableThread] = []
 
     def __init__(self) -> None:
         super().__init__()
@@ -193,8 +194,8 @@ class ThreadWatchDog(WatchDog):
 
     def watchdog(self) -> None:
         """Check for stopped threads and restart them."""
-        new_threads: List[RestartableThread] = []
-        deleted_threads: List[RestartableThread] = []
+        new_threads: list[RestartableThread] = []
+        deleted_threads: list[RestartableThread] = []
         registered_thread: RestartableThread
         for registered_thread in self.registered_items.copy():
             if not registered_thread.started:

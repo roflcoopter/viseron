@@ -6,12 +6,13 @@ from __future__ import annotations
 
 import typing
 from collections import OrderedDict
+from collections.abc import MutableMapping
 
 _KT = typing.TypeVar("_KT")
 _VT = typing.TypeVar("_VT")
 
 
-class FixedSizeDict(OrderedDict, typing.MutableMapping[_KT, _VT]):
+class FixedSizeDict(OrderedDict, MutableMapping[_KT, _VT]):
     """A dictionary with a fixed size.
 
     If the dictionary exceeds the maximum size, the oldest item is removed.

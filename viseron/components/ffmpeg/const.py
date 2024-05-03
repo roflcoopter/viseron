@@ -1,6 +1,6 @@
 """FFmpeg constants."""
 import logging
-from typing import Final, List
+from typing import Final
 
 COMPONENT = "ffmpeg"
 
@@ -99,11 +99,11 @@ DEFAULT_WIDTH: Final = None
 DEFAULT_HEIGHT: Final = None
 DEFAULT_FPS: Final = None
 DEFAULT_INPUT_ARGS: Final = None
-DEFAULT_HWACCEL_ARGS: List["str"] = []
+DEFAULT_HWACCEL_ARGS: list["str"] = []
 DEFAULT_CODEC = "unset"
 DEFAULT_AUDIO_CODEC = "unset"
 DEFAULT_RTSP_TRANSPORT = "tcp"
-DEFAULT_VIDEO_FILTERS: List[str] = []
+DEFAULT_VIDEO_FILTERS: list[str] = []
 DEFAULT_PIX_FMT = "nv12"
 DEFAULT_FRAME_TIMEOUT = 60
 
@@ -164,12 +164,12 @@ CONFIG_RECORDER_AUDIO_FILTERS = "audio_filters"
 CONFIG_SEGMENTS_FOLDER = "segments_folder"
 CONFIG_RECORDER_OUPTUT_ARGS = "output_args"
 
-DEFAULT_RECORDER_HWACCEL_ARGS: List[str] = []
+DEFAULT_RECORDER_HWACCEL_ARGS: list[str] = []
 DEFAULT_RECORDER_CODEC = "copy"
 DEFAULT_RECORDER_AUDIO_CODEC = "copy"
-DEFAULT_RECORDER_VIDEO_FILTERS: List[str] = []
-DEFAULT_RECORDER_AUDIO_FILTERS: List[str] = []
-DEFAULT_RECORDER_OUTPUT_ARGS: List[str] = []
+DEFAULT_RECORDER_VIDEO_FILTERS: list[str] = []
+DEFAULT_RECORDER_AUDIO_FILTERS: list[str] = []
+DEFAULT_RECORDER_OUTPUT_ARGS: list[str] = []
 DEFAULT_SEGMENTS_FOLDER = "/segments"
 
 DESC_RECORDER_HWACCEL_ARGS = "FFmpeg encoder hardware acceleration arguments."

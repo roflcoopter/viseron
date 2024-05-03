@@ -1,12 +1,12 @@
 """Object detector domain."""
 from __future__ import annotations
 
-import collections
 import logging
 import time
 from abc import ABC, abstractmethod
+from collections import deque
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Any, Deque
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from sqlalchemy import insert
@@ -250,9 +250,9 @@ class AbstractObjectDetector(ABC):
         self._objects_in_fov: list[DetectedObject] = []
         self.object_filters: dict[str, Filter] = {}
 
-        self._preproc_fps: Deque[float] = collections.deque(maxlen=50)
-        self._inference_fps: Deque[float] = collections.deque(maxlen=50)
-        self._theoretical_max_fps: Deque[float] = collections.deque(maxlen=50)
+        self._preproc_fps: deque[float] = deque(maxlen=50)
+        self._inference_fps: deque[float] = deque(maxlen=50)
+        self._theoretical_max_fps: deque[float] = deque(maxlen=50)
 
         self._mask = []
         if config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK]:
@@ -490,7 +490,7 @@ class AbstractObjectDetector(ABC):
         return self._min_confidence
 
     @staticmethod
-    def _avg_fps(fps_deque: collections.deque):
+    def _avg_fps(fps_deque: deque):
         """Calculate the average fps from a deuqe of measurements."""
         if fps_deque:
             return round(sum(fps_deque) / len(fps_deque), 1)

@@ -1,7 +1,8 @@
 """Viseron fixtures."""
 from __future__ import annotations
 
-from typing import Any, Generator, Iterator
+from collections.abc import Generator, Iterator
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest

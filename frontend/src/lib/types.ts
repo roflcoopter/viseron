@@ -2,6 +2,8 @@ import { AxiosError } from "axios";
 import { Dayjs } from "dayjs";
 
 export type SystemInformation = {
+  version: string;
+  git_commit: string;
   safe_mode: boolean;
 };
 

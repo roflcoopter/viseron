@@ -5,7 +5,8 @@ import copy
 import logging
 import os
 import pathlib
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypedDict
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 import voluptuous as vol
 from alembic import command, script
@@ -35,7 +36,8 @@ from viseron.components.storage.const import (
 )
 from viseron.components.storage.models import Base, Motion, Recordings
 from viseron.components.storage.tier_handler import (
-    RecorderTierHandler,
+    RecordingsTierHandler,
+    SegmentsTierHandler,
     SnapshotTierHandler,
     ThumbnailTierHandler,
 )
@@ -75,7 +77,12 @@ class TierSubcategory(TypedDict):
     """Tier subcategory."""
 
     subcategory: str
-    tier_handler: type[SnapshotTierHandler | RecorderTierHandler | ThumbnailTierHandler]
+    tier_handler: type[
+        SnapshotTierHandler
+        | SegmentsTierHandler
+        | ThumbnailTierHandler
+        | RecordingsTierHandler
+    ]
 
 
 class TierCategories(TypedDict):
@@ -89,11 +96,11 @@ TIER_CATEGORIES: TierCategories = {
     "recorder": [
         {
             "subcategory": "segments",
-            "tier_handler": RecorderTierHandler,
+            "tier_handler": SegmentsTierHandler,
         },
         {
             "subcategory": "recordings",
-            "tier_handler": RecorderTierHandler,
+            "tier_handler": RecordingsTierHandler,
         },
         {
             "subcategory": "thumbnails",
@@ -156,7 +163,7 @@ class Storage:
         self._recordings_tiers = config[CONFIG_RECORDER][CONFIG_TIERS]
         self._snapshots_tiers = config[CONFIG_SNAPSHOTS][CONFIG_TIERS]
         self._camera_tier_handlers: dict[
-            str, dict[str, list[dict[str, SnapshotTierHandler | RecorderTierHandler]]]
+            str, dict[str, list[dict[str, SnapshotTierHandler | SegmentsTierHandler]]]
         ] = {}
         self.camera_requested_files_count: dict[str, RequestedFilesCount] = {}
 

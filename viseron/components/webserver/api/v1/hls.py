@@ -4,9 +4,10 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from sqlalchemy import Row, select
@@ -315,7 +316,7 @@ def _generate_playlist(
     return playlist
 
 
-def has_gap_before_start(files: List[Row[Any]], start_timestamp: int) -> bool:
+def has_gap_before_start(files: list[Row[Any]], start_timestamp: int) -> bool:
     """Check if there is a gap before the start of the playlist."""
     if files and files[0].orig_ctime - datetime.datetime.fromtimestamp(
         start_timestamp, datetime.timezone.utc
@@ -324,7 +325,7 @@ def has_gap_before_start(files: List[Row[Any]], start_timestamp: int) -> bool:
     return False
 
 
-def has_gap_in_segments(prev_file: Optional[Row[Any]], file: Row[Any]) -> bool:
+def has_gap_in_segments(prev_file: Row[Any] | None, file: Row[Any]) -> bool:
     """Check if there is a gap in segments."""
     if prev_file and file.orig_ctime - prev_file.orig_ctime > datetime.timedelta(
         seconds=CAMERA_SEGMENT_DURATION * 3
@@ -335,7 +336,7 @@ def has_gap_in_segments(prev_file: Optional[Row[Any]], file: Row[Any]) -> bool:
 
 def update_hls_client(
     hls_client_id: str,
-    fragments: List[Fragment],
+    fragments: list[Fragment],
 ) -> int:
     """Keep track of HLS client media sequence."""
     media_sequence = 0
@@ -354,18 +355,18 @@ def update_hls_client(
 
 def _generate_playlist_time_period(
     get_session: Callable[[], Session],
-    camera: Union[AbstractCamera, FailedCamera],
-    hls_client_id: Optional[str],
+    camera: AbstractCamera | FailedCamera,
+    hls_client_id: str | None,
     start_timestamp: int,
-    end_timestamp: Optional[int] = None,
+    end_timestamp: int | None = None,
     end_playlist_at_timestamp: bool = False,
-) -> Optional[str]:
+) -> str | None:
     """Generate the HLS playlist for a time period."""
     files = get_time_period_fragments(
         camera.identifier, start_timestamp, end_timestamp, get_session
     )
     fragments = []
-    prev_file: Optional[Row[Any]] = None
+    prev_file: Row[Any] | None = None
     end_playlist = bool(end_timestamp) if not end_playlist_at_timestamp else False
 
     if has_gap_before_start(files, start_timestamp):

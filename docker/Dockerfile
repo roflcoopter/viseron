@@ -67,7 +67,7 @@ ENV \
   S6_KILL_FINISH_MAXTIME=30000 \
   PATH=$PATH:/home/abc/bin \
   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib \
-  PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.8/site-packages \
+  PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.10/site-packages \
   OPENCV_OPENCL_CACHE_ENABLE=false \
   PGDATA=/config/postgresql \
   PG_COLOR="always"
@@ -76,6 +76,7 @@ ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLA
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \
+  software-properties-common \
   curl \
   gnupg \
   tzdata \
@@ -109,15 +110,29 @@ RUN \
   && rm -rf /var/lib/apt/lists/* \
   \
   && python3 -m pip install --upgrade pip \
-  && pip3 install /wheels/*.whl \
+  && python3 -m pip install install /wheels/*.whl \
   && rm -r /wheels \
   \
+  # Install Python 3.9 if it doesn't exist
+  && if [ ! -f /usr/local/bin/python3.9 ]; then \
+  add-apt-repository ppa:deadsnakes/ppa -y && \
+  apt-get update && apt-get install -y --no-install-recommends \
+  python3.9 \
+  python3.9-distutils \
+  # Get pip
+  && curl -s https://bootstrap.pypa.io/get-pip.py | python3.9 - ; \
+  fi \
+  \
+  # Install Coral Edge TPU
   && echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" | tee /etc/apt/sources.list.d/coral-edgetpu.list \
   && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
   && echo "libedgetpu1-max libedgetpu/accepted-eula select true" | debconf-set-selections \
-  && apt-get -qq update && apt-get -qq install --no-install-recommends -y \
+  && apt-get -qq update && apt-get -qq install -y --no-install-recommends \
   libedgetpu1-max \
-  python3-pycoral \
+  && python3.9 -m pip install \
+  --extra-index-url https://google-coral.github.io/py-repo/ \
+  --extra-index-url https://www.piwheels.org/simple \
+  pycoral~=2.0 \
   \
   && chmod +x /tmp/s6-overlay-installer && /tmp/s6-overlay-installer / \
   && apt-get autoremove -y \
@@ -143,6 +158,7 @@ COPY --from=ffmpeg /usr/local /ffmpeg/
 COPY --from=gpac /gpac/bin/gcc /usr/bin
 COPY rootfs/ /
 COPY --from=frontend /frontend/dist /src/viseron/frontend/
+COPY manager.py /src/manager.py
 COPY viseron /src/viseron/
 
 ARG VISERON_VERSION="dev"

@@ -42,7 +42,8 @@
         "dbaeumer.vscode-eslint",
         "ms-azuretools.vscode-docker",
         "unifiedjs.vscode-mdx",
-        "ckolkman.vscode-postgres"
+        "ckolkman.vscode-postgres",
+        "ms-azure-devops.azure-pipelines"
       ],
       "settings": {
         "python.pythonPath": "/usr/local/bin/python",
@@ -77,13 +78,12 @@
         },
         "[javascript]": {
           "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "files.associations": {
+          "**/azure-pipelines/*.yml": "azure-pipelines",
+          "**/azure-pipelines/*.yaml": "azure-pipelines"
         }
       }
     }
-  },
-  "features": {
-    "ghcr.io/devcontainers-contrib/features/curl-apt-get:1": {},
-    "ghcr.io/devcontainers/features/git:1": {},
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   }
 }

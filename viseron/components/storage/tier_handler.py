@@ -4,10 +4,11 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from queue import Queue
 from threading import Lock, Timer
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Result, delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
@@ -126,6 +127,11 @@ class TierHandler(FileSystemEventHandler):
         """Tier configuration."""
         return self._tier
 
+    @property
+    def first_tier(self) -> bool:
+        """Return if first tier."""
+        return self._tier_id == 0
+
     def add_file_handler(self, path: str, pattern: str):
         """Add file handler to webserver."""
         self._logger.debug(f"Adding handler for /files{pattern}")
@@ -216,20 +222,25 @@ class TierHandler(FileSystemEventHandler):
     def _on_created(self, event: FileCreatedEvent) -> None:
         """Insert into database when file is created."""
         self._logger.debug("File created: %s", event.src_path)
-        with self._storage.get_session() as session:
-            stmt = insert(Files).values(
-                tier_id=self._tier_id,
-                tier_path=self._tier[CONFIG_PATH],
-                camera_identifier=self._camera.identifier,
-                category=self._category,
-                subcategory=self._subcategory,
-                path=event.src_path,
-                directory=os.path.dirname(event.src_path),
-                filename=os.path.basename(event.src_path),
-                size=os.path.getsize(event.src_path),
+        try:
+            with self._storage.get_session() as session:
+                stmt = insert(Files).values(
+                    tier_id=self._tier_id,
+                    tier_path=self._tier[CONFIG_PATH],
+                    camera_identifier=self._camera.identifier,
+                    category=self._category,
+                    subcategory=self._subcategory,
+                    path=event.src_path,
+                    directory=os.path.dirname(event.src_path),
+                    filename=os.path.basename(event.src_path),
+                    size=os.path.getsize(event.src_path),
+                )
+                session.execute(stmt)
+                session.commit()
+        except IntegrityError:
+            self._logger.error(
+                "Failed to insert file %s into database, already exists", event.src_path
             )
-            session.execute(stmt)
-            session.commit()
 
         self.check_tier()
 
@@ -294,7 +305,7 @@ class TierHandler(FileSystemEventHandler):
         self._observer.join()
 
 
-class RecorderTierHandler(TierHandler):
+class SegmentsTierHandler(TierHandler):
     """Handle the recorder tiers."""
 
     def initialize(self) -> None:
@@ -328,7 +339,7 @@ class RecorderTierHandler(TierHandler):
         )
         self._events_min_age = calculate_age(self._tier[CONFIG_EVENTS][CONFIG_MIN_AGE])
 
-        if self._tier_id == 0 and self._camera.config.get(CONFIG_RECORDER, {}).get(
+        if self.first_tier and self._camera.config.get(CONFIG_RECORDER, {}).get(
             CONFIG_RETAIN, None
         ):
             self._logger.warning(
@@ -458,6 +469,19 @@ class RecorderTierHandler(TierHandler):
                     )
                     thumbnail_tier_handler.move_thumbnail(recording_id)
 
+            # Signal to the recordings tier that the recording has been moved
+            if recording_ids:
+                self._logger.debug(
+                    "Handle event clip for recordings: %s", recording_ids
+                )
+                for recording_id in recording_ids:
+                    recordings_tier_handler: RecordingsTierHandler = (
+                        self._storage.camera_tier_handlers[self._camera.identifier][
+                            self._category
+                        ][self._tier_id]["recordings"]
+                    )
+                    recordings_tier_handler.move_event_clip(recording_id)
+
             # Delete recordings from Recordings table if this is the last tier
             if recording_ids and self._next_tier is None:
                 self._logger.debug("Deleting recordings: %s", recording_ids)
@@ -536,6 +560,75 @@ class ThumbnailTierHandler(TierHandler):
             session.commit()
 
 
+class RecordingsTierHandler(TierHandler):
+    """Handle recordings created by create_event_clip."""
+
+    def initialize(self):
+        """Initialize recordings tier."""
+        self._path = os.path.join(
+            self._tier[CONFIG_PATH],
+            "recordings",
+            self._camera.identifier,
+        )
+        self.add_file_handler(
+            self._path, rf"{self._path}/(.*.{self._camera.identifier}$)"
+        )
+
+    def check_tier(self) -> None:
+        """Do nothing, as we move recordings manually."""
+
+    def _update_clip_path(self, event: FileCreatedEvent) -> None:
+        try:
+            with self._storage.get_session() as session:
+                stmt = (
+                    update(Recordings)
+                    .where(Recordings.camera_identifier == self._camera.identifier)
+                    .where(
+                        Recordings.clip_path.like(
+                            f"%{event.src_path.split('/')[-2]}/"
+                            f"{os.path.basename(event.src_path)}"
+                        )
+                    )
+                    .values(clip_path=event.src_path)
+                )
+                session.execute(stmt)
+                session.commit()
+        except Exception as error:  # pylint: disable=broad-except
+            self._logger.error(
+                "Failed to update clip path for recording with path: "
+                f"{event.src_path}: {error}"
+            )
+
+    def _on_created(self, event: FileCreatedEvent) -> None:
+        if not self.first_tier:
+            self._update_clip_path(event)
+        super()._on_created(event)
+
+    def move_event_clip(self, recording_id: int) -> None:
+        """Move event clip to next tier."""
+        with self._storage.get_session() as session:
+            sel = (
+                select(Recordings)
+                .where(Recordings.id == recording_id)
+                .where(Recordings.clip_path.is_not(None))
+            )
+            recording = session.execute(sel).scalar()
+            if recording is None:
+                return
+
+            handle_file(
+                self._storage.get_session,
+                self._storage,
+                self._camera.identifier,
+                self._tier,
+                self._next_tier,
+                recording.clip_path,
+                self._tier[CONFIG_PATH],
+                self._logger,
+            )
+            session.commit()
+
+
 def handle_file(
     get_session: Callable[..., Session],
     storage: Storage,
@@ -559,7 +652,7 @@ def handle_file(
             logger.warning(
                 "Failed to move file %s to next tier, new path is the same as old. "
                 "Viseron tries to mitigate this, but it can happen if you recently "
-                "changed the tier paths.",
+                "changed the tier paths or a previous move failed.",
                 path,
             )
         else:

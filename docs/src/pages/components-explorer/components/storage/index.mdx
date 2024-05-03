@@ -101,7 +101,7 @@ No events will be stored.
 
 ```yaml title="/config/config.yaml"
 storage:
-  recordings:
+  recorder:
     tiers:
       - path: / # Will store segments in /segments folder inside the container
         continuous:
@@ -131,7 +131,7 @@ They are best explained in a `config.yaml` example:
 
 ```yaml title="/config/config.yaml"
 storage:
-  recordings:
+  recorder:
     tiers:
       - path: /mnt/ramdisk # Store continuous recordings and events here
         move_on_shutdown: true

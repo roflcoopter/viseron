@@ -4,16 +4,16 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import logging
-import multiprocessing
 import multiprocessing.process
 import os
 import sys
 import threading
 import time
 import tracemalloc
+from collections.abc import Callable
 from functools import partial
 from timeit import default_timer as timer
-from typing import TYPE_CHECKING, Any, Callable, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -140,8 +140,9 @@ def setup_viseron() -> Viseron:
     """Set up and run Viseron."""
     start = timer()
     enable_logging()
+    viseron_version = os.getenv("VISERON_VERSION")
     LOGGER.info("-------------------------------------------")
-    LOGGER.info("Initializing Viseron")
+    LOGGER.info(f"Initializing Viseron {viseron_version if viseron_version else ''}")
 
     config = load_config()
 
@@ -218,6 +219,19 @@ class Viseron:
         self.critical_components_config_store = CriticalComponentsConfigStore(self)
         self.safe_mode = False
         self.exit_code = 0
+
+    @property
+    def version(self) -> str:
+        """Return the version of Viseron."""
+        return os.getenv("VISERON_VERSION", "unknown")
+
+    @property
+    def git_commit(self) -> str:
+        """Return the git commit of Viseron."""
+        git_commit = os.getenv("VISERON_GIT_COMMIT")
+        if git_commit:
+            return git_commit[:7]
+        return "unknown"
 
     def register_signal_handler(self, viseron_signal, callback):
         """Register a callback which gets called on signals emitted by Viseron.
