@@ -49,7 +49,10 @@ export HOME=/home/abc
 printf "/home/abc" > /var/run/environment/HOME
 
 # Find latest version of postgresql
-export PG_BIN="$(find /usr/lib/postgresql -maxdepth 1 -type d | sort -V | tail -n 1)/bin"
+export PG_VERSION=$(pg_config --version | awk '{print $2}' | awk -F'.' '{print $1}')
+export PG_BIN="/usr/lib/postgresql/$PG_VERSION/bin"
+printf "$PG_VERSION" > /var/run/environment/PG_VERSION
 printf "$PG_BIN" > /var/run/environment/PG_BIN
-log_info "Found PostgreSQL bin: $PG_BIN"
+log_info "PostgreSQL major version: $PG_VERSION"
+log_info "PostgreSQL bin: $PG_BIN"
 log_info "*********************** Done *****************************"
