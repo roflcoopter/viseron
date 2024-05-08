@@ -198,7 +198,7 @@ If you want to force `darknet` to run on OpenCL even if you have an NVIDIA GPU y
 ```yaml
 darknet:
   object_detector:
-    dnn_backend: openvino
+    dnn_backend: opencv
     dnn_target: opencl
 ```
 
@@ -207,9 +207,16 @@ darknet:
 #### Intel CPUs with integrated GPUs
 
 If you are running on an Intel CPU with integrated GPU, you can use the `roflcoopter/amd64-viseron` image.
-It will automatically use OpenCV with OpenVINO and OpenCL for object detection.
+It will automatically use OpenCV with OpenCL for object detection.
 
 The `dnn_backend` and `dnn_target` controls how the model runs.
+
+:::warning
+
+Since upgrading to Ubuntu 22.04, OpenCV 4.9.0 and OpenVINO 2023.3, the `openvino` backend is broken and causes segmentation faults.
+Hopefully this will be resolved in future updates of the libraries.
+
+:::
 
 :::info
 When not running on CUDA, OpenCVs implementation of Darknet is used.

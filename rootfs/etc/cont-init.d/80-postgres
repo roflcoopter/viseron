@@ -34,7 +34,7 @@ create_db() {
 
 upgrade_db() {
   old_version=$(cat $PGDATA/PG_VERSION)
-  log_info "Upgrading database to new PostgreSQL version..."
+  log_warning "Upgrading database to new PostgreSQL version..."
 
   log_info "Installing PostgreSQL $old_version..."
   echo "deb https://apt.postgresql.org/pub/repos/apt ${UBUNTU_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list
@@ -45,6 +45,27 @@ upgrade_db() {
   mkdir -p $new_db_path
   chown postgres:abc $new_db_path
   init_db $new_db_path false
+
+  # Make sure that the rolname for oid 10 is postgres
+  # In previous versions the database superuser was set to abc which breaks pg_upgrade
+  log_info "Starting PostgreSQL..."
+  s6-setuidgid postgres /usr/lib/postgresql/$old_version/bin/pg_ctl -D $PGDATA -l $PGDATA/logfile start
+  PG_SUPERUSER=$(s6-setuidgid postgres psql -q -d viseron -tc "SELECT rolname FROM pg_roles WHERE oid = 10;" | xargs)
+  if [ "$PG_SUPERUSER" != "postgres" ]; then
+    log_info "Changing superuser role name to postgres..."
+    log_info "Creating temporary superuser..."
+    s6-setuidgid postgres psql -d viseron -c 'CREATE ROLE "temp" WITH SUPERUSER CREATEDB CREATEROLE REPLICATION BYPASSRLS LOGIN;'
+    log_info "Dropping old postgres user..."
+    s6-setuidgid postgres psql -d viseron -U temp -c 'DROP ROLE "postgres";'
+    log_info "Renaming old superuser to postgres..."
+    s6-setuidgid postgres psql -d viseron -U temp -c "ALTER ROLE $PG_SUPERUSER RENAME TO postgres;"
+    log_info "Dropping temporary superuser..."
+    s6-setuidgid postgres psql -d viseron -c 'DROP ROLE "temp";'
+    log_info "Create abc user"
+    s6-setuidgid postgres createuser abc
+  fi
+  log_info "Stopping PostgreSQL..."
+  s6-setuidgid postgres /usr/lib/postgresql/$old_version/bin/pg_ctl -D $PGDATA -l $PGDATA/logfile stop
 
   log_info "Running pg_upgrade..."
   cd $new_db_path
@@ -63,8 +84,9 @@ upgrade_db() {
 
 if [ -e $PGDATA/postgresql.conf ]; then
   log_info "Database has already been initialized."
-  if [ "$(cat $PGDATA/PG_VERSION)" != "14" ]; then
-    log_info "Database version is not 14."
+  DATABASE_VERSION=$(cat $PGDATA/PG_VERSION)
+  if [ $DATABASE_VERSION != $PG_VERSION ]; then
+    log_warning "Database version ($DATABASE_VERSION) is not the same as the installed PostgreSQL version ($PG_VERSION)."
     upgrade_db
   fi
 else

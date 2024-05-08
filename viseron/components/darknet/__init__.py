@@ -58,7 +58,7 @@ from .const import (
     DNN_CPU,
     DNN_DEFAULT,
     DNN_OPENCL,
-    DNN_OPENVINO,
+    DNN_OPENCV,
     DNN_TARGETS,
 )
 
@@ -303,7 +303,7 @@ class DarknetDNN(BaseDarknet):
         if self._config[CONFIG_DNN_BACKEND]:
             return DNN_BACKENDS[self._config[CONFIG_DNN_BACKEND]]
         if os.getenv(ENV_OPENCL_SUPPORTED) == "true":
-            return DNN_BACKENDS[DNN_OPENVINO]
+            return DNN_BACKENDS[DNN_OPENCV]
         return DNN_BACKENDS[DNN_DEFAULT]
 
     @property
