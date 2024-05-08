@@ -100,6 +100,7 @@ services:
         GMMLIB_VERSION: "$GMMLIB_VERSION"
         IGC_VERSION: "$IGC_VERSION"
         LEVEL_ZERO_GPU: "$LEVEL_ZERO_GPU"
+        OPENCL_SHA256_FILENAME: "$OPENCL_SHA256_FILENAME"
       context: ..
       dockerfile: ./docker/amd64/Dockerfile.base
       cache_from:
@@ -239,6 +240,7 @@ services:
         GMMLIB_VERSION: "$GMMLIB_VERSION"
         IGC_VERSION: "$IGC_VERSION"
         LEVEL_ZERO_GPU: "$LEVEL_ZERO_GPU"
+        OPENCL_SHA256_FILENAME: "$OPENCL_SHA256_FILENAME"
       cache_from:
         - roflcoopter/amd64-cuda-base:$BASE_VERSION
     image: roflcoopter/amd64-cuda-base:$BASE_VERSION
