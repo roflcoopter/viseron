@@ -536,7 +536,6 @@ def wait_for_threads_and_processes_to_exit(
         | multiprocessing.process.BaseProcess,
     ) -> None:
         thread_or_process.join(timeout=10)
-        time.sleep(0.5)  # Wait for process to exit properly
         if thread_or_process.is_alive():
             LOGGER.error(f"{thread_or_process.name} did not exit in time")
             if isinstance(thread_or_process, multiprocessing.Process):
