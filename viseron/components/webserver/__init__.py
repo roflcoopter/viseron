@@ -281,7 +281,8 @@ class Webserver(threading.Thread):
     def run(self) -> None:
         """Start ioloop."""
         self._ioloop.start()
-        self._ioloop.close()
+        self._ioloop.close(True)
+        LOGGER.debug("IOLoop closed")
 
     def stop(self) -> None:
         """Stop ioloop."""
@@ -309,4 +310,4 @@ class Webserver(threading.Thread):
             self._httpserver.stop()
 
         LOGGER.debug("Stopping IOloop")
-        self._ioloop.stop()
+        self._ioloop.add_callback(self._ioloop.stop)
