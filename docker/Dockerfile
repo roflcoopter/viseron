@@ -9,10 +9,16 @@ FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION} as ffmpeg
 FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} as wheels
 
 # Build GPAC
-FROM ubuntu:${UBUNTU_VERSION} AS gpac
+FROM roflcoopter/${ARCH}-base:${BASE_VERSION} as gpac
 
 ENV \
   DEBIAN_FRONTEND=noninteractive
+
+RUN \
+  if [ "$ARCH" = "armhf" ] || \
+  [ "$ARCH" = "rpi3" ] || \
+  [ "$ARCH" = "aarch64" ] || \
+  [ "$ARCH" = "jetson-nano" ]; then echo "Crossbuilding!" && cross-build-start; fi
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \

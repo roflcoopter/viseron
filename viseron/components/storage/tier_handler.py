@@ -8,7 +8,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from queue import Queue
 from threading import Lock, Timer
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from sqlalchemy import Result, delete, insert, select, update
 from sqlalchemy.exc import IntegrityError
@@ -131,6 +131,11 @@ class TierHandler(FileSystemEventHandler):
     def first_tier(self) -> bool:
         """Return if first tier."""
         return self._tier_id == 0
+
+    @property
+    def tier_id(self) -> int:
+        """Return tier id."""
+        return self._tier_id
 
     def add_file_handler(self, path: str, pattern: str):
         """Add file handler to webserver."""
@@ -364,87 +369,142 @@ class SegmentsTierHandler(TierHandler):
             self._events_min_age,
         ]
 
+        self._events_enabled = any(self._events_params)
+        self._continuous_enabled = any(self._continuous_params)
+
         self.add_file_handler(self._path, rf"{self._path}/(.*.m4s$)")
         self.add_file_handler(self._path, rf"{self._path}/(.*.mp4$)")
 
+    @property
+    def events_enabled(self) -> bool:
+        """Return if events are enabled."""
+        return self._events_enabled
+
+    @property
+    def continuous_enabled(self) -> bool:
+        """Return if continuous is enabled."""
+        return self._continuous_enabled
+
+    def _get_events_file_ids(self, session: Session) -> Result[Any] | list:
+        if self._events_enabled:
+            return get_recordings_to_move(
+                session,
+                self._tier_id,
+                self._camera.identifier,
+                self._camera.recorder.lookback,
+                self._events_max_bytes,
+                self._events_min_age,
+                self._events_min_bytes,
+                self._events_max_age,
+            )
+        return []
+
+    def _get_continuous_file_ids(self, session: Session) -> Result[Any] | list:
+        if self._continuous_enabled:
+            return get_files_to_move(
+                session,
+                self._category,
+                self._subcategory,
+                self._tier_id,
+                self._camera.identifier,
+                self._continuous_max_bytes,
+                self._continuous_min_age,
+                self._continuous_min_bytes,
+                self._continuous_max_age,
+            )
+        return []
+
     def _check_tier(self, get_session: Callable[[], Session]) -> None:
-        events_enabled = False
-        continuous_enabled = False
-        events_file_ids: Result[Any] | list = []
-        continuous_file_ids: Result[Any] | list = []
         with get_session() as session:
-            if any(self._events_params):
-                events_enabled = True
-                events_file_ids = get_recordings_to_move(
-                    session,
-                    self._tier_id,
-                    self._camera.identifier,
-                    self._camera.recorder.lookback,
-                    self._events_max_bytes,
-                    self._events_min_age,
-                    self._events_min_bytes,
-                    self._events_max_age,
-                )
+            # Convert to list since we iterate over it twice and the Result closes
+            # after the first loop
+            events_file_ids = list(self._get_events_file_ids(session))
+            continuous_file_ids = self._get_continuous_file_ids(session)
 
-            if any(self._continuous_params):
-                continuous_enabled = True
-                continuous_file_ids = get_files_to_move(
-                    session,
-                    self._category,
-                    self._subcategory,
-                    self._tier_id,
-                    self._camera.identifier,
-                    self._continuous_max_bytes,
-                    self._continuous_min_age,
-                    self._continuous_min_bytes,
-                    self._continuous_max_age,
-                )
-
-            events_file_ids = list(events_file_ids)
             # A file can be in multiple recordings, so we need to keep track of which
             # files we have already processed using processed_paths
             processed_paths = []
-            if events_enabled and not continuous_enabled:
+            events_next_tier = None
+            continuous_next_tier = None
+            if self._events_enabled and not self._continuous_enabled:
+                events_next_tier = find_next_tier_segments(
+                    self._storage, self._tier_id, self._camera, "events"
+                )
                 for file in events_file_ids:
                     if file.path in processed_paths:
                         continue
+                    force_delete = bool(file.recording_id is None)
                     handle_file(
                         get_session,
                         self._storage,
                         self._camera.identifier,
                         self._tier,
-                        self._next_tier,
+                        events_next_tier.tier if events_next_tier else None,
                         file.path,
                         file.tier_path,
                         self._logger,
+                        force_delete,
                     )
                     processed_paths.append(file.path)
-            elif continuous_enabled and not events_enabled:
+            elif self._continuous_enabled and not self._events_enabled:
+                continuous_next_tier = find_next_tier_segments(
+                    self._storage, self._tier_id, self._camera, "continuous"
+                )
                 for file in continuous_file_ids:
                     handle_file(
                         get_session,
                         self._storage,
                         self._camera.identifier,
                         self._tier,
-                        self._next_tier,
+                        continuous_next_tier.tier if continuous_next_tier else None,
                         file.path,
                         file.tier_path,
                         self._logger,
                     )
             else:
                 overlap = files_to_move_overlap(events_file_ids, continuous_file_ids)
+                events_next_tier = find_next_tier_segments(
+                    self._storage, self._tier_id, self._camera, "events"
+                )
+                continuous_next_tier = find_next_tier_segments(
+                    self._storage, self._tier_id, self._camera, "continuous"
+                )
                 for file in overlap:
                     if file.path in processed_paths:
                         continue
+
+                    force_delete = False
+                    next_tier = None
+                    # If the file is not part of a recording, and no succeeding tiers
+                    # store continuous recordings we can delete the file
+                    if file.recording_id is None and continuous_next_tier is None:
+                        force_delete = True
+                    # If no succeeding tier stores either events or continuous
+                    # recordings, we can delete the file
+                    elif events_next_tier is None and continuous_next_tier is None:
+                        force_delete = True
+                    elif events_next_tier and continuous_next_tier is None:
+                        next_tier = events_next_tier
+                    elif continuous_next_tier and events_next_tier is None:
+                        next_tier = continuous_next_tier
+                    elif events_next_tier and continuous_next_tier:
+                        # Find the lowest tier_id for the two next tiers
+                        next_tier = (
+                            events_next_tier
+                            if events_next_tier.tier_id < continuous_next_tier.tier_id
+                            else continuous_next_tier
+                        )
+
                     handle_file(
                         get_session,
                         self._storage,
                         self._camera.identifier,
                         self._tier,
-                        self._next_tier,
+                        next_tier.tier if next_tier else None,
                         file.path,
                         file.tier_path,
                         self._logger,
+                        force_delete=force_delete,
                     )
                     processed_paths.append(file.path)
 
@@ -467,7 +527,10 @@ class SegmentsTierHandler(TierHandler):
                             self._category
                         ][self._tier_id]["thumbnails"]
                     )
-                    thumbnail_tier_handler.move_thumbnail(recording_id)
+                    thumbnail_tier_handler.move_thumbnail(
+                        recording_id,
+                        events_next_tier.tier if events_next_tier else None,
+                    )
 
             # Signal to the recordings tier that the recording has been moved
             if recording_ids:
@@ -480,10 +543,13 @@ class SegmentsTierHandler(TierHandler):
                             self._category
                         ][self._tier_id]["recordings"]
                     )
-                    recordings_tier_handler.move_event_clip(recording_id)
+                    recordings_tier_handler.move_event_clip(
+                        recording_id,
+                        events_next_tier.tier if events_next_tier else None,
+                    )
 
             # Delete recordings from Recordings table if this is the last tier
-            if recording_ids and self._next_tier is None:
+            if recording_ids and events_next_tier is None:
                 self._logger.debug("Deleting recordings: %s", recording_ids)
                 with get_session() as _session:
                     stmt = delete(Recordings).where(Recordings.id.in_(recording_ids))
@@ -542,7 +608,9 @@ class ThumbnailTierHandler(TierHandler):
             )
         super()._on_created(event)
 
-    def move_thumbnail(self, recording_id: int) -> None:
+    def move_thumbnail(
+        self, recording_id: int, next_tier: dict[str, Any] | None
+    ) -> None:
         """Move thumbnail to next tier."""
         with self._storage.get_session() as session:
             sel = select(Recordings).where(Recordings.id == recording_id)
@@ -552,7 +620,7 @@ class ThumbnailTierHandler(TierHandler):
                 self._storage,
                 self._camera.identifier,
                 self._tier,
-                self._next_tier,
+                next_tier,
                 recording.thumbnail_path,
                 self._tier[CONFIG_PATH],
                 self._logger,
@@ -604,7 +672,9 @@ class RecordingsTierHandler(TierHandler):
             self._update_clip_path(event)
         super()._on_created(event)
 
-    def move_event_clip(self, recording_id: int) -> None:
+    def move_event_clip(
+        self, recording_id: int, next_tier: dict[str, Any] | None
+    ) -> None:
         """Move event clip to next tier."""
         with self._storage.get_session() as session:
             sel = (
@@ -621,12 +691,33 @@ class RecordingsTierHandler(TierHandler):
                 self._storage,
                 self._camera.identifier,
                 self._tier,
-                self._next_tier,
+                next_tier,
                 recording.clip_path,
                 self._tier[CONFIG_PATH],
                 self._logger,
             )
             session.commit()
+
+
+def find_next_tier_segments(
+    storage: Storage,
+    tier_id: int,
+    camera: AbstractCamera,
+    file_type: Literal["events", "continuous"],
+) -> SegmentsTierHandler | None:
+    """Find the next tier for segments."""
+    next_tier = None
+    for tier in storage.camera_tier_handlers[camera.identifier]["recorder"][
+        tier_id + 1 :
+    ]:
+        segments_tier_handler: SegmentsTierHandler = tier["segments"]
+        if segments_tier_handler.events_enabled and file_type == "events":
+            next_tier = segments_tier_handler
+            break
+        if segments_tier_handler.continuous_enabled and file_type == "continuous":
+            next_tier = segments_tier_handler
+            break
+    return next_tier
 
 
 def handle_file(
@@ -638,13 +729,14 @@ def handle_file(
     path: str,
     tier_path: str,
     logger: logging.Logger,
+    force_delete: bool = False,
 ) -> None:
     """Move file if there is a succeeding tier, else delete the file."""
     if path in storage.camera_requested_files_count[camera_identifier].filenames:
         logger.debug("File %s is recently requested, skipping", path)
         return
 
-    if next_tier is None:
+    if force_delete or next_tier is None:
         delete_file(get_session, path, logger)
     else:
         new_path = path.replace(tier_path, next_tier[CONFIG_PATH], 1)

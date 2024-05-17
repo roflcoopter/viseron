@@ -81,8 +81,8 @@ class TestAppBase(AsyncHTTPTestCase):
 
     def tearDown(self) -> None:
         """Tear down the test."""
+        super().tearDown()
         self.vis.shutdown()
-        return super().tearDown()
 
     def get_app(self):
         """Get the application.
