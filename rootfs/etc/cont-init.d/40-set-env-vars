@@ -44,6 +44,12 @@ fi
 export XDG_RUNTIME_DIR=/home/abc
 printf "/home/abc" > /var/run/environment/XDG_RUNTIME_DIR
 
+# Set XDG_CURRENT_DESKTOP to avoid GStreamer hanging
+# Context: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3487
+export XDG_CURRENT_DESKTOP=ubuntu:GNOME
+printf "ubuntu:GNOME" > /var/run/environment/XDG_CURRENT_DESKTOP
+
+
 # Set HOME to /home/abc
 export HOME=/home/abc
 printf "/home/abc" > /var/run/environment/HOME
