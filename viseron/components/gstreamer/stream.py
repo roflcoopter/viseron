@@ -1,4 +1,5 @@
 """Class to interact with a GStreamer stream."""
+# pyright: reportMissingModuleSource=false
 from __future__ import annotations
 
 import datetime
@@ -42,15 +43,10 @@ if TYPE_CHECKING:
 # pylint: disable=wrong-import-position,wrong-import-order,no-name-in-module
 gi.require_version("Gst", "1.0")
 gi.require_version("GstApp", "1.0")
-from gi.repository import (  # pyright: ignore[reportMissingImports] # noqa: E402
-    GLib,
-    Gst,
-    GstApp,
-)
+from gi.repository import GLib, Gst, GstApp  # type: ignore[attr-defined] # noqa: E402
 
-_ = GstApp
-# pylint: enable=wrong-import-position,wrong-import-order,no-name-in-module
 # pylint: enable=useless-suppression
+# pylint: enable=wrong-import-position,wrong-import-order,no-name-in-module
 
 
 class Stream(FFmpegStream):
@@ -151,7 +147,11 @@ class Stream(FFmpegStream):
             self._logger.debug("Did not get sample from appsink")
             return Gst.FlowReturn.ERROR
 
-        buffer: Gst.Buffer = sample.get_buffer()
+        buffer = sample.get_buffer()
+        if not buffer:
+            self._logger.debug("Could not get buffer from sample")
+            return Gst.FlowReturn.ERROR
+
         success, map_info = buffer.map(Gst.MapFlags.READ)
         if not success:
             self._logger.debug("Could not map buffer data")
@@ -206,14 +206,14 @@ class Stream(FFmpegStream):
         Gst.debug_add_log_function(self.on_gst_log_message, None)
 
         gst_pipeline = Gst.parse_launch(" ".join(self._pipeline.build_pipeline()))
-        appsink = gst_pipeline.get_by_name(
+        appsink = gst_pipeline.get_by_name(  # type: ignore[attr-defined]
             "sink",
         )
-        gst_pipeline.set_state(Gst.State.PLAYING)
         appsink.connect("new-sample", self.on_new_sample)
-        mux = gst_pipeline.get_by_name("mux")
+        mux = gst_pipeline.get_by_name("mux")  # type: ignore[attr-defined]
         mux.connect("format-location", self.on_format_location, None)
 
+        gst_pipeline.set_state(Gst.State.PLAYING)
         while not process_frames_proc_exit.is_set():
             time.sleep(1)
 

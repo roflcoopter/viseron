@@ -1,10 +1,12 @@
 """GStreamer pipelines."""
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from viseron.components.ffmpeg.const import CAMERA_SEGMENT_DURATION
+from viseron.const import ENV_VAAPI_SUPPORTED
 
 from .const import (
     CONFIG_AUDIO_CODEC,
@@ -21,6 +23,7 @@ from .const import (
     PARSE_ELEMENT_MAP,
     PIXEL_FORMAT,
     STREAM_FORMAT_MAP,
+    VAAPI_DECODER_ELEMENT_MAP,
 )
 
 if TYPE_CHECKING:
@@ -62,7 +65,6 @@ class BasePipeline(AbstractPipeline):
             + [f"location={self._stream.mainstream.url}"]
             + [
                 "name=input_stream",
-                "do-timestamp=true",
             ]
             + STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]]["options"]
             + (
@@ -132,7 +134,14 @@ class BasePipeline(AbstractPipeline):
         Returns decoder element from override map if it exists.
         Otherwise we assume the decoder element shares name with the codec.
         """
-        decoder_element = DECODER_ELEMENT_MAP.get(self._stream.mainstream.codec, None)
+        if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
+            decoder_element = VAAPI_DECODER_ELEMENT_MAP.get(
+                self._stream.mainstream.codec, None
+            )
+        else:
+            decoder_element = DECODER_ELEMENT_MAP.get(
+                self._stream.mainstream.codec, None
+            )
 
         if decoder_element:
             return [

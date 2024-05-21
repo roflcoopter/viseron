@@ -32,3 +32,4 @@ pyupgrade==3.15.2
 # types
 types-requests
 types-python-slugify
+pygobject-stubs
