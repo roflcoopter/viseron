@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
 from functools import lru_cache
@@ -62,6 +63,15 @@ class SharedFrame:
         self.resolution = resolution
         self.camera_identifier = camera_identifier
         self.capture_time = time.time()
+        self.reference_count = 0
+
+    def __enter__(self) -> None:
+        """Increase reference count."""
+        self.reference_count += 1
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Decrease reference count."""
+        self.reference_count -= 1
 
 
 class SharedFrames:
@@ -112,6 +122,10 @@ class SharedFrames:
 
     def remove(self, shared_frame: SharedFrame) -> None:
         """Remove frame from shared memory."""
+        if shared_frame.reference_count > 0:
+            threading.Timer(1, self.remove, args=(shared_frame,)).start()
+            return
+
         self._remove(shared_frame.name)
         for color_model in PIXEL_FORMATS[PIXEL_FORMAT_YUV420P]:
             self._remove(f"{shared_frame.name}_{color_model}")

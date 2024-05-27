@@ -85,8 +85,10 @@ class AbstractImageClassification(AbstractPostProcessor):
         if self._expire_timer:
             self._expire_timer.cancel()
 
-        preprocessed_frame = self.preprocess(post_processor_frame)
-        result = self.image_classification(preprocessed_frame, post_processor_frame)
+        with post_processor_frame.shared_frame:
+            preprocessed_frame = self.preprocess(post_processor_frame)
+            result = self.image_classification(preprocessed_frame, post_processor_frame)
+
         self._vis.dispatch_event(
             EVENT_IMAGE_CLASSIFICATION_RESULT.format(
                 camera_identifier=self._camera.identifier

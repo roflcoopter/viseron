@@ -153,10 +153,11 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
         If at least one plate is found, an event is dispatched, and a timer is started
         to expire the result after a given number of seconds.
         """
-        preprocessed_frame = self.preprocess(post_processor_frame)
-        result = self._process_result(
-            self.license_plate_recognition(preprocessed_frame, post_processor_frame)
-        )
+        with post_processor_frame.shared_frame:
+            preprocessed_frame = self.preprocess(post_processor_frame)
+            result = self._process_result(
+                self.license_plate_recognition(preprocessed_frame, post_processor_frame)
+            )
 
         if result is None:
             return

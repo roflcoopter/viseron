@@ -706,19 +706,17 @@ class NVR:
         for timer in self._removal_timers:
             timer.cancel()
 
-        self._camera.shared_frames.remove_all()
-
     @property
     def camera(self) -> AbstractCamera:
         """Return camera."""
         return self._camera
 
     @property
-    def object_detector(self):
+    def object_detector(self) -> AbstractObjectDetector | bool:
         """Return object_detector."""
         return self._object_detector
 
     @property
-    def motion_detector(self):
+    def motion_detector(self) -> AbstractMotionDetectorScanner | bool:
         """Return motion_detector."""
         return self._motion_detector
