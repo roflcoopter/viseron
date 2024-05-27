@@ -53,7 +53,7 @@ def calculate_relative_coords(
 
 
 def calculate_absolute_coords(
-    bounding_box: tuple[int, int, int, int], frame_res: tuple[int, int]
+    bounding_box: tuple[float, float, float, float], frame_res: tuple[int, int]
 ) -> tuple[int, int, int, int]:
     """Convert relative coords to absolute."""
     return (

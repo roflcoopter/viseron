@@ -41,7 +41,12 @@ from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
 from viseron.domains.camera.fragmenter import Fragmenter
 from viseron.domains.camera.recorder import FailedCameraRecorder
 from viseron.events import EventData, EventEmptyData
-from viseron.helpers import calculate_absolute_coords, utcnow, zoom_boundingbox
+from viseron.helpers import (
+    calculate_absolute_coords,
+    create_directory,
+    utcnow,
+    zoom_boundingbox,
+)
 from viseron.helpers.validators import CoerceNoneToDict, Deprecated, Maybe, Slug
 
 from .const import (
@@ -621,29 +626,37 @@ class AbstractCamera(ABC):
     def save_snapshot(
         self,
         shared_frame: SharedFrame,
-        obj: DetectedObject,
         domain: Literal["object_detector"]
         | Literal["face_recognition"]
         | Literal["license_plate_recognition"],
+        relative_coords: tuple[float, float, float, float] | None = None,
+        subfolder: str | None = None,
     ) -> str:
         """Save snapshot to disk."""
         decoded_frame = self.shared_frames.get_decoded_frame_rgb(shared_frame)
-        absolute_coords = calculate_absolute_coords(
-            (obj.rel_x1, obj.rel_y1, obj.rel_x2, obj.rel_y2), self.resolution
-        )
-        zoomed_frame = zoom_boundingbox(decoded_frame, absolute_coords)
+        snapshot_frame = decoded_frame
+        if relative_coords:
+            absolute_coords = calculate_absolute_coords(
+                relative_coords, self.resolution
+            )
+            snapshot_frame = zoom_boundingbox(decoded_frame, absolute_coords)
 
         if domain == "object_detector":
             folder = self.snapshots_object_folder
         elif domain == "face_recognition":
             folder = self.snapshots_face_folder
 
-        filename = f"{utcnow().strftime('%Y-%m-%d-%H:%M:%S-')}{str(uuid4())}.jpg"
+        if subfolder:
+            folder = os.path.join(folder, subfolder)
+
+        filename = f"{utcnow().strftime('%Y-%m-%d-%H-%M-%S-')}{str(uuid4())}.jpg"
+
         path = os.path.join(folder, filename)
         self._logger.debug(f"Saving snapshot to {path}")
+        create_directory(folder)
         cv2.imwrite(
             path,
-            zoomed_frame,
+            snapshot_frame,
         )
         return path
 

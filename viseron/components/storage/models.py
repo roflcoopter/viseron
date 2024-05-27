@@ -169,6 +169,20 @@ class MotionContours(Base):
     updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
 
 
+class PostProcessorResults(Base):
+    """Database model for post processor results."""
+
+    __tablename__ = "post_processor_results"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    camera_identifier: Mapped[str] = mapped_column(String)
+    domain: Mapped[str] = mapped_column(String)
+    snapshot_path: Mapped[str] = mapped_column(String, nullable=True)
+    data: Mapped[ColumnMeta] = mapped_column(JSONB)
+    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
+    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
+
+
 class Events(Base):
     """Database model for dispatched events."""
 
