@@ -2,35 +2,47 @@
 from __future__ import annotations
 
 import os
+from abc import abstractmethod
 from dataclasses import dataclass
 from threading import Timer
 from typing import Any
-from uuid import uuid4
 
-import cv2
 import voluptuous as vol
+from sqlalchemy import insert
 
-from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
+from viseron.components.storage.models import PostProcessorResults
+from viseron.domains.camera.shared_frames import SharedFrame
+from viseron.domains.object_detector.detected_object import DetectedObject
+from viseron.domains.post_processor import (
+    BASE_CONFIG_SCHEMA,
+    AbstractPostProcessor,
+    PostProcessorFrame,
+)
 from viseron.events import EventData
-from viseron.helpers import create_directory, utcnow
+from viseron.helpers import calculate_relative_coords
 from viseron.helpers.schemas import FLOAT_MIN_ZERO
+from viseron.helpers.validators import Deprecated
 
 from .binary_sensor import FaceDetectionBinarySensor
 from .const import (
     CONFIG_EXPIRE_AFTER,
     CONFIG_FACE_RECOGNITION_PATH,
+    CONFIG_SAVE_FACES,
     CONFIG_SAVE_UNKNOWN_FACES,
     CONFIG_UNKNOWN_FACES_PATH,
     DEFAULT_EXPIRE_AFTER,
     DEFAULT_FACE_RECOGNITION_PATH,
+    DEFAULT_SAVE_FACES,
     DEFAULT_SAVE_UNKNOWN_FACES,
-    DEFAULT_UNKNOWN_FACES_PATH,
     DESC_EXPIRE_AFTER,
     DESC_FACE_RECOGNITION_PATH,
+    DESC_SAVE_FACES,
     DESC_SAVE_UNKNOWN_FACES,
     DESC_UNKNOWN_FACES_PATH,
+    DOMAIN,
     EVENT_FACE_DETECTED,
     EVENT_FACE_EXPIRED,
+    UNKNOWN_FACE,
 )
 
 BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
@@ -45,9 +57,8 @@ BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
             default=DEFAULT_SAVE_UNKNOWN_FACES,
             description=DESC_SAVE_UNKNOWN_FACES,
         ): bool,
-        vol.Optional(
+        Deprecated(
             CONFIG_UNKNOWN_FACES_PATH,
-            default=DEFAULT_UNKNOWN_FACES_PATH,
             description=DESC_UNKNOWN_FACES_PATH,
         ): str,
         vol.Optional(
@@ -55,6 +66,11 @@ BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
             default=DEFAULT_EXPIRE_AFTER,
             description=DESC_EXPIRE_AFTER,
         ): FLOAT_MIN_ZERO,
+        vol.Optional(
+            CONFIG_SAVE_FACES,
+            default=DEFAULT_SAVE_FACES,
+            description=DESC_SAVE_FACES,
+        ): bool,
     }
 )
 
@@ -100,8 +116,6 @@ class AbstractFaceRecognition(AbstractPostProcessor):
     def __init__(self, vis, component, config, camera_identifier) -> None:
         super().__init__(vis, config, camera_identifier)
         self._faces: dict[str, FaceDict] = {}
-        if config[CONFIG_SAVE_UNKNOWN_FACES]:
-            create_directory(config[CONFIG_UNKNOWN_FACES_PATH])
 
         for face_dir in os.listdir(config[CONFIG_FACE_RECOGNITION_PATH]):
             if face_dir == "unknown":
@@ -110,12 +124,60 @@ class AbstractFaceRecognition(AbstractPostProcessor):
                 component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
             )
 
+    @abstractmethod
+    def face_recognition(
+        self, shared_frame: SharedFrame, detected_object: DetectedObject
+    ) -> None:
+        """Perform face recognition on detected object."""
+
+    def process(self, post_processor_frame: PostProcessorFrame) -> None:
+        """Process received frame."""
+        for detected_object in post_processor_frame.filtered_objects:
+            with post_processor_frame.shared_frame:
+                self.face_recognition(
+                    post_processor_frame.shared_frame, detected_object
+                )
+
+    def _insert_face_recognition_result(
+        self, snapshot_path: str | None, face_dict: FaceDict
+    ) -> None:
+        """Insert object into database."""
+        with self._storage.get_session() as session:
+            stmt = insert(PostProcessorResults).values(
+                camera_identifier=self._camera.identifier,
+                domain=DOMAIN,
+                snapshot_path=snapshot_path,
+                data=face_dict.as_dict(),
+            )
+            session.execute(stmt)
+            session.commit()
+
+    def _save_face(
+        self,
+        face_dict: FaceDict,
+        coordinates: tuple[int, int, int, int],
+        shared_frame: SharedFrame,
+    ) -> None:
+        """Save face to disk and database."""
+        snapshot_path = None
+        if shared_frame:
+            snapshot_path = self._camera.save_snapshot(
+                shared_frame,
+                DOMAIN,
+                relative_coords=calculate_relative_coords(
+                    coordinates, self._camera.resolution
+                ),
+                subfolder=face_dict.name,
+            )
+        self._insert_face_recognition_result(snapshot_path, face_dict)
+
     def known_face_found(
         self,
         face: str,
         coordinates: tuple[int, int, int, int],
-        confidence=None,
-        extra_attributes=None,
+        shared_frame: SharedFrame,
+        confidence: float | None = None,
+        extra_attributes: dict[str, Any] | None = None,
     ) -> None:
         """Adds/expires known faces."""
         # Cancel the expiry timer if face has already been detected
@@ -132,6 +194,10 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         )
         face_dict.timer.start()
 
+        # Only store face once until it is expired
+        if self._faces.get(face, None) is None and self._config[CONFIG_SAVE_FACES]:
+            self._save_face(face_dict, coordinates, shared_frame)
+
         self._vis.dispatch_event(
             EVENT_FACE_DETECTED.format(
                 camera_identifier=self._camera.identifier, face=face
@@ -143,14 +209,24 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         )
         self._faces[face] = face_dict
 
-    def unknown_face_found(self, frame) -> None:
+    def unknown_face_found(
+        self,
+        coordinates: tuple[int, int, int, int],
+        shared_frame: SharedFrame,
+        confidence: float | None = None,
+        extra_attributes: dict[str, Any] | None = None,
+    ) -> None:
         """Save unknown faces."""
-        unique_id = f"{utcnow().strftime('%Y-%m-%d-%H:%M:%S-')}{str(uuid4())}.jpg"
-        file_name = os.path.join(self._config[CONFIG_UNKNOWN_FACES_PATH], unique_id)
-        self._logger.debug(f"Unknown face found, saving to {file_name}")
+        face_dict = FaceDict(
+            UNKNOWN_FACE,
+            coordinates,
+            confidence,
+            Timer(self._config[CONFIG_EXPIRE_AFTER], self.expire_face, [UNKNOWN_FACE]),
+            extra_attributes=extra_attributes,
+        )
 
-        if not cv2.imwrite(file_name, frame):
-            self._logger.error("Failed saving unknown face image to disk")
+        if self._config[CONFIG_SAVE_UNKNOWN_FACES]:
+            self._save_face(face_dict, coordinates, shared_frame)
 
     def expire_face(self, face) -> None:
         """Expire no longer found face."""

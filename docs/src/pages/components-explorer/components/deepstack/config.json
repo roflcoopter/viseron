@@ -432,16 +432,20 @@
           {
             "type": "boolean",
             "name": "save_unknown_faces",
-            "description": "If true, any unrecognized face will be saved to the folder specified in <code>unknown_faces_path</code>. You can then move this image to the folder of the correct person to improve accuracy.",
+            "description": "If set to <code>true</code>, any unrecognized faces will be stored in the database, as well as having a snapshot saved. You can then move this image to the folder of the correct person to improve accuracy.",
             "optional": true,
             "default": false
           },
           {
             "type": "string",
-            "name": "unknown_faces_path",
+            "name": {
+              "type": "deprecated",
+              "name": "unknown_faces_path",
+              "value": "Config option 'unknown_faces_path' is deprecated and will be removed in a future version."
+            },
             "description": "Path to folder where unknown faces will be stored.",
-            "optional": true,
-            "default": "/config/face_recognition/faces/unknown"
+            "deprecated": true,
+            "default": null
           },
           {
             "type": "float",
@@ -450,6 +454,13 @@
             "description": "Time in seconds before a detected face is no longer considered detected.",
             "optional": true,
             "default": 5
+          },
+          {
+            "type": "boolean",
+            "name": "save_faces",
+            "description": "If set to <code>true</code>, detected faces will be stored in the database, as well as having a snapshot saved.",
+            "optional": true,
+            "default": true
           },
           {
             "type": "boolean",

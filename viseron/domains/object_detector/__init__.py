@@ -93,6 +93,7 @@ from .const import (
     DESC_SCAN_ON_MOTION_ONLY,
     DESC_ZONE_NAME,
     DESC_ZONES,
+    DOMAIN,
     EVENT_OBJECTS_IN_FOV,
 )
 from .detected_object import DetectedObject, EventDetectedObjectsData
@@ -404,7 +405,14 @@ class AbstractObjectDetector(ABC):
                 snapshot_path = None
                 if shared_frame:
                     snapshot_path = self._camera.save_snapshot(
-                        shared_frame, obj, "object_detector"
+                        shared_frame,
+                        DOMAIN,
+                        (
+                            obj.rel_x1,
+                            obj.rel_y1,
+                            obj.rel_x2,
+                            obj.rel_y2,
+                        ),
                     )
                 self._insert_object(obj, snapshot_path)
 
