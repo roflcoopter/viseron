@@ -712,11 +712,11 @@ class NVR:
         return self._camera
 
     @property
-    def object_detector(self) -> AbstractObjectDetector | bool:
+    def object_detector(self) -> AbstractObjectDetector | Literal[False]:
         """Return object_detector."""
         return self._object_detector
 
     @property
-    def motion_detector(self) -> AbstractMotionDetectorScanner | bool:
+    def motion_detector(self) -> AbstractMotionDetectorScanner | Literal[False]:
         """Return motion_detector."""
         return self._motion_detector
