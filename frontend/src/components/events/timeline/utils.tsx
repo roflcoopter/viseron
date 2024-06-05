@@ -8,10 +8,12 @@ export const TICK_HEIGHT = 8;
 export const SCALE = 60;
 export const EXTRA_TICKS = 10;
 export const COLUMN_HEIGHT = "99dvh";
+export const EVENT_ICON_HEIGHT = 20;
+
 export const DEFAULT_ITEM: TimelineItem = {
   time: 0,
   timedEvent: null,
-  snapshotEvent: null,
+  snapshotEvents: null,
   availableTimespan: null,
   activityLineVariant: null,
 };
@@ -19,7 +21,7 @@ export const DEFAULT_ITEM: TimelineItem = {
 export type TimelineItem = {
   time: number;
   timedEvent: null | types.CameraMotionEvent | types.CameraRecordingEvent;
-  snapshotEvent: null | types.CameraObjectEvent;
+  snapshotEvents: null | types.CameraSnapshotEvents;
   availableTimespan: null | types.HlsAvailableTimespan;
   activityLineVariant: "first" | "middle" | "last" | "round" | null;
 };
@@ -155,6 +157,40 @@ export const createActivityLineItem = (
   return timelineItems;
 };
 
+// For snapshot events, make sure adjacent events are grouped together
+const addSnapshotEvent = (
+  startRef: React.MutableRefObject<number>,
+  timelineItems: TimelineItems,
+  cameraEvent: types.CameraSnapshotEvent,
+) => {
+  // Find number of grouped ticks
+  const groupedTicks = Math.ceil(EVENT_ICON_HEIGHT / TICK_HEIGHT);
+
+  // Check if previous ticks have snapshot events and group them
+  const index = calculateIndexFromTime(startRef, cameraEvent.timestamp);
+  const groupedSnapshotEvents: types.CameraSnapshotEvents = [];
+  for (let i = 0; i < groupedTicks; i++) {
+    const time = calculateTimeFromIndex(startRef, index - i);
+    if (time in timelineItems && timelineItems[time].snapshotEvents) {
+      groupedSnapshotEvents.push(...(timelineItems[time].snapshotEvents || []));
+      timelineItems[time].snapshotEvents = null;
+    }
+  }
+
+  // Add the (grouped) snapshot events to the timeline
+  const time = calculateTimeFromIndex(startRef, index);
+  timelineItems[time] = {
+    ...DEFAULT_ITEM,
+    ...timelineItems[time],
+    time,
+    snapshotEvents: [
+      ...groupedSnapshotEvents,
+      ...(timelineItems[time].snapshotEvents || []),
+      cameraEvent,
+    ],
+  };
+};
+
 // Get the timeline items from the events and available timespans
 export const getTimelineItems = (
   startRef: React.MutableRefObject<number>,
@@ -218,16 +254,17 @@ export const getTimelineItems = (
         cameraEvent.type === "object",
     )
     .forEach((cameraEvent) => {
-      const index = calculateIndexFromTime(startRef, cameraEvent.timestamp);
-      const time = calculateTimeFromIndex(startRef, index);
-      timelineItems[time] = {
-        ...DEFAULT_ITEM,
-        ...timelineItems[time],
-        time,
-        snapshotEvent: cameraEvent,
-      };
+      addSnapshotEvent(startRef, timelineItems, cameraEvent);
     });
 
+  eventsData
+    .filter(
+      (cameraEvent): cameraEvent is types.CameraFaceRecognitionEvent =>
+        cameraEvent.type === "face_recognition",
+    )
+    .forEach((cameraEvent) => {
+      addSnapshotEvent(startRef, timelineItems, cameraEvent);
+    });
   return timelineItems;
 };
 

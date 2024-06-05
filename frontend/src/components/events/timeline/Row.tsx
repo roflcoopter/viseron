@@ -20,13 +20,13 @@ export const Row = memo(({ virtualItem, item }: RowProps): JSX.Element => {
     <div
       key={item.time}
       onMouseEnter={() => {
-        if (!item.snapshotEvent) {
+        if (!item.snapshotEvents) {
           return;
         }
         setHover(true);
       }}
       onMouseLeave={() => {
-        if (!item.snapshotEvent) {
+        if (!item.snapshotEvents) {
           return;
         }
         setHover(false);
@@ -42,7 +42,7 @@ export const Row = memo(({ virtualItem, item }: RowProps): JSX.Element => {
         transform: `translateY(${virtualItem.start}px)`,
         transition: "transform 0.2s linear",
         zIndex:
-          item.snapshotEvent && hover ? 999 : item.snapshotEvent ? 998 : 1,
+          item.snapshotEvents && hover ? 999 : item.snapshotEvents ? 998 : 1,
       }}
     >
       <Item item={item} />

@@ -225,40 +225,58 @@ export interface EntityAttributes {
 type CameraBaseEvent = {
   created_at: string;
 };
-type CameraTimedEvent = CameraBaseEvent & {
+
+type CameraBaseTimedEvent = CameraBaseEvent & {
   start_time: string;
   start_timestamp: number;
   end_time: string | null;
   end_timestamp: number | null;
 };
-export type CameraMotionEvent = CameraTimedEvent & {
+export type CameraMotionEvent = CameraBaseTimedEvent & {
   type: "motion";
 };
-export type CameraRecordingEvent = CameraTimedEvent & {
+export type CameraRecordingEvent = CameraBaseTimedEvent & {
   type: "recording";
 };
 export type CameraTimedEvents = CameraMotionEvent | CameraRecordingEvent;
-type CameraSnapshotEvent = CameraBaseEvent & {
+
+type CameraBaseSnapshotEvent = CameraBaseEvent & {
   time: string;
   timestamp: number;
   snapshot_path: string;
 };
-export type CameraObjectEvent = CameraSnapshotEvent & {
+export type CameraObjectEvent = CameraBaseSnapshotEvent & {
   type: "object";
   time: string;
   timestamp: number;
   label: string;
   confidence: number;
 };
+export type CameraFaceRecognitionEvent = CameraBaseSnapshotEvent & {
+  type: "face_recognition";
+  data: {
+    name: string;
+    confidence: number;
+    [key: string]: any;
+  };
+};
 
 export type CameraEvent =
   | CameraMotionEvent
   | CameraObjectEvent
-  | CameraRecordingEvent;
+  | CameraRecordingEvent
+  | CameraFaceRecognitionEvent;
 
 export type CameraEvents = {
   events: [CameraEvent];
 };
+
+export type CameraSnapshotEvent =
+  | CameraObjectEvent
+  | CameraFaceRecognitionEvent;
+export type CameraSnapshotEvents = Array<CameraSnapshotEvent>;
+
+export type CameraObjectEvents = Array<CameraObjectEvent>;
 
 export interface Entity {
   entity_id: string;
