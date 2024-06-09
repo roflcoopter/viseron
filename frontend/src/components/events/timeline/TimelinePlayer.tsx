@@ -8,7 +8,7 @@ import {
   SCALE,
   calculateHeight,
   findFragmentByTimestamp,
-} from "components/events/timeline/utils";
+} from "components/events/utils";
 import { useAuthContext } from "context/AuthContext";
 import { getToken } from "lib/tokens";
 import * as types from "lib/types";

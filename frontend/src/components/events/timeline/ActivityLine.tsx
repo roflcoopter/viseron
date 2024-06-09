@@ -2,7 +2,7 @@ import Tooltip from "@mui/material/Tooltip";
 import { useTheme } from "@mui/material/styles";
 import { memo } from "react";
 
-import { TICK_HEIGHT } from "components/events/timeline/utils";
+import { TICK_HEIGHT } from "components/events/utils";
 import * as types from "lib/types";
 
 function activityLineEqual(

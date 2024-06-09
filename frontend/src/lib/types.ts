@@ -223,6 +223,7 @@ export interface EntityAttributes {
 }
 
 type CameraBaseEvent = {
+  id: number;
   created_at: string;
 };
 
@@ -237,6 +238,8 @@ export type CameraMotionEvent = CameraBaseTimedEvent & {
 };
 export type CameraRecordingEvent = CameraBaseTimedEvent & {
   type: "recording";
+  hls_url: string;
+  thumbnail_path: string;
 };
 export type CameraTimedEvents = CameraMotionEvent | CameraRecordingEvent;
 

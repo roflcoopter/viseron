@@ -1,8 +1,8 @@
 import Image from "@jy95/material-ui-image";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
+import PersonIcon from "@mui/icons-material/DirectionsWalk";
 import FaceIcon from "@mui/icons-material/Face";
 import ImageSearchIcon from "@mui/icons-material/ImageSearch";
-import PersonIcon from "@mui/icons-material/Person";
 import PetsIcon from "@mui/icons-material/Pets";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
@@ -19,7 +19,9 @@ import {
   EVENT_ICON_HEIGHT,
   TICK_HEIGHT,
   convertToPercentage,
-} from "components/events/timeline/utils";
+  extractUniqueLabels,
+  extractUniqueTypes,
+} from "components/events/utils";
 import { toTitleCase } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -33,64 +35,6 @@ const CustomWidthTooltip = styled(({ className, ...props }: TooltipProps) => (
     maxWidth: "100vw",
   },
 }));
-
-// Extract unique snapshot event types into a map
-const extractUniqueTypes = (snapshotEvents: types.CameraSnapshotEvents) => {
-  if (!snapshotEvents) {
-    return {};
-  }
-
-  const typeMap = new Map<string, types.CameraSnapshotEvents>();
-
-  snapshotEvents.forEach((event) => {
-    const type = event.type;
-    if (!typeMap.has(type)) {
-      typeMap.set(type, []);
-    }
-    typeMap.get(type)!.push(event);
-  });
-
-  const result: { [key: string]: types.CameraSnapshotEvents } = {};
-  typeMap.forEach((value, key) => {
-    result[key] = value;
-  });
-
-  return result;
-};
-
-// Extract unique labels for object snapshot events into a map
-const extractUniqueLabels = (objectEvents: types.CameraObjectEvents) => {
-  if (!objectEvents) {
-    return {};
-  }
-
-  const labelMap = new Map<string, types.CameraObjectEvents>();
-
-  objectEvents.forEach((event) => {
-    let label;
-    switch (event.label) {
-      case "car":
-      case "truck":
-      case "vehicle":
-        label = "vehicle";
-        break;
-      default:
-        label = event.label;
-    }
-
-    if (!labelMap.has(label)) {
-      labelMap.set(label, []);
-    }
-    labelMap.get(label)!.push(event);
-  });
-
-  const result: { [key: string]: types.CameraObjectEvents } = {};
-  labelMap.forEach((value, key) => {
-    result[key] = value;
-  });
-
-  return result;
-};
 
 const labelToIcon = (label: string) => {
   switch (label) {
@@ -212,18 +156,15 @@ const Divider = () => (
   />
 );
 
-const SnapshotIcon = ({
-  eventType,
+export const SnapshotIcon = ({
   snapshotEvents,
 }: {
-  eventType: string;
   snapshotEvents: types.CameraSnapshotEvents;
 }) => {
   const theme = useTheme();
   const Icon = getIcon(snapshotEvents[0]);
   return (
     <CustomWidthTooltip
-      key={eventType}
       title={<ToolTipContent snapshotEvents={snapshotEvents} />}
       arrow
     >
@@ -273,14 +214,15 @@ const SnapshotIcons = ({
             uniqueEvents[key] as Array<types.CameraObjectEvent>,
           );
           return Object.keys(uniqueLabels).map((label) => (
-            <SnapshotIcon
-              eventType={key}
-              snapshotEvents={uniqueLabels[label]}
-            />
+            <Box key={`icon-${key}-${label}`}>
+              <SnapshotIcon snapshotEvents={uniqueLabels[label]} />
+            </Box>
           ));
         }
         return (
-          <SnapshotIcon eventType={key} snapshotEvents={uniqueEvents[key]} />
+          <Box key={`icon-${key}`}>
+            <SnapshotIcon snapshotEvents={uniqueEvents[key]} />
+          </Box>
         );
       })}
     </Stack>

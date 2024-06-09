@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import time
 from collections.abc import Callable
 from http import HTTPStatus
 from typing import TYPE_CHECKING
@@ -37,10 +38,15 @@ class EventsAPIHandler(BaseAPIHandler):
             "supported_methods": ["GET"],
             "method": "get_events",
             "request_arguments_schema": vol.Schema(
-                {
-                    vol.Required("time_from"): vol.Coerce(int),
-                    vol.Required("time_to"): vol.Coerce(int),
-                },
+                vol.Any(
+                    {
+                        vol.Required("time_from"): vol.Coerce(int),
+                        vol.Required("time_to"): vol.Coerce(int),
+                    },
+                    {
+                        vol.Required("date"): str,
+                    },
+                )
             ),
         },
     ]
@@ -69,6 +75,7 @@ class EventsAPIHandler(BaseAPIHandler):
                 motion_events.append(
                     {
                         "type": "motion",
+                        "id": event.id,
                         "start_time": event.start_time,
                         "start_timestamp": event.start_time.timestamp(),
                         "end_time": event.end_time,
@@ -103,6 +110,7 @@ class EventsAPIHandler(BaseAPIHandler):
                 object_events.append(
                     {
                         "type": "object",
+                        "id": event.id,
                         "time": event.created_at,
                         "timestamp": event.created_at.timestamp(),
                         "label": event.label,
@@ -137,12 +145,18 @@ class EventsAPIHandler(BaseAPIHandler):
                 recording_events.append(
                     {
                         "type": "recording",
+                        "id": event.id,
                         "start_time": event.start_time,
                         "start_timestamp": event.start_time.timestamp(),
                         "end_time": event.end_time,
                         "end_timestamp": event.end_time.timestamp()
                         if event.end_time
                         else None,
+                        "hls_url": (
+                            "/api/v1/hls/"
+                            f"{event.camera_identifier}/{event.id}/index.m3u8"
+                        ),
+                        "thumbnail_path": f"/files{event.thumbnail_path}",
                         "created_at": event.created_at,
                     }
                 )
@@ -176,6 +190,7 @@ class EventsAPIHandler(BaseAPIHandler):
                 post_processor_events.append(
                     {
                         "type": event.domain,
+                        "id": event.id,
                         "time": event.created_at,
                         "timestamp": event.created_at.timestamp(),
                         "snapshot_path": f"/files{event.snapshot_path}",
@@ -199,33 +214,44 @@ class EventsAPIHandler(BaseAPIHandler):
             )
             return
 
+        # Get start of day in utc
+        if "date" in self.request_arguments:
+            time_from = (
+                datetime.datetime.strptime(self.request_arguments["date"], "%Y-%m-%d")
+                - datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+            ).timestamp()
+            time_to = time_from + 86400
+        else:
+            time_from = self.request_arguments["time_from"]
+            time_to = self.request_arguments["time_to"]
+
         motion_events = await self.run_in_executor(
             self._motion_events,
             self._get_session,
             camera,
-            self.request_arguments["time_from"],
-            self.request_arguments["time_to"],
+            time_from,
+            time_to,
         )
         recording_events = await self.run_in_executor(
             self._recording_events,
             self._get_session,
             camera,
-            self.request_arguments["time_from"],
-            self.request_arguments["time_to"],
+            time_from,
+            time_to,
         )
         object_events = await self.run_in_executor(
             self._object_event,
             self._get_session,
             camera,
-            self.request_arguments["time_from"],
-            self.request_arguments["time_to"],
+            time_from,
+            time_to,
         )
         post_processor_events = await self.run_in_executor(
             self._post_processor_events,
             self._get_session,
             camera,
-            self.request_arguments["time_from"],
-            self.request_arguments["time_to"],
+            time_from,
+            time_to,
         )
 
         sorted_events = sorted(

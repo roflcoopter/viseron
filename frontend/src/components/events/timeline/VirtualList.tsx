@@ -8,7 +8,7 @@ import {
   calculateItemCount,
   calculateTimeFromIndex,
   getItem,
-} from "components/events/timeline/utils";
+} from "components/events/utils";
 
 type VirtualListProps = {
   parentRef: React.MutableRefObject<HTMLDivElement | null>;

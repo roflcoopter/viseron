@@ -1,7 +1,7 @@
 import dayjs, { Dayjs } from "dayjs";
 import { Fragment } from "hls.js";
 
-import { dateToTimestamp } from "lib/helpers";
+import { BLANK_IMAGE, dateToTimestamp } from "lib/helpers";
 import * as types from "lib/types";
 
 export const TICK_HEIGHT = 8;
@@ -303,3 +303,81 @@ export const calculateHeight = (
   cameraHeight: number,
   width: number,
 ): number => (width * cameraHeight) / cameraWidth;
+
+export const getSrc = (event: types.CameraEvent) => {
+  switch (event.type) {
+    case "recording":
+      return event.thumbnail_path;
+    case "object":
+    case "face_recognition":
+      return event.snapshot_path;
+    default:
+      return BLANK_IMAGE;
+  }
+};
+
+// Extract unique snapshot event types into a map
+export const extractUniqueTypes = (
+  snapshotEvents: types.CameraSnapshotEvents,
+) => {
+  if (!snapshotEvents) {
+    return {};
+  }
+
+  const typeMap = new Map<string, types.CameraSnapshotEvents>();
+
+  snapshotEvents.forEach((event) => {
+    const type = event.type;
+    if (!typeMap.has(type)) {
+      typeMap.set(type, []);
+    }
+    typeMap.get(type)!.push(event);
+  });
+
+  const result: { [key: string]: types.CameraSnapshotEvents } = {};
+  typeMap.forEach((value, key) => {
+    result[key] = value;
+  });
+
+  return result;
+};
+
+// Extract unique labels for object snapshot events into a map
+export const extractUniqueLabels = (objectEvents: types.CameraObjectEvents) => {
+  if (!objectEvents) {
+    return {};
+  }
+
+  const labelMap = new Map<string, types.CameraObjectEvents>();
+
+  objectEvents.forEach((event) => {
+    let label;
+    switch (event.label) {
+      case "car":
+      case "truck":
+      case "vehicle":
+        label = "vehicle";
+        break;
+      default:
+        label = event.label;
+    }
+
+    if (!labelMap.has(label)) {
+      labelMap.set(label, []);
+    }
+    labelMap.get(label)!.push(event);
+  });
+
+  const result: { [key: string]: types.CameraObjectEvents } = {};
+  labelMap.forEach((value, key) => {
+    result[key] = value;
+  });
+
+  return result;
+};
+
+export const filterEvents = (events: types.CameraEvent[]) =>
+  events.filter(
+    (cameraEvent): cameraEvent is types.CameraSnapshotEvent =>
+      cameraEvent.type === "object" || cameraEvent.type === "face_recognition",
+  );

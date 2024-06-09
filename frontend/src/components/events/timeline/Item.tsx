@@ -1,9 +1,9 @@
 import { memo } from "react";
 
+import { SnapshotEvent } from "components/events/SnapshotEvent";
 import { ActivityLine } from "components/events/timeline/ActivityLine";
-import { SnapshotEvent } from "components/events/timeline/SnapshotEvent";
 import { TimeTick } from "components/events/timeline/TimeTick";
-import { TimelineItem } from "components/events/timeline/utils";
+import { TimelineItem } from "components/events/utils";
 
 export const itemEqual = (
   prevItem: Readonly<ItemProps>,

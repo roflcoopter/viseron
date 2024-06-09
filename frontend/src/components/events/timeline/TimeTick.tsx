@@ -2,7 +2,7 @@ import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { memo } from "react";
 
-import { TICK_HEIGHT } from "components/events/timeline/utils";
+import { TICK_HEIGHT } from "components/events/utils";
 import { getTimeFromDate, timestampToDate } from "lib/helpers";
 
 type TimeTickProps = {

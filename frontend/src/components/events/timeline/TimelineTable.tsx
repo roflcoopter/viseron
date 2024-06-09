@@ -14,7 +14,7 @@ import {
   calculateStart,
   getDateAtPosition,
   getTimelineItems,
-} from "components/events/timeline/utils";
+} from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { ViseronContext } from "context/ViseronContext";
 import { useEvents } from "lib/api/events";
