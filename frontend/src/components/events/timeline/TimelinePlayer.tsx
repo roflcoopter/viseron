@@ -121,7 +121,7 @@ const initializePlayer = (
     liveDurationInfinity: true,
     async xhrSetup(xhr, _url) {
       xhr.withCredentials = true;
-      if (auth) {
+      if (auth.enabled) {
         const token = await getToken();
         if (token) {
           xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");

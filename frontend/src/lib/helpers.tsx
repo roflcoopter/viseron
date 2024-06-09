@@ -64,7 +64,7 @@ export function getRecordingVideoJSOptions(
 export function getVideoElement(
   camera: types.Camera | types.FailedCamera,
   recording: types.Recording | null | undefined,
-  auth: boolean,
+  authEnabled: boolean,
 ) {
   if (!objHasValues(recording) || !recording) {
     return (
@@ -73,7 +73,7 @@ export function getVideoElement(
   }
 
   let authHeader: string | null = null;
-  if (auth) {
+  if (authEnabled) {
     authHeader = getAuthHeader();
   }
   const videoJsOptions = getRecordingVideoJSOptions(
