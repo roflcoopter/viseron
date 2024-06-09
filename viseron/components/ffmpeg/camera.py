@@ -19,7 +19,8 @@ from viseron.domains.camera import (
 )
 from viseron.domains.camera.const import DOMAIN
 from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
-from viseron.helpers import utcnow
+from viseron.helpers import escape_string, utcnow
+from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import (
     CameraIdentifier,
     CoerceNoneToDict,
@@ -309,6 +310,15 @@ class Camera(AbstractCamera):
     """Represents a camera which is consumed via FFmpeg."""
 
     def __init__(self, vis: Viseron, config, identifier) -> None:
+        # Add password to SensitiveInformationFilter.
+        # It is done in AbstractCamera but since we are calling Stream before
+        # super().__init__ we need to do it here as well
+        if config[CONFIG_PASSWORD]:
+            SensitiveInformationFilter.add_sensitive_string(config[CONFIG_PASSWORD])
+            SensitiveInformationFilter.add_sensitive_string(
+                escape_string(config[CONFIG_PASSWORD])
+            )
+
         self._poll_timer = utcnow().timestamp()
         self._frame_reader = None
         # Stream must be initialized before super().__init__ is called as it raises

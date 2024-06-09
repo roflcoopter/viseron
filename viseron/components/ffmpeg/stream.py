@@ -24,6 +24,7 @@ from viseron.const import (
 )
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
+from viseron.helpers import escape_string
 from viseron.helpers.logs import LogPipe, UnhelpfullLogFilter
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
@@ -194,7 +195,12 @@ class Stream:
         """Return stream url."""
         auth = ""
         if self._config[CONFIG_USERNAME] and self._config[CONFIG_PASSWORD]:
-            auth = f"{self._config[CONFIG_USERNAME]}:{self._config[CONFIG_PASSWORD]}@"
+            auth = (
+                f"{self._config[CONFIG_USERNAME]}"
+                ":"
+                f"{escape_string(self._config[CONFIG_PASSWORD])}"
+                "@"
+            )
 
         protocol = (
             stream_config[CONFIG_PROTOCOL]
