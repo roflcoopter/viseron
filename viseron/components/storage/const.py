@@ -7,14 +7,13 @@ COMPONENT = "storage"
 
 DATABASE_URL = "postgresql://postgres@localhost/viseron"
 
-MOVE_FILES_THROTTLE_SECONDS = 10
-
 # Storage configuration
 DESC_COMPONENT = "Storage configuration."
 DEFAULT_COMPONENT: dict[str, Any] = {}
 CONFIG_PATH: Final = "path"
 CONFIG_POLL: Final = "poll"
 CONFIG_MOVE_ON_SHUTDOWN: Final = "move_on_shutdown"
+CONFIG_CHECK_INTERVAL: Final = "check_interval"
 CONFIG_MIN_SIZE: Final = "min_size"
 CONFIG_MAX_SIZE: Final = "max_size"
 CONFIG_MAX_AGE: Final = "max_age"
@@ -24,6 +23,7 @@ CONFIG_MB: Final = "mb"
 CONFIG_DAYS: Final = "days"
 CONFIG_HOURS: Final = "hours"
 CONFIG_MINUTES: Final = "minutes"
+CONFIG_SECONDS: Final = "seconds"
 CONFIG_RECORDER: Final = "recorder"
 CONFIG_CONTINUOUS: Final = "continuous"
 CONFIG_EVENTS: Final = "events"
@@ -58,6 +58,11 @@ DEFAULT_OBJECT_DETECTION: Final = None
 
 DEFAULT_POLL = False
 DEFAULT_MOVE_ON_SHUTDOWN = False
+DEFAULT_CHECK_INTERVAL: Final = None
+DEFAULT_CHECK_INTERVAL_DAYS: Final = 0
+DEFAULT_CHECK_INTERVAL_HOURS: Final = 0
+DEFAULT_CHECK_INTERVAL_MINUTES: Final = 1
+DEFAULT_CHECK_INTERVAL_SECONDS: Final = 0
 DEFAULT_GB: Final = None
 DEFAULT_MB: Final = None
 DEFAULT_DAYS: Final = None
@@ -124,6 +129,11 @@ DESC_MOVE_ON_SHUTDOWN = (
     "Move/delete files to the next tier when Viseron shuts down. "
     "Useful to not lose files when shutting down Viseron if using a RAM disk."
 )
+DESC_CHECK_INTERVAL = "How often to check for files to move to the next tier."
+DESC_CHECK_INTERVAL_DAYS = "Days between checks for files to move/delete."
+DESC_CHECK_INTERVAL_HOURS = "Hours between checks for files to move/delete."
+DESC_CHECK_INTERVAL_MINUTES = "Minutes between checks for files to move/delete."
+DESC_CHECK_INTERVAL_SECONDS = "Seconds between checks for files to move/delete."
 DESC_MIN_SIZE = "Minimum size of files to keep in this tier."
 DESC_MAX_SIZE = "Maximum size of files to keep in this tier."
 DESC_MIN_AGE = "Minimum age of files to keep in this tier."

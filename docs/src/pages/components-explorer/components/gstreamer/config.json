@@ -532,6 +532,47 @@
                               "type": "map",
                               "value": [
                                 {
+                                  "type": "integer",
+                                  "valueMin": 0,
+                                  "name": "days",
+                                  "description": "Days between checks for files to move/delete.",
+                                  "optional": true,
+                                  "default": 0
+                                },
+                                {
+                                  "type": "integer",
+                                  "valueMin": 0,
+                                  "name": "hours",
+                                  "description": "Hours between checks for files to move/delete.",
+                                  "optional": true,
+                                  "default": 0
+                                },
+                                {
+                                  "type": "integer",
+                                  "valueMin": 0,
+                                  "name": "minutes",
+                                  "description": "Minutes between checks for files to move/delete.",
+                                  "optional": true,
+                                  "default": 1
+                                },
+                                {
+                                  "type": "integer",
+                                  "valueMin": 0,
+                                  "name": "seconds",
+                                  "description": "Seconds between checks for files to move/delete.",
+                                  "optional": true,
+                                  "default": 0
+                                }
+                              ],
+                              "name": "check_interval",
+                              "description": "How often to check for files to move to the next tier.",
+                              "optional": true,
+                              "default": null
+                            },
+                            {
+                              "type": "map",
+                              "value": [
+                                {
                                   "type": "map",
                                   "value": [
                                     {
