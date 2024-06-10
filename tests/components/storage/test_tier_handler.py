@@ -107,6 +107,12 @@ def _get_tier_config(events: bool, continuous: bool):
             "max_age": {"minutes": None, "hours": None, "days": None},
             "min_size": {"gb": None, "mb": None},
         },
+        "check_interval": {
+            "days": 0,
+            "hours": 0,
+            "minutes": 1,
+            "seconds": 0,
+        },
     }
 
 
