@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 from datetime import timedelta
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Literal, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
 
 import tornado.web
 from sqlalchemy.orm import Session
@@ -145,7 +145,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             secure=bool(self.request.protocol == "https"),
         )
 
-    def clear_all_cookies(self, path: str = "/", domain: str | None = None) -> None:
+    def clear_all_cookies(self, **kwargs: Any) -> None:
         """Overridden clear_all_cookies.
 
         Clears all cookies except for the XSRF cookie.
@@ -153,7 +153,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         for name in self.request.cookies:
             if name == "_xsrf":
                 continue
-            self.clear_cookie(name, path=path, domain=domain)
+            self.clear_cookie(name, *kwargs)
 
     def validate_access_token(
         self, access_token: str, check_refresh_token: bool = True
