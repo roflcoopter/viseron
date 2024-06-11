@@ -164,31 +164,31 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
         try:
             handler(self, schema(message))
         except Exception as err:  # pylint: disable=broad-except
-            await self.handle_exception(command_id, err)
+            await self.handle_exception(command_id, message, err)
         self._last_id = command_id
 
-    async def handle_exception(self, command_id, err: Exception) -> None:
+    async def handle_exception(self, command_id, message, err: Exception) -> None:
         """Handle an exception."""
         log_handler = LOGGER.error
 
         if isinstance(err, vol.Invalid):
             code = WS_ERROR_INVALID_FORMAT
-            message = humanize_error(err.message, err)
+            err_msg = humanize_error(message, err)
         elif isinstance(err, Unauthorized):
             code = WS_ERROR_UNAUTHORIZED
-            message = "Unauthorized."
+            err_msg = "Unauthorized."
         else:
             # Log unknown errors as exceptions
             log_handler = LOGGER.exception
             code = WS_ERROR_UNKNOWN_ERROR
-            message = "Unknown error"
+            err_msg = "Unknown error"
 
-        log_handler("Error handling message. Code: %s, message: %s", code, message)
+        log_handler("Error handling message. Code: %s, message: %s", code, err_msg)
         await self.async_send_message(
             error_message(
                 command_id,
                 code,
-                message,
+                err_msg,
             )
         )
 
