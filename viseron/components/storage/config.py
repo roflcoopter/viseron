@@ -114,7 +114,9 @@ class CoerceEndsWithSlash:
         return value
 
 
-def get_size_schema(age_type: Literal["min"] | Literal["max"]) -> vol.Schema:
+def get_size_schema(
+    age_type: Literal["min"] | Literal["max"],
+) -> dict[vol.Optional, Maybe]:
     """Get size schema."""
     return {
         vol.Optional(
@@ -130,7 +132,9 @@ def get_size_schema(age_type: Literal["min"] | Literal["max"]) -> vol.Schema:
     }
 
 
-def get_age_schema(age_type: Literal["min"] | Literal["max"]) -> vol.Schema:
+def get_age_schema(
+    age_type: Literal["min"] | Literal["max"],
+) -> dict[vol.Optional, Maybe]:
     """Get age schema."""
     return {
         vol.Optional(
