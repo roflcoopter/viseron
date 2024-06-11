@@ -43,9 +43,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def websocket_command(
-    schema: vol.Schema,
-) -> Callable:
+def websocket_command(schema: vol.Schema | dict[str, Any]) -> Callable:
     """Websocket command decorator."""
     command = schema["type"]
 
