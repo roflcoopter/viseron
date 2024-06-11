@@ -4,6 +4,7 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from http import HTTPStatus
@@ -91,10 +92,17 @@ class HlsAPIHandler(BaseAPIHandler):
             "supported_methods": ["GET"],
             "method": "get_available_timespans",
             "request_arguments_schema": vol.Schema(
-                {
-                    vol.Required("time_from"): vol.Coerce(int),
-                    vol.Optional("time_to", default=None): vol.Maybe(vol.Coerce(int)),
-                }
+                vol.Any(
+                    {
+                        vol.Required("time_from"): vol.Coerce(int),
+                        vol.Optional("time_to", default=None): vol.Maybe(
+                            vol.Coerce(int)
+                        ),
+                    },
+                    {
+                        vol.Required("date"): str,
+                    },
+                )
             ),
         },
     ]
@@ -175,12 +183,23 @@ class HlsAPIHandler(BaseAPIHandler):
             )
             return
 
+        # Get start of day in utc
+        if "date" in self.request_arguments:
+            time_from = (
+                datetime.datetime.strptime(self.request_arguments["date"], "%Y-%m-%d")
+                - datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+            ).timestamp()
+            time_to = time_from + 86400
+        else:
+            time_from = self.request_arguments["time_from"]
+            time_to = self.request_arguments["time_to"]
+
         timespans = await self.run_in_executor(
             _get_available_timespans,
             self._get_session,
             camera,
-            self.request_arguments["time_from"],
-            self.request_arguments["time_to"],
+            time_from,
+            time_to,
         )
         self.response_success(response={"timespans": timespans})
 
@@ -220,7 +239,7 @@ def _get_available_timespans(
             timespans.append(
                 {"start": int(start), "end": int(end), "duration": int(end - start)}
             )
-            start = fragment.creation_time.timestamp()
+            start = None
             end = None
         else:
             end = fragment.creation_time.timestamp() + fragment.duration

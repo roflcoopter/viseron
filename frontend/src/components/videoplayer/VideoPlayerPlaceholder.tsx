@@ -6,6 +6,7 @@ import { useTheme } from "@mui/material/styles";
 interface VideoPlayerPlaceholderProps {
   aspectRatio?: number;
   text?: string;
+  src?: string;
 }
 
 const blankImage =
@@ -14,13 +15,14 @@ const blankImage =
 export default function VideoPlayerPlaceholder({
   aspectRatio = 1920 / 1080,
   text,
+  src,
 }: VideoPlayerPlaceholderProps) {
   const theme = useTheme();
 
   return (
     <Box sx={{ position: "relative" }} data-testid="video-player-placeholder">
       <Image
-        src={blankImage}
+        src={src || blankImage}
         aspectRatio={aspectRatio}
         color={theme.palette.background.default}
         errorIcon={Image.defaultProps!.loading}

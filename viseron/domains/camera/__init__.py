@@ -44,9 +44,11 @@ from viseron.events import EventData, EventEmptyData
 from viseron.helpers import (
     calculate_absolute_coords,
     create_directory,
+    escape_string,
     utcnow,
     zoom_boundingbox,
 )
+from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import CoerceNoneToDict, Deprecated, Maybe, Slug
 
 from .const import (
@@ -423,6 +425,13 @@ class AbstractCamera(ABC):
         )
 
         self.fragmenter: Fragmenter = Fragmenter(vis, self)
+        if self.config[CONFIG_PASSWORD]:
+            SensitiveInformationFilter.add_sensitive_string(
+                self.config[CONFIG_PASSWORD]
+            )
+            SensitiveInformationFilter.add_sensitive_string(
+                escape_string(self._config[CONFIG_PASSWORD])
+            )
 
     def as_dict(self) -> dict[str, Any]:
         """Return camera information as dict."""
@@ -441,7 +450,19 @@ class AbstractCamera(ABC):
 
     def update_token(self) -> None:
         """Update access token."""
-        self.access_tokens.append(self.generate_token())
+        old_access_token = None
+        if len(self.access_tokens) == 2:
+            old_access_token = self.access_tokens[0]
+
+        new_access_token = self.generate_token()
+        SensitiveInformationFilter.add_sensitive_string(new_access_token)
+
+        self.access_tokens.append(new_access_token)
+
+        if old_access_token:
+            SensitiveInformationFilter.remove_sensitive_string(
+                old_access_token,
+            )
         self._access_token_entity.set_state()
 
     def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]) -> None:

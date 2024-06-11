@@ -33,10 +33,14 @@ from viseron.exceptions import DomainNotRegisteredError
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
+    DATA_NO_DETECTOR_RESULT,
+    DATA_NO_DETECTOR_SCAN,
     DATA_PROCESSED_FRAME_TOPIC,
     EVENT_OPERATION_STATE,
     EVENT_SCAN_FRAMES,
     MOTION_DETECTOR,
+    NO_DETECTOR,
+    NO_DETECTOR_FPS,
     OBJECT_DETECTOR,
 )
 from .sensor import OperationStateSensor
@@ -74,13 +78,6 @@ def setup(vis: Viseron, config, identifier) -> bool:
             motion_detector = vis.get_registered_domain(MOTION_DETECTOR, identifier)
         except DomainNotRegisteredError:
             motion_detector = False
-
-    if object_detector is False and motion_detector is False:
-        LOGGER.error(
-            f"Failed setup of domain nvr for camera {identifier}. "
-            "At least one object or motion detector has to be configured"
-        )
-        return False
 
     NVR(vis, config, identifier, object_detector, motion_detector)
 
@@ -125,13 +122,13 @@ class FrameIntervalCalculator:
     def __init__(
         self,
         vis: Viseron,
-        camera_identifier,
-        name,
-        logger,
-        output_fps,
-        scan_fps,
-        topic_scan,
-        topic_result,
+        camera_identifier: str,
+        name: str,
+        logger: logging.Logger,
+        output_fps: int,
+        scan_fps: int,
+        topic_scan: str,
+        topic_result: str,
     ) -> None:
         self._vis = vis
         self._camera_identifier = camera_identifier
@@ -297,6 +294,21 @@ class NVR:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
             elif self._motion_detector:
                 self._frame_scanners[MOTION_DETECTOR].scan = True
+
+        if not self._object_detector and not self._motion_detector:
+            self._logger.debug("Running without any detectors")
+            self._frame_scanners[NO_DETECTOR] = FrameIntervalCalculator(
+                vis,
+                self._camera.identifier,
+                NO_DETECTOR,
+                self._logger,
+                self._camera.output_fps,
+                NO_DETECTOR_FPS,
+                DATA_NO_DETECTOR_SCAN.format(camera_identifier=self._camera.identifier),
+                DATA_NO_DETECTOR_RESULT.format(
+                    camera_identifier=self._camera.identifier
+                ),
+            )
 
         self._frame_queue: Queue[SharedFrame] = Queue(maxsize=100)
         self._data_stream.subscribe_data(

@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import DOMPurify from "dompurify";
 import { memo, useEffect, useRef } from "react";
 
-import { getDateAtPosition } from "components/events/timeline/utils";
+import { getDateAtPosition } from "components/events/utils";
 import { dateToTimestamp, getTimeFromDate } from "lib/helpers";
 
 const useSetPosition = (

@@ -9,10 +9,50 @@ import ServerDown from "svg/undraw/server_down.svg?react";
 
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { EventTableItem } from "components/events/EventTableItem";
+import { filterEvents } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
-import { useRecordings } from "lib/api/recordings";
-import { throttle } from "lib/helpers";
+import { useEvents } from "lib/api/events";
+import { useHlsAvailableTimespans } from "lib/api/hls";
+import { objIsEmpty, throttle } from "lib/helpers";
 import * as types from "lib/types";
+
+// Groups that are within 2 minutes of each other
+const groupSnapshotEventsByTime = (
+  snapshotEvents: types.CameraSnapshotEvents,
+): types.CameraSnapshotEvents[] => {
+  if (snapshotEvents.length === 0) {
+    return [];
+  }
+
+  snapshotEvents.reverse();
+
+  const groups: types.CameraSnapshotEvents[] = [];
+  let currentGroup: types.CameraSnapshotEvents = [];
+  let startOfGroup = snapshotEvents[0].timestamp;
+
+  for (let i = 0; i < snapshotEvents.length; i++) {
+    if (currentGroup.length === 0) {
+      currentGroup.push(snapshotEvents[i]);
+    } else {
+      const currentTime = snapshotEvents[i].timestamp;
+
+      if (currentTime - startOfGroup < 120) {
+        currentGroup.push(snapshotEvents[i]);
+      } else {
+        startOfGroup = snapshotEvents[i].timestamp;
+        groups.push(currentGroup);
+        currentGroup = [snapshotEvents[i]];
+      }
+    }
+  }
+
+  // Add the last group if it has any items
+  if (currentGroup.length > 0) {
+    groups.push(currentGroup);
+  }
+
+  return groups.reverse();
+};
 
 const useOnScroll = (parentRef: React.RefObject<HTMLDivElement>) => {
   useEffect(() => {
@@ -34,8 +74,9 @@ type EventTableProps = {
   parentRef: React.RefObject<HTMLDivElement>;
   camera: types.Camera | types.FailedCamera;
   date: Dayjs | null;
-  selectedRecording: types.Recording | null;
-  setSelectedRecording: (recording: types.Recording) => void;
+  selectedEvent: types.CameraEvent | null;
+  setSelectedEvent: (event: types.CameraEvent) => void;
+  setRequestedTimestamp: (timestamp: number | null) => void;
 };
 
 export const EventTable = memo(
@@ -43,24 +84,32 @@ export const EventTable = memo(
     parentRef,
     camera,
     date,
-    selectedRecording,
-    setSelectedRecording,
+    selectedEvent,
+    setSelectedEvent,
+    setRequestedTimestamp,
   }: EventTableProps) => {
     const formattedDate = dayjs(date).format("YYYY-MM-DD");
-    const recordingsQuery = useRecordings({
+    const eventsQuery = useEvents({
       camera_identifier: camera.identifier,
-      failed: camera.failed,
+      date: formattedDate,
+      configOptions: { enabled: !!date },
+    });
+
+    const availableTimespansQuery = useHlsAvailableTimespans({
+      camera_identifier: camera.identifier,
       date: formattedDate,
       configOptions: { enabled: !!date },
     });
 
     useOnScroll(parentRef);
 
-    if (recordingsQuery.isError) {
+    if (eventsQuery.isError || availableTimespansQuery.isError) {
       return (
         <ErrorMessage
-          text={"Error loading recordings"}
-          subtext={recordingsQuery.error.message}
+          text={"Error loading Events"}
+          subtext={
+            eventsQuery.error?.message || availableTimespansQuery.error?.message
+          }
           image={
             <ServerDown width={150} height={150} role="img" aria-label="Void" />
           }
@@ -68,56 +117,49 @@ export const EventTable = memo(
       );
     }
 
-    if (recordingsQuery.isLoading) {
-      return <Loading text="Loading Recordings" fullScreen={false} />;
+    if (eventsQuery.isLoading || availableTimespansQuery.isLoading) {
+      return <Loading text="Loading Events" fullScreen={false} />;
     }
 
-    if (!recordingsQuery.data) {
+    const groupedEvents = groupSnapshotEventsByTime(
+      filterEvents(eventsQuery.data.events),
+    );
+
+    if (!eventsQuery.data || objIsEmpty(groupedEvents)) {
       return (
-        <ErrorMessage
-          text={`No recordings found for ${camera.name}`}
-          image={
-            <ServerDown width={150} height={150} role="img" aria-label="Void" />
-          }
-        />
+        <Typography align="center" padding={2}>
+          No Events found for {formattedDate}
+        </Typography>
       );
     }
 
     return (
       <Box>
-        {formattedDate in recordingsQuery.data ? (
-          <Grid container direction="row" columns={1}>
-            {Object.values(recordingsQuery.data[formattedDate])
-              .sort()
-              .reverse()
-              .map((recording) => (
-                <Grid
-                  item
-                  xs={12}
-                  sm={12}
-                  md={12}
-                  lg={12}
-                  xl={12}
-                  key={recording.id}
-                >
-                  <EventTableItem
-                    camera={camera}
-                    recording={recording}
-                    setSelectedRecording={setSelectedRecording}
-                    selected={
-                      !!selectedRecording &&
-                      selectedRecording.id === recording.id
-                    }
-                  />
-                  <Divider sx={{ marginTop: "5px", marginBottom: "5px" }} />
-                </Grid>
-              ))}
-          </Grid>
-        ) : (
-          <Typography align="center" padding={2}>
-            No recordings found for {formattedDate}
-          </Typography>
-        )}
+        <Grid container direction="row" columns={1}>
+          {groupedEvents.map((snapshotEvents) => (
+            <Grid
+              item
+              xs={12}
+              sm={12}
+              md={12}
+              lg={12}
+              xl={12}
+              key={`event-${snapshotEvents[0].type}-${snapshotEvents[0].id}`}
+            >
+              <EventTableItem
+                camera={camera}
+                snapshotEvents={snapshotEvents}
+                setSelectedEvent={setSelectedEvent}
+                selected={
+                  !!selectedEvent && selectedEvent.id === snapshotEvents[0].id
+                }
+                setRequestedTimestamp={setRequestedTimestamp}
+                availableTimespans={availableTimespansQuery.data}
+              />
+              <Divider sx={{ marginTop: "5px", marginBottom: "5px" }} />
+            </Grid>
+          ))}
+        </Grid>
       </Box>
     );
   },

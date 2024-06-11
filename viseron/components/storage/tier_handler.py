@@ -25,16 +25,20 @@ from watchdog.observers.polling import PollingObserverVFS
 
 from viseron.components.storage.const import (
     COMPONENT,
+    CONFIG_CHECK_INTERVAL,
     CONFIG_CONTINUOUS,
+    CONFIG_DAYS,
     CONFIG_EVENTS,
+    CONFIG_HOURS,
     CONFIG_MAX_AGE,
     CONFIG_MAX_SIZE,
     CONFIG_MIN_AGE,
     CONFIG_MIN_SIZE,
+    CONFIG_MINUTES,
     CONFIG_MOVE_ON_SHUTDOWN,
     CONFIG_PATH,
     CONFIG_POLL,
-    MOVE_FILES_THROTTLE_SECONDS,
+    CONFIG_SECONDS,
 )
 from viseron.components.storage.models import Files, FilesMeta, Recordings
 from viseron.components.storage.queries import (
@@ -103,7 +107,10 @@ class TierHandler(FileSystemEventHandler):
         self._event_thread.start()
 
         self._throttle_period = timedelta(
-            seconds=MOVE_FILES_THROTTLE_SECONDS,
+            days=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_DAYS, 0),
+            hours=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_HOURS, 0),
+            minutes=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_MINUTES, 0),
+            seconds=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_SECONDS, 0),
         )
         self._time_of_last_call = utcnow()
         self._check_tier_lock = Lock()
@@ -169,10 +176,9 @@ class TierHandler(FileSystemEventHandler):
         now = utcnow()
         with self._check_tier_lock:
             time_since_last_call = now - self._time_of_last_call
-            if time_since_last_call > self._throttle_period:
-                self._time_of_last_call = now
-            else:
+            if time_since_last_call < self._throttle_period:
                 return
+
         self._check_tier(self._storage.get_session)
         self._time_of_last_call = now
 

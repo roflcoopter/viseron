@@ -27,6 +27,12 @@ DEFAULT_CONFIG = {
                         "max_age": {"minutes": None, "hours": None, "days": None},
                         "min_size": {"gb": None, "mb": None},
                     },
+                    "check_interval": {
+                        "days": 0,
+                        "hours": 0,
+                        "minutes": 1,
+                        "seconds": 0,
+                    },
                 }
             ],
         },
@@ -40,6 +46,12 @@ DEFAULT_CONFIG = {
                     "max_size": {"gb": None, "mb": None},
                     "move_on_shutdown": False,
                     "poll": False,
+                    "check_interval": {
+                        "days": 0,
+                        "hours": 0,
+                        "minutes": 1,
+                        "seconds": 0,
+                    },
                 }
             ],
             "face_recognition": None,

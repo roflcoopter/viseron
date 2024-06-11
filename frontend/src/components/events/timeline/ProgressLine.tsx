@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import Hls from "hls.js";
 import { memo, useEffect, useRef } from "react";
 
-import { TICK_HEIGHT, getYPosition } from "components/events/timeline/utils";
+import { TICK_HEIGHT, getYPosition } from "components/events/utils";
 import { dateToTimestamp, getTimeFromDate } from "lib/helpers";
 
 const useTimeUpdate = (

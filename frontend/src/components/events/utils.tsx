@@ -1,17 +1,19 @@
 import dayjs, { Dayjs } from "dayjs";
 import { Fragment } from "hls.js";
 
-import { dateToTimestamp } from "lib/helpers";
+import { BLANK_IMAGE, dateToTimestamp } from "lib/helpers";
 import * as types from "lib/types";
 
 export const TICK_HEIGHT = 8;
 export const SCALE = 60;
 export const EXTRA_TICKS = 10;
 export const COLUMN_HEIGHT = "99dvh";
+export const EVENT_ICON_HEIGHT = 20;
+
 export const DEFAULT_ITEM: TimelineItem = {
   time: 0,
   timedEvent: null,
-  snapshotEvent: null,
+  snapshotEvents: null,
   availableTimespan: null,
   activityLineVariant: null,
 };
@@ -19,7 +21,7 @@ export const DEFAULT_ITEM: TimelineItem = {
 export type TimelineItem = {
   time: number;
   timedEvent: null | types.CameraMotionEvent | types.CameraRecordingEvent;
-  snapshotEvent: null | types.CameraObjectEvent;
+  snapshotEvents: null | types.CameraSnapshotEvents;
   availableTimespan: null | types.HlsAvailableTimespan;
   activityLineVariant: "first" | "middle" | "last" | "round" | null;
 };
@@ -155,6 +157,40 @@ export const createActivityLineItem = (
   return timelineItems;
 };
 
+// For snapshot events, make sure adjacent events are grouped together
+const addSnapshotEvent = (
+  startRef: React.MutableRefObject<number>,
+  timelineItems: TimelineItems,
+  cameraEvent: types.CameraSnapshotEvent,
+) => {
+  // Find number of grouped ticks
+  const groupedTicks = Math.ceil(EVENT_ICON_HEIGHT / TICK_HEIGHT);
+
+  // Check if previous ticks have snapshot events and group them
+  const index = calculateIndexFromTime(startRef, cameraEvent.timestamp);
+  const groupedSnapshotEvents: types.CameraSnapshotEvents = [];
+  for (let i = 0; i < groupedTicks; i++) {
+    const time = calculateTimeFromIndex(startRef, index - i);
+    if (time in timelineItems && timelineItems[time].snapshotEvents) {
+      groupedSnapshotEvents.push(...(timelineItems[time].snapshotEvents || []));
+      timelineItems[time].snapshotEvents = null;
+    }
+  }
+
+  // Add the (grouped) snapshot events to the timeline
+  const time = calculateTimeFromIndex(startRef, index);
+  timelineItems[time] = {
+    ...DEFAULT_ITEM,
+    ...timelineItems[time],
+    time,
+    snapshotEvents: [
+      ...groupedSnapshotEvents,
+      ...(timelineItems[time].snapshotEvents || []),
+      cameraEvent,
+    ],
+  };
+};
+
 // Get the timeline items from the events and available timespans
 export const getTimelineItems = (
   startRef: React.MutableRefObject<number>,
@@ -218,16 +254,17 @@ export const getTimelineItems = (
         cameraEvent.type === "object",
     )
     .forEach((cameraEvent) => {
-      const index = calculateIndexFromTime(startRef, cameraEvent.timestamp);
-      const time = calculateTimeFromIndex(startRef, index);
-      timelineItems[time] = {
-        ...DEFAULT_ITEM,
-        ...timelineItems[time],
-        time,
-        snapshotEvent: cameraEvent,
-      };
+      addSnapshotEvent(startRef, timelineItems, cameraEvent);
     });
 
+  eventsData
+    .filter(
+      (cameraEvent): cameraEvent is types.CameraFaceRecognitionEvent =>
+        cameraEvent.type === "face_recognition",
+    )
+    .forEach((cameraEvent) => {
+      addSnapshotEvent(startRef, timelineItems, cameraEvent);
+    });
   return timelineItems;
 };
 
@@ -266,3 +303,81 @@ export const calculateHeight = (
   cameraHeight: number,
   width: number,
 ): number => (width * cameraHeight) / cameraWidth;
+
+export const getSrc = (event: types.CameraEvent) => {
+  switch (event.type) {
+    case "recording":
+      return event.thumbnail_path;
+    case "object":
+    case "face_recognition":
+      return event.snapshot_path;
+    default:
+      return BLANK_IMAGE;
+  }
+};
+
+// Extract unique snapshot event types into a map
+export const extractUniqueTypes = (
+  snapshotEvents: types.CameraSnapshotEvents,
+) => {
+  if (!snapshotEvents) {
+    return {};
+  }
+
+  const typeMap = new Map<string, types.CameraSnapshotEvents>();
+
+  snapshotEvents.forEach((event) => {
+    const type = event.type;
+    if (!typeMap.has(type)) {
+      typeMap.set(type, []);
+    }
+    typeMap.get(type)!.push(event);
+  });
+
+  const result: { [key: string]: types.CameraSnapshotEvents } = {};
+  typeMap.forEach((value, key) => {
+    result[key] = value;
+  });
+
+  return result;
+};
+
+// Extract unique labels for object snapshot events into a map
+export const extractUniqueLabels = (objectEvents: types.CameraObjectEvents) => {
+  if (!objectEvents) {
+    return {};
+  }
+
+  const labelMap = new Map<string, types.CameraObjectEvents>();
+
+  objectEvents.forEach((event) => {
+    let label;
+    switch (event.label) {
+      case "car":
+      case "truck":
+      case "vehicle":
+        label = "vehicle";
+        break;
+      default:
+        label = event.label;
+    }
+
+    if (!labelMap.has(label)) {
+      labelMap.set(label, []);
+    }
+    labelMap.get(label)!.push(event);
+  });
+
+  const result: { [key: string]: types.CameraObjectEvents } = {};
+  labelMap.forEach((value, key) => {
+    result[key] = value;
+  });
+
+  return result;
+};
+
+export const filterEvents = (events: types.CameraEvent[]) =>
+  events.filter(
+    (cameraEvent): cameraEvent is types.CameraSnapshotEvent =>
+      cameraEvent.type === "object" || cameraEvent.type === "face_recognition",
+  );

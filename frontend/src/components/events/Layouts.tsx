@@ -23,7 +23,7 @@ import { PlayerCard } from "components/events/EventPlayerCard";
 import { EventTable } from "components/events/EventTable";
 import { EventsCameraGrid } from "components/events/EventsCameraGrid";
 import { TimelineTable } from "components/events/timeline/TimelineTable";
-import { COLUMN_HEIGHT } from "components/events/timeline/utils";
+import { COLUMN_HEIGHT } from "components/events/utils";
 import { insertURLParameter } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -119,8 +119,8 @@ type TabsProps = {
   selectedTab: "events" | "timeline";
   setSelectedTab: (tab: "events" | "timeline") => void;
   selectedCamera: types.Camera | types.FailedCamera | null;
-  selectedRecording: types.Recording | null;
-  setSelectedRecording: (recording: types.Recording) => void;
+  selectedEvent: types.CameraEvent | null;
+  setSelectedEvent: (event: types.CameraEvent) => void;
   setRequestedTimestamp: (timestamp: number | null) => void;
 };
 const Tabs = ({
@@ -130,8 +130,8 @@ const Tabs = ({
   selectedTab,
   setSelectedTab,
   selectedCamera,
-  selectedRecording,
-  setSelectedRecording,
+  selectedEvent,
+  setSelectedEvent,
   setRequestedTimestamp,
 }: TabsProps) => {
   const handleTabChange = (
@@ -166,8 +166,9 @@ const Tabs = ({
             parentRef={parentRef}
             camera={selectedCamera}
             date={date}
-            selectedRecording={selectedRecording}
-            setSelectedRecording={setSelectedRecording}
+            selectedEvent={selectedEvent}
+            setSelectedEvent={setSelectedEvent}
+            setRequestedTimestamp={setRequestedTimestamp}
           />
         ) : (
           <Typography align="center" sx={{ marginTop: "20px" }}>
@@ -199,8 +200,8 @@ const Tabs = ({
 type LayoutProps = {
   cameras: types.CamerasOrFailedCameras;
   selectedCamera: types.Camera | types.FailedCamera | null;
-  selectedRecording: types.Recording | null;
-  setSelectedRecording: (recording: types.Recording) => void;
+  selectedEvent: types.CameraEvent | null;
+  setSelectedEvent: (event: types.CameraEvent) => void;
   changeSelectedCamera: (
     ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
     camera: types.Camera | types.FailedCamera,
@@ -217,8 +218,8 @@ export const Layout = memo(
   ({
     cameras,
     selectedCamera,
-    selectedRecording,
-    setSelectedRecording,
+    selectedEvent,
+    setSelectedEvent,
     changeSelectedCamera,
     date,
     setDate,
@@ -243,7 +244,7 @@ export const Layout = memo(
         >
           <PlayerCard
             camera={selectedCamera}
-            eventSource={selectedRecording ? selectedRecording.hls_url : null}
+            selectedEvent={selectedEvent}
             requestedTimestamp={requestedTimestamp}
             selectedTab={selectedTab}
             hlsRef={hlsRef}
@@ -274,8 +275,8 @@ export const Layout = memo(
               selectedTab={selectedTab}
               setSelectedTab={setSelectedTab}
               selectedCamera={selectedCamera}
-              selectedRecording={selectedRecording}
-              setSelectedRecording={setSelectedRecording}
+              selectedEvent={selectedEvent}
+              setSelectedEvent={setSelectedEvent}
               setRequestedTimestamp={setRequestedTimestamp}
             />
           </CardContent>
@@ -296,8 +297,8 @@ export const LayoutSmall = memo(
   ({
     cameras,
     selectedCamera,
-    selectedRecording,
-    setSelectedRecording,
+    selectedEvent,
+    setSelectedEvent,
     changeSelectedCamera,
     date,
     setDate,
@@ -334,7 +335,7 @@ export const LayoutSmall = memo(
         <div ref={observedDiv}>
           <PlayerCard
             camera={selectedCamera}
-            eventSource={selectedRecording ? selectedRecording.hls_url : null}
+            selectedEvent={selectedEvent}
             requestedTimestamp={requestedTimestamp}
             selectedTab={selectedTab}
             hlsRef={hlsRef}
@@ -358,8 +359,8 @@ export const LayoutSmall = memo(
               selectedTab={selectedTab}
               setSelectedTab={setSelectedTab}
               selectedCamera={selectedCamera}
-              selectedRecording={selectedRecording}
-              setSelectedRecording={setSelectedRecording}
+              selectedEvent={selectedEvent}
+              setSelectedEvent={setSelectedEvent}
               setRequestedTimestamp={setRequestedTimestamp}
             />
           </CardContent>

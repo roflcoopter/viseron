@@ -1,9 +1,9 @@
 import { memo } from "react";
 
+import { SnapshotEvent } from "components/events/SnapshotEvent";
 import { ActivityLine } from "components/events/timeline/ActivityLine";
-import { ObjectEvent } from "components/events/timeline/ObjectEvent";
 import { TimeTick } from "components/events/timeline/TimeTick";
-import { TimelineItem } from "components/events/timeline/utils";
+import { TimelineItem } from "components/events/utils";
 
 export const itemEqual = (
   prevItem: Readonly<ItemProps>,
@@ -16,8 +16,7 @@ export const itemEqual = (
     nextItem.item.timedEvent?.start_timestamp &&
   prevItem.item.timedEvent?.end_timestamp ===
     nextItem.item.timedEvent?.end_timestamp &&
-  prevItem.item.snapshotEvent?.timestamp ===
-    nextItem.item.snapshotEvent?.timestamp;
+  prevItem.item.snapshotEvents?.length === nextItem.item.snapshotEvents?.length;
 
 type ItemProps = {
   item: TimelineItem;
@@ -34,10 +33,10 @@ export const Item = memo(
         variant={item.activityLineVariant}
         availableTimespan={!!item.availableTimespan}
       />
-      {item.snapshotEvent ? (
-        <ObjectEvent
-          key={`object-${item.time}`}
-          objectEvent={item.snapshotEvent}
+      {item.snapshotEvents ? (
+        <SnapshotEvent
+          key={`snapshot-${item.time}`}
+          snapshotEvents={item.snapshotEvents}
         />
       ) : null}
     </>

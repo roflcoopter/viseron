@@ -8,7 +8,7 @@ import {
   SCALE,
   calculateHeight,
   findFragmentByTimestamp,
-} from "components/events/timeline/utils";
+} from "components/events/utils";
 import { useAuthContext } from "context/AuthContext";
 import { getToken } from "lib/tokens";
 import * as types from "lib/types";
@@ -121,7 +121,7 @@ const initializePlayer = (
     liveDurationInfinity: true,
     async xhrSetup(xhr, _url) {
       xhr.withCredentials = true;
-      if (auth) {
+      if (auth.enabled) {
         const token = await getToken();
         if (token) {
           xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");

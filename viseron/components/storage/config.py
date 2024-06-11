@@ -7,6 +7,7 @@ import voluptuous as vol
 
 from viseron.components.storage.const import (
     COMPONENT,
+    CONFIG_CHECK_INTERVAL,
     CONFIG_CONTINUOUS,
     CONFIG_DAYS,
     CONFIG_EVENTS,
@@ -24,8 +25,14 @@ from viseron.components.storage.const import (
     CONFIG_PATH,
     CONFIG_POLL,
     CONFIG_RECORDER,
+    CONFIG_SECONDS,
     CONFIG_SNAPSHOTS,
     CONFIG_TIERS,
+    DEFAULT_CHECK_INTERVAL,
+    DEFAULT_CHECK_INTERVAL_DAYS,
+    DEFAULT_CHECK_INTERVAL_HOURS,
+    DEFAULT_CHECK_INTERVAL_MINUTES,
+    DEFAULT_CHECK_INTERVAL_SECONDS,
     DEFAULT_CONTINUOUS,
     DEFAULT_DAYS,
     DEFAULT_EVENTS,
@@ -45,6 +52,11 @@ from viseron.components.storage.const import (
     DEFAULT_RECORDER_TIERS,
     DEFAULT_SNAPSHOTS,
     DEFAULT_SNAPSHOTS_TIERS,
+    DESC_CHECK_INTERVAL,
+    DESC_CHECK_INTERVAL_DAYS,
+    DESC_CHECK_INTERVAL_HOURS,
+    DESC_CHECK_INTERVAL_MINUTES,
+    DESC_CHECK_INTERVAL_SECONDS,
     DESC_CONTINUOUS,
     DESC_DOMAIN_TIERS,
     DESC_EVENTS,
@@ -102,7 +114,9 @@ class CoerceEndsWithSlash:
         return value
 
 
-def get_size_schema(age_type: Literal["min"] | Literal["max"]) -> vol.Schema:
+def get_size_schema(
+    age_type: Literal["min"] | Literal["max"],
+) -> dict[vol.Optional, Maybe]:
     """Get size schema."""
     return {
         vol.Optional(
@@ -118,7 +132,9 @@ def get_size_schema(age_type: Literal["min"] | Literal["max"]) -> vol.Schema:
     }
 
 
-def get_age_schema(age_type: Literal["min"] | Literal["max"]) -> vol.Schema:
+def get_age_schema(
+    age_type: Literal["min"] | Literal["max"],
+) -> dict[vol.Optional, Maybe]:
     """Get age schema."""
     return {
         vol.Optional(
@@ -180,6 +196,35 @@ TIER_SCHEMA_SNAPSHOTS = TIER_SCHEMA_BASE.extend(
             default=DEFAULT_MOVE_ON_SHUTDOWN,
             description=DESC_MOVE_ON_SHUTDOWN,
         ): bool,
+        vol.Optional(
+            CONFIG_CHECK_INTERVAL,
+            default=DEFAULT_CHECK_INTERVAL,
+            description=DESC_CHECK_INTERVAL,
+        ): vol.All(
+            CoerceNoneToDict(),
+            {
+                vol.Optional(
+                    CONFIG_DAYS,
+                    default=DEFAULT_CHECK_INTERVAL_DAYS,
+                    description=DESC_CHECK_INTERVAL_DAYS,
+                ): vol.All(int, vol.Range(min=0)),
+                vol.Optional(
+                    CONFIG_HOURS,
+                    default=DEFAULT_CHECK_INTERVAL_HOURS,
+                    description=DESC_CHECK_INTERVAL_HOURS,
+                ): vol.All(int, vol.Range(min=0)),
+                vol.Optional(
+                    CONFIG_MINUTES,
+                    default=DEFAULT_CHECK_INTERVAL_MINUTES,
+                    description=DESC_CHECK_INTERVAL_MINUTES,
+                ): vol.All(int, vol.Range(min=0)),
+                vol.Optional(
+                    CONFIG_SECONDS,
+                    default=DEFAULT_CHECK_INTERVAL_SECONDS,
+                    description=DESC_CHECK_INTERVAL_SECONDS,
+                ): vol.All(int, vol.Range(min=0)),
+            },
+        ),
     }
 )
 
@@ -199,6 +244,35 @@ TIER_SCHEMA_RECORDER = vol.Schema(
             default=DEFAULT_MOVE_ON_SHUTDOWN,
             description=DESC_MOVE_ON_SHUTDOWN,
         ): bool,
+        vol.Optional(
+            CONFIG_CHECK_INTERVAL,
+            default=DEFAULT_CHECK_INTERVAL,
+            description=DESC_CHECK_INTERVAL,
+        ): vol.All(
+            CoerceNoneToDict(),
+            {
+                vol.Optional(
+                    CONFIG_DAYS,
+                    default=DEFAULT_CHECK_INTERVAL_DAYS,
+                    description=DESC_CHECK_INTERVAL_DAYS,
+                ): vol.All(int, vol.Range(min=0)),
+                vol.Optional(
+                    CONFIG_HOURS,
+                    default=DEFAULT_CHECK_INTERVAL_HOURS,
+                    description=DESC_CHECK_INTERVAL_HOURS,
+                ): vol.All(int, vol.Range(min=0)),
+                vol.Optional(
+                    CONFIG_MINUTES,
+                    default=DEFAULT_CHECK_INTERVAL_MINUTES,
+                    description=DESC_CHECK_INTERVAL_MINUTES,
+                ): vol.All(int, vol.Range(min=0)),
+                vol.Optional(
+                    CONFIG_SECONDS,
+                    default=DEFAULT_CHECK_INTERVAL_SECONDS,
+                    description=DESC_CHECK_INTERVAL_SECONDS,
+                ): vol.All(int, vol.Range(min=0)),
+            },
+        ),
         vol.Optional(
             CONFIG_CONTINUOUS,
             default=DEFAULT_CONTINUOUS,

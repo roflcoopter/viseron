@@ -47,8 +47,9 @@ const Events = () => {
     };
   }, [camerasQuery.data, failedCamerasQuery.data]);
 
-  const [selectedRecording, setSelectedRecording] =
-    useState<types.Recording | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<types.CameraEvent | null>(
+    null,
+  );
   const [date, setDate] = useState<Dayjs | null>(
     searchParams.has("date")
       ? dayjs(searchParams.get("date") as string)
@@ -66,7 +67,7 @@ const Events = () => {
   ) => {
     setSelectedCamera(camera);
     setRequestedTimestamp(null);
-    setSelectedRecording(null);
+    setSelectedEvent(null);
   };
 
   useEffect(() => {
@@ -119,8 +120,8 @@ const Events = () => {
     <LayoutVariant
       cameras={cameraData}
       selectedCamera={selectedCamera}
-      selectedRecording={selectedRecording}
-      setSelectedRecording={setSelectedRecording}
+      selectedEvent={selectedEvent}
+      setSelectedEvent={setSelectedEvent}
       changeSelectedCamera={changeSelectedCamera}
       date={date}
       setDate={setDate}

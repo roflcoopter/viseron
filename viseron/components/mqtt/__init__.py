@@ -167,7 +167,7 @@ class MQTT:
         self._vis = vis
         self._config = config
 
-        self._client = mqtt.Client(self._config[CONFIG_CLIENT_ID])
+        self._client = mqtt.Client(client_id=self._config[CONFIG_CLIENT_ID])
         self._publish_queue: Queue = Queue(maxsize=1000)
         self._subscriptions: dict[str, list[Callable]] = {}
 

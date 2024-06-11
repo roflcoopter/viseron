@@ -6,7 +6,7 @@ import { useTheme } from "@mui/material/styles";
 import { useEffect, useRef } from "react";
 
 import { CameraCard } from "components/camera/CameraCard";
-import { COLUMN_HEIGHT } from "components/events/timeline/utils";
+import { COLUMN_HEIGHT } from "components/events/utils";
 import * as types from "lib/types";
 
 const useResizeObserver = (

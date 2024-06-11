@@ -117,58 +117,60 @@ def ensure_min_max(label: dict) -> dict:
 
 
 LABEL_SCHEMA = vol.Schema(
-    {
-        vol.Required(
-            CONFIG_LABEL_LABEL,
-            description=DESC_LABEL_LABEL,
-        ): str,
-        vol.Optional(
-            CONFIG_LABEL_CONFIDENCE,
-            default=DEFAULT_LABEL_CONFIDENCE,
-            description=DESC_LABEL_CONFIDENCE,
-        ): FLOAT_MIN_ZERO_MAX_ONE,
-        vol.Optional(
-            CONFIG_LABEL_HEIGHT_MIN,
-            default=DEFAULT_LABEL_HEIGHT_MIN,
-            description=DESC_LABEL_HEIGHT_MIN,
-        ): FLOAT_MIN_ZERO_MAX_ONE,
-        vol.Optional(
-            CONFIG_LABEL_HEIGHT_MAX,
-            default=DEFAULT_LABEL_HEIGHT_MAX,
-            description=DESC_LABEL_HEIGHT_MAX,
-        ): FLOAT_MIN_ZERO_MAX_ONE,
-        vol.Optional(
-            CONFIG_LABEL_WIDTH_MIN,
-            default=DEFAULT_LABEL_WIDTH_MIN,
-            description=DESC_LABEL_WIDTH_MIN,
-        ): FLOAT_MIN_ZERO_MAX_ONE,
-        vol.Optional(
-            CONFIG_LABEL_WIDTH_MAX,
-            default=DEFAULT_LABEL_WIDTH_MAX,
-            description=DESC_LABEL_WIDTH_MAX,
-        ): FLOAT_MIN_ZERO_MAX_ONE,
-        vol.Optional(
-            CONFIG_LABEL_TRIGGER_RECORDER,
-            default=DEFAULT_LABEL_TRIGGER_RECORDER,
-            description=DESC_LABEL_TRIGGER_RECORDER,
-        ): bool,
-        vol.Optional(
-            CONFIG_LABEL_STORE,
-            default=DEFAULT_LABEL_STORE,
-            description=DESC_LABEL_STORE,
-        ): bool,
-        vol.Optional(
-            CONFIG_LABEL_STORE_INTERVAL,
-            default=DEFAULT_LABEL_STORE_INTERVAL,
-            description=DESC_LABEL_STORE_INTERVAL,
-        ): int,
-        vol.Optional(
-            CONFIG_LABEL_REQUIRE_MOTION,
-            default=DEFAULT_LABEL_REQUIRE_MOTION,
-            description=DESC_LABEL_REQUIRE_MOTION,
-        ): bool,
-    },
-    ensure_min_max,
+    vol.All(
+        {
+            vol.Required(
+                CONFIG_LABEL_LABEL,
+                description=DESC_LABEL_LABEL,
+            ): str,
+            vol.Optional(
+                CONFIG_LABEL_CONFIDENCE,
+                default=DEFAULT_LABEL_CONFIDENCE,
+                description=DESC_LABEL_CONFIDENCE,
+            ): FLOAT_MIN_ZERO_MAX_ONE,
+            vol.Optional(
+                CONFIG_LABEL_HEIGHT_MIN,
+                default=DEFAULT_LABEL_HEIGHT_MIN,
+                description=DESC_LABEL_HEIGHT_MIN,
+            ): FLOAT_MIN_ZERO_MAX_ONE,
+            vol.Optional(
+                CONFIG_LABEL_HEIGHT_MAX,
+                default=DEFAULT_LABEL_HEIGHT_MAX,
+                description=DESC_LABEL_HEIGHT_MAX,
+            ): FLOAT_MIN_ZERO_MAX_ONE,
+            vol.Optional(
+                CONFIG_LABEL_WIDTH_MIN,
+                default=DEFAULT_LABEL_WIDTH_MIN,
+                description=DESC_LABEL_WIDTH_MIN,
+            ): FLOAT_MIN_ZERO_MAX_ONE,
+            vol.Optional(
+                CONFIG_LABEL_WIDTH_MAX,
+                default=DEFAULT_LABEL_WIDTH_MAX,
+                description=DESC_LABEL_WIDTH_MAX,
+            ): FLOAT_MIN_ZERO_MAX_ONE,
+            vol.Optional(
+                CONFIG_LABEL_TRIGGER_RECORDER,
+                default=DEFAULT_LABEL_TRIGGER_RECORDER,
+                description=DESC_LABEL_TRIGGER_RECORDER,
+            ): bool,
+            vol.Optional(
+                CONFIG_LABEL_STORE,
+                default=DEFAULT_LABEL_STORE,
+                description=DESC_LABEL_STORE,
+            ): bool,
+            vol.Optional(
+                CONFIG_LABEL_STORE_INTERVAL,
+                default=DEFAULT_LABEL_STORE_INTERVAL,
+                description=DESC_LABEL_STORE_INTERVAL,
+            ): int,
+            vol.Optional(
+                CONFIG_LABEL_REQUIRE_MOTION,
+                default=DEFAULT_LABEL_REQUIRE_MOTION,
+                description=DESC_LABEL_REQUIRE_MOTION,
+            ): bool,
+        },
+        ensure_min_max,
+    )
 )
 
 ZONE_SCHEMA = vol.Schema(

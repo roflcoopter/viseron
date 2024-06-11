@@ -45,6 +45,20 @@ class DuplicateFilter(logging.Filter):
 class SensitiveInformationFilter(logging.Filter):
     """Redacts sensitive information from logs."""
 
+    sensitive_strings: list[str] = []
+
+    @classmethod
+    def add_sensitive_string(cls, sensitive_string: str) -> None:
+        """Add a sensitive string to the list of strings to redact."""
+        if sensitive_string not in cls.sensitive_strings:
+            cls.sensitive_strings.append(sensitive_string)
+
+    @classmethod
+    def remove_sensitive_string(cls, sensitive_string: str) -> None:
+        """Remove a sensitive string from the list of strings to redact."""
+        if sensitive_string in cls.sensitive_strings:
+            cls.sensitive_strings.remove(sensitive_string)
+
     def filter(self, record: logging.LogRecord) -> bool:
         """Filter log record."""
         if isinstance(record.msg, str):
@@ -62,6 +76,8 @@ class SensitiveInformationFilter(logging.Filter):
                 record.msg,
                 flags=re.IGNORECASE | re.MULTILINE,
             )
+            for sensitive_string in self.sensitive_strings:
+                record.msg = record.msg.replace(sensitive_string, "*****")
         return True
 
 

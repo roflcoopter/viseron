@@ -9,6 +9,7 @@ import multiprocessing as mp
 import os
 import socket
 import tracemalloc
+import urllib.parse
 from queue import Full, Queue
 from typing import TYPE_CHECKING, Any
 
@@ -480,6 +481,11 @@ def get_free_port(port=1024, max_port=65535) -> int:
         except OSError:
             port += 1
     raise OSError("no free ports")
+
+
+def escape_string(string: str) -> str:
+    """Escape special characters in a string."""
+    return urllib.parse.quote(string, safe="")
 
 
 def memory_usage_profiler(logger, key_type="lineno", limit=5) -> None:

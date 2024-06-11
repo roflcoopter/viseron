@@ -12,12 +12,17 @@ import pytest
 
 from viseron.components.storage import Storage, _get_tier_config
 from viseron.components.storage.const import (
+    CONFIG_CHECK_INTERVAL,
     CONFIG_CONTINUOUS,
+    CONFIG_DAYS,
     CONFIG_EVENTS,
+    CONFIG_HOURS,
+    CONFIG_MINUTES,
     CONFIG_MOVE_ON_SHUTDOWN,
     CONFIG_PATH,
     CONFIG_POLL,
     CONFIG_RECORDER,
+    CONFIG_SECONDS,
     CONFIG_SNAPSHOTS,
     CONFIG_TIERS,
     DEFAULT_RECORDER_TIERS,
@@ -85,6 +90,12 @@ CONFIG = {
                                 CONFIG_PATH: "/test",
                                 CONFIG_CONTINUOUS: {"test": 123},
                                 CONFIG_EVENTS: {"test": 456},
+                                CONFIG_CHECK_INTERVAL: {
+                                    CONFIG_DAYS: 0,
+                                    CONFIG_HOURS: 0,
+                                    CONFIG_MINUTES: 0,
+                                    CONFIG_SECONDS: 0,
+                                },
                             },
                         ]
                     },
@@ -97,6 +108,12 @@ CONFIG = {
                             CONFIG_PATH: "/test",
                             CONFIG_CONTINUOUS: {"test": 123},
                             CONFIG_EVENTS: {"test": 456},
+                            CONFIG_CHECK_INTERVAL: {
+                                CONFIG_DAYS: 0,
+                                CONFIG_HOURS: 0,
+                                CONFIG_MINUTES: 0,
+                                CONFIG_SECONDS: 0,
+                            },
                         },
                     ]
                 },
