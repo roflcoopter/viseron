@@ -296,6 +296,10 @@ jobs:
         run: |
           echo "Failed to restore pre-commit environment from cache"
           exit 1
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-gi python3-gst-1.0
       - name: Run pylint
         uses: ./.github/templates/run_in_venv
         with:
