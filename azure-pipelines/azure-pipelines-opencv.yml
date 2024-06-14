@@ -1,3 +1,9 @@
+parameters:
+  - name: noCache
+    displayName: "Build without cache"
+    type: boolean
+    default: false
+
 trigger: none
 pr: none
 
@@ -20,9 +26,11 @@ stages:
           architectures:
             - jetson-nano
           image: opencvpartone
+          noCache: ${{ parameters.noCache }}
   - stage: OpenCV
     dependsOn: OpenCV_Part_One
     jobs:
       - template: templates/build.yaml
         parameters:
           image: opencv
+          noCache: ${{ parameters.noCache }}

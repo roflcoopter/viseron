@@ -1,3 +1,9 @@
+parameters:
+  - name: noCache
+    displayName: 'Build without cache'
+    type: boolean
+    default: false
+
 trigger: none
 pr: none
 
@@ -20,3 +26,5 @@ jobs:
   - template: templates/build.yaml
     parameters:
       image: base
+      noCache: ${{ parameters.noCache }}
+
