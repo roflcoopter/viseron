@@ -1,3 +1,9 @@
+parameters:
+  - name: noCache
+    displayName: "Build without cache"
+    type: boolean
+    default: false
+
 trigger:
   branches:
     include:
@@ -46,6 +52,7 @@ stages:
         parameters:
           image: viseron
           release: true
+          noCache: ${{ parameters.noCache }}
 
   - stage: "Publish"
     jobs:

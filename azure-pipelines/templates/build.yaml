@@ -24,9 +24,18 @@ parameters:
   - name: release
     type: boolean
     default: false
+  - name: noCache
+    displayName: "Build without cache"
+    type: boolean
+    default: false
 
 jobs:
   - job: "build_${{ parameters.image }}"
+    variables:
+      ${{ if eq(parameters.noCache, true) }}:
+        noCacheOption: "--no-cache"
+      ${{ if ne(parameters.noCache, true) }}:
+        noCacheOption: ""
     timeoutInMinutes: ${{ parameters.timeoutJob }}
     strategy:
       matrix:
@@ -77,7 +86,7 @@ jobs:
           cd $(Agent.BuildDirectory)/s/docker &&
           docker compose --file ../azure-pipelines/docker-compose-build.yaml
           --env-file ../azure-pipelines/.env
-          build
+          build $(noCacheOption)
           --build-arg BUILDKIT_INLINE_CACHE=1
           --build-arg VISERON_VERSION=$(viseronVersion)
           --build-arg VISERON_GIT_COMMIT=$(Build.SourceVersion)
@@ -92,7 +101,7 @@ jobs:
           cd $(Agent.BuildDirectory)/s/docker &&
           docker compose --file ../azure-pipelines/docker-compose-build.yaml
           --env-file ../azure-pipelines/.env
-          build
+          build $(noCacheOption)
           --build-arg BUILDKIT_INLINE_CACHE=1
           --build-arg VISERON_VERSION=$(viseronVersion)
           --build-arg VISERON_GIT_COMMIT=$(Build.SourceVersion)

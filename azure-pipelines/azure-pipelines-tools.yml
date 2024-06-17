@@ -1,3 +1,9 @@
+parameters:
+  - name: noCache
+    displayName: "Build without cache"
+    type: boolean
+    default: false
+
 trigger: none
 pr: none
 
@@ -16,9 +22,11 @@ jobs:
   - template: templates/build.yaml
     parameters:
       image: dlib
+      noCache: ${{ parameters.noCache }}
   - template: templates/build.yaml
     parameters:
       image: darknet
+      noCache: ${{ parameters.noCache }}
       architectures:
         - amd64-cuda
         - jetson-nano
