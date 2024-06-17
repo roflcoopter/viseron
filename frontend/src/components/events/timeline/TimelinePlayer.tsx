@@ -127,8 +127,8 @@ const initializePlayer = (
           xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
           xhr.setRequestHeader("Authorization", `Bearer ${token}`);
         }
-        xhr.setRequestHeader("Hls-Client-Id", hlsClientIdRef.current);
       }
+      xhr.setRequestHeader("Hls-Client-Id", hlsClientIdRef.current);
     },
   });
 
