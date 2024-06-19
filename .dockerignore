@@ -11,6 +11,7 @@
 !docker/ffprobe_wrapper
 !requirements.txt
 !requirements_test.txt
+!docker/opencv-python-headless-setup.py
 !rootfs/
 !frontend/
 frontend/node_modules
