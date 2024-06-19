@@ -12,6 +12,7 @@
 !requirements.txt
 !requirements_test.txt
 !docker/opencv-python-headless-setup.py
+!docker/jetson-nano/opencv-tuple.patch
 !rootfs/
 !frontend/
 frontend/node_modules

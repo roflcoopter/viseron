@@ -41,6 +41,7 @@
 !/docker/ffmpeg_wrapper
 !/docker/yolov4*.cfg
 !/docker/opencv-python-headless-setup.py
+!/docker/jetson-nano/opencv-tuple.patch
 !/rootfs/
 !/rootfs/etc/
 !/rootfs/etc/**
