@@ -415,6 +415,7 @@ class AbstractObjectDetector(ABC):
                             obj.rel_x2,
                             obj.rel_y2,
                         ),
+                        detected_object=obj,
                     )
                 self._insert_object(obj, snapshot_path)
 

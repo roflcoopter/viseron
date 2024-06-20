@@ -98,6 +98,7 @@ class ImageClassification(AbstractImageClassification):
                 resized_frame,
                 self._camera_identifier,
                 self._classification_result_queue,
+                self._camera.resolution,
             )
             if result:
                 image_classifications.append(result)

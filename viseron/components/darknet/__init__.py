@@ -309,21 +309,21 @@ class DarknetDNN(BaseDarknet, SubProcessWorker):
             return
         pop_if_full(self._result_queues[item["camera_identifier"]], item)
 
-    def post_process(self, detections, _camera_resolution):
+    def post_process(self, detections, camera_resolution):
         """Post process detections."""
         _detections = []
         for (label, confidence, box) in zip(
             detections[0], detections[1], detections[2]
         ):
             _detections.append(
-                DetectedObject(
+                DetectedObject.from_absolute(
                     self.labels[int(label)],
                     confidence,
                     box[0],
                     box[1],
                     box[0] + box[2],
                     box[1] + box[3],
-                    relative=False,
+                    frame_res=camera_resolution,
                     model_res=self.model_res,
                 )
             )
@@ -444,17 +444,15 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
         _detections = []
         for label, confidence, box in detections:
             _detections.append(
-                DetectedObject(
+                DetectedObject.from_absolute_letterboxed(
                     str(label),
                     confidence,
                     box[0],
                     box[1],
                     box[2],
                     box[3],
-                    relative=False,
-                    model_res=self.model_res,
-                    letterboxed=True,
                     frame_res=camera_resolution,
+                    model_res=self.model_res,
                 )
             )
 
