@@ -42,8 +42,10 @@ from viseron.domains.camera.fragmenter import Fragmenter
 from viseron.domains.camera.recorder import FailedCameraRecorder
 from viseron.events import EventData, EventEmptyData
 from viseron.helpers import (
+    annotate_frame,
     calculate_absolute_coords,
     create_directory,
+    draw_objects,
     escape_string,
     utcnow,
     zoom_boundingbox,
@@ -423,6 +425,9 @@ class AbstractCamera(ABC):
         self.snapshots_face_folder: str = self._storage.get_snapshots_path(
             self, "face_recognition"
         )
+        self.snapshots_license_plate_folder: str = self._storage.get_snapshots_path(
+            self, "license_plate_recognition"
+        )
 
         self.fragmenter: Fragmenter = Fragmenter(vis, self)
         if self.config[CONFIG_PASSWORD]:
@@ -650,22 +655,38 @@ class AbstractCamera(ABC):
         domain: Literal["object_detector"]
         | Literal["face_recognition"]
         | Literal["license_plate_recognition"],
-        relative_coords: tuple[float, float, float, float] | None = None,
+        zoom_coordinates: tuple[float, float, float, float] | None = None,
+        detected_object: DetectedObject | None = None,
+        bbox: tuple[float, float, float, float] | None = None,
+        text: str | None = None,
         subfolder: str | None = None,
     ) -> str:
         """Save snapshot to disk."""
         decoded_frame = self.shared_frames.get_decoded_frame_rgb(shared_frame)
         snapshot_frame = decoded_frame
-        if relative_coords:
-            absolute_coords = calculate_absolute_coords(
-                relative_coords, self.resolution
+
+        if detected_object:
+            draw_objects(snapshot_frame, [detected_object])
+        if bbox:
+            annotate_frame(
+                snapshot_frame,
+                calculate_absolute_coords(bbox, self.resolution),
+                text or None,
             )
-            snapshot_frame = zoom_boundingbox(decoded_frame, absolute_coords)
+
+        if zoom_coordinates:
+            snapshot_frame = zoom_boundingbox(
+                decoded_frame,
+                calculate_absolute_coords(zoom_coordinates, self.resolution),
+                crop_correction_factor=1.2,
+            )
 
         if domain == "object_detector":
             folder = self.snapshots_object_folder
         elif domain == "face_recognition":
             folder = self.snapshots_face_folder
+        elif domain == "license_plate_recognition":
+            folder = self.snapshots_license_plate_folder
 
         if subfolder:
             folder = os.path.join(folder, subfolder)
@@ -675,10 +696,7 @@ class AbstractCamera(ABC):
         path = os.path.join(folder, filename)
         self._logger.debug(f"Saving snapshot to {path}")
         create_directory(folder)
-        cv2.imwrite(
-            path,
-            snapshot_frame,
-        )
+        cv2.imwrite(path, snapshot_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100])
         return path
 
 

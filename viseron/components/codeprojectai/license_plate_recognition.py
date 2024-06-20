@@ -12,7 +12,12 @@ from viseron.domains.license_plate_recognition import (
     AbstractLicensePlateRecognition,
     DetectedLicensePlate,
 )
-from viseron.helpers import calculate_absolute_coords, letterbox_resize
+from viseron.helpers import (
+    calculate_absolute_coords,
+    calculate_relative_coords,
+    convert_letterboxed_bbox,
+    letterbox_resize,
+)
 
 from .const import (
     COMPONENT,
@@ -80,7 +85,7 @@ class LicensePlateRecognition(AbstractLicensePlateRecognition):
             self._camera.resolution,
         )
         cropped_frame = frame[y1:y2, x1:x2].copy()
-        width, height, _ = cropped_frame.shape
+        height, width, _ = cropped_frame.shape
         max_dimension = max(width, height)
         cropped_frame = letterbox_resize(cropped_frame, max_dimension, max_dimension)
 
@@ -96,14 +101,41 @@ class LicensePlateRecognition(AbstractLicensePlateRecognition):
             return detections
 
         for detection in sorted(result["predictions"], key=lambda x: x["confidence"]):
-            detections.append(
-                DetectedLicensePlate(
-                    detection["plate"],
-                    detection["confidence"],
+            # Convert coordinates from the letterboxed frame to the cropped frame
+            cropped_frame_bbox = convert_letterboxed_bbox(
+                width,
+                height,
+                max_dimension,
+                max_dimension,
+                (
                     detection["x_min"],
                     detection["y_min"],
                     detection["x_max"],
                     detection["y_max"],
+                ),
+                return_absolute=True,
+            )
+
+            # Convert coordinates from the cropped frame to the original frame
+            original_frame_bbox = (
+                cropped_frame_bbox[0] + x1,
+                cropped_frame_bbox[1] + y1,
+                cropped_frame_bbox[2] + x1,
+                cropped_frame_bbox[3] + y1,
+            )
+            rel_x1, rel_y1, rel_x2, rel_y2 = calculate_relative_coords(
+                original_frame_bbox, self._camera.resolution
+            )
+
+            detections.append(
+                DetectedLicensePlate(
+                    plate=detection["plate"],
+                    confidence=detection["confidence"],
+                    rel_x1=rel_x1,
+                    rel_y1=rel_y1,
+                    rel_x2=rel_x2,
+                    rel_y2=rel_y2,
+                    detected_object=detected_object,
                 )
             )
         return detections

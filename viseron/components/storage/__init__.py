@@ -116,6 +116,10 @@ TIER_CATEGORIES: TierCategories = {
             "subcategory": "object_detector",
             "tier_handler": SnapshotTierHandler,
         },
+        {
+            "subcategory": "license_plate_recognition",
+            "tier_handler": SnapshotTierHandler,
+        },
     ],
 }
 

@@ -30,6 +30,7 @@ CONFIG_EVENTS: Final = "events"
 CONFIG_SNAPSHOTS: Final = "snapshots"
 CONFIG_FACE_RECOGNITION: Final = "face_recognition"
 CONFIG_OBJECT_DETECTION: Final = "object_detection"
+CONFIG_LICENSE_PLATE_RECOGNITION: Final = "license_plate_recognition"
 CONFIG_TIERS: Final = "tiers"
 
 
@@ -55,6 +56,7 @@ DEFAULT_SNAPSHOTS_TIERS = [
 ]
 DEFAULT_FACE_RECOGNITION: Final = None
 DEFAULT_OBJECT_DETECTION: Final = None
+DEFAULT_LICENSE_PLATE_RECOGNITION: Final = None
 
 DEFAULT_POLL = False
 DEFAULT_MOVE_ON_SHUTDOWN = False
@@ -105,6 +107,10 @@ DESC_FACE_RECOGNITION = (
 )
 DESC_OBJECT_DETECTION = (
     "Override the default snapshot tiers for object detection. "
+    "If not set, the default tiers will be used."
+)
+DESC_LICENSE_PLATE_RECOGNITION = (
+    "Override the default snapshot tiers for license plate recognition. "
     "If not set, the default tiers will be used."
 )
 DESC_MIN_GB = "Min size in GB. Added together with <code>min_mb</code>."
