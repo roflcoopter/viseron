@@ -22,7 +22,7 @@ class Recorder(AbstractRecorder):
         self._logger.debug("Initializing gstreamer recorder")
         self._recorder_config = config[RECORDER]
 
-    def _start(self, recording, shared_frame, objects_in_fov, resolution) -> None:
+    def _start(self, recording, shared_frame, objects_in_fov) -> None:
         pass
 
     def _stop(self, recording) -> None:

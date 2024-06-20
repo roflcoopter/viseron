@@ -467,9 +467,7 @@ class Camera(AbstractCamera):
         self, shared_frame: SharedFrame, objects_in_fov: list[DetectedObject] | None
     ) -> None:
         """Start camera recorder."""
-        self._recorder.start(
-            shared_frame, objects_in_fov if objects_in_fov else [], self.resolution
-        )
+        self._recorder.start(shared_frame, objects_in_fov if objects_in_fov else [])
 
     def stop_recorder(self) -> None:
         """Stop camera recorder."""
