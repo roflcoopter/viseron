@@ -8,7 +8,7 @@ export const TICK_HEIGHT = 8;
 export const SCALE = 60;
 export const EXTRA_TICKS = 10;
 export const COLUMN_HEIGHT = "99dvh";
-export const EVENT_ICON_HEIGHT = 20;
+export const EVENT_ICON_HEIGHT = 30;
 
 export const DEFAULT_ITEM: TimelineItem = {
   time: 0,
@@ -172,7 +172,9 @@ const addSnapshotEvent = (
   for (let i = 0; i < groupedTicks; i++) {
     const time = calculateTimeFromIndex(startRef, index - i);
     if (time in timelineItems && timelineItems[time].snapshotEvents) {
-      groupedSnapshotEvents.push(...(timelineItems[time].snapshotEvents || []));
+      groupedSnapshotEvents.push(
+        ...(timelineItems[time]?.snapshotEvents || []),
+      );
       timelineItems[time].snapshotEvents = null;
     }
   }
@@ -185,7 +187,7 @@ const addSnapshotEvent = (
     time,
     snapshotEvents: [
       ...groupedSnapshotEvents,
-      ...(timelineItems[time].snapshotEvents || []),
+      ...(timelineItems[time]?.snapshotEvents || []),
       cameraEvent,
     ],
   };
@@ -259,8 +261,13 @@ export const getTimelineItems = (
 
   eventsData
     .filter(
-      (cameraEvent): cameraEvent is types.CameraFaceRecognitionEvent =>
-        cameraEvent.type === "face_recognition",
+      (
+        cameraEvent,
+      ): cameraEvent is
+        | types.CameraFaceRecognitionEvent
+        | types.CameraLicensePlateRecognitionEvent =>
+        cameraEvent.type === "face_recognition" ||
+        cameraEvent.type === "license_plate_recognition",
     )
     .forEach((cameraEvent) => {
       addSnapshotEvent(startRef, timelineItems, cameraEvent);
@@ -310,6 +317,7 @@ export const getSrc = (event: types.CameraEvent) => {
       return event.thumbnail_path;
     case "object":
     case "face_recognition":
+    case "license_plate_recognition":
       return event.snapshot_path;
     default:
       return BLANK_IMAGE;
@@ -379,5 +387,7 @@ export const extractUniqueLabels = (objectEvents: types.CameraObjectEvents) => {
 export const filterEvents = (events: types.CameraEvent[]) =>
   events.filter(
     (cameraEvent): cameraEvent is types.CameraSnapshotEvent =>
-      cameraEvent.type === "object" || cameraEvent.type === "face_recognition",
+      cameraEvent.type === "object" ||
+      cameraEvent.type === "face_recognition" ||
+      cameraEvent.type === "license_plate_recognition",
   );

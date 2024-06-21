@@ -22,6 +22,7 @@ import {
   extractUniqueLabels,
   extractUniqueTypes,
 } from "components/events/utils";
+import LicensePlateRecgnitionIcon from "components/icons/LicensePlateRecognition";
 import { toTitleCase } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -62,6 +63,8 @@ const getIcon = (snapshotEvent: types.CameraSnapshotEvent) => {
       return labelToIcon(snapshotEvent.label);
     case "face_recognition":
       return FaceIcon;
+    case "license_plate_recognition":
+      return LicensePlateRecgnitionIcon;
     default:
       return ImageSearchIcon;
   }
@@ -90,6 +93,19 @@ const getText = (snapshotEvent: types.CameraSnapshotEvent) => {
           <Box>{`Confidence: ${convertToPercentage(
             snapshotEvent.data.confidence,
           )}%`}</Box>
+          <Box>{`Timestamp: ${date.toLocaleString()}`}</Box>
+        </Box>
+      );
+
+    case "license_plate_recognition":
+      return (
+        <Box>
+          <Box>License Plate Recognition</Box>
+          <Box>{`Plate: ${snapshotEvent.data.plate}`}</Box>
+          <Box>{`Confidence: ${convertToPercentage(
+            snapshotEvent.data.confidence,
+          )}%`}</Box>
+          <Box>{`Known: ${snapshotEvent.data.known}`}</Box>
           <Box>{`Timestamp: ${date.toLocaleString()}`}</Box>
         </Box>
       );
@@ -136,6 +152,9 @@ const ToolTipContent = ({
                 src={snapshotEvent.snapshot_path}
                 color={theme.palette.background.default}
                 animationDuration={0}
+                imageStyle={{
+                  objectFit: "contain",
+                }}
               />
             </CardMedia>
             <CardContent>{getText(snapshotEvent)}</CardContent>

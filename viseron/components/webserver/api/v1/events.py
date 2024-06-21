@@ -19,7 +19,10 @@ from viseron.components.storage.models import (
 )
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.domains.camera import FailedCamera
-from viseron.domains.face_recognition import DOMAIN as FACE_RECOGNITION_DOMAIN
+from viseron.domains.face_recognition.const import DOMAIN as FACE_RECOGNITION_DOMAIN
+from viseron.domains.license_plate_recognition.const import (
+    DOMAIN as LICENSE_PLATE_RECOGNITION_DOMAIN,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -176,7 +179,11 @@ class EventsAPIHandler(BaseAPIHandler):
             stmt = (
                 select(PostProcessorResults)
                 .where(PostProcessorResults.camera_identifier == camera.identifier)
-                .where(PostProcessorResults.domain.in_([FACE_RECOGNITION_DOMAIN]))
+                .where(
+                    PostProcessorResults.domain.in_(
+                        [FACE_RECOGNITION_DOMAIN, LICENSE_PLATE_RECOGNITION_DOMAIN]
+                    )
+                )
                 .where(
                     PostProcessorResults.created_at.between(
                         time_from_datetime, time_to_datetime
