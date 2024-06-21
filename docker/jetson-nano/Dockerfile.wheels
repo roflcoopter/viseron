@@ -28,7 +28,7 @@ ENV \
 RUN [ "cross-build-start" ]
 
 RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
-  cmake \
+  wget \
   curl \
   gcc \
   python3 \
@@ -41,6 +41,13 @@ RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
   && python3 -m pip install --upgrade pip \
   && apt-get autoremove -y && apt-get clean -y \
   && python3 -m pip install numpy pybind11
+
+# Install CMake
+RUN wget https://cmake.org/files/v3.22/cmake-3.22.1-linux-aarch64.tar.gz && \
+  tar -xvf cmake-3.22.1-linux-aarch64.tar.gz && \
+  cp -r cmake-3.22.1-linux-aarch64/* /usr && \
+  rm -rf cmake-3.22.1-linux-aarch64 && \
+  rm cmake-3.22.1-linux-aarch64.tar.gz
 
 # Pip does not find our OpenCV built from source so we fake it here
 ARG OPENCV_VERSION
