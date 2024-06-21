@@ -141,7 +141,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
     def _insert_face_recognition_result(
         self, snapshot_path: str | None, face_dict: FaceDict
     ) -> None:
-        """Insert object into database."""
+        """Insert face recognition result into database."""
         with self._storage.get_session() as session:
             stmt = insert(PostProcessorResults).values(
                 camera_identifier=self._camera.identifier,
@@ -164,7 +164,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
             snapshot_path = self._camera.save_snapshot(
                 shared_frame,
                 DOMAIN,
-                relative_coords=calculate_relative_coords(
+                zoom_coordinates=calculate_relative_coords(
                     coordinates, self._camera.resolution
                 ),
                 subfolder=face_dict.name,
