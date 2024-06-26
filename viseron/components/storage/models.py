@@ -69,8 +69,12 @@ class Files(Base):
     directory: Mapped[str] = mapped_column(String)
     filename: Mapped[str] = mapped_column(String)
     size: Mapped[int] = mapped_column(Integer)
-    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), onupdate=UTCNow(), nullable=True
+    )
 
 
 class FilesMeta(Base):
@@ -85,8 +89,12 @@ class FilesMeta(Base):
     path: Mapped[str] = mapped_column(String, unique=True)
     orig_ctime = mapped_column(UTCDateTime(timezone=False), nullable=False)
     meta: Mapped[ColumnMeta] = mapped_column(JSONB)
-    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), onupdate=UTCNow(), nullable=True
+    )
 
 
 class Recordings(Base):
@@ -100,8 +108,12 @@ class Recordings(Base):
     end_time: Mapped[datetime.datetime | None] = mapped_column(
         UTCDateTime(timezone=False), nullable=True
     )
-    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), onupdate=UTCNow(), nullable=True
+    )
 
     trigger_type: Mapped[str | None] = mapped_column(String, nullable=True)
     trigger_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -138,8 +150,12 @@ class Objects(Base):
     y2: Mapped[float] = mapped_column(Float)
     snapshot_path: Mapped[str] = mapped_column(String, nullable=True)
     zone: Mapped[str | None] = mapped_column(String, nullable=True)
-    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), onupdate=UTCNow(), nullable=True
+    )
 
 
 class Motion(Base):
@@ -153,8 +169,12 @@ class Motion(Base):
     end_time: Mapped[datetime.datetime | None] = mapped_column(
         UTCDateTime(timezone=False), nullable=True
     )
-    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), onupdate=UTCNow(), nullable=True
+    )
 
 
 class MotionContours(Base):
@@ -165,8 +185,12 @@ class MotionContours(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     motion_id: Mapped[int] = mapped_column(Integer)
     contour: Mapped[LargeBinary] = mapped_column(LargeBinary)
-    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), onupdate=UTCNow(), nullable=True
+    )
 
 
 class PostProcessorResults(Base):
@@ -179,8 +203,12 @@ class PostProcessorResults(Base):
     domain: Mapped[str] = mapped_column(String)
     snapshot_path: Mapped[str] = mapped_column(String, nullable=True)
     data: Mapped[ColumnMeta] = mapped_column(JSONB)
-    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), onupdate=UTCNow(), nullable=True
+    )
 
 
 class Events(Base):
@@ -191,5 +219,9 @@ class Events(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String)
     data: Mapped[ColumnMeta] = mapped_column(JSONB)
-    created_at = mapped_column(UTCDateTime(timezone=False), server_default=UTCNow())
-    updated_at = mapped_column(UTCDateTime(timezone=False), onupdate=UTCNow())
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
+    )
+    updated_at: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), onupdate=UTCNow(), nullable=True
+    )
