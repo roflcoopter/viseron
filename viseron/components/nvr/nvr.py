@@ -278,21 +278,25 @@ class NVR:
         else:
             self._logger.info("Object detector is disabled")
 
-        if (
-            self._motion_detector
-            and self._object_detector
-            and self._object_detector.scan_on_motion_only
-        ):
-            self._frame_scanners[MOTION_DETECTOR].scan = True
-            if self._object_detector:
+        match True:
+            case _ if (
+                self._motion_detector
+                and self._object_detector
+                and self._object_detector.scan_on_motion_only
+            ):
+                self._frame_scanners[MOTION_DETECTOR].scan = True
                 self._frame_scanners[OBJECT_DETECTOR].scan = False
-        else:
-            if self._object_detector and self._motion_detector:
+
+            case _ if (self._object_detector and self._motion_detector):
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
-                self._frame_scanners[MOTION_DETECTOR].scan = False
-            if self._object_detector:
+                self._frame_scanners[
+                    MOTION_DETECTOR
+                ].scan = self._motion_detector.trigger_recorder
+
+            case _ if self._object_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
-            elif self._motion_detector:
+
+            case _ if self._motion_detector:
                 self._frame_scanners[MOTION_DETECTOR].scan = True
 
         if not self._object_detector and not self._motion_detector:
