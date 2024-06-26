@@ -17,11 +17,13 @@ from viseron.domains.object_detector.const import (
 from viseron.helpers import utcnow
 from viseron.helpers.filter import DetectedObject, Filter
 
+FRAME_RES = (1920, 1080)
+
 
 def test_should_store() -> None:
     """Test that should_store returns the correct value."""
     _filter = Filter(
-        (1920, 1080),
+        FRAME_RES,
         {
             CONFIG_LABEL_LABEL: "person",
             CONFIG_LABEL_CONFIDENCE: 0.8,
@@ -36,7 +38,7 @@ def test_should_store() -> None:
         },
         [],
     )
-    obj = DetectedObject("person", 0.9, 0.1, 0.1, 0.2, 0.2)
+    obj = DetectedObject("person", 0.9, 0.1, 0.1, 0.2, 0.2, FRAME_RES)
     assert _filter.should_store(obj) is True
     assert obj.store is True
 
