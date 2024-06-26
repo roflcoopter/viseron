@@ -204,10 +204,11 @@ class AbstractRecorder(ABC, RecorderBase):
         thumbnail_name = f"{recording_id}.jpg"
         thumbnail_path = os.path.join(self._camera.thumbnails_folder, thumbnail_name)
 
-        draw_objects(
-            frame,
-            objects,
-        )
+        if objects:
+            draw_objects(
+                frame,
+                objects,
+            )
         if not cv2.imwrite(thumbnail_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100]):
             self._logger.error(f"Failed saving thumbnail {thumbnail_path} to disk")
 
