@@ -281,7 +281,7 @@ export type CameraEvent =
   | CameraLicensePlateRecognitionEvent;
 
 export type CameraEvents = {
-  events: [CameraEvent];
+  events: CameraEvent[];
 };
 
 export type CameraSnapshotEvent =
@@ -291,6 +291,18 @@ export type CameraSnapshotEvent =
 export type CameraSnapshotEvents = Array<CameraSnapshotEvent>;
 
 export type CameraObjectEvents = Array<CameraObjectEvent>;
+
+export type EventsAmount = {
+  events_amount: {
+    [date: string]: {
+      motion: number;
+      object: number;
+      recording: number;
+      face_recognition: number;
+      license_plate_recognition: number;
+    };
+  };
+};
 
 export interface Entity {
   entity_id: string;

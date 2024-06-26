@@ -3,10 +3,9 @@ from __future__ import annotations
 
 import datetime
 import logging
-import time
 from collections.abc import Callable
 from http import HTTPStatus
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from sqlalchemy import select
@@ -47,9 +46,20 @@ class EventsAPIHandler(BaseAPIHandler):
                         vol.Required("time_to"): vol.Coerce(int),
                     },
                     {
+                        vol.Required("utc_offset_minutes"): vol.Coerce(int),
                         vol.Required("date"): str,
                     },
                 )
+            ),
+        },
+        {
+            "path_pattern": (r"/events/(?P<camera_identifier>[A-Za-z0-9_]+)/amount"),
+            "supported_methods": ["GET"],
+            "method": "get_events_amount",
+            "request_arguments_schema": vol.Schema(
+                {
+                    vol.Required("utc_offset_minutes"): vol.Coerce(int),
+                }
             ),
         },
     ]
@@ -223,11 +233,14 @@ class EventsAPIHandler(BaseAPIHandler):
 
         # Get start of day in utc
         if "date" in self.request_arguments:
-            time_from = (
-                datetime.datetime.strptime(self.request_arguments["date"], "%Y-%m-%d")
-                - datetime.timedelta(seconds=time.localtime().tm_gmtoff)
-            ).timestamp()
-            time_to = time_from + 86400
+            _time_from = datetime.datetime.strptime(
+                self.request_arguments["date"], "%Y-%m-%d"
+            ) - datetime.timedelta(minutes=self.request_arguments["utc_offset_minutes"])
+            _time_to = _time_from + datetime.timedelta(
+                hours=23, minutes=59, seconds=59, milliseconds=999999
+            )
+            time_from = _time_from.timestamp()
+            time_to = _time_to.timestamp()
         else:
             time_from = self.request_arguments["time_from"]
             time_to = self.request_arguments["time_to"]
@@ -268,3 +281,93 @@ class EventsAPIHandler(BaseAPIHandler):
         )
 
         self.response_success(response={"events": sorted_events})
+
+    def _events_amount(
+        self,
+        get_session: Callable[[], Session],
+        camera: AbstractCamera | FailedCamera,
+    ) -> dict[str, dict[str, Any]]:
+        utc_offset_minutes = self.request_arguments["utc_offset_minutes"]
+        with get_session() as session:
+            stmt = select(Motion.start_time).where(
+                Motion.camera_identifier == camera.identifier
+            )
+            motion_events = session.execute(stmt).scalars().all()
+
+            stmt = select(Recordings.start_time).where(
+                Recordings.camera_identifier == camera.identifier
+            )
+            recording_events = session.execute(stmt).scalars().all()
+
+            stmt = select(Objects.created_at).where(
+                Objects.camera_identifier == camera.identifier
+            )
+            object_events = session.execute(stmt).scalars().all()
+
+            stmt_pp = select(PostProcessorResults).where(
+                PostProcessorResults.camera_identifier == camera.identifier
+            )
+            post_processor_events = session.execute(stmt_pp).scalars().all()
+
+        events_amount: dict[str, dict[str, Any]] = {}
+        for event in motion_events:
+            event_day = (
+                (event + datetime.timedelta(minutes=utc_offset_minutes))
+                .date()
+                .isoformat()
+            )
+            events_amount.setdefault(event_day, {}).setdefault("motion", 0)
+            events_amount[event_day]["motion"] += 1
+
+        for event in recording_events:
+            event_day = (
+                (event + datetime.timedelta(minutes=utc_offset_minutes))
+                .date()
+                .isoformat()
+            )
+            events_amount.setdefault(event_day, {}).setdefault("recording", 0)
+            events_amount[event_day]["recording"] += 1
+
+        for event in object_events:
+            event_day = (
+                (event + datetime.timedelta(minutes=utc_offset_minutes))
+                .date()
+                .isoformat()
+            )
+            events_amount.setdefault(event_day, {}).setdefault("object", 0)
+            events_amount[event_day]["object"] += 1
+
+        for event_pp in post_processor_events:
+            event_day = (
+                (event_pp.created_at + datetime.timedelta(minutes=utc_offset_minutes))
+                .date()
+                .isoformat()
+            )
+            events_amount.setdefault(event_day, {}).setdefault(event_pp.domain, 0)
+            events_amount[event_day][event_pp.domain] += 1
+
+        return events_amount
+
+    async def get_events_amount(
+        self,
+        camera_identifier: str,
+    ) -> None:
+        """Get amount of events for every day stored in the database.
+
+        The time is adjusted to the client's timezone using utc_offset_minutes.
+        """
+        camera = self._get_camera(camera_identifier, failed=True)
+
+        if not camera:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
+            )
+            return
+
+        events_amount = await self.run_in_executor(
+            self._events_amount,
+            self._get_session,
+            camera,
+        )
+        self.response_success(response={"events_amount": events_amount})

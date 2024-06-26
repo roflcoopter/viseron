@@ -12,18 +12,20 @@ import { SnapshotIcon } from "components/events/SnapshotEvent";
 import {
   extractUniqueLabels,
   extractUniqueTypes,
+  getEventTime,
+  getEventTimestamp,
   getSrc,
 } from "components/events/utils";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import { getTimeFromDate } from "lib/helpers";
 import * as types from "lib/types";
 
-const getText = (snapshotEvents: types.CameraSnapshotEvents) => {
-  const uniqueEvents = extractUniqueTypes(snapshotEvents);
+const getText = (events: types.CameraEvent[]) => {
+  const uniqueEvents = extractUniqueTypes(events);
   return (
     <Box>
       <Typography variant="body2" align="center">{`${getTimeFromDate(
-        new Date(snapshotEvents[0].time),
+        new Date(getEventTime(events[0])),
       )}`}</Typography>
       <Grid container justifyContent="center" alignItems="center">
         {Object.keys(uniqueEvents).map((key) => {
@@ -34,13 +36,13 @@ const getText = (snapshotEvents: types.CameraSnapshotEvents) => {
             );
             return Object.keys(uniqueLabels).map((label) => (
               <Grid item key={`icon-${key}-${label}`}>
-                <SnapshotIcon snapshotEvents={uniqueLabels[label]} />
+                <SnapshotIcon events={uniqueLabels[label]} />
               </Grid>
             ));
           }
           return (
             <Grid item key={`icon-${key}`}>
-              <SnapshotIcon snapshotEvents={uniqueEvents[key]} />
+              <SnapshotIcon events={uniqueEvents[key]} />
             </Grid>
           );
         })}
@@ -63,7 +65,7 @@ const isTimespanAvailable = (
 
 type EventTableItemProps = {
   camera: types.Camera | types.FailedCamera;
-  snapshotEvents: types.CameraSnapshotEvents;
+  events: types.CameraEvent[];
   setSelectedEvent: (event: types.CameraEvent) => void;
   selected: boolean;
   setRequestedTimestamp: (timestamp: number | null) => void;
@@ -71,7 +73,7 @@ type EventTableItemProps = {
 };
 export const EventTableItem = ({
   camera,
-  snapshotEvents,
+  events,
   setSelectedEvent,
   selected,
   setRequestedTimestamp,
@@ -94,16 +96,16 @@ export const EventTableItem = ({
         onClick={() => {
           if (
             isTimespanAvailable(
-              Math.round(snapshotEvents[0].timestamp),
+              Math.round(getEventTimestamp(events[0])),
               availableTimespans,
             )
           ) {
-            setSelectedEvent(snapshotEvents[0]);
-            setRequestedTimestamp(Math.round(snapshotEvents[0].timestamp));
+            setSelectedEvent(events[0]);
+            setRequestedTimestamp(Math.round(getEventTimestamp(events[0])));
             return;
           }
 
-          setSelectedEvent(snapshotEvents[0]);
+          setSelectedEvent(events[0]);
           setRequestedTimestamp(null);
         }}
       >
@@ -113,10 +115,10 @@ export const EventTableItem = ({
           justifyContent="flex-end"
           alignItems="center"
         >
-          <Grid item xs={6}>
-            {getText(snapshotEvents)}
+          <Grid item xs={8}>
+            {getText(events)}
           </Grid>
-          <Grid item xs={6}>
+          <Grid item xs={4}>
             <CardMedia
               sx={{
                 borderRadius: "5px",
@@ -133,10 +135,12 @@ export const EventTableItem = ({
                 }
               >
                 <Image
-                  src={getSrc(snapshotEvents[0])}
-                  aspectRatio={camera.width / camera.height}
+                  src={getSrc(events[0])}
                   color={theme.palette.background.default}
                   animationDuration={1000}
+                  imageStyle={{
+                    objectFit: "contain",
+                  }}
                 />
               </LazyLoad>
             </CardMedia>

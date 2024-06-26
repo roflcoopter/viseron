@@ -16,6 +16,7 @@ type EventsVariablesWithTime = {
 type EventsVariablesWithDate = {
   camera_identifier: string | null;
   date: string;
+  utc_offset_minutes: number;
   configOptions?: UseQueryOptions<types.CameraEvents, types.APIErrorResponse>;
 };
 type EventsVariables = EventsVariablesWithTime | EventsVariablesWithDate;
@@ -37,6 +38,7 @@ async function events(variables: EventsVariables): Promise<types.CameraEvents> {
     params.time_to = variables.time_to;
   } else if ("date" in variables) {
     params.date = variables.date;
+    params.utc_offset_minutes = variables.utc_offset_minutes;
   }
 
   const response = await viseronAPI.get<types.CameraEvents>(
@@ -65,11 +67,47 @@ export function useEvents(variables: EventsVariables) {
           variables.time_from,
           variables.time_to,
         ]
-      : ["events", variables.camera_identifier, variables.date];
+      : [
+          "events",
+          variables.camera_identifier,
+          variables.date,
+          variables.utc_offset_minutes,
+        ];
 
   return useQuery<types.CameraEvents, types.APIErrorResponse>(
     queryKey,
     async () => events(variables),
+    variables.configOptions,
+  );
+}
+
+type EventsAmountVariables = {
+  camera_identifier: string | null;
+  utc_offset_minutes: number;
+  configOptions?: UseQueryOptions<types.EventsAmount, types.APIErrorResponse>;
+};
+
+async function eventsAmount({
+  camera_identifier,
+  utc_offset_minutes,
+}: EventsAmountVariables): Promise<types.EventsAmount> {
+  const response = await viseronAPI.get<types.EventsAmount>(
+    `events/${camera_identifier}/amount`,
+    {
+      params: {
+        utc_offset_minutes,
+      },
+    },
+  );
+  return response.data;
+}
+
+export function useEventsAmount(
+  variables: EventsAmountVariables,
+): UseQueryResult<types.EventsAmount, types.APIErrorResponse> {
+  return useQuery<types.EventsAmount, types.APIErrorResponse>(
+    ["events", variables.camera_identifier, "amount"],
+    async () => eventsAmount(variables),
     variables.configOptions,
   );
 }

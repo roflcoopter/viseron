@@ -325,14 +325,12 @@ export const getSrc = (event: types.CameraEvent) => {
 };
 
 // Extract unique snapshot event types into a map
-export const extractUniqueTypes = (
-  snapshotEvents: types.CameraSnapshotEvents,
-) => {
+export const extractUniqueTypes = (snapshotEvents: types.CameraEvent[]) => {
   if (!snapshotEvents) {
     return {};
   }
 
-  const typeMap = new Map<string, types.CameraSnapshotEvents>();
+  const typeMap = new Map<string, types.CameraEvent[]>();
 
   snapshotEvents.forEach((event) => {
     const type = event.type;
@@ -342,7 +340,7 @@ export const extractUniqueTypes = (
     typeMap.get(type)!.push(event);
   });
 
-  const result: { [key: string]: types.CameraSnapshotEvents } = {};
+  const result: { [key: string]: types.CameraEvent[] } = {};
   typeMap.forEach((value, key) => {
     result[key] = value;
   });
@@ -384,10 +382,30 @@ export const extractUniqueLabels = (objectEvents: types.CameraObjectEvents) => {
   return result;
 };
 
-export const filterEvents = (events: types.CameraEvent[]) =>
-  events.filter(
-    (cameraEvent): cameraEvent is types.CameraSnapshotEvent =>
-      cameraEvent.type === "object" ||
-      cameraEvent.type === "face_recognition" ||
-      cameraEvent.type === "license_plate_recognition",
-  );
+export const getEventTime = (event: types.CameraEvent): string => {
+  switch (event.type) {
+    case "license_plate_recognition":
+    case "face_recognition":
+    case "object":
+      return event.time;
+    case "motion":
+    case "recording":
+      return event.start_time;
+    default:
+      return event satisfies never;
+  }
+};
+
+export const getEventTimestamp = (event: types.CameraEvent): number => {
+  switch (event.type) {
+    case "license_plate_recognition":
+    case "face_recognition":
+    case "object":
+      return event.timestamp;
+    case "motion":
+    case "recording":
+      return event.start_timestamp;
+    default:
+      return event satisfies never;
+  }
+};
