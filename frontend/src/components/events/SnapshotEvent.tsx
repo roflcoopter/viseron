@@ -131,6 +131,9 @@ const getText = (event: types.CameraEvent) => {
           <Typography variant="h5" fontSize={"1rem"}>
             Motion Detection
           </Typography>
+          {event.duration ? (
+            <Box>{`Duration: ${Math.round(event.duration)}s`}</Box>
+          ) : null}
           <Box>{`Time: ${date.toLocaleTimeString()}`}</Box>
         </Box>
       );
@@ -141,6 +144,12 @@ const getText = (event: types.CameraEvent) => {
           <Typography variant="h5" fontSize={"1rem"}>
             Recording
           </Typography>
+          {event.trigger_type ? (
+            <Box>{`Triggered by: ${toTitleCase(event.trigger_type)}`}</Box>
+          ) : null}
+          {event.duration ? (
+            <Box>{`Duration: ${Math.round(event.duration)}s`}</Box>
+          ) : null}
           <Box>{`Time: ${date.toLocaleTimeString()}`}</Box>
         </Box>
       );

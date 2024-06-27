@@ -177,6 +177,7 @@ class Motion(Base):
     end_time: Mapped[datetime.datetime | None] = mapped_column(
         UTCDateTime(timezone=False), nullable=True
     )
+    snapshot_path: Mapped[str] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(
         UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
     )

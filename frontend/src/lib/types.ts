@@ -232,12 +232,15 @@ type CameraBaseTimedEvent = CameraBaseEvent & {
   start_timestamp: number;
   end_time: string | null;
   end_timestamp: number | null;
+  duration: number | null;
 };
 export type CameraMotionEvent = CameraBaseTimedEvent & {
   type: "motion";
+  snapshot_path: string;
 };
 export type CameraRecordingEvent = CameraBaseTimedEvent & {
   type: "recording";
+  trigger_type: "motion" | "object" | null;
   hls_url: string;
   thumbnail_path: string;
 };

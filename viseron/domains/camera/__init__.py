@@ -429,6 +429,9 @@ class AbstractCamera(ABC):
         self.snapshots_license_plate_folder: str = self._storage.get_snapshots_path(
             self, "license_plate_recognition"
         )
+        self.snapshots_motion_folder: str = self._storage.get_snapshots_path(
+            self, "motion_detector"
+        )
 
         self.fragmenter: Fragmenter = Fragmenter(vis, self)
         if self.config[CONFIG_PASSWORD]:
@@ -658,7 +661,8 @@ class AbstractCamera(ABC):
         shared_frame: SharedFrame,
         domain: Literal["object_detector"]
         | Literal["face_recognition"]
-        | Literal["license_plate_recognition"],
+        | Literal["license_plate_recognition"]
+        | Literal["motion_detector"],
         zoom_coordinates: tuple[float, float, float, float] | None = None,
         detected_object: DetectedObject | None = None,
         bbox: tuple[float, float, float, float] | None = None,
@@ -691,6 +695,10 @@ class AbstractCamera(ABC):
             folder = self.snapshots_face_folder
         elif domain == "license_plate_recognition":
             folder = self.snapshots_license_plate_folder
+        elif domain == "motion_detector":
+            folder = self.snapshots_motion_folder
+        else:
+            raise ValueError(f"Invalid domain {domain}")
 
         if subfolder:
             folder = os.path.join(folder, subfolder)

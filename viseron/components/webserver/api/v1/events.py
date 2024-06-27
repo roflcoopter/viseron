@@ -98,6 +98,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         "duration": (event.end_time - event.start_time).total_seconds()
                         if event.end_time
                         else None,
+                        "snapshot_path": f"/files{event.snapshot_path}",
                         "created_at": event.created_at,
                     }
                 )
