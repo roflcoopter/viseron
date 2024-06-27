@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Callable
+from enum import Enum
 from typing import Literal
 
 from sqlalchemy import DateTime, Float, Integer, LargeBinary, String, types
@@ -97,6 +98,13 @@ class FilesMeta(Base):
     )
 
 
+class TriggerTypes(Enum):
+    """Trigger types for recordings."""
+
+    MOTION = "motion"
+    OBJECT = "object"
+
+
 class Recordings(Base):
     """Database model for recordings."""
 
@@ -115,7 +123,7 @@ class Recordings(Base):
         UTCDateTime(timezone=False), onupdate=UTCNow(), nullable=True
     )
 
-    trigger_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    trigger_type: Mapped[TriggerTypes | None] = mapped_column(nullable=True)
     trigger_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     thumbnail_path: Mapped[str] = mapped_column(String, nullable=True)
     clip_path: Mapped[str] = mapped_column(String, nullable=True)

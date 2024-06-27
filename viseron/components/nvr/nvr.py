@@ -17,6 +17,7 @@ import numpy as np
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import COMPONENT
+from viseron.components.storage.models import TriggerTypes
 from viseron.const import DOMAIN_IDENTIFIERS, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.motion_detector.const import (
@@ -224,6 +225,7 @@ class NVR:
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.debug(f"Initializing NVR for camera {self._camera.name}")
 
+        self._trigger_type: TriggerTypes | None = None
         self._start_recorder = False
         self._idle_frames = 0
         self._kill_received = False
@@ -521,12 +523,14 @@ class NVR:
 
         for obj in self._object_detector.objects_in_fov:
             if self.trigger_recorder(obj, self._object_detector.object_filters):
+                self._trigger_type = TriggerTypes.OBJECT
                 self._start_recorder = True
                 return
 
         for zone in self._object_detector.zones:
             for obj in zone.objects_in_zone:
                 if self.trigger_recorder(obj, zone.object_filters):
+                    self._trigger_type = TriggerTypes.OBJECT
                     self._start_recorder = True
                     return
 
@@ -559,6 +563,7 @@ class NVR:
                 self._logger.debug("Starting object detector")
 
             if self._motion_detector.trigger_recorder and not self._camera.is_recording:
+                self._trigger_type = TriggerTypes.MOTION
                 self._start_recorder = True
                 self._motion_only_frames = 0
                 self._motion_recorder_keepalive_reached = False
@@ -573,12 +578,15 @@ class NVR:
             self._logger.debug("Not recording, pausing object detector")
             self._frame_scanners[OBJECT_DETECTOR].scan = False
 
-    def start_recorder(self, shared_frame) -> None:
+    def start_recorder(
+        self, shared_frame: SharedFrame, trigger_type: TriggerTypes
+    ) -> None:
         """Start recorder."""
         self._idle_frames = 0
         self._camera.start_recorder(
             shared_frame,
             self._object_detector.objects_in_fov if self._object_detector else None,
+            trigger_type,
         )
 
         if (
@@ -632,9 +640,10 @@ class NVR:
 
     def process_recorder(self, shared_frame: SharedFrame) -> None:
         """Check if we should start or stop the recorder."""
-        if self._start_recorder:
+        if self._start_recorder and self._trigger_type:
+            self.start_recorder(shared_frame, self._trigger_type)
+            self._trigger_type = None
             self._start_recorder = False
-            self.start_recorder(shared_frame)
         # Stop recording if max_recording_time is exceeded
         elif (
             self._camera.is_recording

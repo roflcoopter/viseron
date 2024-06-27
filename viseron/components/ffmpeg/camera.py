@@ -132,6 +132,7 @@ from .stream import Stream
 
 if TYPE_CHECKING:
     from viseron.components.nvr.nvr import FrameIntervalCalculator
+    from viseron.components.storage.models import TriggerTypes
     from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.object_detector.detected_object import DetectedObject
 
@@ -464,10 +465,15 @@ class Camera(AbstractCamera):
                 self.stream.close_pipe()
 
     def start_recorder(
-        self, shared_frame: SharedFrame, objects_in_fov: list[DetectedObject] | None
+        self,
+        shared_frame: SharedFrame,
+        objects_in_fov: list[DetectedObject] | None,
+        trigger_type: TriggerTypes,
     ) -> None:
         """Start camera recorder."""
-        self._recorder.start(shared_frame, objects_in_fov if objects_in_fov else [])
+        self._recorder.start(
+            shared_frame, objects_in_fov if objects_in_fov else [], trigger_type
+        )
 
     def stop_recorder(self) -> None:
         """Stop camera recorder."""

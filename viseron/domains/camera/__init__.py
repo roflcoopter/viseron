@@ -167,6 +167,7 @@ if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.components.storage import Storage
+    from viseron.components.storage.models import TriggerTypes
     from viseron.components.webserver import Webserver
     from viseron.domains.object_detector.detected_object import DetectedObject
 
@@ -505,7 +506,10 @@ class AbstractCamera(ABC):
 
     @abstractmethod
     def start_recorder(
-        self, shared_frame: SharedFrame, objects_in_fov: list[DetectedObject] | None
+        self,
+        shared_frame: SharedFrame,
+        objects_in_fov: list[DetectedObject] | None,
+        trigger_type: TriggerTypes,
     ):
         """Start camera recorder."""
 

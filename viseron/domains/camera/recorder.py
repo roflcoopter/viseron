@@ -45,6 +45,7 @@ from .shared_frames import SharedFrame
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.storage import Storage
+    from viseron.components.storage.models import TriggerTypes
     from viseron.domains.camera import AbstractCamera, FailedCamera
 
 
@@ -58,7 +59,7 @@ class RecordingDict(TypedDict):
     end_time: datetime.datetime | None
     end_timestamp: float | None
     date: str
-    trigger_type: str | None
+    trigger_type: TriggerTypes | None
     trigger_id: int | None
     thumbnail_path: str
     hls_url: str
@@ -225,6 +226,7 @@ class AbstractRecorder(ABC, RecorderBase):
         self,
         shared_frame: SharedFrame,
         objects_in_fov: list[DetectedObject],
+        trigger_type: TriggerTypes,
     ) -> Recording:
         """Start recording."""
         self._logger.info("Starting recorder")
@@ -248,6 +250,7 @@ class AbstractRecorder(ABC, RecorderBase):
                 insert(Recordings)
                 .values(
                     camera_identifier=self._camera.identifier,
+                    trigger_type=trigger_type,
                     start_time=start_time,
                 )
                 .returning(Recordings.id)

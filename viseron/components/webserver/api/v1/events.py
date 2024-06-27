@@ -95,6 +95,9 @@ class EventsAPIHandler(BaseAPIHandler):
                         "end_timestamp": event.end_time.timestamp()
                         if event.end_time
                         else None,
+                        "duration": (event.end_time - event.start_time).total_seconds()
+                        if event.end_time
+                        else None,
                         "created_at": event.created_at,
                     }
                 )
@@ -159,10 +162,14 @@ class EventsAPIHandler(BaseAPIHandler):
                     {
                         "type": "recording",
                         "id": event.id,
+                        "trigger_type": event.trigger_type,
                         "start_time": event.start_time,
                         "start_timestamp": event.start_time.timestamp(),
                         "end_time": event.end_time,
                         "end_timestamp": event.end_time.timestamp()
+                        if event.end_time
+                        else None,
+                        "duration": (event.end_time - event.start_time).total_seconds()
                         if event.end_time
                         else None,
                         "hls_url": (
