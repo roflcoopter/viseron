@@ -72,7 +72,6 @@ class LicensePlateRecognitionBinarySensor(CameraBinarySensor):
         self._detected = True
         self._result = event_data.data.plate
         self.set_state()
-        return
 
     def plate_expired(self) -> None:
         """Expire license plate after a given number of seconds."""
