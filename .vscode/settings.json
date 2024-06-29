@@ -4,7 +4,8 @@
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
   "pylint.severity": {
-    "convention": "Warning"
+    "convention": "Warning",
+    "refactor": "Warning"
   },
   "[python]": {
     "editor.rulers": [88],
