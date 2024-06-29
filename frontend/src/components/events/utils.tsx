@@ -1,7 +1,7 @@
 import dayjs, { Dayjs } from "dayjs";
 import { Fragment } from "hls.js";
 
-import { dateToTimestamp } from "lib/helpers";
+import { BLANK_IMAGE, dateToTimestamp } from "lib/helpers";
 import * as types from "lib/types";
 
 export const TICK_HEIGHT = 8;
@@ -319,7 +319,7 @@ export const getSrc = (event: types.CameraEvent) => {
     case "face_recognition":
     case "license_plate_recognition":
     case "motion":
-      return event.snapshot_path;
+      return event.snapshot_path || BLANK_IMAGE;
     default:
       return event satisfies never;
   }
