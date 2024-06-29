@@ -36,7 +36,7 @@ export const Item = memo(
       {item.snapshotEvents ? (
         <SnapshotEvent
           key={`snapshot-${item.time}`}
-          snapshotEvents={item.snapshotEvents}
+          events={item.snapshotEvents}
         />
       ) : null}
     </>

@@ -45,6 +45,7 @@ from .shared_frames import SharedFrame
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.storage import Storage
+    from viseron.components.storage.models import TriggerTypes
     from viseron.domains.camera import AbstractCamera, FailedCamera
 
 
@@ -58,7 +59,7 @@ class RecordingDict(TypedDict):
     end_time: datetime.datetime | None
     end_timestamp: float | None
     date: str
-    trigger_type: str | None
+    trigger_type: TriggerTypes | None
     trigger_id: int | None
     thumbnail_path: str
     hls_url: str
@@ -198,25 +199,25 @@ class AbstractRecorder(ABC, RecorderBase):
         recording_id: int,
         frame: np.ndarray,
         objects: list[DetectedObject],
-        resolution: tuple[int, int],
     ) -> tuple[np.ndarray, str]:
         """Create thumbnails, sent to MQTT and/or saved to disk based on config."""
         self._logger.debug(f"Saving thumbnail in {self._camera.thumbnails_folder}")
         thumbnail_name = f"{recording_id}.jpg"
         thumbnail_path = os.path.join(self._camera.thumbnails_folder, thumbnail_name)
 
-        draw_objects(
-            frame,
-            objects,
-            resolution,
-        )
-        if not cv2.imwrite(thumbnail_path, frame):
+        if objects:
+            draw_objects(
+                frame,
+                objects,
+            )
+        if not cv2.imwrite(thumbnail_path, frame, [int(cv2.IMWRITE_JPEG_QUALITY), 100]):
             self._logger.error(f"Failed saving thumbnail {thumbnail_path} to disk")
 
         if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]:
             if not cv2.imwrite(
                 os.path.join(self._camera.thumbnails_folder, "latest_thumbnail.jpg"),
                 frame,
+                [int(cv2.IMWRITE_JPEG_QUALITY), 100],
             ):
                 self._logger.error("Failed saving latest_thumbnail.jpg to disk")
         return frame, thumbnail_path
@@ -225,7 +226,7 @@ class AbstractRecorder(ABC, RecorderBase):
         self,
         shared_frame: SharedFrame,
         objects_in_fov: list[DetectedObject],
-        resolution: tuple[int, int],
+        trigger_type: TriggerTypes,
     ) -> Recording:
         """Start recording."""
         self._logger.info("Starting recorder")
@@ -249,6 +250,7 @@ class AbstractRecorder(ABC, RecorderBase):
                 insert(Recordings)
                 .values(
                     camera_identifier=self._camera.identifier,
+                    trigger_type=trigger_type,
                     start_time=start_time,
                 )
                 .returning(Recordings.id)
@@ -259,7 +261,6 @@ class AbstractRecorder(ABC, RecorderBase):
                 recording_id,
                 self._camera.shared_frames.get_decoded_frame_rgb(shared_frame).copy(),
                 objects_in_fov,
-                resolution,
             )
             stmt2 = (
                 update(Recordings)
@@ -287,7 +288,7 @@ class AbstractRecorder(ABC, RecorderBase):
             objects=objects_in_fov,
         )
 
-        self._start(recording, shared_frame, objects_in_fov, resolution)
+        self._start(recording, shared_frame, objects_in_fov)
         self._active_recording = recording
         self._vis.dispatch_event(
             EVENT_RECORDER_START.format(camera_identifier=self._camera.identifier),
@@ -304,7 +305,6 @@ class AbstractRecorder(ABC, RecorderBase):
         recording: Recording,
         shared_frame: SharedFrame,
         objects_in_fov: list[DetectedObject],
-        resolution,
     ):
         """Start the recorder."""
 

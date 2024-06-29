@@ -9,7 +9,7 @@ import {
 import dayjs, { Dayjs } from "dayjs";
 import { useMemo } from "react";
 
-import { useRecordings } from "lib/api/recordings";
+import { useEventsAmount } from "lib/api/events";
 import * as types from "lib/types";
 
 function HasEvent(
@@ -54,10 +54,15 @@ function HasEvent(
   );
 }
 
-export function getHighlightedDays(recordings: types.RecordingsCamera) {
+export function getHighlightedDays(
+  eventsAmount: types.EventsAmount["events_amount"],
+) {
   const result: Record<string, number> = {};
-  for (const date of Object.keys(recordings)) {
-    result[date] = Object.keys(recordings[date]).length;
+  for (const [date, events] of Object.entries(eventsAmount)) {
+    const totalEvents = Object.values(events).reduce((a, b) => a + b, 0);
+    if (totalEvents > 0) {
+      result[date] = totalEvents;
+    }
   }
   return result;
 }
@@ -80,15 +85,17 @@ export function EventDatePickerDialog({
   camera,
   onChange,
 }: EventDatePickerDialogProps) {
-  const recordingsQuery = useRecordings({
+  const eventsAmountQuery = useEventsAmount({
     camera_identifier: camera ? camera.identifier : null,
-    failed: camera ? camera.failed : false,
+    utc_offset_minutes: dayjs().utcOffset(),
     configOptions: { enabled: !!camera },
   });
   const highlightedDays = useMemo(
     () =>
-      recordingsQuery.data ? getHighlightedDays(recordingsQuery.data) : {},
-    [recordingsQuery.data],
+      eventsAmountQuery.data
+        ? getHighlightedDays(eventsAmountQuery.data.events_amount)
+        : {},
+    [eventsAmountQuery.data],
   );
 
   const handleClose = () => {

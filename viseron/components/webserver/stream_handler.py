@@ -89,7 +89,7 @@ class StreamHandler(ViseronRequestHandler):
     @staticmethod
     async def process_frame(
         nvr: NVR, processed_frame: DataProcessedFrame, mjpeg_stream_config
-    ):
+    ) -> tuple[bool, np.ndarray]:
         """Return JPG with drawn objects, zones etc."""
         _frame = processed_frame.frame.copy()
 
@@ -133,7 +133,7 @@ class StreamHandler(ViseronRequestHandler):
                 draw_objects(
                     frame,
                     processed_frame.objects_in_fov,
-                    resolution,
+                    resolution=resolution,
                 )
 
         if mjpeg_stream_config["rotate"]:

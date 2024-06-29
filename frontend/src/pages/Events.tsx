@@ -4,7 +4,6 @@ import dayjs, { Dayjs } from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
-import "video.js/dist/video-js.css";
 
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { Layout, LayoutSmall } from "components/events/Layouts";

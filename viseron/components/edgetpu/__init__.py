@@ -298,11 +298,18 @@ class EdgeTPU(SubProcessWorker):
             stderr=self._log_pipe,
         )
 
-    def invoke(self, frame, camera_identifier, result_queue):
+    def invoke(
+        self, frame, camera_identifier, result_queue, frame_resolution: tuple[int, int]
+    ):
         """Invoke interpreter."""
         self._result_queues[camera_identifier] = result_queue
         pop_if_full(
-            self.input_queue, {"frame": frame, "camera_identifier": camera_identifier}
+            self.input_queue,
+            {
+                "frame": frame,
+                "camera_identifier": camera_identifier,
+                "frame_resolution": frame_resolution,
+            },
         )
         item = result_queue.get()
         return item["result"]
@@ -347,14 +354,14 @@ class EdgeTPUDetection(EdgeTPU):
         processed_objects = []
         for obj in item["result"]:
             processed_objects.append(
-                DetectedObject(
+                DetectedObject.from_absolute(
                     self.labels.get(obj["label"], obj["label"]),
                     float(obj["score"]),
                     obj["bbox"]["xmin"],
                     obj["bbox"]["ymin"],
                     obj["bbox"]["xmax"],
                     obj["bbox"]["ymax"],
-                    relative=False,
+                    frame_res=item["frame_resolution"],
                     model_res=(self.model_width, self.model_height),
                 )
             )

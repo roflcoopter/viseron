@@ -51,6 +51,7 @@ from viseron.domains.motion_detector.const import (
     DESC_RECORDER_KEEPALIVE,
     DESC_TRIGGER_RECORDER,
     DESC_WIDTH,
+    DOMAIN,
     EVENT_MOTION_DETECTED,
 )
 from viseron.events import EventData
@@ -176,7 +177,7 @@ class AbstractMotionDetector(ABC):
         """Return motion contours."""
         return self._motion_contours
 
-    def _insert_motion(self) -> None:
+    def _insert_motion(self, snapshot_path: str | None) -> None:
         """Insert motion event into database."""
         with self._storage.get_session() as session:
             stmt = (
@@ -185,6 +186,7 @@ class AbstractMotionDetector(ABC):
                     camera_identifier=self._camera.identifier,
                     start_time=utcnow(),
                     end_time=None,
+                    snapshot_path=snapshot_path,
                 )
                 .returning(Motion.id)
             )
@@ -224,7 +226,13 @@ class AbstractMotionDetector(ABC):
             return
 
         if self._motion_id is None:
-            self._insert_motion()
+            snapshot_path = None
+            if shared_frame:
+                snapshot_path = self._camera.save_snapshot(
+                    shared_frame,
+                    DOMAIN,
+                )
+            self._insert_motion(snapshot_path)
         else:
             self._update_motion()
             self._motion_id = None

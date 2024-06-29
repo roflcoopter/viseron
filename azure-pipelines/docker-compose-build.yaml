@@ -86,6 +86,7 @@ services:
         ARCH: amd64
         BUILD_FROM: ubuntu:$UBUNTU_VERSION
         DLIB_VERSION: "$DLIB_VERSION"
+        OPENCV_VERSION: "$OPENCV_VERSION"
       cache_from:
         - roflcoopter/amd64-wheels:$WHEELS_VERSION
     image: roflcoopter/amd64-wheels:$WHEELS_VERSION
@@ -223,6 +224,7 @@ services:
         ARCH: amd64-cuda
         BUILD_FROM: ubuntu:$UBUNTU_VERSION
         DLIB_VERSION: "$DLIB_VERSION"
+        OPENCV_VERSION: "$OPENCV_VERSION"
       cache_from:
         - roflcoopter/amd64-cuda-wheels:$WHEELS_VERSION
     image: roflcoopter/amd64-cuda-wheels:$WHEELS_VERSION
@@ -327,6 +329,7 @@ services:
         DLIB_VERSION: "$DLIB_VERSION"
         EXTRA_PIP_ARGS: --extra-index-url https://www.piwheels.org/simple
         CMAKE_VERSION: "$CMAKE_VERSION"
+        OPENCV_VERSION: "$OPENCV_VERSION"
       cache_from:
         - roflcoopter/rpi3-wheels:$WHEELS_VERSION
     image: roflcoopter/rpi3-wheels:$WHEELS_VERSION
@@ -415,6 +418,7 @@ services:
         ARCH: aarch64
         BUILD_FROM: balenalib/aarch64-ubuntu:$UBUNTU_VERSION-build
         DLIB_VERSION: "$DLIB_VERSION"
+        OPENCV_VERSION: "$OPENCV_VERSION"
       cache_from:
         - roflcoopter/aarch64-wheels:$WHEELS_VERSION
     image: roflcoopter/aarch64-wheels:$WHEELS_VERSION
@@ -563,6 +567,7 @@ services:
         DLIB_VERSION: "$DLIB_VERSION"
         JETPACK_VERSION: "$JETPACK_VERSION_MAJOR.$JETPACK_VERSION_MINOR.$JETPACK_VERSION_PATCH"
         ARCH: jetson-nano
+        OPENCV_VERSION: "$OPENCV_VERSION"
       cache_from:
         - roflcoopter/jetson-nano-wheels:$WHEELS_VERSION
     image: roflcoopter/jetson-nano-wheels:$WHEELS_VERSION

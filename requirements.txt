@@ -16,10 +16,12 @@ psutil==5.9.8
 psycopg2-binary==2.9.9
 pyjwt==2.8.0
 python-slugify==8.0.4
-PyGObject==3.42.2
+PyGObject==3.42.2 # Newer versions does not compile for the Jetson Nano
 PyYAML==6.0.1
 requests==2.31.0
 scikit-learn==1.2.2
+scipy==1.13.0
+supervision==0.21.0
 tenacity==8.3.0
 tornado==6.4
 urllib3==1.26.15

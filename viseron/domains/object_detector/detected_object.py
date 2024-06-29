@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.events import EventData
@@ -22,54 +22,116 @@ class DetectedObject:
 
     def __init__(
         self,
-        label,
-        confidence,
-        x1,
-        y1,
-        x2,
-        y2,
-        relative=True,
-        model_res=None,
-        letterboxed=False,
-        frame_res=None,
+        label: str,
+        confidence: float,
+        x1: float,
+        y1: float,
+        x2: float,
+        y2: float,
+        frame_res: tuple[int, int],
     ) -> None:
         self._label = label
         self._confidence = round(float(confidence), 3)
-
-        if letterboxed:
-            if relative:
-                x1, y1, x2, y2 = calculate_absolute_coords((x1, y1, x2, y2), model_res)
-
-            (x1, y1, x2, y2) = convert_letterboxed_bbox(
-                frame_res[0],
-                frame_res[1],
-                model_res[0],
-                model_res[1],
-                (x1, y1, x2, y2),
-            )
-            # convert_letterboxed_bbox returns the bbox in frame_res based coordinates
-            (x1, y1, x2, y2) = calculate_relative_coords((x1, y1, x2, y2), frame_res)
-            relative = True
-
-        if relative:
-            self._rel_x1 = float(round(x1, 3))
-            self._rel_y1 = float(round(y1, 3))
-            self._rel_x2 = float(round(x2, 3))
-            self._rel_y2 = float(round(y2, 3))
-        else:
-            (
-                self._rel_x1,
-                self._rel_y1,
-                self._rel_x2,
-                self._rel_y2,
-            ) = calculate_relative_coords((x1, y1, x2, y2), model_res)
-
+        self._rel_x1 = float(round(x1, 3))
+        self._rel_y1 = float(round(y1, 3))
+        self._rel_x2 = float(round(x2, 3))
+        self._rel_y2 = float(round(y2, 3))
         self._rel_width = float(round(self._rel_x2 - self._rel_x1, 3))
         self._rel_height = float(round(self._rel_y2 - self._rel_y1, 3))
+
+        (
+            self._abs_x1,
+            self._abs_y1,
+            self._abs_x2,
+            self._abs_y2,
+        ) = calculate_absolute_coords(
+            (self._rel_x1, self._rel_y1, self._rel_x2, self._rel_y2), frame_res
+        )
+
         self._trigger_recorder = False
         self._store = False
         self._relevant = False
         self._filter_hit = None
+
+    @classmethod
+    def from_relative(
+        cls,
+        label: str,
+        confidence: float,
+        rel_x1: float,
+        rel_y1: float,
+        rel_x2: float,
+        rel_y2: float,
+        frame_res: tuple[int, int],
+    ) -> DetectedObject:
+        """Create object from relative coordinates."""
+        return cls(label, confidence, rel_x1, rel_y1, rel_x2, rel_y2, frame_res)
+
+    @classmethod
+    def from_absolute(
+        cls,
+        label: str,
+        confidence: float,
+        x1,
+        y1,
+        x2,
+        y2,
+        frame_res: tuple[int, int],
+        model_res,
+    ) -> DetectedObject:
+        """Create object from absolute coordinates."""
+        rel_x1, rel_y1, rel_x2, rel_y2 = calculate_relative_coords(
+            (x1, y1, x2, y2), model_res
+        )
+        return cls(label, confidence, rel_x1, rel_y1, rel_x2, rel_y2, frame_res)
+
+    @classmethod
+    def from_relative_letterboxed(
+        cls,
+        label: str,
+        confidence: float,
+        rel_x1: float,
+        rel_y1: float,
+        rel_x2: float,
+        rel_y2: float,
+        frame_res: tuple[int, int],
+        model_res: tuple[int, int],
+    ) -> DetectedObject:
+        """Create object from relative coordinates when frame is letterboxed."""
+        x1, y1, x2, y2 = calculate_absolute_coords(
+            (rel_x1, rel_y1, rel_x2, rel_y2), model_res
+        )
+        (rel_x1, rel_y1, rel_x2, rel_y2) = convert_letterboxed_bbox(
+            frame_res[0],
+            frame_res[1],
+            model_res[0],
+            model_res[1],
+            (x1, y1, x2, y2),
+        )
+
+        return cls(label, confidence, rel_x1, rel_y1, rel_x2, rel_y2, frame_res)
+
+    @classmethod
+    def from_absolute_letterboxed(
+        cls,
+        label: str,
+        confidence: float,
+        x1,
+        y1,
+        x2,
+        y2,
+        frame_res: tuple[int, int],
+        model_res: tuple[int, int],
+    ) -> DetectedObject:
+        """Create object from absolute coordinates when frame is letterboxed."""
+        (rel_x1, rel_y1, rel_x2, rel_y2) = convert_letterboxed_bbox(
+            frame_res[0],
+            frame_res[1],
+            model_res[0],
+            model_res[1],
+            (x1, y1, x2, y2),
+        )
+        return cls(label, confidence, rel_x1, rel_y1, rel_x2, rel_y2, frame_res)
 
     @property
     def label(self):
@@ -110,6 +172,40 @@ class DetectedObject:
     def rel_y2(self):
         """Return relative y2 of the object."""
         return zero_if_negative(self._rel_y2)
+
+    @property
+    def rel_coordinates(
+        self,
+    ) -> tuple[
+        float | Literal[0], float | Literal[0], float | Literal[0], float | Literal[0]
+    ]:
+        """Return relative bounding box of the object."""
+        return (self.rel_x1, self.rel_y1, self.rel_x2, self.rel_y2)
+
+    @property
+    def abs_x1(self) -> int:
+        """Return absolute x1 of the object."""
+        return self._abs_x1
+
+    @property
+    def abs_y1(self) -> int:
+        """Return absolute y1 of the object."""
+        return self._abs_y1
+
+    @property
+    def abs_x2(self) -> int:
+        """Return absolute x2 of the object."""
+        return self._abs_x2
+
+    @property
+    def abs_y2(self) -> int:
+        """Return absolute y2 of the object."""
+        return self._abs_y2
+
+    @property
+    def abs_coordinates(self) -> tuple[int, int, int, int]:
+        """Return absolute bounding box of the object."""
+        return (self.abs_x1, self.abs_y1, self.abs_x2, self.abs_y2)
 
     @property
     def formatted(self):

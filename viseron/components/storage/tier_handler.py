@@ -11,7 +11,7 @@ from threading import Lock, Timer
 from typing import TYPE_CHECKING, Any, Literal
 
 from sqlalchemy import Result, delete, insert, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
 from watchdog.events import (
     FileCreatedEvent,
@@ -620,7 +620,16 @@ class ThumbnailTierHandler(TierHandler):
         """Move thumbnail to next tier."""
         with self._storage.get_session() as session:
             sel = select(Recordings).where(Recordings.id == recording_id)
-            recording = session.execute(sel).scalar_one()
+            try:
+                recording = session.execute(sel).scalar_one()
+            except NoResultFound as err:
+                self._logger.error(
+                    "Failed to move thumbnail for recording with id %s: %s",
+                    recording_id,
+                    err,
+                )
+                return
+
             handle_file(
                 self._storage.get_session,
                 self._storage,

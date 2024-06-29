@@ -116,6 +116,14 @@ TIER_CATEGORIES: TierCategories = {
             "subcategory": "object_detector",
             "tier_handler": SnapshotTierHandler,
         },
+        {
+            "subcategory": "license_plate_recognition",
+            "tier_handler": SnapshotTierHandler,
+        },
+        {
+            "subcategory": "motion_detector",
+            "tier_handler": SnapshotTierHandler,
+        },
     ],
 }
 
@@ -292,7 +300,8 @@ class Storage:
         camera: AbstractCamera,
         domain: Literal["object_detector"]
         | Literal["face_recognition"]
-        | Literal["license_plate_recognition"],
+        | Literal["license_plate_recognition"]
+        | Literal["motion_detector"],
     ) -> str:
         """Get snapshots path for camera."""
         self.create_tier_handlers(camera)

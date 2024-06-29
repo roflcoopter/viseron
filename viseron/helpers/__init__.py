@@ -11,11 +11,12 @@ import socket
 import tracemalloc
 import urllib.parse
 from queue import Full, Queue
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import cv2
 import numpy as np
 import slugify as unicode_slug
+import supervision as sv
 import tornado.queues as tq
 
 from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
@@ -190,10 +191,93 @@ def draw_object(
     put_object_label_relative(frame, obj, camera_resolution, color=color)
 
 
-def draw_objects(frame, objects, camera_resolution) -> None:
+def _annotate_frame(
+    frame: np.ndarray,
+    bounding_boxes: np.ndarray,
+    class_ids: np.ndarray,
+    labels: list[str] | None,
+) -> np.ndarray:
+    """Annotate a frame with bounding boxes and labels."""
+    detections = sv.Detections(xyxy=bounding_boxes, class_id=class_ids)
+    box_corner_annotator = sv.BoxCornerAnnotator(corner_length=20, thickness=4)
+    label_annotator = sv.LabelAnnotator(
+        text_scale=1.0, border_radius=5, text_thickness=2
+    )
+
+    annotated_image = box_corner_annotator.annotate(scene=frame, detections=detections)
+    annotated_image = label_annotator.annotate(
+        scene=annotated_image, detections=detections, labels=labels
+    )
+    return annotated_image
+
+
+def annotate_frame(
+    frame: np.ndarray,
+    bounding_box: tuple[int, int, int, int],
+    label: str | None = None,
+) -> np.ndarray:
+    """Annotate a frame with a single bounding box and label."""
+    _bounding_box = np.array(
+        [
+            [
+                bounding_box[0],
+                bounding_box[1],
+                bounding_box[2],
+                bounding_box[3],
+            ]
+        ]
+    )
+    return _annotate_frame(
+        frame, _bounding_box, np.array([0]), [label] if label else None
+    )
+
+
+def _get_object_text(detected_object: DetectedObject) -> str:
+    """Return text to be displayed for an object."""
+    text = f"{detected_object.label.title()} {int(detected_object.confidence * 100)}%"
+    if detected_object.filter_hit:
+        text += f"\nFilter: {detected_object.filter_hit}"
+    return text
+
+
+def draw_objects(
+    frame: np.ndarray,
+    detected_objects: list[DetectedObject],
+    resolution: tuple[int, int] | None = None,
+) -> None:
     """Draw objects on supplied frame."""
-    for obj in objects:
-        draw_object(frame, obj, camera_resolution)
+    if resolution:
+        bounding_boxes = np.array(
+            [
+                list(
+                    calculate_absolute_coords(
+                        (
+                            detected_object.rel_x1,
+                            detected_object.rel_y1,
+                            detected_object.rel_x2,
+                            detected_object.rel_y2,
+                        ),
+                        resolution,
+                    )
+                )
+                for detected_object in detected_objects
+            ]
+        )
+    else:
+        bounding_boxes = np.array(
+            [
+                [
+                    detected_object.abs_x1,
+                    detected_object.abs_y1,
+                    detected_object.abs_x2,
+                    detected_object.abs_y2,
+                ]
+                for detected_object in detected_objects
+            ]
+        )
+    class_id = np.array([index for index, _ in enumerate(detected_objects)])
+    labels = [_get_object_text(detected_object) for detected_object in detected_objects]
+    _annotate_frame(frame, bounding_boxes, class_id, labels)
 
 
 def draw_zones(frame, zones) -> None:
@@ -372,13 +456,38 @@ def letterbox_resize(image: np.ndarray, width, height):
     return output_image
 
 
+@overload
 def convert_letterboxed_bbox(
     frame_width: int,
     frame_height: int,
     model_width: int,
     model_height: int,
     bbox: tuple[int, int, int, int],
+    return_absolute: Literal[False] = ...,
 ) -> tuple[float, float, float, float]:
+    ...
+
+
+@overload
+def convert_letterboxed_bbox(
+    frame_width: int,
+    frame_height: int,
+    model_width: int,
+    model_height: int,
+    bbox: tuple[int, int, int, int],
+    return_absolute: Literal[True],
+) -> tuple[int, int, int, int]:
+    ...
+
+
+def convert_letterboxed_bbox(
+    frame_width: int,
+    frame_height: int,
+    model_width: int,
+    model_height: int,
+    bbox: tuple[int, int, int, int],
+    return_absolute: bool = False,
+) -> tuple[float, float, float, float] | tuple[int, int, int, int]:
     """Convert boundingbox from a letterboxed image to the original image.
 
     To improve accuracy, images are resized with letterboxing before running
@@ -390,12 +499,17 @@ def convert_letterboxed_bbox(
             Width of original input image.
         frame_height:
             Height of original input image.
-        frame_width:
+        model_width:
             Width of object detection model.
-        frame_height:
+        model_height:
             Height of object detection model.
         bbox:
             The ABSOLUTE bounding box coordinates predicted from the model.
+        return_absolute:
+            If True, return absolute coordinates. If False, return relative coordinates.
+
+    Returns:
+        The converted relative or absolute bounding box coordinates.
     """
     if model_width != model_height:
         raise ValueError(
@@ -442,11 +556,22 @@ def convert_letterboxed_bbox(
         new_y2 = (
             y2 / model_height * frame_height
         )  # Scale height from model to frame height
-    return (
-        new_x1,
-        new_y1,
-        new_x2,
-        new_y2,
+    if return_absolute:
+        return (
+            round(new_x1),
+            round(new_y1),
+            round(new_x2),
+            round(new_y2),
+        )
+
+    return calculate_relative_coords(
+        (
+            round(new_x1),
+            round(new_y1),
+            round(new_x2),
+            round(new_y2),
+        ),
+        (frame_width, frame_height),
     )
 
 

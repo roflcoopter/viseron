@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import voluptuous as vol
+from sqlalchemy import insert
 
+from viseron.components.storage.models import PostProcessorResults
 from viseron.domains.license_plate_recognition.binary_sensor import (
     LicensePlateRecognitionBinarySensor,
 )
@@ -20,19 +22,27 @@ from .const import (
     CONFIG_EXPIRE_AFTER,
     CONFIG_KNOWN_PLATES,
     CONFIG_MIN_CONFIDENCE,
+    CONFIG_SAVE_PLATES,
     DEFAULT_EXPIRE_AFTER,
     DEFAULT_KNOWN_PLATES,
     DEFAULT_MIN_CONFIDENCE,
+    DEFAULT_SAVE_PLATES,
     DESC_EXPIRE_AFTER,
     DESC_KNOWN_PLATES,
     DESC_MIN_CONFIDENCE,
+    DESC_SAVE_PLATES,
+    DOMAIN,
     EVENT_LICENSE_PLATE_RECOGNITION_EXPIRED,
     EVENT_LICENSE_PLATE_RECOGNITION_RESULT,
+    EVENT_PLATE_DETECTED,
+    EVENT_PLATE_EXPIRED,
 )
 from .sensor import LicensePlateRecognitionSensor
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.domains.camera.shared_frames import SharedFrame
+    from viseron.domains.object_detector.detected_object import DetectedObject
     from viseron.domains.post_processor import PostProcessorFrame
 
 
@@ -43,6 +53,11 @@ BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
             default=DEFAULT_KNOWN_PLATES,
             description=DESC_KNOWN_PLATES,
         ): [str],
+        vol.Optional(
+            CONFIG_SAVE_PLATES,
+            default=DEFAULT_SAVE_PLATES,
+            description=DESC_SAVE_PLATES,
+        ): bool,
         vol.Optional(
             CONFIG_MIN_CONFIDENCE,
             default=DEFAULT_MIN_CONFIDENCE,
@@ -63,10 +78,11 @@ class DetectedLicensePlate:
 
     plate: str
     confidence: float
-    x1: int
-    y1: int
-    x2: int
-    y2: int
+    rel_x1: float
+    rel_y1: float
+    rel_x2: float
+    rel_y2: float
+    detected_object: DetectedObject
 
 
 @dataclass
@@ -76,7 +92,10 @@ class LicensePlateRecognitionResult:
     camera_identifier: str
     plate: str
     confidence: float
+    rel_coordinates: tuple[float, float, float, float]
     known: bool
+    timer: Timer
+    detected_object: DetectedObject
 
     def as_dict(self) -> dict[str, Any]:
         """Convert to dict."""
@@ -84,6 +103,7 @@ class LicensePlateRecognitionResult:
             "camera_identifier": self.camera_identifier,
             "plate": self.plate,
             "confidence": round(float(self.confidence), 3),
+            "rel_coordinates": self.rel_coordinates,
             "known": self.known,
         }
 
@@ -94,6 +114,28 @@ class EventLicensePlateRecognition(EventData):
 
     camera_identifier: str
     result: list[LicensePlateRecognitionResult] | None
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return as dict."""
+        return {
+            "camera_identifier": self.camera_identifier,
+            "result": [plate.as_dict() for plate in self.result] if self.result else [],
+        }
+
+
+@dataclass
+class EventPlateDetected(EventData):
+    """Hold information on plate detection event."""
+
+    camera_identifier: str
+    plate: LicensePlateRecognitionResult
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return as dict."""
+        return {
+            "camera_identifier": self.camera_identifier,
+            "plate": self.plate.as_dict(),
+        }
 
 
 class AbstractLicensePlateRecognition(AbstractPostProcessor):
@@ -108,13 +150,12 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
     ) -> None:
         super().__init__(vis, config, camera_identifier)
         self._expire_timer: Timer | None = None
+        self._plates: dict[str, LicensePlateRecognitionResult] = {}
         vis.add_entity(component, LicensePlateRecognitionSensor(vis, self._camera))
         for plate in self._config[CONFIG_KNOWN_PLATES]:
             vis.add_entity(
                 component,
-                LicensePlateRecognitionBinarySensor(
-                    vis, self._camera, plate, self._config[CONFIG_EXPIRE_AFTER]
-                ),
+                LicensePlateRecognitionBinarySensor(vis, self._camera, plate),
             )
 
     @abstractmethod
@@ -138,14 +179,85 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
         for plate in result:
             _result.append(
                 LicensePlateRecognitionResult(
-                    self._camera.identifier,
-                    plate.plate,
-                    plate.confidence,
-                    plate.plate in self._config[CONFIG_KNOWN_PLATES],
+                    camera_identifier=self._camera.identifier,
+                    plate=plate.plate,
+                    confidence=plate.confidence,
+                    rel_coordinates=(
+                        plate.rel_x1,
+                        plate.rel_y1,
+                        plate.rel_x2,
+                        plate.rel_y2,
+                    ),
+                    known=plate.plate in self._config[CONFIG_KNOWN_PLATES],
+                    timer=Timer(
+                        self._config[CONFIG_EXPIRE_AFTER],
+                        self._expire_plate,
+                        [plate.plate],
+                    ),
+                    detected_object=plate.detected_object,
                 )
             )
 
         return _result
+
+    def _insert_license_plate_recognition_result(
+        self, snapshot_path: str | None, plate: LicensePlateRecognitionResult
+    ) -> None:
+        """Insert license plate recognition result into database."""
+        with self._storage.get_session() as session:
+            stmt = insert(PostProcessorResults).values(
+                camera_identifier=self._camera.identifier,
+                domain=DOMAIN,
+                snapshot_path=snapshot_path,
+                data=plate.as_dict(),
+            )
+            session.execute(stmt)
+            session.commit()
+
+    def _save_plate(
+        self, plate: LicensePlateRecognitionResult, shared_frame: SharedFrame
+    ) -> None:
+        """Save plate to disk and database."""
+        snapshot_path = None
+        if shared_frame:
+            snapshot_path = self._camera.save_snapshot(
+                shared_frame=shared_frame,
+                domain=DOMAIN,
+                zoom_coordinates=plate.detected_object.rel_coordinates,
+                bbox=plate.rel_coordinates,
+                text=f"{plate.plate} {int(plate.confidence * 100)}%",
+            )
+        self._insert_license_plate_recognition_result(snapshot_path, plate)
+
+    def _plate_detected(
+        self, plate: LicensePlateRecognitionResult, shared_frame: SharedFrame
+    ) -> None:
+        """Handle plate detected event."""
+        self._logger.debug(f"Plate detected: {plate.plate}")
+        # Cancel the expiry timer if plate has already been detected
+        if self._plates.get(plate.plate, None):
+            self._plates[plate.plate].timer.cancel()
+
+        # Schedules an expiry timer
+        plate.timer.start()
+
+        # Only store plate once until it is expired
+        if (
+            self._plates.get(plate.plate, None) is None
+            and self._config[CONFIG_SAVE_PLATES]
+        ):
+            self._save_plate(plate, shared_frame)
+
+        self._vis.dispatch_event(
+            EVENT_PLATE_DETECTED.format(
+                camera_identifier=self._camera.identifier, plate=plate.plate
+            ),
+            EventPlateDetected(
+                camera_identifier=self._camera.identifier,
+                plate=plate,
+            ),
+        )
+        self._plates[plate.plate] = plate
 
     def process(self, post_processor_frame: PostProcessorFrame) -> None:
         """Process frame and run license plate recognition.
@@ -166,6 +278,10 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
         if self._expire_timer:
             self._expire_timer.cancel()
 
+        # Save plate if it is not already saved
+        for plate in result:
+            self._plate_detected(plate, post_processor_frame.shared_frame)
+
         self._vis.dispatch_event(
             EVENT_LICENSE_PLATE_RECOGNITION_RESULT.format(
                 camera_identifier=self._camera.identifier
@@ -177,11 +293,11 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
         )
         if self._config[CONFIG_EXPIRE_AFTER] and result:
             self._expire_timer = Timer(
-                self._config[CONFIG_EXPIRE_AFTER], self.expire_result, (result,)
+                self._config[CONFIG_EXPIRE_AFTER], self._expire_result, (result,)
             )
             self._expire_timer.start()
 
-    def expire_result(self, result: LicensePlateRecognitionResult) -> None:
+    def _expire_result(self, result: LicensePlateRecognitionResult) -> None:
         """Expire result after a given number of seconds."""
         self._logger.debug(f"Expiring license plate recognition result {result}")
         self._vis.dispatch_event(
@@ -193,3 +309,17 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
                 result=None,
             ),
         )
+
+    def _expire_plate(self, plate) -> None:
+        """Expire no longer found plate."""
+        self._logger.debug(f"Expiring plate {plate}")
+        self._vis.dispatch_event(
+            EVENT_PLATE_EXPIRED.format(
+                camera_identifier=self._camera.identifier, plate=plate
+            ),
+            EventPlateDetected(
+                camera_identifier=self._camera.identifier,
+                plate=self._plates[plate],
+            ),
+        )
+        del self._plates[plate]

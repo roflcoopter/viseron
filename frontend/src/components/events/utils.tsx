@@ -8,7 +8,7 @@ export const TICK_HEIGHT = 8;
 export const SCALE = 60;
 export const EXTRA_TICKS = 10;
 export const COLUMN_HEIGHT = "99dvh";
-export const EVENT_ICON_HEIGHT = 20;
+export const EVENT_ICON_HEIGHT = 30;
 
 export const DEFAULT_ITEM: TimelineItem = {
   time: 0,
@@ -172,7 +172,9 @@ const addSnapshotEvent = (
   for (let i = 0; i < groupedTicks; i++) {
     const time = calculateTimeFromIndex(startRef, index - i);
     if (time in timelineItems && timelineItems[time].snapshotEvents) {
-      groupedSnapshotEvents.push(...(timelineItems[time].snapshotEvents || []));
+      groupedSnapshotEvents.push(
+        ...(timelineItems[time]?.snapshotEvents || []),
+      );
       timelineItems[time].snapshotEvents = null;
     }
   }
@@ -185,7 +187,7 @@ const addSnapshotEvent = (
     time,
     snapshotEvents: [
       ...groupedSnapshotEvents,
-      ...(timelineItems[time].snapshotEvents || []),
+      ...(timelineItems[time]?.snapshotEvents || []),
       cameraEvent,
     ],
   };
@@ -259,8 +261,13 @@ export const getTimelineItems = (
 
   eventsData
     .filter(
-      (cameraEvent): cameraEvent is types.CameraFaceRecognitionEvent =>
-        cameraEvent.type === "face_recognition",
+      (
+        cameraEvent,
+      ): cameraEvent is
+        | types.CameraFaceRecognitionEvent
+        | types.CameraLicensePlateRecognitionEvent =>
+        cameraEvent.type === "face_recognition" ||
+        cameraEvent.type === "license_plate_recognition",
     )
     .forEach((cameraEvent) => {
       addSnapshotEvent(startRef, timelineItems, cameraEvent);
@@ -310,21 +317,21 @@ export const getSrc = (event: types.CameraEvent) => {
       return event.thumbnail_path;
     case "object":
     case "face_recognition":
-      return event.snapshot_path;
+    case "license_plate_recognition":
+    case "motion":
+      return event.snapshot_path || BLANK_IMAGE;
     default:
-      return BLANK_IMAGE;
+      return event satisfies never;
   }
 };
 
 // Extract unique snapshot event types into a map
-export const extractUniqueTypes = (
-  snapshotEvents: types.CameraSnapshotEvents,
-) => {
+export const extractUniqueTypes = (snapshotEvents: types.CameraEvent[]) => {
   if (!snapshotEvents) {
     return {};
   }
 
-  const typeMap = new Map<string, types.CameraSnapshotEvents>();
+  const typeMap = new Map<string, types.CameraEvent[]>();
 
   snapshotEvents.forEach((event) => {
     const type = event.type;
@@ -334,7 +341,7 @@ export const extractUniqueTypes = (
     typeMap.get(type)!.push(event);
   });
 
-  const result: { [key: string]: types.CameraSnapshotEvents } = {};
+  const result: { [key: string]: types.CameraEvent[] } = {};
   typeMap.forEach((value, key) => {
     result[key] = value;
   });
@@ -376,8 +383,30 @@ export const extractUniqueLabels = (objectEvents: types.CameraObjectEvents) => {
   return result;
 };
 
-export const filterEvents = (events: types.CameraEvent[]) =>
-  events.filter(
-    (cameraEvent): cameraEvent is types.CameraSnapshotEvent =>
-      cameraEvent.type === "object" || cameraEvent.type === "face_recognition",
-  );
+export const getEventTime = (event: types.CameraEvent): string => {
+  switch (event.type) {
+    case "license_plate_recognition":
+    case "face_recognition":
+    case "object":
+      return event.time;
+    case "motion":
+    case "recording":
+      return event.start_time;
+    default:
+      return event satisfies never;
+  }
+};
+
+export const getEventTimestamp = (event: types.CameraEvent): number => {
+  switch (event.type) {
+    case "license_plate_recognition":
+    case "face_recognition":
+    case "object":
+      return event.timestamp;
+    case "motion":
+    case "recording":
+      return event.start_timestamp;
+    default:
+      return event satisfies never;
+  }
+};

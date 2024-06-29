@@ -28,6 +28,7 @@ ENV \
 RUN [ "cross-build-start" ]
 
 RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
+  wget \
   curl \
   gcc \
   python3 \
@@ -41,11 +42,26 @@ RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
   && apt-get autoremove -y && apt-get clean -y \
   && python3 -m pip install numpy pybind11
 
+# Install CMake
+RUN wget https://cmake.org/files/v3.22/cmake-3.22.1-linux-aarch64.tar.gz && \
+  tar -xvf cmake-3.22.1-linux-aarch64.tar.gz && \
+  cp -r cmake-3.22.1-linux-aarch64/* /usr && \
+  rm -rf cmake-3.22.1-linux-aarch64 && \
+  rm cmake-3.22.1-linux-aarch64.tar.gz
+
+# Pip does not find our OpenCV built from source so we fake it here
+ARG OPENCV_VERSION
+ADD docker/opencv-python-headless-setup.py /opencv-python-headless/setup.py
+ADD requirements.txt requirements.txt
+# Set OpenCV Version
+RUN sed -i "s/OPENCV_VERSION=/OPENCV_VERSION=\"$OPENCV_VERSION\"/" /opencv-python-headless/setup.py
+RUN echo "opencv-python-headless==$OPENCV_VERSION" >> /requirements.txt
+
 ADD requirements.txt requirements.txt
 RUN \
   mkdir -p /wheels \
   \
-  && python3 -m pip wheel --wheel-dir=/wheels --find-links=/wheels -r /requirements.txt \
+  && python3 -m pip wheel --wheel-dir=/wheels --find-links=/wheels /opencv-python-headless -r /requirements.txt \
   \
   && ls -al /wheels/
 

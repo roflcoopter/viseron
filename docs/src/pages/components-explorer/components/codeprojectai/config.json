@@ -420,7 +420,7 @@
             "name": "save_unknown_faces",
             "description": "If set to <code>true</code>, any unrecognized faces will be stored in the database, as well as having a snapshot saved. You can then move this image to the folder of the correct person to improve accuracy.",
             "optional": true,
-            "default": false
+            "default": true
           },
           {
             "type": "string",
@@ -528,6 +528,13 @@
             "description": "List of known license plates. Each plate will have its own sensor.",
             "optional": true,
             "default": []
+          },
+          {
+            "type": "boolean",
+            "name": "save_plates",
+            "description": "If set to <code>true</code>, detected license plates will be stored in the database, as well as having a snapshot saved.",
+            "optional": true,
+            "default": true
           },
           {
             "type": "float",

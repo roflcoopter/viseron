@@ -14,14 +14,16 @@ from viseron.components.storage.const import (
     CONFIG_FACE_RECOGNITION,
     CONFIG_GB,
     CONFIG_HOURS,
+    CONFIG_LICENSE_PLATE_RECOGNITION,
     CONFIG_MAX_AGE,
     CONFIG_MAX_SIZE,
     CONFIG_MB,
     CONFIG_MIN_AGE,
     CONFIG_MIN_SIZE,
     CONFIG_MINUTES,
+    CONFIG_MOTION_DETECTOR,
     CONFIG_MOVE_ON_SHUTDOWN,
-    CONFIG_OBJECT_DETECTION,
+    CONFIG_OBJECT_DETECTOR,
     CONFIG_PATH,
     CONFIG_POLL,
     CONFIG_RECORDER,
@@ -39,14 +41,16 @@ from viseron.components.storage.const import (
     DEFAULT_FACE_RECOGNITION,
     DEFAULT_GB,
     DEFAULT_HOURS,
+    DEFAULT_LICENSE_PLATE_RECOGNITION,
     DEFAULT_MAX_AGE,
     DEFAULT_MAX_SIZE,
     DEFAULT_MB,
     DEFAULT_MIN_AGE,
     DEFAULT_MIN_SIZE,
     DEFAULT_MINUTES,
+    DEFAULT_MOTION_DETECTOR,
     DEFAULT_MOVE_ON_SHUTDOWN,
-    DEFAULT_OBJECT_DETECTION,
+    DEFAULT_OBJECT_DETECTOR,
     DEFAULT_POLL,
     DEFAULT_RECORDER,
     DEFAULT_RECORDER_TIERS,
@@ -61,6 +65,7 @@ from viseron.components.storage.const import (
     DESC_DOMAIN_TIERS,
     DESC_EVENTS,
     DESC_FACE_RECOGNITION,
+    DESC_LICENSE_PLATE_RECOGNITION,
     DESC_MAX_AGE,
     DESC_MAX_DAYS,
     DESC_MAX_GB,
@@ -75,8 +80,9 @@ from viseron.components.storage.const import (
     DESC_MIN_MB,
     DESC_MIN_MINUTES,
     DESC_MIN_SIZE,
+    DESC_MOTION_DETECTOR,
     DESC_MOVE_ON_SHUTDOWN,
-    DESC_OBJECT_DETECTION,
+    DESC_OBJECT_DETECTOR,
     DESC_PATH,
     DESC_POLL,
     DESC_RECORDER,
@@ -328,9 +334,33 @@ STORAGE_SCHEMA = vol.Schema(
                 }
             ),
             vol.Optional(
-                CONFIG_OBJECT_DETECTION,
-                default=DEFAULT_OBJECT_DETECTION,
-                description=DESC_OBJECT_DETECTION,
+                CONFIG_OBJECT_DETECTOR,
+                default=DEFAULT_OBJECT_DETECTOR,
+                description=DESC_OBJECT_DETECTOR,
+            ): Maybe(
+                {
+                    vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(
+                        [TIER_SCHEMA_SNAPSHOTS],
+                        vol.Length(min=1),
+                    ),
+                }
+            ),
+            vol.Optional(
+                CONFIG_LICENSE_PLATE_RECOGNITION,
+                default=DEFAULT_LICENSE_PLATE_RECOGNITION,
+                description=DESC_LICENSE_PLATE_RECOGNITION,
+            ): Maybe(
+                {
+                    vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(
+                        [TIER_SCHEMA_SNAPSHOTS],
+                        vol.Length(min=1),
+                    ),
+                }
+            ),
+            vol.Optional(
+                CONFIG_MOTION_DETECTOR,
+                default=DEFAULT_MOTION_DETECTOR,
+                description=DESC_MOTION_DETECTOR,
             ): Maybe(
                 {
                     vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(

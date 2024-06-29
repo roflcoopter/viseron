@@ -1,9 +1,11 @@
 import Image from "@jy95/material-ui-image";
+import AirIcon from "@mui/icons-material/Air";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import PersonIcon from "@mui/icons-material/DirectionsWalk";
 import FaceIcon from "@mui/icons-material/Face";
 import ImageSearchIcon from "@mui/icons-material/ImageSearch";
 import PetsIcon from "@mui/icons-material/Pets";
+import VideoFileIcon from "@mui/icons-material/VideoFile";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -11,6 +13,7 @@ import CardMedia from "@mui/material/CardMedia";
 import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
 import Tooltip, { TooltipProps, tooltipClasses } from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
 import { styled, useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { memo } from "react";
@@ -21,7 +24,11 @@ import {
   convertToPercentage,
   extractUniqueLabels,
   extractUniqueTypes,
+  getEventTime,
+  getEventTimestamp,
+  getSrc,
 } from "components/events/utils";
+import LicensePlateRecgnitionIcon from "components/icons/LicensePlateRecognition";
 import { toTitleCase } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -56,61 +63,106 @@ const labelToIcon = (label: string) => {
   }
 };
 
-const getIcon = (snapshotEvent: types.CameraSnapshotEvent) => {
-  switch (snapshotEvent.type) {
+const getIcon = (event: types.CameraEvent) => {
+  switch (event.type) {
     case "object":
-      return labelToIcon(snapshotEvent.label);
+      return labelToIcon(event.label);
     case "face_recognition":
       return FaceIcon;
+    case "license_plate_recognition":
+      return LicensePlateRecgnitionIcon;
+    case "motion":
+      return AirIcon;
+    case "recording":
+      return VideoFileIcon;
     default:
-      return ImageSearchIcon;
+      return event satisfies never;
   }
 };
 
-const getText = (snapshotEvent: types.CameraSnapshotEvent) => {
-  const date = new Date(snapshotEvent.time);
-  switch (snapshotEvent.type) {
+const getText = (event: types.CameraEvent) => {
+  const date = new Date(getEventTime(event));
+  switch (event.type) {
     case "object":
       return (
         <Box>
-          <Box>Object Detection</Box>
-          <Box>{`Label: ${snapshotEvent.label}`}</Box>
-          <Box>{`Confidence: ${convertToPercentage(
-            snapshotEvent.confidence,
-          )}%`}</Box>
-          <Box>{`Timestamp: ${date.toLocaleString()}`}</Box>
+          <Typography variant="h5" fontSize={"1rem"}>
+            Object Detection
+          </Typography>
+
+          <Box>{`Label: ${event.label}`}</Box>
+          <Box>{`Confidence: ${convertToPercentage(event.confidence)}%`}</Box>
+          <Box>{`Time: ${date.toLocaleTimeString()}`}</Box>
         </Box>
       );
 
     case "face_recognition":
       return (
         <Box>
-          <Box>Face Recognition</Box>
-          <Box>{`Name: ${toTitleCase(snapshotEvent.data.name)}`}</Box>
+          <Typography variant="h5" fontSize={"1rem"}>
+            Face Recognition
+          </Typography>
+          <Box>{`Name: ${toTitleCase(event.data.name)}`}</Box>
           <Box>{`Confidence: ${convertToPercentage(
-            snapshotEvent.data.confidence,
+            event.data.confidence,
           )}%`}</Box>
-          <Box>{`Timestamp: ${date.toLocaleString()}`}</Box>
+          <Box>{`Time: ${date.toLocaleTimeString()}`}</Box>
+        </Box>
+      );
+
+    case "license_plate_recognition":
+      return (
+        <Box>
+          <Typography variant="h5" fontSize={"1rem"}>
+            License Plate Recognition
+          </Typography>
+          <Box>{`Plate: ${event.data.plate}`}</Box>
+          <Box>{`Confidence: ${convertToPercentage(
+            event.data.confidence,
+          )}%`}</Box>
+          <Box>{`Known: ${event.data.known}`}</Box>
+          <Box>{`Time: ${date.toLocaleTimeString()}`}</Box>
+        </Box>
+      );
+
+    case "motion":
+      return (
+        <Box>
+          <Typography variant="h5" fontSize={"1rem"}>
+            Motion Detection
+          </Typography>
+          {event.duration ? (
+            <Box>{`Duration: ${Math.round(event.duration)}s`}</Box>
+          ) : null}
+          <Box>{`Time: ${date.toLocaleTimeString()}`}</Box>
+        </Box>
+      );
+
+    case "recording":
+      return (
+        <Box>
+          <Typography variant="h5" fontSize={"1rem"}>
+            Recording
+          </Typography>
+          {event.trigger_type ? (
+            <Box>{`Triggered by: ${toTitleCase(event.trigger_type)}`}</Box>
+          ) : null}
+          {event.duration ? (
+            <Box>{`Duration: ${Math.round(event.duration)}s`}</Box>
+          ) : null}
+          <Box>{`Time: ${date.toLocaleTimeString()}`}</Box>
         </Box>
       );
 
     default:
-      return null;
+      return event satisfies never;
   }
 };
 
-const ToolTipContent = ({
-  snapshotEvents,
-}: {
-  snapshotEvents: types.CameraSnapshotEvents;
-}) => {
+const ToolTipContent = ({ events }: { events: types.CameraEvent[] }) => {
   const theme = useTheme();
   const matches = useMediaQuery(theme.breakpoints.up("sm"));
-  const width = matches
-    ? snapshotEvents.length > 1
-      ? "50vw"
-      : "25vw"
-    : "90vw";
+  const width = matches ? (events.length > 1 ? "50vw" : "25vw") : "90vw";
   return (
     <Grid
       container
@@ -119,11 +171,11 @@ const ToolTipContent = ({
       sx={{ flexGrow: 1, width }}
       columns={2}
     >
-      {snapshotEvents.reverse().map((snapshotEvent, index) => (
+      {events.reverse().map((event, index) => (
         <Grid
           item
-          key={`${index}-${snapshotEvent.timestamp}`}
-          xs={snapshotEvents.length > 1 ? 1 : 2}
+          key={`${index}-${getEventTimestamp(event)}`}
+          xs={events.length > 1 ? 1 : 2}
         >
           <Card>
             <CardMedia
@@ -133,12 +185,15 @@ const ToolTipContent = ({
               }}
             >
               <Image
-                src={snapshotEvent.snapshot_path}
+                src={getSrc(event)}
                 color={theme.palette.background.default}
                 animationDuration={0}
+                imageStyle={{
+                  objectFit: "contain",
+                }}
               />
             </CardMedia>
-            <CardContent>{getText(snapshotEvent)}</CardContent>
+            <CardContent>{getText(event)}</CardContent>
           </Card>
         </Grid>
       ))}
@@ -156,18 +211,11 @@ const Divider = () => (
   />
 );
 
-export const SnapshotIcon = ({
-  snapshotEvents,
-}: {
-  snapshotEvents: types.CameraSnapshotEvents;
-}) => {
+export const SnapshotIcon = ({ events }: { events: types.CameraEvent[] }) => {
   const theme = useTheme();
-  const Icon = getIcon(snapshotEvents[0]);
+  const Icon = getIcon(events[0]);
   return (
-    <CustomWidthTooltip
-      title={<ToolTipContent snapshotEvents={snapshotEvents} />}
-      arrow
-    >
+    <CustomWidthTooltip title={<ToolTipContent events={events} />} arrow>
       <Box
         sx={{
           display: "flex",
@@ -199,12 +247,8 @@ export const SnapshotIcon = ({
   );
 };
 
-const SnapshotIcons = ({
-  snapshotEvents,
-}: {
-  snapshotEvents: types.CameraSnapshotEvents;
-}) => {
-  const uniqueEvents = extractUniqueTypes(snapshotEvents);
+const SnapshotIcons = ({ events }: { events: types.CameraEvent[] }) => {
+  const uniqueEvents = extractUniqueTypes(events);
   return (
     <Stack direction="row">
       {Object.keys(uniqueEvents).map((key) => {
@@ -215,13 +259,13 @@ const SnapshotIcons = ({
           );
           return Object.keys(uniqueLabels).map((label) => (
             <Box key={`icon-${key}-${label}`}>
-              <SnapshotIcon snapshotEvents={uniqueLabels[label]} />
+              <SnapshotIcon events={uniqueLabels[label]} />
             </Box>
           ));
         }
         return (
           <Box key={`icon-${key}`}>
-            <SnapshotIcon snapshotEvents={uniqueEvents[key]} />
+            <SnapshotIcon events={uniqueEvents[key]} />
           </Box>
         );
       })}
@@ -259,9 +303,9 @@ const Snapshot = ({ snapshotPath }: { snapshotPath: string }) => {
 };
 
 type SnapshotEventProps = {
-  snapshotEvents: types.CameraSnapshotEvents;
+  events: types.CameraEvent[];
 };
-export const SnapshotEvent = memo(({ snapshotEvents }: SnapshotEventProps) => (
+export const SnapshotEvent = memo(({ events }: SnapshotEventProps) => (
   <Box
     sx={{
       display: "flex",
@@ -272,8 +316,8 @@ export const SnapshotEvent = memo(({ snapshotEvents }: SnapshotEventProps) => (
     }}
   >
     <Divider />
-    <SnapshotIcons snapshotEvents={snapshotEvents} />
+    <SnapshotIcons events={events} />
     <Divider />
-    <Snapshot snapshotPath={snapshotEvents[0].snapshot_path} />
+    <Snapshot snapshotPath={getSrc(events[0])} />
   </Box>
 ));

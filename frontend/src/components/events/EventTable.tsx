@@ -9,49 +9,49 @@ import ServerDown from "svg/undraw/server_down.svg?react";
 
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { EventTableItem } from "components/events/EventTableItem";
-import { filterEvents } from "components/events/utils";
+import { getEventTimestamp } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { useEvents } from "lib/api/events";
 import { useHlsAvailableTimespans } from "lib/api/hls";
 import { objIsEmpty, throttle } from "lib/helpers";
 import * as types from "lib/types";
 
-// Groups that are within 2 minutes of each other
-const groupSnapshotEventsByTime = (
-  snapshotEvents: types.CameraSnapshotEvents,
-): types.CameraSnapshotEvents[] => {
+// Group events that are within 2 minutes of each other
+const groupEventsByTime = (
+  snapshotEvents: types.CameraEvent[],
+): types.CameraEvent[][] => {
   if (snapshotEvents.length === 0) {
     return [];
   }
 
-  snapshotEvents.reverse();
+  const _snapshotEvents = snapshotEvents.slice().reverse();
 
-  const groups: types.CameraSnapshotEvents[] = [];
-  let currentGroup: types.CameraSnapshotEvents = [];
-  let startOfGroup = snapshotEvents[0].timestamp;
+  const groups: types.CameraEvent[][] = [];
+  let currentGroup: types.CameraEvent[] = [];
+  let startOfGroup = getEventTimestamp(_snapshotEvents[0]);
 
-  for (let i = 0; i < snapshotEvents.length; i++) {
+  for (let i = 0; i < _snapshotEvents.length; i++) {
     if (currentGroup.length === 0) {
-      currentGroup.push(snapshotEvents[i]);
+      currentGroup.push(_snapshotEvents[i]);
     } else {
-      const currentTime = snapshotEvents[i].timestamp;
+      const currentTime = getEventTimestamp(_snapshotEvents[i]);
 
       if (currentTime - startOfGroup < 120) {
-        currentGroup.push(snapshotEvents[i]);
+        currentGroup.push(_snapshotEvents[i]);
       } else {
-        startOfGroup = snapshotEvents[i].timestamp;
-        groups.push(currentGroup);
-        currentGroup = [snapshotEvents[i]];
+        startOfGroup = getEventTimestamp(_snapshotEvents[i]);
+        groups.unshift(currentGroup);
+        currentGroup = [_snapshotEvents[i]];
       }
     }
   }
 
   // Add the last group if it has any items
   if (currentGroup.length > 0) {
-    groups.push(currentGroup);
+    groups.unshift(currentGroup);
   }
 
-  return groups.reverse();
+  return groups;
 };
 
 const useOnScroll = (parentRef: React.RefObject<HTMLDivElement>) => {
@@ -92,6 +92,7 @@ export const EventTable = memo(
     const eventsQuery = useEvents({
       camera_identifier: camera.identifier,
       date: formattedDate,
+      utc_offset_minutes: dayjs().utcOffset(),
       configOptions: { enabled: !!date },
     });
 
@@ -121,11 +122,7 @@ export const EventTable = memo(
       return <Loading text="Loading Events" fullScreen={false} />;
     }
 
-    const groupedEvents = groupSnapshotEventsByTime(
-      filterEvents(eventsQuery.data.events),
-    );
-
-    if (!eventsQuery.data || objIsEmpty(groupedEvents)) {
+    if (!eventsQuery.data || objIsEmpty(eventsQuery.data)) {
       return (
         <Typography align="center" padding={2}>
           No Events found for {formattedDate}
@@ -133,10 +130,11 @@ export const EventTable = memo(
       );
     }
 
+    const groupedEvents = groupEventsByTime(eventsQuery.data.events);
     return (
       <Box>
         <Grid container direction="row" columns={1}>
-          {groupedEvents.map((snapshotEvents) => (
+          {groupedEvents.map((events) => (
             <Grid
               item
               xs={12}
@@ -144,15 +142,13 @@ export const EventTable = memo(
               md={12}
               lg={12}
               xl={12}
-              key={`event-${snapshotEvents[0].type}-${snapshotEvents[0].id}`}
+              key={`event-${events[0].type}-${events[0].id}`}
             >
               <EventTableItem
                 camera={camera}
-                snapshotEvents={snapshotEvents}
+                events={events}
                 setSelectedEvent={setSelectedEvent}
-                selected={
-                  !!selectedEvent && selectedEvent.id === snapshotEvents[0].id
-                }
+                selected={!!selectedEvent && selectedEvent.id === events[0].id}
                 setRequestedTimestamp={setRequestedTimestamp}
                 availableTimespans={availableTimespansQuery.data}
               />

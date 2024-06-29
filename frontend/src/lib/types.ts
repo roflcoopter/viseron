@@ -232,12 +232,15 @@ type CameraBaseTimedEvent = CameraBaseEvent & {
   start_timestamp: number;
   end_time: string | null;
   end_timestamp: number | null;
+  duration: number | null;
 };
 export type CameraMotionEvent = CameraBaseTimedEvent & {
   type: "motion";
+  snapshot_path: string;
 };
 export type CameraRecordingEvent = CameraBaseTimedEvent & {
   type: "recording";
+  trigger_type: "motion" | "object" | null;
   hls_url: string;
   thumbnail_path: string;
 };
@@ -263,23 +266,46 @@ export type CameraFaceRecognitionEvent = CameraBaseSnapshotEvent & {
     [key: string]: any;
   };
 };
+export type CameraLicensePlateRecognitionEvent = CameraBaseSnapshotEvent & {
+  type: "license_plate_recognition";
+  data: {
+    camera_identifier: string;
+    known: boolean;
+    plate: string;
+    confidence: number;
+  };
+};
 
 export type CameraEvent =
   | CameraMotionEvent
   | CameraObjectEvent
   | CameraRecordingEvent
-  | CameraFaceRecognitionEvent;
+  | CameraFaceRecognitionEvent
+  | CameraLicensePlateRecognitionEvent;
 
 export type CameraEvents = {
-  events: [CameraEvent];
+  events: CameraEvent[];
 };
 
 export type CameraSnapshotEvent =
   | CameraObjectEvent
-  | CameraFaceRecognitionEvent;
+  | CameraFaceRecognitionEvent
+  | CameraLicensePlateRecognitionEvent;
 export type CameraSnapshotEvents = Array<CameraSnapshotEvent>;
 
 export type CameraObjectEvents = Array<CameraObjectEvent>;
+
+export type EventsAmount = {
+  events_amount: {
+    [date: string]: {
+      motion: number;
+      object: number;
+      recording: number;
+      face_recognition: number;
+      license_plate_recognition: number;
+    };
+  };
+};
 
 export interface Entity {
   entity_id: string;

@@ -6,7 +6,6 @@ import logging
 import multiprocessing as mp
 import os
 import pwd
-import threading
 from abc import ABC, abstractmethod
 from queue import Queue
 from typing import Any
@@ -26,6 +25,8 @@ from viseron.helpers import letterbox_resize, pop_if_full
 from viseron.helpers.child_process_worker import ChildProcessWorker
 from viseron.helpers.logs import CTypesLogPipe
 from viseron.helpers.schemas import FLOAT_MIN_ZERO_MAX_ONE
+from viseron.helpers.subprocess_worker import SubProcessWorker
+from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 from . import darknet
 from .const import (
@@ -220,7 +221,11 @@ class BaseDarknet(ABC):
         """Post process detections."""
 
 
-class DarknetDNN(BaseDarknet):
+class DarknetDNNError(ViseronError):
+    """Raised when failing to load Darknet in subprocess."""
+
+
+class DarknetDNN(BaseDarknet, SubProcessWorker):
     """Darknet object detector interface."""
 
     def __init__(
@@ -229,68 +234,96 @@ class DarknetDNN(BaseDarknet):
         config: dict[str, Any],
     ) -> None:
         LOGGER.debug("Using OpenCV DNN Darknet")
-        super().__init__(vis, config)
+        BaseDarknet.__init__(self, vis, config)
+        self._process_initialization_done = mp.Event()
+        self._process_initialization_error = mp.Event()
+        SubProcessWorker.__init__(self, vis, f"{COMPONENT}.{CONFIG_OBJECT_DETECTOR}")
+
         if cv2.ocl.haveOpenCL():
             LOGGER.debug("Enabling OpenCL")
             cv2.ocl.setUseOpenCL(True)
 
-        LOGGER.debug(f"DNN backend: {self.dnn_preferable_backend}")
-        LOGGER.debug(f"DNN target: {self.dnn_preferable_target}")
+        self._process_initialization_done.wait(10)
+        if (
+            not self._process_initialization_done.is_set()
+            or self._process_initialization_error.is_set()
+        ):
+            LOGGER.error("Failed to load Darknet in subprocess")
+            self.stop()
+            raise DarknetDNNError("Failed to load Darknet in subprocess")
 
-        self.load_network(
-            config[CONFIG_MODEL_PATH],
-            config[CONFIG_MODEL_CONFIG],
-            self.dnn_preferable_backend,
-            self.dnn_preferable_target,
-        )
-
-        self._detection_lock = threading.Lock()
-
-    def load_network(
-        self, model: str, model_config: str, backend: int, target: int
-    ) -> None:
-        """Load network."""
-        self._net = cv2.dnn.readNet(model, model_config, "darknet")
-        self._net.setPreferableBackend(backend)
-        self._net.setPreferableTarget(target)
-
-        self._model = cv2.dnn_DetectionModel(self._net)  # type: ignore[attr-defined]
-        self._model.setInputParams(
-            size=(self.model_width, self.model_height), scale=1 / 255
+    def spawn_subprocess(self) -> RestartablePopen:
+        """Spawn subprocess."""
+        return RestartablePopen(
+            (
+                "python3 -u viseron/components/darknet/darknet_subprocess.py "
+                f"--manager-port {self._server_port} "
+                f"--manager-authkey {self._authkey_store.authkey} "
+                f"--model-path={self._config[CONFIG_MODEL_PATH]} "
+                f"--model-config={self._config[CONFIG_MODEL_CONFIG]} "
+                f"--model-width={self.model_width} "
+                f"--model-height={self.model_height} "
+                f"--backend={self.dnn_preferable_backend} "
+                f"--target={self.dnn_preferable_target} "
+                f"--loglevel DEBUG"
+            ).split(" "),
+            name=self.subprocess_name,
+            stdout=self._log_pipe,
+            stderr=self._log_pipe,
         )
 
     def preprocess(self, frame):
         """Pre process frame before detection."""
         return cv2.resize(
-            cv2.UMat(frame),
+            frame,
             (self.model_width, self.model_height),
             interpolation=cv2.INTER_LINEAR,
         )
 
-    def detect(self, frame, _camera_identifier, _object_result_queue, min_confidence):
+    def detect(self, frame, camera_identifier, result_queue, min_confidence):
         """Run detection on frame."""
-        with self._detection_lock:
-            return self._model.detect(
-                frame,
-                min_confidence,
-                self._nms,
-            )
+        self._result_queues[camera_identifier] = result_queue
+        pop_if_full(
+            self.input_queue,
+            {
+                "frame": frame,
+                "camera_identifier": camera_identifier,
+                "min_confidence": min_confidence,
+                "nms": self._nms,
+            },
+        )
+        item = result_queue.get()
+        return item["result"]
 
-    def post_process(self, detections, _camera_resolution):
+    def work_output(self, item) -> None:
+        """Put result into queue."""
+        if item == "init_done":
+            self._process_initialization_done.set()
+            LOGGER.debug("Darknet initialized")
+            return
+
+        if item == "init_failed":
+            LOGGER.error("Failed to initialize Darknet")
+            self._process_initialization_error.set()
+            self._process_initialization_done.set()
+            return
+        pop_if_full(self._result_queues[item["camera_identifier"]], item)
+
+    def post_process(self, detections, camera_resolution):
         """Post process detections."""
         _detections = []
         for (label, confidence, box) in zip(
             detections[0], detections[1], detections[2]
         ):
             _detections.append(
-                DetectedObject(
+                DetectedObject.from_absolute(
                     self.labels[int(label)],
                     confidence,
                     box[0],
                     box[1],
                     box[0] + box[2],
                     box[1] + box[3],
-                    relative=False,
+                    frame_res=camera_resolution,
                     model_res=self.model_res,
                 )
             )
@@ -411,17 +444,15 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
         _detections = []
         for label, confidence, box in detections:
             _detections.append(
-                DetectedObject(
+                DetectedObject.from_absolute_letterboxed(
                     str(label),
                     confidence,
                     box[0],
                     box[1],
                     box[2],
                     box[3],
-                    relative=False,
-                    model_res=self.model_res,
-                    letterboxed=True,
                     frame_res=camera_resolution,
+                    model_res=self.model_res,
                 )
             )
 
