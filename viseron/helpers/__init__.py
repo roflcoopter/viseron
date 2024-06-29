@@ -194,7 +194,7 @@ def draw_object(
 def _annotate_frame(
     frame: np.ndarray,
     bounding_boxes: np.ndarray,
-    class_ids: np.ndarray[int],
+    class_ids: np.ndarray,
     labels: list[str] | None,
 ) -> np.ndarray:
     """Annotate a frame with bounding boxes and labels."""
