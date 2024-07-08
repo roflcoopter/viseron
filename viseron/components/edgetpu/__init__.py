@@ -258,7 +258,7 @@ class EdgeTPU(SubProcessWorker):
         self._process_initialization_done = mp.Event()
         self._process_initialization_error = mp.Event()
         super().__init__(vis, f"{COMPONENT}.{domain}")
-        self._process_initialization_done.wait(10)
+        self._process_initialization_done.wait(30)
         if (
             not self._process_initialization_done.is_set()
             or self._process_initialization_error.is_set()

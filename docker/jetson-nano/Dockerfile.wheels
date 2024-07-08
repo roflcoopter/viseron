@@ -4,6 +4,7 @@ ARG DLIB_VERSION
 ARG JETPACK_VERSION
 FROM roflcoopter/jetson-nano-dlib:${DLIB_VERSION} as dlib
 FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
+FROM roflcoopter/jetson-nano-python:3.9.19 as python-3.9.19
 FROM balenalib/jetson-nano-ubuntu:${UBUNTU_VERSION}-build as qemu
 FROM nvcr.io/nvidia/l4t-base:r${JETPACK_VERSION} as build
 
@@ -14,6 +15,7 @@ COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
 
 COPY --from=dlib /wheels /wheels
 
+COPY --from=python-3.9.19 /usr/local /usr/local/
 COPY --from=python /usr/local /usr/local/
 RUN \
   cd /usr/local/bin && \
@@ -58,12 +60,19 @@ RUN sed -i "s/OPENCV_VERSION=/OPENCV_VERSION=\"$OPENCV_VERSION\"/" /opencv-pytho
 RUN echo "opencv-python-headless==$OPENCV_VERSION" >> /requirements.txt
 
 ADD requirements.txt requirements.txt
+ADD requirements-3.9.txt requirements-3.9.txt
 RUN \
   mkdir -p /wheels \
   \
   && python3 -m pip wheel --wheel-dir=/wheels --find-links=/wheels /opencv-python-headless -r /requirements.txt \
+  && python3.9 -m pip wheel \
+  --extra-index-url https://google-coral.github.io/py-repo/ \
+  --wheel-dir=/wheels-3.9 \
+  --find-links=/wheels ${EXTRA_PIP_ARGS} /opencv-python-headless -r /requirements-3.9.txt \
   \
-  && ls -al /wheels/
+  && ls -al /wheels/ /wheels-3.9/
 
 FROM scratch
+
 COPY --from=build /wheels /wheels
+COPY --from=build /wheels-3.9 /wheels-3.9

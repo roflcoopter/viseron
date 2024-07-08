@@ -73,6 +73,7 @@
 !/requirements_ci.txt
 !/requirements_test.txt
 !/requirements.txt
+!/requirements-3.9.txt
 !setup.py
 !manager.py
 

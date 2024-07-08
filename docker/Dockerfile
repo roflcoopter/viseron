@@ -60,6 +60,7 @@ FROM roflcoopter/${ARCH}-base:${BASE_VERSION}
 WORKDIR /src
 
 COPY --from=wheels /wheels /wheels
+COPY --from=wheels /wheels-3.9 /wheels-3.9
 
 ARG S6_OVERLAY_ARCH
 ARG S6_OVERLAY_VERSION
@@ -135,10 +136,8 @@ RUN \
   && echo "libedgetpu1-max libedgetpu/accepted-eula select true" | debconf-set-selections \
   && apt-get -qq update && apt-get -qq install -y --no-install-recommends \
   libedgetpu1-max \
-  && python3.9 -m pip install \
-  --extra-index-url https://google-coral.github.io/py-repo/ \
-  --extra-index-url https://www.piwheels.org/simple \
-  pycoral~=2.0 \
+  && python3.9 -m pip install install /wheels-3.9/*.whl \
+  && rm -r /wheels-3.9 \
   \
   && chmod +x /tmp/s6-overlay-installer && /tmp/s6-overlay-installer / \
   && apt-get autoremove -y \
