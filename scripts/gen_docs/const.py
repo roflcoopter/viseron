@@ -132,7 +132,7 @@ DOCS_CAMERA_CONTENTS = """## Camera
 
 <Camera />
 
-### MJEPG Streams
+### MJPEG Streams
 
 <CameraMjpegStreams />
 
