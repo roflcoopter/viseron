@@ -14,6 +14,7 @@ import {
   calculateStart,
   getDateAtPosition,
   getTimelineItems,
+  useFilterStore,
 } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { ViseronContext } from "context/ViseronContext";
@@ -129,14 +130,17 @@ export const TimelineTable = memo(
         keepPreviousData: true,
       },
     });
+
+    const { filters } = useFilterStore();
     const timelineItems = useMemo(
       () =>
         getTimelineItems(
           startRef,
           eventsQuery.data?.events || [],
           availableTimespansQuery.data?.timespans || [],
+          filters,
         ),
-      [eventsQuery.data, availableTimespansQuery.data],
+      [eventsQuery.data, availableTimespansQuery.data, filters],
     );
 
     if (eventsQuery.error || availableTimespansQuery.error) {

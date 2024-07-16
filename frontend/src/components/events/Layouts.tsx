@@ -4,7 +4,6 @@ import VideocamIcon from "@mui/icons-material/Videocam";
 import TabContext from "@mui/lab/TabContext";
 import TabList from "@mui/lab/TabList";
 import TabPanel from "@mui/lab/TabPanel";
-import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Container from "@mui/material/Container";
@@ -22,8 +21,9 @@ import { EventDatePickerDialog } from "components/events/EventDatePickerDialog";
 import { PlayerCard } from "components/events/EventPlayerCard";
 import { EventTable } from "components/events/EventTable";
 import { EventsCameraGrid } from "components/events/EventsCameraGrid";
+import { FilterMenu } from "components/events/FilterMenu";
 import { TimelineTable } from "components/events/timeline/TimelineTable";
-import { COLUMN_HEIGHT } from "components/events/utils";
+import { COLUMN_HEIGHT, COLUMN_HEIGHT_SMALL } from "components/events/utils";
 import { insertURLParameter } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -113,7 +113,6 @@ const Filters = memo(
 );
 
 type TabsProps = {
-  parentRef: React.MutableRefObject<HTMLDivElement | null>;
   hlsRef: React.MutableRefObject<Hls | null>;
   date: Dayjs | null;
   selectedTab: "events" | "timeline";
@@ -122,9 +121,9 @@ type TabsProps = {
   selectedEvent: types.CameraEvent | null;
   setSelectedEvent: (event: types.CameraEvent) => void;
   setRequestedTimestamp: (timestamp: number | null) => void;
+  cardRef: React.RefObject<HTMLDivElement>;
 };
 const Tabs = ({
-  parentRef,
   hlsRef,
   date,
   selectedTab,
@@ -133,7 +132,13 @@ const Tabs = ({
   selectedEvent,
   setSelectedEvent,
   setRequestedTimestamp,
+  cardRef,
 }: TabsProps) => {
+  const tabListRef = useRef<HTMLDivElement | null>(null);
+  const eventsRef = useRef<HTMLDivElement | null>(null);
+  const timelineRef = useRef<HTMLDivElement | null>(null);
+  const tabListHeight = tabListRef.current?.getBoundingClientRect().height;
+
   const handleTabChange = (
     event: SyntheticEvent,
     tab: "events" | "timeline",
@@ -147,23 +152,43 @@ const Tabs = ({
 
   return (
     <TabContext value={selectedTab}>
-      <Box
-        sx={{
+      <TabList
+        ref={tabListRef}
+        onChange={handleTabChange}
+        sx={(theme) => ({
+          width: "100%",
           borderBottom: 1,
-          borderColor: "divider",
+          borderColor: theme.palette.divider,
           display: "flex",
-          justifyContent: "space-evenly",
+        })}
+      >
+        <Tab label="Events" value="events" sx={{ padding: 0, flexGrow: 1 }} />
+        <Tab
+          label="Timeline"
+          value="timeline"
+          sx={(theme) => ({
+            padding: 0,
+            flexGrow: 1,
+            borderRight: 1,
+            borderColor: theme.palette.divider,
+          })}
+        />
+        <FilterMenu />
+      </TabList>
+      <TabPanel
+        ref={eventsRef}
+        value="events"
+        sx={{
+          padding: 0,
+          paddingTop: "5px",
+          height: `calc(${cardRef.current?.offsetHeight}px - ${tabListHeight}px)`,
+          overflow: "auto",
+          overflowX: "hidden",
         }}
       >
-        <TabList onChange={handleTabChange} sx={{ width: "100%" }}>
-          <Tab label="Events" value="events" sx={{ width: "50%" }} />
-          <Tab label="Timeline" value="timeline" sx={{ width: "50%" }} />
-        </TabList>
-      </Box>
-      <TabPanel value="events" sx={{ padding: 0, paddingTop: "5px" }}>
         {selectedCamera ? (
           <EventTable
-            parentRef={parentRef}
+            parentRef={eventsRef}
             camera={selectedCamera}
             date={date}
             selectedEvent={selectedEvent}
@@ -176,12 +201,23 @@ const Tabs = ({
           </Typography>
         )}
       </TabPanel>
-      <TabPanel value="timeline" sx={{ padding: 0, paddingTop: "5px" }}>
+      <TabPanel
+        ref={timelineRef}
+        value="timeline"
+        sx={{
+          padding: 0,
+          paddingTop: "5px",
+          paddingBottom: "50px",
+          height: `calc(${cardRef.current?.offsetHeight}px - ${tabListHeight}px)`,
+          overflow: "auto",
+          overflowX: "hidden",
+        }}
+      >
         {selectedCamera ? (
           <TimelineTable
             // Force re-render when camera or date changes
             key={`${selectedCamera.identifier}-${date?.unix().toString()}`}
-            parentRef={parentRef}
+            parentRef={timelineRef}
             hlsRef={hlsRef}
             camera={selectedCamera}
             date={date}
@@ -229,8 +265,8 @@ export const Layout = memo(
     setSelectedTab,
   }: LayoutProps) => {
     const theme = useTheme();
-    const parentRef = useRef<HTMLDivElement | null>(null);
     const hlsRef = useRef<Hls | null>(null);
+    const cardRef = useRef<HTMLDivElement | null>(null);
     const playerCardRef = useRef<HTMLDivElement | null>(null);
     return (
       <Container style={{ display: "flex" }}>
@@ -258,18 +294,15 @@ export const Layout = memo(
           ></EventsCameraGrid>
         </div>
         <Card
-          ref={parentRef}
+          ref={cardRef}
           variant="outlined"
           sx={{
             width: "650px",
             height: `calc(${COLUMN_HEIGHT} - ${theme.headerHeight}px)`,
-            overflow: "auto",
-            overflowX: "hidden",
           }}
         >
           <CardContent sx={{ padding: 0 }}>
             <Tabs
-              parentRef={parentRef}
               hlsRef={hlsRef}
               date={date}
               selectedTab={selectedTab}
@@ -278,6 +311,7 @@ export const Layout = memo(
               selectedEvent={selectedEvent}
               setSelectedEvent={setSelectedEvent}
               setRequestedTimestamp={setRequestedTimestamp}
+              cardRef={cardRef}
             />
           </CardContent>
         </Card>
@@ -308,8 +342,8 @@ export const LayoutSmall = memo(
     setSelectedTab,
   }: LayoutProps) => {
     const theme = useTheme();
-    const parentRef = useRef<HTMLDivElement | null>(null);
     const hlsRef = useRef<Hls | null>(null);
+    const cardRef = useRef<HTMLDivElement | null>(null);
     const playerCardRef = useRef<HTMLDivElement | null>(null);
 
     // Observe div height to calculate the height of the EventTable
@@ -343,17 +377,15 @@ export const LayoutSmall = memo(
           />
         </div>
         <Card
-          ref={parentRef}
+          ref={cardRef}
           variant="outlined"
           sx={{
             width: "100%",
-            overflow: "auto",
-            height: `calc(97dvh - ${height}px)`,
+            height: `calc(${COLUMN_HEIGHT_SMALL} - ${height}px)`,
           }}
         >
           <CardContent sx={{ padding: 0 }}>
             <Tabs
-              parentRef={parentRef}
               hlsRef={hlsRef}
               date={date}
               selectedTab={selectedTab}
@@ -362,6 +394,7 @@ export const LayoutSmall = memo(
               selectedEvent={selectedEvent}
               setSelectedEvent={setSelectedEvent}
               setRequestedTimestamp={setRequestedTimestamp}
+              cardRef={cardRef}
             />
           </CardContent>
         </Card>

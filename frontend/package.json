@@ -33,6 +33,7 @@
     "js-cookie": "^3.0.1",
     "monaco-editor": "^0.44.0",
     "monaco-yaml": "5.1.0",
+    "mui-nested-menu": "^3.4.0",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "react-lazyload": "^3.2.0",
@@ -42,7 +43,8 @@
     "react-transition-group": "^4.4.5",
     "typescript": "^5.3.2",
     "uuid": "^9.0.1",
-    "video.js": "^8.6.1"
+    "video.js": "^8.6.1",
+    "zustand": "^4.5.4"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.1.4",
