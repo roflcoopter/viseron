@@ -10,6 +10,7 @@ import {
   findFragmentByTimestamp,
 } from "components/events/utils";
 import { useAuthContext } from "context/AuthContext";
+import { useFirstRender } from "hooks/UseFirstRender";
 import { getToken } from "lib/tokens";
 import * as types from "lib/types";
 
@@ -151,6 +152,7 @@ const initializePlayer = (
 
   // Handle errors
   hlsRef.current.on(Hls.Events.ERROR, (_event, data) => {
+    console.error("HLS error", data.details, data.type, data.fatal);
     if (data.fatal) {
       switch (data.type) {
         case Hls.ErrorTypes.NETWORK_ERROR:
@@ -218,8 +220,15 @@ const useSeekToTimestamp = (
   requestedTimestamp: number,
   camera: types.Camera | types.FailedCamera,
 ) => {
+  // Avoid running on first render to not call loadSource twice
+  const firstRender = useFirstRender();
   useEffect(() => {
-    if (!hlsRef.current || !videoRef.current || !hlsRef.current.media) {
+    if (
+      !hlsRef.current ||
+      !videoRef.current ||
+      !hlsRef.current.media ||
+      firstRender
+    ) {
       return;
     }
 
@@ -262,6 +271,7 @@ const useSeekToTimestamp = (
     videoRef.current.play();
   }, [
     camera,
+    firstRender,
     hlsClientIdRef,
     hlsRef,
     initialProgramDateTime,
