@@ -28,7 +28,7 @@
     "buffer": "^6.0.3",
     "dayjs": "^1.11.9",
     "dompurify": "^3.0.7",
-    "hls.js": "^1.5.4",
+    "hls.js": "^1.5.13",
     "http-proxy-middleware": "^2.0.2",
     "js-cookie": "^3.0.1",
     "monaco-editor": "^0.44.0",
