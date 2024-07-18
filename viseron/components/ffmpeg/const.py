@@ -16,19 +16,6 @@ STREAM_FORMAT_MAP = {
 
 RECORDER = "recorder"
 
-CAMERA_SEGMENT_DURATION = 5
-CAMERA_SEGMENT_ARGS = [
-    "-f",
-    "segment",
-    "-segment_time",
-    str(CAMERA_SEGMENT_DURATION),
-    "-reset_timestamps",
-    "1",
-    "-strftime",
-    "1",
-    "-c:v",
-    "copy",
-]
 CAMERA_INPUT_ARGS = [
     "-avoid_negative_ts",
     "make_zero",

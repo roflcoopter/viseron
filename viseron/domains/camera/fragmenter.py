@@ -53,8 +53,10 @@ def _get_open_files(path: str, process: psutil.Process) -> list[str]:
 
 def _get_mp4_files_to_fragment(path: str) -> list[str]:
     """Get mp4 files that are not in use by ffmpeg/gstreamer."""
-    mp4_files = Path(path).walkfiles("*.mp4")
-    files_in_use = []
+    mp4_files = [
+        file for file in Path(path).walkfiles() if file.endswith((".mp4", ".m4s"))
+    ]
+    files_in_use = ["init.mp4"]
     for process in psutil.process_iter():
         try:
             process_name = process.name()
@@ -65,11 +67,14 @@ def _get_mp4_files_to_fragment(path: str) -> list[str]:
     return [str(f.name) for f in mp4_files if str(f.name) not in files_in_use]
 
 
-def _extract_extinf_number(text) -> float | None:
+def _extract_extinf_number(playlist_content: str, file: str) -> float | None:
     """Extract the EXTINF number from a HLS playlist."""
-    pattern = r"#EXTINF:(\d+\.\d+),"
-    match = re.search(pattern, text)
+    pattern = rf"^#EXTINF:([0-9.]+),\s*(?:\n\s*)?{re.escape(file)}(?:\s*\n|$)"
+
+    match = re.search(pattern, playlist_content, re.MULTILINE)
+
     if match:
+        # Extract the duration number from the match
         return float(match.group(1))
     return None
 
@@ -100,7 +105,13 @@ class Fragmenter:
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self._shutdown)
         self._fragment_job_id = f"fragment_{self._camera.identifier}"
         self._vis.background_scheduler.add_job(
-            self._create_fragmented_mp4, "interval", seconds=5, id=self._fragment_job_id
+            self._create_fragmented_mp4,
+            "interval",
+            seconds=1,
+            id=self._fragment_job_id,
+            max_instances=1,
+            coalesce=True,
+            misfire_grace_time=1,
         )
 
     def _mp4box_command(self, file: str):
@@ -133,8 +144,8 @@ class Fragmenter:
             return False
         return True
 
-    def _move_to_segments_folder(self, file: str):
-        """Move fragmented mp4 to segments folder."""
+    def _move_to_segments_folder_mp4box(self, file: str):
+        """Move fragmented mp4 created by mp4box to segments folder."""
         try:
             shutil.move(
                 os.path.join(
@@ -155,6 +166,20 @@ class Fragmenter:
         except FileNotFoundError:
             self._logger.debug(f"{file} not found")
 
+    def _move_to_segments_folder(self, file: str):
+        """Move fragmented mp4 created by encoder to segments folder."""
+        try:
+            shutil.move(
+                os.path.join(self._camera.temp_segments_folder, file),
+                os.path.join(self._camera.segments_folder, file),
+            )
+            shutil.copy(
+                os.path.join(self._camera.temp_segments_folder, "init.mp4"),
+                os.path.join(self._camera.segments_folder, "init.mp4"),
+            )
+        except FileNotFoundError:
+            self._logger.debug(f"{file} not found", exc_info=True)
+
     def _write_files_metadata(self, file: str, extinf: float):
         """Write metadata about the fragmented mp4 to the database."""
         with self._storage.get_session() as session:
@@ -172,7 +197,8 @@ class Fragmenter:
             session.execute(stmt)
             session.commit()
 
-    def _read_m3u8(self, file: str) -> str:
+    def _read_m3u8_mp4box(self, file: str) -> str:
+        """Read m3u8 file created by MP4Box."""
         return open(
             os.path.join(
                 self._camera.temp_segments_folder,
@@ -182,29 +208,59 @@ class Fragmenter:
             encoding="utf-8",
         ).read()
 
+    def _read_m3u8(self) -> str:
+        """Read m3u8 file created by encoder."""
+        return open(
+            os.path.join(
+                self._camera.temp_segments_folder,
+                "index.m3u8",
+            ),
+            encoding="utf-8",
+        ).read()
+
+    def _handle_mp4(self, file: str):
+        """Handle mp4 files."""
+        try:
+            if self._mp4box_command(file):
+                extinf = _extract_extinf_number(self._read_m3u8_mp4box(file), file)
+                self._write_files_metadata(
+                    file, extinf if extinf else float(CAMERA_SEGMENT_DURATION)
+                )
+                self._move_to_segments_folder_mp4box(file)
+        except Exception as err:  # pylint: disable=broad-except
+            self._logger.error(f"Failed to fragment {file}", exc_info=err)
+
+        try:
+            os.remove(os.path.join(self._camera.temp_segments_folder, file))
+            shutil.rmtree(
+                os.path.join(self._camera.temp_segments_folder, file.split(".")[0]),
+            )
+        except FileNotFoundError as err:
+            self._logger.error("Failed to delete broken fragment", exc_info=err)
+
+    def _handle_m4s(self, file: str):
+        """Handle m4s (fragmented mp4) files."""
+        try:
+            extinf = _extract_extinf_number(self._read_m3u8(), file)
+            if extinf:
+                self._write_files_metadata(file, extinf)
+                self._move_to_segments_folder(file)
+            else:
+                self._logger.error(f"Failed to get extinf for {file}")
+                os.remove(os.path.join(self._camera.temp_segments_folder, file))
+        except Exception as err:  # pylint: disable=broad-except
+            self._logger.error(f"Failed to process m4s file {file}", exc_info=err)
+
     def _create_fragmented_mp4(self):
         """Create fragmented mp4 from mp4 using MP4Box."""
         self._logger.debug("Checking for new segments to fragment")
         mp4s = _get_mp4_files_to_fragment(self._camera.temp_segments_folder)
         for mp4 in sorted(mp4s):
             self._logger.debug(f"Processing {mp4}")
-            try:
-                if self._mp4box_command(mp4):
-                    extinf = _extract_extinf_number(self._read_m3u8(mp4))
-                    self._write_files_metadata(
-                        mp4, extinf if extinf else float(CAMERA_SEGMENT_DURATION)
-                    )
-                    self._move_to_segments_folder(mp4)
-            except Exception as err:  # pylint: disable=broad-except
-                self._logger.error(f"Failed to fragment {mp4}", exc_info=err)
-
-            try:
-                os.remove(os.path.join(self._camera.temp_segments_folder, mp4))
-                shutil.rmtree(
-                    os.path.join(self._camera.temp_segments_folder, mp4.split(".")[0]),
-                )
-            except FileNotFoundError as err:
-                self._logger.error("Failed to delete broken fragment", exc_info=err)
+            if mp4.split(".")[1] == "m4s":
+                self._handle_m4s(mp4)
+            else:
+                self._handle_mp4(mp4)
 
     def _shutdown(self) -> None:
         """Handle shutdown event."""
@@ -363,13 +419,13 @@ def generate_playlist(
     playlist.append("#EXT-X-INDEPENDENT-SEGMENTS")
     playlist.append(f'#EXT-X-MAP:URI="{_get_file_path(init_file, file_directive)}"')
     for fragment in fragments:
+        playlist.append("#EXT-X-DISCONTINUITY")
         program_date_time = fragment.creation_time.replace(
             tzinfo=datetime.timezone.utc
         ).isoformat(timespec="milliseconds")
         playlist.append(f"#EXT-X-PROGRAM-DATE-TIME:{program_date_time}")
         playlist.append(f"#EXTINF:{fragment.duration},")
         playlist.append(_get_file_path(fragment.path, file_directive))
-        playlist.append("#EXT-X-DISCONTINUITY")
     if end:
         playlist.append("#EXT-X-ENDLIST")
     return "\n".join(playlist)

@@ -17,6 +17,7 @@ from tenacity import (
 )
 
 from viseron.const import (
+    CAMERA_SEGMENT_DURATION,
     ENV_CUDA_SUPPORTED,
     ENV_JETSON_NANO,
     ENV_RASPBERRYPI3,
@@ -30,7 +31,6 @@ from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 from .const import (
     CAMERA_INPUT_ARGS,
-    CAMERA_SEGMENT_ARGS,
     CONFIG_AUDIO_CODEC,
     CONFIG_CODEC,
     CONFIG_FFMPEG_LOGLEVEL,
@@ -342,18 +342,38 @@ class Stream:
         ):
             return ["-c:a", "copy"]
 
-        return []
+        return ["-an"]
 
     def segment_args(self):
         """Generate FFmpeg segment args."""
         return (
-            CAMERA_SEGMENT_ARGS
+            [
+                "-f",
+                "hls",
+                "-hls_time",
+                str(CAMERA_SEGMENT_DURATION),
+                "-hls_playlist_type",
+                "event",
+                "-hls_segment_type",
+                "fmp4",
+                "-hls_list_size",
+                "10",
+                "-strftime",
+                "1",
+                "-hls_segment_filename",
+                os.path.join(
+                    self._camera.temp_segments_folder,
+                    "%s.m4s",
+                ),
+                "-c:v",
+                "copy",
+            ]
             + self.get_audio_codec(self._config, self._mainstream.audio_codec)
             + [
                 os.path.join(
                     self._camera.temp_segments_folder,
-                    f"%s.{self._camera.extension}",
-                )
+                    "index.m3u8",
+                ),
             ]
         )
 
