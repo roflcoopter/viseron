@@ -1,5 +1,5 @@
+import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
-import CardMedia from "@mui/material/CardMedia";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import Hls from "hls.js";
@@ -36,19 +36,28 @@ export const PlayerCard = ({
       variant="outlined"
       sx={(theme) => ({
         marginBottom: theme.margin,
-        position: "relative",
+        width: "100%",
+        height: "100%",
+        alignItems: "center",
+        display: "flex",
       })}
     >
-      {camera && <CameraNameOverlay camera={camera} />}
-      <CardMedia>
-        {camera && requestedTimestamp ? (
-          <TimelinePlayer
-            containerRef={playerCardRef}
-            hlsRef={hlsRef}
-            camera={camera}
-            requestedTimestamp={requestedTimestamp}
-          />
-        ) : (
+      {camera && requestedTimestamp ? (
+        <TimelinePlayer
+          containerRef={playerCardRef}
+          hlsRef={hlsRef}
+          camera={camera}
+          requestedTimestamp={requestedTimestamp}
+        />
+      ) : (
+        <Box
+          sx={{
+            position: "relative",
+            width: "100%",
+            maxHeight: "100%",
+          }}
+        >
+          {camera && <CameraNameOverlay camera={camera} />}
           <VideoPlayerPlaceholder
             aspectRatio={camera ? camera.width / camera.height : undefined}
             text={
@@ -60,8 +69,8 @@ export const PlayerCard = ({
             }
             src={src}
           />
-        )}
-      </CardMedia>
+        </Box>
+      )}
     </Card>
   );
 };

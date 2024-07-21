@@ -18,7 +18,7 @@ export const TICK_HEIGHT = 8;
 export const SCALE = 60;
 export const EXTRA_TICKS = 10;
 export const COLUMN_HEIGHT = "99dvh";
-export const COLUMN_HEIGHT_SMALL = "97dvh";
+export const COLUMN_HEIGHT_SMALL = "98.5dvh";
 export const EVENT_ICON_HEIGHT = 30;
 
 type Filters = {
