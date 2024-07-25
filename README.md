@@ -14,11 +14,6 @@
     <br>
 </div>
 
-### Sponsors
-
-Thank you to [Roboflow](https://roboflow.com/?ref=viseron) for supporting our work. Over 500,000 developers and machine learning engineers use Roboflow to build and deploy computer vision models. 
-
-
 # Getting started
 
 Getting started is easy! You simply spin up a Docker container and edit the configuration file using the built in web interface.
