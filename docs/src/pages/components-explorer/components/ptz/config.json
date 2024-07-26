@@ -1,0 +1,79 @@
+[
+  {
+    "type": "map",
+    "value": [
+      {
+        "type": "string",
+        "name": "telegram_bot_token",
+        "description": "Telegram bot token.",
+        "required": true,
+        "default": null
+      },
+      {
+        "type": "list",
+        "values": [
+          [
+            {
+              "type": "string",
+              "name": "camera_name",
+              "description": "Friendly name of the camera.",
+              "optional": true,
+              "default": null
+            },
+            {
+              "type": "string",
+              "name": "camera_ip",
+              "description": "IP address of the camera.",
+              "required": true,
+              "default": null
+            },
+            {
+              "type": "integer",
+              "name": "camera_port",
+              "description": "ONVIF port of the camera.",
+              "required": true,
+              "default": null
+            },
+            {
+              "type": "string",
+              "name": "camera_username",
+              "description": "ONVIF username for the camera.",
+              "required": true,
+              "default": null
+            },
+            {
+              "type": "string",
+              "name": "camera_password",
+              "description": "ONVIF password for the camera.",
+              "required": true,
+              "default": null
+            },
+            {
+              "type": "float",
+              "name": "camera_min_x",
+              "description": "Minimum pan value of the camera.",
+              "optional": true,
+              "default": null
+            },
+            {
+              "type": "float",
+              "name": "camera_max_x",
+              "description": "Maximum pan value of the camera.",
+              "optional": true,
+              "default": null
+            }
+          ]
+        ],
+        "lengthMin": 1,
+        "name": "cameras",
+        "description": "List of ONVIF cameras to control.",
+        "required": true,
+        "default": null
+      }
+    ],
+    "name": "ptz",
+    "description": "Telegram bot to control pan-tilt-zoom cameras.",
+    "required": true,
+    "default": null
+  }
+]
