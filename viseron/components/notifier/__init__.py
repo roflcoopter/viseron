@@ -95,18 +95,29 @@ class Notifier:
         bot = Bot(token=bot_token)
         label = event_data.data.previous_state.attributes["objects"][0].label
         for chat_id in chat_ids:
-            await bot.send_photo(
-                chat_id=chat_id,
-                photo=open(
-                    event_data.data.previous_state.attributes["thumbnail_path"], "rb"
-                ),
-                caption=f"Camera: {event_data.data.entity_id} detected a {label}",
-            )
-            await bot.send_video(
-                chat_id=chat_id,
-                video=open(event_data.data.previous_state.attributes["path"], "rb"),
-                caption="Here's the video, yo.",
-            )
+            if self._config[CONFIG_SEND_THUMBNAIL]:
+                await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=open(
+                        event_data.data.previous_state.attributes["thumbnail_path"],
+                        "rb",
+                    ),
+                    caption=f"Camera: {event_data.data.entity_id} detected a {label}",
+                )
+            if self._config[CONFIG_SEND_THUMBNAIL]:
+                await bot.send_video(
+                    chat_id=chat_id,
+                    video=open(event_data.data.previous_state.attributes["path"], "rb"),
+                    caption="Here's the video, yo.",
+                )
+            if (
+                not self._config[CONFIG_SEND_THUMBNAIL]
+                and not self._config[CONFIG_SEND_VIDEO]
+            ):
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=f"Camera: {event_data.data.entity_id} detected a {label}",
+                )
 
     def state_changed(self, event_data: Event) -> None:
         """Viseron state change listener."""
