@@ -16,6 +16,7 @@ from .const import (
     COMPONENT,
     CONFIG_CAMERAS,
     CONFIG_DETECTION_LABEL,
+    CONFIG_DETECTION_LABEL_DEFAULT,
     CONFIG_SEND_THUMBNAIL,
     CONFIG_SEND_VIDEO,
     CONFIG_TELEGRAM_BOT_TOKEN,
@@ -32,15 +33,10 @@ from .const import (
 if TYPE_CHECKING:
     from viseron import Event, Viseron
 
-    # from viseron.helpers.entity import Entity
-
 LOGGER = logging.getLogger(__name__)
 
 CAMERA_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONFIG_SEND_THUMBNAIL, description=DESC_SEND_THUMBNAIL): bool,
-        vol.Required(CONFIG_SEND_VIDEO, description=DESC_SEND_VIDEO): bool,
-    },
+    {},
     extra=vol.ALLOW_EXTRA,
 )
 
@@ -57,8 +53,14 @@ CONFIG_SCHEMA = vol.Schema(
             vol.Optional(
                 CONFIG_DETECTION_LABEL,
                 description=DESC_DETECTION_LABEL,
-                default="person",
+                default=CONFIG_DETECTION_LABEL_DEFAULT,
             ): str,
+            vol.Optional(
+                CONFIG_SEND_THUMBNAIL, description=DESC_SEND_THUMBNAIL, default=True
+            ): bool,
+            vol.Optional(
+                CONFIG_SEND_VIDEO, description=DESC_SEND_VIDEO, default=True
+            ): bool,
             vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
                 CameraIdentifier(): vol.All(CoerceNoneToDict(), CAMERA_SCHEMA),
             },
@@ -122,7 +124,8 @@ class Notifier:
     def state_changed(self, event_data: Event) -> None:
         """Viseron state change listener."""
         if (
-            event_data.data.entity_id.startswith("binary_sensor.")
+            event_data.data.entity_id
+            and event_data.data.entity_id.startswith("binary_sensor.")
             and event_data.data.entity_id.endswith("_recorder")
             and event_data.data.current_state
             and event_data.data.current_state.state == "off"
@@ -132,11 +135,17 @@ class Notifier:
             and event_data.data.previous_state.attributes["objects"][0].label
             == self._config[CONFIG_DETECTION_LABEL]
         ):
-            LOGGER.info(
-                f"Camera stopped recording a {self._config[CONFIG_DETECTION_LABEL]}"
-                "sending telegram notification"
+            # bit of hacky way to get the camera name
+            cam_name = event_data.data.entity_id.replace("binary_sensor.", "").replace(
+                "_recorder", ""
             )
-            asyncio.run(self.notify_telegram(event_data))
+            if cam_name in self._config[CONFIG_CAMERAS]:
+                LOGGER.info(
+                    f"Camera {cam_name} stopped recording"
+                    f"a {self._config[CONFIG_DETECTION_LABEL]}"
+                    " - sending telegram notifications"
+                )
+                asyncio.run(self.notify_telegram(event_data))
 
     def stop(self) -> None:
         """Stop notifier component."""

@@ -25,23 +25,6 @@
         "type": "map",
         "value": [
           {
-            "type": "map",
-            "value": [
-              {
-                "type": "boolean",
-                "name": "send_thumbnail",
-                "description": "Send a thumbnail of the detected object.",
-                "required": true,
-                "default": null
-              },
-              {
-                "type": "boolean",
-                "name": "send_video",
-                "description": "Send a video of the detected object.",
-                "required": true,
-                "default": null
-              }
-            ],
             "name": {
               "type": "CAMERA_IDENTIFIER"
             },
@@ -61,6 +44,20 @@
         "description": "Label of the object to send notifications for.",
         "optional": true,
         "default": "person"
+      },
+      {
+        "type": "boolean",
+        "name": "send_thumbnail",
+        "description": "Send a thumbnail of the detected object.",
+        "optional": true,
+        "default": true
+      },
+      {
+        "type": "boolean",
+        "name": "send_video",
+        "description": "Send a video of the detected object.",
+        "optional": true,
+        "default": true
       }
     ],
     "name": "notifier",

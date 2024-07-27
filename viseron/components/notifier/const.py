@@ -8,6 +8,7 @@ CONFIG_TELEGRAM_CHAT_IDS = "telegram_chat_ids"
 
 CONFIG_CAMERAS = "cameras"
 CONFIG_DETECTION_LABEL = "detection_label"
+CONFIG_DETECTION_LABEL_DEFAULT = "person"
 
 CONFIG_SEND_THUMBNAIL = "send_thumbnail"
 CONFIG_SEND_VIDEO = "send_video"
