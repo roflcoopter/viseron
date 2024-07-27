@@ -3,110 +3,68 @@
     "type": "map",
     "value": [
       {
-        "type": "list",
-        "values": [
-          [
-            {
-              "type": "list",
-              "values": [
-                {
-                  "type": "string"
-                }
-              ],
-              "name": "labels",
-              "description": "Cameras",
-              "optional": true,
-              "default": null
-            },
-            {
-              "type": "map",
-              "value": [
-                {
-                  "type": "select",
-                  "options": [
-                    [
-                      {
-                        "type": "string",
-                        "name": "smtp_server",
-                        "description": "IP address or hostname of SMTP server.",
-                        "required": true,
-                        "default": null
-                      },
-                      {
-                        "type": "integer",
-                        "name": "smtp_port",
-                        "description": "Port the SMTP server is listening on.",
-                        "optional": true,
-                        "default": 587
-                      },
-                      {
-                        "type": "string",
-                        "name": "smtp_username",
-                        "description": "Username for the SMTP server.",
-                        "required": true,
-                        "default": null
-                      },
-                      {
-                        "type": "string",
-                        "name": "smtp_password",
-                        "description": "Password for the SMTP server.",
-                        "required": true,
-                        "default": null
-                      },
-                      {
-                        "type": "string",
-                        "name": "smtp_recipients",
-                        "description": "Recipients of the email.",
-                        "required": true,
-                        "default": null
-                      },
-                      {
-                        "type": "string",
-                        "name": "smtp_sender",
-                        "description": "Sender of the email.",
-                        "required": true,
-                        "default": null
-                      }
-                    ],
-                    [
-                      {
-                        "type": "string",
-                        "name": "telegram_bot_token",
-                        "description": "Telegram bot token.",
-                        "required": true,
-                        "default": null
-                      },
-                      {
-                        "type": "integer",
-                        "name": "telegram_chat_id",
-                        "description": "Telegram chat ID.",
-                        "required": true,
-                        "default": null
-                      }
-                    ]
-                  ],
-                  "name": "notifier",
-                  "description": "Notifier configuration.",
-                  "required": true,
-                  "default": null
-                }
-              ],
-              "name": "notifier",
-              "description": "Notifier configuration for the camera",
-              "required": true,
-              "default": null
-            }
-          ]
-        ],
-        "lengthMin": 1,
-        "name": "cameras",
-        "description": "Camera configurations",
+        "type": "string",
+        "name": "telegram_bot_token",
+        "description": "Telegram bot token.",
         "required": true,
         "default": null
+      },
+      {
+        "type": "list",
+        "values": [
+          {
+            "type": "integer"
+          }
+        ],
+        "name": "telegram_chat_ids",
+        "description": "List of allowed Telegram chat IDs.",
+        "required": true,
+        "default": null
+      },
+      {
+        "type": "map",
+        "value": [
+          {
+            "type": "map",
+            "value": [
+              {
+                "type": "boolean",
+                "name": "send_thumbnail",
+                "description": "Send a thumbnail of the detected object.",
+                "required": true,
+                "default": null
+              },
+              {
+                "type": "boolean",
+                "name": "send_video",
+                "description": "Send a video of the detected object.",
+                "required": true,
+                "default": null
+              }
+            ],
+            "name": {
+              "type": "CAMERA_IDENTIFIER"
+            },
+            "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+            "cameraidentifier": true,
+            "default": null
+          }
+        ],
+        "name": "cameras",
+        "description": "Camera-specific configuration. All subordinate keys corresponds to the <code>camera_identifier</code> of a configured camera.",
+        "required": true,
+        "default": null
+      },
+      {
+        "type": "string",
+        "name": "detection_label",
+        "description": "Label of the object to send notifications for.",
+        "optional": true,
+        "default": "person"
       }
     ],
     "name": "notifier",
-    "description": "Notifier configuration.",
+    "description": "Telegram notifications of object detections.",
     "required": true,
     "default": null
   }

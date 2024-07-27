@@ -1,38 +1,23 @@
-"""Notifier component constants."""
-
-from typing import Final
+"""Telegram notifier component constants."""
 
 COMPONENT = "notifier"
-DESC_COMPONENT = "Notifier configuration."
-
-DEFAULT_RETAIN_CONFIG = True
-
-# CONFIG_SCHEMA constants
-CONFIG_SMTP_SERVER = "smtp_server"
-CONFIG_SMTP_PORT = "smtp_port"
-CONFIG_SMTP_USERNAME = "smtp_username"
-CONFIG_SMTP_PASSWORD = "smtp_password"
-CONFIG_SMTP_RECIPIENTS = "smtp_recipients"
-CONFIG_SMTP_SENDER = "smtp_sender"
+DESC_COMPONENT = "Telegram notifications of object detections."
 
 CONFIG_TELEGRAM_BOT_TOKEN = "telegram_bot_token"
-CONFIG_TELEGRAM_CHAT_ID = "telegram_chat_id"
+CONFIG_TELEGRAM_CHAT_IDS = "telegram_chat_ids"
 
 CONFIG_CAMERAS = "cameras"
+CONFIG_DETECTION_LABEL = "detection_label"
 
-DEFAULT_PORT = 587
-DEFAULT_USERNAME: Final = None
-DEFAULT_PASSWORD: Final = None
-
-DESC_SMTP_SERVER = "IP address or hostname of SMTP server."
-DESC_SMTP_PORT = "Port the SMTP server is listening on."
-DESC_SMTP_USERNAME = "Username for the SMTP server."
-DESC_SMTP_PASSWORD = "Password for the SMTP server."
-DESC_SMTP_RECIPIENTS = "Recipients of the email."
-DESC_SMTP_SENDER = "Sender of the email."
+CONFIG_SEND_THUMBNAIL = "send_thumbnail"
+CONFIG_SEND_VIDEO = "send_video"
 
 DESC_TELEGRAM_BOT_TOKEN = "Telegram bot token."
-DESC_TELEGRAM_CHAT_ID = "Telegram chat ID."
+DESC_TELEGRAM_CHAT_IDS = "List of allowed Telegram chat IDs."
+DESC_DETECTION_LABEL = "Label of the object to send notifications for."
+
+DESC_SEND_THUMBNAIL = "Send a thumbnail of the detected object."
+DESC_SEND_VIDEO = "Send a video of the detected object."
 
 DESC_CAMERAS = (
     "Camera-specific configuration. All subordinate "
