@@ -176,7 +176,7 @@ class PTZ:
         self._app.add_handler(CommandHandler("stop", self.stop_patrol))
         self._app.add_handler(CommandHandler("st", self.stop_patrol))
         self._app.add_handler(CommandHandler("pos", self.get_position))
-        self._app.add_handler(CommandHandler("lissa", self.polissa))
+        self._app.add_handler(CommandHandler("lissa", self.lissa))
         self._app.add_handler(CallbackQueryHandler(self.callback_parser))
 
         try:
@@ -611,8 +611,70 @@ class PTZ:
         except ONVIFError as e:
             LOGGER.error(e)
 
-    async def polissa(self, update: Update, context: CallbackContext) -> None:
-        """Perform Lissajous curve swing patrols."""
+    async def lissa(self, update: Update, context: CallbackContext) -> None:
+        """
+        Perform Lissajous curve swing patrols.
+
+        Amplitude determines the maximum displacement from the center position.
+        For example, if the amplitude is 1.0, the movement will range from -1.0 to 1.0.
+        If the amplitude is 0.5, the movement will range from -0.5 to 0.5.
+
+        @param pan_amp: The amplitude of the pan movement.
+        Increasing the pan amplitude makes the horizontal oscillation wider.
+        The camera will pan further to the left and right.
+
+        Frequency determines the speed of the oscillations.
+        Higher frequencies result in faster oscillations, while lower frequencies result
+        in slower oscillations.
+
+        @param pan_freq: The frequency of the pan movement.
+        Increasing the pan frequency makes the horizontal oscillation occur more
+        rapidly. The camera will pan back and forth faster.
+
+        @param tilt_amp: The amplitude of the tilt movement.
+        Increasing the tilt amplitude makes the vertical oscillation wider.
+        The camera will tilt further up and down.
+
+        @param tilt_freq: The frequency of the tilt movement.
+        Increasing the tilt frequency makes the vertical oscillation occur more rapidly.
+        The camera will tilt up and down faster.
+
+        @param phase_shift: The phase shift of the pan movement.
+        The phase shift determines the relative displacement between the two
+        oscillations at a given time. It affects the overall shape and orientation of
+        the Lissajous figure.
+
+        The phase shift is an angular offset applied to one of the oscillations (pan)
+        relative to the other (tilt). It changes where one oscillation starts relative
+        to the other.
+
+        The default phase shift is pi/2, which means the pan oscillation starts a
+        quarter cycle ahead of the tilt oscillation. The resulting figure can resemble
+        a figure eight or other intricate patterns.
+
+        Phase shift 0: pan and tilt oscillations start at the same point. Shapes are
+        straight lines or an ellipse.
+
+        A phase shift of pi: one oscillation starts half cycle ahead of the other.
+        The resulting figure can look an inverted version of the original shape without
+        phase shift.
+
+        @param step_sleep_time: Time to sleep between each move step.
+
+        Parameters are passed through the Telegram message e.g.:
+
+        /lissa 1.0 0.1 1.0 0.1 1.5708 0.1
+
+        This will perform a Lissajous curve patrol with the following parameters:
+        - Pan amplitude: 1.0
+        - Pan frequency: 0.1
+        - Tilt amplitude: 1.0
+        - Tilt frequency: 0.1
+        - Phase shift: 1.5708 (pi/2)
+        - Step sleep time: 0.1
+
+        The resulting Lissajous curve will be displayed as a photo in the chat.
+        """
         self._stop_patrol_event.set()
         await asyncio.sleep(1.0)
 
@@ -688,55 +750,7 @@ class PTZ:
         pan_range: tuple = (-1.0, 1.0),
         tilt_range: tuple = (-1.0, 1.0),
     ):
-        """
-        Perform a Lissajous curve patrol.
-
-        Amplitude determines the maximum displacement from the center position.
-        For example, if the amplitude is 1.0, the movement will range from -1.0 to 1.0.
-        If the amplitude is 0.5, the movement will range from -0.5 to 0.5.
-
-        @param pan_amp: The amplitude of the pan movement.
-        Increasing the pan amplitude makes the horizontal oscillation wider.
-        The camera will pan further to the left and right.
-
-        Frequency determines the speed of the oscillations.
-        Higher frequencies result in faster oscillations, while lower frequencies result
-        in slower oscillations.
-
-        @param pan_freq: The frequency of the pan movement.
-        Increasing the pan frequency makes the horizontal oscillation occur more
-        rapidly. The camera will pan back and forth faster.
-
-        @param tilt_amp: The amplitude of the tilt movement.
-        Increasing the tilt amplitude makes the vertical oscillation wider.
-        The camera will tilt further up and down.
-
-        @param tilt_freq: The frequency of the tilt movement.
-        Increasing the tilt frequency makes the vertical oscillation occur more rapidly.
-        The camera will tilt up and down faster.
-
-        @param phase_shift: The phase shift of the pan movement.
-        The phase shift determines the relative displacement between the two
-        oscillations at a given time. It affects the overall shape and orientation of
-        the Lissajous figure.
-
-        The phase shift is an angular offset applied to one of the oscillations (pan)
-        relative to the other (tilt). It changes where one oscillation starts relative
-        to the other.
-
-        The default phase shift is pi/2, which means the pan oscillation starts a
-        quarter cycle ahead of the tilt oscillation. The resulting figure can resemble
-        a figure eight or other intricate patterns.
-
-        Phase shift 0: pan and tilt oscillations start at the same point. Shapes are
-        straight lines or an ellipse.
-
-        A phase shift of pi: one oscillation starts half cycle ahead of the other.
-        The resulting figure can look an inverted version of the original shape without
-        phase shift.
-
-        @param step_sleep_time: Time to sleep between each move step.
-        """
+        """Perform a Lissajous curve patrol."""
         pan_min, pan_max = pan_range
         tilt_min, tilt_max = tilt_range
 
