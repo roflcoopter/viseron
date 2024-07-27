@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import logging
 from threading import Thread
 from typing import TYPE_CHECKING
 
+import cv2
+import numpy as np
 import voluptuous as vol
 from onvif import ONVIFCamera, ONVIFError, ONVIFService
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -101,6 +104,13 @@ def setup(vis: Viseron, config) -> bool:
     return True
 
 
+def lissajous_curve(amp_x, amp_y, f_x, f_y, delta, t):
+    """Compute x and y values for a Lissajous curve."""
+    x = amp_x * np.sin(f_x * t + delta)
+    y = amp_y * np.sin(f_y * t)
+    return x, y
+
+
 class PTZ:
     """PTZ class allows control of pan/tilt/zoom over Telegram."""
 
@@ -166,6 +176,7 @@ class PTZ:
         self._app.add_handler(CommandHandler("stop", self.stop_patrol))
         self._app.add_handler(CommandHandler("st", self.stop_patrol))
         self._app.add_handler(CommandHandler("pos", self.get_position))
+        self._app.add_handler(CommandHandler("lissa", self.polissa))
         self._app.add_handler(CallbackQueryHandler(self.callback_parser))
 
         try:
@@ -199,16 +210,35 @@ class PTZ:
         loop.run_until_complete(self.listen())
         LOGGER.info("PTZ Controller done")
 
-    async def _do_patrol(self, sleep_after_swing=6):
-        """Perform a patrol of the camera."""
+    async def _do_patrol(
+        self, step_size: float = 0.1, step_sleep_time: float = 0.1, sleep_after_swing=6
+    ):
+        """
+        Perform a patrol of the camera.
+
+        Swings the camera from left to right and back, etc. within the camera's limits,
+        either by design or configuration (see minx_x, max_x).
+
+        @param step_size: The size of each move step
+        @param step_sleep_time: Time to sleep between each move step
+        @param sleep_after_swing: Time to pause after each swing
+        """
         try:
+
+            # No service, no service
             if self._ptz_service is None:
                 LOGGER.error("No PTZ service found")
                 return
+
+            # Get and store starting position
             status = self._ptz_service.GetStatus({"ProfileToken": self._ptz_token})
             current_x = status.Position.PanTilt.x
             current_y = status.Position.PanTilt.y
-            LOGGER.info(f"Camera position at start of patrol: {current_x}, {current_y}")
+            LOGGER.debug(
+                f"Camera position at start of patrol: x: {current_x}, y: {current_y}"
+            )
+
+            # Get the camera's FOV limits, if any.
             min_x = self._cameras[self._active_cam_index].get(
                 CONFIG_CAMERA_FULL_SWING_MIN_X
             )
@@ -216,12 +246,21 @@ class PTZ:
                 CONFIG_CAMERA_FULL_SWING_MAX_X
             )
 
+            # Decide which direction to start swinging based on the distance to the
+            # camera's FOV limits, left if closer to min_x, right if closer to max_x
             distance_to_min = current_x - min_x if min_x else 0
             distance_to_max = max_x - current_x if max_x else 0
             left = distance_to_min > distance_to_max
 
+            # Swing back and forth until stopped
             while not self._stop_patrol_event.is_set():
-                await self.full_swing(left, 0.1, min_x, max_x)
+                await self.full_swing(
+                    is_left=left,
+                    step_size=step_size,
+                    step_sleep_time=step_sleep_time,
+                    min_x=min_x,
+                    max_x=max_x,
+                )
                 if self._stop_patrol_event.is_set():
                     break
                 await asyncio.sleep(sleep_after_swing)
@@ -233,13 +272,13 @@ class PTZ:
             # all cameras in the config
 
             # Anyway, move back to the initial position
-            await self.absolute_move(current_x, current_y, current_y)
+            await self.absolute_move(current_x, current_y)
 
     async def full_swing(
         self,
         is_left: bool = True,
         step_size: float = 0.1,
-        sleep_time: float = 0.1,
+        step_sleep_time: float = 0.1,
         min_x: float | None = None,
         max_x: float | None = None,
     ):
@@ -253,15 +292,20 @@ class PTZ:
         @param max_x: Maximum x value to stop at
 
         """
+
+        # No service, no service
         if self._ptz_service is None:
             LOGGER.error("No PTZ service found")
             return
+
+        # Get and store starting position
         status = self._ptz_service.GetStatus({"ProfileToken": self._ptz_token})
         current_x = status.Position.PanTilt.x
-        LOGGER.info(f"Fullswing start: x: {current_x}, min_x: {min_x}, max_x: {max_x}")
+        LOGGER.debug(f"Fullswing start: x: {current_x}, min_x: {min_x}, max_x: {max_x}")
 
         move_step = -abs(step_size) if is_left else abs(step_size)
 
+        # Do not move beyond the camera's FOV bounds
         if is_left:
             if min_x is not None and current_x + move_step <= min_x:
                 return
@@ -269,13 +313,16 @@ class PTZ:
             if max_x is not None and current_x + move_step >= max_x:
                 return
 
+        # Move while not stopped or stopped by the camera's FOV or hardware bounds
+        # Unsure how this will react to 360 (or more?) degree cameras
         while (
-            self.relative_move(move_step, 0.0) and not self._stop_patrol_event.is_set()
+            self.relative_move(x=move_step, y=0.0)
+            and not self._stop_patrol_event.is_set()
         ):
-            await asyncio.sleep(sleep_time)
+            await asyncio.sleep(step_sleep_time)
             status = self._ptz_service.GetStatus({"ProfileToken": self._ptz_token})
             current_x = status.Position.PanTilt.x
-            LOGGER.info(
+            LOGGER.debug(
                 f"Fullswing moved to: x: {current_x}, min_x: {min_x}, max_x: {max_x}"
             )
             if min_x is not None and current_x <= min_x:
@@ -283,10 +330,16 @@ class PTZ:
             if max_x is not None and current_x >= max_x:
                 break
 
-        LOGGER.info(f"Fullswing end: x: {current_x}, min_x: {min_x}, max_x: {max_x}")
+        LOGGER.debug(f"Fullswing end: x: {current_x}, min_x: {min_x}, max_x: {max_x}")
 
-    def relative_move(self, x, y) -> bool:
-        """Move the camera relative to its current position."""
+    def relative_move(self, x: float, y: float) -> bool:
+        """
+        Move the camera relative to its current position.
+
+        @param x: The relative x position to move to
+        @param y: The relative y position to move to
+        @return: True if the move was successful, False otherwise
+        """
         if self._ptz_service is None:
             LOGGER.error("No PTZ service found")
             return False
@@ -323,12 +376,12 @@ class PTZ:
             )
             return True
         except ONVIFError as e:
-            # errors occur when the zoom exceeds the camera's limits, silence them
+            # errors occur when the zoom exceeds the camera's limits?, silence them
             # can't check, camera does not support zoom
             LOGGER.debug(e)
             return False
 
-    async def absolute_move(self, x, y, zoom):
+    def absolute_move(self, x: float, y: float):
         """Move the camera to an absolute position."""
         if self._ptz_service is None:
             LOGGER.error("No PTZ service found")
@@ -339,14 +392,14 @@ class PTZ:
                     "ProfileToken": self._ptz_token,
                     "Position": {
                         "PanTilt": {"x": x, "y": y},
-                        "Zoom": {"x": zoom},
+                        "Zoom": {"x": 0.0},  # or leave unchanged?
                     },
                 }
             )
         except ONVIFError as e:
             LOGGER.error(e)
 
-    async def continuous_move(self, x, y, seconds):
+    async def continuous_move(self, x_velocity: float, y_velocity: float, seconds):
         """Move the camera continuously for a set amount of time."""
         if self._ptz_service is None:
             LOGGER.error("No PTZ service found")
@@ -356,7 +409,7 @@ class PTZ:
                 {
                     "ProfileToken": self._ptz_token,
                     "Velocity": {
-                        "PanTilt": {"x": x, "y": y},
+                        "PanTilt": {"x": x_velocity, "y": y_velocity},
                         "Zoom": {"x": 0.0},
                     },
                 }
@@ -402,43 +455,65 @@ class PTZ:
         Swings the camera from left to right and back, etc.
 
         @param duration: The duration of the patrol in seconds
-        @param sleep_time: The time to sleep after each swing in seconds
+        @param sleep_after_swing: The time to sleep after each swing in seconds
+        @param step_size: The size of each move step
+        @param step_sleep_time: Time to sleep between each move step
 
         parameters are passed in the Telegram message e.g.:
 
-        /patrol 60 6
+        /patral 60
 
-        This will swing the camera back and forth for 60 seconds with a 6 second sleep
-        after each swing.
+        This will swing the camera back and forth for 60 seconds with a 6 second pause.
 
+        /patrol 60 10
+
+        This will swing the camera back and forth for 60 seconds with a 10 second pause.
+
+        /patrol 60 6 0.3
+
+        This will swing the camera back and forth for 60 seconds with a 6 second pause
+        after each completed swing. Each step will be 0.3 in size and the move will
+        pause for 0.1 seconds between each step.
+
+        /patrol 0 10 0.3 5.0
+
+        This will swing the camera back and forth indefinitely with a 10 second pause
+        after each completed swing. Each step will be 0.3 in size and the move will
+        pause for 5 seconds between each step.
+
+        When the patrol is stopped, the camera will return to its initial position.
         """
         duration = 60 * 60 * 24  # default to 24 hours
-        sleep_time = 6
-        if context.args and len(context.args) == 1:
+        sleep_after_swing = 6
+        if context.args and len(context.args) > 0:
             duration = int(context.args[0])
-        elif context.args and len(context.args) == 2:
-            duration = int(context.args[0])
-            sleep_time = int(context.args[1])
+        if context.args and len(context.args) > 1:
+            sleep_after_swing = int(context.args[1])
+        if context.args and len(context.args) > 2:
+            step_size = float(context.args[2])
+        if context.args and len(context.args) > 3:
+            step_sleep_time = float(context.args[3])
         self._stop_patrol_event.clear()
         await self._fire_and_forget(
-            self._do_patrol, duration, sleep_after_swing=sleep_time
+            self._do_patrol,
+            duration,
+            sleep_after_swing=sleep_after_swing,
+            step_size=step_size,
+            step_sleep_time=step_sleep_time,
         )
 
     async def _fire_and_forget(self, coro, timeout, *args, **kwargs):
         """Fire and forget a coroutine with a timeout."""
-        task = asyncio.create_task(coro(*args, **kwargs))
-        asyncio.create_task(self._timeout_task(task, timeout))
+        coro_task = asyncio.create_task(coro(*args, **kwargs))
+        # If a timeout is given, create a task to cancel the coroutine after the timeout
+        if timeout > 0:
+            asyncio.create_task(self._timeout_task(coro_task, timeout))
 
     async def _timeout_task(self, task, timeout):
-        """
-        Cancel a task after a set amount of time if given.
-
-        If not given, the task will run indefinitely.
-        """
-        if timeout > 0:
-            await asyncio.sleep(timeout)
-            if not task.done():
-                task.cancel()
+        """Cancel a task after a set amount of time if given."""
+        await asyncio.sleep(timeout)
+        if not task.done():
+            task.cancel()
 
     async def stop_patrol(self, update: Update, context: CallbackContext) -> None:
         """Stop the patrol."""
@@ -457,12 +532,8 @@ class PTZ:
             # create a numbered list of available cameras based on the config
             cams = "\n".join(
                 [
-                    f"""
-                    {i+1}: {c[CONFIG_CAMERA_NAME]
-                            if c[CONFIG_CAMERA_NAME]
-                            else c[CONFIG_CAMERA_IP]}
-                    """
-                    for i, c in enumerate(self._cameras)
+                    f"{i+1}: {cam[CONFIG_CAMERA_NAME] or cam[CONFIG_CAMERA_IP]}"
+                    for i, cam in enumerate(self._cameras)
                 ]
             )
             keyboard = []
@@ -490,6 +561,9 @@ class PTZ:
         query = update.callback_query
         if query:
             await query.answer(read_timeout=5)
+            # Until we have a better way to handle this, stop the patrol,
+            # otherwise the swings would be switched to the new camera
+            self._stop_patrol_event.set()
             self._initialize_camera(int(str(query.data)) - 1)
             cam_name = self._cameras[int(str(query.data)) - 1][CONFIG_CAMERA_NAME]
             await query.edit_message_text(
@@ -505,6 +579,8 @@ class PTZ:
                 return
             index = int(context.args[0]) - 1
             if 0 <= index < len(self._cameras):
+                # Until we have a better way to handle this, stop the patrol,
+                self._stop_patrol_event.set()
                 self._initialize_camera(index)
             else:
                 if update.message:
@@ -513,7 +589,7 @@ class PTZ:
             cam_name = self._cameras[index][CONFIG_CAMERA_NAME]
             if update.message:
                 await update.message.reply_text(
-                    f"Switched to {cam_name if cam_name else f'camera {index+1}'}"
+                    f"Switched to {cam_name or f'camera {index+1}'}"
                 )
         except TelegramError as e:
             LOGGER.error(e)
@@ -534,6 +610,148 @@ class PTZ:
                 )
         except ONVIFError as e:
             LOGGER.error(e)
+
+    async def polissa(self, update: Update, context: CallbackContext) -> None:
+        """Perform Lissajous curve swing patrols."""
+        self._stop_patrol_event.set()
+        await asyncio.sleep(1.0)
+
+        pan_amp = 1.0
+        pan_freq = 0.1
+        tilt_amp = 1.0
+        tilt_freq = 0.1
+        phase_shift = np.pi / 2
+        step_sleep_time = 0.1
+
+        if context.args and len(context.args) > 0:
+            pan_amp = float(context.args[0])
+        if context.args and len(context.args) > 1:
+            pan_freq = float(context.args[1])
+        if context.args and len(context.args) > 2:
+            tilt_amp = float(context.args[2])
+        if context.args and len(context.args) > 3:
+            tilt_freq = float(context.args[3])
+        if context.args and len(context.args) > 4:
+            phase_shift = float(context.args[4])
+        if context.args and len(context.args) > 5:
+            step_sleep_time = float(context.args[5])
+
+        # Generate Lissajous curve for visualization
+        t = np.linspace(0, 100, 1000)
+        x, y = lissajous_curve(pan_amp, tilt_amp, pan_freq, tilt_freq, phase_shift, t)
+
+        # Normalize and scale the curve to fit in the image
+        x = np.interp(x, (x.min(), x.max()), (0, 250))
+        y = np.interp(y, (y.min(), y.max()), (0, 250))
+
+        # Create a blank image
+        image = np.ones((250, 250, 3), dtype=np.uint8) * 255
+
+        # Draw the curve
+        for i in range(len(x) - 1):
+            cv2.line(
+                image,
+                (int(x[i]), int(y[i])),
+                (int(x[i + 1]), int(y[i + 1])),
+                (0, 0, 255),
+                2,
+            )
+
+        if update.message:
+            # Encode the image to a memory buffer
+            is_success, buffer = cv2.imencode(".png", image)
+            if is_success and buffer is not None:
+                io_buf = io.BytesIO(buffer)  # type: ignore[arg-type]
+                await update.message.reply_photo(photo=io_buf)
+
+        self._stop_patrol_event.clear()
+
+        await self._fire_and_forget(
+            coro=self._do_lissa_curve_patrol,
+            timeout=0,
+            pan_amp=pan_amp,
+            pan_freq=pan_freq,
+            tilt_amp=tilt_amp,
+            tilt_freq=tilt_freq,
+            phase_shift=phase_shift,
+            step_sleep_time=step_sleep_time,
+        )
+
+    async def _do_lissa_curve_patrol(
+        self,
+        pan_amp: float = 1.0,
+        pan_freq: float = 0.1,
+        tilt_amp: float = 1.0,
+        tilt_freq: float = 0.1,
+        phase_shift: float = np.pi / 2,
+        step_sleep_time: float = 0.1,
+        pan_range: tuple = (-1.0, 1.0),
+        tilt_range: tuple = (-1.0, 1.0),
+    ):
+        """
+        Perform a Lissajous curve patrol.
+
+        Amplitude determines the maximum displacement from the center position.
+        For example, if the amplitude is 1.0, the movement will range from -1.0 to 1.0.
+        If the amplitude is 0.5, the movement will range from -0.5 to 0.5.
+
+        @param pan_amp: The amplitude of the pan movement.
+        Increasing the pan amplitude makes the horizontal oscillation wider.
+        The camera will pan further to the left and right.
+
+        Frequency determines the speed of the oscillations.
+        Higher frequencies result in faster oscillations, while lower frequencies result
+        in slower oscillations.
+
+        @param pan_freq: The frequency of the pan movement.
+        Increasing the pan frequency makes the horizontal oscillation occur more
+        rapidly. The camera will pan back and forth faster.
+
+        @param tilt_amp: The amplitude of the tilt movement.
+        Increasing the tilt amplitude makes the vertical oscillation wider.
+        The camera will tilt further up and down.
+
+        @param tilt_freq: The frequency of the tilt movement.
+        Increasing the tilt frequency makes the vertical oscillation occur more rapidly.
+        The camera will tilt up and down faster.
+
+        @param phase_shift: The phase shift of the pan movement.
+        The phase shift determines the relative displacement between the two
+        oscillations at a given time. It affects the overall shape and orientation of
+        the Lissajous figure.
+
+        The phase shift is an angular offset applied to one of the oscillations (pan)
+        relative to the other (tilt). It changes where one oscillation starts relative
+        to the other.
+
+        The default phase shift is pi/2, which means the pan oscillation starts a
+        quarter cycle ahead of the tilt oscillation. The resulting figure can resemble
+        a figure eight or other intricate patterns.
+
+        Phase shift 0: pan and tilt oscillations start at the same point. Shapes are
+        straight lines or an ellipse.
+
+        A phase shift of pi: one oscillation starts half cycle ahead of the other.
+        The resulting figure can look an inverted version of the original shape without
+        phase shift.
+
+        @param step_sleep_time: Time to sleep between each move step.
+        """
+        pan_min, pan_max = pan_range
+        tilt_min, tilt_max = tilt_range
+
+        t = 0.0
+        while not self._stop_patrol_event.is_set():
+            t += 1.0
+            x = pan_amp * np.sin(pan_freq * t + phase_shift)
+            y = tilt_amp * np.sin(tilt_freq * t)
+
+            # Scale x and y to the specified pan and tilt ranges
+            x = pan_min + (x + 1) * (pan_max - pan_min) / 2
+            y = tilt_min + (y + 1) * (tilt_max - tilt_min) / 2
+
+            self.absolute_move(x, y)
+            await asyncio.sleep(step_sleep_time)
 
     async def record(self, update: Update, context: CallbackContext) -> None:
         """
