@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import TYPE_CHECKING
 
 import voluptuous as vol
@@ -98,20 +99,26 @@ class Notifier:
         label = event_data.data.previous_state.attributes["objects"][0].label
         for chat_id in chat_ids:
             if self._config[CONFIG_SEND_THUMBNAIL]:
-                await bot.send_photo(
-                    chat_id=chat_id,
-                    photo=open(
-                        event_data.data.previous_state.attributes["thumbnail_path"],
-                        "rb",
-                    ),
-                    caption=f"Camera: {event_data.data.entity_id} detected a {label}",
-                )
-            if self._config[CONFIG_SEND_THUMBNAIL]:
-                await bot.send_video(
-                    chat_id=chat_id,
-                    video=open(event_data.data.previous_state.attributes["path"], "rb"),
-                    caption="Here's the video, yo.",
-                )
+                file = event_data.data.previous_state.attributes["thumbnail_path"]
+                if os.path.exists(file):
+                    await bot.send_photo(
+                        chat_id=chat_id,
+                        photo=open(
+                            event_data.data.previous_state.attributes["thumbnail_path"],
+                            "rb",
+                        ),
+                        caption=f"Cam {event_data.data.entity_id} detected a {label}",
+                    )
+            if self._config[CONFIG_SEND_VIDEO]:
+                file = event_data.data.previous_state.attributes["path"]
+                if os.path.exists(file):
+                    await bot.send_video(
+                        chat_id=chat_id,
+                        video=open(
+                            event_data.data.previous_state.attributes["path"], "rb"
+                        ),
+                        caption="Here's the video, yo.",
+                    )
             if (
                 not self._config[CONFIG_SEND_THUMBNAIL]
                 and not self._config[CONFIG_SEND_VIDEO]

@@ -483,8 +483,10 @@ class PTZ:
 
         When the patrol is stopped, the camera will return to its initial position.
         """
-        duration = 60 * 60 * 24  # default to 24 hours
+        duration = 60 * 60 * 24
         sleep_after_swing = 6
+        step_size = 0.1
+        step_sleep_time = 0.1
         if context.args and len(context.args) > 0:
             duration = int(context.args[0])
         if context.args and len(context.args) > 1:
