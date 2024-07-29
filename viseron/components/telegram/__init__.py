@@ -240,6 +240,8 @@ class TelegramPTZ:
         self._app.add_handler(CommandHandler("r", self.record))
         self._app.add_handler(CommandHandler("list", self.list_cams))
         self._app.add_handler(CommandHandler("li", self.list_cams))
+        self._app.add_handler(CommandHandler("which", self.which_cam))
+        self._app.add_handler(CommandHandler("w", self.which_cam))
         self._app.add_handler(CommandHandler("toggle", self.toggle_camera))
         self._app.add_handler(CommandHandler("t", self.toggle_camera))
         self._app.add_handler(CommandHandler("stop", self.stop_patrol))
@@ -577,6 +579,16 @@ class TelegramPTZ:
         )
         await asyncio.sleep(duration)
         cam.recorder.stop(recording)
+
+    async def which_cam(self, update: Update, context: CallbackContext) -> None:
+        """Get the currently active camera."""
+        if update.message:
+            if self._active_cam_ident:
+                await update.message.reply_text(
+                    f"Active camera: {self._active_cam_ident}"
+                )
+            else:
+                await update.message.reply_text("No camera selected.")
 
     async def toggle_camera(self, update: Update, context: CallbackContext) -> None:
         """Toggle the camera on or off."""
