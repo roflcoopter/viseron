@@ -1,4 +1,5 @@
 """Base recorder."""
+
 from __future__ import annotations
 
 import datetime
@@ -282,9 +283,11 @@ class AbstractRecorder(ABC, RecorderBase):
             path=os.path.join(full_path, video_name),
             filename=video_name,
             thumbnail=thumbnail,
-            thumbnail_path=thumbnail_path
-            if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]
-            else None,
+            thumbnail_path=(
+                thumbnail_path
+                if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]
+                else None
+            ),
             objects=objects_in_fov,
         )
 
@@ -381,7 +384,7 @@ class AbstractRecorder(ABC, RecorderBase):
             session.commit()
 
         self._vis.dispatch_event(
-            EVENT_RECORDER_COMPLETE,
+            EVENT_RECORDER_COMPLETE.format(camera_identifier=self._camera.identifier),
             EventRecorderData(
                 camera=self._camera,
                 recording=recording,

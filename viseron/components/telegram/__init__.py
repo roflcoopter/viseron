@@ -22,8 +22,7 @@ from telegram.ext import (
 )
 
 from viseron.components.ptz import PTZ
-
-# from viseron.components.storage.models import TriggerTypes
+from viseron.components.storage.models import TriggerTypes
 from viseron.const import EVENT_STATE_CHANGED, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE
@@ -146,6 +145,8 @@ class TelegramEventNotifier:
         # Never gets here?
         LOGGER.info("Recorder complete event")
 
+    # Using the "old" implementation for now until I figure out why the event isn't
+    # being triggered (or the listener isn't).
     def state_changed(self, event_data: Event) -> None:
         """Viseron state change listener."""
         if (
@@ -214,7 +215,7 @@ class TelegramPTZ:
         self._bot_token = self._config[CONFIG_TELEGRAM_BOT_TOKEN]
         self._app: Application | None = None
         self._ptz: PTZ = self._vis.data[CONFIG_PTZ_COMPONENT]
-        self._active_cam_ident: str = self._config[CONFIG_CAMERAS].keys()[0] | ""
+        self._active_cam_ident: str = list(self._config[CONFIG_CAMERAS].keys())[0] or ""
         self._stop_event = asyncio.Event()
         vis.data[COMPONENT] = self
 
@@ -548,32 +549,34 @@ class TelegramPTZ:
 
         The recorder also records for a certain configured period, how do I extend it?
         """
-        if update.message:
-            await update.message.reply_text(
-                "This functionality isn't implemented yet :("
-            )
-        # duration = 5
-        # if context.args and len(context.args) > 0:
-        #     duration = int(context.args[0])
-        # cam: AbstractCamera = self._ptz.get_camera(self._active_cam_ident)
-        # if cam.is_recording:
-        #     await update.message.reply_text("Camera is already recording.")
-        #     return
-        # cam.start_recorder(
-        #     shared_frame=cam.current_frame,
-        #     objects_in_fov=[],
-        #     trigger_type=TriggerTypes.OBJECT, # MANUAL?
-        # )
-        # await asyncio.sleep(duration)
-        # cam.stop_recorder()
-        # recording = cam.recorder.get_latest_recording()
-        # if recording:
-        #     date_key = next(iter(recording))
-        #     recording_data = recording[date_key]
-        #     thumbnail_path = next(iter(recording_data.values()))["thumbnail_path"]
-        #     await update.message.reply_photo(photo=open(thumbnail_path, "rb"))
-        # else:
-        #     await update.message.reply_text("No recording found.")
+        # if update.message:
+        #     await update.message.reply_text(
+        #         "This functionality isn't implemented yet :("
+        #     )
+        duration = 5
+        if context.args and len(context.args) > 0:
+            duration = int(context.args[0])
+        cam: AbstractCamera | None = self._ptz.get_camera(self._active_cam_ident)
+        if cam is None:
+            if update.message:
+                await update.message.reply_text("Camera not found.")
+            return
+
+        if cam.is_recording:
+            if update.message:
+                await update.message.reply_text("Camera is already recording.")
+            return
+        if cam.current_frame is None:
+            if update.message:
+                await update.message.reply_text("No frame available.")
+            return
+        recording = cam.recorder.start(
+            shared_frame=cam.current_frame,
+            trigger_type=TriggerTypes.OBJECT,
+            objects_in_fov=[],
+        )
+        await asyncio.sleep(duration)
+        cam.recorder.stop(recording)
 
     async def toggle_camera(self, update: Update, context: CallbackContext) -> None:
         """Toggle the camera on or off."""
