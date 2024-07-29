@@ -23,7 +23,7 @@ from telegram.ext import (
 
 from viseron.components.ptz import PTZ
 from viseron.components.storage.models import TriggerTypes
-from viseron.const import EVENT_STATE_CHANGED, VISERON_SIGNAL_SHUTDOWN
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE
 from viseron.domains.camera.recorder import EventRecorderData
@@ -138,72 +138,26 @@ class TelegramEventNotifier:
                 EVENT_RECORDER_COMPLETE.format(camera_identifier=camera_identifier),
                 self._recorder_complete,
             )
-        self._vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
+        # self._vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
 
     # pylint: disable=unused-argument
     def _recorder_complete(self, event_data: Event[EventRecorderData]) -> None:
-        # Never gets here?
+        file = event_data.data.recording.path
+        if os.path.exists(file) and self._config[CONFIG_SEND_VIDEO]:
+            caption = f"{event_data.data.camera.identifier}"
+            if event_data.data.recording.objects:
+                caption += f" detected a {event_data.data.recording.objects[0].label}"
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            for chat_id in self._chat_ids:
+                loop.run_until_complete(
+                    self._bot.send_video(
+                        chat_id=chat_id,
+                        video=open(file, "rb"),
+                        caption=caption,
+                    )
+                )
         LOGGER.info("Recorder complete event")
-
-    # Using the "old" implementation for now until I figure out why the event isn't
-    # being triggered (or the listener isn't).
-    def state_changed(self, event_data: Event) -> None:
-        """Viseron state change listener."""
-        if (
-            event_data.data.entity_id
-            and event_data.data.entity_id.startswith("binary_sensor.")
-            and event_data.data.entity_id.endswith("_recorder")
-            and event_data.data.current_state
-            and event_data.data.current_state.state == "off"
-            and event_data.data.previous_state
-            and event_data.data.previous_state.state == "on"
-            and len(event_data.data.previous_state.attributes["objects"]) > 0
-            and event_data.data.previous_state.attributes["objects"][0].label
-            == self._config[CONFIG_DETECTION_LABEL]
-        ):
-            # bit of hacky way to get the camera name
-            cam_name = event_data.data.entity_id.replace("binary_sensor.", "").replace(
-                "_recorder", ""
-            )
-            if cam_name in self._config[CONFIG_CAMERAS]:
-                LOGGER.info(
-                    f"Camera {cam_name} stopped recording"
-                    f"a {self._config[CONFIG_DETECTION_LABEL]}"
-                    " - sending telegram notifications"
-                )
-                asyncio.run(self._notify_telegram(event_data))
-
-    async def _notify_telegram(self, event_data) -> None:
-        """Notify Telegram."""
-        label = self._config[CONFIG_DETECTION_LABEL]
-        camera_identifier = event_data.data.entity_id
-        for chat_id in self._chat_ids:
-            if self._config[CONFIG_SEND_THUMBNAIL]:
-                file = event_data.data.previous_state.attributes["thumbnail_path"]
-                if os.path.exists(file):
-                    await self._bot.send_photo(
-                        chat_id=chat_id,
-                        photo=open(
-                            event_data.data.previous_state.attributes["thumbnail_path"],
-                            "rb",
-                        ),
-                        caption=f"{label} detected at {camera_identifier}",
-                    )
-            if self._config[CONFIG_SEND_VIDEO]:
-                file = event_data.data.previous_state.attributes["path"]
-                if os.path.exists(file):
-                    await self._bot.send_video(
-                        chat_id=chat_id,
-                        video=open(
-                            event_data.data.previous_state.attributes["path"], "rb"
-                        ),
-                        caption=f"{label} detected at {camera_identifier}",
-                    )
-            if self._config[CONFIG_SEND_MESSAGE]:
-                await self._bot.send_message(
-                    chat_id=chat_id,
-                    text=f"{label} detected at {camera_identifier}",
-                )
 
 
 class TelegramPTZ:
@@ -551,10 +505,6 @@ class TelegramPTZ:
 
         The recorder also records for a certain configured period, how do I extend it?
         """
-        # if update.message:
-        #     await update.message.reply_text(
-        #         "This functionality isn't implemented yet :("
-        #     )
         duration = 5
         if context.args and len(context.args) > 0:
             duration = int(context.args[0])
