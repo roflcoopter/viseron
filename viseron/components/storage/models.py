@@ -1,4 +1,5 @@
 """Database models for storage component."""
+
 from __future__ import annotations
 
 import datetime

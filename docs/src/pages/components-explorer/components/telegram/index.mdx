@@ -1,0 +1,27 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting";
+
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+-- Provide short summary here --
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+Config example here
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Troubleshooting
+
+<ComponentTroubleshooting meta={ComponentMetadata} />
