@@ -157,7 +157,6 @@ class TelegramEventNotifier:
                         caption=caption,
                     )
                 )
-        LOGGER.info("Recorder complete event")
 
 
 class TelegramPTZ:
