@@ -511,11 +511,16 @@ class TelegramPTZ:
 
         This will record a video for 60 seconds and return it.
 
+        /record 60 5 will record five 60 second videos and return them.
+
         The recorder records for a certain configured period, how do I extend it?
         """
         duration = 5
+        number = 1
         if context.args and len(context.args) > 0:
             duration = int(context.args[0])
+        if context.args and len(context.args) > 1:
+            number = int(context.args[1])
         cam: AbstractCamera | None = self._ptz.get_camera(self._active_cam_ident)
         if cam is None:
             if update.message:
@@ -530,14 +535,15 @@ class TelegramPTZ:
             if update.message:
                 await update.message.reply_text("No frame available.")
             return
-        recording = cam.recorder.start(
-            shared_frame=cam.current_frame,
-            trigger_type=TriggerTypes.OBJECT,
-            objects_in_fov=[],
-        )
-        await asyncio.sleep(duration)
-        if cam.recorder.is_recording:
-            cam.recorder.stop(recording)
+        for _ in range(number):
+            recording = cam.recorder.start(
+                shared_frame=cam.current_frame,
+                trigger_type=TriggerTypes.OBJECT,
+                objects_in_fov=[],
+            )
+            await asyncio.sleep(duration)
+            if cam.recorder.is_recording:
+                cam.recorder.stop(recording)
 
     async def which_cam(self, update: Update, context: CallbackContext) -> None:
         """Get the currently active camera."""
