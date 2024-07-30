@@ -104,9 +104,10 @@ def setup(vis: Viseron, config) -> bool:
         Thread(target=telegram_ptz.run_async).start()
 
     telegram_notifier = TelegramEventNotifier(vis, config)
-    telegram_notifier.listen()
+    Thread(target=telegram_notifier.run_async).start()
 
     vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, telegram_ptz.stop)
+    vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, telegram_notifier.stop)
     return True
 
 
@@ -125,38 +126,46 @@ class TelegramEventNotifier:
         self._config = config
         self._bot_token = self._config[CONFIG_TELEGRAM_BOT_TOKEN]
         self._chat_ids = self._config[CONFIG_TELEGRAM_CHAT_IDS]
+        self._loop = asyncio.new_event_loop()
         self._bot = Bot(token=self._bot_token)
-        vis.data[COMPONENT] = self
-
-    def listen(self) -> None:
-        """Listen for events to send notifications for."""
-
-        # This doesn't work. I'm not getting the recorder complete event.
-        # I do have create_event_clip set to true.
+        self._stop_event = asyncio.Event()
         for camera_identifier in self._config[CONFIG_CAMERAS]:
             self._vis.listen_event(
                 EVENT_RECORDER_COMPLETE.format(camera_identifier=camera_identifier),
-                self._recorder_complete,
+                self._recorder_complete_event,
             )
-        # self._vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
+        vis.data[COMPONENT] = self
 
-    # pylint: disable=unused-argument
-    def _recorder_complete(self, event_data: Event[EventRecorderData]) -> None:
+    def _recorder_complete_event(self, event_data: Event[EventRecorderData]) -> None:
+        asyncio.run_coroutine_threadsafe(self._send_video(event_data), self._loop)
+
+    async def _send_video(self, event_data: Event[EventRecorderData]) -> None:
         file = event_data.data.recording.path
         if os.path.exists(file) and self._config[CONFIG_SEND_VIDEO]:
             caption = f"{event_data.data.camera.identifier}"
             if event_data.data.recording.objects:
                 caption += f" detected a {event_data.data.recording.objects[0].label}"
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
             for chat_id in self._chat_ids:
-                loop.run_until_complete(
-                    self._bot.send_video(
-                        chat_id=chat_id,
-                        video=open(file, "rb"),
-                        caption=caption,
-                    )
+                await self._bot.send_video(
+                    chat_id=chat_id,
+                    video=open(file, "rb"),
+                    caption=caption,
                 )
+
+    async def _run_until_stopped(self):
+        while not self._stop_event.is_set():
+            await asyncio.sleep(1)
+
+    def run_async(self):
+        """Run Telegram Notifier in a new event loop."""
+        asyncio.set_event_loop(self._loop)
+        self._loop.run_until_complete(self._run_until_stopped())
+        LOGGER.info("Telegram Notifier done")
+
+    def stop(self) -> None:
+        """Stop Notifier component."""
+        self._stop_event.set()
+        LOGGER.info("Stopping Telegram Notifier")
 
 
 class TelegramPTZ:
@@ -498,11 +507,7 @@ class TelegramPTZ:
 
         This will record a video for 60 seconds and return it.
 
-        This doesn't work currently. Maybe I should start recorder, stop and and then
-        listen for a RECORDING_COMPLETE event or some such? I could return from this
-        function immediately and come back asynchronously when the recording is done.
-
-        The recorder also records for a certain configured period, how do I extend it?
+        The recorder records for a certain configured period, how do I extend it?
         """
         duration = 5
         if context.args and len(context.args) > 0:

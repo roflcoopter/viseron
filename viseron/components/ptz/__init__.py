@@ -247,10 +247,8 @@ class PTZ:
                 LOGGER.error("No camera found")
                 return
 
-            # pylint: disable=protected-access
-            min_x = cam._config.get(CONFIG_CAMERA_FULL_SWING_MIN_X)
-            # pylint: disable=protected-access
-            max_x = cam._config.get(CONFIG_CAMERA_FULL_SWING_MAX_X)
+            min_x = cam.config.get(CONFIG_CAMERA_FULL_SWING_MIN_X)
+            max_x = cam.config.get(CONFIG_CAMERA_FULL_SWING_MAX_X)
 
             # Decide which direction to start swinging based on the distance to the
             # camera's FOV limits, left if closer to min_x, right if closer to max_x
