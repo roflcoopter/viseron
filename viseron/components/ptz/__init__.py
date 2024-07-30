@@ -25,6 +25,12 @@ from .const import (
     CONFIG_CAMERA_USERNAME,
     CONFIG_CAMERAS,
     CONFIG_HOST,
+    CONFIG_PRESET_NAME,
+    CONFIG_PRESET_ON_STARTUP,
+    CONFIG_PRESET_X,
+    CONFIG_PRESET_Y,
+    CONFIG_PRESET_Z,
+    CONFIG_PTZ_PRESETS,
     DESC_CAMERA_FULL_SWING_MAX_X,
     DESC_CAMERA_FULL_SWING_MIN_X,
     DESC_CAMERA_PASSWORD,
@@ -32,12 +38,30 @@ from .const import (
     DESC_CAMERA_USERNAME,
     DESC_CAMERAS,
     DESC_COMPONENT,
+    DESC_PRESET_NAME,
+    DESC_PRESET_ON_STARTUP,
+    DESC_PRESET_X,
+    DESC_PRESET_Y,
+    DESC_PRESET_Z,
+    DESC_PTZ_PRESET,
 )
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
 
 LOGGER = logging.getLogger(__name__)
+
+PTZ_PRESET = vol.Schema(
+    {
+        vol.Required(CONFIG_PRESET_NAME, description=DESC_PRESET_NAME): str,
+        vol.Required(CONFIG_PRESET_X, description=DESC_PRESET_X): float,
+        vol.Required(CONFIG_PRESET_Y, description=DESC_PRESET_Y): float,
+        vol.Optional(CONFIG_PRESET_Z, description=DESC_PRESET_Z): float,
+        vol.Optional(
+            CONFIG_PRESET_ON_STARTUP, description=DESC_PRESET_ON_STARTUP, default=False
+        ): bool,
+    }
+)
 
 CAMERA_SCHEMA = vol.Schema(
     {
@@ -52,6 +76,7 @@ CAMERA_SCHEMA = vol.Schema(
             CONFIG_CAMERA_FULL_SWING_MAX_X,
             description=DESC_CAMERA_FULL_SWING_MAX_X,
         ): float,
+        vol.Optional(CONFIG_PTZ_PRESETS, description=DESC_PTZ_PRESET): [PTZ_PRESET],
     }
 )
 
@@ -82,7 +107,7 @@ def setup(vis: Viseron, config) -> bool:
     ptz = PTZ(vis, config[COMPONENT])
     Thread(
         target=ptz.run,
-        name="PTZ",
+        name="ptz",
     ).start()
     return True
 
@@ -140,25 +165,31 @@ class PTZ:
         camera: AbstractCamera = event_data.data
         if camera.identifier in self._config[CONFIG_CAMERAS]:
             self._cameras.update({camera.identifier: camera})
+            config = self._config[CONFIG_CAMERAS][camera.identifier]
             onvif_camera = ONVIFCamera(
                 # There has to be a better way to get this
                 self._vis.get_registered_domain(
                     CAMERA_DOMAIN, camera.identifier
                 ).config[CONFIG_HOST],
-                self._config[CONFIG_CAMERAS][camera.identifier][CONFIG_CAMERA_PORT],
-                self._config[CONFIG_CAMERAS][camera.identifier][CONFIG_CAMERA_USERNAME],
-                self._config[CONFIG_CAMERAS][camera.identifier][CONFIG_CAMERA_PASSWORD],
+                config[CONFIG_CAMERA_PORT],
+                config[CONFIG_CAMERA_USERNAME],
+                config[CONFIG_CAMERA_PASSWORD],
             )
             self._onvif_cameras.update({camera.identifier: onvif_camera})
             self._ptz_services.update(
                 {camera.identifier: onvif_camera.create_ptz_service()}
             )
-
             media_service = onvif_camera.create_media_service()
             self._ptz_tokens.update(
                 {camera.identifier: media_service.GetProfiles()[0].token}
             )
             self._stop_patrol_events.update({camera.identifier: asyncio.Event()})
+            if CONFIG_PTZ_PRESETS in config:
+                for preset in config[CONFIG_PTZ_PRESETS]:
+                    if preset[CONFIG_PRESET_ON_STARTUP]:
+                        self.move_to_preset(
+                            camera.identifier, preset[CONFIG_PRESET_NAME]
+                        )
 
     def get_registered_cameras(self) -> dict[str, AbstractCamera]:
         """Get the registered cameras."""
@@ -278,7 +309,7 @@ class PTZ:
 
         finally:
             # Move back to the initial position
-            await self.absolute_move(
+            self.absolute_move(
                 camera_identifier=camera_identifier, x=initial_x, y=initial_y
             )
 
@@ -487,7 +518,7 @@ class PTZ:
             LOGGER.debug(e)
             return False
 
-    def absolute_move(self, camera_identifier: str, x: float, y: float):
+    def absolute_move(self, camera_identifier: str, x: float, y: float) -> bool:
         """Move the camera to an absolute position."""
 
         ptz_service = self._ptz_services.get(camera_identifier)
@@ -505,8 +536,10 @@ class PTZ:
                     },
                 }
             )
+            return True
         except ONVIFError as e:
             LOGGER.error(e)
+            return False
 
     async def continuous_move(
         self, camera_identifier: str, x_velocity: float, y_velocity: float, seconds
@@ -578,3 +611,41 @@ class PTZ:
             {"ProfileToken": self._ptz_tokens.get(camera_identifier)}
         )
         return status.Position.PanTilt.x, status.Position.PanTilt.y
+
+    def get_presets(self, camera_identifier: str) -> list[str]:
+        """Get the available presets for the camera."""
+        try:
+            presets = self._config[CONFIG_CAMERAS][camera_identifier][
+                CONFIG_PTZ_PRESETS
+            ]
+            return [preset[CONFIG_PRESET_NAME] for preset in presets]
+        except ONVIFError as e:
+            LOGGER.error(e)
+            return []
+
+    def move_to_preset(self, camera_identifier: str, preset_name: str) -> bool:
+        """Move the camera to a preset position."""
+        ptz_service = self._ptz_services.get(camera_identifier)
+        if ptz_service is None:
+            LOGGER.error("No PTZ service found")
+            return False
+        try:
+            presets = self._config[CONFIG_CAMERAS][camera_identifier][
+                CONFIG_PTZ_PRESETS
+            ]
+            for preset in presets:
+                if preset[CONFIG_PRESET_NAME] == preset_name:
+                    self.absolute_move(
+                        camera_identifier=camera_identifier,
+                        x=preset[CONFIG_PRESET_X],
+                        y=preset[CONFIG_PRESET_Y],
+                    )
+                    if CONFIG_PRESET_Z in preset:
+                        self.zoom(
+                            camera_identifier=camera_identifier,
+                            zoom=preset[CONFIG_PRESET_Z],
+                        )
+            return True
+        except ONVIFError as e:
+            LOGGER.error(e)
+            return False

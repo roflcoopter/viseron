@@ -210,6 +210,8 @@ class TelegramPTZ:
         self._app.add_handler(CommandHandler("stop", self.stop_patrol))
         self._app.add_handler(CommandHandler("st", self.stop_patrol))
         self._app.add_handler(CommandHandler("pos", self.get_position))
+        self._app.add_handler(CommandHandler("preset", self.preset))
+        self._app.add_handler(CommandHandler("pr", self.preset))
         self._app.add_handler(CommandHandler("lissa", self.lissa))
         self._app.add_handler(CallbackQueryHandler(self.callback_parser))
 
@@ -558,3 +560,14 @@ class TelegramPTZ:
                 cam.start_camera()
                 if update.message:
                     await update.message.reply_text("Camera turned on.")
+
+    async def preset(self, update: Update, context: CallbackContext) -> None:
+        """Toggle the camera on or off."""
+        name = "" if not context.args else context.args[0]
+        if name == "list":
+            presets = self._ptz.get_presets(self._active_cam_ident)
+            if update.message:
+                await update.message.reply_text(f"Available presets: {presets}")
+        self._ptz.move_to_preset(
+            camera_identifier=self._active_cam_ident, preset_name=name
+        )

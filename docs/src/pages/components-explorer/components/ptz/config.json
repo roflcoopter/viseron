@@ -42,6 +42,52 @@
                 "description": "Maximum pan value of the camera.",
                 "optional": true,
                 "default": null
+              },
+              {
+                "type": "list",
+                "values": [
+                  [
+                    {
+                      "type": "string",
+                      "name": "name",
+                      "description": "Name of the PTZ preset.",
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "type": "float",
+                      "name": "x",
+                      "description": "Pan value of the PTZ preset.",
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "type": "float",
+                      "name": "y",
+                      "description": "Tilt value of the PTZ preset.",
+                      "required": true,
+                      "default": null
+                    },
+                    {
+                      "type": "float",
+                      "name": "z",
+                      "description": "Zoom value of the PTZ preset.",
+                      "optional": true,
+                      "default": null
+                    },
+                    {
+                      "type": "boolean",
+                      "name": "on_startup",
+                      "description": "Move to this PTZ preset on startup.",
+                      "optional": true,
+                      "default": false
+                    }
+                  ]
+                ],
+                "name": "presets",
+                "description": "List of PTZ presets.",
+                "optional": true,
+                "default": null
               }
             ],
             "name": {
