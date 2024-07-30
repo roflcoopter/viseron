@@ -106,7 +106,8 @@ def setup(vis: Viseron, config) -> bool:
     telegram_notifier = TelegramEventNotifier(vis, config)
     Thread(target=telegram_notifier.run_async).start()
 
-    vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, telegram_ptz.stop)
+    if telegram_ptz:
+        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, telegram_ptz.stop)
     vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, telegram_notifier.stop)
     return True
 
