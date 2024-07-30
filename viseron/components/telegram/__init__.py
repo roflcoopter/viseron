@@ -211,6 +211,7 @@ class TelegramPTZ:
         self._app.add_handler(CommandHandler("st", self.stop_patrol))
         self._app.add_handler(CommandHandler("pos", self.get_position))
         self._app.add_handler(CommandHandler("preset", self.preset))
+        self._app.add_handler(CommandHandler("snapshot", self.snapshot))
         self._app.add_handler(CommandHandler("pr", self.preset))
         self._app.add_handler(CommandHandler("lissa", self.lissa))
         self._app.add_handler(CallbackQueryHandler(self.callback_parser))
@@ -571,3 +572,11 @@ class TelegramPTZ:
         self._ptz.move_to_preset(
             camera_identifier=self._active_cam_ident, preset_name=name
         )
+
+    async def snapshot(self, update: Update, context: CallbackContext) -> None:
+        """Take a snapshot from the camera."""
+        cam: AbstractCamera | None = self._ptz.get_camera(self._active_cam_ident)
+        if cam:
+            ret, snapshot = cam.get_snapshot(cam.current_frame)
+            if update.message and ret:
+                await update.message.reply_photo(photo=snapshot)
