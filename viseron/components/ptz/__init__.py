@@ -125,6 +125,14 @@ class PTZ:
     def __init__(self, vis: Viseron, config) -> None:
         self._vis = vis
         self._config = config
+        # for camera in self._config[CONFIG_CAMERAS]:
+        #     if camera[CONFIG_CAMERA_PASSWORD]:
+        #         SensitiveInformationFilter.add_sensitive_string(
+        #             camera[CONFIG_CAMERA_PASSWORD]
+        #         )
+        #         SensitiveInformationFilter.add_sensitive_string(
+        #             escape_string(camera[CONFIG_CAMERA_PASSWORD])
+        #         )
         self._cameras: dict[str, AbstractCamera] = {}
         self._onvif_cameras: dict[str, ONVIFCamera] = {}
         self._ptz_services: dict[str, ONVIFService] = {}

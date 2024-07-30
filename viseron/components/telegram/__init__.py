@@ -119,12 +119,41 @@ def lissajous_curve(amp_x, amp_y, f_x, f_y, delta, t):
     return x, y
 
 
+def rescale_image_cv2(image_path, max_size):
+    """Rescale an image using OpenCV."""
+    # Load the image
+    img = cv2.imread(image_path)
+    height, width = img.shape[:2]
+
+    # Calculate the new dimensions
+    if width > height:
+        new_width = min(width, max_size)
+        new_height = int((new_width / width) * height)
+    else:
+        new_height = min(height, max_size)
+        new_width = int((new_height / height) * width)
+
+    # Rescale the image
+    resized_img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)
+
+    # Save the resized image
+    resized_image_path = "rescaled_thumbnail.jpg"
+    cv2.imwrite(resized_image_path, resized_img)
+    return resized_image_path
+
+
 class TelegramEventNotifier:
     """Telegram event notifier class."""
 
     def __init__(self, vis, config) -> None:
         self._vis = vis
         self._config = config
+        # SensitiveInformationFilter.add_sensitive_string(
+        #     self._config[CONFIG_TELEGRAM_BOT_TOKEN]
+        # )
+        # SensitiveInformationFilter.add_sensitive_string(
+        #     escape_string(self._config[CONFIG_TELEGRAM_BOT_TOKEN])
+        # )
         self._bot_token = self._config[CONFIG_TELEGRAM_BOT_TOKEN]
         self._chat_ids = self._config[CONFIG_TELEGRAM_CHAT_IDS]
         self._loop = asyncio.new_event_loop()
@@ -138,19 +167,42 @@ class TelegramEventNotifier:
         vis.data[COMPONENT] = self
 
     def _recorder_complete_event(self, event_data: Event[EventRecorderData]) -> None:
-        asyncio.run_coroutine_threadsafe(self._send_video(event_data), self._loop)
+        asyncio.run_coroutine_threadsafe(
+            self._send_notifications(event_data), self._loop
+        )
 
-    async def _send_video(self, event_data: Event[EventRecorderData]) -> None:
+    async def _send_notifications(self, event_data: Event[EventRecorderData]) -> None:
         file = event_data.data.recording.path
         if os.path.exists(file) and self._config[CONFIG_SEND_VIDEO]:
             caption = f"{event_data.data.camera.identifier}"
             if event_data.data.recording.objects:
                 caption += f" detected a {event_data.data.recording.objects[0].label}"
+            thumb = rescale_image_cv2(
+                event_data.data.recording.thumbnail_path, max_size=320
+            )
             for chat_id in self._chat_ids:
                 await self._bot.send_video(
                     chat_id=chat_id,
+                    thumbnail=thumb,  # is ignored by telegram for small videos :(
                     video=open(file, "rb"),
                     caption=caption,
+                )
+        if (
+            event_data.data.recording.thumbnail_path
+            and os.path.exists(event_data.data.recording.thumbnail_path)
+            and self._config[CONFIG_SEND_THUMBNAIL]
+        ):
+            for chat_id in self._chat_ids:
+                await self._bot.send_photo(
+                    chat_id=chat_id,
+                    photo=open(event_data.data.recording.thumbnail_path, "rb"),
+                    caption=f"Thumbnail for {event_data.data.camera.identifier}",
+                )
+        if self._config[CONFIG_SEND_MESSAGE]:
+            for chat_id in self._chat_ids:
+                await self._bot.send_message(
+                    chat_id=chat_id,
+                    text=f"Event from {event_data.data.camera.identifier}",
                 )
 
     async def _run_until_stopped(self):
@@ -175,6 +227,12 @@ class TelegramPTZ:
     def __init__(self, vis, config) -> None:
         self._vis = vis
         self._config = config
+        # SensitiveInformationFilter.add_sensitive_string(
+        #     self._config[CONFIG_TELEGRAM_BOT_TOKEN]
+        # )
+        # SensitiveInformationFilter.add_sensitive_string(
+        #     escape_string(self._config[CONFIG_TELEGRAM_BOT_TOKEN])
+        # )
         self._bot_token = self._config[CONFIG_TELEGRAM_BOT_TOKEN]
         self._app: Application | None = None
         self._ptz: PTZ = self._vis.data[CONFIG_PTZ_COMPONENT]
