@@ -533,7 +533,8 @@ class TelegramPTZ:
             objects_in_fov=[],
         )
         await asyncio.sleep(duration)
-        cam.recorder.stop(recording)
+        if cam.recorder.is_recording:
+            cam.recorder.stop(recording)
 
     async def which_cam(self, update: Update, context: CallbackContext) -> None:
         """Get the currently active camera."""
