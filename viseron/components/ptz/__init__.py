@@ -106,13 +106,6 @@ def setup(vis: Viseron, config) -> bool:
     return True
 
 
-def lissajous_curve(amp_x, amp_y, f_x, f_y, delta, t):
-    """Compute x and y values for a Lissajous curve."""
-    x = amp_x * np.sin(f_x * t + delta)
-    y = amp_y * np.sin(f_y * t)
-    return x, y
-
-
 class PTZ:
     """PTZ class allows control of pan/tilt/zoom over Telegram."""
 
