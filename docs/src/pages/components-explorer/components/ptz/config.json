@@ -56,21 +56,21 @@
                     },
                     {
                       "type": "float",
-                      "name": "x",
+                      "name": "pan",
                       "description": "Pan value of the PTZ preset.",
                       "required": true,
                       "default": null
                     },
                     {
                       "type": "float",
-                      "name": "y",
+                      "name": "tilt",
                       "description": "Tilt value of the PTZ preset.",
                       "required": true,
                       "default": null
                     },
                     {
                       "type": "float",
-                      "name": "z",
+                      "name": "zoom",
                       "description": "Zoom value of the PTZ preset.",
                       "optional": true,
                       "default": null

@@ -27,9 +27,9 @@ from .const import (
     CONFIG_HOST,
     CONFIG_PRESET_NAME,
     CONFIG_PRESET_ON_STARTUP,
-    CONFIG_PRESET_X,
-    CONFIG_PRESET_Y,
-    CONFIG_PRESET_Z,
+    CONFIG_PRESET_PAN,
+    CONFIG_PRESET_TILT,
+    CONFIG_PRESET_ZOOM,
     CONFIG_PTZ_PRESETS,
     DESC_CAMERA_FULL_SWING_MAX_X,
     DESC_CAMERA_FULL_SWING_MIN_X,
@@ -54,9 +54,9 @@ LOGGER = logging.getLogger(__name__)
 PTZ_PRESET = vol.Schema(
     {
         vol.Required(CONFIG_PRESET_NAME, description=DESC_PRESET_NAME): str,
-        vol.Required(CONFIG_PRESET_X, description=DESC_PRESET_X): float,
-        vol.Required(CONFIG_PRESET_Y, description=DESC_PRESET_Y): float,
-        vol.Optional(CONFIG_PRESET_Z, description=DESC_PRESET_Z): float,
+        vol.Required(CONFIG_PRESET_PAN, description=DESC_PRESET_X): float,
+        vol.Required(CONFIG_PRESET_TILT, description=DESC_PRESET_Y): float,
+        vol.Optional(CONFIG_PRESET_ZOOM, description=DESC_PRESET_Z): float,
         vol.Optional(
             CONFIG_PRESET_ON_STARTUP, description=DESC_PRESET_ON_STARTUP, default=False
         ): bool,
@@ -169,16 +169,13 @@ class PTZ:
             event.set()
         self._stop_event.set()
 
-    def _camera_registered(self, event_data: Event[AbstractCamera]) -> None:
-        camera: AbstractCamera = event_data.data
+    def _camera_registered(self, event: Event[AbstractCamera]) -> None:
+        camera: AbstractCamera = event.data
         if camera.identifier in self._config[CONFIG_CAMERAS]:
             self._cameras.update({camera.identifier: camera})
             config = self._config[CONFIG_CAMERAS][camera.identifier]
             onvif_camera = ONVIFCamera(
-                # There has to be a better way to get this
-                self._vis.get_registered_domain(
-                    CAMERA_DOMAIN, camera.identifier
-                ).config[CONFIG_HOST],
+                camera.config[CONFIG_HOST],
                 config[CONFIG_CAMERA_PORT],
                 config[CONFIG_CAMERA_USERNAME],
                 config[CONFIG_CAMERA_PASSWORD],
@@ -645,13 +642,13 @@ class PTZ:
                 if preset[CONFIG_PRESET_NAME] == preset_name:
                     self.absolute_move(
                         camera_identifier=camera_identifier,
-                        x=preset[CONFIG_PRESET_X],
-                        y=preset[CONFIG_PRESET_Y],
+                        x=preset[CONFIG_PRESET_PAN],
+                        y=preset[CONFIG_PRESET_TILT],
                     )
-                    if CONFIG_PRESET_Z in preset:
+                    if CONFIG_PRESET_ZOOM in preset:
                         self.zoom(
                             camera_identifier=camera_identifier,
-                            zoom=preset[CONFIG_PRESET_Z],
+                            zoom=preset[CONFIG_PRESET_ZOOM],
                         )
             return True
         except ONVIFError as e:
