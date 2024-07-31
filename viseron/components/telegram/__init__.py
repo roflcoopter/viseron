@@ -27,6 +27,8 @@ from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import EVENT_RECORDER_COMPLETE
 from viseron.domains.camera.recorder import EventRecorderData
+from viseron.helpers import escape_string
+from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
 
 from .const import (
@@ -148,12 +150,12 @@ class TelegramEventNotifier:
     def __init__(self, vis, config) -> None:
         self._vis = vis
         self._config = config
-        # SensitiveInformationFilter.add_sensitive_string(
-        #     self._config[CONFIG_TELEGRAM_BOT_TOKEN]
-        # )
-        # SensitiveInformationFilter.add_sensitive_string(
-        #     escape_string(self._config[CONFIG_TELEGRAM_BOT_TOKEN])
-        # )
+        SensitiveInformationFilter.add_sensitive_string(
+            self._config[CONFIG_TELEGRAM_BOT_TOKEN]
+        )
+        SensitiveInformationFilter.add_sensitive_string(
+            escape_string(self._config[CONFIG_TELEGRAM_BOT_TOKEN])
+        )
         self._bot_token = self._config[CONFIG_TELEGRAM_BOT_TOKEN]
         self._chat_ids = self._config[CONFIG_TELEGRAM_CHAT_IDS]
         self._loop = asyncio.new_event_loop()
@@ -227,12 +229,12 @@ class TelegramPTZ:
     def __init__(self, vis, config) -> None:
         self._vis = vis
         self._config = config
-        # SensitiveInformationFilter.add_sensitive_string(
-        #     self._config[CONFIG_TELEGRAM_BOT_TOKEN]
-        # )
-        # SensitiveInformationFilter.add_sensitive_string(
-        #     escape_string(self._config[CONFIG_TELEGRAM_BOT_TOKEN])
-        # )
+        SensitiveInformationFilter.add_sensitive_string(
+            self._config[CONFIG_TELEGRAM_BOT_TOKEN]
+        )
+        SensitiveInformationFilter.add_sensitive_string(
+            escape_string(self._config[CONFIG_TELEGRAM_BOT_TOKEN])
+        )
         self._bot_token = self._config[CONFIG_TELEGRAM_BOT_TOKEN]
         self._app: Application | None = None
         self._ptz: PTZ = self._vis.data[CONFIG_PTZ_COMPONENT]

@@ -57,28 +57,28 @@
                     {
                       "type": "float",
                       "name": "pan",
-                      "description": "Pan value of the PTZ preset.",
+                      "description": "Pan value of the PTZ preset. Usually a value between -1.0 and 1.0.",
                       "required": true,
                       "default": null
                     },
                     {
                       "type": "float",
                       "name": "tilt",
-                      "description": "Tilt value of the PTZ preset.",
+                      "description": "Tilt value of the PTZ preset. Usually a value between -1.0 and 1.0.",
                       "required": true,
                       "default": null
                     },
                     {
                       "type": "float",
                       "name": "zoom",
-                      "description": "Zoom value of the PTZ preset.",
+                      "description": "Zoom value of the PTZ preset. Usually a value between -1.0 and 1.0?",
                       "optional": true,
                       "default": null
                     },
                     {
                       "type": "boolean",
                       "name": "on_startup",
-                      "description": "Move to this PTZ preset on startup.",
+                      "description": "Move to this (named) preset on startup.",
                       "optional": true,
                       "default": false
                     }

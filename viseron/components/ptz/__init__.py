@@ -14,6 +14,8 @@ from onvif import ONVIFCamera, ONVIFError, ONVIFService
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.helpers import escape_string
+from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import CameraIdentifier
 
 from .const import (
@@ -40,10 +42,10 @@ from .const import (
     DESC_COMPONENT,
     DESC_PRESET_NAME,
     DESC_PRESET_ON_STARTUP,
-    DESC_PRESET_X,
-    DESC_PRESET_Y,
-    DESC_PRESET_Z,
-    DESC_PTZ_PRESET,
+    DESC_PRESET_PAN,
+    DESC_PRESET_TILT,
+    DESC_PRESET_ZOOM,
+    DESC_PTZ_PRESETS,
 )
 
 if TYPE_CHECKING:
@@ -51,12 +53,12 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-PTZ_PRESET = vol.Schema(
+PRESET = vol.Schema(
     {
         vol.Required(CONFIG_PRESET_NAME, description=DESC_PRESET_NAME): str,
-        vol.Required(CONFIG_PRESET_PAN, description=DESC_PRESET_X): float,
-        vol.Required(CONFIG_PRESET_TILT, description=DESC_PRESET_Y): float,
-        vol.Optional(CONFIG_PRESET_ZOOM, description=DESC_PRESET_Z): float,
+        vol.Required(CONFIG_PRESET_PAN, description=DESC_PRESET_PAN): float,
+        vol.Required(CONFIG_PRESET_TILT, description=DESC_PRESET_TILT): float,
+        vol.Optional(CONFIG_PRESET_ZOOM, description=DESC_PRESET_ZOOM): float,
         vol.Optional(
             CONFIG_PRESET_ON_STARTUP, description=DESC_PRESET_ON_STARTUP, default=False
         ): bool,
@@ -76,15 +78,7 @@ CAMERA_SCHEMA = vol.Schema(
             CONFIG_CAMERA_FULL_SWING_MAX_X,
             description=DESC_CAMERA_FULL_SWING_MAX_X,
         ): float,
-        vol.Optional(CONFIG_PTZ_PRESETS, description=DESC_PTZ_PRESET): [PTZ_PRESET],
-    }
-)
-
-BASE_CONFIG_SCHEMA = vol.Schema(
-    {
-        vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
-            CameraIdentifier(): CAMERA_SCHEMA
-        },
+        vol.Optional(CONFIG_PTZ_PRESETS, description=DESC_PTZ_PRESETS): [PRESET],
     }
 )
 
@@ -125,14 +119,15 @@ class PTZ:
     def __init__(self, vis: Viseron, config) -> None:
         self._vis = vis
         self._config = config
-        # for camera in self._config[CONFIG_CAMERAS]:
-        #     if camera[CONFIG_CAMERA_PASSWORD]:
-        #         SensitiveInformationFilter.add_sensitive_string(
-        #             camera[CONFIG_CAMERA_PASSWORD]
-        #         )
-        #         SensitiveInformationFilter.add_sensitive_string(
-        #             escape_string(camera[CONFIG_CAMERA_PASSWORD])
-        #         )
+        for cam_name in self._config[CONFIG_CAMERAS]:
+            camera = self._config[CONFIG_CAMERAS][cam_name]
+            if camera[CONFIG_CAMERA_PASSWORD]:
+                SensitiveInformationFilter.add_sensitive_string(
+                    camera[CONFIG_CAMERA_PASSWORD]
+                )
+                SensitiveInformationFilter.add_sensitive_string(
+                    escape_string(camera[CONFIG_CAMERA_PASSWORD])
+                )
         self._cameras: dict[str, AbstractCamera] = {}
         self._onvif_cameras: dict[str, ONVIFCamera] = {}
         self._ptz_services: dict[str, ONVIFService] = {}
@@ -259,7 +254,7 @@ class PTZ:
 
             ptz_service = self._ptz_services.get(camera_identifier)
             if ptz_service is None:
-                LOGGER.error("No PTZ service found")
+                LOGGER.error(f"No PTZ service for camera {camera_identifier}")
                 return
 
             # Get and store starting position
@@ -280,7 +275,7 @@ class PTZ:
             # Get the camera's FOV limits, if any.
             cam = self._cameras.get(camera_identifier)
             if cam is None:
-                LOGGER.error("No camera found")
+                LOGGER.error(f"No camera found for {camera_identifier}")
                 return
 
             min_x = cam.config.get(CONFIG_CAMERA_FULL_SWING_MIN_X)
@@ -335,23 +330,19 @@ class PTZ:
         step_sleep_time: float = 0.1,
     ):
         """Perform a Lissajous curve patrol."""
+
         stop_patrol_event = self._stop_patrol_events.get(camera_identifier)
         if stop_patrol_event is None:
-            stop_patrol_event = asyncio.Event()
-            self._stop_patrol_events.update({camera_identifier: stop_patrol_event})
+            LOGGER.error(f"No patrol stop event for camera {camera_identifier}")
+            return False
 
-        stop_patrol_event.set()
-        await asyncio.sleep(2.0)
+        # stop currently running patrol
+        if not stop_patrol_event.is_set():
+            stop_patrol_event.set()
+            await asyncio.sleep(2.0)
+            stop_patrol_event.clear()
 
-        pan_amp = 1.0
-        pan_freq = 0.1
-        tilt_amp = 1.0
-        tilt_freq = 0.1
-        phase_shift = np.pi / 2
-        step_sleep_time = 0.1
-
-        stop_patrol_event.clear()
-
+        # start a new patrol
         await self._fire_and_forget(
             coro=self._do_lissa_curve_patrol,
             timeout=0,
@@ -417,12 +408,9 @@ class PTZ:
         @param max_x: Maximum x value to stop at
 
         """
-
         ptz_service = self._ptz_services.get(camera_identifier)
-
-        # No service, no service
         if ptz_service is None:
-            LOGGER.error("No PTZ service found")
+            LOGGER.error(f"No PTZ service for camera {camera_identifier}")
             return
 
         # Get and store starting position
@@ -476,12 +464,11 @@ class PTZ:
         @param y: The relative y position to move to
         @return: True if the move was successful, False otherwise
         """
-
         ptz_service = self._ptz_services.get(camera_identifier)
-
         if ptz_service is None:
-            LOGGER.error("No PTZ service found")
+            LOGGER.error(f"No PTZ service for camera {camera_identifier}")
             return False
+
         try:
             ptz_service.RelativeMove(
                 {
@@ -500,12 +487,11 @@ class PTZ:
 
     def zoom(self, camera_identifier: str, zoom: float = 0.1) -> bool:
         """Zoom the camera in our out."""
-
         ptz_service = self._ptz_services.get(camera_identifier)
-
         if ptz_service is None:
-            LOGGER.error("No PTZ service found")
+            LOGGER.error(f"No PTZ service for camera {camera_identifier}")
             return False
+
         try:
             ptz_service.RelativeMove(
                 {
@@ -525,11 +511,9 @@ class PTZ:
 
     def absolute_move(self, camera_identifier: str, x: float, y: float) -> bool:
         """Move the camera to an absolute position."""
-
         ptz_service = self._ptz_services.get(camera_identifier)
-
         if ptz_service is None:
-            LOGGER.error("No PTZ service found")
+            LOGGER.error(f"No PTZ service for camera {camera_identifier}")
             return False
         try:
             ptz_service.AbsoluteMove(
@@ -547,14 +531,16 @@ class PTZ:
             return False
 
     async def continuous_move(
-        self, camera_identifier: str, x_velocity: float, y_velocity: float, seconds
+        self,
+        camera_identifier: str,
+        x_velocity: float,
+        y_velocity: float,
+        seconds: float,
     ):
         """Move the camera continuously for a set amount of time."""
-
         ptz_service = self._ptz_services.get(camera_identifier)
-
         if ptz_service is None:
-            LOGGER.error("No PTZ service found")
+            LOGGER.error(f"No PTZ service for camera {camera_identifier}")
             return False
         try:
             ptz_service.ContinuousMove(
@@ -605,11 +591,9 @@ class PTZ:
 
     def get_position(self, camera_identifier: str) -> tuple[float, float]:
         """Get the current position of the camera."""
-
         ptz_service = self._ptz_services.get(camera_identifier)
-
         if ptz_service is None:
-            LOGGER.error("No PTZ service found")
+            LOGGER.error(f"No PTZ service for camera {camera_identifier}")
             return 0.0, 0.0
 
         status = ptz_service.GetStatus(
@@ -619,21 +603,16 @@ class PTZ:
 
     def get_presets(self, camera_identifier: str) -> list[str]:
         """Get the available presets for the camera."""
-        try:
-            presets = self._config[CONFIG_CAMERAS][camera_identifier][
-                CONFIG_PTZ_PRESETS
-            ]
-            return [preset[CONFIG_PRESET_NAME] for preset in presets]
-        except ONVIFError as e:
-            LOGGER.error(e)
-            return []
+        presets = self._config[CONFIG_CAMERAS][camera_identifier][CONFIG_PTZ_PRESETS]
+        return [preset[CONFIG_PRESET_NAME] for preset in presets]
 
     def move_to_preset(self, camera_identifier: str, preset_name: str) -> bool:
         """Move the camera to a preset position."""
         ptz_service = self._ptz_services.get(camera_identifier)
         if ptz_service is None:
-            LOGGER.error("No PTZ service found")
+            LOGGER.error(f"No PTZ service for camera {camera_identifier}")
             return False
+
         try:
             presets = self._config[CONFIG_CAMERAS][camera_identifier][
                 CONFIG_PTZ_PRESETS
