@@ -22,6 +22,18 @@
         "default": null
       },
       {
+        "type": "list",
+        "values": [
+          {
+            "type": "integer"
+          }
+        ],
+        "name": "telegram_user_ids",
+        "description": "List of user IDs to accept commands from.",
+        "required": true,
+        "default": null
+      },
+      {
         "type": "map",
         "value": [
           {
@@ -63,6 +75,13 @@
         "type": "boolean",
         "name": "send_detection_message",
         "description": "Send a text message with the detected object.",
+        "optional": true,
+        "default": true
+      },
+      {
+        "type": "boolean",
+        "name": "telegram_log_ids",
+        "description": "True if we should log the id of a user who was denied access.",
         "optional": true,
         "default": false
       }
