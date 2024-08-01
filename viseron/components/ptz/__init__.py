@@ -379,7 +379,9 @@ class PTZ:
             x = pan_min + (x + 1) * (pan_max - pan_min) / 2
             y = tilt_min + (y + 1) * (tilt_max - tilt_min) / 2
 
-            self.absolute_move(camera_identifier=camera_identifier, x=x, y=y)
+            await self.absolute_move_wait_complete(
+                camera_identifier=camera_identifier, x=x, y=y
+            )
             await asyncio.sleep(step_sleep_time)
 
     async def full_swing(
@@ -406,11 +408,8 @@ class PTZ:
             LOGGER.error(f"No PTZ service for camera {camera_identifier}")
             return
 
+        current_x, _ = self.get_position(camera_identifier)
         # Get and store starting position
-        status = ptz_service.GetStatus(
-            {"ProfileToken": self._ptz_tokens.get(camera_identifier)}
-        )
-        current_x = status.Position.PanTilt.x
         LOGGER.debug(f"Fullswing start: x: {current_x}, min_x: {min_x}, max_x: {max_x}")
 
         move_step = -abs(step_size) if is_left else abs(step_size)
@@ -435,10 +434,7 @@ class PTZ:
             and not stop_patrol_event.is_set()
         ):
             await asyncio.sleep(step_sleep_time)
-            status = ptz_service.GetStatus(
-                {"ProfileToken": self._ptz_tokens.get(camera_identifier)}
-            )
-            current_x = status.Position.PanTilt.x
+            current_x, _ = self.get_position(camera_identifier)
             LOGGER.debug(
                 f"Fullswing moved to: x: {current_x}, min_x: {min_x}, max_x: {max_x}"
             )
@@ -514,9 +510,45 @@ class PTZ:
                     "ProfileToken": self._ptz_tokens.get(camera_identifier),
                     "Position": {
                         "PanTilt": {"x": x, "y": y},
-                        "Zoom": {"x": 0.0},  # or leave unchanged?
+                        # "Zoom": {"x": 0.0},  # or leave unchanged?
                     },
                 }
+            )
+            return True
+        except ONVIFError as e:
+            LOGGER.error(e)
+            return False
+
+    async def absolute_move_wait_complete(
+        self, camera_identifier: str, x: float, y: float, timeout: float = 30.0
+    ) -> bool:
+        """Move the camera to an absolute position and wait for the move to complete."""
+        ptz_service = self._ptz_services.get(camera_identifier)
+        if ptz_service is None:
+            LOGGER.error(f"No PTZ service for camera {camera_identifier}")
+            return False
+        try:
+            ptz_service.AbsoluteMove(
+                {
+                    "ProfileToken": self._ptz_tokens.get(camera_identifier),
+                    "Position": {
+                        "PanTilt": {"x": x, "y": y},
+                    },
+                }
+            )
+            # get the camera position and wait until it reaches the desired position to
+            # a tolerance of 0.005, or until the timeout is reached
+            tolerance = 0.005
+            start_time = asyncio.get_event_loop().time()
+            while (
+                abs(self.get_position(camera_identifier)[0] - x) > tolerance
+                or abs(self.get_position(camera_identifier)[1] - y) > tolerance
+            ) and (asyncio.get_event_loop().time() - start_time < timeout):
+                await asyncio.sleep(0.1)
+            LOGGER.info(
+                "Position at end of abs move and wait (requested: %s): %s",
+                (x, y),
+                self.get_position(camera_identifier),
             )
             return True
         except ONVIFError as e:
@@ -606,6 +638,21 @@ class PTZ:
             LOGGER.error(f"No PTZ service for camera {camera_identifier}")
             return False
 
+        if CONFIG_PTZ_PRESETS not in self._config[CONFIG_CAMERAS][camera_identifier]:
+            LOGGER.error(f"No PTZ presets for camera {camera_identifier}")
+            return False
+
+        if not any(
+            preset[CONFIG_PRESET_NAME] == preset_name
+            for preset in self._config[CONFIG_CAMERAS][camera_identifier][
+                CONFIG_PTZ_PRESETS
+            ]
+        ):
+            LOGGER.error(
+                f"Preset {preset_name} not found for camera {camera_identifier}"
+            )
+            return False
+
         try:
             presets = self._config[CONFIG_CAMERAS][camera_identifier][
                 CONFIG_PTZ_PRESETS
@@ -613,6 +660,54 @@ class PTZ:
             for preset in presets:
                 if preset[CONFIG_PRESET_NAME] == preset_name:
                     self.absolute_move(
+                        camera_identifier=camera_identifier,
+                        x=preset[CONFIG_PRESET_PAN],
+                        y=preset[CONFIG_PRESET_TILT],
+                    )
+                    if CONFIG_PRESET_ZOOM in preset:
+                        self.zoom(
+                            camera_identifier=camera_identifier,
+                            zoom=preset[CONFIG_PRESET_ZOOM],
+                        )
+            return True
+        except ONVIFError as e:
+            LOGGER.error(e)
+            return False
+
+    async def move_to_preset_wait_complete(
+        self, camera_identifier: str, preset_name: str
+    ) -> bool:
+        """Move the camera to a preset position."""
+        ptz_service = self._ptz_services.get(camera_identifier)
+        if ptz_service is None:
+            LOGGER.error(f"No PTZ service for camera {camera_identifier}")
+            return False
+
+        try:
+            if (
+                CONFIG_PTZ_PRESETS
+                not in self._config[CONFIG_CAMERAS][camera_identifier]
+            ):
+                LOGGER.error(f"No PTZ presets for camera {camera_identifier}")
+                return False
+
+            presets = self._config[CONFIG_CAMERAS][camera_identifier][
+                CONFIG_PTZ_PRESETS
+            ]
+
+            if not presets:
+                LOGGER.error(f"No PTZ presets for camera {camera_identifier}")
+                return False
+
+            if not any(preset[CONFIG_PRESET_NAME] == preset_name for preset in presets):
+                LOGGER.error(
+                    f"Preset {preset_name} not found for camera {camera_identifier}"
+                )
+                return False
+
+            for preset in presets:
+                if preset[CONFIG_PRESET_NAME] == preset_name:
+                    await self.absolute_move_wait_complete(
                         camera_identifier=camera_identifier,
                         x=preset[CONFIG_PRESET_PAN],
                         y=preset[CONFIG_PRESET_TILT],

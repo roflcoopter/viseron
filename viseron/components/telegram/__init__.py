@@ -316,8 +316,9 @@ class TelegramPTZ:
         self._app.add_handler(CommandHandler("st", self._stop_patrol))
         self._app.add_handler(CommandHandler("pos", self._get_position))
         self._app.add_handler(CommandHandler("preset", self._preset))
-        self._app.add_handler(CommandHandler("snapshot", self._snapshot))
         self._app.add_handler(CommandHandler("pr", self._preset))
+        self._app.add_handler(CommandHandler("repeat", self._repeat_preset))
+        self._app.add_handler(CommandHandler("snapshot", self._snapshot))
         self._app.add_handler(CommandHandler("lissa", self._lissa))
         self._app.add_handler(CommandHandler("help", self._help))
         self._app.add_handler(CallbackQueryHandler(self._callback_parser))
@@ -690,11 +691,11 @@ class TelegramPTZ:
         /record 60 5 will record five 60 second videos and return them.
         """
         duration = 5
-        number = 1
+        number_of_videos = 1
         if context.args and len(context.args) > 0:
             duration = int(context.args[0])
         if context.args and len(context.args) > 1:
-            number = int(context.args[1])
+            number_of_videos = int(context.args[1])
         cam: AbstractCamera | None = self._ptz.get_camera(self._active_cam_ident)
         if cam is None:
             if update.message:
@@ -709,7 +710,7 @@ class TelegramPTZ:
             if update.message:
                 await update.message.reply_text("No frame available.")
             return
-        for _ in range(number):
+        for _ in range(number_of_videos):
             recording = cam.recorder.start(
                 shared_frame=cam.current_frame,
                 trigger_type=TriggerTypes.OBJECT,
@@ -752,14 +753,58 @@ class TelegramPTZ:
         Use /preset <name> to move the camera to a preset position.
         Use /preset list to get a list of available presets.
         """
-        name = "" if not context.args else context.args[0]
+        name = "list" if not context.args else context.args[0]
         if name == "list":
             presets = self._ptz.get_presets(self._active_cam_ident)
+            preset_cmds = "\n".join(f"/preset {preset}" for preset in presets)
             if update.message:
-                await update.message.reply_text(f"Available presets: {presets}")
-        self._ptz.move_to_preset(
+                await update.message.reply_text(f"Available presets:\n{preset_cmds}")
+                return
+
+        could_complete = await self._ptz.move_to_preset_wait_complete(
             camera_identifier=self._active_cam_ident, preset_name=name
         )
+        if update.message:
+            if could_complete:
+                await update.message.reply_text(f"Moved to preset '{name}'")
+            else:
+                await update.message.reply_text(f"Failed to move to preset '{name}'")
+
+    @limit_user_access
+    async def _repeat_preset(self, update: Update, context: CallbackContext) -> None:
+        """
+        Presets are paths when names are reused.
+
+        Use /repeat to repeat the preset path a number of times.
+        @param name: The name of the preset to repeat.
+        @param repeat_count: The number of times to repeat the preset (path) default 5.
+        E.g.
+        /repeat name 10
+        will repeat the preset (path) 'name' 10 times.
+        """
+        name = "list" if not context.args else context.args[0]
+        if name == "list":
+            presets = self._ptz.get_presets(self._active_cam_ident)
+            preset_cmds = "\n".join(f"/preset {preset}" for preset in presets)
+            if update.message:
+                await update.message.reply_text(f"Available presets:\n{preset_cmds}")
+                return
+        repeat_count = 5
+        if context.args and len(context.args) > 1:
+            repeat_count = int(context.args[1])
+
+        async def run_presets_sequentially():
+            for _ in range(repeat_count):
+                await self._ptz.move_to_preset_wait_complete(
+                    camera_identifier=self._active_cam_ident, preset_name=name
+                )
+
+        # Schedule the task to run in the background
+        asyncio.create_task(run_presets_sequentially())
+
+        # Return immediately
+        if update.message:
+            await update.message.reply_text(f"Started repeating preset '{name}'")
 
     @limit_user_access
     async def _snapshot(self, update: Update, context: CallbackContext) -> None:
