@@ -31,14 +31,14 @@
               },
               {
                 "type": "float",
-                "name": "camera_min_x",
+                "name": "camera_min_pan",
                 "description": "Minimum pan value of the camera.",
                 "optional": true,
                 "default": null
               },
               {
                 "type": "float",
-                "name": "camera_max_x",
+                "name": "camera_max_pan",
                 "description": "Maximum pan value of the camera.",
                 "optional": true,
                 "default": null
@@ -99,7 +99,7 @@
           }
         ],
         "name": "cameras",
-        "description": "List of ONVIF cameras to control.",
+        "description": "List of ONVIF cameras to make available to the component.",
         "required": true,
         "default": null
       }

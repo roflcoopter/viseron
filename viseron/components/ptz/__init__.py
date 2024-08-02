@@ -20,8 +20,8 @@ from viseron.helpers.validators import CameraIdentifier
 
 from .const import (
     COMPONENT,
-    CONFIG_CAMERA_FULL_SWING_MAX_X,
-    CONFIG_CAMERA_FULL_SWING_MIN_X,
+    CONFIG_CAMERA_FULL_SWING_MAX_PAN,
+    CONFIG_CAMERA_FULL_SWING_MIN_PAN,
     CONFIG_CAMERA_PASSWORD,
     CONFIG_CAMERA_PORT,
     CONFIG_CAMERA_USERNAME,
@@ -33,8 +33,8 @@ from .const import (
     CONFIG_PRESET_TILT,
     CONFIG_PRESET_ZOOM,
     CONFIG_PTZ_PRESETS,
-    DESC_CAMERA_FULL_SWING_MAX_X,
-    DESC_CAMERA_FULL_SWING_MIN_X,
+    DESC_CAMERA_FULL_SWING_MAX_PAN,
+    DESC_CAMERA_FULL_SWING_MIN_PAN,
     DESC_CAMERA_PASSWORD,
     DESC_CAMERA_PORT,
     DESC_CAMERA_USERNAME,
@@ -71,12 +71,12 @@ CAMERA_SCHEMA = vol.Schema(
         vol.Required(CONFIG_CAMERA_USERNAME, description=DESC_CAMERA_USERNAME): str,
         vol.Required(CONFIG_CAMERA_PASSWORD, description=DESC_CAMERA_PASSWORD): str,
         vol.Optional(
-            CONFIG_CAMERA_FULL_SWING_MIN_X,
-            description=DESC_CAMERA_FULL_SWING_MIN_X,
+            CONFIG_CAMERA_FULL_SWING_MIN_PAN,
+            description=DESC_CAMERA_FULL_SWING_MIN_PAN,
         ): float,
         vol.Optional(
-            CONFIG_CAMERA_FULL_SWING_MAX_X,
-            description=DESC_CAMERA_FULL_SWING_MAX_X,
+            CONFIG_CAMERA_FULL_SWING_MAX_PAN,
+            description=DESC_CAMERA_FULL_SWING_MAX_PAN,
         ): float,
         vol.Optional(CONFIG_PTZ_PRESETS, description=DESC_PTZ_PRESETS): [PRESET],
     }
@@ -107,7 +107,7 @@ def setup(vis: Viseron, config) -> bool:
 
 
 class PTZ:
-    """PTZ class allows control of pan/tilt/zoom over Telegram."""
+    """PTZ class allows control of pan/tilt/zoom (and other stuff) over Telegram."""
 
     def __init__(self, vis: Viseron, config) -> None:
         self._vis = vis
@@ -256,13 +256,13 @@ class PTZ:
             )
             if status is None:
                 LOGGER.warning("Cannot determine starting position")
-                initial_x = 0.0
-                initial_y = 0.0
+                initial_pan = 0.0
+                initial_tilt = 0.0
             else:
-                initial_x = status.Position.PanTilt.x
-                initial_y = status.Position.PanTilt.y
+                initial_pan = status.Position.PanTilt.x
+                initial_tilt = status.Position.PanTilt.y
                 LOGGER.debug(
-                    f"Camera position at start: x: {initial_x}, y: {initial_y}"
+                    f"Camera position at start: x: {initial_pan}, y: {initial_tilt}"
                 )
 
             # Get the camera's FOV limits, if any.
@@ -271,13 +271,13 @@ class PTZ:
                 LOGGER.error(f"No camera found for {camera_identifier}")
                 return
 
-            min_x = cam.config.get(CONFIG_CAMERA_FULL_SWING_MIN_X)
-            max_x = cam.config.get(CONFIG_CAMERA_FULL_SWING_MAX_X)
+            min_pan = cam.config.get(CONFIG_CAMERA_FULL_SWING_MIN_PAN)
+            max_pan = cam.config.get(CONFIG_CAMERA_FULL_SWING_MAX_PAN)
 
             # Decide which direction to start swinging based on the distance to the
-            # camera's FOV limits, left if closer to min_x, right if closer to max_x
-            distance_to_min = initial_x - min_x if min_x else 0
-            distance_to_max = max_x - initial_x if max_x else 0
+            # camera's FOV limits, left if closer to min_pan, right if closer to max_pan
+            distance_to_min = initial_pan - min_pan if min_pan else 0
+            distance_to_max = max_pan - initial_pan if max_pan else 0
             left = distance_to_min > distance_to_max
 
             # Swing back and forth until stopped
@@ -292,8 +292,8 @@ class PTZ:
                     is_left=left,
                     step_size=step_size,
                     step_sleep_time=step_sleep_time,
-                    min_x=min_x,
-                    max_x=max_x,
+                    min_pan=min_pan,
+                    max_pan=max_pan,
                 )
                 if stop_patrol_event.is_set():
                     break
@@ -303,7 +303,7 @@ class PTZ:
         finally:
             # Move back to the initial position
             self.absolute_move(
-                camera_identifier=camera_identifier, x=initial_x, y=initial_y
+                camera_identifier=camera_identifier, pan=initial_pan, tilt=initial_tilt
             )
 
     def stop_patrol(self, camera_identifier: str) -> None:
@@ -380,7 +380,7 @@ class PTZ:
             y = tilt_min + (y + 1) * (tilt_max - tilt_min) / 2
 
             await self.absolute_move_wait_complete(
-                camera_identifier=camera_identifier, x=x, y=y
+                camera_identifier=camera_identifier, pan=x, tilt=y
             )
             await asyncio.sleep(step_sleep_time)
 
@@ -390,17 +390,17 @@ class PTZ:
         is_left: bool = True,
         step_size: float = 0.1,
         step_sleep_time: float = 0.1,
-        min_x: float | None = None,
-        max_x: float | None = None,
+        min_pan: float | None = None,
+        max_pan: float | None = None,
     ):
         """Perform a full swing in the pan direction.
 
         @param is_left: True if the swing is to the left, False if to the right
         @param step_size: The size of each move step
         @param sleep_time: Time to sleep between each move step
-        @param min_x: Minimum x value to stop at, meant to be used to avoid going beyond
-          the camera's limits or field of view
-        @param max_x: Maximum x value to stop at
+        @param min_pan: Minimum pan value to stop at, meant to be used to avoid
+          going beyond the camera's limits or field of view
+        @param max_pan: Maximum pan value to stop at
 
         """
         ptz_service = self._ptz_services.get(camera_identifier)
@@ -408,18 +408,18 @@ class PTZ:
             LOGGER.error(f"No PTZ service for camera {camera_identifier}")
             return
 
-        current_x, _ = self.get_position(camera_identifier)
+        cur_pan, _ = self.get_position(camera_identifier)
         # Get and store starting position
-        LOGGER.debug(f"Fullswing start: x: {current_x}, min_x: {min_x}, max_x: {max_x}")
+        LOGGER.debug(f"Fullswing start: pan: {cur_pan}, min: {min_pan}, max: {max_pan}")
 
         move_step = -abs(step_size) if is_left else abs(step_size)
 
         # Do not move beyond the camera's FOV bounds
         if is_left:
-            if min_x is not None and current_x + move_step <= min_x:
+            if min_pan is not None and cur_pan + move_step <= min_pan:
                 return
         else:
-            if max_x is not None and current_x + move_step >= max_x:
+            if max_pan is not None and cur_pan + move_step >= max_pan:
                 return
 
         # Move while not stopped or stopped by the camera's FOV or hardware bounds
@@ -430,22 +430,24 @@ class PTZ:
             self._stop_patrol_events.update({camera_identifier: stop_patrol_event})
 
         while (
-            self.relative_move(camera_identifier=camera_identifier, x=move_step, y=0.0)
+            self.relative_move(
+                camera_identifier=camera_identifier, pan=move_step, tilt=0.0
+            )
             and not stop_patrol_event.is_set()
         ):
             await asyncio.sleep(step_sleep_time)
-            current_x, _ = self.get_position(camera_identifier)
+            cur_pan, _ = self.get_position(camera_identifier)
             LOGGER.debug(
-                f"Fullswing moved to: x: {current_x}, min_x: {min_x}, max_x: {max_x}"
+                f"Fullswing moved to: pan: {cur_pan}, min: {min_pan}, max: {max_pan}"
             )
-            if min_x is not None and current_x <= min_x:
+            if min_pan is not None and cur_pan <= min_pan:
                 break
-            if max_x is not None and current_x >= max_x:
+            if max_pan is not None and cur_pan >= max_pan:
                 break
 
-        LOGGER.debug(f"Fullswing end: x: {current_x}, min_x: {min_x}, max_x: {max_x}")
+        LOGGER.debug(f"Fullswing end: pan: {cur_pan}, min: {min_pan}, max: {max_pan}")
 
-    def relative_move(self, camera_identifier: str, x: float, y: float) -> bool:
+    def relative_move(self, camera_identifier: str, pan: float, tilt: float) -> bool:
         """
         Move the camera relative to its current position.
 
@@ -463,15 +465,14 @@ class PTZ:
                 {
                     "ProfileToken": self._ptz_tokens.get(camera_identifier),
                     "Translation": {
-                        "PanTilt": {"x": x, "y": y},
+                        "PanTilt": {"x": pan, "y": tilt},
                         "Zoom": {"x": 0.0},
                     },
                 }
             )
             return True
         except ONVIFError as e:
-            # errors occur when the move exceeds the camera's limits, silence them
-            LOGGER.debug(e)
+            LOGGER.warning(f"ONVIF error in RelativeMove (usually harmless): {e}")
             return False
 
     def zoom(self, camera_identifier: str, zoom: float = 0.1) -> bool:
@@ -495,10 +496,10 @@ class PTZ:
         except ONVIFError as e:
             # errors occur when the zoom exceeds the camera's limits?, silence them
             # can't check, camera does not support zoom
-            LOGGER.debug(e)
+            LOGGER.warning(f"ONVIF error in Zoom (usually harmless): {e}")
             return False
 
-    def absolute_move(self, camera_identifier: str, x: float, y: float) -> bool:
+    def absolute_move(self, camera_identifier: str, pan: float, tilt: float) -> bool:
         """Move the camera to an absolute position."""
         ptz_service = self._ptz_services.get(camera_identifier)
         if ptz_service is None:
@@ -509,51 +510,36 @@ class PTZ:
                 {
                     "ProfileToken": self._ptz_tokens.get(camera_identifier),
                     "Position": {
-                        "PanTilt": {"x": x, "y": y},
-                        # "Zoom": {"x": 0.0},  # or leave unchanged?
+                        "PanTilt": {"x": pan, "y": tilt},
                     },
                 }
             )
             return True
         except ONVIFError as e:
-            LOGGER.error(e)
+            LOGGER.warning(f"ONVIF error in AbsoluteMove (usually harmless): {e}")
             return False
 
     async def absolute_move_wait_complete(
-        self, camera_identifier: str, x: float, y: float, timeout: float = 30.0
+        self, camera_identifier: str, pan: float, tilt: float, timeout: float = 30.0
     ) -> bool:
         """Move the camera to an absolute position and wait for the move to complete."""
-        ptz_service = self._ptz_services.get(camera_identifier)
-        if ptz_service is None:
-            LOGGER.error(f"No PTZ service for camera {camera_identifier}")
-            return False
-        try:
-            ptz_service.AbsoluteMove(
-                {
-                    "ProfileToken": self._ptz_tokens.get(camera_identifier),
-                    "Position": {
-                        "PanTilt": {"x": x, "y": y},
-                    },
-                }
-            )
+        if self.absolute_move(camera_identifier=camera_identifier, pan=pan, tilt=tilt):
             # get the camera position and wait until it reaches the desired position to
             # a tolerance of 0.005, or until the timeout is reached
             tolerance = 0.005
             start_time = asyncio.get_event_loop().time()
             while (
-                abs(self.get_position(camera_identifier)[0] - x) > tolerance
-                or abs(self.get_position(camera_identifier)[1] - y) > tolerance
+                abs(self.get_position(camera_identifier)[0] - pan) > tolerance
+                or abs(self.get_position(camera_identifier)[1] - tilt) > tolerance
             ) and (asyncio.get_event_loop().time() - start_time < timeout):
                 await asyncio.sleep(0.1)
             LOGGER.info(
                 "Position at end of abs move and wait (requested: %s): %s",
-                (x, y),
+                (pan, tilt),
                 self.get_position(camera_identifier),
             )
             return True
-        except ONVIFError as e:
-            LOGGER.error(e)
-            return False
+        return False
 
     async def continuous_move(
         self,
@@ -580,30 +566,30 @@ class PTZ:
             await asyncio.sleep(seconds)
             ptz_service.Stop({"ProfileToken": self._ptz_tokens.get(camera_identifier)})
         except ONVIFError as e:
-            LOGGER.error(e)
+            LOGGER.warning(f"ONVIF error in ContinuousMove (usually harmless): {e}")
 
     def pan_left(self, camera_identifier: str, step_size: float = 0.1) -> bool:
         """Pan the camera to the left."""
         return self.relative_move(
-            camera_identifier=camera_identifier, x=-step_size, y=0.0
+            camera_identifier=camera_identifier, pan=-step_size, tilt=0.0
         )
 
     def pan_right(self, camera_identifier: str, step_size: float = 0.1) -> bool:
         """Pan the camera to the right."""
         return self.relative_move(
-            camera_identifier=camera_identifier, x=step_size, y=0.0
+            camera_identifier=camera_identifier, pan=step_size, tilt=0.0
         )
 
     def tilt_up(self, camera_identifier: str, step_size: float = 0.1) -> bool:
         """Tilt the camera up."""
         return self.relative_move(
-            camera_identifier=camera_identifier, x=0.0, y=step_size
+            camera_identifier=camera_identifier, pan=0.0, tilt=step_size
         )
 
     def tilt_down(self, camera_identifier: str, step_size: float = 0.1) -> bool:
         """Tilt the camera down."""
         return self.relative_move(
-            camera_identifier=camera_identifier, x=0.0, y=-step_size
+            camera_identifier=camera_identifier, pan=0.0, tilt=-step_size
         )
 
     def zoom_out(self, camera_identifier: str, step_size: float = 0.1) -> bool:
@@ -620,24 +606,22 @@ class PTZ:
         if ptz_service is None:
             LOGGER.error(f"No PTZ service for camera {camera_identifier}")
             return 0.0, 0.0
-
-        status = ptz_service.GetStatus(
-            {"ProfileToken": self._ptz_tokens.get(camera_identifier)}
-        )
-        return status.Position.PanTilt.x, status.Position.PanTilt.y
+        try:
+            status = ptz_service.GetStatus(
+                {"ProfileToken": self._ptz_tokens.get(camera_identifier)}
+            )
+            return status.Position.PanTilt.x, status.Position.PanTilt.y
+        except ONVIFError as e:
+            LOGGER.warning(f"ONVIF error in GetStatus (usually harmless): {e}")
+            return -255.0, -255.0
 
     def get_presets(self, camera_identifier: str) -> list[str]:
         """Get the available presets for the camera."""
         presets = self._config[CONFIG_CAMERAS][camera_identifier][CONFIG_PTZ_PRESETS]
-        return [preset[CONFIG_PRESET_NAME] for preset in presets]
+        return list({preset[CONFIG_PRESET_NAME] for preset in presets})
 
     def move_to_preset(self, camera_identifier: str, preset_name: str) -> bool:
         """Move the camera to a preset position."""
-        ptz_service = self._ptz_services.get(camera_identifier)
-        if ptz_service is None:
-            LOGGER.error(f"No PTZ service for camera {camera_identifier}")
-            return False
-
         if CONFIG_PTZ_PRESETS not in self._config[CONFIG_CAMERAS][camera_identifier]:
             LOGGER.error(f"No PTZ presets for camera {camera_identifier}")
             return False
@@ -653,71 +637,51 @@ class PTZ:
             )
             return False
 
-        try:
-            presets = self._config[CONFIG_CAMERAS][camera_identifier][
-                CONFIG_PTZ_PRESETS
-            ]
-            for preset in presets:
-                if preset[CONFIG_PRESET_NAME] == preset_name:
-                    self.absolute_move(
+        presets = self._config[CONFIG_CAMERAS][camera_identifier][CONFIG_PTZ_PRESETS]
+        for preset in presets:
+            if preset[CONFIG_PRESET_NAME] == preset_name:
+                self.absolute_move(
+                    camera_identifier=camera_identifier,
+                    pan=preset[CONFIG_PRESET_PAN],
+                    tilt=preset[CONFIG_PRESET_TILT],
+                )
+                if CONFIG_PRESET_ZOOM in preset:
+                    self.zoom(
                         camera_identifier=camera_identifier,
-                        x=preset[CONFIG_PRESET_PAN],
-                        y=preset[CONFIG_PRESET_TILT],
+                        zoom=preset[CONFIG_PRESET_ZOOM],
                     )
-                    if CONFIG_PRESET_ZOOM in preset:
-                        self.zoom(
-                            camera_identifier=camera_identifier,
-                            zoom=preset[CONFIG_PRESET_ZOOM],
-                        )
-            return True
-        except ONVIFError as e:
-            LOGGER.error(e)
-            return False
+        return True
 
     async def move_to_preset_wait_complete(
         self, camera_identifier: str, preset_name: str
     ) -> bool:
         """Move the camera to a preset position."""
-        ptz_service = self._ptz_services.get(camera_identifier)
-        if ptz_service is None:
-            LOGGER.error(f"No PTZ service for camera {camera_identifier}")
+        if CONFIG_PTZ_PRESETS not in self._config[CONFIG_CAMERAS][camera_identifier]:
+            LOGGER.error(f"No PTZ presets for camera {camera_identifier}")
             return False
 
-        try:
-            if (
-                CONFIG_PTZ_PRESETS
-                not in self._config[CONFIG_CAMERAS][camera_identifier]
-            ):
-                LOGGER.error(f"No PTZ presets for camera {camera_identifier}")
-                return False
+        presets = self._config[CONFIG_CAMERAS][camera_identifier][CONFIG_PTZ_PRESETS]
 
-            presets = self._config[CONFIG_CAMERAS][camera_identifier][
-                CONFIG_PTZ_PRESETS
-            ]
+        if not presets:
+            LOGGER.error(f"No PTZ presets for camera {camera_identifier}")
+            return False
 
-            if not presets:
-                LOGGER.error(f"No PTZ presets for camera {camera_identifier}")
-                return False
+        if not any(preset[CONFIG_PRESET_NAME] == preset_name for preset in presets):
+            LOGGER.error(
+                f"Preset {preset_name} not found for camera {camera_identifier}"
+            )
+            return False
 
-            if not any(preset[CONFIG_PRESET_NAME] == preset_name for preset in presets):
-                LOGGER.error(
-                    f"Preset {preset_name} not found for camera {camera_identifier}"
+        for preset in presets:
+            if preset[CONFIG_PRESET_NAME] == preset_name:
+                await self.absolute_move_wait_complete(
+                    camera_identifier=camera_identifier,
+                    pan=preset[CONFIG_PRESET_PAN],
+                    tilt=preset[CONFIG_PRESET_TILT],
                 )
-                return False
-
-            for preset in presets:
-                if preset[CONFIG_PRESET_NAME] == preset_name:
-                    await self.absolute_move_wait_complete(
+                if CONFIG_PRESET_ZOOM in preset:
+                    self.zoom(
                         camera_identifier=camera_identifier,
-                        x=preset[CONFIG_PRESET_PAN],
-                        y=preset[CONFIG_PRESET_TILT],
+                        zoom=preset[CONFIG_PRESET_ZOOM],
                     )
-                    if CONFIG_PRESET_ZOOM in preset:
-                        self.zoom(
-                            camera_identifier=camera_identifier,
-                            zoom=preset[CONFIG_PRESET_ZOOM],
-                        )
-            return True
-        except ONVIFError as e:
-            LOGGER.error(e)
-            return False
+        return True
