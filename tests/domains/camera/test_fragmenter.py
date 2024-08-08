@@ -1,13 +1,48 @@
 """Tests for fragmenter."""
 from __future__ import annotations
 
+import datetime
 import os
 import shutil
 import tempfile
 from unittest.mock import MagicMock, Mock, patch
 
-from viseron.domains.camera.fragmenter import Fragment, Fragmenter, generate_playlist
+from viseron.domains.camera.fragmenter import (
+    Fragment,
+    Fragmenter,
+    _extract_extinf_number,
+    _extract_program_date_time,
+    generate_playlist,
+)
 from viseron.helpers import utcnow
+
+PLAYLIST_CONTENT = """#EXTM3U
+#EXT-X-VERSION:7
+#EXT-X-TARGETDURATION:6
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-PLAYLIST-TYPE:EVENT
+#EXT-X-MAP:URI="init.mp4"
+#EXTINF:6.001628,
+#EXT-X-PROGRAM-DATE-TIME:2024-08-08T09:59:00.229+0000
+1723111140.m4s
+#EXTINF:4.010498,
+#EXT-X-PROGRAM-DATE-TIME:2024-08-08T09:59:06.231+0000
+1723111146.m4s
+#EXTINF:5.957438,
+#EXT-X-PROGRAM-DATE-TIME:2024-08-08T09:59:10.241+0000
+1723111150.m4s
+#EXTINF:5.021240,
+#EXT-X-PROGRAM-DATE-TIME:2024-08-08T09:59:16.199+0000
+1723111156.m4s
+#EXTINF:4.983073,
+#EXT-X-PROGRAM-DATE-TIME:2024-08-08T09:59:21.220+0000
+1723111161.m4s
+#EXTINF:4.986003,
+#EXT-X-PROGRAM-DATE-TIME:2024-08-08T09:59:26.203+0000
+1723111166.m4s
+#EXTINF:4.987305,
+#EXT-X-PROGRAM-DATE-TIME:2024-08-08T09:59:31.189+0000
+1723111171.m4s"""
 
 
 def test_generate_playlist() -> None:
@@ -100,3 +135,15 @@ class TestFragmenter:
             os.path.join(self.camera.segments_folder, "init.mp4"),
         )
         assert mock_shutil_move.call_count == 2
+
+
+def test_extract_extinf_number():
+    """Test _extract_extinf_number."""
+    extinf_number = _extract_extinf_number(PLAYLIST_CONTENT, "1723111150.m4s")
+    assert extinf_number == 5.957438
+
+
+def test_extract_program_date_time() -> None:
+    """Test _extract_program_date_time."""
+    date_time_tag = _extract_program_date_time(PLAYLIST_CONTENT, "1723111156.m4s")
+    assert date_time_tag == datetime.datetime(2024, 8, 8, 9, 59, 16, 199000)

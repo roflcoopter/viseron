@@ -48,6 +48,12 @@ from .const import (
     CONFIG_PORT,
     CONFIG_PROTOCOL,
     CONFIG_RAW_COMMAND,
+    CONFIG_RECORDER,
+    CONFIG_RECORDER_AUDIO_CODEC,
+    CONFIG_RECORDER_AUDIO_FILTERS,
+    CONFIG_RECORDER_CODEC,
+    CONFIG_RECORDER_OUPTUT_ARGS,
+    CONFIG_RECORDER_VIDEO_FILTERS,
     CONFIG_RTSP_TRANSPORT,
     CONFIG_STREAM_FORMAT,
     CONFIG_SUBSTREAM,
@@ -56,6 +62,7 @@ from .const import (
     CONFIG_WIDTH,
     DEFAULT_AUDIO_CODEC,
     DEFAULT_CODEC,
+    DEFAULT_RECORDER_AUDIO_CODEC,
     ENV_FFMPEG_PATH,
     FFMPEG_LOGLEVELS,
     FFPROBE_LOGLEVELS,
@@ -268,8 +275,8 @@ class Stream:
         )
 
     @staticmethod
-    def get_codec(stream_config: dict[str, Any], stream_codec: str):
-        """Return codec set in config or from predefined codec map."""
+    def get_decoder_codec(stream_config: dict[str, Any], stream_codec: str):
+        """Return decoder codec set in config or from predefined codec map."""
         if stream_config[CONFIG_CODEC] and stream_config[CONFIG_CODEC] != DEFAULT_CODEC:
             return ["-c:v", stream_config[CONFIG_CODEC]]
 
@@ -291,6 +298,10 @@ class Stream:
             return ["-c:v", codec]
         return []
 
+    def get_encoder_codec(self):
+        """Return encoder codec set in config."""
+        return ["-c:v", self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]]
+
     def stream_command(
         self, stream_config: dict[str, Any], stream_codec: str, stream_url: str
     ):
@@ -305,7 +316,7 @@ class Stream:
         return (
             input_args
             + stream_config[CONFIG_HWACCEL_ARGS]
-            + self.get_codec(stream_config, stream_codec)
+            + self.get_decoder_codec(stream_config, stream_codec)
             + (
                 ["-rtsp_transport", stream_config[CONFIG_RTSP_TRANSPORT]]
                 if self._config[CONFIG_STREAM_FORMAT] == "rtsp"
@@ -314,17 +325,23 @@ class Stream:
             + ["-i", stream_url]
         )
 
-    def get_audio_codec(
+    def get_encoder_audio_codec(
         self,
-        stream_config: dict[str, Any],
         stream_audio_codec: str | None,
     ) -> list[str]:
         """Return audio codec used for saving segments."""
         if (
-            stream_config[CONFIG_AUDIO_CODEC]
-            and stream_config[CONFIG_AUDIO_CODEC] != DEFAULT_AUDIO_CODEC
+            self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]
+            and self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]
+            != DEFAULT_RECORDER_AUDIO_CODEC
         ):
-            return ["-c:a", stream_config[CONFIG_AUDIO_CODEC]]
+            return [
+                "-c:a",
+                self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC],
+            ]
+
+        if self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC] is None:
+            return ["-an"]
 
         if stream_audio_codec in [
             "pcm_alaw",
@@ -336,13 +353,28 @@ class Stream:
             )
             return ["-c:a", "aac"]
 
-        if (
-            stream_audio_codec
-            and stream_config[CONFIG_AUDIO_CODEC] == DEFAULT_AUDIO_CODEC
-        ):
+        if stream_audio_codec:
             return ["-c:a", "copy"]
 
         return ["-an"]
+
+    def recorder_video_filter_args(self) -> list[str] | list:
+        """Return video filter arguments."""
+        if filters := self._config[CONFIG_RECORDER][CONFIG_RECORDER_VIDEO_FILTERS]:
+            return [
+                "-vf",
+                ",".join(filters),
+            ]
+        return []
+
+    def recorder_audio_filter_args(self) -> list[str] | list:
+        """Return audio filter arguments."""
+        if filters := self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_FILTERS]:
+            return [
+                "-af",
+                ",".join(filters),
+            ]
+        return []
 
     def segment_args(self):
         """Generate FFmpeg segment args."""
@@ -358,6 +390,8 @@ class Stream:
                 "fmp4",
                 "-hls_list_size",
                 "10",
+                "-hls_flags",
+                "program_date_time",
                 "-strftime",
                 "1",
                 "-hls_segment_filename",
@@ -365,10 +399,12 @@ class Stream:
                     self._camera.temp_segments_folder,
                     "%s.m4s",
                 ),
-                "-c:v",
-                "copy",
             ]
-            + self.get_audio_codec(self._config, self._mainstream.audio_codec)
+            + self.get_encoder_codec()
+            + self.recorder_video_filter_args()
+            + self.get_encoder_audio_codec(self._mainstream.audio_codec)
+            + self.recorder_audio_filter_args()
+            + self._camera.config[CONFIG_RECORDER][CONFIG_RECORDER_OUPTUT_ARGS]
             + [
                 os.path.join(
                     self._camera.temp_segments_folder,

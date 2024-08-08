@@ -20,16 +20,7 @@ from sqlalchemy import insert
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import FilesMeta
 from viseron.const import TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera.const import (
-    CONFIG_FFMPEG_LOGLEVEL,
-    CONFIG_RECORDER,
-    CONFIG_RECORDER_AUDIO_CODEC,
-    CONFIG_RECORDER_AUDIO_FILTERS,
-    CONFIG_RECORDER_CODEC,
-    CONFIG_RECORDER_HWACCEL_ARGS,
-    CONFIG_RECORDER_OUPTUT_ARGS,
-    CONFIG_RECORDER_VIDEO_FILTERS,
-)
+from viseron.domains.camera.const import CONFIG_FFMPEG_LOGLEVEL, CONFIG_RECORDER
 from viseron.helpers.logs import LogPipe
 
 if TYPE_CHECKING:
@@ -69,13 +60,39 @@ def _get_mp4_files_to_fragment(path: str) -> list[str]:
 
 def _extract_extinf_number(playlist_content: str, file: str) -> float | None:
     """Extract the EXTINF number from a HLS playlist."""
-    pattern = rf"^#EXTINF:([0-9.]+),\s*(?:\n\s*)?{re.escape(file)}(?:\s*\n|$)"
+    pattern = (
+        r"^(?:.*?\n)*#EXTINF:([0-9.]+),\s*(?:\n\s*.*?)*?\n\s*"
+        rf"{re.escape(file)}(?:\s*\n|$)"
+    )
 
     match = re.search(pattern, playlist_content, re.MULTILINE)
 
     if match:
         # Extract the duration number from the match
         return float(match.group(1))
+    return None
+
+
+def _extract_program_date_time(
+    playlist_content: str, file: str
+) -> datetime.datetime | None:
+    """Extract the EXT-X-PROGRAM-DATE-TIME number from a HLS playlist."""
+    pattern = (
+        rf"^#EXT-X-PROGRAM-DATE-TIME:(.*)\s*(?:\n\s*)?{re.escape(file)}(?:\s*\n|$)"
+    )
+
+    match = re.search(pattern, playlist_content, re.MULTILINE)
+
+    try:
+        if match:
+            # Remove timezone information since fromisoformat does not support it
+            no_tz = re.sub(r"\+[0-9]{4}$", "", match.group(1))
+            # Adjust according to local timezone
+            return datetime.datetime.fromisoformat(no_tz) - datetime.timedelta(
+                seconds=time.localtime().tm_gmtoff
+            )
+    except ValueError:
+        pass
     return None
 
 
@@ -180,12 +197,20 @@ class Fragmenter:
         except FileNotFoundError:
             self._logger.debug(f"{file} not found", exc_info=True)
 
-    def _write_files_metadata(self, file: str, extinf: float):
+    def _write_files_metadata(
+        self,
+        file: str,
+        extinf: float,
+        program_date_time: datetime.datetime | None = None,
+    ):
         """Write metadata about the fragmented mp4 to the database."""
         with self._storage.get_session() as session:
-            orig_ctime = datetime.datetime.fromtimestamp(
-                int(file.split(".")[0]), tz=None
-            ) - datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+            if program_date_time:
+                orig_ctime = program_date_time
+            else:
+                orig_ctime = datetime.datetime.fromtimestamp(
+                    int(file.split(".")[0]), tz=None
+                ) - datetime.timedelta(seconds=time.localtime().tm_gmtoff)
 
             stmt = insert(FilesMeta).values(
                 path=os.path.join(
@@ -244,9 +269,11 @@ class Fragmenter:
     def _handle_m4s(self, file: str):
         """Handle m4s (fragmented mp4) files."""
         try:
-            extinf = _extract_extinf_number(self._read_m3u8(), file)
+            m3u8 = self._read_m3u8()
+            extinf = _extract_extinf_number(m3u8, file)
+            program_date_time = _extract_program_date_time(m3u8, file)
             if extinf:
-                self._write_files_metadata(file, extinf)
+                self._write_files_metadata(file, extinf, program_date_time)
                 self._move_to_segments_folder(file)
             else:
                 self._logger.error(f"Failed to get extinf for {file}")
@@ -273,47 +300,11 @@ class Fragmenter:
         self._create_fragmented_mp4()
         self._logger.debug("Fragment thread shutdown complete")
 
-    def video_filter_args(self) -> list[str] | list:
-        """Return video filter arguments."""
-        if filters := self._camera.config[CONFIG_RECORDER][
-            CONFIG_RECORDER_VIDEO_FILTERS
-        ]:
-            return [
-                "-vf",
-                ",".join(filters),
-            ]
-        return []
-
-    def audio_filter_args(self) -> list[str] | list:
-        """Return audio filter arguments."""
-        if filters := self._camera.config[CONFIG_RECORDER][
-            CONFIG_RECORDER_AUDIO_FILTERS
-        ]:
-            return [
-                "-af",
-                ",".join(filters),
-            ]
-        return []
-
-    def audio_codec_args(self) -> list | list[str]:
-        """Return audio codec arguments."""
-        if codec_args := self._camera.config[CONFIG_RECORDER][
-            CONFIG_RECORDER_AUDIO_CODEC
-        ]:
-            return ["-c:a", codec_args]
-        return ["-an"]
-
     def concatenate_fragments(
         self, fragments: list[Fragment], media_sequence=0
     ) -> str | Literal[False]:
-        """Concatenate fragments into a single mp4 file.
-
-        HLS playlist is first concatenated to a temporary mp4 file without
-        transcoding. The temporary mp4 file is then transcoded to the final
-        mp4 file with the desired codecs and filters.
-        """
+        """Concatenate fragments into a single mp4 file."""
         file_uuid = str(uuid.uuid4())
-        first_pass_filename = os.path.join(TEMP_DIR, f"temp-{file_uuid}.mp4")
         filename = os.path.join(TEMP_DIR, f"{file_uuid}.mp4")
 
         playlist = generate_playlist(
@@ -324,23 +315,28 @@ class Fragmenter:
             file_directive=True,
         )
         self._logger.debug(f"HLS Playlist for contatenation: {playlist}")
+        ffmpeg_cmd = (
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                self._camera.config[CONFIG_RECORDER][CONFIG_FFMPEG_LOGLEVEL],
+                "-protocol_whitelist",
+                "file,pipe",
+                "-i",
+                "-",
+                "-c:v",
+                "copy",
+                "-c:a",
+                "copy",
+            ]
+            + ["-movflags", "+faststart"]
+            + [filename]
+        )
+        self._logger.debug(f"Concatenation command: {' '.join(ffmpeg_cmd)}")
         try:
             sp.run(  # type: ignore[call-overload]
-                [
-                    "ffmpeg",
-                    "-hide_banner",
-                    "-loglevel",
-                    "error",
-                    "-protocol_whitelist",
-                    "file,pipe",
-                    "-i",
-                    "-",
-                    "-acodec",
-                    "copy",
-                    "-vcodec",
-                    "copy",
-                    first_pass_filename,
-                ],
+                ffmpeg_cmd,
                 input=playlist.encode("utf-8"),
                 stdout=self._log_pipe_ffmpeg,
                 stderr=self._log_pipe_ffmpeg,
@@ -349,40 +345,6 @@ class Fragmenter:
         except sp.CalledProcessError as err:
             self._logger.error(err)
             return False
-
-        ffmpeg_cmd = (
-            [
-                "ffmpeg",
-                "-hide_banner",
-                "-loglevel",
-                self._camera.config[CONFIG_RECORDER][CONFIG_FFMPEG_LOGLEVEL],
-                "-y",
-            ]
-            + self._camera.config[CONFIG_RECORDER][CONFIG_RECORDER_HWACCEL_ARGS]
-            + [
-                "-i",
-                first_pass_filename,
-            ]
-            + ["-c:v", self._camera.config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]]
-            + self.video_filter_args()
-            + self.audio_codec_args()
-            + self.audio_filter_args()
-            + self._camera.config[CONFIG_RECORDER][CONFIG_RECORDER_OUPTUT_ARGS]
-            + ["-movflags", "+faststart"]
-            + [filename]
-        )
-        self._logger.debug(f"Concatenation command: {' '.join(ffmpeg_cmd)}")
-        try:
-            sp.run(  # type: ignore[call-overload]
-                ffmpeg_cmd,
-                stdout=self._log_pipe_ffmpeg,
-                stderr=self._log_pipe_ffmpeg,
-                check=True,
-            )
-        except sp.CalledProcessError as err:
-            self._logger.error(err)
-            return False
-
         return filename
 
 
