@@ -28,6 +28,7 @@ def test_generate_playlist() -> None:
 #EXT-X-TARGETDURATION:6
 #EXT-X-INDEPENDENT-SEGMENTS
 #EXT-X-MAP:URI="/test/init.mp4"
+#EXT-X-DISCONTINUITY
 #EXT-X-PROGRAM-DATE-TIME:{program_date_time}
 #EXTINF:5.1,
 /test/test1.mp4
@@ -35,7 +36,6 @@ def test_generate_playlist() -> None:
 #EXT-X-PROGRAM-DATE-TIME:{program_date_time}
 #EXTINF:4.123,
 /test/test2.mp4
-#EXT-X-DISCONTINUITY
 #EXT-X-ENDLIST"""
     )
 
@@ -84,10 +84,10 @@ class TestFragmenter:
         )
 
     @patch("viseron.domains.camera.fragmenter.shutil.move")
-    def test_move_to_segments_folder(self, mock_shutil_move: Mock):
+    def test_move_to_segments_folder_mp4box(self, mock_shutil_move: Mock):
         """Test that the files are moved to the segments folder."""
         mock_shutil_move.return_value = MagicMock()
-        self.fragmenter._move_to_segments_folder(  # pylint: disable=protected-access
+        self.fragmenter._move_to_segments_folder_mp4box(  # pylint: disable=protected-access
             "test.mp4"
         )
         mock_shutil_move.assert_any_call(

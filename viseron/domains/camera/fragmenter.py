@@ -19,7 +19,7 @@ from sqlalchemy import insert
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import FilesMeta
-from viseron.const import CAMERA_SEGMENT_DURATION, TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
+from viseron.const import TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import (
     CONFIG_FFMPEG_LOGLEVEL,
     CONFIG_RECORDER,
@@ -222,11 +222,14 @@ class Fragmenter:
         """Handle mp4 files."""
         try:
             if self._mp4box_command(file):
-                extinf = _extract_extinf_number(self._read_m3u8_mp4box(file), file)
-                self._write_files_metadata(
-                    file, extinf if extinf else float(CAMERA_SEGMENT_DURATION)
+                extinf = _extract_extinf_number(
+                    self._read_m3u8_mp4box(file), "clip_1.m4s"
                 )
-                self._move_to_segments_folder_mp4box(file)
+                if extinf:
+                    self._write_files_metadata(file, extinf)
+                    self._move_to_segments_folder_mp4box(file)
+                else:
+                    self._logger.error(f"Failed to get extinf for {file}")
         except Exception as err:  # pylint: disable=broad-except
             self._logger.error(f"Failed to fragment {file}", exc_info=err)
 
