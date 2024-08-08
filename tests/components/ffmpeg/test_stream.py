@@ -22,6 +22,7 @@ from viseron.components.ffmpeg.const import (
     CONFIG_PORT,
     CONFIG_PROTOCOL,
     CONFIG_RECORDER,
+    CONFIG_RECORDER_AUDIO_CODEC,
     CONFIG_STREAM_FORMAT,
     CONFIG_SUBSTREAM,
     CONFIG_USERNAME,
@@ -31,6 +32,7 @@ from viseron.components.ffmpeg.const import (
     DEFAULT_FPS,
     DEFAULT_HEIGHT,
     DEFAULT_PROTOCOL,
+    DEFAULT_RECORDER_AUDIO_CODEC,
     DEFAULT_STREAM_FORMAT,
     DEFAULT_USERNAME,
     DEFAULT_WIDTH,
@@ -162,7 +164,7 @@ class TestStream:
             (DEFAULT_CODEC, "dummy", ENV_CUDA_SUPPORTED, []),
         ],
     )
-    def test_get_codec(
+    def test_get_decoder_codec(
         self, monkeypatch, config_codec, stream_codec, device_env, expected_cmd
     ) -> None:
         """Test that the correct codec is returned."""
@@ -178,32 +180,35 @@ class TestStream:
         ):
             stream = Stream(config, mocked_camera, "test_camera_identifier")
             stream._logger = MagicMock()  # pylint: disable=protected-access
-            assert stream.get_codec(config, stream_codec) == expected_cmd
+            assert stream.get_decoder_codec(config, stream_codec) == expected_cmd
 
     @pytest.mark.parametrize(
         "config_audio_codec, stream_audio_codec, expected_audio_cmd",
         [
-            (DEFAULT_AUDIO_CODEC, "aac", ["-c:a", "copy"]),
-            (DEFAULT_AUDIO_CODEC, "pcm_alaw", ["-c:a", "aac"]),
+            (DEFAULT_RECORDER_AUDIO_CODEC, "aac", ["-c:a", "copy"]),
+            (DEFAULT_RECORDER_AUDIO_CODEC, "pcm_alaw", ["-c:a", "aac"]),
             ("test_codec", "pcm_alaw", ["-c:a", "test_codec"]),
-            (DEFAULT_AUDIO_CODEC, None, []),
+            (DEFAULT_RECORDER_AUDIO_CODEC, None, ["-an"]),
+            (None, None, ["-an"]),
+            (None, "aac", ["-an"]),
         ],
     )
-    def test_get_audio_codec(
+    def test_get_encoder_audio_codec(
         self, vis, config_audio_codec, stream_audio_codec, expected_audio_cmd
     ) -> None:
         """Test that the correct audio codec is returned."""
         mocked_camera = MockCamera(identifier="test_camera_identifier")
         config = CONFIG
-        config[CONFIG_AUDIO_CODEC] = config_audio_codec
+        config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC] = config_audio_codec
 
         with patch.object(
             Stream, "__init__", MagicMock(spec=Stream, return_value=None)
         ):
             stream = Stream(config, mocked_camera, "test_camera_identifier")
             stream._logger = MagicMock()  # pylint: disable=protected-access
+            stream._config = config  # pylint: disable=protected-access
             assert (
-                stream.get_audio_codec(config, stream_audio_codec) == expected_audio_cmd
+                stream.get_encoder_audio_codec(stream_audio_codec) == expected_audio_cmd
             )
 
     def test_get_stream_url(self) -> None:

@@ -1,12 +1,10 @@
-import { useTheme } from "@mui/material/styles";
-import useMediaQuery from "@mui/material/useMediaQuery";
 import dayjs, { Dayjs } from "dayjs";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
 
 import { ErrorMessage } from "components/error/ErrorMessage";
-import { Layout, LayoutSmall } from "components/events/Layouts";
+import { Layout } from "components/events/Layouts";
 import { Loading } from "components/loading/Loading";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras, useCamerasFailed } from "lib/api/cameras";
@@ -26,8 +24,6 @@ const getDefaultTab = (searchParams: URLSearchParams) => {
 
 const Events = () => {
   useTitle("Events");
-  const theme = useTheme();
-  const matches = useMediaQuery(theme.breakpoints.up("sm"));
   const [searchParams] = useSearchParams();
   const camerasQuery = useCameras({});
   const failedCamerasQuery = useCamerasFailed({});
@@ -89,6 +85,13 @@ const Events = () => {
     }
   }, [date]);
 
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "scroll";
+    };
+  }, []);
+
   if (camerasQuery.isError) {
     return (
       <ErrorMessage
@@ -114,9 +117,8 @@ const Events = () => {
     return null;
   }
 
-  const LayoutVariant = matches ? Layout : LayoutSmall;
   return (
-    <LayoutVariant
+    <Layout
       cameras={cameraData}
       selectedCamera={selectedCamera}
       selectedEvent={selectedEvent}

@@ -663,7 +663,7 @@ class NVR:
         This makes sure all frames are cleaned up eventually.
         """
         timer = threading.Timer(
-            2, self._camera.shared_frames.remove, args=(shared_frame,)
+            2, self._camera.shared_frames.remove, args=(shared_frame, self._camera)
         )
         timer.start()
 
@@ -726,7 +726,7 @@ class NVR:
                 shared_frame = self._frame_queue.get(timeout=1)
             except Empty:
                 break
-            self._camera.shared_frames.remove(shared_frame)
+            self._camera.shared_frames.remove(shared_frame, self._camera)
 
         for timer in self._removal_timers:
             timer.cancel()

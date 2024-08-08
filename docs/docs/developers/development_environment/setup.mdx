@@ -104,6 +104,6 @@ To make testing with `pytest` as easy as possible, `tox` will build and run a Do
 If you would like to run tests outside of `tox` you can build and run this container manually:
 
 ```bash
-docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build amd64-viseron-tests
-docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env run --rm amd64-viseron-tests
+docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build amd64-viseron-tests
+docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env run --rm amd64-viseron-tests
 ```

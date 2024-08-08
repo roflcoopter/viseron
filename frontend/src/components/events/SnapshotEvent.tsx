@@ -1,11 +1,4 @@
 import Image from "@jy95/material-ui-image";
-import AirIcon from "@mui/icons-material/Air";
-import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
-import PersonIcon from "@mui/icons-material/DirectionsWalk";
-import FaceIcon from "@mui/icons-material/Face";
-import ImageSearchIcon from "@mui/icons-material/ImageSearch";
-import PetsIcon from "@mui/icons-material/Pets";
-import VideoFileIcon from "@mui/icons-material/VideoFile";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -26,9 +19,9 @@ import {
   extractUniqueTypes,
   getEventTime,
   getEventTimestamp,
+  getIcon,
   getSrc,
 } from "components/events/utils";
-import LicensePlateRecgnitionIcon from "components/icons/LicensePlateRecognition";
 import { toTitleCase } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -42,43 +35,6 @@ const CustomWidthTooltip = styled(({ className, ...props }: TooltipProps) => (
     maxWidth: "100vw",
   },
 }));
-
-const labelToIcon = (label: string) => {
-  switch (label) {
-    case "person":
-      return PersonIcon;
-
-    case "car":
-    case "truck":
-    case "vehicle":
-      return DirectionsCarIcon;
-
-    case "dog":
-    case "cat":
-    case "animal":
-      return PetsIcon;
-
-    default:
-      return ImageSearchIcon;
-  }
-};
-
-const getIcon = (event: types.CameraEvent) => {
-  switch (event.type) {
-    case "object":
-      return labelToIcon(event.label);
-    case "face_recognition":
-      return FaceIcon;
-    case "license_plate_recognition":
-      return LicensePlateRecgnitionIcon;
-    case "motion":
-      return AirIcon;
-    case "recording":
-      return VideoFileIcon;
-    default:
-      return event satisfies never;
-  }
-};
 
 const getText = (event: types.CameraEvent) => {
   const date = new Date(getEventTime(event));
@@ -233,11 +189,8 @@ export const SnapshotIcon = ({ events }: { events: types.CameraEvent[] }) => {
         }}
       >
         <Icon
+          color="primary"
           style={{
-            color:
-              theme.palette.mode === "dark"
-                ? theme.palette.primary[600]
-                : theme.palette.primary[300],
             height: EVENT_ICON_HEIGHT,
             width: EVENT_ICON_HEIGHT,
           }}

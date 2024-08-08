@@ -20,7 +20,10 @@ export default function VideoPlayerPlaceholder({
   const theme = useTheme();
 
   return (
-    <Box sx={{ position: "relative" }} data-testid="video-player-placeholder">
+    <Box
+      sx={{ position: "relative", width: "100%" }}
+      data-testid="video-player-placeholder"
+    >
       <Image
         src={src || blankImage}
         aspectRatio={aspectRatio}
@@ -35,12 +38,10 @@ export default function VideoPlayerPlaceholder({
             textAlign: "center",
             position: "absolute",
             opacity: "0.5",
-            top: "0",
+            top: "50%",
             bottom: "0",
             left: "0",
             right: "0",
-            height: "fit-content",
-            margin: "auto",
           }}
         >
           {text}

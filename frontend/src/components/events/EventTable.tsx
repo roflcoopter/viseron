@@ -9,7 +9,7 @@ import ServerDown from "svg/undraw/server_down.svg?react";
 
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { EventTableItem } from "components/events/EventTableItem";
-import { getEventTimestamp } from "components/events/utils";
+import { getEventTimestamp, useFilterStore } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { useEvents } from "lib/api/events";
 import { useHlsAvailableTimespans } from "lib/api/hls";
@@ -103,6 +103,7 @@ export const EventTable = memo(
     });
 
     useOnScroll(parentRef);
+    const { filters } = useFilterStore();
 
     if (eventsQuery.isError || availableTimespansQuery.isError) {
       return (
@@ -130,7 +131,10 @@ export const EventTable = memo(
       );
     }
 
-    const groupedEvents = groupEventsByTime(eventsQuery.data.events);
+    const filteredEvents = eventsQuery.data.events.filter(
+      (event) => filters[event.type].checked,
+    );
+    const groupedEvents = groupEventsByTime(filteredEvents);
     return (
       <Box>
         <Grid container direction="row" columns={1}>
