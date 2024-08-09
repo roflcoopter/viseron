@@ -127,8 +127,6 @@ class Fragmenter:
             seconds=1,
             id=self._fragment_job_id,
             max_instances=1,
-            coalesce=True,
-            misfire_grace_time=1,
         )
 
     def _mp4box_command(self, file: str):
@@ -280,12 +278,18 @@ class Fragmenter:
                 os.remove(os.path.join(self._camera.temp_segments_folder, file))
         except Exception as err:  # pylint: disable=broad-except
             self._logger.error(f"Failed to process m4s file {file}", exc_info=err)
+        finally:
+            try:
+                os.remove(os.path.join(self._camera.temp_segments_folder, file))
+            except FileNotFoundError:
+                pass
 
     def _create_fragmented_mp4(self):
         """Create fragmented mp4 from mp4 using MP4Box."""
         self._logger.debug("Checking for new segments to fragment")
         mp4s = _get_mp4_files_to_fragment(self._camera.temp_segments_folder)
-        for mp4 in sorted(mp4s):
+        # Handle max 5 files per iteration to avoid blocking the thread for too long
+        for mp4 in sorted(mp4s)[:5]:
             self._logger.debug(f"Processing {mp4}")
             if mp4.split(".")[1] == "m4s":
                 self._handle_m4s(mp4)
