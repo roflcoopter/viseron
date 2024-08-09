@@ -117,7 +117,7 @@ RUN \
   && rm -rf /var/lib/apt/lists/* \
   \
   && python3 -m pip install --upgrade pip \
-  && python3 -m pip install install /wheels/*.whl \
+  && python3 -m pip install /wheels/*.whl \
   && rm -r /wheels \
   \
   # Install Python 3.9 if it doesn't exist
@@ -136,7 +136,7 @@ RUN \
   && echo "libedgetpu1-max libedgetpu/accepted-eula select true" | debconf-set-selections \
   && apt-get -qq update && apt-get -qq install -y --no-install-recommends \
   libedgetpu1-max \
-  && python3.9 -m pip install install /wheels-3.9/*.whl \
+  && python3.9 -m pip install /wheels-3.9/*.whl \
   && rm -r /wheels-3.9 \
   \
   && chmod +x /tmp/s6-overlay-installer && /tmp/s6-overlay-installer / \
