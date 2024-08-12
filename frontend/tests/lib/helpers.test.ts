@@ -118,6 +118,8 @@ describe("getVideoElement", () => {
       access_token: "",
       still_image_refresh_interval: 0,
       failed: false,
+      is_on: true,
+      connected: true,
     };
     const { getByTestId } = render(getVideoElement(camera, null, false));
     expect(getByTestId("video-player-placeholder")).toBeInTheDocument();
@@ -132,6 +134,8 @@ describe("getVideoElement", () => {
       access_token: "",
       still_image_refresh_interval: 0,
       failed: false,
+      is_on: true,
+      connected: true,
     };
 
     const { getByTestId } = render(getVideoElement(camera, undefined, false));
@@ -147,6 +151,8 @@ describe("getVideoElement", () => {
       access_token: "",
       still_image_refresh_interval: 0,
       failed: false,
+      is_on: true,
+      connected: true,
     };
     const recording: types.Recording = {
       thumbnail_path: "thumbnail.jpg",

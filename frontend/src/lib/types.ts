@@ -148,6 +148,8 @@ export interface Camera {
   access_token: string;
   still_image_refresh_interval: number;
   failed: false;
+  is_on: boolean;
+  connected: boolean;
 }
 
 export interface Cameras {
@@ -223,8 +225,10 @@ export interface EntityAttributes {
 }
 
 type CameraBaseEvent = {
+  camera_identifier: string;
   id: number;
   created_at: string;
+  created_at_timestamp: number;
 };
 
 type CameraBaseTimedEvent = CameraBaseEvent & {
