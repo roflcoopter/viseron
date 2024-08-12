@@ -391,7 +391,7 @@ class Stream:
                 "-hls_list_size",
                 "10",
                 "-hls_flags",
-                "program_date_time",
+                "program_date_time+delete_segments",
                 "-strftime",
                 "1",
                 "-hls_segment_filename",
