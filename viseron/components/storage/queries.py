@@ -121,7 +121,6 @@ def recordings_to_move_query(
     segment_length: int,
     tier_id: int,
     camera_identifier: str,
-    lookback: int,
     max_bytes: int,
     min_age_timestamp: float,
     min_bytes: int,
@@ -132,12 +131,11 @@ def recordings_to_move_query(
     LOGGER.debug(
         "Recordings to move query bindparms: "
         "segment_length(%s), tier_id(%s), camera_identifier(%s), "
-        "lookback(%s), max_bytes(%s), min_age_timestamp(%s), min_bytes(%s), "
+        "max_bytes(%s), min_age_timestamp(%s), min_bytes(%s), "
         "max_age_timestamp(%s), file_min_age_timestamp(%s)",
         segment_length,
         tier_id,
         camera_identifier,
-        lookback,
         max_bytes,
         min_age_timestamp,
         min_bytes,
@@ -165,8 +163,7 @@ def recordings_to_move_query(
          LEFT JOIN recordings r
                 ON f.camera_identifier = r.camera_identifier
                AND meta.orig_ctime BETWEEN
-                    r.start_time - INTERVAL ':lookback sec'
-                                 - INTERVAL ':segment_length sec' AND
+                    r.adjusted_start_time AND
                     COALESCE(r.end_time + INTERVAL ':segment_length sec', now())
              WHERE f.category = 'recorder'
                -- Count the size of both segments, thumbnails and recordings
@@ -231,7 +228,6 @@ def recordings_to_move_query(
             min_age_timestamp=min_age_timestamp,
             max_age_timestamp=max_age_timestamp,
             min_bytes=min_bytes,
-            lookback=lookback,
             file_min_age_timestamp=file_min_age_timestamp,
         )
         .columns(
