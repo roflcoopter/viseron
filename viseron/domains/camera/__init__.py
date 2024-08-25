@@ -396,7 +396,7 @@ class AbstractCamera(ABC):
         self.stopped = Event()
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self.current_frame: SharedFrame | None = None
-        self.shared_frames = SharedFrames()
+        self.shared_frames = SharedFrames(vis)
         self.frame_bytes_topic = DATA_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
         )

@@ -128,7 +128,8 @@ def enable_logging() -> None:
         "Uncaught exception", exc_info=args  # type: ignore[arg-type]
     )
     threading.excepthook = lambda args: logging.getLogger(None).exception(
-        "Uncaught thread exception",
+        "Uncaught thread exception in thread %s",
+        args.thread.name if args.thread else "unknown",
         exc_info=(
             args.exc_type,
             args.exc_value,
@@ -227,6 +228,7 @@ class Viseron:
         self.critical_components_config_store = CriticalComponentsConfigStore(self)
         self.safe_mode = False
         self.exit_code = 0
+        self.shutdown_stage: Literal["shutdown", "last_write", "stopping"] | None = None
 
     @property
     def version(self) -> str:
@@ -492,9 +494,15 @@ class Viseron:
         except SchedulerNotRunningError as err:
             LOGGER.warning(f"Failed to shutdown scheduler: {err}")
 
-        wait_for_threads_and_processes_to_exit(data_stream, VISERON_SIGNAL_SHUTDOWN)
-        wait_for_threads_and_processes_to_exit(data_stream, VISERON_SIGNAL_LAST_WRITE)
-        wait_for_threads_and_processes_to_exit(data_stream, VISERON_SIGNAL_STOPPING)
+        wait_for_threads_and_processes_to_exit(
+            self, data_stream, VISERON_SIGNAL_SHUTDOWN
+        )
+        wait_for_threads_and_processes_to_exit(
+            self, data_stream, VISERON_SIGNAL_LAST_WRITE
+        )
+        wait_for_threads_and_processes_to_exit(
+            self, data_stream, VISERON_SIGNAL_STOPPING
+        )
 
         LOGGER.info("Shutdown complete")
 
@@ -530,10 +538,12 @@ class Viseron:
 
 
 def wait_for_threads_and_processes_to_exit(
+    vis: Viseron,
     data_stream: DataStream,
     stage: Literal["shutdown", "last_write", "stopping"],
 ) -> None:
     """Wait for all threads and processes to exit."""
+    vis.shutdown_stage = stage
     data_stream.publish_data(VISERON_SIGNALS[stage])
 
     LOGGER.debug(f"Waiting for threads and processes to exit in stage {stage}")
@@ -544,6 +554,7 @@ def wait_for_threads_and_processes_to_exit(
         | multiprocessing.process.BaseProcess,
     ) -> None:
         thread_or_process.join(timeout=10)
+        time.sleep(0.5)  # Wait for process to exit properly
         if thread_or_process.is_alive():
             LOGGER.error(f"{thread_or_process.name} did not exit in time")
             if isinstance(thread_or_process, multiprocessing.Process):

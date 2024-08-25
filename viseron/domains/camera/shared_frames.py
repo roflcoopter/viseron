@@ -12,6 +12,7 @@ import cv2
 import numpy as np
 
 if TYPE_CHECKING:
+    from viseron import Viseron
     from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
@@ -81,7 +82,8 @@ class SharedFrame:
 class SharedFrames:
     """Byte frame shared in memory."""
 
-    def __init__(self) -> None:
+    def __init__(self, vis: Viseron) -> None:
+        self._vis = vis
         self._frames: dict[uuid.UUID | str, np.ndarray] = {}
 
     def create(self, shared_frame: SharedFrame, frame_bytes: bytes) -> None:
@@ -126,9 +128,10 @@ class SharedFrames:
 
     def remove(self, shared_frame: SharedFrame, camera: AbstractCamera) -> None:
         """Remove frame from shared memory."""
-        if shared_frame.reference_count > 0 or (
-            camera and camera.current_frame == shared_frame
-        ):
+        if (
+            shared_frame.reference_count > 0
+            or (camera and camera.current_frame == shared_frame)
+        ) and self._vis.shutdown_stage is None:
             threading.Timer(1, self.remove, args=(shared_frame, camera)).start()
             return
 
