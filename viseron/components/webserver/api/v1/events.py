@@ -62,6 +62,17 @@ class EventsAPIHandler(BaseAPIHandler):
                 }
             ),
         },
+        {
+            "path_pattern": r"/events/amount",
+            "supported_methods": ["POST"],
+            "method": "post_events_amount_multiple",
+            "json_body_schema": vol.Schema(
+                {
+                    vol.Required("camera_identifiers"): [str],
+                    vol.Required("utc_offset_minutes"): vol.Coerce(int),
+                }
+            ),
+        },
     ]
 
     def _motion_events(
@@ -87,6 +98,7 @@ class EventsAPIHandler(BaseAPIHandler):
             for event in motion:
                 motion_events.append(
                     {
+                        "camera_identifier": event.camera_identifier,
                         "type": "motion",
                         "id": event.id,
                         "start_time": event.start_time,
@@ -102,6 +114,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         if event.snapshot_path
                         else None,
                         "created_at": event.created_at,
+                        "created_at_timestamp": event.created_at.timestamp(),
                     }
                 )
         return motion_events
@@ -128,6 +141,7 @@ class EventsAPIHandler(BaseAPIHandler):
             for event in objects:
                 object_events.append(
                     {
+                        "camera_identifier": event.camera_identifier,
                         "type": "object",
                         "id": event.id,
                         "time": event.created_at,
@@ -135,6 +149,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         "label": event.label,
                         "confidence": event.confidence,
                         "created_at": event.created_at,
+                        "created_at_timestamp": event.created_at.timestamp(),
                         "snapshot_path": f"/files{event.snapshot_path}",
                     }
                 )
@@ -163,6 +178,7 @@ class EventsAPIHandler(BaseAPIHandler):
             for event in recordings:
                 recording_events.append(
                     {
+                        "camera_identifier": event.camera_identifier,
                         "type": "recording",
                         "id": event.id,
                         "trigger_type": event.trigger_type,
@@ -181,6 +197,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         ),
                         "thumbnail_path": f"/files{event.thumbnail_path}",
                         "created_at": event.created_at,
+                        "created_at_timestamp": event.created_at.timestamp(),
                     }
                 )
         return recording_events
@@ -216,6 +233,7 @@ class EventsAPIHandler(BaseAPIHandler):
             for event in post_processor_results:
                 post_processor_events.append(
                     {
+                        "camera_identifier": event.camera_identifier,
                         "type": event.domain,
                         "id": event.id,
                         "time": event.created_at,
@@ -223,6 +241,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         "snapshot_path": f"/files{event.snapshot_path}",
                         "data": event.data,
                         "created_at": event.created_at,
+                        "created_at_timestamp": event.created_at.timestamp(),
                     }
                 )
         return post_processor_events
@@ -295,27 +314,27 @@ class EventsAPIHandler(BaseAPIHandler):
     def _events_amount(
         self,
         get_session: Callable[[], Session],
-        camera: AbstractCamera | FailedCamera,
+        camera_identifiers: list[str],
+        utc_offset_minutes: int,
     ) -> dict[str, dict[str, Any]]:
-        utc_offset_minutes = self.request_arguments["utc_offset_minutes"]
         with get_session() as session:
             stmt = select(Motion.start_time).where(
-                Motion.camera_identifier == camera.identifier
+                Motion.camera_identifier.in_(camera_identifiers)
             )
             motion_events = session.execute(stmt).scalars().all()
 
             stmt = select(Recordings.start_time).where(
-                Recordings.camera_identifier == camera.identifier
+                Recordings.camera_identifier.in_(camera_identifiers)
             )
             recording_events = session.execute(stmt).scalars().all()
 
             stmt = select(Objects.created_at).where(
-                Objects.camera_identifier == camera.identifier
+                Objects.camera_identifier.in_(camera_identifiers)
             )
             object_events = session.execute(stmt).scalars().all()
 
             stmt_pp = select(PostProcessorResults).where(
-                PostProcessorResults.camera_identifier == camera.identifier
+                PostProcessorResults.camera_identifier.in_(camera_identifiers)
             )
             post_processor_events = session.execute(stmt_pp).scalars().all()
 
@@ -362,7 +381,7 @@ class EventsAPIHandler(BaseAPIHandler):
         self,
         camera_identifier: str,
     ) -> None:
-        """Get amount of events for every day stored in the database.
+        """Get amount of events per day.
 
         The time is adjusted to the client's timezone using utc_offset_minutes.
         """
@@ -378,6 +397,20 @@ class EventsAPIHandler(BaseAPIHandler):
         events_amount = await self.run_in_executor(
             self._events_amount,
             self._get_session,
-            camera,
+            [camera.identifier],
+            self.request_arguments["utc_offset_minutes"],
+        )
+        self.response_success(response={"events_amount": events_amount})
+
+    async def post_events_amount_multiple(self):
+        """Get amount of events per day for multiple cameras.
+
+        The time is adjusted to the client's timezone using utc_offset_minutes.
+        """
+        events_amount = await self.run_in_executor(
+            self._events_amount,
+            self._get_session,
+            self.json_body["camera_identifiers"],
+            self.json_body["utc_offset_minutes"],
         )
         self.response_success(response={"events_amount": events_amount})

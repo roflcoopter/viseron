@@ -201,7 +201,11 @@ export const SnapshotIcon = ({ events }: { events: types.CameraEvent[] }) => {
 };
 
 const SnapshotIcons = ({ events }: { events: types.CameraEvent[] }) => {
-  const uniqueEvents = extractUniqueTypes(events);
+  // Show the oldest event first in the list, API returns latest first
+  const sortedEvents = events
+    .slice()
+    .sort((a, b) => a.created_at_timestamp - b.created_at_timestamp);
+  const uniqueEvents = extractUniqueTypes(sortedEvents);
   return (
     <Stack direction="row">
       {Object.keys(uniqueEvents).map((key) => {

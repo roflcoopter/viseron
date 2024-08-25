@@ -1,4 +1,4 @@
-import { UseQueryOptions, useQuery } from "@tanstack/react-query";
+import { UseQueryOptions, useQueries, useQuery } from "@tanstack/react-query";
 
 import { viseronAPI } from "lib/api/client";
 import * as types from "lib/types";
@@ -78,3 +78,72 @@ export const useHlsAvailableTimespans = (
     variables.configOptions,
   );
 };
+
+type HlsAvailableTimespansMultipleVariablesWithTime = {
+  camera_identifiers: string[];
+  time_from: number;
+  time_to: number;
+  configOptions?: UseQueryOptions<
+    types.HlsAvailableTimespans,
+    types.APIErrorResponse
+  >;
+};
+type HlsAvailableTimespansMultipleVariablesWithDate = {
+  camera_identifiers: string[];
+  date: string;
+  configOptions?: UseQueryOptions<
+    types.HlsAvailableTimespans,
+    types.APIErrorResponse
+  >;
+};
+type HlsAvailableTimespansMultipleVariables =
+  | HlsAvailableTimespansMultipleVariablesWithTime
+  | HlsAvailableTimespansMultipleVariablesWithDate;
+
+export function useHlsAvailableTimespansMultiple(
+  variables: HlsAvailableTimespansMultipleVariables,
+) {
+  const queryKeys = variables.camera_identifiers.map((camera_identifier) =>
+    "time_from" in variables && "time_to" in variables
+      ? [
+          "hls",
+          camera_identifier,
+          "available_timespans",
+          variables.time_from,
+          variables.time_to,
+        ]
+      : ["hls", camera_identifier, "available_timespans", variables.date],
+  );
+
+  const availableTimespansQueries = useQueries<
+    UseQueryOptions<types.HlsAvailableTimespans, types.APIErrorResponse>[]
+  >({
+    queries: queryKeys.map((queryKey) => ({
+      queryKey,
+      queryFn: async () => {
+        const { camera_identifiers, ...newVariables } = variables;
+        (newVariables as HlsAvailableTimespansVariables).camera_identifier =
+          queryKey[1] as string;
+
+        return availableTimespans(
+          newVariables as HlsAvailableTimespansVariables,
+        );
+      },
+    })),
+  });
+
+  const data: types.HlsAvailableTimespans = { timespans: [] };
+  data.timespans = availableTimespansQueries.flatMap((result) =>
+    result.data ? result.data.timespans : [],
+  );
+
+  return {
+    data,
+    isError: availableTimespansQueries.some((query) => query.isError),
+    error: availableTimespansQueries.find((query) => query.error)?.error,
+    isLoading: availableTimespansQueries.some((query) => query.isLoading),
+    isInitialLoading: availableTimespansQueries.some(
+      (query) => query.isInitialLoading,
+    ),
+  };
+}

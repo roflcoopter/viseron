@@ -344,5 +344,5 @@ export type HlsAvailableTimespan = {
 };
 
 export type HlsAvailableTimespans = {
-  timespans: [HlsAvailableTimespan];
+  timespans: HlsAvailableTimespan[];
 };

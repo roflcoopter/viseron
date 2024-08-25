@@ -5,10 +5,17 @@ import ServerDown from "svg/undraw/server_down.svg?react";
 
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { Layout } from "components/events/Layouts";
+import { useCameraStore } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
+import { useHideScrollbar } from "hooks/UseHideScrollbar";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras, useCamerasFailed } from "lib/api/cameras";
-import { insertURLParameter, objHasValues, objIsEmpty } from "lib/helpers";
+import {
+  insertURLParameter,
+  objHasValues,
+  objIsEmpty,
+  removeURLParameter,
+} from "lib/helpers";
 import * as types from "lib/types";
 
 const getDefaultTab = (searchParams: URLSearchParams) => {
@@ -24,12 +31,11 @@ const getDefaultTab = (searchParams: URLSearchParams) => {
 
 const Events = () => {
   useTitle("Events");
+  useHideScrollbar();
   const [searchParams] = useSearchParams();
   const camerasQuery = useCameras({});
   const failedCamerasQuery = useCamerasFailed({});
-  const [selectedCamera, setSelectedCamera] = useState<
-    types.Camera | types.FailedCamera | null
-  >(null);
+  const { selectSingleCamera } = useCameraStore();
 
   // Combine the two queries into one object
   const cameraData: types.CamerasOrFailedCameras = useMemo(() => {
@@ -51,46 +57,27 @@ const Events = () => {
       : dayjs(),
   );
   const [requestedTimestamp, setRequestedTimestamp] = useState<number | null>(
-    null,
+    dayjs().unix() - 10,
   );
   const [selectedTab, setSelectedTab] = useState<"events" | "timeline">(
     getDefaultTab(searchParams),
   );
-  const changeSelectedCamera = (
-    ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera | types.FailedCamera,
-  ) => {
-    setSelectedCamera(camera);
-    setRequestedTimestamp(null);
-    setSelectedEvent(null);
-  };
 
   useEffect(() => {
-    if (
-      objHasValues(cameraData) &&
-      searchParams.has("camera") &&
-      !selectedCamera
-    ) {
-      setSelectedCamera(cameraData[searchParams.get("camera") as string]);
+    if (objHasValues(cameraData) && searchParams.has("camera")) {
+      selectSingleCamera(
+        cameraData[searchParams.get("camera") as string].identifier,
+      );
+      const newUrl = removeURLParameter(window.location.href, "camera");
+      window.history.pushState({ path: newUrl }, "", newUrl);
     }
-  }, [cameraData, searchParams, selectedCamera]);
-  useEffect(() => {
-    if (selectedCamera) {
-      insertURLParameter("camera", selectedCamera.identifier);
-    }
-  }, [selectedCamera]);
+  }, [cameraData, searchParams, selectSingleCamera]);
+
   useEffect(() => {
     if (date) {
       insertURLParameter("date", date.format("YYYY-MM-DD"));
     }
   }, [date]);
-
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "scroll";
-    };
-  }, []);
 
   if (camerasQuery.isError) {
     return (
@@ -120,10 +107,8 @@ const Events = () => {
   return (
     <Layout
       cameras={cameraData}
-      selectedCamera={selectedCamera}
       selectedEvent={selectedEvent}
       setSelectedEvent={setSelectedEvent}
-      changeSelectedCamera={changeSelectedCamera}
       date={date}
       setDate={setDate}
       requestedTimestamp={requestedTimestamp}

@@ -1,5 +1,4 @@
 import dayjs, { Dayjs } from "dayjs";
-import Hls from "hls.js";
 import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
 import ServerDown from "svg/undraw/server_down.svg?react";
 
@@ -14,14 +13,14 @@ import {
   calculateStart,
   getDateAtPosition,
   getTimelineItems,
+  useCameraStore,
   useFilterStore,
 } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { ViseronContext } from "context/ViseronContext";
-import { useEvents } from "lib/api/events";
-import { useHlsAvailableTimespans } from "lib/api/hls";
+import { useEventsMultiple } from "lib/api/events";
+import { useHlsAvailableTimespansMultiple } from "lib/api/hls";
 import { dateToTimestamp } from "lib/helpers";
-import * as types from "lib/types";
 
 // Move startRef.current forward every SCALE seconds
 const useAddTicks = (
@@ -83,26 +82,17 @@ const timelineClick = (
   if (timestamp > dayjs().unix()) {
     return;
   }
-
   // Position the line and display the time
   setRequestedTimestamp(timestamp);
 };
 
 type TimelineTableProps = {
   parentRef: React.MutableRefObject<HTMLDivElement | null>;
-  hlsRef: React.MutableRefObject<Hls | null>;
-  camera: types.Camera | types.FailedCamera;
   date: Dayjs | null;
   setRequestedTimestamp: (timestamp: number | null) => void;
 };
 export const TimelineTable = memo(
-  ({
-    parentRef,
-    hlsRef,
-    camera,
-    date,
-    setRequestedTimestamp,
-  }: TimelineTableProps) => {
+  ({ parentRef, date, setRequestedTimestamp }: TimelineTableProps) => {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const startRef = useRef<number>(calculateStart(date));
     const endRef = useRef<number>(calculateEnd(date));
@@ -114,16 +104,17 @@ export const TimelineTable = memo(
     useAddTicks(date, startRef, setStart);
     startRef.current = start;
 
-    const eventsQuery = useEvents({
-      camera_identifier: camera.identifier,
+    const { selectedCameras } = useCameraStore();
+    const eventsQueries = useEventsMultiple({
+      camera_identifiers: selectedCameras,
       time_from: endRef.current,
       time_to: startRef.current,
       configOptions: {
         keepPreviousData: true,
       },
     });
-    const availableTimespansQuery = useHlsAvailableTimespans({
-      camera_identifier: camera.identifier,
+    const availableTimespansQueries = useHlsAvailableTimespansMultiple({
+      camera_identifiers: selectedCameras,
       time_from: endRef.current,
       time_to: startRef.current,
       configOptions: {
@@ -136,18 +127,18 @@ export const TimelineTable = memo(
       () =>
         getTimelineItems(
           startRef,
-          eventsQuery.data?.events || [],
-          availableTimespansQuery.data?.timespans || [],
+          eventsQueries.data || [],
+          availableTimespansQueries.data?.timespans || [],
           filters,
         ),
-      [eventsQuery.data, availableTimespansQuery.data, filters],
+      [eventsQueries.data, availableTimespansQueries.data?.timespans, filters],
     );
 
-    if (eventsQuery.error || availableTimespansQuery.error) {
-      const subtext = eventsQuery.error
-        ? eventsQuery.error.message
-        : availableTimespansQuery.error
-          ? availableTimespansQuery.error.message
+    if (eventsQueries.error || availableTimespansQueries.error) {
+      const subtext = eventsQueries.error
+        ? eventsQueries.error.message
+        : availableTimespansQueries.error
+          ? availableTimespansQueries.error.message
           : "Unknown error";
       return (
         <ErrorMessage
@@ -159,10 +150,7 @@ export const TimelineTable = memo(
         />
       );
     }
-    if (
-      eventsQuery.isInitialLoading ||
-      availableTimespansQuery.isInitialLoading
-    ) {
+    if (eventsQueries.isInitialLoading || eventsQueries.isInitialLoading) {
       return <Loading text="Loading Timeline" fullScreen={false} />;
     }
 
@@ -184,7 +172,6 @@ export const TimelineTable = memo(
             containerRef={containerRef}
             startRef={startRef}
             endRef={endRef}
-            hlsRef={hlsRef}
           />
         </div>
         <HoverLine

@@ -1,4 +1,3 @@
-import Box from "@mui/material/Box";
 import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -6,11 +5,10 @@ import Hls, { LevelLoadedData } from "hls.js";
 import React, { useEffect, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 
-import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import {
   SCALE,
-  calculateHeight,
   findFragmentByTimestamp,
+  useHlsStore,
 } from "components/events/utils";
 import { useAuthContext } from "context/AuthContext";
 import { useFirstRender } from "hooks/UseFirstRender";
@@ -156,7 +154,6 @@ const initializePlayer = (
 
   // Handle errors
   hlsRef.current.on(Hls.Events.ERROR, (_event, data) => {
-    console.error("HLS error", data.details, data.type, data.fatal);
     if (data.fatal) {
       switch (data.type) {
         case Hls.ErrorTypes.NETWORK_ERROR:
@@ -190,9 +187,11 @@ const useInitializePlayer = (
   camera: types.Camera | types.FailedCamera,
 ) => {
   const { auth } = useAuthContext();
+  const { addHlsRef } = useHlsStore();
 
   useEffect(() => {
     if (Hls.isSupported()) {
+      addHlsRef(hlsRef);
       initializePlayer(
         hlsRef,
         hlsClientIdRef,
@@ -284,50 +283,17 @@ const useSeekToTimestamp = (
   ]);
 };
 
-const useResizeObserver = (
-  containerRef: React.RefObject<HTMLDivElement>,
-  videoRef: React.RefObject<HTMLVideoElement>,
-  camera: types.Camera | types.FailedCamera,
-) => {
-  const resizeObserver = useRef<ResizeObserver>();
-
-  useEffect(() => {
-    if (containerRef.current) {
-      resizeObserver.current = new ResizeObserver(() => {
-        if (!videoRef.current || !containerRef.current) {
-          return;
-        }
-
-        videoRef.current.style.height = `${calculateHeight(
-          camera.width,
-          camera.height,
-          containerRef.current.offsetWidth,
-        )}px`;
-        videoRef.current.style.maxHeight = `${containerRef.current.offsetHeight}px`;
-      });
-      resizeObserver.current.observe(containerRef.current);
-    }
-    return () => {
-      if (resizeObserver.current) {
-        resizeObserver.current.disconnect();
-      }
-    };
-  }, [camera, containerRef, videoRef]);
-};
 interface TimelinePlayerProps {
-  containerRef: React.RefObject<HTMLDivElement>;
-  hlsRef: React.MutableRefObject<Hls | null>;
   camera: types.Camera | types.FailedCamera;
   requestedTimestamp: number;
 }
 
 export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
-  containerRef,
-  hlsRef,
   camera,
   requestedTimestamp,
 }) => {
   const theme = useTheme();
+  const hlsRef = useRef<Hls | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsClientIdRef = useRef<string>(uuidv4());
   const initialProgramDateTime = useRef<number | null>(null);
@@ -349,40 +315,19 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
     requestedTimestamp,
     camera,
   );
-  useResizeObserver(containerRef, videoRef, camera);
 
   return (
-    <Box
-      sx={{
-        position: "relative",
+    <video
+      ref={videoRef}
+      poster={BLANK_IMAGE}
+      style={{
         width: "100%",
+        backgroundColor: theme.palette.background.default,
+        height: "100%",
+        objectFit: "contain",
       }}
-    >
-      <CameraNameOverlay camera={camera} />
-      <Box
-        sx={{
-          alignItems: "center",
-          display: "flex",
-        }}
-      >
-        <video
-          ref={videoRef}
-          poster={BLANK_IMAGE}
-          style={{
-            width: "100%",
-            backgroundColor: theme.palette.background.default,
-            height: containerRef.current
-              ? calculateHeight(
-                  camera.width,
-                  camera.height,
-                  containerRef.current.offsetWidth,
-                )
-              : undefined,
-          }}
-          controls
-          playsInline
-        />
-      </Box>
-    </Box>
+      controls
+      playsInline
+    />
   );
 };
