@@ -22,6 +22,7 @@ from sqlalchemy import insert
 
 from viseron.components import (
     CriticalComponentsConfigStore,
+    activate_safe_mode,
     get_component,
     setup_component,
     setup_components,
@@ -144,11 +145,18 @@ def setup_viseron() -> Viseron:
     LOGGER.info("-------------------------------------------")
     LOGGER.info(f"Initializing Viseron {viseron_version if viseron_version else ''}")
 
-    config = load_config()
-
     vis = Viseron()
 
-    setup_components(vis, config)
+    try:
+        config = load_config()
+    except Exception as error:  # pylint: disable=broad-except
+        LOGGER.error(
+            f"Failed to load config.yaml, activating safe mode: {error}",
+            exc_info=error,
+        )
+        activate_safe_mode(vis)
+    else:
+        setup_components(vis, config)
 
     vis.storage = vis.data[STORAGE_COMPONENT]
 
