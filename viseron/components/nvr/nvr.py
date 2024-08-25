@@ -340,6 +340,10 @@ class NVR:
         self._camera.start_camera()
         self._logger.info(f"NVR for camera {self._camera.name} initialized")
 
+    def __repr__(self) -> str:
+        """Return string representation."""
+        return f"NVR_{self._camera.identifier}"
+
     def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]) -> None:
         """Calculate output fps based on fps of all scanners."""
         self._camera.calculate_output_fps(scanners)
@@ -710,10 +714,11 @@ class NVR:
     def stop(self) -> None:
         """Stop processing of events."""
         self._logger.info("Stopping NVR thread")
+        self._kill_received = True
+
         # Stop frame grabber
         self._camera.stop_camera()
 
-        self._kill_received = True
         self._nvr_thread.join()
 
         # Stop potential recording
