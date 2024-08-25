@@ -62,6 +62,7 @@ from .const import (
     CONFIG_WIDTH,
     DEFAULT_AUDIO_CODEC,
     DEFAULT_CODEC,
+    DEFAULT_FFMPEG_RECOVERABLE_ERRORS,
     DEFAULT_RECORDER_AUDIO_CODEC,
     ENV_FFMPEG_PATH,
     FFMPEG_LOGLEVELS,
@@ -99,7 +100,12 @@ class Stream:
     ) -> None:
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.addFilter(
-            UnhelpfullLogFilter(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS])
+            UnhelpfullLogFilter(
+                list(  # Remove duplicates
+                    set(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS])
+                    | set(DEFAULT_FFMPEG_RECOVERABLE_ERRORS)
+                )
+            )
         )
         self._config = config
         self._camera_identifier = camera_identifier
@@ -384,8 +390,6 @@ class Stream:
                 "hls",
                 "-hls_time",
                 str(CAMERA_SEGMENT_DURATION),
-                "-hls_playlist_type",
-                "event",
                 "-hls_segment_type",
                 "fmp4",
                 "-hls_list_size",

@@ -209,6 +209,7 @@ DEFAULT_FFMPEG_RECOVERABLE_ERRORS = [
     "non-existing PPS 0 referenced",
     "no frame!",
     "decode_slice_header error",
+    "failed to delete old segment",
 ]
 DEFAULT_FFPROBE_LOGLEVEL = "error"
 DEFAULT_RAW_COMMAND: Final = None
