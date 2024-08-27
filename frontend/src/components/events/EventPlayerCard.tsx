@@ -6,7 +6,14 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { TimelinePlayer } from "components/events/timeline/TimelinePlayer";
@@ -103,6 +110,7 @@ const calculateLayout = (
 const useGridLayout = (
   paperRef: React.RefObject<HTMLDivElement>,
   cameras: types.CamerasOrFailedCameras,
+  setPlayerItemsSize: () => void,
 ) => {
   const theme = useTheme();
   const smBreakpoint = useMediaQuery(theme.breakpoints.up("sm"));
@@ -119,7 +127,15 @@ const useGridLayout = (
     ) {
       setGridLayout(layout);
     }
-  }, [cameras, gridLayout.columns, gridLayout.rows, paperRef, smBreakpoint]);
+    setPlayerItemsSize();
+  }, [
+    cameras,
+    gridLayout.columns,
+    gridLayout.rows,
+    setPlayerItemsSize,
+    paperRef,
+    smBreakpoint,
+  ]);
 
   // Observe both the paperRef and window resize to update the layout
   useResizeObserver(paperRef, handleResize);
@@ -151,31 +167,9 @@ const setPlayerSize = (
   }
 };
 
-// Set player size based on paper size and grid layout
-const useSetPlayerSize = (
-  paperRef: React.RefObject<HTMLDivElement>,
-  boxRef: React.RefObject<HTMLDivElement>,
-  camera: types.Camera | types.FailedCamera,
-  gridLayout: GridLayout,
-) => {
-  const theme = useTheme();
-  const smBreakpoint = useMediaQuery(theme.breakpoints.up("sm"));
-
-  // Set size
-  // Can't use useLayoutEffect since the paperRef is not ready
-  useEffect(() => {
-    setPlayerSize(paperRef, boxRef, camera, gridLayout, smBreakpoint);
-  }, [boxRef, camera, paperRef, gridLayout, smBreakpoint]);
-
-  // Resize on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      setPlayerSize(paperRef, boxRef, camera, gridLayout, smBreakpoint);
-    };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [boxRef, camera, paperRef, gridLayout, smBreakpoint]);
-};
+interface PlayerItemRef {
+  setSize: () => void;
+}
 
 type PlayerItemProps = {
   camera: types.Camera | types.FailedCamera;
@@ -183,55 +177,63 @@ type PlayerItemProps = {
   requestedTimestamp: number;
   gridLayout: GridLayout;
 };
-const PlayerItem = ({
-  camera,
-  paperRef,
-  requestedTimestamp,
-  gridLayout,
-}: PlayerItemProps) => {
-  const boxRef = useRef<HTMLDivElement>(null);
-  useSetPlayerSize(paperRef, boxRef, camera, gridLayout);
+const PlayerItem = forwardRef<PlayerItemRef, PlayerItemProps>(
+  ({ camera, paperRef, requestedTimestamp, gridLayout }, ref) => {
+    const theme = useTheme();
+    const smBreakpoint = useMediaQuery(theme.breakpoints.up("sm"));
+    const boxRef = useRef<HTMLDivElement>(null);
 
-  return (
-    <Grid
-      item
-      xs={12 / gridLayout.columns}
-      key={camera.identifier}
-      sx={{
-        display: "flex",
-        justifyContent: "center",
-        alignContent: "center",
-        alignItems: "end",
-      }}
-    >
-      <Box
-        ref={boxRef}
+    useImperativeHandle(ref, () => ({
+      // PlayerCard will call this function to set the size of the player.
+      // Done this way since the player size depends on the size of the parent
+      // which is not known until the parent has been rendered
+      setSize: () => {
+        setPlayerSize(paperRef, boxRef, camera, gridLayout, smBreakpoint);
+      },
+    }));
+
+    return (
+      <Grid
+        item
+        xs={12 / gridLayout.columns}
+        key={camera.identifier}
         sx={{
-          width: "100%",
-          height: "100%",
-          position: "relative",
+          display: "flex",
+          justifyContent: "center",
+          [theme.breakpoints.up("xs")]: {
+            flexBasis: "0%",
+          },
         }}
       >
-        <TimelinePlayer
-          key={camera.identifier}
-          camera={camera}
-          requestedTimestamp={requestedTimestamp}
-        />
-        <CameraNameOverlay camera_identifier={camera.identifier} />
-      </Box>
-    </Grid>
-  );
-};
+        <Box
+          ref={boxRef}
+          sx={{
+            position: "relative",
+          }}
+        >
+          <TimelinePlayer
+            key={camera.identifier}
+            camera={camera}
+            requestedTimestamp={requestedTimestamp}
+          />
+          <CameraNameOverlay camera_identifier={camera.identifier} />
+        </Box>
+      </Grid>
+    );
+  },
+);
 
 type PlayerGridProps = {
   cameras: types.CamerasOrFailedCameras;
   paperRef: React.RefObject<HTMLDivElement>;
+  setPlayerItemRef: (index: number) => (ref: PlayerItemRef | null) => void;
   requestedTimestamp: number;
   gridLayout: GridLayout;
 };
 const PlayerGrid = ({
   cameras,
   paperRef,
+  setPlayerItemRef,
   requestedTimestamp,
   gridLayout,
 }: PlayerGridProps) => (
@@ -242,8 +244,9 @@ const PlayerGrid = ({
     alignContent="center"
     justifyContent="center"
   >
-    {Object.values(cameras).map((camera) => (
+    {Object.values(cameras).map((camera, index) => (
       <PlayerItem
+        ref={setPlayerItemRef(index)}
         key={camera.identifier}
         camera={camera}
         paperRef={paperRef}
@@ -266,9 +269,26 @@ export const PlayerCard = ({
   requestedTimestamp,
 }: PlayerCardProps) => {
   const theme = useTheme();
-  const paperRef = useRef<HTMLDivElement>(null);
+  const paperRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
+  const playerItemRefs = useRef<(PlayerItemRef | null)[]>([]);
+  const setPlayerItemRef = (index: number) => (ref: PlayerItemRef | null) => {
+    playerItemRefs.current[index] = ref;
+  };
+
+  const setPlayerItemsSize = useCallback(() => {
+    playerItemRefs.current.forEach((playerItemRef) => {
+      if (playerItemRef) {
+        playerItemRef.setSize();
+      }
+    });
+  }, []);
+
   const filteredCameras = useFilteredCameras(cameras);
-  const gridLayout = useGridLayout(paperRef, filteredCameras);
+  const gridLayout = useGridLayout(
+    paperRef,
+    filteredCameras,
+    setPlayerItemsSize,
+  );
 
   const camera = selectedEvent
     ? cameras[selectedEvent.camera_identifier]
@@ -277,7 +297,10 @@ export const PlayerCard = ({
 
   return (
     <Paper
-      ref={paperRef}
+      ref={(node) => {
+        paperRef.current = node;
+        setPlayerItemsSize();
+      }}
       variant="outlined"
       sx={{
         position: "relative",
@@ -290,6 +313,7 @@ export const PlayerCard = ({
         <PlayerGrid
           cameras={filteredCameras}
           paperRef={paperRef}
+          setPlayerItemRef={setPlayerItemRef}
           requestedTimestamp={requestedTimestamp}
           gridLayout={gridLayout}
         />
