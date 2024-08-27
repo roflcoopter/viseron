@@ -271,6 +271,9 @@ export const Layout = memo(
             item
             xs={12}
             sm={8}
+            md={8}
+            lg={9}
+            xl={10}
             display="flex"
             sx={{
               width: "100%",
@@ -289,7 +292,7 @@ export const Layout = memo(
               selectedTab={selectedTab}
             />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid item xs={12} sm={4} md={4} lg={3} xl={2}>
             <Paper variant="outlined">
               <Tabs
                 cameras={cameras}
