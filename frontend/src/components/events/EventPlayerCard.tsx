@@ -65,8 +65,8 @@ const calculateCellDimensions = (
     return { width, height };
   }
   // Video is taller than the cell, fit to height
-  const height = cellHeight;
-  const width = cellHeight * cameraAspectRatio;
+  const height = Math.floor(cellHeight);
+  const width = Math.floor(cellHeight * cameraAspectRatio);
   return { width, height };
 };
 
@@ -79,28 +79,36 @@ const calculateLayout = (
 
   const containerWidth = paperRef.current.clientWidth;
   const containerHeight = getContainerHeight(paperRef, smBreakpoint);
+  const camerasLength = Object.keys(cameras).length;
 
   let bestLayout = { columns: 1, rows: 1 };
-  let bestCoverage = 0;
-  const camerasLength = Object.keys(cameras).length;
+  let maxMinDimension = 0;
 
   for (let columns = 1; columns <= camerasLength; columns++) {
     const rows = Math.ceil(camerasLength / columns);
     const cellWidth = containerWidth / columns;
     const cellHeight = containerHeight / rows;
 
-    let totalCoverage = 0;
+    // Calculate the minimum dimension (width or height) of any camera in this layout
+    let minDimension = Math.min(cellWidth, cellHeight);
+
+    // Adjust for aspect ratio
     Object.values(cameras).forEach((camera) => {
-      const cameraCoverage = Math.min(
-        cellWidth / (camera.width / camera.height) / cellHeight,
-        (cellHeight * (camera.width / camera.height)) / cellWidth,
-      );
-      totalCoverage += cameraCoverage;
+      const aspectRatio = camera.width / camera.height;
+      const adjustedWidth = Math.min(cellWidth, cellHeight * aspectRatio);
+      const adjustedHeight = Math.min(cellHeight, cellWidth / aspectRatio);
+      minDimension = Math.min(minDimension, adjustedWidth, adjustedHeight);
     });
 
-    if (totalCoverage > bestCoverage) {
-      bestCoverage = totalCoverage;
+    // If this layout results in larger minimum dimensions, it's our new best layout
+    if (minDimension > maxMinDimension) {
+      maxMinDimension = minDimension;
       bestLayout = { columns, rows };
+    }
+
+    // If adding more columns would make cells smaller than they need to be, stop here
+    if (cellWidth < minDimension) {
+      break;
     }
   }
 
