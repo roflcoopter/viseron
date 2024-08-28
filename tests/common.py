@@ -123,6 +123,7 @@ class BaseTestWithRecordings:
                 insert(Recordings).values(
                     camera_identifier="test",
                     start_time=self._now + datetime.timedelta(seconds=7),
+                    adjusted_start_time=self._now + datetime.timedelta(seconds=2),
                     end_time=self._now + datetime.timedelta(seconds=10),
                     created_at=self._now + datetime.timedelta(seconds=7),
                     thumbnail_path="/test/test1.jpg",
@@ -132,6 +133,7 @@ class BaseTestWithRecordings:
                 insert(Recordings).values(
                     camera_identifier="test2",
                     start_time=self._now + datetime.timedelta(seconds=7),
+                    adjusted_start_time=self._now + datetime.timedelta(seconds=2),
                     end_time=self._now + datetime.timedelta(seconds=10),
                     created_at=self._now + datetime.timedelta(seconds=7),
                     thumbnail_path="/test2/test4.jpg",
@@ -141,6 +143,7 @@ class BaseTestWithRecordings:
                 insert(Recordings).values(
                     camera_identifier="test",
                     start_time=self._now + datetime.timedelta(seconds=26),
+                    adjusted_start_time=self._now + datetime.timedelta(seconds=21),
                     end_time=self._now + datetime.timedelta(seconds=36),
                     created_at=self._now + datetime.timedelta(seconds=26),
                     thumbnail_path="/test/test2.jpg",
@@ -150,6 +153,7 @@ class BaseTestWithRecordings:
                 insert(Recordings).values(
                     camera_identifier="test",
                     start_time=self._now + datetime.timedelta(seconds=40),
+                    adjusted_start_time=self._now + datetime.timedelta(seconds=35),
                     end_time=self._now + datetime.timedelta(seconds=45),
                     created_at=self._now + datetime.timedelta(seconds=40),
                     thumbnail_path="/test/test3.jpg",
