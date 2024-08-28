@@ -9,8 +9,10 @@ import {
 import dayjs, { Dayjs } from "dayjs";
 import { useMemo } from "react";
 
-import { useEventsAmount } from "lib/api/events";
+import { useEventsAmountMultiple } from "lib/api/events";
 import * as types from "lib/types";
+
+import { useCameraStore } from "./utils";
 
 function HasEvent(
   props: PickersDayProps<Dayjs> & { highlightedDays?: Record<string, any> },
@@ -71,7 +73,6 @@ type EventDatePickerDialogProps = {
   open: boolean;
   setOpen: (open: boolean) => void;
   date: Dayjs | null;
-  camera: types.Camera | types.FailedCamera | null;
   onChange?: (
     value: Dayjs | null,
     context: PickerChangeHandlerContext<DateValidationError>,
@@ -82,13 +83,12 @@ export function EventDatePickerDialog({
   open,
   setOpen,
   date,
-  camera,
   onChange,
 }: EventDatePickerDialogProps) {
-  const eventsAmountQuery = useEventsAmount({
-    camera_identifier: camera ? camera.identifier : null,
+  const { selectedCameras } = useCameraStore();
+  const eventsAmountQuery = useEventsAmountMultiple({
+    camera_identifiers: selectedCameras,
     utc_offset_minutes: dayjs().utcOffset(),
-    configOptions: { enabled: !!camera },
   });
   const highlightedDays = useMemo(
     () =>

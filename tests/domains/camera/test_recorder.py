@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -32,6 +32,7 @@ def get_db_session_recordings(get_db_session: Callable[[], Session]):
                 insert(Recordings).values(
                     camera_identifier=f"test{i}",
                     start_time=datetime.datetime(2023, 3, 1, 12, 0),
+                    adjusted_start_time=datetime.datetime(2023, 3, 1, 12, 0),
                     end_time=datetime.datetime(2023, 3, 1, 12, 3),
                     thumbnail_path="test",
                 )
@@ -40,6 +41,7 @@ def get_db_session_recordings(get_db_session: Callable[[], Session]):
                 insert(Recordings).values(
                     camera_identifier=f"test{i}",
                     start_time=datetime.datetime(2023, 3, 1, 12, 10),
+                    adjusted_start_time=datetime.datetime(2023, 3, 1, 12, 10),
                     end_time=datetime.datetime(2023, 3, 1, 12, 12),
                     thumbnail_path="test",
                 )
@@ -48,6 +50,7 @@ def get_db_session_recordings(get_db_session: Callable[[], Session]):
                 insert(Recordings).values(
                     camera_identifier=f"test{i}",
                     start_time=datetime.datetime(2023, 3, 2, 12, 0),
+                    adjusted_start_time=datetime.datetime(2023, 3, 2, 12, 0),
                     end_time=datetime.datetime(2023, 3, 2, 12, 3),
                     thumbnail_path="test",
                 )
@@ -56,6 +59,7 @@ def get_db_session_recordings(get_db_session: Callable[[], Session]):
                 insert(Recordings).values(
                     camera_identifier=f"test{i}",
                     start_time=datetime.datetime(2023, 3, 2, 12, 10),
+                    adjusted_start_time=datetime.datetime(2023, 3, 2, 12, 10),
                     end_time=datetime.datetime(2023, 3, 2, 12, 12),
                     thumbnail_path="test",
                 )
@@ -64,6 +68,7 @@ def get_db_session_recordings(get_db_session: Callable[[], Session]):
                 insert(Recordings).values(
                     camera_identifier=f"test{i}",
                     start_time=datetime.datetime(2023, 3, 3, 12, 0),
+                    adjusted_start_time=datetime.datetime(2023, 3, 3, 12, 0),
                     end_time=datetime.datetime(2023, 3, 3, 12, 3),
                     thumbnail_path="test",
                 )
@@ -72,6 +77,7 @@ def get_db_session_recordings(get_db_session: Callable[[], Session]):
                 insert(Recordings).values(
                     camera_identifier=f"test{i}",
                     start_time=datetime.datetime(2023, 3, 3, 12, 10),
+                    adjusted_start_time=datetime.datetime(2023, 3, 3, 12, 10),
                     end_time=datetime.datetime(2023, 3, 3, 12, 12),
                     thumbnail_path="test",
                 )
@@ -193,6 +199,15 @@ def test_delete_recordings_missing(get_db_session_recordings: Callable[[], Sessi
     assert len(recordings) == 0
 
 
+class Recorder(RecorderBase):
+    """Recorder class."""
+
+    @property
+    def lookback(self) -> Literal[5]:
+        """Return lookback."""
+        return 5
+
+
 class TestRecorderBase:
     """Test the RecorderBase class."""
 
@@ -204,7 +219,7 @@ class TestRecorderBase:
     ):
         """Test delete_recording."""
         mock_delete_recording.return_value = []
-        recorder_base = RecorderBase(vis, MagicMock(), MockCamera())
+        recorder_base = Recorder(vis, MagicMock(), MockCamera())
         result = recorder_base.delete_recording()
         assert result is False
 

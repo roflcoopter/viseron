@@ -20,12 +20,10 @@ import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { FailedCameraCard } from "components/camera/FailedCameraCard";
 import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
+import { useFirstRender } from "hooks/UseFirstRender";
 import useOnScreen from "hooks/UseOnScreen";
 import { useCamera } from "lib/api/camera";
-import queryClient from "lib/api/client";
-import { subscribeStates } from "lib/commands";
 import * as types from "lib/types";
-import { SubscriptionUnsubscribe } from "lib/websockets";
 
 type OnClick = (
   event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
@@ -38,7 +36,7 @@ type FailedOnClick = (
 ) => void;
 
 interface SuccessCameraCardProps {
-  camera_identifier: string;
+  camera: types.Camera;
   buttons?: boolean;
   compact?: boolean;
   onClick?: OnClick;
@@ -56,51 +54,8 @@ interface CameraCardProps {
 const blankImage =
   "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
 
-const useCameraToken = (camera_identifier: string, auth_enabled: boolean) => {
-  const { connected, connection } = useContext(ViseronContext);
-  const unsubRef = useRef<SubscriptionUnsubscribe | null>(null);
-
-  useEffect(() => {
-    // If auth is disabled, we dont need to sub for tokens
-    if (!auth_enabled) {
-      return;
-    }
-    const stateChanged = async (
-      _stateChangedEvent: types.StateChangedEvent,
-    ) => {
-      queryClient.invalidateQueries(["camera", camera_identifier]);
-    };
-
-    const unsubscribeEntities = async () => {
-      if (unsubRef.current) {
-        await unsubRef.current();
-      }
-      unsubRef.current = null;
-    };
-
-    const subcscribeEntities = async () => {
-      if (connection && connected) {
-        unsubRef.current = await subscribeStates(
-          connection,
-          stateChanged,
-          `sensor.${camera_identifier}_access_token`,
-          undefined,
-          false,
-        );
-      } else if (connection && !connected && unsubRef.current) {
-        await unsubscribeEntities();
-      }
-    };
-    subcscribeEntities();
-    // eslint-disable-next-line consistent-return
-    return () => {
-      unsubscribeEntities();
-    };
-  }, [auth_enabled, camera_identifier, connected, connection]);
-};
-
 const SuccessCameraCard = ({
-  camera_identifier,
+  camera,
   buttons = true,
   compact = false,
   onClick,
@@ -112,17 +67,14 @@ const SuccessCameraCard = ({
   const ref: any = useRef<HTMLDivElement>();
   const onScreen = useOnScreen<HTMLDivElement>(ref);
   const isVisible = usePageVisibility();
-  const [initialRender, setInitialRender] = useState(true);
-  const cameraQuery = useCamera(camera_identifier, false, {
-    enabled: connected,
-  });
+  const firstRender = useFirstRender();
 
   const generateSnapshotURL = useCallback(
     (width = null) =>
-      `/api/v1/camera/${camera_identifier}/snapshot?rand=${(Math.random() + 1)
+      `/api/v1/camera/${camera.identifier}/snapshot?rand=${(Math.random() + 1)
         .toString(36)
         .substring(7)}${width ? `&width=${Math.trunc(width)}` : ""}`,
-    [camera_identifier],
+    [camera.identifier],
   );
   const [snapshotURL, setSnapshotURL] = useState({
     // Show blank image on start
@@ -134,17 +86,12 @@ const SuccessCameraCard = ({
   const updateSnapshot = useRef<NodeJS.Timeout | null>();
   const updateImage = useCallback(() => {
     setSnapshotURL((prevSnapshotURL) => {
-      if (cameraQuery.isFetching) {
-        // Dont load new image if we are loading token
-        return prevSnapshotURL;
-      }
-      if (prevSnapshotURL.loading && !initialRender) {
+      if (prevSnapshotURL.loading && !firstRender) {
         // Dont load new image if we are still loading
         return prevSnapshotURL;
       }
-      if (initialRender) {
+      if (firstRender) {
         // Make sure we show the spinner on the first image fetched.
-        setInitialRender(false);
         return {
           url: generateSnapshotURL(
             ref.current ? ref.current.offsetWidth : null,
@@ -160,18 +107,24 @@ const SuccessCameraCard = ({
         loading: true,
       };
     });
-  }, [cameraQuery.isFetching, generateSnapshotURL, initialRender]);
+  }, [firstRender, generateSnapshotURL]);
 
   useEffect(() => {
     // If element is on screen and browser is visible, start interval to fetch images
-    if (onScreen && isVisible && connected && cameraQuery.isSuccess) {
+    if (
+      onScreen &&
+      isVisible &&
+      connected &&
+      camera.connected &&
+      camera.is_on
+    ) {
       updateImage();
       updateSnapshot.current = setInterval(
         () => {
           updateImage();
         },
-        cameraQuery.data.still_image_refresh_interval
-          ? cameraQuery.data.still_image_refresh_interval * 1000
+        camera.still_image_refresh_interval
+          ? camera.still_image_refresh_interval * 1000
           : 10000,
       );
       // If element is hidden or browser loses focus, stop updating images
@@ -189,11 +142,10 @@ const SuccessCameraCard = ({
     isVisible,
     onScreen,
     connected,
-    cameraQuery.isSuccess,
-    cameraQuery.data,
+    camera.connected,
+    camera.is_on,
+    camera.still_image_refresh_interval,
   ]);
-
-  useCameraToken(camera_identifier, auth.enabled);
 
   return (
     <div
@@ -202,104 +154,99 @@ const SuccessCameraCard = ({
         height: "100%",
       }}
     >
-      {cameraQuery.data && (
-        <Card
-          variant="outlined"
-          sx={{
-            // Vertically space items evenly to accommodate different aspect ratios
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-            ...(compact ? { position: "relative" } : { height: "100%" }),
-            ...(border ? { border } : null),
-          }}
+      <Card
+        variant="outlined"
+        sx={{
+          // Vertically space items evenly to accommodate different aspect ratios
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          ...(compact ? { position: "relative" } : { height: "100%" }),
+          ...(border ? { border } : null),
+        }}
+      >
+        {compact ? (
+          <CameraNameOverlay camera_identifier={camera.identifier} />
+        ) : (
+          <CardContent>
+            <Typography variant="h5" align="center">
+              {camera.name}
+            </Typography>
+          </CardContent>
+        )}
+        <CardActionArea
+          onClick={
+            onClick ? (event) => (onClick as OnClick)(event, camera) : undefined
+          }
+          sx={onClick ? null : { pointerEvents: "none" }}
         >
-          {compact ? (
-            <CameraNameOverlay camera={cameraQuery.data} />
-          ) : (
-            <CardContent>
-              <Typography variant="h5" align="center">
-                {cameraQuery.data.name}
-              </Typography>
-            </CardContent>
-          )}
-          <CardActionArea
-            onClick={
-              onClick
-                ? (event) => (onClick as OnClick)(event, cameraQuery.data)
-                : undefined
-            }
-            sx={onClick ? null : { pointerEvents: "none" }}
-          >
-            <CardMedia>
-              {/* 'alt=""' in combination with textIndent is a neat trick to hide the broken image icon */}
-              <Image
-                alt=""
-                imageStyle={{ textIndent: "-10000px" }}
-                src={`${snapshotURL.url}${
-                  auth.enabled
-                    ? `&access_token=${cameraQuery.data?.access_token}`
-                    : ""
-                }`}
-                disableSpinner={snapshotURL.disableSpinner}
-                disableTransition={snapshotURL.disableTransition}
-                animationDuration={1000}
-                aspectRatio={cameraQuery.data.width / cameraQuery.data.height}
-                color={theme.palette.background.default}
-                onLoad={() => {
-                  setSnapshotURL((prevSnapshotURL) => ({
-                    ...prevSnapshotURL,
-                    disableSpinner: true,
-                    disableTransition: true,
-                    loading: false,
-                  }));
-                }}
-                errorIcon={Image.defaultProps!.loading}
-                onError={() => {
-                  setSnapshotURL((prevSnapshotURL) => ({
-                    ...prevSnapshotURL,
-                    disableSpinner: false,
-                    disableTransition: false,
-                    loading: false,
-                  }));
-                }}
-              />
-            </CardMedia>
-          </CardActionArea>
-          {buttons && (
-            <CardActions>
-              <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
-                <Tooltip title="Events">
-                  <IconButton
-                    component={Link}
-                    to={`/events?camera=${cameraQuery.data.identifier}&tab=events`}
-                  >
-                    <ImageSearchIcon />
-                  </IconButton>
-                </Tooltip>
+          <CardMedia>
+            <Image
+              src={`${snapshotURL.url}${
+                auth.enabled ? `&access_token=${camera.access_token}` : ""
+              }`}
+              disableSpinner={snapshotURL.disableSpinner}
+              disableTransition={snapshotURL.disableTransition}
+              animationDuration={1000}
+              aspectRatio={camera.width / camera.height}
+              color={theme.palette.background.default}
+              onLoad={() => {
+                setSnapshotURL((prevSnapshotURL) => ({
+                  ...prevSnapshotURL,
+                  disableSpinner: true,
+                  disableTransition: true,
+                  loading: false,
+                }));
+              }}
+              errorIcon={
+                camera.connected && camera.is_on
+                  ? Image.defaultProps!.loading
+                  : null
+              }
+              onError={() => {
+                setSnapshotURL((prevSnapshotURL) => ({
+                  ...prevSnapshotURL,
+                  disableSpinner: false,
+                  disableTransition: false,
+                  loading: false,
+                }));
+              }}
+            />
+          </CardMedia>
+        </CardActionArea>
+        {buttons && (
+          <CardActions>
+            <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
+              <Tooltip title="Events">
+                <IconButton
+                  component={Link}
+                  to={`/events?camera=${camera.identifier}&tab=events`}
+                >
+                  <ImageSearchIcon />
+                </IconButton>
+              </Tooltip>
 
-                <Tooltip title="Recordings">
-                  <IconButton
-                    component={Link}
-                    to={`/recordings/${cameraQuery.data.identifier}`}
-                  >
-                    <VideoFileIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title="Live View">
-                  <IconButton
-                    component={"a" as React.ElementType}
-                    target="_blank"
-                    href={`/${cameraQuery.data.identifier}/mjpeg-stream`}
-                  >
-                    <LiveTvIcon />
-                  </IconButton>
-                </Tooltip>
-              </Stack>
-            </CardActions>
-          )}
-        </Card>
-      )}
+              <Tooltip title="Recordings">
+                <IconButton
+                  component={Link}
+                  to={`/recordings/${camera.identifier}`}
+                >
+                  <VideoFileIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Live View">
+                <IconButton
+                  component={"a" as React.ElementType}
+                  target="_blank"
+                  href={`/${camera.identifier}/mjpeg-stream`}
+                >
+                  <LiveTvIcon />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          </CardActions>
+        )}
+      </Card>
     </div>
   );
 };
@@ -331,7 +278,7 @@ export const CameraCard = ({
   }
   return (
     <SuccessCameraCard
-      camera_identifier={camera_identifier}
+      camera={cameraQuery.data}
       buttons={buttons}
       compact={compact}
       onClick={onClick as OnClick | undefined}

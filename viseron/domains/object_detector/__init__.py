@@ -441,40 +441,44 @@ class AbstractObjectDetector(ABC):
         """Perform preprocessing of frame before running detection."""
 
     def _object_detection(self) -> None:
-        """Perform object detection and publish the results."""
+        """Object detection thread."""
         while not self._kill_received:
             try:
                 shared_frame: SharedFrame = self.object_detection_queue.get(timeout=1)
-                frame_time = time.time()
             except Empty:
                 continue
 
+            frame_time = time.time()
             if (frame_age := frame_time - shared_frame.capture_time) > self._config[
                 CONFIG_CAMERAS
             ][shared_frame.camera_identifier][CONFIG_MAX_FRAME_AGE]:
                 self._logger.debug(f"Frame is {frame_age} seconds old. Discarding")
                 continue
 
-            decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(
-                shared_frame
-            )
-            preprocessed_frame = self.preprocess(decoded_frame)
-            self._preproc_fps.append(1 / (time.time() - frame_time))
+            with shared_frame:
+                self._detect(shared_frame, frame_time)
 
-            frame_time = time.time()
-            objects = self.return_objects(preprocessed_frame)
-            self._inference_fps.append(1 / (time.time() - frame_time))
-
-            self.filter_fov(shared_frame, objects)
-            self.filter_zones(shared_frame, objects)
-            self._vis.data[DATA_STREAM_COMPONENT].publish_data(
-                DATA_OBJECT_DETECTOR_RESULT.format(
-                    camera_identifier=shared_frame.camera_identifier
-                ),
-                self.objects_in_fov,
-            )
-            self._theoretical_max_fps.append(1 / (time.time() - frame_time))
         self._logger.debug("Object detection thread stopped")
+
+    def _detect(self, shared_frame: SharedFrame, frame_time: float):
+        """Perform object detection and publish data."""
+        decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(shared_frame)
+        preprocessed_frame = self.preprocess(decoded_frame)
+        self._preproc_fps.append(1 / (time.time() - frame_time))
+
+        frame_time = time.time()
+        objects = self.return_objects(preprocessed_frame)
+        self._inference_fps.append(1 / (time.time() - frame_time))
+
+        self.filter_fov(shared_frame, objects)
+        self.filter_zones(shared_frame, objects)
+        self._vis.data[DATA_STREAM_COMPONENT].publish_data(
+            DATA_OBJECT_DETECTOR_RESULT.format(
+                camera_identifier=shared_frame.camera_identifier
+            ),
+            self.objects_in_fov,
+        )
+        self._theoretical_max_fps.append(1 / (time.time() - frame_time))
 
     @abstractmethod
     def return_objects(self, frame) -> list[DetectedObject]:

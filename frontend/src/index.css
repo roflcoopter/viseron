@@ -11,6 +11,10 @@ body {
   flex-direction: column;
 }
 
+.overflow-hidden {
+  overflow: hidden;
+}
+
 :root {
   --toastify-toast-min-height: 0px;
   --toastify-font-family: "Roboto","Helvetica","Arial",sans-serif;

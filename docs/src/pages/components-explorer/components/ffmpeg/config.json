@@ -614,7 +614,8 @@
                   "Last message repeated",
                   "non-existing PPS 0 referenced",
                   "no frame!",
-                  "decode_slice_header error"
+                  "decode_slice_header error",
+                  "failed to delete old segment"
                 ]
               },
               {

@@ -3,11 +3,15 @@ import DOMPurify from "dompurify";
 import Hls from "hls.js";
 import { memo, useEffect, useRef } from "react";
 
-import { TICK_HEIGHT, getYPosition } from "components/events/utils";
+import {
+  TICK_HEIGHT,
+  getYPosition,
+  useHlsStore,
+} from "components/events/utils";
 import { dateToTimestamp, getTimeFromDate } from "lib/helpers";
 
 const useTimeUpdate = (
-  hlsRef: React.MutableRefObject<Hls | null>,
+  hlsRef: React.MutableRefObject<Hls | null> | undefined,
   containerRef: React.MutableRefObject<HTMLDivElement | null>,
   startRef: React.MutableRefObject<number>,
   endRef: React.MutableRefObject<number>,
@@ -15,8 +19,13 @@ const useTimeUpdate = (
   timeRef: React.MutableRefObject<HTMLDivElement | null>,
 ) => {
   useEffect(() => {
+    if (!hlsRef || !hlsRef.current) {
+      return () => {};
+    }
+    const hls = hlsRef.current;
+
     const onTimeUpdate = () => {
-      if (!hlsRef.current) {
+      if (!hlsRef || !hlsRef.current) {
         return;
       }
       const currentTime = hlsRef.current.media?.currentTime;
@@ -52,13 +61,12 @@ const useTimeUpdate = (
     };
 
     const interval = setInterval(() => {
-      if (hlsRef.current) {
+      if (hlsRef && hlsRef.current) {
         hlsRef.current.media?.addEventListener("timeupdate", onTimeUpdate);
         clearInterval(interval);
       }
     }, 1000);
 
-    const hls = hlsRef.current;
     return () => {
       if (hls) {
         hls.media?.removeEventListener("timeupdate", onTimeUpdate);
@@ -92,14 +100,15 @@ const useWidthObserver = (
 
 type ProgressLineProps = {
   containerRef: React.MutableRefObject<HTMLDivElement | null>;
-  hlsRef: React.MutableRefObject<Hls | null>;
   startRef: React.MutableRefObject<number>;
   endRef: React.MutableRefObject<number>;
 };
 export const ProgressLine = memo(
-  ({ containerRef, hlsRef, startRef, endRef }: ProgressLineProps) => {
+  ({ containerRef, startRef, endRef }: ProgressLineProps) => {
     const ref = useRef<HTMLInputElement | null>(null);
     const timeRef = useRef<HTMLInputElement | null>(null);
+    const { hlsRefs } = useHlsStore();
+    const hlsRef = hlsRefs[0];
 
     useTimeUpdate(hlsRef, containerRef, startRef, endRef, ref, timeRef);
     useWidthObserver(containerRef, ref);

@@ -60,12 +60,13 @@ def _get_mp4_files_to_fragment(path: str) -> list[str]:
 
 def _extract_extinf_number(playlist_content: str, file: str) -> float | None:
     """Extract the EXTINF number from a HLS playlist."""
-    pattern = (
-        r"^(?:.*?\n)*#EXTINF:([0-9.]+),\s*(?:\n\s*.*?)*?\n\s*"
-        rf"{re.escape(file)}(?:\s*\n|$)"
-    )
+    # Escape special regex characters in the file name
+    escaped_file = re.escape(file)
 
-    match = re.search(pattern, playlist_content, re.MULTILINE)
+    # Simplified pattern
+    pattern = rf"#EXTINF:(\d+(?:\.\d+)?)[^\n]*\n(?:(?!#EXTINF)[^\n]*\n)*{escaped_file}"
+
+    match = re.search(pattern, playlist_content)
 
     if match:
         # Extract the duration number from the match
@@ -77,11 +78,13 @@ def _extract_program_date_time(
     playlist_content: str, file: str
 ) -> datetime.datetime | None:
     """Extract the EXT-X-PROGRAM-DATE-TIME number from a HLS playlist."""
+    escaped_file = re.escape(file)
     pattern = (
-        rf"^#EXT-X-PROGRAM-DATE-TIME:(.*)\s*(?:\n\s*)?{re.escape(file)}(?:\s*\n|$)"
+        r"#EXT-X-PROGRAM-DATE-TIME:"
+        rf"([^\n]+)\n(?:(?!#EXT-X-PROGRAM-DATE-TIME)[^\n]*\n)*{escaped_file}"
     )
 
-    match = re.search(pattern, playlist_content, re.MULTILINE)
+    match = re.search(pattern, playlist_content)
 
     try:
         if match:

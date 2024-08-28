@@ -2,7 +2,7 @@ import GitHubIcon from "@mui/icons-material/GitHub";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
 import { styled, useTheme } from "@mui/material/styles";
-import { useContext, useEffect, useState } from "react";
+import { useContext } from "react";
 import { useLocation } from "react-router-dom";
 
 import { ViseronContext } from "context/ViseronContext";
@@ -17,17 +17,9 @@ const Footer = styled("footer")(() => ({
 
 export default function AppFooter() {
   const theme = useTheme();
-  const [showFooter, setShowFooter] = useState(true);
   const location = useLocation();
   const { version, gitCommit } = useContext(ViseronContext);
-
-  useEffect(() => {
-    if (["/configuration", "/events"].includes(location.pathname)) {
-      setShowFooter(false);
-      return;
-    }
-    setShowFooter(true);
-  }, [location]);
+  const showFooter = !["/configuration", "/events"].includes(location.pathname);
 
   return showFooter ? (
     <Footer>

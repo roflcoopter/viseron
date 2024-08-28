@@ -4,10 +4,16 @@ import { useNavigate } from "react-router-dom";
 
 import { useAuthContext } from "context/AuthContext";
 import { toastIds, useToast } from "hooks/UseToast";
-import { Connection } from "lib/websockets";
+import { Connection, SubscriptionUnsubscribe } from "lib/websockets";
 
 export type ViseronProviderProps = {
   children: React.ReactNode;
+};
+
+type SubscriptionManager = {
+  count: number;
+  unsubscribe: SubscriptionUnsubscribe | null;
+  subscribing: boolean;
 };
 
 export type ViseronContextState = {
@@ -16,6 +22,9 @@ export type ViseronContextState = {
   safeMode: boolean;
   version: string | undefined;
   gitCommit: string | undefined;
+  subscriptionRef:
+    | React.MutableRefObject<Record<string, SubscriptionManager>>
+    | undefined;
 };
 
 const contextDefaultValues: ViseronContextState = {
@@ -24,6 +33,7 @@ const contextDefaultValues: ViseronContextState = {
   safeMode: false,
   version: undefined,
   gitCommit: undefined,
+  subscriptionRef: undefined,
 };
 
 export const ViseronContext =
@@ -37,8 +47,11 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  const [contextValue, setContextValue] =
-    useState<ViseronContextState>(contextDefaultValues);
+  const subscriptionRef = React.useRef<Record<string, SubscriptionManager>>({});
+  const [contextValue, setContextValue] = useState<ViseronContextState>({
+    ...contextDefaultValues,
+    subscriptionRef,
+  });
   const { connection } = contextValue;
   const onConnectRef = React.useRef<() => void>();
   const onDisconnectRef = React.useRef<() => void>();

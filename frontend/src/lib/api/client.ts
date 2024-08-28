@@ -1,8 +1,12 @@
-import { QueryClient, useMutation } from "@tanstack/react-query";
+import { QueryClient, QueryKey, useMutation } from "@tanstack/react-query";
 import axios from "axios";
+import { useContext, useEffect } from "react";
 
+import { ViseronContext } from "context/ViseronContext";
 import { useToast } from "hooks/UseToast";
+import { subscribeStates } from "lib/commands";
 import * as types from "lib/types";
+import { SubscriptionUnsubscribe } from "lib/websockets";
 
 export const API_V1_URL = "/api/v1";
 export const viseronAPI = axios.create({
@@ -54,7 +58,7 @@ async function deleteRecording({
 
   const response = await viseronAPI.delete(
     url,
-    failed ? { params: { failed: true } } : undefined
+    failed ? { params: { failed: true } } : undefined,
   );
   return response.data;
 }
@@ -72,7 +76,7 @@ export const useDeleteRecording = () => {
       await queryClient.invalidateQueries({
         predicate: (query) =>
           (query.queryKey[0] as string).startsWith(
-            `/recordings/${variables.identifier}`
+            `/recordings/${variables.identifier}`,
           ),
       });
       await queryClient.invalidateQueries([
@@ -83,10 +87,75 @@ export const useDeleteRecording = () => {
       toast.error(
         error.response && error.response.data.error
           ? `Error deleting recording: ${error.response.data.error}`
-          : `An error occurred: ${error.message}`
+          : `An error occurred: ${error.message}`,
       );
     },
   });
+};
+
+export const useInvalidateQueryOnStateChange = (
+  entityId: string,
+  queryKey: QueryKey,
+) => {
+  const { connected, connection, subscriptionRef } = useContext(ViseronContext);
+  const staticQueryKey = JSON.stringify(queryKey);
+  useEffect(() => {
+    if (!subscriptionRef) {
+      return () => {};
+    }
+    if (!subscriptionRef.current[entityId]) {
+      subscriptionRef.current[entityId] = {
+        count: 0,
+        subscribing: false,
+        unsubscribe: null,
+      };
+    }
+
+    const _stateChanged = (_event: types.StateChangedEvent) => {
+      queryClient.invalidateQueries(queryKey);
+    };
+
+    subscriptionRef.current[entityId].count++;
+
+    const subscribe = async () => {
+      if (
+        connection &&
+        connected &&
+        subscriptionRef.current[entityId].unsubscribe === null &&
+        subscriptionRef.current[entityId].count === 1 &&
+        !subscriptionRef.current[entityId].subscribing
+      ) {
+        subscriptionRef.current[entityId].subscribing = true;
+        subscriptionRef.current[entityId].unsubscribe = await subscribeStates(
+          connection,
+          _stateChanged,
+          entityId,
+          undefined,
+          false,
+        );
+        subscriptionRef.current[entityId].subscribing = false;
+      }
+    };
+
+    const unsubscribe = async () => {
+      subscriptionRef.current[entityId].count--;
+      if (
+        subscriptionRef.current[entityId].count === 0 &&
+        subscriptionRef.current[entityId].unsubscribe
+      ) {
+        const _unsub = subscriptionRef.current[entityId].unsubscribe;
+        subscriptionRef.current[entityId].unsubscribe = null;
+        await (_unsub as SubscriptionUnsubscribe)();
+      }
+    };
+
+    subscribe();
+
+    return () => {
+      unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, connection, entityId, subscriptionRef, staticQueryKey]);
 };
 
 export default queryClient;

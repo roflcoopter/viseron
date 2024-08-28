@@ -254,12 +254,27 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         MuiPaper: {
           styleOverrides: {
             root: {
-              border: `1px solid ${
+              border: `2px solid ${
                 theme.palette.mode === "dark"
                   ? theme.palette.primary[900]
                   : theme.palette.primary[200]
               }`,
               boxShadow: "5px 5px 8px 0px rgba(0,0,0,0.40)",
+            },
+          },
+        },
+        MuiDialog: {
+          styleOverrides: {
+            paper: {
+              backgroundImage: "unset",
+            },
+          },
+        },
+        MuiPopover: {
+          styleOverrides: {
+            paper: {
+              backgroundImage:
+                "linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05))",
             },
           },
         },

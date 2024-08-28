@@ -11,18 +11,11 @@ type CameraPickerDialogProps = {
   open: boolean;
   setOpen: (open: boolean) => void;
   cameras: types.CamerasOrFailedCameras;
-  changeSelectedCamera: (
-    ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera | types.FailedCamera,
-  ) => void;
-  selectedCamera: types.Camera | types.FailedCamera | null;
 };
 export const CameraPickerDialog = ({
   open,
   setOpen,
   cameras,
-  changeSelectedCamera,
-  selectedCamera,
 }: CameraPickerDialogProps) => {
   const handleClose = () => {
     setOpen(false);
@@ -32,12 +25,7 @@ export const CameraPickerDialog = ({
     <Dialog fullWidth maxWidth={false} open={open} onClose={handleClose}>
       <DialogTitle>Cameras</DialogTitle>
       <DialogContent onClick={handleClose}>
-        <EventsCameraGrid
-          variant="grid"
-          cameras={cameras}
-          changeSelectedCamera={changeSelectedCamera}
-          selectedCamera={selectedCamera}
-        />
+        <EventsCameraGrid cameras={cameras} />
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose}>Close</Button>

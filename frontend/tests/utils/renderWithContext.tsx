@@ -1,6 +1,7 @@
 import CssBaseline from "@mui/material/CssBaseline";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RenderOptions, render } from "@testing-library/react";
+import { useRef } from "react";
 import { MemoryRouter } from "react-router-dom";
 
 import ToastContainer from "components/toast/ToastContainer";
@@ -41,6 +42,7 @@ function customRender(
                   safeMode: false,
                   version: "0.0.0",
                   gitCommit: "0000000",
+                  subscriptionRef: useRef({}),
                 }}
               >
                 {children}

@@ -4,12 +4,12 @@ ARG OPENCV_VERSION
 ARG FFMPEG_VERSION
 ARG WHEELS_VERSION
 ARG UBUNTU_VERSION
-FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} as opencv
-FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION} as ffmpeg
-FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} as wheels
+FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} AS opencv
+FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION} AS ffmpeg
+FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} AS wheels
 
 # Build GPAC
-FROM roflcoopter/${ARCH}-base:${BASE_VERSION} as gpac
+FROM roflcoopter/${ARCH}-base:${BASE_VERSION} AS gpac
 
 ENV \
   DEBIAN_FRONTEND=noninteractive
@@ -40,7 +40,7 @@ RUN \
 
 
 # Build frontend
-FROM node:20.10.0 as frontend
+FROM node:20.10.0 AS frontend
 
 WORKDIR /frontend
 
