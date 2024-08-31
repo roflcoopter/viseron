@@ -72,8 +72,22 @@ class ObjectDetector(AbstractObjectDetector):
         """Return CodeProject.AI detections as DetectedObject."""
         objects = []
         for detection in detections:
+            if self._image_resolution[0] == self._image_resolution[1]:
+                objects.append(
+                    DetectedObject.from_absolute_letterboxed(
+                        detection["label"],
+                        detection["confidence"],
+                        detection["x_min"],
+                        detection["y_min"],
+                        detection["x_max"],
+                        detection["y_max"],
+                        frame_res=self._camera.resolution,
+                        model_res=self._image_resolution,
+                    )
+                )
+                continue
             objects.append(
-                DetectedObject.from_absolute_letterboxed(
+                DetectedObject.from_absolute(
                     detection["label"],
                     detection["confidence"],
                     detection["x_min"],

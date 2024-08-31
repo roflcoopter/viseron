@@ -249,7 +249,7 @@ class Viseron:
         Signals currently available:
             - shutdown = Emitted when shutdown has been requested
         """
-        if DATA_STREAM_COMPONENT not in self.data[LOADED]:
+        if DATA_STREAM_COMPONENT not in self.data:
             LOGGER.error(
                 f"Failed to register signal handler for {viseron_signal}: "
                 f"{DATA_STREAM_COMPONENT} is not loaded"
@@ -270,7 +270,7 @@ class Viseron:
 
     def listen_event(self, event: str, callback, ioloop=None) -> Callable[[], None]:
         """Register a listener to an event."""
-        if DATA_STREAM_COMPONENT not in self.data[LOADED]:
+        if DATA_STREAM_COMPONENT not in self.data:
             LOGGER.error(
                 f"Failed to register event listener for {event}: "
                 f"{DATA_STREAM_COMPONENT} is not loaded"
