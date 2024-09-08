@@ -156,6 +156,16 @@ export const useHlsStore = create<HlsStore>((set) => ({
     })),
 }));
 
+interface ReferencePlayerStore {
+  referencePlayer: Hls | null;
+  setReferencePlayer: (player: Hls | null) => void;
+}
+
+export const useReferencePlayerStore = create<ReferencePlayerStore>((set) => ({
+  referencePlayer: null,
+  setReferencePlayer: (referencePlayer) => set({ referencePlayer }),
+}));
+
 export const DEFAULT_ITEM: TimelineItem = {
   time: 0,
   timedEvent: null,
@@ -437,22 +447,58 @@ export const convertToPercentage = (confidence: number) =>
 // Get HLS fragment by timestamp
 export const findFragmentByTimestamp = (
   fragments: Fragment[],
-  timestamp: number,
+  timestampMillis: number,
 ): Fragment | null => {
   for (const fragment of fragments) {
     if (fragment.programDateTime) {
       const fragmentStart = fragment.programDateTime;
       const fragmentEnd = fragment.programDateTime + fragment.duration * 1000;
-      if (
-        (timestamp >= fragmentStart && timestamp <= fragmentEnd) ||
-        timestamp < fragmentStart
-      ) {
+      if (timestampMillis >= fragmentStart && timestampMillis <= fragmentEnd) {
         return fragment;
       }
     }
   }
 
   return null; // Return null if no matching fragment is found
+};
+
+// Find the closest fragment that is newer than the timestamp
+export const findClosestFragment = (
+  fragments: Fragment[],
+  timestampMillis: number,
+): Fragment | null => {
+  let closestFragment = null;
+  let closestFragmentTime = Infinity;
+
+  for (const fragment of fragments) {
+    if (fragment.programDateTime) {
+      const fragmentStart = fragment.programDateTime;
+      if (
+        fragmentStart >= timestampMillis &&
+        fragmentStart < closestFragmentTime
+      ) {
+        closestFragment = fragment;
+        closestFragmentTime = fragmentStart;
+      }
+    }
+  }
+
+  return closestFragment;
+};
+
+// Calculate the seek target for the requested timestamp
+export const getSeekTarget = (
+  fragment: Fragment,
+  timestampMillis: number,
+): number => {
+  let seekTarget = fragment.start;
+  if (timestampMillis > fragment.programDateTime!) {
+    seekTarget =
+      fragment.start + (timestampMillis - fragment.programDateTime!) / 1000;
+  } else {
+    seekTarget = fragment.start;
+  }
+  return seekTarget;
 };
 
 // Calculate the height of the camera while maintaining aspect ratio

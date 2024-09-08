@@ -16,6 +16,7 @@ import {
 } from "react";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
+import SyncManager from "components/events/SyncManager";
 import { TimelinePlayer } from "components/events/timeline/TimelinePlayer";
 import {
   getSrc,
@@ -304,44 +305,46 @@ export const PlayerCard = ({
   const src = camera && selectedEvent ? getSrc(selectedEvent) : undefined;
 
   return (
-    <Paper
-      ref={(node) => {
-        paperRef.current = node;
-        setPlayerItemsSize();
-      }}
-      variant="outlined"
-      sx={{
-        position: "relative",
-        width: "100%",
-        height: "100%",
-        boxSizing: "content-box",
-      }}
-    >
-      {requestedTimestamp ? (
-        <PlayerGrid
-          cameras={filteredCameras}
-          paperRef={paperRef}
-          setPlayerItemRef={setPlayerItemRef}
-          requestedTimestamp={requestedTimestamp}
-          gridLayout={gridLayout}
-        />
-      ) : (
-        src &&
-        camera && (
-          <>
-            <Image
-              src={src}
-              aspectRatio={camera.width / camera.height}
-              color={theme.palette.background.default}
-              animationDuration={1000}
-              imageStyle={{
-                objectFit: "contain",
-              }}
-            />
-            <CameraNameOverlay camera_identifier={camera.identifier} />
-          </>
-        )
-      )}
-    </Paper>
+    <SyncManager>
+      <Paper
+        ref={(node) => {
+          paperRef.current = node;
+          setPlayerItemsSize();
+        }}
+        variant="outlined"
+        sx={{
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          boxSizing: "content-box",
+        }}
+      >
+        {requestedTimestamp ? (
+          <PlayerGrid
+            cameras={filteredCameras}
+            paperRef={paperRef}
+            setPlayerItemRef={setPlayerItemRef}
+            requestedTimestamp={requestedTimestamp}
+            gridLayout={gridLayout}
+          />
+        ) : (
+          src &&
+          camera && (
+            <>
+              <Image
+                src={src}
+                aspectRatio={camera.width / camera.height}
+                color={theme.palette.background.default}
+                animationDuration={1000}
+                imageStyle={{
+                  objectFit: "contain",
+                }}
+              />
+              <CameraNameOverlay camera_identifier={camera.identifier} />
+            </>
+          )
+        )}
+      </Paper>
+    </SyncManager>
   );
 };
