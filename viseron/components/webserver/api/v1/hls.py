@@ -8,15 +8,14 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import voluptuous as vol
-from sqlalchemy import Row, select
+from sqlalchemy import select
 
 from viseron.components.storage.models import Files, Recordings
 from viseron.components.storage.queries import get_time_period_fragments
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.domains.camera.fragmenter import Fragment, generate_playlist
 from viseron.helpers import utcnow
 from viseron.helpers.fixed_size_dict import FixedSizeDict
@@ -335,24 +334,6 @@ def _generate_playlist(
     return playlist
 
 
-def has_gap_before_start(files: list[Row[Any]], start_timestamp: int) -> bool:
-    """Check if there is a gap before the start of the playlist."""
-    if files and files[0].orig_ctime - datetime.datetime.fromtimestamp(
-        start_timestamp, datetime.timezone.utc
-    ) > datetime.timedelta(seconds=300):
-        return True
-    return False
-
-
-def has_gap_in_segments(prev_file: Row[Any] | None, file: Row[Any]) -> bool:
-    """Check if there is a gap in segments."""
-    if prev_file and file.orig_ctime - prev_file.orig_ctime > datetime.timedelta(
-        seconds=CAMERA_SEGMENT_DURATION * 3
-    ):
-        return True
-    return False
-
-
 def update_hls_client(
     hls_client_id: str,
     fragments: list[Fragment],
@@ -385,27 +366,18 @@ def _generate_playlist_time_period(
         camera.identifier, start_timestamp, end_timestamp, get_session
     )
     fragments = []
-    prev_file: Row[Any] | None = None
     end_playlist = bool(end_timestamp) if not end_playlist_at_timestamp else False
 
-    if has_gap_before_start(files, start_timestamp):
-        end_playlist = True
-    else:
-        for file in files:
-            if has_gap_in_segments(prev_file, file):
-                end_playlist = True
-                break
-
-            if file.meta.get("m3u8", {}).get("EXTINF", False):
-                fragments.append(
-                    Fragment(
-                        file.filename,
-                        f"/files{file.path}",
-                        float(file.meta["m3u8"]["EXTINF"]),
-                        file.orig_ctime,
-                    )
+    for file in files:
+        if file.meta.get("m3u8", {}).get("EXTINF", False):
+            fragments.append(
+                Fragment(
+                    file.filename,
+                    f"/files{file.path}",
+                    float(file.meta["m3u8"]["EXTINF"]),
+                    file.orig_ctime,
                 )
-                prev_file = file
+            )
 
     media_sequence = (
         update_hls_client(hls_client_id, fragments)

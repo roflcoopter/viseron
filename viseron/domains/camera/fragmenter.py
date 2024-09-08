@@ -19,7 +19,7 @@ from sqlalchemy import insert
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import FilesMeta
-from viseron.const import TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
+from viseron.const import CAMERA_SEGMENT_DURATION, TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import CONFIG_FFMPEG_LOGLEVEL, CONFIG_RECORDER
 from viseron.helpers.logs import LogPipe
 
@@ -35,7 +35,7 @@ def _get_open_files(path: str, process: psutil.Process) -> list[str]:
     try:
         open_files = process.open_files()
         for file in open_files:
-            if file.path.startswith(path):
+            if file.path.startswith(f"{path}/"):
                 files.append(file.path.split("/")[-1])
     except psutil.Error:
         pass
@@ -289,7 +289,10 @@ class Fragmenter:
 
     def _create_fragmented_mp4(self):
         """Create fragmented mp4 from mp4 using MP4Box."""
-        self._logger.debug("Checking for new segments to fragment")
+        self._logger.debug(
+            "Checking for new segments to fragment in "
+            f"{self._camera.temp_segments_folder}"
+        )
         mp4s = _get_mp4_files_to_fragment(self._camera.temp_segments_folder)
         # Handle max 5 files per iteration to avoid blocking the thread for too long
         for mp4 in sorted(mp4s)[:5]:
@@ -368,6 +371,17 @@ def _get_file_path(
     return file
 
 
+def gap_in_fragments(prev_fragment: Fragment, fragment: Fragment) -> bool:
+    """Check if there is a gap between two fragments."""
+    return (
+        fragment.creation_time
+        - (
+            prev_fragment.creation_time
+            + datetime.timedelta(seconds=prev_fragment.duration)
+        )
+    ).total_seconds() > 1
+
+
 def generate_playlist(
     fragments: list[Fragment],
     init_file: str,
@@ -386,11 +400,19 @@ def generate_playlist(
 
     if fragments:
         target_duration = ceil(max(f.duration for f in fragments))
-        playlist.append(f"#EXT-X-TARGETDURATION:{target_duration}")
+        playlist.append(
+            f"#EXT-X-TARGETDURATION:{max(target_duration, CAMERA_SEGMENT_DURATION)}"
+        )
+    else:
+        playlist.append(f"#EXT-X-TARGETDURATION:{CAMERA_SEGMENT_DURATION}")
 
     playlist.append("#EXT-X-INDEPENDENT-SEGMENTS")
     playlist.append(f'#EXT-X-MAP:URI="{_get_file_path(init_file, file_directive)}"')
+
+    prev_fragment: Fragment | None = None
     for fragment in fragments:
+        if prev_fragment and gap_in_fragments(prev_fragment, fragment):
+            playlist.append("#EXT-X-GAP")
         playlist.append("#EXT-X-DISCONTINUITY")
         program_date_time = fragment.creation_time.replace(
             tzinfo=datetime.timezone.utc
@@ -398,6 +420,7 @@ def generate_playlist(
         playlist.append(f"#EXT-X-PROGRAM-DATE-TIME:{program_date_time}")
         playlist.append(f"#EXTINF:{fragment.duration},")
         playlist.append(_get_file_path(fragment.path, file_directive))
+        prev_fragment = fragment
     if end:
         playlist.append("#EXT-X-ENDLIST")
     return "\n".join(playlist)
