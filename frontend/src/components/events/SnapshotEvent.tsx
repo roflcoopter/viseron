@@ -136,7 +136,7 @@ const ToolTipContent = ({ events }: { events: types.CameraEvent[] }) => {
           <Card>
             <CardMedia
               sx={{
-                borderRadius: theme.shape.borderRadius,
+                borderRadius: 1, // theme.shape.borderRadius * 1
                 overflow: "hidden",
               }}
             >
@@ -184,7 +184,7 @@ export const SnapshotIcon = ({ events }: { events: types.CameraEvent[] }) => {
               theme.palette.mode === "dark"
                 ? theme.palette.primary[900]
                 : theme.palette.primary[200],
-            borderRadius: "5px",
+            borderRadius: 1, // theme.shape.borderRadius * 1
           },
         }}
       >
@@ -240,7 +240,7 @@ const Snapshot = ({ snapshotPath }: { snapshotPath: string }) => {
         marginLeft: "10px",
         marginRight: "10px",
         overflow: "hidden",
-        borderRadius: "5px",
+        borderRadius: 1, // theme.shape.borderRadius * 1
         border: `1px solid ${
           theme.palette.mode === "dark"
             ? theme.palette.primary[900]

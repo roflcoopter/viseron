@@ -209,6 +209,7 @@ const PlayerItem = forwardRef<PlayerItemRef, PlayerItemProps>(
         sx={{
           display: "flex",
           justifyContent: "center",
+          alignItems: "center",
           [theme.breakpoints.up("xs")]: {
             flexBasis: "0%",
           },

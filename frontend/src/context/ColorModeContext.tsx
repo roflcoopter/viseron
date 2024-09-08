@@ -233,7 +233,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
                     ? theme.palette.primary[900]
                     : theme.palette.primary[200]
                 }`,
-                borderRadius: theme.shape.borderRadius,
+                borderRadius: 5, // = theme.shape.borderRadius * 5
               },
             },
           ],
@@ -275,6 +275,19 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
             paper: {
               backgroundImage:
                 "linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05))",
+            },
+          },
+        },
+        MuiTooltip: {
+          styleOverrides: {
+            tooltip: {
+              backgroundColor: theme.palette.background.paper,
+              border: `2px solid ${
+                theme.palette.mode === "dark"
+                  ? theme.palette.primary[900]
+                  : theme.palette.primary[200]
+              }`,
+              boxShadow: "5px 5px 8px 0px rgba(0,0,0,0.40)",
             },
           },
         },

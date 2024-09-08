@@ -106,7 +106,7 @@ export const EventTableItem = ({
         border: selected
           ? `2px solid ${theme.palette.primary[400]}`
           : "2px solid transparent",
-        borderRadius: "5px",
+        borderRadius: 1, // theme.shape.borderRadius * 1
         boxShadow: "none",
       }}
     >
@@ -141,7 +141,7 @@ export const EventTableItem = ({
           <Grid item xs={4}>
             <CardMedia
               sx={{
-                borderRadius: "5px",
+                borderRadius: 1, // theme.shape.borderRadius * 1
                 overflow: "hidden",
               }}
             >
