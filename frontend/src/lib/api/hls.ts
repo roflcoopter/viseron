@@ -119,6 +119,7 @@ export function useHlsAvailableTimespansMultiple(
     UseQueryOptions<types.HlsAvailableTimespans, types.APIErrorResponse>[]
   >({
     queries: queryKeys.map((queryKey) => ({
+      ...variables.configOptions,
       queryKey,
       queryFn: async () => {
         const { camera_identifiers, ...newVariables } = variables;

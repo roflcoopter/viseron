@@ -150,7 +150,10 @@ export const TimelineTable = memo(
         />
       );
     }
-    if (eventsQueries.isInitialLoading || eventsQueries.isInitialLoading) {
+    if (
+      eventsQueries.isInitialLoading ||
+      availableTimespansQueries.isInitialLoading
+    ) {
       return <Loading text="Loading Timeline" fullScreen={false} />;
     }
 

@@ -113,6 +113,7 @@ export function useEventsMultiple(variables: EventsMultipleVariables) {
     UseQueryOptions<types.CameraEvents, types.APIErrorResponse>[]
   >({
     queries: queryKeys.map((queryKey) => ({
+      ...variables.configOptions,
       queryKey,
       queryFn: async () => {
         const { camera_identifiers, ...newVariables } = variables;
