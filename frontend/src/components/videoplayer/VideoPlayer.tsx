@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef, useState } from "react";
+import { FC, useEffect, useRef } from "react";
 import videojs from "video.js";
 import Player from "video.js/dist/types/player";
 import "video.js/dist/video-js.css";
@@ -7,42 +7,68 @@ import "./VideoPlayer.css";
 
 interface VideoPlayerPropsInferface {
   options: Record<string, any>;
+  onReady?: (player: Player) => void;
 }
 
-const VideoPlayer: FC<VideoPlayerPropsInferface> = ({ options }) => {
-  const videoNode = useRef<HTMLVideoElement>(null);
-  const player = useRef<Player>();
-  const [source, setSource] = useState<string>(options.sources![0].src);
+const VideoJS: FC<VideoPlayerPropsInferface> = (props) => {
+  const videoRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<Player | null>(null);
+  const { options, onReady } = props;
 
   useEffect(() => {
-    if (!player.current) {
-      player.current = videojs(videoNode.current!, options, () => {});
+    // Make sure Video.js player is only initialized once
+    if (!playerRef.current) {
+      // The Video.js player needs to be _inside_ the component el for React 18 Strict Mode.
+      const videoElement = document.createElement("video-js");
+
+      videoElement.classList.add("vjs-big-play-centered");
+      videoRef.current!.appendChild(videoElement);
+
+      // eslint-disable-next-line no-multi-assign
+      const player = (playerRef.current = videojs(videoElement, options, () => {
+        player.autoplay(options.autoplay);
+        player.src(options.sources);
+        player.poster(options.poster!);
+        player.load();
+      }));
+    } else {
+      const player = playerRef.current;
+
+      player.autoplay(options.autoplay);
+      player.src(options.sources);
+      player.poster(options.poster!);
+      player.load();
     }
+  }, [onReady, options, videoRef]);
+
+  // Dispose the Video.js player when the functional component unmounts
+  useEffect(() => {
+    const player = playerRef.current;
+
     return () => {
-      if (player.current) {
-        try {
-          player.current.dispose();
-        } catch (e) {
-          console.error(e);
-        }
+      if (player && !player.isDisposed()) {
+        player.dispose();
+        playerRef.current = null;
       }
     };
-    // Must disable this warning since we dont want to ever run this twice
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  if (player.current && source !== options.sources![0].src) {
-    player.current.src(options.sources!);
-    player.current.poster(options.poster!);
-    player.current.load();
-    setSource(options.sources![0].src);
-  }
+  }, [playerRef]);
 
   return (
-    <div data-vjs-player data-testid="video-player">
-      <video ref={videoNode} className="video-js vjs-big-play-centered" />
+    <div data-vjs-player>
+      <div ref={videoRef} />
     </div>
   );
+};
+
+const VideoPlayer: FC<VideoPlayerPropsInferface> = ({ options }) => {
+  const onReady = (player: Player) => {
+    player.autoplay(options.autoplay);
+    player.src(options.sources);
+    player.poster(options.poster!);
+    player.load();
+  };
+
+  return <VideoJS options={options} onReady={onReady} />;
 };
 
 export default VideoPlayer;

@@ -20,7 +20,8 @@ import { Loading } from "components/loading/Loading";
 import { ViseronContext } from "context/ViseronContext";
 import { useEventsMultiple } from "lib/api/events";
 import { useHlsAvailableTimespansMultiple } from "lib/api/hls";
-import { dateToTimestamp } from "lib/helpers";
+import { dateToTimestamp, objHasValues } from "lib/helpers";
+import * as types from "lib/types";
 
 // Move startRef.current forward every SCALE seconds
 const useAddTicks = (
@@ -97,6 +98,12 @@ export const TimelineTable = memo(
     const startRef = useRef<number>(calculateStart(date));
     const endRef = useRef<number>(calculateEnd(date));
 
+    const firstRender = useRef(true);
+    const eventsData = useRef<types.CameraEvent[] | null>(null);
+    const availableTimespansData = useRef<types.HlsAvailableTimespan[] | null>(
+      null,
+    );
+
     // Add timeticks every SCALE seconds
     // Components mostly use startRef.current for performance reasons,
     // but the state is used to trigger a re-render when the time changes
@@ -109,29 +116,39 @@ export const TimelineTable = memo(
       camera_identifiers: selectedCameras,
       time_from: endRef.current,
       time_to: startRef.current,
-      configOptions: {
-        keepPreviousData: true,
-      },
     });
     const availableTimespansQueries = useHlsAvailableTimespansMultiple({
       camera_identifiers: selectedCameras,
       time_from: endRef.current,
       time_to: startRef.current,
-      configOptions: {
-        keepPreviousData: true,
-      },
     });
+
+    // Since React Query v5 doesn't support keepPreviousData, and the
+    // alternatives does not work for useQueries, we need to use a ref
+    // to keep the previous data
+    if (eventsQueries.data && objHasValues(eventsQueries.data)) {
+      eventsData.current = eventsQueries.data;
+    }
+    if (
+      availableTimespansQueries.data &&
+      objHasValues(availableTimespansQueries.data) &&
+      objHasValues(availableTimespansQueries.data.timespans)
+    ) {
+      availableTimespansData.current = availableTimespansQueries.data.timespans;
+    }
 
     const { filters } = useFilterStore();
     const timelineItems = useMemo(
       () =>
         getTimelineItems(
           startRef,
-          eventsQueries.data || [],
-          availableTimespansQueries.data?.timespans || [],
+          eventsData.current || [],
+          availableTimespansData.current || [],
           filters,
         ),
-      [eventsQueries.data, availableTimespansQueries.data?.timespans, filters],
+      // False positive, the refs are derived from the data
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [eventsData.current, availableTimespansData.current, filters],
     );
 
     if (eventsQueries.error || availableTimespansQueries.error) {
@@ -151,12 +168,13 @@ export const TimelineTable = memo(
       );
     }
     if (
-      eventsQueries.isInitialLoading ||
-      availableTimespansQueries.isInitialLoading
+      firstRender.current &&
+      (eventsQueries.isLoading || availableTimespansQueries.isLoading)
     ) {
       return <Loading text="Loading Timeline" fullScreen={false} />;
     }
 
+    firstRender.current = false;
     return (
       <div
         ref={containerRef}

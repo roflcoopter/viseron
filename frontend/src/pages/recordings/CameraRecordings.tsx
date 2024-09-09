@@ -48,7 +48,7 @@ const CameraRecordings = () => {
     );
   }
 
-  if (recordingsQuery.isLoading || cameraQuery.isLoading) {
+  if (recordingsQuery.isPending || cameraQuery.isPending) {
     return <Loading text="Loading Recordings" />;
   }
 

@@ -129,21 +129,25 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         shape: {
           borderRadius: 5,
         },
+
         ...(mode === "light" && {
           text: {
             primary: grey[900],
             secondary: grey[700],
           },
         }),
+
         ...(mode === "dark" && {
           text: {
             primary: "#fff",
             secondary: grey[400],
           },
         }),
+
         grey,
         headerHeight: 56,
         margin: "0.5dvh",
+
         palette: {
           mode,
           motion: "#f9b4f6",
@@ -168,6 +172,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
                 divider: blue[900],
               }),
         },
+
         typography: {
           h5: {
             color: mode === "dark" ? blue[300] : blue.main,

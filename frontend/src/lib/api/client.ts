@@ -27,7 +27,7 @@ const queryClient = new QueryClient({
       retry: false,
       refetchOnWindowFocus: false,
       staleTime: 1000 * 60 * 1,
-      cacheTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 5,
       queryFn: async ({ queryKey: [url] }) => {
         if (typeof url === "string") {
           const response = await viseronAPI.get(`${url.toLowerCase()}`);
@@ -79,9 +79,9 @@ export const useDeleteRecording = () => {
             `/recordings/${variables.identifier}`,
           ),
       });
-      await queryClient.invalidateQueries([
-        `/recordings/${variables.identifier}`,
-      ]);
+      await queryClient.invalidateQueries({
+        queryKey: [`/recordings/${variables.identifier}`],
+      });
     },
     onError: async (error, _variables, _context) => {
       toast.error(
@@ -112,7 +112,7 @@ export const useInvalidateQueryOnStateChange = (
     }
 
     const _stateChanged = (_event: types.StateChangedEvent) => {
-      queryClient.invalidateQueries(queryKey);
+      queryClient.invalidateQueries({ queryKey });
     };
 
     subscriptionRef.current[entityId].count++;

@@ -135,7 +135,7 @@ const Login = () => {
                     !inputState.password.value ||
                     !!inputState.username.error ||
                     !!inputState.password.error ||
-                    login.isLoading
+                    login.isPending
                   }
                   onClick={() => {
                     login.mutate(

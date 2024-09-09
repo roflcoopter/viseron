@@ -32,7 +32,7 @@ const Recordings = () => {
   const cameras = useCameras({});
   const failedCameras = useCamerasFailed({});
 
-  if (cameras.isLoading || failedCameras.isLoading) {
+  if (cameras.isPending || failedCameras.isPending) {
     return <Loading text="Loading Recordings" />;
   }
 

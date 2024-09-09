@@ -96,7 +96,7 @@ const Events = () => {
     );
   }
 
-  if (camerasQuery.isLoading || failedCamerasQuery.isLoading) {
+  if (camerasQuery.isPending || failedCamerasQuery.isPending) {
     return <Loading text="Loading Camera" />;
   }
 

@@ -7,7 +7,10 @@ import { subscribeCameras, subscribeEvent } from "lib/commands";
 import * as types from "lib/types";
 
 type CamerasVariables = {
-  configOptions?: UseQueryOptions<types.Cameras, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.Cameras, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 async function cameras() {
   const response = await viseronAPI.get<types.Cameras>("cameras");
@@ -21,7 +24,7 @@ export const useCameras = ({ configOptions }: CamerasVariables) => {
     let unsub: () => void;
     if (connection) {
       const invalidate = (_camera: types.Camera) => {
-        queryClient.invalidateQueries(["cameras"]);
+        queryClient.invalidateQueries({ queryKey: ["cameras"] });
       };
 
       const subscribe = async () => {
@@ -36,15 +39,18 @@ export const useCameras = ({ configOptions }: CamerasVariables) => {
     };
   }, [connection]);
 
-  return useQuery<types.Cameras, types.APIErrorResponse>(
-    ["cameras"],
-    async () => cameras(),
-    configOptions
-  );
+  return useQuery({
+    queryKey: ["cameras"],
+    queryFn: async () => cameras(),
+    ...configOptions,
+  });
 };
 
 type CamerasFailedVariables = {
-  configOptions?: UseQueryOptions<types.FailedCameras, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.FailedCameras, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 async function camerasFailed() {
   const response = await viseronAPI.get<types.FailedCameras>("cameras/failed");
@@ -58,7 +64,7 @@ export const useCamerasFailed = ({ configOptions }: CamerasFailedVariables) => {
     const unsubs: (() => void)[] = [];
     if (connection) {
       const invalidate = (_message: types.Event) => {
-        queryClient.invalidateQueries(["cameras", "failed"]);
+        queryClient.invalidateQueries({ queryKey: ["cameras", "failed"] });
       };
 
       const subscribe = async () => {
@@ -66,15 +72,15 @@ export const useCamerasFailed = ({ configOptions }: CamerasFailedVariables) => {
           await subscribeEvent(
             connection,
             "domain/setup/domain_failed/camera/*",
-            invalidate
-          )
+            invalidate,
+          ),
         );
         unsubs.push(
           await subscribeEvent(
             connection,
             "domain/setup/domain_loaded/camera/*",
-            invalidate
-          )
+            invalidate,
+          ),
         );
       };
       subscribe();
@@ -84,9 +90,9 @@ export const useCamerasFailed = ({ configOptions }: CamerasFailedVariables) => {
     };
   }, [connection]);
 
-  return useQuery<types.FailedCameras, types.APIErrorResponse>(
-    ["cameras", "failed"],
-    async () => camerasFailed(),
-    configOptions
-  );
+  return useQuery({
+    queryKey: ["cameras", "failed"],
+    queryFn: async () => camerasFailed(),
+    ...configOptions,
+  });
 };

@@ -90,7 +90,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({
 
   useAuthAxiosInterceptor(authQuery.data);
 
-  if (authQuery.isLoading || authQuery.isInitialLoading) {
+  if (authQuery.isPending || authQuery.isLoading) {
     return <Loading text="Loading Auth" />;
   }
 

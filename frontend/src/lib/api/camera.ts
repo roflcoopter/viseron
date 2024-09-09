@@ -19,13 +19,16 @@ async function camera({ camera_identifier, failed }: CameraRequest) {
 export function useCamera<T extends boolean = false>(
   camera_identifier: string,
   failed?: T,
-  configOptions?: UseQueryOptions<
-    T extends true
-      ? types.Camera | types.FailedCamera
-      : T extends undefined
-        ? types.Camera
-        : types.Camera,
-    types.APIErrorResponse
+  configOptions?: Omit<
+    UseQueryOptions<
+      T extends true
+        ? types.Camera | types.FailedCamera
+        : T extends undefined
+          ? types.Camera
+          : types.Camera,
+      types.APIErrorResponse
+    >,
+    "queryKey" | "queryFn"
   >,
 ) {
   useInvalidateQueryOnStateChange(
@@ -41,16 +44,9 @@ export function useCamera<T extends boolean = false>(
     camera_identifier,
   ]);
 
-  return useQuery<
-    T extends true
-      ? types.Camera | types.FailedCamera
-      : T extends undefined
-        ? types.Camera
-        : types.Camera,
-    types.APIErrorResponse
-  >(
-    ["camera", camera_identifier],
-    async () => camera({ camera_identifier, failed }),
-    configOptions,
-  );
+  return useQuery({
+    queryKey: ["camera", camera_identifier],
+    queryFn: async () => camera({ camera_identifier, failed }),
+    ...configOptions,
+  });
 }

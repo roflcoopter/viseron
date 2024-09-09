@@ -12,9 +12,9 @@ type RecordingsVariables = {
   latest?: boolean;
   daily?: boolean;
   failed?: boolean;
-  configOptions?: UseQueryOptions<
-    types.RecordingsCamera,
-    types.APIErrorResponse
+  configOptions?: Omit<
+    UseQueryOptions<types.RecordingsCamera, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
   >;
 };
 async function recordings({
@@ -53,10 +53,9 @@ export const useRecordings = ({
       const invalidate = (
         recordingEvent: types.EventRecorderStart | types.EventRecorderStop,
       ) => {
-        queryClient.invalidateQueries([
-          "recordings",
-          recordingEvent.data.camera.identifier,
-        ]);
+        queryClient.invalidateQueries({
+          queryKey: ["recordings", recordingEvent.data.camera.identifier],
+        });
       };
 
       const subscribe = async () => {
@@ -89,9 +88,10 @@ export const useRecordings = ({
     );
   }
 
-  return useQuery<types.RecordingsCamera, types.APIErrorResponse>(
-    ["recordings", camera_identifier, date, latest, daily, failed],
-    async () => recordings({ camera_identifier, date, latest, daily, failed }),
-    configOptions,
-  );
+  return useQuery({
+    queryKey: ["recordings", camera_identifier, date, latest, daily, failed],
+    queryFn: async () =>
+      recordings({ camera_identifier, date, latest, daily, failed }),
+    ...configOptions,
+  });
 };

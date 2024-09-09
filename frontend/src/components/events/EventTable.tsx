@@ -128,7 +128,7 @@ export const EventTable = memo(
       );
     }
 
-    if (eventsQueries.isLoading || availableTimespansQueries.isLoading) {
+    if (eventsQueries.isPending || availableTimespansQueries.isPending) {
       return <Loading text="Loading Events" fullScreen={false} />;
     }
 

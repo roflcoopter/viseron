@@ -59,7 +59,7 @@ export default function RecordingCardLatest({
   let text = "No recordings found";
   if (recordingsQuery.status === "error") {
     text = "Error getting latest recording";
-  } else if (recordingsQuery.status === "loading") {
+  } else if (recordingsQuery.status === "pending") {
     text = "Loading latest recording";
   } else if (recordingsQuery.status === "success" && !objHasValues(recording)) {
     text = "No recordings found";
@@ -73,7 +73,7 @@ export default function RecordingCardLatest({
     )}`;
   }
 
-  if (cameraQuery.isLoading || !cameraQuery.data) {
+  if (cameraQuery.isPending || !cameraQuery.data) {
     return null;
   }
 

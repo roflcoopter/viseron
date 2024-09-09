@@ -12,13 +12,19 @@ type EventsVariablesWithTime = {
   camera_identifier: string | null;
   time_from: number;
   time_to: number;
-  configOptions?: UseQueryOptions<types.CameraEvents, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.CameraEvents, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 type EventsVariablesWithDate = {
   camera_identifier: string | null;
   date: string;
   utc_offset_minutes: number;
-  configOptions?: UseQueryOptions<types.CameraEvents, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.CameraEvents, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 type EventsVariables = EventsVariablesWithTime | EventsVariablesWithDate;
 
@@ -74,24 +80,30 @@ export function useEvents(variables: EventsVariables) {
           variables.utc_offset_minutes,
         ];
 
-  return useQuery<types.CameraEvents, types.APIErrorResponse>(
+  return useQuery({
     queryKey,
-    async () => events(variables),
-    variables.configOptions,
-  );
+    queryFn: async () => events(variables),
+    ...variables.configOptions,
+  });
 }
 
 type EventsMultipleVariablesWithTime = {
   camera_identifiers: string[];
   time_from: number;
   time_to: number;
-  configOptions?: UseQueryOptions<types.CameraEvents, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.CameraEvents, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 type EventsMultipleVariablesWithDate = {
   camera_identifiers: string[];
   date: string;
   utc_offset_minutes: number;
-  configOptions?: UseQueryOptions<types.CameraEvents, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.CameraEvents, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 type EventsMultipleVariables =
   | EventsMultipleVariablesWithTime
@@ -109,11 +121,8 @@ export function useEventsMultiple(variables: EventsMultipleVariables) {
         ],
   );
 
-  const eventsQueries = useQueries<
-    UseQueryOptions<types.CameraEvents, types.APIErrorResponse>[]
-  >({
+  const eventsQueries = useQueries({
     queries: queryKeys.map((queryKey) => ({
-      ...variables.configOptions,
       queryKey,
       queryFn: async () => {
         const { camera_identifiers, ...newVariables } = variables;
@@ -122,28 +131,35 @@ export function useEventsMultiple(variables: EventsMultipleVariables) {
 
         return events(newVariables as EventsVariables);
       },
+      ...variables.configOptions,
     })),
+    combine: (results) => {
+      const data = results.flatMap((result) =>
+        result.data ? result.data.events : [],
+      );
+      // Sort latest events first
+      data.sort((a, b) => b.created_at_timestamp - a.created_at_timestamp);
+
+      return {
+        data,
+        isError: results.some((query) => query.isError),
+        error: results.find((query) => query.error)?.error,
+        isPending: results.some((query) => query.isPending),
+        isLoading: results.some((query) => query.isLoading),
+      };
+    },
   });
 
-  const data = eventsQueries.flatMap((result) =>
-    result.data ? result.data.events : [],
-  );
-  // Sort latest events first
-  data.sort((a, b) => b.created_at_timestamp - a.created_at_timestamp);
-
-  return {
-    data,
-    isError: eventsQueries.some((query) => query.isError),
-    error: eventsQueries.find((query) => query.error)?.error,
-    isLoading: eventsQueries.some((query) => query.isLoading),
-    isInitialLoading: eventsQueries.some((query) => query.isInitialLoading),
-  };
+  return eventsQueries;
 }
 
 type EventsAmountVariables = {
   camera_identifier: string | null;
   utc_offset_minutes: number;
-  configOptions?: UseQueryOptions<types.EventsAmount, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.EventsAmount, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 
 async function eventsAmount({
@@ -164,17 +180,20 @@ async function eventsAmount({
 export function useEventsAmount(
   variables: EventsAmountVariables,
 ): UseQueryResult<types.EventsAmount, types.APIErrorResponse> {
-  return useQuery<types.EventsAmount, types.APIErrorResponse>(
-    ["events", variables.camera_identifier, "amount"],
-    async () => eventsAmount(variables),
-    variables.configOptions,
-  );
+  return useQuery({
+    queryKey: ["events", variables.camera_identifier, "amount"],
+    queryFn: async () => eventsAmount(variables),
+    ...variables.configOptions,
+  });
 }
 
 type EventsAmountMultipleVariables = {
   camera_identifiers: string[];
   utc_offset_minutes: number;
-  configOptions?: UseQueryOptions<types.EventsAmount, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.EventsAmount, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 
 async function eventsAmountMultiple({
@@ -191,9 +210,9 @@ async function eventsAmountMultiple({
 export function useEventsAmountMultiple(
   variables: EventsAmountMultipleVariables,
 ): UseQueryResult<types.EventsAmount, types.APIErrorResponse> {
-  return useQuery<types.EventsAmount, types.APIErrorResponse>(
-    ["events", "amount"],
-    async () => eventsAmountMultiple(variables),
-    variables.configOptions,
-  );
+  return useQuery({
+    queryKey: ["events", "amount"],
+    queryFn: async () => eventsAmountMultiple(variables),
+    ...variables.configOptions,
+  });
 }
