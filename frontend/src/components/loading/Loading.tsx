@@ -1,6 +1,6 @@
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Typography from "@mui/material/Typography";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
@@ -30,7 +30,7 @@ export const Loading = ({ text, fullScreen = true }: LoadingProps) => (
     }
   >
     {fullScreen && (
-      <Grid item>
+      <Grid>
         <Box display="flex" justifyContent="center" alignItems="center">
           <ViseronLogo
             width={150}
@@ -41,12 +41,12 @@ export const Loading = ({ text, fullScreen = true }: LoadingProps) => (
         </Box>
       </Grid>
     )}
-    <Grid item>
+    <Grid>
       <Box display="flex" justifyContent="center" alignItems="center">
         <CircularProgress />
       </Box>
     </Grid>
-    <Grid item>
+    <Grid>
       <Box>
         <Typography align="center">{text}</Typography>
       </Box>

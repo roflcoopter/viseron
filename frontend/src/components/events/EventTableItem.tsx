@@ -3,7 +3,7 @@ import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardMedia from "@mui/material/CardMedia";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import LazyLoad from "react-lazyload";
@@ -49,13 +49,13 @@ const getText = (
               uniqueEvents[key] as Array<types.CameraObjectEvent>,
             );
             return Object.keys(uniqueLabels).map((label) => (
-              <Grid item key={`icon-${key}-${label}`}>
+              <Grid key={`icon-${key}-${label}`}>
                 <SnapshotIcon events={uniqueLabels[label]} />
               </Grid>
             ));
           }
           return (
-            <Grid item key={`icon-${key}`}>
+            <Grid key={`icon-${key}`}>
               <SnapshotIcon events={uniqueEvents[key]} />
             </Grid>
           );
@@ -102,13 +102,19 @@ export const EventTableItem = ({
     <Card
       variant="outlined"
       square
-      sx={{
-        border: selected
-          ? `2px solid ${theme.palette.primary[400]}`
-          : "2px solid transparent",
-        borderRadius: 1, // theme.shape.borderRadius * 1
-        boxShadow: "none",
-      }}
+      sx={[
+        {
+          borderRadius: 1, // theme.shape.borderRadius * 1
+          boxShadow: "none",
+        },
+        selected
+          ? {
+              border: `2px solid ${theme.palette.primary[400]}`,
+            }
+          : {
+              border: "2px solid transparent",
+            },
+      ]}
     >
       <CardActionArea
         onClick={() => {
@@ -135,10 +141,8 @@ export const EventTableItem = ({
           justifyContent="flex-end"
           alignItems="center"
         >
-          <Grid item xs={8}>
-            {getText(sortedEvents, cameras)}
-          </Grid>
-          <Grid item xs={4}>
+          <Grid size={8}>{getText(sortedEvents, cameras)}</Grid>
+          <Grid size={4}>
             <CardMedia
               sx={{
                 borderRadius: 1, // theme.shape.borderRadius * 1

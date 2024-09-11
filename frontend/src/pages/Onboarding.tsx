@@ -1,7 +1,7 @@
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useReducer } from "react";
@@ -125,7 +125,7 @@ const Onboarding = () => {
                 dispatch={dispatch}
                 password
               />
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Button
                   fullWidth
                   variant="contained"

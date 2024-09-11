@@ -38,28 +38,44 @@ export const useToast = () => {
       options = { ...defaultToastOptions(theme), ...options };
       return toast.info(content, {
         ...options,
-        icon: <InfoOutlinedIcon />,
+        icon: (
+          <>
+            <InfoOutlinedIcon />
+          </>
+        ),
       });
     },
     success: (content: ToastContent, options: ToastOptions = {}) => {
       options = { ...defaultToastOptions(theme), ...options };
       return toast.success(content, {
         ...options,
-        icon: <TaskAltOutlinedIcon />,
+        icon: (
+          <>
+            <TaskAltOutlinedIcon />
+          </>
+        ),
       });
     },
     warning: (content: ToastContent, options: ToastOptions = {}) => {
       options = { ...defaultToastOptions(theme), ...options };
       return toast.warning(content, {
         ...options,
-        icon: <ReportProblemOutlined />,
+        icon: (
+          <>
+            <ReportProblemOutlined />
+          </>
+        ),
       });
     },
     error: (content: ToastContent, options: ToastOptions = {}) => {
       options = { ...defaultToastOptions(theme), ...options };
       return toast.error(content, {
         ...options,
-        icon: <ErrorOutlineOutlinedIcon />,
+        icon: (
+          <>
+            <ErrorOutlineOutlinedIcon />
+          </>
+        ),
       });
     },
     dismiss: (id: string | number | undefined = undefined) => toast.dismiss(id),

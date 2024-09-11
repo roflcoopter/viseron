@@ -14,7 +14,7 @@ function getScrollPosition() {
 }
 
 export function useScrollPosition(
-  effect: (prevPos: Coordinates, currPos: Coordinates) => void
+  effect: (prevPos: Coordinates, currPos: Coordinates) => void,
 ) {
   const position = useRef(getScrollPosition());
 

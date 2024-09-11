@@ -139,14 +139,12 @@ const Entities = () => {
     <Container maxWidth={false}>
       <TableContainer component={Paper}>
         <Table
-          sx={{
+          sx={() => ({
             [`& .${tableCellClasses.root}`]: {
               border: `1px solid ${theme.palette.background.default}`,
             },
-          }}
-          style={{
             tableLayout: "fixed",
-          }}
+          })}
         >
           <TableHead>
             <TableRow>

@@ -48,9 +48,15 @@ function HasEvent(
         outsideCurrentMonth={outsideCurrentMonth}
         day={day}
         disabled={!isSelected}
-        sx={{
-          backgroundColor: isSelected ? "rgba(255, 99, 71, 0.4)" : undefined,
-        }}
+        sx={[
+          isSelected
+            ? {
+                backgroundColor: "rgba(255, 99, 71, 0.4)",
+              }
+            : {
+                backgroundColor: null,
+              },
+        ]}
       />
     </Badge>
   );

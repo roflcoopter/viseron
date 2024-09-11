@@ -1,6 +1,6 @@
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Typography from "@mui/material/Typography";
 import dayjs, { Dayjs } from "dayjs";
 import { memo, useEffect } from "react";
@@ -151,13 +151,14 @@ export const EventTable = memo(
             const oldestEvent = events[events.length - 1];
             return (
               <Grid
-                item
-                xs={12}
-                sm={12}
-                md={12}
-                lg={12}
-                xl={12}
                 key={`event-${oldestEvent.type}-${oldestEvent.id}`}
+                size={{
+                  xs: 12,
+                  sm: 12,
+                  md: 12,
+                  lg: 12,
+                  xl: 12,
+                }}
               >
                 <EventTableItem
                   cameras={cameras}

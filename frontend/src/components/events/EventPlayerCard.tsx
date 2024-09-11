@@ -1,6 +1,6 @@
 import Image from "@jy95/material-ui-image";
 import Box from "@mui/material/Box";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Paper from "@mui/material/Paper";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -203,17 +203,11 @@ const PlayerItem = forwardRef<PlayerItemRef, PlayerItemProps>(
 
     return (
       <Grid
-        item
-        xs={12 / gridLayout.columns}
         key={camera.identifier}
         sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          [theme.breakpoints.up("xs")]: {
-            flexBasis: "0%",
-          },
+          flexBasis: "min-content",
         }}
+        size={12 / gridLayout.columns}
       >
         <Box
           ref={boxRef}

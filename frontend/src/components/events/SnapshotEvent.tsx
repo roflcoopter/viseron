@@ -3,7 +3,7 @@ import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Stack from "@mui/material/Stack";
 import Tooltip, { TooltipProps, tooltipClasses } from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
@@ -129,9 +129,8 @@ const ToolTipContent = ({ events }: { events: types.CameraEvent[] }) => {
     >
       {events.reverse().map((event, index) => (
         <Grid
-          item
           key={`${index}-${getEventTimestamp(event)}`}
-          xs={events.length > 1 ? 1 : 2}
+          size={events.length > 1 ? 1 : 2}
         >
           <Card>
             <CardMedia
@@ -168,25 +167,25 @@ const Divider = () => (
 );
 
 export const SnapshotIcon = ({ events }: { events: types.CameraEvent[] }) => {
-  const theme = useTheme();
   const Icon = getIcon(events[0]);
   return (
     <CustomWidthTooltip title={<ToolTipContent events={events} />} arrow>
       <Box
-        sx={{
+        sx={(theme) => ({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           padding: "5px",
           cursor: "pointer",
           "&:hover": {
-            backgroundColor:
-              theme.palette.mode === "dark"
-                ? theme.palette.primary[900]
-                : theme.palette.primary[200],
             borderRadius: 1, // theme.shape.borderRadius * 1
+            backgroundColor: theme.palette.primary[200],
+
+            ...theme.applyStyles("dark", {
+              backgroundColor: theme.palette.primary[900],
+            }),
           },
-        }}
+        })}
       >
         <Icon
           color="primary"
@@ -234,21 +233,20 @@ const Snapshot = ({ snapshotPath }: { snapshotPath: string }) => {
   const theme = useTheme();
   return (
     <Box
-      sx={{
+      sx={() => ({
         width: "35%",
         margin: "auto",
         marginLeft: "10px",
         marginRight: "10px",
         overflow: "hidden",
         borderRadius: 1, // theme.shape.borderRadius * 1
-        border: `1px solid ${
-          theme.palette.mode === "dark"
-            ? theme.palette.primary[900]
-            : theme.palette.primary[200]
-        }`,
         transform: `translateY(calc(-50% + ${TICK_HEIGHT / 2}px))`,
         boxShadow: "0px 0px 5px 0px rgba(0,0,0,0.75)",
-      }}
+        border: `1px solid ${theme.palette.primary[200]}`,
+        ...theme.applyStyles("dark", {
+          border: `1px solid ${theme.palette.primary[900]}`,
+        }),
+      })}
     >
       <Image
         src={snapshotPath}

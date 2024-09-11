@@ -126,6 +126,7 @@ export const TimelineTable = memo(
     // Since React Query v5 doesn't support keepPreviousData, and the
     // alternatives does not work for useQueries, we need to use a ref
     // to keep the previous data
+    // https://github.com/TanStack/query/discussions/6521
     if (eventsQueries.data && objHasValues(eventsQueries.data)) {
       eventsData.current = eventsQueries.data;
     }
