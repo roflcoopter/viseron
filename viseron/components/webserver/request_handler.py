@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hmac
 import logging
+import time
 from collections.abc import Callable
 from datetime import timedelta
 from http import HTTPStatus
@@ -15,7 +16,6 @@ from tornado.ioloop import IOLoop
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.webserver.const import COMPONENT
 from viseron.const import DOMAIN_FAILED
-from viseron.domains.camera import FailedCamera
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import utcnow
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from viseron.components.storage import Storage
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.auth import RefreshToken, User
-    from viseron.domains.camera import AbstractCamera
+    from viseron.domains.camera import AbstractCamera, FailedCamera
 
 _T = TypeVar("_T")
 
@@ -80,6 +80,20 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     def status(self):
         """Return the status of the request."""
         return self.get_status()
+
+    @property
+    def utc_offset(self) -> timedelta:
+        """Return the UTC offset for the client.
+
+        The offset is calculated from the X-Client-UTC-Offset header.
+        If the header is not present, look for a cookie with the same name.
+        If the cookie is not present, the offset is set to the servers timezone.
+        """
+        if header := self.request.headers.get("X-Client-UTC-Offset", None):
+            return timedelta(minutes=int(header))
+        if cookie := self.get_cookie("X-Client-UTC-Offset", None):
+            return timedelta(minutes=int(cookie))
+        return timedelta(seconds=time.localtime().tm_gmtoff)
 
     def on_finish(self) -> None:
         """Log requests with failed authentication."""
@@ -239,9 +253,41 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
                     camera = domain_to_setup.error_instance
         return camera
 
+    @overload
+    def get_camera(self, camera_identifier: str) -> AbstractCamera | None:
+        ...
+
+    @overload
+    def get_camera(
+        self, camera_identifier: str, failed: Literal[False]
+    ) -> AbstractCamera | None:
+        ...
+
+    @overload
+    def get_camera(
+        self, camera_identifier: str, failed: Literal[True]
+    ) -> AbstractCamera | FailedCamera | None:
+        ...
+
+    @overload
+    def get_camera(
+        self, camera_identifier: str, failed: bool
+    ) -> AbstractCamera | FailedCamera | None:
+        ...
+
+    def get_camera(
+        self, camera_identifier: str, failed: bool = False
+    ) -> AbstractCamera | FailedCamera | None:
+        """Get camera instance."""
+        return self._get_camera(camera_identifier, failed)
+
     def _get_session(self) -> Session:
         """Get a database session."""
         return self._storage.get_session()
+
+    def get_session(self) -> Session:
+        """Get a database session."""
+        return self._get_session()
 
     def validate_camera_token(self, camera: AbstractCamera) -> bool:
         """Validate camera token."""

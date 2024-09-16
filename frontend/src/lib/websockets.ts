@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import React from "react";
 
 import { Toast, toastIds } from "hooks/UseToast";
@@ -212,6 +213,7 @@ export class Connection {
       return;
     }
 
+    document.cookie = `X-Client-UTC-Offset=${dayjs().utcOffset()}; path=/websocket`;
     const wsURL = `${
       window.location.protocol === "https:" ? "wss://" : "ws://"
     }${location.host}/websocket`;
@@ -321,14 +323,14 @@ export class Connection {
     const command_info = this.commands.get(message.command_id);
 
     switch (message.type) {
-      case "event":
+      case "subscription_result":
         if (command_info) {
           command_info.callback(
-            (message as types.WebSocketEventResponse).event,
+            (message as types.WebSocketSubscriptionResultResponse).result,
           );
         } else {
           console.warn(
-            `Received event for unknown subscription ${message.command_id}. Unsubscribing.`,
+            `Received message for unknown subscription ${message.command_id}. Unsubscribing.`,
           );
           // TODO UNSUB HERE
         }
@@ -529,7 +531,8 @@ export class Connection {
     callback: (message: EventType) => void,
     subMessage:
       | messages.SubscribeEventMessage
-      | messages.SubscribeStatesMessage,
+      | messages.SubscribeStatesMessage
+      | messages.SubscribeTimespansMessage,
     unsubMessage: (subscription: number) => Message,
     resubscribe = true,
   ): Promise<SubscriptionUnsubscribe> {
@@ -614,6 +617,30 @@ export class Connection {
       callback,
       messages.subscribeStates(entity_id, entity_ids),
       (subscription) => messages.unsubscribeStates(subscription),
+      resubscribe,
+    );
+    return unsub;
+  }
+
+  async subscribeTimespans(
+    callback: (message: types.HlsAvailableTimespans) => void,
+    camera_identifiers: string[],
+    date: string,
+    debounce?: number,
+    resubscribe = true,
+  ): Promise<SubscriptionUnsubscribe> {
+    if (this.queuedMessages) {
+      await new Promise((resolve, reject) => {
+        this.queuedMessages!.push({ resolve, reject });
+      });
+    }
+    if (DEBUG) {
+      console.debug("Subscribing to timespans for ", camera_identifiers);
+    }
+    const unsub = await this.subscribe(
+      callback,
+      messages.subscribeTimespans(camera_identifiers, date, debounce),
+      (subscription) => messages.unsubscribeTimespans(subscription),
       resubscribe,
     );
     return unsub;

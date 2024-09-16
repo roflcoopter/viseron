@@ -311,9 +311,9 @@ def get_recording_fragments(
 
 
 def get_time_period_fragments(
-    camera_identifier: str,
-    start_timestamp: int,
-    end_timestamp: int | None,
+    camera_identifiers: list[str],
+    start_timestamp: int | float,
+    end_timestamp: int | float | None,
     get_session: Callable[[], Session],
     now=None,
 ):
@@ -333,7 +333,7 @@ def get_time_period_fragments(
         select(Files, FilesMeta)
         .add_columns(row_number)
         .join(FilesMeta, Files.path == FilesMeta.path)
-        .where(Files.camera_identifier == camera_identifier)
+        .where(Files.camera_identifier.in_(camera_identifiers))
         .where(Files.category == "recorder")
         .where(Files.path.endswith(".m4s"))
         .where(FilesMeta.meta.comparator.has_key("m3u8"))  # type: ignore[attr-defined]

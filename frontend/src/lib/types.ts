@@ -40,10 +40,10 @@ type WebSocketPongResponse = {
   type: "pong";
 };
 
-export type WebSocketEventResponse = {
+export type WebSocketSubscriptionResultResponse = {
   command_id: number;
-  type: "event";
-  event: Event;
+  type: "subscription_result";
+  result: Event | HlsAvailableTimespans;
 };
 
 export type WebSocketResultResponse = {
@@ -65,7 +65,7 @@ export type WebSocketResultErrorResponse = {
 
 export type WebSocketResponse =
   | WebSocketPongResponse
-  | WebSocketEventResponse
+  | WebSocketSubscriptionResultResponse
   | WebSocketResultResponse
   | WebSocketResultErrorResponse;
 

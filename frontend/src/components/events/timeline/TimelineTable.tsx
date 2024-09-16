@@ -1,5 +1,13 @@
 import dayjs, { Dayjs } from "dayjs";
-import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import ServerDown from "svg/undraw/server_down.svg?react";
 
 import { ErrorMessage } from "components/error/ErrorMessage";
@@ -18,8 +26,9 @@ import {
 } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { ViseronContext } from "context/ViseronContext";
+import { useCameras } from "lib/api/cameras";
 import { useEventsMultiple } from "lib/api/events";
-import { useHlsAvailableTimespansMultiple } from "lib/api/hls";
+import { useSubscribeTimespans } from "lib/commands";
 import { dateToTimestamp, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -87,6 +96,36 @@ const timelineClick = (
   setRequestedTimestamp(timestamp);
 };
 
+const useTimespans = (date: Dayjs | null) => {
+  const { selectedCameras } = useCameraStore();
+  const camerasQuery = useCameras({});
+  const [availableTimespans, setAvailableTimespans] = useState<
+    types.HlsAvailableTimespan[]
+  >([]);
+
+  const timespanCallback = useCallback(
+    (message: types.HlsAvailableTimespans) => {
+      setAvailableTimespans(message.timespans);
+    },
+    [],
+  );
+
+  const enabled =
+    camerasQuery.data &&
+    camerasQuery.data.cameras &&
+    selectedCameras.some((camera) => camera in camerasQuery.data.cameras);
+
+  useSubscribeTimespans(
+    selectedCameras,
+    date ? date.format("YYYY-MM-DD") : null,
+    timespanCallback,
+    enabled,
+    5,
+  );
+
+  return availableTimespans;
+};
+
 type TimelineTableProps = {
   parentRef: React.MutableRefObject<HTMLDivElement | null>;
   date: Dayjs | null;
@@ -100,9 +139,6 @@ export const TimelineTable = memo(
 
     const firstRender = useRef(true);
     const eventsData = useRef<types.CameraEvent[] | null>(null);
-    const availableTimespansData = useRef<types.HlsAvailableTimespan[] | null>(
-      null,
-    );
 
     // Add timeticks every SCALE seconds
     // Components mostly use startRef.current for performance reasons,
@@ -117,11 +153,7 @@ export const TimelineTable = memo(
       time_from: endRef.current,
       time_to: startRef.current,
     });
-    const availableTimespansQueries = useHlsAvailableTimespansMultiple({
-      camera_identifiers: selectedCameras,
-      time_from: endRef.current,
-      time_to: startRef.current,
-    });
+    const availableTimespans = useTimespans(date);
 
     // Since React Query v5 doesn't support keepPreviousData, and the
     // alternatives does not work for useQueries, we need to use a ref
@@ -130,13 +162,6 @@ export const TimelineTable = memo(
     if (eventsQueries.data && objHasValues(eventsQueries.data)) {
       eventsData.current = eventsQueries.data;
     }
-    if (
-      availableTimespansQueries.data &&
-      objHasValues(availableTimespansQueries.data) &&
-      objHasValues(availableTimespansQueries.data.timespans)
-    ) {
-      availableTimespansData.current = availableTimespansQueries.data.timespans;
-    }
 
     const { filters } = useFilterStore();
     const timelineItems = useMemo(
@@ -144,20 +169,18 @@ export const TimelineTable = memo(
         getTimelineItems(
           startRef,
           eventsData.current || [],
-          availableTimespansData.current || [],
+          availableTimespans,
           filters,
         ),
       // False positive, the refs are derived from the data
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [eventsData.current, availableTimespansData.current, filters],
+      [eventsData.current, availableTimespans, filters],
     );
 
-    if (eventsQueries.error || availableTimespansQueries.error) {
+    if (eventsQueries.error) {
       const subtext = eventsQueries.error
         ? eventsQueries.error.message
-        : availableTimespansQueries.error
-          ? availableTimespansQueries.error.message
-          : "Unknown error";
+        : "Unknown error";
       return (
         <ErrorMessage
           text={"Error loading events and/or timespans"}
@@ -168,10 +191,7 @@ export const TimelineTable = memo(
         />
       );
     }
-    if (
-      firstRender.current &&
-      (eventsQueries.isLoading || availableTimespansQueries.isLoading)
-    ) {
+    if (firstRender.current && eventsQueries.isLoading) {
       return <Loading text="Loading Timeline" fullScreen={false} />;
     }
 

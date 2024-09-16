@@ -54,7 +54,7 @@ const VideoJS: FC<VideoPlayerPropsInferface> = (props) => {
   }, [playerRef]);
 
   return (
-    <div data-vjs-player>
+    <div data-vjs-player data-testid="video-player">
       <div ref={videoRef} />
     </div>
   );

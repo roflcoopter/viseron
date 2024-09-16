@@ -4,7 +4,6 @@ from __future__ import annotations
 import datetime
 import logging
 import os
-import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from http import HTTPStatus
@@ -16,7 +15,11 @@ from sqlalchemy import select
 from viseron.components.storage.models import Files, Recordings
 from viseron.components.storage.queries import get_time_period_fragments
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.domains.camera.fragmenter import Fragment, generate_playlist
+from viseron.domains.camera.fragmenter import (
+    Fragment,
+    generate_playlist,
+    get_available_timespans,
+)
 from viseron.helpers import utcnow
 from viseron.helpers.fixed_size_dict import FixedSizeDict
 from viseron.helpers.validators import request_argument_no_value
@@ -186,7 +189,7 @@ class HlsAPIHandler(BaseAPIHandler):
         if "date" in self.request_arguments:
             time_from = (
                 datetime.datetime.strptime(self.request_arguments["date"], "%Y-%m-%d")
-                - datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+                - self.utc_offset
             ).timestamp()
             time_to = time_from + 86400
         else:
@@ -194,59 +197,13 @@ class HlsAPIHandler(BaseAPIHandler):
             time_to = self.request_arguments["time_to"]
 
         timespans = await self.run_in_executor(
-            _get_available_timespans,
+            get_available_timespans,
             self._get_session,
-            camera,
+            [camera.identifier],
             time_from,
             time_to,
         )
         self.response_success(response={"timespans": timespans})
-
-
-def _get_available_timespans(
-    get_session: Callable[[], Session],
-    camera: AbstractCamera | FailedCamera,
-    time_from: int,
-    time_to: int | None = None,
-):
-    """Get the available timespans of HLS fragments for a time period."""
-    files = get_time_period_fragments(
-        camera.identifier, time_from, time_to, get_session
-    )
-    fragments = [
-        Fragment(
-            file.filename,
-            f"/files{file.path}",
-            float(
-                file.meta["m3u8"]["EXTINF"],
-            ),
-            file.orig_ctime,
-        )
-        for file in files
-        if file.meta.get("m3u8", {}).get("EXTINF", False)
-    ]
-
-    timespans = []
-    start = None
-    end = None
-    for fragment in fragments:
-        if start is None:
-            start = fragment.creation_time.timestamp()
-        if end is None:
-            end = fragment.creation_time.timestamp() + fragment.duration
-        if fragment.creation_time.timestamp() > end + fragment.duration:
-            timespans.append(
-                {"start": int(start), "end": int(end), "duration": int(end - start)}
-            )
-            start = None
-            end = None
-        else:
-            end = fragment.creation_time.timestamp() + fragment.duration
-    if start is not None and end is not None:
-        timespans.append(
-            {"start": int(start), "end": int(end), "duration": int(end - start)}
-        )
-    return timespans
 
 
 def _get_init_file(
@@ -363,7 +320,7 @@ def _generate_playlist_time_period(
 ) -> str | None:
     """Generate the HLS playlist for a time period."""
     files = get_time_period_fragments(
-        camera.identifier, start_timestamp, end_timestamp, get_session
+        [camera.identifier], start_timestamp, end_timestamp, get_session
     )
     fragments = []
     end_playlist = bool(end_timestamp) if not end_playlist_at_timestamp else False

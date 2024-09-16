@@ -18,6 +18,13 @@ export type SaveConfigMessage = {
   config: string;
 };
 
+export type SubscribeTimespansMessage = {
+  type: "subscribe_timespans";
+  camera_identifiers: string[];
+  date: string;
+  debounce?: number;
+};
+
 export function auth(accessToken: string) {
   return {
     type: "auth",
@@ -103,5 +110,26 @@ export function ping() {
 export function getEntities() {
   return {
     type: "get_entities",
+  };
+}
+
+export function subscribeTimespans(
+  camera_identifiers: string[],
+  date: string,
+  debounce?: number,
+) {
+  const message: SubscribeTimespansMessage = {
+    type: "subscribe_timespans",
+    camera_identifiers,
+    date,
+    debounce,
+  };
+  return message;
+}
+
+export function unsubscribeTimespans(subscription: number) {
+  return {
+    type: "unsubscribe_timespans",
+    subscription,
   };
 }

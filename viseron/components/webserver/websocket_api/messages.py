@@ -14,6 +14,7 @@ from viseron.components.webserver.const import (
     TYPE_AUTH_OK,
     TYPE_AUTH_REQUIRED,
     TYPE_RESULT,
+    TYPE_SUBSCRIPTION_RESULT,
     WS_ERROR_UNKNOWN_ERROR,
 )
 from viseron.helpers.json import JSONEncoder
@@ -118,12 +119,14 @@ def invalid_error_message(code: str, message: str) -> dict[str, Any]:
     }
 
 
-def event_message(command_id: int, event: Event) -> dict[str, Any]:
-    """Return an event message."""
+def subscription_result_message(
+    command_id: int, result: Event | dict[str, Any]
+) -> dict[str, Any]:
+    """Return a subscription result message."""
     return {
         "command_id": command_id,
-        "type": "event",
-        "event": event,
+        "type": TYPE_SUBSCRIPTION_RESULT,
+        "result": result,
     }
 
 

@@ -9,9 +9,10 @@ import shutil
 import subprocess as sp
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from math import ceil
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 import psutil
 from path import Path
@@ -19,11 +20,14 @@ from sqlalchemy import insert
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import FilesMeta
+from viseron.components.storage.queries import get_time_period_fragments
 from viseron.const import CAMERA_SEGMENT_DURATION, TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import CONFIG_FFMPEG_LOGLEVEL, CONFIG_RECORDER
 from viseron.helpers.logs import LogPipe
 
 if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
     from viseron import Viseron
     from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera
@@ -434,3 +438,57 @@ class Fragment:
     path: str
     duration: float
     creation_time: datetime.datetime
+
+
+class Timespan(TypedDict):
+    """Timespan of available HLS fragments."""
+
+    start: int
+    end: int
+    duration: int
+
+
+def get_available_timespans(
+    get_session: Callable[[], Session],
+    camera_identifiers: list[str],
+    time_from: int | float,
+    time_to: int | float | None = None,
+) -> list[Timespan]:
+    """Get the available timespans of HLS fragments for a time period."""
+    files = get_time_period_fragments(
+        camera_identifiers, time_from, time_to, get_session
+    )
+    fragments = [
+        Fragment(
+            file.filename,
+            f"/files{file.path}",
+            float(
+                file.meta["m3u8"]["EXTINF"],
+            ),
+            file.orig_ctime,
+        )
+        for file in files
+        if file.meta.get("m3u8", {}).get("EXTINF", False)
+    ]
+
+    timespans: list[Timespan] = []
+    start = None
+    end = None
+    for fragment in fragments:
+        if start is None:
+            start = fragment.creation_time.timestamp()
+        if end is None:
+            end = fragment.creation_time.timestamp() + fragment.duration
+        if fragment.creation_time.timestamp() > end + fragment.duration:
+            timespans.append(
+                {"start": int(start), "end": int(end), "duration": int(end - start)}
+            )
+            start = None
+            end = None
+        else:
+            end = fragment.creation_time.timestamp() + fragment.duration
+    if start is not None and end is not None:
+        timespans.append(
+            {"start": int(start), "end": int(end), "duration": int(end - start)}
+        )
+    return timespans

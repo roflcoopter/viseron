@@ -7,6 +7,13 @@ COMPONENT = "storage"
 
 DATABASE_URL = "postgresql://postgres@localhost/viseron"
 
+EVENT_FILE_CREATED = (
+    "file_created/{camera_identifier}/{category}/{subcategory}/{file_name}"
+)
+EVENT_FILE_DELETED = (
+    "file_deleted/{camera_identifier}/{category}/{subcategory}/{file_name}"
+)
+
 # Storage configuration
 DESC_COMPONENT = "Storage configuration."
 DEFAULT_COMPONENT: dict[str, Any] = {}

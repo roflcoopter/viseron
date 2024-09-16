@@ -1,6 +1,9 @@
+import { useContext, useEffect } from "react";
+
+import { ViseronContext } from "context/ViseronContext";
 import * as messages from "lib/messages";
 import * as types from "lib/types";
-import { Connection } from "lib/websockets";
+import { Connection, SubscriptionUnsubscribe } from "lib/websockets";
 
 export const getCameras = async (
   connection: Connection,
@@ -109,4 +112,79 @@ export const subscribeEvent = async <T = types.Event>(
     true,
   );
   return subscription;
+};
+
+export const subscribeTimespans = async (
+  connection: Connection,
+  camera_identifiers: string[],
+  date: string,
+  timespanCallback: (message: types.HlsAvailableTimespans) => void,
+  debounce?: number,
+) => {
+  const subscription = await connection.subscribeTimespans(
+    timespanCallback,
+    camera_identifiers,
+    date,
+    debounce,
+    true,
+  );
+  return subscription;
+};
+
+export const useSubscribeTimespans = (
+  camera_identifiers: string[],
+  date: string | null,
+  timespanCallback: (message: types.HlsAvailableTimespans) => void,
+  enabled = true,
+  debounce?: number,
+) => {
+  const viseron = useContext(ViseronContext);
+
+  useEffect(() => {
+    if (!enabled || !date) {
+      return () => {};
+    }
+
+    let unmounted = false;
+    let unsub: SubscriptionUnsubscribe | null = null;
+    const subscribe = async () => {
+      if (viseron.connection) {
+        unsub = await subscribeTimespans(
+          viseron.connection,
+          camera_identifiers,
+          date,
+          timespanCallback,
+          debounce,
+        );
+        if (unmounted) {
+          unsub();
+          unsub = null;
+        }
+      }
+    };
+    subscribe();
+
+    return () => {
+      unmounted = true;
+      const unsubscribe = async () => {
+        if (unsub) {
+          try {
+            await unsub();
+          } catch (error) {
+            // Connection is probably closed
+          }
+          unsub = null;
+        }
+      };
+      unsubscribe();
+    };
+  }, [
+    camera_identifiers,
+    date,
+    enabled,
+    debounce,
+    timespanCallback,
+    viseron.connected,
+    viseron.connection,
+  ]);
 };

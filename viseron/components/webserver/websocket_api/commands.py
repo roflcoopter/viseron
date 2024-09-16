@@ -1,16 +1,20 @@
 """WebSocket API commands."""
 from __future__ import annotations
 
+import datetime
 import logging
 import os
 import signal
 from collections.abc import Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, overload
 
 import tornado
 import voluptuous as vol
+from debouncer import DebounceOptions, debounce
 
+from viseron.components.storage.const import EVENT_FILE_CREATED, EVENT_FILE_DELETED
+from viseron.components.storage.util import EventFileCreated, EventFileDeleted
 from viseron.components.webserver.auth import Group
 from viseron.components.webserver.const import (
     WS_ERROR_NOT_FOUND,
@@ -23,15 +27,16 @@ from viseron.const import (
     RESTART_EXIT_CODE,
 )
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.camera.fragmenter import get_available_timespans
 from viseron.exceptions import Unauthorized
 
 from .messages import (
     BASE_MESSAGE_SCHEMA,
     error_message,
-    event_message,
     message_to_json,
     pong_message,
     result_message,
+    subscription_result_message,
 )
 
 if TYPE_CHECKING:
@@ -43,9 +48,28 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
+@overload
 def websocket_command(schema: dict[Any, Any]) -> Callable:
+    ...
+
+
+@overload
+def websocket_command(schema: dict[Any, Any], command: str) -> Callable:
+    ...
+
+
+@overload
+def websocket_command(schema: vol.Schema, command: str) -> Callable:
+    ...
+
+
+def websocket_command(
+    schema: dict[Any, Any] | vol.Schema, command: str | None = None
+) -> Callable:
     """Websocket command decorator."""
-    command = schema["type"]
+    if isinstance(schema, dict):
+        if command is None:
+            command = schema["type"]
 
     def decorate(func):
         """Decorate websocket command function."""
@@ -87,7 +111,7 @@ def subscribe_event(connection: WebSocketHandler, message) -> None:
     def forward_event(event: Event) -> None:
         """Forward event to WebSocket connection."""
         connection.send_message(
-            message_to_json(event_message(message["command_id"], event))
+            message_to_json(subscription_result_message(message["command_id"], event))
         )
 
     connection.subscriptions[message["command_id"]] = connection.vis.listen_event(
@@ -133,17 +157,21 @@ def subscribe_states(connection: WebSocketHandler, message) -> None:
         if "entity_id" in message:
             if event.data.entity_id == message["entity_id"]:
                 connection.send_message(
-                    message_to_json(event_message(message["command_id"], event))
+                    message_to_json(
+                        subscription_result_message(message["command_id"], event)
+                    )
                 )
             return
         if "entity_ids" in message:
             if event.data.entity_id in message["entity_ids"]:
                 connection.send_message(
-                    message_to_json(event_message(message["command_id"], event))
+                    message_to_json(
+                        subscription_result_message(message["command_id"], event)
+                    )
                 )
             return
         connection.send_message(
-            message_to_json(event_message(message["command_id"], event))
+            message_to_json(subscription_result_message(message["command_id"], event))
         )
 
     connection.subscriptions[message["command_id"]] = connection.vis.listen_event(
@@ -238,3 +266,107 @@ def get_entities(connection: WebSocketHandler, message) -> None:
             result_message(message["command_id"], connection.vis.get_entities()),
         )
     )
+
+
+@websocket_command(
+    command="subscribe_timespans",
+    schema={
+        vol.Required("type"): "subscribe_timespans",
+        vol.Required("camera_identifiers"): [str],
+        vol.Required("date"): str,
+        vol.Optional("debounce", default=0.5): vol.Any(float, int),
+    },
+)
+def subscribe_timespans(connection: WebSocketHandler, message) -> None:
+    """Subscribe to cameras available timespans."""
+    camera_identifiers: list[str] = message["camera_identifiers"]
+    for camera_identifier in camera_identifiers:
+        camera = connection.get_camera(camera_identifier)
+        if camera is None:
+            connection.send_message(
+                error_message(
+                    message["command_id"],
+                    WS_ERROR_NOT_FOUND,
+                    f"Camera with identifier {camera_identifier} not found.",
+                )
+            )
+            return
+
+    # Get start of day in utc
+    time_from = (
+        datetime.datetime.strptime(message["date"], "%Y-%m-%d") - connection.utc_offset
+    ).timestamp()
+    time_to = time_from + 86400
+
+    def send_timespans():
+        """Send available timespans."""
+        timespans = get_available_timespans(
+            connection.get_session, camera_identifiers, time_from, time_to
+        )
+        connection.send_message(
+            message_to_json(
+                subscription_result_message(
+                    message["command_id"], {"timespans": timespans}
+                )
+            )
+        )
+
+    @debounce(
+        wait=message["debounce"],
+        options=DebounceOptions(  # pylint: disable=unexpected-keyword-arg
+            time_window=message["debounce"],
+        ),
+    )
+    def forward_timespans(
+        _event: Event[EventFileCreated] | Event[EventFileDeleted],
+    ) -> None:
+        """Forward event to WebSocket connection."""
+        send_timespans()
+
+    subs = []
+    for camera_identifier in camera_identifiers:
+        subs.append(
+            connection.vis.listen_event(
+                EVENT_FILE_CREATED.format(
+                    camera_identifier=camera_identifier,
+                    category="recorder",
+                    subcategory="segments",
+                    file_name="*",
+                ),
+                forward_timespans,
+                ioloop=tornado.ioloop.IOLoop.current(),
+            )
+        )
+        subs.append(
+            connection.vis.listen_event(
+                EVENT_FILE_DELETED.format(
+                    camera_identifier=camera_identifier,
+                    category="recorder",
+                    subcategory="segments",
+                    file_name="*",
+                ),
+                forward_timespans,
+                ioloop=tornado.ioloop.IOLoop.current(),
+            )
+        )
+
+    def unsubscribe() -> None:
+        """Unsubscribe."""
+        for unsub in subs:
+            unsub()
+
+    connection.subscriptions[message["command_id"]] = unsubscribe
+    connection.send_message(result_message(message["command_id"]))
+    send_timespans()
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "unsubscribe_timespans",
+        vol.Required("subscription"): int,
+    }
+)
+def unsubscribe_timespans(connection: WebSocketHandler, message) -> None:
+    """Unsubscribe to a cameras available timespans."""
+    message["type"] = "unsubscribe_event"
+    unsubscribe_event(connection, message)

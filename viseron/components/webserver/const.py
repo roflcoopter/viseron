@@ -51,6 +51,7 @@ DESC_MINUTES = "Minutes to expire session."
 
 # Websocket constants
 TYPE_RESULT = "result"
+TYPE_SUBSCRIPTION_RESULT = "subscription_result"
 TYPE_AUTH_OK = "auth_ok"
 TYPE_AUTH_REQUIRED = "auth_required"
 TYPE_AUTH_NOT_REQUIRED = "auth_not_required"

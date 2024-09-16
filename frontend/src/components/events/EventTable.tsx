@@ -98,7 +98,6 @@ export const EventTable = memo(
     const eventsQueries = useEventsMultiple({
       camera_identifiers: selectedCameras,
       date: formattedDate,
-      utc_offset_minutes: dayjs().utcOffset(),
       configOptions: { enabled: !!date },
     });
 

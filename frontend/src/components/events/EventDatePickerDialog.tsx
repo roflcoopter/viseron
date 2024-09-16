@@ -94,7 +94,6 @@ export function EventDatePickerDialog({
   const { selectedCameras } = useCameraStore();
   const eventsAmountQuery = useEventsAmountMultiple({
     camera_identifiers: selectedCameras,
-    utc_offset_minutes: dayjs().utcOffset(),
   });
   const highlightedDays = useMemo(
     () =>

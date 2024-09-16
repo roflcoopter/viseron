@@ -20,7 +20,6 @@ type EventsVariablesWithTime = {
 type EventsVariablesWithDate = {
   camera_identifier: string | null;
   date: string;
-  utc_offset_minutes: number;
   configOptions?: Omit<
     UseQueryOptions<types.CameraEvents, types.APIErrorResponse>,
     "queryKey" | "queryFn"
@@ -45,7 +44,6 @@ async function events(variables: EventsVariables): Promise<types.CameraEvents> {
     params.time_to = variables.time_to;
   } else if ("date" in variables) {
     params.date = variables.date;
-    params.utc_offset_minutes = variables.utc_offset_minutes;
   }
 
   const response = await viseronAPI.get<types.CameraEvents>(
@@ -73,12 +71,7 @@ export function useEvents(variables: EventsVariables) {
           variables.time_from,
           variables.time_to,
         ]
-      : [
-          "events",
-          variables.camera_identifier,
-          variables.date,
-          variables.utc_offset_minutes,
-        ];
+      : ["events", variables.camera_identifier, variables.date];
 
   return useQuery({
     queryKey,
@@ -99,7 +92,6 @@ type EventsMultipleVariablesWithTime = {
 type EventsMultipleVariablesWithDate = {
   camera_identifiers: string[];
   date: string;
-  utc_offset_minutes: number;
   configOptions?: Omit<
     UseQueryOptions<types.CameraEvents, types.APIErrorResponse>,
     "queryKey" | "queryFn"
@@ -113,12 +105,7 @@ export function useEventsMultiple(variables: EventsMultipleVariables) {
   const queryKeys = variables.camera_identifiers.map((camera_identifier) =>
     "time_from" in variables && "time_to" in variables
       ? ["events", camera_identifier, variables.time_from, variables.time_to]
-      : [
-          "events",
-          camera_identifier,
-          variables.date,
-          variables.utc_offset_minutes,
-        ],
+      : ["events", camera_identifier, variables.date],
   );
 
   const eventsQueries = useQueries({
@@ -155,7 +142,6 @@ export function useEventsMultiple(variables: EventsMultipleVariables) {
 
 type EventsAmountVariables = {
   camera_identifier: string | null;
-  utc_offset_minutes: number;
   configOptions?: Omit<
     UseQueryOptions<types.EventsAmount, types.APIErrorResponse>,
     "queryKey" | "queryFn"
@@ -164,15 +150,9 @@ type EventsAmountVariables = {
 
 async function eventsAmount({
   camera_identifier,
-  utc_offset_minutes,
 }: EventsAmountVariables): Promise<types.EventsAmount> {
   const response = await viseronAPI.get<types.EventsAmount>(
     `events/${camera_identifier}/amount`,
-    {
-      params: {
-        utc_offset_minutes,
-      },
-    },
   );
   return response.data;
 }
@@ -189,7 +169,6 @@ export function useEventsAmount(
 
 type EventsAmountMultipleVariables = {
   camera_identifiers: string[];
-  utc_offset_minutes: number;
   configOptions?: Omit<
     UseQueryOptions<types.EventsAmount, types.APIErrorResponse>,
     "queryKey" | "queryFn"
@@ -198,11 +177,9 @@ type EventsAmountMultipleVariables = {
 
 async function eventsAmountMultiple({
   camera_identifiers,
-  utc_offset_minutes,
 }: EventsAmountMultipleVariables): Promise<types.EventsAmount> {
   const response = await viseronAPI.post<types.EventsAmount>("events/amount", {
     camera_identifiers,
-    utc_offset_minutes,
   });
   return response.data;
 }

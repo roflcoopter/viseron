@@ -61,8 +61,10 @@ from .websocket_api.commands import (
     save_config,
     subscribe_event,
     subscribe_states,
+    subscribe_timespans,
     unsubscribe_event,
     unsubscribe_states,
+    unsubscribe_timespans,
 )
 
 if TYPE_CHECKING:
@@ -134,6 +136,8 @@ def setup(vis: Viseron, config) -> bool:
     webserver.register_websocket_command(save_config)
     webserver.register_websocket_command(restart_viseron)
     webserver.register_websocket_command(get_entities)
+    webserver.register_websocket_command(subscribe_timespans)
+    webserver.register_websocket_command(unsubscribe_timespans)
 
     webserver.start()
 
