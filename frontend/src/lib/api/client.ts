@@ -5,9 +5,8 @@ import { useContext, useEffect } from "react";
 
 import { ViseronContext } from "context/ViseronContext";
 import { useToast } from "hooks/UseToast";
-import { subscribeStates } from "lib/commands";
+import { subscribeEvent, subscribeStates } from "lib/commands";
 import * as types from "lib/types";
-import { SubscriptionUnsubscribe } from "lib/websockets";
 
 export const API_V1_URL = "/api/v1";
 export const viseronAPI = axios.create({
@@ -95,51 +94,61 @@ export const useDeleteRecording = () => {
   });
 };
 
+type EntityQueryPair = {
+  entityId: string;
+  queryKey: QueryKey;
+};
+
 export const useInvalidateQueryOnStateChange = (
-  entityId: string,
-  queryKey: QueryKey,
+  entityQueryPairs: EntityQueryPair[],
 ) => {
   const { connected, connection, subscriptionRef } = useContext(ViseronContext);
-  const staticQueryKey = JSON.stringify(queryKey);
+  const staticEntityQueryPairs = JSON.stringify(entityQueryPairs);
+
   useEffect(() => {
     if (!subscriptionRef) {
       return () => {};
     }
-    if (!subscriptionRef.current[entityId]) {
-      subscriptionRef.current[entityId] = {
-        count: 0,
-        subscribing: false,
-        unsubscribe: null,
-      };
-    }
 
-    const _stateChanged = (_event: types.StateChangedEvent) => {
-      queryClient.invalidateQueries({ queryKey });
-    };
-
-    subscriptionRef.current[entityId].count++;
-
-    const subscribe = async () => {
-      if (
-        connection &&
-        connected &&
-        subscriptionRef.current[entityId].unsubscribe === null &&
-        subscriptionRef.current[entityId].count === 1 &&
-        !subscriptionRef.current[entityId].subscribing
-      ) {
-        subscriptionRef.current[entityId].subscribing = true;
-        subscriptionRef.current[entityId].unsubscribe = await subscribeStates(
-          connection,
-          _stateChanged,
-          entityId,
-          undefined,
-          false,
-        );
-        subscriptionRef.current[entityId].subscribing = false;
+    entityQueryPairs.forEach(({ entityId, queryKey }) => {
+      if (!subscriptionRef.current[entityId]) {
+        subscriptionRef.current[entityId] = {
+          count: 0,
+          subscribing: false,
+          unsubscribe: null,
+        };
       }
-    };
 
-    const unsubscribe = async () => {
+      const _stateChanged = (_event: types.StateChangedEvent) => {
+        queryClient.invalidateQueries({ queryKey });
+      };
+
+      subscriptionRef.current[entityId].count++;
+
+      const subscribe = async () => {
+        if (
+          connection &&
+          connected &&
+          subscriptionRef.current[entityId].unsubscribe === null &&
+          subscriptionRef.current[entityId].count === 1 &&
+          !subscriptionRef.current[entityId].subscribing
+        ) {
+          subscriptionRef.current[entityId].subscribing = true;
+          subscriptionRef.current[entityId].unsubscribe = await subscribeStates(
+            connection,
+            _stateChanged,
+            entityId,
+            undefined,
+            false,
+          );
+          subscriptionRef.current[entityId].subscribing = false;
+        }
+      };
+
+      subscribe();
+    });
+
+    const unsubscribe = async (entityId: string) => {
       subscriptionRef.current[entityId].count--;
       if (
         subscriptionRef.current[entityId].count === 0 &&
@@ -147,17 +156,92 @@ export const useInvalidateQueryOnStateChange = (
       ) {
         const _unsub = subscriptionRef.current[entityId].unsubscribe;
         subscriptionRef.current[entityId].unsubscribe = null;
-        await (_unsub as SubscriptionUnsubscribe)();
+        await _unsub();
       }
     };
 
-    subscribe();
+    return () => {
+      entityQueryPairs.forEach(({ entityId }) => {
+        unsubscribe(entityId);
+      });
+    };
+    // False positive, staticEntityQueryPairs is derived from entityQueryPairs
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connected, connection, subscriptionRef, staticEntityQueryPairs]);
+};
+
+type EventQueryPair = {
+  event: string;
+  queryKey: QueryKey;
+};
+
+export const useInvalidateQueryOnEvent = (
+  eventQueryPairs: EventQueryPair[],
+) => {
+  const { connected, connection, subscriptionRef } = useContext(ViseronContext);
+  const staticEventQueryPairs = JSON.stringify(eventQueryPairs);
+
+  useEffect(() => {
+    if (!subscriptionRef) {
+      return () => {};
+    }
+
+    eventQueryPairs.forEach(({ event, queryKey }) => {
+      if (!subscriptionRef.current[event]) {
+        subscriptionRef.current[event] = {
+          count: 0,
+          subscribing: false,
+          unsubscribe: null,
+        };
+      }
+
+      const _stateChanged = (_event: types.StateChangedEvent) => {
+        queryClient.invalidateQueries({ queryKey });
+      };
+
+      subscriptionRef.current[event].count++;
+
+      const subscribe = async () => {
+        if (
+          connection &&
+          connected &&
+          subscriptionRef.current[event].unsubscribe === null &&
+          subscriptionRef.current[event].count === 1 &&
+          !subscriptionRef.current[event].subscribing
+        ) {
+          subscriptionRef.current[event].subscribing = true;
+          subscriptionRef.current[event].unsubscribe = await subscribeEvent(
+            connection,
+            event,
+            _stateChanged,
+          );
+          subscriptionRef.current[event].subscribing = false;
+        }
+      };
+
+      subscribe();
+    });
+
+    const unsubscribe = async (event: string) => {
+      subscriptionRef.current[event].count--;
+      if (
+        subscriptionRef.current[event].count === 0 &&
+        subscriptionRef.current[event].unsubscribe
+      ) {
+        const _unsub = subscriptionRef.current[event].unsubscribe;
+        subscriptionRef.current[event].unsubscribe = null;
+        await _unsub();
+      }
+    };
 
     return () => {
-      unsubscribe();
+      eventQueryPairs.forEach(({ event }) => {
+        unsubscribe(event);
+      });
     };
+    // False positive, staticEventQueryPairs is derived from eventQueryPairs
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connected, connection, entityId, subscriptionRef, staticQueryKey]);
+  }, [connected, connection, subscriptionRef, staticEventQueryPairs]);
 };
 
 export default queryClient;

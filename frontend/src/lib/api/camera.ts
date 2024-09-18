@@ -31,17 +31,19 @@ export function useCamera<T extends boolean = false>(
     "queryKey" | "queryFn"
   >,
 ) {
-  useInvalidateQueryOnStateChange(
-    `binary_sensor.${camera_identifier}_connected`,
-    ["camera", camera_identifier],
-  );
-  useInvalidateQueryOnStateChange(`toggle.${camera_identifier}_connection`, [
-    "camera",
-    camera_identifier,
-  ]);
-  useInvalidateQueryOnStateChange(`sensor.${camera_identifier}_access_token`, [
-    "camera",
-    camera_identifier,
+  useInvalidateQueryOnStateChange([
+    {
+      entityId: `binary_sensor.${camera_identifier}_connected`,
+      queryKey: ["camera", camera_identifier],
+    },
+    {
+      entityId: `toggle.${camera_identifier}_connection`,
+      queryKey: ["camera", camera_identifier],
+    },
+    {
+      entityId: `sensor.${camera_identifier}_access_token`,
+      queryKey: ["camera", camera_identifier],
+    },
   ]);
 
   return useQuery({
