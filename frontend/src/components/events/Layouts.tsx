@@ -1,139 +1,137 @@
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import FilterAltIcon from "@mui/icons-material/FilterAlt";
-import VideocamIcon from "@mui/icons-material/Videocam";
 import TabContext from "@mui/lab/TabContext";
 import TabList from "@mui/lab/TabList";
 import TabPanel from "@mui/lab/TabPanel";
 import Box from "@mui/material/Box";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import Container from "@mui/material/Container";
-import SpeedDial from "@mui/material/SpeedDial";
-import SpeedDialAction from "@mui/material/SpeedDialAction";
+import Grid from "@mui/material/Grid";
+import Paper from "@mui/material/Paper";
 import Tab from "@mui/material/Tab";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { Dayjs } from "dayjs";
-import Hls from "hls.js";
-import { SyntheticEvent, memo, useEffect, useRef, useState } from "react";
+import { SyntheticEvent, memo, useCallback, useEffect, useRef } from "react";
 
-import { CameraPickerDialog } from "components/events/CameraPickerDialog";
-import { EventDatePickerDialog } from "components/events/EventDatePickerDialog";
 import { PlayerCard } from "components/events/EventPlayerCard";
 import { EventTable } from "components/events/EventTable";
-import { EventsCameraGrid } from "components/events/EventsCameraGrid";
+import { FilterMenu } from "components/events/FilterMenu";
+import { FloatingMenu } from "components/events/FloatingMenu";
 import { TimelineTable } from "components/events/timeline/TimelineTable";
-import { COLUMN_HEIGHT } from "components/events/utils";
+import {
+  COLUMN_HEIGHT,
+  COLUMN_HEIGHT_SMALL,
+  playerCardSmMaxHeight,
+  useCameraStore,
+} from "components/events/utils";
+import { useResizeObserver } from "hooks/UseResizeObserver";
 import { insertURLParameter } from "lib/helpers";
 import * as types from "lib/types";
 
-type FiltersProps = {
-  cameras: types.CamerasOrFailedCameras;
-  selectedCamera: types.Camera | types.FailedCamera | null;
-
-  date: Dayjs | null;
-  setDate: (date: Dayjs | null) => void;
-
-  changeSelectedCamera: (
-    ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera | types.FailedCamera,
-  ) => void;
+const setTableHeight = (
+  tabListRef: React.RefObject<HTMLDivElement>,
+  eventsRef: React.RefObject<HTMLDivElement>,
+  timelineRef: React.RefObject<HTMLDivElement>,
+  playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>,
+  theme: any,
+  smBreakpoint: boolean,
+) => {
+  if (
+    tabListRef.current &&
+    eventsRef.current &&
+    timelineRef.current &&
+    playerCardGridItemRef.current
+  ) {
+    if (smBreakpoint) {
+      eventsRef.current.style.height = `calc(${COLUMN_HEIGHT} - ${theme.headerHeight}px - ${tabListRef.current.offsetHeight}px)`;
+      timelineRef.current.style.height = eventsRef.current.style.height;
+    } else {
+      eventsRef.current.style.height = `calc(${COLUMN_HEIGHT_SMALL} - ${theme.headerHeight}px - ${tabListRef.current.offsetHeight}px - ${playerCardGridItemRef.current.offsetHeight}px)`;
+      timelineRef.current.style.height = eventsRef.current.style.height;
+    }
+  }
 };
 
-const Filters = memo(
-  ({
-    cameras,
-    selectedCamera,
-    date,
-    setDate,
-    changeSelectedCamera,
-  }: FiltersProps) => {
-    const [open, setOpen] = useState(false);
-    const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
-    const [dateDialogOpen, setDateDialogOpen] = useState(false);
-    const theme = useTheme();
+const useSetTableHeight = (
+  tabListRef: React.RefObject<HTMLDivElement>,
+  eventsRef: React.RefObject<HTMLDivElement>,
+  timelineRef: React.RefObject<HTMLDivElement>,
+  playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>,
+) => {
+  const theme = useTheme();
+  const smBreakpoint = useMediaQuery(theme.breakpoints.up("sm"));
 
-    const handleClose = () => {
-      setOpen(false);
-    };
-
-    const handleClick = () => {
-      setOpen(!open);
-    };
-
-    return (
-      <>
-        <CameraPickerDialog
-          open={cameraDialogOpen}
-          setOpen={setCameraDialogOpen}
-          cameras={cameras}
-          changeSelectedCamera={changeSelectedCamera}
-          selectedCamera={selectedCamera}
-        />
-        <EventDatePickerDialog
-          open={dateDialogOpen}
-          setOpen={setDateDialogOpen}
-          date={date}
-          camera={selectedCamera}
-          onChange={(value) => {
-            setDateDialogOpen(false);
-            setDate(value);
-          }}
-        />
-        <SpeedDial
-          ariaLabel="Filters"
-          sx={{ position: "absolute", bottom: 16, right: 16 }}
-          icon={<FilterAltIcon />}
-          onClose={handleClose}
-          onClick={handleClick}
-          open={open}
-        >
-          <SpeedDialAction
-            icon={<VideocamIcon />}
-            tooltipTitle={"Select camera"}
-            onClick={() => setCameraDialogOpen(true)}
-            FabProps={{
-              size: "medium",
-              sx: { backgroundColor: theme.palette.primary.main },
-            }}
-          />
-          <SpeedDialAction
-            icon={<CalendarMonthIcon />}
-            tooltipTitle={"Select date"}
-            onClick={() => setDateDialogOpen(true)}
-            FabProps={{
-              size: "medium",
-              sx: { backgroundColor: theme.palette.primary.main },
-            }}
-          />
-        </SpeedDial>
-      </>
+  const _setTableHeight = useCallback(() => {
+    setTableHeight(
+      tabListRef,
+      eventsRef,
+      timelineRef,
+      playerCardGridItemRef,
+      theme,
+      smBreakpoint,
     );
-  },
-);
+  }, [
+    tabListRef,
+    eventsRef,
+    timelineRef,
+    playerCardGridItemRef,
+    theme,
+    smBreakpoint,
+  ]);
+
+  useResizeObserver(playerCardGridItemRef, _setTableHeight);
+  _setTableHeight();
+};
+
+const useSetPlayerCardHeight = (
+  playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>,
+) => {
+  const theme = useTheme();
+  const smBreakpoint = useMediaQuery(theme.breakpoints.up("sm"));
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (playerCardGridItemRef.current) {
+        if (smBreakpoint) {
+          playerCardGridItemRef.current.style.height = `calc(${COLUMN_HEIGHT} - ${theme.headerHeight}px)`;
+          playerCardGridItemRef.current.style.maxHeight = "unset";
+        } else {
+          playerCardGridItemRef.current.style.height = "100%";
+          playerCardGridItemRef.current.style.maxHeight = `${playerCardSmMaxHeight()}px`;
+        }
+      }
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [playerCardGridItemRef, smBreakpoint, theme.headerHeight]);
+};
 
 type TabsProps = {
-  parentRef: React.MutableRefObject<HTMLDivElement | null>;
-  hlsRef: React.MutableRefObject<Hls | null>;
+  cameras: types.CamerasOrFailedCameras;
   date: Dayjs | null;
   selectedTab: "events" | "timeline";
   setSelectedTab: (tab: "events" | "timeline") => void;
-  selectedCamera: types.Camera | types.FailedCamera | null;
   selectedEvent: types.CameraEvent | null;
   setSelectedEvent: (event: types.CameraEvent) => void;
   setRequestedTimestamp: (timestamp: number | null) => void;
+  playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>;
 };
 const Tabs = ({
-  parentRef,
-  hlsRef,
+  cameras,
   date,
   selectedTab,
   setSelectedTab,
-  selectedCamera,
   selectedEvent,
   setSelectedEvent,
   setRequestedTimestamp,
+  playerCardGridItemRef,
 }: TabsProps) => {
+  const { selectedCameras } = useCameraStore();
+  const tabListRef = useRef<HTMLDivElement | null>(null);
+  const eventsRef = useRef<HTMLDivElement | null>(null);
+  const timelineRef = useRef<HTMLDivElement | null>(null);
+  useSetTableHeight(tabListRef, eventsRef, timelineRef, playerCardGridItemRef);
+
   const handleTabChange = (
     event: SyntheticEvent,
     tab: "events" | "timeline",
@@ -147,24 +145,49 @@ const Tabs = ({
 
   return (
     <TabContext value={selectedTab}>
-      <Box
-        sx={{
+      <TabList
+        ref={tabListRef}
+        onChange={handleTabChange}
+        sx={(theme) => ({
+          width: "100%",
           borderBottom: 1,
-          borderColor: "divider",
+          borderColor: theme.palette.divider,
           display: "flex",
-          justifyContent: "space-evenly",
+        })}
+      >
+        <Tab
+          label="Events"
+          value="events"
+          sx={{ padding: 0, maxWidth: "100%", flexGrow: 1 }}
+        />
+        <Tab
+          label="Timeline"
+          value="timeline"
+          sx={(theme) => ({
+            padding: 0,
+            maxWidth: "100%",
+            flexGrow: 1,
+            borderRight: 1,
+            borderColor: theme.palette.divider,
+          })}
+        />
+        <FilterMenu />
+      </TabList>
+      <TabPanel
+        ref={eventsRef}
+        value="events"
+        sx={{
+          padding: 0,
+          paddingTop: "5px",
+          overflow: "auto",
+          overflowX: "hidden",
+          boxSizing: "border-box",
         }}
       >
-        <TabList onChange={handleTabChange} sx={{ width: "100%" }}>
-          <Tab label="Events" value="events" sx={{ width: "50%" }} />
-          <Tab label="Timeline" value="timeline" sx={{ width: "50%" }} />
-        </TabList>
-      </Box>
-      <TabPanel value="events" sx={{ padding: 0, paddingTop: "5px" }}>
-        {selectedCamera ? (
+        {selectedCameras.length > 0 ? (
           <EventTable
-            parentRef={parentRef}
-            camera={selectedCamera}
+            cameras={cameras}
+            parentRef={eventsRef}
             date={date}
             selectedEvent={selectedEvent}
             setSelectedEvent={setSelectedEvent}
@@ -172,24 +195,33 @@ const Tabs = ({
           />
         ) : (
           <Typography align="center" sx={{ marginTop: "20px" }}>
-            Select a camera to load Events
+            Select at least one camera to load Events
           </Typography>
         )}
       </TabPanel>
-      <TabPanel value="timeline" sx={{ padding: 0, paddingTop: "5px" }}>
-        {selectedCamera ? (
+      <TabPanel
+        ref={timelineRef}
+        value="timeline"
+        sx={{
+          padding: 0,
+          paddingTop: "5px",
+          paddingBottom: "50px",
+          overflow: "auto",
+          overflowX: "hidden",
+          boxSizing: "border-box",
+        }}
+      >
+        {selectedCameras.length > 0 ? (
           <TimelineTable
-            // Force re-render when camera or date changes
-            key={`${selectedCamera.identifier}-${date?.unix().toString()}`}
-            parentRef={parentRef}
-            hlsRef={hlsRef}
-            camera={selectedCamera}
+            // Force re-render when date changes
+            key={`${date?.unix().toString()}`}
+            parentRef={timelineRef}
             date={date}
             setRequestedTimestamp={setRequestedTimestamp}
           />
         ) : (
           <Typography align="center" sx={{ marginTop: "20px" }}>
-            Select a camera to load Timeline
+            Select at least one camera to load Timeline
           </Typography>
         )}
       </TabPanel>
@@ -199,13 +231,8 @@ const Tabs = ({
 
 type LayoutProps = {
   cameras: types.CamerasOrFailedCameras;
-  selectedCamera: types.Camera | types.FailedCamera | null;
   selectedEvent: types.CameraEvent | null;
   setSelectedEvent: (event: types.CameraEvent) => void;
-  changeSelectedCamera: (
-    ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera | types.FailedCamera,
-  ) => void;
   date: Dayjs | null;
   setDate: (date: Dayjs | null) => void;
   requestedTimestamp: number | null;
@@ -217,10 +244,8 @@ type LayoutProps = {
 export const Layout = memo(
   ({
     cameras,
-    selectedCamera,
     selectedEvent,
     setSelectedEvent,
-    changeSelectedCamera,
     date,
     setDate,
     requestedTimestamp,
@@ -229,150 +254,61 @@ export const Layout = memo(
     setSelectedTab,
   }: LayoutProps) => {
     const theme = useTheme();
-    const parentRef = useRef<HTMLDivElement | null>(null);
-    const hlsRef = useRef<Hls | null>(null);
-    const playerCardRef = useRef<HTMLDivElement | null>(null);
-    return (
-      <Container style={{ display: "flex" }}>
-        <div
-          style={{
-            width: "100%",
-            display: "flex",
-            flexDirection: "column",
-            marginRight: theme.margin,
-          }}
-        >
-          <PlayerCard
-            camera={selectedCamera}
-            selectedEvent={selectedEvent}
-            requestedTimestamp={requestedTimestamp}
-            selectedTab={selectedTab}
-            hlsRef={hlsRef}
-            playerCardRef={playerCardRef}
-          />
-          <EventsCameraGrid
-            playerCardRef={playerCardRef}
-            cameras={cameras}
-            changeSelectedCamera={changeSelectedCamera}
-            selectedCamera={selectedCamera}
-          ></EventsCameraGrid>
-        </div>
-        <Card
-          ref={parentRef}
-          variant="outlined"
-          sx={{
-            width: "650px",
-            height: `calc(${COLUMN_HEIGHT} - ${theme.headerHeight}px)`,
-            overflow: "auto",
-            overflowX: "hidden",
-          }}
-        >
-          <CardContent sx={{ padding: 0 }}>
-            <Tabs
-              parentRef={parentRef}
-              hlsRef={hlsRef}
-              date={date}
-              selectedTab={selectedTab}
-              setSelectedTab={setSelectedTab}
-              selectedCamera={selectedCamera}
-              selectedEvent={selectedEvent}
-              setSelectedEvent={setSelectedEvent}
-              setRequestedTimestamp={setRequestedTimestamp}
-            />
-          </CardContent>
-        </Card>
-        <Filters
-          cameras={cameras}
-          selectedCamera={selectedCamera}
-          date={date}
-          setDate={setDate}
-          changeSelectedCamera={changeSelectedCamera}
-        />
-      </Container>
-    );
-  },
-);
-
-export const LayoutSmall = memo(
-  ({
-    cameras,
-    selectedCamera,
-    selectedEvent,
-    setSelectedEvent,
-    changeSelectedCamera,
-    date,
-    setDate,
-    requestedTimestamp,
-    setRequestedTimestamp,
-    selectedTab,
-    setSelectedTab,
-  }: LayoutProps) => {
-    const theme = useTheme();
-    const parentRef = useRef<HTMLDivElement | null>(null);
-    const hlsRef = useRef<Hls | null>(null);
-    const playerCardRef = useRef<HTMLDivElement | null>(null);
-
-    // Observe div height to calculate the height of the EventTable
-    const [height, setHeight] = useState();
-    const observedDiv: any = useRef<HTMLDivElement>();
-    const resizeObserver = useRef<ResizeObserver>();
-    useEffect(() => {
-      if (observedDiv.current) {
-        resizeObserver.current = new ResizeObserver(() => {
-          setHeight(observedDiv.current.clientHeight + theme.headerHeight);
-        });
-        resizeObserver.current.observe(observedDiv.current);
-      }
-      return () => {
-        if (resizeObserver.current) {
-          resizeObserver.current.disconnect();
-        }
-      };
-    }, [theme.headerHeight]);
+    const smBreakpoint = useMediaQuery(theme.breakpoints.up("sm"));
+    const playerCardGridItemRef = useRef<HTMLDivElement | null>(null);
+    useSetPlayerCardHeight(playerCardGridItemRef);
 
     return (
-      <Container maxWidth={false} sx={{ height: "100%" }}>
-        <div ref={observedDiv}>
-          <PlayerCard
-            camera={selectedCamera}
-            selectedEvent={selectedEvent}
-            requestedTimestamp={requestedTimestamp}
-            selectedTab={selectedTab}
-            hlsRef={hlsRef}
-            playerCardRef={playerCardRef}
-          />
-        </div>
-        <Card
-          ref={parentRef}
-          variant="outlined"
-          sx={{
-            width: "100%",
-            overflow: "auto",
-            height: `calc(97dvh - ${height}px)`,
-          }}
+      <Box>
+        <Grid
+          container
+          direction={"row"}
+          rowSpacing={{ xs: 0.5, sm: 0 }}
+          columnSpacing={1}
         >
-          <CardContent sx={{ padding: 0 }}>
-            <Tabs
-              parentRef={parentRef}
-              hlsRef={hlsRef}
-              date={date}
-              selectedTab={selectedTab}
-              setSelectedTab={setSelectedTab}
-              selectedCamera={selectedCamera}
+          <Grid
+            ref={playerCardGridItemRef}
+            item
+            xs={12}
+            sm={8}
+            md={8}
+            lg={9}
+            xl={10}
+            display="flex"
+            sx={{
+              width: "100%",
+              height: smBreakpoint
+                ? `calc(${COLUMN_HEIGHT} - ${theme.headerHeight}px)`
+                : "100%",
+              maxHeight: smBreakpoint
+                ? "unset"
+                : `${playerCardSmMaxHeight()}px`,
+            }}
+          >
+            <PlayerCard
+              cameras={cameras}
               selectedEvent={selectedEvent}
-              setSelectedEvent={setSelectedEvent}
-              setRequestedTimestamp={setRequestedTimestamp}
+              requestedTimestamp={requestedTimestamp}
+              selectedTab={selectedTab}
             />
-          </CardContent>
-        </Card>
-        <Filters
-          cameras={cameras}
-          selectedCamera={selectedCamera}
-          date={date}
-          setDate={setDate}
-          changeSelectedCamera={changeSelectedCamera}
-        />
-      </Container>
+          </Grid>
+          <Grid item xs={12} sm={4} md={4} lg={3} xl={2}>
+            <Paper variant="outlined">
+              <Tabs
+                cameras={cameras}
+                date={date}
+                selectedTab={selectedTab}
+                setSelectedTab={setSelectedTab}
+                selectedEvent={selectedEvent}
+                setSelectedEvent={setSelectedEvent}
+                setRequestedTimestamp={setRequestedTimestamp}
+                playerCardGridItemRef={playerCardGridItemRef}
+              />
+            </Paper>
+          </Grid>
+          <FloatingMenu cameras={cameras} date={date} setDate={setDate} />
+        </Grid>
+      </Box>
     );
   },
 );

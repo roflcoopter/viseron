@@ -1072,9 +1072,9 @@
                   {
                     "type": "string",
                     "name": "audio_codec",
-                    "description": "FFmpeg audio encoder codec, eg <code>aac</code>.",
+                    "description": "FFmpeg audio encoder codec, eg <code>aac</code>.<br>If your source has audio and you want to remove it, set this to <code>null</code>.",
                     "optional": true,
-                    "default": "copy"
+                    "default": "unset"
                   },
                   {
                     "type": "list",

@@ -2,16 +2,25 @@ import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
 import SearchIcon from "@mui/icons-material/Search";
 import Box from "@mui/material/Box";
 
-const LicensePlateRecgnition = () => (
+type LicensePlateRecognitionProps = {
+  color?:
+    | "disabled"
+    | "action"
+    | "inherit"
+    | "primary"
+    | "secondary"
+    | "error"
+    | "info"
+    | "success"
+    | "warning"
+    | undefined;
+};
+
+const LicensePlateRecognition = ({
+  color = undefined,
+}: LicensePlateRecognitionProps) => (
   <Box sx={{ position: "relative" }}>
-    <DirectionsCarIcon
-      sx={(theme) => ({
-        color:
-          theme.palette.mode === "dark"
-            ? theme.palette.primary[600]
-            : theme.palette.primary[300],
-      })}
-    />
+    <DirectionsCarIcon color={color} />
     <SearchIcon
       sx={(theme) => ({
         position: "absolute",
@@ -22,17 +31,14 @@ const LicensePlateRecgnition = () => (
       })}
     />
     <SearchIcon
-      sx={(theme) => ({
+      color={color}
+      sx={{
         position: "absolute",
         right: "-6.5px",
         bottom: "-1px",
-        color:
-          theme.palette.mode === "dark"
-            ? theme.palette.primary[600]
-            : theme.palette.primary[300],
-      })}
+      }}
     />
   </Box>
 );
 
-export default LicensePlateRecgnition;
+export default LicensePlateRecognition;

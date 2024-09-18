@@ -1,58 +1,26 @@
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
 import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
 import { useTheme } from "@mui/material/styles";
-import { useEffect, useRef } from "react";
 
 import { CameraCard } from "components/camera/CameraCard";
-import { COLUMN_HEIGHT } from "components/events/utils";
+import { useCameraStore } from "components/events/utils";
 import * as types from "lib/types";
 
-const useResizeObserver = (
-  divRef: React.RefObject<HTMLDivElement>,
-  playerCardRef: React.RefObject<HTMLDivElement> | undefined,
-) => {
-  const theme = useTheme();
-  const resizeObserver = useRef<ResizeObserver>();
-
-  useEffect(() => {
-    if (!divRef.current || !playerCardRef || !playerCardRef.current) {
-      return () => {};
-    }
-
-    resizeObserver.current = new ResizeObserver(() => {
-      if (!divRef.current || !playerCardRef.current) {
-        return;
-      }
-
-      divRef.current.style.maxHeight = `calc(${COLUMN_HEIGHT} - ${theme.headerHeight}px - ${theme.margin} - ${playerCardRef.current.offsetHeight}px)`;
-    });
-
-    resizeObserver.current.observe(playerCardRef.current);
-
-    return () => {
-      if (resizeObserver.current) {
-        resizeObserver.current.disconnect();
-      }
-    };
-  }, [divRef, playerCardRef, theme.headerHeight, theme.margin]);
-};
-
-type CameraGridProps = {
+type EventsCameraGridProps = {
   cameras: types.CamerasOrFailedCameras;
-  changeSelectedCamera: (
-    ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera | types.FailedCamera,
-  ) => void;
-  selectedCamera: types.Camera | types.FailedCamera | null;
 };
-function CameraGrid({
-  cameras,
-  changeSelectedCamera,
-  selectedCamera,
-}: CameraGridProps) {
+export function EventsCameraGrid({ cameras }: EventsCameraGridProps) {
   const theme = useTheme();
+  const { selectedCameras, toggleCamera } = useCameraStore();
+
+  const handleCameraClick = (
+    event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+    camera: types.Camera | types.FailedCamera,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleCamera(camera.identifier);
+  };
 
   return (
     <Grid container spacing={0.5}>
@@ -74,10 +42,12 @@ function CameraGrid({
                     camera_identifier={camera_identifier}
                     compact
                     buttons={false}
-                    onClick={changeSelectedCamera}
+                    onClick={(
+                      event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+                    ) => handleCameraClick(event, cameras[camera_identifier])}
                     border={
-                      selectedCamera &&
-                      camera_identifier === selectedCamera.identifier
+                      selectedCameras &&
+                      selectedCameras.includes(camera_identifier)
                         ? `2px solid ${theme.palette.primary[400]}`
                         : "2px solid transparent"
                     }
@@ -87,72 +57,5 @@ function CameraGrid({
             ))
         : null}
     </Grid>
-  );
-}
-
-type EventsCameraGridPropsCard = {
-  variant: "card";
-  playerCardRef: React.RefObject<HTMLDivElement>;
-  cameras: types.CamerasOrFailedCameras;
-  changeSelectedCamera: (
-    ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera | types.FailedCamera,
-  ) => void;
-  selectedCamera: types.Camera | types.FailedCamera | null;
-};
-type EventsCameraGridPropsGrid = {
-  variant?: "grid";
-  cameras: types.CamerasOrFailedCameras;
-  changeSelectedCamera: (
-    ev: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-    camera: types.Camera | types.FailedCamera,
-  ) => void;
-  selectedCamera: types.Camera | types.FailedCamera | null;
-};
-type EventsCameraGridProps =
-  | EventsCameraGridPropsCard
-  | EventsCameraGridPropsGrid;
-export function EventsCameraGrid(props: EventsCameraGridProps) {
-  const {
-    variant = "card",
-    cameras,
-    changeSelectedCamera,
-    selectedCamera,
-  } = props;
-
-  const playerCardRef =
-    variant === "card"
-      ? (props as EventsCameraGridPropsCard).playerCardRef
-      : undefined;
-
-  const ref = useRef<HTMLDivElement>(null);
-  useResizeObserver(ref, playerCardRef);
-
-  if (variant === "grid") {
-    return (
-      <CameraGrid
-        cameras={cameras}
-        changeSelectedCamera={changeSelectedCamera}
-        selectedCamera={selectedCamera}
-      />
-    );
-  }
-  return (
-    <Card
-      ref={ref}
-      variant="outlined"
-      sx={{
-        overflow: "auto",
-        overflowX: "hidden",
-      }}
-    >
-      <CardContent sx={{ padding: 0 }}>
-        <CameraGrid
-          cameras={cameras}
-          changeSelectedCamera={changeSelectedCamera}
-          selectedCamera={selectedCamera}
-        />
-      </CardContent>
-    </Card>
   );
 }

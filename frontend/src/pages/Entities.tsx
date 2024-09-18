@@ -77,7 +77,6 @@ const Entities = () => {
   const theme = useTheme();
 
   const [entities, setEntities] = useState<types.Entities>({});
-  const [filteredEntities, setFilteredEntities] = useState<types.Entity[]>([]);
   const [filters, setFilters] = useState<Filters>({
     entity_id: "",
     state: "",
@@ -90,6 +89,7 @@ const Entities = () => {
     };
 
   useEffect(() => {
+    let unmounted = false;
     const stateChanged = async (stateChangedEvent: types.StateChangedEvent) => {
       setEntities((prevEntities) => {
         const newEntity: types.Entity = {
@@ -108,13 +108,19 @@ const Entities = () => {
     const subscribeEntities = async () => {
       if (viseron.connection) {
         unsub = await subscribeStates(viseron.connection, stateChanged);
+        if (unmounted) {
+          unsub();
+          unsub = null;
+          return;
+        }
         setEntities(await getEntities(viseron.connection));
       }
     };
     subscribeEntities();
     return () => {
+      unmounted = true;
       const unsubscribeEntities = async () => {
-        if (viseron.connected && unsub) {
+        if (unsub) {
           try {
             await unsub();
           } catch (error) {
@@ -127,9 +133,7 @@ const Entities = () => {
     };
   }, [viseron.connected, viseron.connection]);
 
-  useEffect(() => {
-    setFilteredEntities(calculateEntities(entities, filters));
-  }, [entities, filters]);
+  const filteredEntities = calculateEntities(entities, filters);
 
   return (
     <Container maxWidth={false}>
