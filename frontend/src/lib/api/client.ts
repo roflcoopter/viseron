@@ -170,7 +170,7 @@ export const useInvalidateQueryOnStateChange = (
   }, [connected, connection, subscriptionRef, staticEntityQueryPairs]);
 };
 
-type EventQueryPair = {
+export type EventQueryPair = {
   event: string;
   queryKey: QueryKey;
 };
@@ -195,7 +195,7 @@ export const useInvalidateQueryOnEvent = (
         };
       }
 
-      const _stateChanged = (_event: types.StateChangedEvent) => {
+      const callback = (_event: types.Event) => {
         queryClient.invalidateQueries({ queryKey });
       };
 
@@ -213,7 +213,7 @@ export const useInvalidateQueryOnEvent = (
           subscriptionRef.current[event].unsubscribe = await subscribeEvent(
             connection,
             event,
-            _stateChanged,
+            callback,
           );
           subscriptionRef.current[event].subscribing = false;
         }

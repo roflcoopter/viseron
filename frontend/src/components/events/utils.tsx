@@ -7,11 +7,13 @@ import PetsIcon from "@mui/icons-material/Pets";
 import VideoFileIcon from "@mui/icons-material/VideoFile";
 import dayjs, { Dayjs } from "dayjs";
 import Hls, { Fragment } from "hls.js";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognition";
+import { useCameras } from "lib/api/cameras";
+import { useSubscribeTimespans } from "lib/commands";
 import { BLANK_IMAGE, dateToTimestamp } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -658,3 +660,33 @@ export const getIcon = (event: types.CameraEvent) => {
 
 export const getIconFromType = (type: types.CameraEvent["type"]) =>
   iconMap[type];
+
+export const useTimespans = (date: Dayjs | null) => {
+  const { selectedCameras } = useCameraStore();
+  const camerasQuery = useCameras({});
+  const [availableTimespans, setAvailableTimespans] = useState<
+    types.HlsAvailableTimespan[]
+  >([]);
+
+  const timespanCallback = useCallback(
+    (message: types.HlsAvailableTimespans) => {
+      setAvailableTimespans(message.timespans);
+    },
+    [],
+  );
+
+  const enabled =
+    camerasQuery.data &&
+    camerasQuery.data.cameras &&
+    selectedCameras.some((camera) => camera in camerasQuery.data.cameras);
+
+  useSubscribeTimespans(
+    selectedCameras,
+    date ? date.format("YYYY-MM-DD") : null,
+    timespanCallback,
+    enabled,
+    5,
+  );
+
+  return availableTimespans;
+};

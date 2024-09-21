@@ -1,13 +1,5 @@
 import dayjs, { Dayjs } from "dayjs";
-import {
-  memo,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
 import ServerDown from "svg/undraw/server_down.svg?react";
 
 import { ErrorMessage } from "components/error/ErrorMessage";
@@ -23,12 +15,11 @@ import {
   getTimelineItems,
   useCameraStore,
   useFilterStore,
+  useTimespans,
 } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { ViseronContext } from "context/ViseronContext";
-import { useCameras } from "lib/api/cameras";
 import { useEventsMultiple } from "lib/api/events";
-import { useSubscribeTimespans } from "lib/commands";
 import { dateToTimestamp, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -96,36 +87,6 @@ const timelineClick = (
   setRequestedTimestamp(timestamp);
 };
 
-const useTimespans = (date: Dayjs | null) => {
-  const { selectedCameras } = useCameraStore();
-  const camerasQuery = useCameras({});
-  const [availableTimespans, setAvailableTimespans] = useState<
-    types.HlsAvailableTimespan[]
-  >([]);
-
-  const timespanCallback = useCallback(
-    (message: types.HlsAvailableTimespans) => {
-      setAvailableTimespans(message.timespans);
-    },
-    [],
-  );
-
-  const enabled =
-    camerasQuery.data &&
-    camerasQuery.data.cameras &&
-    selectedCameras.some((camera) => camera in camerasQuery.data.cameras);
-
-  useSubscribeTimespans(
-    selectedCameras,
-    date ? date.format("YYYY-MM-DD") : null,
-    timespanCallback,
-    enabled,
-    5,
-  );
-
-  return availableTimespans;
-};
-
 type TimelineTableProps = {
   parentRef: React.MutableRefObject<HTMLDivElement | null>;
   date: Dayjs | null;
@@ -150,8 +111,8 @@ export const TimelineTable = memo(
     const { selectedCameras } = useCameraStore();
     const eventsQueries = useEventsMultiple({
       camera_identifiers: selectedCameras,
-      time_from: endRef.current,
-      time_to: startRef.current,
+      date: date ? date.format("YYYY-MM-DD") : "",
+      configOptions: { enabled: !!date },
     });
     const availableTimespans = useTimespans(date);
 

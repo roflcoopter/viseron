@@ -13,10 +13,10 @@ import {
   getEventTimestamp,
   useCameraStore,
   useFilterStore,
+  useTimespans,
 } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { useEventsMultiple } from "lib/api/events";
-import { useHlsAvailableTimespansMultiple } from "lib/api/hls";
 import { objIsEmpty, throttle } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -101,24 +101,18 @@ export const EventTable = memo(
       configOptions: { enabled: !!date },
     });
 
-    const availableTimespansQueries = useHlsAvailableTimespansMultiple({
-      camera_identifiers: selectedCameras,
-      date: formattedDate,
-      configOptions: { enabled: !!date },
-    });
+    const availableTimespans = useTimespans(date);
 
     useOnScroll(parentRef);
     const { filters } = useFilterStore();
 
-    if (eventsQueries.isError || availableTimespansQueries.isError) {
+    if (eventsQueries.isError) {
       return (
         <ErrorMessage
           text={"Error loading Events"}
           subtext={
             eventsQueries.error?.response?.data.error ||
-            availableTimespansQueries.error?.response?.data.error ||
-            eventsQueries.error?.message ||
-            availableTimespansQueries.error?.message
+            eventsQueries.error?.message
           }
           image={
             <ServerDown width={150} height={150} role="img" aria-label="Void" />
@@ -127,7 +121,7 @@ export const EventTable = memo(
       );
     }
 
-    if (eventsQueries.isPending || availableTimespansQueries.isPending) {
+    if (eventsQueries.isPending) {
       return <Loading text="Loading Events" fullScreen={false} />;
     }
 
@@ -167,7 +161,7 @@ export const EventTable = memo(
                     !!selectedEvent && selectedEvent.id === oldestEvent.id
                   }
                   setRequestedTimestamp={setRequestedTimestamp}
-                  availableTimespans={availableTimespansQueries.data}
+                  availableTimespans={availableTimespans}
                 />
                 <Divider sx={{ marginTop: "5px", marginBottom: "5px" }} />
               </Grid>

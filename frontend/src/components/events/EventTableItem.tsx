@@ -67,9 +67,9 @@ const getText = (
 
 const isTimespanAvailable = (
   timestamp: number,
-  availableTimespans: types.HlsAvailableTimespans,
+  availableTimespans: types.HlsAvailableTimespan[],
 ) => {
-  for (const timespan of availableTimespans.timespans) {
+  for (const timespan of availableTimespans) {
     if (timestamp >= timespan.start && timestamp <= timespan.end) {
       return true;
     }
@@ -83,7 +83,7 @@ type EventTableItemProps = {
   setSelectedEvent: (event: types.CameraEvent) => void;
   selected: boolean;
   setRequestedTimestamp: (timestamp: number | null) => void;
-  availableTimespans: types.HlsAvailableTimespans;
+  availableTimespans: types.HlsAvailableTimespan[];
 };
 export const EventTableItem = ({
   cameras,

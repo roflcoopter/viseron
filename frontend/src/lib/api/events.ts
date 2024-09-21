@@ -4,8 +4,13 @@ import {
   useQueries,
   useQuery,
 } from "@tanstack/react-query";
+import { useMemo } from "react";
 
-import { viseronAPI } from "lib/api/client";
+import {
+  EventQueryPair,
+  useInvalidateQueryOnEvent,
+  viseronAPI,
+} from "lib/api/client";
 import * as types from "lib/types";
 
 type EventsVariablesWithTime = {
@@ -136,6 +141,45 @@ export function useEventsMultiple(variables: EventsMultipleVariables) {
       };
     },
   });
+
+  const eventQueryPairs = useMemo(() => {
+    const _eventQueryPairs: EventQueryPair[] = [];
+    variables.camera_identifiers.forEach((camera_identifier) => {
+      _eventQueryPairs.push(
+        {
+          event: `${camera_identifier}/motion_detected`,
+          queryKey: ["events", camera_identifier],
+        },
+        {
+          event: `${camera_identifier}/objects`,
+          queryKey: ["events", camera_identifier],
+        },
+        {
+          event: `${camera_identifier}/zone/*/objects`,
+          queryKey: ["events", camera_identifier],
+        },
+        {
+          event: `${camera_identifier}/recorder/start`,
+          queryKey: ["events", camera_identifier],
+        },
+        {
+          event: `${camera_identifier}/recorder/stop`,
+          queryKey: ["events", camera_identifier],
+        },
+        {
+          event: `${camera_identifier}/face/detected/*`,
+          queryKey: ["events", camera_identifier],
+        },
+        {
+          event: `${camera_identifier}/license_plate_recognition/detected/*`,
+          queryKey: ["events", camera_identifier],
+        },
+      );
+    });
+    return _eventQueryPairs;
+  }, [variables.camera_identifiers]);
+
+  useInvalidateQueryOnEvent(eventQueryPairs);
 
   return eventsQueries;
 }
