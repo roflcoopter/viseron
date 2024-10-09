@@ -23,6 +23,7 @@ export const EXTRA_TICKS = 10;
 export const COLUMN_HEIGHT = "99dvh";
 export const COLUMN_HEIGHT_SMALL = "98.5dvh";
 export const EVENT_ICON_HEIGHT = 30;
+export const LIVE_EDGE_DELAY = 10;
 
 export const playerCardSmMaxHeight = () => window.innerHeight * 0.4;
 
@@ -161,11 +162,27 @@ export const useHlsStore = create<HlsStore>((set) => ({
 interface ReferencePlayerStore {
   referencePlayer: Hls | null;
   setReferencePlayer: (player: Hls | null) => void;
+  isPlaying: boolean;
+  setIsPlaying: (playing: boolean) => void;
+  isLive: boolean;
+  setIsLive: (live: boolean) => void;
+  isMuted: boolean;
+  setIsMuted: (muted: boolean) => void;
+  playbackSpeed: number;
+  setPlaybackSpeed: (speed: number) => void;
 }
 
 export const useReferencePlayerStore = create<ReferencePlayerStore>((set) => ({
   referencePlayer: null,
   setReferencePlayer: (referencePlayer) => set({ referencePlayer }),
+  isPlaying: true,
+  setIsPlaying: (isPlaying) => set({ isPlaying }),
+  isLive: true,
+  setIsLive: (isLive) => set({ isLive }),
+  isMuted: true,
+  setIsMuted: (isMuted) => set({ isMuted }),
+  playbackSpeed: 1,
+  setPlaybackSpeed: (playbackSpeed) => set({ playbackSpeed }),
 }));
 
 export const DEFAULT_ITEM: TimelineItem = {

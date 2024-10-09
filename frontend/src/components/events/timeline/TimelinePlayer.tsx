@@ -332,7 +332,7 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
         height: "100%",
         objectFit: "contain",
       }}
-      controls
+      controls={false}
       playsInline
     />
   );

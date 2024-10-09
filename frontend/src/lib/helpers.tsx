@@ -151,3 +151,7 @@ export function throttle(func: () => void, timeFrame: number) {
     }
   };
 }
+
+export function isTouchDevice() {
+  return "ontouchstart" in window || navigator.maxTouchPoints > 0;
+}

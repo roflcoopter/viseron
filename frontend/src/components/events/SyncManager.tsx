@@ -1,7 +1,9 @@
 import Hls from "hls.js";
 import { useCallback, useEffect, useRef } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 import {
+  LIVE_EDGE_DELAY,
   findClosestFragment,
   findFragmentByTimestamp,
   getSeekTarget,
@@ -19,9 +21,16 @@ interface SyncManagerProps {
 
 const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
   const { hlsRefs } = useHlsStore();
-  const setReferencePlayer = useReferencePlayerStore(
-    (state) => state.setReferencePlayer,
-  );
+  const { setReferencePlayer, isPlaying, setIsPlaying, setIsLive, isMuted } =
+    useReferencePlayerStore(
+      useShallow((state) => ({
+        setReferencePlayer: state.setReferencePlayer,
+        isPlaying: state.isPlaying,
+        setIsPlaying: state.setIsPlaying,
+        setIsLive: state.setIsLive,
+        isMuted: state.isMuted,
+      })),
+    );
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastReferencePlayerDateRef = useRef<Date | null>(null);
 
@@ -71,6 +80,15 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
         player.current !== null && player.current.playingDate !== null,
     );
 
+    // Sync mute state
+    playersWithTime.forEach((player) => {
+      player.current.media!.muted = isMuted;
+    });
+
+    if (!isPlaying) {
+      return;
+    }
+
     // Find the player with the latest playing date, ignoring paused players
     const referencePlayer =
       playersWithTime.reduce<React.MutableRefObject<Hls> | null>(
@@ -86,10 +104,12 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
         null,
       );
 
+    // Sync all players to the reference player
     if (referencePlayer) {
       setReferencePlayer(referencePlayer.current);
+      setIsLive(referencePlayer.current.latency < LIVE_EDGE_DELAY * 1.5);
+      setIsPlaying(true);
       lastReferencePlayerDateRef.current = referencePlayer.current.playingDate;
-      // Sync all players to the reference player
       playersWithTime.forEach((player) => {
         if (player !== referencePlayer) {
           const timeDiff =
@@ -155,7 +175,15 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
         }
       }
     }
-  }, [hlsRefs, seekSafely, setReferencePlayer]);
+  }, [
+    hlsRefs,
+    isMuted,
+    isPlaying,
+    seekSafely,
+    setIsLive,
+    setIsPlaying,
+    setReferencePlayer,
+  ]);
 
   useEffect(() => {
     syncIntervalRef.current = setInterval(syncPlayers, SYNC_INTERVAL);
