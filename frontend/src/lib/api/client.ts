@@ -177,6 +177,7 @@ export type EventQueryPair = {
 
 export const useInvalidateQueryOnEvent = (
   eventQueryPairs: EventQueryPair[],
+  debounce?: number,
 ) => {
   const { connected, connection, subscriptionRef } = useContext(ViseronContext);
   const staticEventQueryPairs = JSON.stringify(eventQueryPairs);
@@ -214,6 +215,7 @@ export const useInvalidateQueryOnEvent = (
             connection,
             event,
             callback,
+            debounce,
           );
           subscriptionRef.current[event].subscribing = false;
         }

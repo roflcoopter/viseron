@@ -103,7 +103,12 @@ def ping(connection: WebSocketHandler, message) -> None:
 
 
 @websocket_command(
-    {vol.Required("type"): "subscribe_event", vol.Required("event"): str}
+    {
+        vol.Required("type"): "subscribe_event",
+        vol.Required("event"): str,
+        # Use only when not consuming the data, as the debounced events will be lost
+        vol.Optional("debounce", default=None): vol.Maybe(vol.Any(float, int)),
+    }
 )
 def subscribe_event(connection: WebSocketHandler, message) -> None:
     """Subscribe to an event."""
@@ -114,8 +119,23 @@ def subscribe_event(connection: WebSocketHandler, message) -> None:
             message_to_json(subscription_result_message(message["command_id"], event))
         )
 
+    @debounce(
+        wait=message["debounce"],
+        options=DebounceOptions(  # pylint: disable=unexpected-keyword-arg
+            time_window=message["debounce"],
+        ),
+    )
+    def debounced_forward_event(event: Event) -> None:
+        """Debounce forward event to WebSocket connection.
+
+        Use only when the data is not of importance as information may be lost!
+        """
+        return forward_event(event)
+
     connection.subscriptions[message["command_id"]] = connection.vis.listen_event(
-        message["event"], forward_event, ioloop=tornado.ioloop.IOLoop.current()
+        message["event"],
+        debounced_forward_event if message["debounce"] else forward_event,
+        ioloop=tornado.ioloop.IOLoop.current(),
     )
     connection.send_message(result_message(message["command_id"]))
 

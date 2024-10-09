@@ -1,6 +1,7 @@
 export type SubscribeEventMessage = {
   type: "subscribe_event";
   event: string;
+  debounce?: number;
 };
 
 export type SubscribeStatesMessage =
@@ -32,11 +33,15 @@ export function auth(accessToken: string) {
   };
 }
 
-export function subscribeEvent(event: string) {
+export function subscribeEvent(event: string, debounce?: number) {
   const message: SubscribeEventMessage = {
     type: "subscribe_event",
     event,
   };
+
+  if (debounce) {
+    message.debounce = debounce;
+  }
 
   return message;
 }

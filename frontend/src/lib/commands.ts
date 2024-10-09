@@ -55,11 +55,13 @@ export const subscribeEvent = async <T = types.Event>(
   connection: Connection,
   event: string,
   eventCallback: (event: T) => void,
+  debounce?: number,
 ) => {
   const subscription = await connection.subscribeEvent(
     event,
     eventCallback,
     true,
+    debounce,
   );
   return subscription;
 };

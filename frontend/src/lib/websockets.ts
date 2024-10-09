@@ -581,6 +581,7 @@ export class Connection {
     event: string,
     callback: (message: EventType) => void,
     resubscribe = true,
+    debounce?: number,
   ): Promise<SubscriptionUnsubscribe> {
     if (this.queuedMessages) {
       await new Promise((resolve, reject) => {
@@ -592,7 +593,7 @@ export class Connection {
     }
     const unsub = await this.subscribe(
       callback,
-      messages.subscribeEvent(event),
+      messages.subscribeEvent(event, debounce),
       (subscription) => messages.unsubscribeEvent(subscription),
       resubscribe,
     );
