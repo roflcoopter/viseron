@@ -8,9 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import voluptuous as vol
-from sqlalchemy import insert
 
-from viseron.components.storage.models import PostProcessorResults
 from viseron.domains.license_plate_recognition.binary_sensor import (
     LicensePlateRecognitionBinarySensor,
 )
@@ -200,20 +198,6 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
 
         return _result
 
-    def _insert_license_plate_recognition_result(
-        self, snapshot_path: str | None, plate: LicensePlateRecognitionResult
-    ) -> None:
-        """Insert license plate recognition result into database."""
-        with self._storage.get_session() as session:
-            stmt = insert(PostProcessorResults).values(
-                camera_identifier=self._camera.identifier,
-                domain=DOMAIN,
-                snapshot_path=snapshot_path,
-                data=plate.as_dict(),
-            )
-            session.execute(stmt)
-            session.commit()
-
     def _save_plate(
         self, plate: LicensePlateRecognitionResult, shared_frame: SharedFrame
     ) -> None:
@@ -227,7 +211,7 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
                 bbox=plate.rel_coordinates,
                 text=f"{plate.plate} {int(plate.confidence * 100)}%",
             )
-        self._insert_license_plate_recognition_result(snapshot_path, plate)
+        self._insert_result(DOMAIN, snapshot_path, plate.as_dict())
 
     def _plate_detected(
         self, plate: LicensePlateRecognitionResult, shared_frame: SharedFrame

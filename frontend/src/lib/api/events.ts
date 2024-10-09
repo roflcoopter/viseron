@@ -147,15 +147,7 @@ export function useEventsMultiple(variables: EventsMultipleVariables) {
     variables.camera_identifiers.forEach((camera_identifier) => {
       _eventQueryPairs.push(
         {
-          event: `${camera_identifier}/motion_detected`,
-          queryKey: ["events", camera_identifier],
-        },
-        {
-          event: `${camera_identifier}/objects`,
-          queryKey: ["events", camera_identifier],
-        },
-        {
-          event: `${camera_identifier}/zone/*/objects`,
+          event: `${camera_identifier}/camera_event/*/*`,
           queryKey: ["events", camera_identifier],
         },
         {
@@ -166,20 +158,12 @@ export function useEventsMultiple(variables: EventsMultipleVariables) {
           event: `${camera_identifier}/recorder/stop`,
           queryKey: ["events", camera_identifier],
         },
-        {
-          event: `${camera_identifier}/face/detected/*`,
-          queryKey: ["events", camera_identifier],
-        },
-        {
-          event: `${camera_identifier}/license_plate_recognition/detected/*`,
-          queryKey: ["events", camera_identifier],
-        },
       );
     });
     return _eventQueryPairs;
   }, [variables.camera_identifiers]);
 
-  useInvalidateQueryOnEvent(eventQueryPairs);
+  useInvalidateQueryOnEvent(eventQueryPairs, 5);
 
   return eventsQueries;
 }

@@ -17,8 +17,12 @@ from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, MOTION_DETECTOR
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Motion, MotionContours
-from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.const import INSERT, UPDATE, VISERON_SIGNAL_SHUTDOWN
+from viseron.domains.camera.const import (
+    DOMAIN as CAMERA_DOMAIN,
+    EVENT_CAMERA_EVENT_DB_OPERATION,
+)
+from viseron.domains.camera.events import EventCameraEventData
 from viseron.domains.motion_detector.binary_sensor import MotionDetectionBinarySensor
 from viseron.domains.motion_detector.const import (
     CONFIG_AREA,
@@ -233,9 +237,35 @@ class AbstractMotionDetector(ABC):
                     DOMAIN,
                 )
             self._insert_motion(snapshot_path)
+            self._vis.dispatch_event(
+                EVENT_CAMERA_EVENT_DB_OPERATION.format(
+                    camera_identifier=self._camera.identifier,
+                    operation=INSERT,
+                    domain=DOMAIN,
+                ),
+                EventCameraEventData(
+                    camera_identifier=self._camera.identifier,
+                    domain=DOMAIN,
+                    operation=INSERT,
+                    data={},
+                ),
+            )
         else:
             self._update_motion()
             self._motion_id = None
+            self._vis.dispatch_event(
+                EVENT_CAMERA_EVENT_DB_OPERATION.format(
+                    camera_identifier=self._camera.identifier,
+                    domain=DOMAIN,
+                    operation=UPDATE,
+                ),
+                EventCameraEventData(
+                    camera_identifier=self._camera.identifier,
+                    domain=DOMAIN,
+                    operation=UPDATE,
+                    data={},
+                ),
+            )
 
         self._motion_detected = motion_detected
         self._logger.debug("Motion detected" if motion_detected else "Motion stopped")

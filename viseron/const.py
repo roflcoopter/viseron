@@ -144,3 +144,8 @@ SLOW_DEPENDENCY_WARNING = 60
 
 
 RESTART_EXIT_CODE = 100
+
+# Database constants
+INSERT: Final = "insert"
+UPDATE: Final = "update"
+DELETE: Final = "delete"

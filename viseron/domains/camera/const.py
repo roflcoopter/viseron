@@ -23,6 +23,9 @@ EVENT_CAMERA_STOP = "{camera_identifier}/camera/stop"
 EVENT_CAMERA_STARTED = "{camera_identifier}/camera/started"
 EVENT_CAMERA_STOPPED = "{camera_identifier}/camera/stopped"
 
+EVENT_CAMERA_EVENT_DB_OPERATION = (
+    "{camera_identifier}/camera_event/{domain}/{operation}"
+)
 
 # MJPEG_STREAM_SCHEMA constants
 CONFIG_MJPEG_WIDTH = "width"

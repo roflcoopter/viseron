@@ -15,8 +15,12 @@ from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, OBJECT_DETECTOR
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Objects
-from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.const import INSERT, VISERON_SIGNAL_SHUTDOWN
+from viseron.domains.camera.const import (
+    DOMAIN as CAMERA_DOMAIN,
+    EVENT_CAMERA_EVENT_DB_OPERATION,
+)
+from viseron.domains.camera.events import EventCameraEventData
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
@@ -395,13 +399,10 @@ class AbstractObjectDetector(ABC):
             session.execute(stmt)
             session.commit()
 
-    def _objects_in_fov_setter(
-        self, shared_frame: SharedFrame | None, objects: list[DetectedObject]
+    def _insert_objects(
+        self, shared_frame: SharedFrame, objects: list[DetectedObject]
     ) -> None:
-        """Set objects in field of view."""
-        if objects == self._objects_in_fov:
-            return
-
+        """Insert objects into database."""
         for obj in objects:
             if obj.store:
                 snapshot_path = None
@@ -418,6 +419,26 @@ class AbstractObjectDetector(ABC):
                         detected_object=obj,
                     )
                 self._insert_object(obj, snapshot_path)
+                self._vis.dispatch_event(
+                    EVENT_CAMERA_EVENT_DB_OPERATION.format(
+                        camera_identifier=self._camera.identifier,
+                        domain=DOMAIN,
+                        operation=INSERT,
+                    ),
+                    EventCameraEventData(
+                        camera_identifier=self._camera.identifier,
+                        domain=DOMAIN,
+                        operation=INSERT,
+                        data=obj,
+                    ),
+                )
+
+    def _objects_in_fov_setter(
+        self, shared_frame: SharedFrame | None, objects: list[DetectedObject]
+    ) -> None:
+        """Set objects in field of view."""
+        if objects == self._objects_in_fov:
+            return
 
         self._objects_in_fov = objects
         self._vis.dispatch_event(
@@ -472,6 +493,7 @@ class AbstractObjectDetector(ABC):
 
         self.filter_fov(shared_frame, objects)
         self.filter_zones(shared_frame, objects)
+        self._insert_objects(shared_frame, objects)
         self._vis.data[DATA_STREAM_COMPONENT].publish_data(
             DATA_OBJECT_DETECTOR_RESULT.format(
                 camera_identifier=shared_frame.camera_identifier
