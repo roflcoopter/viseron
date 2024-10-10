@@ -279,7 +279,7 @@ def _generate_playlist(
         end = False
 
     init_file = _get_init_file(get_session, camera)
-    if not init_file:
+    if not init_file or not fragments:
         return None
 
     playlist = generate_playlist(
