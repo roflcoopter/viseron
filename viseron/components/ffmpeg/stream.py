@@ -316,7 +316,7 @@ class Stream:
             input_args = stream_config[CONFIG_INPUT_ARGS]
         else:
             input_args = CAMERA_INPUT_ARGS + list(
-                STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]]["timeout_option"]
+                STREAM_FORMAT_MAP[stream_config[CONFIG_STREAM_FORMAT]]["timeout_option"]
             )
 
         return (
@@ -325,7 +325,7 @@ class Stream:
             + self.get_decoder_codec(stream_config, stream_codec)
             + (
                 ["-rtsp_transport", stream_config[CONFIG_RTSP_TRANSPORT]]
-                if self._config[CONFIG_STREAM_FORMAT] == "rtsp"
+                if stream_config[CONFIG_STREAM_FORMAT] == "rtsp"
                 else []
             )
             + ["-i", stream_url]
