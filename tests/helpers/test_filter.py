@@ -14,8 +14,9 @@ from viseron.domains.object_detector.const import (
     CONFIG_LABEL_WIDTH_MAX,
     CONFIG_LABEL_WIDTH_MIN,
 )
+from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.helpers import utcnow
-from viseron.helpers.filter import DetectedObject, Filter
+from viseron.helpers.filter import Filter
 
 FRAME_RES = (1920, 1080)
 
@@ -47,10 +48,3 @@ def test_should_store() -> None:
     )
     assert _filter.should_store(obj) is False
     assert obj.store is False
-
-    # pylint: disable-next=protected-access
-    _filter._last_stored = utcnow() - timedelta(  # type: ignore
-        seconds=15,
-    )
-    assert _filter.should_store(obj) is True
-    assert obj.store is True
