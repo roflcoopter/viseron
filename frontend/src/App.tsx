@@ -5,13 +5,14 @@ import "react-toastify/dist/ReactToastify.css";
 
 const Cameras = lazy(() => import("pages/Cameras"));
 const CameraRecordings = lazy(
-  () => import("pages/recordings/CameraRecordings")
+  () => import("pages/recordings/CameraRecordings"),
 );
 const CameraRecordingsDaily = lazy(
-  () => import("pages/recordings/CameraRecordingsDaily")
+  () => import("pages/recordings/CameraRecordingsDaily"),
 );
 const Configuration = lazy(() => import("pages/Configuration"));
 const Entities = lazy(() => import("pages/Entities"));
+const Events = lazy(() => import("pages/Events"));
 const Login = lazy(() => import("pages/Login"));
 const NotFound = lazy(() => import("pages/NotFound"));
 const Onboarding = lazy(() => import("pages/Onboarding"));
@@ -46,6 +47,10 @@ function App() {
               ],
             },
           ],
+        },
+        {
+          path: "/events",
+          element: <Events />,
         },
         {
           path: "/configuration",

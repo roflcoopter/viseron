@@ -5,10 +5,14 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from queue import Queue
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
+from sqlalchemy import insert
 
+from viseron.components.storage import Storage
+from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.models import PostProcessorResults
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.object_detector.const import (
     EVENT_OBJECTS_IN_FOV,
@@ -19,6 +23,7 @@ from viseron.domains.object_detector.detected_object import (
     EventDetectedObjectsData,
 )
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
+from viseron.types import SupportedDomains
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -69,6 +74,7 @@ class AbstractPostProcessor(ABC):
 
     def __init__(self, vis: Viseron, config, camera_identifier) -> None:
         self._vis = vis
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
         self._config = config
         self._camera_identifier = camera_identifier
         self._camera = vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
@@ -145,3 +151,17 @@ class AbstractPostProcessor(ABC):
     @abstractmethod
     def process(self, post_processor_frame: PostProcessorFrame):
         """Process frame."""
+
+    def _insert_result(
+        self, domain: SupportedDomains, snapshot_path: str | None, data: dict[str, Any]
+    ) -> None:
+        """Insert face recognition result into database."""
+        with self._storage.get_session() as session:
+            stmt = insert(PostProcessorResults).values(
+                camera_identifier=self._camera.identifier,
+                domain=domain,
+                snapshot_path=snapshot_path,
+                data=data,
+            )
+            session.execute(stmt)
+            session.commit()

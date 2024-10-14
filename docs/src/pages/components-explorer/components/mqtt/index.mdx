@@ -1,10 +1,14 @@
 import TabItem from "@theme/TabItem";
 import Tabs from "@theme/Tabs";
+
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting";
+
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
-<ComponentHeader meta={ComponentMetadata} />;
+
+<ComponentHeader meta={ComponentMetadata} />
 
 The `mqtt` integration allows Viseron to connect to an MQTT broker and publish and subscribe to topics.
 
@@ -571,3 +575,7 @@ A variable amount of binary sensors will be created based on your configuration.
 ### Switch
 
 1. A switch used to arm/disarm a camera. When disarmed, no system resources are used for the camera.
+
+## Troubleshooting
+
+<ComponentTroubleshooting meta={ComponentMetadata} />

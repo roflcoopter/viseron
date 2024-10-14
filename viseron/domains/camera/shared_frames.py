@@ -2,12 +2,18 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
 import cv2
 import numpy as np
+
+if TYPE_CHECKING:
+    from viseron import Viseron
+    from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
 
@@ -62,12 +68,22 @@ class SharedFrame:
         self.resolution = resolution
         self.camera_identifier = camera_identifier
         self.capture_time = time.time()
+        self.reference_count = 0
+
+    def __enter__(self) -> None:
+        """Increase reference count."""
+        self.reference_count += 1
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Decrease reference count."""
+        self.reference_count -= 1
 
 
 class SharedFrames:
     """Byte frame shared in memory."""
 
-    def __init__(self) -> None:
+    def __init__(self, vis: Viseron) -> None:
+        self._vis = vis
         self._frames: dict[uuid.UUID | str, np.ndarray] = {}
 
     def create(self, shared_frame: SharedFrame, frame_bytes: bytes) -> None:
@@ -110,8 +126,15 @@ class SharedFrames:
         except KeyError:
             pass
 
-    def remove(self, shared_frame: SharedFrame) -> None:
+    def remove(self, shared_frame: SharedFrame, camera: AbstractCamera) -> None:
         """Remove frame from shared memory."""
+        if (
+            shared_frame.reference_count > 0
+            or (camera and camera.current_frame == shared_frame)
+        ) and self._vis.shutdown_stage is None:
+            threading.Timer(1, self.remove, args=(shared_frame, camera)).start()
+            return
+
         self._remove(shared_frame.name)
         for color_model in PIXEL_FORMATS[PIXEL_FORMAT_YUV420P]:
             self._remove(f"{shared_frame.name}_{color_model}")

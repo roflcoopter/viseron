@@ -31,7 +31,7 @@ RUN buildDeps="autoconf \
   nasm \
   perl \
   pkg-config \
-  python \
+  python3 \
   libssl-dev \
   yasm \
   libgomp1 \
@@ -49,7 +49,7 @@ RUN \
   DIR=/tmp/opencore-amr && \
   mkdir -p ${DIR} && \
   cd ${DIR} && \
-  curl -sL https://versaweb.dl.sourceforge.net/project/opencore-amr/opencore-amr/opencore-amr-${OPENCOREAMR_VERSION}.tar.gz | \
+  curl -sL https://sourceforge.net/projects/opencore-amr/files/opencore-amr/opencore-amr-${OPENCOREAMR_VERSION}.tar.gz/download | \
   tar -zx --strip-components=1 && \
   ./configure --prefix="${PREFIX}" --enable-shared  && \
   make && \
@@ -360,32 +360,6 @@ RUN \
   make && \
   make install && \
   rm -rf ${DIR}
-
-ARG XCBPROTO_VERSION
-RUN \
-  DIR=/tmp/libxcb-proto && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sLO https://xcb.freedesktop.org/dist/xcb-proto-${XCBPROTO_VERSION}.tar.gz && \
-  tar -zx --strip-components=1 -f xcb-proto-${XCBPROTO_VERSION}.tar.gz && \
-  ACLOCAL_PATH="${PREFIX}/share/aclocal" ./autogen.sh && \
-  ./configure --prefix="${PREFIX}" && \
-  make && \
-  make install && \
-  rm -rf ${DIR}
-
-ARG LIBXCB_VERSION
-RUN \
-  DIR=/tmp/libxcb && \
-  mkdir -p ${DIR} && \
-  cd ${DIR} && \
-  curl -sLO https://xcb.freedesktop.org/dist/libxcb-${LIBXCB_VERSION}.tar.gz && \
-  tar -zx --strip-components=1 -f libxcb-${LIBXCB_VERSION}.tar.gz && \
-  ACLOCAL_PATH="${PREFIX}/share/aclocal" ./autogen.sh && \
-  ./configure --prefix="${PREFIX}" --disable-static --enable-shared && \
-  make && \
-  make install && \
-  rm -rf ${DIR}
 ### libxml2 - for libbluray
 ARG LIBXML2_VERSION
 ARG LIBXML2_SHA256SUM
@@ -446,12 +420,12 @@ RUN  \
   DIR=/tmp/ffmpeg && mkdir -p ${DIR} && cd ${DIR} && \
   curl -sLO https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.bz2 && \
   tar -jx --strip-components=1 -f ffmpeg-${FFMPEG_VERSION}.tar.bz2 && \
-  # ffmpeg checks for nvcc using compute_30, which is not supported in CUDA 11.
-  # Lowest supported compute architecture is compute_35 so we patch this here.
+  # ffmpeg checks for nvcc using compute_30, which is not supported in CUDA 12.
+  # Lowest supported compute architecture is compute50 so we patch this here.
   # Architecture information is found here: https://en.wikipedia.org/wiki/CUDA (5.2=compute_52)
   DIR=/tmp/ffmpeg && mkdir -p ${DIR} && cd ${DIR} && \
-  sed -i -e 's/compute_30/compute_35/g' ./configure && \
-  sed -i -e 's/sm_30/sm_35/g' ./configure && \
+  sed -i -e 's/compute_30/compute_50/g' ./configure && \
+  sed -i -e 's/sm_30/sm_50/g' ./configure && \
   ./configure \
   --disable-debug \
   --disable-doc \
@@ -470,7 +444,6 @@ RUN  \
   --enable-libvorbis \
   --enable-libvpx \
   --enable-libwebp \
-  --enable-libxcb \
   --enable-libx265 \
   --enable-libxvid \
   --enable-libx264 \

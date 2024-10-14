@@ -1,7 +1,5 @@
-ARG OPENCV_VERSION
 ARG UBUNTU_VERSION
 FROM roflcoopter/viseron-models:latest as models
-FROM roflcoopter/amd64-opencv:${OPENCV_VERSION} as opencv
 FROM ubuntu:${UBUNTU_VERSION} as base
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
@@ -12,15 +10,20 @@ ARG OPENCL_VERSION
 ARG GMMLIB_VERSION
 ARG IGC_VERSION
 ARG LEVEL_ZERO_GPU
+ARG OPENCL_SHA256_FILENAME
+ARG UBUNTU_VERSION_NUMBER
+ARG OPENVINO_VERSION
 
-RUN apt-get update && apt-get install -y \
+RUN . /etc/os-release \
+  && apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   wget \
+  gpg \
   gpg-agent \
-  && wget -qO - https://repositories.intel.com/graphics/intel-graphics.key | \
+  && wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
   gpg --dearmor --output /usr/share/keyrings/intel-graphics.gpg \
-  && echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu focal main' | \
-  tee  /etc/apt/sources.list.d/intel.gpu.focal.list
+  && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu ${VERSION_CODENAME}/lts/2350 unified" | \
+  tee /etc/apt/sources.list.d/intel-gpu-${VERSION_CODENAME}.list
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   # VA-API
@@ -29,7 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   intel-media-va-driver-non-free \
   libva-drm2 \
   libva2 \
-  i965-va-driver \
+  i965-va-driver-shaders \
   mesa-va-drivers \
   mesa-vdpau-drivers \
   mesa-vulkan-drivers \
@@ -44,6 +47,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   clinfo \
   # FFmpeg
   libnuma1 && \
+  # OpenVINO
+  UBUNTU_YEAR=$(echo $UBUNTU_VERSION_NUMBER | cut -d'.' -f1) && \
+  OPENVINO_YEAR=$(echo $OPENVINO_VERSION | cut -d'.' -f1) && \
+  echo "deb https://apt.repos.intel.com/openvino/${OPENVINO_YEAR} ubuntu${UBUNTU_YEAR} main" | tee /etc/apt/sources.list.d/intel-openvino-${OPENVINO_YEAR}.list && \
+  wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
+  apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB  && \
+  apt-get update && apt-get install -y --no-install-recommends openvino-${OPENVINO_VERSION} && \
   # OpenCL
   mkdir /opencl &&\
   cd /opencl && \
@@ -52,12 +62,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-level-zero-gpu_${LEVEL_ZERO_GPU}_amd64.deb --progress=bar:force:noscroll && \
   wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/intel-opencl-icd_${OPENCL_VERSION}_amd64.deb --progress=bar:force:noscroll && \
   wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/libigdgmm12_${GMMLIB_VERSION}_amd64.deb --progress=bar:force:noscroll && \
-  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/ww09.sum --progress=bar:force:noscroll && \
-  sha256sum --ignore-missing -c ww09.sum && \
+  wget https://github.com/intel/compute-runtime/releases/download/${OPENCL_VERSION}/${OPENCL_SHA256_FILENAME}.sum --progress=bar:force:noscroll && \
+  sha256sum --ignore-missing -c ${OPENCL_SHA256_FILENAME}.sum && \
   dpkg -i *.deb && \
   rm -R /opencl && \
   ln -s /detectors/models/darknet/yolov7.weights /detectors/models/darknet/default.weights && \
   ln -s /detectors/models/darknet/yolov7.cfg /detectors/models/darknet/default.cfg
-
-# OpenVINO
-COPY --from=opencv /usr/local/runtime /usr/local/runtime/

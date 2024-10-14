@@ -1,6 +1,7 @@
 import CssBaseline from "@mui/material/CssBaseline";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RenderOptions, render } from "@testing-library/react";
+import { useRef } from "react";
 import { MemoryRouter } from "react-router-dom";
 
 import ToastContainer from "components/toast/ToastContainer";
@@ -21,7 +22,7 @@ function customRender(
     enabled: true,
     onboarding_complete: true,
   },
-  options?: Omit<RenderOptions, "wrapper">
+  options?: Omit<RenderOptions, "wrapper">,
 ) {
   function ProvidersWrapper({ children }: ProvidersWrapperProps) {
     return (
@@ -32,11 +33,17 @@ function customRender(
             <AuthContext.Provider
               value={{
                 auth,
-                setAuth: vi.fn(),
               }}
             >
               <ViseronContext.Provider
-                value={{ connection: undefined, connected: true }}
+                value={{
+                  connection: undefined,
+                  connected: true,
+                  safeMode: false,
+                  version: "0.0.0",
+                  gitCommit: "0000000",
+                  subscriptionRef: useRef({}),
+                }}
               >
                 {children}
               </ViseronContext.Provider>

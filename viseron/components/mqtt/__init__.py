@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 import paho.mqtt.client as mqtt
 import voluptuous as vol
@@ -166,7 +167,7 @@ class MQTT:
         self._vis = vis
         self._config = config
 
-        self._client = mqtt.Client(self._config[CONFIG_CLIENT_ID])
+        self._client = mqtt.Client(client_id=self._config[CONFIG_CLIENT_ID])
         self._publish_queue: Queue = Queue(maxsize=1000)
         self._subscriptions: dict[str, list[Callable]] = {}
 
@@ -194,6 +195,7 @@ class MQTT:
             self._vis.dispatch_event(
                 EVENT_MQTT_ENTITY_ADDED,
                 EventMQTTEntityAddedData(mqtt_entity),
+                store=False,
             )
 
     def create_entities(self, entities) -> None:

@@ -27,6 +27,7 @@ class MotionDetector(AbstractMotionDetectorScanner):
         self._camera_config = config[CONFIG_CAMERAS][camera_identifier]
 
         self._avg: np.ndarray | None = None
+        self._empty_mat = cv2.Mat(np.empty((3, 3), np.uint8))
 
         vis.register_domain(DOMAIN, camera_identifier, self)
 
@@ -58,7 +59,7 @@ class MotionDetector(AbstractMotionDetectorScanner):
         thresh = cv2.threshold(
             frame_delta, self._camera_config[CONFIG_THRESHOLD], 255, cv2.THRESH_BINARY
         )[1]
-        thresh = cv2.dilate(thresh, None, iterations=2)
+        thresh = cv2.dilate(thresh, self._empty_mat, iterations=2)
         return Contours(
             cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0],
             self._resolution,

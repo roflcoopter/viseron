@@ -17,6 +17,7 @@ from tenacity import (
 )
 
 from viseron.const import (
+    CAMERA_SEGMENT_DURATION,
     ENV_CUDA_SUPPORTED,
     ENV_JETSON_NANO,
     ENV_RASPBERRYPI3,
@@ -24,12 +25,12 @@ from viseron.const import (
 )
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
+from viseron.helpers import escape_string
 from viseron.helpers.logs import LogPipe, UnhelpfullLogFilter
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 from .const import (
     CAMERA_INPUT_ARGS,
-    CAMERA_SEGMENT_ARGS,
     CONFIG_AUDIO_CODEC,
     CONFIG_CODEC,
     CONFIG_FFMPEG_LOGLEVEL,
@@ -48,8 +49,12 @@ from .const import (
     CONFIG_PROTOCOL,
     CONFIG_RAW_COMMAND,
     CONFIG_RECORDER,
+    CONFIG_RECORDER_AUDIO_CODEC,
+    CONFIG_RECORDER_AUDIO_FILTERS,
+    CONFIG_RECORDER_CODEC,
+    CONFIG_RECORDER_OUPTUT_ARGS,
+    CONFIG_RECORDER_VIDEO_FILTERS,
     CONFIG_RTSP_TRANSPORT,
-    CONFIG_SEGMENTS_FOLDER,
     CONFIG_STREAM_FORMAT,
     CONFIG_SUBSTREAM,
     CONFIG_USERNAME,
@@ -57,6 +62,8 @@ from .const import (
     CONFIG_WIDTH,
     DEFAULT_AUDIO_CODEC,
     DEFAULT_CODEC,
+    DEFAULT_FFMPEG_RECOVERABLE_ERRORS,
+    DEFAULT_RECORDER_AUDIO_CODEC,
     ENV_FFMPEG_PATH,
     FFMPEG_LOGLEVELS,
     FFPROBE_LOGLEVELS,
@@ -93,7 +100,12 @@ class Stream:
     ) -> None:
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.addFilter(
-            UnhelpfullLogFilter(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS])
+            UnhelpfullLogFilter(
+                list(  # Remove duplicates
+                    set(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS])
+                    | set(DEFAULT_FFMPEG_RECOVERABLE_ERRORS)
+                )
+            )
         )
         self._config = config
         self._camera_identifier = camera_identifier
@@ -196,7 +208,12 @@ class Stream:
         """Return stream url."""
         auth = ""
         if self._config[CONFIG_USERNAME] and self._config[CONFIG_PASSWORD]:
-            auth = f"{self._config[CONFIG_USERNAME]}:{self._config[CONFIG_PASSWORD]}@"
+            auth = (
+                f"{self._config[CONFIG_USERNAME]}"
+                ":"
+                f"{escape_string(self._config[CONFIG_PASSWORD])}"
+                "@"
+            )
 
         protocol = (
             stream_config[CONFIG_PROTOCOL]
@@ -264,8 +281,8 @@ class Stream:
         )
 
     @staticmethod
-    def get_codec(stream_config: dict[str, Any], stream_codec: str):
-        """Return codec set in config or from predefined codec map."""
+    def get_decoder_codec(stream_config: dict[str, Any], stream_codec: str):
+        """Return decoder codec set in config or from predefined codec map."""
         if stream_config[CONFIG_CODEC] and stream_config[CONFIG_CODEC] != DEFAULT_CODEC:
             return ["-c:v", stream_config[CONFIG_CODEC]]
 
@@ -287,6 +304,10 @@ class Stream:
             return ["-c:v", codec]
         return []
 
+    def get_encoder_codec(self):
+        """Return encoder codec set in config."""
+        return ["-c:v", self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]]
+
     def stream_command(
         self, stream_config: dict[str, Any], stream_codec: str, stream_url: str
     ):
@@ -295,35 +316,40 @@ class Stream:
             input_args = stream_config[CONFIG_INPUT_ARGS]
         else:
             input_args = CAMERA_INPUT_ARGS + list(
-                STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]]["timeout_option"]
+                STREAM_FORMAT_MAP[stream_config[CONFIG_STREAM_FORMAT]]["timeout_option"]
             )
 
         return (
             input_args
             + stream_config[CONFIG_HWACCEL_ARGS]
-            + self.get_codec(stream_config, stream_codec)
+            + self.get_decoder_codec(stream_config, stream_codec)
             + (
                 ["-rtsp_transport", stream_config[CONFIG_RTSP_TRANSPORT]]
-                if self._config[CONFIG_STREAM_FORMAT] == "rtsp"
+                if stream_config[CONFIG_STREAM_FORMAT] == "rtsp"
                 else []
             )
             + ["-i", stream_url]
         )
 
-    def get_audio_codec(
+    def get_encoder_audio_codec(
         self,
-        stream_config: dict[str, Any],
         stream_audio_codec: str | None,
-        extension: str,
     ) -> list[str]:
         """Return audio codec used for saving segments."""
         if (
-            stream_config[CONFIG_AUDIO_CODEC]
-            and stream_config[CONFIG_AUDIO_CODEC] != DEFAULT_AUDIO_CODEC
+            self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]
+            and self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]
+            != DEFAULT_RECORDER_AUDIO_CODEC
         ):
-            return ["-c:a", stream_config[CONFIG_AUDIO_CODEC]]
+            return [
+                "-c:a",
+                self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC],
+            ]
 
-        if extension == "mp4" and stream_audio_codec in [
+        if self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC] is None:
+            return ["-an"]
+
+        if stream_audio_codec in [
             "pcm_alaw",
             "pcm_mulaw",
         ]:
@@ -333,27 +359,61 @@ class Stream:
             )
             return ["-c:a", "aac"]
 
-        if (
-            stream_audio_codec
-            and stream_config[CONFIG_AUDIO_CODEC] == DEFAULT_AUDIO_CODEC
-        ):
+        if stream_audio_codec:
             return ["-c:a", "copy"]
 
+        return ["-an"]
+
+    def recorder_video_filter_args(self) -> list[str] | list:
+        """Return video filter arguments."""
+        if filters := self._config[CONFIG_RECORDER][CONFIG_RECORDER_VIDEO_FILTERS]:
+            return [
+                "-vf",
+                ",".join(filters),
+            ]
+        return []
+
+    def recorder_audio_filter_args(self) -> list[str] | list:
+        """Return audio filter arguments."""
+        if filters := self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_FILTERS]:
+            return [
+                "-af",
+                ",".join(filters),
+            ]
         return []
 
     def segment_args(self):
         """Generate FFmpeg segment args."""
         return (
-            CAMERA_SEGMENT_ARGS
-            + self.get_audio_codec(
-                self._config, self._mainstream.audio_codec, self._camera.extension
-            )
+            [
+                "-f",
+                "hls",
+                "-hls_time",
+                str(CAMERA_SEGMENT_DURATION),
+                "-hls_segment_type",
+                "fmp4",
+                "-hls_list_size",
+                "10",
+                "-hls_flags",
+                "program_date_time+delete_segments",
+                "-strftime",
+                "1",
+                "-hls_segment_filename",
+                os.path.join(
+                    self._camera.temp_segments_folder,
+                    "%s.m4s",
+                ),
+            ]
+            + self.get_encoder_codec()
+            + self.recorder_video_filter_args()
+            + self.get_encoder_audio_codec(self._mainstream.audio_codec)
+            + self.recorder_audio_filter_args()
+            + self._camera.config[CONFIG_RECORDER][CONFIG_RECORDER_OUPTUT_ARGS]
             + [
                 os.path.join(
-                    self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
-                    self._camera.identifier,
-                    f"%Y%m%d%H%M%S.{self._camera.extension}",
-                )
+                    self._camera.temp_segments_folder,
+                    "index.m3u8",
+                ),
             ]
         )
 

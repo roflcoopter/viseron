@@ -1,6 +1,7 @@
 """Custom voluptuous validators."""
 import logging
-from typing import Any, Callable, Dict, Optional
+from collections.abc import Callable
+from typing import Any
 
 import voluptuous as vol
 
@@ -9,8 +10,21 @@ from viseron.helpers import slugify
 LOGGER = logging.getLogger(__name__)
 
 
-def deprecated(key: str, replacement: Optional[str] = None) -> Callable[[dict], dict]:
-    """Mark key as deprecated and optionally replace it."""
+def deprecated(key: str, replacement: str | None = None) -> Callable[[dict], dict]:
+    """Mark key as deprecated and optionally replace it.
+
+    Usage example:
+    CONFIG_SCHEMA = vol.Schema(
+        vol.All(
+            {
+                vol.Optional(
+                    "this_key_is_deprecated"
+                ): str,
+            },
+            deprecated("this_key_is_deprecated", "this_key_is_replacement")
+        )
+    )
+    """
 
     def validator(config):
         """Warn if key is present. Replace it if a value is given."""
@@ -35,6 +49,66 @@ def deprecated(key: str, replacement: Optional[str] = None) -> Callable[[dict], 
         return config
 
     return validator
+
+
+class Deprecated(vol.Optional):
+    """Mark key as deprecated.
+
+    message: Displayed in the generated documentation.
+    warning: Displayed in the logs.
+    """
+
+    def __init__(
+        self,
+        schema: Any,
+        raise_error=False,
+        message=None,
+        description=None,
+        warning=None,
+    ) -> None:
+        self._key = schema
+        self._raise_error = raise_error
+        self._message = message
+        self._warning = warning
+
+        super().__init__(
+            schema,
+            default=vol.UNDEFINED,
+            description=description,
+        )
+
+    @property
+    def key(self) -> str:
+        """Return deprecated key."""
+        return self._key
+
+    @property
+    def message(self) -> str:
+        """Return deprecation message."""
+        return (
+            f"Config option '{self.key}' is deprecated "
+            "and will be removed in a future version."
+            if not self._message
+            else self._message
+        )
+
+    @property
+    def warning(self) -> str:
+        """Return deprecation warning."""
+        return (
+            f"Config option '{self.key}' is deprecated "
+            "and will be removed in a future version. "
+            "Please remove it from your configuration."
+            if not self._warning
+            else self._warning
+        )
+
+    def __call__(self, v):
+        """Warn user about deprecated key."""
+        if self._raise_error:
+            raise vol.Invalid(self.warning)
+        LOGGER.warning(self.warning)
+        return super().__call__(v)
 
 
 def slug(value: Any) -> str:
@@ -88,7 +162,7 @@ class CoerceNoneToDict:
     def __init__(self) -> None:
         pass
 
-    def __call__(self, value: Optional[Dict[str, None]]) -> Dict[str, None]:
+    def __call__(self, value: dict[str, None] | None) -> dict[str, None]:
         """Coerce None to empty dict."""
         if isinstance(value, dict):
             return value

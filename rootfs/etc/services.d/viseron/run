@@ -1,8 +1,17 @@
 #!/usr/bin/with-contenv bash
 
+source /helpers/logger.sh
+
 # Kill left over FFmpeg and GStreamer processes in case of a restart
 pkill -f ffmpeg_
 pkill -f gstreamer_
+
+# Wait until PostgreSQL is ready
+until s6-setuidgid postgres pg_isready -d viseron; do
+  log_info "Waiting for PostgreSQL Server to start..."
+  sleep 1
+done
+log_info "PostgreSQL Server has started!"
 
 cd /src
 exec justc-envdir /var/run/environment s6-setuidgid abc exec -a "viseron" python3 -u -m viseron

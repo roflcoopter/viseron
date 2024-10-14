@@ -1,9 +1,9 @@
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid";
-import Typography from "@mui/material/Typography";
+import Grid from "@mui/material/Grid2";
+import Grow from "@mui/material/Grow";
 
-import CameraCard from "components/camera/CameraCard";
-import FailedCameraCard from "components/camera/FailedCameraCard";
+import { CameraCard } from "components/camera/CameraCard";
+import { FailedCameraCard } from "components/camera/FailedCameraCard";
 import { Loading } from "components/loading/Loading";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras, useCamerasFailed } from "lib/api/cameras";
@@ -14,7 +14,7 @@ const Cameras = () => {
   const cameras = useCameras({});
   const failedCameras = useCamerasFailed({});
 
-  if (cameras.isLoading || failedCameras.isLoading) {
+  if (cameras.isPending || failedCameras.isPending) {
     return <Loading text="Loading Cameras" />;
   }
 
@@ -29,44 +29,47 @@ const Cameras = () => {
 
   return (
     <Container>
-      <Typography variant="h5" align="center">
-        Cameras
-      </Typography>
-      <Grid container direction="row" spacing={2}>
+      <Grid container direction="row" spacing={1}>
         {failedCameras.data
           ? Object.keys(failedCameras.data)
               .sort()
               .map((camera_identifier) => (
-                <Grid
-                  item
-                  xs={12}
-                  sm={12}
-                  md={6}
-                  lg={6}
-                  xl={4}
-                  key={camera_identifier}
-                >
-                  <FailedCameraCard
-                    failedCamera={failedCameras.data[camera_identifier]}
-                  />
-                </Grid>
+                <Grow in appear key={camera_identifier}>
+                  <Grid
+                    key={camera_identifier}
+                    size={{
+                      xs: 12,
+                      sm: 12,
+                      md: 6,
+                      lg: 6,
+                      xl: 4,
+                    }}
+                  >
+                    <FailedCameraCard
+                      failedCamera={failedCameras.data[camera_identifier]}
+                    />
+                  </Grid>
+                </Grow>
               ))
           : null}
         {cameras.data
           ? Object.keys(cameras.data)
               .sort()
               .map((camera_identifier) => (
-                <Grid
-                  item
-                  xs={12}
-                  sm={12}
-                  md={6}
-                  lg={6}
-                  xl={4}
-                  key={camera_identifier}
-                >
-                  <CameraCard camera_identifier={camera_identifier} />
-                </Grid>
+                <Grow in appear key={camera_identifier}>
+                  <Grid
+                    key={camera_identifier}
+                    size={{
+                      xs: 12,
+                      sm: 12,
+                      md: 6,
+                      lg: 6,
+                      xl: 4,
+                    }}
+                  >
+                    <CameraCard camera_identifier={camera_identifier} compact />
+                  </Grid>
+                </Grow>
               ))
           : null}
       </Grid>

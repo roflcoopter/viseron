@@ -5,7 +5,7 @@ const ComponentMetadata: Component = {
   name: "webserver",
   description: "Viseron frontend User Interface.",
   image: "/img/undraw_interface.svg",
-  tags: [],
+  tags: ["system"],
 };
 
 export default ComponentMetadata;

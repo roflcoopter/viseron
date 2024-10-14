@@ -3,7 +3,7 @@ import { MutableRefObject, useEffect, useState } from "react";
 
 export default function useOnScreen<T extends Element>(
   ref: MutableRefObject<T>,
-  rootMargin = "0px"
+  rootMargin = "0px",
 ): boolean {
   // State and setter for storing whether element is visible
   const [isIntersecting, setIntersecting] = useState<boolean>(false);
@@ -19,7 +19,7 @@ export default function useOnScreen<T extends Element>(
       },
       {
         rootMargin,
-      }
+      },
     );
     if (ref.current) {
       observer.observe(ref.current);

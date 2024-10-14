@@ -3,12 +3,14 @@ ARG DARKNET_COMMIT
 ARG JETPACK_VERSION
 FROM roflcoopter/viseron-models:latest as models
 FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
+FROM roflcoopter/jetson-nano-python:3.9.19 as python-3.9.19
 FROM roflcoopter/jetson-nano-darknet:${DARKNET_COMMIT} as darknet
 FROM nvcr.io/nvidia/l4t-base:r${JETPACK_VERSION} as build
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
 COPY --from=models /classifiers/models/edgetpu /classifiers/models/edgetpu
+COPY --from=python-3.9.19 /usr/local /usr/local/
 COPY --from=python /usr/local /usr/local/
 
 ARG SOC

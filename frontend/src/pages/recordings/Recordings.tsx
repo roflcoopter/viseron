@@ -1,6 +1,6 @@
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid";
-import Typography from "@mui/material/Typography";
+import Grid from "@mui/material/Grid2";
+import Grow from "@mui/material/Grow";
 
 import { ScrollToTopOnMount } from "components/ScrollToTop";
 import { Loading } from "components/loading/Loading";
@@ -16,12 +16,23 @@ const GridItem = ({
   camera_identifier: string;
   failed?: boolean;
 }) => (
-  <Grid item xs={12} sm={12} md={6} lg={6} xl={4} key={camera_identifier}>
-    <RecordingCardLatest
-      camera_identifier={camera_identifier}
-      failed={failed}
-    />
-  </Grid>
+  <Grow in appear key={camera_identifier}>
+    <Grid
+      key={camera_identifier}
+      size={{
+        xs: 12,
+        sm: 12,
+        md: 6,
+        lg: 6,
+        xl: 4,
+      }}
+    >
+      <RecordingCardLatest
+        camera_identifier={camera_identifier}
+        failed={failed}
+      />
+    </Grid>
+  </Grow>
 );
 
 const Recordings = () => {
@@ -30,7 +41,7 @@ const Recordings = () => {
   const cameras = useCameras({});
   const failedCameras = useCamerasFailed({});
 
-  if (cameras.isLoading || failedCameras.isLoading) {
+  if (cameras.isPending || failedCameras.isPending) {
     return <Loading text="Loading Recordings" />;
   }
 
@@ -46,10 +57,7 @@ const Recordings = () => {
   return (
     <Container>
       <ScrollToTopOnMount />
-      <Typography variant="h5" align="center">
-        Recordings
-      </Typography>
-      <Grid container direction="row" spacing={2}>
+      <Grid container direction="row" spacing={1}>
         {failedCameras.data
           ? Object.keys(failedCameras.data)
               .sort()

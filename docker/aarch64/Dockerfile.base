@@ -20,7 +20,7 @@ RUN \
   libatlas3-base \
   libhdf5-103 \
   liblapacke \
-  libopenexr24 \
+  libopenexr25 \
   libpng16-16 \
   libatomic1 && \
   ln -s /detectors/models/darknet/yolov7-tiny.weights /detectors/models/darknet/default.weights && \

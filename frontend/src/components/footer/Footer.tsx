@@ -2,8 +2,10 @@ import GitHubIcon from "@mui/icons-material/GitHub";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
 import { styled, useTheme } from "@mui/material/styles";
-import { useEffect, useState } from "react";
+import { useContext } from "react";
 import { useLocation } from "react-router-dom";
+
+import { ViseronContext } from "context/ViseronContext";
 
 const Footer = styled("footer")(() => ({
   position: "relative",
@@ -15,16 +17,9 @@ const Footer = styled("footer")(() => ({
 
 export default function AppFooter() {
   const theme = useTheme();
-  const [showFooter, setShowFooter] = useState(true);
   const location = useLocation();
-
-  useEffect(() => {
-    if (location.pathname === "/configuration") {
-      setShowFooter(false);
-      return;
-    }
-    setShowFooter(true);
-  }, [location]);
+  const { version, gitCommit } = useContext(ViseronContext);
+  const showFooter = !["/configuration", "/events"].includes(location.pathname);
 
   return showFooter ? (
     <Footer>
@@ -33,7 +28,7 @@ export default function AppFooter() {
         variant="subtitle2"
         color={theme.palette.text.secondary}
       >
-        Viseron
+        Viseron - {version} - {gitCommit}
       </Typography>
       <Typography align="center" variant="subtitle2">
         <Link

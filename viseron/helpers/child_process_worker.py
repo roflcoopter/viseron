@@ -1,9 +1,12 @@
 """Helper to perform work in a child process."""
+
+from __future__ import annotations
+
 import logging
 import multiprocessing as mp
 from abc import ABC, abstractmethod
 from queue import Empty, Queue
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import setproctitle
 
@@ -11,6 +14,10 @@ from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.helpers import pop_if_full
 from viseron.helpers.mprt_monkeypatch import remove_shm_from_resource_tracker
 from viseron.watchdog.thread_watchdog import RestartableThread
+
+if TYPE_CHECKING:
+    from viseron import Viseron
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,7 +30,7 @@ class ChildProcessWorker(ABC):
     Work is then performed in the child process and returned through output queue.
     """
 
-    def __init__(self, vis, name) -> None:
+    def __init__(self, vis: Viseron, name) -> None:
         self._name = name
 
         self._process_frames_proc_exit = mp.Event()

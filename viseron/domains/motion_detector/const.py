@@ -1,5 +1,5 @@
 """Motion detector domain constants."""
-from typing import Dict, Final, List
+from typing import Final
 
 DOMAIN: Final = "motion_detector"
 
@@ -30,7 +30,7 @@ DEFAULT_FPS = 1
 DEFAULT_AREA = 0.08
 DEFAULT_WIDTH = 300
 DEFAULT_HEIGHT = 300
-DEFAULT_MASK: List[Dict[str, int]] = []
+DEFAULT_MASK: list[dict[str, int]] = []
 DEFAULT_TRIGGER_RECORDER = False
 DEFAULT_RECORDER_KEEPALIVE = True
 DEFAULT_MAX_RECORDER_KEEPALIVE = 30

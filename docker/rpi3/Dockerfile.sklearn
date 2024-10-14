@@ -39,7 +39,7 @@ RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
 
 RUN mkdir -p /wheels \
   \
-  && pip3 wheel --wheel-dir=/wheels --find-links=/wheels scikit-learn==${SKLEARN_VERSION} \
+  && python3 -m pip wheel --wheel-dir=/wheels --find-links=/wheels scikit-learn==${SKLEARN_VERSION} \
   \
   && ls -al /wheels/
 

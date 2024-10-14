@@ -1,6 +1,6 @@
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
 import TextField, { TextFieldProps } from "@mui/material/TextField";
@@ -30,7 +30,6 @@ export function TextFieldItem<T extends string>(props: TextFieldItemProps<T>) {
   const defaultProps = {
     fullWidth: true,
     autoComplete: "off",
-    // eslint-disable-next-line no-nested-ternary
     type: props.password ? (showPassword ? "text" : "password") : "text",
     label: props.inputState[props.inputKind].label,
     helperText: props.inputState[props.inputKind].error
@@ -38,7 +37,7 @@ export function TextFieldItem<T extends string>(props: TextFieldItemProps<T>) {
       : " ",
     error: !!props.inputState[props.inputKind].error,
     onChange: (
-      event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>
+      event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
     ) =>
       props.dispatch({
         type: props.inputKind,
@@ -65,7 +64,7 @@ export function TextFieldItem<T extends string>(props: TextFieldItemProps<T>) {
     props;
 
   return (
-    <Grid item xs={12}>
+    <Grid size={12}>
       <TextField {...forwardedProps} />
     </Grid>
   );

@@ -1,9 +1,7 @@
 """Handles different kind of browser streams."""
-
 import asyncio
 import logging
 from http import HTTPStatus
-from typing import Dict, Tuple
 
 import cv2
 import imutils
@@ -91,7 +89,7 @@ class StreamHandler(ViseronRequestHandler):
     @staticmethod
     async def process_frame(
         nvr: NVR, processed_frame: DataProcessedFrame, mjpeg_stream_config
-    ):
+    ) -> tuple[bool, np.ndarray]:
         """Return JPG with drawn objects, zones etc."""
         _frame = processed_frame.frame.copy()
 
@@ -135,7 +133,7 @@ class StreamHandler(ViseronRequestHandler):
                 draw_objects(
                     frame,
                     processed_frame.objects_in_fov,
-                    resolution,
+                    resolution=resolution,
                 )
 
         if mjpeg_stream_config["rotate"]:
@@ -206,7 +204,7 @@ class DynamicStreamHandler(StreamHandler):
 class StaticStreamHandler(StreamHandler):
     """Represents a static stream defined in config.yaml."""
 
-    active_streams: Dict[Tuple[str, str], int] = {}
+    active_streams: dict[tuple[str, str], int] = {}
 
     async def stream(
         self, nvr, mjpeg_stream, mjpeg_stream_config, publish_frame_topic

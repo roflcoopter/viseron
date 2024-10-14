@@ -4,7 +4,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import TYPE_CHECKING, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import tornado.gen
 import tornado.websocket
@@ -115,7 +116,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             if await self.run_in_executor(self.handle_auth, message):
                 LOGGER.debug("Authentication successful.")
                 self._waiting_for_auth = False
-                await self.async_send_message(auth_ok_message())
+                await self.async_send_message(auth_ok_message(self.vis))
                 return
             LOGGER.warning("Authentication failed.")
             await self.async_send_message(
@@ -163,31 +164,31 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
         try:
             handler(self, schema(message))
         except Exception as err:  # pylint: disable=broad-except
-            await self.handle_exception(command_id, err)
+            await self.handle_exception(command_id, message, err)
         self._last_id = command_id
 
-    async def handle_exception(self, command_id, err: Exception) -> None:
+    async def handle_exception(self, command_id, message, err: Exception) -> None:
         """Handle an exception."""
         log_handler = LOGGER.error
 
         if isinstance(err, vol.Invalid):
             code = WS_ERROR_INVALID_FORMAT
-            message = humanize_error(err.message, err)
+            err_msg = humanize_error(message, err)
         elif isinstance(err, Unauthorized):
             code = WS_ERROR_UNAUTHORIZED
-            message = "Unauthorized."
+            err_msg = "Unauthorized."
         else:
             # Log unknown errors as exceptions
             log_handler = LOGGER.exception
             code = WS_ERROR_UNKNOWN_ERROR
-            message = "Unknown error"
+            err_msg = "Unknown error"
 
-        log_handler("Error handling message. Code: %s, message: %s", code, message)
+        log_handler("Error handling message. Code: %s, message: %s", code, err_msg)
         await self.async_send_message(
             error_message(
                 command_id,
                 code,
-                message,
+                err_msg,
             )
         )
 
@@ -199,7 +200,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             IOLoop.current().spawn_callback(self.send_message, auth_required_message())
         else:
             IOLoop.current().spawn_callback(
-                self.send_message, auth_not_required_message()
+                self.send_message, auth_not_required_message(self.vis)
             )
             self._waiting_for_auth = False
         IOLoop.current().spawn_callback(self._write_message)

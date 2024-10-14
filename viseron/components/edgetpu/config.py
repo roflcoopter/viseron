@@ -1,6 +1,8 @@
 """EdgeTPU configuration specials."""
+from __future__ import annotations
 
 import re
+from typing import Any
 
 import voluptuous as vol
 
@@ -86,7 +88,7 @@ class DefaultLabelPath:
 
 def get_label_schema(domain):
     """Return domain specific schema."""
-    schema = {
+    schema: dict[vol.Optional, Any] = {
         vol.Optional(
             CONFIG_LABEL_PATH,
             default=DEFAULT_LABEL_PATH_MAP[domain],

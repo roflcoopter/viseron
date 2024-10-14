@@ -10,10 +10,10 @@ import { useTheme } from "@mui/material/styles";
 import LazyLoad from "react-lazyload";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
-import VideoPlayer from "components/videoplayer/VideoPlayer";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
+import { useAuthContext } from "context/AuthContext";
 import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
-import { getRecordingVideoJSOptions } from "lib/helpers";
+import { getTimeFromDate, getVideoElement } from "lib/helpers";
 import * as types from "lib/types";
 
 interface RecordingCardInterface {
@@ -26,8 +26,8 @@ export default function RecordingCard({
   recording,
 }: RecordingCardInterface) {
   const theme = useTheme();
+  const { auth } = useAuthContext();
   const deleteRecording = useDeleteRecording();
-  const videoJsOptions = getRecordingVideoJSOptions(recording);
 
   return (
     <LazyLoad height={200}>
@@ -47,16 +47,20 @@ export default function RecordingCard({
       >
         <CardContent>
           <Typography align="center">
-            {recording.filename.split(".")[0]}
+            {getTimeFromDate(new Date(recording.start_time))}
           </Typography>
         </CardContent>
         <CardMedia>
           <LazyLoad
             height={200}
             offset={500}
-            placeholder={<VideoPlayerPlaceholder camera={camera} />}
+            placeholder={
+              <VideoPlayerPlaceholder
+                aspectRatio={camera.width / camera.height}
+              />
+            }
           >
-            <VideoPlayer options={videoJsOptions} />
+            {getVideoElement(camera, recording, auth.enabled)}
           </LazyLoad>
         </CardMedia>
         <CardActions>
@@ -68,7 +72,7 @@ export default function RecordingCard({
                   deleteRecording.mutate({
                     identifier: camera.identifier,
                     date: recording.date,
-                    filename: recording.filename,
+                    recording_id: recording.id,
                     failed: camera.failed,
                   });
                 }}

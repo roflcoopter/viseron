@@ -21,7 +21,6 @@ CONFIG_PORT = "port"
 CONFIG_DEBUG = "debug"
 
 DEFAULT_COMPONENT: Final = None
-DEFAULT_PORT = 8888
 DEFAULT_DEBUG = False
 
 DESC_COMPONENT = "Webserver configuration."
@@ -52,6 +51,7 @@ DESC_MINUTES = "Minutes to expire session."
 
 # Websocket constants
 TYPE_RESULT = "result"
+TYPE_SUBSCRIPTION_RESULT = "subscription_result"
 TYPE_AUTH_OK = "auth_ok"
 TYPE_AUTH_REQUIRED = "auth_required"
 TYPE_AUTH_NOT_REQUIRED = "auth_not_required"

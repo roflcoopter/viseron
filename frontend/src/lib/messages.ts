@@ -1,6 +1,7 @@
 export type SubscribeEventMessage = {
   type: "subscribe_event";
   event: string;
+  debounce?: number;
 };
 
 export type SubscribeStatesMessage =
@@ -18,6 +19,13 @@ export type SaveConfigMessage = {
   config: string;
 };
 
+export type SubscribeTimespansMessage = {
+  type: "subscribe_timespans";
+  camera_identifiers: string[];
+  date: string;
+  debounce?: number;
+};
+
 export function auth(accessToken: string) {
   return {
     type: "auth",
@@ -25,11 +33,15 @@ export function auth(accessToken: string) {
   };
 }
 
-export function subscribeEvent(event: string) {
+export function subscribeEvent(event: string, debounce?: number) {
   const message: SubscribeEventMessage = {
     type: "subscribe_event",
     event,
   };
+
+  if (debounce) {
+    message.debounce = debounce;
+  }
 
   return message;
 }
@@ -103,5 +115,26 @@ export function ping() {
 export function getEntities() {
   return {
     type: "get_entities",
+  };
+}
+
+export function subscribeTimespans(
+  camera_identifiers: string[],
+  date: string,
+  debounce?: number,
+) {
+  const message: SubscribeTimespansMessage = {
+    type: "subscribe_timespans",
+    camera_identifiers,
+    date,
+    debounce,
+  };
+  return message;
+}
+
+export function unsubscribeTimespans(subscription: number) {
+  return {
+    type: "unsubscribe_timespans",
+    subscription,
   };
 }

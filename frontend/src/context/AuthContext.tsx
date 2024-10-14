@@ -1,43 +1,21 @@
 import { AxiosHeaders } from "axios";
 import Cookies from "js-cookie";
-import { FC, createContext, useLayoutEffect, useRef, useState } from "react";
+import { FC, createContext, useContext, useLayoutEffect, useRef } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
 import SessionExpired from "components/dialog/SessionExpired";
+import { ErrorMessage } from "components/error/ErrorMessage";
 import { Loading } from "components/loading/Loading";
 import { useToast } from "hooks/UseToast";
-import { authToken, useAuthEnabled } from "lib/api/auth";
-import { clientId, viseronAPI } from "lib/api/client";
-import { loadTokens } from "lib/tokens";
+import { useAuthEnabled } from "lib/api/auth";
+import { viseronAPI } from "lib/api/client";
+import { getToken } from "lib/tokens";
 import * as types from "lib/types";
 
-export type AuthContextState = {
-  auth: types.AuthEnabledResponse;
-  setAuth: React.Dispatch<React.SetStateAction<AuthContextState["auth"]>>;
-};
-
-export const AuthContext = createContext<AuthContextState>({
-  auth: { enabled: true, onboarding_complete: true },
-  setAuth: () => {},
-});
-
-export type AuthProviderProps = {
-  children: React.ReactNode;
-};
-
-let isFetchingTokens = false;
-let tokenPromise: Promise<types.AuthTokenResponse>;
-export const AuthProvider: FC<AuthProviderProps> = ({
-  children,
-}: AuthProviderProps) => {
-  const [auth, setAuth] = useState<types.AuthEnabledResponse>({
-    enabled: true,
-    onboarding_complete: true,
-  });
-  const authQuery = useAuthEnabled({ setAuth });
+const useAuthAxiosInterceptor = (
+  auth: types.AuthEnabledResponse | undefined,
+) => {
   const toast = useToast();
-  const location = useLocation();
-
   const requestInterceptorRef = useRef<number | undefined>(undefined);
 
   useLayoutEffect(() => {
@@ -47,6 +25,16 @@ export const AuthProvider: FC<AuthProviderProps> = ({
 
     requestInterceptorRef.current = viseronAPI.interceptors.request.use(
       async (config) => {
+        // if auth is not loaded yet, allow requests to check if auth is enabled
+        if (!auth && config.url?.includes("/auth/enabled")) {
+          return config;
+        }
+        // if auth is not loaded yet, block all other requests
+        if (!auth) {
+          throw new Error("Request blocked, auth not loaded yet.");
+        }
+
+        // If auth is disabled, proceed without checking tokens
         if (!auth.enabled) {
           return config;
         }
@@ -71,53 +59,70 @@ export const AuthProvider: FC<AuthProviderProps> = ({
           throw new Error("Invalid session.");
         }
 
-        // Refresh tokens if they expire within 10 seconds
-        let storedTokens = loadTokens();
-        if (
-          !storedTokens ||
-          (Date.now() - 10000 > storedTokens.expires_at &&
-            !(config as any)._tokenRefreshed)
-        ) {
-          if (!isFetchingTokens) {
-            isFetchingTokens = true;
-            tokenPromise = authToken({
-              grant_type: "refresh_token",
-              client_id: clientId(),
-            });
-          }
-          const _token = await tokenPromise;
-          isFetchingTokens = false;
-          storedTokens = loadTokens();
-          (config as any)._tokenRefreshed = true;
-        }
-
-        if (storedTokens) {
+        const token = await getToken(config);
+        if (token) {
           (config.headers as AxiosHeaders).set(
             "Authorization",
-            `Bearer ${storedTokens.header}.${storedTokens.payload}`
+            `Bearer ${token}`,
           );
         }
         return config;
-      }
+      },
     );
   }, [auth, toast]);
+};
 
-  if (authQuery.isInitialLoading) {
+type AuthContextState = {
+  auth: types.AuthEnabledResponse;
+};
+
+export const AuthContext = createContext<AuthContextState | null>(null);
+
+type AuthProviderProps = {
+  children: React.ReactNode;
+};
+
+export const AuthProvider: FC<AuthProviderProps> = ({
+  children,
+}: AuthProviderProps) => {
+  const authQuery = useAuthEnabled();
+  const location = useLocation();
+
+  useAuthAxiosInterceptor(authQuery.data);
+
+  if (authQuery.isPending || authQuery.isLoading) {
     return <Loading text="Loading Auth" />;
   }
 
+  if (authQuery.isError) {
+    return (
+      <ErrorMessage
+        text="Error connecting to server"
+        subtext={authQuery.error.message}
+      />
+    );
+  }
+
   if (
-    auth.enabled &&
-    !auth.onboarding_complete &&
+    authQuery.data.enabled &&
+    !authQuery.data.onboarding_complete &&
     location.pathname !== "/onboarding"
   ) {
     return <Navigate to="/onboarding" replace />;
   }
 
   return (
-    <AuthContext.Provider value={{ auth, setAuth }}>
-      {auth.enabled ? <SessionExpired /> : null}
+    <AuthContext.Provider value={{ auth: authQuery.data }}>
+      {authQuery.data.enabled ? <SessionExpired /> : null}
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuthContext = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuthContext must be used within AuthProvider Context");
+  }
+  return context;
 };

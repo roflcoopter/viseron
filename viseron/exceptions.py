@@ -102,7 +102,7 @@ class DomainNotRegisteredError(ViseronError):
 
     def __str__(self) -> str:
         """Return string representation."""
-        return ("Requested domain{}{}has not been registered").format(
+        return ("Requested domain {}{}has not been registered").format(
             self.domain,
             f" with identifier {self.identifier} " if self.identifier else " ",
         )

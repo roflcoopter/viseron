@@ -14,12 +14,13 @@ from viseron.components.webserver.const import (
     TYPE_AUTH_OK,
     TYPE_AUTH_REQUIRED,
     TYPE_RESULT,
+    TYPE_SUBSCRIPTION_RESULT,
     WS_ERROR_UNKNOWN_ERROR,
 )
 from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
-    from viseron import Event
+    from viseron import Event, Viseron
 
 LOGGER = logging.getLogger(__name__)
 
@@ -37,6 +38,15 @@ MINIMAL_MESSAGE_SCHEMA = BASE_MESSAGE_SCHEMA.extend(
 )
 
 
+def system_information(vis: Viseron) -> dict[str, Any]:
+    """Return system information."""
+    return {
+        "version": vis.version,
+        "git_commit": vis.git_commit,
+        "safe_mode": vis.safe_mode,
+    }
+
+
 def message_to_json(message: dict[str, Any]) -> str:
     """Serialize a websocket message to json."""
     try:
@@ -52,9 +62,13 @@ def message_to_json(message: dict[str, Any]) -> str:
         )
 
 
-def auth_ok_message() -> dict[str, str]:
+def auth_ok_message(vis: Viseron) -> dict[str, Any]:
     """Return an auth_ok message."""
-    return {"type": TYPE_AUTH_OK}
+    return {
+        "type": TYPE_AUTH_OK,
+        "message": "Authentication successful.",
+        "system_information": system_information(vis),
+    }
 
 
 def auth_required_message() -> dict[str, str]:
@@ -62,9 +76,13 @@ def auth_required_message() -> dict[str, str]:
     return {"type": TYPE_AUTH_REQUIRED, "message": "Authentication required."}
 
 
-def auth_not_required_message() -> dict[str, str]:
+def auth_not_required_message(vis: Viseron) -> dict[str, Any]:
     """Return an auth_not_required message."""
-    return {"type": TYPE_AUTH_NOT_REQUIRED, "message": "Authentication not required."}
+    return {
+        "type": TYPE_AUTH_NOT_REQUIRED,
+        "message": "Authentication not required.",
+        "system_information": system_information(vis),
+    }
 
 
 def auth_failed_message(message: str) -> dict[str, str]:
@@ -101,12 +119,14 @@ def invalid_error_message(code: str, message: str) -> dict[str, Any]:
     }
 
 
-def event_message(command_id: int, event: Event) -> dict[str, Any]:
-    """Return an event message."""
+def subscription_result_message(
+    command_id: int, result: Event | dict[str, Any]
+) -> dict[str, Any]:
+    """Return a subscription result message."""
     return {
         "command_id": command_id,
-        "type": "event",
-        "event": event,
+        "type": TYPE_SUBSCRIPTION_RESULT,
+        "result": result,
     }
 
 

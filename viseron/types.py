@@ -11,3 +11,5 @@ SupportedDomains = Literal[
     "nvr",
     "object_detector",
 ]
+
+DatabaseOperations = Literal["insert", "update", "delete"]
