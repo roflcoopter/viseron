@@ -129,21 +129,25 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         shape: {
           borderRadius: 5,
         },
+
         ...(mode === "light" && {
           text: {
             primary: grey[900],
             secondary: grey[700],
           },
         }),
+
         ...(mode === "dark" && {
           text: {
             primary: "#fff",
             secondary: grey[400],
           },
         }),
+
         grey,
         headerHeight: 56,
         margin: "0.5dvh",
+
         palette: {
           mode,
           motion: "#f9b4f6",
@@ -168,6 +172,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
                 divider: blue[900],
               }),
         },
+
         typography: {
           h5: {
             color: mode === "dark" ? blue[300] : blue.main,
@@ -233,7 +238,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
                     ? theme.palette.primary[900]
                     : theme.palette.primary[200]
                 }`,
-                borderRadius: theme.shape.borderRadius,
+                borderRadius: 5, // = theme.shape.borderRadius * 5
               },
             },
           ],
@@ -275,6 +280,19 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
             paper: {
               backgroundImage:
                 "linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05))",
+            },
+          },
+        },
+        MuiTooltip: {
+          styleOverrides: {
+            tooltip: {
+              backgroundColor: theme.palette.background.paper,
+              border: `2px solid ${
+                theme.palette.mode === "dark"
+                  ? theme.palette.primary[900]
+                  : theme.palette.primary[200]
+              }`,
+              boxShadow: "5px 5px 8px 0px rgba(0,0,0,0.40)",
             },
           },
         },

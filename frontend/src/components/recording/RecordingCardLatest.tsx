@@ -59,7 +59,7 @@ export default function RecordingCardLatest({
   let text = "No recordings found";
   if (recordingsQuery.status === "error") {
     text = "Error getting latest recording";
-  } else if (recordingsQuery.status === "loading") {
+  } else if (recordingsQuery.status === "pending") {
     text = "Loading latest recording";
   } else if (recordingsQuery.status === "success" && !objHasValues(recording)) {
     text = "No recordings found";
@@ -73,7 +73,7 @@ export default function RecordingCardLatest({
     )}`;
   }
 
-  if (cameraQuery.isLoading || !cameraQuery.data) {
+  if (cameraQuery.isPending || !cameraQuery.data) {
     return null;
   }
 
@@ -81,20 +81,22 @@ export default function RecordingCardLatest({
     <LazyLoad height={200}>
       <Card
         variant="outlined"
-        sx={{
-          // Vertically space items evenly to accommodate different aspect ratios
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          ...(cameraQuery.data.failed && {
+        sx={[
+          {
+            // Vertically space items evenly to accommodate different aspect ratios
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+          },
+          cameraQuery.data.failed && {
             border: `2px solid ${
               cameraQuery.data.retrying
                 ? theme.palette.warning.main
                 : theme.palette.error.main
             }`,
-          }),
-        }}
+          },
+        ]}
       >
         <CardContent>
           <Typography variant="h5" align="center">

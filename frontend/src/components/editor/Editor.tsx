@@ -356,21 +356,31 @@ const ConfigEditor = () => {
           </span>
         </Stack>
         <Box
-          sx={{
-            width: editorWidth,
-            height: markers.length > 0 ? "80vh" : "90vh",
-            position: "relative",
-          }}
+          sx={[
+            {
+              width: editorWidth,
+              position: "relative",
+            },
+            markers.length > 0
+              ? {
+                  height: "80vh",
+                }
+              : {
+                  height: "90vh",
+                },
+          ]}
         >
           <Backdrop open={savePending} sx={{ position: "absolute", zIndex: 1 }}>
             <CircularProgress color="inherit" />
           </Backdrop>
           <Card
             variant="outlined"
-            sx={{
-              backgroundColor:
-                theme.palette.mode === "dark" ? "#1e1e1e" : "#fffffe",
-            }}
+            sx={() => ({
+              backgroundColor: "#fffffe",
+              ...theme.applyStyles("dark", {
+                backgroundColor: "#1e1e1e",
+              }),
+            })}
           >
             <Editor
               height={markers.length > 0 ? "80vh" : "90vh"}

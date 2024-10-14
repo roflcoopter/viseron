@@ -82,46 +82,9 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
             )
         assert response.code == 200
         response_string = response.body.decode()
-        assert response_string.count("#EXTINF") == 7
-        assert response_string.count("#EXT-X-DISCONTINUITY") == 7
-        assert response_string.count("#EXT-X-ENDLIST") == 1
-
-    def test_get_recording_hls_playlist_gap_start(self):
-        """Test getting a recording HLS playlist with gap before start."""
-        with self._get_db_session() as session:
-            session.execute(delete(Files).where(Files.id.in_([15, 17, 19, 21])))
-            session.commit()
-
-        mocked_camera = MockCamera(
-            identifier="test", config={CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
-        )
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
-            ),
-            return_value=mocked_camera,
-        ), patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler"
-                "._get_session"
-            ),
-            return_value=self._get_db_session(),
-        ), patch(
-            "viseron.components.webserver.api.v1.hls._get_init_file",
-            return_value="/test/init.mp4",
-        ), patch(
-            "viseron.components.storage.queries.utcnow",
-            return_value=self._now + datetime.timedelta(seconds=3600),
-        ):
-            response = self.fetch(
-                "/api/v1/hls/test/index.m3u8?start_timestamp="
-                f"{int(self._now.timestamp() - 300)}"
-            )
-        assert response.code == 200
-        response_string = response.body.decode()
-        assert response_string.count("#EXTINF") == 0
-        assert response_string.count("#EXT-X-ENDLIST") == 1
+        assert response_string.count("#EXTINF") == 11
+        assert response_string.count("#EXT-X-DISCONTINUITY") == 11
+        assert response_string.count("#EXT-X-GAP") == 1
 
     def test_get_recording_hls_ongoing(self):
         """Test getting a recording HLS playlist for a recording that has not ended."""

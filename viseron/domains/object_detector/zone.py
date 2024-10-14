@@ -54,7 +54,7 @@ class Zone:
 
         self._name: str = zone_config[CONFIG_ZONE_NAME]
         self._objects_in_zone: list[DetectedObject] = []
-        self._object_filters = {}
+        self._object_filters: dict[str, Filter] = {}
         if zone_config[CONFIG_LABELS]:
             for object_filter in zone_config[CONFIG_LABELS]:
                 self._object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
@@ -94,6 +94,7 @@ class Zone:
 
                     if self._object_filters[obj.label].trigger_recorder:
                         obj.trigger_recorder = True
+                    self._object_filters[obj.label].should_store(obj)
 
         self.objects_in_zone_setter(shared_frame, objects_in_zone)
 

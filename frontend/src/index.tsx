@@ -3,7 +3,7 @@ import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { QueryClientProvider } from "@tanstack/react-query";
 import React, { Suspense } from "react";
-import ReactDOM from "react-dom";
+import { createRoot } from "react-dom/client";
 import { HashRouter as Router } from "react-router-dom";
 
 import { Loading } from "components/loading/Loading";
@@ -15,7 +15,10 @@ import queryClient from "lib/api/client";
 import App from "./App";
 import "./index.css";
 
-ReactDOM.render(
+const container = document.getElementById("root");
+const root = createRoot(container!);
+
+root.render(
   <React.StrictMode>
     <ColorModeProvider>
       <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -33,5 +36,4 @@ ReactDOM.render(
       </LocalizationProvider>
     </ColorModeProvider>
   </React.StrictMode>,
-  document.getElementById("root"),
 );

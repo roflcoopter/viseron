@@ -4,21 +4,31 @@ import {
   useQueries,
   useQuery,
 } from "@tanstack/react-query";
+import { useMemo } from "react";
 
-import { viseronAPI } from "lib/api/client";
+import {
+  EventQueryPair,
+  useInvalidateQueryOnEvent,
+  viseronAPI,
+} from "lib/api/client";
 import * as types from "lib/types";
 
 type EventsVariablesWithTime = {
   camera_identifier: string | null;
   time_from: number;
   time_to: number;
-  configOptions?: UseQueryOptions<types.CameraEvents, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.CameraEvents, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 type EventsVariablesWithDate = {
   camera_identifier: string | null;
   date: string;
-  utc_offset_minutes: number;
-  configOptions?: UseQueryOptions<types.CameraEvents, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.CameraEvents, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 type EventsVariables = EventsVariablesWithTime | EventsVariablesWithDate;
 
@@ -39,7 +49,6 @@ async function events(variables: EventsVariables): Promise<types.CameraEvents> {
     params.time_to = variables.time_to;
   } else if ("date" in variables) {
     params.date = variables.date;
-    params.utc_offset_minutes = variables.utc_offset_minutes;
   }
 
   const response = await viseronAPI.get<types.CameraEvents>(
@@ -67,51 +76,62 @@ export function useEvents(variables: EventsVariables) {
           variables.time_from,
           variables.time_to,
         ]
-      : [
-          "events",
-          variables.camera_identifier,
-          variables.date,
-          variables.utc_offset_minutes,
-        ];
+      : ["events", variables.camera_identifier, variables.date];
 
-  return useQuery<types.CameraEvents, types.APIErrorResponse>(
+  return useQuery({
     queryKey,
-    async () => events(variables),
-    variables.configOptions,
-  );
+    queryFn: async () => events(variables),
+    ...variables.configOptions,
+  });
 }
 
 type EventsMultipleVariablesWithTime = {
   camera_identifiers: string[];
   time_from: number;
   time_to: number;
-  configOptions?: UseQueryOptions<types.CameraEvents, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.CameraEvents, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 type EventsMultipleVariablesWithDate = {
   camera_identifiers: string[];
   date: string;
-  utc_offset_minutes: number;
-  configOptions?: UseQueryOptions<types.CameraEvents, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.CameraEvents, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 type EventsMultipleVariables =
   | EventsMultipleVariablesWithTime
   | EventsMultipleVariablesWithDate;
 
+const combineEvents = (
+  results: UseQueryResult<types.CameraEvents, types.APIErrorResponse>[],
+) => {
+  const data = results.flatMap((result) =>
+    result.data ? result.data.events : [],
+  );
+  // Sort latest events first
+  data.sort((a, b) => b.created_at_timestamp - a.created_at_timestamp);
+
+  return {
+    data,
+    isError: results.some((query) => query.isError),
+    error: results.find((query) => query.error)?.error,
+    isPending: results.some((query) => query.isPending),
+    isLoading: results.some((query) => query.isLoading),
+  };
+};
+
 export function useEventsMultiple(variables: EventsMultipleVariables) {
   const queryKeys = variables.camera_identifiers.map((camera_identifier) =>
     "time_from" in variables && "time_to" in variables
       ? ["events", camera_identifier, variables.time_from, variables.time_to]
-      : [
-          "events",
-          camera_identifier,
-          variables.date,
-          variables.utc_offset_minutes,
-        ],
+      : ["events", camera_identifier, variables.date],
   );
 
-  const eventsQueries = useQueries<
-    UseQueryOptions<types.CameraEvents, types.APIErrorResponse>[]
-  >({
+  const eventsQueries = useQueries({
     queries: queryKeys.map((queryKey) => ({
       queryKey,
       queryFn: async () => {
@@ -121,41 +141,50 @@ export function useEventsMultiple(variables: EventsMultipleVariables) {
 
         return events(newVariables as EventsVariables);
       },
+      ...variables.configOptions,
     })),
+    combine: combineEvents,
   });
 
-  const data = eventsQueries.flatMap((result) =>
-    result.data ? result.data.events : [],
-  );
-  // Sort latest events first
-  data.sort((a, b) => b.created_at_timestamp - a.created_at_timestamp);
+  const eventQueryPairs = useMemo(() => {
+    const _eventQueryPairs: EventQueryPair[] = [];
+    variables.camera_identifiers.forEach((camera_identifier) => {
+      _eventQueryPairs.push(
+        {
+          event: `${camera_identifier}/camera_event/*/*`,
+          queryKey: ["events", camera_identifier],
+        },
+        {
+          event: `${camera_identifier}/recorder/start`,
+          queryKey: ["events", camera_identifier],
+        },
+        {
+          event: `${camera_identifier}/recorder/stop`,
+          queryKey: ["events", camera_identifier],
+        },
+      );
+    });
+    return _eventQueryPairs;
+  }, [variables.camera_identifiers]);
 
-  return {
-    data,
-    isError: eventsQueries.some((query) => query.isError),
-    error: eventsQueries.find((query) => query.error)?.error,
-    isLoading: eventsQueries.some((query) => query.isLoading),
-    isInitialLoading: eventsQueries.some((query) => query.isInitialLoading),
-  };
+  useInvalidateQueryOnEvent(eventQueryPairs, 5);
+
+  return eventsQueries;
 }
 
 type EventsAmountVariables = {
   camera_identifier: string | null;
-  utc_offset_minutes: number;
-  configOptions?: UseQueryOptions<types.EventsAmount, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.EventsAmount, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 
 async function eventsAmount({
   camera_identifier,
-  utc_offset_minutes,
 }: EventsAmountVariables): Promise<types.EventsAmount> {
   const response = await viseronAPI.get<types.EventsAmount>(
     `events/${camera_identifier}/amount`,
-    {
-      params: {
-        utc_offset_minutes,
-      },
-    },
   );
   return response.data;
 }
@@ -163,26 +192,26 @@ async function eventsAmount({
 export function useEventsAmount(
   variables: EventsAmountVariables,
 ): UseQueryResult<types.EventsAmount, types.APIErrorResponse> {
-  return useQuery<types.EventsAmount, types.APIErrorResponse>(
-    ["events", variables.camera_identifier, "amount"],
-    async () => eventsAmount(variables),
-    variables.configOptions,
-  );
+  return useQuery({
+    queryKey: ["events", variables.camera_identifier, "amount"],
+    queryFn: async () => eventsAmount(variables),
+    ...variables.configOptions,
+  });
 }
 
 type EventsAmountMultipleVariables = {
   camera_identifiers: string[];
-  utc_offset_minutes: number;
-  configOptions?: UseQueryOptions<types.EventsAmount, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.EventsAmount, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 
 async function eventsAmountMultiple({
   camera_identifiers,
-  utc_offset_minutes,
 }: EventsAmountMultipleVariables): Promise<types.EventsAmount> {
   const response = await viseronAPI.post<types.EventsAmount>("events/amount", {
     camera_identifiers,
-    utc_offset_minutes,
   });
   return response.data;
 }
@@ -190,9 +219,9 @@ async function eventsAmountMultiple({
 export function useEventsAmountMultiple(
   variables: EventsAmountMultipleVariables,
 ): UseQueryResult<types.EventsAmount, types.APIErrorResponse> {
-  return useQuery<types.EventsAmount, types.APIErrorResponse>(
-    ["events", "amount"],
-    async () => eventsAmountMultiple(variables),
-    variables.configOptions,
-  );
+  return useQuery({
+    queryKey: ["events", "amount"],
+    queryFn: async () => eventsAmountMultiple(variables),
+    ...variables.configOptions,
+  });
 }

@@ -1,6 +1,8 @@
 import CircleIcon from "@mui/icons-material/Circle";
 import VideocamOffIcon from "@mui/icons-material/VideocamOff";
-import { Box, SxProps, Theme, Typography } from "@mui/material";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import { SxProps, Theme } from "@mui/material/styles";
 
 import { useCamera } from "lib/api/camera";
 import * as types from "lib/types";

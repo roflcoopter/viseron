@@ -15,6 +15,7 @@ path.py==12.5.0
 psutil==5.9.8
 psycopg2-binary==2.9.9
 pyjwt==2.8.0
+python-debouncer==0.1.5
 python-slugify==8.0.4
 PyGObject==3.42.2 # Newer versions does not compile for the Jetson Nano
 PyYAML==6.0.1

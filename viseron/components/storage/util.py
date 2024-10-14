@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import threading
+from dataclasses import dataclass
 from datetime import timedelta
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
@@ -15,6 +16,7 @@ from viseron.components.storage.const import (
     CONFIG_MINUTES,
     CONFIG_PATH,
 )
+from viseron.events import EventData
 
 if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera, FailedCamera
@@ -84,6 +86,25 @@ def files_to_move_overlap(events_file_ids, continuous_file_ids):
         events_dict[file_id] for file_id in events_dict if file_id in continuous_dict
     ]
     return matched_ids
+
+
+@dataclass
+class EventFile(EventData):
+    """Event data for file events."""
+
+    camera_identifier: str
+    category: str
+    subcategory: str
+    file_name: str
+    path: str
+
+
+class EventFileCreated(EventFile):
+    """Event data for file created events."""
+
+
+class EventFileDeleted(EventFile):
+    """Event data for file deleted events."""
 
 
 class RequestedFilesCount:

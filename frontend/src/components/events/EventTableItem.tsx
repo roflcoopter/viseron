@@ -1,12 +1,10 @@
-import Image from "@jy95/material-ui-image";
-import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardMedia from "@mui/material/CardMedia";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import LazyLoad from "react-lazyload";
+import { memo, useCallback, useMemo } from "react";
 
 import { SnapshotIcon } from "components/events/SnapshotEvent";
 import {
@@ -16,17 +14,22 @@ import {
   getEventTimestamp,
   getSrc,
 } from "components/events/utils";
-import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
-import { getTimeFromDate } from "lib/helpers";
+import { useFirstRender } from "hooks/UseFirstRender";
+import { BLANK_IMAGE, getTimeFromDate } from "lib/helpers";
 import * as types from "lib/types";
 
-const getText = (
-  sortedEvents: types.CameraEvent[],
-  cameras: types.CamerasOrFailedCameras,
-) => {
+type EventTableItemIconProps = {
+  sortedEvents: types.CameraEvent[];
+  cameras: types.CamerasOrFailedCameras;
+};
+
+const EventTableItemIcon = ({
+  sortedEvents,
+  cameras,
+}: EventTableItemIconProps) => {
   const uniqueEvents = extractUniqueTypes(sortedEvents);
   return (
-    <Box>
+    <div>
       <Typography fontSize=".75rem" fontWeight="bold" align="center">
         {`${
           cameras && cameras[sortedEvents[0].camera_identifier]
@@ -49,27 +52,27 @@ const getText = (
               uniqueEvents[key] as Array<types.CameraObjectEvent>,
             );
             return Object.keys(uniqueLabels).map((label) => (
-              <Grid item key={`icon-${key}-${label}`}>
+              <Grid key={`icon-${key}-${label}`}>
                 <SnapshotIcon events={uniqueLabels[label]} />
               </Grid>
             ));
           }
           return (
-            <Grid item key={`icon-${key}`}>
+            <Grid key={`icon-${key}`}>
               <SnapshotIcon events={uniqueEvents[key]} />
             </Grid>
           );
         })}
       </Grid>
-    </Box>
+    </div>
   );
 };
 
 const isTimespanAvailable = (
   timestamp: number,
-  availableTimespans: types.HlsAvailableTimespans,
+  availableTimespans: types.HlsAvailableTimespan[],
 ) => {
-  for (const timespan of availableTimespans.timespans) {
+  for (const timespan of availableTimespans) {
     if (timestamp >= timespan.start && timestamp <= timespan.end) {
       return true;
     }
@@ -83,86 +86,126 @@ type EventTableItemProps = {
   setSelectedEvent: (event: types.CameraEvent) => void;
   selected: boolean;
   setRequestedTimestamp: (timestamp: number | null) => void;
-  availableTimespans: types.HlsAvailableTimespans;
+  availableTimespansRef: React.MutableRefObject<types.HlsAvailableTimespan[]>;
+  isScrolling: boolean;
+  virtualRowIndex: number;
+  measureElement: (element: HTMLElement | null) => void;
+  setElementHeight: React.Dispatch<React.SetStateAction<number | null>>;
 };
-export const EventTableItem = ({
-  cameras,
-  events,
-  setSelectedEvent,
-  selected,
-  setRequestedTimestamp,
-  availableTimespans,
-}: EventTableItemProps) => {
-  const theme = useTheme();
-  // Show the oldest event first in the list, API returns latest first
-  const sortedEvents = events
-    .slice()
-    .sort((a, b) => a.created_at_timestamp - b.created_at_timestamp);
-  return (
-    <Card
-      variant="outlined"
-      square
-      sx={{
-        border: selected
-          ? `2px solid ${theme.palette.primary[400]}`
-          : "2px solid transparent",
-        borderRadius: "5px",
-        boxShadow: "none",
-      }}
-    >
-      <CardActionArea
-        onClick={() => {
-          if (
-            isTimespanAvailable(
-              Math.round(getEventTimestamp(sortedEvents[0])),
-              availableTimespans,
-            )
-          ) {
-            setSelectedEvent(sortedEvents[0]);
-            setRequestedTimestamp(
-              Math.round(getEventTimestamp(sortedEvents[0])),
-            );
-            return;
-          }
+export const EventTableItem = memo(
+  ({
+    cameras,
+    events,
+    setSelectedEvent,
+    selected,
+    setRequestedTimestamp,
+    availableTimespansRef,
+    isScrolling,
+    virtualRowIndex,
+    measureElement,
+    setElementHeight,
+  }: EventTableItemProps) => {
+    const theme = useTheme();
+    const firstRender = useFirstRender();
+    // Show the oldest event first in the list, API returns latest first
+    const sortedEvents = useMemo(
+      () =>
+        events
+          .slice()
+          .sort((a, b) => a.created_at_timestamp - b.created_at_timestamp),
+      [events],
+    );
 
-          setSelectedEvent(sortedEvents[0]);
-          setRequestedTimestamp(null);
+    const handleEventClick = useCallback(() => {
+      if (
+        isTimespanAvailable(
+          Math.round(getEventTimestamp(sortedEvents[0])),
+          availableTimespansRef.current,
+        )
+      ) {
+        setSelectedEvent(sortedEvents[0]);
+        setRequestedTimestamp(Math.round(getEventTimestamp(sortedEvents[0])));
+        return;
+      }
+
+      setSelectedEvent(sortedEvents[0]);
+      setRequestedTimestamp(null);
+    }, [
+      sortedEvents,
+      availableTimespansRef,
+      setSelectedEvent,
+      setRequestedTimestamp,
+    ]);
+
+    const src = useMemo(
+      () =>
+        isScrolling && firstRender ? BLANK_IMAGE : getSrc(sortedEvents[0]),
+      [isScrolling, firstRender, sortedEvents],
+    );
+
+    return (
+      <Card
+        data-index={virtualRowIndex}
+        ref={(node) => {
+          measureElement(node);
+          if (node) {
+            setElementHeight(node.offsetHeight);
+          }
         }}
+        variant="outlined"
+        square
+        sx={[
+          {
+            boxShadow: "none",
+          },
+          selected
+            ? {
+                borderRadius: 1, // theme.shape.borderRadius * 1
+                border: `2px solid ${theme.palette.primary[400]}`,
+                padding: "0px",
+              }
+            : {
+                border: "2px solid transparent",
+                borderBottom: `1px solid ${theme.palette.divider}`,
+                paddingBottom: "1px",
+              },
+        ]}
       >
-        <Grid
-          container
-          direction="row"
-          justifyContent="flex-end"
-          alignItems="center"
-        >
-          <Grid item xs={8}>
-            {getText(sortedEvents, cameras)}
-          </Grid>
-          <Grid item xs={4}>
-            <CardMedia
-              sx={{
-                borderRadius: "5px",
-                overflow: "hidden",
-              }}
-            >
-              <LazyLoad
-                overflow
-                offset={100}
-                placeholder={<VideoPlayerPlaceholder />}
+        <CardActionArea onClick={handleEventClick}>
+          <Grid
+            container
+            direction="row"
+            justifyContent="flex-end"
+            alignItems="center"
+          >
+            <Grid size={8}>
+              <EventTableItemIcon
+                sortedEvents={sortedEvents}
+                cameras={cameras}
+              />
+            </Grid>
+            <Grid size={4}>
+              <CardMedia
+                sx={{
+                  borderRadius: 1, // theme.shape.borderRadius * 1
+                  overflow: "hidden",
+                }}
               >
-                <Image
-                  src={getSrc(sortedEvents[0])}
-                  color={theme.palette.background.default}
-                  animationDuration={1000}
-                  imageStyle={{
+                <img
+                  src={src}
+                  style={{
+                    aspectRatio: "1/1",
+                    width: "100%",
+                    height: "100%",
                     objectFit: "contain",
+                    background: theme.palette.background.default,
                   }}
                 />
-              </LazyLoad>
-            </CardMedia>
+              </CardMedia>
+            </Grid>
           </Grid>
-        </Grid>
-      </CardActionArea>
-    </Card>
-  );
-};
+        </CardActionArea>
+      </Card>
+    );
+  },
+);

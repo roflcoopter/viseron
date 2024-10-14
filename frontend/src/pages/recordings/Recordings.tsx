@@ -1,5 +1,5 @@
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Grow from "@mui/material/Grow";
 
 import { ScrollToTopOnMount } from "components/ScrollToTop";
@@ -17,7 +17,16 @@ const GridItem = ({
   failed?: boolean;
 }) => (
   <Grow in appear key={camera_identifier}>
-    <Grid item xs={12} sm={12} md={6} lg={6} xl={4} key={camera_identifier}>
+    <Grid
+      key={camera_identifier}
+      size={{
+        xs: 12,
+        sm: 12,
+        md: 6,
+        lg: 6,
+        xl: 4,
+      }}
+    >
       <RecordingCardLatest
         camera_identifier={camera_identifier}
         failed={failed}
@@ -32,7 +41,7 @@ const Recordings = () => {
   const cameras = useCameras({});
   const failedCameras = useCamerasFailed({});
 
-  if (cameras.isLoading || failedCameras.isLoading) {
+  if (cameras.isPending || failedCameras.isPending) {
     return <Loading text="Loading Recordings" />;
   }
 

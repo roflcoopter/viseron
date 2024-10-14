@@ -17,15 +17,12 @@ type ExtendedButtonProps = ButtonProps & {
 
 const StyledButton = styled(Button)<ExtendedButtonProps>(({ theme }) => ({
   width: "50%",
-  color:
-    theme.palette.mode === "dark"
-      ? theme.palette.primary[300]
-      : theme.palette.primary.main,
-  border: `1px solid ${
-    theme.palette.mode === "dark"
-      ? theme.palette.primary[900]
-      : theme.palette.grey[300]
-  }`,
+  color: theme.palette.primary.main,
+  border: `1px solid ${theme.palette.grey[300]}`,
+  ...theme.applyStyles("dark", {
+    color: theme.palette.primary[300],
+    border: `1px solid ${theme.palette.primary[900]}`,
+  }),
 }));
 
 export function CardActionButtonLink({

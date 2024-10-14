@@ -39,6 +39,8 @@ from viseron.components.storage.const import (
     CONFIG_PATH,
     CONFIG_POLL,
     CONFIG_SECONDS,
+    EVENT_FILE_CREATED,
+    EVENT_FILE_DELETED,
 )
 from viseron.components.storage.models import Files, FilesMeta, Recordings
 from viseron.components.storage.queries import (
@@ -46,6 +48,8 @@ from viseron.components.storage.queries import (
     recordings_to_move_query,
 )
 from viseron.components.storage.util import (
+    EventFileCreated,
+    EventFileDeleted,
     calculate_age,
     calculate_bytes,
     files_to_move_overlap,
@@ -252,6 +256,22 @@ class TierHandler(FileSystemEventHandler):
             self._logger.error(
                 "Failed to insert file %s into database, already exists", event.src_path
             )
+        else:
+            self._vis.dispatch_event(
+                EVENT_FILE_CREATED.format(
+                    camera_identifier=self._camera.identifier,
+                    category=self._category,
+                    subcategory=self._subcategory,
+                    file_name="*",
+                ),
+                EventFileCreated(
+                    camera_identifier=self._camera.identifier,
+                    category=self._category,
+                    subcategory=self._subcategory,
+                    file_name=os.path.basename(event.src_path),
+                    path=event.src_path,
+                ),
+            )
 
         self.check_tier()
 
@@ -292,6 +312,22 @@ class TierHandler(FileSystemEventHandler):
             stmt = delete(Files).where(Files.path == event.src_path)
             session.execute(stmt)
             session.commit()
+
+        self._vis.dispatch_event(
+            EVENT_FILE_DELETED.format(
+                camera_identifier=self._camera.identifier,
+                category=self._category,
+                subcategory=self._subcategory,
+                file_name=os.path.basename(event.src_path),
+            ),
+            EventFileDeleted(
+                camera_identifier=self._camera.identifier,
+                category=self._category,
+                subcategory=self._subcategory,
+                file_name=os.path.basename(event.src_path),
+                path=event.src_path,
+            ),
+        )
 
     def _shutdown(self) -> None:
         """Shutdown the observer and event handler."""

@@ -1,9 +1,6 @@
 import { UseQueryOptions, useQuery } from "@tanstack/react-query";
-import { useContext, useEffect } from "react";
 
-import { ViseronContext } from "context/ViseronContext";
-import queryClient, { viseronAPI } from "lib/api/client";
-import { subscribeRecordingStart, subscribeRecordingStop } from "lib/commands";
+import { useInvalidateQueryOnEvent, viseronAPI } from "lib/api/client";
 import * as types from "lib/types";
 
 type RecordingsVariables = {
@@ -12,9 +9,9 @@ type RecordingsVariables = {
   latest?: boolean;
   daily?: boolean;
   failed?: boolean;
-  configOptions?: UseQueryOptions<
-    types.RecordingsCamera,
-    types.APIErrorResponse
+  configOptions?: Omit<
+    UseQueryOptions<types.RecordingsCamera, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
   >;
 };
 async function recordings({
@@ -45,43 +42,16 @@ export const useRecordings = ({
   failed,
   configOptions,
 }: RecordingsVariables) => {
-  const { connection } = useContext(ViseronContext);
-
-  useEffect(() => {
-    const unsub: Array<() => void> = [];
-    if (connection && camera_identifier) {
-      const invalidate = (
-        recordingEvent: types.EventRecorderStart | types.EventRecorderStop,
-      ) => {
-        queryClient.invalidateQueries([
-          "recordings",
-          recordingEvent.data.camera.identifier,
-        ]);
-      };
-
-      const subscribe = async () => {
-        unsub.push(
-          await subscribeRecordingStart(
-            connection,
-            invalidate,
-            camera_identifier,
-          ),
-        );
-        unsub.push(
-          await subscribeRecordingStop(
-            connection,
-            invalidate,
-            camera_identifier,
-          ),
-        );
-      };
-      subscribe();
-    }
-    return () => {
-      unsub.forEach((u) => u());
-      unsub.length = 0; // clear array
-    };
-  }, [camera_identifier, connection]);
+  useInvalidateQueryOnEvent([
+    {
+      event: `${camera_identifier}/recorder/start`,
+      queryKey: ["recordings", camera_identifier],
+    },
+    {
+      event: `${camera_identifier}/recorder/stop`,
+      queryKey: ["recordings", camera_identifier],
+    },
+  ]);
 
   if (camera_identifier === null && configOptions?.enabled) {
     throw new Error(
@@ -89,9 +59,10 @@ export const useRecordings = ({
     );
   }
 
-  return useQuery<types.RecordingsCamera, types.APIErrorResponse>(
-    ["recordings", camera_identifier, date, latest, daily, failed],
-    async () => recordings({ camera_identifier, date, latest, daily, failed }),
-    configOptions,
-  );
+  return useQuery({
+    queryKey: ["recordings", camera_identifier, date, latest, daily, failed],
+    queryFn: async () =>
+      recordings({ camera_identifier, date, latest, daily, failed }),
+    ...configOptions,
+  });
 };

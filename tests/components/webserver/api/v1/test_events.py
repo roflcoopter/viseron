@@ -83,7 +83,10 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
     def test_get_events_utc_offset_negative(self):
         """Test getting events with utc offset."""
         response = self.fetch(
-            "/api/v1/events/test?date=2024-06-22&utc_offset_minutes=-120"
+            "/api/v1/events/test?date=2024-06-22",
+            headers={
+                "X-Client-UTC-Offset": "-120",
+            },
         )
         assert response.code == 200
 
@@ -97,7 +100,10 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
     def test_get_events_utc_offset_positive(self):
         """Test getting events with utc offset."""
         response = self.fetch(
-            "/api/v1/events/test?date=2024-06-22&utc_offset_minutes=120"
+            "/api/v1/events/test?date=2024-06-22",
+            headers={
+                "X-Client-UTC-Offset": "120",
+            },
         )
         assert response.code == 200
 
@@ -112,7 +118,12 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
 
     def test_get_events_amount(self):
         """Test getting events with amount."""
-        response = self.fetch("/api/v1/events/test/amount?utc_offset_minutes=0")
+        response = self.fetch(
+            "/api/v1/events/test/amount",
+            headers={
+                "X-Client-UTC-Offset": "0",
+            },
+        )
 
         assert response.code == 200
 
@@ -122,7 +133,12 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
 
     def test_get_events_amount_utc_offset_negative(self):
         """Test getting events with amount and utc offset."""
-        response = self.fetch("/api/v1/events/test/amount?utc_offset_minutes=-120")
+        response = self.fetch(
+            "/api/v1/events/test/amount",
+            headers={
+                "X-Client-UTC-Offset": "-120",
+            },
+        )
 
         assert response.code == 200
 
@@ -134,7 +150,9 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
 
     def test_get_events_amount_utc_offset_positive(self):
         """Test getting events with amount and utc offset."""
-        response = self.fetch("/api/v1/events/test/amount?utc_offset_minutes=1320")
+        response = self.fetch(
+            "/api/v1/events/test/amount", headers={"X-Client-UTC-Offset": "1320"}
+        )
 
         assert response.code == 200
 

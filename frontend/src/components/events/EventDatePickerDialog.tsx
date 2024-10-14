@@ -48,9 +48,15 @@ function HasEvent(
         outsideCurrentMonth={outsideCurrentMonth}
         day={day}
         disabled={!isSelected}
-        sx={{
-          backgroundColor: isSelected ? "rgba(255, 99, 71, 0.4)" : undefined,
-        }}
+        sx={[
+          isSelected
+            ? {
+                backgroundColor: "rgba(255, 99, 71, 0.4)",
+              }
+            : {
+                backgroundColor: null,
+              },
+        ]}
       />
     </Badge>
   );
@@ -88,7 +94,6 @@ export function EventDatePickerDialog({
   const { selectedCameras } = useCameraStore();
   const eventsAmountQuery = useEventsAmountMultiple({
     camera_identifiers: selectedCameras,
-    utc_offset_minutes: dayjs().utcOffset(),
   });
   const highlightedDays = useMemo(
     () =>

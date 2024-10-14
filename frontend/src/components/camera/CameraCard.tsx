@@ -156,14 +156,17 @@ const SuccessCameraCard = ({
     >
       <Card
         variant="outlined"
-        sx={{
-          // Vertically space items evenly to accommodate different aspect ratios
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          ...(compact ? { position: "relative" } : { height: "100%" }),
-          ...(border ? { border } : null),
-        }}
+        sx={[
+          {
+            // Vertically space items evenly to accommodate different aspect ratios
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            height: "100%",
+          },
+          compact ? { position: "relative" } : null,
+          border ? { border } : null,
+        ]}
       >
         {compact ? (
           <CameraNameOverlay camera_identifier={camera.identifier} />
@@ -225,7 +228,6 @@ const SuccessCameraCard = ({
                   <ImageSearchIcon />
                 </IconButton>
               </Tooltip>
-
               <Tooltip title="Recordings">
                 <IconButton
                   component={Link}
@@ -250,7 +252,6 @@ const SuccessCameraCard = ({
     </div>
   );
 };
-
 export const CameraCard = ({
   camera_identifier,
   buttons = true,
@@ -262,11 +263,9 @@ export const CameraCard = ({
   const cameraQuery = useCamera(camera_identifier, true, {
     enabled: connected,
   });
-
   if (!cameraQuery.data) {
     return null;
   }
-
   if (cameraQuery.data.failed) {
     return (
       <FailedCameraCard

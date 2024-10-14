@@ -33,23 +33,28 @@ interface HeaderProps {
 
 const Header = styled("header", {
   shouldForwardProp: (prop) => prop !== "showHeader",
-})<HeaderProps>(({ theme, showHeader }) => ({
+})<HeaderProps>(({ theme }) => ({
   position: "sticky",
   top: 0,
   zIndex: theme.zIndex.appBar,
   backdropFilter: "blur(20px)",
-  boxShadow: `inset 0px -1px 1px ${
-    theme.palette.mode === "dark"
-      ? theme.palette.primary[900]
-      : theme.palette.grey[300]
-  }`,
-  backgroundColor:
-    theme.palette.mode === "dark"
-      ? alpha(theme.palette.background.default, 0.72)
-      : "rgba(255,255,255,0.72)",
+  boxShadow: `inset 0px -1px 1px ${theme.palette.grey[300]}`,
+  backgroundColor: "rgba(255,255,255,0.72)",
   marginBottom: theme.margin,
-  transform: showHeader ? "translateY(0)" : "translateY(-100%)",
+  transform: "translateY(-100%)",
   transition: "transform 300ms ease-in",
+  ...theme.applyStyles("dark", {
+    boxShadow: `inset 0px -1px 1px ${theme.palette.primary[900]}`,
+    backgroundColor: alpha(theme.palette.background.default, 0.72),
+  }),
+  variants: [
+    {
+      props: ({ showHeader }) => showHeader,
+      style: {
+        transform: "translateY(0)",
+      },
+    },
+  ],
 }));
 
 export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {

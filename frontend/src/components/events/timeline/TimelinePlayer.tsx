@@ -61,8 +61,10 @@ const onLevelLoaded = (
       seekTarget = fragment.start;
     }
     videoRef.current.currentTime = seekTarget;
+    videoRef.current.play();
+  } else {
+    videoRef.current.pause();
   }
-  videoRef.current.play();
 };
 
 const onManifestParsed = (
@@ -120,8 +122,9 @@ const initializePlayer = (
   hlsRef.current = new Hls({
     maxBufferLength: 30, // 30 seconds of forward buffer
     backBufferLength: 15, // 15 seconds of back buffer
-    liveSyncDurationCount: 1,
-    liveDurationInfinity: true,
+    liveSyncDurationCount: 2, // Start from the second last segment
+    maxStarvationDelay: 99999999, // Prevents auto seeking back on starvation
+    liveDurationInfinity: false, // Has to be false to seek backwards
     async xhrSetup(xhr, _url) {
       xhr.withCredentials = true;
       if (auth.enabled) {
@@ -187,7 +190,10 @@ const useInitializePlayer = (
   camera: types.Camera | types.FailedCamera,
 ) => {
   const { auth } = useAuthContext();
-  const { addHlsRef } = useHlsStore();
+  const [addHlsRef, removeHlsRef] = useHlsStore((state) => [
+    state.addHlsRef,
+    state.removeHlsRef,
+  ]);
 
   useEffect(() => {
     if (Hls.isSupported()) {
@@ -206,6 +212,7 @@ const useInitializePlayer = (
     return () => {
       if (hls) {
         hls.destroy();
+        removeHlsRef(hlsRef);
         hlsRef.current = null;
       }
     };
@@ -268,10 +275,9 @@ const useSeekToTimestamp = (
       }
     }
 
-    if (!seeked) {
+    if (!seeked && seekable.length > 0) {
       loadSource(hlsRef, hlsClientIdRef, requestedTimestamp, camera);
     }
-    videoRef.current.play();
   }, [
     camera,
     firstRender,
@@ -326,7 +332,7 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
         height: "100%",
         objectFit: "contain",
       }}
-      controls
+      controls={false}
       playsInline
     />
   );

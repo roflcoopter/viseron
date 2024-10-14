@@ -42,7 +42,7 @@ export const Row = memo(({ virtualItem, item }: RowProps): JSX.Element => {
         transform: `translateY(${virtualItem.start}px)`,
         transition: "transform 0.2s linear",
         zIndex:
-          item.snapshotEvents && hover ? 999 : item.snapshotEvents ? 998 : 1,
+          item.snapshotEvents && hover ? 80 : item.snapshotEvents ? 70 : 1,
       }}
     >
       <Item item={item} />

@@ -7,11 +7,13 @@ import PetsIcon from "@mui/icons-material/Pets";
 import VideoFileIcon from "@mui/icons-material/VideoFile";
 import dayjs, { Dayjs } from "dayjs";
 import Hls, { Fragment } from "hls.js";
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognition";
+import { useCameras } from "lib/api/cameras";
+import { useSubscribeTimespans } from "lib/commands";
 import { BLANK_IMAGE, dateToTimestamp } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -21,6 +23,7 @@ export const EXTRA_TICKS = 10;
 export const COLUMN_HEIGHT = "99dvh";
 export const COLUMN_HEIGHT_SMALL = "98.5dvh";
 export const EVENT_ICON_HEIGHT = 30;
+export const LIVE_EDGE_DELAY = 10;
 
 export const playerCardSmMaxHeight = () => window.innerHeight * 0.4;
 
@@ -154,6 +157,32 @@ export const useHlsStore = create<HlsStore>((set) => ({
     set((state) => ({
       hlsRefs: state.hlsRefs.filter((ref) => ref !== hlsRef),
     })),
+}));
+
+interface ReferencePlayerStore {
+  referencePlayer: Hls | null;
+  setReferencePlayer: (player: Hls | null) => void;
+  isPlaying: boolean;
+  setIsPlaying: (playing: boolean) => void;
+  isLive: boolean;
+  setIsLive: (live: boolean) => void;
+  isMuted: boolean;
+  setIsMuted: (muted: boolean) => void;
+  playbackSpeed: number;
+  setPlaybackSpeed: (speed: number) => void;
+}
+
+export const useReferencePlayerStore = create<ReferencePlayerStore>((set) => ({
+  referencePlayer: null,
+  setReferencePlayer: (referencePlayer) => set({ referencePlayer }),
+  isPlaying: true,
+  setIsPlaying: (isPlaying) => set({ isPlaying }),
+  isLive: true,
+  setIsLive: (isLive) => set({ isLive }),
+  isMuted: true,
+  setIsMuted: (isMuted) => set({ isMuted }),
+  playbackSpeed: 1,
+  setPlaybackSpeed: (playbackSpeed) => set({ playbackSpeed }),
 }));
 
 export const DEFAULT_ITEM: TimelineItem = {
@@ -437,22 +466,58 @@ export const convertToPercentage = (confidence: number) =>
 // Get HLS fragment by timestamp
 export const findFragmentByTimestamp = (
   fragments: Fragment[],
-  timestamp: number,
+  timestampMillis: number,
 ): Fragment | null => {
   for (const fragment of fragments) {
     if (fragment.programDateTime) {
       const fragmentStart = fragment.programDateTime;
       const fragmentEnd = fragment.programDateTime + fragment.duration * 1000;
-      if (
-        (timestamp >= fragmentStart && timestamp <= fragmentEnd) ||
-        timestamp < fragmentStart
-      ) {
+      if (timestampMillis >= fragmentStart && timestampMillis <= fragmentEnd) {
         return fragment;
       }
     }
   }
 
   return null; // Return null if no matching fragment is found
+};
+
+// Find the closest fragment that is newer than the timestamp
+export const findClosestFragment = (
+  fragments: Fragment[],
+  timestampMillis: number,
+): Fragment | null => {
+  let closestFragment = null;
+  let closestFragmentTime = Infinity;
+
+  for (const fragment of fragments) {
+    if (fragment.programDateTime) {
+      const fragmentStart = fragment.programDateTime;
+      if (
+        fragmentStart >= timestampMillis &&
+        fragmentStart < closestFragmentTime
+      ) {
+        closestFragment = fragment;
+        closestFragmentTime = fragmentStart;
+      }
+    }
+  }
+
+  return closestFragment;
+};
+
+// Calculate the seek target for the requested timestamp
+export const getSeekTarget = (
+  fragment: Fragment,
+  timestampMillis: number,
+): number => {
+  let seekTarget = fragment.start;
+  if (timestampMillis > fragment.programDateTime!) {
+    seekTarget =
+      fragment.start + (timestampMillis - fragment.programDateTime!) / 1000;
+  } else {
+    seekTarget = fragment.start;
+  }
+  return seekTarget;
 };
 
 // Calculate the height of the camera while maintaining aspect ratio
@@ -612,3 +677,33 @@ export const getIcon = (event: types.CameraEvent) => {
 
 export const getIconFromType = (type: types.CameraEvent["type"]) =>
   iconMap[type];
+
+export const useTimespans = (date: Dayjs | null) => {
+  const { selectedCameras } = useCameraStore();
+  const camerasQuery = useCameras({});
+  const [availableTimespans, setAvailableTimespans] = useState<
+    types.HlsAvailableTimespan[]
+  >([]);
+
+  const timespanCallback = useCallback(
+    (message: types.HlsAvailableTimespans) => {
+      setAvailableTimespans(message.timespans);
+    },
+    [],
+  );
+
+  const enabled =
+    camerasQuery.data &&
+    camerasQuery.data.cameras &&
+    selectedCameras.some((camera) => camera in camerasQuery.data.cameras);
+
+  useSubscribeTimespans(
+    selectedCameras,
+    date ? date.format("YYYY-MM-DD") : null,
+    timespanCallback,
+    enabled,
+    5,
+  );
+
+  return availableTimespans;
+};

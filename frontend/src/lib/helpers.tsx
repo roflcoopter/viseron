@@ -109,6 +109,8 @@ export function getTimeFromDate(date: Date, seconds = true) {
 export const dateToTimestamp = (date: Date) =>
   Math.floor(date.getTime() / 1000);
 
+export const dateToTimestampMillis = (date: Date) => Math.floor(date.getTime());
+
 export const timestampToDate = (timestamp: number) =>
   new Date(timestamp * 1000);
 
@@ -148,4 +150,8 @@ export function throttle(func: () => void, timeFrame: number) {
       lastTime = now;
     }
   };
+}
+
+export function isTouchDevice() {
+  return "ontouchstart" in window || navigator.maxTouchPoints > 0;
 }

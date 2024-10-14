@@ -1,5 +1,5 @@
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Grow from "@mui/material/Grow";
 import Typography from "@mui/material/Typography";
 import { useParams } from "react-router-dom";
@@ -47,7 +47,7 @@ const CameraRecordingsDaily = () => {
     );
   }
 
-  if (recordingsQuery.isLoading || cameraQuery.isLoading) {
+  if (recordingsQuery.isPending || cameraQuery.isPending) {
     return <Loading text="Loading Recordings" />;
   }
 
@@ -76,7 +76,16 @@ const CameraRecordingsDaily = () => {
           .reverse()
           .map((recording) => (
             <Grow in appear key={recording}>
-              <Grid item key={recording} xs={12} sm={12} md={6} lg={6} xl={4}>
+              <Grid
+                key={recording}
+                size={{
+                  xs: 12,
+                  sm: 12,
+                  md: 6,
+                  lg: 6,
+                  xl: 4,
+                }}
+              >
                 <RecordingCard
                   camera={cameraQuery.data}
                   recording={recordingsQuery.data[date][recording]}

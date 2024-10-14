@@ -1,5 +1,8 @@
 """Used to filter out unwanted objects."""
+from __future__ import annotations
+
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
 from viseron.domains.object_detector.const import (
     CONFIG_LABEL_CONFIDENCE,
@@ -13,8 +16,10 @@ from viseron.domains.object_detector.const import (
     CONFIG_LABEL_WIDTH_MAX,
     CONFIG_LABEL_WIDTH_MIN,
 )
-from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.helpers import object_in_polygon, utcnow
+
+if TYPE_CHECKING:
+    from viseron.domains.object_detector.detected_object import DetectedObject
 
 
 class Filter:

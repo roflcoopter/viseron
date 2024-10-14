@@ -8,9 +8,7 @@ from threading import Timer
 from typing import Any
 
 import voluptuous as vol
-from sqlalchemy import insert
 
-from viseron.components.storage.models import PostProcessorResults
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.domains.post_processor import (
@@ -138,20 +136,6 @@ class AbstractFaceRecognition(AbstractPostProcessor):
                     post_processor_frame.shared_frame, detected_object
                 )
 
-    def _insert_face_recognition_result(
-        self, snapshot_path: str | None, face_dict: FaceDict
-    ) -> None:
-        """Insert face recognition result into database."""
-        with self._storage.get_session() as session:
-            stmt = insert(PostProcessorResults).values(
-                camera_identifier=self._camera.identifier,
-                domain=DOMAIN,
-                snapshot_path=snapshot_path,
-                data=face_dict.as_dict(),
-            )
-            session.execute(stmt)
-            session.commit()
-
     def _save_face(
         self,
         face_dict: FaceDict,
@@ -169,7 +153,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
                 ),
                 subfolder=face_dict.name,
             )
-        self._insert_face_recognition_result(snapshot_path, face_dict)
+        self._insert_result(DOMAIN, snapshot_path, face_dict.as_dict())
 
     def known_face_found(
         self,

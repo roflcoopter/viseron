@@ -2,7 +2,7 @@ import TabContext from "@mui/lab/TabContext";
 import TabList from "@mui/lab/TabList";
 import TabPanel from "@mui/lab/TabPanel";
 import Box from "@mui/material/Box";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Paper from "@mui/material/Paper";
 import Tab from "@mui/material/Tab";
 import Typography from "@mui/material/Typography";
@@ -268,21 +268,27 @@ export const Layout = memo(
         >
           <Grid
             ref={playerCardGridItemRef}
-            item
-            xs={12}
-            sm={8}
-            md={8}
-            lg={9}
-            xl={10}
             display="flex"
-            sx={{
-              width: "100%",
-              height: smBreakpoint
-                ? `calc(${COLUMN_HEIGHT} - ${theme.headerHeight}px)`
-                : "100%",
-              maxHeight: smBreakpoint
-                ? "unset"
-                : `${playerCardSmMaxHeight()}px`,
+            sx={[
+              {
+                width: "100%",
+              },
+              smBreakpoint
+                ? {
+                    height: `calc(${COLUMN_HEIGHT} - ${theme.headerHeight}px)`,
+                    maxHeight: "unset",
+                  }
+                : {
+                    height: "100%",
+                    maxHeight: `${playerCardSmMaxHeight()}px`,
+                  },
+            ]}
+            size={{
+              xs: 12,
+              sm: 8,
+              md: 8,
+              lg: 9,
+              xl: 10,
             }}
           >
             <PlayerCard
@@ -292,7 +298,15 @@ export const Layout = memo(
               selectedTab={selectedTab}
             />
           </Grid>
-          <Grid item xs={12} sm={4} md={4} lg={3} xl={2}>
+          <Grid
+            size={{
+              xs: 12,
+              sm: 4,
+              md: 4,
+              lg: 3,
+              xl: 2,
+            }}
+          >
             <Paper variant="outlined">
               <Tabs
                 cameras={cameras}

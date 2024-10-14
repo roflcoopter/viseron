@@ -1,4 +1,4 @@
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Grow from "@mui/material/Grow";
 import { useTheme } from "@mui/material/styles";
 
@@ -30,13 +30,14 @@ export function EventsCameraGrid({ cameras }: EventsCameraGridProps) {
             .map((camera_identifier) => (
               <Grow in appear key={camera_identifier}>
                 <Grid
-                  item
-                  xs={12}
-                  sm={12}
-                  md={6}
-                  lg={6}
-                  xl={4}
                   key={camera_identifier}
+                  size={{
+                    xs: 12,
+                    sm: 12,
+                    md: 6,
+                    lg: 6,
+                    xl: 4,
+                  }}
                 >
                   <CameraCard
                     camera_identifier={camera_identifier}

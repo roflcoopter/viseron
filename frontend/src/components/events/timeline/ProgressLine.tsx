@@ -6,12 +6,12 @@ import { memo, useEffect, useRef } from "react";
 import {
   TICK_HEIGHT,
   getYPosition,
-  useHlsStore,
+  useReferencePlayerStore,
 } from "components/events/utils";
 import { dateToTimestamp, getTimeFromDate } from "lib/helpers";
 
 const useTimeUpdate = (
-  hlsRef: React.MutableRefObject<Hls | null> | undefined,
+  hls: Hls | null,
   containerRef: React.MutableRefObject<HTMLDivElement | null>,
   startRef: React.MutableRefObject<number>,
   endRef: React.MutableRefObject<number>,
@@ -19,21 +19,19 @@ const useTimeUpdate = (
   timeRef: React.MutableRefObject<HTMLDivElement | null>,
 ) => {
   useEffect(() => {
-    if (!hlsRef || !hlsRef.current) {
+    if (!hls) {
       return () => {};
     }
-    const hls = hlsRef.current;
-
     const onTimeUpdate = () => {
-      if (!hlsRef || !hlsRef.current) {
+      if (!hls) {
         return;
       }
-      const currentTime = hlsRef.current.media?.currentTime;
+      const currentTime = hls.media?.currentTime;
       if (!currentTime) {
         return;
       }
-      if (hlsRef.current.playingDate && containerRef.current) {
-        const playingTimestamp = dateToTimestamp(hlsRef.current.playingDate);
+      if (hls.playingDate && containerRef.current) {
+        const playingTimestamp = dateToTimestamp(hls.playingDate);
         const bounds = containerRef.current.getBoundingClientRect();
         const top = `${Math.floor(
           getYPosition(
@@ -44,9 +42,7 @@ const useTimeUpdate = (
           ) +
             TICK_HEIGHT / 2,
         )}px`;
-        const innerHTML = DOMPurify.sanitize(
-          getTimeFromDate(hlsRef.current.playingDate),
-        );
+        const innerHTML = DOMPurify.sanitize(getTimeFromDate(hls.playingDate));
         if (timeRef.current && innerHTML !== timeRef.current.innerHTML) {
           timeRef.current.innerHTML = innerHTML;
         }
@@ -61,11 +57,11 @@ const useTimeUpdate = (
     };
 
     const interval = setInterval(() => {
-      if (hlsRef && hlsRef.current) {
-        hlsRef.current.media?.addEventListener("timeupdate", onTimeUpdate);
+      if (hls) {
+        hls.media?.addEventListener("timeupdate", onTimeUpdate);
         clearInterval(interval);
       }
-    }, 1000);
+    }, 100);
 
     return () => {
       if (hls) {
@@ -75,7 +71,7 @@ const useTimeUpdate = (
         clearInterval(interval);
       }
     };
-  }, [containerRef, endRef, hlsRef, ref, startRef, timeRef]);
+  }, [containerRef, endRef, hls, ref, startRef, timeRef]);
 };
 
 const useWidthObserver = (
@@ -107,10 +103,9 @@ export const ProgressLine = memo(
   ({ containerRef, startRef, endRef }: ProgressLineProps) => {
     const ref = useRef<HTMLInputElement | null>(null);
     const timeRef = useRef<HTMLInputElement | null>(null);
-    const { hlsRefs } = useHlsStore();
-    const hlsRef = hlsRefs[0];
+    const hls = useReferencePlayerStore((state) => state.referencePlayer);
 
-    useTimeUpdate(hlsRef, containerRef, startRef, endRef, ref, timeRef);
+    useTimeUpdate(hls, containerRef, startRef, endRef, ref, timeRef);
     useWidthObserver(containerRef, ref);
 
     return (
@@ -124,7 +119,7 @@ export const ProgressLine = memo(
             containerRef.current ? containerRef.current.offsetWidth : 0
           }px`,
           height: "1px",
-          backgroundColor: theme.palette.text.secondary,
+          backgroundColor: theme.palette.primary[900],
           zIndex: 90,
           transition: "top 0.2s linear",
         })}

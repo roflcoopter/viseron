@@ -46,7 +46,6 @@ class EventsAPIHandler(BaseAPIHandler):
                         vol.Required("time_to"): vol.Coerce(int),
                     },
                     {
-                        vol.Required("utc_offset_minutes"): vol.Coerce(int),
                         vol.Required("date"): str,
                     },
                 )
@@ -56,11 +55,6 @@ class EventsAPIHandler(BaseAPIHandler):
             "path_pattern": (r"/events/(?P<camera_identifier>[A-Za-z0-9_]+)/amount"),
             "supported_methods": ["GET"],
             "method": "get_events_amount",
-            "request_arguments_schema": vol.Schema(
-                {
-                    vol.Required("utc_offset_minutes"): vol.Coerce(int),
-                }
-            ),
         },
         {
             "path_pattern": r"/events/amount",
@@ -69,7 +63,6 @@ class EventsAPIHandler(BaseAPIHandler):
             "json_body_schema": vol.Schema(
                 {
                     vol.Required("camera_identifiers"): [str],
-                    vol.Required("utc_offset_minutes"): vol.Coerce(int),
                 }
             ),
         },
@@ -262,9 +255,10 @@ class EventsAPIHandler(BaseAPIHandler):
 
         # Get start of day in utc
         if "date" in self.request_arguments:
-            _time_from = datetime.datetime.strptime(
-                self.request_arguments["date"], "%Y-%m-%d"
-            ) - datetime.timedelta(minutes=self.request_arguments["utc_offset_minutes"])
+            _time_from = (
+                datetime.datetime.strptime(self.request_arguments["date"], "%Y-%m-%d")
+                - self.utc_offset
+            )
             _time_to = _time_from + datetime.timedelta(
                 hours=23, minutes=59, seconds=59, milliseconds=999999
             )
@@ -315,7 +309,6 @@ class EventsAPIHandler(BaseAPIHandler):
         self,
         get_session: Callable[[], Session],
         camera_identifiers: list[str],
-        utc_offset_minutes: int,
     ) -> dict[str, dict[str, Any]]:
         with get_session() as session:
             stmt = select(Motion.start_time).where(
@@ -340,38 +333,22 @@ class EventsAPIHandler(BaseAPIHandler):
 
         events_amount: dict[str, dict[str, Any]] = {}
         for event in motion_events:
-            event_day = (
-                (event + datetime.timedelta(minutes=utc_offset_minutes))
-                .date()
-                .isoformat()
-            )
+            event_day = (event + self.utc_offset).date().isoformat()
             events_amount.setdefault(event_day, {}).setdefault("motion", 0)
             events_amount[event_day]["motion"] += 1
 
         for event in recording_events:
-            event_day = (
-                (event + datetime.timedelta(minutes=utc_offset_minutes))
-                .date()
-                .isoformat()
-            )
+            event_day = (event + self.utc_offset).date().isoformat()
             events_amount.setdefault(event_day, {}).setdefault("recording", 0)
             events_amount[event_day]["recording"] += 1
 
         for event in object_events:
-            event_day = (
-                (event + datetime.timedelta(minutes=utc_offset_minutes))
-                .date()
-                .isoformat()
-            )
+            event_day = (event + self.utc_offset).date().isoformat()
             events_amount.setdefault(event_day, {}).setdefault("object", 0)
             events_amount[event_day]["object"] += 1
 
         for event_pp in post_processor_events:
-            event_day = (
-                (event_pp.created_at + datetime.timedelta(minutes=utc_offset_minutes))
-                .date()
-                .isoformat()
-            )
+            event_day = (event_pp.created_at + self.utc_offset).date().isoformat()
             events_amount.setdefault(event_day, {}).setdefault(event_pp.domain, 0)
             events_amount[event_day][event_pp.domain] += 1
 
@@ -383,7 +360,7 @@ class EventsAPIHandler(BaseAPIHandler):
     ) -> None:
         """Get amount of events per day.
 
-        The time is adjusted to the client's timezone using utc_offset_minutes.
+        The time is adjusted to the client's timezone.
         """
         camera = self._get_camera(camera_identifier, failed=True)
 
@@ -398,19 +375,17 @@ class EventsAPIHandler(BaseAPIHandler):
             self._events_amount,
             self._get_session,
             [camera.identifier],
-            self.request_arguments["utc_offset_minutes"],
         )
         self.response_success(response={"events_amount": events_amount})
 
     async def post_events_amount_multiple(self):
         """Get amount of events per day for multiple cameras.
 
-        The time is adjusted to the client's timezone using utc_offset_minutes.
+        The time is adjusted to the client's timezone.
         """
         events_amount = await self.run_in_executor(
             self._events_amount,
             self._get_session,
             self.json_body["camera_identifiers"],
-            self.json_body["utc_offset_minutes"],
         )
         self.response_success(response={"events_amount": events_amount})

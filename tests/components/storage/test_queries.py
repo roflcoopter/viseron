@@ -341,7 +341,7 @@ class TestMoveQueries(BaseTestWithRecordings):
             session.commit()
 
         files = get_time_period_fragments(
-            "test",
+            ["test"],
             0,
             None,
             self._get_db_session,

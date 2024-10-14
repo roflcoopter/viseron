@@ -96,7 +96,7 @@ export const HoverLine = memo(
           position: "absolute",
           width: "350px",
           height: "1px",
-          backgroundColor: theme.palette.divider,
+          backgroundColor: theme.palette.primary.main,
           zIndex: 100,
         })}
       >
