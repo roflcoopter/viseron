@@ -106,6 +106,24 @@ type EventsMultipleVariables =
   | EventsMultipleVariablesWithTime
   | EventsMultipleVariablesWithDate;
 
+const combineEvents = (
+  results: UseQueryResult<types.CameraEvents, types.APIErrorResponse>[],
+) => {
+  const data = results.flatMap((result) =>
+    result.data ? result.data.events : [],
+  );
+  // Sort latest events first
+  data.sort((a, b) => b.created_at_timestamp - a.created_at_timestamp);
+
+  return {
+    data,
+    isError: results.some((query) => query.isError),
+    error: results.find((query) => query.error)?.error,
+    isPending: results.some((query) => query.isPending),
+    isLoading: results.some((query) => query.isLoading),
+  };
+};
+
 export function useEventsMultiple(variables: EventsMultipleVariables) {
   const queryKeys = variables.camera_identifiers.map((camera_identifier) =>
     "time_from" in variables && "time_to" in variables
@@ -125,21 +143,7 @@ export function useEventsMultiple(variables: EventsMultipleVariables) {
       },
       ...variables.configOptions,
     })),
-    combine: (results) => {
-      const data = results.flatMap((result) =>
-        result.data ? result.data.events : [],
-      );
-      // Sort latest events first
-      data.sort((a, b) => b.created_at_timestamp - a.created_at_timestamp);
-
-      return {
-        data,
-        isError: results.some((query) => query.isError),
-        error: results.find((query) => query.error)?.error,
-        isPending: results.some((query) => query.isPending),
-        isLoading: results.some((query) => query.isLoading),
-      };
-    },
+    combine: combineEvents,
   });
 
   const eventQueryPairs = useMemo(() => {
