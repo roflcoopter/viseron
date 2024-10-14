@@ -260,6 +260,7 @@ jobs:
         uses: ./.github/templates/run_in_venv
         with:
           command: |
+            mypy --install-types --non-interactive viseron
             pre-commit run --hook-stage manual mypy --all-files --show-diff-on-failure
 
   run-pylint:
