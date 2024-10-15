@@ -1,0 +1,46 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting";
+
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+The ptz component can be used to control PTZ (Pan-Tilt-Zoom) cameras.
+It supports the ONVIF protocol, which is widely supported by most modern cameras.
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+ptz:
+  cameras:
+     camera_1:
+       onvif_port: 80 # The port the camera listens to for ONVIF connections
+       onvif_username: <username> # username associated with ONVIF
+       onvif_password: <password> # password associated with ONVIF
+       camera_min_x: -0.73 # used in "patrol" mode to limit swings to useful fov
+       camera_max_x: 0.04 # used in "patrol" mode to limit swings to useful fov
+       presets: # allows switching between pre-defined (absolute) positions
+         - name: front # name them
+           x: 0.0
+           y: 0.0
+           on_startup: true # have the camera move to this preset when Viseron starts
+         - name: left
+           x: -0.5
+           y: 0.0
+         - name: right
+           x: 0.5
+           y: 0.0
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Troubleshooting
+
+<ComponentTroubleshooting meta={ComponentMetadata} />

@@ -1,0 +1,94 @@
+[
+  {
+    "type": "map",
+    "value": [
+      {
+        "type": "string",
+        "name": "telegram_bot_token",
+        "description": "Telegram bot token.",
+        "required": true,
+        "default": null
+      },
+      {
+        "type": "list",
+        "values": [
+          {
+            "type": "integer"
+          }
+        ],
+        "name": "telegram_chat_ids",
+        "description": "List of chat IDs to send messages to.",
+        "required": true,
+        "default": null
+      },
+      {
+        "type": "list",
+        "values": [
+          {
+            "type": "integer"
+          }
+        ],
+        "name": "telegram_user_ids",
+        "description": "List of user IDs to accept commands from.",
+        "required": true,
+        "default": null
+      },
+      {
+        "type": "map",
+        "value": [
+          {
+            "name": {
+              "type": "CAMERA_IDENTIFIER"
+            },
+            "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+            "cameraidentifier": true,
+            "default": null
+          }
+        ],
+        "name": "cameras",
+        "description": "Cameras to control with the Telegram bot and get notifications from.",
+        "required": true,
+        "default": null
+      },
+      {
+        "type": "string",
+        "name": "detection_label",
+        "description": "Label of the object to send notifications for.",
+        "optional": true,
+        "default": "person"
+      },
+      {
+        "type": "boolean",
+        "name": "send_detection_thumbnail",
+        "description": "Send a thumbnail of the detected object.",
+        "optional": true,
+        "default": false
+      },
+      {
+        "type": "boolean",
+        "name": "send_detection_video",
+        "description": "Send a video of the detected object.",
+        "optional": true,
+        "default": false
+      },
+      {
+        "type": "boolean",
+        "name": "send_detection_message",
+        "description": "Send a text message with the detected object.",
+        "optional": true,
+        "default": true
+      },
+      {
+        "type": "boolean",
+        "name": "telegram_log_ids",
+        "description": "True if we should log the id of a user who was denied access.",
+        "optional": true,
+        "default": false
+      }
+    ],
+    "name": "telegram",
+    "description": "Telegram bot to control pan-tilt-zoom cameras.",
+    "required": true,
+    "default": null
+  }
+]

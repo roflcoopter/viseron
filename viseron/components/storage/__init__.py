@@ -1,4 +1,5 @@
 """Storage component."""
+
 from __future__ import annotations
 
 import copy
@@ -298,10 +299,12 @@ class Storage:
     def get_snapshots_path(
         self,
         camera: AbstractCamera,
-        domain: Literal["object_detector"]
-        | Literal["face_recognition"]
-        | Literal["license_plate_recognition"]
-        | Literal["motion_detector"],
+        domain: (
+            Literal["object_detector"]
+            | Literal["face_recognition"]
+            | Literal["license_plate_recognition"]
+            | Literal["motion_detector"]
+        ),
     ) -> str:
         """Get snapshots path for camera."""
         self.create_tier_handlers(camera)
