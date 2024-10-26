@@ -1,9 +1,11 @@
+import Fade from "@mui/material/Fade";
 import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import Hls, { LevelLoadedData } from "hls.js";
 import React, { useEffect, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { useShallow } from "zustand/react/shallow";
 
 import {
   SCALE,
@@ -61,7 +63,9 @@ const onLevelLoaded = (
       seekTarget = fragment.start;
     }
     videoRef.current.currentTime = seekTarget;
-    videoRef.current.play();
+    videoRef.current.play().catch(() => {
+      // Ignore play errors
+    });
   } else {
     videoRef.current.pause();
   }
@@ -111,6 +115,10 @@ const initializePlayer = (
   auth: types.AuthEnabledResponse,
   camera: types.Camera | types.FailedCamera,
   requestedTimestampRef: React.MutableRefObject<number>,
+  setHlsRefsError: (
+    hlsRef: React.MutableRefObject<Hls | null>,
+    error: string | null,
+  ) => void,
 ) => {
   // Destroy the previous hls instance if it exists
   if (hlsRef.current) {
@@ -122,7 +130,7 @@ const initializePlayer = (
   hlsRef.current = new Hls({
     maxBufferLength: 30, // 30 seconds of forward buffer
     backBufferLength: 15, // 15 seconds of back buffer
-    liveSyncDurationCount: 2, // Start from the second last segment
+    liveSyncDurationCount: 1, // Start from the second last segment
     maxStarvationDelay: 99999999, // Prevents auto seeking back on starvation
     liveDurationInfinity: false, // Has to be false to seek backwards
     async xhrSetup(xhr, _url) {
@@ -157,6 +165,8 @@ const initializePlayer = (
 
   // Handle errors
   hlsRef.current.on(Hls.Events.ERROR, (_event, data) => {
+    hlsRef.current!.media!.pause();
+    setHlsRefsError(hlsRef, data.error.message);
     if (data.fatal) {
       switch (data.type) {
         case Hls.ErrorTypes.NETWORK_ERROR:
@@ -174,6 +184,7 @@ const initializePlayer = (
             auth,
             camera,
             requestedTimestampRef,
+            setHlsRefsError,
           );
           break;
       }
@@ -190,10 +201,13 @@ const useInitializePlayer = (
   camera: types.Camera | types.FailedCamera,
 ) => {
   const { auth } = useAuthContext();
-  const [addHlsRef, removeHlsRef] = useHlsStore((state) => [
-    state.addHlsRef,
-    state.removeHlsRef,
-  ]);
+  const { addHlsRef, removeHlsRef, setHlsRefsError } = useHlsStore(
+    useShallow((state) => ({
+      addHlsRef: state.addHlsRef,
+      removeHlsRef: state.removeHlsRef,
+      setHlsRefsError: state.setHlsRefsError,
+    })),
+  );
 
   useEffect(() => {
     if (Hls.isSupported()) {
@@ -206,6 +220,7 @@ const useInitializePlayer = (
         auth,
         camera,
         requestedTimestampRef,
+        setHlsRefsError,
       );
     }
     const hls = hlsRef.current;
@@ -305,6 +320,13 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
   const initialProgramDateTime = useRef<number | null>(null);
   const requestedTimestampRef = useRef<number>(requestedTimestamp);
   requestedTimestampRef.current = requestedTimestamp;
+
+  const { hlsRefError } = useHlsStore(
+    useShallow((state) => ({
+      hlsRefError: state.hlsRefsError.get(hlsRef),
+    })),
+  );
+
   useInitializePlayer(
     hlsRef,
     hlsClientIdRef,
@@ -323,17 +345,47 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
   );
 
   return (
-    <video
-      ref={videoRef}
-      poster={BLANK_IMAGE}
+    <div
       style={{
+        position: "relative",
         width: "100%",
-        backgroundColor: theme.palette.background.default,
         height: "100%",
-        objectFit: "contain",
+        display: "flex",
       }}
-      controls={false}
-      playsInline
-    />
+    >
+      <video
+        ref={videoRef}
+        poster={BLANK_IMAGE}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          backgroundColor: theme.palette.background.default,
+        }}
+        controls={false}
+        playsInline
+      />
+      <Fade in={!!(hlsRef.current && hlsRefError)}>
+        <div
+          style={{
+            position: "absolute",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            width: "100%",
+            height: "100%",
+            backgroundColor:
+              "rgba(0,0,0,0.65)" /* Black background with opacity */,
+            zIndex: 2,
+            pointerEvents: "none",
+            userSelect: "none",
+            padding: "10px",
+          }}
+        >
+          {hlsRefError}
+        </div>
+      </Fade>
+    </div>
   );
 };

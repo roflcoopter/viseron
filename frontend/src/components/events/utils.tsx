@@ -141,6 +141,11 @@ interface HlsStore {
   hlsRefs: React.MutableRefObject<Hls | null>[];
   addHlsRef: (hlsRef: React.MutableRefObject<Hls | null>) => void;
   removeHlsRef: (hlsRef: React.MutableRefObject<Hls | null>) => void;
+  hlsRefsError: Map<React.MutableRefObject<Hls | null>, string | null>;
+  setHlsRefsError: (
+    hlsRef: React.MutableRefObject<Hls | null>,
+    error: string | null,
+  ) => void;
 }
 
 export const useHlsStore = create<HlsStore>((set) => ({
@@ -148,15 +153,30 @@ export const useHlsStore = create<HlsStore>((set) => ({
   // add a new Hls ref to the store only if it does not exist
   addHlsRef: (hlsRef: React.MutableRefObject<Hls | null>) =>
     set((state) => {
-      if (!state.hlsRefs.includes(hlsRef)) {
-        return { hlsRefs: [...state.hlsRefs, hlsRef] };
+      if (state.hlsRefs.includes(hlsRef)) {
+        return state;
       }
-      return state;
+      return {
+        ...state,
+        hlsRefs: [...state.hlsRefs, hlsRef],
+      };
     }),
   removeHlsRef: (hlsRef: React.MutableRefObject<Hls | null>) =>
     set((state) => ({
+      ...state,
       hlsRefs: state.hlsRefs.filter((ref) => ref !== hlsRef),
     })),
+  hlsRefsError: new Map(),
+  setHlsRefsError: (hlsRef, error) =>
+    set((state) => {
+      if (state.hlsRefsError.get(hlsRef) === error) {
+        return state;
+      }
+      return {
+        ...state,
+        hlsRefsError: new Map(state.hlsRefsError.set(hlsRef, error)),
+      };
+    }),
 }));
 
 interface ReferencePlayerStore {
@@ -170,6 +190,7 @@ interface ReferencePlayerStore {
   setIsMuted: (muted: boolean) => void;
   playbackSpeed: number;
   setPlaybackSpeed: (speed: number) => void;
+  playingDateRef: React.MutableRefObject<Date | null>;
 }
 
 export const useReferencePlayerStore = create<ReferencePlayerStore>((set) => ({
@@ -183,6 +204,7 @@ export const useReferencePlayerStore = create<ReferencePlayerStore>((set) => ({
   setIsMuted: (isMuted) => set({ isMuted }),
   playbackSpeed: 1,
   setPlaybackSpeed: (playbackSpeed) => set({ playbackSpeed }),
+  playingDateRef: { current: null },
 }));
 
 export const DEFAULT_ITEM: TimelineItem = {
@@ -707,3 +729,16 @@ export const useTimespans = (date: Dayjs | null) => {
 
   return availableTimespans;
 };
+
+// Error codes for HLS errors
+export enum HlsErrorCodes {
+  TIMESPAN_MISSING = "TIMESPAN_MISSING",
+}
+// Mapping of error codes to human-readable messages
+const hlsErrorMessages: Record<HlsErrorCodes, string> = {
+  [HlsErrorCodes.TIMESPAN_MISSING]:
+    "Video segment is missing for the selected period.",
+};
+// Function to translate error code to human-readable message
+export const translateErrorCode = (code: HlsErrorCodes): string =>
+  hlsErrorMessages[code] || "An unknown error occurred.";
