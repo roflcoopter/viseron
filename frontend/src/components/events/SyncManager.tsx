@@ -1,39 +1,55 @@
 import Hls from "hls.js";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import {
+  HlsErrorCodes,
   LIVE_EDGE_DELAY,
   findClosestFragment,
   findFragmentByTimestamp,
   getSeekTarget,
+  translateErrorCode,
   useHlsStore,
   useReferencePlayerStore,
 } from "components/events/utils";
+import useControlledInterval from "hooks/UseControlledInterval";
 import { dateToTimestampMillis } from "lib/helpers";
 
-const SYNC_INTERVAL = 500; // Sync every 500ms
+const SYNC_INTERVAL = 100; // Sync interval in milliseconds
 const MAX_DRIFT = 0.5; // Maximum allowed drift in seconds
 
 interface SyncManagerProps {
+  requestedTimestamp: number | null;
   children: React.ReactNode;
 }
 
-const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
-  const { hlsRefs } = useHlsStore();
-  const { setReferencePlayer, isPlaying, setIsPlaying, setIsLive, isMuted } =
-    useReferencePlayerStore(
-      useShallow((state) => ({
-        setReferencePlayer: state.setReferencePlayer,
-        isPlaying: state.isPlaying,
-        setIsPlaying: state.setIsPlaying,
-        setIsLive: state.setIsLive,
-        isMuted: state.isMuted,
-      })),
-    );
-  const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastReferencePlayerDateRef = useRef<Date | null>(null);
-
+const SyncManager: React.FC<SyncManagerProps> = ({
+  requestedTimestamp,
+  children,
+}) => {
+  const { hlsRefs, setHlsRefsError } = useHlsStore(
+    useShallow((state) => ({
+      hlsRefs: state.hlsRefs,
+      setHlsRefsError: state.setHlsRefsError,
+    })),
+  );
+  const {
+    setReferencePlayer,
+    isPlaying,
+    setIsPlaying,
+    setIsLive,
+    isMuted,
+    playingDateRef,
+  } = useReferencePlayerStore(
+    useShallow((state) => ({
+      setReferencePlayer: state.setReferencePlayer,
+      isPlaying: state.isPlaying,
+      setIsPlaying: state.setIsPlaying,
+      setIsLive: state.setIsLive,
+      isMuted: state.isMuted,
+      playingDateRef: state.playingDateRef,
+    })),
+  );
   const seekSafely = useCallback((player: Hls, referenceDate: Date) => {
     if (!player.levels || player.levels.length === 0) {
       return false;
@@ -74,7 +90,7 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
     return false;
   }, []);
 
-  const syncPlayers = useCallback(() => {
+  const syncPlayers = useCallback(async () => {
     const playersWithTime = hlsRefs.filter(
       (player): player is React.MutableRefObject<Hls> =>
         player.current !== null && player.current.playingDate !== null,
@@ -109,7 +125,7 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
       setReferencePlayer(referencePlayer.current);
       setIsLive(referencePlayer.current.latency < LIVE_EDGE_DELAY * 1.5);
       setIsPlaying(true);
-      lastReferencePlayerDateRef.current = referencePlayer.current.playingDate;
+      playingDateRef.current = referencePlayer.current.playingDate;
       playersWithTime.forEach((player) => {
         if (player !== referencePlayer) {
           const timeDiff =
@@ -118,15 +134,24 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
             1000;
 
           if (Math.abs(timeDiff) > MAX_DRIFT) {
-            if (player.current.media!.paused) {
-              // Check if we can seek and play the paused player
-              if (
-                seekSafely(player.current, referencePlayer.current.playingDate!)
-              ) {
-                player.current.media!.play();
-              }
+            const seeked = seekSafely(
+              player.current,
+              referencePlayer.current.playingDate!,
+            );
+            if (seeked) {
+              player.current
+                .media!.play()
+                .then(() => {
+                  setHlsRefsError(player, null);
+                })
+                .catch(() => {
+                  // Ignore play errors
+                });
             } else {
-              seekSafely(player.current, referencePlayer.current.playingDate!);
+              setHlsRefsError(
+                player,
+                translateErrorCode(HlsErrorCodes.TIMESPAN_MISSING),
+              );
             }
           }
         }
@@ -137,12 +162,13 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
 
     // Check if all players are paused
     if (playersWithTime.every((player) => player.current.media!.paused)) {
-      const lastReferenceDate = lastReferencePlayerDateRef.current;
+      const lastReferenceTime = playingDateRef.current
+        ? dateToTimestampMillis(playingDateRef.current)
+        : requestedTimestamp;
 
-      if (lastReferenceDate) {
+      if (lastReferenceTime) {
         let playerToPlayIndex = -1;
         let smallestDifference = Infinity;
-        const lastReferenceTime = dateToTimestampMillis(lastReferenceDate);
 
         playersWithTime.forEach((player, index) => {
           const fragments =
@@ -171,7 +197,14 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
 
         if (playerToPlayIndex !== -1) {
           const playerToPlay = playersWithTime[playerToPlayIndex];
-          playerToPlay.current.media!.play();
+          playerToPlay.current
+            .media!.play()
+            .then(() => {
+              setHlsRefsError(playerToPlay, null);
+            })
+            .catch(() => {
+              // Ignore play errors
+            });
         }
       }
     }
@@ -179,15 +212,18 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
     hlsRefs,
     isMuted,
     isPlaying,
+    playingDateRef,
+    requestedTimestamp,
     seekSafely,
+    setHlsRefsError,
     setIsLive,
     setIsPlaying,
     setReferencePlayer,
   ]);
 
-  useEffect(() => {
-    syncIntervalRef.current = setInterval(syncPlayers, SYNC_INTERVAL);
+  useControlledInterval(syncPlayers, SYNC_INTERVAL);
 
+  useEffect(() => {
     hlsRefs.forEach((player) => {
       if (player.current) {
         player.current.on(Hls.Events.ERROR, (_event: any, _data: any) => {
@@ -195,13 +231,7 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
         });
       }
     });
-
-    return () => {
-      if (syncIntervalRef.current) {
-        clearInterval(syncIntervalRef.current);
-      }
-    };
-  }, [hlsRefs, syncPlayers]);
+  }, [hlsRefs]);
 
   return <>{children}</>;
 };

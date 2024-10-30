@@ -183,7 +183,12 @@ const setPlayerSize = (
 };
 
 const usePlayerCardCallbacks = () => {
-  const hlsRefs = useHlsStore((state) => state.hlsRefs);
+  const { hlsRefs, setHlsRefsError } = useHlsStore(
+    useShallow((state) => ({
+      hlsRefs: state.hlsRefs,
+      setHlsRefsError: state.setHlsRefsError,
+    })),
+  );
   const {
     isPlaying,
     setIsPlaying,
@@ -224,10 +229,17 @@ const usePlayerCardCallbacks = () => {
         // eslint-disable-next-line @typescript-eslint/no-unused-expressions
         isPlaying
           ? player.current?.media?.pause()
-          : player.current?.media?.play();
+          : player.current?.media
+              ?.play()
+              .then(() => {
+                setHlsRefsError(player, null);
+              })
+              .catch(() => {
+                // Ignore play errors
+              });
       }
     });
-  }, [hlsRefs, isPlaying, setIsPlaying]);
+  }, [hlsRefs, isPlaying, setHlsRefsError, setIsPlaying]);
 
   const handlePlayPause = useCallback(() => {
     togglePlayPause();
@@ -496,7 +508,7 @@ export const PlayerCard = ({
   const src = camera && selectedEvent ? getSrc(selectedEvent) : undefined;
 
   return (
-    <SyncManager>
+    <SyncManager requestedTimestamp={requestedTimestamp}>
       <Paper
         ref={(node) => {
           paperRef.current = node;
