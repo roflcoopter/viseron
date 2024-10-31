@@ -59,7 +59,6 @@ class RecordingDict(TypedDict):
     start_timestamp: float
     end_time: datetime.datetime | None
     end_timestamp: float | None
-    date: str
     trigger_type: TriggerTypes | None
     trigger_id: int | None
     thumbnail_path: str
@@ -442,31 +441,52 @@ class FailedCameraRecorder(RecorderBase):
 
 def get_recordings(
     get_session: Callable[[], Session],
-    camera_identifier,
-    date=None,
-    latest=False,
-    daily=False,
+    camera_identifier: str,
+    utc_offset: datetime.timedelta | None = None,
+    date: str | None = None,
+    latest: bool = False,
+    daily: bool = False,
 ) -> dict[str, dict[int, RecordingDict]]:
-    """Return all recordings."""
+    """Return all recordings using PostgreSQL UTC offset conversion.
+
+    Args:
+        get_session: Callable that returns a database session
+        camera_identifier: Identifier for the camera
+        utc_offset: User's UTC offset as timedelta (e.g., timedelta(hours=-5))
+        date: Optional date filter in user's local timezone (YYYY-MM-DD)
+        latest: If True, return only the most recent recording(s)
+        daily: If True and latest is True, return the latest recording for each day
+
+    Returns:
+        Dictionary of recordings organized by date in user's local timezone
+    """
     recordings: dict[str, dict[int, RecordingDict]] = {}
+
+    local_timestamp = Recordings.start_time.local(utc_offset)
+    local_date = func.date(local_timestamp).label("local_date")
+
     stmt = (
-        select(Recordings)
+        select(Recordings, local_date)
         .where(Recordings.camera_identifier == camera_identifier)
-        .order_by(func.DATE(Recordings.start_time).desc(), Recordings.start_time.desc())
+        .order_by(local_date.desc(), local_timestamp.desc())
     )
     if date:
-        stmt = stmt.where(func.DATE(Recordings.start_time) == date)
+        stmt = stmt.where(local_date == date)
+
     if latest and daily:
-        stmt = stmt.distinct(func.DATE(Recordings.start_time))
+        stmt = stmt.distinct(local_date)
     elif latest:
         stmt = stmt.limit(1)
+
     with get_session() as session:
-        for recording in session.execute(stmt).scalars():
-            if recording.start_time.date().isoformat() not in recordings:
-                recordings[recording.start_time.date().isoformat()] = {}
-            recordings[recording.start_time.date().isoformat()][
-                recording.id
-            ] = _recording_file_dict(recording)
+        for row in session.execute(stmt):
+            recording = row.Recordings
+            _local_date = row.local_date.isoformat()
+
+            if _local_date not in recordings:
+                recordings[_local_date] = {}
+
+            recordings[_local_date][recording.id] = _recording_file_dict(recording)
 
     return recordings
 
@@ -474,6 +494,7 @@ def get_recordings(
 def delete_recordings(
     get_session: Callable[[], Session],
     camera_identifier,
+    utc_offset: datetime.timedelta | None = None,
     date=None,
     recording_id=None,
 ) -> Sequence[Recordings]:
@@ -487,7 +508,7 @@ def delete_recordings(
         .returning(Recordings)
     )
     if date:
-        stmt = stmt.where(func.DATE(Recordings.start_time) == date)
+        stmt = stmt.where(func.date(Recordings.start_time.local(utc_offset)) == date)
     if recording_id:
         stmt = stmt.where(Recordings.id == recording_id)
     with get_session() as session:
@@ -505,7 +526,6 @@ def _recording_file_dict(recording: Recordings) -> RecordingDict:
         "start_timestamp": recording.start_time.timestamp(),
         "end_time": recording.end_time,
         "end_timestamp": recording.end_time.timestamp() if recording.end_time else None,
-        "date": recording.start_time.date().isoformat(),
         "trigger_type": recording.trigger_type,
         "trigger_id": recording.trigger_id,
         "thumbnail_path": f"/files{recording.thumbnail_path}",

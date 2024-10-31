@@ -6,7 +6,17 @@ from collections.abc import Callable
 from enum import Enum
 from typing import Literal
 
-from sqlalchemy import DateTime, Float, Integer, LargeBinary, String, types
+from sqlalchemy import (
+    ColumnElement,
+    DateTime,
+    Float,
+    Integer,
+    Label,
+    LargeBinary,
+    String,
+    text,
+    types,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
@@ -32,6 +42,36 @@ class UTCDateTime(types.TypeDecorator):
         if isinstance(value, datetime.datetime):
             return value.replace(tzinfo=datetime.timezone.utc)
         return value
+
+    class Comparator(DateTime.Comparator):
+        """Comparator for UTCDateTime."""
+
+        def local(
+            self, utc_offset: datetime.timedelta | None = None
+        ) -> Label | ColumnElement:
+            """Convert UTC timestamp to local time using PostgreSQL timezone arithmetic.
+
+            Args:
+                utc_offset: User's UTC offset as timedelta (e.g., timedelta(hours=-5))
+
+            Returns:
+                Column expression with localized timestamp
+            """
+            if utc_offset is None:
+                return self.expr
+
+            # Convert timedelta to PostgreSQL interval string
+            total_seconds = int(utc_offset.total_seconds())
+            hours, remainder = divmod(abs(total_seconds), 3600)
+            minutes, _seconds = divmod(remainder, 60)
+            offset_str = f"{'-' if total_seconds < 0 else '+'}{hours:02d}:{minutes:02d}"
+
+            # Convert UTC timestamp to local time using interval arithmetic
+            return (self.expr + text(f"interval '{offset_str}'")).label(
+                "local_timestamp"
+            )
+
+    comparator_factory = Comparator
 
 
 class UTCNow(expression.FunctionElement):

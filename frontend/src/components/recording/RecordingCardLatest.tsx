@@ -68,7 +68,8 @@ export default function RecordingCardLatest({
     objHasValues(recording) &&
     recording
   ) {
-    text = `Latest recording: ${recording.date} - ${getTimeFromDate(
+    const startDate = new Date(recording.start_time);
+    text = `Latest recording: ${startDate.toLocaleDateString()} - ${getTimeFromDate(
       new Date(recording.start_time),
     )}`;
   }

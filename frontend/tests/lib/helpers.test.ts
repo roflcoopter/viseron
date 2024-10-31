@@ -74,7 +74,6 @@ describe("getRecordingVideoJSOptions", () => {
       start_timestamp: 0,
       end_time: "",
       end_timestamp: 0,
-      date: "",
       trigger_type: "",
       trigger_id: 0,
     };
@@ -163,7 +162,6 @@ describe("getVideoElement", () => {
       start_timestamp: 0,
       end_time: "",
       end_timestamp: 0,
-      date: "",
       trigger_type: "",
       trigger_id: 0,
     };
