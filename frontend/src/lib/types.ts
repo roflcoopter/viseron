@@ -119,7 +119,6 @@ export interface Recording {
   start_timestamp: number;
   end_time: string;
   end_timestamp: number;
-  date: string;
   trigger_type: string;
   trigger_id: number;
   thumbnail_path: string;

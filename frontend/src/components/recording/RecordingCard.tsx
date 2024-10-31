@@ -71,7 +71,6 @@ export default function RecordingCard({
                 onClick={() => {
                   deleteRecording.mutate({
                     identifier: camera.identifier,
-                    date: recording.date,
                     recording_id: recording.id,
                     failed: camera.failed,
                   });
