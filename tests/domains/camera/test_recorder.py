@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime
+import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal
 from unittest.mock import MagicMock, Mock, patch
@@ -31,9 +32,15 @@ def get_db_session_recordings(get_db_session: Callable[[], Session]):
         session.execute(
             insert(Recordings).values(
                 camera_identifier="test1",
-                start_time=datetime.datetime(2023, 3, 1, 23, 30),  # 23:30 UTC March 1
-                adjusted_start_time=datetime.datetime(2023, 3, 1, 23, 30),
-                end_time=datetime.datetime(2023, 3, 2, 0, 30),  # 00:30 UTC March 2
+                start_time=datetime.datetime(
+                    2023, 3, 1, 23, 30, tzinfo=datetime.timezone.utc
+                ),  # 23:30 UTC March 1
+                adjusted_start_time=datetime.datetime(
+                    2023, 3, 1, 23, 30, tzinfo=datetime.timezone.utc
+                ),
+                end_time=datetime.datetime(
+                    2023, 3, 2, 0, 30, tzinfo=datetime.timezone.utc
+                ),  # 00:30 UTC March 2
                 thumbnail_path="test",
             )
         )
@@ -41,9 +48,15 @@ def get_db_session_recordings(get_db_session: Callable[[], Session]):
         session.execute(
             insert(Recordings).values(
                 camera_identifier="test1",
-                start_time=datetime.datetime(2023, 3, 2, 12, 0),  # 12:00 UTC March 2
-                adjusted_start_time=datetime.datetime(2023, 3, 2, 12, 0),
-                end_time=datetime.datetime(2023, 3, 2, 13, 0),  # 13:00 UTC March 2
+                start_time=datetime.datetime(
+                    2023, 3, 2, 12, 0, tzinfo=datetime.timezone.utc
+                ),  # 12:00 UTC March 2
+                adjusted_start_time=datetime.datetime(
+                    2023, 3, 2, 12, 0, tzinfo=datetime.timezone.utc
+                ),
+                end_time=datetime.datetime(
+                    2023, 3, 2, 13, 0, tzinfo=datetime.timezone.utc
+                ),  # 13:00 UTC March 2
                 thumbnail_path="test",
             )
         )
@@ -51,9 +64,15 @@ def get_db_session_recordings(get_db_session: Callable[[], Session]):
         session.execute(
             insert(Recordings).values(
                 camera_identifier="test1",
-                start_time=datetime.datetime(2023, 3, 2, 22, 45),  # 22:45 UTC March 2
-                adjusted_start_time=datetime.datetime(2023, 3, 2, 22, 45),
-                end_time=datetime.datetime(2023, 3, 2, 23, 45),  # 23:45 UTC March 2
+                start_time=datetime.datetime(
+                    2023, 3, 2, 22, 45, tzinfo=datetime.timezone.utc
+                ),  # 22:45 UTC March 2
+                adjusted_start_time=datetime.datetime(
+                    2023, 3, 2, 22, 45, tzinfo=datetime.timezone.utc
+                ),
+                end_time=datetime.datetime(
+                    2023, 3, 2, 23, 45, tzinfo=datetime.timezone.utc
+                ),  # 23:45 UTC March 2
                 thumbnail_path="test",
             )
         )
@@ -201,12 +220,16 @@ class TestRecorderBase:
         """Test delete_recording."""
         mock_delete_recording.return_value = []
         recorder_base = Recorder(vis, MagicMock(), MockCamera())
-        result = recorder_base.delete_recording()
+        result = recorder_base.delete_recording(
+            datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+        )
         assert result is False
 
         mock_delete_recording.return_value = [
             MagicMock(spec=Recordings),
             MagicMock(spec=Recordings),
         ]
-        result = recorder_base.delete_recording()
+        result = recorder_base.delete_recording(
+            datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+        )
         assert result is True

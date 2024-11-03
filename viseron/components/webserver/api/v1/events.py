@@ -22,6 +22,7 @@ from viseron.domains.face_recognition.const import DOMAIN as FACE_RECOGNITION_DO
 from viseron.domains.license_plate_recognition.const import (
     DOMAIN as LICENSE_PLATE_RECOGNITION_DOMAIN,
 )
+from viseron.helpers import daterange_to_utc
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -76,8 +77,12 @@ class EventsAPIHandler(BaseAPIHandler):
         time_to: int,
     ) -> list:
         """Select motion events from database."""
-        time_from_datetime = datetime.datetime.fromtimestamp(time_from)
-        time_to_datetime = datetime.datetime.fromtimestamp(time_to)
+        time_from_datetime = datetime.datetime.fromtimestamp(
+            time_from, tz=datetime.timezone.utc
+        )
+        time_to_datetime = datetime.datetime.fromtimestamp(
+            time_to, tz=datetime.timezone.utc
+        )
         with get_session() as session:
             stmt = (
                 select(Motion)
@@ -120,8 +125,12 @@ class EventsAPIHandler(BaseAPIHandler):
         time_to: int,
     ):
         """Select object events from database."""
-        time_from_datetime = datetime.datetime.fromtimestamp(time_from)
-        time_to_datetime = datetime.datetime.fromtimestamp(time_to)
+        time_from_datetime = datetime.datetime.fromtimestamp(
+            time_from, tz=datetime.timezone.utc
+        )
+        time_to_datetime = datetime.datetime.fromtimestamp(
+            time_to, tz=datetime.timezone.utc
+        )
         with get_session() as session:
             stmt = (
                 select(Objects)
@@ -156,8 +165,12 @@ class EventsAPIHandler(BaseAPIHandler):
         time_to: int,
     ) -> list:
         """Select recording events from database."""
-        time_from_datetime = datetime.datetime.fromtimestamp(time_from)
-        time_to_datetime = datetime.datetime.fromtimestamp(time_to)
+        time_from_datetime = datetime.datetime.fromtimestamp(
+            time_from, tz=datetime.timezone.utc
+        )
+        time_to_datetime = datetime.datetime.fromtimestamp(
+            time_to, tz=datetime.timezone.utc
+        )
         with get_session() as session:
             stmt = (
                 select(Recordings)
@@ -203,8 +216,12 @@ class EventsAPIHandler(BaseAPIHandler):
         time_to: int,
     ) -> list:
         """Select post processor events from database."""
-        time_from_datetime = datetime.datetime.fromtimestamp(time_from)
-        time_to_datetime = datetime.datetime.fromtimestamp(time_to)
+        time_from_datetime = datetime.datetime.fromtimestamp(
+            time_from, tz=datetime.timezone.utc
+        )
+        time_to_datetime = datetime.datetime.fromtimestamp(
+            time_to, tz=datetime.timezone.utc
+        )
         with get_session() as session:
             stmt = (
                 select(PostProcessorResults)
@@ -253,14 +270,10 @@ class EventsAPIHandler(BaseAPIHandler):
             )
             return
 
-        # Get start of day in utc
+        # Convert local start of day to UTC
         if "date" in self.request_arguments:
-            _time_from = (
-                datetime.datetime.strptime(self.request_arguments["date"], "%Y-%m-%d")
-                - self.utc_offset
-            )
-            _time_to = _time_from + datetime.timedelta(
-                hours=23, minutes=59, seconds=59, milliseconds=999999
+            _time_from, _time_to = daterange_to_utc(
+                self.request_arguments["date"], self.utc_offset
             )
             time_from = _time_from.timestamp()
             time_to = _time_to.timestamp()

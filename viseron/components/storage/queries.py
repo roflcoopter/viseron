@@ -318,9 +318,9 @@ def get_time_period_fragments(
     now=None,
 ):
     """Return a list of files for the requested time period."""
-    start = datetime.datetime.utcfromtimestamp(start_timestamp)
+    start = datetime.datetime.fromtimestamp(start_timestamp, tz=datetime.timezone.utc)
     if end_timestamp:
-        end = datetime.datetime.utcfromtimestamp(end_timestamp)
+        end = datetime.datetime.fromtimestamp(end_timestamp, tz=datetime.timezone.utc)
     else:
         end = now if now else utcnow()
 

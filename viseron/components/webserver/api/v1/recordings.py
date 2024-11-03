@@ -150,16 +150,16 @@ class RecordingsAPIHandler(BaseAPIHandler):
                 "daily", False
             ):
                 recordings[camera.identifier] = await self.run_in_executor(
-                    camera.recorder.get_latest_recording_daily
+                    camera.recorder.get_latest_recording_daily, self.utc_offset
                 )
                 continue
             if self.request_arguments["latest"]:
                 recordings[camera.identifier] = await self.run_in_executor(
-                    camera.recorder.get_latest_recording
+                    camera.recorder.get_latest_recording, self.utc_offset
                 )
                 continue
             recordings[camera.identifier] = await self.run_in_executor(
-                camera.recorder.get_recordings
+                camera.recorder.get_recordings, self.utc_offset
             )
 
         self.response_success(response=recordings)
@@ -185,7 +185,7 @@ class RecordingsAPIHandler(BaseAPIHandler):
         ):
             self.response_success(
                 response=await self.run_in_executor(
-                    camera.recorder.get_latest_recording_daily
+                    camera.recorder.get_latest_recording_daily, self.utc_offset
                 )
             )
             return
@@ -193,13 +193,15 @@ class RecordingsAPIHandler(BaseAPIHandler):
         if self.request_arguments["latest"]:
             self.response_success(
                 response=await self.run_in_executor(
-                    camera.recorder.get_latest_recording, date
+                    camera.recorder.get_latest_recording, self.utc_offset, date
                 )
             )
             return
 
         self.response_success(
-            response=await self.run_in_executor(camera.recorder.get_recordings, date)
+            response=await self.run_in_executor(
+                camera.recorder.get_recordings, self.utc_offset, date
+            )
         )
         return
 
@@ -223,7 +225,7 @@ class RecordingsAPIHandler(BaseAPIHandler):
 
         # Try to delete recording
         if await self.run_in_executor(
-            camera.recorder.delete_recording, date, recording_id
+            camera.recorder.delete_recording, self.utc_offset, date, recording_id
         ):
             self.response_success()
             return

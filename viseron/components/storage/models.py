@@ -33,7 +33,10 @@ class UTCDateTime(types.TypeDecorator):
 
     def process_bind_param(self, value, _dialect):
         """Remove timezone info from datetime."""
+        # Only allow UTC datetimes
         if isinstance(value, datetime.datetime):
+            if value.tzinfo is None:
+                raise ValueError("Only UTC datetimes are allowed")
             return value.replace(tzinfo=None)
         return value
 

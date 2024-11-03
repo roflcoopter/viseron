@@ -20,7 +20,7 @@ from viseron.domains.camera.fragmenter import (
     generate_playlist,
     get_available_timespans,
 )
-from viseron.helpers import utcnow
+from viseron.helpers import daterange_to_utc, utcnow
 from viseron.helpers.fixed_size_dict import FixedSizeDict
 from viseron.helpers.validators import request_argument_no_value
 
@@ -185,13 +185,13 @@ class HlsAPIHandler(BaseAPIHandler):
             )
             return
 
-        # Get start of day in utc
+        # Convert local start of day to UTC
         if "date" in self.request_arguments:
-            time_from = (
-                datetime.datetime.strptime(self.request_arguments["date"], "%Y-%m-%d")
-                - self.utc_offset
-            ).timestamp()
-            time_to = time_from + 86400
+            _time_from, _time_to = daterange_to_utc(
+                self.request_arguments["date"], self.utc_offset
+            )
+            time_from = _time_from.timestamp()
+            time_to = _time_to.timestamp()
         else:
             time_from = self.request_arguments["time_from"]
             time_to = self.request_arguments["time_to"]
