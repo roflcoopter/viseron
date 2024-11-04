@@ -95,9 +95,10 @@ def _extract_program_date_time(
             # Remove timezone information since fromisoformat does not support it
             no_tz = re.sub(r"\+[0-9]{4}$", "", match.group(1))
             # Adjust according to local timezone
-            return datetime.datetime.fromisoformat(no_tz) - datetime.timedelta(
-                seconds=time.localtime().tm_gmtoff
-            )
+            return (
+                datetime.datetime.fromisoformat(no_tz)
+                - datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+            ).replace(tzinfo=datetime.timezone.utc)
     except ValueError:
         pass
     return None
@@ -216,6 +217,7 @@ class Fragmenter:
                 orig_ctime = datetime.datetime.fromtimestamp(
                     int(file.split(".")[0]), tz=None
                 ) - datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+                orig_ctime = orig_ctime.replace(tzinfo=datetime.timezone.utc)
 
             stmt = insert(FilesMeta).values(
                 path=os.path.join(

@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import threading
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -134,23 +135,41 @@ class RecorderBase:
 
         self._storage: Storage = vis.data[STORAGE_COMPONENT]
 
-    def get_recordings(self, date=None) -> dict[str, dict[int, RecordingDict]]:
+    def get_recordings(
+        self, utc_offset: datetime.timedelta, date=None
+    ) -> dict[str, dict[int, RecordingDict]]:
         """Return all recordings."""
-        return get_recordings(self._storage.get_session, self._camera.identifier, date)
+        return get_recordings(
+            self._storage.get_session, self._camera.identifier, utc_offset, date=date
+        )
 
-    def get_latest_recording(self, date=None) -> dict[str, dict[int, RecordingDict]]:
+    def get_latest_recording(
+        self, utc_offset: datetime.timedelta, date=None
+    ) -> dict[str, dict[int, RecordingDict]]:
         """Return the latest recording."""
         return get_recordings(
-            self._storage.get_session, self._camera.identifier, date, latest=True
+            self._storage.get_session,
+            self._camera.identifier,
+            utc_offset,
+            date=date,
+            latest=True,
         )
 
-    def get_latest_recording_daily(self) -> dict[str, dict[int, RecordingDict]]:
+    def get_latest_recording_daily(
+        self, utc_offset: datetime.timedelta
+    ) -> dict[str, dict[int, RecordingDict]]:
         """Return the latest recording for each day."""
         return get_recordings(
-            self._storage.get_session, self._camera.identifier, latest=True, daily=True
+            self._storage.get_session,
+            self._camera.identifier,
+            utc_offset,
+            latest=True,
+            daily=True,
         )
 
-    def delete_recording(self, date=None, recording_id=None) -> bool:
+    def delete_recording(
+        self, utc_offset: datetime.timedelta, date=None, recording_id=None
+    ) -> bool:
         """Delete a single recording.
 
         We dont have to delete the segments as they will be deleted by the tier
@@ -160,6 +179,7 @@ class RecorderBase:
             delete_recordings(
                 self._storage.get_session,
                 self._camera.identifier,
+                utc_offset,
                 date=date,
                 recording_id=recording_id,
             )
@@ -192,7 +212,9 @@ class AbstractRecorder(ABC, RecorderBase):
 
     def as_dict(self) -> dict[str, dict[int, RecordingDict]]:
         """Return recorder information as dict."""
-        return self.get_recordings()
+        return self.get_recordings(
+            datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+        )
 
     def create_thumbnail(
         self,
@@ -442,7 +464,7 @@ class FailedCameraRecorder(RecorderBase):
 def get_recordings(
     get_session: Callable[[], Session],
     camera_identifier: str,
-    utc_offset: datetime.timedelta | None = None,
+    utc_offset: datetime.timedelta,
     date: str | None = None,
     latest: bool = False,
     daily: bool = False,
@@ -494,7 +516,7 @@ def get_recordings(
 def delete_recordings(
     get_session: Callable[[], Session],
     camera_identifier,
-    utc_offset: datetime.timedelta | None = None,
+    utc_offset: datetime.timedelta,
     date=None,
     recording_id=None,
 ) -> Sequence[Recordings]:

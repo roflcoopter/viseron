@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import datetime
 import enum
 import hmac
 import logging
@@ -9,7 +10,6 @@ import os
 import secrets
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
 from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -59,9 +59,9 @@ class RefreshToken:
 
     user_id: str
     client_id: str
-    session_expiration: timedelta
+    session_expiration: datetime.timedelta
     access_token_type: Literal["normal"]
-    access_token_expiration: timedelta = ACCESS_TOKEN_EXPIRATION
+    access_token_expiration: datetime.timedelta = ACCESS_TOKEN_EXPIRATION
     created_at: float = field(default_factory=lambda: utcnow().timestamp())
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     token: str = field(default_factory=lambda: secrets.token_hex(64))
@@ -98,9 +98,9 @@ class TokenResponse:
     header: str
     payload: str
     expiration: int
-    expires_at: datetime
+    expires_at: datetime.datetime
     expires_at_timestamp: int
-    session_expires_at: datetime
+    session_expires_at: datetime.datetime
     session_expires_at_timestamp: int
 
 
@@ -111,8 +111,9 @@ def token_response(
     """Create token response."""
     header, payload, _signature = access_token.split(".")
     expires_at = utcnow() + refresh_token.access_token_expiration
-    session_expires_at = datetime.utcfromtimestamp(
-        refresh_token.created_at + refresh_token.session_expiration.total_seconds()
+    session_expires_at = datetime.datetime.fromtimestamp(
+        refresh_token.created_at + refresh_token.session_expiration.total_seconds(),
+        tz=datetime.timezone.utc,
     )
     return asdict(
         TokenResponse(
@@ -160,12 +161,12 @@ class Auth:
         return self._refresh_tokens
 
     @property
-    def session_expiry(self) -> timedelta | None:
+    def session_expiry(self) -> datetime.timedelta | None:
         """Return session expiry."""
         if not self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY]:
             return None
 
-        return timedelta(
+        return datetime.timedelta(
             days=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY].get(CONFIG_DAYS, 0),
             hours=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY].get(CONFIG_HOURS, 0),
             minutes=self._config[CONFIG_AUTH][CONFIG_SESSION_EXPIRY].get(
@@ -289,11 +290,11 @@ class Auth:
             refresh_tokens[refresh_token["id"]] = RefreshToken(
                 user_id=refresh_token["user_id"],
                 client_id=refresh_token["client_id"],
-                session_expiration=timedelta(
+                session_expiration=datetime.timedelta(
                     seconds=refresh_token["session_expiration"]
                 ),
                 access_token_type=refresh_token["access_token_type"],
-                access_token_expiration=timedelta(
+                access_token_expiration=datetime.timedelta(
                     seconds=refresh_token["access_token_expiration"]
                 ),
                 created_at=refresh_token["created_at"],
@@ -319,14 +320,16 @@ class Auth:
         user_id: str,
         client_id: str,
         access_token_type: Literal["normal"],
-        access_token_expiration: timedelta = ACCESS_TOKEN_EXPIRATION,
+        access_token_expiration: datetime.timedelta = ACCESS_TOKEN_EXPIRATION,
     ):
         """Generate refresh token."""
         refresh_token = RefreshToken(
             user_id=user_id,
             client_id=client_id,
             session_expiration=(
-                self.session_expiry if self.session_expiry else timedelta(days=3650)
+                self.session_expiry
+                if self.session_expiry
+                else datetime.timedelta(days=3650)
             ),
             access_token_type=access_token_type,
             access_token_expiration=access_token_expiration,
@@ -359,7 +362,10 @@ class Auth:
         """Validate refresh token."""
 
     def generate_access_token(
-        self, refresh_token: RefreshToken, remote_ip, expiry: timedelta | None = None
+        self,
+        refresh_token: RefreshToken,
+        remote_ip,
+        expiry: datetime.timedelta | None = None,
     ):
         """Generate access token using JWT."""
         self.validate_refresh_token(refresh_token)

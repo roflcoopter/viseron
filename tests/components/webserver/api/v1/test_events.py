@@ -26,15 +26,23 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
             session.execute(
                 insert(Motion).values(
                     camera_identifier="test",
-                    start_time=datetime.datetime(2024, 6, 22, 1, 0, 0),
-                    end_time=datetime.datetime(2024, 6, 22, 1, 1, 0),
+                    start_time=datetime.datetime(
+                        2024, 6, 22, 1, 0, 0, tzinfo=datetime.timezone.utc
+                    ),
+                    end_time=datetime.datetime(
+                        2024, 6, 22, 1, 1, 0, tzinfo=datetime.timezone.utc
+                    ),
                 )
             )
             session.execute(
                 insert(Motion).values(
                     camera_identifier="test",
-                    start_time=datetime.datetime(2024, 6, 22, 3, 0, 0),
-                    end_time=datetime.datetime(2024, 6, 22, 3, 1, 0),
+                    start_time=datetime.datetime(
+                        2024, 6, 22, 3, 0, 0, tzinfo=datetime.timezone.utc
+                    ),
+                    end_time=datetime.datetime(
+                        2024, 6, 22, 3, 1, 0, tzinfo=datetime.timezone.utc
+                    ),
                 )
             )
             session.execute(
@@ -43,7 +51,9 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                     domain="face_recognition",
                     snapshot_path="test",
                     data={"label": "test", "confidence": 0.5},
-                    created_at=datetime.datetime(2024, 6, 22, 1, 0, 0),
+                    created_at=datetime.datetime(
+                        2024, 6, 22, 1, 0, 0, tzinfo=datetime.timezone.utc
+                    ),
                 )
             )
             session.execute(
@@ -52,7 +62,9 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                     domain="face_recognition",
                     snapshot_path="test",
                     data={"label": "test", "confidence": 0.5},
-                    created_at=datetime.datetime(2024, 6, 22, 23, 0, 0),
+                    created_at=datetime.datetime(
+                        2024, 6, 22, 23, 0, 0, tzinfo=datetime.timezone.utc
+                    ),
                 )
             )
             session.commit()

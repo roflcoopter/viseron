@@ -146,4 +146,6 @@ def test_extract_extinf_number():
 def test_extract_program_date_time() -> None:
     """Test _extract_program_date_time."""
     date_time_tag = _extract_program_date_time(PLAYLIST_CONTENT, "1723111156.m4s")
-    assert date_time_tag == datetime.datetime(2024, 8, 8, 9, 59, 16, 199000)
+    assert date_time_tag == datetime.datetime(
+        2024, 8, 8, 9, 59, 16, 199000, tzinfo=datetime.timezone.utc
+    )

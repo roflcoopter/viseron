@@ -29,7 +29,27 @@ LOGGER = logging.getLogger(__name__)
 
 def utcnow() -> datetime.datetime:
     """Return current UTC time."""
-    return datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+    return datetime.datetime.now(tz=datetime.timezone.utc)
+
+
+def daterange_to_utc(
+    date: str, utc_offset: datetime.timedelta
+) -> tuple[datetime.datetime, datetime.datetime]:
+    """Convert date range to UTC.
+
+    The result is independent of the timezone of the server.
+    It is adjusted to the clients timezone by subtracting the utc_offset.
+    """
+    time_from = (
+        datetime.datetime.strptime(date, "%Y-%m-%d").replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=datetime.timezone.utc
+        )
+        - utc_offset
+    )
+    time_to = time_from + datetime.timedelta(
+        hours=23, minutes=59, seconds=59, microseconds=999999
+    )
+    return time_from, time_to
 
 
 def calculate_relative_contours(

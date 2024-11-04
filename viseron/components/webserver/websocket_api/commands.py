@@ -1,7 +1,6 @@
 """WebSocket API commands."""
 from __future__ import annotations
 
-import datetime
 import logging
 import os
 import signal
@@ -29,6 +28,7 @@ from viseron.const import (
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.camera.fragmenter import get_available_timespans
 from viseron.exceptions import Unauthorized
+from viseron.helpers import daterange_to_utc
 
 from .messages import (
     BASE_MESSAGE_SCHEMA,
@@ -312,16 +312,16 @@ def subscribe_timespans(connection: WebSocketHandler, message) -> None:
             )
             return
 
-    # Get start of day in utc
-    time_from = (
-        datetime.datetime.strptime(message["date"], "%Y-%m-%d") - connection.utc_offset
-    ).timestamp()
-    time_to = time_from + 86400
+    # Convert local start of day to UTC
+    time_from, time_to = daterange_to_utc(message["date"], connection.utc_offset)
 
     def send_timespans():
         """Send available timespans."""
         timespans = get_available_timespans(
-            connection.get_session, camera_identifiers, time_from, time_to
+            connection.get_session,
+            camera_identifiers,
+            time_from.timestamp(),
+            time_to.timestamp(),
         )
         connection.send_message(
             message_to_json(
