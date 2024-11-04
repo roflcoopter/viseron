@@ -1,6 +1,10 @@
-import { UseQueryOptions, useQuery } from "@tanstack/react-query";
+import { UseQueryOptions, useMutation, useQuery } from "@tanstack/react-query";
 
-import { useInvalidateQueryOnEvent, viseronAPI } from "lib/api/client";
+import { useToast } from "hooks/UseToast";
+import queryClient, {
+  useInvalidateQueryOnEvent,
+  viseronAPI,
+} from "lib/api/client";
 import * as types from "lib/types";
 
 type RecordingsVariables = {
@@ -64,5 +68,53 @@ export const useRecordings = ({
     queryFn: async () =>
       recordings({ camera_identifier, date, latest, daily, failed }),
     ...configOptions,
+  });
+};
+
+type DeleteRecordingParams = {
+  identifier: string;
+  date?: string;
+  recording_id?: number;
+  failed?: boolean;
+};
+
+async function deleteRecording({
+  identifier,
+  date,
+  recording_id,
+  failed,
+}: DeleteRecordingParams) {
+  const url = `/recordings/${identifier}${date ? `/${date}` : ""}${
+    recording_id ? `/${recording_id}` : ""
+  }`;
+
+  const response = await viseronAPI.delete(
+    url,
+    failed ? { params: { failed: true } } : undefined,
+  );
+  return response.data;
+}
+
+export const useDeleteRecording = () => {
+  const toast = useToast();
+  return useMutation<
+    types.APISuccessResponse,
+    types.APIErrorResponse,
+    DeleteRecordingParams
+  >({
+    mutationFn: deleteRecording,
+    onSuccess: async (_data, variables, _context) => {
+      toast.success("Recording deleted successfully");
+      await queryClient.invalidateQueries({
+        queryKey: ["recordings", variables.identifier],
+      });
+    },
+    onError: async (error, _variables, _context) => {
+      toast.error(
+        error.response && error.response.data.error
+          ? `Error deleting recording: ${error.response.data.error}`
+          : `An error occurred: ${error.message}`,
+      );
+    },
   });
 };

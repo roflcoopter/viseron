@@ -94,10 +94,9 @@ class RecordingsAPIHandler(BaseAPIHandler):
                 ),
             ),
         },
-        {
+        {  # Delete a specific recording
             "path_pattern": (
                 r"/recordings/(?P<camera_identifier>[A-Za-z0-9_]+)"
-                r"/(?P<date>[0-9]{4}-[0-9]{2}-[0-9]{2})"
                 r"/(?P<recording_id>[0-9]+)"
             ),
             "supported_methods": ["DELETE"],
@@ -108,7 +107,7 @@ class RecordingsAPIHandler(BaseAPIHandler):
                 },
             ),
         },
-        {
+        {  # Delete all recordings for a specific camera and date
             "path_pattern": (
                 r"/recordings/(?P<camera_identifier>[A-Za-z0-9_]+)"
                 r"/(?P<date>[0-9]{4}-[0-9]{2}-[0-9]{2})"
@@ -121,7 +120,7 @@ class RecordingsAPIHandler(BaseAPIHandler):
                 },
             ),
         },
-        {
+        {  # Delete all recordings for a specific camera
             "path_pattern": r"/recordings/(?P<camera_identifier>[A-Za-z0-9_]+)",
             "supported_methods": ["DELETE"],
             "method": "delete_recording",

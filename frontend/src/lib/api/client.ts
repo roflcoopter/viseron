@@ -1,10 +1,9 @@
-import { QueryClient, QueryKey, useMutation } from "@tanstack/react-query";
+import { QueryClient, QueryKey } from "@tanstack/react-query";
 import axios from "axios";
 import dayjs from "dayjs";
 import { useContext, useEffect } from "react";
 
 import { ViseronContext } from "context/ViseronContext";
-import { useToast } from "hooks/UseToast";
 import { subscribeEvent, subscribeStates } from "lib/commands";
 import * as types from "lib/types";
 
@@ -39,60 +38,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-export type deleteRecordingParams = {
-  identifier: string;
-  date?: string;
-  recording_id?: number;
-  failed?: boolean;
-};
-
-async function deleteRecording({
-  identifier,
-  date,
-  recording_id,
-  failed,
-}: deleteRecordingParams) {
-  const url = `/recordings/${identifier}${date ? `/${date}` : ""}${
-    recording_id ? `/${recording_id}` : ""
-  }`;
-
-  const response = await viseronAPI.delete(
-    url,
-    failed ? { params: { failed: true } } : undefined,
-  );
-  return response.data;
-}
-
-export const useDeleteRecording = () => {
-  const toast = useToast();
-  return useMutation<
-    types.APISuccessResponse,
-    types.APIErrorResponse,
-    deleteRecordingParams
-  >({
-    mutationFn: deleteRecording,
-    onSuccess: async (_data, variables, _context) => {
-      toast.success("Recording deleted successfully");
-      await queryClient.invalidateQueries({
-        predicate: (query) =>
-          (query.queryKey[0] as string).startsWith(
-            `/recordings/${variables.identifier}`,
-          ),
-      });
-      await queryClient.invalidateQueries({
-        queryKey: [`/recordings/${variables.identifier}`],
-      });
-    },
-    onError: async (error, _variables, _context) => {
-      toast.error(
-        error.response && error.response.data.error
-          ? `Error deleting recording: ${error.response.data.error}`
-          : `An error occurred: ${error.message}`,
-      );
-    },
-  });
-};
 
 type EntityQueryPair = {
   entityId: string;
