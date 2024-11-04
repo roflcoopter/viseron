@@ -2,7 +2,6 @@ import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid2";
 import Grow from "@mui/material/Grow";
 
-import { ScrollToTopOnMount } from "components/ScrollToTop";
 import { Loading } from "components/loading/Loading";
 import RecordingCardLatest from "components/recording/RecordingCardLatest";
 import { useTitle } from "hooks/UseTitle";
@@ -56,7 +55,6 @@ const Recordings = () => {
 
   return (
     <Container>
-      <ScrollToTopOnMount />
       <Grid container direction="row" spacing={1}>
         {failedCameras.data
           ? Object.keys(failedCameras.data)
