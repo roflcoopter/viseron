@@ -6,7 +6,6 @@ import { useParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
 import VoidSvg from "svg/undraw/void.svg?react";
 
-import { ScrollToTopOnMount } from "components/ScrollToTop";
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { Loading } from "components/loading/Loading";
 import RecordingCardDaily from "components/recording/RecordingCardDaily";
@@ -68,7 +67,6 @@ const CameraRecordings = () => {
 
   return (
     <Container>
-      <ScrollToTopOnMount />
       <Typography variant="h5" align="center">
         {cameraQuery.data.name}
       </Typography>

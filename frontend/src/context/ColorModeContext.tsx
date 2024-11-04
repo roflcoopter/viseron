@@ -292,6 +292,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
                   ? theme.palette.primary[900]
                   : theme.palette.primary[200]
               }`,
+              color: theme.palette.text.primary,
               boxShadow: "5px 5px 8px 0px rgba(0,0,0,0.40)",
             },
           },
