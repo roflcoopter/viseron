@@ -12,7 +12,7 @@ import LazyLoad from "react-lazyload";
 import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
-import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
+import { useDeleteRecording } from "lib/api/recordings";
 import { getTimeFromDate, getVideoElement } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -30,58 +30,56 @@ export default function RecordingCard({
   const deleteRecording = useDeleteRecording();
 
   return (
-    <LazyLoad height={200}>
-      <Card
-        variant="outlined"
-        sx={
-          camera.failed
-            ? {
-                border: `2px solid ${
-                  camera.retrying
-                    ? theme.palette.warning.main
-                    : theme.palette.error.main
-                }`,
-              }
-            : undefined
-        }
-      >
-        <CardContent>
-          <Typography align="center">
-            {getTimeFromDate(new Date(recording.start_time))}
-          </Typography>
-        </CardContent>
-        <CardMedia>
-          <LazyLoad
-            height={200}
-            offset={500}
-            placeholder={
-              <VideoPlayerPlaceholder
-                aspectRatio={camera.width / camera.height}
-              />
+    <Card
+      variant="outlined"
+      sx={
+        camera.failed
+          ? {
+              border: `2px solid ${
+                camera.retrying
+                  ? theme.palette.warning.main
+                  : theme.palette.error.main
+              }`,
             }
-          >
-            {getVideoElement(camera, recording, auth.enabled)}
-          </LazyLoad>
-        </CardMedia>
-        <CardActions>
-          <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
-            <Tooltip title="Delete Recording">
-              <MutationIconButton<deleteRecordingParams>
-                mutation={deleteRecording}
-                onClick={() => {
-                  deleteRecording.mutate({
-                    identifier: camera.identifier,
-                    recording_id: recording.id,
-                    failed: camera.failed,
-                  });
-                }}
-              >
-                <DeleteForeverIcon />
-              </MutationIconButton>
-            </Tooltip>
-          </Stack>
-        </CardActions>
-      </Card>
-    </LazyLoad>
+          : undefined
+      }
+    >
+      <CardContent>
+        <Typography align="center">
+          {getTimeFromDate(new Date(recording.start_time))}
+        </Typography>
+      </CardContent>
+      <CardMedia>
+        <LazyLoad
+          height={200}
+          offset={500}
+          placeholder={
+            <VideoPlayerPlaceholder
+              aspectRatio={camera.width / camera.height}
+            />
+          }
+        >
+          {getVideoElement(camera, recording, auth.enabled)}
+        </LazyLoad>
+      </CardMedia>
+      <CardActions>
+        <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
+          <Tooltip title="Delete Recording">
+            <MutationIconButton
+              mutation={deleteRecording}
+              onClick={() => {
+                deleteRecording.mutate({
+                  identifier: camera.identifier,
+                  recording_id: recording.id,
+                  failed: camera.failed,
+                });
+              }}
+            >
+              <DeleteForeverIcon />
+            </MutationIconButton>
+          </Tooltip>
+        </Stack>
+      </CardActions>
+    </Card>
   );
 }

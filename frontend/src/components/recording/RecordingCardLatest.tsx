@@ -16,8 +16,7 @@ import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
 import { useCamera } from "lib/api/camera";
-import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
-import { useRecordings } from "lib/api/recordings";
+import { useDeleteRecording, useRecordings } from "lib/api/recordings";
 import { getTimeFromDate, getVideoElement, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -79,76 +78,74 @@ export default function RecordingCardLatest({
   }
 
   return (
-    <LazyLoad height={200}>
-      <Card
-        variant="outlined"
-        sx={[
-          {
-            // Vertically space items evenly to accommodate different aspect ratios
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-          },
-          cameraQuery.data.failed && {
-            border: `2px solid ${
-              cameraQuery.data.retrying
-                ? theme.palette.warning.main
-                : theme.palette.error.main
-            }`,
-          },
-        ]}
-      >
-        <CardContent>
-          <Typography variant="h5" align="center">
-            {cameraQuery.data.name}
-          </Typography>
-          <Typography align="center">{text}</Typography>
-        </CardContent>
-        <CardMedia>
-          <LazyLoad
-            height={200}
-            placeholder={
-              <VideoPlayerPlaceholder
-                aspectRatio={cameraQuery.data.width / cameraQuery.data.height}
-              />
-            }
-          >
-            {getVideoElement(cameraQuery.data, recording, auth.enabled)}
-          </LazyLoad>
-        </CardMedia>
-        <CardActions>
-          <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
-            <Tooltip title="View Recordings">
-              <span>
-                <IconButton
-                  component={Link}
-                  to={`/recordings/${camera_identifier}`}
-                  disabled={!objHasValues(recording)}
-                >
-                  <VideoFileIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Delete Recordings">
-              <span>
-                <MutationIconButton<deleteRecordingParams>
-                  mutation={deleteRecording}
-                  disabled={!objHasValues(recording)}
-                  onClick={() => {
-                    deleteRecording.mutate({
-                      identifier: camera_identifier,
-                      failed,
-                    });
-                  }}
-                >
-                  <DeleteForeverIcon />
-                </MutationIconButton>
-              </span>
-            </Tooltip>
-          </Stack>
-        </CardActions>
-      </Card>
-    </LazyLoad>
+    <Card
+      variant="outlined"
+      sx={[
+        {
+          // Vertically space items evenly to accommodate different aspect ratios
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+        },
+        cameraQuery.data.failed && {
+          border: `2px solid ${
+            cameraQuery.data.retrying
+              ? theme.palette.warning.main
+              : theme.palette.error.main
+          }`,
+        },
+      ]}
+    >
+      <CardContent>
+        <Typography variant="h5" align="center">
+          {cameraQuery.data.name}
+        </Typography>
+        <Typography align="center">{text}</Typography>
+      </CardContent>
+      <CardMedia>
+        <LazyLoad
+          height={200}
+          placeholder={
+            <VideoPlayerPlaceholder
+              aspectRatio={cameraQuery.data.width / cameraQuery.data.height}
+            />
+          }
+        >
+          {getVideoElement(cameraQuery.data, recording, auth.enabled)}
+        </LazyLoad>
+      </CardMedia>
+      <CardActions>
+        <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
+          <Tooltip title="View Recordings">
+            <span>
+              <IconButton
+                component={Link}
+                to={`/recordings/${camera_identifier}`}
+                disabled={!objHasValues(recording)}
+              >
+                <VideoFileIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Delete Recordings">
+            <span>
+              <MutationIconButton
+                mutation={deleteRecording}
+                disabled={!objHasValues(recording)}
+                onClick={() => {
+                  deleteRecording.mutate({
+                    identifier: camera_identifier,
+                    failed,
+                  });
+                }}
+              >
+                <DeleteForeverIcon />
+              </MutationIconButton>
+            </span>
+          </Tooltip>
+        </Stack>
+      </CardActions>
+    </Card>
   );
 }
