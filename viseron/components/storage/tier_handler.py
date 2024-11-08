@@ -10,9 +10,10 @@ from queue import Queue
 from threading import Lock, Timer
 from typing import TYPE_CHECKING, Any, Literal
 
-from sqlalchemy import Result, delete, insert, select, update
+from sqlalchemy import Delete, Result, delete, insert, select, update
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.dml import ReturningDelete
 from watchdog.events import (
     FileCreatedEvent,
     FileDeletedEvent,
@@ -42,7 +43,15 @@ from viseron.components.storage.const import (
     EVENT_FILE_CREATED,
     EVENT_FILE_DELETED,
 )
-from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.components.storage.models import (
+    Files,
+    FilesMeta,
+    Motion,
+    MotionContours,
+    Objects,
+    PostProcessorResults,
+    Recordings,
+)
 from viseron.components.storage.queries import (
     files_to_move_query,
     recordings_to_move_query,
@@ -607,6 +616,42 @@ class SnapshotTierHandler(TierHandler):
         """Initialize snapshot tier."""
         super().initialize()
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
+
+    def _on_deleted(self, event: FileDeletedEvent) -> None:
+        stmt: Delete | ReturningDelete[tuple[int]]
+        if self._subcategory == "motion_detector":
+            with self._storage.get_session() as session:
+                stmt = (
+                    delete(Motion)
+                    .where(Motion.snapshot_path == event.src_path)
+                    .returning(Motion.id)
+                )
+                result = session.execute(stmt)
+                motion_ids = [row[0] for row in result]
+
+                if motion_ids:
+                    stmt2 = delete(MotionContours).where(
+                        MotionContours.motion_id.in_(motion_ids)
+                    )
+                    session.execute(stmt2)
+
+                session.commit()
+
+        elif self._subcategory == "object_detector":
+            with self._storage.get_session() as session:
+                stmt = delete(Objects).where(Objects.snapshot_path == event.src_path)
+                session.execute(stmt)
+                session.commit()
+
+        elif self._subcategory in ["face_recognition", "license_plate_recognition"]:
+            with self._storage.get_session() as session:
+                stmt = delete(PostProcessorResults).where(
+                    PostProcessorResults.snapshot_path == event.src_path
+                )
+                session.execute(stmt)
+                session.commit()
+
+        super()._on_deleted(event)
 
 
 class ThumbnailTierHandler(TierHandler):
