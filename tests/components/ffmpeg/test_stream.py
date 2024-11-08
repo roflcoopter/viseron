@@ -46,7 +46,7 @@ from viseron.const import (
 )
 from viseron.exceptions import StreamInformationError
 
-from tests.common import MockCamera
+from tests.common import MockCamera, return_any
 
 CONFIG = {
     CONFIG_HOST: "test_host",
@@ -261,7 +261,9 @@ class TestStream:
             assert result.codec == "h264"
             assert result.audio_codec == "aac"
 
-            mock_ffprobe.stream_information.assert_called_once_with("test_stream_url")
+            mock_ffprobe.stream_information.assert_called_once_with(
+                "test_stream_url", return_any(object)
+            )
 
     def test_get_stream_information_missing_parameters(self):
         """Test that StreamInformationError is raised when parameters are missing."""
@@ -293,4 +295,6 @@ class TestStream:
 
             assert "Width: None Height: 1080 FPS: 30 Codec: h264" in str(excinfo.value)
 
-            mock_ffprobe.stream_information.assert_called_once_with("test_stream_url")
+            mock_ffprobe.stream_information.assert_called_once_with(
+                "test_stream_url", return_any(object)
+            )
