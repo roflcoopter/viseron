@@ -244,7 +244,7 @@ class Stream:
         ):
             self._logger.debug(f"Getting stream information for {stream_url}")
             width, height, fps, codec, audio_codec = self._ffprobe.stream_information(
-                stream_url
+                stream_url, stream_config
             )
 
         width = stream_config[CONFIG_WIDTH] if stream_config[CONFIG_WIDTH] else width
@@ -564,11 +564,11 @@ class FFprobe:
         self._ffprobe_timeout = FFPROBE_TIMEOUT
 
     def stream_information(
-        self, stream_url: str
+        self, stream_url: str, stream_config: dict[str, Any]
     ) -> tuple[int, int, int, str | None, str | None]:
         """Return stream information using FFprobe."""
         width, height, fps, codec, audio_codec = 0, 0, 0, None, None
-        streams = self.run_ffprobe(stream_url)
+        streams = self.run_ffprobe(stream_url, stream_config)
 
         video_stream: dict[str, Any] | None = None
         audio_stream: dict[str, Any] | None = None
@@ -606,6 +606,7 @@ class FFprobe:
     def run_ffprobe(
         self,
         stream_url: str,
+        stream_config: dict[str, Any],
     ) -> dict[str, Any]:
         """Run FFprobe command."""
         ffprobe_command = (
@@ -622,6 +623,11 @@ class FFprobe:
                 "-show_entries",
                 "stream=codec_type,codec_name,width,height,avg_frame_rate",
             ]
+            + (
+                ["-rtsp_transport", stream_config[CONFIG_RTSP_TRANSPORT]]
+                if stream_config[CONFIG_STREAM_FORMAT] == "rtsp"
+                else []
+            )
             + [stream_url]
         )
         self._logger.debug(f"FFprobe command: {' '.join(ffprobe_command)}")
