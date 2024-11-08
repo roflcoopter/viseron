@@ -90,7 +90,7 @@ from viseron.components.storage.const import (
     DESC_SNAPSHOTS,
     DESC_SNAPSHOTS_TIERS,
 )
-from viseron.components.storage.util import calculate_age
+from viseron.components.storage.util import calculate_age, calculate_bytes
 from viseron.config import UNSUPPORTED
 from viseron.const import TEMP_DIR
 from viseron.helpers.validators import CoerceNoneToDict, Maybe
@@ -408,14 +408,53 @@ class Tier(TypedDict):
     max_age: dict[str, Any]
 
 
+def _storage_type_enabled(config: dict[str, Any]) -> bool:
+    max_bytes = calculate_bytes(config[CONFIG_MAX_SIZE])
+    min_bytes = calculate_bytes(config[CONFIG_MIN_SIZE])
+    max_age = calculate_age(config[CONFIG_MAX_AGE])
+    min_age = calculate_age(config[CONFIG_MIN_AGE])
+    params = [
+        max_bytes,
+        min_age,
+        min_bytes,
+        max_age,
+    ]
+    return any(params)
+
+
 def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
     """Validate tiers.
 
-    Paths cannot be reserved paths.
-    The same path cannot be defined multiple times.
-    max_age has to be greater than previous tier max_age.
+    Rules:
+    - Paths cannot be reserved paths.
+    - The same path cannot be defined multiple times.
+    - max_age has to be greater than previous tier max_age.
+    - If continuous and/or events is not defined in the first tier,
+      it can't be defined in any other tier.
     """
     component_config: dict[str, Any] = config[COMPONENT]
+
+    # Check continuous and events config in first tier
+    first_tier = component_config.get(CONFIG_RECORDER, {}).get(CONFIG_TIERS, [])[0]
+    continuous_enabled = _storage_type_enabled(first_tier[CONFIG_CONTINUOUS])
+    events_enabled = _storage_type_enabled(first_tier[CONFIG_EVENTS])
+
+    for tier in component_config.get(CONFIG_RECORDER, {}).get(CONFIG_TIERS, [])[1:]:
+        if tier.get(CONFIG_CONTINUOUS, None) or tier.get(CONFIG_EVENTS, None):
+            continuous_enabled_in_tier = _storage_type_enabled(
+                tier.get(CONFIG_CONTINUOUS, {})
+            )
+            events_enabled_in_tier = _storage_type_enabled(tier.get(CONFIG_EVENTS, {}))
+            if not continuous_enabled and continuous_enabled_in_tier:
+                raise vol.Invalid(
+                    "Continuous recordings is not enabled in the first tier and thus "
+                    "cannot be enabled in any subsequent tier"
+                )
+            if not events_enabled and events_enabled_in_tier:
+                raise vol.Invalid(
+                    "Event recordings is not enabled in the first tier and thus "
+                    "cannot be enabled in any subsequent tier"
+                )
 
     # Check events config
     previous_tier: None | Tier = None
@@ -440,6 +479,38 @@ def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
             _tier = Tier(
                 path=tier[CONFIG_PATH], max_age=tier[CONFIG_CONTINUOUS][CONFIG_MAX_AGE]
             )
+            _check_tier(
+                _tier,
+                previous_tier,
+                paths,
+            )
+            previous_tier = _tier
+
+    # Check snapshots config
+    previous_tier = None
+    paths = []
+    for tier in component_config.get(CONFIG_SNAPSHOTS, {}).get(CONFIG_TIERS, []):
+        _tier = Tier(path=tier[CONFIG_PATH], max_age=tier[CONFIG_MAX_AGE])
+        _check_tier(
+            _tier,
+            previous_tier,
+            paths,
+        )
+        previous_tier = _tier
+
+    # Check snapshots domain config
+    for domain in [
+        CONFIG_FACE_RECOGNITION,
+        CONFIG_OBJECT_DETECTOR,
+        CONFIG_LICENSE_PLATE_RECOGNITION,
+        CONFIG_MOTION_DETECTOR,
+    ]:
+        if not component_config.get(CONFIG_SNAPSHOTS, {}).get(domain, None):
+            continue
+        previous_tier = None
+        paths = []
+        for tier in component_config[CONFIG_SNAPSHOTS][domain][CONFIG_TIERS]:
+            _tier = Tier(path=tier[CONFIG_PATH], max_age=tier[CONFIG_MAX_AGE])
             _check_tier(
                 _tier,
                 previous_tier,
