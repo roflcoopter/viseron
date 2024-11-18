@@ -31,6 +31,7 @@ from viseron.components.ffmpeg.const import (
     DEFAULT_CODEC,
     DEFAULT_FPS,
     DEFAULT_HEIGHT,
+    DEFAULT_PASSWORD,
     DEFAULT_PROTOCOL,
     DEFAULT_RECORDER_AUDIO_CODEC,
     DEFAULT_STREAM_FORMAT,
@@ -48,7 +49,7 @@ from viseron.exceptions import StreamInformationError
 
 from tests.common import MockCamera, return_any
 
-CONFIG = {
+CONFIG: dict[str, Any] = {
     CONFIG_HOST: "test_host",
     CONFIG_PORT: 1234,
     CONFIG_PATH: "/",
@@ -211,22 +212,31 @@ class TestStream:
                 stream.get_encoder_audio_codec(stream_audio_codec) == expected_audio_cmd
             )
 
-    def test_get_stream_url(self) -> None:
+    @pytest.mark.parametrize(
+        "username, password, expected_url",
+        [
+            (
+                "test_username",
+                "test_password",
+                "rtsp://test_username:test_password@test_host:1234/",
+            ),
+            ("admin", "", "rtsp://admin:@test_host:1234/"),
+            (DEFAULT_USERNAME, DEFAULT_PASSWORD, "rtsp://test_host:1234/"),
+        ],
+    )
+    def test_get_stream_url(self, username, password, expected_url) -> None:
         """Test that the correct stream url is returned."""
         mocked_camera = MockCamera(identifier="test_camera_identifier")
+        config = dict(CONFIG)
+        config[CONFIG_USERNAME] = username
+        config[CONFIG_PASSWORD] = password
+
         with patch.object(
             Stream, "__init__", MagicMock(spec=Stream, return_value=None)
         ):
             stream = Stream(CONFIG, mocked_camera, "test_camera_identifier")
-            stream._config = CONFIG  # pylint: disable=protected-access
-            assert (
-                stream.get_stream_url(CONFIG)
-                == "rtsp://test_username:test_password@test_host:1234/"
-            )
-            stream._config[  # pylint: disable=protected-access
-                CONFIG_USERNAME
-            ] = DEFAULT_USERNAME
-            assert stream.get_stream_url(CONFIG) == "rtsp://test_host:1234/"
+            stream._config = config  # pylint: disable=protected-access
+            assert stream.get_stream_url(config) == expected_url
 
     def test_get_stream_information(self):
         """Test that the correct stream information is returned."""
