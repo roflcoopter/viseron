@@ -6,7 +6,7 @@ import logging
 import os
 import pathlib
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import voluptuous as vol
 from alembic import command, script
@@ -52,6 +52,7 @@ from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera.const import CONFIG_STORAGE, DOMAIN as CAMERA_DOMAIN
 from viseron.helpers import utcnow
 from viseron.helpers.logs import StreamToLogger
+from viseron.types import SnapshotDomain
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
@@ -298,15 +299,14 @@ class Storage:
     def get_snapshots_path(
         self,
         camera: AbstractCamera,
-        domain: Literal["object_detector"]
-        | Literal["face_recognition"]
-        | Literal["license_plate_recognition"]
-        | Literal["motion_detector"],
+        domain: SnapshotDomain,
     ) -> str:
         """Get snapshots path for camera."""
         self.create_tier_handlers(camera)
         return get_snapshots_path(
-            self._camera_tier_handlers[camera.identifier]["snapshots"][0][domain].tier,
+            self._camera_tier_handlers[camera.identifier]["snapshots"][0][
+                domain.value
+            ].tier,
             camera,
             domain,
         )

@@ -11,11 +11,11 @@ import voluptuous as vol
 
 from viseron import Viseron
 from viseron.const import ENV_CUDA_SUPPORTED, ENV_VAAPI_SUPPORTED
-from viseron.domains.camera import (
+from viseron.domains.camera import AbstractCamera
+from viseron.domains.camera.config import (
     BASE_CONFIG_SCHEMA as BASE_CAMERA_CONFIG_SCHEMA,
     DEFAULT_RECORDER,
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
-    AbstractCamera,
 )
 from viseron.domains.camera.const import DOMAIN
 from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout

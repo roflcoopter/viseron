@@ -20,6 +20,7 @@ from viseron.events import EventData
 from viseron.helpers import calculate_relative_coords
 from viseron.helpers.schemas import FLOAT_MIN_ZERO
 from viseron.helpers.validators import Deprecated
+from viseron.types import SnapshotDomain
 
 from .binary_sensor import FaceDetectionBinarySensor
 from .const import (
@@ -147,7 +148,7 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         if shared_frame:
             snapshot_path = self._camera.save_snapshot(
                 shared_frame,
-                DOMAIN,
+                SnapshotDomain.FACE_RECOGNITION,
                 zoom_coordinates=calculate_relative_coords(
                     coordinates, self._camera.resolution
                 ),

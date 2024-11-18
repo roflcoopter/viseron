@@ -32,6 +32,7 @@ from viseron.helpers.schemas import (
     FLOAT_MIN_ZERO_MAX_ONE,
 )
 from viseron.helpers.validators import CameraIdentifier
+from viseron.types import SnapshotDomain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .binary_sensor import (
@@ -409,7 +410,7 @@ class AbstractObjectDetector(ABC):
                 if shared_frame:
                     snapshot_path = self._camera.save_snapshot(
                         shared_frame,
-                        DOMAIN,
+                        SnapshotDomain.OBJECT_DETECTOR,
                         (
                             obj.rel_x1,
                             obj.rel_y1,

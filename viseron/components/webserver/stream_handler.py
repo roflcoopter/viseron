@@ -15,7 +15,7 @@ from viseron.components.nvr import COMPONENT as NVR_COMPONENT
 from viseron.components.nvr.const import DATA_PROCESSED_FRAME_TOPIC
 from viseron.components.nvr.nvr import NVR, DataProcessedFrame
 from viseron.const import TOPIC_STATIC_MJPEG_STREAMS
-from viseron.domains.camera import MJPEG_STREAM_SCHEMA
+from viseron.domains.camera.config import MJPEG_STREAM_SCHEMA
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.helpers import (
     draw_contours,

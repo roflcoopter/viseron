@@ -17,6 +17,7 @@ from viseron.components.storage.const import (
     CONFIG_PATH,
 )
 from viseron.events import EventData
+from viseron.types import SnapshotDomain
 
 if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera, FailedCamera
@@ -71,10 +72,10 @@ def get_thumbnails_path(
 def get_snapshots_path(
     tier: dict[str, Any],
     camera: AbstractCamera | FailedCamera,
-    domain: str,
+    domain: SnapshotDomain,
 ) -> str:
     """Get snapshots path for camera."""
-    return os.path.join(tier[CONFIG_PATH], "snapshots", domain, camera.identifier)
+    return os.path.join(tier[CONFIG_PATH], "snapshots", domain.value, camera.identifier)
 
 
 def files_to_move_overlap(events_file_ids, continuous_file_ids):
