@@ -69,6 +69,7 @@ from viseron.helpers.logs import (
 )
 from viseron.states import States
 from viseron.types import SupportedDomains
+from viseron.watchdog.process_watchdog import ProcessWatchDog
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import ThreadWatchDog
 
@@ -218,10 +219,11 @@ class Viseron:
         self._domain_register_lock = threading.Lock()
         self.data[REGISTERED_DOMAINS] = {}
 
-        self._thread_watchdog = ThreadWatchDog()
-        self._subprocess_watchdog = SubprocessWatchDog()
         self.background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
         self.background_scheduler.start()
+        self._thread_watchdog = ThreadWatchDog(self)
+        self._subprocess_watchdog = SubprocessWatchDog(self)
+        self._process_watchdog = ProcessWatchDog(self)
 
         self.storage: Storage | None = None
 
@@ -487,10 +489,8 @@ class Viseron:
         if self.data.get(DATA_STREAM_COMPONENT, None):
             data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
 
-        self._thread_watchdog.stop()
-        self._subprocess_watchdog.stop()
         try:
-            self.background_scheduler.shutdown()
+            self.background_scheduler.shutdown(wait=False)
         except SchedulerNotRunningError as err:
             LOGGER.warning(f"Failed to shutdown scheduler: {err}")
 

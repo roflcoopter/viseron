@@ -3,9 +3,13 @@ from __future__ import annotations
 
 import logging
 import multiprocessing as mp
+from typing import TYPE_CHECKING
 
 from viseron.helpers import utcnow
 from viseron.watchdog import WatchDog
+
+if TYPE_CHECKING:
+    from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
 
@@ -119,9 +123,11 @@ class ProcessWatchDog(WatchDog):
 
     registered_items: list[RestartableProcess] = []
 
-    def __init__(self) -> None:
+    def __init__(self, vis: Viseron) -> None:
         super().__init__()
-        self._scheduler.add_job(self.watchdog, "interval", seconds=15)
+        vis.background_scheduler.add_job(
+            self.watchdog, "interval", name="process_watchdog", seconds=15
+        )
 
     def watchdog(self) -> None:
         """Check for stopped processes and restart them."""
