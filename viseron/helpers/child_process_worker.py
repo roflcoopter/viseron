@@ -13,6 +13,7 @@ import setproctitle
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.helpers import pop_if_full
 from viseron.helpers.mprt_monkeypatch import remove_shm_from_resource_tracker
+from viseron.watchdog.process_watchdog import RestartableProcess
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
@@ -54,7 +55,20 @@ class ChildProcessWorker(ABC):
         output_thread.start()
 
         self._process_queue: Any = mp.Queue(maxsize=100)
-        self._process_frames_proc = mp.Process(
+        self._process_frames_proc = RestartableProcess(
+            name=self.child_process_name,
+            create_process_method=self.create_process,
+        )
+        self._process_frames_proc.start()
+
+        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+
+    def create_process(self) -> mp.Process:
+        """Return process used by RestartableProcess."""
+        LOGGER.warning(f"Setting process queues for {self.child_process_name}")
+        self._process_queue = mp.Queue(maxsize=100)
+        self._output_queue = mp.Queue(maxsize=100)
+        return mp.Process(
             target=self._process_frames,
             name=self.child_process_name,
             args=(
@@ -64,9 +78,6 @@ class ChildProcessWorker(ABC):
             ),
             daemon=True,
         )
-        self._process_frames_proc.start()
-
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
     @property
     def child_process_name(self) -> str:
