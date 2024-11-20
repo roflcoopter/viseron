@@ -191,8 +191,7 @@ def setup_viseron() -> Viseron:
     else:
         vis.critical_components_config_store.save(config)
 
-    end = timer()
-    LOGGER.info("Viseron initialized in %.1f seconds", end - start)
+    LOGGER.info("Viseron initialized in %.1f seconds", timer() - start)
     return vis
 
 
@@ -267,7 +266,7 @@ class Viseron:
             return False
 
         return self.data[DATA_STREAM_COMPONENT].subscribe_data(
-            f"viseron/signal/{viseron_signal}", callback
+            VISERON_SIGNALS[viseron_signal], callback, stage=viseron_signal
         )
 
     def listen_event(self, event: str, callback, ioloop=None) -> Callable[[], None]:
@@ -484,6 +483,7 @@ class Viseron:
 
     def shutdown(self) -> None:
         """Shut down Viseron."""
+        start = timer()
         LOGGER.info("Initiating shutdown")
 
         if self.data.get(DATA_STREAM_COMPONENT, None):
@@ -504,7 +504,7 @@ class Viseron:
             self, data_stream, VISERON_SIGNAL_STOPPING
         )
 
-        LOGGER.info("Shutdown complete")
+        LOGGER.info("Shutdown complete in %.1f seconds", timer() - start)
 
     def add_entity(self, component: str, entity: Entity):
         """Add entity to states registry."""
@@ -543,9 +543,10 @@ def wait_for_threads_and_processes_to_exit(
     stage: Literal["shutdown", "last_write", "stopping"],
 ) -> None:
     """Wait for all threads and processes to exit."""
+    LOGGER.debug(f"Sending signal for stage {stage}")
     vis.shutdown_stage = stage
     data_stream.publish_data(VISERON_SIGNALS[stage])
-
+    time.sleep(0.1)  # Wait for signal to be processed
     LOGGER.debug(f"Waiting for threads and processes to exit in stage {stage}")
 
     def join(
@@ -553,8 +554,20 @@ def wait_for_threads_and_processes_to_exit(
         | multiprocessing.Process
         | multiprocessing.process.BaseProcess,
     ) -> None:
-        thread_or_process.join(timeout=10)
-        time.sleep(0.5)  # Wait for process to exit properly
+        start_time = time.time()
+        LOGGER.debug(f"Waiting for {thread_or_process.name} to exit")
+        try:
+            thread_or_process.join(timeout=5)
+        except RuntimeError:
+            LOGGER.debug(f"Failed to join {thread_or_process.name}")
+            time.sleep(0.1)
+            thread_or_process.join(timeout=5)
+        LOGGER.debug(
+            f"Finished waiting for {thread_or_process.name} "
+            f"after {time.time() - start_time:.2f}s"
+        )
+
+        time.sleep(0.1)  # Wait for process to exit properly
         if thread_or_process.is_alive():
             LOGGER.error(f"{thread_or_process.name} did not exit in time")
             if isinstance(thread_or_process, multiprocessing.Process):

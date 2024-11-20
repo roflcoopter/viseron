@@ -4,7 +4,11 @@ define VISERON_RESTART_EXIT_CODE 100
 define SIGNAL_EXIT_CODE 256
 define SIGTERM 15
 
+# Log the exit code and time
 foreground { s6-echo "[viseron-finish] Viseron exit code ${1}" }
+backtick -D "unknown time" date { /bin/date }
+importas -i date date
+foreground { s6-echo "[viseron-finish] Shutdown completed at ${date}" }
 
 # Exit without stopping the supervisor so the Viseron service restarts on its own
 if { s6-test ${1} -ne ${VISERON_RESTART_EXIT_CODE} }
