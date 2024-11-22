@@ -97,6 +97,7 @@ class AbstractCamera(ABC):
 
         self._connected: bool = False
         self.stopped = Event()
+        self.stopped.set()
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self.current_frame: SharedFrame | None = None
         self.shared_frames = SharedFrames(vis)

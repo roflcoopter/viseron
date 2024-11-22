@@ -311,7 +311,8 @@ class Fragmenter:
     def _shutdown(self) -> None:
         """Handle shutdown event."""
         self._logger.debug("Shutting down fragment thread")
-        self._camera.stopped.wait()
+        if not self._camera.stopped.is_set():
+            self._camera.stopped.wait(timeout=5)
         self._logger.debug("Camera stopped, running final fragmentation")
         self._create_fragmented_mp4()
         self._logger.debug("Fragment thread shutdown complete")
