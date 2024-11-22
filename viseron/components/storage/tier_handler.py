@@ -665,15 +665,10 @@ class ThumbnailTierHandler(TierHandler):
             self._camera.identifier,
         )
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
+        self._storage.ignore_file("latest_thumbnail.jpg")
 
     def check_tier(self) -> None:
         """Do nothing, as we don't want to move thumbnails."""
-
-    def on_any_event(self, event: FileSystemEvent) -> None:
-        """Ignore changes to latest_thumbnail.jpg."""
-        if os.path.basename(event.src_path) == "latest_thumbnail.jpg":
-            return
-        return super().on_any_event(event)
 
     def _on_created(self, event: FileCreatedEvent) -> None:
         try:
