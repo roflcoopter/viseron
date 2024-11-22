@@ -6,6 +6,7 @@ built into domain setup.
 """
 from __future__ import annotations
 
+import datetime
 import logging
 import threading
 import time
@@ -31,6 +32,7 @@ from viseron.domains.object_detector.const import (
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import EventData
 from viseron.exceptions import DomainNotRegisteredError
+from viseron.helpers import utcnow
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -228,7 +230,8 @@ class NVR:
 
         self._trigger_type: TriggerTypes | None = None
         self._start_recorder = False
-        self._idle_frames = 0
+        self._stop_recorder_at: datetime.datetime | None = None
+        self._seconds_left = 0
         self._kill_received = False
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self._removal_timers: list[threading.Timer] = []
@@ -588,7 +591,7 @@ class NVR:
         self, shared_frame: SharedFrame, trigger_type: TriggerTypes
     ) -> None:
         """Start recorder."""
-        self._idle_frames = 0
+        self._stop_recorder_at = None
         self._camera.start_recorder(
             shared_frame,
             self._object_detector.objects_in_fov if self._object_detector else None,
@@ -607,26 +610,28 @@ class NVR:
         """Stop recorder."""
 
         def _stop():
-            self._idle_frames = 0
+            self._stop_recorder_at = None
+            self._seconds_left = 0
             self._camera.stop_recorder()
 
         if force:
             _stop()
             return
 
-        if self._idle_frames % self._camera.output_fps == 0:
-            self._logger.info(
-                "Stopping recording in: {}".format(
-                    int(
-                        self._camera.recorder.idle_timeout
-                        - (self._idle_frames / self._camera.output_fps)
-                    )
-                )
+        if not self._stop_recorder_at:
+            self._stop_recorder_at = utcnow() + datetime.timedelta(
+                seconds=self._camera.recorder.idle_timeout
             )
 
-        if self._idle_frames >= (
-            self._camera.output_fps * self._camera.recorder.idle_timeout
-        ):
+        if self._stop_recorder_at:
+            seconds_left = max(
+                round((self._stop_recorder_at - utcnow()).total_seconds()), 0
+            )
+            if seconds_left != self._seconds_left:
+                self._logger.info(f"Stopping recording in: {seconds_left}s")
+                self._seconds_left = seconds_left
+
+        if utcnow() > self._stop_recorder_at:
             if (
                 self._motion_detector
                 and self._object_detector
@@ -658,10 +663,9 @@ class NVR:
             self._logger.info("Max recording time exceeded, stopping recorder")
             self.stop_recorder(force=True)
         elif self._camera.is_recording and self.event_over():
-            self._idle_frames += 1
             self.stop_recorder()
         else:
-            self._idle_frames = 0
+            self._stop_recorder_at = None
 
     def remove_frame(self, shared_frame: SharedFrame) -> None:
         """Remove frame after a delay.
