@@ -43,6 +43,7 @@ from .const import (
     NO_DETECTOR,
     NO_DETECTOR_FPS,
     OBJECT_DETECTOR,
+    SCANNER_RESULT_RETRIES,
 )
 from .sensor import OperationStateSensor
 
@@ -399,19 +400,20 @@ class NVR:
         self._frame_scanner_errors = []
         for name, frame_scanner in self._current_frame_scanners.items():
             frame_scanner.scan_error = False
-            try:
-                # Wait for scanner to return.
-                # We dont care about the result since its referenced directly
-                # from the scanner instead of storing it locally
-                frame_scanner.result_queue.get(
-                    timeout=3,
-                )
-            except Empty:  # Make sure we dont wait forever
-                if self._kill_received:
-                    return
-                self._logger.error(f"Failed to retrieve result for {name}")
-                frame_scanner.scan_error = True
-                self._frame_scanner_errors.append(name)
+            retry_count = 0
+            while retry_count < SCANNER_RESULT_RETRIES and not self._kill_received:
+                try:
+                    # Wait for scanner to return.
+                    # We dont care about the result since its referenced directly
+                    # from the scanner instead of storing it locally
+                    frame_scanner.result_queue.get(timeout=1)
+                    break
+                except Empty:  # Make sure we dont wait forever
+                    retry_count += 1
+                    if retry_count == SCANNER_RESULT_RETRIES:
+                        self._logger.error(f"Failed to retrieve result for {name}")
+                        frame_scanner.scan_error = True
+                        self._frame_scanner_errors.append(name)
 
     def event_over_check_motion(
         self, obj: DetectedObject, object_filters: dict[str, Filter]
