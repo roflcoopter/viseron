@@ -490,6 +490,9 @@ class AbstractObjectDetector(ABC):
 
         frame_time = time.time()
         objects = self.return_objects(preprocessed_frame)
+        if objects is None:
+            return
+
         self._inference_fps.append(1 / (time.time() - frame_time))
 
         self.filter_fov(shared_frame, objects)
@@ -504,7 +507,7 @@ class AbstractObjectDetector(ABC):
         self._theoretical_max_fps.append(1 / (time.time() - frame_time))
 
     @abstractmethod
-    def return_objects(self, frame) -> list[DetectedObject]:
+    def return_objects(self, frame) -> list[DetectedObject] | None:
         """Perform object detection."""
 
     @property

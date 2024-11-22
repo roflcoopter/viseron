@@ -7,7 +7,7 @@ import multiprocessing as mp
 import os
 import pwd
 from abc import ABC, abstractmethod
-from queue import Queue
+from queue import Empty, Queue
 from typing import Any
 
 import cv2
@@ -443,7 +443,10 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
                 "min_confidence": min_confidence,
             },
         )
-        item = result_queue.get(timeout=3)
+        try:
+            item = result_queue.get(timeout=3)
+        except Empty:
+            return None
         return item["result"]
 
     def post_process(self, detections, camera_resolution):
