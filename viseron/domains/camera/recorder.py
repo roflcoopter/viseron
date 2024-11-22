@@ -5,7 +5,6 @@ import datetime
 import logging
 import os
 import shutil
-import threading
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
@@ -25,6 +24,7 @@ from viseron.domains.camera.fragmenter import Fragment
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import EventData
 from viseron.helpers import create_directory, draw_objects, utcnow
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
     CONFIG_CREATE_EVENT_CLIP,
@@ -366,8 +366,11 @@ class AbstractRecorder(ABC, RecorderBase):
         self.is_recording = False
 
         if self._config[CONFIG_RECORDER][CONFIG_CREATE_EVENT_CLIP]:
-            concat_thread = threading.Thread(
-                target=self._concatenate_fragments, args=(recording,)
+            concat_thread = RestartableThread(
+                name=f"viseron.camera.{self._camera.identifier}.concatenate_fragments",
+                target=self._concatenate_fragments,
+                args=(recording,),
+                register=False,
             )
             concat_thread.start()
 
