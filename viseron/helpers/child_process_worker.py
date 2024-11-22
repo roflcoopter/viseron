@@ -45,7 +45,7 @@ class ChildProcessWorker(ABC):
         )
         input_thread.start()
 
-        self._output_queue: Any = mp.Queue(maxsize=100)
+        self._output_queue: mp.Queue = mp.Queue(maxsize=100)
         output_thread = RestartableThread(
             target=self._process_output_queue,
             name=f"child_process.{self._name}.output_thread",
@@ -54,7 +54,7 @@ class ChildProcessWorker(ABC):
         )
         output_thread.start()
 
-        self._process_queue: Any = mp.Queue(maxsize=100)
+        self._process_queue: mp.Queue = mp.Queue(maxsize=100)
         self._process_frames_proc = RestartableProcess(
             name=self.child_process_name,
             create_process_method=self.create_process,
@@ -64,8 +64,18 @@ class ChildProcessWorker(ABC):
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
     def create_process(self) -> mp.Process:
-        """Return process used by RestartableProcess."""
-        LOGGER.warning(f"Setting process queues for {self.child_process_name}")
+        """Return process used by RestartableProcess.
+
+        This method is called by RestartableProcess to create a new process.
+        Queue is recreated for each new process to avoid freezes when the process is
+        killed.
+        Also closes the old queues to avoid freezing Viseron restarts.
+        """
+        LOGGER.debug(f"Setting process queues for {self.child_process_name}")
+        if self._process_queue:
+            self._process_queue.close()
+        if self._output_queue:
+            self._output_queue.close()
         self._process_queue = mp.Queue(maxsize=100)
         self._output_queue = mp.Queue(maxsize=100)
         return mp.Process(
