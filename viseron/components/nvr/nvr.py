@@ -663,14 +663,24 @@ class NVR:
         else:
             self._idle_frames = 0
 
-    def remove_frame(self, shared_frame) -> None:
+    def remove_frame(self, shared_frame: SharedFrame) -> None:
         """Remove frame after a delay.
 
         This makes sure all frames are cleaned up eventually.
         """
+
+        def _remove():
+            self._camera.shared_frames.remove(shared_frame, self._camera)
+            self._removal_timers.remove(timer)
+
         timer = threading.Timer(
-            2, self._camera.shared_frames.remove, args=(shared_frame, self._camera)
+            2,
+            _remove,
+            args=(),
         )
+        timer.name = f"{str(self)}.remove_frame.{shared_frame.name}"
+        timer.daemon = True
+        self._removal_timers.append(timer)
         timer.start()
 
     def run(self) -> None:
