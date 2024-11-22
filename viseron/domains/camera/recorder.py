@@ -265,7 +265,6 @@ class AbstractRecorder(ABC, RecorderBase):
         full_path = os.path.join(
             self._camera.recordings_folder, start_time.date().isoformat()
         )
-        create_directory(full_path)
 
         with self._storage.get_session() as session:
             stmt = (
@@ -388,6 +387,7 @@ class AbstractRecorder(ABC, RecorderBase):
         if not event_clip:
             return
 
+        create_directory(os.path.dirname(recording.path))
         shutil.move(
             event_clip,
             recording.path,
