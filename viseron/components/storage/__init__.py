@@ -251,12 +251,22 @@ class Storage:
             self._run_migrations()
 
         self._get_session = scoped_session(sessionmaker(bind=self.engine, future=True))
+        self._get_session_expire = scoped_session(
+            sessionmaker(bind=self.engine, future=True, expire_on_commit=True)
+        )
         startup_chores(self._get_session)
 
-    def get_session(self) -> Session:
-        """Get a new sqlalchemy session."""
-        if self._get_session is None:
+    def get_session(self, expire_on_commit: bool = False) -> Session:
+        """Get a new sqlalchemy session.
+
+        Args:
+            expire_on_commit: Whether to expire objects when committing.
+        """
+        if self._get_session is None or self._get_session_expire is None:
             raise RuntimeError("The database connection has not been established")
+
+        if expire_on_commit:
+            return self._get_session_expire()
         return self._get_session()
 
     def get_recordings_path(self, camera: AbstractCamera) -> str:

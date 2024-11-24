@@ -1007,14 +1007,14 @@ def force_move_files(
     logger: logging.Logger,
 ) -> None:
     """Get and move/delete all files in tier."""
-    with get_session() as session:
+    with get_session(expire_on_commit=False) as session:
         stmt = (
-            select(Files)
+            select(Files.path, Files.tier_path)
             .where(Files.category == category)
             .where(Files.tier_id == tier_id)
             .where(Files.camera_identifier == camera_identifier)
         )
-        result = session.execute(stmt)
+        result = session.execute(stmt).all()
         for file in result:
             handle_file(
                 get_session,
@@ -1022,8 +1022,8 @@ def force_move_files(
                 camera_identifier,
                 curr_tier,
                 next_tier,
-                file.path,
-                file.tier_path,
+                file[0],
+                file[1],
                 logger,
             )
         session.commit()
