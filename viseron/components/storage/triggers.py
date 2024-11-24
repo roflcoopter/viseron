@@ -2,7 +2,7 @@
 
 import logging
 
-from sqlalchemy import Connection, delete, event
+from sqlalchemy import Connection, event
 from sqlalchemy.dialects.postgresql import insert
 
 from viseron.components.storage.models import Files, FilesMeta
@@ -32,22 +32,6 @@ def insert_into_files_meta(
         )
 
 
-def delete_from_files_meta(
-    conn: Connection,
-    clauseelement,
-    _multiparams,
-    _params,
-    _execution_options,
-) -> None:
-    """Delete a row from FilesMeta when a row is deleted from Files."""
-    if clauseelement.is_delete and clauseelement.table.name == Files.__tablename__:
-        compiled = clauseelement.compile()
-        conn.execute(
-            delete(FilesMeta).where(FilesMeta.path == compiled.params["path_1"])
-        )
-
-
 def setup_triggers(engine) -> None:
     """Set up database triggers."""
     event.listen(engine, "before_execute", insert_into_files_meta)
-    event.listen(engine, "after_execute", delete_from_files_meta)

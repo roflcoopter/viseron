@@ -92,7 +92,7 @@ class TierHandler(FileSystemEventHandler):
         next_tier: dict[str, Any] | None,
     ) -> None:
         self._logger = logging.getLogger(
-            f"{__name__}.{camera.identifier}.tier_{tier_id}"
+            f"{__name__}.{camera.identifier}.tier_{tier_id}.{category}.{subcategory}"
         )
         super().__init__()
 
@@ -319,6 +319,8 @@ class TierHandler(FileSystemEventHandler):
         self._logger.debug("File deleted: %s", event.src_path)
         with self._storage.get_session() as session:
             stmt = delete(Files).where(Files.path == event.src_path)
+            session.execute(stmt)
+            stmt = delete(FilesMeta).where(FilesMeta.path == event.src_path)
             session.execute(stmt)
             session.commit()
 
@@ -860,6 +862,8 @@ def handle_file(
         with get_session() as session:
             stmt = delete(Files).where(Files.path == path)
             session.execute(stmt)
+            stmt = delete(FilesMeta).where(FilesMeta.path == path)
+            session.execute(stmt)
             session.commit()
 
 
@@ -885,17 +889,30 @@ def move_file(
             )
             session.execute(ins)
             session.commit()
-    except IntegrityError:
-        logger.error(f"Failed to insert metadata for {dst}", exc_info=True)
+    except IntegrityError as error:
+        logger.debug(f"Failed to insert metadata for {dst}: {error}")
+    except NoResultFound as error:
+        logger.debug(f"Failed to find metadata for {src}: {error}")
+        with get_session() as session:
+            stmt = delete(Files).where(Files.path == src)
+            session.execute(stmt)
+            session.commit()
+        try:
+            os.remove(src)
+        except FileNotFoundError as _error:
+            logger.debug(f"Failed to delete file {src}: {_error}")
+        return
 
     try:
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copy(src, dst)
         os.remove(src)
     except FileNotFoundError as error:
-        logger.error(f"Failed to move file {src} to {dst}: {error}")
+        logger.debug(f"Failed to move file {src} to {dst}: {error}")
         with get_session() as session:
             stmt = delete(Files).where(Files.path == src)
+            session.execute(stmt)
+            stmt = delete(FilesMeta).where(FilesMeta.path == src)
             session.execute(stmt)
             session.commit()
 
@@ -910,12 +927,14 @@ def delete_file(
     with get_session() as session:
         stmt = delete(Files).where(Files.path == path)
         session.execute(stmt)
+        stmt = delete(FilesMeta).where(FilesMeta.path == path)
+        session.execute(stmt)
         session.commit()
 
     try:
         os.remove(path)
     except FileNotFoundError as error:
-        logger.error(f"Failed to delete file {path}: {error}")
+        logger.debug(f"Failed to delete file {path}: {error}")
 
 
 def get_files_to_move(
