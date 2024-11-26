@@ -37,6 +37,7 @@ class RestartableProcess:
         self._name = name
         self._grace_period = grace_period
         self._kwargs = kwargs
+        self._kwargs["name"] = name
         self._process: mp.Process | None = None
         self._started = False
         self._start_time: float | None = None
