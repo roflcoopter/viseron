@@ -349,6 +349,7 @@ class TierHandler(FileSystemEventHandler):
                 self._storage,
                 self._storage.get_session,
                 self._category,
+                self._subcategory,
                 self._tier_id,
                 self._camera.identifier,
                 self._tier,
@@ -1019,6 +1020,7 @@ def force_move_files(
     storage: Storage,
     get_session: Callable[..., Session],
     category: str,
+    subcategory: str,
     tier_id: int,
     camera_identifier: str,
     curr_tier: dict[str, Any],
@@ -1029,9 +1031,10 @@ def force_move_files(
     with get_session(expire_on_commit=False) as session:
         stmt = (
             select(Files.path, Files.tier_path)
-            .where(Files.category == category)
-            .where(Files.tier_id == tier_id)
             .where(Files.camera_identifier == camera_identifier)
+            .where(Files.tier_id == tier_id)
+            .where(Files.category == category)
+            .where(Files.subcategory == subcategory)
         )
         result = session.execute(stmt).all()
         for file in result:
