@@ -191,9 +191,9 @@ class TierHandler(FileSystemEventHandler):
             time_since_last_call = now - self._time_of_last_call
             if time_since_last_call < self._throttle_period:
                 return
+            self._time_of_last_call = now
 
         self._check_tier(self._storage.get_session)
-        self._time_of_last_call = now
 
     def _check_tier(self, get_session: Callable[[], Session]) -> None:
         file_ids = None
