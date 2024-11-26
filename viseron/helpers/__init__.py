@@ -8,6 +8,7 @@ import math
 import multiprocessing as mp
 import os
 import socket
+import time
 import tracemalloc
 import urllib.parse
 from queue import Full, Queue
@@ -30,6 +31,11 @@ LOGGER = logging.getLogger(__name__)
 def utcnow() -> datetime.datetime:
     """Return current UTC time."""
     return datetime.datetime.now(tz=datetime.timezone.utc)
+
+
+def get_utc_offset() -> datetime.timedelta:
+    """Return the current UTC offset."""
+    return datetime.timedelta(seconds=time.localtime().tm_gmtoff)
 
 
 def daterange_to_utc(

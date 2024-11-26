@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import hmac
 import logging
-import time
 from collections.abc import Callable
 from datetime import timedelta
 from http import HTTPStatus
@@ -18,7 +17,7 @@ from viseron.components.webserver.const import COMPONENT
 from viseron.const import DOMAIN_FAILED
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
-from viseron.helpers import utcnow
+from viseron.helpers import get_utc_offset, utcnow
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -93,7 +92,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             return timedelta(minutes=int(header))
         if cookie := self.get_cookie("X-Client-UTC-Offset", None):
             return timedelta(minutes=int(cookie))
-        return timedelta(seconds=time.localtime().tm_gmtoff)
+        return get_utc_offset()
 
     def on_finish(self) -> None:
         """Log requests with failed authentication."""
