@@ -762,7 +762,6 @@ class CleanupManager:
             OrphanedObjectsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedMotionCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OldEventsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
-            # ############### ABOVE THIS IS OK ################
         ]
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
