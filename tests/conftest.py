@@ -28,8 +28,10 @@ class MockViseron(Viseron):
 
     def __init__(self) -> None:
         super().__init__()
-        self.register_domain = Mock(side_effect=self.register_domain)  # type: ignore
-        self.mocked_register_domain = self.register_domain  # type: ignore
+        self.register_domain = Mock(  # type: ignore[method-assign]
+            side_effect=self.register_domain,
+        )
+        self.mocked_register_domain = self.register_domain
 
 
 @pytest.fixture

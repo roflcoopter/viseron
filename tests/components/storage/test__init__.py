@@ -6,7 +6,7 @@ import os
 import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -133,7 +133,8 @@ class TestStorage:
 
     def setup_method(self, vis: Viseron) -> None:
         """Set up the test."""
-        self._storage = Storage(vis, MagicMock())
+        with patch("viseron.components.storage.CleanupManager"):
+            self._storage = Storage(vis, MagicMock())
 
     def test_search_file(self) -> None:
         """Test the search_file method."""

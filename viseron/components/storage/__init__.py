@@ -34,6 +34,7 @@ from viseron.components.storage.const import (
     DEFAULT_COMPONENT,
     DESC_COMPONENT,
 )
+from viseron.components.storage.jobs import CleanupManager
 from viseron.components.storage.models import Base, Motion, Recordings
 from viseron.components.storage.tier_handler import (
     RecordingsTierHandler,
@@ -179,6 +180,9 @@ class Storage:
         self.ignored_files: list[str] = []
         self.engine: Engine | None = None
         self._get_session: Callable[[], Session] | None = None
+
+        self._cleanup_manager = CleanupManager(vis, self)
+        self._cleanup_manager.start()
 
     @property
     def camera_tier_handlers(self):
