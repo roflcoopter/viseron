@@ -6,7 +6,7 @@ import logging
 import os
 import pathlib
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import voluptuous as vol
 from alembic import command, script
@@ -34,6 +34,7 @@ from viseron.components.storage.const import (
     DEFAULT_COMPONENT,
     DESC_COMPONENT,
 )
+from viseron.components.storage.jobs import CleanupManager
 from viseron.components.storage.models import Base, Motion, Recordings
 from viseron.components.storage.tier_handler import (
     RecordingsTierHandler,
@@ -52,6 +53,7 @@ from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera.const import CONFIG_STORAGE, DOMAIN as CAMERA_DOMAIN
 from viseron.helpers import utcnow
 from viseron.helpers.logs import StreamToLogger
+from viseron.types import SnapshotDomain
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
@@ -179,6 +181,9 @@ class Storage:
         self.engine: Engine | None = None
         self._get_session: Callable[[], Session] | None = None
 
+        self._cleanup_manager = CleanupManager(vis, self)
+        self._cleanup_manager.start()
+
     @property
     def camera_tier_handlers(self):
         """Return camera tier handlers."""
@@ -250,12 +255,22 @@ class Storage:
             self._run_migrations()
 
         self._get_session = scoped_session(sessionmaker(bind=self.engine, future=True))
+        self._get_session_expire = scoped_session(
+            sessionmaker(bind=self.engine, future=True, expire_on_commit=True)
+        )
         startup_chores(self._get_session)
 
-    def get_session(self) -> Session:
-        """Get a new sqlalchemy session."""
-        if self._get_session is None:
+    def get_session(self, expire_on_commit: bool = False) -> Session:
+        """Get a new sqlalchemy session.
+
+        Args:
+            expire_on_commit: Whether to expire objects when committing.
+        """
+        if self._get_session is None or self._get_session_expire is None:
             raise RuntimeError("The database connection has not been established")
+
+        if expire_on_commit:
+            return self._get_session_expire()
         return self._get_session()
 
     def get_recordings_path(self, camera: AbstractCamera) -> str:
@@ -298,15 +313,14 @@ class Storage:
     def get_snapshots_path(
         self,
         camera: AbstractCamera,
-        domain: Literal["object_detector"]
-        | Literal["face_recognition"]
-        | Literal["license_plate_recognition"]
-        | Literal["motion_detector"],
+        domain: SnapshotDomain,
     ) -> str:
         """Get snapshots path for camera."""
         self.create_tier_handlers(camera)
         return get_snapshots_path(
-            self._camera_tier_handlers[camera.identifier]["snapshots"][0][domain].tier,
+            self._camera_tier_handlers[camera.identifier]["snapshots"][0][
+                domain.value
+            ].tier,
             camera,
             domain,
         )

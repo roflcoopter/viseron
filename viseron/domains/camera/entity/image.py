@@ -44,7 +44,6 @@ class ThumbnailImage(CameraImage):
         """Return extra attributes."""
         return {
             "start_time": self._attr_start_time,
-            "path": self._attr_path,
             "thumbnail_path": self._attr_thumbnail_path,
         }
 
@@ -52,7 +51,6 @@ class ThumbnailImage(CameraImage):
         """Handle recorder start event."""
         recording = event_data.data.recording
         self._attr_start_time = recording.start_time.isoformat()
-        self._attr_path = recording.path
         self._attr_thumbnail_path = recording.thumbnail_path
         self._image = recording.thumbnail
         self.set_state()

@@ -92,7 +92,7 @@ class TierHandler(FileSystemEventHandler):
         next_tier: dict[str, Any] | None,
     ) -> None:
         self._logger = logging.getLogger(
-            f"{__name__}.{camera.identifier}.tier_{tier_id}"
+            f"{__name__}.{camera.identifier}.tier_{tier_id}.{category}.{subcategory}"
         )
         super().__init__()
 
@@ -191,9 +191,9 @@ class TierHandler(FileSystemEventHandler):
             time_since_last_call = now - self._time_of_last_call
             if time_since_last_call < self._throttle_period:
                 return
+            self._time_of_last_call = now
 
         self._check_tier(self._storage.get_session)
-        self._time_of_last_call = now
 
     def _check_tier(self, get_session: Callable[[], Session]) -> None:
         file_ids = None
@@ -320,6 +320,8 @@ class TierHandler(FileSystemEventHandler):
         with self._storage.get_session() as session:
             stmt = delete(Files).where(Files.path == event.src_path)
             session.execute(stmt)
+            stmt = delete(FilesMeta).where(FilesMeta.path == event.src_path)
+            session.execute(stmt)
             session.commit()
 
         self._vis.dispatch_event(
@@ -347,6 +349,7 @@ class TierHandler(FileSystemEventHandler):
                 self._storage,
                 self._storage.get_session,
                 self._category,
+                self._subcategory,
                 self._tier_id,
                 self._camera.identifier,
                 self._tier,
@@ -665,15 +668,10 @@ class ThumbnailTierHandler(TierHandler):
             self._camera.identifier,
         )
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
+        self._storage.ignore_file("latest_thumbnail.jpg")
 
     def check_tier(self) -> None:
         """Do nothing, as we don't want to move thumbnails."""
-
-    def on_any_event(self, event: FileSystemEvent) -> None:
-        """Ignore changes to latest_thumbnail.jpg."""
-        if os.path.basename(event.src_path) == "latest_thumbnail.jpg":
-            return
-        return super().on_any_event(event)
 
     def _on_created(self, event: FileCreatedEvent) -> None:
         try:
@@ -865,6 +863,8 @@ def handle_file(
         with get_session() as session:
             stmt = delete(Files).where(Files.path == path)
             session.execute(stmt)
+            stmt = delete(FilesMeta).where(FilesMeta.path == path)
+            session.execute(stmt)
             session.commit()
 
 
@@ -890,17 +890,30 @@ def move_file(
             )
             session.execute(ins)
             session.commit()
-    except IntegrityError:
-        logger.error(f"Failed to insert metadata for {dst}", exc_info=True)
+    except IntegrityError as error:
+        logger.debug(f"Failed to insert metadata for {dst}: {error}")
+    except NoResultFound as error:
+        logger.debug(f"Failed to find metadata for {src}: {error}")
+        with get_session() as session:
+            stmt = delete(Files).where(Files.path == src)
+            session.execute(stmt)
+            session.commit()
+        try:
+            os.remove(src)
+        except FileNotFoundError as _error:
+            logger.debug(f"Failed to delete file {src}: {_error}")
+        return
 
     try:
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copy(src, dst)
         os.remove(src)
     except FileNotFoundError as error:
-        logger.error(f"Failed to move file {src} to {dst}: {error}")
+        logger.debug(f"Failed to move file {src} to {dst}: {error}")
         with get_session() as session:
             stmt = delete(Files).where(Files.path == src)
+            session.execute(stmt)
+            stmt = delete(FilesMeta).where(FilesMeta.path == src)
             session.execute(stmt)
             session.commit()
 
@@ -915,12 +928,14 @@ def delete_file(
     with get_session() as session:
         stmt = delete(Files).where(Files.path == path)
         session.execute(stmt)
+        stmt = delete(FilesMeta).where(FilesMeta.path == path)
+        session.execute(stmt)
         session.commit()
 
     try:
         os.remove(path)
     except FileNotFoundError as error:
-        logger.error(f"Failed to delete file {path}: {error}")
+        logger.debug(f"Failed to delete file {path}: {error}")
 
 
 def get_files_to_move(
@@ -1005,6 +1020,7 @@ def force_move_files(
     storage: Storage,
     get_session: Callable[..., Session],
     category: str,
+    subcategory: str,
     tier_id: int,
     camera_identifier: str,
     curr_tier: dict[str, Any],
@@ -1012,14 +1028,15 @@ def force_move_files(
     logger: logging.Logger,
 ) -> None:
     """Get and move/delete all files in tier."""
-    with get_session() as session:
+    with get_session(expire_on_commit=False) as session:
         stmt = (
-            select(Files)
-            .where(Files.category == category)
-            .where(Files.tier_id == tier_id)
+            select(Files.path, Files.tier_path)
             .where(Files.camera_identifier == camera_identifier)
+            .where(Files.tier_id == tier_id)
+            .where(Files.category == category)
+            .where(Files.subcategory == subcategory)
         )
-        result = session.execute(stmt)
+        result = session.execute(stmt).all()
         for file in result:
             handle_file(
                 get_session,
@@ -1027,8 +1044,8 @@ def force_move_files(
                 camera_identifier,
                 curr_tier,
                 next_tier,
-                file.path,
-                file.tier_path,
+                file[0],
+                file[1],
                 logger,
             )
         session.commit()

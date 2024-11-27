@@ -5,8 +5,6 @@ import datetime
 import logging
 import os
 import shutil
-import threading
-import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -24,7 +22,8 @@ from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.domains.camera.fragmenter import Fragment
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import EventData
-from viseron.helpers import create_directory, draw_objects, utcnow
+from viseron.helpers import create_directory, draw_objects, get_utc_offset, utcnow
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
     CONFIG_CREATE_EVENT_CLIP,
@@ -91,8 +90,6 @@ class Recording:
     end_time: datetime.datetime | None
     end_timestamp: float | None
     date: str
-    path: str
-    filename: str
     thumbnail: np.ndarray | None
     thumbnail_path: str | None
     objects: list[DetectedObject]
@@ -106,8 +103,6 @@ class Recording:
             "end_time": self.end_time,
             "end_timestamp": self.end_timestamp,
             "date": self.date,
-            "path": self.path,
-            "filename": self.filename,
             "thumbnail_path": self.thumbnail_path,
             "objects": self.objects,
         }
@@ -212,9 +207,7 @@ class AbstractRecorder(ABC, RecorderBase):
 
     def as_dict(self) -> dict[str, dict[int, RecordingDict]]:
         """Return recorder information as dict."""
-        return self.get_recordings(
-            datetime.timedelta(seconds=time.localtime().tm_gmtoff)
-        )
+        return self.get_recordings(get_utc_offset())
 
     def create_thumbnail(
         self,
@@ -255,18 +248,6 @@ class AbstractRecorder(ABC, RecorderBase):
         self.is_recording = True
         start_time = utcnow()
 
-        # Create filename
-        filename_pattern = start_time.strftime(
-            self._config[CONFIG_RECORDER][CONFIG_FILENAME_PATTERN]
-        )
-        video_name = f"{filename_pattern}.{self._camera.extension}"
-
-        # Create foldername
-        full_path = os.path.join(
-            self._camera.recordings_folder, start_time.date().isoformat()
-        )
-        create_directory(full_path)
-
         with self._storage.get_session() as session:
             stmt = (
                 insert(Recordings)
@@ -304,8 +285,6 @@ class AbstractRecorder(ABC, RecorderBase):
             end_time=None,
             end_timestamp=None,
             date=start_time.date().isoformat(),
-            path=os.path.join(full_path, video_name),
-            filename=video_name,
             thumbnail=thumbnail,
             thumbnail_path=thumbnail_path
             if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]
@@ -367,8 +346,11 @@ class AbstractRecorder(ABC, RecorderBase):
         self.is_recording = False
 
         if self._config[CONFIG_RECORDER][CONFIG_CREATE_EVENT_CLIP]:
-            concat_thread = threading.Thread(
-                target=self._concatenate_fragments, args=(recording,)
+            concat_thread = RestartableThread(
+                name=f"viseron.camera.{self._camera.identifier}.concatenate_fragments",
+                target=self._concatenate_fragments,
+                args=(recording,),
+                register=False,
             )
             concat_thread.start()
 
@@ -388,18 +370,32 @@ class AbstractRecorder(ABC, RecorderBase):
         if not event_clip:
             return
 
+        # Create filename
+        filename_pattern = recording.start_time.strftime(
+            self._config[CONFIG_RECORDER][CONFIG_FILENAME_PATTERN]
+        )
+        video_name = f"{filename_pattern}.{self._camera.extension}"
+
+        # Create foldername
+        full_path = os.path.join(
+            self._camera.recordings_folder, recording.start_time.date().isoformat()
+        )
+
+        clip_path = os.path.join(full_path, video_name)
+
+        create_directory(os.path.dirname(clip_path))
         shutil.move(
             event_clip,
-            recording.path,
+            clip_path,
         )
-        self._logger.debug(f"Moved event clip to {recording.path}")
+        self._logger.debug(f"Moved event clip to {clip_path}")
 
         with self._storage.get_session() as session:
             stmt = (
                 update(Recordings)
                 .where(Recordings.id == recording.id)
                 .values(
-                    clip_path=recording.path,
+                    clip_path=clip_path,
                 )
             )
             session.execute(stmt)

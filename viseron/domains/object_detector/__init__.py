@@ -32,6 +32,7 @@ from viseron.helpers.schemas import (
     FLOAT_MIN_ZERO_MAX_ONE,
 )
 from viseron.helpers.validators import CameraIdentifier
+from viseron.types import SnapshotDomain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .binary_sensor import (
@@ -409,7 +410,7 @@ class AbstractObjectDetector(ABC):
                 if shared_frame:
                     snapshot_path = self._camera.save_snapshot(
                         shared_frame,
-                        DOMAIN,
+                        SnapshotDomain.OBJECT_DETECTOR,
                         (
                             obj.rel_x1,
                             obj.rel_y1,
@@ -489,6 +490,9 @@ class AbstractObjectDetector(ABC):
 
         frame_time = time.time()
         objects = self.return_objects(preprocessed_frame)
+        if objects is None:
+            return
+
         self._inference_fps.append(1 / (time.time() - frame_time))
 
         self.filter_fov(shared_frame, objects)
@@ -503,7 +507,7 @@ class AbstractObjectDetector(ABC):
         self._theoretical_max_fps.append(1 / (time.time() - frame_time))
 
     @abstractmethod
-    def return_objects(self, frame) -> list[DetectedObject]:
+    def return_objects(self, frame) -> list[DetectedObject] | None:
         """Perform object detection."""
 
     @property

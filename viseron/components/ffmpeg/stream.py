@@ -206,14 +206,11 @@ class Stream:
 
     def get_stream_url(self, stream_config: dict[str, Any]) -> str:
         """Return stream url."""
+        username = self._config[CONFIG_USERNAME]
+        password = self._config[CONFIG_PASSWORD]
         auth = ""
-        if self._config[CONFIG_USERNAME] and self._config[CONFIG_PASSWORD]:
-            auth = (
-                f"{self._config[CONFIG_USERNAME]}"
-                ":"
-                f"{escape_string(self._config[CONFIG_PASSWORD])}"
-                "@"
-            )
+        if username is not None and password is not None:
+            auth = f"{username}:{escape_string(password)}@"
 
         protocol = (
             stream_config[CONFIG_PROTOCOL]
@@ -435,8 +432,8 @@ class Stream:
 
         Only used when a substream is configured.
         """
-        if self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND]:
-            return self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND].split(" ")
+        if self._config[CONFIG_RAW_COMMAND]:
+            return self._config[CONFIG_RAW_COMMAND].split(" ")
 
         stream_input_command = self.stream_command(
             self._config, self._mainstream.codec, self._mainstream.url
@@ -452,10 +449,9 @@ class Stream:
 
     def build_command(self):
         """Return full FFmpeg command."""
-        if self._config[CONFIG_RAW_COMMAND]:
-            return self._config[CONFIG_RAW_COMMAND].split(" ")
-
         if self._substream:
+            if self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND]:
+                return self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND].split(" ")
             stream_input_command = self.stream_command(
                 self._substream.config,
                 self._substream.codec,
@@ -463,6 +459,8 @@ class Stream:
             )
             camera_segment_args = []
         else:
+            if self._config[CONFIG_RAW_COMMAND]:
+                return self._config[CONFIG_RAW_COMMAND].split(" ")
             stream_input_command = self.stream_command(
                 self._mainstream.config,
                 self._mainstream.codec,

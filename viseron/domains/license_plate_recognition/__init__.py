@@ -15,6 +15,7 @@ from viseron.domains.license_plate_recognition.binary_sensor import (
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
 from viseron.events import EventData
 from viseron.helpers.schemas import FLOAT_MIN_ZERO, FLOAT_MIN_ZERO_MAX_ONE
+from viseron.types import SnapshotDomain
 
 from .const import (
     CONFIG_EXPIRE_AFTER,
@@ -206,7 +207,7 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
         if shared_frame:
             snapshot_path = self._camera.save_snapshot(
                 shared_frame=shared_frame,
-                domain=DOMAIN,
+                domain=SnapshotDomain.LICENSE_PLATE_RECOGNITION,
                 zoom_coordinates=plate.detected_object.rel_coordinates,
                 bbox=plate.rel_coordinates,
                 text=f"{plate.plate} {int(plate.confidence * 100)}%",

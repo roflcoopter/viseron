@@ -250,10 +250,12 @@ class MQTT:
         )
         for callback in self._subscriptions[msg.topic]:
             # Run callback in thread to not block the message queue
-            threading.Thread(
+            RestartableThread(
+                name=f"mqtt_callback.{callback}",
                 target=callback,
                 args=(msg,),
                 daemon=True,
+                register=False,
             ).start()
 
     def connect(self) -> None:

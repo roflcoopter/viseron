@@ -7,7 +7,6 @@ import os
 import re
 import shutil
 import subprocess as sp
-import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -23,6 +22,7 @@ from viseron.components.storage.models import FilesMeta
 from viseron.components.storage.queries import get_time_period_fragments
 from viseron.const import CAMERA_SEGMENT_DURATION, TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import CONFIG_FFMPEG_LOGLEVEL, CONFIG_RECORDER
+from viseron.helpers import get_utc_offset
 from viseron.helpers.logs import LogPipe
 
 if TYPE_CHECKING:
@@ -95,10 +95,9 @@ def _extract_program_date_time(
             # Remove timezone information since fromisoformat does not support it
             no_tz = re.sub(r"\+[0-9]{4}$", "", match.group(1))
             # Adjust according to local timezone
-            return (
-                datetime.datetime.fromisoformat(no_tz)
-                - datetime.timedelta(seconds=time.localtime().tm_gmtoff)
-            ).replace(tzinfo=datetime.timezone.utc)
+            return (datetime.datetime.fromisoformat(no_tz) - get_utc_offset()).replace(
+                tzinfo=datetime.timezone.utc
+            )
     except ValueError:
         pass
     return None
@@ -135,6 +134,7 @@ class Fragmenter:
             seconds=1,
             id=self._fragment_job_id,
             max_instances=1,
+            coalesce=True,
         )
 
     def _mp4box_command(self, file: str):
@@ -214,9 +214,10 @@ class Fragmenter:
             if program_date_time:
                 orig_ctime = program_date_time
             else:
-                orig_ctime = datetime.datetime.fromtimestamp(
-                    int(file.split(".")[0]), tz=None
-                ) - datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+                orig_ctime = (
+                    datetime.datetime.fromtimestamp(int(file.split(".")[0]), tz=None)
+                    - get_utc_offset()
+                )
                 orig_ctime = orig_ctime.replace(tzinfo=datetime.timezone.utc)
 
             stmt = insert(FilesMeta).values(
@@ -311,7 +312,8 @@ class Fragmenter:
     def _shutdown(self) -> None:
         """Handle shutdown event."""
         self._logger.debug("Shutting down fragment thread")
-        self._camera.stopped.wait()
+        if not self._camera.stopped.is_set():
+            self._camera.stopped.wait(timeout=5)
         self._logger.debug("Camera stopped, running final fragmentation")
         self._create_fragmented_mp4()
         self._logger.debug("Fragment thread shutdown complete")

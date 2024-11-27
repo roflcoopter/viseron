@@ -34,11 +34,11 @@ from viseron.components.ffmpeg.const import (
     DESC_RECORDER_OUTPUT_ARGS,
     DESC_RECORDER_VIDEO_FILTERS,
 )
-from viseron.domains.camera import (
+from viseron.domains.camera import AbstractCamera
+from viseron.domains.camera.config import (
     BASE_CONFIG_SCHEMA as BASE_CAMERA_CONFIG_SCHEMA,
     DEFAULT_RECORDER,
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
-    AbstractCamera,
 )
 from viseron.domains.camera.const import DOMAIN
 from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout

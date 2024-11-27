@@ -28,6 +28,7 @@ class DataSubscriber(TypedDict):
 
     callback: Callable | Queue | tornado_queue
     ioloop: IOLoop | None
+    stage: str | None
 
 
 class Subscribe(TypedDict):
@@ -105,7 +106,10 @@ class DataStream:
 
     @staticmethod
     def subscribe_data(
-        data_topic: str, callback: Callable | Queue | tornado_queue, ioloop=None
+        data_topic: str,
+        callback: Callable | Queue | tornado_queue,
+        ioloop=None,
+        stage=None,
     ) -> uuid.UUID:
         """Subscribe to data on a topic.
 
@@ -120,12 +124,14 @@ class DataStream:
             ] = DataSubscriber(
                 callback=callback,
                 ioloop=ioloop,
+                stage=stage,
             )
             return unique_id
 
         DataStream._subscribers.setdefault(data_topic, {})[unique_id] = DataSubscriber(
             callback=callback,
             ioloop=ioloop,
+            stage=stage,
         )
         return unique_id
 
@@ -147,16 +153,24 @@ class DataStream:
         """Run callbacks or put to queues."""
         for callback in callbacks.copy().values():
             if callable(callback["callback"]) and callback["ioloop"] is None:
+                name = f"data_stream.callback.{callback['callback']}"
+                daemon = bool(callback["stage"] is None)
                 if data:
-                    thread = threading.Thread(
+                    thread = RestartableThread(
+                        name=name,
                         target=callback["callback"],
                         args=(data,),
-                        daemon=True,
+                        daemon=daemon,
+                        register=False,
+                        stage=callback["stage"],
                     )
                 else:
-                    thread = threading.Thread(
+                    thread = RestartableThread(
+                        name=name,
                         target=callback["callback"],
-                        daemon=True,
+                        daemon=daemon,
+                        register=False,
+                        stage=callback["stage"],
                     )
 
                 while True:

@@ -13,6 +13,7 @@ from .const import COMPONENT
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.darknet import BaseDarknet
+    from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.object_detector.detected_object import DetectedObject
 
 
@@ -36,11 +37,11 @@ class ObjectDetector(AbstractObjectDetector):
 
         vis.register_domain(DOMAIN, camera_identifier, self)
 
-    def preprocess(self, frame):
+    def preprocess(self, frame: SharedFrame):
         """Return preprocessed frame before performing object detection."""
         return self._darknet.preprocess(frame)
 
-    def return_objects(self, frame) -> list[DetectedObject]:
+    def return_objects(self, frame: SharedFrame) -> list[DetectedObject] | None:
         """Perform object detection."""
         detections = self._darknet.detect(
             frame,
@@ -48,6 +49,8 @@ class ObjectDetector(AbstractObjectDetector):
             self._object_result_queue,
             self.min_confidence,
         )
+        if detections is None:
+            return None
         return self._darknet.post_process(detections, self._camera.resolution)
 
     @property

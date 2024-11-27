@@ -10,6 +10,7 @@ from sqlalchemy import (
     ColumnElement,
     DateTime,
     Float,
+    Index,
     Integer,
     Label,
     LargeBinary,
@@ -103,6 +104,11 @@ class Files(Base):
 
     __tablename__ = "files"
 
+    __table_args__ = (
+        Index("idx_files_path", "path"),
+        Index("idx_files_camera_id", "camera_identifier"),
+    )
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     tier_id: Mapped[int] = mapped_column(Integer)
     tier_path: Mapped[str] = mapped_column(String)
@@ -129,6 +135,11 @@ class FilesMeta(Base):
 
     __tablename__ = "files_meta"
 
+    __table_args__ = (
+        Index("idx_files_meta_path", "path"),
+        Index("idx_files_meta_orig_ctime", "orig_ctime"),
+    )
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     path: Mapped[str] = mapped_column(String, unique=True)
     orig_ctime = mapped_column(UTCDateTime(timezone=False), nullable=False)
@@ -152,6 +163,14 @@ class Recordings(Base):
     """Database model for recordings."""
 
     __tablename__ = "recordings"
+
+    __table_args__ = (
+        Index(
+            "idx_recordings_camera_times", "camera_identifier", "start_time", "end_time"
+        ),
+        Index("idx_recordings_thumbnail", "thumbnail_path"),
+        Index("idx_recordings_clip", "clip_path"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
@@ -192,6 +211,8 @@ class Objects(Base):
 
     __tablename__ = "objects"
 
+    __table_args__ = (Index("idx_objects_snapshot", "snapshot_path"),)
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
     label: Mapped[str] = mapped_column(String)
@@ -216,6 +237,8 @@ class Motion(Base):
     """Database model for motion."""
 
     __tablename__ = "motion"
+
+    __table_args__ = (Index("idx_motion_snapshot", "snapshot_path"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
@@ -252,6 +275,8 @@ class PostProcessorResults(Base):
     """Database model for post processor results."""
 
     __tablename__ = "post_processor_results"
+
+    __table_args__ = (Index("idx_ppr_snapshot", "snapshot_path"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)

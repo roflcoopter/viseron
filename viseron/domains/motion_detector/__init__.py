@@ -66,6 +66,7 @@ from viseron.helpers.schemas import (
     FLOAT_MIN_ZERO_MAX_ONE,
 )
 from viseron.helpers.validators import CameraIdentifier
+from viseron.types import SnapshotDomain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
@@ -234,7 +235,7 @@ class AbstractMotionDetector(ABC):
             if shared_frame:
                 snapshot_path = self._camera.save_snapshot(
                     shared_frame,
-                    DOMAIN,
+                    SnapshotDomain.MOTION_DETECTOR,
                 )
             self._insert_motion(snapshot_path)
             self._vis.dispatch_event(
