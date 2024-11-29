@@ -123,5 +123,6 @@
 !/netlify.toml
 !/README.md
 !tox.ini
+!/config
 
 *__pycache*
