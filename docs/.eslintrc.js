@@ -5,6 +5,9 @@ module.exports = {
     "airbnb-typescript/base",
     "plugin:@docusaurus/recommended",
     "plugin:@typescript-eslint/recommended",
+    "plugin:import/errors",
+    "plugin:import/warnings",
+    "plugin:import/typescript",
     "prettier",
   ],
   parser: "@typescript-eslint/parser",
@@ -20,5 +23,9 @@ module.exports = {
   ignorePatterns: ["src/pages/components-explorer/components/**/config.json"],
   rules: {
     "import/extensions": "off",
+    "import/no-unresolved": [
+      2,
+      { ignore: ["^@theme", "^@docusaurus", "^@site"] },
+    ],
   },
 };

@@ -2,6 +2,7 @@ import React from "react";
 
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
+import Heading from "@theme/Heading";
 import Layout from "@theme/Layout";
 import clsx from "clsx";
 
@@ -23,7 +24,9 @@ function HomepageHeader() {
             />
           </div>
           <div className={clsx("col col--5")}>
-            <h1 className={styles.heroTitle}>{siteConfig.title}</h1>
+            <Heading as="h1" className={styles.heroTitle}>
+              {siteConfig.title}
+            </Heading>
             <p className={styles.heroTagline}>{siteConfig.tagline}</p>
             <p>
               <div className={styles.heroText}>

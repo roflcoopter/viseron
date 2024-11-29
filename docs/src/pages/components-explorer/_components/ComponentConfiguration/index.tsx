@@ -19,7 +19,7 @@ function getValidValues(options) {
   options.forEach((option) => {
     if (option.options) {
       recursiveOptions = recursiveOptions.concat(
-        getValidValues(option.options)
+        getValidValues(option.options),
       );
     } else if (option.value) {
       recursiveOptions.push(option);
@@ -216,8 +216,8 @@ function buildHeader(item: any) {
           {optional
             ? "optional"
             : item.deprecated
-            ? " deprecated"
-            : " required"}
+              ? " deprecated"
+              : " required"}
         </span>
         {getDefault(item)}
       </span>
@@ -228,7 +228,7 @@ function buildHeader(item: any) {
 // Return div that represents a single config item
 function buildItem(item: ComponentConfigurationType, children: any, index) {
   const [isCollapsed, setIsCollapsed] = React.useState(
-    !!(item.type === "map" && item.optional)
+    !!(item.type === "map" && item.optional),
   );
 
   return (
@@ -270,7 +270,7 @@ function configOption(_config: ComponentConfigurationType, index) {
       return buildItem(
         _config,
         _config.values[0].map((children) => configOption(children, index)),
-        index
+        index,
       );
     }
   }
@@ -279,7 +279,7 @@ function configOption(_config: ComponentConfigurationType, index) {
     return buildItem(
       _config,
       _config.value.map((children) => configOption(children, index)),
-      index
+      index,
     );
   }
   return buildItem(_config, null, index);
