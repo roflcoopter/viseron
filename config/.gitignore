@@ -1,0 +1,4 @@
+# Gitignore file for empty config directory
+*
+*/
+!.gitignore
