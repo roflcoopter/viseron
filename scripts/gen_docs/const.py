@@ -128,11 +128,7 @@ DOCS_CAMERA_IMPORTS = """import Camera from "@site/src/pages/components-explorer
 import CameraMjpegStreams from "@site/src/pages/components-explorer/_domains/camera/mjpeg_streams.mdx";
 """
 
-DOCS_CAMERA_CONTENTS = """## Camera
-
-<Camera />
-
-### MJPEG Streams
+DOCS_CAMERA_CONTENTS = """<Camera />
 
 <CameraMjpegStreams />
 
