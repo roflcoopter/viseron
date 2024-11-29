@@ -44,7 +44,7 @@ const sidebars: SidebarsConfig = {
           label: "Domains",
           link: {
             type: "doc",
-            id: "documentation/configuration/domains/index",
+            id: "documentation/configuration/domains",
           },
           collapsed: false,
           items: [

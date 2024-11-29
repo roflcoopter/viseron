@@ -37,7 +37,7 @@ The images available are:
 Below are a few examples on how to run Viseron. <br />
 Both `docker` and `docker-compose` examples are given.
 
-:::caution IMPORTANT
+:::warning IMPORTANT
 
 You have to change the values between the brackets `{}` to match your setup.
 
@@ -59,6 +59,7 @@ docker run --rm \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   roflcoopter/viseron:latest
 ```
 
@@ -72,6 +73,7 @@ services:
   viseron:
     image: roflcoopter/viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
       - {recordings path}:/recordings
       - {recordings path}:/segments
@@ -103,6 +105,7 @@ docker run --rm \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   --device /dev/dri \
   roflcoopter/viseron:latest
 ```
@@ -117,6 +120,7 @@ services:
   viseron:
     image: roflcoopter/viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
       - {recordings path}:/recordings
       - {recordings path}:/segments
@@ -150,6 +154,7 @@ docker run --rm \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   --runtime=nvidia \
   roflcoopter/amd64-cuda-viseron:latest
 ```
@@ -164,6 +169,7 @@ services:
   viseron:
     image: roflcoopter/amd64-cuda-viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
       - {recordings path}:/recordings
       - {recordings path}:/segments
@@ -179,7 +185,7 @@ services:
 </TabItem>
 </Tabs>
 
-:::caution
+:::warning
 
 Make sure [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-toolkit) is installed.
 
@@ -203,12 +209,13 @@ docker run --rm \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   --runtime=nvidia \
   --privileged \
   roflcoopter/jetson-nano-viseron:latest
 ```
 
-:::caution
+:::warning
 
 It is a must to run with `--privileged` so the container gets access to all the needed devices for hardware acceleration.<br />
 You can probably get around this by manually mounting all the needed devices but this is not something I have looked into.
@@ -225,6 +232,7 @@ services:
   viseron:
     image: roflcoopter/jetson-nano-viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
       - {recordings path}:/recordings
       - {recordings path}:/segments
@@ -238,7 +246,7 @@ services:
     privileged: true
 ```
 
-:::caution
+:::warning
 
 It is a must to run with `privileged: true` so the container gets access to all the needed devices for hardware acceleration.<br />
 You can probably get around this by manually mounting all the needed devices but this is not something I have looked into.
@@ -268,6 +276,7 @@ docker run --rm \
   -v /opt/vc/lib:/opt/vc/lib \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   --device=/dev/video10:/dev/video10 \
   --device=/dev/video11:/dev/video11 \
   --device=/dev/video12:/dev/video12 \
@@ -284,6 +293,7 @@ services:
   viseron:
     image: roflcoopter/viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
       - {recordings path}:/recordings
       - {recordings path}:/segments
@@ -304,7 +314,7 @@ services:
 </TabItem>
 </Tabs>
 
-:::caution
+:::warning
 
 Viseron is quite RAM intensive, mostly because of the object detection.<br />
 I do not recommend using an RPi unless you have a Google Coral EdgeTPU.<br />
@@ -337,6 +347,7 @@ docker run --rm \
   -v /opt/vc/lib:/opt/vc/lib \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   --device /dev/vchiq:/dev/vchiq \
   --device /dev/vcsm:/dev/vcsm \
   --device /dev/bus/usb:/dev/bus/usb \
@@ -352,6 +363,7 @@ services:
   viseron:
     image: roflcoopter/viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
       - {recordings path}:/recordings
       - {recordings path}:/segments
@@ -372,7 +384,7 @@ services:
 </TabItem>
 </Tabs>
 
-:::caution
+:::warning
 
 Viseron is quite RAM intensive, mostly because of the object detection.<br />
 I do not recommend using an RPi unless you have a Google Coral EdgeTPU.<br />
@@ -429,6 +441,7 @@ docker run --rm \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   -e PUID=1000 \
   -e PGID=1000 \
   roflcoopter/viseron:latest
@@ -448,6 +461,7 @@ services:
   viseron:
     image: roflcoopter/viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
       - {recordings path}:/recordings
       - {recordings path}:/segments

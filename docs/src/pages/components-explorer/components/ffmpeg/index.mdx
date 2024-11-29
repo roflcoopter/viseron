@@ -232,6 +232,7 @@ docker run --rm \
   -p 8888:8888 \
   --tmpfs /tmp \
   --name viseron \
+  --shm-size=1024mb \
   roflcoopter/viseron:latest
 ```
 
@@ -244,6 +245,7 @@ services:
   viseron:
     image: roflcoopter/viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
       - {recordings path}:/recordings
       - {recordings path}:/segments
