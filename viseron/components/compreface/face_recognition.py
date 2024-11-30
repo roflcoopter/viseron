@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING
 
 import cv2
 from compreface import CompreFace
-from compreface.collections import FaceCollection
-from compreface.service import RecognitionService
+from compreface.collections import FaceCollection, Subjects
 from face_recognition.face_recognition_cli import image_files_in_folder
 
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.face_recognition import AbstractFaceRecognition
+from viseron.domains.face_recognition.binary_sensor import FaceDetectionBinarySensor
 from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH
 from viseron.helpers import calculate_absolute_coords
 
@@ -28,6 +28,8 @@ from .const import (
     CONFIG_PREDICTION_COUNT,
     CONFIG_SIMILARITTY_THRESHOLD,
     CONFIG_STATUS,
+    CONFIG_USE_SUBJECTS,
+    SUBJECTS,
 )
 
 if TYPE_CHECKING:
@@ -72,9 +74,22 @@ class FaceRecognition(AbstractFaceRecognition):
             port=str(config[CONFIG_FACE_RECOGNITION][CONFIG_PORT]),
             options=options,
         )
-        self._recognition: RecognitionService = self._compre_face.init_face_recognition(
+        self._vis.compreface_recognition = self._compre_face.init_face_recognition(
             config[CONFIG_FACE_RECOGNITION][CONFIG_API_KEY]
         )
+        if config[CONFIG_FACE_RECOGNITION][CONFIG_USE_SUBJECTS]:
+            self.update_subject_entities()
+
+    def update_subject_entities(self) -> None:
+        """Update entities with binary face recognition subjects from compreface."""
+        subjects: Subjects = self._vis.compreface_recognition.get_subjects()
+        for subject in subjects.list()[SUBJECTS]:
+            binary_sensor = FaceDetectionBinarySensor(self._vis, self._camera, subject)
+            if not self._vis.states.entity_exists(binary_sensor):
+                self._vis.add_entity(
+                    COMPONENT,
+                    FaceDetectionBinarySensor(self._vis, self._camera, subject),
+                )
 
     def face_recognition(
         self, shared_frame: SharedFrame, detected_object: DetectedObject
@@ -93,7 +108,7 @@ class FaceRecognition(AbstractFaceRecognition):
         cropped_frame = frame[y1:y2, x1:x2].copy()
 
         try:
-            detections = self._recognition.recognize(
+            detections = self._vis.compreface_recognition.recognize(
                 cv2.imencode(".jpg", cropped_frame)[1].tobytes(),
             )
         except Exception as error:  # pylint: disable=broad-except
@@ -105,7 +120,7 @@ class FaceRecognition(AbstractFaceRecognition):
             return
 
         for result in detections["result"]:
-            subject = result["subjects"][0]
+            subject = result[SUBJECTS][0]
             if subject["similarity"] >= self._config[CONFIG_SIMILARITTY_THRESHOLD]:
                 self._logger.debug(f"Face found: {subject}")
                 self.known_face_found(
@@ -137,8 +152,9 @@ class FaceRecognition(AbstractFaceRecognition):
 class CompreFaceTrain:
     """Train CompreFace to recognize faces."""
 
-    def __init__(self, config) -> None:
+    def __init__(self, vis: Viseron, config) -> None:
         self._config = config
+        self._vis = vis
 
         options = {
             CONFIG_LIMIT: config[CONFIG_FACE_RECOGNITION][CONFIG_LIMIT],
@@ -160,10 +176,12 @@ class CompreFaceTrain:
             port=str(config[CONFIG_FACE_RECOGNITION][CONFIG_PORT]),
             options=options,
         )
-        self._recognition: RecognitionService = self._compre_face.init_face_recognition(
+        self._vis.compreface_recognition = self._compre_face.init_face_recognition(
             config[CONFIG_FACE_RECOGNITION][CONFIG_API_KEY]
         )
-        self._face_collection: FaceCollection = self._recognition.get_face_collection()
+        self._face_collection: FaceCollection = (
+            self._vis.compreface_recognition.get_face_collection()
+        )
 
         self.train()
 

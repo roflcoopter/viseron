@@ -29,15 +29,18 @@ from .const import (
     CONFIG_SAVE_FACES,
     CONFIG_SAVE_UNKNOWN_FACES,
     CONFIG_UNKNOWN_FACES_PATH,
+    CONFIG_USE_SUBJECTS,
     DEFAULT_EXPIRE_AFTER,
     DEFAULT_FACE_RECOGNITION_PATH,
     DEFAULT_SAVE_FACES,
     DEFAULT_SAVE_UNKNOWN_FACES,
+    DEFAULT_USE_SUBJECTS,
     DESC_EXPIRE_AFTER,
     DESC_FACE_RECOGNITION_PATH,
     DESC_SAVE_FACES,
     DESC_SAVE_UNKNOWN_FACES,
     DESC_UNKNOWN_FACES_PATH,
+    DESC_USE_SUBJECTS,
     DOMAIN,
     EVENT_FACE_DETECTED,
     EVENT_FACE_EXPIRED,
@@ -69,6 +72,11 @@ BASE_CONFIG_SCHEMA = BASE_CONFIG_SCHEMA.extend(
             CONFIG_SAVE_FACES,
             default=DEFAULT_SAVE_FACES,
             description=DESC_SAVE_FACES,
+        ): bool,
+        vol.Optional(
+            CONFIG_USE_SUBJECTS,
+            default=DEFAULT_USE_SUBJECTS,
+            description=DESC_USE_SUBJECTS,
         ): bool,
     }
 )
@@ -115,13 +123,13 @@ class AbstractFaceRecognition(AbstractPostProcessor):
     def __init__(self, vis, component, config, camera_identifier) -> None:
         super().__init__(vis, config, camera_identifier)
         self._faces: dict[str, FaceDict] = {}
-
-        for face_dir in os.listdir(config[CONFIG_FACE_RECOGNITION_PATH]):
-            if face_dir == "unknown":
-                continue
-            vis.add_entity(
-                component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
-            )
+        if not config[CONFIG_USE_SUBJECTS]:
+            for face_dir in os.listdir(config[CONFIG_FACE_RECOGNITION_PATH]):
+                if face_dir == "unknown":
+                    continue
+                vis.add_entity(
+                    component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
+                )
 
     @abstractmethod
     def face_recognition(

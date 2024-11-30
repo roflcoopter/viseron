@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import SchedulerNotRunningError
+from compreface.service import RecognitionService
 from sqlalchemy import insert
 
 from viseron.components import (
@@ -200,6 +201,7 @@ class Viseron:
 
     def __init__(self) -> None:
         self.states = States(self)
+        self.compreface_recognition: RecognitionService = None
 
         self.setup_threads: list[threading.Thread] = []
 
