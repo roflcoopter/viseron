@@ -6,9 +6,6 @@ import ComponentConfiguration from "@site/src/pages/components-explorer/_compone
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
 import ComponentTroubleshooting from "@site/src/pages/components-explorer/components/troubleshooting.mdx";
 import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";
-import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
-import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
-import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
 
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
@@ -85,21 +82,7 @@ darknet:
 
 <ComponentConfiguration meta={ComponentMetadata} config={config} />
 
-## Object detector
-
-<ObjectDetector />
-
-### Labels
-
-<ObjectDetectorLabels labelPath="/detectors/models/darknet/coco.names" />
-
-### Zones
-
-<ObjectDetectorZones meta={ComponentMetadata} />
-
-### Mask
-
-<ObjectDetectorMask meta={ComponentMetadata} />
+<ObjectDetector labelPath="/detectors/models/darknet/coco.names" />
 
 ### Pre-trained models
 

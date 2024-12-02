@@ -50,26 +50,9 @@ DOCS_FOOTER = """<ComponentTroubleshooting meta={ComponentMetadata} />
 """
 
 DOCS_OBJECT_DETECTOR_IMPORTS = """import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";
-import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
-import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
-import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
 """
 
-DOCS_OBJECT_DETECTOR_CONTENTS = """## Object detector
-
-<ObjectDetector />
-
-### Labels
-
-<ObjectDetectorLabels label_path="/detectors/models/darknet/coco.names" />
-
-### Zones
-
-<ObjectDetectorZones />
-
-### Mask
-
-<ObjectDetectorMask />
+DOCS_OBJECT_DETECTOR_CONTENTS = """<ObjectDetector labelPath={<CHANGEME>}/>
 
 """
 

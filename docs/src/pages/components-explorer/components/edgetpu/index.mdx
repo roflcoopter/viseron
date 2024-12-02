@@ -4,9 +4,6 @@ import ComponentTroubleshooting from "@site/src/pages/components-explorer/compon
 import ImageClassification from "@site/src/pages/components-explorer/_domains/image_classification/index.mdx";
 import ImageClassificationLabels from "@site/src/pages/components-explorer/_domains/image_classification/labels.mdx";
 import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";
-import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
-import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
-import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
 
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
@@ -56,21 +53,7 @@ edgetpu:
 
 <ComponentConfiguration meta={ComponentMetadata} config={config} />
 
-## Object detector
-
-<ObjectDetector />
-
-### Labels
-
-<ObjectDetectorLabels label_path="/detectors/models/darknet/coco.names" />
-
-### Zones
-
-<ObjectDetectorZones meta={ComponentMetadata} />
-
-### Mask
-
-<ObjectDetectorMask meta={ComponentMetadata} />
+<ObjectDetector labelPath="/detectors/models/edgetpu/labels.txt"/>
 
 ### Pre-trained models
 

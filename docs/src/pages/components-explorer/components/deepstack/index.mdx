@@ -8,9 +8,6 @@ import FaceRecognition from "@site/src/pages/components-explorer/_domains/face_r
 import FaceRecognitionLabels from "@site/src/pages/components-explorer/_domains/face_recognition/labels.mdx";
 import FaceRecognitionTrain from "@site/src/pages/components-explorer/_domains/face_recognition/train.mdx";
 import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";
-import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
-import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
-import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
 
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
@@ -56,13 +53,7 @@ deepstack:
 
 <ComponentConfiguration meta={ComponentMetadata} config={config} />
 
-## Object detector
-
-<ObjectDetector />
-
-### Labels
-
-<ObjectDetectorLabels>
+<ObjectDetector showLabels={false} extras={
   <Admonition type="tip">
     These are the labels available in the default DeepStack model:
     <CodeBlock language="bash">
@@ -77,16 +68,8 @@ deepstack:
       keyboard, cell phone, microwave, oven, toaster, sink, refrigerator, book,
       clock, vase, scissors, teddy bear, hair dryer, toothbrush.
     </CodeBlock>
-  </Admonition>
-</ObjectDetectorLabels>
-
-### Zones
-
-<ObjectDetectorZones meta={ComponentMetadata} />
-
-### Mask
-
-<ObjectDetectorMask meta={ComponentMetadata} />
+  </Admonition>}
+/>
 
 ## Face recognition
 
