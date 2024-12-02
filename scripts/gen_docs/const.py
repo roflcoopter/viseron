@@ -52,27 +52,15 @@ DOCS_FOOTER = """<ComponentTroubleshooting meta={ComponentMetadata} />
 DOCS_OBJECT_DETECTOR_IMPORTS = """import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";
 """
 
-DOCS_OBJECT_DETECTOR_CONTENTS = """<ObjectDetector labelPath={<CHANGEME>}/>
+DOCS_OBJECT_DETECTOR_CONTENTS = """<ObjectDetector labelPath={<CHANGEME>} />
 
 """
 
 
 DOCS_FACE_RECOGNITION_IMPORTS = """import FaceRecognition from "@site/src/pages/components-explorer/_domains/face_recognition/index.mdx";
-import FaceRecognitionLabels from "@site/src/pages/components-explorer/_domains/face_recognition/labels.mdx";
-import FaceRecognitionTrain from "@site/src/pages/components-explorer/_domains/face_recognition/train.mdx";
 """
 
-DOCS_FACE_RECOGNITION_CONTENTS = """## Face recognition
-
-<FaceRecognition />
-
-### Labels
-
-<FaceRecognitionLabels />
-
-### Train
-
-<FaceRecognitionTrain />
+DOCS_FACE_RECOGNITION_CONTENTS = """<FaceRecognition />
 
 """
 
