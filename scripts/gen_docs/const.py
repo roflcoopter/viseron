@@ -87,12 +87,9 @@ DOCS_IMAGE_CLASSIFICATION_CONTENTS = """## Image classification
 """
 
 DOCS_CAMERA_IMPORTS = """import Camera from "@site/src/pages/components-explorer/_domains/camera/index.mdx";
-import CameraMjpegStreams from "@site/src/pages/components-explorer/_domains/camera/mjpeg_streams.mdx";
 """
 
 DOCS_CAMERA_CONTENTS = """<Camera />
-
-<CameraMjpegStreams />
 
 """
 
