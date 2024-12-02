@@ -73,16 +73,10 @@ DOCS_MOTION_DETECTOR_CONTENTS = """<MotionDetector meta={ComponentMetadata} />
 """
 
 DOCS_IMAGE_CLASSIFICATION_IMPORTS = """import ImageClassification from "@site/src/pages/components-explorer/_domains/image_classification/index.mdx";
-import ImageClassificationLabels from "@site/src/pages/components-explorer/_domains/image_classification/labels.mdx";
 """
 
-DOCS_IMAGE_CLASSIFICATION_CONTENTS = """## Image classification
-
+DOCS_IMAGE_CLASSIFICATION_CONTENTS = """
 <ImageClassification />
-
-### Labels
-
-<ImageClassificationLabels />
 
 """
 
