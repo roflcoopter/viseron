@@ -52,7 +52,7 @@ DOCS_FOOTER = """<ComponentTroubleshooting meta={ComponentMetadata} />
 DOCS_OBJECT_DETECTOR_IMPORTS = """import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";
 """
 
-DOCS_OBJECT_DETECTOR_CONTENTS = """<ObjectDetector labelPath={<CHANGEME>} />
+DOCS_OBJECT_DETECTOR_CONTENTS = """<ObjectDetector meta={ComponentMetadata} labelPath={<CHANGEME>} />
 
 """
 
@@ -72,6 +72,7 @@ DOCS_MOTION_DETECTOR_CONTENTS = """<MotionDetector meta={ComponentMetadata} />
 
 """
 
+
 DOCS_IMAGE_CLASSIFICATION_IMPORTS = """import ImageClassification from "@site/src/pages/components-explorer/_domains/image_classification/index.mdx";
 """
 
@@ -79,12 +80,14 @@ DOCS_IMAGE_CLASSIFICATION_CONTENTS = """<ImageClassification />
 
 """
 
+
 DOCS_CAMERA_IMPORTS = """import Camera from "@site/src/pages/components-explorer/_domains/camera/index.mdx";
 """
 
 DOCS_CAMERA_CONTENTS = """<Camera />
 
 """
+
 
 DOCS_LICENSE_PLATE_RECOGNITION_IMPORTS = """import LicensePlateRecognition from "@site/src/pages/components-explorer/_domains/license_plate_recognition/index.mdx";
 """

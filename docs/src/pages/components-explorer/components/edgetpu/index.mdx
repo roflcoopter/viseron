@@ -52,7 +52,10 @@ edgetpu:
 
 <ComponentConfiguration meta={ComponentMetadata} config={config} />
 
-<ObjectDetector labelPath="/detectors/models/edgetpu/labels.txt" />
+<ObjectDetector
+  meta={ComponentMetadata}
+  labelPath="/detectors/models/edgetpu/labels.txt"
+/>
 
 ### Pre-trained models
 

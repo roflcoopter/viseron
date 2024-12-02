@@ -82,7 +82,10 @@ darknet:
 
 <ComponentConfiguration meta={ComponentMetadata} config={config} />
 
-<ObjectDetector labelPath="/detectors/models/darknet/coco.names" />
+<ObjectDetector
+  meta={ComponentMetadata}
+  labelPath="/detectors/models/darknet/coco.names"
+/>
 
 ### Pre-trained models
 
