@@ -66,16 +66,9 @@ DOCS_FACE_RECOGNITION_CONTENTS = """<FaceRecognition />
 
 
 DOCS_MOTION_DETECTOR_IMPORTS = """import MotionDetector from "@site/src/pages/components-explorer/_domains/motion_detector/index.mdx";
-import MotionDetectorMask from "@site/src/pages/components-explorer/_domains/motion_detector/mask.mdx";
 """
 
-DOCS_MOTION_DETECTOR_CONTENTS = """## Motion detector
-
-<MotionDetector />
-
-### Mask
-
-<MotionDetectorMask />
+DOCS_MOTION_DETECTOR_CONTENTS = """<MotionDetector meta={ComponentMetadata} />
 
 """
 
