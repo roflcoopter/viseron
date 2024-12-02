@@ -75,8 +75,7 @@ DOCS_MOTION_DETECTOR_CONTENTS = """<MotionDetector meta={ComponentMetadata} />
 DOCS_IMAGE_CLASSIFICATION_IMPORTS = """import ImageClassification from "@site/src/pages/components-explorer/_domains/image_classification/index.mdx";
 """
 
-DOCS_IMAGE_CLASSIFICATION_CONTENTS = """
-<ImageClassification />
+DOCS_IMAGE_CLASSIFICATION_CONTENTS = """<ImageClassification />
 
 """
 
@@ -90,9 +89,7 @@ DOCS_CAMERA_CONTENTS = """<Camera />
 DOCS_LICENSE_PLATE_RECOGNITION_IMPORTS = """import LicensePlateRecognition from "@site/src/pages/components-explorer/_domains/license_plate_recognition/index.mdx";
 """
 
-DOCS_LICENSE_PLATE_RECOGNITION_CONTENTS = """## License plate recognition
-
-<LicensePlateRecognition />
+DOCS_LICENSE_PLATE_RECOGNITION_CONTENTS = """<LicensePlateRecognition />
 
 """
 
