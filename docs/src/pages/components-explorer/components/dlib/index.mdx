@@ -1,17 +1,19 @@
+import Link from "@docusaurus/Link";
+
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
-import ComponentTroubleshooting from "@site/src/pages/components-explorer/components/troubleshooting.mdx";
 import FaceRecognition from "@site/src/pages/components-explorer/_domains/face_recognition/index.mdx";
 import FaceRecognitionLabels from "@site/src/pages/components-explorer/_domains/face_recognition/labels.mdx";
 import FaceRecognitionTrain from "@site/src/pages/components-explorer/_domains/face_recognition/train.mdx";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/components/troubleshooting.mdx";
 
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
 
 <ComponentHeader meta={ComponentMetadata} />
 
-<a href="http://dlib.net/">dlib</a> is an open-source, C++ toolkit containing machine
-learning algorithms and other tools.
+<Link href="http://dlib.net/">dlib</Link> is an open-source, C++ toolkit
+containing machine learning algorithms and other tools.
 
 The `dlib` implementation in Viseron provides face recognition capabilities.
 
