@@ -74,7 +74,11 @@ class FaceRecognition(AbstractFaceRecognition):
             port=str(config[CONFIG_FACE_RECOGNITION][CONFIG_PORT]),
             options=options,
         )
-        self._vis.compreface_recognition = self._compre_face.init_face_recognition(
+        if COMPONENT not in self._vis.data:
+            self._vis.data[COMPONENT] = {}
+        self._vis.data[COMPONENT][
+            CONFIG_FACE_RECOGNITION
+        ] = self._compre_face.init_face_recognition(
             config[CONFIG_FACE_RECOGNITION][CONFIG_API_KEY]
         )
         if config[CONFIG_FACE_RECOGNITION][CONFIG_USE_SUBJECTS]:
@@ -82,7 +86,9 @@ class FaceRecognition(AbstractFaceRecognition):
 
     def update_subject_entities(self) -> None:
         """Update entities with binary face recognition subjects from compreface."""
-        subjects: Subjects = self._vis.compreface_recognition.get_subjects()
+        subjects: Subjects = self._vis.data[COMPONENT][
+            CONFIG_FACE_RECOGNITION
+        ].get_subjects()
         for subject in subjects.list()[SUBJECTS]:
             binary_sensor = FaceDetectionBinarySensor(self._vis, self._camera, subject)
             if not self._vis.states.entity_exists(binary_sensor):
@@ -108,7 +114,7 @@ class FaceRecognition(AbstractFaceRecognition):
         cropped_frame = frame[y1:y2, x1:x2].copy()
 
         try:
-            detections = self._vis.compreface_recognition.recognize(
+            detections = self._vis.data[COMPONENT][CONFIG_FACE_RECOGNITION].recognize(
                 cv2.imencode(".jpg", cropped_frame)[1].tobytes(),
             )
         except Exception as error:  # pylint: disable=broad-except
@@ -176,12 +182,14 @@ class CompreFaceTrain:
             port=str(config[CONFIG_FACE_RECOGNITION][CONFIG_PORT]),
             options=options,
         )
-        self._vis.compreface_recognition = self._compre_face.init_face_recognition(
+        self._vis.data[COMPONENT][
+            CONFIG_FACE_RECOGNITION
+        ] = self._compre_face.init_face_recognition(
             config[CONFIG_FACE_RECOGNITION][CONFIG_API_KEY]
         )
-        self._face_collection: FaceCollection = (
-            self._vis.compreface_recognition.get_face_collection()
-        )
+        self._face_collection: FaceCollection = self._vis.data[COMPONENT][
+            CONFIG_FACE_RECOGNITION
+        ].get_face_collection()
 
         self.train()
 

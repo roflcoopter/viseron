@@ -201,7 +201,6 @@ class Viseron:
 
     def __init__(self) -> None:
         self.states = States(self)
-        self.compreface_recognition: RecognitionService = None
 
         self.setup_threads: list[threading.Thread] = []
 
