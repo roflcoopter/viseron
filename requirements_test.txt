@@ -30,6 +30,6 @@ pyflakes==3.0.1
 pyupgrade==3.15.2
 
 # types
-types-requests
+types-requests==2.31.0.6
 types-python-slugify
 pygobject-stubs
