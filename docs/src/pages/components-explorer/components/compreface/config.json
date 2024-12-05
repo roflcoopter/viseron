@@ -162,6 +162,13 @@
             "description": "If true includes system information like execution_time and plugin_version fields.",
             "optional": true,
             "default": false
+          },
+          {
+            "type": "boolean",
+            "name": "use_subjects",
+            "description": "If true ignores the face_recognition folder structure and uses subjects inside compreface. User can then call the api/v1/compreface/update_subjects endpoint to update entities if new subjects are added into compreface.",
+            "optional": true,
+            "default": false
           }
         ],
         "name": "face_recognition",

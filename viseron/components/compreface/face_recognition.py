@@ -51,7 +51,11 @@ class FaceRecognition(AbstractFaceRecognition):
 
     def __init__(self, vis: Viseron, config, camera_identifier) -> None:
         super().__init__(
-            vis, COMPONENT, config[CONFIG_FACE_RECOGNITION], camera_identifier
+            vis,
+            COMPONENT,
+            config[CONFIG_FACE_RECOGNITION],
+            camera_identifier,
+            not config[CONFIG_FACE_RECOGNITION][CONFIG_USE_SUBJECTS],
         )
 
         options = {
