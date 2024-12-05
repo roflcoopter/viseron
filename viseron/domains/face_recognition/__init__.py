@@ -112,16 +112,18 @@ class EventFaceDetected(EventData):
 class AbstractFaceRecognition(AbstractPostProcessor):
     """Abstract face recognition."""
 
-    def __init__(self, vis, component, config, camera_identifier) -> None:
+    def __init__(
+        self, vis, component, config, camera_identifier, generate_entities=True
+    ) -> None:
         super().__init__(vis, config, camera_identifier)
         self._faces: dict[str, FaceDict] = {}
-
-        for face_dir in os.listdir(config[CONFIG_FACE_RECOGNITION_PATH]):
-            if face_dir == "unknown":
-                continue
-            vis.add_entity(
-                component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
-            )
+        if generate_entities:
+            for face_dir in os.listdir(config[CONFIG_FACE_RECOGNITION_PATH]):
+                if face_dir == "unknown":
+                    continue
+                vis.add_entity(
+                    component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
+                )
 
     @abstractmethod
     def face_recognition(
