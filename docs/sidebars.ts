@@ -80,6 +80,7 @@ const sidebars: SidebarsConfig = {
             },
           ],
         },
+        { type: "doc", id: "documentation/configuration/logging" },
         { type: "doc", id: "documentation/configuration/secrets" },
       ],
     },
