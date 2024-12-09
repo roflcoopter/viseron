@@ -1,6 +1,6 @@
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
-import ComponentTroubleshooting from "@site/src/pages/components-explorer/components/troubleshooting.mdx";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
 
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
@@ -49,7 +49,7 @@ It will also store continuous recordings on `/ssd/tier1` for 1 day, after which 
 
 </details>
 
-<ComponentConfiguration meta={ComponentMetadata} config={config} />
+<ComponentConfiguration config={config} />
 
 :::caution
 
@@ -92,8 +92,8 @@ For technical reasons it is very likely that there will be a few extra megabytes
 
 ### Continuous (24/7) recordings
 
-To enable continuous recordings for **all** cameras you use the `continuous` configuration option for a tier.
-The below example will store 10gb of continuous recordings in the default location `/segments`.
+To allocate space for continuous recordings for **all** cameras you use the `continuous` configuration option for a tier.
+The below example will store 10gb of continuous recordings **per camera** in the default location `/segments`.
 No events will be stored.
 
 <details>
@@ -111,13 +111,19 @@ storage:
 
 </details>
 
+:::info
+
+For each camera that you want to store continuous recordings for, you need to set `continuous_recording: true` under `recorder` in the camera configuration.
+
+:::
+
 :::tip
 
 To set camera specific options, you can use `continuous` or override the entire `storage` configuration under your camera configuration.
 See the `recorder` documentation for the component that provides your cameras.
 
-[FFmpeg](/components-explorer/components/FFmpeg)<br></br>
-[GStreamer](/components-explorer/components/GStreamer)
+[FFmpeg](/components-explorer/components/ffmpeg)<br></br>
+[GStreamer](/components-explorer/components/gstreamer)
 
 :::
 
