@@ -10,7 +10,7 @@
     ]
   },
   "mdx": {
-    "checkMdx": true
+    "checkMdx": false
   },
   "types": ["node", "webpack-env"],
   "include": ["src", ".eslintrc.js", "lint-staged-config.js", "docusaurus.config.ts", "sidebars.ts"],
