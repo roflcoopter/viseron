@@ -1,12 +1,60 @@
----
-title: "Docker"
----
+# Docker
 
 Viseron is distributed as a Docker image. This makes deployment easy for the user and reduces the _"But it works on my machine"_ factor.
 
-### Develop Docker containers
+## Develop Docker containers
 
 Viseron heavily uses multistage Docker builds, and compilation of different components are split into different Dockerfiles.
+
+### Rebuild Viseron image
+
+If you have made changes to the Viseron code and want to rebuild the image, you can run the following command.
+
+```bash
+docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron
+```
+
+:::tip
+
+If you are developing on a different architecture than `amd64` or you have a CUDA capable GPU, you can replace `amd64` with the architecture you are developing on.
+
+See the [table](#architecture-and-hardware-specific-images) below for supported architectures.
+
+:::
+
+### Rebuild Python dependencies (wheels)
+
+In order to speed up builds, Viseron uses precompiled Python wheels.
+
+If your changes requires a new or updated Python dependency, you have to rebuild the wheels image.
+
+- Edit `requirements.txt` in the root of the repository (preferably by pinning the version of the dependency).
+- Build the wheels image:
+  ```bash
+  docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-wheels
+  ```
+- Build Viseron image:
+  ```bash
+    docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron
+  ```
+
+### Upgrading library versions
+
+Lets say you want to update to a newer version of OpenCV.
+To do this you would:
+
+- Edit `OPENCV_VERSION` in ./azure-pipelines/.env
+- Build the OpenCV image:
+  ```bash
+  docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-opencv
+  ```
+- Build Viseron image:
+  ```bash
+  docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron
+  ```
+
+### Rebuild all images
+
 To build all the `amd64` image from scratch the following commands can be used.
 
 ```bash
@@ -18,14 +66,7 @@ docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-
 docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron
 ```
 
-Lets say you want to update to a newer version of OpenCV.
-To do this you would:
-
-- Edit `OPENCV_VERSION` in ./azure-pipelines/.env
-- Build the OpenCV image: `docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-opencv`
-- Build Viseron image: `docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron`
-
-#### Cross-building
+### Cross-building
 
 To support different CPU architectures i use [Balenas base images](https://www.balena.io/docs/reference/base-images/base-images/) that runs QEMU.
 To build these you need to first register QEMU on your builder.
@@ -41,3 +82,15 @@ You can then simply build the containers like you normally would and QEMU will b
 ```bash
 docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build aarch64-viseron
 ```
+
+### Architecture and Hardware specific images
+
+The images are prefixed with the architecture or hardware they are built for.
+
+| Prefix        | Description              |
+| ------------- | ------------------------ |
+| `aarch64`     | Generic aarch64 image    |
+| `amd64`       | Generic image            |
+| `amd64-cuda`  | CUDA enabled images      |
+| `rpi3`        | RaspberryPi 3            |
+| `jetson-nano` | Jetson Nano CUDA support |
