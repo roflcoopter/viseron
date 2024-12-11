@@ -639,6 +639,37 @@ def escape_string(string: str) -> str:
     return urllib.parse.quote(string, safe="")
 
 
+def parse_size_to_bytes(size_str: str) -> int:
+    """Convert human-readable size strings to bytes (e.g. '10mb' -> 10485760)."""
+
+    units = {
+        "tb": 1024**4,
+        "gb": 1024**3,
+        "mb": 1024**2,
+        "kb": 1024,
+        "b": 1,
+    }
+
+    size_str = str(size_str).strip().lower()
+
+    # If it's just a number, assume bytes
+    if size_str.isdigit():
+        return int(size_str)
+
+    # Extract number and unit
+    for unit in units:
+        if size_str.endswith(unit):
+            try:
+                number = float(size_str[: -len(unit)])
+                return int(number * units[unit])
+            except ValueError as err:
+                raise ValueError(f"Invalid size format: {size_str}") from err
+
+    raise ValueError(
+        f"Invalid size unit in {size_str}. Must be one of: {', '.join(units.keys())}"
+    )
+
+
 def memory_usage_profiler(logger, key_type="lineno", limit=5) -> None:
     """Print a table with the lines that are using the most memory."""
     snapshot = tracemalloc.take_snapshot()
