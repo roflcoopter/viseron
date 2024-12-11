@@ -65,7 +65,11 @@ from viseron.components.storage.util import (
     get_recorder_path,
 )
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
-from viseron.const import CAMERA_SEGMENT_DURATION, VISERON_SIGNAL_LAST_WRITE
+from viseron.const import (
+    CAMERA_SEGMENT_DURATION,
+    VISERON_SIGNAL_LAST_WRITE,
+    VISERON_SIGNAL_STOPPING,
+)
 from viseron.domains.camera import FailedCamera
 from viseron.domains.camera.const import CONFIG_RECORDER, CONFIG_RETAIN
 from viseron.helpers import utcnow
@@ -108,6 +112,7 @@ class TierHandler(FileSystemEventHandler):
 
         self.initialize()
         vis.register_signal_handler(VISERON_SIGNAL_LAST_WRITE, self._shutdown)
+        vis.register_signal_handler(VISERON_SIGNAL_STOPPING, self._stop_observer)
 
         self._pending_updates: dict[str, Timer] = {}
         self._event_queue: Queue[FileSystemEvent | None] = Queue()
@@ -342,7 +347,7 @@ class TierHandler(FileSystemEventHandler):
 
     def _shutdown(self) -> None:
         """Shutdown the observer and event handler."""
-        self._logger.debug("Stopping observer")
+        self._logger.debug("Initiating observer shutdown")
         if self._tier[CONFIG_MOVE_ON_SHUTDOWN]:
             self._logger.debug("Forcing move of files")
             force_move_files(
@@ -356,6 +361,10 @@ class TierHandler(FileSystemEventHandler):
                 self._next_tier,
                 self._logger,
             )
+
+    def _stop_observer(self) -> None:
+        """Stop the observer."""
+        self._logger.debug("Stopping observer")
         for pending_update in self._pending_updates.copy().values():
             pending_update.join()
         self._event_queue.put(None)
