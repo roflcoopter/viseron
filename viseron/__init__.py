@@ -12,6 +12,7 @@ import time
 import tracemalloc
 from collections.abc import Callable
 from functools import partial
+from logging.handlers import RotatingFileHandler
 from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Any, Literal, overload
 
@@ -47,12 +48,15 @@ from viseron.const import (
     DOMAIN_LOADING,
     DOMAIN_SETUP_TASKS,
     DOMAINS_TO_SETUP,
+    ENV_LOG_BACKUP_COUNT,
+    ENV_LOG_MAX_BYTES,
     ENV_PROFILE_MEMORY,
     EVENT_DOMAIN_REGISTERED,
     FAILED,
     LOADED,
     LOADING,
     REGISTERED_DOMAINS,
+    VISERON_LOG_PATH,
     VISERON_SIGNAL_LAST_WRITE,
     VISERON_SIGNAL_SHUTDOWN,
     VISERON_SIGNAL_STOPPING,
@@ -60,9 +64,11 @@ from viseron.const import (
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.events import Event, EventData
 from viseron.exceptions import DataStreamNotLoaded, DomainNotRegisteredError
-from viseron.helpers import memory_usage_profiler, utcnow
+from viseron.helpers import memory_usage_profiler, parse_size_to_bytes, utcnow
 from viseron.helpers.json import JSONEncoder
 from viseron.helpers.logs import (
+    LOG_DATE_FORMAT,
+    LOG_FORMAT,
     DuplicateFilter,
     SensitiveInformationFilter,
     ViseronLogFormat,
@@ -100,16 +106,61 @@ SIGNAL_SCHEMA = vol.Schema(
 LOGGER = logging.getLogger(f"{__name__}.core")
 
 
+def _get_rotation_rules() -> tuple[int, int]:
+    env_max_bytes = os.getenv(ENV_LOG_MAX_BYTES)
+    env_backup_count = os.getenv(ENV_LOG_BACKUP_COUNT)
+
+    max_bytes = 0
+    if env_max_bytes is not None:
+        try:
+            max_bytes = parse_size_to_bytes(env_max_bytes)
+        except ValueError as error:
+            LOGGER.error(
+                f"Failed to parse {ENV_LOG_MAX_BYTES} as int, using default value",
+                exc_info=error,
+            )
+
+    backup_count = 1
+    if env_backup_count is not None:
+        try:
+            backup_count = parse_size_to_bytes(env_backup_count)
+        except ValueError as error:
+            LOGGER.error(
+                f"Failed to parse {ENV_LOG_BACKUP_COUNT} as int, using default value",
+                exc_info=error,
+            )
+
+    return max_bytes, backup_count
+
+
 def enable_logging() -> None:
     """Enable logging."""
     root_logger = logging.getLogger()
     root_logger.propagate = False
-    handler = logging.StreamHandler()
     formatter = ViseronLogFormat()
+    duplicate_filter = DuplicateFilter()
+    sensitive_information_filter = SensitiveInformationFilter()
+
+    handler = logging.StreamHandler()
     handler.setFormatter(formatter)
-    handler.addFilter(DuplicateFilter())
-    handler.addFilter(SensitiveInformationFilter())
+    handler.addFilter(duplicate_filter)
+    handler.addFilter(sensitive_information_filter)
     root_logger.addHandler(handler)
+
+    max_bytes, backup_count = _get_rotation_rules()
+    file_handler = RotatingFileHandler(
+        VISERON_LOG_PATH,
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        delay=True,
+    )
+    file_handler.setFormatter(
+        logging.Formatter(fmt=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+    )
+    file_handler.addFilter(sensitive_information_filter)
+    file_handler.doRollover()
+    root_logger.addHandler(file_handler)
+
     root_logger.setLevel(logging.INFO)
 
     # Silence noisy loggers

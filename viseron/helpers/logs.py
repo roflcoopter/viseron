@@ -13,6 +13,10 @@ from typing import Any, AnyStr, Literal, TextIO
 
 from colorlog import ColoredFormatter
 
+LOG_FORMAT = "%(asctime)s.%(msecs)03d [%(levelname)-8s] [%(name)s] - %(message)s"
+STREAM_LOG_FORMAT = "%(log_color)s" + LOG_FORMAT
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
 
 class DuplicateFilter(logging.Filter):
     """Formats identical log entries to overwrite the last."""
@@ -103,13 +107,13 @@ class UnhelpfullLogFilter(logging.Filter):
 
 
 class ViseronLogFormat(ColoredFormatter):
-    """Log formatter."""
+    """Log formatter.
+
+    Used only by the StreamHandler logs.
+    """
 
     # pylint: disable=protected-access
-    base_format = (
-        "%(log_color)s[%(asctime)s] [%(levelname)-8s] [%(name)s] - %(message)s"
-    )
-    overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K" + base_format
+    overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K" + STREAM_LOG_FORMAT
 
     def __init__(self) -> None:
         log_colors = {
@@ -121,8 +125,8 @@ class ViseronLogFormat(ColoredFormatter):
         }
 
         super().__init__(
-            fmt=self.base_format,
-            datefmt="%Y-%m-%d %H:%M:%S",
+            fmt=STREAM_LOG_FORMAT,
+            datefmt=LOG_DATE_FORMAT,
             style="%",
             reset=True,
             log_colors=log_colors,
