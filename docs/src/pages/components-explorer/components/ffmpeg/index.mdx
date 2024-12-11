@@ -3,9 +3,8 @@ import Tabs from "@theme/Tabs";
 
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
-import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
 import Camera from "@site/src/pages/components-explorer/_domains/camera/index.mdx";
-import CameraMjpegStreams from "@site/src/pages/components-explorer/_domains/camera/mjpeg_streams.mdx";
 
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
@@ -57,9 +56,7 @@ ffmpeg:
 
 </details>
 
-<ComponentConfiguration meta={ComponentMetadata} config={config} />
-
-## Camera
+<ComponentConfiguration config={config} />
 
 <Camera />
 
@@ -164,10 +161,6 @@ ffmpeg -hide_banner -loglevel error -avoid_negative_ts make_zero -fflags nobuffe
 
 </details>
 
-### MJPEG Streams
-
-<CameraMjpegStreams />
-
 ### FFprobe Stream Information
 
 Viseron needs to know the width, height, FPS and audio/video codecs of your stream.<br />
@@ -197,19 +190,10 @@ ffmpeg_recoverable_errors:
 ### Recorder
 
 [FFmpeg segments](https://www.ffmpeg.org/ffmpeg-formats.html#segment_002c-stream_005fsegment_002c-ssegment) are used to handle recordings.<br />
-FFmpeg will write small 5 second segments of the stream to disk, and in case of any recording starting, Viseron will find the appropriate segments and concatenate them together.<br />
+FFmpeg will write small 5 second segments of the stream to disk.<br />
+
 The reason for using segments instead of just starting the recorder on an event, is to support the `lookback` feature which makes it possible to record _before_ an event actually happened.
-
-<details>
-  <summary>The default concatenation command</summary>
-
-```
-ffmpeg -hide_banner -loglevel error -y -protocol_whitelist file,pipe -f concat -safe 0 -i - -c:v copy {outfile.mp4}
-```
-
-</details>
-
-If you want to re-encode the video you can choose `codec`, `video_filters` and optionally `hwaccel_args`.
+It also makes it possible to have continuous recordings.
 
 ### Store segments in memory
 
@@ -232,6 +216,7 @@ docker run --rm \
   -p 8888:8888 \
   --tmpfs /tmp \
   --name viseron \
+  --shm-size=1024mb \
   roflcoopter/viseron:latest
 ```
 
@@ -244,6 +229,7 @@ services:
   viseron:
     image: roflcoopter/viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
       - {recordings path}:/recordings
       - {recordings path}:/segments
@@ -383,7 +369,5 @@ Most of the configuration options are ignored when using `raw_command`.
 If you create a command that works well for your particular hardware, please share it with the community!
 
 :::
-
-## Troubleshooting
 
 <ComponentTroubleshooting meta={ComponentMetadata} />

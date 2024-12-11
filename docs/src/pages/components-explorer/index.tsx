@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import ExecutionEnvironment from "@docusaurus/ExecutionEnvironment";
 import { useHistory, useLocation } from "@docusaurus/router";
+import Heading from "@theme/Heading";
 import Layout from "@theme/Layout";
 import clsx from "clsx";
 
@@ -51,12 +52,12 @@ function readSearchName(search: string) {
 function filterComponents(
   components: Component[],
   selectedTags: DomainType[],
-  searchName: string | null
+  searchName: string | null,
 ) {
   if (searchName) {
     // eslint-disable-next-line no-param-reassign
     components = components.filter((component) =>
-      component.title.toLowerCase().includes(searchName.toLowerCase())
+      component.title.toLowerCase().includes(searchName.toLowerCase()),
     );
   }
   if (selectedTags.length === 0) {
@@ -86,14 +87,14 @@ function usefilteredComponents() {
   return useMemo(
     () =>
       filterComponents(Object.values(componentList), selectedTags, searchName),
-    [selectedTags, searchName]
+    [selectedTags, searchName],
   );
 }
 
 function ComponentHeader() {
   return (
     <section className="margin-top--lg margin-bottom--lg text--center">
-      <h1>{TITLE}</h1>
+      <Heading as="h1">{TITLE}</Heading>
       <p>{DESCRIPTION}</p>
     </section>
   );
@@ -104,7 +105,7 @@ function ComponentFilters() {
     <section className="container margin-top--l margin-bottom--lg">
       <div className={clsx("margin-bottom--sm", styles.filterCheckbox)}>
         <div>
-          <h2>Filters</h2>
+          <Heading as="h2">Filters</Heading>
         </div>
       </div>
       <ul className={clsx("clean-list", styles.checkboxList)}>
@@ -179,7 +180,7 @@ function ComponentCards() {
     return (
       <section className="margin-top--lg margin-bottom--xl">
         <div className="container padding-vert--md text--center">
-          <h2>No result</h2>
+          <Heading as="h2">No result</Heading>
           <SearchBar />
         </div>
       </section>
@@ -190,7 +191,7 @@ function ComponentCards() {
     <section className="margin-top--lg margin-bottom--xl">
       <div className="container">
         <div className={clsx("margin-bottom--md", styles.componentListHeader)}>
-          <h2>Components</h2>
+          <Heading as="h2">Components</Heading>
           <SearchBar />
         </div>
         <ul className={clsx("clean-list", styles.componentList)}>

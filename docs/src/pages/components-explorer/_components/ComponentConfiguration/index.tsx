@@ -10,6 +10,8 @@ import clsx from "clsx";
 import yaml from "js-yaml";
 import "tippy.js/dist/tippy.css";
 
+import Button from "@site/src/components/Button";
+
 import styles from "./styles.module.css";
 
 // Return list of valid values recursively
@@ -19,7 +21,7 @@ function getValidValues(options) {
   options.forEach((option) => {
     if (option.options) {
       recursiveOptions = recursiveOptions.concat(
-        getValidValues(option.options)
+        getValidValues(option.options),
       );
     } else if (option.value) {
       recursiveOptions.push(option);
@@ -216,8 +218,8 @@ function buildHeader(item: any) {
           {optional
             ? "optional"
             : item.deprecated
-            ? " deprecated"
-            : " required"}
+              ? " deprecated"
+              : " required"}
         </span>
         {getDefault(item)}
       </span>
@@ -226,10 +228,28 @@ function buildHeader(item: any) {
 }
 
 // Return div that represents a single config item
-function buildItem(item: ComponentConfigurationType, children: any, index) {
+function buildItem(
+  item: ComponentConfigurationType,
+  children: any,
+  index: number,
+  root: boolean,
+) {
   const [isCollapsed, setIsCollapsed] = React.useState(
-    !!(item.type === "map" && item.optional)
+    !!(item.type === "map" && item.optional),
   );
+
+  // Listen to the collapse-all event
+  React.useEffect(() => {
+    const collapseAll = (event) => {
+      setIsCollapsed(event.detail.collapse);
+    };
+
+    document.addEventListener("collapse-all", collapseAll);
+
+    return () => {
+      document.removeEventListener("collapse-all", collapseAll);
+    };
+  }, []);
 
   return (
     <div
@@ -246,6 +266,39 @@ function buildItem(item: ComponentConfigurationType, children: any, index) {
             }`}
             onClick={() => setIsCollapsed(!isCollapsed)}
           ></button>
+        ) : null}
+        {root ? (
+          <div>
+            <Button
+              size="sm"
+              label="Collapse all"
+              variant="secondary"
+              onClick={() => {
+                // Dispatch event to collapse/uncollapse all config items
+                const event = new CustomEvent("collapse-all", {
+                  bubbles: true,
+                  detail: { collapse: true },
+                });
+                document.dispatchEvent(event);
+              }}
+              style={{
+                margin: "5px",
+              }}
+            />
+            <Button
+              size="sm"
+              label="Open all"
+              variant="secondary"
+              onClick={() => {
+                // Dispatch event to collapse/uncollapse all config items
+                const event = new CustomEvent("collapse-all", {
+                  bubbles: true,
+                  detail: { collapse: false },
+                });
+                document.dispatchEvent(event);
+              }}
+            />
+          </div>
         ) : null}
       </div>
       {buildDescription(item)}
@@ -264,13 +317,20 @@ function buildItem(item: ComponentConfigurationType, children: any, index) {
   );
 }
 
-function configOption(_config: ComponentConfigurationType, index) {
+function configOption(
+  _config: ComponentConfigurationType,
+  index: number,
+  root: boolean,
+) {
   if (_config.type === "list") {
     if (_config.values && Array.isArray(_config.values[0])) {
       return buildItem(
         _config,
-        _config.values[0].map((children) => configOption(children, index)),
-        index
+        _config.values[0].map((children) =>
+          configOption(children, index, false),
+        ),
+        index,
+        root,
       );
     }
   }
@@ -278,11 +338,12 @@ function configOption(_config: ComponentConfigurationType, index) {
   if (_config.type === "map") {
     return buildItem(
       _config,
-      _config.value.map((children) => configOption(children, index)),
-      index
+      _config.value.map((children) => configOption(children, index, false)),
+      index,
+      root,
     );
   }
-  return buildItem(_config, null, index);
+  return buildItem(_config, null, index, root);
 }
 
 type ComponentConfigurationType = {
@@ -298,7 +359,9 @@ function ComponentConfiguration({
   return (
     <span>
       <div className={clsx(styles.configVariables)}>
-        {config.map((_config, index) => configOption(_config, index))}
+        {config.map((_config, index) =>
+          configOption(_config, index, index === 0),
+        )}
       </div>
     </span>
   );

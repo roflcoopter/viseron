@@ -1,7 +1,29 @@
+import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
+import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
+import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
+
+## Object detector
+
 An object detector scans an image to identify multiple objects and their position.
 
 :::tip
 
-Object detectors can be taxing on the system, so it is wise to combine it with a [motion detector](/docs/documentation/configuration#motion-detector-domain)
+Object detectors can be taxing on the system, so it is wise to combine it with a [motion detector](/docs/documentation/configuration/domains/#motion-detector-domain)
 
 :::
+
+### Labels \{#object-detector-labels}
+
+<ObjectDetectorLabels
+  showLabels={props.showLabels}
+  labelPath={props.labelPath}
+  extras={props.extras}
+/>
+
+### Zones \{#object-detector-zones}
+
+<ObjectDetectorZones />
+
+### Mask \{#object-detector-mask}
+
+<ObjectDetectorMask meta={props.meta} />

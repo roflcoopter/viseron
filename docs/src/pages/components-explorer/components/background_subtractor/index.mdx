@@ -1,8 +1,7 @@
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
-import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
 import MotionDetector from "@site/src/pages/components-explorer/_domains/motion_detector/index.mdx";
-import MotionDetectorMask from "@site/src/pages/components-explorer/_domains/motion_detector/mask.mdx";
 
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
@@ -44,16 +43,8 @@ background_subtractor:
 
 </details>
 
-<ComponentConfiguration meta={ComponentMetadata} config={config} />
+<ComponentConfiguration config={config} />
 
-## Motion detector
-
-<MotionDetector />
-
-### Mask
-
-<MotionDetectorMask meta={ComponentMetadata} />
-
-## Troubleshooting
+<MotionDetector meta={ComponentMetadata} />
 
 <ComponentTroubleshooting meta={ComponentMetadata} />

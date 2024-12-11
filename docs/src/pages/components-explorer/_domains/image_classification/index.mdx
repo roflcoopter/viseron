@@ -1,4 +1,10 @@
-Image classification runs as a <a href="/docs/documentation/configuration#post-processors">post processor</a> when a specific object is detected.
+import Link from "@docusaurus/Link";
+
+import PostProcessorLabels from "@site/src/pages/components-explorer/_domains/post_processor/labels.mdx";
+
+## Image classification
+
+Image classification runs as a <Link href="/docs/documentation/configuration/domains/#post-processors">post processor</Link> when a specific object is detected.
 
 Image classification works by labeling and image with known objects and provide a score.
 Classifiers have more fine tuned models than object detectors typically have, which allows them to have more detailed detections.
@@ -7,3 +13,7 @@ The downside to this is that classifiers can only give one result, unlike object
 
 _But_, if you combine the two you can achieve some cool results.<br />
 For instance, you could set up the object detector look for `bird`, and the image classifier with a model that is trained to recognize different birds.
+
+### Labels \{#image-classification-labels\}
+
+<PostProcessorLabels />

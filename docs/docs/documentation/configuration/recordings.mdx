@@ -1,0 +1,202 @@
+import TabItem from "@theme/TabItem";
+import Tabs from "@theme/Tabs";
+
+# Recordings
+
+There are two types of recordings in Viseron, event recordings and continuous recordings.
+
+## Event recordings
+
+Event recordings are triggered by events such as motion detection or object detection. The recordings are saved to disk and can be viewed in the web interface on the `Events` tab on the `Events` page.
+
+The config option `trigger_event_recording: true` instructs Viseron to start recording when the event is detected.
+
+Example configuration to record when detecting a person:
+
+```yaml /config/config.yaml
+darknet: # or any other object detector component
+  object_detector:
+    cameras:
+      camera_one:
+        fps: 1
+        scan_on_motion_only: false
+        labels:
+          - label: person
+            confidence: 0.7
+            // highlight-start
+            trigger_event_recording: true
+            // highlight-end
+```
+
+:::info
+
+The `trigger_event_recording` option is only available for motion and object detectors.
+
+:::
+
+## Continuous recordings
+
+If configured, continuous recordings are always running and stored to disk. The recordings can be viewed in the web interface on the `Timeline` tab on the `Events` page.
+
+The config option `continuous_recording: true` instructs Viseron to start recording continuously.
+
+Example configuration to record continuously:
+
+```yaml /config/config.yaml
+ffmpeg: # or any other camera component
+  camera:
+    camera_one:
+      name: Camera 1
+      host: !secret camera_one_host
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_username
+      password: !secret camera_one_password
+      recorder:
+        // highlight-start
+        continuous_recording: true
+        // highlight-end
+```
+
+## Retention rules
+
+There are a number of ways to control the retention of recordings.
+
+:::tip
+
+Storage tiers can be used to move recordings to different storage locations based on age or size.
+
+See the [storage component tiers documentation](/components-explorer/components/storage#tiers) for more information.
+
+:::
+
+:::warning
+
+Size based retention rules are calculated **per camera**, meaning that if you have 2 cameras and set a `max_size` of 1 GB, each camera can store 1 GB of recordings for a total of 2 GB.
+
+:::
+
+### Setting retention rules for all cameras
+
+To use the same retention rules for all cameras it is recommended to use the [storage component](/components-explorer/components/storage).
+
+Example configuration to set retention rules for all cameras:
+
+```yaml /config/config.yaml
+storage:
+  recorder:
+    tiers:
+      - path: / # Files will be stored in the /recordings directory
+        events:
+          max_age:
+            days: 14
+        continuous:
+          max_size:
+            gb: 10
+```
+
+### Setting retention rules for a specific camera
+
+You can set retention rules for a specific camera by adding the `events`, `continuous` or `storage` key to the `recorder` camera config.
+
+Example configuration to set retention rules for a specific camera:
+
+<Tabs groupId="retention-type">
+<TabItem value="events" label="Event">
+
+```yaml /config/config.yaml
+ffmpeg: # or any other camera component
+  camera:
+    camera_one:
+      name: Camera 1
+      host: !secret camera_one_host
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_username
+      password: !secret camera_one_password
+      // highlight-start
+      recorder: # Store only events for 14 days
+        events:
+          max_age:
+            days: 14
+      // highlight-end
+```
+
+</TabItem>
+<TabItem value="continuous" label="Continuous">
+
+```yaml /config/config.yaml
+ffmpeg: # or any other camera component
+  camera:
+    camera_one:
+      name: Camera 1
+      host: !secret camera_one_host
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_username
+      password: !secret camera_one_password
+      // highlight-start
+      recorder: # Store 10gb of continuous recordings
+        continuous:
+          max_size:
+            gb: 10
+      // highlight-end
+```
+
+</TabItem>
+
+<TabItem value="storage" label="Storage">
+
+```yaml /config/config.yaml
+ffmpeg: # or any other camera component
+  camera:
+    camera_one:
+      name: Camera 1
+      host: !secret camera_one_host
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_username
+      password: !secret camera_one_password
+      // highlight-start
+      recorder:
+        storage: # Store events for 14 days and 10gb of continuous recordings
+          tiers:
+            - path: / # Files will be stored in the /recordings directory
+              events:
+                max_age:
+                  days: 14
+              continuous:
+                max_size:
+                  gb: 10
+      // highlight-end
+```
+
+</TabItem>
+</Tabs>
+
+## File format
+
+The recordings are saved in short `.m4s` (aka `fMP4` or `fragmented MP4`) segments.
+
+In the web interface the recordings are played back using [HLS](https://developer.apple.com/streaming/) and the `hls.js` library.
+When you request a recording in the web interface, the server API will generate an HLS playlist and serve the segments to the client.
+
+:::warning
+
+The recordings are not playable on their own since they are fragmented. If you want to play the recordings outside of the web interface you will need to [export the recordings](#exporting-recordings).
+
+Alternatively you can point your media player to the HLS playlist URL (the same used by the web interface), but this is currently not documented.
+
+:::
+
+## Exporting recordings
+
+From the web interface you can export recordings to an `.mp4` file.
+
+### Exporting an event recording
+
+By using the `Export` button on the `Events` tab you can export an event recording. It will export the selected event to an `.mp4` file.
+
+TODO: Add a screenshot here
+
+### Exporting a continuous recording
+
+By using the `Export` button on the `Timeline` tab you can export a continuous recording. It will export the selected time range to an `.mp4` file.
+
+TODO: Add a screenshot here

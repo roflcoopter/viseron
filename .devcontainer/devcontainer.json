@@ -76,6 +76,12 @@
         "[javascript]": {
           "editor.defaultFormatter": "esbenp.prettier-vscode"
         },
+        "[mdx]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[markdown]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
         "files.associations": {
           "**/azure-pipelines/*.yml": "azure-pipelines",
           "**/azure-pipelines/*.yaml": "azure-pipelines"

@@ -1,12 +1,8 @@
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
-import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
 import ImageClassification from "@site/src/pages/components-explorer/_domains/image_classification/index.mdx";
-import ImageClassificationLabels from "@site/src/pages/components-explorer/_domains/image_classification/labels.mdx";
 import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";
-import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
-import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
-import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
 
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
@@ -54,23 +50,12 @@ edgetpu:
 
 </details>
 
-<ComponentConfiguration meta={ComponentMetadata} config={config} />
+<ComponentConfiguration config={config} />
 
-## Object detector
-
-<ObjectDetector />
-
-### Labels
-
-<ObjectDetectorLabels label_path="/detectors/models/darknet/coco.names" />
-
-### Zones
-
-<ObjectDetectorZones meta={ComponentMetadata} />
-
-### Mask
-
-<ObjectDetectorMask meta={ComponentMetadata} />
+<ObjectDetector
+  meta={ComponentMetadata}
+  labelPath="/detectors/models/edgetpu/labels.txt"
+/>
 
 ### Pre-trained models
 
@@ -86,13 +71,7 @@ The default model is EfficientDet-Lite3 because it features higher precision tha
 
 More information on these models, as well as more object detector models can be found on the [coral.ai website](https://coral.ai/models/object-detection/)
 
-## Image classification
-
 <ImageClassification />
-
-### Labels
-
-<ImageClassificationLabels />
 
 ### Pre-trained models
 
@@ -103,7 +82,5 @@ It was chosen because it has high accuracy and low latency.
 More image classification models can be found on the [coral.ai website](https://coral.ai/models/image-classification/)
 
 There you will also find information to help you understand if you might want to switch to another model.
-
-## Troubleshooting
 
 <ComponentTroubleshooting meta={ComponentMetadata} />
