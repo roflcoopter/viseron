@@ -700,7 +700,11 @@ export const getIcon = (event: types.CameraEvent) => {
 export const getIconFromType = (type: types.CameraEvent["type"]) =>
   iconMap[type];
 
-export const useTimespans = (date: Dayjs | null) => {
+export const useTimespans = (
+  date: Dayjs | null,
+  debounce = 5,
+  enabled: boolean | null = null,
+) => {
   const { selectedCameras } = useCameraStore();
   const camerasQuery = useCameras({});
   const [availableTimespans, setAvailableTimespans] = useState<
@@ -714,17 +718,22 @@ export const useTimespans = (date: Dayjs | null) => {
     [],
   );
 
-  const enabled =
-    camerasQuery.data &&
-    camerasQuery.data.cameras &&
-    selectedCameras.some((camera) => camera in camerasQuery.data.cameras);
+  let _enabled: boolean;
+  if (enabled === null) {
+    _enabled =
+      !!camerasQuery.data &&
+      camerasQuery.data.cameras &&
+      selectedCameras.some((camera) => camera in camerasQuery.data.cameras);
+  } else {
+    _enabled = enabled;
+  }
 
   useSubscribeTimespans(
     selectedCameras,
     date ? date.format("YYYY-MM-DD") : null,
     timespanCallback,
-    enabled,
-    5,
+    _enabled,
+    debounce,
   );
 
   return availableTimespans;

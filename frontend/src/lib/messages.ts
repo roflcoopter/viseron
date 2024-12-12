@@ -22,7 +22,7 @@ export type SaveConfigMessage = {
 export type SubscribeTimespansMessage = {
   type: "subscribe_timespans";
   camera_identifiers: string[];
-  date: string;
+  date: string | null;
   debounce?: number;
 };
 
@@ -120,7 +120,7 @@ export function getEntities() {
 
 export function subscribeTimespans(
   camera_identifiers: string[],
-  date: string,
+  date: string | null,
   debounce?: number,
 ) {
   const message: SubscribeTimespansMessage = {

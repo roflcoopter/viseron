@@ -626,7 +626,7 @@ export class Connection {
   async subscribeTimespans(
     callback: (message: types.HlsAvailableTimespans) => void,
     camera_identifiers: string[],
-    date: string,
+    date: string | null,
     debounce?: number,
     resubscribe = true,
   ): Promise<SubscriptionUnsubscribe> {

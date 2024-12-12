@@ -301,11 +301,11 @@ export type CameraObjectEvents = Array<CameraObjectEvent>;
 export type EventsAmount = {
   events_amount: {
     [date: string]: {
-      motion: number;
-      object: number;
-      recording: number;
-      face_recognition: number;
-      license_plate_recognition: number;
+      motion?: number;
+      object?: number;
+      recording?: number;
+      face_recognition?: number;
+      license_plate_recognition?: number;
     };
   };
 };

@@ -1,6 +1,7 @@
 """WebSocket API commands."""
 from __future__ import annotations
 
+import datetime
 import logging
 import os
 import signal
@@ -293,7 +294,7 @@ def get_entities(connection: WebSocketHandler, message) -> None:
     schema={
         vol.Required("type"): "subscribe_timespans",
         vol.Required("camera_identifiers"): [str],
-        vol.Required("date"): str,
+        vol.Required("date"): vol.Any(str, None),
         vol.Optional("debounce", default=0.5): vol.Any(float, int),
     },
 )
@@ -313,7 +314,11 @@ def subscribe_timespans(connection: WebSocketHandler, message) -> None:
             return
 
     # Convert local start of day to UTC
-    time_from, time_to = daterange_to_utc(message["date"], connection.utc_offset)
+    if date := message.get("date"):
+        time_from, time_to = daterange_to_utc(date, connection.utc_offset)
+    else:
+        time_from = datetime.datetime(1970, 1, 1, 0, 0, 0)
+        time_to = datetime.datetime(2999, 12, 31, 23, 59, 59, 999999)
 
     def send_timespans():
         """Send available timespans."""
