@@ -201,6 +201,7 @@ class TierHandler(FileSystemEventHandler):
         self._check_tier(self._storage.get_session)
 
     def _check_tier(self, get_session: Callable[[], Session]) -> None:
+        file_ids = None
         with get_session() as session:
             file_ids = get_files_to_move(
                 session,
@@ -212,21 +213,20 @@ class TierHandler(FileSystemEventHandler):
                 self._min_age,
                 self._min_bytes,
                 self._max_age,
-            )
+            ).all()
 
-            # Process in batches to avoid memory issues
-            for file in file_ids.yield_per(100):
-                handle_file(
-                    get_session,
-                    self._storage,
-                    self._camera.identifier,
-                    self._tier,
-                    self._next_tier,
-                    file[1],
-                    file[2],
-                    self._logger,
-                )
-                session.flush()
+            if file_ids is not None:
+                for file in file_ids:
+                    handle_file(
+                        get_session,
+                        self._storage,
+                        self._camera.identifier,
+                        self._tier,
+                        self._next_tier,
+                        file.path,
+                        file.tier_path,
+                        self._logger,
+                    )
             session.commit()
 
     def _process_events(self) -> None:
