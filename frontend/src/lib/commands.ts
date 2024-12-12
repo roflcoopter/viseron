@@ -69,7 +69,7 @@ export const subscribeEvent = async <T = types.Event>(
 export const subscribeTimespans = async (
   connection: Connection,
   camera_identifiers: string[],
-  date: string,
+  date: string | null,
   timespanCallback: (message: types.HlsAvailableTimespans) => void,
   debounce?: number,
 ) => {
@@ -93,7 +93,7 @@ export const useSubscribeTimespans = (
   const viseron = useContext(ViseronContext);
 
   useEffect(() => {
-    if (!enabled || !date) {
+    if (!enabled) {
       return () => {};
     }
 

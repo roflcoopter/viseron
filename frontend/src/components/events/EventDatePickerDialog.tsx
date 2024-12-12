@@ -12,13 +12,12 @@ import { useMemo } from "react";
 import { useEventsAmountMultiple } from "lib/api/events";
 import * as types from "lib/types";
 
-import { useCameraStore } from "./utils";
+import { useCameraStore, useTimespans } from "./utils";
 
 function HasEvent(
   props: PickersDayProps<Dayjs> & { highlightedDays?: Record<string, any> },
 ) {
   const { highlightedDays = {}, day, outsideCurrentMonth, ...other } = props;
-
   const date = day.format("YYYY-MM-DD");
   const isSelected =
     !props.outsideCurrentMonth && Object.keys(highlightedDays).includes(date);
@@ -27,8 +26,8 @@ function HasEvent(
       key={props.day.toString()}
       overlap="circular"
       badgeContent={
-        isSelected && highlightedDays[date] > 0
-          ? highlightedDays[date]
+        isSelected && highlightedDays[date].events > 0
+          ? highlightedDays[date].events
           : undefined
       }
       max={99}
@@ -62,16 +61,47 @@ function HasEvent(
   );
 }
 
+type HighlightedDays = {
+  [date: string]: {
+    events: number;
+    timespanAvailable: boolean;
+  };
+};
+
 export function getHighlightedDays(
   eventsAmount: types.EventsAmount["events_amount"],
+  availableTimespans: types.HlsAvailableTimespan[],
 ) {
-  const result: Record<string, number> = {};
+  const result: HighlightedDays = {};
+  for (const timespan of availableTimespans) {
+    // Loop through all dates between start and end
+    const start = dayjs(timespan.start * 1000);
+    const end = dayjs(timespan.end * 1000);
+    for (let d = start; d.isBefore(end); d = d.add(1, "day")) {
+      const date = d.format("YYYY-MM-DD");
+      if (!(date in result)) {
+        result[date] = {
+          events: 0,
+          timespanAvailable: true,
+        };
+      }
+    }
+  }
+
   for (const [date, events] of Object.entries(eventsAmount)) {
     const totalEvents = Object.values(events).reduce((a, b) => a + b, 0);
     if (totalEvents > 0) {
-      result[date] = totalEvents;
+      if (!(date in result)) {
+        result[date] = {
+          events: totalEvents,
+          timespanAvailable: false,
+        };
+      } else {
+        result[date].events = totalEvents;
+      }
     }
   }
+
   return result;
 }
 
@@ -95,12 +125,16 @@ export function EventDatePickerDialog({
   const eventsAmountQuery = useEventsAmountMultiple({
     camera_identifiers: selectedCameras,
   });
+  const availableTimespans = useTimespans(null, 5, open);
   const highlightedDays = useMemo(
     () =>
       eventsAmountQuery.data
-        ? getHighlightedDays(eventsAmountQuery.data.events_amount)
+        ? getHighlightedDays(
+            eventsAmountQuery.data.events_amount,
+            availableTimespans,
+          )
         : {},
-    [eventsAmountQuery.data],
+    [eventsAmountQuery.data, availableTimespans],
   );
 
   const handleClose = () => {
