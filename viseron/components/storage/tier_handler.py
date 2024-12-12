@@ -215,23 +215,17 @@ class TierHandler(FileSystemEventHandler):
             )
 
             # Process in batches to avoid memory issues
-            for batch in file_ids.yield_per(100):
-                # Materialize current batch
-                files = [
-                    {"path": file.path, "tier_path": file.tier_path} for file in batch
-                ]
-                for file in files:
-                    handle_file(
-                        get_session,
-                        self._storage,
-                        self._camera.identifier,
-                        self._tier,
-                        self._next_tier,
-                        file["path"],
-                        file["tier_path"],
-                        self._logger,
-                    )
-                # Commit batch
+            for file in file_ids.yield_per(100):
+                handle_file(
+                    get_session,
+                    self._storage,
+                    self._camera.identifier,
+                    self._tier,
+                    self._next_tier,
+                    file[1],
+                    file[2],
+                    self._logger,
+                )
                 session.flush()
             session.commit()
 
