@@ -130,6 +130,11 @@ def subscription_result_message(
     }
 
 
+def cancel_subscription_message(command_id: int) -> dict[str, Any]:
+    """Return a cancel subscription message."""
+    return {"command_id": command_id, "type": "cancel_subscription"}
+
+
 def pong_message(command_id: int) -> dict[str, Any]:
     """Return a pong message."""
     return {"command_id": command_id, "type": "pong"}

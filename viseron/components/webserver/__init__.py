@@ -41,6 +41,7 @@ from .const import (
     DESC_MINUTES,
     DESC_PORT,
     DESC_SESSION_EXPIRY,
+    DOWNLOAD_TOKENS,
     PATH_ASSETS,
     PATH_INDEX,
     PATH_STATIC,
@@ -53,6 +54,7 @@ from .request_handler import ViseronRequestHandler
 from .stream_handler import DynamicStreamHandler, StaticStreamHandler
 from .websocket_api import WebSocketHandler
 from .websocket_api.commands import (
+    export_recording,
     get_cameras,
     get_config,
     get_entities,
@@ -69,6 +71,7 @@ from .websocket_api.commands import (
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.components.webserver.download_token import DownloadToken
 
 
 LOGGER = logging.getLogger(__name__)
@@ -138,6 +141,7 @@ def setup(vis: Viseron, config) -> bool:
     webserver.register_websocket_command(get_entities)
     webserver.register_websocket_command(subscribe_timespans)
     webserver.register_websocket_command(unsubscribe_timespans)
+    webserver.register_websocket_command(export_recording)
 
     webserver.start()
 
@@ -248,6 +252,7 @@ class Webserver(threading.Thread):
         vis.data[COMPONENT] = self
         vis.data[WEBSOCKET_COMMANDS] = {}
         vis.data[WEBSOCKET_CONNECTIONS] = []
+        vis.data[DOWNLOAD_TOKENS] = {}
 
         self._asyncio_ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._asyncio_ioloop)
@@ -273,6 +278,11 @@ class Webserver(threading.Thread):
     def application(self):
         """Return application."""
         return self._application
+
+    @property
+    def download_tokens(self) -> dict[str, DownloadToken]:
+        """Return download tokens."""
+        return self._vis.data[DOWNLOAD_TOKENS]
 
     def register_websocket_command(self, handler) -> None:
         """Register a websocket command."""

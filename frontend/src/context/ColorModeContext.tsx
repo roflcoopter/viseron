@@ -275,6 +275,13 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
             },
           },
         },
+        MuiPickersPopper: {
+          styleOverrides: {
+            paper: {
+              backgroundImage: "unset",
+            },
+          },
+        },
         MuiPopover: {
           styleOverrides: {
             paper: {

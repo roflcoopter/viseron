@@ -332,7 +332,16 @@ export class Connection {
           console.warn(
             `Received message for unknown subscription ${message.command_id}. Unsubscribing.`,
           );
-          // TODO UNSUB HERE
+        }
+        break;
+
+      case "cancel_subscription":
+        if (command_info) {
+          command_info.unsubscribe();
+        } else {
+          console.warn(
+            `Received message for unknown subscription ${message.command_id}. Unsubscribing.`,
+          );
         }
         break;
 
@@ -577,6 +586,42 @@ export class Connection {
     return () => subscription.unsubscribe();
   }
 
+  private async serverControlledSubscribe<EventType>(
+    callback: (message: EventType) => void,
+    subMessage: messages.ExportRecordingMessage,
+  ) {
+    if (this.queuedMessages) {
+      await new Promise((resolve, reject) => {
+        this.queuedMessages!.push({ resolve, reject });
+      });
+    }
+    let subscription: SubscribeEventCommmandInFlight<any>;
+
+    await new Promise((resolve, reject) => {
+      const commandId = this._generateCommandId();
+
+      subscription = {
+        resolve,
+        reject,
+        callback,
+        subscribe: undefined,
+        unsubscribe: async () => {
+          this.commands.delete(commandId);
+          if (this.oldSubscriptions) {
+            this.oldSubscriptions.delete(commandId);
+          }
+        },
+      };
+
+      this.commands.set(commandId, subscription);
+      try {
+        this.sendMessage(subMessage, commandId);
+      } catch (err) {
+        // Socket is closing
+      }
+    });
+  }
+
   async subscribeEvent<EventType>(
     event: string,
     callback: (message: EventType) => void,
@@ -645,5 +690,25 @@ export class Connection {
       resubscribe,
     );
     return unsub;
+  }
+
+  async exportRecording(
+    camera_identifier: string,
+    recording_id: number,
+    callback: (message: any) => void,
+  ) {
+    if (this.queuedMessages) {
+      await new Promise((resolve, reject) => {
+        this.queuedMessages!.push({ resolve, reject });
+      });
+    }
+    if (DEBUG) {
+      console.debug("Exporting recording", recording_id);
+    }
+
+    await this.serverControlledSubscribe(
+      callback,
+      messages.exportRecording(camera_identifier, recording_id),
+    );
   }
 }

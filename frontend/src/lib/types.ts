@@ -46,6 +46,11 @@ export type WebSocketSubscriptionResultResponse = {
   result: Event | HlsAvailableTimespans;
 };
 
+export type WebSocketSubscriptionCancelResponse = {
+  command_id: number;
+  type: "cancel_subscription";
+};
+
 export type WebSocketResultResponse = {
   command_id: number;
   type: "result";
@@ -66,6 +71,7 @@ export type WebSocketResultErrorResponse = {
 export type WebSocketResponse =
   | WebSocketPongResponse
   | WebSocketSubscriptionResultResponse
+  | WebSocketSubscriptionCancelResponse
   | WebSocketResultResponse
   | WebSocketResultErrorResponse;
 
@@ -344,4 +350,9 @@ export type HlsAvailableTimespan = {
 
 export type HlsAvailableTimespans = {
   timespans: HlsAvailableTimespan[];
+};
+
+export type DownloadFileResponse = {
+  filename: string;
+  token: string;
 };

@@ -31,6 +31,7 @@
     "hls.js": "^1.5.15",
     "http-proxy-middleware": "^3.0.2",
     "js-cookie": "^3.0.5",
+    "material-ui-popup-state": "^5.3.3",
     "monaco-editor": "^0.51.0",
     "monaco-yaml": "^5.2.2",
     "mui-nested-menu": "^3.4.0",

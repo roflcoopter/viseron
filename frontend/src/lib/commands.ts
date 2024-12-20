@@ -140,3 +140,38 @@ export const useSubscribeTimespans = (
     viseron.connection,
   ]);
 };
+
+export const exportRecording = async (
+  connection: Connection,
+  camera_identifier: string,
+  recording_id: number,
+  exportCallback: (message: types.DownloadFileResponse) => void,
+) => {
+  const subscription = await connection.exportRecording(
+    camera_identifier,
+    recording_id,
+    exportCallback,
+  );
+  return subscription;
+};
+
+export const useExportRecording = () => {
+  const viseron = useContext(ViseronContext);
+
+  const _exportRecording = async (
+    camera_identifier: string,
+    recording_id: number,
+    exportCallback: (message: types.DownloadFileResponse) => void,
+  ) => {
+    if (viseron.connection) {
+      await exportRecording(
+        viseron.connection,
+        camera_identifier,
+        recording_id,
+        exportCallback,
+      );
+    }
+  };
+
+  return _exportRecording;
+};

@@ -26,6 +26,12 @@ export type SubscribeTimespansMessage = {
   debounce?: number;
 };
 
+export type ExportRecordingMessage = {
+  type: "export_recording";
+  camera_identifier: string;
+  recording_id: number;
+};
+
 export function auth(accessToken: string) {
   return {
     type: "auth",
@@ -137,4 +143,15 @@ export function unsubscribeTimespans(subscription: number) {
     type: "unsubscribe_timespans",
     subscription,
   };
+}
+
+export function exportRecording(
+  camera_identifier: string,
+  recording_id: number,
+) {
+  return {
+    type: "export_recording",
+    camera_identifier,
+    recording_id,
+  } as ExportRecordingMessage;
 }

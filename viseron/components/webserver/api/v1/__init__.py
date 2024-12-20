@@ -5,6 +5,7 @@ from viseron.components.webserver.api.v1.camera import CameraAPIHandler
 from viseron.components.webserver.api.v1.cameras import CamerasAPIHandler
 from viseron.components.webserver.api.v1.compreface import ComprefaceAPIHandler
 from viseron.components.webserver.api.v1.config import ConfigAPIHandler
+from viseron.components.webserver.api.v1.download import DownloadAPIHandler
 from viseron.components.webserver.api.v1.events import EventsAPIHandler
 from viseron.components.webserver.api.v1.hls import HlsAPIHandler
 from viseron.components.webserver.api.v1.onboarding import OnboardingAPIHandler
@@ -16,6 +17,7 @@ __all__ = (
     "CamerasAPIHandler",
     "ComprefaceAPIHandler",
     "ConfigAPIHandler",
+    "DownloadAPIHandler",
     "EventsAPIHandler",
     "HlsAPIHandler",
     "OnboardingAPIHandler",

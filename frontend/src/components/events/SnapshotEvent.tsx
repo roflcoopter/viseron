@@ -1,14 +1,20 @@
 import Image from "@jy95/material-ui-image";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
+import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
 import Grid from "@mui/material/Grid2";
+import IconButton from "@mui/material/IconButton";
+import Popover from "@mui/material/Popover";
 import Stack from "@mui/material/Stack";
-import Tooltip, { TooltipProps, tooltipClasses } from "@mui/material/Tooltip";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { styled, useTheme } from "@mui/material/styles";
+import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
+import PopupState, { bindHover, bindPopover } from "material-ui-popup-state";
+import HoverPopover from "material-ui-popup-state/HoverPopover";
 import { memo } from "react";
 
 import {
@@ -22,19 +28,10 @@ import {
   getIcon,
   getSrc,
 } from "components/events/utils";
-import { toTitleCase } from "lib/helpers";
+import { downloadFile } from "lib/api/download";
+import { useExportRecording } from "lib/commands";
+import { isTouchDevice, toTitleCase } from "lib/helpers";
 import * as types from "lib/types";
-
-const CustomWidthTooltip = styled(({ className, ...props }: TooltipProps) => (
-  <Tooltip {...props} classes={{ popper: className }} />
-))(() => ({
-  [`& .${tooltipClasses.tooltip}`]: {
-    overflowX: "hidden",
-    overflowY: "scroll",
-    maxHeight: "50vh",
-    maxWidth: "100vw",
-  },
-}));
 
 const getText = (event: types.CameraEvent) => {
   const date = new Date(getEventTime(event));
@@ -115,10 +112,12 @@ const getText = (event: types.CameraEvent) => {
   }
 };
 
-const ToolTipContent = ({ events }: { events: types.CameraEvent[] }) => {
+const PopoverContent = ({ events }: { events: types.CameraEvent[] }) => {
   const theme = useTheme();
   const matches = useMediaQuery(theme.breakpoints.up("sm"));
   const width = matches ? (events.length > 1 ? "50vw" : "25vw") : "90vw";
+  const exportRecording = useExportRecording();
+
   return (
     <Grid
       container
@@ -127,31 +126,55 @@ const ToolTipContent = ({ events }: { events: types.CameraEvent[] }) => {
       sx={{ flexGrow: 1, width }}
       columns={2}
     >
-      {events.reverse().map((event, index) => (
-        <Grid
-          key={`${index}-${getEventTimestamp(event)}`}
-          size={events.length > 1 ? 1 : 2}
-        >
-          <Card>
-            <CardMedia
-              sx={{
-                borderRadius: 1, // theme.shape.borderRadius * 1
-                overflow: "hidden",
-              }}
-            >
-              <Image
-                src={getSrc(event)}
-                color={theme.palette.background.default}
-                animationDuration={0}
-                imageStyle={{
-                  objectFit: "contain",
+      {events
+        .slice()
+        .reverse()
+        .map((event, index) => (
+          <Grid
+            key={`${index}-${getEventTimestamp(event)}`}
+            size={events.length > 1 ? 1 : 2}
+          >
+            <Card>
+              <CardMedia
+                sx={{
+                  borderRadius: 1, // theme.shape.borderRadius * 1
+                  overflow: "hidden",
                 }}
-              />
-            </CardMedia>
-            <CardContent>{getText(event)}</CardContent>
-          </Card>
-        </Grid>
-      ))}
+              >
+                <Image
+                  src={getSrc(event)}
+                  color={theme.palette.background.default}
+                  animationDuration={0}
+                  imageStyle={{
+                    objectFit: "contain",
+                  }}
+                />
+              </CardMedia>
+              <CardContent>{getText(event)}</CardContent>
+              <CardActions>
+                <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
+                  <Tooltip title="Export">
+                    <IconButton
+                      onClick={(e) => {
+                        exportRecording(
+                          event.camera_identifier,
+                          event.id,
+                          (message) => {
+                            downloadFile(message);
+                          },
+                        );
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                    >
+                      <FileDownloadIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              </CardActions>
+            </Card>
+          </Grid>
+        ))}
     </Grid>
   );
 };
@@ -168,34 +191,69 @@ const Divider = () => (
 
 export const SnapshotIcon = ({ events }: { events: types.CameraEvent[] }) => {
   const Icon = getIcon(events[0]);
-  return (
-    <CustomWidthTooltip title={<ToolTipContent events={events} />} arrow>
-      <Box
-        sx={(theme) => ({
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "5px",
-          cursor: "pointer",
-          "&:hover": {
-            borderRadius: 1, // theme.shape.borderRadius * 1
-            backgroundColor: theme.palette.primary[200],
+  const PopoverComponent = isTouchDevice() ? Popover : HoverPopover;
 
-            ...theme.applyStyles("dark", {
-              backgroundColor: theme.palette.primary[900],
-            }),
-          },
-        })}
-      >
-        <Icon
-          color="primary"
-          style={{
-            height: EVENT_ICON_HEIGHT,
-            width: EVENT_ICON_HEIGHT,
-          }}
-        />
-      </Box>
-    </CustomWidthTooltip>
+  return (
+    <PopupState variant="popover">
+      {(popupState) => (
+        <div>
+          <Box
+            {...bindHover(popupState)}
+            sx={(theme) => ({
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "5px",
+              cursor: "pointer",
+              "&:hover": {
+                borderRadius: 1, // theme.shape.borderRadius * 1
+                backgroundColor: theme.palette.primary[200],
+
+                ...theme.applyStyles("dark", {
+                  backgroundColor: theme.palette.primary[900],
+                }),
+              },
+            })}
+          >
+            <Icon
+              color="primary"
+              style={{
+                height: EVENT_ICON_HEIGHT,
+                width: EVENT_ICON_HEIGHT,
+              }}
+            />
+          </Box>
+          <PopoverComponent
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+            }}
+            {...bindPopover(popupState)}
+            slotProps={{
+              paper: {
+                style: {
+                  padding: 10,
+                  overflowX: "hidden",
+                  overflowY: "scroll",
+                  maxHeight: "50vh",
+                  maxWidth: "100vw",
+                },
+              },
+            }}
+            anchorOrigin={{
+              vertical: "bottom",
+              horizontal: "left",
+            }}
+            transformOrigin={{
+              vertical: "top",
+              horizontal: "left",
+            }}
+          >
+            <PopoverContent events={events} />
+          </PopoverComponent>
+        </div>
+      )}
+    </PopupState>
   );
 };
 
