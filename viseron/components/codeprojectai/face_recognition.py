@@ -8,12 +8,15 @@ from typing import TYPE_CHECKING
 import codeprojectai.core as cpai
 import cv2
 import requests
-from face_recognition.face_recognition_cli import image_files_in_folder
 
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.face_recognition import AbstractFaceRecognition
 from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH
-from viseron.helpers import calculate_absolute_coords, letterbox_resize
+from viseron.helpers import (
+    calculate_absolute_coords,
+    get_image_files_in_folder,
+    letterbox_resize,
+)
 
 from .const import (
     COMPONENT,
@@ -146,7 +149,7 @@ class CodeProjectAITrain:
 
             # Loop through each training image for the current person
             try:
-                img_paths = image_files_in_folder(os.path.join(train_dir, face_dir))
+                img_paths = get_image_files_in_folder(os.path.join(train_dir, face_dir))
             except NotADirectoryError as error:
                 LOGGER.error(
                     f"{train_dir} can only contain directories. "
