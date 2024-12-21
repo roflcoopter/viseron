@@ -7,6 +7,7 @@ import logging
 import math
 import multiprocessing as mp
 import os
+import re
 import socket
 import time
 import tracemalloc
@@ -668,6 +669,15 @@ def parse_size_to_bytes(size_str: str) -> int:
     raise ValueError(
         f"Invalid size unit in {size_str}. Must be one of: {', '.join(units.keys())}"
     )
+
+
+def get_image_files_in_folder(folder) -> list[str]:
+    """Return all files with JPG, JPEG or PNG extension."""
+    return [
+        os.path.join(folder, f)
+        for f in os.listdir(folder)
+        if re.match(r".*\.(jpg|jpeg|png)", f, flags=re.I)
+    ]
 
 
 def memory_usage_profiler(logger, key_type="lineno", limit=5) -> None:
