@@ -31,6 +31,12 @@ export type ExportRecordingMessage = {
   camera_identifier: string;
   recording_id: number;
 };
+export type ExportSnapshotMessage = {
+  type: "export_snapshot";
+  event_type: string;
+  camera_identifier: string;
+  snapshot_id: number;
+};
 
 export function auth(accessToken: string) {
   return {
@@ -154,4 +160,17 @@ export function exportRecording(
     camera_identifier,
     recording_id,
   } as ExportRecordingMessage;
+}
+
+export function exportSnapshot(
+  event_type: string,
+  camera_identifier: string,
+  snapshot_id: number,
+) {
+  return {
+    type: "export_snapshot",
+    event_type,
+    camera_identifier,
+    snapshot_id,
+  } as ExportSnapshotMessage;
 }

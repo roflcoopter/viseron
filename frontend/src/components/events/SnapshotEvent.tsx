@@ -28,8 +28,7 @@ import {
   getIcon,
   getSrc,
 } from "components/events/utils";
-import { downloadFile } from "lib/api/download";
-import { useExportRecording } from "lib/commands";
+import { useExportEvent } from "lib/commands";
 import { isTouchDevice, toTitleCase } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -112,11 +111,27 @@ const getText = (event: types.CameraEvent) => {
   }
 };
 
+const getTooltipTitle = (event: types.CameraEvent) => {
+  switch (event.type) {
+    case "object":
+    case "face_recognition":
+    case "license_plate_recognition":
+    case "motion":
+      return "Download Snapshot";
+
+    case "recording":
+      return "Download Recording";
+
+    default:
+      return event satisfies never;
+  }
+};
+
 const PopoverContent = ({ events }: { events: types.CameraEvent[] }) => {
   const theme = useTheme();
   const matches = useMediaQuery(theme.breakpoints.up("sm"));
   const width = matches ? (events.length > 1 ? "50vw" : "25vw") : "90vw";
-  const exportRecording = useExportRecording();
+  const exportEvent = useExportEvent();
 
   return (
     <Grid
@@ -153,16 +168,10 @@ const PopoverContent = ({ events }: { events: types.CameraEvent[] }) => {
               <CardContent>{getText(event)}</CardContent>
               <CardActions>
                 <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
-                  <Tooltip title="Export">
+                  <Tooltip title={getTooltipTitle(event)}>
                     <IconButton
                       onClick={(e) => {
-                        exportRecording(
-                          event.camera_identifier,
-                          event.id,
-                          (message) => {
-                            downloadFile(message);
-                          },
-                        );
+                        exportEvent(event);
                         e.stopPropagation();
                         e.preventDefault();
                       }}

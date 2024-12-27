@@ -55,6 +55,7 @@ from .stream_handler import DynamicStreamHandler, StaticStreamHandler
 from .websocket_api import WebSocketHandler
 from .websocket_api.commands import (
     export_recording,
+    export_snapshot,
     get_cameras,
     get_config,
     get_entities,
@@ -142,6 +143,7 @@ def setup(vis: Viseron, config) -> bool:
     webserver.register_websocket_command(subscribe_timespans)
     webserver.register_websocket_command(unsubscribe_timespans)
     webserver.register_websocket_command(export_recording)
+    webserver.register_websocket_command(export_snapshot)
 
     webserver.start()
 

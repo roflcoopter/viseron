@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime
+import enum
 import logging
 import os
 import shutil
@@ -14,8 +15,11 @@ from typing import TYPE_CHECKING, Any, overload
 import tornado
 import voluptuous as vol
 from debouncer import DebounceOptions, debounce
+from sqlalchemy import select
+from sqlalchemy.exc import NoResultFound
 
 from viseron.components.storage.const import EVENT_FILE_CREATED, EVENT_FILE_DELETED
+from viseron.components.storage.models import Motion, Objects, PostProcessorResults
 from viseron.components.storage.queries import get_recording_fragments
 from viseron.components.storage.util import EventFileCreated, EventFileDeleted
 from viseron.components.webserver.auth import Group
@@ -484,3 +488,83 @@ def export_recording(connection: WebSocketHandler, message) -> None:
     )
     concat_thread.start()
     connection.send_message(result_message(message["command_id"]))
+
+
+class EventTypeModelEnum(enum.Enum):
+    """Enum for event type string and their corresponding DB model."""
+
+    MOTION = Motion
+    OBJECT = Objects
+    FACE_RECOGNITION = PostProcessorResults
+    LICENSE_PLATE_RECOGNITION = PostProcessorResults
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "export_snapshot",
+        vol.Required("event_type"): str,
+        vol.Required("camera_identifier"): str,
+        vol.Required("snapshot_id"): int,
+    }
+)
+def export_snapshot(connection: WebSocketHandler, message) -> None:
+    """Export a snapshot."""
+    camera = connection.get_camera(message["camera_identifier"])
+    if camera is None:
+        connection.send_message(
+            error_message(
+                message["command_id"],
+                WS_ERROR_NOT_FOUND,
+                f"Camera with identifier {message['camera_identifier']} not found.",
+            )
+        )
+        return
+
+    try:
+        model = EventTypeModelEnum[message["event_type"].upper()].value
+    except KeyError:
+        connection.send_message(
+            error_message(
+                message["command_id"],
+                WS_ERROR_NOT_FOUND,
+                f"Event type {message['event_type']} not found.",
+            )
+        )
+        return
+
+    with connection.get_session() as session:
+        try:
+            snapshot_path: str = session.execute(
+                select(model.snapshot_path).where(model.id == message["snapshot_id"])
+            ).scalar_one()
+        except NoResultFound:
+            connection.send_message(
+                error_message(
+                    message["command_id"],
+                    WS_ERROR_NOT_FOUND,
+                    f"Snapshot with id {message['snapshot_id']} not found.",
+                )
+            )
+            return
+
+    download_token = DownloadToken(
+        filename=snapshot_path,
+        token=str(uuid.uuid4()),
+    )
+    connection.webserver.download_tokens[download_token.token] = download_token
+
+    connection.send_message(result_message(message["command_id"]))
+    connection.send_message(
+        message_to_json(
+            subscription_result_message(
+                message["command_id"],
+                {
+                    "filename": download_token.filename,
+                    "token": download_token.token,
+                },
+            )
+        )
+    )
+    connection.send_message(
+        message_to_json(cancel_subscription_message(message["command_id"]))
+    )

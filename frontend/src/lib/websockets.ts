@@ -588,7 +588,9 @@ export class Connection {
 
   private async serverControlledSubscribe<EventType>(
     callback: (message: EventType) => void,
-    subMessage: messages.ExportRecordingMessage,
+    subMessage:
+      | messages.ExportRecordingMessage
+      | messages.ExportSnapshotMessage,
   ) {
     if (this.queuedMessages) {
       await new Promise((resolve, reject) => {
@@ -709,6 +711,27 @@ export class Connection {
     await this.serverControlledSubscribe(
       callback,
       messages.exportRecording(camera_identifier, recording_id),
+    );
+  }
+
+  async exportSnapshot(
+    event_type: string,
+    camera_identifier: string,
+    snapshot_id: number,
+    callback: (message: any) => void,
+  ) {
+    if (this.queuedMessages) {
+      await new Promise((resolve, reject) => {
+        this.queuedMessages!.push({ resolve, reject });
+      });
+    }
+    if (DEBUG) {
+      console.debug("Exporting snapshot", snapshot_id);
+    }
+
+    await this.serverControlledSubscribe(
+      callback,
+      messages.exportSnapshot(event_type, camera_identifier, snapshot_id),
     );
   }
 }

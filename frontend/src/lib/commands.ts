@@ -1,6 +1,7 @@
 import { useContext, useEffect } from "react";
 
 import { ViseronContext } from "context/ViseronContext";
+import { downloadFile } from "lib/api/download";
 import * as messages from "lib/messages";
 import * as types from "lib/types";
 import { Connection, SubscriptionUnsubscribe } from "lib/websockets";
@@ -155,23 +156,57 @@ export const exportRecording = async (
   return subscription;
 };
 
-export const useExportRecording = () => {
+export const exportSnapshot = async (
+  connection: Connection,
+  event_type: string,
+  camera_identifier: string,
+  snapshot_id: number,
+  exportCallback: (message: types.DownloadFileResponse) => void,
+) => {
+  const subscription = await connection.exportSnapshot(
+    event_type,
+    camera_identifier,
+    snapshot_id,
+    exportCallback,
+  );
+  return subscription;
+};
+
+export const useExportEvent = () => {
   const viseron = useContext(ViseronContext);
 
-  const _exportRecording = async (
-    camera_identifier: string,
-    recording_id: number,
-    exportCallback: (message: types.DownloadFileResponse) => void,
-  ) => {
-    if (viseron.connection) {
-      await exportRecording(
-        viseron.connection,
-        camera_identifier,
-        recording_id,
-        exportCallback,
-      );
+  const exportEvent = async (event: types.CameraEvent) => {
+    if (!viseron.connection) {
+      return event;
+    }
+
+    switch (event.type) {
+      case "object":
+      case "face_recognition":
+      case "license_plate_recognition":
+      case "motion":
+        await exportSnapshot(
+          viseron.connection,
+          event.type,
+          event.camera_identifier,
+          event.id,
+          (message) => downloadFile(message),
+        );
+        return event;
+
+      case "recording":
+        await exportRecording(
+          viseron.connection,
+          event.camera_identifier,
+          event.id,
+          (message) => downloadFile(message),
+        );
+        return event;
+
+      default:
+        return event satisfies never;
     }
   };
 
-  return _exportRecording;
+  return exportEvent;
 };
