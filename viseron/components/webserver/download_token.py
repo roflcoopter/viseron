@@ -8,3 +8,4 @@ class DownloadToken:
 
     filename: str
     token: str
+    delete_after_download: bool

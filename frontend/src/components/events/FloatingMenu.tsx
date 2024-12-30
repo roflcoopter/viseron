@@ -9,9 +9,8 @@ import { memo, useState } from "react";
 
 import { CameraPickerDialog } from "components/events/CameraPickerDialog";
 import { EventDatePickerDialog } from "components/events/EventDatePickerDialog";
+import { ExportDialog } from "components/events/ExportDialog";
 import * as types from "lib/types";
-
-import { ExportDialog } from "./ExportDialog";
 
 type FloatingMenuProps = {
   cameras: types.CamerasOrFailedCameras;
@@ -41,11 +40,7 @@ export const FloatingMenu = memo(
             setDate(value);
           }}
         />
-        <ExportDialog
-          open={exportDialogOpen}
-          setOpen={setExportDialogOpen}
-          cameras={cameras}
-        />
+        <ExportDialog open={exportDialogOpen} setOpen={setExportDialogOpen} />
         <Box sx={{ position: "absolute", bottom: 14, right: 24 }}>
           <Tooltip title="Select Camera">
             <Fab

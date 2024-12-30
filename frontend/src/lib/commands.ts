@@ -1,7 +1,10 @@
 import { useContext, useEffect } from "react";
+import { Id } from "react-toastify";
 
 import { ViseronContext } from "context/ViseronContext";
+import { useToast } from "hooks/UseToast";
 import { downloadFile } from "lib/api/download";
+import { getCameraNameFromQueryCache } from "lib/helpers";
 import * as messages from "lib/messages";
 import * as types from "lib/types";
 import { Connection, SubscriptionUnsubscribe } from "lib/websockets";
@@ -142,38 +145,70 @@ export const useSubscribeTimespans = (
   ]);
 };
 
-export const exportRecording = async (
+const exportErrorCallback = (
+  message: types.WebSocketSubscriptionErrorResponse,
+  toast: ReturnType<typeof useToast>,
+  toastId: Id,
+  cameraName: string,
+) => {
+  toast.update(toastId, {
+    type: "error",
+    render: `${cameraName}: Preparation of download failed: ${message.error.message}`,
+    autoClose: 5000,
+  });
+};
+
+const handleExport = async (
+  camera_identifier: string,
+  toast: ReturnType<typeof useToast>,
+  exportFn: (
+    successCallback: (message: types.DownloadFileResponse) => Promise<void>,
+    errorCallback: (message: types.WebSocketSubscriptionErrorResponse) => void,
+  ) => Promise<void>,
+) => {
+  const cameraName = getCameraNameFromQueryCache(camera_identifier);
+  const toastId = toast.info(`${cameraName}: Preparing download...`, {
+    autoClose: false,
+  });
+
+  await exportFn(
+    (message) => downloadFile(message, toastId, cameraName),
+    (message) => exportErrorCallback(message, toast, toastId, cameraName),
+  );
+};
+
+const exportRecording = async (
   connection: Connection,
   camera_identifier: string,
   recording_id: number,
-  exportCallback: (message: types.DownloadFileResponse) => void,
+  toast: ReturnType<typeof useToast>,
 ) => {
-  const subscription = await connection.exportRecording(
-    camera_identifier,
-    recording_id,
-    exportCallback,
+  await handleExport(camera_identifier, toast, (success, error) =>
+    connection.exportRecording(camera_identifier, recording_id, success, error),
   );
-  return subscription;
 };
 
-export const exportSnapshot = async (
+const exportSnapshot = async (
   connection: Connection,
   event_type: string,
   camera_identifier: string,
   snapshot_id: number,
-  exportCallback: (message: types.DownloadFileResponse) => void,
+  toast: ReturnType<typeof useToast>,
 ) => {
-  const subscription = await connection.exportSnapshot(
-    event_type,
-    camera_identifier,
-    snapshot_id,
-    exportCallback,
+  await handleExport(camera_identifier, toast, (success, error) =>
+    connection.exportSnapshot(
+      event_type,
+      camera_identifier,
+      snapshot_id,
+      success,
+      error,
+    ),
   );
-  return subscription;
 };
 
 export const useExportEvent = () => {
   const viseron = useContext(ViseronContext);
+  const toast = useToast();
 
   const exportEvent = async (event: types.CameraEvent) => {
     if (!viseron.connection) {
@@ -190,7 +225,7 @@ export const useExportEvent = () => {
           event.type,
           event.camera_identifier,
           event.id,
-          (message) => downloadFile(message),
+          toast,
         );
         return event;
 
@@ -199,7 +234,7 @@ export const useExportEvent = () => {
           viseron.connection,
           event.camera_identifier,
           event.id,
-          (message) => downloadFile(message),
+          toast,
         );
         return event;
 
@@ -209,4 +244,44 @@ export const useExportEvent = () => {
   };
 
   return exportEvent;
+};
+
+const exportTimespan = async (
+  connection: Connection,
+  camera_identifiers: string[],
+  start: number,
+  end: number,
+  toast: ReturnType<typeof useToast>,
+) => {
+  for (const camera_identifier of camera_identifiers) {
+    // eslint-disable-next-line no-await-in-loop
+    await handleExport(camera_identifier, toast, (success, error) =>
+      connection.exportTimespan(camera_identifier, start, end, success, error),
+    );
+  }
+};
+
+export const useExportTimespan = () => {
+  const viseron = useContext(ViseronContext);
+  const toast = useToast();
+
+  const exportTimespanCallback = async (
+    camera_identifiers: string[],
+    start: number,
+    end: number,
+  ) => {
+    if (!viseron.connection) {
+      return;
+    }
+
+    await exportTimespan(
+      viseron.connection,
+      camera_identifiers,
+      start,
+      end,
+      toast,
+    );
+  };
+
+  return exportTimespanCallback;
 };

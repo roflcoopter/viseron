@@ -1,25 +1,32 @@
-import { toast } from "react-toastify";
+import { Id, toast } from "react-toastify";
 
 import { viseronAPI } from "lib/api/client";
 import * as types from "lib/types";
 
-export const downloadFile = async (message: types.DownloadFileResponse) => {
-  const toastID = toast.info("Downloading file...", { autoClose: false });
+export const downloadFile = async (
+  message: types.DownloadFileResponse,
+  toastId: Id,
+  cameraName: string,
+) => {
+  toast.info(`${cameraName}: Downloading file...`, {
+    toastId,
+    autoClose: false,
+  });
   try {
     const response = await viseronAPI.get(`download?token=${message.token}`, {
       responseType: "blob",
       onDownloadProgress: (progressEvent) => {
         if (progressEvent.progress) {
           if (progressEvent.progress === 1) {
-            toast.update(toastID, {
+            toast.update(toastId, {
               type: "success",
-              render: `Download complete!`,
+              render: `${cameraName}: Download complete!`,
               autoClose: 5000,
             });
           } else {
             const percentCompleted = Math.round(progressEvent.progress * 100);
-            toast.update(toastID, {
-              render: `Downloading file... ${percentCompleted}%`,
+            toast.update(toastId, {
+              render: `${cameraName}: Downloading file... ${percentCompleted}%`,
             });
           }
         }
@@ -43,9 +50,9 @@ export const downloadFile = async (message: types.DownloadFileResponse) => {
     link.remove();
     window.URL.revokeObjectURL(url);
   } catch (error) {
-    toast.update(toastID, {
+    toast.update(toastId, {
       type: "error",
-      render: `Download failed: ${error}`,
+      render: `${cameraName}: Download failed: ${error}`,
       autoClose: 5000,
     });
   }

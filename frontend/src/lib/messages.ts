@@ -37,6 +37,12 @@ export type ExportSnapshotMessage = {
   camera_identifier: string;
   snapshot_id: number;
 };
+export type ExportTimespanMessage = {
+  type: "export_timespan";
+  camera_identifier: string;
+  start: number;
+  end: number;
+};
 
 export function auth(accessToken: string) {
   return {
@@ -173,4 +179,17 @@ export function exportSnapshot(
     camera_identifier,
     snapshot_id,
   } as ExportSnapshotMessage;
+}
+
+export function exportTimespan(
+  camera_identifier: string,
+  start: number,
+  end: number,
+) {
+  return {
+    type: "export_timespan",
+    camera_identifier,
+    start,
+    end,
+  } as ExportTimespanMessage;
 }

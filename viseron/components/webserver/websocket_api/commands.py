@@ -20,7 +20,10 @@ from sqlalchemy.exc import NoResultFound
 
 from viseron.components.storage.const import EVENT_FILE_CREATED, EVENT_FILE_DELETED
 from viseron.components.storage.models import Motion, Objects, PostProcessorResults
-from viseron.components.storage.queries import get_recording_fragments
+from viseron.components.storage.queries import (
+    get_recording_fragments,
+    get_time_period_fragments,
+)
 from viseron.components.storage.util import EventFileCreated, EventFileDeleted
 from viseron.components.webserver.auth import Group
 from viseron.components.webserver.const import (
@@ -48,6 +51,7 @@ from .messages import (
     message_to_json,
     pong_message,
     result_message,
+    subscription_error_message,
     subscription_result_message,
 )
 
@@ -446,7 +450,7 @@ def export_recording(connection: WebSocketHandler, message) -> None:
         recording = camera.fragmenter.concatenate_fragments(fragments)
         if not recording:
             connection.send_message(
-                error_message(
+                subscription_error_message(
                     message["command_id"],
                     WS_ERROR_NOT_FOUND,
                     "No fragments found for recording.",
@@ -461,6 +465,7 @@ def export_recording(connection: WebSocketHandler, message) -> None:
         download_token = DownloadToken(
             filename=new_path,
             token=str(uuid.uuid4()),
+            delete_after_download=True,
         )
         connection.webserver.download_tokens[download_token.token] = download_token
 
@@ -532,39 +537,152 @@ def export_snapshot(connection: WebSocketHandler, message) -> None:
         )
         return
 
-    with connection.get_session() as session:
-        try:
-            snapshot_path: str = session.execute(
-                select(model.snapshot_path).where(model.id == message["snapshot_id"])
-            ).scalar_one()
-        except NoResultFound:
-            connection.send_message(
-                error_message(
+    ioloop = tornado.ioloop.IOLoop.current()
+
+    def _result():
+        with connection.get_session() as session:
+            try:
+                snapshot_path: str = session.execute(
+                    select(model.snapshot_path).where(
+                        model.id == message["snapshot_id"]
+                    )
+                ).scalar_one()
+            except NoResultFound:
+                ioloop.add_callback(
+                    connection.send_message,
+                    error_message(
+                        message["command_id"],
+                        WS_ERROR_NOT_FOUND,
+                        f"Snapshot with id {message['snapshot_id']} not found.",
+                    ),
+                )
+                return
+
+        download_token = DownloadToken(
+            filename=snapshot_path,
+            token=str(uuid.uuid4()),
+            delete_after_download=False,
+        )
+        connection.webserver.download_tokens[download_token.token] = download_token
+
+        ioloop.add_callback(
+            connection.send_message,
+            message_to_json(
+                subscription_result_message(
+                    message["command_id"],
+                    {
+                        "filename": download_token.filename,
+                        "token": download_token.token,
+                    },
+                )
+            ),
+        )
+        ioloop.add_callback(
+            connection.send_message,
+            message_to_json(cancel_subscription_message(message["command_id"])),
+        )
+
+    result_thread = RestartableThread(
+        name=f"viseron.camera.{message['camera_identifier']}.export_snapshot",
+        target=_result,
+        register=False,
+    )
+    result_thread.start()
+    connection.send_message(result_message(message["command_id"]))
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "export_timespan",
+        vol.Required("camera_identifier"): str,
+        vol.Required("start"): int,
+        vol.Required("end"): int,
+    }
+)
+def export_timespan(connection: WebSocketHandler, message) -> None:
+    """Export a timespan."""
+    camera = connection.get_camera(message["camera_identifier"])
+    if camera is None:
+        connection.send_message(
+            error_message(
+                message["command_id"],
+                WS_ERROR_NOT_FOUND,
+                f"Camera with identifier {message['camera_identifier']} not found.",
+            )
+        )
+        return
+
+    ioloop = tornado.ioloop.IOLoop.current()
+
+    def _result():
+        files = get_time_period_fragments(
+            [camera.identifier],
+            message["start"],
+            message["end"],
+            connection.get_session,
+        )
+        if not files:
+            ioloop.add_callback(
+                connection.send_message,
+                subscription_error_message(
                     message["command_id"],
                     WS_ERROR_NOT_FOUND,
-                    f"Snapshot with id {message['snapshot_id']} not found.",
-                )
+                    "No fragments found for timespan.",
+                ),
             )
             return
 
-    download_token = DownloadToken(
-        filename=snapshot_path,
-        token=str(uuid.uuid4()),
-    )
-    connection.webserver.download_tokens[download_token.token] = download_token
-
-    connection.send_message(result_message(message["command_id"]))
-    connection.send_message(
-        message_to_json(
-            subscription_result_message(
-                message["command_id"],
-                {
-                    "filename": download_token.filename,
-                    "token": download_token.token,
-                },
+        fragments = [
+            Fragment(
+                file.filename, file.path, file.meta["m3u8"]["EXTINF"], file.orig_ctime
             )
+            for file in files
+            if file.meta.get("m3u8", False).get("EXTINF", False)
+        ]
+        timespan = camera.fragmenter.concatenate_fragments(fragments)
+        if not timespan:
+            ioloop.add_callback(
+                connection.send_message,
+                subscription_error_message(
+                    message["command_id"],
+                    WS_ERROR_NOT_FOUND,
+                    "Failed to concatenate fragments.",
+                ),
+            )
+            return
+
+        create_directory(DOWNLOAD_PATH)
+        new_path = os.path.join(DOWNLOAD_PATH, os.path.basename(timespan))
+        shutil.move(timespan, new_path)
+
+        download_token = DownloadToken(
+            filename=new_path,
+            token=str(uuid.uuid4()),
+            delete_after_download=True,
         )
+        connection.webserver.download_tokens[download_token.token] = download_token
+
+        ioloop.add_callback(
+            connection.send_message,
+            message_to_json(
+                subscription_result_message(
+                    message["command_id"],
+                    {
+                        "filename": download_token.filename,
+                        "token": download_token.token,
+                    },
+                )
+            ),
+        )
+        ioloop.add_callback(
+            connection.send_message,
+            message_to_json(cancel_subscription_message(message["command_id"])),
+        )
+
+    concat_thread = RestartableThread(
+        name=f"viseron.camera.{message['camera_identifier']}.export_timespan",
+        target=_result,
+        register=False,
     )
-    connection.send_message(
-        message_to_json(cancel_subscription_message(message["command_id"]))
-    )
+    concat_thread.start()
+    connection.send_message(result_message(message["command_id"]))

@@ -88,4 +88,5 @@ class DownloadAPIHandler(BaseAPIHandler):
             )
         finally:
             self.finish()
-            os.remove(download_token.filename)
+            if download_token.delete_after_download:
+                os.remove(download_token.filename)

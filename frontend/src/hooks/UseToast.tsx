@@ -3,7 +3,12 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ReportProblemOutlined from "@mui/icons-material/ReportProblemOutlined";
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 import { Theme, useTheme } from "@mui/material/styles";
-import { ToastContent, ToastOptions, toast } from "react-toastify";
+import {
+  ToastContent,
+  ToastOptions,
+  UpdateOptions,
+  toast,
+} from "react-toastify";
 
 export type Toast = {
   info: (content: ToastContent, options?: ToastOptions) => React.ReactText;
@@ -27,6 +32,7 @@ const defaultToastOptions = (theme: Theme) => ({
 export const toastIds = {
   websocketConnecting: "websocketConnecting",
   websocketConnectionLost: "websocketConnectionLost",
+  websocketSubscriptionResultError: "websocketSubscriptionResultError",
   sessionExpired: "sessionExpired",
   userLoadError: "userLoadError",
 };
@@ -79,5 +85,7 @@ export const useToast = () => {
       });
     },
     dismiss: (id: string | number | undefined = undefined) => toast.dismiss(id),
+    update: (id: string | number, options: UpdateOptions) =>
+      toast.update(id, options),
   };
 };
