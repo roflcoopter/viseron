@@ -126,8 +126,26 @@ def subscription_result_message(
     return {
         "command_id": command_id,
         "type": TYPE_SUBSCRIPTION_RESULT,
+        "success": True,
         "result": result,
     }
+
+
+def subscription_error_message(
+    command_id: int, code: str, message: str
+) -> dict[str, Any]:
+    """Return a subscription error message."""
+    return {
+        "command_id": command_id,
+        "type": TYPE_SUBSCRIPTION_RESULT,
+        "success": False,
+        "error": {"code": code, "message": message},
+    }
+
+
+def cancel_subscription_message(command_id: int) -> dict[str, Any]:
+    """Return a cancel subscription message."""
+    return {"command_id": command_id, "type": "cancel_subscription"}
 
 
 def pong_message(command_id: int) -> dict[str, Any]:

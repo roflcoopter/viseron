@@ -16,6 +16,8 @@ ONBOARDING_STORAGE_KEY = "onboarding"
 
 ACCESS_TOKEN_EXPIRATION = timedelta(minutes=30)
 
+DOWNLOAD_PATH = "/tmp/downloads"
+
 # CONFIG_SCHEMA constants
 CONFIG_PORT = "port"
 CONFIG_DEBUG = "debug"
@@ -72,3 +74,4 @@ WS_ERROR_UNAUTHORIZED = "unauthorized"
 # Viseron data constants
 WEBSOCKET_COMMANDS = "websocket_commands"
 WEBSOCKET_CONNECTIONS = "websocket_connections"
+DOWNLOAD_TOKENS = "download_tokens"

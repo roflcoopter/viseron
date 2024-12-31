@@ -1,4 +1,5 @@
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import Box from "@mui/material/Box";
 import Fab from "@mui/material/Fab";
@@ -8,6 +9,7 @@ import { memo, useState } from "react";
 
 import { CameraPickerDialog } from "components/events/CameraPickerDialog";
 import { EventDatePickerDialog } from "components/events/EventDatePickerDialog";
+import { ExportDialog } from "components/events/ExportDialog";
 import * as types from "lib/types";
 
 type FloatingMenuProps = {
@@ -20,6 +22,7 @@ export const FloatingMenu = memo(
   ({ cameras, date, setDate }: FloatingMenuProps) => {
     const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
     const [dateDialogOpen, setDateDialogOpen] = useState(false);
+    const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
     return (
       <>
@@ -37,10 +40,11 @@ export const FloatingMenu = memo(
             setDate(value);
           }}
         />
+        <ExportDialog open={exportDialogOpen} setOpen={setExportDialogOpen} />
         <Box sx={{ position: "absolute", bottom: 14, right: 24 }}>
           <Tooltip title="Select Camera">
             <Fab
-              size="medium"
+              size="small"
               color="primary"
               onClick={() => setCameraDialogOpen(true)}
             >
@@ -49,12 +53,22 @@ export const FloatingMenu = memo(
           </Tooltip>
           <Tooltip title="Select Date">
             <Fab
-              size="medium"
+              size="small"
               color="primary"
               sx={{ marginLeft: 1 }}
               onClick={() => setDateDialogOpen(true)}
             >
               <CalendarMonthIcon />
+            </Fab>
+          </Tooltip>
+          <Tooltip title="Export">
+            <Fab
+              size="small"
+              color="primary"
+              sx={{ marginLeft: 1 }}
+              onClick={() => setExportDialogOpen(true)}
+            >
+              <FileDownloadIcon />
             </Fab>
           </Tooltip>
         </Box>
