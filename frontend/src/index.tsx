@@ -15,6 +15,11 @@ import queryClient from "lib/api/client";
 import App from "./App";
 import "./index.css";
 
+// https://github.com/vitejs/vite/issues/11804
+window.addEventListener("vite:preloadError", (_event) => {
+  window.location.reload();
+});
+
 const container = document.getElementById("root");
 const root = createRoot(container!);
 
