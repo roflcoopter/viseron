@@ -227,7 +227,10 @@ const SyncManager: React.FC<SyncManagerProps> = ({
     hlsRefs.forEach((player) => {
       if (player.current) {
         player.current.on(Hls.Events.ERROR, (_event: any, _data: any) => {
-          player.current!.media!.pause();
+          // Only pause if there are multiple players
+          if (hlsRefs.length > 1) {
+            player.current!.media!.pause();
+          }
         });
       }
     });
