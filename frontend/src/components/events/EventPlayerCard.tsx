@@ -267,8 +267,11 @@ const usePlayerCardCallbacks = () => {
   const handleLiveClick = useCallback(() => {
     hlsRefs.forEach((player) => {
       if (player) {
-        player.current!.media!.currentTime =
-          player.current!.media!.duration - LIVE_EDGE_DELAY;
+        const currentTime = player.current!.media!.duration - LIVE_EDGE_DELAY;
+        if (!Number.isNaN(currentTime)) {
+          player.current!.media!.currentTime =
+            player.current!.media!.duration - LIVE_EDGE_DELAY;
+        }
       }
     });
     showControlsTemporarily();
