@@ -30,7 +30,7 @@ const CustomFab = ({ onClick, size = "small", children }: CustomFabProps) => (
     onTouchStart={(e) => e.stopPropagation()}
     size={size}
     color="primary"
-    sx={{ margin: 0.25, zIndex: 1 }}
+    sx={{ margin: 0.25, zIndex: 2 }}
   >
     {children}
   </Fab>

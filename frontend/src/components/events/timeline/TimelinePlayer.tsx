@@ -119,6 +119,7 @@ const initializePlayer = (
     hlsRef: React.MutableRefObject<Hls | null>,
     error: string | null,
   ) => void,
+  recoveryTimeoutRef: React.MutableRefObject<NodeJS.Timeout | undefined>,
 ) => {
   // Destroy the previous hls instance if it exists
   if (hlsRef.current) {
@@ -163,29 +164,44 @@ const initializePlayer = (
     );
   });
 
+  // Make sure initialization is retried on error after a delay
+  const delayedInitialization = () => {
+    if (recoveryTimeoutRef.current) {
+      return;
+    }
+
+    recoveryTimeoutRef.current = setTimeout(() => {
+      initializePlayer(
+        hlsRef,
+        hlsClientIdRef,
+        videoRef,
+        initialProgramDateTime,
+        auth,
+        camera,
+        requestedTimestampRef,
+        setHlsRefsError,
+        recoveryTimeoutRef,
+      );
+      recoveryTimeoutRef.current = undefined;
+    }, 5000);
+  };
+
   // Handle errors
   hlsRef.current.on(Hls.Events.ERROR, (_event, data) => {
-    hlsRef.current!.media!.pause();
     setHlsRefsError(hlsRef, data.error.message);
     if (data.fatal) {
       switch (data.type) {
         case Hls.ErrorTypes.NETWORK_ERROR:
+          if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR) {
+            delayedInitialization();
+          }
           hlsRef.current!.startLoad();
           break;
         case Hls.ErrorTypes.MEDIA_ERROR:
           hlsRef.current!.recoverMediaError();
           break;
         default:
-          initializePlayer(
-            hlsRef,
-            hlsClientIdRef,
-            videoRef,
-            initialProgramDateTime,
-            auth,
-            camera,
-            requestedTimestampRef,
-            setHlsRefsError,
-          );
+          delayedInitialization();
           break;
       }
     }
@@ -208,6 +224,7 @@ const useInitializePlayer = (
       setHlsRefsError: state.setHlsRefsError,
     })),
   );
+  const recoveryTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     if (Hls.isSupported()) {
@@ -221,14 +238,18 @@ const useInitializePlayer = (
         camera,
         requestedTimestampRef,
         setHlsRefsError,
+        recoveryTimeoutRef,
       );
     }
-    const hls = hlsRef.current;
     return () => {
-      if (hls) {
-        hls.destroy();
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
         removeHlsRef(hlsRef);
         hlsRef.current = null;
+      }
+      if (recoveryTimeoutRef.current) {
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        clearTimeout(recoveryTimeoutRef.current);
       }
     };
     // Must disable this warning since we dont want to ever run this twice
@@ -377,7 +398,7 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({
             height: "100%",
             backgroundColor:
               "rgba(0,0,0,0.65)" /* Black background with opacity */,
-            zIndex: 2,
+            zIndex: 1,
             pointerEvents: "none",
             userSelect: "none",
             padding: "10px",
