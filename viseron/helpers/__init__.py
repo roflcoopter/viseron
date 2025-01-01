@@ -401,6 +401,11 @@ def draw_object_mask(frame, mask_points) -> None:
     draw_mask("Object mask", frame, mask_points, color=(255, 255, 255))
 
 
+def apply_mask(frame: np.ndarray, mask_image) -> None:
+    """Apply mask to frame."""
+    frame[mask_image] = [0]
+
+
 def pop_if_full(
     queue: Queue | mp.Queue | tq.Queue,
     item: Any,
@@ -447,6 +452,22 @@ def generate_mask(coordinates):
     for mask_coordinates in coordinates:
         mask.append(generate_numpy_from_coordinates(mask_coordinates["coordinates"]))
     return mask
+
+
+def generate_mask_image(mask, resolution):
+    """Return an image with the mask drawn on it."""
+    mask_image = np.zeros(
+        (
+            resolution[0],
+            resolution[1],
+            3,
+        ),
+        np.uint8,
+    )
+    mask_image[:] = 255
+
+    cv2.fillPoly(mask_image, pts=mask, color=(0, 0, 0))
+    return np.where(mask_image[:, :, 0] == [0])
 
 
 def object_in_polygon(resolution, obj: DetectedObject, coordinates):

@@ -24,7 +24,7 @@ from viseron.domains.camera.events import EventCameraEventData
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
-from viseron.helpers import generate_mask
+from viseron.helpers import apply_mask, generate_mask, generate_mask_image
 from viseron.helpers.filter import Filter
 from viseron.helpers.schemas import (
     COORDINATES_SCHEMA,
@@ -267,6 +267,7 @@ class AbstractObjectDetector(ABC):
             self._mask = generate_mask(
                 config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK]
             )
+            self._mask_image = generate_mask_image(self._mask, self._camera.resolution)
 
         if config[CONFIG_CAMERAS][camera_identifier][CONFIG_LABELS]:
             for object_filter in config[CONFIG_CAMERAS][camera_identifier][
@@ -485,6 +486,8 @@ class AbstractObjectDetector(ABC):
     def _detect(self, shared_frame: SharedFrame, frame_time: float):
         """Perform object detection and publish data."""
         decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(shared_frame)
+        if self._mask:
+            apply_mask(decoded_frame, self._mask_image)
         preprocessed_frame = self.preprocess(decoded_frame)
         self._preproc_fps.append(1 / (time.time() - frame_time))
 

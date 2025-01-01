@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 import cv2
 import numpy as np
 
+from viseron.helpers.decorators import return_copy
+
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains.camera import AbstractCamera
@@ -96,15 +98,18 @@ class SharedFrames:
         """Return byte frame in numpy format."""
         return self._frames[shared_frame.name]
 
+    @return_copy
     @lru_cache(maxsize=2)
     def _color_convert(self, shared_frame: SharedFrame, color_model: str) -> np.ndarray:
         """Return decoded frame in specified color format."""
         shared_frame_name = f"{shared_frame.name}_{color_model}"
-        pixel_format = PIXEL_FORMATS[shared_frame.pixel_format]
-        if self._frames.get(shared_frame_name, None) is not None:
+        try:
             return self._frames[shared_frame_name]
+        except KeyError:
+            pass
 
-        decoded_frame = self.get_decoded_frame(shared_frame).copy()
+        pixel_format = PIXEL_FORMATS[shared_frame.pixel_format]
+        decoded_frame = self.get_decoded_frame(shared_frame)
         decoded_frame = cv2.cvtColor(
             decoded_frame, pixel_format[color_model][CONVERTER]
         )
