@@ -585,6 +585,8 @@ class OrphanedRecordingsCleanup(BaseCleanupJob):
                         .join(FilesMeta, Files.path == FilesMeta.path)
                         .where(
                             and_(
+                                Files.category == "recorder",
+                                Files.subcategory == "segments",
                                 Files.camera_identifier
                                 == recording[0].camera_identifier,
                                 FilesMeta.orig_ctime.between(
