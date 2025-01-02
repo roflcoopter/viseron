@@ -75,7 +75,7 @@ class TestAppBase(AsyncHTTPTestCase):
             "viseron.components.webserver.create_application"
         ):
             mocked_load_config.return_value = self.config
-            self.vis = setup_viseron()
+            self.vis = setup_viseron(start_background_scheduler=False)
         self.webserver: Webserver = self.vis.data[COMPONENT]
         return super().setUp()
 

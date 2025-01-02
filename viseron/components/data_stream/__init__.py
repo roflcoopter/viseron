@@ -145,6 +145,12 @@ class DataStream:
 
         DataStream._subscribers[data_topic].pop(unique_id)
 
+    @staticmethod
+    def remove_all_subscriptions() -> None:
+        """Remove all subscriptions."""
+        DataStream._subscribers.clear()
+        DataStream._wildcard_subscribers.clear()
+
     def run_callbacks(
         self,
         callbacks: dict[uuid.UUID, DataSubscriber],
