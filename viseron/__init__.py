@@ -190,7 +190,7 @@ def enable_logging() -> None:
     )
 
 
-def setup_viseron() -> Viseron:
+def setup_viseron(start_background_scheduler=True) -> Viseron:
     """Set up and run Viseron."""
     start = timer()
     enable_logging()
@@ -198,7 +198,7 @@ def setup_viseron() -> Viseron:
     LOGGER.info("-------------------------------------------")
     LOGGER.info(f"Initializing Viseron {viseron_version if viseron_version else ''}")
 
-    vis = Viseron()
+    vis = Viseron(start_background_scheduler=start_background_scheduler)
 
     try:
         config = load_config()
@@ -249,7 +249,7 @@ def setup_viseron() -> Viseron:
 class Viseron:
     """Viseron."""
 
-    def __init__(self) -> None:
+    def __init__(self, start_background_scheduler=True) -> None:
         self.states = States(self)
 
         self.setup_threads: list[threading.Thread] = []
@@ -270,7 +270,8 @@ class Viseron:
         self.data[REGISTERED_DOMAINS] = {}
 
         self.background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
-        self.background_scheduler.start()
+        if start_background_scheduler:
+            self.background_scheduler.start()
         self._thread_watchdog = ThreadWatchDog(self)
         self._subprocess_watchdog = SubprocessWatchDog(self)
         self._process_watchdog = ProcessWatchDog(self)
@@ -542,6 +543,7 @@ class Viseron:
 
         try:
             self.background_scheduler.shutdown(wait=False)
+            self.background_scheduler.remove_all_jobs()
         except SchedulerNotRunningError as err:
             LOGGER.warning(f"Failed to shutdown scheduler: {err}")
 
@@ -555,6 +557,8 @@ class Viseron:
             self, data_stream, VISERON_SIGNAL_STOPPING
         )
 
+        if data_stream:
+            data_stream.remove_all_subscriptions()
         LOGGER.info("Shutdown complete in %.1f seconds", timer() - start)
 
     def add_entity(self, component: str, entity: Entity):

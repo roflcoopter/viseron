@@ -23,9 +23,10 @@ from viseron.const import (
 )
 
 from tests.common import MockComponent, return_any
+from tests.conftest import MockViseron
 
 
-def test_setup_components(vis, caplog):
+def test_setup_components(vis: MockViseron, caplog):
     """Test setup of core and default components."""
     setup_components(vis, {"logger": {}})
     for component in CORE_COMPONENTS:
@@ -33,6 +34,7 @@ def test_setup_components(vis, caplog):
 
     for component in DEFAULT_COMPONENTS:
         assert component in vis.data[LOADED]
+    vis.shutdown()
 
 
 def test_setup_components_2(vis, caplog):
