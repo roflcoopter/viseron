@@ -254,9 +254,9 @@ class Storage:
         elif current_rev != _script.get_current_head():
             self._run_migrations()
 
-        self._get_session = scoped_session(sessionmaker(bind=self.engine, future=True))
+        self._get_session = scoped_session(sessionmaker(bind=self.engine))
         self._get_session_expire = scoped_session(
-            sessionmaker(bind=self.engine, future=True, expire_on_commit=True)
+            sessionmaker(bind=self.engine, expire_on_commit=True)
         )
         startup_chores(self._get_session)
 
