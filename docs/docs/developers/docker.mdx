@@ -10,7 +10,7 @@ Viseron heavily uses multistage Docker builds, and compilation of different comp
 
 If you have made changes to the Viseron code and want to rebuild the image, you can run the following command.
 
-```bash
+```shell
 docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron
 ```
 
@@ -30,11 +30,11 @@ If your changes requires a new or updated Python dependency, you have to rebuild
 
 - Edit `requirements.txt` in the root of the repository (preferably by pinning the version of the dependency).
 - Build the wheels image:
-  ```bash
+  ```shell
   docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-wheels
   ```
 - Build Viseron image:
-  ```bash
+  ```shell
     docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron
   ```
 
@@ -45,11 +45,11 @@ To do this you would:
 
 - Edit `OPENCV_VERSION` in ./azure-pipelines/.env
 - Build the OpenCV image:
-  ```bash
+  ```shell
   docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-opencv
   ```
 - Build Viseron image:
-  ```bash
+  ```shell
   docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron
   ```
 
@@ -57,7 +57,7 @@ To do this you would:
 
 To build all the `amd64` image from scratch the following commands can be used.
 
-```bash
+```shell
 docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-ffmpeg && \
 docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-opencv && \
 docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-dlib && \
@@ -73,13 +73,13 @@ To build these you need to first register QEMU on your builder.
 
 The easiest way to do that is to run:
 
-```bash
+```shell
 docker run --rm --privileged tonistiigi/binfmt --install all
 ```
 
 You can then simply build the containers like you normally would and QEMU will be invoked automatically.
 
-```bash
+```shell
 docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build aarch64-viseron
 ```
 

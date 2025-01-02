@@ -49,7 +49,7 @@ You have to change the values between the brackets `{}` to match your setup.
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
 
-```bash
+```shell
 docker run --rm \
   -v {recordings path}:/recordings \
   -v {recordings path}:/segments \
@@ -95,7 +95,7 @@ services:
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
 
-```bash
+```shell
 docker run --rm \
   -v {recordings path}:/recordings \
   -v {recordings path}:/segments \
@@ -144,7 +144,7 @@ services:
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
 
-```bash
+```shell
 docker run --rm \
   -v {recordings path}:/recordings \
   -v {recordings path}:/segments \
@@ -199,7 +199,7 @@ Make sure [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
 
-```bash
+```shell
 docker run --rm \
   -v {recordings path}:/recordings \
   -v {recordings path}:/segments \
@@ -263,7 +263,7 @@ You can probably get around this by manually mounting all the needed devices but
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
 
-```bash
+```shell
 docker run --rm \
   --privileged \
   -v {recordings path}:/recordings \
@@ -335,7 +335,7 @@ Configure a substream if you plan on running Viseron on an RPi.
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
 
-```bash
+```shell
 docker run --rm \
   --privileged \
   -v {recordings path}:/recordings \
@@ -431,7 +431,7 @@ To solve this, you can specify the user `PUID` and group `PGID` as environment v
 <details>
   <summary>Docker command</summary>
 
-```bash
+```shell
 docker run --rm \
   -v {recordings path}:/recordings \
   -v {recordings path}:/segments \
