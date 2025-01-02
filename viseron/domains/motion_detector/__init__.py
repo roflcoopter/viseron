@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any
 
-import cv2
 import numpy as np
 import voluptuous as vol
 from sqlalchemy import insert, update
@@ -59,7 +58,7 @@ from viseron.domains.motion_detector.const import (
     EVENT_MOTION_DETECTED,
 )
 from viseron.events import EventData
-from viseron.helpers import generate_mask, utcnow
+from viseron.helpers import apply_mask, generate_mask, generate_mask_image, utcnow
 from viseron.helpers.schemas import (
     COORDINATES_SCHEMA,
     FLOAT_MIN_ZERO,
@@ -328,30 +327,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
             self._mask = generate_mask(
                 config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK]
             )
-
-            # Scale mask to fit resized frame
-            scaled_mask = []
-            for point_list in self._mask:
-                rel_mask = np.divide(
-                    (point_list),
-                    self._camera.resolution,
-                )
-                scaled_mask.append(
-                    np.multiply(rel_mask, self._resolution).astype("int32")
-                )
-
-            mask = np.zeros(
-                (
-                    self._resolution[0],
-                    self._resolution[1],
-                    3,
-                ),
-                np.uint8,
-            )
-            mask[:] = 255
-
-            cv2.fillPoly(mask, pts=scaled_mask, color=(0, 0, 0))
-            self._mask_image = np.where(mask[:, :, 0] == [0])
+            self._mask_image = generate_mask_image(self._mask, self._camera.resolution)
 
         self._kill_received = False
         self.motion_detection_queue: Queue[SharedFrame] = Queue(maxsize=1)
@@ -416,9 +392,9 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
 
             with shared_frame:
                 decoded_frame = self._get_frame_function(shared_frame).copy()
-                preprocessed_frame = self.preprocess(decoded_frame)
                 if self._mask:
-                    preprocessed_frame = self._apply_mask(preprocessed_frame)
+                    apply_mask(decoded_frame, self._mask_image)
+                preprocessed_frame = self.preprocess(decoded_frame)
 
                 contours = self.return_motion(preprocessed_frame)
                 self._filter_motion(shared_frame, contours)

@@ -16,7 +16,7 @@ from viseron.domains.object_detector.const import (
     CONFIG_LABEL_WIDTH_MAX,
     CONFIG_LABEL_WIDTH_MIN,
 )
-from viseron.helpers import object_in_polygon, utcnow
+from viseron.helpers import utcnow
 
 if TYPE_CHECKING:
     from viseron.domains.object_detector.detected_object import DetectedObject
@@ -64,21 +64,12 @@ class Filter:
         obj.filter_hit = "height"
         return False
 
-    def filter_mask(self, obj: DetectedObject) -> bool:
-        """Return True if object is within mask."""
-        for mask in self._mask:
-            if object_in_polygon(self._camera_resolution, obj, mask):
-                obj.filter_hit = "mask"
-                return False
-        return True
-
     def filter_object(self, obj: DetectedObject) -> bool:
         """Return if filters are met."""
         return (
             self.filter_confidence(obj)
             and self.filter_width(obj)
             and self.filter_height(obj)
-            and self.filter_mask(obj)
         )
 
     def should_store(self, obj: DetectedObject) -> bool:
