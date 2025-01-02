@@ -127,6 +127,7 @@ const Onboarding = () => {
               />
               <Grid size={12}>
                 <Button
+                  type="submit"
                   fullWidth
                   variant="contained"
                   disabled={

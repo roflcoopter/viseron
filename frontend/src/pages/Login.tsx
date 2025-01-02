@@ -128,6 +128,7 @@ const Login = () => {
               />
               <Grid size={12}>
                 <Button
+                  type="submit"
                   fullWidth
                   variant="contained"
                   disabled={
