@@ -4,8 +4,6 @@ Snapshots are images taken when events are triggered or when a post processor fi
 
 The snapshots are saved to disk and can be viewed in the web interface on the `Events` and `Timeline` tab on the `Events` page.
 
-TODO: Add screenshot here
-
 ## Object detector snapshots
 
 Snapshots are stored based on the `store` option under `label` in the object detector configuration.
@@ -138,3 +136,15 @@ storage:
             max_age:
               days: 7
 ```
+
+## Downloading snapshots
+
+From the web interface you can download snapshots.
+
+To download a snapshot, you use the `Download Snapshot` button in the event details popup on the `Events` tab. It will download the selected snapshot to a `.jpg` file.
+
+<img
+  src="/img/screenshots/Viseron-Events-download-snapshot.png"
+  alt-text="Download Snapshot"
+  width={700}
+/>

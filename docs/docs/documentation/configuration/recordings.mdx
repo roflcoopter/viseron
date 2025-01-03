@@ -54,8 +54,19 @@ ffmpeg: # or any other camera component
       recorder:
         // highlight-start
         continuous_recording: true
+        continuous: # Example of setting a max size of 10 GB for this individual camera
+          max_size:
+            gb: 10
         // highlight-end
 ```
+
+:::info
+
+In order to use `continuous_recording: true`, retention rules have to be set.
+
+There are several ways to set retention rules. See the [retention rules section](#retention-rules) for more information.
+
+:::
 
 ## Retention rules
 
@@ -69,15 +80,15 @@ See the [storage component tiers documentation](/components-explorer/components/
 
 :::
 
+### Setting retention rules for all cameras
+
+To use the same retention rules for all cameras it is recommended to use the [storage component](/components-explorer/components/storage).
+
 :::warning
 
 Size based retention rules are calculated **per camera**, meaning that if you have 2 cameras and set a `max_size` of 1 GB, each camera can store 1 GB of recordings for a total of 2 GB.
 
 :::
-
-### Setting retention rules for all cameras
-
-To use the same retention rules for all cameras it is recommended to use the [storage component](/components-explorer/components/storage).
 
 Example configuration to set retention rules for all cameras:
 
@@ -179,24 +190,40 @@ When you request a recording in the web interface, the server API will generate 
 
 :::warning
 
-The recordings are not playable on their own since they are fragmented. If you want to play the recordings outside of the web interface you will need to [export the recordings](#exporting-recordings).
+The recordings are not playable on their own since they are fragmented. If you want to play the recordings outside of the web interface you will need to [download the recordings](#downloading-recordings).
 
 Alternatively you can point your media player to the HLS playlist URL (the same used by the web interface), but this is currently not documented.
 
 :::
 
-## Exporting recordings
+## Downloading recordings
 
-From the web interface you can export recordings to an `.mp4` file.
+From the web interface you can download recordings to an `.mp4` file.
 
-### Exporting an event recording
+### Downloading an event recording
 
-By using the `Export` button on the `Events` tab you can export an event recording. It will export the selected event to an `.mp4` file.
+To download an event recording, you use the `Download Recording` button in the event details popup on the `Events` tab. It will download the selected event to an `.mp4` file.
 
-TODO: Add a screenshot here
+<img
+  src="/img/screenshots/Viseron-Events-download-recording.png"
+  alt-text="Download Recording"
+  width={700}
+/>
 
-### Exporting a continuous recording
+### Downloading a continuous recording
 
-By using the `Export` button on the `Timeline` tab you can export a continuous recording. It will export the selected time range to an `.mp4` file.
+By using the `Download` button on the `Events` or `Timeline` tab you can download a continuous recording. It will download the selected time range to an `.mp4` file.
 
-TODO: Add a screenshot here
+:::info
+
+If you have multiple cameras selected, one file per camera will be downloaded.
+
+:::
+
+<video controls muted autoPlay loop style={{ maxWidth: 700, width: "100%" }}>
+  <source
+    src="/img/videos/Viseron-Events-download-timespan.mp4"
+    type="video/mp4"
+  />
+  Your browser does not support the video tag.
+</video>

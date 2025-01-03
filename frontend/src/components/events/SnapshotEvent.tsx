@@ -214,14 +214,14 @@ export const SnapshotIcon = ({ events }: { events: types.CameraEvent[] }) => {
               justifyContent: "center",
               padding: "5px",
               cursor: "pointer",
-              "&:hover": {
+              ...(popupState.isOpen && {
                 borderRadius: 1, // theme.shape.borderRadius * 1
                 backgroundColor: theme.palette.primary[200],
 
                 ...theme.applyStyles("dark", {
                   backgroundColor: theme.palette.primary[900],
                 }),
-              },
+              }),
             })}
           >
             <Icon
