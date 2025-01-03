@@ -61,7 +61,7 @@ export const FloatingMenu = memo(
               <CalendarMonthIcon />
             </Fab>
           </Tooltip>
-          <Tooltip title="Export">
+          <Tooltip title="Download">
             <Fab
               size="small"
               color="primary"
