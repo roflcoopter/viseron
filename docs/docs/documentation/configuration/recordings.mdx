@@ -30,6 +30,12 @@ darknet: # or any other object detector component
 
 :::info
 
+By default, event recordings are stored for 7 days. This can be changed by setting [retention rules](#retention-rules).
+
+:::
+
+:::info
+
 The `trigger_event_recording` option is only available for motion and object detectors.
 
 :::
@@ -38,7 +44,13 @@ The `trigger_event_recording` option is only available for motion and object det
 
 If configured, continuous recordings are always running and stored to disk. The recordings can be viewed in the web interface on the `Timeline` tab on the `Events` page.
 
-The config option `continuous_recording: true` instructs Viseron to start recording continuously.
+To enable continuous recordings, all you need to do is set [retention rules](#retention-rules) since the default value of `continuous_recording` is `true`.
+
+:::info
+
+There are several ways to set retention rules. See the [retention rules section](#retention-rules) for more information.
+
+:::
 
 Example configuration to record continuously:
 
@@ -53,20 +65,12 @@ ffmpeg: # or any other camera component
       password: !secret camera_one_password
       recorder:
         // highlight-start
-        continuous_recording: true
-        continuous: # Example of setting a max size of 10 GB for this individual camera
+        continuous_recording: true  # Not needed since it is the default, included for clarity
+        continuous:  # Example of setting a max size of 10 GB for this individual camera
           max_size:
             gb: 10
         // highlight-end
 ```
-
-:::info
-
-In order to use `continuous_recording: true`, retention rules have to be set.
-
-There are several ways to set retention rules. See the [retention rules section](#retention-rules) for more information.
-
-:::
 
 ## Retention rules
 
@@ -104,6 +108,12 @@ storage:
           max_size:
             gb: 10
 ```
+
+:::tip
+
+This will enable continuous recordings for all cameras. If you want to disable continuous recordings for a specific camera, you can set `continuous_recording: false` in the cameras `recorder` configuration.
+
+:::
 
 ### Setting retention rules for a specific camera
 

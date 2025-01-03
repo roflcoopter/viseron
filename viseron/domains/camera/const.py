@@ -86,6 +86,7 @@ CONFIG_FILENAME_PATTERN = "filename_pattern"
 CONFIG_EXTENSION = "extension"
 CONFIG_THUMBNAIL = "thumbnail"
 CONFIG_CREATE_EVENT_CLIP: Final = "create_event_clip"
+CONFIG_CONTINUOUS_RECORDING: Final = "continuous_recording"
 CONFIG_STORAGE = "storage"
 
 DEFAULT_LOOKBACK = 5
@@ -94,6 +95,7 @@ DEFAULT_MAX_RECORDING_TIME: Final = 300
 DEFAULT_FILENAME_PATTERN = "%H:%M:%S"
 DEFAULT_THUMBNAIL: Final = None
 DEFAULT_CREATE_EVENT_CLIP = False
+DEFAULT_CONTINUOUS_RECORDING = True
 DEFAULT_STORAGE: Final = None
 DEFAULT_RECORDER_TIERS: Final = None
 
@@ -151,6 +153,11 @@ DESC_STORAGE = (
 DESC_CREATE_EVENT_CLIP = (
     "Concatenate fragments to an MP4 file for each event. "
     "WARNING: Will store both the fragments AND the MP4 file, using more storage space."
+)
+DESC_CONTINUOUS_RECORDING = (
+    "Enable continuous (24/7) recording. Has to be used in combination with "
+    "<code>continuous</code>, <code>storage > tiers > continuous</code> or the "
+    "<a href=/components-explorer/components/storage>storage component</a>."
 )
 
 # STILL_IMAGE_SCHEMA constants

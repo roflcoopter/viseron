@@ -71,7 +71,11 @@ from viseron.const import (
     VISERON_SIGNAL_STOPPING,
 )
 from viseron.domains.camera import FailedCamera
-from viseron.domains.camera.const import CONFIG_RECORDER, CONFIG_RETAIN
+from viseron.domains.camera.const import (
+    CONFIG_CONTINUOUS_RECORDING,
+    CONFIG_RECORDER,
+    CONFIG_RETAIN,
+)
 from viseron.helpers import utcnow
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -433,7 +437,10 @@ class SegmentsTierHandler(TierHandler):
         ]
 
         self._events_enabled = any(self._events_params)
-        self._continuous_enabled = any(self._continuous_params)
+        self._continuous_enabled = (
+            any(self._continuous_params)
+            and self._camera.config[CONFIG_RECORDER][CONFIG_CONTINUOUS_RECORDING]
+        )
 
         self.add_file_handler(self._path, rf"{self._path}/(.*.m4s$)")
         self.add_file_handler(self._path, rf"{self._path}/(.*.mp4$)")
