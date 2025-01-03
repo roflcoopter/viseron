@@ -32,7 +32,7 @@ This will be added in a future release.
 
 If you forget your password, you can reset it by deleting these files:
 
-```bash
+```shell
 /config/.viseron/onboarding
 /config/.viseron/auth
 ```
