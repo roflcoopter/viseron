@@ -237,3 +237,30 @@ If you have multiple cameras selected, one file per camera will be downloaded.
   />
   Your browser does not support the video tag.
 </video>
+
+## Create MP4 files for all event recordings
+
+If you want to create `.mp4` files for all event recordings you can use the `create_event_clip` configuration option.
+
+```yaml /config/config.yaml
+ffmpeg: # or any other camera component
+  camera:
+    camera_one:
+      name: Camera 1
+      host: !secret camera_one_host
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_username
+      password: !secret camera_one_password
+      // highlight-start
+      recorder:
+        create_event_clip: true
+      // highlight-end
+```
+
+:::warning
+
+This will create `.mp4` files for all event recordings, which will be stored in addition to the `.m4s` files.
+
+THe `.mp4` files will be created in the `/clips` directory, unless you have set a different path in the [storage component](/components-explorer/components/storage).
+
+:::
