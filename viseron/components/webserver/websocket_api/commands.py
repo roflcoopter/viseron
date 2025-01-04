@@ -118,9 +118,9 @@ def require_admin(func):
 
 
 @websocket_command({vol.Required("type"): "ping"})
-def ping(connection: WebSocketHandler, message) -> None:
+async def ping(connection: WebSocketHandler, message) -> None:
     """Respond to ping."""
-    connection.send_message(pong_message(message["command_id"]))
+    await connection.async_send_message(pong_message(message["command_id"]))
 
 
 @websocket_command(
