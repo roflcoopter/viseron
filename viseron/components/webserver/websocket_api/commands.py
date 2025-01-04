@@ -19,7 +19,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 
 from viseron.components.storage.const import EVENT_FILE_CREATED, EVENT_FILE_DELETED
-from viseron.components.storage.models import Motion, Objects, PostProcessorResults
+from viseron.components.storage.models import (
+    Motion,
+    Objects,
+    PostProcessorResults,
+    Recordings,
+)
 from viseron.components.storage.queries import (
     get_recording_fragments,
     get_time_period_fragments,
@@ -41,7 +46,7 @@ from viseron.const import (
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.camera.fragmenter import Fragment, get_available_timespans
 from viseron.exceptions import Unauthorized
-from viseron.helpers import create_directory, daterange_to_utc
+from viseron.helpers import create_directory, daterange_to_utc, get_utc_offset
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .messages import (
@@ -435,6 +440,22 @@ def export_recording(connection: WebSocketHandler, message) -> None:
     ioloop = tornado.ioloop.IOLoop.current()
 
     def _result():
+        with connection.get_session() as session:
+            try:
+                recording = session.execute(
+                    select(Recordings).where(Recordings.id == message["recording_id"])
+                ).scalar_one()
+            except NoResultFound:
+                ioloop.add_callback(
+                    connection.send_message,
+                    subscription_error_message(
+                        message["command_id"],
+                        WS_ERROR_NOT_FOUND,
+                        f"Recording with id {message['recording_id']} not found.",
+                    ),
+                )
+                return
+
         files = get_recording_fragments(
             message["recording_id"],
             camera.recorder.lookback,
@@ -447,8 +468,8 @@ def export_recording(connection: WebSocketHandler, message) -> None:
             for file in files
             if file.meta.get("m3u8", False).get("EXTINF", False)
         ]
-        recording = camera.fragmenter.concatenate_fragments(fragments)
-        if not recording:
+        recording_mp4 = camera.fragmenter.concatenate_fragments(fragments)
+        if not recording_mp4:
             connection.send_message(
                 subscription_error_message(
                     message["command_id"],
@@ -459,8 +480,12 @@ def export_recording(connection: WebSocketHandler, message) -> None:
             return
 
         create_directory(DOWNLOAD_PATH)
-        new_path = os.path.join(DOWNLOAD_PATH, os.path.basename(recording))
-        shutil.move(recording, new_path)
+        time_string = (recording.start_time + get_utc_offset()).strftime(
+            "%Y-%m-%d-%H-%M-%S"
+        )
+        video_name = f"{camera.identifier}-{time_string}.{camera.extension}"
+        new_path = os.path.join(DOWNLOAD_PATH, video_name)
+        shutil.move(recording_mp4, new_path)
 
         download_token = DownloadToken(
             filename=new_path,
@@ -542,10 +567,8 @@ def export_snapshot(connection: WebSocketHandler, message) -> None:
     def _result():
         with connection.get_session() as session:
             try:
-                snapshot_path: str = session.execute(
-                    select(model.snapshot_path).where(
-                        model.id == message["snapshot_id"]
-                    )
+                event = session.execute(
+                    select(model).where(model.id == message["snapshot_id"])
                 ).scalar_one()
             except NoResultFound:
                 ioloop.add_callback(
@@ -558,10 +581,18 @@ def export_snapshot(connection: WebSocketHandler, message) -> None:
                 )
                 return
 
+        create_directory(DOWNLOAD_PATH)
+        time_string = (event.created_at + get_utc_offset()).strftime(
+            "%Y-%m-%d-%H-%M-%S"
+        )
+        filename = f"{camera.identifier}-{time_string}.jpg"
+        new_path = os.path.join(DOWNLOAD_PATH, filename)
+        shutil.copy(event.snapshot_path, new_path)
+
         download_token = DownloadToken(
-            filename=snapshot_path,
+            filename=new_path,
             token=str(uuid.uuid4()),
-            delete_after_download=False,
+            delete_after_download=True,
         )
         connection.webserver.download_tokens[download_token.token] = download_token
 
@@ -639,8 +670,8 @@ def export_timespan(connection: WebSocketHandler, message) -> None:
             for file in files
             if file.meta.get("m3u8", False).get("EXTINF", False)
         ]
-        timespan = camera.fragmenter.concatenate_fragments(fragments)
-        if not timespan:
+        timespan_video = camera.fragmenter.concatenate_fragments(fragments)
+        if not timespan_video:
             ioloop.add_callback(
                 connection.send_message,
                 subscription_error_message(
@@ -650,10 +681,20 @@ def export_timespan(connection: WebSocketHandler, message) -> None:
                 ),
             )
             return
-
         create_directory(DOWNLOAD_PATH)
-        new_path = os.path.join(DOWNLOAD_PATH, os.path.basename(timespan))
-        shutil.move(timespan, new_path)
+        # fromtimestamp automatically converts to server timezone
+        time_string = (datetime.datetime.fromtimestamp(message["start"])).strftime(
+            "%Y-%m-%d-%H-%M-%S"
+        )
+        video_name = (
+            f"{camera.identifier}"
+            "-"
+            f"{time_string}"
+            "."
+            f"{os.path.splitext(timespan_video)[1]}"
+        )
+        new_path = os.path.join(DOWNLOAD_PATH, video_name)
+        shutil.move(timespan_video, new_path)
 
         download_token = DownloadToken(
             filename=new_path,
