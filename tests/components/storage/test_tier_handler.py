@@ -20,7 +20,7 @@ from viseron.components.storage.tier_handler import (
     find_next_tier_segments,
     handle_file,
 )
-from viseron.domains.camera.const import CONFIG_LOOKBACK
+from viseron.domains.camera.const import CONFIG_CONTINUOUS_RECORDING, CONFIG_LOOKBACK
 
 from tests.common import BaseTestWithRecordings
 
@@ -143,7 +143,9 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
 
         mock_camera = Mock()
         mock_camera.identifier = "test"
-        mock_camera.config = {CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
+        mock_camera.config = {
+            CONFIG_RECORDER: {CONFIG_LOOKBACK: 5, CONFIG_CONTINUOUS_RECORDING: True}
+        }
 
         tier_handler = SegmentsTierHandler(
             vis,
@@ -262,7 +264,9 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
         """Test that check_tier finds the correct tier."""
         mock_camera = Mock()
         mock_camera.identifier = "test"
-        mock_camera.config = {CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
+        mock_camera.config = {
+            CONFIG_RECORDER: {CONFIG_LOOKBACK: 5, CONFIG_CONTINUOUS_RECORDING: True}
+        }
 
         tier_handlers = []
         for i, tier_config in enumerate(tiers_config):
@@ -333,7 +337,9 @@ def test_find_next_tier_segments(vis: Viseron):
     mock_storage = Mock(spec=Storage)
     mock_camera = Mock()
     mock_camera.identifier = "test_camera"
-    mock_camera.config = {CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
+    mock_camera.config = {
+        CONFIG_RECORDER: {CONFIG_LOOKBACK: 5, CONFIG_CONTINUOUS_RECORDING: True}
+    }
 
     tier_handler_0 = SegmentsTierHandler(
         vis,
