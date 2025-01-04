@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import logging
 from collections.abc import Callable
@@ -162,7 +163,10 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
         handler, schema = handlers[message["type"]]
 
         try:
-            handler(self, schema(message))
+            if inspect.iscoroutinefunction(handler):
+                await handler(self, schema(message))
+            else:
+                handler(self, schema(message))
         except Exception as err:  # pylint: disable=broad-except
             await self.handle_exception(command_id, message, err)
         self._last_id = command_id
@@ -183,7 +187,12 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             code = WS_ERROR_UNKNOWN_ERROR
             err_msg = "Unknown error"
 
-        log_handler("Error handling message. Code: %s, message: %s", code, err_msg)
+        log_handler(
+            "Error handling message. Error Code: %s, Error Message: %s, Message: %s",
+            code,
+            err_msg,
+            message,
+        )
         await self.async_send_message(
             error_message(
                 command_id,
