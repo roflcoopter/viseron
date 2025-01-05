@@ -94,6 +94,11 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             return timedelta(minutes=int(cookie))
         return get_utc_offset()
 
+    @property
+    def ioloop(self) -> IOLoop:
+        """Return the IOLoop."""
+        return IOLoop.current()
+
     def on_finish(self) -> None:
         """Log requests with failed authentication."""
         if self.status == HTTPStatus.UNAUTHORIZED:
