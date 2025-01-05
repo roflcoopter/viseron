@@ -191,14 +191,14 @@ async def unsubscribe_event(connection: WebSocketHandler, message) -> None:
         vol.Exclusive("entity_ids", "entity"): [str],
     }
 )
-def subscribe_states(connection: WebSocketHandler, message) -> None:
+async def subscribe_states(connection: WebSocketHandler, message) -> None:
     """Subscribe to state changes for one or multiple entities."""
 
-    def forward_state_change(event: Event[EventStateChangedData]) -> None:
+    async def forward_state_change(event: Event[EventStateChangedData]) -> None:
         """Forward state_changed event to WebSocket connection."""
         if "entity_id" in message:
             if event.data.entity_id == message["entity_id"]:
-                connection.send_message(
+                await connection.async_send_message(
                     message_to_json(
                         subscription_result_message(message["command_id"], event)
                     )
@@ -206,22 +206,22 @@ def subscribe_states(connection: WebSocketHandler, message) -> None:
             return
         if "entity_ids" in message:
             if event.data.entity_id in message["entity_ids"]:
-                connection.send_message(
+                await connection.async_send_message(
                     message_to_json(
                         subscription_result_message(message["command_id"], event)
                     )
                 )
             return
-        connection.send_message(
+        await connection.async_send_message(
             message_to_json(subscription_result_message(message["command_id"], event))
         )
 
     connection.subscriptions[message["command_id"]] = connection.vis.listen_event(
         EVENT_STATE_CHANGED,
         forward_state_change,
-        ioloop=tornado.ioloop.IOLoop.current(),
+        ioloop=connection.ioloop,
     )
-    connection.send_message(result_message(message["command_id"]))
+    await connection.async_send_message(result_message(message["command_id"]))
 
 
 @websocket_command(
