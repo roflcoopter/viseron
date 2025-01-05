@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime
 import enum
+import inspect
 import logging
 import os
 import shutil
@@ -103,6 +104,22 @@ def websocket_command(
 
 def require_admin(func):
     """Websocket decorator to require user to be an admin."""
+
+    if inspect.iscoroutinefunction(func):
+
+        @wraps(func)
+        async def async_with_admin(
+            connection: WebSocketHandler, message: dict[str, Any]
+        ) -> None:
+            """Check admin and call async function."""
+            if connection.webserver.auth:
+                user = connection.current_user
+                if user is None or not user.group == Group.ADMIN:
+                    raise Unauthorized()
+
+            await func(connection, message)
+
+        return async_with_admin
 
     @wraps(func)
     def with_admin(connection: WebSocketHandler, message: dict[str, Any]) -> None:
@@ -269,13 +286,17 @@ async def get_config(connection: WebSocketHandler, message) -> None:
 
 @require_admin
 @websocket_command({vol.Required("type"): "save_config", vol.Required("config"): str})
-def save_config(connection: WebSocketHandler, message) -> None:
+async def save_config(connection: WebSocketHandler, message) -> None:
     """Save config to file."""
-    try:
+
+    def _save_config():
         with open(CONFIG_PATH, "w", encoding="utf-8") as config_file:
             config_file.write(message["config"])
+
+    try:
+        await connection.run_in_executor(_save_config)
     except Exception as exception:  # pylint: disable=broad-except
-        connection.send_message(
+        await connection.async_send_message(
             error_message(
                 message["command_id"],
                 WS_ERROR_SAVE_CONFIG_FAILED,
@@ -284,7 +305,7 @@ def save_config(connection: WebSocketHandler, message) -> None:
         )
         return
 
-    connection.send_message(
+    await connection.async_send_message(
         result_message(
             message["command_id"],
         )
