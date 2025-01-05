@@ -167,20 +167,21 @@ async def subscribe_event(connection: WebSocketHandler, message) -> None:
         vol.Required("subscription"): int,
     }
 )
-def unsubscribe_event(connection: WebSocketHandler, message) -> None:
+async def unsubscribe_event(connection: WebSocketHandler, message) -> None:
     """Unsubscribe to an event."""
     subscription = message["subscription"]
     if subscription in connection.subscriptions:
         connection.subscriptions.pop(subscription)()
-        connection.send_message(result_message(message["command_id"]))
-    else:
-        connection.send_message(
-            error_message(
-                message["command_id"],
-                WS_ERROR_NOT_FOUND,
-                f"Subscription with command_id {message['subscription']} not found.",
-            )
+        await connection.async_send_message(result_message(message["command_id"]))
+        return
+
+    await connection.async_send_message(
+        error_message(
+            message["command_id"],
+            WS_ERROR_NOT_FOUND,
+            f"Subscription with command_id {message['subscription']} not found.",
         )
+    )
 
 
 @websocket_command(
@@ -229,10 +230,10 @@ def subscribe_states(connection: WebSocketHandler, message) -> None:
         vol.Required("subscription"): int,
     }
 )
-def unsubscribe_states(connection: WebSocketHandler, message) -> None:
+async def unsubscribe_states(connection: WebSocketHandler, message) -> None:
     """Unsubscribe to state changes."""
     message["type"] = "unsubscribe_event"
-    unsubscribe_event(connection, message)
+    await unsubscribe_event(connection, message)
 
 
 @websocket_command({vol.Required("type"): "get_cameras"})
@@ -411,10 +412,10 @@ def subscribe_timespans(connection: WebSocketHandler, message) -> None:
         vol.Required("subscription"): int,
     }
 )
-def unsubscribe_timespans(connection: WebSocketHandler, message) -> None:
+async def unsubscribe_timespans(connection: WebSocketHandler, message) -> None:
     """Unsubscribe to a cameras available timespans."""
     message["type"] = "unsubscribe_event"
-    unsubscribe_event(connection, message)
+    await unsubscribe_event(connection, message)
 
 
 @websocket_command(
