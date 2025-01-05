@@ -469,7 +469,7 @@ async def export_recording(connection: WebSocketHandler, message) -> None:
         )
         return
 
-    def _result():
+    def _result() -> dict[str, Any] | str:
         with connection.get_session() as session:
             try:
                 recording = session.execute(
@@ -551,11 +551,11 @@ class EventTypeModelEnum(enum.Enum):
         vol.Required("snapshot_id"): int,
     }
 )
-def export_snapshot(connection: WebSocketHandler, message) -> None:
+async def export_snapshot(connection: WebSocketHandler, message) -> None:
     """Export a snapshot."""
     camera = connection.get_camera(message["camera_identifier"])
     if camera is None:
-        connection.send_message(
+        await connection.async_send_message(
             error_message(
                 message["command_id"],
                 WS_ERROR_NOT_FOUND,
@@ -567,7 +567,7 @@ def export_snapshot(connection: WebSocketHandler, message) -> None:
     try:
         model = EventTypeModelEnum[message["event_type"].upper()].value
     except KeyError:
-        connection.send_message(
+        await connection.async_send_message(
             error_message(
                 message["command_id"],
                 WS_ERROR_NOT_FOUND,
@@ -576,24 +576,18 @@ def export_snapshot(connection: WebSocketHandler, message) -> None:
         )
         return
 
-    ioloop = tornado.ioloop.IOLoop.current()
-
-    def _result():
+    def _result() -> dict[str, Any] | str:
         with connection.get_session() as session:
             try:
                 event = session.execute(
                     select(model).where(model.id == message["snapshot_id"])
                 ).scalar_one()
             except NoResultFound:
-                ioloop.add_callback(
-                    connection.send_message,
-                    error_message(
-                        message["command_id"],
-                        WS_ERROR_NOT_FOUND,
-                        f"Snapshot with id {message['snapshot_id']} not found.",
-                    ),
+                return error_message(
+                    message["command_id"],
+                    WS_ERROR_NOT_FOUND,
+                    f"Snapshot with id {message['snapshot_id']} not found.",
                 )
-                return
 
         create_directory(DOWNLOAD_PATH)
         time_string = (event.created_at + get_utc_offset()).strftime(
@@ -610,30 +604,21 @@ def export_snapshot(connection: WebSocketHandler, message) -> None:
         )
         connection.webserver.download_tokens[download_token.token] = download_token
 
-        ioloop.add_callback(
-            connection.send_message,
-            message_to_json(
-                subscription_result_message(
-                    message["command_id"],
-                    {
-                        "filename": download_token.filename,
-                        "token": download_token.token,
-                    },
-                )
-            ),
-        )
-        ioloop.add_callback(
-            connection.send_message,
-            message_to_json(cancel_subscription_message(message["command_id"])),
+        return message_to_json(
+            subscription_result_message(
+                message["command_id"],
+                {
+                    "filename": download_token.filename,
+                    "token": download_token.token,
+                },
+            )
         )
 
-    result_thread = RestartableThread(
-        name=f"viseron.camera.{message['camera_identifier']}.export_snapshot",
-        target=_result,
-        register=False,
+    await connection.async_send_message(result_message(message["command_id"]))
+    await connection.async_send_message(await connection.run_in_executor(_result))
+    await connection.async_send_message(
+        message_to_json(cancel_subscription_message(message["command_id"])),
     )
-    result_thread.start()
-    connection.send_message(result_message(message["command_id"]))
 
 
 @websocket_command(
