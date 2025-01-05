@@ -456,11 +456,11 @@ async def unsubscribe_timespans(connection: WebSocketHandler, message) -> None:
         vol.Required("recording_id"): int,
     }
 )
-def export_recording(connection: WebSocketHandler, message) -> None:
+async def export_recording(connection: WebSocketHandler, message) -> None:
     """Export a recording."""
     camera = connection.get_camera(message["camera_identifier"])
     if camera is None:
-        connection.send_message(
+        await connection.async_send_message(
             error_message(
                 message["command_id"],
                 WS_ERROR_NOT_FOUND,
@@ -469,8 +469,6 @@ def export_recording(connection: WebSocketHandler, message) -> None:
         )
         return
 
-    ioloop = tornado.ioloop.IOLoop.current()
-
     def _result():
         with connection.get_session() as session:
             try:
@@ -478,15 +476,11 @@ def export_recording(connection: WebSocketHandler, message) -> None:
                     select(Recordings).where(Recordings.id == message["recording_id"])
                 ).scalar_one()
             except NoResultFound:
-                ioloop.add_callback(
-                    connection.send_message,
-                    subscription_error_message(
-                        message["command_id"],
-                        WS_ERROR_NOT_FOUND,
-                        f"Recording with id {message['recording_id']} not found.",
-                    ),
+                return subscription_error_message(
+                    message["command_id"],
+                    WS_ERROR_NOT_FOUND,
+                    f"Recording with id {message['recording_id']} not found.",
                 )
-                return
 
         files = get_recording_fragments(
             message["recording_id"],
@@ -502,14 +496,11 @@ def export_recording(connection: WebSocketHandler, message) -> None:
         ]
         recording_mp4 = camera.fragmenter.concatenate_fragments(fragments)
         if not recording_mp4:
-            connection.send_message(
-                subscription_error_message(
-                    message["command_id"],
-                    WS_ERROR_NOT_FOUND,
-                    "No fragments found for recording.",
-                )
+            return subscription_error_message(
+                message["command_id"],
+                WS_ERROR_NOT_FOUND,
+                "No fragments found for recording.",
             )
-            return
 
         create_directory(DOWNLOAD_PATH)
         time_string = (recording.start_time + get_utc_offset()).strftime(
@@ -526,30 +517,21 @@ def export_recording(connection: WebSocketHandler, message) -> None:
         )
         connection.webserver.download_tokens[download_token.token] = download_token
 
-        ioloop.add_callback(
-            connection.send_message,
-            message_to_json(
-                subscription_result_message(
-                    message["command_id"],
-                    {
-                        "filename": download_token.filename,
-                        "token": download_token.token,
-                    },
-                )
-            ),
-        )
-        ioloop.add_callback(
-            connection.send_message,
-            message_to_json(cancel_subscription_message(message["command_id"])),
+        return message_to_json(
+            subscription_result_message(
+                message["command_id"],
+                {
+                    "filename": download_token.filename,
+                    "token": download_token.token,
+                },
+            )
         )
 
-    concat_thread = RestartableThread(
-        name=f"viseron.camera.{message['camera_identifier']}.export_recording",
-        target=_result,
-        register=False,
+    await connection.async_send_message(result_message(message["command_id"]))
+    await connection.async_send_message(await connection.run_in_executor(_result))
+    await connection.async_send_message(
+        message_to_json(cancel_subscription_message(message["command_id"])),
     )
-    concat_thread.start()
-    connection.send_message(result_message(message["command_id"]))
 
 
 class EventTypeModelEnum(enum.Enum):
