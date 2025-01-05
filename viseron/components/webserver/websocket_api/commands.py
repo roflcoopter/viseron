@@ -237,9 +237,9 @@ async def unsubscribe_states(connection: WebSocketHandler, message) -> None:
 
 
 @websocket_command({vol.Required("type"): "get_cameras"})
-def get_cameras(connection: WebSocketHandler, message) -> None:
+async def get_cameras(connection: WebSocketHandler, message) -> None:
     """Get all registered cameras."""
-    connection.send_message(
+    await connection.async_send_message(
         message_to_json(
             result_message(
                 message["command_id"],
