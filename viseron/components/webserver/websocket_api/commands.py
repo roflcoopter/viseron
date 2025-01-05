@@ -250,12 +250,16 @@ async def get_cameras(connection: WebSocketHandler, message) -> None:
 
 
 @websocket_command({vol.Required("type"): "get_config"})
-def get_config(connection: WebSocketHandler, message) -> None:
+async def get_config(connection: WebSocketHandler, message) -> None:
     """Return config in text format."""
-    with open(CONFIG_PATH, encoding="utf-8") as config_file:
-        config = config_file.read()
 
-    connection.send_message(
+    def read_config() -> str:
+        with open(CONFIG_PATH, encoding="utf-8") as config_file:
+            return config_file.read()
+
+    config = await connection.run_in_executor(read_config)
+
+    await connection.async_send_message(
         result_message(
             message["command_id"],
             {"config": config},
