@@ -314,11 +314,11 @@ async def save_config(connection: WebSocketHandler, message) -> None:
 
 @require_admin
 @websocket_command({vol.Required("type"): "restart_viseron"})
-def restart_viseron(connection: WebSocketHandler, message) -> None:
+async def restart_viseron(connection: WebSocketHandler, message) -> None:
     """Restart Viseron."""
     connection.vis.exit_code = RESTART_EXIT_CODE
     os.kill(os.getpid(), signal.SIGINT)
-    connection.send_message(
+    await connection.async_send_message(
         result_message(
             message["command_id"],
         )
