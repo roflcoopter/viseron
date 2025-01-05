@@ -326,11 +326,13 @@ async def restart_viseron(connection: WebSocketHandler, message) -> None:
 
 
 @websocket_command({vol.Required("type"): "get_entities"})
-def get_entities(connection: WebSocketHandler, message) -> None:
+async def get_entities(connection: WebSocketHandler, message) -> None:
     """Get all registered entities."""
-    connection.send_message(
+    entities = await connection.run_in_executor(connection.vis.get_entities)
+
+    await connection.async_send_message(
         message_to_json(
-            result_message(message["command_id"], connection.vis.get_entities()),
+            result_message(message["command_id"], entities),
         )
     )
 
