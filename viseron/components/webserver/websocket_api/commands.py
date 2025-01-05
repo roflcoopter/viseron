@@ -45,7 +45,11 @@ from viseron.const import (
     RESTART_EXIT_CODE,
 )
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
-from viseron.domains.camera.fragmenter import Fragment, get_available_timespans
+from viseron.domains.camera.fragmenter import (
+    Fragment,
+    Timespan,
+    get_available_timespans,
+)
 from viseron.exceptions import Unauthorized
 from viseron.helpers import create_directory, daterange_to_utc, get_utc_offset
 from viseron.watchdog.thread_watchdog import RestartableThread
@@ -346,13 +350,13 @@ async def get_entities(connection: WebSocketHandler, message) -> None:
         vol.Optional("debounce", default=0.5): vol.Any(float, int),
     },
 )
-def subscribe_timespans(connection: WebSocketHandler, message) -> None:
+async def subscribe_timespans(connection: WebSocketHandler, message) -> None:
     """Subscribe to cameras available timespans."""
     camera_identifiers: list[str] = message["camera_identifiers"]
     for camera_identifier in camera_identifiers:
         camera = connection.get_camera(camera_identifier)
         if camera is None:
-            connection.send_message(
+            await connection.async_send_message(
                 error_message(
                     message["command_id"],
                     WS_ERROR_NOT_FOUND,
@@ -368,20 +372,13 @@ def subscribe_timespans(connection: WebSocketHandler, message) -> None:
         time_from = datetime.datetime(1970, 1, 1, 0, 0, 0)
         time_to = datetime.datetime(2999, 12, 31, 23, 59, 59, 999999)
 
-    def send_timespans():
-        """Send available timespans."""
-        timespans = get_available_timespans(
+    def get_timespans() -> list[Timespan]:
+        """Get available timespans."""
+        return get_available_timespans(
             connection.get_session,
             camera_identifiers,
             time_from.timestamp(),
             time_to.timestamp(),
-        )
-        connection.send_message(
-            message_to_json(
-                subscription_result_message(
-                    message["command_id"], {"timespans": timespans}
-                )
-            )
         )
 
     @debounce(
@@ -390,11 +387,18 @@ def subscribe_timespans(connection: WebSocketHandler, message) -> None:
             time_window=message["debounce"],
         ),
     )
-    def forward_timespans(
-        _event: Event[EventFileCreated] | Event[EventFileDeleted],
+    async def forward_timespans(
+        _event: Event[EventFileCreated] | Event[EventFileDeleted] | None = None,
     ) -> None:
         """Forward event to WebSocket connection."""
-        send_timespans()
+        timespans = await connection.run_in_executor(get_timespans)
+        await connection.async_send_message(
+            message_to_json(
+                subscription_result_message(
+                    message["command_id"], {"timespans": timespans}
+                )
+            )
+        )
 
     subs = []
     for camera_identifier in camera_identifiers:
@@ -407,7 +411,7 @@ def subscribe_timespans(connection: WebSocketHandler, message) -> None:
                     file_name="*",
                 ),
                 forward_timespans,
-                ioloop=tornado.ioloop.IOLoop.current(),
+                ioloop=connection.ioloop,
             )
         )
         subs.append(
@@ -419,7 +423,7 @@ def subscribe_timespans(connection: WebSocketHandler, message) -> None:
                     file_name="*",
                 ),
                 forward_timespans,
-                ioloop=tornado.ioloop.IOLoop.current(),
+                ioloop=connection.ioloop,
             )
         )
 
@@ -429,8 +433,8 @@ def subscribe_timespans(connection: WebSocketHandler, message) -> None:
             unsub()
 
     connection.subscriptions[message["command_id"]] = unsubscribe
-    connection.send_message(result_message(message["command_id"]))
-    send_timespans()
+    await connection.async_send_message(result_message(message["command_id"]))
+    await forward_timespans()
 
 
 @websocket_command(
