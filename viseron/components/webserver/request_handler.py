@@ -45,7 +45,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
 
     async def run_in_executor(self, func: Callable[..., _T], *args) -> _T:
         """Run function in executor."""
-        return await IOLoop.current().run_in_executor(None, func, *args)
+        return await self.ioloop.run_in_executor(None, func, *args)
 
     async def prepare(self) -> None:  # pylint: disable=invalid-overridden-method
         """Prepare request handler.

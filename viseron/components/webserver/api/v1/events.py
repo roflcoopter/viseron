@@ -316,7 +316,7 @@ class EventsAPIHandler(BaseAPIHandler):
             reverse=True,
         )
 
-        self.response_success(response={"events": sorted_events})
+        await self.response_success(response={"events": sorted_events})
 
     def _events_amount(
         self,
@@ -389,7 +389,7 @@ class EventsAPIHandler(BaseAPIHandler):
             self._get_session,
             [camera.identifier],
         )
-        self.response_success(response={"events_amount": events_amount})
+        await self.response_success(response={"events_amount": events_amount})
 
     async def post_events_amount_multiple(self):
         """Get amount of events per day for multiple cameras.
@@ -401,4 +401,4 @@ class EventsAPIHandler(BaseAPIHandler):
             self._get_session,
             self.json_body["camera_identifiers"],
         )
-        self.response_success(response={"events_amount": events_amount})
+        await self.response_success(response={"events_amount": events_amount})

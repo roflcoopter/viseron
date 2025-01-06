@@ -90,7 +90,7 @@ class AuthAPIHandler(BaseAPIHandler):
             if self._webserver.auth
             else False,
         }
-        self.response_success(response=response)
+        await self.response_success(response=response)
 
     async def auth_create(self) -> None:
         """Create a new user."""
@@ -105,7 +105,7 @@ class AuthAPIHandler(BaseAPIHandler):
         except UserExistsError as error:
             self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
             return
-        self.response_success()
+        await self.response_success()
 
     async def auth_user(self, user_id: str) -> None:
         """Get a user.
@@ -116,7 +116,7 @@ class AuthAPIHandler(BaseAPIHandler):
         if user is None:
             self.response_error(HTTPStatus.NOT_FOUND, reason="User not found")
             return
-        self.response_success(
+        await self.response_success(
             response={
                 "name": user.name,
                 "username": user.username,
@@ -152,7 +152,7 @@ class AuthAPIHandler(BaseAPIHandler):
 
         self.set_cookies(refresh_token, access_token, user, new_session=True)
 
-        self.response_success(
+        await self.response_success(
             response=token_response(
                 refresh_token,
                 access_token,
@@ -173,7 +173,7 @@ class AuthAPIHandler(BaseAPIHandler):
                 )
 
         self.clear_all_cookies()
-        self.response_success()
+        await self.response_success()
 
     def _handle_refresh_token(
         self,
@@ -218,7 +218,7 @@ class AuthAPIHandler(BaseAPIHandler):
         if self.json_body["grant_type"] == "refresh_token":
             status, response = await self.run_in_executor(self._handle_refresh_token)
             if status == HTTPStatus.OK:
-                self.response_success(response=response)
+                await self.response_success(response=response)
                 return
             self.clear_all_cookies()
             # Mypy doesn't understand that status is HTTPStatus.BAD_REQUEST here

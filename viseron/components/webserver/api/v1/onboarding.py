@@ -64,7 +64,7 @@ class OnboardingAPIHandler(BaseAPIHandler):
 
         self.set_cookies(refresh_token, access_token, user, new_session=True)
 
-        self.response_success(
+        await self.response_success(
             response=token_response(
                 refresh_token,
                 access_token,

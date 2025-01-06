@@ -134,7 +134,7 @@ class HlsAPIHandler(BaseAPIHandler):
         self.set_header("Content-Type", "application/x-mpegURL")
         self.set_header("Cache-Control", "no-cache")
         self.set_header("Access-Control-Allow-Origin", "*")
-        self.response_success(response=playlist)
+        await self.response_success(response=playlist)
 
     async def get_hls_playlist_time_period(
         self,
@@ -169,7 +169,7 @@ class HlsAPIHandler(BaseAPIHandler):
         self.set_header("Content-Type", "application/x-mpegURL")
         self.set_header("Cache-control", "no-cache, must-revalidate, max-age=0")
         self.set_header("Access-Control-Allow-Origin", "*")
-        self.response_success(response=playlist)
+        await self.response_success(response=playlist)
 
     async def get_available_timespans(
         self,
@@ -203,7 +203,7 @@ class HlsAPIHandler(BaseAPIHandler):
             time_from,
             time_to,
         )
-        self.response_success(response={"timespans": timespans})
+        await self.response_success(response={"timespans": timespans})
 
 
 def _get_init_file(

@@ -55,4 +55,4 @@ class ComprefaceAPIHandler(BaseAPIHandler):
                         )
             response = {}
             response["added_subjects"] = added_subjects
-            self.response_success(response=response)
+            await self.response_success(response=response)

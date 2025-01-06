@@ -26,4 +26,4 @@ class ConfigAPIHandler(BaseAPIHandler):
                 return config_file.read()
 
         config = await self.run_in_executor(read_config)
-        self.response_success(response=config)
+        await self.response_success(response=config)
