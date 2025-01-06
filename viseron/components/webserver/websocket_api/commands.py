@@ -13,7 +13,6 @@ from collections.abc import Callable
 from functools import wraps
 from typing import TYPE_CHECKING, Any, overload
 
-import tornado
 import voluptuous as vol
 from debouncer import DebounceOptions, debounce
 from sqlalchemy import select
@@ -52,7 +51,6 @@ from viseron.domains.camera.fragmenter import (
 )
 from viseron.exceptions import Unauthorized
 from viseron.helpers import create_directory, daterange_to_utc, get_utc_offset
-from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .messages import (
     BASE_MESSAGE_SCHEMA,
@@ -629,11 +627,11 @@ async def export_snapshot(connection: WebSocketHandler, message) -> None:
         vol.Required("end"): int,
     }
 )
-def export_timespan(connection: WebSocketHandler, message) -> None:
+async def export_timespan(connection: WebSocketHandler, message) -> None:
     """Export a timespan."""
     camera = connection.get_camera(message["camera_identifier"])
     if camera is None:
-        connection.send_message(
+        await connection.async_send_message(
             error_message(
                 message["command_id"],
                 WS_ERROR_NOT_FOUND,
@@ -642,9 +640,7 @@ def export_timespan(connection: WebSocketHandler, message) -> None:
         )
         return
 
-    ioloop = tornado.ioloop.IOLoop.current()
-
-    def _result():
+    def _result() -> dict[str, Any] | str:
         files = get_time_period_fragments(
             [camera.identifier],
             message["start"],
@@ -652,15 +648,11 @@ def export_timespan(connection: WebSocketHandler, message) -> None:
             connection.get_session,
         )
         if not files:
-            ioloop.add_callback(
-                connection.send_message,
-                subscription_error_message(
-                    message["command_id"],
-                    WS_ERROR_NOT_FOUND,
-                    "No fragments found for timespan.",
-                ),
+            return subscription_error_message(
+                message["command_id"],
+                WS_ERROR_NOT_FOUND,
+                "No fragments found for timespan.",
             )
-            return
 
         fragments = [
             Fragment(
@@ -671,15 +663,12 @@ def export_timespan(connection: WebSocketHandler, message) -> None:
         ]
         timespan_video = camera.fragmenter.concatenate_fragments(fragments)
         if not timespan_video:
-            ioloop.add_callback(
-                connection.send_message,
-                subscription_error_message(
-                    message["command_id"],
-                    WS_ERROR_NOT_FOUND,
-                    "Failed to concatenate fragments.",
-                ),
+            return subscription_error_message(
+                message["command_id"],
+                WS_ERROR_NOT_FOUND,
+                "Failed to concatenate fragments.",
             )
-            return
+
         create_directory(DOWNLOAD_PATH)
         # fromtimestamp automatically converts to server timezone
         time_string = (datetime.datetime.fromtimestamp(message["start"])).strftime(
@@ -702,27 +691,18 @@ def export_timespan(connection: WebSocketHandler, message) -> None:
         )
         connection.webserver.download_tokens[download_token.token] = download_token
 
-        ioloop.add_callback(
-            connection.send_message,
-            message_to_json(
-                subscription_result_message(
-                    message["command_id"],
-                    {
-                        "filename": download_token.filename,
-                        "token": download_token.token,
-                    },
-                )
-            ),
-        )
-        ioloop.add_callback(
-            connection.send_message,
-            message_to_json(cancel_subscription_message(message["command_id"])),
+        return message_to_json(
+            subscription_result_message(
+                message["command_id"],
+                {
+                    "filename": download_token.filename,
+                    "token": download_token.token,
+                },
+            )
         )
 
-    concat_thread = RestartableThread(
-        name=f"viseron.camera.{message['camera_identifier']}.export_timespan",
-        target=_result,
-        register=False,
+    await connection.async_send_message(result_message(message["command_id"]))
+    await connection.async_send_message(await connection.run_in_executor(_result))
+    await connection.async_send_message(
+        message_to_json(cancel_subscription_message(message["command_id"])),
     )
-    concat_thread.start()
-    connection.send_message(result_message(message["command_id"]))
