@@ -310,12 +310,17 @@ class EventsAPIHandler(BaseAPIHandler):
             time_to,
         )
 
-        sorted_events = sorted(
-            motion_events + recording_events + object_events + post_processor_events,
-            key=lambda k: k["created_at"],
-            reverse=True,
-        )
+        def sort_events():
+            return sorted(
+                motion_events
+                + recording_events
+                + object_events
+                + post_processor_events,
+                key=lambda k: k["created_at"],
+                reverse=True,
+            )
 
+        sorted_events = await self.run_in_executor(sort_events)
         await self.response_success(response={"events": sorted_events})
 
     def _events_amount(
