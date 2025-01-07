@@ -260,6 +260,9 @@ class Webserver(threading.Thread):
 
         self._asyncio_ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._asyncio_ioloop)
+        if config[CONFIG_DEBUG]:
+            self._asyncio_ioloop.set_debug(True)
+
         self._application = create_application(vis, config, self._store.cookie_secret)
         self._httpserver = None
         try:
