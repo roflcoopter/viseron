@@ -1,6 +1,7 @@
 """WebSocket API commands."""
 from __future__ import annotations
 
+import asyncio
 import datetime
 import enum
 import inspect
@@ -8,6 +9,7 @@ import logging
 import os
 import shutil
 import signal
+import time
 import uuid
 from collections.abc import Callable
 from functools import wraps
@@ -56,7 +58,6 @@ from .messages import (
     BASE_MESSAGE_SCHEMA,
     cancel_subscription_message,
     error_message,
-    message_to_json,
     pong_message,
     result_message,
     subscription_error_message,
@@ -156,7 +157,7 @@ async def subscribe_event(connection: WebSocketHandler, message) -> None:
     async def forward_event(event: Event) -> None:
         """Forward event to WebSocket connection."""
         await connection.async_send_message(
-            message_to_json(subscription_result_message(message["command_id"], event))
+            subscription_result_message(message["command_id"], event)
         )
 
     @debounce(
@@ -218,21 +219,17 @@ async def subscribe_states(connection: WebSocketHandler, message) -> None:
         if "entity_id" in message:
             if event.data.entity_id == message["entity_id"]:
                 await connection.async_send_message(
-                    message_to_json(
-                        subscription_result_message(message["command_id"], event)
-                    )
+                    subscription_result_message(message["command_id"], event)
                 )
             return
         if "entity_ids" in message:
             if event.data.entity_id in message["entity_ids"]:
                 await connection.async_send_message(
-                    message_to_json(
-                        subscription_result_message(message["command_id"], event)
-                    )
+                    subscription_result_message(message["command_id"], event)
                 )
             return
         await connection.async_send_message(
-            message_to_json(subscription_result_message(message["command_id"], event))
+            subscription_result_message(message["command_id"], event)
         )
 
     connection.subscriptions[message["command_id"]] = connection.vis.listen_event(
@@ -259,12 +256,10 @@ async def unsubscribe_states(connection: WebSocketHandler, message) -> None:
 async def get_cameras(connection: WebSocketHandler, message) -> None:
     """Get all registered cameras."""
     await connection.async_send_message(
-        message_to_json(
-            result_message(
-                message["command_id"],
-                connection.vis.data[REGISTERED_DOMAINS].get(CAMERA_DOMAIN, {}),
-            ),
-        )
+        result_message(
+            message["command_id"],
+            connection.vis.data[REGISTERED_DOMAINS].get(CAMERA_DOMAIN, {}),
+        ),
     )
 
 
@@ -333,10 +328,11 @@ async def get_entities(connection: WebSocketHandler, message) -> None:
     entities = await connection.run_in_executor(connection.vis.get_entities)
 
     await connection.async_send_message(
-        message_to_json(
-            result_message(message["command_id"], entities),
-        )
+        result_message(message["command_id"], entities),
     )
+
+
+FORWARD_TIMESPANS_LOCK = asyncio.Lock()
 
 
 @websocket_command(
@@ -345,7 +341,7 @@ async def get_entities(connection: WebSocketHandler, message) -> None:
         vol.Required("type"): "subscribe_timespans",
         vol.Required("camera_identifiers"): [str],
         vol.Required("date"): vol.Any(str, None),
-        vol.Optional("debounce", default=0.5): vol.Any(float, int),
+        vol.Optional("debounce", default=5): vol.Any(float, int),
     },
 )
 async def subscribe_timespans(connection: WebSocketHandler, message) -> None:
@@ -379,24 +375,26 @@ async def subscribe_timespans(connection: WebSocketHandler, message) -> None:
             time_to.timestamp(),
         )
 
-    @debounce(
-        wait=message["debounce"],
-        options=DebounceOptions(  # pylint: disable=unexpected-keyword-arg
-            time_window=message["debounce"],
-        ),
-    )
+    setattr(connection, "forward_timespans_last_call", 0.0)
+
     async def forward_timespans(
         _event: Event[EventFileCreated] | Event[EventFileDeleted] | None = None,
     ) -> None:
-        """Forward event to WebSocket connection."""
-        timespans = await connection.run_in_executor(get_timespans)
-        await connection.async_send_message(
-            message_to_json(
+        """Forward timespans to WebSocket connection."""
+        async with FORWARD_TIMESPANS_LOCK:
+            if (
+                time.time() - getattr(connection, "forward_timespans_last_call", 0.0)
+                < message["debounce"]
+            ):
+                return
+
+            timespans = await connection.run_in_executor(get_timespans)
+            await connection.async_send_message(
                 subscription_result_message(
                     message["command_id"], {"timespans": timespans}
                 )
             )
-        )
+            setattr(connection, "forward_timespans_last_call", time.time())
 
     subs = []
     for camera_identifier in camera_identifiers:
@@ -515,20 +513,18 @@ async def export_recording(connection: WebSocketHandler, message) -> None:
         )
         connection.webserver.download_tokens[download_token.token] = download_token
 
-        return message_to_json(
-            subscription_result_message(
-                message["command_id"],
-                {
-                    "filename": download_token.filename,
-                    "token": download_token.token,
-                },
-            )
+        return subscription_result_message(
+            message["command_id"],
+            {
+                "filename": download_token.filename,
+                "token": download_token.token,
+            },
         )
 
     await connection.async_send_message(result_message(message["command_id"]))
     await connection.async_send_message(await connection.run_in_executor(_result))
     await connection.async_send_message(
-        message_to_json(cancel_subscription_message(message["command_id"])),
+        cancel_subscription_message(message["command_id"]),
     )
 
 
@@ -602,20 +598,18 @@ async def export_snapshot(connection: WebSocketHandler, message) -> None:
         )
         connection.webserver.download_tokens[download_token.token] = download_token
 
-        return message_to_json(
-            subscription_result_message(
-                message["command_id"],
-                {
-                    "filename": download_token.filename,
-                    "token": download_token.token,
-                },
-            )
+        return subscription_result_message(
+            message["command_id"],
+            {
+                "filename": download_token.filename,
+                "token": download_token.token,
+            },
         )
 
     await connection.async_send_message(result_message(message["command_id"]))
     await connection.async_send_message(await connection.run_in_executor(_result))
     await connection.async_send_message(
-        message_to_json(cancel_subscription_message(message["command_id"])),
+        cancel_subscription_message(message["command_id"]),
     )
 
 
@@ -691,18 +685,16 @@ async def export_timespan(connection: WebSocketHandler, message) -> None:
         )
         connection.webserver.download_tokens[download_token.token] = download_token
 
-        return message_to_json(
-            subscription_result_message(
-                message["command_id"],
-                {
-                    "filename": download_token.filename,
-                    "token": download_token.token,
-                },
-            )
+        return subscription_result_message(
+            message["command_id"],
+            {
+                "filename": download_token.filename,
+                "token": download_token.token,
+            },
         )
 
     await connection.async_send_message(result_message(message["command_id"]))
     await connection.async_send_message(await connection.run_in_executor(_result))
     await connection.async_send_message(
-        message_to_json(cancel_subscription_message(message["command_id"])),
+        cancel_subscription_message(message["command_id"])
     )
