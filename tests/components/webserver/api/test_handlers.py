@@ -97,9 +97,9 @@ class DummyAPIHandler(BaseAPIHandler):
         """Handle get request."""
         self.write({"test": "test"})
 
-    def test_camera_identifier(self, camera_identifier):
+    async def test_camera_identifier(self, camera_identifier):
         """Handle request with camera_identifier."""
-        self.response_success(response={"camera_identifier": camera_identifier})
+        await self.response_success(response={"camera_identifier": camera_identifier})
 
     def test_error(self):
         """Handle error."""
