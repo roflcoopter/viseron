@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import concurrent
 import logging
 import secrets
 import threading
@@ -308,27 +307,33 @@ class Webserver(threading.Thread):
     def stop(self) -> None:
         """Stop ioloop."""
         LOGGER.debug("Stopping webserver")
-        futures = []
-        connection: WebSocketHandler
-        for connection in self._vis.data[WEBSOCKET_CONNECTIONS]:
-            LOGGER.debug("Closing websocket connection, %s", connection)
-            futures.append(
-                asyncio.run_coroutine_threadsafe(
-                    connection.force_close(), self._asyncio_ioloop
-                )
-            )
-
-        for future in concurrent.futures.as_completed(futures):
-            # Await results
-            future.result()
-
-        asyncio.set_event_loop(self._asyncio_ioloop)
-        for task in asyncio.all_tasks(self._asyncio_ioloop):
-            task.cancel()
-
         if self._httpserver:
             LOGGER.debug("Stopping HTTPServer")
             self._httpserver.stop()
 
-        LOGGER.debug("Stopping IOloop")
-        self._ioloop.add_callback(self._ioloop.stop)
+        shutdown_event = threading.Event()
+
+        async def shutdown():
+            connection: WebSocketHandler
+            for connection in self._vis.data[WEBSOCKET_CONNECTIONS]:
+                LOGGER.debug("Closing websocket connection, %s", connection)
+                await connection.force_close()
+
+            tasks = [
+                t
+                for t in asyncio.all_tasks(self._asyncio_ioloop)
+                if t is not asyncio.current_task()
+            ]
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            LOGGER.debug("Stopping IOloop")
+            self._asyncio_ioloop.stop()
+            self._ioloop.stop()
+            LOGGER.debug("IOloop stopped")
+            shutdown_event.set()
+
+        self._ioloop.add_callback(shutdown)
+        self.join()
+        shutdown_event.wait()
+        LOGGER.debug("Webserver stopped")
