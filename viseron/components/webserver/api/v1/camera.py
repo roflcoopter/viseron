@@ -148,7 +148,9 @@ class CameraAPIHandler(BaseAPIHandler):
             )
             return
 
-        self.response_success(response=jpg, headers={"Content-Type": "image/jpeg"})
+        await self.response_success(
+            response=jpg, headers={"Content-Type": "image/jpeg"}
+        )
         return
 
     async def get_camera_endpoint(self, camera_identifier: str) -> None:
@@ -164,5 +166,5 @@ class CameraAPIHandler(BaseAPIHandler):
             )
             return
 
-        self.response_success(response=camera.as_dict())
+        await self.response_success(response=camera.as_dict())
         return

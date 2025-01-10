@@ -71,10 +71,14 @@ class BaseAPIHandler(ViseronRequestHandler):
         """Set JSON body."""
         self._json_body = value
 
-    def response_success(
+    async def response_success(
         self, *, status: HTTPStatus = HTTPStatus.OK, response=None, headers=None
     ) -> None:
         """Send successful response."""
+
+        def _json_dumps() -> str:
+            return partial(json.dumps, cls=JSONEncoder, allow_nan=False)(response)
+
         if response is None:
             response = {"success": True}
         self.set_status(status)
@@ -84,10 +88,10 @@ class BaseAPIHandler(ViseronRequestHandler):
                 self.set_header(header, value)
 
         if isinstance(response, dict):
-            self.finish(partial(json.dumps, cls=JSONEncoder, allow_nan=False)(response))
+            await self.finish(await self.run_in_executor(_json_dumps))
             return
 
-        self.finish(response)
+        await self.finish(response)
 
     def response_error(self, status_code: HTTPStatus, reason: str) -> None:
         """Send error response."""

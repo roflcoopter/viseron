@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import fnmatch
+import inspect
 import logging
 import multiprocessing as mp
 import subprocess
@@ -151,6 +152,37 @@ class DataStream:
         DataStream._subscribers.clear()
         DataStream._wildcard_subscribers.clear()
 
+    async def run_callback_in_ioloop(
+        self, callback: Callable, data: Any, ioloop: IOLoop
+    ) -> None:
+        """Run callback in IOLoop."""
+
+        def _wrapper():
+            IOLoop.current()
+            if data:
+                callback(data)
+                return
+            callback()
+
+        if inspect.iscoroutinefunction(callback):
+            if data:
+                await callback(data)
+                return
+            await callback()
+        else:
+            await ioloop.run_in_executor(None, _wrapper)
+
+    async def put_tornado_queue(
+        self, queue: tornado_queue, data: Any, ioloop: IOLoop
+    ) -> None:
+        """Put data in tornado queue."""
+
+        def _wrapper():
+            IOLoop.current()
+            helpers.pop_if_full(queue, data)
+
+        await ioloop.run_in_executor(None, _wrapper)
+
     def run_callbacks(
         self,
         callbacks: dict[uuid.UUID, DataSubscriber],
@@ -202,10 +234,12 @@ class DataStream:
                 continue
 
             if callable(callback["callback"]) and callback["ioloop"] is not None:
-                if data:
-                    callback["ioloop"].add_callback(callback["callback"], data)
-                else:
-                    callback["ioloop"].add_callback(callback["callback"])
+                callback["ioloop"].add_callback(
+                    self.run_callback_in_ioloop,
+                    callback["callback"],
+                    data,
+                    callback["ioloop"],
+                )
                 continue
 
             if isinstance(callback["callback"], Queue):
@@ -216,7 +250,10 @@ class DataStream:
                 callback["callback"], tornado_queue
             ):
                 callback["ioloop"].add_callback(
-                    helpers.pop_if_full, callback["callback"], data
+                    self.put_tornado_queue,
+                    callback["callback"],
+                    data,
+                    callback["ioloop"],
                 )
                 continue
 

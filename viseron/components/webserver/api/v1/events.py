@@ -310,13 +310,18 @@ class EventsAPIHandler(BaseAPIHandler):
             time_to,
         )
 
-        sorted_events = sorted(
-            motion_events + recording_events + object_events + post_processor_events,
-            key=lambda k: k["created_at"],
-            reverse=True,
-        )
+        def sort_events():
+            return sorted(
+                motion_events
+                + recording_events
+                + object_events
+                + post_processor_events,
+                key=lambda k: k["created_at"],
+                reverse=True,
+            )
 
-        self.response_success(response={"events": sorted_events})
+        sorted_events = await self.run_in_executor(sort_events)
+        await self.response_success(response={"events": sorted_events})
 
     def _events_amount(
         self,
@@ -389,7 +394,7 @@ class EventsAPIHandler(BaseAPIHandler):
             self._get_session,
             [camera.identifier],
         )
-        self.response_success(response={"events_amount": events_amount})
+        await self.response_success(response={"events_amount": events_amount})
 
     async def post_events_amount_multiple(self):
         """Get amount of events per day for multiple cameras.
@@ -401,4 +406,4 @@ class EventsAPIHandler(BaseAPIHandler):
             self._get_session,
             self.json_body["camera_identifiers"],
         )
-        self.response_success(response={"events_amount": events_amount})
+        await self.response_success(response={"events_amount": events_amount})

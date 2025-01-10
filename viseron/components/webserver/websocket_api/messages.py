@@ -1,9 +1,7 @@
 """WebSocket API messages."""
 from __future__ import annotations
 
-import json
 import logging
-from functools import partial
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
@@ -15,9 +13,7 @@ from viseron.components.webserver.const import (
     TYPE_AUTH_REQUIRED,
     TYPE_RESULT,
     TYPE_SUBSCRIPTION_RESULT,
-    WS_ERROR_UNKNOWN_ERROR,
 )
-from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
@@ -45,21 +41,6 @@ def system_information(vis: Viseron) -> dict[str, Any]:
         "git_commit": vis.git_commit,
         "safe_mode": vis.safe_mode,
     }
-
-
-def message_to_json(message: dict[str, Any]) -> str:
-    """Serialize a websocket message to json."""
-    try:
-        return partial(json.dumps, cls=JSONEncoder, allow_nan=False)(message)
-    except (ValueError, TypeError):
-        LOGGER.error(f"Unable to serialize to JSON. Object: {message}", exc_info=True)
-        return partial(json.dumps, cls=JSONEncoder, allow_nan=False)(
-            error_message(
-                message["command_id"],
-                WS_ERROR_UNKNOWN_ERROR,
-                "Invalid JSON in response",
-            )
-        )
 
 
 def auth_ok_message(vis: Viseron) -> dict[str, Any]:

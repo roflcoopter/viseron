@@ -45,7 +45,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
 
     async def run_in_executor(self, func: Callable[..., _T], *args) -> _T:
         """Run function in executor."""
-        return await IOLoop.current().run_in_executor(None, func, *args)
+        return await self.ioloop.run_in_executor(None, func, *args)
 
     async def prepare(self) -> None:  # pylint: disable=invalid-overridden-method
         """Prepare request handler.
@@ -93,6 +93,11 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         if cookie := self.get_cookie("X-Client-UTC-Offset", None):
             return timedelta(minutes=int(cookie))
         return get_utc_offset()
+
+    @property
+    def ioloop(self) -> IOLoop:
+        """Return the IOLoop."""
+        return IOLoop.current()
 
     def on_finish(self) -> None:
         """Log requests with failed authentication."""

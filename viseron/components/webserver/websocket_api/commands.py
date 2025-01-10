@@ -1,18 +1,20 @@
 """WebSocket API commands."""
 from __future__ import annotations
 
+import asyncio
 import datetime
 import enum
+import inspect
 import logging
 import os
 import shutil
 import signal
+import time
 import uuid
 from collections.abc import Callable
 from functools import wraps
 from typing import TYPE_CHECKING, Any, overload
 
-import tornado
 import voluptuous as vol
 from debouncer import DebounceOptions, debounce
 from sqlalchemy import select
@@ -44,16 +46,18 @@ from viseron.const import (
     RESTART_EXIT_CODE,
 )
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
-from viseron.domains.camera.fragmenter import Fragment, get_available_timespans
+from viseron.domains.camera.fragmenter import (
+    Fragment,
+    Timespan,
+    get_available_timespans,
+)
 from viseron.exceptions import Unauthorized
 from viseron.helpers import create_directory, daterange_to_utc, get_utc_offset
-from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .messages import (
     BASE_MESSAGE_SCHEMA,
     cancel_subscription_message,
     error_message,
-    message_to_json,
     pong_message,
     result_message,
     subscription_error_message,
@@ -104,6 +108,22 @@ def websocket_command(
 def require_admin(func):
     """Websocket decorator to require user to be an admin."""
 
+    if inspect.iscoroutinefunction(func):
+
+        @wraps(func)
+        async def async_with_admin(
+            connection: WebSocketHandler, message: dict[str, Any]
+        ) -> None:
+            """Check admin and call async function."""
+            if connection.webserver.auth:
+                user = connection.current_user
+                if user is None or not user.group == Group.ADMIN:
+                    raise Unauthorized()
+
+            await func(connection, message)
+
+        return async_with_admin
+
     @wraps(func)
     def with_admin(connection: WebSocketHandler, message: dict[str, Any]) -> None:
         """Check admin and call function."""
@@ -118,9 +138,9 @@ def require_admin(func):
 
 
 @websocket_command({vol.Required("type"): "ping"})
-def ping(connection: WebSocketHandler, message) -> None:
+async def ping(connection: WebSocketHandler, message) -> None:
     """Respond to ping."""
-    connection.send_message(pong_message(message["command_id"]))
+    await connection.async_send_message(pong_message(message["command_id"]))
 
 
 @websocket_command(
@@ -131,13 +151,13 @@ def ping(connection: WebSocketHandler, message) -> None:
         vol.Optional("debounce", default=None): vol.Maybe(vol.Any(float, int)),
     }
 )
-def subscribe_event(connection: WebSocketHandler, message) -> None:
+async def subscribe_event(connection: WebSocketHandler, message) -> None:
     """Subscribe to an event."""
 
-    def forward_event(event: Event) -> None:
+    async def forward_event(event: Event) -> None:
         """Forward event to WebSocket connection."""
-        connection.send_message(
-            message_to_json(subscription_result_message(message["command_id"], event))
+        await connection.async_send_message(
+            subscription_result_message(message["command_id"], event)
         )
 
     @debounce(
@@ -146,19 +166,19 @@ def subscribe_event(connection: WebSocketHandler, message) -> None:
             time_window=message["debounce"],
         ),
     )
-    def debounced_forward_event(event: Event) -> None:
+    async def debounced_forward_event(event: Event) -> None:
         """Debounce forward event to WebSocket connection.
 
         Use only when the data is not of importance as information may be lost!
         """
-        return forward_event(event)
+        await forward_event(event)
 
     connection.subscriptions[message["command_id"]] = connection.vis.listen_event(
         message["event"],
         debounced_forward_event if message["debounce"] else forward_event,
-        ioloop=tornado.ioloop.IOLoop.current(),
+        ioloop=connection.ioloop,
     )
-    connection.send_message(result_message(message["command_id"]))
+    await connection.async_send_message(result_message(message["command_id"]))
 
 
 @websocket_command(
@@ -167,20 +187,21 @@ def subscribe_event(connection: WebSocketHandler, message) -> None:
         vol.Required("subscription"): int,
     }
 )
-def unsubscribe_event(connection: WebSocketHandler, message) -> None:
+async def unsubscribe_event(connection: WebSocketHandler, message) -> None:
     """Unsubscribe to an event."""
     subscription = message["subscription"]
     if subscription in connection.subscriptions:
         connection.subscriptions.pop(subscription)()
-        connection.send_message(result_message(message["command_id"]))
-    else:
-        connection.send_message(
-            error_message(
-                message["command_id"],
-                WS_ERROR_NOT_FOUND,
-                f"Subscription with command_id {message['subscription']} not found.",
-            )
+        await connection.async_send_message(result_message(message["command_id"]))
+        return
+
+    await connection.async_send_message(
+        error_message(
+            message["command_id"],
+            WS_ERROR_NOT_FOUND,
+            f"Subscription with command_id {message['subscription']} not found.",
         )
+    )
 
 
 @websocket_command(
@@ -190,37 +211,33 @@ def unsubscribe_event(connection: WebSocketHandler, message) -> None:
         vol.Exclusive("entity_ids", "entity"): [str],
     }
 )
-def subscribe_states(connection: WebSocketHandler, message) -> None:
+async def subscribe_states(connection: WebSocketHandler, message) -> None:
     """Subscribe to state changes for one or multiple entities."""
 
-    def forward_state_change(event: Event[EventStateChangedData]) -> None:
+    async def forward_state_change(event: Event[EventStateChangedData]) -> None:
         """Forward state_changed event to WebSocket connection."""
         if "entity_id" in message:
             if event.data.entity_id == message["entity_id"]:
-                connection.send_message(
-                    message_to_json(
-                        subscription_result_message(message["command_id"], event)
-                    )
+                await connection.async_send_message(
+                    subscription_result_message(message["command_id"], event)
                 )
             return
         if "entity_ids" in message:
             if event.data.entity_id in message["entity_ids"]:
-                connection.send_message(
-                    message_to_json(
-                        subscription_result_message(message["command_id"], event)
-                    )
+                await connection.async_send_message(
+                    subscription_result_message(message["command_id"], event)
                 )
             return
-        connection.send_message(
-            message_to_json(subscription_result_message(message["command_id"], event))
+        await connection.async_send_message(
+            subscription_result_message(message["command_id"], event)
         )
 
     connection.subscriptions[message["command_id"]] = connection.vis.listen_event(
         EVENT_STATE_CHANGED,
         forward_state_change,
-        ioloop=tornado.ioloop.IOLoop.current(),
+        ioloop=connection.ioloop,
     )
-    connection.send_message(result_message(message["command_id"]))
+    await connection.async_send_message(result_message(message["command_id"]))
 
 
 @websocket_command(
@@ -229,32 +246,34 @@ def subscribe_states(connection: WebSocketHandler, message) -> None:
         vol.Required("subscription"): int,
     }
 )
-def unsubscribe_states(connection: WebSocketHandler, message) -> None:
+async def unsubscribe_states(connection: WebSocketHandler, message) -> None:
     """Unsubscribe to state changes."""
     message["type"] = "unsubscribe_event"
-    unsubscribe_event(connection, message)
+    await unsubscribe_event(connection, message)
 
 
 @websocket_command({vol.Required("type"): "get_cameras"})
-def get_cameras(connection: WebSocketHandler, message) -> None:
+async def get_cameras(connection: WebSocketHandler, message) -> None:
     """Get all registered cameras."""
-    connection.send_message(
-        message_to_json(
-            result_message(
-                message["command_id"],
-                connection.vis.data[REGISTERED_DOMAINS].get(CAMERA_DOMAIN, {}),
-            ),
-        )
+    await connection.async_send_message(
+        result_message(
+            message["command_id"],
+            connection.vis.data[REGISTERED_DOMAINS].get(CAMERA_DOMAIN, {}),
+        ),
     )
 
 
 @websocket_command({vol.Required("type"): "get_config"})
-def get_config(connection: WebSocketHandler, message) -> None:
+async def get_config(connection: WebSocketHandler, message) -> None:
     """Return config in text format."""
-    with open(CONFIG_PATH, encoding="utf-8") as config_file:
-        config = config_file.read()
 
-    connection.send_message(
+    def read_config() -> str:
+        with open(CONFIG_PATH, encoding="utf-8") as config_file:
+            return config_file.read()
+
+    config = await connection.run_in_executor(read_config)
+
+    await connection.async_send_message(
         result_message(
             message["command_id"],
             {"config": config},
@@ -264,13 +283,17 @@ def get_config(connection: WebSocketHandler, message) -> None:
 
 @require_admin
 @websocket_command({vol.Required("type"): "save_config", vol.Required("config"): str})
-def save_config(connection: WebSocketHandler, message) -> None:
+async def save_config(connection: WebSocketHandler, message) -> None:
     """Save config to file."""
-    try:
+
+    def _save_config():
         with open(CONFIG_PATH, "w", encoding="utf-8") as config_file:
             config_file.write(message["config"])
+
+    try:
+        await connection.run_in_executor(_save_config)
     except Exception as exception:  # pylint: disable=broad-except
-        connection.send_message(
+        await connection.async_send_message(
             error_message(
                 message["command_id"],
                 WS_ERROR_SAVE_CONFIG_FAILED,
@@ -279,7 +302,7 @@ def save_config(connection: WebSocketHandler, message) -> None:
         )
         return
 
-    connection.send_message(
+    await connection.async_send_message(
         result_message(
             message["command_id"],
         )
@@ -288,11 +311,11 @@ def save_config(connection: WebSocketHandler, message) -> None:
 
 @require_admin
 @websocket_command({vol.Required("type"): "restart_viseron"})
-def restart_viseron(connection: WebSocketHandler, message) -> None:
+async def restart_viseron(connection: WebSocketHandler, message) -> None:
     """Restart Viseron."""
     connection.vis.exit_code = RESTART_EXIT_CODE
     os.kill(os.getpid(), signal.SIGINT)
-    connection.send_message(
+    await connection.async_send_message(
         result_message(
             message["command_id"],
         )
@@ -300,13 +323,16 @@ def restart_viseron(connection: WebSocketHandler, message) -> None:
 
 
 @websocket_command({vol.Required("type"): "get_entities"})
-def get_entities(connection: WebSocketHandler, message) -> None:
+async def get_entities(connection: WebSocketHandler, message) -> None:
     """Get all registered entities."""
-    connection.send_message(
-        message_to_json(
-            result_message(message["command_id"], connection.vis.get_entities()),
-        )
+    entities = await connection.run_in_executor(connection.vis.get_entities)
+
+    await connection.async_send_message(
+        result_message(message["command_id"], entities),
     )
+
+
+FORWARD_TIMESPANS_LOCK = asyncio.Lock()
 
 
 @websocket_command(
@@ -315,16 +341,16 @@ def get_entities(connection: WebSocketHandler, message) -> None:
         vol.Required("type"): "subscribe_timespans",
         vol.Required("camera_identifiers"): [str],
         vol.Required("date"): vol.Any(str, None),
-        vol.Optional("debounce", default=0.5): vol.Any(float, int),
+        vol.Optional("debounce", default=5): vol.Any(float, int),
     },
 )
-def subscribe_timespans(connection: WebSocketHandler, message) -> None:
+async def subscribe_timespans(connection: WebSocketHandler, message) -> None:
     """Subscribe to cameras available timespans."""
     camera_identifiers: list[str] = message["camera_identifiers"]
     for camera_identifier in camera_identifiers:
         camera = connection.get_camera(camera_identifier)
         if camera is None:
-            connection.send_message(
+            await connection.async_send_message(
                 error_message(
                     message["command_id"],
                     WS_ERROR_NOT_FOUND,
@@ -340,33 +366,35 @@ def subscribe_timespans(connection: WebSocketHandler, message) -> None:
         time_from = datetime.datetime(1970, 1, 1, 0, 0, 0)
         time_to = datetime.datetime(2999, 12, 31, 23, 59, 59, 999999)
 
-    def send_timespans():
-        """Send available timespans."""
-        timespans = get_available_timespans(
+    def get_timespans() -> list[Timespan]:
+        """Get available timespans."""
+        return get_available_timespans(
             connection.get_session,
             camera_identifiers,
             time_from.timestamp(),
             time_to.timestamp(),
         )
-        connection.send_message(
-            message_to_json(
+
+    setattr(connection, "forward_timespans_last_call", 0.0)
+
+    async def forward_timespans(
+        _event: Event[EventFileCreated] | Event[EventFileDeleted] | None = None,
+    ) -> None:
+        """Forward timespans to WebSocket connection."""
+        async with FORWARD_TIMESPANS_LOCK:
+            if (
+                time.time() - getattr(connection, "forward_timespans_last_call", 0.0)
+                < message["debounce"]
+            ):
+                return
+
+            timespans = await connection.run_in_executor(get_timespans)
+            await connection.async_send_message(
                 subscription_result_message(
                     message["command_id"], {"timespans": timespans}
                 )
             )
-        )
-
-    @debounce(
-        wait=message["debounce"],
-        options=DebounceOptions(  # pylint: disable=unexpected-keyword-arg
-            time_window=message["debounce"],
-        ),
-    )
-    def forward_timespans(
-        _event: Event[EventFileCreated] | Event[EventFileDeleted],
-    ) -> None:
-        """Forward event to WebSocket connection."""
-        send_timespans()
+            setattr(connection, "forward_timespans_last_call", time.time())
 
     subs = []
     for camera_identifier in camera_identifiers:
@@ -379,7 +407,7 @@ def subscribe_timespans(connection: WebSocketHandler, message) -> None:
                     file_name="*",
                 ),
                 forward_timespans,
-                ioloop=tornado.ioloop.IOLoop.current(),
+                ioloop=connection.ioloop,
             )
         )
         subs.append(
@@ -391,7 +419,7 @@ def subscribe_timespans(connection: WebSocketHandler, message) -> None:
                     file_name="*",
                 ),
                 forward_timespans,
-                ioloop=tornado.ioloop.IOLoop.current(),
+                ioloop=connection.ioloop,
             )
         )
 
@@ -401,8 +429,8 @@ def subscribe_timespans(connection: WebSocketHandler, message) -> None:
             unsub()
 
     connection.subscriptions[message["command_id"]] = unsubscribe
-    connection.send_message(result_message(message["command_id"]))
-    send_timespans()
+    await connection.async_send_message(result_message(message["command_id"]))
+    await forward_timespans()
 
 
 @websocket_command(
@@ -411,10 +439,10 @@ def subscribe_timespans(connection: WebSocketHandler, message) -> None:
         vol.Required("subscription"): int,
     }
 )
-def unsubscribe_timespans(connection: WebSocketHandler, message) -> None:
+async def unsubscribe_timespans(connection: WebSocketHandler, message) -> None:
     """Unsubscribe to a cameras available timespans."""
     message["type"] = "unsubscribe_event"
-    unsubscribe_event(connection, message)
+    await unsubscribe_event(connection, message)
 
 
 @websocket_command(
@@ -424,11 +452,11 @@ def unsubscribe_timespans(connection: WebSocketHandler, message) -> None:
         vol.Required("recording_id"): int,
     }
 )
-def export_recording(connection: WebSocketHandler, message) -> None:
+async def export_recording(connection: WebSocketHandler, message) -> None:
     """Export a recording."""
     camera = connection.get_camera(message["camera_identifier"])
     if camera is None:
-        connection.send_message(
+        await connection.async_send_message(
             error_message(
                 message["command_id"],
                 WS_ERROR_NOT_FOUND,
@@ -437,24 +465,18 @@ def export_recording(connection: WebSocketHandler, message) -> None:
         )
         return
 
-    ioloop = tornado.ioloop.IOLoop.current()
-
-    def _result():
+    def _result() -> dict[str, Any] | str:
         with connection.get_session() as session:
             try:
                 recording = session.execute(
                     select(Recordings).where(Recordings.id == message["recording_id"])
                 ).scalar_one()
             except NoResultFound:
-                ioloop.add_callback(
-                    connection.send_message,
-                    subscription_error_message(
-                        message["command_id"],
-                        WS_ERROR_NOT_FOUND,
-                        f"Recording with id {message['recording_id']} not found.",
-                    ),
+                return subscription_error_message(
+                    message["command_id"],
+                    WS_ERROR_NOT_FOUND,
+                    f"Recording with id {message['recording_id']} not found.",
                 )
-                return
 
         files = get_recording_fragments(
             message["recording_id"],
@@ -470,14 +492,11 @@ def export_recording(connection: WebSocketHandler, message) -> None:
         ]
         recording_mp4 = camera.fragmenter.concatenate_fragments(fragments)
         if not recording_mp4:
-            connection.send_message(
-                subscription_error_message(
-                    message["command_id"],
-                    WS_ERROR_NOT_FOUND,
-                    "No fragments found for recording.",
-                )
+            return subscription_error_message(
+                message["command_id"],
+                WS_ERROR_NOT_FOUND,
+                "No fragments found for recording.",
             )
-            return
 
         create_directory(DOWNLOAD_PATH)
         time_string = (recording.start_time + get_utc_offset()).strftime(
@@ -494,30 +513,19 @@ def export_recording(connection: WebSocketHandler, message) -> None:
         )
         connection.webserver.download_tokens[download_token.token] = download_token
 
-        ioloop.add_callback(
-            connection.send_message,
-            message_to_json(
-                subscription_result_message(
-                    message["command_id"],
-                    {
-                        "filename": download_token.filename,
-                        "token": download_token.token,
-                    },
-                )
-            ),
-        )
-        ioloop.add_callback(
-            connection.send_message,
-            message_to_json(cancel_subscription_message(message["command_id"])),
+        return subscription_result_message(
+            message["command_id"],
+            {
+                "filename": download_token.filename,
+                "token": download_token.token,
+            },
         )
 
-    concat_thread = RestartableThread(
-        name=f"viseron.camera.{message['camera_identifier']}.export_recording",
-        target=_result,
-        register=False,
+    await connection.async_send_message(result_message(message["command_id"]))
+    await connection.async_send_message(await connection.run_in_executor(_result))
+    await connection.async_send_message(
+        cancel_subscription_message(message["command_id"]),
     )
-    concat_thread.start()
-    connection.send_message(result_message(message["command_id"]))
 
 
 class EventTypeModelEnum(enum.Enum):
@@ -537,11 +545,11 @@ class EventTypeModelEnum(enum.Enum):
         vol.Required("snapshot_id"): int,
     }
 )
-def export_snapshot(connection: WebSocketHandler, message) -> None:
+async def export_snapshot(connection: WebSocketHandler, message) -> None:
     """Export a snapshot."""
     camera = connection.get_camera(message["camera_identifier"])
     if camera is None:
-        connection.send_message(
+        await connection.async_send_message(
             error_message(
                 message["command_id"],
                 WS_ERROR_NOT_FOUND,
@@ -553,7 +561,7 @@ def export_snapshot(connection: WebSocketHandler, message) -> None:
     try:
         model = EventTypeModelEnum[message["event_type"].upper()].value
     except KeyError:
-        connection.send_message(
+        await connection.async_send_message(
             error_message(
                 message["command_id"],
                 WS_ERROR_NOT_FOUND,
@@ -562,24 +570,18 @@ def export_snapshot(connection: WebSocketHandler, message) -> None:
         )
         return
 
-    ioloop = tornado.ioloop.IOLoop.current()
-
-    def _result():
+    def _result() -> dict[str, Any] | str:
         with connection.get_session() as session:
             try:
                 event = session.execute(
                     select(model).where(model.id == message["snapshot_id"])
                 ).scalar_one()
             except NoResultFound:
-                ioloop.add_callback(
-                    connection.send_message,
-                    error_message(
-                        message["command_id"],
-                        WS_ERROR_NOT_FOUND,
-                        f"Snapshot with id {message['snapshot_id']} not found.",
-                    ),
+                return error_message(
+                    message["command_id"],
+                    WS_ERROR_NOT_FOUND,
+                    f"Snapshot with id {message['snapshot_id']} not found.",
                 )
-                return
 
         create_directory(DOWNLOAD_PATH)
         time_string = (event.created_at + get_utc_offset()).strftime(
@@ -596,30 +598,19 @@ def export_snapshot(connection: WebSocketHandler, message) -> None:
         )
         connection.webserver.download_tokens[download_token.token] = download_token
 
-        ioloop.add_callback(
-            connection.send_message,
-            message_to_json(
-                subscription_result_message(
-                    message["command_id"],
-                    {
-                        "filename": download_token.filename,
-                        "token": download_token.token,
-                    },
-                )
-            ),
-        )
-        ioloop.add_callback(
-            connection.send_message,
-            message_to_json(cancel_subscription_message(message["command_id"])),
+        return subscription_result_message(
+            message["command_id"],
+            {
+                "filename": download_token.filename,
+                "token": download_token.token,
+            },
         )
 
-    result_thread = RestartableThread(
-        name=f"viseron.camera.{message['camera_identifier']}.export_snapshot",
-        target=_result,
-        register=False,
+    await connection.async_send_message(result_message(message["command_id"]))
+    await connection.async_send_message(await connection.run_in_executor(_result))
+    await connection.async_send_message(
+        cancel_subscription_message(message["command_id"]),
     )
-    result_thread.start()
-    connection.send_message(result_message(message["command_id"]))
 
 
 @websocket_command(
@@ -630,11 +621,11 @@ def export_snapshot(connection: WebSocketHandler, message) -> None:
         vol.Required("end"): int,
     }
 )
-def export_timespan(connection: WebSocketHandler, message) -> None:
+async def export_timespan(connection: WebSocketHandler, message) -> None:
     """Export a timespan."""
     camera = connection.get_camera(message["camera_identifier"])
     if camera is None:
-        connection.send_message(
+        await connection.async_send_message(
             error_message(
                 message["command_id"],
                 WS_ERROR_NOT_FOUND,
@@ -643,9 +634,7 @@ def export_timespan(connection: WebSocketHandler, message) -> None:
         )
         return
 
-    ioloop = tornado.ioloop.IOLoop.current()
-
-    def _result():
+    def _result() -> dict[str, Any] | str:
         files = get_time_period_fragments(
             [camera.identifier],
             message["start"],
@@ -653,15 +642,11 @@ def export_timespan(connection: WebSocketHandler, message) -> None:
             connection.get_session,
         )
         if not files:
-            ioloop.add_callback(
-                connection.send_message,
-                subscription_error_message(
-                    message["command_id"],
-                    WS_ERROR_NOT_FOUND,
-                    "No fragments found for timespan.",
-                ),
+            return subscription_error_message(
+                message["command_id"],
+                WS_ERROR_NOT_FOUND,
+                "No fragments found for timespan.",
             )
-            return
 
         fragments = [
             Fragment(
@@ -672,15 +657,12 @@ def export_timespan(connection: WebSocketHandler, message) -> None:
         ]
         timespan_video = camera.fragmenter.concatenate_fragments(fragments)
         if not timespan_video:
-            ioloop.add_callback(
-                connection.send_message,
-                subscription_error_message(
-                    message["command_id"],
-                    WS_ERROR_NOT_FOUND,
-                    "Failed to concatenate fragments.",
-                ),
+            return subscription_error_message(
+                message["command_id"],
+                WS_ERROR_NOT_FOUND,
+                "Failed to concatenate fragments.",
             )
-            return
+
         create_directory(DOWNLOAD_PATH)
         # fromtimestamp automatically converts to server timezone
         time_string = (datetime.datetime.fromtimestamp(message["start"])).strftime(
@@ -703,27 +685,16 @@ def export_timespan(connection: WebSocketHandler, message) -> None:
         )
         connection.webserver.download_tokens[download_token.token] = download_token
 
-        ioloop.add_callback(
-            connection.send_message,
-            message_to_json(
-                subscription_result_message(
-                    message["command_id"],
-                    {
-                        "filename": download_token.filename,
-                        "token": download_token.token,
-                    },
-                )
-            ),
-        )
-        ioloop.add_callback(
-            connection.send_message,
-            message_to_json(cancel_subscription_message(message["command_id"])),
+        return subscription_result_message(
+            message["command_id"],
+            {
+                "filename": download_token.filename,
+                "token": download_token.token,
+            },
         )
 
-    concat_thread = RestartableThread(
-        name=f"viseron.camera.{message['camera_identifier']}.export_timespan",
-        target=_result,
-        register=False,
+    await connection.async_send_message(result_message(message["command_id"]))
+    await connection.async_send_message(await connection.run_in_executor(_result))
+    await connection.async_send_message(
+        cancel_subscription_message(message["command_id"])
     )
-    concat_thread.start()
-    connection.send_message(result_message(message["command_id"]))
