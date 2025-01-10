@@ -1,6 +1,7 @@
 """Start Viseron."""
 from __future__ import annotations
 
+import logging
 import multiprocessing as mp
 import os
 import signal
@@ -9,6 +10,8 @@ import threading
 from threading import Timer
 
 from viseron import Viseron, setup_viseron
+
+LOGGER = logging.getLogger("viseron.main")
 
 
 def main():
@@ -20,11 +23,12 @@ def main():
             viseron.shutdown()
 
         def shutdown_failed():
-            print("Shutdown failed. Exiting forcefully.")
-            print(f"Active threads: {threading.enumerate()}")
-            print(f"Active processes: {mp.active_children()}")
+            LOGGER.debug("Shutdown failed. Exiting forcefully.")
+            LOGGER.debug(f"Active threads: {threading.enumerate()}")
+            LOGGER.debug(f"Active processes: {mp.active_children()}")
             os.kill(os.getpid(), signal.SIGKILL)
 
+        LOGGER.debug(f"Active threads: {threading.enumerate()}")
         shutdown_timer = Timer(2, shutdown_failed, args=())
         shutdown_timer.daemon = True
         shutdown_timer.start()

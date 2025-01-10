@@ -41,7 +41,7 @@ def test_setup_viseron_nvr_loaded(vis, caplog):
                 with patch("viseron.load_config") as mocked_load_config:
                     mocked_load_config.return_value = "Testing"
                     with patch("viseron.components.get_component"):
-                        setup_viseron()
+                        setup_viseron(start_background_scheduler=False)
 
     mocked_setup_components.assert_called_once()
     mocked_setup_domains.assert_called_once()
@@ -86,7 +86,7 @@ def test_setup_viseron_nvr_missing(vis, caplog):
                     with patch("viseron.load_config") as mocked_load_config:
                         mocked_load_config.return_value = "Testing"
                         with patch("viseron.components.get_component"):
-                            setup_viseron()
+                            setup_viseron(start_background_scheduler=False)
 
     mocked_setup_components.assert_called_once()
     mocked_setup_component.assert_called_once()
@@ -119,7 +119,7 @@ def test_setup_viseron_cameras_missing(caplog):
                     with patch("viseron.load_config") as mocked_load_config:
                         mocked_load_config.return_value = "Testing"
                         with patch("viseron.components.get_component"):
-                            setup_viseron()
+                            setup_viseron(start_background_scheduler=False)
 
     mocked_setup_components.assert_called_once()
     mocked_setup_component.assert_not_called()
@@ -144,7 +144,7 @@ def test_setup_viseron_cameras_missing_nvr_loaded(caplog):
                     with patch("viseron.load_config") as mocked_load_config:
                         mocked_load_config.return_value = "Testing"
                         with patch("viseron.components.get_component"):
-                            setup_viseron()
+                            setup_viseron(start_background_scheduler=False)
 
     mocked_setup_components.assert_called_once()
     mocked_setup_component.assert_not_called()

@@ -250,6 +250,7 @@ class Viseron:
     """Viseron."""
 
     def __init__(self, start_background_scheduler=True) -> None:
+        self.logger = LOGGER
         self.states = States(self)
 
         self.setup_threads: list[threading.Thread] = []
@@ -269,12 +270,16 @@ class Viseron:
         self._domain_register_lock = threading.Lock()
         self.data[REGISTERED_DOMAINS] = {}
 
+        self._thread_watchdog: ThreadWatchDog | None = None
+        self._subprocess_watchdog: SubprocessWatchDog | None = None
+        self._process_watchdog: ProcessWatchDog | None = None
+
         self.background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
         if start_background_scheduler:
             self.background_scheduler.start()
-        self._thread_watchdog = ThreadWatchDog(self)
-        self._subprocess_watchdog = SubprocessWatchDog(self)
-        self._process_watchdog = ProcessWatchDog(self)
+            self._thread_watchdog = ThreadWatchDog(self)
+            self._subprocess_watchdog = SubprocessWatchDog(self)
+            self._process_watchdog = ProcessWatchDog(self)
 
         self.storage: Storage | None = None
 
@@ -317,7 +322,8 @@ class Viseron:
             )
             return False
 
-        return self.data[DATA_STREAM_COMPONENT].subscribe_data(
+        data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
+        return data_stream.subscribe_data(
             VISERON_SIGNALS[viseron_signal], callback, stage=viseron_signal
         )
 
@@ -541,9 +547,18 @@ class Viseron:
         if self.data.get(DATA_STREAM_COMPONENT, None):
             data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
 
+        if (
+            self._thread_watchdog
+            and self._subprocess_watchdog
+            and self._process_watchdog
+        ):
+            self._thread_watchdog.stop()
+            self._subprocess_watchdog.stop()
+            self._process_watchdog.stop()
+
         try:
-            self.background_scheduler.shutdown(wait=False)
             self.background_scheduler.remove_all_jobs()
+            self.background_scheduler.shutdown(wait=False)
         except SchedulerNotRunningError as err:
             LOGGER.warning(f"Failed to shutdown scheduler: {err}")
 
@@ -559,6 +574,9 @@ class Viseron:
 
         if data_stream:
             data_stream.remove_all_subscriptions()
+            data_stream.stop()
+            data_stream.join()
+
         LOGGER.info("Shutdown complete in %.1f seconds", timer() - start)
 
     def add_entity(self, component: str, entity: Entity):

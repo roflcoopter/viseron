@@ -114,9 +114,7 @@ class Stream:
 
         self._pipe: sp.Popen | None = None
         self._segment_process: RestartablePopen | None = None
-        self._log_pipe = LogPipe(
-            self._logger, FFMPEG_LOGLEVELS[config[CONFIG_FFMPEG_LOGLEVEL]]
-        )
+        self._log_pipe: LogPipe | None = None
         self._ffprobe = FFprobe(config, camera_identifier)
 
         self._mainstream = self.get_stream_information(config)
@@ -481,6 +479,12 @@ class Stream:
 
     def pipe(self):
         """Return subprocess pipe for FFmpeg."""
+        if self._log_pipe:
+            self._log_pipe.close()
+        self._log_pipe = LogPipe(
+            self._logger, FFMPEG_LOGLEVELS[self._config[CONFIG_FFMPEG_LOGLEVEL]]
+        )
+
         if self._config.get(CONFIG_SUBSTREAM, None):
             self._segment_process = RestartablePopen(
                 self.build_segment_command(),
@@ -524,6 +528,8 @@ class Stream:
                 self._pipe.communicate()
         except AttributeError as error:
             self._logger.error("Failed to close pipe: %s", error)
+        if self._log_pipe:
+            self._log_pipe.close()
 
     def poll(self):
         """Poll pipe."""
@@ -556,9 +562,6 @@ class FFprobe:
     def __init__(self, config: dict[str, Any], camera_identifier: str) -> None:
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._config = config
-        self._log_pipe = LogPipe(
-            self._logger, FFPROBE_LOGLEVELS[config[CONFIG_FFPROBE_LOGLEVEL]]
-        )
         self._ffprobe_timeout = FFPROBE_TIMEOUT
 
     def stream_information(
@@ -638,10 +641,14 @@ class FFprobe:
             reraise=True,
         ):
             with attempt:
+                log_pipe = LogPipe(
+                    self._logger,
+                    FFPROBE_LOGLEVELS[self._config[CONFIG_FFPROBE_LOGLEVEL]],
+                )
                 pipe = sp.Popen(  # type: ignore[call-overload]
                     ffprobe_command,
                     stdout=sp.PIPE,
-                    stderr=self._log_pipe,
+                    stderr=log_pipe,
                 )
                 try:
                     stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
@@ -652,6 +659,8 @@ class FFprobe:
                     ffprobe_timeout = self._ffprobe_timeout
                     self._ffprobe_timeout += FFPROBE_TIMEOUT
                     raise FFprobeTimeout(ffprobe_timeout) from error
+                finally:
+                    log_pipe.close()
                 self._ffprobe_timeout = FFPROBE_TIMEOUT
 
         try:

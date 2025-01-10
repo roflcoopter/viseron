@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from queue import Queue
+from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
@@ -13,6 +13,7 @@ from sqlalchemy import insert
 from viseron.components.storage import Storage
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import PostProcessorResults
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.object_detector.const import (
     EVENT_OBJECTS_IN_FOV,
@@ -92,6 +93,7 @@ class AbstractPostProcessor(ABC):
         else:
             self._logger.debug(f"Post processor will run for labels: {self._labels}")
 
+        self._kill_received = False
         self._post_processor_queue: Queue[Event[EventDetectedObjectsData]] = Queue(
             maxsize=1
         )
@@ -110,11 +112,16 @@ class AbstractPostProcessor(ABC):
             ),
             self._post_processor_queue,
         )
+        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
     def post_process(self) -> None:
         """Post processor loop."""
-        while True:
-            event_data = self._post_processor_queue.get()
+        while not self._kill_received:
+            try:
+                event_data = self._post_processor_queue.get(timeout=1)
+            except Empty:
+                continue
+
             detected_objects_data = event_data.data
 
             if detected_objects_data.shared_frame is None:
@@ -147,6 +154,7 @@ class AbstractPostProcessor(ABC):
                         zone=detected_objects_data.zone,
                     )
                 )
+        self._logger.debug(f"Post processor {self.__class__.__name__} stopped")
 
     @abstractmethod
     def process(self, post_processor_frame: PostProcessorFrame):
@@ -165,3 +173,7 @@ class AbstractPostProcessor(ABC):
             )
             session.execute(stmt)
             session.commit()
+
+    def stop(self) -> None:
+        """Stop post processor."""
+        self._kill_received = True
