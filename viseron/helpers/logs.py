@@ -168,6 +168,7 @@ class LogPipe(threading.Thread):
         self._output_level_func = output_level_func
         self._read_filedescriptor, self._write_filedescriptor = os.pipe()
         self.pipe_reader = os.fdopen(self._read_filedescriptor)
+        self._kill_received = False
         self.start()
 
     def fileno(self):
@@ -176,7 +177,8 @@ class LogPipe(threading.Thread):
 
     def run(self) -> None:
         """Run the thread, logging everything."""
-        for line in iter(self.pipe_reader.readline, ""):
+        while not self._kill_received:
+            line = self.pipe_reader.readline()
             log_str = line.strip().strip("\n")
             if not log_str:
                 continue
@@ -199,10 +201,13 @@ class LogPipe(threading.Thread):
             else:
                 self._logger.log(logging.ERROR, log_str)
 
+        self._logger.debug("LogPipe thread ended")
         self.pipe_reader.close()
 
     def close(self) -> None:
         """Close the write end of the pipe."""
+        self._logger.debug("Closing LogPipe")
+        self._kill_received = True
         os.close(self._write_filedescriptor)
 
 

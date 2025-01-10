@@ -39,3 +39,8 @@ class WatchDog(ABC):
     @abstractmethod
     def watchdog(self):
         """Watchdog."""
+
+    def stop(self):
+        """Stop the watchdog."""
+        LOGGER.debug("Stopping watchdog")
+        self.registered_items = []

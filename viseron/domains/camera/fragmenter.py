@@ -317,6 +317,8 @@ class Fragmenter:
         self._logger.debug("Camera stopped, running final fragmentation")
         self._create_fragmented_mp4()
         self._logger.debug("Fragment thread shutdown complete")
+        self._log_pipe.close()
+        self._log_pipe_ffmpeg.close()
 
     def concatenate_fragments(
         self, fragments: list[Fragment], media_sequence=0
@@ -332,7 +334,7 @@ class Fragmenter:
             end=True,
             file_directive=True,
         )
-        self._logger.debug(f"HLS Playlist for contatenation: {playlist}")
+        self._logger.debug(f"HLS Playlist for concatenation: {playlist}")
         ffmpeg_cmd = (
             [
                 "ffmpeg",

@@ -27,7 +27,7 @@ class MockViseron(Viseron):
     """Protocol for mocking Viseron."""
 
     def __init__(self) -> None:
-        super().__init__()
+        super().__init__(start_background_scheduler=False)
         self.register_domain = Mock(  # type: ignore[method-assign]
             side_effect=self.register_domain,
         )

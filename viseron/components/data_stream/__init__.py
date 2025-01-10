@@ -10,7 +10,7 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
-from queue import Queue
+from queue import Empty, Queue
 from typing import Any, TypedDict
 
 from tornado.ioloop import IOLoop
@@ -72,10 +72,11 @@ class DataStream:
         self._max_threads = self._get_max_threads()
         LOGGER.debug(f"Max threads: {self._max_threads}")
 
-        data_consumer = RestartableThread(
+        self._kill_received = False
+        self._data_consumer = RestartableThread(
             name="data_stream", target=self.consume_data, daemon=True, register=True
         )
-        data_consumer.start()
+        self._data_consumer.start()
 
     def _get_max_threads(self) -> int:
         """Get the maximum number of threads allowed."""
@@ -283,7 +284,20 @@ class DataStream:
 
     def consume_data(self) -> None:
         """Publish data to topics."""
-        while True:
-            data_item = self._data_queue.get()
+        while not self._kill_received:
+            try:
+                data_item = self._data_queue.get(timeout=0.1)
+            except Empty:
+                continue
+
             self.static_subscriptions(data_item)
             self.wildcard_subscriptions(data_item)
+        LOGGER.debug("Data stream stopped")
+
+    def join(self) -> None:
+        """Join the data stream."""
+        self._data_consumer.join()
+
+    def stop(self) -> None:
+        """Stop the data stream."""
+        self._kill_received = True

@@ -741,14 +741,6 @@ class NVR:
         if self._camera.is_recording:
             self._camera.stop_recorder()
 
-        # Empty frame queue before exiting
-        while True:
-            try:
-                shared_frame = self._frame_queue.get(timeout=1)
-            except Empty:
-                break
-            self._camera.shared_frames.remove(shared_frame, self._camera)
-
         for timer in self._removal_timers:
             timer.cancel()
 

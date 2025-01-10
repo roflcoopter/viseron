@@ -141,7 +141,14 @@ class ProcessWatchDog(WatchDog):
     def __init__(self, vis: Viseron) -> None:
         super().__init__()
         vis.background_scheduler.add_job(
-            self.watchdog, "interval", name="process_watchdog", seconds=15
+            self.watchdog,
+            "interval",
+            id="process_watchdog",
+            name="process_watchdog",
+            seconds=15,
+            max_instances=1,
+            coalesce=True,
+            replace_existing=True,
         )
 
     def watchdog(self) -> None:
