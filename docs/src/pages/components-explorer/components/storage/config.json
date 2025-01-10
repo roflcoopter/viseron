@@ -1272,7 +1272,7 @@
           }
         ],
         "name": "snapshots",
-        "description": "Snapshots are images taken when events are triggered or post processors finds anything. Snapshots will be taken for object detection, motiond detection, and any post processor that scans the image, for example face and license plate recognition.",
+        "description": "Snapshots are images taken when events are triggered or post processors finds anything. Snapshots will be taken for object detection, motion detection, and any post processor that scans the image, for example face and license plate recognition.",
         "optional": true,
         "default": {}
       }

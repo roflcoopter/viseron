@@ -102,7 +102,7 @@ DESC_RECORDER_TIERS = (
 DESC_SNAPSHOTS = (
     "Snapshots are images taken when events are triggered or post processors finds "
     "anything. "
-    "Snapshots will be taken for object detection, motiond detection, and any post "
+    "Snapshots will be taken for object detection, motion detection, and any post "
     "processor that scans the image, for example face and license plate recognition."
 )
 DESC_SNAPSHOTS_TIERS = (
