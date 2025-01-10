@@ -20,7 +20,7 @@ export default ComponentMetadata;
 
 DOCS_IMPORTS = """import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
-import ComponentTroubleshooting from "@site/src/pages/components-explorer/components/troubleshooting.mdx";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
 
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
@@ -47,6 +47,7 @@ Config example here
 """
 
 DOCS_FOOTER = """<ComponentTroubleshooting meta={ComponentMetadata} />
+
 """
 
 DOCS_OBJECT_DETECTOR_IMPORTS = """import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";

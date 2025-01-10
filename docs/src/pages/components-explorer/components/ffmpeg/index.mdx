@@ -298,6 +298,7 @@ ffmpeg:
       path: /Streaming/Channels/101/
       username: !secret camera_one_user
       password: !secret camera_one_pass
+      // highlight-start
       video_filters: # Rotate the frames processed by Viseron
         - transpose=1
       width: 1080 # Width of the rotated video = height of the camera
@@ -306,6 +307,36 @@ ffmpeg:
         idle_timeout: 5
         video_filters: # Rotate the recorded videos
           - transpose=1
+      // highlight-end
+```
+
+</details>
+
+### Adding timestamp to video
+
+To add a timestamp to the video you can use the `drawtext` filter in FFmpeg.<br />
+This filter is quite complex and you can read more about it [here](https://ffmpeg.org/ffmpeg-filters.html#drawtext-1).
+
+To apply the filter you need to add it to the `video_filters` option in the config.
+
+<details>
+  <summary>Config to add a timestamp to the video</summary>
+
+```yaml title="/config/config.yaml"
+
+ffmpeg:
+  camera:
+    camera_one:
+      name: Camera 1
+      host: 192.168.XX.X
+      port: 554
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_user
+      password: !secret camera_one_pass
+      // highlight-start
+      video_filters:
+        - drawtext=text='%{localtime}':x=(w-tw):y=h-(2*lh):fontcolor=white:box=1:boxcolor=0x00000000@1:fontsize=20
+      // highlight-end
 ```
 
 </details>
