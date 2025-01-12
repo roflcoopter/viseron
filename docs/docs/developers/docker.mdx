@@ -11,7 +11,7 @@ Viseron heavily uses multistage Docker builds, and compilation of different comp
 If you have made changes to the Viseron code and want to rebuild the image, you can run the following command.
 
 ```shell
-docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron
+docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-viseron
 ```
 
 :::tip
@@ -31,11 +31,11 @@ If your changes requires a new or updated Python dependency, you have to rebuild
 - Edit `requirements.txt` in the root of the repository (preferably by pinning the version of the dependency).
 - Build the wheels image:
   ```shell
-  docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-wheels
+  docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-wheels
   ```
 - Build Viseron image:
   ```shell
-    docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron
+    docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-viseron
   ```
 
 ### Upgrading library versions
@@ -46,11 +46,11 @@ To do this you would:
 - Edit `OPENCV_VERSION` in ./azure-pipelines/.env
 - Build the OpenCV image:
   ```shell
-  docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-opencv
+  docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-opencv
   ```
 - Build Viseron image:
   ```shell
-  docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron
+  docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-viseron
   ```
 
 ### Rebuild all images
@@ -58,12 +58,12 @@ To do this you would:
 To build all the `amd64` image from scratch the following commands can be used.
 
 ```shell
-docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-ffmpeg && \
-docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-opencv && \
-docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-dlib && \
-docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-wheels && \
-docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-base && \
-docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build amd64-viseron
+docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-ffmpeg && \
+docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-opencv && \
+docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-dlib && \
+docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-wheels && \
+docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-base && \
+docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-viseron
 ```
 
 ### Cross-building
@@ -80,7 +80,7 @@ docker run --rm --privileged tonistiigi/binfmt --install all
 You can then simply build the containers like you normally would and QEMU will be invoked automatically.
 
 ```shell
-docker compose --file ./azure-pipelines/docker-compose-build.yaml --env ./azure-pipelines/.env build aarch64-viseron
+docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build aarch64-viseron
 ```
 
 ### Architecture and Hardware specific images
