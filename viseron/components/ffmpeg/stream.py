@@ -479,8 +479,13 @@ class Stream:
 
     def pipe(self):
         """Return subprocess pipe for FFmpeg."""
-        if self._log_pipe:
-            self._log_pipe.close()
+        try:
+            if self._log_pipe:
+                self._log_pipe.close()
+                self._log_pipe = None
+        except OSError as error:
+            self._logger.error("Failed to close log pipe: %s", error)
+
         self._log_pipe = LogPipe(
             self._logger, FFMPEG_LOGLEVELS[self._config[CONFIG_FFMPEG_LOGLEVEL]]
         )
@@ -528,8 +533,13 @@ class Stream:
                 self._pipe.communicate()
         except AttributeError as error:
             self._logger.error("Failed to close pipe: %s", error)
-        if self._log_pipe:
-            self._log_pipe.close()
+
+        try:
+            if self._log_pipe:
+                self._log_pipe.close()
+                self._log_pipe = None
+        except OSError as error:
+            self._logger.error("Failed to close log pipe: %s", error)
 
     def poll(self):
         """Poll pipe."""
