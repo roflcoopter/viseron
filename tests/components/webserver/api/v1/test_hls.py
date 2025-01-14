@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from sqlalchemy import delete, insert, update
 
-from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.components.storage.models import Files, Recordings
 from viseron.components.webserver.api.v1.hls import count_files_removed
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
 from viseron.domains.camera.fragmenter import Fragment
@@ -153,14 +153,8 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                         directory="test",
                         filename=filename,
                         size=10,
-                        created_at=timestamp,
-                    )
-                )
-                session.execute(
-                    insert(FilesMeta).values(
-                        path=f"/test/{filename}",
                         orig_ctime=timestamp,
-                        meta={"m3u8": {"EXTINF": 5}},
+                        duration=5,
                         created_at=timestamp,
                     )
                 )

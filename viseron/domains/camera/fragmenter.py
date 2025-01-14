@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Literal, TypedDict
 
 import psutil
 from path import Path
-from sqlalchemy import insert
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import FilesMeta
@@ -209,26 +208,21 @@ class Fragmenter:
         extinf: float,
         program_date_time: datetime.datetime | None = None,
     ):
-        """Write metadata about the fragmented mp4 to the database."""
-        with self._storage.get_session() as session:
-            if program_date_time:
-                orig_ctime = program_date_time
-            else:
-                orig_ctime = (
-                    datetime.datetime.fromtimestamp(int(file.split(".")[0]), tz=None)
-                    - get_utc_offset()
-                )
-                orig_ctime = orig_ctime.replace(tzinfo=datetime.timezone.utc)
-
-            stmt = insert(FilesMeta).values(
-                path=os.path.join(
-                    self._camera.segments_folder, file.split(".")[0] + ".m4s"
-                ),
-                orig_ctime=orig_ctime,
-                meta={"m3u8": {"EXTINF": extinf}},
+        """Save temporary metadata which is later used when inserting into the DB."""
+        if program_date_time:
+            orig_ctime = program_date_time
+        else:
+            orig_ctime = (
+                datetime.datetime.fromtimestamp(int(file.split(".")[0]), tz=None)
+                - get_utc_offset()
             )
-            session.execute(stmt)
-            session.commit()
+            orig_ctime = orig_ctime.replace(tzinfo=datetime.timezone.utc)
+
+        path = os.path.join(self._camera.segments_folder, file.split(".")[0] + ".m4s")
+        self._storage.temporary_files_meta[path] = FilesMeta(
+            orig_ctime=orig_ctime,
+            duration=extinf,
+        )
 
     def _read_m3u8_mp4box(self, file: str) -> str:
         """Read m3u8 file created by MP4Box."""
@@ -468,13 +462,10 @@ def get_available_timespans(
         Fragment(
             file.filename,
             f"/files{file.path}",
-            float(
-                file.meta["m3u8"]["EXTINF"],
-            ),
+            file.duration,
             file.orig_ctime,
         )
         for file in files
-        if file.meta.get("m3u8", {}).get("EXTINF", False)
     ]
 
     timespans: list[Timespan] = []

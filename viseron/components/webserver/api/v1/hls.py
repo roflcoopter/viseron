@@ -251,13 +251,10 @@ def _generate_playlist(
         Fragment(
             file.filename,
             f"/files{file.path}",
-            float(
-                file.meta["m3u8"]["EXTINF"],
-            ),
+            file.duration,
             file.orig_ctime,
         )
         for file in files
-        if file.meta.get("m3u8", {}).get("EXTINF", False)
     ]
 
     end: bool = True
@@ -274,7 +271,7 @@ def _generate_playlist(
     # Recording has ended but the last file is not finished yet
     elif len(files) > 0 and recording.end_time.timestamp() > float(
         files[-1].filename.split(".")[0]
-    ) + float(files[-1].meta["m3u8"]["EXTINF"]):
+    ) + float(files[-1].duration):
         LOGGER.debug("Recording has ended but the last file is not finished yet")
         end = False
 
@@ -322,19 +319,17 @@ def _generate_playlist_time_period(
     files = get_time_period_fragments(
         [camera.identifier], start_timestamp, end_timestamp, get_session
     )
-    fragments = []
-    end_playlist = bool(end_timestamp) if not end_playlist_at_timestamp else False
+    fragments = [
+        Fragment(
+            file.filename,
+            f"/files{file.path}",
+            file.duration,
+            file.orig_ctime,
+        )
+        for file in files
+    ]
 
-    for file in files:
-        if file.meta.get("m3u8", {}).get("EXTINF", False):
-            fragments.append(
-                Fragment(
-                    file.filename,
-                    f"/files{file.path}",
-                    float(file.meta["m3u8"]["EXTINF"]),
-                    file.orig_ctime,
-                )
-            )
+    end_playlist = bool(end_timestamp) if not end_playlist_at_timestamp else False
 
     media_sequence = (
         update_hls_client(hls_client_id, fragments)

@@ -35,14 +35,13 @@ from viseron.components.storage.const import (
     DESC_COMPONENT,
 )
 from viseron.components.storage.jobs import CleanupManager
-from viseron.components.storage.models import Base, Motion, Recordings
+from viseron.components.storage.models import Base, FilesMeta, Motion, Recordings
 from viseron.components.storage.tier_handler import (
     RecordingsTierHandler,
     SegmentsTierHandler,
     SnapshotTierHandler,
     ThumbnailTierHandler,
 )
-from viseron.components.storage.triggers import setup_triggers
 from viseron.components.storage.util import (
     RequestedFilesCount,
     get_recorder_path,
@@ -181,6 +180,8 @@ class Storage:
         self.engine: Engine | None = None
         self._get_session: Callable[[], Session] | None = None
 
+        self.temporary_files_meta: dict[str, FilesMeta] = {}
+
         self._cleanup_manager = CleanupManager(vis, self)
         self._cleanup_manager.start()
 
@@ -193,7 +194,6 @@ class Storage:
         """Initialize storage component."""
         self._alembic_cfg = self._get_alembic_config()
         self.create_database()
-        setup_triggers(self.engine)
 
         self._vis.listen_event(
             EVENT_DOMAIN_REGISTERED.format(domain=CAMERA_DOMAIN),

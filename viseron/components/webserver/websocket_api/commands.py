@@ -484,11 +484,8 @@ async def export_recording(connection: WebSocketHandler, message) -> None:
             connection.get_session,
         )
         fragments = [
-            Fragment(
-                file.filename, file.path, file.meta["m3u8"]["EXTINF"], file.orig_ctime
-            )
+            Fragment(file.filename, file.path, file.duration, file.orig_ctime)
             for file in files
-            if file.meta.get("m3u8", False).get("EXTINF", False)
         ]
         recording_mp4 = camera.fragmenter.concatenate_fragments(fragments)
         if not recording_mp4:
@@ -649,11 +646,8 @@ async def export_timespan(connection: WebSocketHandler, message) -> None:
             )
 
         fragments = [
-            Fragment(
-                file.filename, file.path, file.meta["m3u8"]["EXTINF"], file.orig_ctime
-            )
+            Fragment(file.filename, file.path, file.duration, file.orig_ctime)
             for file in files
-            if file.meta.get("m3u8", False).get("EXTINF", False)
         ]
         timespan_video = camera.fragmenter.concatenate_fragments(fragments)
         if not timespan_video:
