@@ -354,27 +354,28 @@ class AbstractRecorder(ABC, RecorderBase):
             )
             concat_thread.start()
 
+    def video_name(self, start_time: datetime.datetime) -> str:
+        """Return video name."""
+        filename_pattern = (start_time + get_utc_offset()).strftime(
+            self._config[CONFIG_RECORDER][CONFIG_FILENAME_PATTERN]
+        )
+        return f"{filename_pattern}.{self._camera.extension}"
+
     def _concatenate_fragments(self, recording: Recording) -> None:
         files = recording.get_fragments(
             self.lookback,
             self._storage.get_session,
         )
         fragments = [
-            Fragment(
-                file.filename, file.path, file.meta["m3u8"]["EXTINF"], file.orig_ctime
-            )
+            Fragment(file.filename, file.path, file.duration, file.orig_ctime)
             for file in files
-            if file.meta.get("m3u8", False).get("EXTINF", False)
         ]
         event_clip = self._camera.fragmenter.concatenate_fragments(fragments)
         if not event_clip:
             return
 
         # Create filename
-        filename_pattern = recording.start_time.strftime(
-            self._config[CONFIG_RECORDER][CONFIG_FILENAME_PATTERN]
-        )
-        video_name = f"{filename_pattern}.{self._camera.extension}"
+        video_name = self.video_name(recording.start_time)
 
         # Create foldername
         full_path = os.path.join(

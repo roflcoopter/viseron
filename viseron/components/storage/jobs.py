@@ -17,7 +17,6 @@ from sqlalchemy import and_, delete, exists, func, select
 from viseron.components.storage.models import (
     Events,
     Files,
-    FilesMeta,
     Motion,
     Objects,
     PostProcessorResults,
@@ -582,14 +581,13 @@ class OrphanedRecordingsCleanup(BaseCleanupJob):
                     has_segments = session.execute(
                         select(1)
                         .select_from(Files)
-                        .join(FilesMeta, Files.path == FilesMeta.path)
                         .where(
                             and_(
                                 Files.category == "recorder",
                                 Files.subcategory == "segments",
                                 Files.camera_identifier
                                 == recording[0].camera_identifier,
-                                FilesMeta.orig_ctime.between(
+                                Files.orig_ctime.between(
                                     recording[0].start_time, recording[0].end_time
                                 ),
                             )
@@ -685,25 +683,6 @@ class OrphanedMotionCleanup(BaseTableCleanupJob):
             self.batch_delete_orphaned(session, Motion, Motion.snapshot_path)
 
 
-class OrphanedFilesMetaCleanup(BaseTableCleanupJob):
-    """Cleanup job that removes orphaned file meta records from the database.
-
-    Deletes records from the FilesMeta table where the referenced path
-    no longer exists in the Files table.
-    """
-
-    @property
-    def name(self) -> str:
-        """Return job name."""
-        return "cleanup_orphaned_files_meta"
-
-    def _run(self) -> None:
-        """Run the job."""
-        LOGGER.debug("Running %s", self.name)
-        with self._storage.get_session() as session:
-            self.batch_delete_orphaned(session, FilesMeta, FilesMeta.path)
-
-
 class OldEventsCleanup(BaseCleanupJob):
     """Cleanup job that removes old events from the database.
 
@@ -751,9 +730,6 @@ class CleanupManager:
             OrphanedDatabaseFilesCleanup(
                 vis, storage, CronTrigger(day_of_week="wed", hour=3, minute=0)
             ),
-            OrphanedFilesMetaCleanup(
-                vis, storage, CronTrigger(day_of_week="fri", hour=3, minute=0)
-            ),
             EmptyFoldersCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedThumbnailsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedClipsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
@@ -777,6 +753,7 @@ class CleanupManager:
                 id=job.name,
                 max_instances=1,
                 coalesce=True,
+                replace_existing=True,
             )
 
     def stop(self):

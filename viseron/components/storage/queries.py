@@ -6,12 +6,10 @@ import logging
 from collections.abc import Callable
 
 from sqlalchemy import (
-    Float,
     Integer,
     String,
     TextualSelect,
     and_,
-    cast,
     column,
     desc,
     func,
@@ -19,11 +17,10 @@ from sqlalchemy import (
     select,
     text,
 )
-from sqlalchemy.dialects.postgresql import INTERVAL
 from sqlalchemy.orm import Session
-from sqlalchemy.sql.functions import coalesce, concat
+from sqlalchemy.sql.functions import coalesce
 
-from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.components.storage.models import Files, Recordings
 from viseron.helpers import utcnow
 
 LOGGER = logging.getLogger(__name__)
@@ -64,7 +61,7 @@ def files_to_move_query(
                   ,f.category
                   ,f.subcategory
                   ,f.path
-                  ,fm.orig_ctime
+                  ,f.orig_ctime
                   ,sum(f.size) FILTER (
                       WHERE f.category = :category
                         AND f.subcategory = :subcategory
@@ -72,14 +69,12 @@ def files_to_move_query(
                         AND f.camera_identifier = :camera_identifier
                   ) OVER win1 AS total_bytes
               FROM files f
-              JOIN files_meta fm
-                ON f.path = fm.path
             WINDOW win1 AS (
                 PARTITION BY f.category, f.tier_id
-                ORDER BY fm.orig_ctime DESC
+                ORDER BY f.orig_ctime DESC
                 RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
             )
-            ORDER BY fm.orig_ctime DESC
+            ORDER BY f.orig_ctime DESC
         )
         SELECT id, path, tier_path
           FROM size_sum
@@ -154,15 +149,13 @@ def recordings_to_move_query(
                   ,f.subcategory
                   ,f.path
                   ,f.size
+                  ,f.orig_ctime
                   ,r.id as recording_id
                   ,r.created_at as recording_created_at
-                  ,meta.orig_ctime
               FROM files f
-              JOIN files_meta meta
-                ON f.path = meta.path
          LEFT JOIN recordings r
                 ON f.camera_identifier = r.camera_identifier
-               AND meta.orig_ctime BETWEEN
+               AND f.orig_ctime BETWEEN
                     r.adjusted_start_time AND
                     COALESCE(r.end_time + INTERVAL ':segment_length sec', now())
              WHERE f.category = 'recorder'
@@ -262,24 +255,17 @@ def get_recording_fragments(
         .label("row_number")
     )
     recording_files = (
-        select(Files, FilesMeta)
+        select(Files)
         .add_columns(row_number)
         .join(Recordings, Files.camera_identifier == Recordings.camera_identifier)
-        .join(FilesMeta, Files.path == FilesMeta.path)
         .where(Recordings.id == recording_id)
         .where(Files.category == "recorder")
-        .where(Files.path.endswith(".m4s"))
-        .where(FilesMeta.meta.comparator.has_key("m3u8"))  # type: ignore[attr-defined]
-        .where(
-            FilesMeta.meta["m3u8"].comparator.has_key(  # type: ignore[attr-defined]
-                "EXTINF"
-            ),
-        )
-        .where(FilesMeta.meta["m3u8"]["EXTINF"].astext.cast(Float) > 0)
+        .where(Files.subcategory == "segments")
+        .where(Files.duration.isnot(None))
         .where(
             or_(
                 # Fetch all files that start within the recording
-                FilesMeta.orig_ctime.between(
+                Files.orig_ctime.between(
                     Recordings.start_time - datetime.timedelta(seconds=lookback),
                     coalesce(Recordings.end_time, now if now else utcnow()),
                 ),
@@ -287,17 +273,22 @@ def get_recording_fragments(
                 # ends during the recording
                 and_(
                     Recordings.start_time - datetime.timedelta(seconds=lookback)
-                    >= FilesMeta.orig_ctime,
+                    >= Files.orig_ctime,
                     Recordings.start_time - datetime.timedelta(seconds=lookback)
-                    <= FilesMeta.orig_ctime
-                    + cast(
-                        concat(FilesMeta.meta["m3u8"]["EXTINF"], " sec"),
-                        INTERVAL,
+                    <= Files.orig_ctime
+                    + func.make_interval(
+                        0,  # years
+                        0,  # months
+                        0,  # days
+                        0,  # hours
+                        0,  # minutes
+                        0,  # seconds
+                        func.round(Files.duration),
                     ),
                 ),
             )
         )
-        .order_by(FilesMeta.orig_ctime.asc())
+        .order_by(Files.orig_ctime.asc())
         .cte("recording_files")
     )
     stmt = (
@@ -330,40 +321,38 @@ def get_time_period_fragments(
         .label("row_number")
     )
     files = (
-        select(Files, FilesMeta)
+        select(Files)
         .add_columns(row_number)
-        .join(FilesMeta, Files.path == FilesMeta.path)
         .where(Files.camera_identifier.in_(camera_identifiers))
         .where(Files.category == "recorder")
-        .where(Files.path.endswith(".m4s"))
-        .where(FilesMeta.meta.comparator.has_key("m3u8"))  # type: ignore[attr-defined]
-        .where(
-            FilesMeta.meta["m3u8"].comparator.has_key(  # type: ignore[attr-defined]
-                "EXTINF"
-            ),
-        )
-        .where(FilesMeta.meta["m3u8"]["EXTINF"].astext.cast(Float) > 0)
+        .where(Files.subcategory == "segments")
+        .where(Files.duration.isnot(None))
         .where(
             or_(
                 # Fetch all files that start within the recording
-                FilesMeta.orig_ctime.between(
+                Files.orig_ctime.between(
                     start,
                     end,
                 ),
                 # Fetch the first file that starts before the recording but
                 # ends during the recording
                 and_(
-                    start >= FilesMeta.orig_ctime,
+                    start >= Files.orig_ctime,
                     start
-                    <= FilesMeta.orig_ctime
-                    + cast(
-                        concat(FilesMeta.meta["m3u8"]["EXTINF"], " sec"),
-                        INTERVAL,
+                    <= Files.orig_ctime
+                    + func.make_interval(
+                        0,  # years
+                        0,  # months
+                        0,  # days
+                        0,  # hours
+                        0,  # minutes
+                        0,  # seconds
+                        func.round(Files.duration),
                     ),
                 ),
             )
         )
-        .order_by(FilesMeta.orig_ctime.asc())
+        .order_by(Files.orig_ctime.asc())
         .cte("files")
     )
     stmt = (

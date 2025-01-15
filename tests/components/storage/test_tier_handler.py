@@ -56,12 +56,15 @@ def test_handle_file_move(
     tier_2 = {
         "path": "/tmp/tier2/",
     }
+    storage = MagicMock()
     session = MagicMock()
     logger = MagicMock()
     handle_file(
-        session, MagicMock(), "test", tier_1, tier_2, tier_1_file, "/tmp/tier1/", logger
+        session, storage, "test", tier_1, tier_2, tier_1_file, "/tmp/tier1/", logger
     )
-    mock_move_file.assert_called_once_with(session, tier_1_file, tier_2_file, logger)
+    mock_move_file.assert_called_once_with(
+        storage, session, tier_1_file, tier_2_file, logger
+    )
 
 
 @dataclass

@@ -3,7 +3,7 @@ import datetime
 
 from sqlalchemy import insert, update
 
-from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.components.storage.models import Files, Recordings
 from viseron.components.storage.queries import (
     files_to_move_query,
     get_recording_fragments,
@@ -260,14 +260,8 @@ class TestMoveQueries(BaseTestWithRecordings):
                     directory="tier2",
                     filename=filename,
                     size=10,
-                    created_at=created_at,
-                )
-            )
-            session.execute(
-                insert(FilesMeta).values(
-                    path=f"/tier2/{filename}",
                     orig_ctime=timestamp,
-                    meta={"m3u8": {"EXTINF": 5}},
+                    duration=5,
                     created_at=created_at,
                 )
             )
@@ -300,14 +294,8 @@ class TestMoveQueries(BaseTestWithRecordings):
                     directory="tier2",
                     filename=filename,
                     size=10,
-                    created_at=created_at,
-                )
-            )
-            session.execute(
-                insert(FilesMeta).values(
-                    path=f"/tier2/{filename}",
                     orig_ctime=timestamp,
-                    meta={"m3u8": {"EXTINF": 5}},
+                    duration=5,
                     created_at=created_at,
                 )
             )
@@ -327,14 +315,8 @@ class TestMoveQueries(BaseTestWithRecordings):
                     directory="tier1",
                     filename=filename,
                     size=10,
-                    created_at=created_at,
-                )
-            )
-            session.execute(
-                insert(FilesMeta).values(
-                    path=f"/tier1/{filename}",
                     orig_ctime=timestamp,
-                    meta={"m3u8": {"EXTINF": None}},
+                    duration=None,
                     created_at=created_at,
                 )
             )

@@ -255,6 +255,7 @@ class TierHandler(FileSystemEventHandler):
     def _on_created(self, event: FileCreatedEvent) -> None:
         """Insert into database when file is created."""
         self._logger.debug("File created: %s", event.src_path)
+        file_meta = self._storage.temporary_files_meta.pop(event.src_path, None)
         try:
             with self._storage.get_session() as session:
                 stmt = insert(Files).values(
@@ -267,6 +268,8 @@ class TierHandler(FileSystemEventHandler):
                     directory=os.path.dirname(event.src_path),
                     filename=os.path.basename(event.src_path),
                     size=os.path.getsize(event.src_path),
+                    orig_ctime=file_meta.orig_ctime if file_meta else utcnow(),
+                    duration=file_meta.duration if file_meta else None,
                 )
                 session.execute(stmt)
                 session.commit()
@@ -328,8 +331,6 @@ class TierHandler(FileSystemEventHandler):
         self._logger.debug("File deleted: %s", event.src_path)
         with self._storage.get_session() as session:
             stmt = delete(Files).where(Files.path == event.src_path)
-            session.execute(stmt)
-            stmt = delete(FilesMeta).where(FilesMeta.path == event.src_path)
             session.execute(stmt)
             session.commit()
 
@@ -858,6 +859,7 @@ def handle_file(
             )
         else:
             move_file(
+                storage,
                 get_session,
                 path,
                 new_path,
@@ -879,12 +881,11 @@ def handle_file(
         with get_session() as session:
             stmt = delete(Files).where(Files.path == path)
             session.execute(stmt)
-            stmt = delete(FilesMeta).where(FilesMeta.path == path)
-            session.execute(stmt)
             session.commit()
 
 
 def move_file(
+    storage: Storage,
     get_session: Callable[..., Session],
     src: str,
     dst: str,
@@ -899,15 +900,11 @@ def move_file(
     logger.debug("Moving file from %s to %s", src, dst)
     try:
         with get_session() as session:
-            sel = select(FilesMeta).where(FilesMeta.path == src)
+            sel = select(Files).where(Files.path == src)
             res = session.execute(sel).scalar_one()
-            ins = insert(FilesMeta).values(
-                path=dst, meta=res.meta, orig_ctime=res.orig_ctime
+            storage.temporary_files_meta[dst] = FilesMeta(
+                orig_ctime=res.orig_ctime, duration=res.duration
             )
-            session.execute(ins)
-            session.commit()
-    except IntegrityError as error:
-        logger.debug(f"Failed to insert metadata for {dst}: {error}")
     except NoResultFound as error:
         logger.debug(f"Failed to find metadata for {src}: {error}")
         with get_session() as session:
@@ -929,8 +926,6 @@ def move_file(
         with get_session() as session:
             stmt = delete(Files).where(Files.path == src)
             session.execute(stmt)
-            stmt = delete(FilesMeta).where(FilesMeta.path == src)
-            session.execute(stmt)
             session.commit()
 
 
@@ -943,8 +938,6 @@ def delete_file(
     logger.debug("Deleting file %s", path)
     with get_session() as session:
         stmt = delete(Files).where(Files.path == path)
-        session.execute(stmt)
-        stmt = delete(FilesMeta).where(FilesMeta.path == path)
         session.execute(stmt)
         session.commit()
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
@@ -119,6 +120,10 @@ class Files(Base):
     directory: Mapped[str] = mapped_column(String)
     filename: Mapped[str] = mapped_column(String)
     size: Mapped[int] = mapped_column(Integer)
+    duration: Mapped[float] = mapped_column(Float, nullable=True)
+    orig_ctime: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), nullable=False
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
     )
@@ -127,29 +132,15 @@ class Files(Base):
     )
 
 
-class FilesMeta(Base):
-    """Database model for files metadata.
+@dataclass
+class FilesMeta:
+    """Files meta dataclass.
 
-    Used to store arbitrary metadata about files.
+    Holds temporary information about files before they are inserted into the DB.
     """
 
-    __tablename__ = "files_meta"
-
-    __table_args__ = (
-        Index("idx_files_meta_path", "path"),
-        Index("idx_files_meta_orig_ctime", "orig_ctime"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    path: Mapped[str] = mapped_column(String, unique=True)
-    orig_ctime = mapped_column(UTCDateTime(timezone=False), nullable=False)
-    meta: Mapped[ColumnMeta] = mapped_column(JSONB)
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
-    )
-    updated_at: Mapped[datetime.datetime] = mapped_column(
-        UTCDateTime(timezone=False), onupdate=UTCNow(), nullable=True
-    )
+    orig_ctime: datetime.datetime
+    duration: float
 
 
 class TriggerTypes(Enum):
