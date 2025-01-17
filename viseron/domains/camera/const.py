@@ -10,18 +10,18 @@ UPDATE_TOKEN_INTERVAL_MINUTES: Final = 5
 VIDEO_CONTAINER = "mp4"
 
 # Event topic constants
-EVENT_STATUS = "{camera_identifier}/camera/status"
-EVENT_STATUS_DISCONNECTED = "disconnected"
-EVENT_STATUS_CONNECTED = "connected"
-
-EVENT_RECORDER_START = "{camera_identifier}/recorder/start"
-EVENT_RECORDER_STOP = "{camera_identifier}/recorder/stop"
-EVENT_RECORDER_COMPLETE = "{camera_identifier}/recorder/complete"
-
+EVENT_CAMERA_STATUS = "{camera_identifier}/camera/status"
+EVENT_CAMERA_STATUS_DISCONNECTED = "disconnected"
+EVENT_CAMERA_STATUS_CONNECTED = "connected"
 EVENT_CAMERA_START = "{camera_identifier}/camera/start"
 EVENT_CAMERA_STOP = "{camera_identifier}/camera/stop"
 EVENT_CAMERA_STARTED = "{camera_identifier}/camera/started"
 EVENT_CAMERA_STOPPED = "{camera_identifier}/camera/stopped"
+EVENT_CAMERA_STILL_IMAGE_AVAILABLE = "{camera_identifier}/still_image/available"
+
+EVENT_RECORDER_START = "{camera_identifier}/recorder/start"
+EVENT_RECORDER_STOP = "{camera_identifier}/recorder/stop"
+EVENT_RECORDER_COMPLETE = "{camera_identifier}/recorder/complete"
 
 EVENT_CAMERA_EVENT_DB_OPERATION = (
     "{camera_identifier}/camera_event/{domain}/{operation}"

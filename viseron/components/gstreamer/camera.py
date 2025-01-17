@@ -342,6 +342,7 @@ class Camera(AbstractCamera):
             if self.decode_error.is_set():
                 self._poll_timer = utcnow().timestamp()
                 self.connected = False
+                self.still_image_available = self.still_image_configured
                 time.sleep(5)
                 self._logger.error("Restarting frame pipe")
                 self.stream.close_pipe()
@@ -352,6 +353,7 @@ class Camera(AbstractCamera):
             self.current_frame = self.stream.read()
             if self.current_frame:
                 self.connected = True
+                self.still_image_available = True
                 empty_frames = 0
                 self._poll_timer = utcnow().timestamp()
                 self._data_stream.publish_data(
@@ -471,10 +473,3 @@ class Camera(AbstractCamera):
     def is_recording(self):
         """Return recording status."""
         return self._recorder.is_recording
-
-    @property
-    def is_on(self):
-        """Return if camera is on."""
-        if self._frame_reader:
-            return self._frame_reader.is_alive()
-        return False

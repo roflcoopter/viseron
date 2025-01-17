@@ -136,7 +136,7 @@ class CameraAPIHandler(BaseAPIHandler):
             return
 
         jpg = None
-        if camera.still_image[CONFIG_URL]:
+        if camera.still_image_configured:
             jpg = await self.run_in_executor(self._snapshot_from_url, camera)
         else:
             jpg = await self.run_in_executor(self._snapshot_from_memory, camera)

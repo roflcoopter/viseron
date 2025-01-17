@@ -48,15 +48,20 @@ from .const import (
     CONFIG_PASSWORD,
     CONFIG_REFRESH_INTERVAL,
     CONFIG_STILL_IMAGE,
+    CONFIG_URL,
     EVENT_CAMERA_STARTED,
+    EVENT_CAMERA_STATUS,
+    EVENT_CAMERA_STATUS_CONNECTED,
+    EVENT_CAMERA_STATUS_DISCONNECTED,
+    EVENT_CAMERA_STILL_IMAGE_AVAILABLE,
     EVENT_CAMERA_STOPPED,
-    EVENT_STATUS,
-    EVENT_STATUS_CONNECTED,
-    EVENT_STATUS_DISCONNECTED,
     UPDATE_TOKEN_INTERVAL_MINUTES,
     VIDEO_CONTAINER,
 )
-from .entity.binary_sensor import ConnectionStatusBinarySensor
+from .entity.binary_sensor import (
+    ConnectionStatusBinarySensor,
+    StillImageAvailableBinarySensor,
+)
 from .entity.toggle import CameraConnectionToggle
 from .shared_frames import SharedFrames
 
@@ -76,10 +81,17 @@ LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class EventStatusData(EventData):
+class EventCameraStatusData(EventData):
     """Hold information on camera status event."""
 
     status: str
+
+
+@dataclass
+class EventCameraStillImageAvailable(EventData):
+    """Hold information on camera still image available event."""
+
+    available: bool
 
 
 DATA_FRAME_BYTES_TOPIC = "{camera_identifier}/camera/frame_bytes"
@@ -96,6 +108,7 @@ class AbstractCamera(ABC):
         self._logger = logging.getLogger(f"{self.__module__}.{self.identifier}")
 
         self._connected: bool = False
+        self._still_image_available: bool = False
         self.stopped = Event()
         self.stopped.set()
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
@@ -109,6 +122,7 @@ class AbstractCamera(ABC):
 
         self._clear_cache_timer: Timer | None = None
         vis.add_entity(component, ConnectionStatusBinarySensor(vis, self))
+        vis.add_entity(component, StillImageAvailableBinarySensor(vis, self))
         vis.add_entity(component, CameraConnectionToggle(vis, self))
         self._access_token_entity = vis.add_entity(
             component, CamerAccessTokenSensor(vis, self)
@@ -146,6 +160,10 @@ class AbstractCamera(ABC):
                 escape_string(self._config[CONFIG_PASSWORD])
             )
 
+        if self.still_image_configured:
+            self._logger.debug("Still image is configured, setting availability.")
+            self.still_image_available = True
+
     def as_dict(self) -> dict[str, Any]:
         """Return camera information as dict."""
         return {
@@ -155,6 +173,7 @@ class AbstractCamera(ABC):
             "height": self.resolution[1],
             "access_token": self.access_token,
             "still_image_refresh_interval": self.still_image[CONFIG_REFRESH_INTERVAL],
+            "still_image_available": self.still_image_available,
             "is_on": self.is_on,
             "connected": self.connected,
         }
@@ -201,6 +220,7 @@ class AbstractCamera(ABC):
     def stop_camera(self):
         """Stop camera streaming."""
         self._stop_camera()
+        self.still_image_available = self.still_image_configured
         self.stopped.set()
         self._vis.dispatch_event(
             EVENT_CAMERA_STOPPED.format(camera_identifier=self.identifier),
@@ -255,6 +275,11 @@ class AbstractCamera(ABC):
         return self._config[CONFIG_STILL_IMAGE]
 
     @property
+    def still_image_configured(self) -> bool:
+        """Return if still image is configured."""
+        return bool(self._config[CONFIG_STILL_IMAGE][CONFIG_URL])
+
+    @property
     @abstractmethod
     def output_fps(self):
         """Return stream output fps."""
@@ -284,7 +309,6 @@ class AbstractCamera(ABC):
         """Return recording status."""
 
     @property
-    @abstractmethod
     def is_on(self):
         """Return if camera is on.
 
@@ -292,6 +316,7 @@ class AbstractCamera(ABC):
         A camera can be on (or armed) while still being disconnected, eg during
         network outages.
         """
+        return not self.stopped.is_set()
 
     @property
     def connected(self) -> bool:
@@ -305,12 +330,31 @@ class AbstractCamera(ABC):
 
         self._connected = connected
         self._vis.dispatch_event(
-            EVENT_STATUS.format(camera_identifier=self.identifier),
-            EventStatusData(
-                status=EVENT_STATUS_CONNECTED
+            EVENT_CAMERA_STATUS.format(camera_identifier=self.identifier),
+            EventCameraStatusData(
+                status=EVENT_CAMERA_STATUS_CONNECTED
                 if connected
-                else EVENT_STATUS_DISCONNECTED
+                else EVENT_CAMERA_STATUS_DISCONNECTED
             ),
+        )
+
+    @property
+    def still_image_available(self) -> bool:
+        """Return if still image is available."""
+        return self._still_image_available
+
+    @still_image_available.setter
+    def still_image_available(self, available: bool) -> None:
+        """Set still image availability."""
+        if available == self._still_image_available:
+            return
+
+        self._still_image_available = available
+        self._vis.dispatch_event(
+            EVENT_CAMERA_STILL_IMAGE_AVAILABLE.format(
+                camera_identifier=self.identifier
+            ),
+            EventCameraStillImageAvailable(available=available),
         )
 
     @property

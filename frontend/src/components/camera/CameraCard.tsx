@@ -111,13 +111,7 @@ const SuccessCameraCard = ({
 
   useEffect(() => {
     // If element is on screen and browser is visible, start interval to fetch images
-    if (
-      onScreen &&
-      isVisible &&
-      connected &&
-      camera.connected &&
-      camera.is_on
-    ) {
+    if (onScreen && isVisible && connected && camera.still_image_available) {
       updateImage();
       updateSnapshot.current = setInterval(
         () => {
@@ -142,8 +136,7 @@ const SuccessCameraCard = ({
     isVisible,
     onScreen,
     connected,
-    camera.connected,
-    camera.is_on,
+    camera.still_image_available,
     camera.still_image_refresh_interval,
   ]);
 
@@ -202,7 +195,7 @@ const SuccessCameraCard = ({
                 }));
               }}
               errorIcon={
-                camera.connected && camera.is_on
+                camera.still_image_available
                   ? Image.defaultProps!.loading
                   : null
               }
