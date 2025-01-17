@@ -1438,6 +1438,13 @@
                 "description": "Recorder config.",
                 "optional": true,
                 "default": null
+              },
+              {
+                "type": "boolean",
+                "name": "record_only",
+                "description": "Only record the camera stream, do not process it. This is useful if you only want to record the stream and not do any processing like object detection.<br>Be aware that this will record the main stream, making substream redundant. Still images will not work either unless you have setup `still_image`.",
+                "optional": true,
+                "default": false
               }
             ],
             "name": {

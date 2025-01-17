@@ -37,6 +37,10 @@ export function useCamera<T extends boolean = false>(
       queryKey: ["camera", camera_identifier],
     },
     {
+      entityId: `binary_sensor.${camera_identifier}_still_image_available`,
+      queryKey: ["camera", camera_identifier],
+    },
+    {
       entityId: `toggle.${camera_identifier}_connection`,
       queryKey: ["camera", camera_identifier],
     },

@@ -113,7 +113,7 @@ class Stream:
         self._camera: Camera = camera
 
         self._pipe: sp.Popen | None = None
-        self._segment_process: RestartablePopen | None = None
+        self.segment_process: RestartablePopen | None = None
         self._log_pipe: LogPipe | None = None
         self._ffprobe = FFprobe(config, camera_identifier)
 
@@ -491,7 +491,7 @@ class Stream:
         )
 
         if self._config.get(CONFIG_SUBSTREAM, None):
-            self._segment_process = RestartablePopen(
+            self.segment_process = RestartablePopen(
                 self.build_segment_command(),
                 name=f"viseron.camera.{self._camera.identifier}.segments",
                 stdout=sp.PIPE,
@@ -516,23 +516,20 @@ class Stream:
 
     def close_pipe(self) -> None:
         """Close FFmpeg pipe."""
-        if self._segment_process:
-            self._segment_process.terminate()
+        if self.segment_process:
+            self.segment_process.terminate()
 
-        if not self._pipe:
-            self._logger.error("No pipe to close")
-            return
-
-        try:
-            self._pipe.terminate()
+        if self._pipe:
             try:
-                self._pipe.communicate(timeout=5)
-            except sp.TimeoutExpired:
-                self._logger.debug("FFmpeg did not terminate, killing instead.")
-                self._pipe.kill()
-                self._pipe.communicate()
-        except AttributeError as error:
-            self._logger.error("Failed to close pipe: %s", error)
+                self._pipe.terminate()
+                try:
+                    self._pipe.communicate(timeout=5)
+                except sp.TimeoutExpired:
+                    self._logger.debug("FFmpeg did not terminate, killing instead.")
+                    self._pipe.kill()
+                    self._pipe.communicate()
+            except AttributeError as error:
+                self._logger.error("Failed to close pipe: %s", error)
 
         try:
             if self._log_pipe:
@@ -564,6 +561,27 @@ class Stream:
         except Exception as err:  # pylint: disable=broad-except
             self._logger.error(f"Error reading frame from pipe: {err}")
         return None
+
+    def record_only(self):
+        """Record only the stream."""
+        self._logger.debug(f"Recording only stream: {' '.join(self.build_command())}")
+        try:
+            if self._log_pipe:
+                self._log_pipe.close()
+                self._log_pipe = None
+        except OSError as error:
+            self._logger.error("Failed to close log pipe: %s", error)
+
+        self._log_pipe = LogPipe(
+            self._logger, FFMPEG_LOGLEVELS[self._config[CONFIG_FFMPEG_LOGLEVEL]]
+        )
+
+        self.segment_process = RestartablePopen(
+            self.build_segment_command(),
+            name=f"viseron.camera.{self._camera.identifier}.segments",
+            stdout=sp.PIPE,
+            stderr=self._log_pipe,
+        )
 
 
 class FFprobe:
