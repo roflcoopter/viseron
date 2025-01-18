@@ -225,7 +225,6 @@ def create_application(
         ],
         default_handler_class=NotFoundHandler,
         static_path=PATH_STATIC,
-        websocket_ping_interval=10,
         debug=config[CONFIG_DEBUG],
         autoreload=False,
         cookie_secret=cookie_secret,
