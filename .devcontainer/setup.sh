@@ -39,14 +39,6 @@ else
     python3 -c "import viseron.config; viseron.config.create_default_config('$FILE')"
 fi
 
-# Create symlink to config file
-FILE=/config/config.yaml
-if test -f "$FILE"; then
-    echo "Config symlink already exists"
-else
-    echo "Creating config symlink"
-    ln -s $WORKSPACE_DIR/config/config.yaml /config/config.yaml
-fi
 
 # Create .env.local
 FILE=$WORKSPACE_DIR/frontend/.env.local
