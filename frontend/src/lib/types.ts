@@ -163,8 +163,12 @@ export interface Camera {
   width: number;
   height: number;
   access_token: string;
-  still_image_refresh_interval: number;
-  still_image_available: boolean;
+  still_image: {
+    refresh_interval: number;
+    available: boolean;
+    width: number;
+    height: number;
+  };
   failed: false;
   is_on: boolean;
   connected: boolean;

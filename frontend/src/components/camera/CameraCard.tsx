@@ -111,14 +111,14 @@ const SuccessCameraCard = ({
 
   useEffect(() => {
     // If element is on screen and browser is visible, start interval to fetch images
-    if (onScreen && isVisible && connected && camera.still_image_available) {
+    if (onScreen && isVisible && connected && camera.still_image.available) {
       updateImage();
       updateSnapshot.current = setInterval(
         () => {
           updateImage();
         },
-        camera.still_image_refresh_interval
-          ? camera.still_image_refresh_interval * 1000
+        camera.still_image.refresh_interval
+          ? camera.still_image.refresh_interval * 1000
           : 10000,
       );
       // If element is hidden or browser loses focus, stop updating images
@@ -136,8 +136,8 @@ const SuccessCameraCard = ({
     isVisible,
     onScreen,
     connected,
-    camera.still_image_available,
-    camera.still_image_refresh_interval,
+    camera.still_image.available,
+    camera.still_image.refresh_interval,
   ]);
 
   return (
@@ -184,7 +184,7 @@ const SuccessCameraCard = ({
               disableSpinner={snapshotURL.disableSpinner}
               disableTransition={snapshotURL.disableTransition}
               animationDuration={1000}
-              aspectRatio={camera.width / camera.height}
+              aspectRatio={camera.still_image.width / camera.still_image.height}
               color={theme.palette.background.default}
               onLoad={() => {
                 setSnapshotURL((prevSnapshotURL) => ({
@@ -195,7 +195,7 @@ const SuccessCameraCard = ({
                 }));
               }}
               errorIcon={
-                camera.still_image_available
+                camera.still_image.available
                   ? Image.defaultProps!.loading
                   : null
               }

@@ -43,6 +43,8 @@ from .const import (
     CONFIG_RETAIN,
     CONFIG_SAVE_TO_DISK,
     CONFIG_STILL_IMAGE,
+    CONFIG_STILL_IMAGE_HEIGHT,
+    CONFIG_STILL_IMAGE_WIDTH,
     CONFIG_STORAGE,
     CONFIG_THUMBNAIL,
     CONFIG_URL,
@@ -70,6 +72,8 @@ from .const import (
     DEFAULT_REFRESH_INTERVAL,
     DEFAULT_SAVE_TO_DISK,
     DEFAULT_STILL_IMAGE,
+    DEFAULT_STILL_IMAGE_HEIGHT,
+    DEFAULT_STILL_IMAGE_WIDTH,
     DEFAULT_STORAGE,
     DEFAULT_THUMBNAIL,
     DEFAULT_URL,
@@ -106,6 +110,8 @@ from .const import (
     DESC_RETAIN,
     DESC_SAVE_TO_DISK,
     DESC_STILL_IMAGE,
+    DESC_STILL_IMAGE_HEIGHT,
+    DESC_STILL_IMAGE_WIDTH,
     DESC_STORAGE,
     DESC_THUMBNAIL,
     DESC_URL,
@@ -289,6 +295,16 @@ STILL_IMAGE_SCHEMA = vol.Schema(
             default=DEFAULT_REFRESH_INTERVAL,
             description=DESC_REFRESH_INTERVAL,
         ): vol.All(int, vol.Range(min=1)),
+        vol.Optional(
+            CONFIG_STILL_IMAGE_WIDTH,
+            default=DEFAULT_STILL_IMAGE_WIDTH,
+            description=DESC_STILL_IMAGE_WIDTH,
+        ): Maybe(vol.All(int, vol.Range(min=1))),
+        vol.Optional(
+            CONFIG_STILL_IMAGE_HEIGHT,
+            default=DEFAULT_STILL_IMAGE_HEIGHT,
+            description=DESC_STILL_IMAGE_HEIGHT,
+        ): Maybe(vol.All(int, vol.Range(min=1))),
     }
 )
 
