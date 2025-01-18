@@ -177,7 +177,7 @@ def enable_logging() -> None:
     logging.getLogger("watchdog.observers.inotify_buffer").setLevel(logging.WARNING)
 
     sys.excepthook = lambda *args: logging.getLogger(None).exception(
-        "Uncaught exception", exc_info=args  # type: ignore[arg-type]
+        "Uncaught exception", exc_info=args
     )
     threading.excepthook = lambda args: logging.getLogger(None).exception(
         "Uncaught thread exception in thread %s",
