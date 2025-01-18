@@ -55,7 +55,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         if not self._webserver.auth:
             return
 
-        _user = self.get_cookie("user")
+        _user = await self.run_in_executor(self.get_cookie, "user")
         if _user:
             self.current_user = await self.run_in_executor(
                 self._webserver.auth.get_user, _user

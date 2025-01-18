@@ -1,5 +1,6 @@
 """File download API Handler."""
 
+import asyncio
 import logging
 import os
 from asyncio import Lock
@@ -78,8 +79,10 @@ class DownloadAPIHandler(BaseAPIHandler):
                 try:
                     self.write(chunk)
                     await self.flush()
+                    await asyncio.sleep(0)
                 except iostream.StreamClosedError:
                     return
+            self.finish()
 
         except Exception as e:  # pylint: disable=broad-except
             LOGGER.error("Download failed: %s", str(e))
@@ -87,6 +90,5 @@ class DownloadAPIHandler(BaseAPIHandler):
                 HTTPStatus.INTERNAL_SERVER_ERROR, reason="Download failed"
             )
         finally:
-            self.finish()
             if download_token.delete_after_download:
                 os.remove(download_token.filename)
