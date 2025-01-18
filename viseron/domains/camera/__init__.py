@@ -48,6 +48,8 @@ from .const import (
     CONFIG_PASSWORD,
     CONFIG_REFRESH_INTERVAL,
     CONFIG_STILL_IMAGE,
+    CONFIG_STILL_IMAGE_HEIGHT,
+    CONFIG_STILL_IMAGE_WIDTH,
     CONFIG_URL,
     EVENT_CAMERA_STARTED,
     EVENT_CAMERA_STATUS,
@@ -172,8 +174,12 @@ class AbstractCamera(ABC):
             "width": self.resolution[0],
             "height": self.resolution[1],
             "access_token": self.access_token,
-            "still_image_refresh_interval": self.still_image[CONFIG_REFRESH_INTERVAL],
-            "still_image_available": self.still_image_available,
+            "still_image": {
+                "refresh_interval": self.still_image[CONFIG_REFRESH_INTERVAL],
+                "available": self.still_image_available,
+                "width": self.still_image_width,
+                "height": self.still_image_height,
+            },
             "is_on": self.is_on,
             "connected": self.connected,
         }
@@ -270,16 +276,6 @@ class AbstractCamera(ABC):
         return self.access_tokens[-1]
 
     @property
-    def still_image(self) -> dict[str, Any]:
-        """Return still image config."""
-        return self._config[CONFIG_STILL_IMAGE]
-
-    @property
-    def still_image_configured(self) -> bool:
-        """Return if still image is configured."""
-        return bool(self._config[CONFIG_STILL_IMAGE][CONFIG_URL])
-
-    @property
     @abstractmethod
     def output_fps(self):
         """Return stream output fps."""
@@ -337,6 +333,30 @@ class AbstractCamera(ABC):
                 else EVENT_CAMERA_STATUS_DISCONNECTED
             ),
         )
+
+    @property
+    def still_image(self) -> dict[str, Any]:
+        """Return still image config."""
+        return self._config[CONFIG_STILL_IMAGE]
+
+    @property
+    def still_image_configured(self) -> bool:
+        """Return if still image is configured."""
+        return bool(self._config[CONFIG_STILL_IMAGE][CONFIG_URL])
+
+    @property
+    def still_image_width(self) -> int:
+        """Return still image width."""
+        if self.still_image[CONFIG_STILL_IMAGE_WIDTH]:
+            return self.still_image[CONFIG_STILL_IMAGE_WIDTH]
+        return self.resolution[0]
+
+    @property
+    def still_image_height(self) -> int:
+        """Return still image height."""
+        if self.still_image[CONFIG_STILL_IMAGE_HEIGHT]:
+            return self.still_image[CONFIG_STILL_IMAGE_HEIGHT]
+        return self.resolution[1]
 
     @property
     def still_image_available(self) -> bool:

@@ -168,6 +168,22 @@
                     "description": "Number of seconds between refreshes of the still image in the frontend.",
                     "optional": true,
                     "default": 10
+                  },
+                  {
+                    "type": "integer",
+                    "valueMin": 1,
+                    "name": "width",
+                    "description": "Width of the still image, if different from the stream width.",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "integer",
+                    "valueMin": 1,
+                    "name": "height",
+                    "description": "Height of the still image, if different from the stream height.",
+                    "optional": true,
+                    "default": null
                   }
                 ],
                 "name": "still_image",

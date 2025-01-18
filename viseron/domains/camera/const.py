@@ -167,6 +167,9 @@ CONFIG_USERNAME = "username"
 CONFIG_PASSWORD = "password"
 CONFIG_AUTHENTICATION = "authentication"
 CONFIG_REFRESH_INTERVAL = "refresh_interval"
+CONFIG_STILL_IMAGE_WIDTH = "width"
+CONFIG_STILL_IMAGE_HEIGHT = "height"
+
 
 DEFAULT_STILL_IMAGE: Final = None
 DEFAULT_URL: Final = None
@@ -174,6 +177,8 @@ DEFAULT_USERNAME: Final = None
 DEFAULT_PASSWORD: Final = None
 DEFAULT_AUTHENTICATION: Final = None
 DEFAULT_REFRESH_INTERVAL: Final = 10
+DEFAULT_STILL_IMAGE_WIDTH: Final = None
+DEFAULT_STILL_IMAGE_HEIGHT: Final = None
 
 DESC_STILL_IMAGE = "Options for still image."
 DESC_URL = (
@@ -191,6 +196,10 @@ DESC_AUTHENTICATION = (
 )
 DESC_REFRESH_INTERVAL = (
     "Number of seconds between refreshes of the still image in the frontend."
+)
+DESC_STILL_IMAGE_WIDTH = "Width of the still image, if different from the stream width."
+DESC_STILL_IMAGE_HEIGHT = (
+    "Height of the still image, if different from the stream height."
 )
 
 INCLUSION_GROUP_AUTHENTICATION = "authentication"
