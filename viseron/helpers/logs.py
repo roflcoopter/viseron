@@ -280,7 +280,7 @@ class StreamToLogger(typing.TextIO):
         """Return if the stream is a tty."""
         raise io.UnsupportedOperation
 
-    def read(self, num: int = -1) -> AnyStr:
+    def read(self, num: int = -1):
         """Read from the stream."""
         raise io.UnsupportedOperation
 
@@ -288,7 +288,7 @@ class StreamToLogger(typing.TextIO):
         """Return if the stream is readable."""
         raise io.UnsupportedOperation
 
-    def readline(self, limit: int = -1) -> AnyStr:
+    def readline(self, limit: int = -1):
         """Read a line from the stream."""
         raise io.UnsupportedOperation
 
@@ -320,7 +320,7 @@ class StreamToLogger(typing.TextIO):
         """Write lines to the stream."""
         raise io.UnsupportedOperation
 
-    def __next__(self) -> AnyStr:
+    def __next__(self):
         """Return the next line from the stream."""
         raise io.UnsupportedOperation
 
