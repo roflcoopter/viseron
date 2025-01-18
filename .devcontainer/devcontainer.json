@@ -20,6 +20,9 @@
   },
   "userEnvProbe": "loginInteractiveShell",
   "runArgs": ["-e", "GIT_EDITOR=code --wait"],
+  "mounts": [
+    "source=${localWorkspaceFolder}/config,target=/config,type=bind,consistency=cached"
+  ],
   "customizations": {
     "vscode": {
       "extensions": [
@@ -85,6 +88,12 @@
         "files.associations": {
           "**/azure-pipelines/*.yml": "azure-pipelines",
           "**/azure-pipelines/*.yaml": "azure-pipelines"
+        },
+        "search.exclude": {
+          "**/node_modules": true,
+          "**/build": true,
+          "**/.docusaurus": true,
+          "**/dist": true
         }
       }
     }
