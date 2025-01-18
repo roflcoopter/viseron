@@ -16,16 +16,13 @@ import { Link as RouterLink, useNavigate } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
 import Breadcrumbs from "components/header/Breadcrumbs";
+import Drawer from "components/header/Drawer";
 import { useAuthContext } from "context/AuthContext";
 import { ColorModeContext } from "context/ColorModeContext";
 import { ViseronContext } from "context/ViseronContext";
 import { useScrollPosition } from "hooks/UseScrollPosition";
 import { useToast } from "hooks/UseToast";
 import { useAuthLogout } from "lib/api/auth";
-
-interface AppHeaderProps {
-  setDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
-}
 
 interface HeaderProps {
   showHeader: boolean;
@@ -57,11 +54,12 @@ const Header = styled("header", {
   ],
 }));
 
-export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
+export default function AppHeader() {
   const colorMode = useContext(ColorModeContext);
   const theme = useTheme();
   const mediaQuerySmall = useMediaQuery(theme.breakpoints.up("sm"));
   const [showHeader, setShowHeader] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const lastTogglePos = useRef(0);
   const { auth } = useAuthContext();
   const { safeMode } = useContext(ViseronContext);
@@ -96,129 +94,132 @@ export default function AppHeader({ setDrawerOpen }: AppHeaderProps) {
   const toast = useToast();
 
   return (
-    <Header showHeader={showHeader}>
-      <Container
-        maxWidth={false}
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          minHeight: theme.headerHeight,
-        }}
-      >
-        <Stack
-          direction="row"
-          spacing={1}
-          justifyContent="left"
-          alignItems="center"
-          sx={{ width: !mediaQuerySmall ? "12%" : undefined }}
-        >
-          <Tooltip title="Menu" enterDelay={300}>
-            <IconButton
-              color="primary"
-              onClick={() => {
-                setDrawerOpen(true);
-              }}
-            >
-              <MenuIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Home" enterDelay={300}>
-            <Box
-              component={RouterLink}
-              to={"/"}
-              aria-label="Home"
-              sx={{ marginLeft: "16px" }}
-            >
-              <ViseronLogo
-                width={45}
-                height={45}
-                style={{ marginTop: "4px" }}
-              />
-            </Box>
-          </Tooltip>
-        </Stack>
-        <Box
-          sx={
-            !mediaQuerySmall
-              ? { width: "76%", pointerEvents: "none" }
-              : undefined
-          }
-        >
-          <Breadcrumbs />
-        </Box>
-        <Stack
-          direction="row"
-          spacing={1}
-          justifyContent="end"
-          sx={{ width: !mediaQuerySmall ? "12%" : { marginLeft: "auto" } }}
-        >
-          <Tooltip
-            title={
-              theme.palette.mode === "dark"
-                ? "In a Light mood today?"
-                : "Join the Dark Side"
-            }
-            enterDelay={300}
-          >
-            <IconButton color="primary" onClick={colorMode.toggleColorMode}>
-              {theme.palette.mode === "dark" ? (
-                <Brightness7Icon />
-              ) : (
-                <Brightness4Icon />
-              )}
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={"Edit Configuration"} enterDelay={300}>
-            <IconButton
-              component={RouterLink}
-              color="primary"
-              to={"/configuration"}
-            >
-              <SettingsIcon />
-            </IconButton>
-          </Tooltip>
-          {auth.enabled && (
-            <Tooltip title={"Logout"} enterDelay={300}>
-              <IconButton
-                color="primary"
-                onClick={() =>
-                  logout.mutate(undefined, {
-                    onSuccess: async (_data, _variables, _context) => {
-                      toast.success("Successfully logged out");
-                      navigate("/login");
-                    },
-                  })
-                }
-              >
-                <LogoutIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Stack>
-      </Container>
-      {safeMode ? (
-        <Box
+    <>
+      <Drawer drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} />
+      <Header showHeader={showHeader}>
+        <Container
+          maxWidth={false}
           sx={{
             display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
             alignItems: "center",
-            gap: 2,
-            backgroundColor: theme.palette.error.main,
+            minHeight: theme.headerHeight,
           }}
         >
-          <Typography
-            align="center"
-            style={{
-              textShadow: "rgba(0, 0, 0, 1) 0px 0px 4px",
-              margin: "5px",
+          <Stack
+            direction="row"
+            spacing={1}
+            justifyContent="left"
+            alignItems="center"
+            sx={{ width: !mediaQuerySmall ? "12%" : undefined }}
+          >
+            <Tooltip title="Menu" enterDelay={300}>
+              <IconButton
+                color="primary"
+                onClick={() => {
+                  setDrawerOpen(true);
+                }}
+              >
+                <MenuIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Home" enterDelay={300}>
+              <Box
+                component={RouterLink}
+                to={"/"}
+                aria-label="Home"
+                sx={{ marginLeft: "16px" }}
+              >
+                <ViseronLogo
+                  width={45}
+                  height={45}
+                  style={{ marginTop: "4px" }}
+                />
+              </Box>
+            </Tooltip>
+          </Stack>
+          <Box
+            sx={
+              !mediaQuerySmall
+                ? { width: "76%", pointerEvents: "none" }
+                : undefined
+            }
+          >
+            <Breadcrumbs />
+          </Box>
+          <Stack
+            direction="row"
+            spacing={1}
+            justifyContent="end"
+            sx={{ width: !mediaQuerySmall ? "12%" : { marginLeft: "auto" } }}
+          >
+            <Tooltip
+              title={
+                theme.palette.mode === "dark"
+                  ? "In a Light mood today?"
+                  : "Join the Dark Side"
+              }
+              enterDelay={300}
+            >
+              <IconButton color="primary" onClick={colorMode.toggleColorMode}>
+                {theme.palette.mode === "dark" ? (
+                  <Brightness7Icon />
+                ) : (
+                  <Brightness4Icon />
+                )}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={"Edit Configuration"} enterDelay={300}>
+              <IconButton
+                component={RouterLink}
+                color="primary"
+                to={"/configuration"}
+              >
+                <SettingsIcon />
+              </IconButton>
+            </Tooltip>
+            {auth.enabled && (
+              <Tooltip title={"Logout"} enterDelay={300}>
+                <IconButton
+                  color="primary"
+                  onClick={() =>
+                    logout.mutate(undefined, {
+                      onSuccess: async (_data, _variables, _context) => {
+                        toast.success("Successfully logged out");
+                        navigate("/login");
+                      },
+                    })
+                  }
+                >
+                  <LogoutIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Stack>
+        </Container>
+        {safeMode ? (
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 2,
+              backgroundColor: theme.palette.error.main,
             }}
           >
-            Viseron is running in safe mode. Cameras are not loaded and no
-            recordings are made. Please check the logs for more information.
-          </Typography>
-        </Box>
-      ) : null}
-    </Header>
+            <Typography
+              align="center"
+              style={{
+                textShadow: "rgba(0, 0, 0, 1) 0px 0px 4px",
+                margin: "5px",
+              }}
+            >
+              Viseron is running in safe mode. Cameras are not loaded and no
+              recordings are made. Please check the logs for more information.
+            </Typography>
+          </Box>
+        ) : null}
+      </Header>
+    </>
   );
 }

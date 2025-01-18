@@ -2,14 +2,13 @@ import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import { styled } from "@mui/material/styles";
 import Cookies from "js-cookie";
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useRef } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { CSSTransition, SwitchTransition } from "react-transition-group";
 
 import { ScrollToTopFab } from "components/ScrollToTop";
 import { ErrorMessage } from "components/error/ErrorMessage";
 import Footer from "components/footer/Footer";
-import AppDrawer from "components/header/Drawer";
 import Header from "components/header/Header";
 import { Loading } from "components/loading/Loading";
 import { useAuthContext } from "context/AuthContext";
@@ -24,7 +23,6 @@ const FullHeightContainer = styled("div")(() => ({
 
 export default function PrivateLayout() {
   const nodeRef = useRef(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
 
   const { auth } = useAuthContext();
@@ -99,8 +97,7 @@ export default function PrivateLayout() {
     <ViseronProvider>
       <FullHeightContainer>
         <FullHeightContainer>
-          <AppDrawer drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} />
-          <Header setDrawerOpen={setDrawerOpen} />
+          <Header />
           <Suspense fallback={<Loading text="Loading" />}>
             <SwitchTransition>
               <CSSTransition
