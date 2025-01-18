@@ -173,17 +173,6 @@ class DataStream:
         else:
             await ioloop.run_in_executor(None, _wrapper)
 
-    async def put_tornado_queue(
-        self, queue: tornado_queue, data: Any, ioloop: IOLoop
-    ) -> None:
-        """Put data in tornado queue."""
-
-        def _wrapper():
-            IOLoop.current()
-            helpers.pop_if_full(queue, data)
-
-        await ioloop.run_in_executor(None, _wrapper)
-
     def run_callbacks(
         self,
         callbacks: dict[uuid.UUID, DataSubscriber],
@@ -251,10 +240,9 @@ class DataStream:
                 callback["callback"], tornado_queue
             ):
                 callback["ioloop"].add_callback(
-                    self.put_tornado_queue,
+                    helpers.pop_if_full,
                     callback["callback"],
                     data,
-                    callback["ioloop"],
                 )
                 continue
 
