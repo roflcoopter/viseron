@@ -26,12 +26,6 @@ Viserons functionality is enabled by [components](https://viseron.netlify.app/do
 
 You can find all the available components by using the [Component Explorer](https://viseron.netlify.app/components-explorer/).
 
-# Sponsors
-
-Viseron is part of GitSponsors, a platform that supports open-source developers through funding:
-
-[<img src="https://api.gitsponsors.com/api/badge/img?id=291498455" height="20">](https://api.gitsponsors.com/api/badge/link?p=zOERwsuZ0EPaKQzdZhmMUB/4jBTmGlbX8iwrdhKDzbQuWuVEqy8pWyTSEhGU1tGAFJ4oiOJ/uWDUGoUGowMCLFcL/wNs3ynolL2f5VEabQG/Ek1gBhtWK3ru0GNkhYhwPqDQpqXlURkk0CzwzVuFEA==)
-
 # Contributing
 
 Contributors to the project are very much appreciated.
