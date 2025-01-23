@@ -8,8 +8,8 @@ import { v4 as uuidv4 } from "uuid";
 import { useShallow } from "zustand/react/shallow";
 
 import {
-  SCALE,
   findFragmentByTimestamp,
+  getSeekTarget,
   useHlsStore,
   useReferencePlayerStore,
 } from "components/events/utils";
@@ -56,13 +56,7 @@ const onLevelLoaded = (
   // Seek to the requested timestamp
   const fragment = findFragmentByTimestamp(fragments, playingDateMillis);
   if (fragment) {
-    let seekTarget = fragment.start;
-    if (playingDateMillis > fragment.programDateTime!) {
-      seekTarget =
-        fragment.start + (playingDateMillis - fragment.programDateTime!) / 1000;
-    } else {
-      seekTarget = fragment.start;
-    }
+    const seekTarget = getSeekTarget(fragment, playingDateMillis);
     videoRef.current.currentTime = seekTarget;
     videoRef.current.play().catch(() => {
       // Ignore play errors
@@ -324,40 +318,29 @@ const useSeekToTimestamp = (
       return;
     }
 
+    const requestedTimestampMillis = requestedTimestamp * 1000;
     // Set seek target timestamp
-    let seekTarget = requestedTimestamp;
-    if (initialProgramDateTime.current) {
-      seekTarget = requestedTimestamp - initialProgramDateTime.current / 1000;
+    const currentLevel = hlsRef.current.levels[hlsRef.current.currentLevel];
+    if (!currentLevel || !currentLevel.details) {
+      return;
     }
 
-    // Seek to the requested timestamp
-    const seekable = hlsRef.current.media.seekable;
-    let seeked = false;
-    for (let i = 0; i < seekable.length; i++) {
-      if (seekTarget >= seekable.start(i) && seekTarget <= seekable.end(i)) {
-        videoRef.current.currentTime = seekTarget;
-        seeked = true;
-        break;
-      } else if (
-        // Seek to start if target is less than start and within SCALE seconds of start
-        seekTarget < seekable.start(i) &&
-        seekable.start(i) - seekTarget < SCALE
-      ) {
-        videoRef.current.currentTime = seekable.start(i);
-        seeked = true;
-        break;
-      } else if (
-        // Seek to end if target is greater than end and within SCALE seconds of end
-        seekTarget > seekable.end(i) &&
-        seekTarget - seekable.end(i) < SCALE
-      ) {
-        videoRef.current.currentTime = seekable.end(i);
-        seeked = true;
-        break;
-      }
+    const fragments = currentLevel.details.fragments;
+    if (!fragments || fragments.length === 0) {
+      return;
     }
+    const fragment = findFragmentByTimestamp(
+      fragments,
+      requestedTimestampMillis,
+    );
 
-    if (!seeked && seekable.length > 0) {
+    if (fragment) {
+      const seekTarget = getSeekTarget(fragment, requestedTimestampMillis);
+      videoRef.current.currentTime = seekTarget;
+      videoRef.current.play().catch(() => {
+        // Ignore play errors
+      });
+    } else {
       loadSource(hlsRef, hlsClientIdRef, requestedTimestamp, camera);
     }
   }, [

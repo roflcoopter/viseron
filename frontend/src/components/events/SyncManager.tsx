@@ -221,11 +221,27 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
   useEffect(() => {
     hlsRefs.forEach((player) => {
       if (player.current) {
-        player.current.on(Hls.Events.ERROR, (_event: any, _data: any) => {
-          // Only pause if there are multiple players
-          if (hlsRefs.length > 1) {
-            player.current!.media!.pause();
+        player.current.on(Hls.Events.ERROR, (_event, data) => {
+          // Dont pause if this is the only playing player
+          console.warn("SyncManager: Error event", data);
+          if (
+            hlsRefs.filter((p) => p.current && !p.current.media!.paused)
+              .length === 1
+          ) {
+            player.current!.media!.play().catch(() => {
+              // Ignore play errors
+            });
+            return;
           }
+
+          if (data.details === Hls.ErrorDetails.BUFFER_NUDGE_ON_STALL) {
+            player.current!.media!.play().catch(() => {
+              // Ignore play errors
+            });
+            return;
+          }
+
+          player.current!.media!.pause();
         });
       }
     });
