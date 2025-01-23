@@ -113,7 +113,6 @@ type TabsProps = {
   setSelectedTab: (tab: "events" | "timeline") => void;
   selectedEvent: types.CameraEvent | null;
   setSelectedEvent: (event: types.CameraEvent) => void;
-  setRequestedTimestamp: (timestamp: number | null) => void;
   playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>;
 };
 const Tabs = ({
@@ -123,7 +122,6 @@ const Tabs = ({
   setSelectedTab,
   selectedEvent,
   setSelectedEvent,
-  setRequestedTimestamp,
   playerCardGridItemRef,
 }: TabsProps) => {
   const { selectedCameras } = useCameraStore();
@@ -191,7 +189,6 @@ const Tabs = ({
             date={date}
             selectedEvent={selectedEvent}
             setSelectedEvent={setSelectedEvent}
-            setRequestedTimestamp={setRequestedTimestamp}
           />
         ) : (
           <Typography align="center" sx={{ marginTop: "20px" }}>
@@ -217,7 +214,6 @@ const Tabs = ({
             key={`${date?.unix().toString()}`}
             parentRef={timelineRef}
             date={date}
-            setRequestedTimestamp={setRequestedTimestamp}
           />
         ) : (
           <Typography align="center" sx={{ marginTop: "20px" }}>
@@ -235,8 +231,6 @@ type LayoutProps = {
   setSelectedEvent: (event: types.CameraEvent) => void;
   date: Dayjs | null;
   setDate: (date: Dayjs | null) => void;
-  requestedTimestamp: number | null;
-  setRequestedTimestamp: (timestamp: number | null) => void;
   selectedTab: "events" | "timeline";
   setSelectedTab: (tab: "events" | "timeline") => void;
 };
@@ -248,8 +242,6 @@ export const Layout = memo(
     setSelectedEvent,
     date,
     setDate,
-    requestedTimestamp,
-    setRequestedTimestamp,
     selectedTab,
     setSelectedTab,
   }: LayoutProps) => {
@@ -294,7 +286,6 @@ export const Layout = memo(
             <PlayerCard
               cameras={cameras}
               selectedEvent={selectedEvent}
-              requestedTimestamp={requestedTimestamp}
               selectedTab={selectedTab}
             />
           </Grid>
@@ -315,7 +306,6 @@ export const Layout = memo(
                 setSelectedTab={setSelectedTab}
                 selectedEvent={selectedEvent}
                 setSelectedEvent={setSelectedEvent}
-                setRequestedTimestamp={setRequestedTimestamp}
                 playerCardGridItemRef={playerCardGridItemRef}
               />
             </Paper>

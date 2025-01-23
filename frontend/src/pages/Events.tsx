@@ -5,7 +5,7 @@ import ServerDown from "svg/undraw/server_down.svg?react";
 
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { Layout } from "components/events/Layouts";
-import { LIVE_EDGE_DELAY, useCameraStore } from "components/events/utils";
+import { useCameraStore } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { useHideScrollbar } from "hooks/UseHideScrollbar";
 import { useTitle } from "hooks/UseTitle";
@@ -55,9 +55,6 @@ const Events = () => {
     searchParams.has("date")
       ? dayjs(searchParams.get("date") as string)
       : dayjs(),
-  );
-  const [requestedTimestamp, setRequestedTimestamp] = useState<number | null>(
-    dayjs().unix() - LIVE_EDGE_DELAY,
   );
   const [selectedTab, setSelectedTab] = useState<"events" | "timeline">(
     getDefaultTab(searchParams),
@@ -111,8 +108,6 @@ const Events = () => {
       setSelectedEvent={setSelectedEvent}
       date={date}
       setDate={setDate}
-      requestedTimestamp={requestedTimestamp}
-      setRequestedTimestamp={setRequestedTimestamp}
       selectedTab={selectedTab}
       setSelectedTab={setSelectedTab}
     />

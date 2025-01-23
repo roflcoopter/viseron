@@ -190,7 +190,9 @@ interface ReferencePlayerStore {
   setIsMuted: (muted: boolean) => void;
   playbackSpeed: number;
   setPlaybackSpeed: (speed: number) => void;
-  playingDateRef: React.MutableRefObject<Date | null>;
+  requestedTimestamp: number;
+  setRequestedTimestamp: (timestamp: number) => void;
+  playingDateRef: React.MutableRefObject<number>;
 }
 
 export const useReferencePlayerStore = create<ReferencePlayerStore>((set) => ({
@@ -204,7 +206,13 @@ export const useReferencePlayerStore = create<ReferencePlayerStore>((set) => ({
   setIsMuted: (isMuted) => set({ isMuted }),
   playbackSpeed: 1,
   setPlaybackSpeed: (playbackSpeed) => set({ playbackSpeed }),
-  playingDateRef: { current: null },
+  requestedTimestamp: dayjs().unix() - LIVE_EDGE_DELAY,
+  setRequestedTimestamp: (requestedTimestamp) =>
+    set((state) => {
+      state.playingDateRef.current = requestedTimestamp;
+      return { ...state, requestedTimestamp };
+    }),
+  playingDateRef: { current: dayjs().unix() - LIVE_EDGE_DELAY },
 }));
 
 export const DEFAULT_ITEM: TimelineItem = {

@@ -67,7 +67,6 @@ type EventTableProps = {
   date: Dayjs | null;
   selectedEvent: types.CameraEvent | null;
   setSelectedEvent: (event: types.CameraEvent) => void;
-  setRequestedTimestamp: (timestamp: number | null) => void;
 };
 
 export const EventTable = memo(
@@ -77,7 +76,6 @@ export const EventTable = memo(
     date,
     selectedEvent,
     setSelectedEvent,
-    setRequestedTimestamp,
   }: EventTableProps) => {
     const formattedDate = dayjs(date).format("YYYY-MM-DD");
 
@@ -165,7 +163,6 @@ export const EventTable = memo(
                 selected={
                   !!selectedEvent && selectedEvent.id === oldestEvent.id
                 }
-                setRequestedTimestamp={setRequestedTimestamp}
                 availableTimespansRef={availableTimespansRef}
                 isScrolling={rowVirtualizer.isScrolling}
                 virtualRowIndex={virtualRow.index}

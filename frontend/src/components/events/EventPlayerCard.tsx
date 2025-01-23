@@ -375,11 +375,10 @@ interface PlayerItemRef {
 type PlayerItemProps = {
   camera: types.Camera | types.FailedCamera;
   paperRef: React.RefObject<HTMLDivElement>;
-  requestedTimestamp: number;
   gridLayout: GridLayout;
 };
 const PlayerItem = forwardRef<PlayerItemRef, PlayerItemProps>(
-  ({ camera, paperRef, requestedTimestamp, gridLayout }, ref) => {
+  ({ camera, paperRef, gridLayout }, ref) => {
     const theme = useTheme();
     const smBreakpoint = useMediaQuery(theme.breakpoints.up("sm"));
     const boxRef = useRef<HTMLDivElement>(null);
@@ -407,11 +406,7 @@ const PlayerItem = forwardRef<PlayerItemRef, PlayerItemProps>(
             position: "relative",
           }}
         >
-          <TimelinePlayer
-            key={camera.identifier}
-            camera={camera}
-            requestedTimestamp={requestedTimestamp}
-          />
+          <TimelinePlayer key={camera.identifier} camera={camera} />
           <CameraNameOverlay camera_identifier={camera.identifier} />
         </Box>
       </Grid>
@@ -423,14 +418,12 @@ type PlayerGridProps = {
   cameras: types.CamerasOrFailedCameras;
   paperRef: React.RefObject<HTMLDivElement>;
   setPlayerItemRef: (index: number) => (ref: PlayerItemRef | null) => void;
-  requestedTimestamp: number;
   gridLayout: GridLayout;
 };
 const PlayerGrid = ({
   cameras,
   paperRef,
   setPlayerItemRef,
-  requestedTimestamp,
   gridLayout,
 }: PlayerGridProps) => (
   <Grid
@@ -446,7 +439,6 @@ const PlayerGrid = ({
         key={camera.identifier}
         camera={camera}
         paperRef={paperRef}
-        requestedTimestamp={requestedTimestamp}
         gridLayout={gridLayout}
       />
     ))}
@@ -456,14 +448,9 @@ const PlayerGrid = ({
 type PlayerCardProps = {
   cameras: types.CamerasOrFailedCameras;
   selectedEvent: types.CameraEvent | null;
-  requestedTimestamp: number | null;
   selectedTab: "events" | "timeline";
 };
-export const PlayerCard = ({
-  cameras,
-  selectedEvent,
-  requestedTimestamp,
-}: PlayerCardProps) => {
+export const PlayerCard = ({ cameras, selectedEvent }: PlayerCardProps) => {
   const theme = useTheme();
   const paperRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
   const playerItemRefs = useRef<(PlayerItemRef | null)[]>([]);
@@ -505,13 +492,19 @@ export const PlayerCard = ({
     setPlayerItemsSize,
   );
 
+  const { requestedTimestamp } = useReferencePlayerStore(
+    useShallow((state) => ({
+      requestedTimestamp: state.requestedTimestamp,
+    })),
+  );
+
   const camera = selectedEvent
     ? cameras[selectedEvent.camera_identifier]
     : null;
   const src = camera && selectedEvent ? getSrc(selectedEvent) : undefined;
 
   return (
-    <SyncManager requestedTimestamp={requestedTimestamp}>
+    <SyncManager>
       <Paper
         ref={(node) => {
           paperRef.current = node;
@@ -532,12 +525,11 @@ export const PlayerCard = ({
         }}
       >
         <Box sx={{ flexGrow: 1, position: "relative" }}>
-          {requestedTimestamp ? (
+          {requestedTimestamp > 0 ? (
             <PlayerGrid
               cameras={filteredCameras}
               paperRef={paperRef}
               setPlayerItemRef={setPlayerItemRef}
-              requestedTimestamp={requestedTimestamp}
               gridLayout={gridLayout}
             />
           ) : (

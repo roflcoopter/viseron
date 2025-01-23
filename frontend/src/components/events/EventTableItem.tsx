@@ -5,6 +5,7 @@ import Grid from "@mui/material/Grid2";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { memo, useCallback, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 import { SnapshotIcon } from "components/events/SnapshotEvent";
 import {
@@ -13,6 +14,7 @@ import {
   getEventTime,
   getEventTimestamp,
   getSrc,
+  useReferencePlayerStore,
 } from "components/events/utils";
 import { useFirstRender } from "hooks/UseFirstRender";
 import { BLANK_IMAGE, getTimeFromDate } from "lib/helpers";
@@ -85,7 +87,6 @@ type EventTableItemProps = {
   events: types.CameraEvent[];
   setSelectedEvent: (event: types.CameraEvent) => void;
   selected: boolean;
-  setRequestedTimestamp: (timestamp: number | null) => void;
   availableTimespansRef: React.MutableRefObject<types.HlsAvailableTimespan[]>;
   isScrolling: boolean;
   virtualRowIndex: number;
@@ -98,7 +99,6 @@ export const EventTableItem = memo(
     events,
     setSelectedEvent,
     selected,
-    setRequestedTimestamp,
     availableTimespansRef,
     isScrolling,
     virtualRowIndex,
@@ -107,6 +107,13 @@ export const EventTableItem = memo(
   }: EventTableItemProps) => {
     const theme = useTheme();
     const firstRender = useFirstRender();
+
+    const { setRequestedTimestamp } = useReferencePlayerStore(
+      useShallow((state) => ({
+        setRequestedTimestamp: state.setRequestedTimestamp,
+      })),
+    );
+
     // Show the oldest event first in the list, API returns latest first
     const sortedEvents = useMemo(
       () =>
@@ -129,7 +136,7 @@ export const EventTableItem = memo(
       }
 
       setSelectedEvent(sortedEvents[0]);
-      setRequestedTimestamp(null);
+      setRequestedTimestamp(0);
     }, [
       sortedEvents,
       availableTimespansRef,

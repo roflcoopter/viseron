@@ -13,20 +13,16 @@ import {
   useReferencePlayerStore,
 } from "components/events/utils";
 import useControlledInterval from "hooks/UseControlledInterval";
-import { dateToTimestampMillis } from "lib/helpers";
+import { dateToTimestamp, dateToTimestampMillis } from "lib/helpers";
 
 const SYNC_INTERVAL = 100; // Sync interval in milliseconds
 const MAX_DRIFT = 0.5; // Maximum allowed drift in seconds
 
 interface SyncManagerProps {
-  requestedTimestamp: number | null;
   children: React.ReactNode;
 }
 
-const SyncManager: React.FC<SyncManagerProps> = ({
-  requestedTimestamp,
-  children,
-}) => {
+const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
   const { hlsRefs, setHlsRefsError } = useHlsStore(
     useShallow((state) => ({
       hlsRefs: state.hlsRefs,
@@ -39,6 +35,7 @@ const SyncManager: React.FC<SyncManagerProps> = ({
     setIsPlaying,
     setIsLive,
     isMuted,
+    requestedTimestamp,
     playingDateRef,
   } = useReferencePlayerStore(
     useShallow((state) => ({
@@ -47,6 +44,7 @@ const SyncManager: React.FC<SyncManagerProps> = ({
       setIsPlaying: state.setIsPlaying,
       setIsLive: state.setIsLive,
       isMuted: state.isMuted,
+      requestedTimestamp: state.requestedTimestamp,
       playingDateRef: state.playingDateRef,
     })),
   );
@@ -125,7 +123,9 @@ const SyncManager: React.FC<SyncManagerProps> = ({
       setReferencePlayer(referencePlayer.current);
       setIsLive(referencePlayer.current.latency < LIVE_EDGE_DELAY * 1.5);
       setIsPlaying(true);
-      playingDateRef.current = referencePlayer.current.playingDate;
+      playingDateRef.current = referencePlayer.current.playingDate
+        ? dateToTimestamp(referencePlayer.current.playingDate)
+        : requestedTimestamp;
       playersWithTime.forEach((player) => {
         if (player !== referencePlayer) {
           const timeDiff =
@@ -162,50 +162,45 @@ const SyncManager: React.FC<SyncManagerProps> = ({
 
     // Check if all players are paused
     if (playersWithTime.every((player) => player.current.media!.paused)) {
-      const lastReferenceTime = playingDateRef.current
-        ? dateToTimestampMillis(playingDateRef.current)
-        : requestedTimestamp;
+      const playingDateMillis = playingDateRef.current * 1000;
 
-      if (lastReferenceTime) {
-        let playerToPlayIndex = -1;
-        let smallestDifference = Infinity;
+      let playerToPlayIndex = -1;
+      let smallestDifference = Infinity;
 
-        playersWithTime.forEach((player, index) => {
-          const fragments =
-            player.current.levels[player.current.currentLevel].details
-              ?.fragments;
-          if (!fragments || fragments.length === 0) {
-            return;
-          }
-
-          const closestFragment = findClosestFragment(
-            fragments,
-            lastReferenceTime,
-          );
-          if (!closestFragment || !closestFragment.programDateTime) {
-            return;
-          }
-
-          const difference = Math.abs(
-            lastReferenceTime - closestFragment.programDateTime,
-          );
-          if (difference < smallestDifference) {
-            smallestDifference = difference;
-            playerToPlayIndex = index;
-          }
-        });
-
-        if (playerToPlayIndex !== -1) {
-          const playerToPlay = playersWithTime[playerToPlayIndex];
-          playerToPlay.current
-            .media!.play()
-            .then(() => {
-              setHlsRefsError(playerToPlay, null);
-            })
-            .catch(() => {
-              // Ignore play errors
-            });
+      playersWithTime.forEach((player, index) => {
+        const fragments =
+          player.current.levels[player.current.currentLevel].details?.fragments;
+        if (!fragments || fragments.length === 0) {
+          return;
         }
+
+        const closestFragment = findClosestFragment(
+          fragments,
+          playingDateMillis,
+        );
+        if (!closestFragment || !closestFragment.programDateTime) {
+          return;
+        }
+
+        const difference = Math.abs(
+          playingDateMillis - closestFragment.programDateTime,
+        );
+        if (difference < smallestDifference) {
+          smallestDifference = difference;
+          playerToPlayIndex = index;
+        }
+      });
+
+      if (playerToPlayIndex !== -1) {
+        const playerToPlay = playersWithTime[playerToPlayIndex];
+        playerToPlay.current
+          .media!.play()
+          .then(() => {
+            setHlsRefsError(playerToPlay, null);
+          })
+          .catch(() => {
+            // Ignore play errors
+          });
       }
     }
   }, [
@@ -234,6 +229,14 @@ const SyncManager: React.FC<SyncManagerProps> = ({
         });
       }
     });
+
+    return () => {
+      hlsRefs.forEach((player) => {
+        if (player.current) {
+          player.current.off(Hls.Events.ERROR);
+        }
+      });
+    };
   }, [hlsRefs]);
 
   return <>{children}</>;
