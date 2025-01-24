@@ -251,7 +251,11 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
             return;
           }
 
-          if (data.details === Hls.ErrorDetails.BUFFER_NUDGE_ON_STALL) {
+          if (
+            data.details === Hls.ErrorDetails.BUFFER_NUDGE_ON_STALL ||
+            data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR ||
+            data.details === Hls.ErrorDetails.LEVEL_LOAD_ERROR
+          ) {
             player.current!.media!.play().catch(() => {
               // Ignore play errors
             });
