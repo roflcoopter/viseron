@@ -197,6 +197,19 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
 
       if (playerToPlayIndex !== -1) {
         const playerToPlay = playersWithTime[playerToPlayIndex];
+        const fragments =
+          playerToPlay.current.levels[playerToPlay.current.currentLevel].details
+            ?.fragments;
+        if (!fragments || fragments.length === 0) {
+          return;
+        }
+        const closestFragment = findClosestFragment(
+          fragments,
+          playingDateMillis,
+        );
+        if (closestFragment && closestFragment.programDateTime) {
+          playerToPlay.current.media!.currentTime = closestFragment.start;
+        }
         playerToPlay.current
           .media!.play()
           .then(() => {
