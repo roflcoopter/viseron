@@ -75,7 +75,7 @@ const onManifestParsed = (
   }
 
   videoRef.current.muted = true;
-  hlsRef.current.startLoad();
+  hlsRef.current.startLoad(0);
 };
 
 const onMediaAttached = (
@@ -127,6 +127,7 @@ const initializePlayer = (
 
   // Create a new hls instance
   hlsRef.current = new Hls({
+    autoStartLoad: false,
     maxBufferLength: 30, // 30 seconds of forward buffer
     backBufferLength: 15, // 15 seconds of back buffer
     liveSyncDurationCount: 1, // Start from the second last segment
