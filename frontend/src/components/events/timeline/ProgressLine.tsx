@@ -3,11 +3,7 @@ import DOMPurify from "dompurify";
 import Hls from "hls.js";
 import { memo, useEffect, useRef } from "react";
 
-import {
-  TICK_HEIGHT,
-  getYPosition,
-  useReferencePlayerStore,
-} from "components/events/utils";
+import { getYPosition, useReferencePlayerStore } from "components/events/utils";
 import { dateToTimestamp, getTimeFromDate } from "lib/helpers";
 
 const useTimeUpdate = (
@@ -39,8 +35,7 @@ const useTimeUpdate = (
             endRef.current,
             playingTimestamp,
             bounds.height,
-          ) +
-            TICK_HEIGHT / 2,
+          ),
         )}px`;
         const innerHTML = DOMPurify.sanitize(getTimeFromDate(hls.playingDate));
         if (timeRef.current && innerHTML !== timeRef.current.innerHTML) {

@@ -266,10 +266,13 @@ export const getYPosition = (
   requestedTimestamp: number,
   timelineHeight: number,
 ): number => {
+  // Calculate the start and end timestamps with a margin of half the SCALE
+  const _start = startTimestamp + SCALE / 2;
+  const _end = endTimestamp - SCALE / 2;
   // Calculate the total time duration from start to end
-  const totalTime = endTimestamp - startTimestamp;
+  const totalTime = _end - _start;
   // Calculate the time elapsed from start to the requested timestamp
-  const elapsedTime = requestedTimestamp - startTimestamp;
+  const elapsedTime = requestedTimestamp - _start;
   // Calculate the proportion of time elapsed relative to the total time
   const timeProportion = elapsedTime / totalTime;
   // Calculate the Y-position of the requested timestamp
