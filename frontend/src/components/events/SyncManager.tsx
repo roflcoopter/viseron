@@ -233,7 +233,7 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
     setReferencePlayer,
   ]);
 
-  useControlledInterval(syncPlayers, SYNC_INTERVAL);
+  useControlledInterval(syncPlayers, SYNC_INTERVAL, true);
 
   useEffect(() => {
     hlsRefs.forEach((player) => {
