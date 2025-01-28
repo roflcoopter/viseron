@@ -2,14 +2,12 @@ import Typography from "@mui/material/Typography";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import dayjs, { Dayjs } from "dayjs";
 import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
-import ServerDown from "svg/undraw/server_down.svg?react";
 
-import { ErrorMessage } from "components/error/ErrorMessage";
 import { EventTableItem } from "components/events/EventTableItem";
 import {
   getEventTimestamp,
-  useCameraStore,
   useFilterStore,
+  useFilteredCameras,
   useTimespans,
 } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
@@ -80,9 +78,9 @@ export const EventTable = memo(
     const formattedDate = dayjs(date).format("YYYY-MM-DD");
 
     const [elementHeight, setElementHeight] = useState<number | null>(null);
-    const { selectedCameras } = useCameraStore();
+    const filteredCameras = useFilteredCameras();
     const eventsQueries = useEventsMultiple({
-      camera_identifiers: selectedCameras,
+      camera_identifiers: Object.keys(filteredCameras),
       date: formattedDate,
       configOptions: { enabled: !!date },
     });
@@ -105,21 +103,6 @@ export const EventTable = memo(
     useLayoutEffect(() => {
       rowVirtualizer.measure();
     }, [rowVirtualizer, elementHeight]);
-
-    if (eventsQueries.isError) {
-      return (
-        <ErrorMessage
-          text={"Error loading Events"}
-          subtext={
-            eventsQueries.error?.response?.data.error ||
-            eventsQueries.error?.message
-          }
-          image={
-            <ServerDown width={150} height={150} role="img" aria-label="Void" />
-          }
-        />
-      );
-    }
 
     if (eventsQueries.isPending) {
       return <Loading text="Loading Events" fullScreen={false} />;

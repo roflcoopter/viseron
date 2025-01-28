@@ -3,7 +3,7 @@ import Grow from "@mui/material/Grow";
 import { useTheme } from "@mui/material/styles";
 
 import { CameraCard } from "components/camera/CameraCard";
-import { useCameraStore } from "components/events/utils";
+import { useCameraStore, useFilteredCameras } from "components/events/utils";
 import * as types from "lib/types";
 
 type EventsCameraGridProps = {
@@ -11,7 +11,8 @@ type EventsCameraGridProps = {
 };
 export function EventsCameraGrid({ cameras }: EventsCameraGridProps) {
   const theme = useTheme();
-  const { selectedCameras, toggleCamera } = useCameraStore();
+  const { toggleCamera } = useCameraStore();
+  const filteredCameras = useFilteredCameras();
 
   const handleCameraClick = (
     event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
@@ -47,8 +48,8 @@ export function EventsCameraGrid({ cameras }: EventsCameraGridProps) {
                       event: React.MouseEvent<HTMLButtonElement, MouseEvent>,
                     ) => handleCameraClick(event, cameras[camera_identifier])}
                     border={
-                      selectedCameras &&
-                      selectedCameras.includes(camera_identifier)
+                      filteredCameras &&
+                      Object.keys(filteredCameras).includes(camera_identifier)
                         ? `2px solid ${theme.palette.primary[400]}`
                         : "2px solid transparent"
                     }

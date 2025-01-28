@@ -20,7 +20,7 @@ import {
   COLUMN_HEIGHT,
   COLUMN_HEIGHT_SMALL,
   playerCardSmMaxHeight,
-  useCameraStore,
+  useFilteredCameras,
 } from "components/events/utils";
 import { useResizeObserver } from "hooks/UseResizeObserver";
 import { insertURLParameter } from "lib/helpers";
@@ -124,7 +124,7 @@ const Tabs = ({
   setSelectedEvent,
   playerCardGridItemRef,
 }: TabsProps) => {
-  const { selectedCameras } = useCameraStore();
+  const filteredCameras = useFilteredCameras();
   const tabListRef = useRef<HTMLDivElement | null>(null);
   const eventsRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
@@ -182,7 +182,7 @@ const Tabs = ({
           boxSizing: "border-box",
         }}
       >
-        {selectedCameras.length > 0 ? (
+        {Object.keys(filteredCameras).length > 0 ? (
           <EventTable
             cameras={cameras}
             parentRef={eventsRef}
@@ -208,7 +208,7 @@ const Tabs = ({
           boxSizing: "border-box",
         }}
       >
-        {selectedCameras.length > 0 ? (
+        {Object.keys(filteredCameras).length > 0 ? (
           <TimelineTable
             // Force re-render when date changes
             key={`${date?.unix().toString()}`}

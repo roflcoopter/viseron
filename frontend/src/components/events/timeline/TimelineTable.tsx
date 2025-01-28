@@ -14,8 +14,8 @@ import {
   calculateStart,
   getDateAtPosition,
   getTimelineItems,
-  useCameraStore,
   useFilterStore,
+  useFilteredCameras,
   useReferencePlayerStore,
   useTimespans,
 } from "components/events/utils";
@@ -108,9 +108,9 @@ export const TimelineTable = memo(({ parentRef, date }: TimelineTableProps) => {
   useAddTicks(date, startRef, setStart);
   startRef.current = start;
 
-  const { selectedCameras } = useCameraStore();
+  const filteredCameras = useFilteredCameras();
   const eventsQueries = useEventsMultiple({
-    camera_identifiers: selectedCameras,
+    camera_identifiers: Object.keys(filteredCameras),
     date: date ? date.format("YYYY-MM-DD") : "",
     configOptions: { enabled: !!date },
   });

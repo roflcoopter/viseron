@@ -9,10 +9,9 @@ import {
 import dayjs, { Dayjs } from "dayjs";
 import { useMemo } from "react";
 
+import { useFilteredCameras, useTimespans } from "components/events/utils";
 import { useEventsAmountMultiple } from "lib/api/events";
 import * as types from "lib/types";
-
-import { useCameraStore, useTimespans } from "./utils";
 
 function HasEvent(
   props: PickersDayProps<Dayjs> & { highlightedDays?: Record<string, any> },
@@ -121,9 +120,9 @@ export function EventDatePickerDialog({
   date,
   onChange,
 }: EventDatePickerDialogProps) {
-  const { selectedCameras } = useCameraStore();
+  const filteredCameras = useFilteredCameras();
   const eventsAmountQuery = useEventsAmountMultiple({
-    camera_identifiers: selectedCameras,
+    camera_identifiers: Object.keys(filteredCameras),
   });
   const availableTimespans = useTimespans(null, 5, open);
   const highlightedDays = useMemo(

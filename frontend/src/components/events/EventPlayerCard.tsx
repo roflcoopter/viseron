@@ -485,7 +485,7 @@ export const PlayerCard = ({ cameras, selectedEvent }: PlayerCardProps) => {
     });
   }, []);
 
-  const filteredCameras = useFilteredCameras(cameras);
+  const filteredCameras = useFilteredCameras();
   const gridLayout = useGridLayout(
     paperRef,
     filteredCameras,

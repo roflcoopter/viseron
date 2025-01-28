@@ -12,7 +12,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognition";
-import { useCameras } from "lib/api/cameras";
+import { useCameras, useCamerasFailed } from "lib/api/cameras";
 import { useSubscribeTimespans } from "lib/commands";
 import { BLANK_IMAGE, dateToTimestamp } from "lib/helpers";
 import * as types from "lib/types";
@@ -123,17 +123,31 @@ export const useCameraStore = create<CameraState>()(
   ),
 );
 
-export const useFilteredCameras = (cameras: types.CamerasOrFailedCameras) => {
+export const useFilteredCameras = () => {
+  const camerasQuery = useCameras({});
+  const failedCamerasQuery = useCamerasFailed({});
+
+  // Combine the two queries into one object
+  const cameraData: types.CamerasOrFailedCameras = useMemo(() => {
+    if (!camerasQuery.data && !failedCamerasQuery.data) {
+      return {};
+    }
+    return {
+      ...camerasQuery.data,
+      ...failedCamerasQuery.data,
+    };
+  }, [camerasQuery.data, failedCamerasQuery.data]);
+
   const { selectedCameras } = useCameraStore();
   return useMemo(
     () =>
-      Object.keys(cameras)
+      Object.keys(cameraData)
         .filter((key) => selectedCameras.includes(key))
         .reduce((obj: types.CamerasOrFailedCameras, key) => {
-          obj[key] = cameras[key];
+          obj[key] = cameraData[key];
           return obj;
         }, {}),
-    [cameras, selectedCameras],
+    [cameraData, selectedCameras],
   );
 };
 
