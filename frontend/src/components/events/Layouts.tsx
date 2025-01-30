@@ -107,7 +107,6 @@ const useSetPlayerCardHeight = (
 };
 
 type TabsProps = {
-  cameras: types.CamerasOrFailedCameras;
   date: Dayjs | null;
   selectedTab: "events" | "timeline";
   setSelectedTab: (tab: "events" | "timeline") => void;
@@ -116,7 +115,6 @@ type TabsProps = {
   playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>;
 };
 const Tabs = ({
-  cameras,
   date,
   selectedTab,
   setSelectedTab,
@@ -184,7 +182,6 @@ const Tabs = ({
       >
         {Object.keys(filteredCameras).length > 0 ? (
           <EventTable
-            cameras={cameras}
             parentRef={eventsRef}
             date={date}
             selectedEvent={selectedEvent}
@@ -226,7 +223,6 @@ const Tabs = ({
 };
 
 type LayoutProps = {
-  cameras: types.CamerasOrFailedCameras;
   selectedEvent: types.CameraEvent | null;
   setSelectedEvent: (event: types.CameraEvent) => void;
   date: Dayjs | null;
@@ -237,7 +233,6 @@ type LayoutProps = {
 
 export const Layout = memo(
   ({
-    cameras,
     selectedEvent,
     setSelectedEvent,
     date,
@@ -284,7 +279,6 @@ export const Layout = memo(
             }}
           >
             <PlayerCard
-              cameras={cameras}
               selectedEvent={selectedEvent}
               selectedTab={selectedTab}
             />
@@ -300,7 +294,6 @@ export const Layout = memo(
           >
             <Paper variant="outlined">
               <Tabs
-                cameras={cameras}
                 date={date}
                 selectedTab={selectedTab}
                 setSelectedTab={setSelectedTab}
@@ -310,7 +303,7 @@ export const Layout = memo(
               />
             </Paper>
           </Grid>
-          <FloatingMenu cameras={cameras} date={date} setDate={setDate} />
+          <FloatingMenu date={date} setDate={setDate} />
         </Grid>
       </Box>
     );

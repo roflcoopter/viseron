@@ -29,6 +29,7 @@ import {
   useReferencePlayerStore,
 } from "components/events/utils";
 import { useResizeObserver } from "hooks/UseResizeObserver";
+import { useCamerasAll } from "lib/api/cameras";
 import { isTouchDevice } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -446,17 +447,18 @@ const PlayerGrid = ({
 );
 
 type PlayerCardProps = {
-  cameras: types.CamerasOrFailedCameras;
   selectedEvent: types.CameraEvent | null;
   selectedTab: "events" | "timeline";
 };
-export const PlayerCard = ({ cameras, selectedEvent }: PlayerCardProps) => {
+export const PlayerCard = ({ selectedEvent }: PlayerCardProps) => {
   const theme = useTheme();
   const paperRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
   const playerItemRefs = useRef<(PlayerItemRef | null)[]>([]);
   const setPlayerItemRef = (index: number) => (ref: PlayerItemRef | null) => {
     playerItemRefs.current[index] = ref;
   };
+
+  const camerasAll = useCamerasAll();
 
   const {
     handlePlayPause,
@@ -499,7 +501,7 @@ export const PlayerCard = ({ cameras, selectedEvent }: PlayerCardProps) => {
   );
 
   const camera = selectedEvent
-    ? cameras[selectedEvent.camera_identifier]
+    ? camerasAll.combinedData[selectedEvent.camera_identifier]
     : null;
   const src = camera && selectedEvent ? getSrc(selectedEvent) : undefined;
 

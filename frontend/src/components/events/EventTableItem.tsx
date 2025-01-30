@@ -17,27 +17,27 @@ import {
   useReferencePlayerStore,
 } from "components/events/utils";
 import { useFirstRender } from "hooks/UseFirstRender";
-import { BLANK_IMAGE, getTimeFromDate } from "lib/helpers";
+import {
+  BLANK_IMAGE,
+  getCameraNameFromQueryCache,
+  getTimeFromDate,
+} from "lib/helpers";
 import * as types from "lib/types";
 
 type EventTableItemIconProps = {
   sortedEvents: types.CameraEvent[];
-  cameras: types.CamerasOrFailedCameras;
 };
 
-const EventTableItemIcon = ({
-  sortedEvents,
-  cameras,
-}: EventTableItemIconProps) => {
+const EventTableItemIcon = ({ sortedEvents }: EventTableItemIconProps) => {
   const uniqueEvents = extractUniqueTypes(sortedEvents);
+  const cameraName = getCameraNameFromQueryCache(
+    sortedEvents[0].camera_identifier,
+  );
+
   return (
     <div>
       <Typography fontSize=".75rem" fontWeight="bold" align="center">
-        {`${
-          cameras && cameras[sortedEvents[0].camera_identifier]
-            ? cameras[sortedEvents[0].camera_identifier].name
-            : sortedEvents[0].camera_identifier
-        }`}
+        {cameraName}
       </Typography>
       <Typography
         fontSize=".75rem"
@@ -83,7 +83,6 @@ const isTimespanAvailable = (
 };
 
 type EventTableItemProps = {
-  cameras: types.CamerasOrFailedCameras;
   events: types.CameraEvent[];
   setSelectedEvent: (event: types.CameraEvent) => void;
   selected: boolean;
@@ -95,7 +94,6 @@ type EventTableItemProps = {
 };
 export const EventTableItem = memo(
   ({
-    cameras,
     events,
     setSelectedEvent,
     selected,
@@ -186,10 +184,7 @@ export const EventTableItem = memo(
             alignItems="center"
           >
             <Grid size={8}>
-              <EventTableItemIcon
-                sortedEvents={sortedEvents}
-                cameras={cameras}
-              />
+              <EventTableItemIcon sortedEvents={sortedEvents} />
             </Grid>
             <Grid size={4}>
               <CardMedia

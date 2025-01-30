@@ -61,20 +61,13 @@ const useGroupedEvents = (snapshotEvents: types.CameraEvent[]) => {
 
 type EventTableProps = {
   parentRef: React.RefObject<HTMLDivElement>;
-  cameras: types.CamerasOrFailedCameras;
   date: Dayjs | null;
   selectedEvent: types.CameraEvent | null;
   setSelectedEvent: (event: types.CameraEvent) => void;
 };
 
 export const EventTable = memo(
-  ({
-    parentRef,
-    cameras,
-    date,
-    selectedEvent,
-    setSelectedEvent,
-  }: EventTableProps) => {
+  ({ parentRef, date, selectedEvent, setSelectedEvent }: EventTableProps) => {
     const formattedDate = dayjs(date).format("YYYY-MM-DD");
 
     const [elementHeight, setElementHeight] = useState<number | null>(null);
@@ -140,7 +133,6 @@ export const EventTable = memo(
               }}
             >
               <EventTableItem
-                cameras={cameras}
                 events={events}
                 setSelectedEvent={setSelectedEvent}
                 selected={
