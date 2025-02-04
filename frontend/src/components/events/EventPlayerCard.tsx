@@ -24,6 +24,7 @@ import {
   LIVE_EDGE_DELAY,
   getSrc,
   playerCardSmMaxHeight,
+  useEventStore,
   useFilteredCameras,
   useHlsStore,
   useReferencePlayerStore,
@@ -446,11 +447,7 @@ const PlayerGrid = ({
   </Grid>
 );
 
-type PlayerCardProps = {
-  selectedEvent: types.CameraEvent | null;
-  selectedTab: "events" | "timeline";
-};
-export const PlayerCard = ({ selectedEvent }: PlayerCardProps) => {
+export const PlayerCard = () => {
   const theme = useTheme();
   const paperRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
   const playerItemRefs = useRef<(PlayerItemRef | null)[]>([]);
@@ -459,6 +456,7 @@ export const PlayerCard = ({ selectedEvent }: PlayerCardProps) => {
   };
 
   const camerasAll = useCamerasAll();
+  const { selectedEvent } = useEventStore();
 
   const {
     handlePlayPause,

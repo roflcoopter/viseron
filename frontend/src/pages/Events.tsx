@@ -16,7 +16,6 @@ import {
   objIsEmpty,
   removeURLParameter,
 } from "lib/helpers";
-import * as types from "lib/types";
 
 const getDefaultTab = (searchParams: URLSearchParams) => {
   if (
@@ -37,9 +36,6 @@ const Events = () => {
 
   const camerasAll = useCamerasAll();
 
-  const [selectedEvent, setSelectedEvent] = useState<types.CameraEvent | null>(
-    null,
-  );
   const [date, setDate] = useState<Dayjs | null>(
     searchParams.has("date")
       ? dayjs(searchParams.get("date") as string)
@@ -93,8 +89,6 @@ const Events = () => {
 
   return (
     <Layout
-      selectedEvent={selectedEvent}
-      setSelectedEvent={setSelectedEvent}
       date={date}
       setDate={setDate}
       selectedTab={selectedTab}

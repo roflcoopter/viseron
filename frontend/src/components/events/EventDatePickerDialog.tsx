@@ -124,7 +124,7 @@ export function EventDatePickerDialog({
   const eventsAmountQuery = useEventsAmountMultiple({
     camera_identifiers: Object.keys(filteredCameras),
   });
-  const availableTimespans = useTimespans(null, 5, open);
+  const { availableTimespans } = useTimespans(null, 5, open);
   const highlightedDays = useMemo(
     () =>
       eventsAmountQuery.data

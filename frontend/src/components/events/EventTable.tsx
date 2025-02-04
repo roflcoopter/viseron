@@ -1,14 +1,14 @@
 import Typography from "@mui/material/Typography";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import dayjs, { Dayjs } from "dayjs";
-import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useLayoutEffect, useMemo, useState } from "react";
 
 import { EventTableItem } from "components/events/EventTableItem";
 import {
   getEventTimestamp,
   useFilterStore,
   useFilteredCameras,
-  useTimespans,
+  useTimespansRef,
 } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { useEventsMultiple } from "lib/api/events";
@@ -62,92 +62,78 @@ const useGroupedEvents = (snapshotEvents: types.CameraEvent[]) => {
 type EventTableProps = {
   parentRef: React.RefObject<HTMLDivElement>;
   date: Dayjs | null;
-  selectedEvent: types.CameraEvent | null;
-  setSelectedEvent: (event: types.CameraEvent) => void;
 };
 
-export const EventTable = memo(
-  ({ parentRef, date, selectedEvent, setSelectedEvent }: EventTableProps) => {
-    const formattedDate = dayjs(date).format("YYYY-MM-DD");
+export const EventTable = memo(({ parentRef, date }: EventTableProps) => {
+  const formattedDate = dayjs(date).format("YYYY-MM-DD");
+  const [elementHeight, setElementHeight] = useState<number | null>(null);
+  const filteredCameras = useFilteredCameras();
+  const eventsQueries = useEventsMultiple({
+    camera_identifiers: Object.keys(filteredCameras),
+    date: formattedDate,
+    configOptions: { enabled: !!date },
+  });
 
-    const [elementHeight, setElementHeight] = useState<number | null>(null);
-    const filteredCameras = useFilteredCameras();
-    const eventsQueries = useEventsMultiple({
-      camera_identifiers: Object.keys(filteredCameras),
-      date: formattedDate,
-      configOptions: { enabled: !!date },
-    });
+  // Subscribe to timespans so it updates for child components
+  useTimespansRef(date);
 
-    // Store as ref to prevent re-render of EventTableItem
-    const availableTimespansRef = useRef<types.HlsAvailableTimespan[]>([]);
-    const availableTimespans = useTimespans(date);
-    availableTimespansRef.current = availableTimespans;
+  const groupedEvents = useGroupedEvents(eventsQueries.data || []);
 
-    const groupedEvents = useGroupedEvents(eventsQueries.data || []);
+  const parentElement = parentRef.current;
+  const rowVirtualizer = useVirtualizer({
+    count: groupedEvents.length,
+    getScrollElement: () => parentElement,
+    estimateSize: () => elementHeight || 100,
+    overscan: 5,
+  });
 
-    const parentElement = parentRef.current;
-    const rowVirtualizer = useVirtualizer({
-      count: groupedEvents.length,
-      getScrollElement: () => parentElement,
-      estimateSize: () => elementHeight || 100,
-      overscan: 5,
-    });
+  useLayoutEffect(() => {
+    rowVirtualizer.measure();
+  }, [rowVirtualizer, elementHeight]);
 
-    useLayoutEffect(() => {
-      rowVirtualizer.measure();
-    }, [rowVirtualizer, elementHeight]);
+  if (eventsQueries.isPending) {
+    return <Loading text="Loading Events" fullScreen={false} />;
+  }
 
-    if (eventsQueries.isPending) {
-      return <Loading text="Loading Events" fullScreen={false} />;
-    }
-
-    if (!eventsQueries.data || objIsEmpty(eventsQueries.data)) {
-      return (
-        <Typography align="center" padding={2}>
-          No Events found for {formattedDate}
-        </Typography>
-      );
-    }
-
+  if (!eventsQueries.data || objIsEmpty(eventsQueries.data)) {
     return (
-      <div
-        style={{
-          height: `${rowVirtualizer.getTotalSize()}px`,
-          width: "100%",
-          position: "relative",
-        }}
-      >
-        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-          const events = groupedEvents[virtualRow.index];
-          const oldestEvent = events[events.length - 1];
-          return (
-            <div
-              key={virtualRow.key}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: `${virtualRow.size}px`,
-                transform: `translateY(${virtualRow.start}px)`,
-              }}
-            >
-              <EventTableItem
-                events={events}
-                setSelectedEvent={setSelectedEvent}
-                selected={
-                  !!selectedEvent && selectedEvent.id === oldestEvent.id
-                }
-                availableTimespansRef={availableTimespansRef}
-                isScrolling={rowVirtualizer.isScrolling}
-                virtualRowIndex={virtualRow.index}
-                measureElement={rowVirtualizer.measureElement}
-                setElementHeight={setElementHeight}
-              />
-            </div>
-          );
-        })}
-      </div>
+      <Typography align="center" padding={2}>
+        No Events found for {formattedDate}
+      </Typography>
     );
-  },
-);
+  }
+  return (
+    <div
+      style={{
+        height: `${rowVirtualizer.getTotalSize()}px`,
+        width: "100%",
+        position: "relative",
+      }}
+    >
+      {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+        const events = groupedEvents[virtualRow.index];
+        return (
+          <div
+            key={virtualRow.key}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: `${virtualRow.size}px`,
+              transform: `translateY(${virtualRow.start}px)`,
+            }}
+          >
+            <EventTableItem
+              events={events}
+              isScrolling={rowVirtualizer.isScrolling}
+              virtualRowIndex={virtualRow.index}
+              measureElement={rowVirtualizer.measureElement}
+              setElementHeight={setElementHeight}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+});

@@ -24,7 +24,6 @@ import {
 } from "components/events/utils";
 import { useResizeObserver } from "hooks/UseResizeObserver";
 import { insertURLParameter } from "lib/helpers";
-import * as types from "lib/types";
 
 const setTableHeight = (
   tabListRef: React.RefObject<HTMLDivElement>,
@@ -110,16 +109,12 @@ type TabsProps = {
   date: Dayjs | null;
   selectedTab: "events" | "timeline";
   setSelectedTab: (tab: "events" | "timeline") => void;
-  selectedEvent: types.CameraEvent | null;
-  setSelectedEvent: (event: types.CameraEvent) => void;
   playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>;
 };
 const Tabs = ({
   date,
   selectedTab,
   setSelectedTab,
-  selectedEvent,
-  setSelectedEvent,
   playerCardGridItemRef,
 }: TabsProps) => {
   const filteredCameras = useFilteredCameras();
@@ -181,12 +176,7 @@ const Tabs = ({
         }}
       >
         {Object.keys(filteredCameras).length > 0 ? (
-          <EventTable
-            parentRef={eventsRef}
-            date={date}
-            selectedEvent={selectedEvent}
-            setSelectedEvent={setSelectedEvent}
-          />
+          <EventTable parentRef={eventsRef} date={date} />
         ) : (
           <Typography align="center" sx={{ marginTop: "20px" }}>
             Select at least one camera to load Events
@@ -223,8 +213,6 @@ const Tabs = ({
 };
 
 type LayoutProps = {
-  selectedEvent: types.CameraEvent | null;
-  setSelectedEvent: (event: types.CameraEvent) => void;
   date: Dayjs | null;
   setDate: (date: Dayjs | null) => void;
   selectedTab: "events" | "timeline";
@@ -232,14 +220,7 @@ type LayoutProps = {
 };
 
 export const Layout = memo(
-  ({
-    selectedEvent,
-    setSelectedEvent,
-    date,
-    setDate,
-    selectedTab,
-    setSelectedTab,
-  }: LayoutProps) => {
+  ({ date, setDate, selectedTab, setSelectedTab }: LayoutProps) => {
     const theme = useTheme();
     const smBreakpoint = useMediaQuery(theme.breakpoints.up("sm"));
     const playerCardGridItemRef = useRef<HTMLDivElement | null>(null);
@@ -278,10 +259,7 @@ export const Layout = memo(
               xl: 10,
             }}
           >
-            <PlayerCard
-              selectedEvent={selectedEvent}
-              selectedTab={selectedTab}
-            />
+            <PlayerCard />
           </Grid>
           <Grid
             size={{
@@ -297,8 +275,6 @@ export const Layout = memo(
                 date={date}
                 selectedTab={selectedTab}
                 setSelectedTab={setSelectedTab}
-                selectedEvent={selectedEvent}
-                setSelectedEvent={setSelectedEvent}
                 playerCardGridItemRef={playerCardGridItemRef}
               />
             </Paper>

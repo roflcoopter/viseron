@@ -7,9 +7,10 @@ import PetsIcon from "@mui/icons-material/Pets";
 import VideoFileIcon from "@mui/icons-material/VideoFile";
 import dayjs, { Dayjs } from "dayjs";
 import Hls, { Fragment } from "hls.js";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { useShallow } from "zustand/react/shallow";
 
 import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognition";
 import { useCameras, useCamerasFailed } from "lib/api/cameras";
@@ -64,6 +65,34 @@ export const useFilterStore = create<FilterState>()(
     }),
     { name: "filter-store" },
   ),
+);
+
+interface EventState {
+  selectedEvent: types.CameraEvent | null;
+  setSelectedEvent: (event: types.CameraEvent | null) => void;
+}
+
+export const useEventStore = create<EventState>((set) => ({
+  selectedEvent: null,
+  setSelectedEvent: (event) => set({ selectedEvent: event }),
+}));
+
+interface AvailableTimespansState {
+  availableTimespans: types.HlsAvailableTimespan[];
+  setAvailableTimespans: (timespans: types.HlsAvailableTimespan[]) => void;
+  availableTimespansRef: React.MutableRefObject<types.HlsAvailableTimespan[]>;
+}
+
+export const useAvailableTimespansStore = create<AvailableTimespansState>(
+  (set) => ({
+    availableTimespans: [],
+    setAvailableTimespans: (timespans) =>
+      set((state) => {
+        state.availableTimespansRef.current = timespans;
+        return { ...state, availableTimespans: timespans };
+      }),
+    availableTimespansRef: { current: [] },
+  }),
 );
 
 type Cameras = {
@@ -680,6 +709,56 @@ export const getEventTimestamp = (event: types.CameraEvent): number => {
   }
 };
 
+const isTimespanAvailable = (
+  timestamp: number,
+  availableTimespans: types.HlsAvailableTimespan[],
+) => {
+  for (const timespan of availableTimespans) {
+    if (timestamp >= timespan.start && timestamp <= timespan.end) {
+      return true;
+    }
+  }
+  return false;
+};
+
+export const useSelectEvent = () => {
+  const { setSelectedEvent } = useEventStore(
+    useShallow((state) => ({
+      setSelectedEvent: state.setSelectedEvent,
+    })),
+  );
+  const { setRequestedTimestamp } = useReferencePlayerStore(
+    useShallow((state) => ({
+      setRequestedTimestamp: state.setRequestedTimestamp,
+    })),
+  );
+  const { availableTimespansRef } = useAvailableTimespansStore(
+    useShallow((state) => ({
+      availableTimespansRef: state.availableTimespansRef,
+    })),
+  );
+
+  const selectEvent = useCallback(
+    (event: types.CameraEvent) => {
+      if (
+        isTimespanAvailable(
+          Math.round(getEventTimestamp(event)),
+          availableTimespansRef.current,
+        )
+      ) {
+        setSelectedEvent(event);
+        setRequestedTimestamp(Math.round(getEventTimestamp(event)));
+        return;
+      }
+
+      setSelectedEvent(event);
+      setRequestedTimestamp(0);
+    },
+    [availableTimespansRef, setSelectedEvent, setRequestedTimestamp],
+  );
+  return selectEvent;
+};
+
 const labelToIcon = (label: string) => {
   switch (label) {
     case "person":
@@ -725,23 +804,15 @@ export const getIcon = (event: types.CameraEvent) => {
 export const getIconFromType = (type: types.CameraEvent["type"]) =>
   iconMap[type];
 
-export const useTimespans = (
+// Base hook that contains shared logic
+const useTimespansBase = (
   date: Dayjs | null,
+  callback: (message: types.HlsAvailableTimespans) => void,
   debounce = 5,
   enabled: boolean | null = null,
 ) => {
   const { selectedCameras } = useCameraStore();
   const camerasQuery = useCameras({});
-  const [availableTimespans, setAvailableTimespans] = useState<
-    types.HlsAvailableTimespan[]
-  >([]);
-
-  const timespanCallback = useCallback(
-    (message: types.HlsAvailableTimespans) => {
-      setAvailableTimespans(message.timespans);
-    },
-    [],
-  );
 
   let _enabled: boolean;
   if (enabled === null) {
@@ -756,12 +827,55 @@ export const useTimespans = (
   useSubscribeTimespans(
     selectedCameras,
     date ? date.format("YYYY-MM-DD") : null,
-    timespanCallback,
+    callback,
     _enabled,
     debounce,
   );
+};
 
-  return availableTimespans;
+export const useTimespans = (
+  date: Dayjs | null,
+  debounce = 5,
+  enabled: boolean | null = null,
+) => {
+  const { availableTimespans, setAvailableTimespans, availableTimespansRef } =
+    useAvailableTimespansStore();
+
+  const timespanCallback = useCallback(
+    (message: types.HlsAvailableTimespans) => {
+      setAvailableTimespans(message.timespans);
+    },
+    [setAvailableTimespans],
+  );
+
+  useTimespansBase(date, timespanCallback, debounce, enabled);
+
+  return { availableTimespans, availableTimespansRef };
+};
+
+// Use this in favor of useTimespans when you need to access the available
+// timespans without re-rendering the component
+export const useTimespansRef = (
+  date: Dayjs | null,
+  debounce = 5,
+  enabled: boolean | null = null,
+) => {
+  const { availableTimespansRef } = useAvailableTimespansStore(
+    useShallow((state) => ({
+      availableTimespansRef: state.availableTimespansRef,
+    })),
+  );
+
+  const timespanCallback = useCallback(
+    (message: types.HlsAvailableTimespans) => {
+      availableTimespansRef.current = message.timespans;
+    },
+    [availableTimespansRef],
+  );
+
+  useTimespansBase(date, timespanCallback, debounce, enabled);
+
+  return { availableTimespansRef };
 };
 
 // Error codes for HLS errors

@@ -120,7 +120,7 @@ export const TimelineTable = memo(({ parentRef, date }: TimelineTableProps) => {
     })),
   );
 
-  const availableTimespans = useTimespans(date);
+  const { availableTimespans } = useTimespans(date);
 
   // Since React Query v5 doesn't support keepPreviousData, and the
   // alternatives does not work for useQueries, we need to use a ref
