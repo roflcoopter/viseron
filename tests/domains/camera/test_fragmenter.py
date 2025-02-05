@@ -63,11 +63,9 @@ def test_generate_playlist() -> None:
 #EXT-X-TARGETDURATION:6
 #EXT-X-INDEPENDENT-SEGMENTS
 #EXT-X-MAP:URI="/test/init.mp4"
-#EXT-X-DISCONTINUITY
 #EXT-X-PROGRAM-DATE-TIME:{program_date_time}
 #EXTINF:5.1,
 /test/test1.mp4
-#EXT-X-DISCONTINUITY
 #EXT-X-PROGRAM-DATE-TIME:{program_date_time}
 #EXTINF:4.123,
 /test/test2.mp4
