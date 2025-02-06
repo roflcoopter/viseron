@@ -84,15 +84,26 @@
                         },
                         {
                           "type": "boolean",
-                          "name": "trigger_recorder",
+                          "name": {
+                            "type": "deprecated",
+                            "name": "trigger_recorder",
+                            "value": "Use <code>trigger_event_recording</code> instead."
+                          },
                           "description": "If set to <code>true</code>, objects matching this filter will start the recorder.",
+                          "deprecated": true,
+                          "default": null
+                        },
+                        {
+                          "type": "boolean",
+                          "name": "trigger_event_recording",
+                          "description": "If set to <code>true</code>, objects matching this filter will trigger an event recording.",
                           "optional": true,
                           "default": true
                         },
                         {
                           "type": "boolean",
                           "name": "store",
-                          "description": "If set to <code>true</code>, objects matching this filter will be stored in the database, as well as having a snapshot saved. Labels with <code>trigger_recorder</code> set to <code>true</code> will always be stored when a recording starts, regardless of this setting.",
+                          "description": "If set to <code>true</code>, objects matching this filter will be stored in the database, as well as having a snapshot saved. Labels with <code>trigger_event_recording</code> set to <code>true</code> will always be stored when a recording starts, regardless of this setting.",
                           "optional": true,
                           "default": true
                         },
@@ -264,15 +275,26 @@
                               },
                               {
                                 "type": "boolean",
-                                "name": "trigger_recorder",
+                                "name": {
+                                  "type": "deprecated",
+                                  "name": "trigger_recorder",
+                                  "value": "Use <code>trigger_event_recording</code> instead."
+                                },
                                 "description": "If set to <code>true</code>, objects matching this filter will start the recorder.",
+                                "deprecated": true,
+                                "default": null
+                              },
+                              {
+                                "type": "boolean",
+                                "name": "trigger_event_recording",
+                                "description": "If set to <code>true</code>, objects matching this filter will trigger an event recording.",
                                 "optional": true,
                                 "default": true
                               },
                               {
                                 "type": "boolean",
                                 "name": "store",
-                                "description": "If set to <code>true</code>, objects matching this filter will be stored in the database, as well as having a snapshot saved. Labels with <code>trigger_recorder</code> set to <code>true</code> will always be stored when a recording starts, regardless of this setting.",
+                                "description": "If set to <code>true</code>, objects matching this filter will be stored in the database, as well as having a snapshot saved. Labels with <code>trigger_event_recording</code> set to <code>true</code> will always be stored when a recording starts, regardless of this setting.",
                                 "optional": true,
                                 "default": true
                               },

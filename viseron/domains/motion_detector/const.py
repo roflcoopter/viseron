@@ -23,6 +23,7 @@ CONFIG_HEIGHT = "height"
 CONFIG_MASK = "mask"
 CONFIG_COORDINATES = "coordinates"
 CONFIG_TRIGGER_RECORDER = "trigger_recorder"
+CONFIG_TRIGGER_EVENT_RECORDING = "trigger_event_recording"
 CONFIG_RECORDER_KEEPALIVE = "recorder_keepalive"
 CONFIG_MAX_RECORDER_KEEPALIVE = "max_recorder_keepalive"
 
@@ -31,7 +32,7 @@ DEFAULT_AREA = 0.08
 DEFAULT_WIDTH = 300
 DEFAULT_HEIGHT = 300
 DEFAULT_MASK: list[dict[str, int]] = []
-DEFAULT_TRIGGER_RECORDER = False
+DEFAULT_TRIGGER_EVENT_RECORDING = False
 DEFAULT_RECORDER_KEEPALIVE = True
 DEFAULT_MAX_RECORDER_KEEPALIVE = 30
 
@@ -56,7 +57,16 @@ DESC_MASK = (
     "A mask is used to exclude certain areas in the image from motion detection. "
 )
 DESC_COORDINATES = "List of X and Y coordinates to form a polygon"
+DESC_TRIGGER_EVENT_RECORDING = (
+    "If true, detected motion will trigger an event recording."
+)
 DESC_TRIGGER_RECORDER = "If true, detected motion will start the recorder."
+DEPRECATED_TRIGGER_RECORDER = "Use <code>trigger_event_recording</code> instead."
+WARNING_TRIGGER_RECORDER = (
+    "Config option 'trigger_recorder' is deprecated and will be removed in a future "
+    "version. Use 'trigger_event_recording' instead"
+)
+
 DESC_RECORDER_KEEPALIVE = (
     "If true, recording will continue until no motion is detected."
 )

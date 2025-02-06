@@ -108,19 +108,19 @@ darknet:
         labels:
           - label: person
             confidence: 0.8
-            trigger_recorder: true
+            trigger_event_recording: true
       viseron_camera2:
         fps: 1
         labels:
           - label: person
             confidence: 0.8
-            trigger_recorder: true
+            trigger_event_recording: true
       viseron_camera3:
         fps: 1
         labels:
           - label: person
             confidence: 0.8
-            trigger_recorder: true
+            trigger_event_recording: true
 
 nvr:
   viseron_camera:

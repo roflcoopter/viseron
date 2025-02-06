@@ -36,7 +36,7 @@ codeprojectai:
         labels:
           - label: person
             confidence: 0.8
-            trigger_recorder: true
+            trigger_event_recording: true
           - label: cat
             confidence: 0.8
         zones:
@@ -53,7 +53,7 @@ codeprojectai:
             labels:
               - label: person
                 confidence: 0.8
-                trigger_recorder: true
+                trigger_event_recording: true
         mask:
           - coordinates:
               - x: 400
@@ -69,10 +69,10 @@ codeprojectai:
         labels:
           - label: person
             confidence: 0.7
-            trigger_recorder: true
+            trigger_event_recording: true
           - label: cat
             confidence: 0.8
-            trigger_recorder: false
+            trigger_event_recording: false
   face_recognition:
     save_unknown_faces: true
     cameras:

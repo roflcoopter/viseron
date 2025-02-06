@@ -48,7 +48,7 @@ class DetectedObject:
             (self._rel_x1, self._rel_y1, self._rel_x2, self._rel_y2), frame_res
         )
 
-        self._trigger_recorder = False
+        self._trigger_event_recording = False
         self._store = False
         self._relevant = False
         self._filter_hit = None
@@ -222,13 +222,13 @@ class DetectedObject:
         return payload
 
     @property
-    def trigger_recorder(self):
+    def trigger_event_recording(self):
         """Return if object should trigger the recorder."""
-        return self._trigger_recorder
+        return self._trigger_event_recording
 
-    @trigger_recorder.setter
-    def trigger_recorder(self, value) -> None:
-        self._trigger_recorder = value
+    @trigger_event_recording.setter
+    def trigger_event_recording(self, value) -> None:
+        self._trigger_event_recording = value
 
     @property
     def store(self):

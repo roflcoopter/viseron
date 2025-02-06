@@ -90,8 +90,8 @@ DESC_RECORDER = "Configuration for recordings."
 DESC_TYPE = (
     "<code>continuous</code>: Will save everything but highlight Events.<br>"
     "<code>events</code>: Will only save Events.<br>"
-    "Events are started by <code>trigger_recorder</code>, and ends when either no "
-    "objects or no motion (or both) is detected, depending on the configuration."
+    "Events are started by <code>trigger_event_recording</code>, and ends when either "
+    "no objects or no motion (or both) is detected, depending on the configuration."
 )
 DESC_RECORDER_TIERS = (
     "Tiers are used to move files between different storage locations. "

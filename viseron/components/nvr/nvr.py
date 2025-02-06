@@ -297,7 +297,7 @@ class NVR:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
                 self._frame_scanners[
                     MOTION_DETECTOR
-                ].scan = self._motion_detector.trigger_recorder
+                ].scan = self._motion_detector.trigger_event_recording
 
             case _ if self._object_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
@@ -437,7 +437,7 @@ class NVR:
         self, obj: DetectedObject, object_filters: dict[str, Filter]
     ) -> bool:
         """Check if object should stop the recorder."""
-        if obj.trigger_recorder:
+        if obj.trigger_event_recording:
             if self._motion_detector:
                 if not self.event_over_check_motion(obj, object_filters):
                     return False
@@ -492,13 +492,13 @@ class NVR:
             return False
         return True
 
-    def trigger_recorder(
+    def trigger_event_recording(
         self, obj: DetectedObject, object_filters: dict[str, Filter]
     ) -> bool:
         """Check if object should start the recorder."""
         # Discard object if it requires motion but motion is not detected
         if (
-            obj.trigger_recorder
+            obj.trigger_event_recording
             and object_filters.get(obj.label)
             and object_filters.get(obj.label).require_motion  # type: ignore[union-attr]
             and self._motion_detector
@@ -506,7 +506,7 @@ class NVR:
         ):
             return False
 
-        if obj.trigger_recorder:
+        if obj.trigger_event_recording:
             return True
 
         return False
@@ -531,14 +531,14 @@ class NVR:
             return
 
         for obj in self._object_detector.objects_in_fov:
-            if self.trigger_recorder(obj, self._object_detector.object_filters):
+            if self.trigger_event_recording(obj, self._object_detector.object_filters):
                 self._trigger_type = TriggerTypes.OBJECT
                 self._start_recorder = True
                 return
 
         for zone in self._object_detector.zones:
             for obj in zone.objects_in_zone:
-                if self.trigger_recorder(obj, zone.object_filters):
+                if self.trigger_event_recording(obj, zone.object_filters):
                     self._trigger_type = TriggerTypes.OBJECT
                     self._start_recorder = True
                     return
@@ -571,7 +571,10 @@ class NVR:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
                 self._logger.debug("Starting object detector")
 
-            if self._motion_detector.trigger_recorder and not self._camera.is_recording:
+            if (
+                self._motion_detector.trigger_event_recording
+                and not self._camera.is_recording
+            ):
                 self._trigger_type = TriggerTypes.MOTION
                 self._start_recorder = True
                 self._motion_only_frames = 0
@@ -636,7 +639,7 @@ class NVR:
                 self._motion_detector
                 and self._object_detector
                 and not self._object_detector.scan_on_motion_only
-                and not self._motion_detector.trigger_recorder
+                and not self._motion_detector.trigger_event_recording
             ):
                 self._frame_scanners[MOTION_DETECTOR].scan = False
                 self._logger.info("Pausing motion detector")

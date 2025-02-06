@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-from viseron.domains.motion_detector.const import CONFIG_TRIGGER_RECORDER
+from viseron.domains.motion_detector.const import CONFIG_TRIGGER_EVENT_RECORDING
 from viseron.domains.object_detector.const import (
     CONFIG_LABEL_CONFIDENCE,
     CONFIG_LABEL_HEIGHT_MAX,
@@ -32,7 +32,7 @@ def test_should_store() -> None:
             CONFIG_LABEL_WIDTH_MAX: 1,
             CONFIG_LABEL_HEIGHT_MIN: 0,
             CONFIG_LABEL_HEIGHT_MAX: 1,
-            CONFIG_TRIGGER_RECORDER: True,
+            CONFIG_TRIGGER_EVENT_RECORDING: True,
             CONFIG_LABEL_REQUIRE_MOTION: False,
             CONFIG_LABEL_STORE: True,
             CONFIG_LABEL_STORE_INTERVAL: 10,
