@@ -31,7 +31,7 @@ from viseron.helpers.schemas import (
     FLOAT_MIN_ZERO,
     FLOAT_MIN_ZERO_MAX_ONE,
 )
-from viseron.helpers.validators import CameraIdentifier
+from viseron.helpers.validators import CameraIdentifier, Deprecated
 from viseron.types import SnapshotDomain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -50,6 +50,7 @@ from .const import (
     CONFIG_LABEL_REQUIRE_MOTION,
     CONFIG_LABEL_STORE,
     CONFIG_LABEL_STORE_INTERVAL,
+    CONFIG_LABEL_TRIGGER_EVENT_RECORDING,
     CONFIG_LABEL_TRIGGER_RECORDER,
     CONFIG_LABEL_WIDTH_MAX,
     CONFIG_LABEL_WIDTH_MIN,
@@ -69,7 +70,7 @@ from .const import (
     DEFAULT_LABEL_REQUIRE_MOTION,
     DEFAULT_LABEL_STORE,
     DEFAULT_LABEL_STORE_INTERVAL,
-    DEFAULT_LABEL_TRIGGER_RECORDER,
+    DEFAULT_LABEL_TRIGGER_EVENT_RECORDING,
     DEFAULT_LABEL_WIDTH_MAX,
     DEFAULT_LABEL_WIDTH_MIN,
     DEFAULT_LABELS,
@@ -78,6 +79,7 @@ from .const import (
     DEFAULT_MAX_FRAME_AGE,
     DEFAULT_SCAN_ON_MOTION_ONLY,
     DEFAULT_ZONES,
+    DEPRECATED_LABEL_TRIGGER_RECORDER,
     DESC_CAMERAS,
     DESC_COORDINATES,
     DESC_FPS,
@@ -88,6 +90,7 @@ from .const import (
     DESC_LABEL_REQUIRE_MOTION,
     DESC_LABEL_STORE,
     DESC_LABEL_STORE_INTERVAL,
+    DESC_LABEL_TRIGGER_EVENT_RECORDING,
     DESC_LABEL_TRIGGER_RECORDER,
     DESC_LABEL_WIDTH_MAX,
     DESC_LABEL_WIDTH_MIN,
@@ -100,6 +103,7 @@ from .const import (
     DESC_ZONES,
     DOMAIN,
     EVENT_OBJECTS_IN_FOV,
+    WARNING_LABEL_TRIGGER_RECORDER,
 )
 from .detected_object import DetectedObject, EventDetectedObjectsData
 from .sensor import ObjectDetectorFPSSensor
@@ -153,10 +157,16 @@ LABEL_SCHEMA = vol.Schema(
                 default=DEFAULT_LABEL_WIDTH_MAX,
                 description=DESC_LABEL_WIDTH_MAX,
             ): FLOAT_MIN_ZERO_MAX_ONE,
-            vol.Optional(
+            Deprecated(
                 CONFIG_LABEL_TRIGGER_RECORDER,
-                default=DEFAULT_LABEL_TRIGGER_RECORDER,
                 description=DESC_LABEL_TRIGGER_RECORDER,
+                message=DEPRECATED_LABEL_TRIGGER_RECORDER,
+                warning=WARNING_LABEL_TRIGGER_RECORDER,
+            ): bool,
+            vol.Optional(
+                CONFIG_LABEL_TRIGGER_EVENT_RECORDING,
+                default=DEFAULT_LABEL_TRIGGER_EVENT_RECORDING,
+                description=DESC_LABEL_TRIGGER_EVENT_RECORDING,
             ): bool,
             vol.Optional(
                 CONFIG_LABEL_STORE,
@@ -358,8 +368,8 @@ class AbstractObjectDetector(ABC):
                 obj.relevant = True
                 objects_in_fov.append(obj)
 
-                if self.object_filters[obj.label].trigger_recorder:
-                    obj.trigger_recorder = True
+                if self.object_filters[obj.label].trigger_event_recording:
+                    obj.trigger_event_recording = True
                 self.object_filters[obj.label].should_store(obj)
 
         self._objects_in_fov_setter(shared_frame, objects_in_fov)

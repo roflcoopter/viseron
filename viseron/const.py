@@ -44,14 +44,14 @@ darknet:
         labels:
           - label: person
             confidence: 0.75
-            trigger_recorder: true
+            trigger_event_recording: true
 
       camera_2:  # Attach detector to the configured camera_2 above
         fps: 1
         labels:
           - label: person
             confidence: 0.75
-            trigger_recorder: true
+            trigger_event_recording: true
 
 
 ## You can also use motion detection

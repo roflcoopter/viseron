@@ -37,10 +37,10 @@ class Zone:
     def __init__(
         self,
         vis: Viseron,
-        component,
-        camera_identifier,
-        zone_config,
-        mask,
+        component: str,
+        camera_identifier: str,
+        zone_config: dict[str, Any],
+        mask: list,
     ) -> None:
         self._vis = vis
         self._camera = vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
@@ -92,8 +92,8 @@ class Zone:
                     obj.relevant = True
                     objects_in_zone.append(obj)
 
-                    if self._object_filters[obj.label].trigger_recorder:
-                        obj.trigger_recorder = True
+                    if self._object_filters[obj.label].trigger_event_recording:
+                        obj.trigger_event_recording = True
                     self._object_filters[obj.label].should_store(obj)
 
         self.objects_in_zone_setter(shared_frame, objects_in_zone)

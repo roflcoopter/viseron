@@ -50,7 +50,7 @@ def config():
                                 {
                                     "label": "person",
                                     "confidence": 0.8,
-                                    "trigger_recorder": True,
+                                    "trigger_event_recording": True,
                                 }
                             ],
                         }

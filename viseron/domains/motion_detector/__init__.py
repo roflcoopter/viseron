@@ -32,6 +32,7 @@ from viseron.domains.motion_detector.const import (
     CONFIG_MASK,
     CONFIG_MAX_RECORDER_KEEPALIVE,
     CONFIG_RECORDER_KEEPALIVE,
+    CONFIG_TRIGGER_EVENT_RECORDING,
     CONFIG_TRIGGER_RECORDER,
     CONFIG_WIDTH,
     DATA_MOTION_DETECTOR_RESULT,
@@ -42,8 +43,9 @@ from viseron.domains.motion_detector.const import (
     DEFAULT_MASK,
     DEFAULT_MAX_RECORDER_KEEPALIVE,
     DEFAULT_RECORDER_KEEPALIVE,
-    DEFAULT_TRIGGER_RECORDER,
+    DEFAULT_TRIGGER_EVENT_RECORDING,
     DEFAULT_WIDTH,
+    DEPRECATED_TRIGGER_RECORDER,
     DESC_AREA,
     DESC_CAMERAS,
     DESC_COORDINATES,
@@ -52,10 +54,12 @@ from viseron.domains.motion_detector.const import (
     DESC_MASK,
     DESC_MAX_RECORDER_KEEPALIVE,
     DESC_RECORDER_KEEPALIVE,
+    DESC_TRIGGER_EVENT_RECORDING,
     DESC_TRIGGER_RECORDER,
     DESC_WIDTH,
     DOMAIN,
     EVENT_MOTION_DETECTED,
+    WARNING_TRIGGER_RECORDER,
 )
 from viseron.events import EventData
 from viseron.helpers import apply_mask, generate_mask, generate_mask_image, utcnow
@@ -64,7 +68,7 @@ from viseron.helpers.schemas import (
     FLOAT_MIN_ZERO,
     FLOAT_MIN_ZERO_MAX_ONE,
 )
-from viseron.helpers.validators import CameraIdentifier
+from viseron.helpers.validators import CameraIdentifier, Deprecated
 from viseron.types import SnapshotDomain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -81,10 +85,16 @@ if TYPE_CHECKING:
 
 CAMERA_SCHEMA = vol.Schema(
     {
-        vol.Optional(
+        Deprecated(
             CONFIG_TRIGGER_RECORDER,
-            default=DEFAULT_TRIGGER_RECORDER,
             description=DESC_TRIGGER_RECORDER,
+            message=DEPRECATED_TRIGGER_RECORDER,
+            warning=WARNING_TRIGGER_RECORDER,
+        ): bool,
+        vol.Optional(
+            CONFIG_TRIGGER_EVENT_RECORDING,
+            default=DEFAULT_TRIGGER_EVENT_RECORDING,
+            description=DESC_TRIGGER_EVENT_RECORDING,
         ): bool,
         vol.Optional(
             CONFIG_RECORDER_KEEPALIVE,
@@ -151,10 +161,18 @@ class AbstractMotionDetector(ABC):
         vis.add_entity(component, MotionDetectionBinarySensor(vis, self, self._camera))
 
     @property
-    def trigger_recorder(self):
+    def trigger_event_recording(self):
         """Return if detected motion should start recorder."""
-        return self._config[CONFIG_CAMERAS][self._camera.identifier][
+        if (
             CONFIG_TRIGGER_RECORDER
+            in self._config[CONFIG_CAMERAS][self._camera.identifier]
+        ):
+            return self._config[CONFIG_CAMERAS][self._camera.identifier][
+                CONFIG_TRIGGER_RECORDER
+            ]
+
+        return self._config[CONFIG_CAMERAS][self._camera.identifier][
+            CONFIG_TRIGGER_EVENT_RECORDING
         ]
 
     @property

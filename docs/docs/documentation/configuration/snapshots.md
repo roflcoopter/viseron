@@ -23,7 +23,7 @@ codeprojectai:
         labels:
           - label: person
             confidence: 0.8
-            trigger_recorder: true
+            trigger_event_recording: true
             // highlight-start
             store: true
             store_interval: 300 # Only store a snapshot of this label every 300 seconds
