@@ -1,12 +1,15 @@
 import { useEffect, useRef } from "react";
+import { usePageVisibility } from "react-page-visibility";
 
 // Hook where the interval only starts after the current execution is complete.
 const useControlledInterval = (
   callback: () => Promise<void> | void,
   delay: number,
+  pauseInvisible = false, // Pause the interval when the tab is not visible
 ) => {
   const savedCallback = useRef<typeof callback>();
   const timeoutRef = useRef<NodeJS.Timeout>();
+  const isVisible = usePageVisibility();
 
   useEffect(() => {
     savedCallback.current = callback;
@@ -18,6 +21,9 @@ const useControlledInterval = (
 
     const tick = async () => {
       if (isDestroyed) return;
+
+      // Don't execute if we should pause when invisible and page is not visible
+      if (pauseInvisible && !isVisible) return;
 
       try {
         // Execute the callback
@@ -32,8 +38,10 @@ const useControlledInterval = (
       }
     };
 
-    // Start the first execution
-    tick();
+    // Only start the interval if we're visible or pauseInvisible is false
+    if (!pauseInvisible || isVisible) {
+      tick();
+    }
 
     return () => {
       isDestroyed = true;
@@ -41,7 +49,7 @@ const useControlledInterval = (
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [delay]);
+  }, [delay, pauseInvisible, isVisible]);
 
   // Return method to manually clear the timeout
   return () => {

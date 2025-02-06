@@ -416,8 +416,7 @@ def generate_playlist(
     prev_fragment: Fragment | None = None
     for fragment in fragments:
         if prev_fragment and gap_in_fragments(prev_fragment, fragment):
-            playlist.append("#EXT-X-GAP")
-        playlist.append("#EXT-X-DISCONTINUITY")
+            playlist.append("#EXT-X-DISCONTINUITY")
         program_date_time = fragment.creation_time.replace(
             tzinfo=datetime.timezone.utc
         ).isoformat(timespec="milliseconds")

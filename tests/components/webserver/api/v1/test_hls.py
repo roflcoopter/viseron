@@ -45,7 +45,6 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         assert response.code == 200
         response_string = response.body.decode()
         assert response_string.count("#EXTINF") == 3
-        assert response_string.count("#EXT-X-DISCONTINUITY") == 3
         assert response_string.count("#EXT-X-ENDLIST") == 1
 
     def test_get_recording_hls_playlist_gap_segments(self):
@@ -83,8 +82,7 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         assert response.code == 200
         response_string = response.body.decode()
         assert response_string.count("#EXTINF") == 11
-        assert response_string.count("#EXT-X-DISCONTINUITY") == 11
-        assert response_string.count("#EXT-X-GAP") == 1
+        assert response_string.count("#EXT-X-DISCONTINUITY") == 1
 
     def test_get_recording_hls_ongoing(self):
         """Test getting a recording HLS playlist for a recording that has not ended."""
@@ -124,7 +122,6 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         assert response.code == 200
         response_string = response.body.decode()
         assert response_string.count("#EXTINF") == 4
-        assert response_string.count("#EXT-X-DISCONTINUITY") == 4
         assert response_string.count("#EXT-X-ENDLIST") == 0
 
     def test_get_available_timespans(self):

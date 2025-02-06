@@ -8,7 +8,7 @@ import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { Dayjs } from "dayjs";
 import { useState } from "react";
 
-import { useCameraStore } from "components/events/utils";
+import { useFilteredCameras } from "components/events/utils";
 import { useExportTimespan } from "lib/commands";
 import { is12HourFormat } from "lib/helpers";
 
@@ -21,7 +21,7 @@ export const ExportDialog = ({ open, setOpen }: ExportDialogProps) => {
   const [startDate, setStartDate] = useState<Dayjs | null>(null);
   const [endDate, setEndDate] = useState<Dayjs | null>(null);
 
-  const { selectedCameras } = useCameraStore();
+  const filteredCameras = useFilteredCameras();
   const exportTimespan = useExportTimespan();
 
   const handleClose = () => {
@@ -37,7 +37,11 @@ export const ExportDialog = ({ open, setOpen }: ExportDialogProps) => {
 
   const handleExport = () => {
     if (!startDate || !endDate) return;
-    exportTimespan(selectedCameras, startDate.unix(), endDate.unix());
+    exportTimespan(
+      Object.keys(filteredCameras),
+      startDate.unix(),
+      endDate.unix(),
+    );
     handleClose();
   };
 

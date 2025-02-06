@@ -2,6 +2,7 @@ import Image from "@jy95/material-ui-image";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
+import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
@@ -15,7 +16,7 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import PopupState, { bindHover, bindPopover } from "material-ui-popup-state";
 import HoverPopover from "material-ui-popup-state/HoverPopover";
-import { memo } from "react";
+import { memo, useCallback, useRef } from "react";
 
 import {
   EVENT_ICON_HEIGHT,
@@ -27,6 +28,7 @@ import {
   getEventTimestamp,
   getIcon,
   getSrc,
+  useSelectEvent,
 } from "components/events/utils";
 import { useExportEvent } from "lib/commands";
 import { isTouchDevice, toTitleCase } from "lib/helpers";
@@ -131,6 +133,7 @@ const PopoverContent = ({ events }: { events: types.CameraEvent[] }) => {
   const theme = useTheme();
   const matches = useMediaQuery(theme.breakpoints.up("sm"));
   const width = matches ? (events.length > 1 ? "50vw" : "25vw") : "90vw";
+  const handleEventClick = useSelectEvent();
   const exportEvent = useExportEvent();
 
   return (
@@ -150,21 +153,27 @@ const PopoverContent = ({ events }: { events: types.CameraEvent[] }) => {
             size={events.length > 1 ? 1 : 2}
           >
             <Card>
-              <CardMedia
-                sx={{
-                  borderRadius: 1, // theme.shape.borderRadius * 1
-                  overflow: "hidden",
+              <CardActionArea
+                onClick={() => {
+                  handleEventClick(event);
                 }}
               >
-                <Image
-                  src={getSrc(event)}
-                  color={theme.palette.background.default}
-                  animationDuration={0}
-                  imageStyle={{
-                    objectFit: "contain",
+                <CardMedia
+                  sx={{
+                    borderRadius: 1, // theme.shape.borderRadius * 1
+                    overflow: "hidden",
                   }}
-                />
-              </CardMedia>
+                >
+                  <Image
+                    src={getSrc(event)}
+                    color={theme.palette.background.default}
+                    animationDuration={0}
+                    imageStyle={{
+                      objectFit: "contain",
+                    }}
+                  />
+                </CardMedia>
+              </CardActionArea>
               <CardContent>{getText(event)}</CardContent>
               <CardActions>
                 <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
@@ -202,66 +211,109 @@ export const SnapshotIcon = ({ events }: { events: types.CameraEvent[] }) => {
   const Icon = getIcon(events[0]);
   const PopoverComponent = isTouchDevice() ? Popover : HoverPopover;
 
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const handleOnMouseEnter = useCallback(
+    (
+      e: React.MouseEvent<HTMLElement>,
+      onMouseOver: (e: React.MouseEvent<HTMLElement>) => void,
+    ) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      const currentTarget = e.currentTarget;
+      timeoutRef.current = setTimeout(() => {
+        e.currentTarget = currentTarget;
+        onMouseOver(e);
+      }, 100);
+    },
+    [timeoutRef],
+  );
+
+  const handleMouseLeave = useCallback(
+    (e: React.MouseEvent, onMouseLeave: (event: React.MouseEvent) => void) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      onMouseLeave(e);
+    },
+    [timeoutRef],
+  );
+
   return (
     <PopupState variant="popover">
-      {(popupState) => (
-        <div>
-          <Box
-            {...bindHover(popupState)}
-            sx={(theme) => ({
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "5px",
-              cursor: "pointer",
-              ...(popupState.isOpen && {
-                borderRadius: 1, // theme.shape.borderRadius * 1
-                backgroundColor: theme.palette.primary[200],
+      {(popupState) => {
+        const { onMouseLeave, onMouseOver, ...rest } = bindHover(popupState);
 
-                ...theme.applyStyles("dark", {
-                  backgroundColor: theme.palette.primary[900],
-                }),
-              }),
-            })}
-          >
-            <Icon
-              color="primary"
-              style={{
-                height: EVENT_ICON_HEIGHT,
-                width: EVENT_ICON_HEIGHT,
-              }}
-            />
-          </Box>
-          <PopoverComponent
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-            }}
-            {...bindPopover(popupState)}
-            slotProps={{
-              paper: {
-                style: {
-                  padding: 10,
-                  overflowX: "hidden",
-                  overflowY: "scroll",
-                  maxHeight: "50vh",
-                  maxWidth: "100vw",
+        return (
+          <div>
+            <Box
+              {...rest}
+              onMouseOver={(e) => handleOnMouseEnter(e, onMouseOver)}
+              onMouseLeave={(e) => handleMouseLeave(e, onMouseLeave)}
+              sx={(theme) => ({
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "5px",
+                cursor: "pointer",
+                borderRadius: 1, // theme.shape.borderRadius * 1
+                "&:hover": {
+                  backgroundColor: theme.palette.primary[200],
+
+                  ...theme.applyStyles("dark", {
+                    backgroundColor: theme.palette.primary[900],
+                  }),
                 },
-              },
-            }}
-            anchorOrigin={{
-              vertical: "bottom",
-              horizontal: "left",
-            }}
-            transformOrigin={{
-              vertical: "top",
-              horizontal: "left",
-            }}
-          >
-            <PopoverContent events={events} />
-          </PopoverComponent>
-        </div>
-      )}
+                ...(popupState.isOpen && {
+                  backgroundColor: theme.palette.primary[200],
+
+                  ...theme.applyStyles("dark", {
+                    backgroundColor: theme.palette.primary[900],
+                  }),
+                }),
+              })}
+            >
+              <Icon
+                color="primary"
+                style={{
+                  height: EVENT_ICON_HEIGHT,
+                  width: EVENT_ICON_HEIGHT,
+                }}
+              />
+            </Box>
+            <PopoverComponent
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+              {...bindPopover(popupState)}
+              slotProps={{
+                paper: {
+                  style: {
+                    padding: 10,
+                    overflowX: "hidden",
+                    overflowY: "scroll",
+                    maxHeight: "50vh",
+                    maxWidth: "100vw",
+                  },
+                },
+              }}
+              anchorOrigin={{
+                vertical: "bottom",
+                horizontal: "left",
+              }}
+              transformOrigin={{
+                vertical: "top",
+                horizontal: "left",
+              }}
+            >
+              <PopoverContent events={events} />
+            </PopoverComponent>
+          </div>
+        );
+      }}
     </PopupState>
   );
 };

@@ -1,22 +1,21 @@
 import dayjs, { Dayjs } from "dayjs";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
 
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { Layout } from "components/events/Layouts";
-import { LIVE_EDGE_DELAY, useCameraStore } from "components/events/utils";
+import { useCameraStore } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { useHideScrollbar } from "hooks/UseHideScrollbar";
 import { useTitle } from "hooks/UseTitle";
-import { useCameras, useCamerasFailed } from "lib/api/cameras";
+import { useCamerasAll } from "lib/api/cameras";
 import {
   insertURLParameter,
   objHasValues,
   objIsEmpty,
   removeURLParameter,
 } from "lib/helpers";
-import * as types from "lib/types";
 
 const getDefaultTab = (searchParams: URLSearchParams) => {
   if (
@@ -33,45 +32,29 @@ const Events = () => {
   useTitle("Events");
   useHideScrollbar();
   const [searchParams] = useSearchParams();
-  const camerasQuery = useCameras({});
-  const failedCamerasQuery = useCamerasFailed({});
   const { selectSingleCamera } = useCameraStore();
 
-  // Combine the two queries into one object
-  const cameraData: types.CamerasOrFailedCameras = useMemo(() => {
-    if (!camerasQuery.data && !failedCamerasQuery.data) {
-      return {};
-    }
-    return {
-      ...camerasQuery.data,
-      ...failedCamerasQuery.data,
-    };
-  }, [camerasQuery.data, failedCamerasQuery.data]);
+  const camerasAll = useCamerasAll();
 
-  const [selectedEvent, setSelectedEvent] = useState<types.CameraEvent | null>(
-    null,
-  );
   const [date, setDate] = useState<Dayjs | null>(
     searchParams.has("date")
       ? dayjs(searchParams.get("date") as string)
       : dayjs(),
-  );
-  const [requestedTimestamp, setRequestedTimestamp] = useState<number | null>(
-    dayjs().unix() - LIVE_EDGE_DELAY,
   );
   const [selectedTab, setSelectedTab] = useState<"events" | "timeline">(
     getDefaultTab(searchParams),
   );
 
   useEffect(() => {
-    if (objHasValues(cameraData) && searchParams.has("camera")) {
+    if (objHasValues(camerasAll.combinedData) && searchParams.has("camera")) {
       selectSingleCamera(
-        cameraData[searchParams.get("camera") as string].identifier,
+        camerasAll.combinedData[searchParams.get("camera") as string]
+          .identifier,
       );
       const newUrl = removeURLParameter(window.location.href, "camera");
       window.history.pushState({ path: newUrl }, "", newUrl);
     }
-  }, [cameraData, searchParams, selectSingleCamera]);
+  }, [camerasAll.combinedData, searchParams, selectSingleCamera]);
 
   useEffect(() => {
     if (date) {
@@ -79,11 +62,11 @@ const Events = () => {
     }
   }, [date]);
 
-  if (camerasQuery.isError) {
+  if (camerasAll.cameras.isError) {
     return (
       <ErrorMessage
         text={`Error loading cameras`}
-        subtext={camerasQuery.error.message}
+        subtext={camerasAll.cameras.error.message}
         image={
           <ServerDown
             width={150}
@@ -96,23 +79,18 @@ const Events = () => {
     );
   }
 
-  if (camerasQuery.isPending || failedCamerasQuery.isPending) {
-    return <Loading text="Loading Camera" />;
+  if (camerasAll.cameras.isPending || camerasAll.failedCameras.isPending) {
+    return <Loading text="Loading Cameras" />;
   }
 
-  if (objIsEmpty(cameraData)) {
+  if (objIsEmpty(camerasAll.combinedData)) {
     return null;
   }
 
   return (
     <Layout
-      cameras={cameraData}
-      selectedEvent={selectedEvent}
-      setSelectedEvent={setSelectedEvent}
       date={date}
       setDate={setDate}
-      requestedTimestamp={requestedTimestamp}
-      setRequestedTimestamp={setRequestedTimestamp}
       selectedTab={selectedTab}
       setSelectedTab={setSelectedTab}
     />

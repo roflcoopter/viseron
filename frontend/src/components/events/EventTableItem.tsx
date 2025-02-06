@@ -4,38 +4,39 @@ import CardMedia from "@mui/material/CardMedia";
 import Grid from "@mui/material/Grid2";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import { memo, useCallback, useMemo } from "react";
+import { memo, useMemo } from "react";
 
 import { SnapshotIcon } from "components/events/SnapshotEvent";
 import {
   extractUniqueLabels,
   extractUniqueTypes,
   getEventTime,
-  getEventTimestamp,
   getSrc,
+  useEventStore,
+  useSelectEvent,
 } from "components/events/utils";
 import { useFirstRender } from "hooks/UseFirstRender";
-import { BLANK_IMAGE, getTimeFromDate } from "lib/helpers";
+import {
+  BLANK_IMAGE,
+  getCameraNameFromQueryCache,
+  getTimeFromDate,
+} from "lib/helpers";
 import * as types from "lib/types";
 
 type EventTableItemIconProps = {
   sortedEvents: types.CameraEvent[];
-  cameras: types.CamerasOrFailedCameras;
 };
 
-const EventTableItemIcon = ({
-  sortedEvents,
-  cameras,
-}: EventTableItemIconProps) => {
+const EventTableItemIcon = ({ sortedEvents }: EventTableItemIconProps) => {
   const uniqueEvents = extractUniqueTypes(sortedEvents);
+  const cameraName = getCameraNameFromQueryCache(
+    sortedEvents[0].camera_identifier,
+  );
+
   return (
     <div>
       <Typography fontSize=".75rem" fontWeight="bold" align="center">
-        {`${
-          cameras && cameras[sortedEvents[0].camera_identifier]
-            ? cameras[sortedEvents[0].camera_identifier].name
-            : sortedEvents[0].camera_identifier
-        }`}
+        {cameraName}
       </Typography>
       <Typography
         fontSize=".75rem"
@@ -68,25 +69,8 @@ const EventTableItemIcon = ({
   );
 };
 
-const isTimespanAvailable = (
-  timestamp: number,
-  availableTimespans: types.HlsAvailableTimespan[],
-) => {
-  for (const timespan of availableTimespans) {
-    if (timestamp >= timespan.start && timestamp <= timespan.end) {
-      return true;
-    }
-  }
-  return false;
-};
-
 type EventTableItemProps = {
-  cameras: types.CamerasOrFailedCameras;
   events: types.CameraEvent[];
-  setSelectedEvent: (event: types.CameraEvent) => void;
-  selected: boolean;
-  setRequestedTimestamp: (timestamp: number | null) => void;
-  availableTimespansRef: React.MutableRefObject<types.HlsAvailableTimespan[]>;
   isScrolling: boolean;
   virtualRowIndex: number;
   measureElement: (element: HTMLElement | null) => void;
@@ -94,12 +78,7 @@ type EventTableItemProps = {
 };
 export const EventTableItem = memo(
   ({
-    cameras,
     events,
-    setSelectedEvent,
-    selected,
-    setRequestedTimestamp,
-    availableTimespansRef,
     isScrolling,
     virtualRowIndex,
     measureElement,
@@ -107,6 +86,9 @@ export const EventTableItem = memo(
   }: EventTableItemProps) => {
     const theme = useTheme();
     const firstRender = useFirstRender();
+
+    const { selectedEvent } = useEventStore();
+
     // Show the oldest event first in the list, API returns latest first
     const sortedEvents = useMemo(
       () =>
@@ -115,33 +97,15 @@ export const EventTableItem = memo(
           .sort((a, b) => a.created_at_timestamp - b.created_at_timestamp),
       [events],
     );
-
-    const handleEventClick = useCallback(() => {
-      if (
-        isTimespanAvailable(
-          Math.round(getEventTimestamp(sortedEvents[0])),
-          availableTimespansRef.current,
-        )
-      ) {
-        setSelectedEvent(sortedEvents[0]);
-        setRequestedTimestamp(Math.round(getEventTimestamp(sortedEvents[0])));
-        return;
-      }
-
-      setSelectedEvent(sortedEvents[0]);
-      setRequestedTimestamp(null);
-    }, [
-      sortedEvents,
-      availableTimespansRef,
-      setSelectedEvent,
-      setRequestedTimestamp,
-    ]);
+    const handleEventClick = useSelectEvent();
 
     const src = useMemo(
       () =>
         isScrolling && firstRender ? BLANK_IMAGE : getSrc(sortedEvents[0]),
       [isScrolling, firstRender, sortedEvents],
     );
+
+    const selected = !!selectedEvent && selectedEvent.id === sortedEvents[0].id;
 
     return (
       <Card
@@ -171,7 +135,7 @@ export const EventTableItem = memo(
               },
         ]}
       >
-        <CardActionArea onClick={handleEventClick}>
+        <CardActionArea onClick={() => handleEventClick(sortedEvents[0])}>
           <Grid
             container
             direction="row"
@@ -179,10 +143,7 @@ export const EventTableItem = memo(
             alignItems="center"
           >
             <Grid size={8}>
-              <EventTableItemIcon
-                sortedEvents={sortedEvents}
-                cameras={cameras}
-              />
+              <EventTableItemIcon sortedEvents={events} />
             </Grid>
             <Grid size={4}>
               <CardMedia

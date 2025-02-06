@@ -20,11 +20,10 @@ import {
   COLUMN_HEIGHT,
   COLUMN_HEIGHT_SMALL,
   playerCardSmMaxHeight,
-  useCameraStore,
+  useFilteredCameras,
 } from "components/events/utils";
 import { useResizeObserver } from "hooks/UseResizeObserver";
 import { insertURLParameter } from "lib/helpers";
-import * as types from "lib/types";
 
 const setTableHeight = (
   tabListRef: React.RefObject<HTMLDivElement>,
@@ -107,26 +106,18 @@ const useSetPlayerCardHeight = (
 };
 
 type TabsProps = {
-  cameras: types.CamerasOrFailedCameras;
   date: Dayjs | null;
   selectedTab: "events" | "timeline";
   setSelectedTab: (tab: "events" | "timeline") => void;
-  selectedEvent: types.CameraEvent | null;
-  setSelectedEvent: (event: types.CameraEvent) => void;
-  setRequestedTimestamp: (timestamp: number | null) => void;
   playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>;
 };
 const Tabs = ({
-  cameras,
   date,
   selectedTab,
   setSelectedTab,
-  selectedEvent,
-  setSelectedEvent,
-  setRequestedTimestamp,
   playerCardGridItemRef,
 }: TabsProps) => {
-  const { selectedCameras } = useCameraStore();
+  const filteredCameras = useFilteredCameras();
   const tabListRef = useRef<HTMLDivElement | null>(null);
   const eventsRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
@@ -184,15 +175,8 @@ const Tabs = ({
           boxSizing: "border-box",
         }}
       >
-        {selectedCameras.length > 0 ? (
-          <EventTable
-            cameras={cameras}
-            parentRef={eventsRef}
-            date={date}
-            selectedEvent={selectedEvent}
-            setSelectedEvent={setSelectedEvent}
-            setRequestedTimestamp={setRequestedTimestamp}
-          />
+        {Object.keys(filteredCameras).length > 0 ? (
+          <EventTable parentRef={eventsRef} date={date} />
         ) : (
           <Typography align="center" sx={{ marginTop: "20px" }}>
             Select at least one camera to load Events
@@ -211,13 +195,12 @@ const Tabs = ({
           boxSizing: "border-box",
         }}
       >
-        {selectedCameras.length > 0 ? (
+        {Object.keys(filteredCameras).length > 0 ? (
           <TimelineTable
             // Force re-render when date changes
             key={`${date?.unix().toString()}`}
             parentRef={timelineRef}
             date={date}
-            setRequestedTimestamp={setRequestedTimestamp}
           />
         ) : (
           <Typography align="center" sx={{ marginTop: "20px" }}>
@@ -230,29 +213,14 @@ const Tabs = ({
 };
 
 type LayoutProps = {
-  cameras: types.CamerasOrFailedCameras;
-  selectedEvent: types.CameraEvent | null;
-  setSelectedEvent: (event: types.CameraEvent) => void;
   date: Dayjs | null;
   setDate: (date: Dayjs | null) => void;
-  requestedTimestamp: number | null;
-  setRequestedTimestamp: (timestamp: number | null) => void;
   selectedTab: "events" | "timeline";
   setSelectedTab: (tab: "events" | "timeline") => void;
 };
 
 export const Layout = memo(
-  ({
-    cameras,
-    selectedEvent,
-    setSelectedEvent,
-    date,
-    setDate,
-    requestedTimestamp,
-    setRequestedTimestamp,
-    selectedTab,
-    setSelectedTab,
-  }: LayoutProps) => {
+  ({ date, setDate, selectedTab, setSelectedTab }: LayoutProps) => {
     const theme = useTheme();
     const smBreakpoint = useMediaQuery(theme.breakpoints.up("sm"));
     const playerCardGridItemRef = useRef<HTMLDivElement | null>(null);
@@ -291,12 +259,7 @@ export const Layout = memo(
               xl: 10,
             }}
           >
-            <PlayerCard
-              cameras={cameras}
-              selectedEvent={selectedEvent}
-              requestedTimestamp={requestedTimestamp}
-              selectedTab={selectedTab}
-            />
+            <PlayerCard />
           </Grid>
           <Grid
             size={{
@@ -309,18 +272,14 @@ export const Layout = memo(
           >
             <Paper variant="outlined">
               <Tabs
-                cameras={cameras}
                 date={date}
                 selectedTab={selectedTab}
                 setSelectedTab={setSelectedTab}
-                selectedEvent={selectedEvent}
-                setSelectedEvent={setSelectedEvent}
-                setRequestedTimestamp={setRequestedTimestamp}
                 playerCardGridItemRef={playerCardGridItemRef}
               />
             </Paper>
           </Grid>
-          <FloatingMenu cameras={cameras} date={date} setDate={setDate} />
+          <FloatingMenu date={date} setDate={setDate} />
         </Grid>
       </Box>
     );
