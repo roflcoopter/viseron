@@ -51,10 +51,10 @@ You have to change the values between the brackets `{}` to match your setup.
 
 ```shell
 docker run --rm \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -75,10 +75,10 @@ services:
     container_name: viseron
     shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -97,10 +97,10 @@ services:
 
 ```shell
 docker run --rm \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -122,10 +122,10 @@ services:
     container_name: viseron
     shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -146,10 +146,10 @@ services:
 
 ```shell
 docker run --rm \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -171,10 +171,10 @@ services:
     container_name: viseron
     shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -201,10 +201,10 @@ Make sure [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-
 
 ```shell
 docker run --rm \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -234,10 +234,10 @@ services:
     container_name: viseron
     shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -266,10 +266,10 @@ You can probably get around this by manually mounting all the needed devices but
 ```shell
 docker run --rm \
   --privileged \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -v /dev/bus/usb:/dev/bus/usb \
@@ -295,10 +295,10 @@ services:
     container_name: viseron
     shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     devices:
@@ -338,10 +338,10 @@ Configure a substream if you plan on running Viseron on an RPi.
 ```shell
 docker run --rm \
   --privileged \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -v /opt/vc/lib:/opt/vc/lib \
@@ -365,10 +365,10 @@ services:
     container_name: viseron
     shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
       - /opt/vc/lib:/opt/vc/lib
@@ -409,6 +409,16 @@ Configure a substream if you plan on running Viseron on an RPi.
 Viseron will start up immediately and serve the Web UI on port `8888`.<br />
 Please proceed to the next chapter on [how to configure Viseron.](configuration)
 
+:::info Mounted Volumes
+
+- `/config` - Where the configuration file, database, etc is stored
+- `/segments` - Where the recordings (video segments) are stored
+- `/snapshots` - Where the snapshots from object detection, motion detection, etc are stored
+- `/thumbnails` - Where the thumbnails for recordings triggered by `trigger_event_recording` are stored
+- `/event_clips` - Where the event clips created by `create_event_clip` are stored
+
+:::
+
 :::tip VAAPI
 
 VAAPI hardware acceleration support is built into every `amd64` container.<br />
@@ -433,10 +443,10 @@ To solve this, you can specify the user `PUID` and group `PGID` as environment v
 
 ```shell
 docker run --rm \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -463,10 +473,10 @@ services:
     container_name: viseron
     shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:

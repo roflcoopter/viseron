@@ -25,7 +25,12 @@ RUN python3 -m pip install -r requirements_test.txt \
     && yes | mypy --install-types || true \
     && rm -rf requirements_test.txt
 
-RUN rm -r /etc/services.d/viseron
+RUN rm -r /etc/services.d/viseron \
+    && mkdir -p /config \
+    && mkdir -p /event_clips \
+    && mkdir -p /segments \
+    && mkdir -p /snapshots\
+    && mkdir -p /thumbnails
 
 # Ensure at least the en_US.UTF-8 UTF-8 locale is available.
 RUN echo "LC_ALL=en_US.UTF-8" >> /etc/environment \

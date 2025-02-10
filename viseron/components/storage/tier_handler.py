@@ -42,6 +42,14 @@ from viseron.components.storage.const import (
     CONFIG_SECONDS,
     EVENT_FILE_CREATED,
     EVENT_FILE_DELETED,
+    TIER_CATEGORY_RECORDER,
+    TIER_SUBCATEGORY_EVENT_CLIPS,
+    TIER_SUBCATEGORY_FACE_RECOGNITION,
+    TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
+    TIER_SUBCATEGORY_MOTION_DETECTOR,
+    TIER_SUBCATEGORY_OBJECT_DETECTOR,
+    TIER_SUBCATEGORY_SEGMENTS,
+    TIER_SUBCATEGORY_THUMBNAILS,
 )
 from viseron.components.storage.models import (
     Files,
@@ -62,7 +70,9 @@ from viseron.components.storage.util import (
     calculate_age,
     calculate_bytes,
     files_to_move_overlap,
-    get_recorder_path,
+    get_event_clips_path,
+    get_segments_path,
+    get_thumbnails_path,
 )
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import (
@@ -383,7 +393,7 @@ class SegmentsTierHandler(TierHandler):
 
     def initialize(self) -> None:
         """Initialize recorder tier."""
-        self._path = get_recorder_path(self._tier, self._camera, self._subcategory)
+        self._path = get_segments_path(self._tier, self._camera)
 
         self._continuous_max_bytes = calculate_bytes(
             self._tier[CONFIG_CONTINUOUS][CONFIG_MAX_SIZE]
@@ -595,7 +605,7 @@ class SegmentsTierHandler(TierHandler):
                     thumbnail_tier_handler: ThumbnailTierHandler = (
                         self._storage.camera_tier_handlers[self._camera.identifier][
                             self._category
-                        ][self._tier_id]["thumbnails"]
+                        ][self._tier_id][TIER_SUBCATEGORY_THUMBNAILS]
                     )
                     thumbnail_tier_handler.move_thumbnail(
                         recording_id,
@@ -608,10 +618,10 @@ class SegmentsTierHandler(TierHandler):
                     "Handle event clip for recordings: %s", recording_ids
                 )
                 for recording_id in recording_ids:
-                    recordings_tier_handler: RecordingsTierHandler = (
+                    recordings_tier_handler: EventClipTierHandler = (
                         self._storage.camera_tier_handlers[self._camera.identifier][
                             self._category
-                        ][self._tier_id]["recordings"]
+                        ][self._tier_id][TIER_SUBCATEGORY_EVENT_CLIPS]
                     )
                     recordings_tier_handler.move_event_clip(
                         recording_id,
@@ -639,7 +649,7 @@ class SnapshotTierHandler(TierHandler):
 
     def _on_deleted(self, event: FileDeletedEvent) -> None:
         stmt: Delete | ReturningDelete[tuple[int]]
-        if self._subcategory == "motion_detector":
+        if self._subcategory == TIER_SUBCATEGORY_MOTION_DETECTOR:
             with self._storage.get_session() as session:
                 stmt = (
                     delete(Motion)
@@ -657,13 +667,16 @@ class SnapshotTierHandler(TierHandler):
 
                 session.commit()
 
-        elif self._subcategory == "object_detector":
+        elif self._subcategory == TIER_SUBCATEGORY_OBJECT_DETECTOR:
             with self._storage.get_session() as session:
                 stmt = delete(Objects).where(Objects.snapshot_path == event.src_path)
                 session.execute(stmt)
                 session.commit()
 
-        elif self._subcategory in ["face_recognition", "license_plate_recognition"]:
+        elif self._subcategory in [
+            TIER_SUBCATEGORY_FACE_RECOGNITION,
+            TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
+        ]:
             with self._storage.get_session() as session:
                 stmt = delete(PostProcessorResults).where(
                     PostProcessorResults.snapshot_path == event.src_path
@@ -679,11 +692,7 @@ class ThumbnailTierHandler(TierHandler):
 
     def initialize(self):
         """Initialize thumbnail tier."""
-        self._path = os.path.join(
-            self._tier[CONFIG_PATH],
-            "thumbnails",
-            self._camera.identifier,
-        )
+        self._path = get_thumbnails_path(self._tier, self._camera)
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
         self._storage.ignore_file("latest_thumbnail.jpg")
 
@@ -738,22 +747,18 @@ class ThumbnailTierHandler(TierHandler):
             session.commit()
 
 
-class RecordingsTierHandler(TierHandler):
-    """Handle recordings created by create_event_clip."""
+class EventClipTierHandler(TierHandler):
+    """Handle event clips created by create_event_clip."""
 
     def initialize(self):
-        """Initialize recordings tier."""
-        self._path = os.path.join(
-            self._tier[CONFIG_PATH],
-            "recordings",
-            self._camera.identifier,
-        )
+        """Initialize event clips tier."""
+        self._path = get_event_clips_path(self._tier, self._camera)
         self.add_file_handler(
             self._path, rf"{self._path}/(.*.{self._camera.identifier}$)"
         )
 
     def check_tier(self) -> None:
-        """Do nothing, as we move recordings manually."""
+        """Do nothing, as we move event clips manually."""
 
     def _update_clip_path(self, event: FileCreatedEvent) -> None:
         try:
@@ -817,10 +822,10 @@ def find_next_tier_segments(
 ) -> SegmentsTierHandler | None:
     """Find the next tier for segments."""
     next_tier = None
-    for tier in storage.camera_tier_handlers[camera.identifier]["recorder"][
+    for tier in storage.camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][
         tier_id + 1 :
     ]:
-        segments_tier_handler: SegmentsTierHandler = tier["segments"]
+        segments_tier_handler: SegmentsTierHandler = tier[TIER_SUBCATEGORY_SEGMENTS]
         if segments_tier_handler.events_enabled and file_type == "events":
             next_tier = segments_tier_handler
             break

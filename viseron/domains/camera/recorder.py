@@ -197,7 +197,7 @@ class AbstractRecorder(ABC, RecorderBase):
         self.is_recording = False
         self._active_recording: Recording | None = None
 
-        create_directory(self._camera.recordings_folder)
+        create_directory(self._camera.event_clips_folder)
         create_directory(self._camera.segments_folder)
         create_directory(self._camera.temp_segments_folder)
         create_directory(self._camera.thumbnails_folder)
@@ -379,7 +379,7 @@ class AbstractRecorder(ABC, RecorderBase):
 
         # Create foldername
         full_path = os.path.join(
-            self._camera.recordings_folder, recording.start_time.date().isoformat()
+            self._camera.event_clips_folder, recording.start_time.date().isoformat()
         )
 
         clip_path = os.path.join(full_path, video_name)

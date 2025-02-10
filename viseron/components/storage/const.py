@@ -14,6 +14,20 @@ EVENT_FILE_DELETED = (
     "file_deleted/{camera_identifier}/{category}/{subcategory}/{file_name}"
 )
 
+# Tier categories
+TIER_CATEGORY_RECORDER: Final = "recorder"
+TIER_CATEGORY_SNAPSHOTS: Final = "snapshots"
+
+# Tier subcategories
+TIER_SUBCATEGORY_SEGMENTS: Final = "segments"
+TIER_SUBCATEGORY_EVENT_CLIPS: Final = "event_clips"
+TIER_SUBCATEGORY_THUMBNAILS: Final = "thumbnails"
+TIER_SUBCATEGORY_FACE_RECOGNITION: Final = "face_recognition"
+TIER_SUBCATEGORY_OBJECT_DETECTOR: Final = "object_detector"
+TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION: Final = "license_plate_recognition"
+TIER_SUBCATEGORY_MOTION_DETECTOR: Final = "motion_detector"
+
+
 # Storage configuration
 DESC_COMPONENT = "Storage configuration."
 DEFAULT_COMPONENT: dict[str, Any] = {}

@@ -8,15 +8,11 @@ PGID=${PGID:-0}
 groupmod -o -g "$PGID" abc
 usermod -o -u "$PUID" abc
 
-mkdir -p /config
-mkdir -p /recordings
-mkdir -p /segments
-mkdir -p /snapshots
-mkdir -p /thumbnails
-
 chown -R abc:abc /home/abc/bin
 chown -R --silent abc:abc /config || :
+# Remove /recordings in a future release, it's deprecated in favor of /event_clips
 chown -R --silent abc:abc /recordings || :
+chown -R --silent abc:abc /event_clips || :
 chown -R --silent abc:abc /segments || :
 chown -R --silent abc:abc /snapshots || :
 chown -R --silent abc:abc /thumbnails || :

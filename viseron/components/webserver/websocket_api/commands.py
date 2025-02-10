@@ -20,7 +20,12 @@ from debouncer import DebounceOptions, debounce
 from sqlalchemy import select
 from sqlalchemy.exc import NoResultFound
 
-from viseron.components.storage.const import EVENT_FILE_CREATED, EVENT_FILE_DELETED
+from viseron.components.storage.const import (
+    EVENT_FILE_CREATED,
+    EVENT_FILE_DELETED,
+    TIER_CATEGORY_RECORDER,
+    TIER_SUBCATEGORY_SEGMENTS,
+)
 from viseron.components.storage.models import (
     Motion,
     Objects,
@@ -402,8 +407,8 @@ async def subscribe_timespans(connection: WebSocketHandler, message) -> None:
             connection.vis.listen_event(
                 EVENT_FILE_CREATED.format(
                     camera_identifier=camera_identifier,
-                    category="recorder",
-                    subcategory="segments",
+                    category=TIER_CATEGORY_RECORDER,
+                    subcategory=TIER_SUBCATEGORY_SEGMENTS,
                     file_name="*",
                 ),
                 forward_timespans,
@@ -414,8 +419,8 @@ async def subscribe_timespans(connection: WebSocketHandler, message) -> None:
             connection.vis.listen_event(
                 EVENT_FILE_DELETED.format(
                     camera_identifier=camera_identifier,
-                    category="recorder",
-                    subcategory="segments",
+                    category=TIER_CATEGORY_RECORDER,
+                    subcategory=TIER_SUBCATEGORY_SEGMENTS,
                     file_name="*",
                 ),
                 forward_timespans,
