@@ -44,7 +44,7 @@ function ComponentCardTag({ tags }: { tags: DomainType[] }) {
 }
 
 function ComponentCard({ component }: { component: Component }) {
-  const componentLink = `components-explorer/components/${component.name}`;
+  const componentLink = `/components-explorer/components/${component.name}`;
   return (
     <li key={component.title} className="card shadow--md outline">
       <a href={componentLink}>
