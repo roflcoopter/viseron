@@ -22,6 +22,7 @@ from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
+from viseron.components.storage.config import validate_tiers
 from viseron.components.storage.const import (
     COMPONENT as STORAGE_COMPONENT,
     TIER_CATEGORY_RECORDER,
@@ -56,6 +57,7 @@ from .const import (
     CONFIG_STILL_IMAGE,
     CONFIG_STILL_IMAGE_HEIGHT,
     CONFIG_STILL_IMAGE_WIDTH,
+    CONFIG_STORAGE,
     CONFIG_URL,
     EVENT_CAMERA_STARTED,
     EVENT_CAMERA_STATUS,
@@ -114,6 +116,9 @@ class AbstractCamera(ABC):
         self._identifier = identifier
 
         self._logger = logging.getLogger(f"{self.__module__}.{self.identifier}")
+
+        if self._config[CONFIG_STORAGE]:
+            validate_tiers(self._config)
 
         self._connected: bool = False
         self._still_image_available: bool = False

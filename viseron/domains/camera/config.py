@@ -1,16 +1,14 @@
 """Camera domain config."""
 import voluptuous as vol
 
-from viseron.components.storage.config import TIER_SCHEMA_BASE, TIER_SCHEMA_RECORDER
+from viseron.components.storage.config import STORAGE_SCHEMA, TIER_SCHEMA_BASE
 from viseron.components.storage.const import (
     CONFIG_CONTINUOUS,
     CONFIG_EVENTS,
-    CONFIG_TIERS,
     DEFAULT_CONTINUOUS,
     DEFAULT_EVENTS,
     DESC_CONTINUOUS,
     DESC_EVENTS,
-    DESC_RECORDER_TIERS,
 )
 from viseron.helpers.validators import CoerceNoneToDict, Deprecated, Maybe, Slug
 
@@ -232,18 +230,6 @@ RECORDER_SCHEMA = vol.Schema(
             CONFIG_THUMBNAIL, default=DEFAULT_THUMBNAIL, description=DESC_THUMBNAIL
         ): vol.All(CoerceNoneToDict(), THUMBNAIL_SCHEMA),
         vol.Optional(
-            CONFIG_STORAGE,
-            default=DEFAULT_STORAGE,
-            description=DESC_STORAGE,
-        ): Maybe(
-            {
-                vol.Required(CONFIG_TIERS, description=DESC_RECORDER_TIERS,): vol.All(
-                    [TIER_SCHEMA_RECORDER],
-                    vol.Length(min=1),
-                )
-            },
-        ),
-        vol.Optional(
             CONFIG_CONTINUOUS,
             default=DEFAULT_CONTINUOUS,
             description=DESC_CONTINUOUS,
@@ -329,5 +315,10 @@ BASE_CONFIG_SCHEMA = vol.Schema(
             default=DEFAULT_STILL_IMAGE,
             description=DESC_STILL_IMAGE,
         ): vol.All(CoerceNoneToDict(), STILL_IMAGE_SCHEMA),
+        vol.Optional(
+            CONFIG_STORAGE,
+            default=DEFAULT_STORAGE,
+            description=DESC_STORAGE,
+        ): Maybe(STORAGE_SCHEMA),
     }
 )

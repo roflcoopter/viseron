@@ -18,15 +18,14 @@ from sqlalchemy.orm import Session, scoped_session, sessionmaker
 from viseron.components.storage.config import (
     STORAGE_SCHEMA,
     TIER_SCHEMA_BASE,
+    TIER_SCHEMA_RECORDER,
     validate_tiers,
 )
 from viseron.components.storage.const import (
     COMPONENT,
     CONFIG_CONTINUOUS,
     CONFIG_EVENTS,
-    CONFIG_MOVE_ON_SHUTDOWN,
     CONFIG_PATH,
-    CONFIG_POLL,
     CONFIG_RECORDER,
     CONFIG_SNAPSHOTS,
     CONFIG_TIERS,
@@ -414,7 +413,7 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
     There are multiple ways to configure tiers for a camera, and this function
     will construct the final tier config for the camera.
     camera > recorder > continuous/events is looked at first.
-    camera > recorder > storage > tiers is looked at second.
+    camera > storage > recorder > tiers is looked at second.
     storage > recorder > tiers is looked at last.
     """
     if not hasattr(camera, "config"):
@@ -434,11 +433,9 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
         _tier[CONFIG_PATH] = "/"
         _tier[CONFIG_CONTINUOUS] = continuous
         _tier[CONFIG_EVENTS] = events
-        _tier[CONFIG_MOVE_ON_SHUTDOWN] = False
-        _tier[CONFIG_POLL] = False
         tier_config[CONFIG_RECORDER][CONFIG_TIERS] = [_tier]
-    elif camera.config[CONFIG_RECORDER][CONFIG_STORAGE]:
-        _tier = camera.config[CONFIG_RECORDER][CONFIG_STORAGE][CONFIG_TIERS]
+    elif camera.config[CONFIG_STORAGE]:
+        _tier = camera.config[CONFIG_STORAGE][CONFIG_RECORDER][CONFIG_TIERS]
         tier_config[CONFIG_RECORDER][CONFIG_TIERS] = _tier
 
     if _tier:
@@ -446,4 +443,12 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
             f"Camera {camera.name} has custom tiers, "
             "overwriting storage recorder tiers"
         )
+        # Validate the tier schema to fill in defaults
+        tier_config[CONFIG_RECORDER][CONFIG_TIERS] = vol.Schema(
+            vol.All(
+                [TIER_SCHEMA_RECORDER],
+                vol.Length(min=1),
+            )
+        )(tier_config[CONFIG_RECORDER][CONFIG_TIERS])
+
     return tier_config

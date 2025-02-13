@@ -175,8 +175,8 @@ ffmpeg: # or any other camera component
       username: !secret camera_one_username
       password: !secret camera_one_password
       // highlight-start
-      recorder:
-        storage: # Store events for 14 days and 10gb of continuous recordings
+      storage: # Store events for 14 days and 10gb of continuous recordings
+        recorder:
           tiers:
             - path: / # Video segments will be stored in the /segments directory
               events:
