@@ -18,33 +18,42 @@ from sqlalchemy.orm import Session, scoped_session, sessionmaker
 from viseron.components.storage.config import (
     STORAGE_SCHEMA,
     TIER_SCHEMA_BASE,
+    TIER_SCHEMA_RECORDER,
     validate_tiers,
 )
 from viseron.components.storage.const import (
     COMPONENT,
     CONFIG_CONTINUOUS,
     CONFIG_EVENTS,
-    CONFIG_MOVE_ON_SHUTDOWN,
     CONFIG_PATH,
-    CONFIG_POLL,
     CONFIG_RECORDER,
     CONFIG_SNAPSHOTS,
     CONFIG_TIERS,
     DATABASE_URL,
     DEFAULT_COMPONENT,
     DESC_COMPONENT,
+    TIER_CATEGORY_RECORDER,
+    TIER_CATEGORY_SNAPSHOTS,
+    TIER_SUBCATEGORY_EVENT_CLIPS,
+    TIER_SUBCATEGORY_FACE_RECOGNITION,
+    TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
+    TIER_SUBCATEGORY_MOTION_DETECTOR,
+    TIER_SUBCATEGORY_OBJECT_DETECTOR,
+    TIER_SUBCATEGORY_SEGMENTS,
+    TIER_SUBCATEGORY_THUMBNAILS,
 )
 from viseron.components.storage.jobs import CleanupManager
 from viseron.components.storage.models import Base, FilesMeta, Motion, Recordings
 from viseron.components.storage.tier_handler import (
-    RecordingsTierHandler,
+    EventClipTierHandler,
     SegmentsTierHandler,
     SnapshotTierHandler,
     ThumbnailTierHandler,
 )
 from viseron.components.storage.util import (
     RequestedFilesCount,
-    get_recorder_path,
+    get_event_clips_path,
+    get_segments_path,
     get_snapshots_path,
     get_thumbnails_path,
 )
@@ -82,7 +91,7 @@ class TierSubcategory(TypedDict):
         SnapshotTierHandler
         | SegmentsTierHandler
         | ThumbnailTierHandler
-        | RecordingsTierHandler
+        | EventClipTierHandler
     ]
 
 
@@ -94,35 +103,35 @@ class TierCategories(TypedDict):
 
 
 TIER_CATEGORIES: TierCategories = {
-    "recorder": [
+    TIER_CATEGORY_RECORDER: [
         {
-            "subcategory": "segments",
+            "subcategory": TIER_SUBCATEGORY_SEGMENTS,
             "tier_handler": SegmentsTierHandler,
         },
         {
-            "subcategory": "recordings",
-            "tier_handler": RecordingsTierHandler,
+            "subcategory": TIER_SUBCATEGORY_EVENT_CLIPS,
+            "tier_handler": EventClipTierHandler,
         },
         {
-            "subcategory": "thumbnails",
+            "subcategory": TIER_SUBCATEGORY_THUMBNAILS,
             "tier_handler": ThumbnailTierHandler,
         },
     ],
-    "snapshots": [
+    TIER_CATEGORY_SNAPSHOTS: [
         {
-            "subcategory": "face_recognition",
+            "subcategory": TIER_SUBCATEGORY_FACE_RECOGNITION,
             "tier_handler": SnapshotTierHandler,
         },
         {
-            "subcategory": "object_detector",
+            "subcategory": TIER_SUBCATEGORY_OBJECT_DETECTOR,
             "tier_handler": SnapshotTierHandler,
         },
         {
-            "subcategory": "license_plate_recognition",
+            "subcategory": TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
             "tier_handler": SnapshotTierHandler,
         },
         {
-            "subcategory": "motion_detector",
+            "subcategory": TIER_SUBCATEGORY_MOTION_DETECTOR,
             "tier_handler": SnapshotTierHandler,
         },
     ],
@@ -273,26 +282,24 @@ class Storage:
             return self._get_session_expire()
         return self._get_session()
 
-    def get_recordings_path(self, camera: AbstractCamera) -> str:
-        """Get recordings path for camera."""
+    def get_event_clips_path(self, camera: AbstractCamera) -> str:
+        """Get event clips path for camera."""
         self.create_tier_handlers(camera)
-        return get_recorder_path(
-            self._camera_tier_handlers[camera.identifier]["recorder"][0][
-                "recordings"
+        return get_event_clips_path(
+            self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][0][
+                TIER_SUBCATEGORY_EVENT_CLIPS
             ].tier,
             camera,
-            "recordings",
         )
 
     def get_segments_path(self, camera: AbstractCamera) -> str:
         """Get segments path for camera."""
         self.create_tier_handlers(camera)
-        return get_recorder_path(
-            self._camera_tier_handlers[camera.identifier]["recorder"][0][
-                "segments"
+        return get_segments_path(
+            self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][0][
+                TIER_SUBCATEGORY_SEGMENTS
             ].tier,
             camera,
-            "segments",
         )
 
     def get_thumbnails_path(self, camera: AbstractCamera) -> str:
@@ -304,8 +311,8 @@ class Storage:
         """
         self.create_tier_handlers(camera)
         return get_thumbnails_path(
-            self._camera_tier_handlers[camera.identifier]["recorder"][0][
-                "recordings"
+            self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][0][
+                TIER_SUBCATEGORY_EVENT_CLIPS
             ].tier,
             camera,
         )
@@ -406,7 +413,7 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
     There are multiple ways to configure tiers for a camera, and this function
     will construct the final tier config for the camera.
     camera > recorder > continuous/events is looked at first.
-    camera > recorder > storage > tiers is looked at second.
+    camera > storage > recorder > tiers is looked at second.
     storage > recorder > tiers is looked at last.
     """
     if not hasattr(camera, "config"):
@@ -426,11 +433,9 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
         _tier[CONFIG_PATH] = "/"
         _tier[CONFIG_CONTINUOUS] = continuous
         _tier[CONFIG_EVENTS] = events
-        _tier[CONFIG_MOVE_ON_SHUTDOWN] = False
-        _tier[CONFIG_POLL] = False
         tier_config[CONFIG_RECORDER][CONFIG_TIERS] = [_tier]
-    elif camera.config[CONFIG_RECORDER][CONFIG_STORAGE]:
-        _tier = camera.config[CONFIG_RECORDER][CONFIG_STORAGE][CONFIG_TIERS]
+    elif camera.config[CONFIG_STORAGE]:
+        _tier = camera.config[CONFIG_STORAGE][CONFIG_RECORDER][CONFIG_TIERS]
         tier_config[CONFIG_RECORDER][CONFIG_TIERS] = _tier
 
     if _tier:
@@ -438,4 +443,12 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
             f"Camera {camera.name} has custom tiers, "
             "overwriting storage recorder tiers"
         )
+        # Validate the tier schema to fill in defaults
+        tier_config[CONFIG_RECORDER][CONFIG_TIERS] = vol.Schema(
+            vol.All(
+                [TIER_SCHEMA_RECORDER],
+                vol.Length(min=1),
+            )
+        )(tier_config[CONFIG_RECORDER][CONFIG_TIERS])
+
     return tier_config

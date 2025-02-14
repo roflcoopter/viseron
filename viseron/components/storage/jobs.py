@@ -14,6 +14,10 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import and_, delete, exists, func, select
 
+from viseron.components.storage.const import (
+    TIER_CATEGORY_RECORDER,
+    TIER_SUBCATEGORY_SEGMENTS,
+)
 from viseron.components.storage.models import (
     Events,
     Files,
@@ -186,7 +190,7 @@ class OrphanedFilesCleanup(BaseCleanupJob):
         paths = []
         for camera in cameras.values():
             paths += [
-                self._storage.get_recordings_path(camera),
+                self._storage.get_event_clips_path(camera),
                 self._storage.get_segments_path(camera),
                 self._storage.get_thumbnails_path(camera),
             ] + [
@@ -338,7 +342,7 @@ class EmptyFoldersCleanup(BaseCleanupJob):
 
         for camera in cameras.values():
             for path in [
-                self._storage.get_recordings_path(camera),
+                self._storage.get_event_clips_path(camera),
                 self._storage.get_segments_path(camera),
                 self._storage.get_thumbnails_path(camera),
             ] + [
@@ -446,7 +450,7 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
         )
 
 
-class OrphanedClipsCleanup(BaseCleanupJob):
+class OrphanedEventClipsCleanup(BaseCleanupJob):
     """Cleanup job that removes clip files with no corresponding database records."""
 
     @property
@@ -468,13 +472,13 @@ class OrphanedClipsCleanup(BaseCleanupJob):
         with self._storage.get_session() as session:
             for camera in cameras.values():
                 files_processed = 0
-                recordings_path = self._storage.get_recordings_path(camera)
-                if not os.path.exists(recordings_path):
+                event_clips_path = self._storage.get_event_clips_path(camera)
+                if not os.path.exists(event_clips_path):
                     continue
 
                 # Collect all files first
                 files_to_check: list[str] = []
-                for root, _, files in os.walk(recordings_path):
+                for root, _, files in os.walk(event_clips_path):
                     files_to_check.extend(
                         os.path.join(root, f)
                         for f in files
@@ -509,13 +513,13 @@ class OrphanedClipsCleanup(BaseCleanupJob):
                     self.log_progress(
                         f"{self.name} processed "
                         f"{files_processed}/{len(files_to_check)} "
-                        f"files in {recordings_path}"
+                        f"files in {event_clips_path}"
                     )
                     time.sleep(1)
                 LOGGER.debug(
                     f"{self.name} processed "
                     f"{files_processed}/{len(files_to_check)} "
-                    f"files in {recordings_path}"
+                    f"files in {event_clips_path}"
                 )
 
         LOGGER.debug(
@@ -583,8 +587,8 @@ class OrphanedRecordingsCleanup(BaseCleanupJob):
                         .select_from(Files)
                         .where(
                             and_(
-                                Files.category == "recorder",
-                                Files.subcategory == "segments",
+                                Files.category == TIER_CATEGORY_RECORDER,
+                                Files.subcategory == TIER_SUBCATEGORY_SEGMENTS,
                                 Files.camera_identifier
                                 == recording[0].camera_identifier,
                                 Files.orig_ctime.between(
@@ -732,7 +736,7 @@ class CleanupManager:
             ),
             EmptyFoldersCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedThumbnailsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
-            OrphanedClipsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
+            OrphanedEventClipsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedRecordingsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedPostProcessorResultsCleanup(
                 vis, storage, CronTrigger(hour=0, jitter=3600)

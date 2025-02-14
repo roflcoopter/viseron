@@ -12,6 +12,10 @@ from typing import TYPE_CHECKING
 import voluptuous as vol
 from sqlalchemy import select
 
+from viseron.components.storage.const import (
+    TIER_CATEGORY_RECORDER,
+    TIER_SUBCATEGORY_SEGMENTS,
+)
 from viseron.components.storage.models import Files, Recordings
 from viseron.components.storage.queries import get_time_period_fragments
 from viseron.components.webserver.api.handlers import BaseAPIHandler
@@ -215,8 +219,8 @@ def _get_init_file(
             select(Files)
             .distinct(Files.directory)
             .where(Files.camera_identifier == camera.identifier)
-            .where(Files.category == "recorder")
-            .where(Files.subcategory == "segments")
+            .where(Files.category == TIER_CATEGORY_RECORDER)
+            .where(Files.subcategory == TIER_SUBCATEGORY_SEGMENTS)
             .order_by(Files.directory, Files.created_at.desc())
         )
         files = session.execute(stmt).scalars().all()

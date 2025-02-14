@@ -31,8 +31,8 @@ class TestTieredFileHandler(TestAppBaseNoAuth):
 
         tier1 = "/tmp/viseron/test/tier1"
         tier2 = "/tmp/viseron/test/tier2"
-        os.makedirs("/tmp/viseron/test/tier1", exist_ok=False)
-        os.makedirs("/tmp/viseron/test/tier2", exist_ok=False)
+        os.makedirs("/tmp/viseron/test/tier1", exist_ok=True)
+        os.makedirs("/tmp/viseron/test/tier2", exist_ok=True)
 
         self._app.add_handlers(
             r".*",

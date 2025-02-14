@@ -195,9 +195,9 @@ FFmpeg will write small 5 second segments of the stream to disk.<br />
 The reason for using segments instead of just starting the recorder on an event, is to support the `lookback` feature which makes it possible to record _before_ an event actually happened.
 It also makes it possible to have continuous recordings.
 
-### Store segments in memory
+### Store video segments in memory
 
-To place the segments in memory instead of writing to disk, you can mount a tmpfs disk in the container.
+To place the video segments in memory instead of writing to disk, you can mount a tmpfs disk in the container.
 This will use more memory but reduce the load on your harddrives.
 
 <details>
@@ -207,10 +207,10 @@ Example Docker command
 
 ```shell
 docker run --rm \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -231,10 +231,10 @@ services:
     container_name: viseron
     shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:

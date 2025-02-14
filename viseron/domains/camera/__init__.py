@@ -22,7 +22,14 @@ from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
-from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.config import validate_tiers
+from viseron.components.storage.const import (
+    COMPONENT as STORAGE_COMPONENT,
+    TIER_CATEGORY_RECORDER,
+    TIER_CATEGORY_SNAPSHOTS,
+    TIER_SUBCATEGORY_SEGMENTS,
+    TIER_SUBCATEGORY_THUMBNAILS,
+)
 from viseron.components.storage.models import Files
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import TEMP_DIR
@@ -50,6 +57,7 @@ from .const import (
     CONFIG_STILL_IMAGE,
     CONFIG_STILL_IMAGE_HEIGHT,
     CONFIG_STILL_IMAGE_WIDTH,
+    CONFIG_STORAGE,
     CONFIG_URL,
     EVENT_CAMERA_STARTED,
     EVENT_CAMERA_STATUS,
@@ -109,6 +117,9 @@ class AbstractCamera(ABC):
 
         self._logger = logging.getLogger(f"{self.__module__}.{self.identifier}")
 
+        if self._config[CONFIG_STORAGE]:
+            validate_tiers(self._config)
+
         self._connected: bool = False
         self._still_image_available: bool = False
         self.stopped = Event()
@@ -136,7 +147,7 @@ class AbstractCamera(ABC):
         )
 
         self._storage: Storage = vis.data[STORAGE_COMPONENT]
-        self.recordings_folder: str = self._storage.get_recordings_path(self)
+        self.event_clips_folder: str = self._storage.get_event_clips_path(self)
         self.segments_folder: str = self._storage.get_segments_path(self)
         self.thumbnails_folder: str = self._storage.get_thumbnails_path(self)
         self.temp_segments_folder: str = TEMP_DIR + self.segments_folder
@@ -513,8 +524,8 @@ class FailedCamera:
                 select(Files)
                 .distinct(Files.directory)
                 .where(Files.camera_identifier == self.identifier)
-                .where(Files.category == "recorder")
-                .where(Files.subcategory == "segments")
+                .where(Files.category == TIER_CATEGORY_RECORDER)
+                .where(Files.subcategory == TIER_SUBCATEGORY_SEGMENTS)
                 .order_by(Files.directory, Files.created_at.desc())
             )
             for file in session.execute(recorder_dir_stmt).scalars():
@@ -524,8 +535,8 @@ class FailedCamera:
                     file.directory,
                     rf"{file.directory}/(.*.m4s$)",
                     self,
-                    "recorder",
-                    "segments",
+                    TIER_CATEGORY_RECORDER,
+                    TIER_SUBCATEGORY_SEGMENTS,
                 )
                 add_file_handler(
                     vis,
@@ -533,8 +544,8 @@ class FailedCamera:
                     file.directory,
                     rf"{file.directory}/(.*.mp4$)",
                     self,
-                    "recorder",
-                    "segments",
+                    TIER_CATEGORY_RECORDER,
+                    TIER_SUBCATEGORY_SEGMENTS,
                 )
 
         # Try to guess the path to the camera snapshots and thumbnails
@@ -545,8 +556,8 @@ class FailedCamera:
                 .where(Files.camera_identifier == self.identifier)
                 .where(
                     or_(
-                        Files.subcategory == "thumbnails",
-                        Files.subcategory == "snapshots",
+                        Files.category == TIER_CATEGORY_SNAPSHOTS,
+                        Files.subcategory == TIER_SUBCATEGORY_THUMBNAILS,
                     )
                 )
                 .order_by(Files.directory, Files.created_at.desc())

@@ -14,7 +14,7 @@ from viseron.components.storage.const import (
 )
 from viseron.components.storage.models import Recordings
 from viseron.components.storage.tier_handler import (
-    RecordingsTierHandler,
+    EventClipTierHandler,
     SegmentsTierHandler,
     ThumbnailTierHandler,
     find_next_tier_segments,
@@ -283,7 +283,7 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
                 None,
             )
             tier_handlers.append(tier_handler)
-        recordings_tier_handler = MagicMock(spec=RecordingsTierHandler)
+        recordings_tier_handler = MagicMock(spec=EventClipTierHandler)
         thumbnail_tier_handler = MagicMock(spec=ThumbnailTierHandler)
         vis.data[STORAGE_COMPONENT].camera_tier_handlers = {
             "test": {
@@ -291,7 +291,7 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
                     {
                         "segments": tier_handler,
                         "thumbnails": thumbnail_tier_handler,
-                        "recordings": recordings_tier_handler,
+                        "event_clips": recordings_tier_handler,
                     }
                     for tier_handler in tier_handlers
                 ]

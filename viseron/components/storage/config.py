@@ -1,6 +1,7 @@
 """Storage component configuration."""
 from __future__ import annotations
 
+import os
 from typing import Any, Literal, TypedDict
 
 import voluptuous as vol
@@ -89,6 +90,11 @@ from viseron.components.storage.const import (
     DESC_RECORDER_TIERS,
     DESC_SNAPSHOTS,
     DESC_SNAPSHOTS_TIERS,
+    TIER_CATEGORY_RECORDER,
+    TIER_CATEGORY_SNAPSHOTS,
+    TIER_SUBCATEGORY_EVENT_CLIPS,
+    TIER_SUBCATEGORY_SEGMENTS,
+    TIER_SUBCATEGORY_THUMBNAILS,
 )
 from viseron.components.storage.util import calculate_age, calculate_bytes
 from viseron.config import UNSUPPORTED
@@ -374,7 +380,42 @@ STORAGE_SCHEMA = vol.Schema(
 )
 
 
-def _check_tier(tier: Tier, previous_tier: Tier | None, paths: list[str]):
+def _check_path_exists(tier: Tier, category: str):
+    """Check if path exists."""
+    if category == TIER_CATEGORY_RECORDER and tier[CONFIG_PATH] == "/":
+        for subcategory in [
+            TIER_SUBCATEGORY_SEGMENTS,
+            TIER_SUBCATEGORY_EVENT_CLIPS,
+            TIER_SUBCATEGORY_THUMBNAILS,
+        ]:
+            if not os.path.exists(f"/{subcategory}"):
+                raise vol.Invalid(
+                    f"The /{subcategory} folder does not exist. "
+                    "Please mount it to the container."
+                )
+        return
+
+    if category == TIER_CATEGORY_SNAPSHOTS and tier[CONFIG_PATH] == "/":
+        if not os.path.exists(f"/{TIER_CATEGORY_SNAPSHOTS}"):
+            raise vol.Invalid(
+                f"The /{TIER_CATEGORY_SNAPSHOTS} folder does not exist. "
+                "Please mount it to the container."
+            )
+        return
+
+    if not os.path.exists(tier[CONFIG_PATH]):
+        raise vol.Invalid(
+            f"The {tier[CONFIG_PATH]} folder does not exist. "
+            "Please mount it to the container."
+        )
+
+
+def _check_tier(
+    tier: Tier,
+    previous_tier: Tier | None,
+    paths: list[str],
+    category: str,
+):
     """Check tier config."""
     if tier[CONFIG_PATH] in ["/tmp", TEMP_DIR]:
         raise vol.Invalid(
@@ -384,6 +425,8 @@ def _check_tier(tier: Tier, previous_tier: Tier | None, paths: list[str]):
     if tier[CONFIG_PATH] in paths:
         raise vol.Invalid(f"Tier {tier[CONFIG_PATH]} is defined multiple times")
     paths.append(tier[CONFIG_PATH])
+
+    _check_path_exists(tier, category)
 
     if previous_tier is None:
         return
@@ -464,11 +507,7 @@ def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
             _tier = Tier(
                 path=tier[CONFIG_PATH], max_age=tier[CONFIG_EVENTS][CONFIG_MAX_AGE]
             )
-            _check_tier(
-                _tier,
-                previous_tier,
-                paths,
-            )
+            _check_tier(_tier, previous_tier, paths, CONFIG_RECORDER)
             previous_tier = _tier
 
     # Check continuous config
@@ -479,11 +518,7 @@ def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
             _tier = Tier(
                 path=tier[CONFIG_PATH], max_age=tier[CONFIG_CONTINUOUS][CONFIG_MAX_AGE]
             )
-            _check_tier(
-                _tier,
-                previous_tier,
-                paths,
-            )
+            _check_tier(_tier, previous_tier, paths, CONFIG_RECORDER)
             previous_tier = _tier
 
     # Check snapshots config
@@ -491,11 +526,7 @@ def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
     paths = []
     for tier in component_config.get(CONFIG_SNAPSHOTS, {}).get(CONFIG_TIERS, []):
         _tier = Tier(path=tier[CONFIG_PATH], max_age=tier[CONFIG_MAX_AGE])
-        _check_tier(
-            _tier,
-            previous_tier,
-            paths,
-        )
+        _check_tier(_tier, previous_tier, paths, CONFIG_SNAPSHOTS)
         previous_tier = _tier
 
     # Check snapshots domain config
@@ -511,11 +542,7 @@ def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
         paths = []
         for tier in component_config[CONFIG_SNAPSHOTS][domain][CONFIG_TIERS]:
             _tier = Tier(path=tier[CONFIG_PATH], max_age=tier[CONFIG_MAX_AGE])
-            _check_tier(
-                _tier,
-                previous_tier,
-                paths,
-            )
+            _check_tier(_tier, previous_tier, paths, CONFIG_SNAPSHOTS)
             previous_tier = _tier
 
     return config

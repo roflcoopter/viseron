@@ -20,6 +20,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.functions import coalesce
 
+from viseron.components.storage.const import (
+    TIER_CATEGORY_RECORDER,
+    TIER_SUBCATEGORY_SEGMENTS,
+)
 from viseron.components.storage.models import Files, Recordings
 from viseron.helpers import utcnow
 
@@ -259,8 +263,8 @@ def get_recording_fragments(
         .add_columns(row_number)
         .join(Recordings, Files.camera_identifier == Recordings.camera_identifier)
         .where(Recordings.id == recording_id)
-        .where(Files.category == "recorder")
-        .where(Files.subcategory == "segments")
+        .where(Files.category == TIER_CATEGORY_RECORDER)
+        .where(Files.subcategory == TIER_SUBCATEGORY_SEGMENTS)
         .where(Files.duration.isnot(None))
         .where(
             or_(
@@ -324,8 +328,8 @@ def get_time_period_fragments(
         select(Files)
         .add_columns(row_number)
         .where(Files.camera_identifier.in_(camera_identifiers))
-        .where(Files.category == "recorder")
-        .where(Files.subcategory == "segments")
+        .where(Files.category == TIER_CATEGORY_RECORDER)
+        .where(Files.subcategory == TIER_SUBCATEGORY_SEGMENTS)
         .where(Files.duration.isnot(None))
         .where(
             or_(

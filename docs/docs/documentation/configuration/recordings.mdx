@@ -100,7 +100,7 @@ Example configuration to set retention rules for all cameras:
 storage:
   recorder:
     tiers:
-      - path: / # Files will be stored in the /recordings directory
+      - path: / # Video segments will be stored in the /segments directory
         events:
           max_age:
             days: 14
@@ -175,10 +175,10 @@ ffmpeg: # or any other camera component
       username: !secret camera_one_username
       password: !secret camera_one_password
       // highlight-start
-      recorder:
-        storage: # Store events for 14 days and 10gb of continuous recordings
+      storage: # Store events for 14 days and 10gb of continuous recordings
+        recorder:
           tiers:
-            - path: / # Files will be stored in the /recordings directory
+            - path: / # Video segments will be stored in the /segments directory
               events:
                 max_age:
                   days: 14
@@ -261,6 +261,6 @@ ffmpeg: # or any other camera component
 
 This will create `.mp4` files for all event recordings, which will be stored in addition to the `.m4s` files.
 
-THe `.mp4` files will be created in the `/clips` directory, unless you have set a different path in the [storage component](/components-explorer/components/storage).
+THe `.mp4` files will be created in the `/event_clips` directory, unless you have set a different path in the [storage component](/components-explorer/components/storage).
 
 :::

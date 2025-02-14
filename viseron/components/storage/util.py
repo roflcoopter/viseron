@@ -15,6 +15,10 @@ from viseron.components.storage.const import (
     CONFIG_MB,
     CONFIG_MINUTES,
     CONFIG_PATH,
+    TIER_CATEGORY_SNAPSHOTS,
+    TIER_SUBCATEGORY_EVENT_CLIPS,
+    TIER_SUBCATEGORY_SEGMENTS,
+    TIER_SUBCATEGORY_THUMBNAILS,
 )
 from viseron.events import EventData
 from viseron.types import SnapshotDomain
@@ -55,18 +59,29 @@ def convert_gb_to_bytes(gb: int) -> int:
     return gb * 1024 * 1024 * 1024
 
 
-def get_recorder_path(
-    tier: dict[str, Any], camera: AbstractCamera | FailedCamera, subcategory: str
+def get_segments_path(
+    tier: dict[str, Any], camera: AbstractCamera | FailedCamera
 ) -> str:
-    """Get recorder path for camera."""
-    return os.path.join(tier[CONFIG_PATH], subcategory, camera.identifier)
+    """Get segments path for camera."""
+    return os.path.join(tier[CONFIG_PATH], TIER_SUBCATEGORY_SEGMENTS, camera.identifier)
+
+
+def get_event_clips_path(
+    tier: dict[str, Any], camera: AbstractCamera | FailedCamera
+) -> str:
+    """Get event clips path for camera."""
+    return os.path.join(
+        tier[CONFIG_PATH], TIER_SUBCATEGORY_EVENT_CLIPS, camera.identifier
+    )
 
 
 def get_thumbnails_path(
     tier: dict[str, Any], camera: AbstractCamera | FailedCamera
 ) -> str:
     """Get thumbnails path for camera."""
-    return os.path.join(tier[CONFIG_PATH], "thumbnails", camera.identifier)
+    return os.path.join(
+        tier[CONFIG_PATH], TIER_SUBCATEGORY_THUMBNAILS, camera.identifier
+    )
 
 
 def get_snapshots_path(
@@ -75,7 +90,9 @@ def get_snapshots_path(
     domain: SnapshotDomain,
 ) -> str:
     """Get snapshots path for camera."""
-    return os.path.join(tier[CONFIG_PATH], "snapshots", domain.value, camera.identifier)
+    return os.path.join(
+        tier[CONFIG_PATH], TIER_CATEGORY_SNAPSHOTS, domain.value, camera.identifier
+    )
 
 
 def files_to_move_overlap(events_file_ids, continuous_file_ids):

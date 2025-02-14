@@ -16,7 +16,13 @@ from viseron.components.storage.const import (
     CONFIG_CONTINUOUS,
     CONFIG_DAYS,
     CONFIG_EVENTS,
+    CONFIG_GB,
     CONFIG_HOURS,
+    CONFIG_MAX_AGE,
+    CONFIG_MAX_SIZE,
+    CONFIG_MB,
+    CONFIG_MIN_AGE,
+    CONFIG_MIN_SIZE,
     CONFIG_MINUTES,
     CONFIG_MOVE_ON_SHUTDOWN,
     CONFIG_PATH,
@@ -34,7 +40,7 @@ from tests.common import MockCamera
 if TYPE_CHECKING:
     from viseron import Viseron
 
-CONFIG = {
+TIER_CONFIG = {
     CONFIG_RECORDER: {CONFIG_TIERS: DEFAULT_RECORDER_TIERS},
     CONFIG_SNAPSHOTS: {"test": "test"},
 }
@@ -44,80 +50,142 @@ CONFIG = {
     "config, camera_config, expected",
     [
         (  # Test default config
-            CONFIG,
+            TIER_CONFIG,
             {
                 CONFIG_RECORDER: {
                     CONFIG_CONTINUOUS: {},
                     CONFIG_EVENTS: {},
-                    CONFIG_STORAGE: {},
                 },
+                CONFIG_STORAGE: None,
             },
-            CONFIG,
+            TIER_CONFIG,
         ),
         (  # Test overriding using events/continuous
-            CONFIG,
+            TIER_CONFIG,
             {
                 CONFIG_RECORDER: {
-                    CONFIG_CONTINUOUS: {"test": 123},
-                    CONFIG_EVENTS: {"test": 456},
-                    CONFIG_STORAGE: {},
-                }
+                    CONFIG_CONTINUOUS: {CONFIG_MAX_AGE: {CONFIG_DAYS: 123}},
+                    CONFIG_EVENTS: {CONFIG_MAX_AGE: {CONFIG_DAYS: 456}},
+                },
+                CONFIG_STORAGE: None,
             },
             {
                 CONFIG_RECORDER: {
                     CONFIG_TIERS: [
                         {
-                            CONFIG_PATH: "/",
-                            CONFIG_CONTINUOUS: {"test": 123},
-                            CONFIG_EVENTS: {"test": 456},
+                            CONFIG_CHECK_INTERVAL: {
+                                CONFIG_DAYS: 0,
+                                CONFIG_HOURS: 0,
+                                CONFIG_MINUTES: 1,
+                                CONFIG_SECONDS: 0,
+                            },
+                            CONFIG_CONTINUOUS: {
+                                CONFIG_MAX_AGE: {
+                                    CONFIG_DAYS: 123,
+                                    CONFIG_HOURS: None,
+                                    CONFIG_MINUTES: None,
+                                },
+                                CONFIG_MAX_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
+                                CONFIG_MIN_AGE: {
+                                    CONFIG_DAYS: None,
+                                    CONFIG_HOURS: None,
+                                    CONFIG_MINUTES: None,
+                                },
+                                CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
+                            },
+                            CONFIG_EVENTS: {
+                                CONFIG_MAX_AGE: {
+                                    CONFIG_DAYS: 456,
+                                    CONFIG_HOURS: None,
+                                    CONFIG_MINUTES: None,
+                                },
+                                CONFIG_MAX_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
+                                CONFIG_MIN_AGE: {
+                                    CONFIG_DAYS: None,
+                                    CONFIG_HOURS: None,
+                                    CONFIG_MINUTES: None,
+                                },
+                                CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
+                            },
                             CONFIG_MOVE_ON_SHUTDOWN: False,
+                            CONFIG_PATH: "/",
                             CONFIG_POLL: False,
-                        },
+                        }
                     ]
                 },
-                CONFIG_SNAPSHOTS: CONFIG[CONFIG_SNAPSHOTS],
+                CONFIG_SNAPSHOTS: TIER_CONFIG[CONFIG_SNAPSHOTS],
             },
         ),
         (  # Test overriding using tiers
-            CONFIG,
+            TIER_CONFIG,
             {
                 CONFIG_RECORDER: {
                     CONFIG_CONTINUOUS: {},
                     CONFIG_EVENTS: {},
-                    CONFIG_STORAGE: {
+                },
+                CONFIG_STORAGE: {
+                    CONFIG_RECORDER: {
                         CONFIG_TIERS: [
                             {
                                 CONFIG_PATH: "/test",
-                                CONFIG_CONTINUOUS: {"test": 123},
-                                CONFIG_EVENTS: {"test": 456},
+                                CONFIG_CONTINUOUS: {CONFIG_MAX_AGE: {CONFIG_DAYS: 123}},
+                                CONFIG_EVENTS: {CONFIG_MAX_AGE: {CONFIG_DAYS: 456}},
                                 CONFIG_CHECK_INTERVAL: {
                                     CONFIG_DAYS: 0,
                                     CONFIG_HOURS: 0,
                                     CONFIG_MINUTES: 0,
-                                    CONFIG_SECONDS: 0,
+                                    CONFIG_SECONDS: 5,
                                 },
                             },
                         ]
-                    },
-                }
+                    }
+                },
             },
             {
                 CONFIG_RECORDER: {
                     CONFIG_TIERS: [
                         {
-                            CONFIG_PATH: "/test",
-                            CONFIG_CONTINUOUS: {"test": 123},
-                            CONFIG_EVENTS: {"test": 456},
                             CONFIG_CHECK_INTERVAL: {
                                 CONFIG_DAYS: 0,
                                 CONFIG_HOURS: 0,
                                 CONFIG_MINUTES: 0,
-                                CONFIG_SECONDS: 0,
+                                CONFIG_SECONDS: 5,
                             },
-                        },
+                            CONFIG_CONTINUOUS: {
+                                CONFIG_MAX_AGE: {
+                                    CONFIG_DAYS: 123,
+                                    CONFIG_HOURS: None,
+                                    CONFIG_MINUTES: None,
+                                },
+                                CONFIG_MAX_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
+                                CONFIG_MIN_AGE: {
+                                    CONFIG_DAYS: None,
+                                    CONFIG_HOURS: None,
+                                    CONFIG_MINUTES: None,
+                                },
+                                CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
+                            },
+                            CONFIG_EVENTS: {
+                                CONFIG_MAX_AGE: {
+                                    CONFIG_DAYS: 456,
+                                    CONFIG_HOURS: None,
+                                    CONFIG_MINUTES: None,
+                                },
+                                CONFIG_MAX_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
+                                CONFIG_MIN_AGE: {
+                                    CONFIG_DAYS: None,
+                                    CONFIG_HOURS: None,
+                                    CONFIG_MINUTES: None,
+                                },
+                                CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
+                            },
+                            CONFIG_MOVE_ON_SHUTDOWN: False,
+                            CONFIG_PATH: "/test/",
+                            CONFIG_POLL: False,
+                        }
                     ]
                 },
-                CONFIG_SNAPSHOTS: CONFIG[CONFIG_SNAPSHOTS],
+                CONFIG_SNAPSHOTS: TIER_CONFIG[CONFIG_SNAPSHOTS],
             },
         ),
     ],
