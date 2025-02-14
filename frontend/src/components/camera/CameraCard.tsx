@@ -2,6 +2,7 @@ import Image from "@jy95/material-ui-image";
 import ImageSearchIcon from "@mui/icons-material/ImageSearch";
 import LiveTvIcon from "@mui/icons-material/LiveTv";
 import VideoFileIcon from "@mui/icons-material/VideoFile";
+import ViewTimelineIcon from "@mui/icons-material/ViewTimeline";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
@@ -219,6 +220,14 @@ const SuccessCameraCard = ({
                   to={`/events?camera=${camera.identifier}&tab=events`}
                 >
                   <ImageSearchIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Timeline">
+                <IconButton
+                  component={Link}
+                  to={`/events?camera=${camera.identifier}&tab=timeline`}
+                >
+                  <ViewTimelineIcon />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Recordings">

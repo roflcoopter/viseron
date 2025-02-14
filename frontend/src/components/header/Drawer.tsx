@@ -6,6 +6,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import VideoFileIcon from "@mui/icons-material/VideoFile";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import ViewListIcon from "@mui/icons-material/ViewList";
+import ViewTimelineIcon from "@mui/icons-material/ViewTimeline";
 import VolunteerActivismIcon from "@mui/icons-material/VolunteerActivism";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
@@ -47,7 +48,13 @@ const drawerItems: Array<DrawerItemTypes> = [
     type: "link",
     title: "Events",
     icon: ImageSearchIcon,
-    path: "/events",
+    path: "/events?tab=events",
+  },
+  {
+    type: "link",
+    title: "Timeline",
+    icon: ViewTimelineIcon,
+    path: "/events?tab=timeline",
   },
   { type: "link", title: "Entities", icon: ViewListIcon, path: "/entities" },
   { type: "divider" },
