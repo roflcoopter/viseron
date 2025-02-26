@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -47,7 +47,7 @@ from viseron.const import (
 )
 from viseron.exceptions import StreamInformationError
 
-from tests.common import MockCamera, return_any
+from tests.common import MockCamera
 
 CONFIG: dict[str, Any] = {
     CONFIG_HOST: "test_host",
@@ -272,7 +272,7 @@ class TestStream:
             assert result.audio_codec == "aac"
 
             mock_ffprobe.stream_information.assert_called_once_with(
-                "test_stream_url", return_any(object)
+                "test_stream_url", ANY
             )
 
     def test_get_stream_information_missing_parameters(self):
@@ -306,5 +306,5 @@ class TestStream:
             assert "Width: None Height: 1080 FPS: 30 Codec: h264" in str(excinfo.value)
 
             mock_ffprobe.stream_information.assert_called_once_with(
-                "test_stream_url", return_any(object)
+                "test_stream_url", ANY
             )

@@ -17,8 +17,8 @@ from sqlalchemy.orm import Session, scoped_session, sessionmaker
 
 from viseron.components.storage.config import (
     STORAGE_SCHEMA,
-    TIER_SCHEMA_BASE,
     TIER_SCHEMA_RECORDER,
+    TIER_SCHEMA_SNAPSHOTS,
     validate_tiers,
 )
 from viseron.components.storage.const import (
@@ -380,15 +380,28 @@ class Storage:
         tier_config = _get_tier_config(self._config, camera)
         for category in TIER_CATEGORIES:
             self._camera_tier_handlers[camera.identifier].setdefault(category, [])
-            tiers = tier_config[category][CONFIG_TIERS]
-            for index, tier in enumerate(tiers):
-                self._camera_tier_handlers[camera.identifier][category].append({})
-                if index == len(tiers) - 1:
-                    next_tier = None
+            # pylint: disable-next=line-too-long
+            for subcategory in TIER_CATEGORIES[category]:  # type: ignore[literal-required] # noqa: E501
+                if tier_config[category].get(subcategory["subcategory"], None):
+                    tiers = tier_config[category][subcategory["subcategory"]][
+                        CONFIG_TIERS
+                    ]
                 else:
-                    next_tier = tiers[index + 1]
-                # pylint: disable-next=line-too-long
-                for subcategory in TIER_CATEGORIES[category]:  # type: ignore[literal-required] # noqa: E501
+                    tiers = tier_config[category][CONFIG_TIERS]
+
+                for index, tier in enumerate(tiers):
+                    try:
+                        self._camera_tier_handlers[camera.identifier][category][index]
+                    except IndexError:
+                        self._camera_tier_handlers[camera.identifier][category].append(
+                            {}
+                        )
+
+                    if index == len(tiers) - 1:
+                        next_tier = None
+                    else:
+                        next_tier = tiers[index + 1]
+
                     self._camera_tier_handlers[camera.identifier][category][index][
                         subcategory["subcategory"]
                     ] = subcategory["tier_handler"](
@@ -419,28 +432,32 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
     if not hasattr(camera, "config"):
         return config
     tier_config = copy.deepcopy(config)
-    _tier: dict[str, Any] = {}
-    if camera.config[CONFIG_RECORDER].get(CONFIG_CONTINUOUS, None) or camera.config[
-        CONFIG_RECORDER
-    ].get(CONFIG_EVENTS, None):
-        continuous = camera.config[CONFIG_RECORDER].get(CONFIG_CONTINUOUS, None)
-        events = camera.config[CONFIG_RECORDER].get(CONFIG_EVENTS, None)
-        if continuous is None:
-            continuous = TIER_SCHEMA_BASE({})
-        if events is None:
-            events = TIER_SCHEMA_BASE({})
 
-        _tier[CONFIG_PATH] = "/"
-        _tier[CONFIG_CONTINUOUS] = continuous
-        _tier[CONFIG_EVENTS] = events
-        tier_config[CONFIG_RECORDER][CONFIG_TIERS] = [_tier]
-    elif camera.config[CONFIG_STORAGE]:
-        _tier = camera.config[CONFIG_STORAGE][CONFIG_RECORDER][CONFIG_TIERS]
-        tier_config[CONFIG_RECORDER][CONFIG_TIERS] = _tier
+    # Override recorder tiers with camera config
+    _recorder_tier: dict[str, Any] = {}
+    continuous = camera.config[CONFIG_RECORDER].get(CONFIG_CONTINUOUS, None)
+    if continuous and continuous != vol.UNDEFINED:
+        _recorder_tier[CONFIG_PATH] = "/"
+        _recorder_tier[CONFIG_CONTINUOUS] = continuous
+        tier_config[CONFIG_RECORDER][CONFIG_TIERS] = [_recorder_tier]
 
-    if _tier:
+    events = camera.config[CONFIG_RECORDER].get(CONFIG_EVENTS, None)
+    if events and events != vol.UNDEFINED:
+        _recorder_tier[CONFIG_PATH] = "/"
+        _recorder_tier[CONFIG_EVENTS] = events
+        tier_config[CONFIG_RECORDER][CONFIG_TIERS] = [_recorder_tier]
+
+    if (
+        not _recorder_tier
+        and camera.config[CONFIG_STORAGE]
+        and camera.config[CONFIG_STORAGE][CONFIG_RECORDER] != vol.UNDEFINED
+    ):
+        _recorder_tier = camera.config[CONFIG_STORAGE][CONFIG_RECORDER][CONFIG_TIERS]
+        tier_config[CONFIG_RECORDER][CONFIG_TIERS] = _recorder_tier
+
+    if _recorder_tier:
         LOGGER.debug(
-            f"Camera {camera.name} has custom tiers, "
+            f"Camera {camera.name} has custom recorder tiers, "
             "overwriting storage recorder tiers"
         )
         # Validate the tier schema to fill in defaults
@@ -450,5 +467,41 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
                 vol.Length(min=1),
             )
         )(tier_config[CONFIG_RECORDER][CONFIG_TIERS])
+
+    _snapshot_tier: dict[str, Any] = {}
+    if (
+        camera.config[CONFIG_STORAGE]
+        and camera.config[CONFIG_STORAGE][CONFIG_SNAPSHOTS] != vol.UNDEFINED
+    ):
+        for subcategory in camera.config[CONFIG_STORAGE][CONFIG_SNAPSHOTS].keys():
+            _snapshot_tier = camera.config[CONFIG_STORAGE][CONFIG_SNAPSHOTS][
+                subcategory
+            ]
+            tier_config[CONFIG_SNAPSHOTS][subcategory] = _snapshot_tier
+
+    if _snapshot_tier:
+        LOGGER.debug(
+            f"Camera {camera.name} has custom snapshot tiers, "
+            "overwriting storage snapshot tiers"
+        )
+        # Validate the tier schema to fill in defaults
+        domains = list(camera.config[CONFIG_STORAGE][CONFIG_SNAPSHOTS].keys())
+        domains.remove(CONFIG_TIERS)
+        for domain in domains:
+            if tier_config[CONFIG_SNAPSHOTS][domain] == vol.UNDEFINED:
+                continue
+            tier_config[CONFIG_SNAPSHOTS][domain][CONFIG_TIERS] = vol.Schema(
+                vol.All(
+                    [TIER_SCHEMA_SNAPSHOTS],
+                    vol.Length(min=1),
+                )
+            )(tier_config[CONFIG_SNAPSHOTS][domain][CONFIG_TIERS])
+
+        tier_config[CONFIG_SNAPSHOTS][CONFIG_TIERS] = vol.Schema(
+            vol.All(
+                [TIER_SCHEMA_SNAPSHOTS],
+                vol.Length(min=1),
+            )
+        )(tier_config[CONFIG_SNAPSHOTS][CONFIG_TIERS])
 
     return tier_config

@@ -1,14 +1,18 @@
 """Camera domain config."""
 import voluptuous as vol
 
-from viseron.components.storage.config import STORAGE_SCHEMA, TIER_SCHEMA_BASE
+from viseron.components.storage.config import (
+    RECORDER_SCHEMA as STORAGE_RECORDER_SCHEMA,
+    TIER_SCHEMA_BASE,
+    get_snapshots_schema,
+)
 from viseron.components.storage.const import (
     CONFIG_CONTINUOUS,
     CONFIG_EVENTS,
-    DEFAULT_CONTINUOUS,
-    DEFAULT_EVENTS,
+    CONFIG_SNAPSHOTS,
     DESC_CONTINUOUS,
     DESC_EVENTS,
+    DESC_SNAPSHOTS,
 )
 from viseron.helpers.validators import CoerceNoneToDict, Deprecated, Maybe, Slug
 
@@ -231,12 +235,12 @@ RECORDER_SCHEMA = vol.Schema(
         ): vol.All(CoerceNoneToDict(), THUMBNAIL_SCHEMA),
         vol.Optional(
             CONFIG_CONTINUOUS,
-            default=DEFAULT_CONTINUOUS,
+            default=vol.UNDEFINED,
             description=DESC_CONTINUOUS,
         ): Maybe(TIER_SCHEMA_BASE),
         vol.Optional(
             CONFIG_EVENTS,
-            default=DEFAULT_EVENTS,
+            default=vol.UNDEFINED,
             description=DESC_EVENTS,
         ): Maybe(TIER_SCHEMA_BASE),
         vol.Optional(
@@ -319,6 +323,19 @@ BASE_CONFIG_SCHEMA = vol.Schema(
             CONFIG_STORAGE,
             default=DEFAULT_STORAGE,
             description=DESC_STORAGE,
-        ): Maybe(STORAGE_SCHEMA),
+        ): Maybe(
+            {
+                vol.Optional(
+                    CONFIG_RECORDER,
+                    default=vol.UNDEFINED,
+                    description=DESC_RECORDER,
+                ): STORAGE_RECORDER_SCHEMA,
+                vol.Optional(
+                    CONFIG_SNAPSHOTS,
+                    default=vol.UNDEFINED,
+                    description=DESC_SNAPSHOTS,
+                ): get_snapshots_schema(undefined_defaults=True),
+            }
+        ),
     }
 )
