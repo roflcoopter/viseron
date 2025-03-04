@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Callable, Generator
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -58,18 +58,6 @@ class MockCamera(MagicMock):
         )
         if vis:
             vis.register_domain(CAMERA_DOMAIN, identifier, self)
-
-
-def return_any(cls: type[Any]):
-    """Mock any return value."""
-
-    class MockAny(cls):
-        """Mock any return value."""
-
-        def __eq__(self, other) -> Literal[True]:
-            return True
-
-    return MockAny()
 
 
 class BaseTestWithRecordings:

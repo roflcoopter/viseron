@@ -120,7 +120,7 @@ Size based retention rules are calculated **per camera**, meaning that if you ha
 ### Setting retention rules per domain
 
 You can set specific retention rules for each domain by following the example below.
-The example stores 1 GB of face recognition snapshots, and 7 days if license plate recognition snapshots.
+The example stores 1 GB of face recognition snapshots, and 14 days of license plate recognition snapshots.
 
 ```yaml /config/config.yaml
 storage:
@@ -134,7 +134,31 @@ storage:
       tiers:
         - path: / # Files will be stored in the /snapshots/license_plate_recognition directory
             max_age:
-              days: 7
+              days: 14
+```
+
+### Setting retention rules for a specific camera
+
+You can set retention rules for a specific camera by adding the `storage` key to the camera config.
+The example stores 1gb of face recognition snapshots for `camera_one`, while other cameras and types of snapshots will be stored based on the global retention rules (defaults to 7 days).
+
+```yaml /config/config.yaml
+ffmpeg: # or any other camera component
+  camera:
+    camera_one:
+      name: Camera 1
+      host: !secret camera_one_host
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_username
+      password: !secret camera_one_password
+      // highlight-start
+      snapshots:
+        face_recognition:
+          tiers:
+            - path: / # Files will be stored in the /snapshots/face_recognition directory
+                max_size:
+                  gb: 1
+      // highlight-end
 ```
 
 ## Downloading snapshots

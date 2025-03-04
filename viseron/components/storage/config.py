@@ -197,7 +197,7 @@ TIER_SCHEMA_SNAPSHOTS = TIER_SCHEMA_BASE.extend(
         vol.Required(
             CONFIG_PATH,
             description=DESC_PATH,
-        ): str,
+        ): vol.All(str, CoerceEndsWithSlash()),
         vol.Optional(
             CONFIG_POLL,
             default=DEFAULT_POLL,
@@ -298,84 +298,96 @@ TIER_SCHEMA_RECORDER = vol.Schema(
     }
 )
 
+RECORDER_SCHEMA = {
+    vol.Optional(
+        CONFIG_TIERS,
+        default=DEFAULT_RECORDER_TIERS,
+        description=DESC_RECORDER_TIERS,
+    ): vol.All(
+        [TIER_SCHEMA_RECORDER],
+        vol.Length(min=1),
+    ),
+}
+
+
+def get_snapshots_schema(undefined_defaults=False):
+    """Get snapshots schema."""
+    return {
+        vol.Optional(
+            CONFIG_TIERS,
+            default=vol.UNDEFINED if undefined_defaults else DEFAULT_SNAPSHOTS_TIERS,
+            description=DESC_SNAPSHOTS_TIERS,
+        ): vol.All(
+            [TIER_SCHEMA_SNAPSHOTS],
+            vol.Length(min=1),
+        ),
+        vol.Optional(
+            CONFIG_FACE_RECOGNITION,
+            default=vol.UNDEFINED if undefined_defaults else DEFAULT_FACE_RECOGNITION,
+            description=DESC_FACE_RECOGNITION,
+        ): Maybe(
+            {
+                vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(
+                    [TIER_SCHEMA_SNAPSHOTS],
+                    vol.Length(min=1),
+                ),
+            }
+        ),
+        vol.Optional(
+            CONFIG_OBJECT_DETECTOR,
+            default=vol.UNDEFINED if undefined_defaults else DEFAULT_OBJECT_DETECTOR,
+            description=DESC_OBJECT_DETECTOR,
+        ): Maybe(
+            {
+                vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(
+                    [TIER_SCHEMA_SNAPSHOTS],
+                    vol.Length(min=1),
+                ),
+            }
+        ),
+        vol.Optional(
+            CONFIG_LICENSE_PLATE_RECOGNITION,
+            default=vol.UNDEFINED
+            if undefined_defaults
+            else DEFAULT_LICENSE_PLATE_RECOGNITION,
+            description=DESC_LICENSE_PLATE_RECOGNITION,
+        ): Maybe(
+            {
+                vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(
+                    [TIER_SCHEMA_SNAPSHOTS],
+                    vol.Length(min=1),
+                ),
+            }
+        ),
+        vol.Optional(
+            CONFIG_MOTION_DETECTOR,
+            default=vol.UNDEFINED if undefined_defaults else DEFAULT_MOTION_DETECTOR,
+            description=DESC_MOTION_DETECTOR,
+        ): Maybe(
+            {
+                vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(
+                    [TIER_SCHEMA_SNAPSHOTS],
+                    vol.Length(min=1),
+                ),
+            }
+        ),
+    }
+
+
+SNAPSHOTS_SCHEMA = get_snapshots_schema()
+
 STORAGE_SCHEMA = vol.Schema(
     {
         vol.Optional(
             CONFIG_RECORDER,
             default=DEFAULT_RECORDER,
             description=DESC_RECORDER,
-        ): {
-            vol.Optional(
-                CONFIG_TIERS,
-                default=DEFAULT_RECORDER_TIERS,
-                description=DESC_RECORDER_TIERS,
-            ): vol.All(
-                [TIER_SCHEMA_RECORDER],
-                vol.Length(min=1),
-            ),
-        },
+        ): RECORDER_SCHEMA,
         vol.Optional(
             CONFIG_SNAPSHOTS,
             default=DEFAULT_SNAPSHOTS,
             description=DESC_SNAPSHOTS,
-        ): {
-            vol.Optional(
-                CONFIG_TIERS,
-                default=DEFAULT_SNAPSHOTS_TIERS,
-                description=DESC_SNAPSHOTS_TIERS,
-            ): vol.All(
-                [TIER_SCHEMA_SNAPSHOTS],
-                vol.Length(min=1),
-            ),
-            vol.Optional(
-                CONFIG_FACE_RECOGNITION,
-                default=DEFAULT_FACE_RECOGNITION,
-                description=DESC_FACE_RECOGNITION,
-            ): Maybe(
-                {
-                    vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(
-                        [TIER_SCHEMA_SNAPSHOTS],
-                        vol.Length(min=1),
-                    ),
-                }
-            ),
-            vol.Optional(
-                CONFIG_OBJECT_DETECTOR,
-                default=DEFAULT_OBJECT_DETECTOR,
-                description=DESC_OBJECT_DETECTOR,
-            ): Maybe(
-                {
-                    vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(
-                        [TIER_SCHEMA_SNAPSHOTS],
-                        vol.Length(min=1),
-                    ),
-                }
-            ),
-            vol.Optional(
-                CONFIG_LICENSE_PLATE_RECOGNITION,
-                default=DEFAULT_LICENSE_PLATE_RECOGNITION,
-                description=DESC_LICENSE_PLATE_RECOGNITION,
-            ): Maybe(
-                {
-                    vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(
-                        [TIER_SCHEMA_SNAPSHOTS],
-                        vol.Length(min=1),
-                    ),
-                }
-            ),
-            vol.Optional(
-                CONFIG_MOTION_DETECTOR,
-                default=DEFAULT_MOTION_DETECTOR,
-                description=DESC_MOTION_DETECTOR,
-            ): Maybe(
-                {
-                    vol.Required(CONFIG_TIERS, description=DESC_DOMAIN_TIERS): vol.All(
-                        [TIER_SCHEMA_SNAPSHOTS],
-                        vol.Length(min=1),
-                    ),
-                }
-            ),
-        },
+        ): SNAPSHOTS_SCHEMA,
     }
 )
 

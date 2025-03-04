@@ -1,5 +1,5 @@
 """Test component module."""
-from unittest.mock import MagicMock, Mock, call, patch
+from unittest.mock import ANY, MagicMock, Mock, call, patch
 
 import pytest
 
@@ -22,7 +22,7 @@ from viseron.const import (
     LOADING,
 )
 
-from tests.common import MockComponent, return_any
+from tests.common import MockComponent
 from tests.conftest import MockViseron
 
 
@@ -50,8 +50,8 @@ def test_setup_components_2(vis, caplog):
         )
         calls = []
         for _component in set.union(CORE_COMPONENTS, DEFAULT_COMPONENTS):
-            calls.append(call(vis, return_any(object)))
-        calls.append(call(vis, return_any(object)))
+            calls.append(call(vis, ANY))
+        calls.append(call(vis, ANY))
 
         mock_setup_component.assert_has_calls(calls, True)
         mock_get_component.assert_called_with(vis, "mqtt", {"mqtt": {}})
