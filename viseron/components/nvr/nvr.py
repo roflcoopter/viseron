@@ -340,6 +340,10 @@ class NVR:
         self._camera.start_camera()
         self._logger.info(f"NVR for camera {self._camera.name} initialized")
 
+    def __repr__(self) -> str:
+        """Return string representation."""
+        return f"NVR_{self._camera.identifier}"
+
     def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]) -> None:
         """Calculate output fps based on fps of all scanners."""
         self._camera.calculate_output_fps(scanners)
@@ -663,7 +667,7 @@ class NVR:
         This makes sure all frames are cleaned up eventually.
         """
         timer = threading.Timer(
-            2, self._camera.shared_frames.remove, args=(shared_frame,)
+            2, self._camera.shared_frames.remove, args=(shared_frame, self._camera)
         )
         timer.start()
 
@@ -710,10 +714,11 @@ class NVR:
     def stop(self) -> None:
         """Stop processing of events."""
         self._logger.info("Stopping NVR thread")
+        self._kill_received = True
+
         # Stop frame grabber
         self._camera.stop_camera()
 
-        self._kill_received = True
         self._nvr_thread.join()
 
         # Stop potential recording
@@ -726,7 +731,7 @@ class NVR:
                 shared_frame = self._frame_queue.get(timeout=1)
             except Empty:
                 break
-            self._camera.shared_frames.remove(shared_frame)
+            self._camera.shared_frames.remove(shared_frame, self._camera)
 
         for timer in self._removal_timers:
             timer.cancel()

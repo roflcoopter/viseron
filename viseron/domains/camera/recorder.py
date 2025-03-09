@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Recordings
 from viseron.components.storage.queries import get_recording_fragments
+from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.domains.camera.fragmenter import Fragment
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import EventData
@@ -253,6 +254,9 @@ class AbstractRecorder(ABC, RecorderBase):
                     camera_identifier=self._camera.identifier,
                     trigger_type=trigger_type,
                     start_time=start_time,
+                    adjusted_start_time=start_time
+                    - datetime.timedelta(seconds=self.lookback)
+                    - datetime.timedelta(seconds=CAMERA_SEGMENT_DURATION),
                 )
                 .returning(Recordings.id)
             )

@@ -86,18 +86,7 @@ CAMERA_INPUT_ARGS = [
     "0",
 ]
 CAMERA_SEGMENT_DURATION = 5
-CAMERA_SEGMENT_ARGS = [
-    "-f",
-    "segment",
-    "-segment_time",
-    str(CAMERA_SEGMENT_DURATION),
-    "-reset_timestamps",
-    "1",
-    "-strftime",
-    "1",
-    "-c:v",
-    "copy",
-]
+
 
 ENV_CUDA_SUPPORTED = "VISERON_CUDA_SUPPORTED"
 ENV_VAAPI_SUPPORTED = "VISERON_VAAPI_SUPPORTED"

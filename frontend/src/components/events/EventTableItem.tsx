@@ -20,12 +20,26 @@ import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholde
 import { getTimeFromDate } from "lib/helpers";
 import * as types from "lib/types";
 
-const getText = (events: types.CameraEvent[]) => {
-  const uniqueEvents = extractUniqueTypes(events);
+const getText = (
+  sortedEvents: types.CameraEvent[],
+  cameras: types.CamerasOrFailedCameras,
+) => {
+  const uniqueEvents = extractUniqueTypes(sortedEvents);
   return (
     <Box>
-      <Typography variant="body2" align="center">{`${getTimeFromDate(
-        new Date(getEventTime(events[0])),
+      <Typography fontSize=".75rem" fontWeight="bold" align="center">
+        {`${
+          cameras && cameras[sortedEvents[0].camera_identifier]
+            ? cameras[sortedEvents[0].camera_identifier].name
+            : sortedEvents[0].camera_identifier
+        }`}
+      </Typography>
+      <Typography
+        fontSize=".75rem"
+        color="text.secondary"
+        align="center"
+      >{`${getTimeFromDate(
+        new Date(getEventTime(sortedEvents[0])),
       )}`}</Typography>
       <Grid container justifyContent="center" alignItems="center">
         {Object.keys(uniqueEvents).map((key) => {
@@ -64,7 +78,7 @@ const isTimespanAvailable = (
 };
 
 type EventTableItemProps = {
-  camera: types.Camera | types.FailedCamera;
+  cameras: types.CamerasOrFailedCameras;
   events: types.CameraEvent[];
   setSelectedEvent: (event: types.CameraEvent) => void;
   selected: boolean;
@@ -72,7 +86,7 @@ type EventTableItemProps = {
   availableTimespans: types.HlsAvailableTimespans;
 };
 export const EventTableItem = ({
-  camera,
+  cameras,
   events,
   setSelectedEvent,
   selected,
@@ -80,6 +94,10 @@ export const EventTableItem = ({
   availableTimespans,
 }: EventTableItemProps) => {
   const theme = useTheme();
+  // Show the oldest event first in the list, API returns latest first
+  const sortedEvents = events
+    .slice()
+    .sort((a, b) => a.created_at_timestamp - b.created_at_timestamp);
   return (
     <Card
       variant="outlined"
@@ -96,16 +114,18 @@ export const EventTableItem = ({
         onClick={() => {
           if (
             isTimespanAvailable(
-              Math.round(getEventTimestamp(events[0])),
+              Math.round(getEventTimestamp(sortedEvents[0])),
               availableTimespans,
             )
           ) {
-            setSelectedEvent(events[0]);
-            setRequestedTimestamp(Math.round(getEventTimestamp(events[0])));
+            setSelectedEvent(sortedEvents[0]);
+            setRequestedTimestamp(
+              Math.round(getEventTimestamp(sortedEvents[0])),
+            );
             return;
           }
 
-          setSelectedEvent(events[0]);
+          setSelectedEvent(sortedEvents[0]);
           setRequestedTimestamp(null);
         }}
       >
@@ -116,7 +136,7 @@ export const EventTableItem = ({
           alignItems="center"
         >
           <Grid item xs={8}>
-            {getText(events)}
+            {getText(sortedEvents, cameras)}
           </Grid>
           <Grid item xs={4}>
             <CardMedia
@@ -128,14 +148,10 @@ export const EventTableItem = ({
               <LazyLoad
                 overflow
                 offset={100}
-                placeholder={
-                  <VideoPlayerPlaceholder
-                    aspectRatio={camera.width / camera.height}
-                  />
-                }
+                placeholder={<VideoPlayerPlaceholder />}
               >
                 <Image
-                  src={getSrc(events[0])}
+                  src={getSrc(sortedEvents[0])}
                   color={theme.palette.background.default}
                   animationDuration={1000}
                   imageStyle={{

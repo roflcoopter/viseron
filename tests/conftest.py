@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Generator, Iterator
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from pytest_postgresql import factories
@@ -16,19 +16,31 @@ from viseron.components.data_stream import COMPONENT as DATA_STREAM, DataStream
 from viseron.components.storage import COMPONENT as STORAGE, Storage
 from viseron.components.storage.models import Base
 from viseron.components.webserver import COMPONENT as WEBSERVER, Webserver
+from viseron.const import LOADED
 
 from tests.common import MockCamera
 
 test_db = factories.postgresql_proc(port=None, dbname="test_db")
 
 
+class MockViseron(Viseron):
+    """Protocol for mocking Viseron."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.register_domain = Mock(side_effect=self.register_domain)  # type: ignore
+        self.mocked_register_domain = self.register_domain  # type: ignore
+
+
 @pytest.fixture
-def vis() -> Viseron:
+def vis() -> MockViseron:
     """Fixture to test Viseron instance."""
-    viseron = Viseron()
+    viseron = MockViseron()
     viseron.data[DATA_STREAM] = MagicMock(spec=DataStream)
     viseron.data[STORAGE] = MagicMock(spec=Storage)
     viseron.data[WEBSERVER] = MagicMock(spec=Webserver)
+    viseron.data[LOADED] = {}
+
     return viseron
 
 

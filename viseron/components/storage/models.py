@@ -128,6 +128,9 @@ class Recordings(Base):
     trigger_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     thumbnail_path: Mapped[str] = mapped_column(String, nullable=True)
     clip_path: Mapped[str] = mapped_column(String, nullable=True)
+    adjusted_start_time: Mapped[datetime.datetime | None] = mapped_column(
+        UTCDateTime(timezone=False), nullable=False
+    )
 
     def get_fragments(
         self, lookback: float, get_session: Callable[[], Session], now=None

@@ -5,8 +5,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from viseron.components.ffmpeg.const import CAMERA_SEGMENT_DURATION
-from viseron.const import ENV_VAAPI_SUPPORTED
+from viseron.const import CAMERA_SEGMENT_DURATION, ENV_VAAPI_SUPPORTED
 
 from .const import (
     CONFIG_AUDIO_CODEC,

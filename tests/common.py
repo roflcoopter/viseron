@@ -1,7 +1,9 @@
 """Common mocks for Viseron tests."""
+from __future__ import annotations
+
 import datetime
 from collections.abc import Callable, Generator
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from unittest.mock import MagicMock
 
 import pytest
@@ -9,18 +11,25 @@ from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
 from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.const import LOADED
+from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.helpers import utcnow
+
+if TYPE_CHECKING:
+    from viseron import Viseron
 
 
 class MockComponent:
     """Representation of a fake component."""
 
-    def __init__(self, component, setup_component=None):
+    def __init__(self, component, vis: Viseron | None = None, setup_component=None):
         """Initialize the mock component."""
         self.__name__ = f"viseron.components.{component}"
         self.__file__ = f"viseron/components/{component}"
 
         self.name = component
+        if vis:
+            vis.data[LOADED][component] = self
         if setup_component is not None:
             self.setup_component = setup_component
 
@@ -30,6 +39,7 @@ class MockCamera(MagicMock):
 
     def __init__(  # pylint: disable=dangerous-default-value
         self,
+        vis: Viseron | None = None,
         identifier="test_camera_identifier",
         resolution=(1920, 1080),
         extension="mp4",
@@ -46,6 +56,8 @@ class MockCamera(MagicMock):
             access_tokens=access_tokens,
             **kwargs,
         )
+        if vis:
+            vis.register_domain(CAMERA_DOMAIN, identifier, self)
 
 
 def return_any(cls: type[Any]):
@@ -123,6 +135,7 @@ class BaseTestWithRecordings:
                 insert(Recordings).values(
                     camera_identifier="test",
                     start_time=self._now + datetime.timedelta(seconds=7),
+                    adjusted_start_time=self._now + datetime.timedelta(seconds=2),
                     end_time=self._now + datetime.timedelta(seconds=10),
                     created_at=self._now + datetime.timedelta(seconds=7),
                     thumbnail_path="/test/test1.jpg",
@@ -132,6 +145,7 @@ class BaseTestWithRecordings:
                 insert(Recordings).values(
                     camera_identifier="test2",
                     start_time=self._now + datetime.timedelta(seconds=7),
+                    adjusted_start_time=self._now + datetime.timedelta(seconds=2),
                     end_time=self._now + datetime.timedelta(seconds=10),
                     created_at=self._now + datetime.timedelta(seconds=7),
                     thumbnail_path="/test2/test4.jpg",
@@ -141,6 +155,7 @@ class BaseTestWithRecordings:
                 insert(Recordings).values(
                     camera_identifier="test",
                     start_time=self._now + datetime.timedelta(seconds=26),
+                    adjusted_start_time=self._now + datetime.timedelta(seconds=21),
                     end_time=self._now + datetime.timedelta(seconds=36),
                     created_at=self._now + datetime.timedelta(seconds=26),
                     thumbnail_path="/test/test2.jpg",
@@ -150,6 +165,7 @@ class BaseTestWithRecordings:
                 insert(Recordings).values(
                     camera_identifier="test",
                     start_time=self._now + datetime.timedelta(seconds=40),
+                    adjusted_start_time=self._now + datetime.timedelta(seconds=35),
                     end_time=self._now + datetime.timedelta(seconds=45),
                     created_at=self._now + datetime.timedelta(seconds=40),
                     thumbnail_path="/test/test3.jpg",

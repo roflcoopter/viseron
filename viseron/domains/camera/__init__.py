@@ -396,7 +396,7 @@ class AbstractCamera(ABC):
         self.stopped = Event()
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self.current_frame: SharedFrame | None = None
-        self.shared_frames = SharedFrames()
+        self.shared_frames = SharedFrames(vis)
         self.frame_bytes_topic = DATA_FRAME_BYTES_TOPIC.format(
             camera_identifier=self.identifier
         )
@@ -451,6 +451,8 @@ class AbstractCamera(ABC):
             "height": self.resolution[1],
             "access_token": self.access_token,
             "still_image_refresh_interval": self.still_image[CONFIG_REFRESH_INTERVAL],
+            "is_on": self.is_on,
+            "connected": self.connected,
         }
 
     def generate_token(self):
@@ -502,6 +504,7 @@ class AbstractCamera(ABC):
         )
         if self.is_recording:
             self.stop_recorder()
+        self.current_frame = None
 
     @abstractmethod
     def _stop_camera(self):

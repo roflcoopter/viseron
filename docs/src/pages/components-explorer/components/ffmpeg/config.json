@@ -271,7 +271,7 @@
               {
                 "type": "string",
                 "name": "audio_codec",
-                "description": "FFmpeg audio encoder codec for the generated segments, eg <code>aac</code>.<br>Note that if you set this, FFmpeg will have to re-encode your stream which increases system load.<br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
+                "description": "Audio codec of the stream, eg <code>aac</code>.<br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
                 "optional": true,
                 "default": "unset"
               },
@@ -478,7 +478,7 @@
                   {
                     "type": "string",
                     "name": "audio_codec",
-                    "description": "FFmpeg audio encoder codec for the generated segments, eg <code>aac</code>.<br>Note that if you set this, FFmpeg will have to re-encode your stream which increases system load.<br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
+                    "description": "Audio codec of the stream, eg <code>aac</code>.<br>Will use FFprobe to get this information if not given, see <a href=#ffprobe-stream-information>FFprobe stream information.</a>",
                     "optional": true,
                     "default": "unset"
                   },
@@ -614,7 +614,8 @@
                   "Last message repeated",
                   "non-existing PPS 0 referenced",
                   "no frame!",
-                  "decode_slice_header error"
+                  "decode_slice_header error",
+                  "failed to delete old segment"
                 ]
               },
               {
@@ -1329,9 +1330,9 @@
                   {
                     "type": "string",
                     "name": "audio_codec",
-                    "description": "FFmpeg audio encoder codec, eg <code>aac</code>.",
+                    "description": "FFmpeg audio encoder codec, eg <code>aac</code>.<br>If your source has audio and you want to remove it, set this to <code>null</code>.",
                     "optional": true,
-                    "default": "copy"
+                    "default": "unset"
                   },
                   {
                     "type": "list",

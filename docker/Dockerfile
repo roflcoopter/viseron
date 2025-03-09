@@ -4,12 +4,12 @@ ARG OPENCV_VERSION
 ARG FFMPEG_VERSION
 ARG WHEELS_VERSION
 ARG UBUNTU_VERSION
-FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} as opencv
-FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION} as ffmpeg
-FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} as wheels
+FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} AS opencv
+FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION} AS ffmpeg
+FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} AS wheels
 
 # Build GPAC
-FROM roflcoopter/${ARCH}-base:${BASE_VERSION} as gpac
+FROM roflcoopter/${ARCH}-base:${BASE_VERSION} AS gpac
 
 ENV \
   DEBIAN_FRONTEND=noninteractive
@@ -40,7 +40,7 @@ RUN \
 
 
 # Build frontend
-FROM node:20.10.0 as frontend
+FROM node:20.10.0 AS frontend
 
 WORKDIR /frontend
 
@@ -117,7 +117,7 @@ RUN \
   && rm -rf /var/lib/apt/lists/* \
   \
   && python3 -m pip install --upgrade pip \
-  && python3 -m pip install install /wheels/*.whl \
+  && python3 -m pip install /wheels/*.whl \
   && rm -r /wheels \
   \
   # Install Python 3.9 if it doesn't exist
@@ -136,7 +136,7 @@ RUN \
   && echo "libedgetpu1-max libedgetpu/accepted-eula select true" | debconf-set-selections \
   && apt-get -qq update && apt-get -qq install -y --no-install-recommends \
   libedgetpu1-max \
-  && python3.9 -m pip install install /wheels-3.9/*.whl \
+  && python3.9 -m pip install /wheels-3.9/*.whl \
   && rm -r /wheels-3.9 \
   \
   && chmod +x /tmp/s6-overlay-installer && /tmp/s6-overlay-installer / \

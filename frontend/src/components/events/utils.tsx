@@ -1,6 +1,17 @@
+import AirIcon from "@mui/icons-material/Air";
+import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
+import PersonIcon from "@mui/icons-material/DirectionsWalk";
+import FaceIcon from "@mui/icons-material/Face";
+import ImageSearchIcon from "@mui/icons-material/ImageSearch";
+import PetsIcon from "@mui/icons-material/Pets";
+import VideoFileIcon from "@mui/icons-material/VideoFile";
 import dayjs, { Dayjs } from "dayjs";
-import { Fragment } from "hls.js";
+import Hls, { Fragment } from "hls.js";
+import { useMemo } from "react";
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
+import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognition";
 import { BLANK_IMAGE, dateToTimestamp } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -8,7 +19,142 @@ export const TICK_HEIGHT = 8;
 export const SCALE = 60;
 export const EXTRA_TICKS = 10;
 export const COLUMN_HEIGHT = "99dvh";
+export const COLUMN_HEIGHT_SMALL = "98.5dvh";
 export const EVENT_ICON_HEIGHT = 30;
+
+export const playerCardSmMaxHeight = () => window.innerHeight * 0.4;
+
+type Filters = {
+  [key in types.CameraEvent["type"]]: {
+    label: string;
+    checked: boolean;
+  };
+};
+
+interface FilterState {
+  filters: Filters;
+  setFilters: (filters: Filters) => void;
+  toggleFilter: (filterKey: types.CameraEvent["type"]) => void;
+}
+
+export const useFilterStore = create<FilterState>()(
+  persist(
+    (set) => ({
+      filters: {
+        motion: { label: "Motion", checked: true },
+        object: { label: "Object", checked: true },
+        recording: { label: "Recording", checked: true },
+        face_recognition: { label: "Face Recognition", checked: true },
+        license_plate_recognition: {
+          label: "License Plate Recognition",
+          checked: true,
+        },
+      },
+      setFilters: (filters) => set({ filters }),
+      toggleFilter: (filterKey: types.CameraEvent["type"]) => {
+        set((state) => {
+          const newFilters = { ...state.filters };
+          newFilters[filterKey].checked = !newFilters[filterKey].checked;
+          return { filters: newFilters };
+        });
+      },
+    }),
+    { name: "filter-store" },
+  ),
+);
+
+type Cameras = {
+  [key: string]: boolean;
+};
+
+interface CameraState {
+  cameras: Cameras;
+  selectedCameras: string[];
+  toggleCamera: (cameraIdentifier: string) => void;
+  selectSingleCamera: (cameraIdentifier: string) => void;
+  selectionOrder: string[];
+}
+
+export const useCameraStore = create<CameraState>()(
+  persist(
+    (set) => ({
+      cameras: {},
+      selectedCameras: [],
+      toggleCamera: (cameraIdentifier) => {
+        set((state) => {
+          const newCameras = { ...state.cameras };
+          newCameras[cameraIdentifier] = !newCameras[cameraIdentifier];
+          let newSelectionOrder = [...state.selectionOrder];
+          if (newCameras[cameraIdentifier]) {
+            newSelectionOrder.push(cameraIdentifier);
+          } else {
+            newSelectionOrder = newSelectionOrder.filter(
+              (id) => id !== cameraIdentifier,
+            );
+          }
+          return {
+            cameras: newCameras,
+            selectedCameras: Object.entries(newCameras)
+              .filter(([_key, value]) => value)
+              .map(([key]) => key),
+            selectionOrder: newSelectionOrder,
+          };
+        });
+      },
+      selectSingleCamera: (cameraIdentifier) => {
+        set((state) => {
+          const newCameras = { ...state.cameras };
+          Object.keys(newCameras).forEach((key) => {
+            newCameras[key] = key === cameraIdentifier;
+          });
+          return {
+            cameras: newCameras,
+            selectedCameras: [cameraIdentifier],
+            selectionOrder: [cameraIdentifier],
+          };
+        });
+      },
+      selectionOrder: [],
+    }),
+    { name: "camera-store" },
+  ),
+);
+
+export const useFilteredCameras = (cameras: types.CamerasOrFailedCameras) => {
+  const { selectedCameras } = useCameraStore();
+  return useMemo(
+    () =>
+      Object.keys(cameras)
+        .filter((key) => selectedCameras.includes(key))
+        .reduce((obj: types.CamerasOrFailedCameras, key) => {
+          obj[key] = cameras[key];
+          return obj;
+        }, {}),
+    [cameras, selectedCameras],
+  );
+};
+
+interface HlsStore {
+  hlsRefs: React.MutableRefObject<Hls | null>[];
+  addHlsRef: (hlsRef: React.MutableRefObject<Hls | null>) => void;
+  removeHlsRef: (hlsRef: React.MutableRefObject<Hls | null>) => void;
+}
+
+export const useHlsStore = create<HlsStore>((set) => ({
+  hlsRefs: [],
+  // add a new Hls ref to the store only if it does not exist
+  addHlsRef: (hlsRef: React.MutableRefObject<Hls | null>) =>
+    set((state) => {
+      if (!state.hlsRefs.includes(hlsRef)) {
+        return { hlsRefs: [...state.hlsRefs, hlsRef] };
+      }
+      return state;
+    }),
+  removeHlsRef: (hlsRef: React.MutableRefObject<Hls | null>) =>
+    set((state) => ({
+      hlsRefs: state.hlsRefs.filter((ref) => ref !== hlsRef),
+    })),
+}));
 
 export const DEFAULT_ITEM: TimelineItem = {
   time: 0,
@@ -198,8 +344,13 @@ export const getTimelineItems = (
   startRef: React.MutableRefObject<number>,
   eventsData: types.CameraEvent[],
   availableTimespansData: types.HlsAvailableTimespan[],
+  filters: Filters,
 ) => {
   let timelineItems: TimelineItems = {};
+
+  const filteredEvents = eventsData.filter(
+    (event) => filters[event.type].checked,
+  );
 
   // Loop over available HLS files
   availableTimespansData.forEach((timespan) => {
@@ -219,7 +370,7 @@ export const getTimelineItems = (
   });
 
   // Loop over events where type is motion or recording
-  eventsData
+  filteredEvents
     .filter(
       (cameraEvent): cameraEvent is types.CameraTimedEvents =>
         cameraEvent.type === "motion" || cameraEvent.type === "recording",
@@ -250,7 +401,7 @@ export const getTimelineItems = (
     });
 
   // Loop over events where type is object
-  eventsData
+  filteredEvents
     .filter(
       (cameraEvent): cameraEvent is types.CameraObjectEvent =>
         cameraEvent.type === "object",
@@ -259,7 +410,7 @@ export const getTimelineItems = (
       addSnapshotEvent(startRef, timelineItems, cameraEvent);
     });
 
-  eventsData
+  filteredEvents
     .filter(
       (
         cameraEvent,
@@ -310,6 +461,12 @@ export const calculateHeight = (
   cameraHeight: number,
   width: number,
 ): number => (width * cameraHeight) / cameraWidth;
+
+export const calculateWidth = (
+  cameraWidth: number,
+  cameraHeight: number,
+  height: number,
+): number => (height * cameraWidth) / cameraHeight;
 
 export const getSrc = (event: types.CameraEvent) => {
   switch (event.type) {
@@ -410,3 +567,48 @@ export const getEventTimestamp = (event: types.CameraEvent): number => {
       return event satisfies never;
   }
 };
+
+const labelToIcon = (label: string) => {
+  switch (label) {
+    case "person":
+      return PersonIcon;
+
+    case "car":
+    case "truck":
+    case "vehicle":
+      return DirectionsCarIcon;
+
+    case "dog":
+    case "cat":
+    case "animal":
+      return PetsIcon;
+
+    default:
+      return ImageSearchIcon;
+  }
+};
+
+const iconMap = {
+  object: PersonIcon,
+  face_recognition: FaceIcon,
+  license_plate_recognition: LicensePlateRecognitionIcon,
+  motion: AirIcon,
+  recording: VideoFileIcon,
+};
+
+export const getIcon = (event: types.CameraEvent) => {
+  switch (event.type) {
+    case "object":
+      return labelToIcon(event.label);
+    case "face_recognition":
+    case "license_plate_recognition":
+    case "motion":
+    case "recording":
+      return iconMap[event.type];
+    default:
+      return event satisfies never;
+  }
+};
+
+export const getIconFromType = (type: types.CameraEvent["type"]) =>
+  iconMap[type];

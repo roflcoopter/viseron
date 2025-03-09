@@ -414,18 +414,18 @@ jobs:
           exit 1
       - name: Pull current Docker dev tag
         run: |
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-viseron
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-wheels
+          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-viseron
+          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-wheels
       - name: Re-build wheels
         run: |
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-wheels
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron
+          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-wheels
+          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron
       - name: Build pytest Docker image
         run: |
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron-tests
+          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron-tests
       - name: Run pytest
         run: |
-          if docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env up amd64-viseron-tests; then
+          if docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env up amd64-viseron-tests; then
             exit 0
           else
             exit 1
