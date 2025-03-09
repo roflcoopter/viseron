@@ -617,6 +617,9 @@ class PTZ:
 
     def get_presets(self, camera_identifier: str) -> list[str]:
         """Get the available presets for the camera."""
+        if CONFIG_PTZ_PRESETS not in self._config[CONFIG_CAMERAS][camera_identifier]:
+            LOGGER.error(f"No PTZ presets for camera {camera_identifier}")
+            return []
         presets = self._config[CONFIG_CAMERAS][camera_identifier][CONFIG_PTZ_PRESETS]
         return list({preset[CONFIG_PRESET_NAME] for preset in presets})
 
