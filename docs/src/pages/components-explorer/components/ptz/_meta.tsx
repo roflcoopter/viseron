@@ -5,7 +5,7 @@ const ComponentMetadata: Component = {
   name: "ptz",
   description: "Use this component to control PTZ cameras via Telegram.",
   image: "https://27bslash6.com/images/SPIDER1.jpg",
-  tags: [],
+  tags: ["camera"],
 };
 
 export default ComponentMetadata;
