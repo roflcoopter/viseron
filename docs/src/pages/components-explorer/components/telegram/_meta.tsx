@@ -4,7 +4,8 @@ const ComponentMetadata: Component = {
   title: "Telegram PTZ & Notifications",
   name: "telegram",
   description: "Control PTZ cameras and receive notifications via Telegram",
-  image: "https://27bslash6.com/images/SPIDER1.jpg",
+  image:
+    "https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Telegram_2019_Logo.svg/150px-Telegram_2019_Logo.svg.png",
   tags: [],
 };
 

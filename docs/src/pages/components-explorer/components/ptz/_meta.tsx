@@ -1,10 +1,11 @@
 import { Component } from "@site/src/types";
 
 const ComponentMetadata: Component = {
-  title: "PTZ control over Telegram.",
+  title: "ONVIF PTZ control",
   name: "ptz",
-  description: "Use this component to control PTZ cameras via Telegram.",
-  image: "https://27bslash6.com/images/SPIDER1.jpg",
+  description:
+    "Use this component to control ONVIF PTZ cameras, for now only via Telegram.",
+  image: "https://brands.home-assistant.io/_/onvif//logo.png",
   tags: [],
 };
 
