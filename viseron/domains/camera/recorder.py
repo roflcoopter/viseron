@@ -93,6 +93,7 @@ class Recording:
     date: str
     thumbnail: np.ndarray | None
     thumbnail_path: str | None
+    clip_path: str | None
     objects: list[DetectedObject]
 
     def as_dict(self):
@@ -292,6 +293,7 @@ class AbstractRecorder(ABC, RecorderBase):
                 if self._config[CONFIG_RECORDER][CONFIG_THUMBNAIL][CONFIG_SAVE_TO_DISK]
                 else None
             ),
+            clip_path=None,
             objects=objects_in_fov,
         )
 
@@ -405,6 +407,7 @@ class AbstractRecorder(ABC, RecorderBase):
             session.execute(stmt)
             session.commit()
 
+        recording.clip_path = clip_path
         self._vis.dispatch_event(
             EVENT_RECORDER_COMPLETE.format(camera_identifier=self._camera.identifier),
             EventRecorderData(

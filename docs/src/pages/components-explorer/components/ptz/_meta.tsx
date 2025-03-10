@@ -1,12 +1,11 @@
 import { Component } from "@site/src/types";
 
 const ComponentMetadata: Component = {
-  title: "PTZ control pver Telegram.",
+  title: "PTZ control over Telegram.",
   name: "ptz",
   description: "Use this component to control PTZ cameras via Telegram.",
   image: "https://27bslash6.com/images/SPIDER1.jpg",
-  tags: ["camera"],
+  tags: [],
 };
 
 export default ComponentMetadata;
-
