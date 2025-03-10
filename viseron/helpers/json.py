@@ -18,7 +18,7 @@ class JSONEncoder(json.JSONEncoder):
         if hasattr(o, "as_dict"):
             return o.as_dict()
         if dataclasses.is_dataclass(o):
-            return dataclasses.asdict(o)
+            return dataclasses.asdict(o)  # type: ignore[arg-type]
         if isinstance(o, datetime.timedelta):
             return int(o.total_seconds())
         if isinstance(o, Enum):

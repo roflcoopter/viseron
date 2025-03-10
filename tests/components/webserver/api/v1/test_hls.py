@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from sqlalchemy import delete, insert, update
 
-from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.components.storage.models import Files, Recordings
 from viseron.components.webserver.api.v1.hls import count_files_removed
 from viseron.domains.camera.const import CONFIG_LOOKBACK, CONFIG_RECORDER
 from viseron.domains.camera.fragmenter import Fragment
@@ -45,7 +45,6 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         assert response.code == 200
         response_string = response.body.decode()
         assert response_string.count("#EXTINF") == 3
-        assert response_string.count("#EXT-X-DISCONTINUITY") == 3
         assert response_string.count("#EXT-X-ENDLIST") == 1
 
     def test_get_recording_hls_playlist_gap_segments(self):
@@ -82,46 +81,8 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
             )
         assert response.code == 200
         response_string = response.body.decode()
-        assert response_string.count("#EXTINF") == 7
-        assert response_string.count("#EXT-X-DISCONTINUITY") == 7
-        assert response_string.count("#EXT-X-ENDLIST") == 1
-
-    def test_get_recording_hls_playlist_gap_start(self):
-        """Test getting a recording HLS playlist with gap before start."""
-        with self._get_db_session() as session:
-            session.execute(delete(Files).where(Files.id.in_([15, 17, 19, 21])))
-            session.commit()
-
-        mocked_camera = MockCamera(
-            identifier="test", config={CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
-        )
-        with patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler."
-                "_get_camera"
-            ),
-            return_value=mocked_camera,
-        ), patch(
-            (
-                "viseron.components.webserver.request_handler.ViseronRequestHandler"
-                "._get_session"
-            ),
-            return_value=self._get_db_session(),
-        ), patch(
-            "viseron.components.webserver.api.v1.hls._get_init_file",
-            return_value="/test/init.mp4",
-        ), patch(
-            "viseron.components.storage.queries.utcnow",
-            return_value=self._now + datetime.timedelta(seconds=3600),
-        ):
-            response = self.fetch(
-                "/api/v1/hls/test/index.m3u8?start_timestamp="
-                f"{int(self._now.timestamp() - 300)}"
-            )
-        assert response.code == 200
-        response_string = response.body.decode()
-        assert response_string.count("#EXTINF") == 0
-        assert response_string.count("#EXT-X-ENDLIST") == 1
+        assert response_string.count("#EXTINF") == 11
+        assert response_string.count("#EXT-X-DISCONTINUITY") == 1
 
     def test_get_recording_hls_ongoing(self):
         """Test getting a recording HLS playlist for a recording that has not ended."""
@@ -161,7 +122,6 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         assert response.code == 200
         response_string = response.body.decode()
         assert response_string.count("#EXTINF") == 4
-        assert response_string.count("#EXT-X-DISCONTINUITY") == 4
         assert response_string.count("#EXT-X-ENDLIST") == 0
 
     def test_get_available_timespans(self):
@@ -190,14 +150,8 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                         directory="test",
                         filename=filename,
                         size=10,
-                        created_at=timestamp,
-                    )
-                )
-                session.execute(
-                    insert(FilesMeta).values(
-                        path=f"/test/{filename}",
                         orig_ctime=timestamp,
-                        meta={"m3u8": {"EXTINF": 5}},
+                        duration=5,
                         created_at=timestamp,
                     )
                 )

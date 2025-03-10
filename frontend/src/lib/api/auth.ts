@@ -54,9 +54,9 @@ type AuthUserRequest = {
 
 type AuthUserVariables = {
   username: string;
-  configOptions?: UseQueryOptions<
-    types.AuthUserResponse,
-    types.APIErrorResponse
+  configOptions?: Omit<
+    UseQueryOptions<types.AuthUserResponse, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
   >;
 };
 
@@ -68,11 +68,11 @@ async function authUser({ username }: AuthUserRequest) {
 }
 
 export const useAuthUser = ({ username, configOptions }: AuthUserVariables) =>
-  useQuery<types.AuthUserResponse, types.APIErrorResponse>(
-    ["auth", "user", username],
-    async () => authUser({ username }),
-    configOptions,
-  );
+  useQuery({
+    queryKey: ["auth", "user", username],
+    queryFn: async () => authUser({ username }),
+    ...configOptions,
+  });
 
 interface AuthLoginVariables {
   username: string;
@@ -140,7 +140,7 @@ async function authEnabled() {
 }
 
 export const useAuthEnabled = () =>
-  useQuery<types.AuthEnabledResponse, types.APIErrorResponse>(
-    ["auth", "enabled"],
-    async () => authEnabled(),
-  );
+  useQuery({
+    queryKey: ["auth", "enabled"],
+    queryFn: async () => authEnabled(),
+  });

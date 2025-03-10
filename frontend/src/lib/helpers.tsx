@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
+import queryClient from "lib/api/client";
 import { getAuthHeader } from "lib/tokens";
 import * as types from "lib/types";
 
@@ -109,6 +110,8 @@ export function getTimeFromDate(date: Date, seconds = true) {
 export const dateToTimestamp = (date: Date) =>
   Math.floor(date.getTime() / 1000);
 
+export const dateToTimestampMillis = (date: Date) => Math.floor(date.getTime());
+
 export const timestampToDate = (timestamp: number) =>
   new Date(timestamp * 1000);
 
@@ -148,4 +151,26 @@ export function throttle(func: () => void, timeFrame: number) {
       lastTime = now;
     }
   };
+}
+
+export function isTouchDevice() {
+  return "ontouchstart" in window || navigator.maxTouchPoints > 0;
+}
+
+export function is12HourFormat() {
+  const format = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+  }).resolvedOptions().hourCycle;
+  return !!format?.startsWith("h12");
+}
+
+export function getCameraFromQueryCache(
+  camera_identifier: string,
+): types.Camera | types.FailedCamera | undefined {
+  return queryClient.getQueryData(["camera", camera_identifier]);
+}
+
+export function getCameraNameFromQueryCache(camera_identifier: string): string {
+  const camera = getCameraFromQueryCache(camera_identifier);
+  return camera ? camera.name : camera_identifier;
 }

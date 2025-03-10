@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -31,6 +31,7 @@ from viseron.components.ffmpeg.const import (
     DEFAULT_CODEC,
     DEFAULT_FPS,
     DEFAULT_HEIGHT,
+    DEFAULT_PASSWORD,
     DEFAULT_PROTOCOL,
     DEFAULT_RECORDER_AUDIO_CODEC,
     DEFAULT_STREAM_FORMAT,
@@ -48,7 +49,7 @@ from viseron.exceptions import StreamInformationError
 
 from tests.common import MockCamera
 
-CONFIG = {
+CONFIG: dict[str, Any] = {
     CONFIG_HOST: "test_host",
     CONFIG_PORT: 1234,
     CONFIG_PATH: "/",
@@ -211,22 +212,31 @@ class TestStream:
                 stream.get_encoder_audio_codec(stream_audio_codec) == expected_audio_cmd
             )
 
-    def test_get_stream_url(self) -> None:
+    @pytest.mark.parametrize(
+        "username, password, expected_url",
+        [
+            (
+                "test_username",
+                "test_password",
+                "rtsp://test_username:test_password@test_host:1234/",
+            ),
+            ("admin", "", "rtsp://admin:@test_host:1234/"),
+            (DEFAULT_USERNAME, DEFAULT_PASSWORD, "rtsp://test_host:1234/"),
+        ],
+    )
+    def test_get_stream_url(self, username, password, expected_url) -> None:
         """Test that the correct stream url is returned."""
         mocked_camera = MockCamera(identifier="test_camera_identifier")
+        config = dict(CONFIG)
+        config[CONFIG_USERNAME] = username
+        config[CONFIG_PASSWORD] = password
+
         with patch.object(
             Stream, "__init__", MagicMock(spec=Stream, return_value=None)
         ):
             stream = Stream(CONFIG, mocked_camera, "test_camera_identifier")
-            stream._config = CONFIG  # pylint: disable=protected-access
-            assert (
-                stream.get_stream_url(CONFIG)
-                == "rtsp://test_username:test_password@test_host:1234/"
-            )
-            stream._config[  # pylint: disable=protected-access
-                CONFIG_USERNAME
-            ] = DEFAULT_USERNAME
-            assert stream.get_stream_url(CONFIG) == "rtsp://test_host:1234/"
+            stream._config = config  # pylint: disable=protected-access
+            assert stream.get_stream_url(config) == expected_url
 
     def test_get_stream_information(self):
         """Test that the correct stream information is returned."""
@@ -261,7 +271,9 @@ class TestStream:
             assert result.codec == "h264"
             assert result.audio_codec == "aac"
 
-            mock_ffprobe.stream_information.assert_called_once_with("test_stream_url")
+            mock_ffprobe.stream_information.assert_called_once_with(
+                "test_stream_url", ANY
+            )
 
     def test_get_stream_information_missing_parameters(self):
         """Test that StreamInformationError is raised when parameters are missing."""
@@ -293,4 +305,6 @@ class TestStream:
 
             assert "Width: None Height: 1080 FPS: 30 Codec: h264" in str(excinfo.value)
 
-            mock_ffprobe.stream_information.assert_called_once_with("test_stream_url")
+            mock_ffprobe.stream_information.assert_called_once_with(
+                "test_stream_url", ANY
+            )

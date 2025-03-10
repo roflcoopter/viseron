@@ -1,9 +1,7 @@
 """WebSocket API messages."""
 from __future__ import annotations
 
-import json
 import logging
-from functools import partial
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
@@ -14,9 +12,8 @@ from viseron.components.webserver.const import (
     TYPE_AUTH_OK,
     TYPE_AUTH_REQUIRED,
     TYPE_RESULT,
-    WS_ERROR_UNKNOWN_ERROR,
+    TYPE_SUBSCRIPTION_RESULT,
 )
-from viseron.helpers.json import JSONEncoder
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
@@ -44,21 +41,6 @@ def system_information(vis: Viseron) -> dict[str, Any]:
         "git_commit": vis.git_commit,
         "safe_mode": vis.safe_mode,
     }
-
-
-def message_to_json(message: dict[str, Any]) -> str:
-    """Serialize a websocket message to json."""
-    try:
-        return partial(json.dumps, cls=JSONEncoder, allow_nan=False)(message)
-    except (ValueError, TypeError):
-        LOGGER.error(f"Unable to serialize to JSON. Object: {message}", exc_info=True)
-        return partial(json.dumps, cls=JSONEncoder, allow_nan=False)(
-            error_message(
-                message["command_id"],
-                WS_ERROR_UNKNOWN_ERROR,
-                "Invalid JSON in response",
-            )
-        )
 
 
 def auth_ok_message(vis: Viseron) -> dict[str, Any]:
@@ -118,13 +100,33 @@ def invalid_error_message(code: str, message: str) -> dict[str, Any]:
     }
 
 
-def event_message(command_id: int, event: Event) -> dict[str, Any]:
-    """Return an event message."""
+def subscription_result_message(
+    command_id: int, result: Event | dict[str, Any]
+) -> dict[str, Any]:
+    """Return a subscription result message."""
     return {
         "command_id": command_id,
-        "type": "event",
-        "event": event,
+        "type": TYPE_SUBSCRIPTION_RESULT,
+        "success": True,
+        "result": result,
     }
+
+
+def subscription_error_message(
+    command_id: int, code: str, message: str
+) -> dict[str, Any]:
+    """Return a subscription error message."""
+    return {
+        "command_id": command_id,
+        "type": TYPE_SUBSCRIPTION_RESULT,
+        "success": False,
+        "error": {"code": code, "message": message},
+    }
+
+
+def cancel_subscription_message(command_id: int) -> dict[str, Any]:
+    """Return a cancel subscription message."""
+    return {"command_id": command_id, "type": "cancel_subscription"}
 
 
 def pong_message(command_id: int) -> dict[str, Any]:

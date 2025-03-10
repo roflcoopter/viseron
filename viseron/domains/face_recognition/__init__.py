@@ -8,9 +8,7 @@ from threading import Timer
 from typing import Any
 
 import voluptuous as vol
-from sqlalchemy import insert
 
-from viseron.components.storage.models import PostProcessorResults
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.domains.post_processor import (
@@ -22,6 +20,7 @@ from viseron.events import EventData
 from viseron.helpers import calculate_relative_coords
 from viseron.helpers.schemas import FLOAT_MIN_ZERO
 from viseron.helpers.validators import Deprecated
+from viseron.types import SnapshotDomain
 
 from .binary_sensor import FaceDetectionBinarySensor
 from .const import (
@@ -113,16 +112,18 @@ class EventFaceDetected(EventData):
 class AbstractFaceRecognition(AbstractPostProcessor):
     """Abstract face recognition."""
 
-    def __init__(self, vis, component, config, camera_identifier) -> None:
+    def __init__(
+        self, vis, component, config, camera_identifier, generate_entities=True
+    ) -> None:
         super().__init__(vis, config, camera_identifier)
         self._faces: dict[str, FaceDict] = {}
-
-        for face_dir in os.listdir(config[CONFIG_FACE_RECOGNITION_PATH]):
-            if face_dir == "unknown":
-                continue
-            vis.add_entity(
-                component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
-            )
+        if generate_entities:
+            for face_dir in os.listdir(config[CONFIG_FACE_RECOGNITION_PATH]):
+                if face_dir == "unknown":
+                    continue
+                vis.add_entity(
+                    component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
+                )
 
     @abstractmethod
     def face_recognition(
@@ -138,20 +139,6 @@ class AbstractFaceRecognition(AbstractPostProcessor):
                     post_processor_frame.shared_frame, detected_object
                 )
 
-    def _insert_face_recognition_result(
-        self, snapshot_path: str | None, face_dict: FaceDict
-    ) -> None:
-        """Insert face recognition result into database."""
-        with self._storage.get_session() as session:
-            stmt = insert(PostProcessorResults).values(
-                camera_identifier=self._camera.identifier,
-                domain=DOMAIN,
-                snapshot_path=snapshot_path,
-                data=face_dict.as_dict(),
-            )
-            session.execute(stmt)
-            session.commit()
-
     def _save_face(
         self,
         face_dict: FaceDict,
@@ -163,13 +150,13 @@ class AbstractFaceRecognition(AbstractPostProcessor):
         if shared_frame:
             snapshot_path = self._camera.save_snapshot(
                 shared_frame,
-                DOMAIN,
+                SnapshotDomain.FACE_RECOGNITION,
                 zoom_coordinates=calculate_relative_coords(
                     coordinates, self._camera.resolution
                 ),
                 subfolder=face_dict.name,
             )
-        self._insert_face_recognition_result(snapshot_path, face_dict)
+        self._insert_result(DOMAIN, snapshot_path, face_dict.as_dict())
 
     def known_face_found(
         self,

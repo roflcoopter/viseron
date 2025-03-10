@@ -3,9 +3,8 @@ import Tabs from "@theme/Tabs";
 
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
-import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
 import Camera from "@site/src/pages/components-explorer/_domains/camera/index.mdx";
-import CameraMjpegStreams from "@site/src/pages/components-explorer/_domains/camera/mjpeg_streams.mdx";
 
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
@@ -57,9 +56,7 @@ ffmpeg:
 
 </details>
 
-<ComponentConfiguration meta={ComponentMetadata} config={config} />
-
-## Camera
+<ComponentConfiguration config={config} />
 
 <Camera />
 
@@ -158,15 +155,11 @@ ffmpeg:
 
 And the resulting command looks like this:
 
-```bash
+```shell
 ffmpeg -hide_banner -loglevel error -avoid_negative_ts make_zero -fflags nobuffer -flags low_delay -strict experimental -fflags +genpts -use_wallclock_as_timestamps 1 -vsync 0 -stimeout 5000000 -c:v h264_cuvid -rtsp_transport tcp -i rtsp://*****:*****@192.168.**.**:554/Streaming/Channels/101/ -vf transpose=2,transpose=2,fps=1.0 -f rawvideo -pix_fmt nv12 pipe:1
 ```
 
 </details>
-
-### MJPEG Streams
-
-<CameraMjpegStreams />
 
 ### FFprobe Stream Information
 
@@ -197,23 +190,14 @@ ffmpeg_recoverable_errors:
 ### Recorder
 
 [FFmpeg segments](https://www.ffmpeg.org/ffmpeg-formats.html#segment_002c-stream_005fsegment_002c-ssegment) are used to handle recordings.<br />
-FFmpeg will write small 5 second segments of the stream to disk, and in case of any recording starting, Viseron will find the appropriate segments and concatenate them together.<br />
+FFmpeg will write small 5 second segments of the stream to disk.<br />
+
 The reason for using segments instead of just starting the recorder on an event, is to support the `lookback` feature which makes it possible to record _before_ an event actually happened.
+It also makes it possible to have continuous recordings.
 
-<details>
-  <summary>The default concatenation command</summary>
+### Store video segments in memory
 
-```
-ffmpeg -hide_banner -loglevel error -y -protocol_whitelist file,pipe -f concat -safe 0 -i - -c:v copy {outfile.mp4}
-```
-
-</details>
-
-If you want to re-encode the video you can choose `codec`, `video_filters` and optionally `hwaccel_args`.
-
-### Store segments in memory
-
-To place the segments in memory instead of writing to disk, you can mount a tmpfs disk in the container.
+To place the video segments in memory instead of writing to disk, you can mount a tmpfs disk in the container.
 This will use more memory but reduce the load on your harddrives.
 
 <details>
@@ -221,17 +205,18 @@ This will use more memory but reduce the load on your harddrives.
 
 Example Docker command
 
-```bash
+```shell
 docker run --rm \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
   --tmpfs /tmp \
   --name viseron \
+  --shm-size=1024mb \
   roflcoopter/viseron:latest
 ```
 
@@ -244,11 +229,12 @@ services:
   viseron:
     image: roflcoopter/viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -312,6 +298,7 @@ ffmpeg:
       path: /Streaming/Channels/101/
       username: !secret camera_one_user
       password: !secret camera_one_pass
+      // highlight-start
       video_filters: # Rotate the frames processed by Viseron
         - transpose=1
       width: 1080 # Width of the rotated video = height of the camera
@@ -320,6 +307,36 @@ ffmpeg:
         idle_timeout: 5
         video_filters: # Rotate the recorded videos
           - transpose=1
+      // highlight-end
+```
+
+</details>
+
+### Adding timestamp to video
+
+To add a timestamp to the video you can use the `drawtext` filter in FFmpeg.<br />
+This filter is quite complex and you can read more about it [here](https://ffmpeg.org/ffmpeg-filters.html#drawtext-1).
+
+To apply the filter you need to add it to the `video_filters` option in the config.
+
+<details>
+  <summary>Config to add a timestamp to the video</summary>
+
+```yaml title="/config/config.yaml"
+
+ffmpeg:
+  camera:
+    camera_one:
+      name: Camera 1
+      host: 192.168.XX.X
+      port: 554
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_user
+      password: !secret camera_one_pass
+      // highlight-start
+      video_filters:
+        - drawtext=text='%{localtime}':x=(w-tw):y=h-(2*lh):fontcolor=white:box=1:boxcolor=0x00000000@1:fontsize=20
+      // highlight-end
 ```
 
 </details>
@@ -383,7 +400,5 @@ Most of the configuration options are ignored when using `raw_command`.
 If you create a command that works well for your particular hardware, please share it with the community!
 
 :::
-
-## Troubleshooting
 
 <ComponentTroubleshooting meta={ComponentMetadata} />

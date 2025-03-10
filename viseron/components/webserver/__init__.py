@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import concurrent
 import logging
 import secrets
 import threading
@@ -41,6 +40,7 @@ from .const import (
     DESC_MINUTES,
     DESC_PORT,
     DESC_SESSION_EXPIRY,
+    DOWNLOAD_TOKENS,
     PATH_ASSETS,
     PATH_INDEX,
     PATH_STATIC,
@@ -53,6 +53,9 @@ from .request_handler import ViseronRequestHandler
 from .stream_handler import DynamicStreamHandler, StaticStreamHandler
 from .websocket_api import WebSocketHandler
 from .websocket_api.commands import (
+    export_recording,
+    export_snapshot,
+    export_timespan,
     get_cameras,
     get_config,
     get_entities,
@@ -61,12 +64,15 @@ from .websocket_api.commands import (
     save_config,
     subscribe_event,
     subscribe_states,
+    subscribe_timespans,
     unsubscribe_event,
     unsubscribe_states,
+    unsubscribe_timespans,
 )
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.components.webserver.download_token import DownloadToken
 
 
 LOGGER = logging.getLogger(__name__)
@@ -134,6 +140,11 @@ def setup(vis: Viseron, config) -> bool:
     webserver.register_websocket_command(save_config)
     webserver.register_websocket_command(restart_viseron)
     webserver.register_websocket_command(get_entities)
+    webserver.register_websocket_command(subscribe_timespans)
+    webserver.register_websocket_command(unsubscribe_timespans)
+    webserver.register_websocket_command(export_recording)
+    webserver.register_websocket_command(export_snapshot)
+    webserver.register_websocket_command(export_timespan)
 
     webserver.start()
 
@@ -214,7 +225,6 @@ def create_application(
         ],
         default_handler_class=NotFoundHandler,
         static_path=PATH_STATIC,
-        websocket_ping_interval=10,
         debug=config[CONFIG_DEBUG],
         autoreload=False,
         cookie_secret=cookie_secret,
@@ -244,9 +254,13 @@ class Webserver(threading.Thread):
         vis.data[COMPONENT] = self
         vis.data[WEBSOCKET_COMMANDS] = {}
         vis.data[WEBSOCKET_CONNECTIONS] = []
+        vis.data[DOWNLOAD_TOKENS] = {}
 
         self._asyncio_ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._asyncio_ioloop)
+        if config[CONFIG_DEBUG]:
+            self._asyncio_ioloop.set_debug(True)
+
         self._application = create_application(vis, config, self._store.cookie_secret)
         self._httpserver = None
         try:
@@ -270,6 +284,11 @@ class Webserver(threading.Thread):
         """Return application."""
         return self._application
 
+    @property
+    def download_tokens(self) -> dict[str, DownloadToken]:
+        """Return download tokens."""
+        return self._vis.data[DOWNLOAD_TOKENS]
+
     def register_websocket_command(self, handler) -> None:
         """Register a websocket command."""
         if handler.command in self._vis.data[WEBSOCKET_COMMANDS]:
@@ -287,27 +306,33 @@ class Webserver(threading.Thread):
     def stop(self) -> None:
         """Stop ioloop."""
         LOGGER.debug("Stopping webserver")
-        futures = []
-        connection: WebSocketHandler
-        for connection in self._vis.data[WEBSOCKET_CONNECTIONS]:
-            LOGGER.debug("Closing websocket connection, %s", connection)
-            futures.append(
-                asyncio.run_coroutine_threadsafe(
-                    connection.force_close(), self._asyncio_ioloop
-                )
-            )
-
-        for future in concurrent.futures.as_completed(futures):
-            # Await results
-            future.result()
-
-        asyncio.set_event_loop(self._asyncio_ioloop)
-        for task in asyncio.all_tasks(self._asyncio_ioloop):
-            task.cancel()
-
         if self._httpserver:
             LOGGER.debug("Stopping HTTPServer")
             self._httpserver.stop()
 
-        LOGGER.debug("Stopping IOloop")
-        self._ioloop.add_callback(self._ioloop.stop)
+        shutdown_event = threading.Event()
+
+        async def shutdown():
+            connection: WebSocketHandler
+            for connection in self._vis.data[WEBSOCKET_CONNECTIONS]:
+                LOGGER.debug("Closing websocket connection, %s", connection)
+                await connection.force_close()
+
+            tasks = [
+                t
+                for t in asyncio.all_tasks(self._asyncio_ioloop)
+                if t is not asyncio.current_task()
+            ]
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            LOGGER.debug("Stopping IOloop")
+            self._asyncio_ioloop.stop()
+            self._ioloop.stop()
+            LOGGER.debug("IOloop stopped")
+            shutdown_event.set()
+
+        self._ioloop.add_callback(shutdown)
+        self.join()
+        shutdown_event.wait()
+        LOGGER.debug("Webserver stopped")

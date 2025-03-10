@@ -1,12 +1,11 @@
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Grow from "@mui/material/Grow";
 import Typography from "@mui/material/Typography";
 import { useParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
 import VoidSvg from "svg/undraw/void.svg?react";
 
-import { ScrollToTopOnMount } from "components/ScrollToTop";
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { Loading } from "components/loading/Loading";
 import RecordingCardDaily from "components/recording/RecordingCardDaily";
@@ -48,7 +47,7 @@ const CameraRecordings = () => {
     );
   }
 
-  if (recordingsQuery.isLoading || cameraQuery.isLoading) {
+  if (recordingsQuery.isPending || cameraQuery.isPending) {
     return <Loading text="Loading Recordings" />;
   }
 
@@ -68,7 +67,6 @@ const CameraRecordings = () => {
 
   return (
     <Container>
-      <ScrollToTopOnMount />
       <Typography variant="h5" align="center">
         {cameraQuery.data.name}
       </Typography>
@@ -78,7 +76,16 @@ const CameraRecordings = () => {
           .reverse()
           .map((date) => (
             <Grow in appear key={date}>
-              <Grid item key={date} xs={12} sm={12} md={6} lg={6} xl={4}>
+              <Grid
+                key={date}
+                size={{
+                  xs: 12,
+                  sm: 12,
+                  md: 6,
+                  lg: 6,
+                  xl: 4,
+                }}
+              >
                 <RecordingCardDaily
                   camera={cameraQuery.data}
                   recording={Object.values(recordingsQuery.data[date])[0]}

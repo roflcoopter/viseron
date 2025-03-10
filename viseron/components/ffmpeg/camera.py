@@ -11,11 +11,11 @@ import voluptuous as vol
 
 from viseron import Viseron
 from viseron.const import ENV_CUDA_SUPPORTED, ENV_VAAPI_SUPPORTED
-from viseron.domains.camera import (
+from viseron.domains.camera import AbstractCamera
+from viseron.domains.camera.config import (
     BASE_CONFIG_SCHEMA as BASE_CAMERA_CONFIG_SCHEMA,
     DEFAULT_RECORDER,
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
-    AbstractCamera,
 )
 from viseron.domains.camera.const import DOMAIN
 from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
@@ -49,6 +49,7 @@ from .const import (
     CONFIG_PORT,
     CONFIG_PROTOCOL,
     CONFIG_RAW_COMMAND,
+    CONFIG_RECORD_ONLY,
     CONFIG_RECORDER,
     CONFIG_RECORDER_AUDIO_CODEC,
     CONFIG_RECORDER_AUDIO_FILTERS,
@@ -78,6 +79,7 @@ from .const import (
     DEFAULT_PIX_FMT,
     DEFAULT_PROTOCOL,
     DEFAULT_RAW_COMMAND,
+    DEFAULT_RECORD_ONLY,
     DEFAULT_RECORDER_AUDIO_CODEC,
     DEFAULT_RECORDER_AUDIO_FILTERS,
     DEFAULT_RECORDER_CODEC,
@@ -108,6 +110,7 @@ from .const import (
     DESC_PORT,
     DESC_PROTOCOL,
     DESC_RAW_COMMAND,
+    DESC_RECORD_ONLY,
     DESC_RECORDER,
     DESC_RECORDER_AUDIO_CODEC,
     DESC_RECORDER_AUDIO_FILTERS,
@@ -288,6 +291,11 @@ CAMERA_SCHEMA = CAMERA_SCHEMA.extend(
         vol.Optional(
             CONFIG_RECORDER, default=DEFAULT_RECORDER, description=DESC_RECORDER
         ): vol.All(CoerceNoneToDict(), RECORDER_SCHEMA),
+        vol.Optional(
+            CONFIG_RECORD_ONLY,
+            default=DEFAULT_RECORD_ONLY,
+            description=DESC_RECORD_ONLY,
+        ): bool,
     }
 )
 
@@ -353,6 +361,35 @@ class Camera(AbstractCamera):
             restart_method=self.start_camera,
         )
 
+    def _start_recording_only(self):
+        """Record segments only.
+
+        Used when output_frames is False which means we are only using the camera for
+        storing recordings and not for image processing.
+        """
+        self._logger.debug("Starting recording only mode")
+
+        def check_segment_process():
+            while self.is_on:
+                time.sleep(1)
+                if (
+                    self.stream.segment_process
+                    and self.stream.segment_process.subprocess.poll() is None
+                ):
+                    self.connected = True
+                    continue
+                self.connected = False
+            self.connected = False
+
+        RestartableThread(
+            name="viseron.camera." + self.identifier + ".segment_check",
+            target=check_segment_process,
+            daemon=True,
+            register=True,
+        ).start()
+
+        self.stream.record_only()
+
     def initialize_camera(self) -> None:
         """Start processing of camera frames."""
         self._logger.debug(f"Initializing camera {self.name}")
@@ -378,6 +415,7 @@ class Camera(AbstractCamera):
             if self.decode_error.is_set():
                 self._poll_timer = utcnow().timestamp()
                 self.connected = False
+                self.still_image_available = self.still_image_configured
                 time.sleep(5)
                 self._logger.error("Restarting frame pipe")
                 self.stream.close_pipe()
@@ -388,6 +426,7 @@ class Camera(AbstractCamera):
             self.current_frame = self.stream.read()
             if self.current_frame:
                 self.connected = True
+                self.still_image_available = True
                 empty_frames = 0
                 self._poll_timer = utcnow().timestamp()
                 self._data_stream.publish_data(
@@ -447,6 +486,10 @@ class Camera(AbstractCamera):
 
     def _start_camera(self) -> None:
         """Start capturing frames from camera."""
+        if self._config[CONFIG_RECORD_ONLY]:
+            self._start_recording_only()
+            return
+
         self._logger.debug("Starting capture thread")
         self._capture_frames = True
         if not self._frame_reader or not self._frame_reader.is_alive():
@@ -507,10 +550,3 @@ class Camera(AbstractCamera):
     def is_recording(self):
         """Return recording status."""
         return self._recorder.is_recording
-
-    @property
-    def is_on(self):
-        """Return if camera is on."""
-        if self._frame_reader:
-            return self._frame_reader.is_alive()
-        return False

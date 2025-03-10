@@ -1,180 +1,139 @@
-import Box from "@mui/material/Box";
-import Divider from "@mui/material/Divider";
-import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import dayjs, { Dayjs } from "dayjs";
-import { memo, useEffect } from "react";
-import { forceCheck } from "react-lazyload";
-import ServerDown from "svg/undraw/server_down.svg?react";
+import { memo, useLayoutEffect, useMemo, useState } from "react";
 
-import { ErrorMessage } from "components/error/ErrorMessage";
 import { EventTableItem } from "components/events/EventTableItem";
 import {
   getEventTimestamp,
-  useCameraStore,
   useFilterStore,
+  useFilteredCameras,
+  useTimespansRef,
 } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { useEventsMultiple } from "lib/api/events";
-import { useHlsAvailableTimespansMultiple } from "lib/api/hls";
-import { objIsEmpty, throttle } from "lib/helpers";
+import { objIsEmpty } from "lib/helpers";
 import * as types from "lib/types";
 
 // Group events that are within 2 minutes of each other
-const groupEventsByTime = (
-  snapshotEvents: types.CameraEvent[],
-): types.CameraEvent[][] => {
-  if (snapshotEvents.length === 0) {
-    return [];
-  }
+const useGroupedEvents = (snapshotEvents: types.CameraEvent[]) => {
+  const { filters } = useFilterStore();
 
-  const groups: types.CameraEvent[][] = [];
-  let currentGroup: types.CameraEvent[] = [];
-  let groupStartTime = getEventTimestamp(snapshotEvents[0]);
-  let groupCameraIdentifier = snapshotEvents[0].camera_identifier;
-
-  for (const event of snapshotEvents) {
-    const currentTime = getEventTimestamp(event);
-
-    if (
-      groupStartTime - currentTime < 120 &&
-      event.camera_identifier === groupCameraIdentifier
-    ) {
-      currentGroup.push(event);
-    } else {
-      if (currentGroup.length > 0) {
-        groups.push(currentGroup);
-      }
-      currentGroup = [event];
-      groupStartTime = currentTime;
-      groupCameraIdentifier = event.camera_identifier;
+  return useMemo(() => {
+    if (snapshotEvents.length === 0) {
+      return [];
     }
-  }
 
-  // Add the last group if it has any items
-  if (currentGroup.length > 0) {
-    groups.push(currentGroup);
-  }
+    const groups: types.CameraEvent[][] = [];
+    let currentGroup: types.CameraEvent[] = [];
+    let groupStartTime = getEventTimestamp(snapshotEvents[0]);
+    let groupCameraIdentifier = snapshotEvents[0].camera_identifier;
 
-  return groups;
-};
+    snapshotEvents.forEach((event) => {
+      // Filter out unwanted event types
+      if (!filters[event.type].checked) return;
 
-const useOnScroll = (parentRef: React.RefObject<HTMLDivElement>) => {
-  useEffect(() => {
-    const container = parentRef.current;
-    if (!container) return () => {};
+      const currentTime = getEventTimestamp(event);
 
-    const throttleForceCheck = throttle(() => {
-      forceCheck();
-    }, 100);
-    container.addEventListener("scroll", throttleForceCheck);
+      if (
+        groupStartTime - currentTime < 120 &&
+        event.camera_identifier === groupCameraIdentifier
+      ) {
+        currentGroup.push(event);
+      } else {
+        if (currentGroup.length > 0) {
+          groups.push(currentGroup);
+        }
+        currentGroup = [event];
+        groupStartTime = currentTime;
+        groupCameraIdentifier = event.camera_identifier;
+      }
+    });
 
-    return () => {
-      container.removeEventListener("scroll", throttleForceCheck);
-    };
-  });
+    // Add the last group if it has any items
+    if (currentGroup.length > 0) {
+      groups.push(currentGroup);
+    }
+
+    return groups;
+  }, [snapshotEvents, filters]);
 };
 
 type EventTableProps = {
   parentRef: React.RefObject<HTMLDivElement>;
-  cameras: types.CamerasOrFailedCameras;
   date: Dayjs | null;
-  selectedEvent: types.CameraEvent | null;
-  setSelectedEvent: (event: types.CameraEvent) => void;
-  setRequestedTimestamp: (timestamp: number | null) => void;
 };
 
-export const EventTable = memo(
-  ({
-    parentRef,
-    cameras,
-    date,
-    selectedEvent,
-    setSelectedEvent,
-    setRequestedTimestamp,
-  }: EventTableProps) => {
-    const formattedDate = dayjs(date).format("YYYY-MM-DD");
-    const { selectedCameras } = useCameraStore();
-    const eventsQueries = useEventsMultiple({
-      camera_identifiers: selectedCameras,
-      date: formattedDate,
-      utc_offset_minutes: dayjs().utcOffset(),
-      configOptions: { enabled: !!date },
-    });
+export const EventTable = memo(({ parentRef, date }: EventTableProps) => {
+  const formattedDate = dayjs(date).format("YYYY-MM-DD");
+  const [elementHeight, setElementHeight] = useState<number | null>(null);
+  const filteredCameras = useFilteredCameras();
+  const eventsQueries = useEventsMultiple({
+    camera_identifiers: Object.keys(filteredCameras),
+    date: formattedDate,
+    configOptions: { enabled: !!date },
+  });
 
-    const availableTimespansQueries = useHlsAvailableTimespansMultiple({
-      camera_identifiers: selectedCameras,
-      date: formattedDate,
-      configOptions: { enabled: !!date },
-    });
+  // Subscribe to timespans so it updates for child components
+  useTimespansRef(date);
 
-    useOnScroll(parentRef);
-    const { filters } = useFilterStore();
+  const groupedEvents = useGroupedEvents(eventsQueries.data || []);
 
-    if (eventsQueries.isError || availableTimespansQueries.isError) {
-      return (
-        <ErrorMessage
-          text={"Error loading Events"}
-          subtext={
-            eventsQueries.error?.response?.data.error ||
-            availableTimespansQueries.error?.response?.data.error ||
-            eventsQueries.error?.message ||
-            availableTimespansQueries.error?.message
-          }
-          image={
-            <ServerDown width={150} height={150} role="img" aria-label="Void" />
-          }
-        />
-      );
-    }
+  const parentElement = parentRef.current;
+  const rowVirtualizer = useVirtualizer({
+    count: groupedEvents.length,
+    getScrollElement: () => parentElement,
+    estimateSize: () => elementHeight || 100,
+    overscan: 5,
+  });
 
-    if (eventsQueries.isLoading || availableTimespansQueries.isLoading) {
-      return <Loading text="Loading Events" fullScreen={false} />;
-    }
+  useLayoutEffect(() => {
+    rowVirtualizer.measure();
+  }, [rowVirtualizer, elementHeight]);
 
-    if (!eventsQueries.data || objIsEmpty(eventsQueries.data)) {
-      return (
-        <Typography align="center" padding={2}>
-          No Events found for {formattedDate}
-        </Typography>
-      );
-    }
+  if (eventsQueries.isPending) {
+    return <Loading text="Loading Events" fullScreen={false} />;
+  }
 
-    const filteredEvents = eventsQueries.data.filter(
-      (event) => filters[event.type].checked,
-    );
-    const groupedEvents = groupEventsByTime(filteredEvents);
+  if (!eventsQueries.data || objIsEmpty(eventsQueries.data)) {
     return (
-      <Box>
-        <Grid container direction="row" columns={1}>
-          {groupedEvents.map((events) => {
-            const oldestEvent = events[events.length - 1];
-            return (
-              <Grid
-                item
-                xs={12}
-                sm={12}
-                md={12}
-                lg={12}
-                xl={12}
-                key={`event-${oldestEvent.type}-${oldestEvent.id}`}
-              >
-                <EventTableItem
-                  cameras={cameras}
-                  events={events}
-                  setSelectedEvent={setSelectedEvent}
-                  selected={
-                    !!selectedEvent && selectedEvent.id === oldestEvent.id
-                  }
-                  setRequestedTimestamp={setRequestedTimestamp}
-                  availableTimespans={availableTimespansQueries.data}
-                />
-                <Divider sx={{ marginTop: "5px", marginBottom: "5px" }} />
-              </Grid>
-            );
-          })}
-        </Grid>
-      </Box>
+      <Typography align="center" padding={2}>
+        No Events found for {formattedDate}
+      </Typography>
     );
-  },
-);
+  }
+  return (
+    <div
+      style={{
+        height: `${rowVirtualizer.getTotalSize()}px`,
+        width: "100%",
+        position: "relative",
+      }}
+    >
+      {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+        const events = groupedEvents[virtualRow.index];
+        return (
+          <div
+            key={virtualRow.key}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: `${virtualRow.size}px`,
+              transform: `translateY(${virtualRow.start}px)`,
+            }}
+          >
+            <EventTableItem
+              events={events}
+              isScrolling={rowVirtualizer.isScrolling}
+              virtualRowIndex={virtualRow.index}
+              measureElement={rowVirtualizer.measureElement}
+              setElementHeight={setElementHeight}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+});

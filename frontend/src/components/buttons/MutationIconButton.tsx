@@ -14,7 +14,7 @@ interface MutationIconButtonProps<T> extends IconButtonProps {
 
 function MutationIconButtonInner<T>(
   props: MutationIconButtonProps<T>,
-  ref: React.ForwardedRef<any>
+  ref: React.ForwardedRef<any>,
 ) {
   const { mutation, ...forwardedProps } = props;
   forwardedProps.sx = {
@@ -47,14 +47,14 @@ function MutationIconButtonInner<T>(
         {...forwardedProps}
         ref={ref}
         color={color}
-        disabled={props.mutation.isLoading || props.disabled}
+        disabled={props.mutation.isPending || props.disabled}
       />
     </div>
   );
 }
 
 const MutationIconButton = React.forwardRef(MutationIconButtonInner) as <T>(
-  p: MutationIconButtonProps<T> & { ref?: React.Ref<HTMLDivElement> }
+  p: MutationIconButtonProps<T> & { ref?: React.Ref<HTMLDivElement> },
 ) => React.ReactElement;
 
 export default MutationIconButton;

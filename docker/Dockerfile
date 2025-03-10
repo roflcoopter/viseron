@@ -148,12 +148,6 @@ RUN \
   && useradd --uid 911 --user-group --create-home abc \
   && mkdir -p /home/abc/bin /segments
 
-VOLUME /config
-VOLUME /recordings
-VOLUME /segments
-VOLUME /snapshots
-VOLUME /thumbnails
-
 ENTRYPOINT ["/init"]
 
 COPY docker/ffprobe_wrapper /home/abc/bin/ffprobe

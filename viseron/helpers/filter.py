@@ -1,5 +1,8 @@
 """Used to filter out unwanted objects."""
+from __future__ import annotations
+
 from datetime import timedelta
+from typing import TYPE_CHECKING, Any
 
 from viseron.domains.object_detector.const import (
     CONFIG_LABEL_CONFIDENCE,
@@ -9,18 +12,26 @@ from viseron.domains.object_detector.const import (
     CONFIG_LABEL_REQUIRE_MOTION,
     CONFIG_LABEL_STORE,
     CONFIG_LABEL_STORE_INTERVAL,
+    CONFIG_LABEL_TRIGGER_EVENT_RECORDING,
     CONFIG_LABEL_TRIGGER_RECORDER,
     CONFIG_LABEL_WIDTH_MAX,
     CONFIG_LABEL_WIDTH_MIN,
 )
-from viseron.domains.object_detector.detected_object import DetectedObject
-from viseron.helpers import object_in_polygon, utcnow
+from viseron.helpers import utcnow
+
+if TYPE_CHECKING:
+    from viseron.domains.object_detector.detected_object import DetectedObject
 
 
 class Filter:
     """Filter a recorded object against a configured label."""
 
-    def __init__(self, camera_resolution, object_filter, mask) -> None:
+    def __init__(
+        self,
+        camera_resolution: tuple[int, int],
+        object_filter: dict[str, Any],
+        mask: list,
+    ) -> None:
         self._camera_resolution = camera_resolution
         self._mask = mask
         self._label = object_filter[CONFIG_LABEL_LABEL]
@@ -29,7 +40,10 @@ class Filter:
         self._width_max = object_filter[CONFIG_LABEL_WIDTH_MAX]
         self._height_min = object_filter[CONFIG_LABEL_HEIGHT_MIN]
         self._height_max = object_filter[CONFIG_LABEL_HEIGHT_MAX]
-        self._trigger_recorder = object_filter[CONFIG_LABEL_TRIGGER_RECORDER]
+        self._trigger_event_recording = object_filter.get(
+            CONFIG_LABEL_TRIGGER_RECORDER,
+            object_filter[CONFIG_LABEL_TRIGGER_EVENT_RECORDING],
+        )
         self._store = object_filter[CONFIG_LABEL_STORE]
         self._store_interval = timedelta(
             seconds=object_filter[CONFIG_LABEL_STORE_INTERVAL]
@@ -59,21 +73,12 @@ class Filter:
         obj.filter_hit = "height"
         return False
 
-    def filter_mask(self, obj: DetectedObject) -> bool:
-        """Return True if object is within mask."""
-        for mask in self._mask:
-            if object_in_polygon(self._camera_resolution, obj, mask):
-                obj.filter_hit = "mask"
-                return False
-        return True
-
     def filter_object(self, obj: DetectedObject) -> bool:
         """Return if filters are met."""
         return (
             self.filter_confidence(obj)
             and self.filter_width(obj)
             and self.filter_height(obj)
-            and self.filter_mask(obj)
         )
 
     def should_store(self, obj: DetectedObject) -> bool:
@@ -93,9 +98,9 @@ class Filter:
         return self._confidence
 
     @property
-    def trigger_recorder(self) -> bool:
+    def trigger_event_recording(self) -> bool:
         """Return if label triggers recorder."""
-        return self._trigger_recorder
+        return self._trigger_event_recording
 
     @property
     def store(self) -> bool:

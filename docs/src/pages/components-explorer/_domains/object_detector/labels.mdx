@@ -6,8 +6,10 @@ Labels are used to tell Viseron what objects to look for and keep recordings of.
 The available labels depends on what detection model you are using.
 
 The max/min width/height is used to filter out any unreasonably large/small objects to reduce false positives.<br></br>
-Objects can also be filtered out with the use of an optional [mask](#mask).
+Objects can also be filtered out with the use of an optional [mask](#object-detector-mask).
 
-<AvailableLabels labelPath={props.labelPath} />
-
-<div>{props.children}</div>
+<AvailableLabels
+  showLabels={props.showLabels}
+  labelPath={props.labelPath}
+  extras={props.extras}
+/>

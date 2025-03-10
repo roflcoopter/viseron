@@ -1,7 +1,7 @@
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useReducer } from "react";
@@ -125,8 +125,9 @@ const Onboarding = () => {
                 dispatch={dispatch}
                 password
               />
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Button
+                  type="submit"
                   fullWidth
                   variant="contained"
                   disabled={
@@ -138,7 +139,7 @@ const Onboarding = () => {
                     !!inputState.username.error ||
                     !!inputState.password.error ||
                     !!inputState.confirmPassword.error ||
-                    onboarding.isLoading
+                    onboarding.isPending
                   }
                   onClick={() => {
                     onboarding.mutate(
@@ -150,7 +151,9 @@ const Onboarding = () => {
                       {
                         onSuccess: async (_data, _variables, _context) => {
                           // Invalidate auth query to force a re-fetch, which will redirect to the dashboard
-                          await queryClient.invalidateQueries(["auth"]);
+                          await queryClient.invalidateQueries({
+                            queryKey: ["auth"],
+                          });
                         },
                       },
                     );

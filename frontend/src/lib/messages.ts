@@ -1,6 +1,7 @@
 export type SubscribeEventMessage = {
   type: "subscribe_event";
   event: string;
+  debounce?: number;
 };
 
 export type SubscribeStatesMessage =
@@ -18,6 +19,31 @@ export type SaveConfigMessage = {
   config: string;
 };
 
+export type SubscribeTimespansMessage = {
+  type: "subscribe_timespans";
+  camera_identifiers: string[];
+  date: string | null;
+  debounce?: number;
+};
+
+export type ExportRecordingMessage = {
+  type: "export_recording";
+  camera_identifier: string;
+  recording_id: number;
+};
+export type ExportSnapshotMessage = {
+  type: "export_snapshot";
+  event_type: string;
+  camera_identifier: string;
+  snapshot_id: number;
+};
+export type ExportTimespanMessage = {
+  type: "export_timespan";
+  camera_identifier: string;
+  start: number;
+  end: number;
+};
+
 export function auth(accessToken: string) {
   return {
     type: "auth",
@@ -25,11 +51,15 @@ export function auth(accessToken: string) {
   };
 }
 
-export function subscribeEvent(event: string) {
+export function subscribeEvent(event: string, debounce?: number) {
   const message: SubscribeEventMessage = {
     type: "subscribe_event",
     event,
   };
+
+  if (debounce) {
+    message.debounce = debounce;
+  }
 
   return message;
 }
@@ -104,4 +134,62 @@ export function getEntities() {
   return {
     type: "get_entities",
   };
+}
+
+export function subscribeTimespans(
+  camera_identifiers: string[],
+  date: string | null,
+  debounce?: number,
+) {
+  const message: SubscribeTimespansMessage = {
+    type: "subscribe_timespans",
+    camera_identifiers,
+    date,
+    debounce,
+  };
+  return message;
+}
+
+export function unsubscribeTimespans(subscription: number) {
+  return {
+    type: "unsubscribe_timespans",
+    subscription,
+  };
+}
+
+export function exportRecording(
+  camera_identifier: string,
+  recording_id: number,
+) {
+  return {
+    type: "export_recording",
+    camera_identifier,
+    recording_id,
+  } as ExportRecordingMessage;
+}
+
+export function exportSnapshot(
+  event_type: string,
+  camera_identifier: string,
+  snapshot_id: number,
+) {
+  return {
+    type: "export_snapshot",
+    event_type,
+    camera_identifier,
+    snapshot_id,
+  } as ExportSnapshotMessage;
+}
+
+export function exportTimespan(
+  camera_identifier: string,
+  start: number,
+  end: number,
+) {
+  return {
+    type: "export_timespan",
+    camera_identifier,
+    start,
+    end,
+  } as ExportTimespanMessage;
 }

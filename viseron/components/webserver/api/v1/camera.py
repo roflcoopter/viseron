@@ -47,7 +47,7 @@ class CameraAPIHandler(BaseAPIHandler):
         {
             "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)",
             "supported_methods": ["GET"],
-            "method": "get_camera",
+            "method": "get_camera_endpoint",
             "request_arguments_schema": vol.Schema(
                 {
                     vol.Optional("failed", default=False): request_argument_bool,
@@ -136,7 +136,7 @@ class CameraAPIHandler(BaseAPIHandler):
             return
 
         jpg = None
-        if camera.still_image[CONFIG_URL]:
+        if camera.still_image_configured:
             jpg = await self.run_in_executor(self._snapshot_from_url, camera)
         else:
             jpg = await self.run_in_executor(self._snapshot_from_memory, camera)
@@ -148,10 +148,12 @@ class CameraAPIHandler(BaseAPIHandler):
             )
             return
 
-        self.response_success(response=jpg, headers={"Content-Type": "image/jpeg"})
+        await self.response_success(
+            response=jpg, headers={"Content-Type": "image/jpeg"}
+        )
         return
 
-    async def get_camera(self, camera_identifier: str) -> None:
+    async def get_camera_endpoint(self, camera_identifier: str) -> None:
         """Return camera."""
         camera = self._get_camera(
             camera_identifier, failed=self.request_arguments["failed"]
@@ -164,5 +166,5 @@ class CameraAPIHandler(BaseAPIHandler):
             )
             return
 
-        self.response_success(response=camera.as_dict())
+        await self.response_success(response=camera.as_dict())
         return

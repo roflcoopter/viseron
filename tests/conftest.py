@@ -27,9 +27,11 @@ class MockViseron(Viseron):
     """Protocol for mocking Viseron."""
 
     def __init__(self) -> None:
-        super().__init__()
-        self.register_domain = Mock(side_effect=self.register_domain)  # type: ignore
-        self.mocked_register_domain = self.register_domain  # type: ignore
+        super().__init__(start_background_scheduler=False)
+        self.register_domain = Mock(  # type: ignore[method-assign]
+            side_effect=self.register_domain,
+        )
+        self.mocked_register_domain = self.register_domain
 
 
 @pytest.fixture

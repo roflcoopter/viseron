@@ -1,13 +1,14 @@
 import { UseQueryOptions, useQuery } from "@tanstack/react-query";
-import { useContext, useEffect } from "react";
+import { useMemo } from "react";
 
-import { ViseronContext } from "context/ViseronContext";
-import queryClient, { viseronAPI } from "lib/api/client";
-import { subscribeCameras, subscribeEvent } from "lib/commands";
+import { useInvalidateQueryOnEvent, viseronAPI } from "lib/api/client";
 import * as types from "lib/types";
 
 type CamerasVariables = {
-  configOptions?: UseQueryOptions<types.Cameras, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.Cameras, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 async function cameras() {
   const response = await viseronAPI.get<types.Cameras>("cameras");
@@ -15,36 +16,25 @@ async function cameras() {
 }
 
 export const useCameras = ({ configOptions }: CamerasVariables) => {
-  const { connection } = useContext(ViseronContext);
+  useInvalidateQueryOnEvent([
+    {
+      event: "domain/registered/camera",
+      queryKey: ["cameras"],
+    },
+  ]);
 
-  useEffect(() => {
-    let unsub: () => void;
-    if (connection) {
-      const invalidate = (_camera: types.Camera) => {
-        queryClient.invalidateQueries(["cameras"]);
-      };
-
-      const subscribe = async () => {
-        unsub = await subscribeCameras(connection, invalidate);
-      };
-      subscribe();
-    }
-    return () => {
-      if (unsub) {
-        unsub();
-      }
-    };
-  }, [connection]);
-
-  return useQuery<types.Cameras, types.APIErrorResponse>(
-    ["cameras"],
-    async () => cameras(),
-    configOptions
-  );
+  return useQuery({
+    queryKey: ["cameras"],
+    queryFn: async () => cameras(),
+    ...configOptions,
+  });
 };
 
 type CamerasFailedVariables = {
-  configOptions?: UseQueryOptions<types.FailedCameras, types.APIErrorResponse>;
+  configOptions?: Omit<
+    UseQueryOptions<types.FailedCameras, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
 };
 async function camerasFailed() {
   const response = await viseronAPI.get<types.FailedCameras>("cameras/failed");
@@ -52,41 +42,62 @@ async function camerasFailed() {
 }
 
 export const useCamerasFailed = ({ configOptions }: CamerasFailedVariables) => {
-  const { connection } = useContext(ViseronContext);
+  useInvalidateQueryOnEvent([
+    {
+      event: "domain/setup/domain_failed/camera/*",
+      queryKey: ["cameras", "failed"],
+    },
+    {
+      event: "domain/setup/domain_loaded/camera/*",
+      queryKey: ["cameras", "failed"],
+    },
+  ]);
 
-  useEffect(() => {
-    const unsubs: (() => void)[] = [];
-    if (connection) {
-      const invalidate = (_message: types.Event) => {
-        queryClient.invalidateQueries(["cameras", "failed"]);
-      };
+  return useQuery({
+    queryKey: ["cameras", "failed"],
+    queryFn: async () => camerasFailed(),
+    ...configOptions,
+  });
+};
 
-      const subscribe = async () => {
-        unsubs.push(
-          await subscribeEvent(
-            connection,
-            "domain/setup/domain_failed/camera/*",
-            invalidate
-          )
-        );
-        unsubs.push(
-          await subscribeEvent(
-            connection,
-            "domain/setup/domain_loaded/camera/*",
-            invalidate
-          )
-        );
-      };
-      subscribe();
+type CamerasAllVariables = {
+  configOptions?: Omit<
+    UseQueryOptions<
+      CamerasVariables | CamerasFailedVariables,
+      types.APIErrorResponse
+    >,
+    "queryKey" | "queryFn"
+  >;
+} | void;
+
+export const useCamerasAll = (variables: CamerasAllVariables = {}) => {
+  const configOptions = variables?.configOptions ?? {};
+  const camerasQuery = useCameras({ configOptions } as CamerasVariables);
+  const failedCamerasQuery = useCamerasFailed({
+    configOptions,
+  } as CamerasFailedVariables);
+
+  const isLoading = camerasQuery.isPending || failedCamerasQuery.isPending;
+  const isError = camerasQuery.isError || failedCamerasQuery.isError;
+  const error = camerasQuery.error || failedCamerasQuery.error;
+
+  const combinedData: types.Cameras | types.FailedCameras = useMemo(() => {
+    let _combinedData = {};
+    if (camerasQuery.data) {
+      _combinedData = { ..._combinedData, ...camerasQuery.data };
     }
-    return () => {
-      unsubs.forEach((unsubscribe) => unsubscribe());
-    };
-  }, [connection]);
+    if (failedCamerasQuery.data) {
+      _combinedData = { ..._combinedData, ...failedCamerasQuery.data };
+    }
+    return _combinedData;
+  }, [camerasQuery.data, failedCamerasQuery.data]);
 
-  return useQuery<types.FailedCameras, types.APIErrorResponse>(
-    ["cameras", "failed"],
-    async () => camerasFailed(),
-    configOptions
-  );
+  return {
+    cameras: camerasQuery,
+    failedCameras: failedCamerasQuery,
+    combinedData,
+    isLoading,
+    isError,
+    error,
+  };
 };

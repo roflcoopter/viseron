@@ -6,7 +6,7 @@ import json
 import logging
 from functools import partial
 from http import HTTPStatus
-from re import Pattern
+from re import Match, Pattern
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 import tornado.routing
@@ -71,20 +71,24 @@ class BaseAPIHandler(ViseronRequestHandler):
         """Set JSON body."""
         self._json_body = value
 
-    def response_success(
+    async def response_success(
         self, *, status: HTTPStatus = HTTPStatus.OK, response=None, headers=None
     ) -> None:
         """Send successful response."""
+
+        def _json_dumps() -> str:
+            return partial(json.dumps, cls=JSONEncoder, allow_nan=False)(response)
+
         if response is None:
             response = {"success": True}
         self.set_status(status)
 
         if headers:
             for header, value in headers.items():
-                self.set_header(header, value)
+                await self.run_in_executor(self.set_header, header, value)
 
         if isinstance(response, dict):
-            self.finish(partial(json.dumps, cls=JSONEncoder, allow_nan=False)(response))
+            self.finish(await self.run_in_executor(_json_dumps))
             return
 
         self.finish(response)
@@ -196,15 +200,21 @@ class BaseAPIHandler(ViseronRequestHandler):
                 )
         return schema
 
+    def _path_match(self, route: Route) -> Match[str] | None:
+        """Check if path matches."""
+        path_match = tornado.routing.PathMatches(f"{API_BASE}{route['path_pattern']}")
+        return path_match.regex.match(self.request.path)
+
+    def _get_params(self, route: Route) -> dict[str, Any] | None:
+        path_match = tornado.routing.PathMatches(f"{API_BASE}{route['path_pattern']}")
+        return path_match.match(self.request)
+
     async def route_request(self) -> None:
         """Route request to correct API endpoint."""
         unsupported_method = False
 
         for route in self.routes:
-            path_match = tornado.routing.PathMatches(
-                f"{API_BASE}{route['path_pattern']}"
-            )
-            if path_match.regex.match(self.request.path):
+            if await self.run_in_executor(self._path_match, route):
                 if self.request.method not in route["supported_methods"]:
                     unsupported_method = True
                     continue
@@ -249,7 +259,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                             )
                             return
 
-                params = path_match.match(self.request)
+                params = await self.run_in_executor(self._get_params, route)
                 if params is None:
                     params = {}
 

@@ -7,6 +7,27 @@ COMPONENT = "storage"
 
 DATABASE_URL = "postgresql://postgres@localhost/viseron"
 
+EVENT_FILE_CREATED = (
+    "file_created/{camera_identifier}/{category}/{subcategory}/{file_name}"
+)
+EVENT_FILE_DELETED = (
+    "file_deleted/{camera_identifier}/{category}/{subcategory}/{file_name}"
+)
+
+# Tier categories
+TIER_CATEGORY_RECORDER: Final = "recorder"
+TIER_CATEGORY_SNAPSHOTS: Final = "snapshots"
+
+# Tier subcategories
+TIER_SUBCATEGORY_SEGMENTS: Final = "segments"
+TIER_SUBCATEGORY_EVENT_CLIPS: Final = "event_clips"
+TIER_SUBCATEGORY_THUMBNAILS: Final = "thumbnails"
+TIER_SUBCATEGORY_FACE_RECOGNITION: Final = "face_recognition"
+TIER_SUBCATEGORY_OBJECT_DETECTOR: Final = "object_detector"
+TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION: Final = "license_plate_recognition"
+TIER_SUBCATEGORY_MOTION_DETECTOR: Final = "motion_detector"
+
+
 # Storage configuration
 DESC_COMPONENT = "Storage configuration."
 DEFAULT_COMPONENT: dict[str, Any] = {}
@@ -62,10 +83,12 @@ DEFAULT_MOTION_DETECTOR: Final = None
 
 DEFAULT_POLL = False
 DEFAULT_MOVE_ON_SHUTDOWN = False
-DEFAULT_CHECK_INTERVAL: Final = None
+DEFAULT_CHECK_INTERVAL: Final = {
+    CONFIG_MINUTES: 1,
+}
 DEFAULT_CHECK_INTERVAL_DAYS: Final = 0
 DEFAULT_CHECK_INTERVAL_HOURS: Final = 0
-DEFAULT_CHECK_INTERVAL_MINUTES: Final = 1
+DEFAULT_CHECK_INTERVAL_MINUTES: Final = 0
 DEFAULT_CHECK_INTERVAL_SECONDS: Final = 0
 DEFAULT_GB: Final = None
 DEFAULT_MB: Final = None
@@ -83,8 +106,8 @@ DESC_RECORDER = "Configuration for recordings."
 DESC_TYPE = (
     "<code>continuous</code>: Will save everything but highlight Events.<br>"
     "<code>events</code>: Will only save Events.<br>"
-    "Events are started by <code>trigger_recorder</code>, and ends when either no "
-    "objects or no motion (or both) is detected, depending on the configuration."
+    "Events are started by <code>trigger_event_recording</code>, and ends when either "
+    "no objects or no motion (or both) is detected, depending on the configuration."
 )
 DESC_RECORDER_TIERS = (
     "Tiers are used to move files between different storage locations. "
@@ -95,7 +118,7 @@ DESC_RECORDER_TIERS = (
 DESC_SNAPSHOTS = (
     "Snapshots are images taken when events are triggered or post processors finds "
     "anything. "
-    "Snapshots will be taken for object detection, motiond detection, and any post "
+    "Snapshots will be taken for object detection, motion detection, and any post "
     "processor that scans the image, for example face and license plate recognition."
 )
 DESC_SNAPSHOTS_TIERS = (

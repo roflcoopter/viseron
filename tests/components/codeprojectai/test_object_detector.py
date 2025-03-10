@@ -50,7 +50,7 @@ def config():
                                 {
                                     "label": "person",
                                     "confidence": 0.8,
-                                    "trigger_recorder": True,
+                                    "trigger_event_recording": True,
                                 }
                             ],
                         }
@@ -87,7 +87,7 @@ def test_object_detector_init(vis: MockViseron, config):
     """
     _ = MockComponent(COMPONENT, vis)
     _ = MockCamera(vis, identifier=CAMERA_IDENTIFIER)
-    with patch("codeprojectai.core.CodeProjectAIObject"):
+    with patch("viseron.components.codeprojectai.object_detector.CodeProjectAIObject"):
         detector = ObjectDetector(vis, config["codeprojectai"], CAMERA_IDENTIFIER)
         assert detector._image_resolution == (  # pylint: disable=protected-access
             640,
@@ -108,7 +108,7 @@ def test_preprocess(vis: Viseron, config):
     """
     _ = MockComponent(COMPONENT, vis)
     _ = MockCamera(vis, identifier=CAMERA_IDENTIFIER)
-    with patch("codeprojectai.core.CodeProjectAIObject"):
+    with patch("viseron.components.codeprojectai.object_detector.CodeProjectAIObject"):
         detector = ObjectDetector(vis, config["codeprojectai"], CAMERA_IDENTIFIER)
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
         processed = detector.preprocess(frame)
@@ -125,7 +125,7 @@ def test_postprocess(vis: Viseron, config):
     """
     _ = MockComponent(COMPONENT, vis)
     _ = MockCamera(vis, identifier=CAMERA_IDENTIFIER)
-    with patch("codeprojectai.core.CodeProjectAIObject"):
+    with patch("viseron.components.codeprojectai.object_detector.CodeProjectAIObject"):
         detector = ObjectDetector(vis, config["codeprojectai"], CAMERA_IDENTIFIER)
         detections = [
             {
@@ -142,7 +142,7 @@ def test_postprocess(vis: Viseron, config):
         assert isinstance(objects[0], DetectedObject)
 
 
-@patch("codeprojectai.core.CodeProjectAIObject.detect")
+@patch("viseron.components.codeprojectai.object_detector.CodeProjectAIObject.detect")
 def test_return_objects_success(mock_detect, vis: Viseron, config):
     """
     Test the return_objects method of the ObjectDetector class for successful detection.
@@ -203,7 +203,7 @@ def test_object_detector_init_no_image_size(vis: Viseron, config, mock_detected_
         config (dict): The configuration dictionary.
         mock_detected_object (MagicMock): Mocked DetectedObject class.
     """
-    with patch("codeprojectai.core.CodeProjectAIObject"):
+    with patch("viseron.components.codeprojectai.object_detector.CodeProjectAIObject"):
         # Set non-square image resolution
         config["codeprojectai"]["object_detector"]["image_size"] = None
 
@@ -255,7 +255,7 @@ def test_postprocess_square_resolution(vis: Viseron, config, mock_detected_objec
         config (dict): The configuration dictionary.
         mock_detected_object (MagicMock): Mocked DetectedObject class.
     """
-    with patch("codeprojectai.core.CodeProjectAIObject"):
+    with patch("viseron.components.codeprojectai.object_detector.CodeProjectAIObject"):
         # Set square image resolution
         config["codeprojectai"]["object_detector"]["image_size"] = 640
 

@@ -42,7 +42,7 @@ body {
 
 .page-enter-active {
   opacity: 1;
-  transition: opacity 1000ms, transform 1000ms;
+  transition: opacity 200ms, transform 200ms;
 }
 
 .page-exit {
@@ -51,5 +51,5 @@ body {
 
 .page-exit-active {
   opacity: 0;
-  transition: opacity 1000ms, transform 1000ms;
+  transition: opacity 200ms, transform 200ms;
 }

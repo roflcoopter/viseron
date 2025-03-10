@@ -2,15 +2,13 @@ import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import { styled } from "@mui/material/styles";
 import Cookies from "js-cookie";
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useRef } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
-import CSSTransition from "react-transition-group/CSSTransition";
-import TransitionGroup from "react-transition-group/TransitionGroup";
+import { CSSTransition, SwitchTransition } from "react-transition-group";
 
 import { ScrollToTopFab } from "components/ScrollToTop";
 import { ErrorMessage } from "components/error/ErrorMessage";
 import Footer from "components/footer/Footer";
-import AppDrawer from "components/header/Drawer";
 import Header from "components/header/Header";
 import { Loading } from "components/loading/Loading";
 import { useAuthContext } from "context/AuthContext";
@@ -25,7 +23,6 @@ const FullHeightContainer = styled("div")(() => ({
 
 export default function PrivateLayout() {
   const nodeRef = useRef(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
 
   const { auth } = useAuthContext();
@@ -37,8 +34,8 @@ export default function PrivateLayout() {
     configOptions: { enabled: auth.enabled && !!cookies.user },
   });
 
-  // isInitialLoading instead of isLoading because query might be disabled
-  if (userQuery.isInitialLoading) {
+  // isLoading instead of isPending because query might be disabled
+  if (userQuery.isLoading) {
     return <Loading text="Loading User" />;
   }
 
@@ -100,19 +97,23 @@ export default function PrivateLayout() {
     <ViseronProvider>
       <FullHeightContainer>
         <FullHeightContainer>
-          <AppDrawer drawerOpen={drawerOpen} setDrawerOpen={setDrawerOpen} />
-          <Header setDrawerOpen={setDrawerOpen} />
+          <Header />
           <Suspense fallback={<Loading text="Loading" />}>
-            <TransitionGroup>
+            <SwitchTransition>
               <CSSTransition
+                key={location.pathname}
+                appear
+                in
                 nodeRef={nodeRef}
-                key={location.key}
-                timeout={1000}
+                timeout={200}
                 classNames="page"
+                unmountOnExit
               >
-                <Outlet />
+                <div ref={nodeRef}>
+                  <Outlet />
+                </div>
               </CSSTransition>
-            </TransitionGroup>
+            </SwitchTransition>
           </Suspense>
         </FullHeightContainer>
         <Footer />

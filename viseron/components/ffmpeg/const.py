@@ -196,6 +196,7 @@ CONFIG_FFMPEG_RECOVERABLE_ERRORS = "ffmpeg_recoverable_errors"
 CONFIG_FFPROBE_LOGLEVEL = "ffprobe_loglevel"
 CONFIG_RECORDER = "recorder"
 CONFIG_RAW_COMMAND = "raw_command"
+CONFIG_RECORD_ONLY = "record_only"
 
 DEFAULT_USERNAME: Final = None
 DEFAULT_PASSWORD: Final = None
@@ -213,6 +214,7 @@ DEFAULT_FFMPEG_RECOVERABLE_ERRORS = [
 ]
 DEFAULT_FFPROBE_LOGLEVEL = "error"
 DEFAULT_RAW_COMMAND: Final = None
+DEFAULT_RECORD_ONLY = False
 
 DESC_CAMERA = "Camera domain config."
 DESC_HOST = "IP or hostname of camera."
@@ -243,4 +245,11 @@ DESC_RAW_COMMAND = (
     "This is useful if you want to use sources that Viseron does not support. "
     "This is an advanced option and should only be used if you know what you are doing."
     "<br>See <a href=#raw-command>Raw command</a> for more information."
+)
+DESC_RECORD_ONLY = (
+    "Only record the camera stream, do not process it. "
+    "This is useful if you only want to record the stream and not do any processing "
+    "like object detection.<br>"
+    "Be aware that this will record the main stream, making substream redundant. "
+    "Still images will not work either unless you have setup `still_image`."
 )

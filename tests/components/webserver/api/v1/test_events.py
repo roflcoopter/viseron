@@ -26,15 +26,23 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
             session.execute(
                 insert(Motion).values(
                     camera_identifier="test",
-                    start_time=datetime.datetime(2024, 6, 22, 1, 0, 0),
-                    end_time=datetime.datetime(2024, 6, 22, 1, 1, 0),
+                    start_time=datetime.datetime(
+                        2024, 6, 22, 1, 0, 0, tzinfo=datetime.timezone.utc
+                    ),
+                    end_time=datetime.datetime(
+                        2024, 6, 22, 1, 1, 0, tzinfo=datetime.timezone.utc
+                    ),
                 )
             )
             session.execute(
                 insert(Motion).values(
                     camera_identifier="test",
-                    start_time=datetime.datetime(2024, 6, 22, 3, 0, 0),
-                    end_time=datetime.datetime(2024, 6, 22, 3, 1, 0),
+                    start_time=datetime.datetime(
+                        2024, 6, 22, 3, 0, 0, tzinfo=datetime.timezone.utc
+                    ),
+                    end_time=datetime.datetime(
+                        2024, 6, 22, 3, 1, 0, tzinfo=datetime.timezone.utc
+                    ),
                 )
             )
             session.execute(
@@ -43,7 +51,9 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                     domain="face_recognition",
                     snapshot_path="test",
                     data={"label": "test", "confidence": 0.5},
-                    created_at=datetime.datetime(2024, 6, 22, 1, 0, 0),
+                    created_at=datetime.datetime(
+                        2024, 6, 22, 1, 0, 0, tzinfo=datetime.timezone.utc
+                    ),
                 )
             )
             session.execute(
@@ -52,7 +62,9 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
                     domain="face_recognition",
                     snapshot_path="test",
                     data={"label": "test", "confidence": 0.5},
-                    created_at=datetime.datetime(2024, 6, 22, 23, 0, 0),
+                    created_at=datetime.datetime(
+                        2024, 6, 22, 23, 0, 0, tzinfo=datetime.timezone.utc
+                    ),
                 )
             )
             session.commit()
@@ -83,7 +95,10 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
     def test_get_events_utc_offset_negative(self):
         """Test getting events with utc offset."""
         response = self.fetch(
-            "/api/v1/events/test?date=2024-06-22&utc_offset_minutes=-120"
+            "/api/v1/events/test?date=2024-06-22",
+            headers={
+                "X-Client-UTC-Offset": "-120",
+            },
         )
         assert response.code == 200
 
@@ -97,7 +112,10 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
     def test_get_events_utc_offset_positive(self):
         """Test getting events with utc offset."""
         response = self.fetch(
-            "/api/v1/events/test?date=2024-06-22&utc_offset_minutes=120"
+            "/api/v1/events/test?date=2024-06-22",
+            headers={
+                "X-Client-UTC-Offset": "120",
+            },
         )
         assert response.code == 200
 
@@ -112,7 +130,12 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
 
     def test_get_events_amount(self):
         """Test getting events with amount."""
-        response = self.fetch("/api/v1/events/test/amount?utc_offset_minutes=0")
+        response = self.fetch(
+            "/api/v1/events/test/amount",
+            headers={
+                "X-Client-UTC-Offset": "0",
+            },
+        )
 
         assert response.code == 200
 
@@ -122,7 +145,12 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
 
     def test_get_events_amount_utc_offset_negative(self):
         """Test getting events with amount and utc offset."""
-        response = self.fetch("/api/v1/events/test/amount?utc_offset_minutes=-120")
+        response = self.fetch(
+            "/api/v1/events/test/amount",
+            headers={
+                "X-Client-UTC-Offset": "-120",
+            },
+        )
 
         assert response.code == 200
 
@@ -134,7 +162,9 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
 
     def test_get_events_amount_utc_offset_positive(self):
         """Test getting events with amount and utc offset."""
-        response = self.fetch("/api/v1/events/test/amount?utc_offset_minutes=1320")
+        response = self.fetch(
+            "/api/v1/events/test/amount", headers={"X-Client-UTC-Offset": "1320"}
+        )
 
         assert response.code == 200
 

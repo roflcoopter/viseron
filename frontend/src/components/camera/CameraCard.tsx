@@ -2,6 +2,7 @@ import Image from "@jy95/material-ui-image";
 import ImageSearchIcon from "@mui/icons-material/ImageSearch";
 import LiveTvIcon from "@mui/icons-material/LiveTv";
 import VideoFileIcon from "@mui/icons-material/VideoFile";
+import ViewTimelineIcon from "@mui/icons-material/ViewTimeline";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
@@ -111,20 +112,14 @@ const SuccessCameraCard = ({
 
   useEffect(() => {
     // If element is on screen and browser is visible, start interval to fetch images
-    if (
-      onScreen &&
-      isVisible &&
-      connected &&
-      camera.connected &&
-      camera.is_on
-    ) {
+    if (onScreen && isVisible && connected && camera.still_image.available) {
       updateImage();
       updateSnapshot.current = setInterval(
         () => {
           updateImage();
         },
-        camera.still_image_refresh_interval
-          ? camera.still_image_refresh_interval * 1000
+        camera.still_image.refresh_interval
+          ? camera.still_image.refresh_interval * 1000
           : 10000,
       );
       // If element is hidden or browser loses focus, stop updating images
@@ -142,9 +137,8 @@ const SuccessCameraCard = ({
     isVisible,
     onScreen,
     connected,
-    camera.connected,
-    camera.is_on,
-    camera.still_image_refresh_interval,
+    camera.still_image.available,
+    camera.still_image.refresh_interval,
   ]);
 
   return (
@@ -156,14 +150,17 @@ const SuccessCameraCard = ({
     >
       <Card
         variant="outlined"
-        sx={{
-          // Vertically space items evenly to accommodate different aspect ratios
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          ...(compact ? { position: "relative" } : { height: "100%" }),
-          ...(border ? { border } : null),
-        }}
+        sx={[
+          {
+            // Vertically space items evenly to accommodate different aspect ratios
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            height: "100%",
+          },
+          compact ? { position: "relative" } : null,
+          border ? { border } : null,
+        ]}
       >
         {compact ? (
           <CameraNameOverlay camera_identifier={camera.identifier} />
@@ -188,7 +185,7 @@ const SuccessCameraCard = ({
               disableSpinner={snapshotURL.disableSpinner}
               disableTransition={snapshotURL.disableTransition}
               animationDuration={1000}
-              aspectRatio={camera.width / camera.height}
+              aspectRatio={camera.still_image.width / camera.still_image.height}
               color={theme.palette.background.default}
               onLoad={() => {
                 setSnapshotURL((prevSnapshotURL) => ({
@@ -199,7 +196,7 @@ const SuccessCameraCard = ({
                 }));
               }}
               errorIcon={
-                camera.connected && camera.is_on
+                camera.still_image.available
                   ? Image.defaultProps!.loading
                   : null
               }
@@ -225,7 +222,14 @@ const SuccessCameraCard = ({
                   <ImageSearchIcon />
                 </IconButton>
               </Tooltip>
-
+              <Tooltip title="Timeline">
+                <IconButton
+                  component={Link}
+                  to={`/events?camera=${camera.identifier}&tab=timeline`}
+                >
+                  <ViewTimelineIcon />
+                </IconButton>
+              </Tooltip>
               <Tooltip title="Recordings">
                 <IconButton
                   component={Link}
@@ -250,7 +254,6 @@ const SuccessCameraCard = ({
     </div>
   );
 };
-
 export const CameraCard = ({
   camera_identifier,
   buttons = true,
@@ -262,11 +265,9 @@ export const CameraCard = ({
   const cameraQuery = useCamera(camera_identifier, true, {
     enabled: connected,
   });
-
   if (!cameraQuery.data) {
     return null;
   }
-
   if (cameraQuery.data.failed) {
     return (
       <FailedCameraCard

@@ -72,7 +72,9 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
                     self.redirect(f"/files{redirect_path}", permanent=True)
                     return
 
-                if not os.path.exists(os.path.join(self.root, path)):
+                if not await self.run_in_executor(
+                    os.path.exists, os.path.join(self.root, path)
+                ):
                     await asyncio.sleep(0.1)
                     continue
                 break

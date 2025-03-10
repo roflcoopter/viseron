@@ -1,9 +1,10 @@
-import { UseQueryOptions, useQuery } from "@tanstack/react-query";
-import { useContext, useEffect } from "react";
+import { UseQueryOptions, useMutation, useQuery } from "@tanstack/react-query";
 
-import { ViseronContext } from "context/ViseronContext";
-import queryClient, { viseronAPI } from "lib/api/client";
-import { subscribeRecordingStart, subscribeRecordingStop } from "lib/commands";
+import { useToast } from "hooks/UseToast";
+import queryClient, {
+  useInvalidateQueryOnEvent,
+  viseronAPI,
+} from "lib/api/client";
 import * as types from "lib/types";
 
 type RecordingsVariables = {
@@ -12,9 +13,9 @@ type RecordingsVariables = {
   latest?: boolean;
   daily?: boolean;
   failed?: boolean;
-  configOptions?: UseQueryOptions<
-    types.RecordingsCamera,
-    types.APIErrorResponse
+  configOptions?: Omit<
+    UseQueryOptions<types.RecordingsCamera, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
   >;
 };
 async function recordings({
@@ -45,43 +46,16 @@ export const useRecordings = ({
   failed,
   configOptions,
 }: RecordingsVariables) => {
-  const { connection } = useContext(ViseronContext);
-
-  useEffect(() => {
-    const unsub: Array<() => void> = [];
-    if (connection && camera_identifier) {
-      const invalidate = (
-        recordingEvent: types.EventRecorderStart | types.EventRecorderStop,
-      ) => {
-        queryClient.invalidateQueries([
-          "recordings",
-          recordingEvent.data.camera.identifier,
-        ]);
-      };
-
-      const subscribe = async () => {
-        unsub.push(
-          await subscribeRecordingStart(
-            connection,
-            invalidate,
-            camera_identifier,
-          ),
-        );
-        unsub.push(
-          await subscribeRecordingStop(
-            connection,
-            invalidate,
-            camera_identifier,
-          ),
-        );
-      };
-      subscribe();
-    }
-    return () => {
-      unsub.forEach((u) => u());
-      unsub.length = 0; // clear array
-    };
-  }, [camera_identifier, connection]);
+  useInvalidateQueryOnEvent([
+    {
+      event: `${camera_identifier}/recorder/start`,
+      queryKey: ["recordings", camera_identifier],
+    },
+    {
+      event: `${camera_identifier}/recorder/stop`,
+      queryKey: ["recordings", camera_identifier],
+    },
+  ]);
 
   if (camera_identifier === null && configOptions?.enabled) {
     throw new Error(
@@ -89,9 +63,58 @@ export const useRecordings = ({
     );
   }
 
-  return useQuery<types.RecordingsCamera, types.APIErrorResponse>(
-    ["recordings", camera_identifier, date, latest, daily, failed],
-    async () => recordings({ camera_identifier, date, latest, daily, failed }),
-    configOptions,
+  return useQuery({
+    queryKey: ["recordings", camera_identifier, date, latest, daily, failed],
+    queryFn: async () =>
+      recordings({ camera_identifier, date, latest, daily, failed }),
+    ...configOptions,
+  });
+};
+
+type DeleteRecordingParams = {
+  identifier: string;
+  date?: string;
+  recording_id?: number;
+  failed?: boolean;
+};
+
+async function deleteRecording({
+  identifier,
+  date,
+  recording_id,
+  failed,
+}: DeleteRecordingParams) {
+  const url = `/recordings/${identifier}${date ? `/${date}` : ""}${
+    recording_id ? `/${recording_id}` : ""
+  }`;
+
+  const response = await viseronAPI.delete(
+    url,
+    failed ? { params: { failed: true } } : undefined,
   );
+  return response.data;
+}
+
+export const useDeleteRecording = () => {
+  const toast = useToast();
+  return useMutation<
+    types.APISuccessResponse,
+    types.APIErrorResponse,
+    DeleteRecordingParams
+  >({
+    mutationFn: deleteRecording,
+    onSuccess: async (_data, variables, _context) => {
+      toast.success("Recording deleted successfully");
+      await queryClient.invalidateQueries({
+        queryKey: ["recordings", variables.identifier],
+      });
+    },
+    onError: async (error, _variables, _context) => {
+      toast.error(
+        error.response && error.response.data.error
+          ? `Error deleting recording: ${error.response.data.error}`
+          : `An error occurred: ${error.message}`,
+      );
+    },
+  });
 };

@@ -7,10 +7,11 @@ import multiprocessing as mp
 import os
 import pwd
 from abc import ABC, abstractmethod
-from queue import Queue
+from queue import Empty, Queue
 from typing import Any
 
 import cv2
+import numpy as np
 import voluptuous as vol
 
 from viseron import Viseron
@@ -272,7 +273,7 @@ class DarknetDNN(BaseDarknet, SubProcessWorker):
             stderr=self._log_pipe,
         )
 
-    def preprocess(self, frame):
+    def preprocess(self, frame) -> np.ndarray:
         """Pre process frame before detection."""
         return cv2.resize(
             frame,
@@ -421,11 +422,17 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
         """Put result into queue."""
         pop_if_full(self._result_queues[item["camera_identifier"]], item)
 
-    def preprocess(self, frame):
+    def preprocess(self, frame) -> bytes:
         """Pre process frame before detection."""
         return letterbox_resize(frame, self.model_width, self.model_height).tobytes()
 
-    def detect(self, frame, camera_identifier, result_queue, min_confidence):
+    def detect(
+        self,
+        frame: np.ndarray,
+        camera_identifier: str,
+        result_queue,
+        min_confidence: float,
+    ):
         """Perform detection."""
         self._result_queues[camera_identifier] = result_queue
         pop_if_full(
@@ -436,7 +443,10 @@ class DarknetNative(BaseDarknet, ChildProcessWorker):
                 "min_confidence": min_confidence,
             },
         )
-        item = result_queue.get()
+        try:
+            item = result_queue.get(timeout=3)
+        except Empty:
+            return None
         return item["result"]
 
     def post_process(self, detections, camera_resolution):

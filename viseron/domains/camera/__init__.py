@@ -9,30 +9,26 @@ from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
 from threading import Event, Timer
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 import cv2
 import imutils
-import voluptuous as vol
 from sqlalchemy import or_, select
+from typing_extensions import assert_never
 
 from viseron.components import DomainToSetup
 from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
-from viseron.components.storage.config import TIER_SCHEMA_BASE, TIER_SCHEMA_RECORDER
+from viseron.components.storage.config import validate_tiers
 from viseron.components.storage.const import (
     COMPONENT as STORAGE_COMPONENT,
-    CONFIG_CONTINUOUS,
-    CONFIG_EVENTS,
-    CONFIG_TIERS,
-    DEFAULT_CONTINUOUS,
-    DEFAULT_EVENTS,
-    DESC_CONTINUOUS,
-    DESC_EVENTS,
-    DESC_RECORDER_TIERS,
+    TIER_CATEGORY_RECORDER,
+    TIER_CATEGORY_SNAPSHOTS,
+    TIER_SUBCATEGORY_SEGMENTS,
+    TIER_SUBCATEGORY_THUMBNAILS,
 )
 from viseron.components.storage.models import Files
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
@@ -51,115 +47,31 @@ from viseron.helpers import (
     zoom_boundingbox,
 )
 from viseron.helpers.logs import SensitiveInformationFilter
-from viseron.helpers.validators import CoerceNoneToDict, Deprecated, Maybe, Slug
+from viseron.types import SnapshotDomain
 
 from .const import (
-    AUTHENTICATION_BASIC,
-    AUTHENTICATION_DIGEST,
-    CONFIG_AUTHENTICATION,
-    CONFIG_CREATE_EVENT_CLIP,
-    CONFIG_EXTENSION,
-    CONFIG_FILENAME_PATTERN,
-    CONFIG_FOLDER,
-    CONFIG_IDLE_TIMEOUT,
-    CONFIG_LOOKBACK,
-    CONFIG_MAX_RECORDING_TIME,
-    CONFIG_MJPEG_DRAW_MOTION,
-    CONFIG_MJPEG_DRAW_MOTION_MASK,
-    CONFIG_MJPEG_DRAW_OBJECT_MASK,
-    CONFIG_MJPEG_DRAW_OBJECTS,
-    CONFIG_MJPEG_DRAW_ZONES,
-    CONFIG_MJPEG_HEIGHT,
-    CONFIG_MJPEG_MIRROR,
-    CONFIG_MJPEG_ROTATE,
     CONFIG_MJPEG_STREAMS,
-    CONFIG_MJPEG_WIDTH,
     CONFIG_NAME,
     CONFIG_PASSWORD,
-    CONFIG_RECORDER,
     CONFIG_REFRESH_INTERVAL,
-    CONFIG_RETAIN,
-    CONFIG_SAVE_TO_DISK,
     CONFIG_STILL_IMAGE,
+    CONFIG_STILL_IMAGE_HEIGHT,
+    CONFIG_STILL_IMAGE_WIDTH,
     CONFIG_STORAGE,
-    CONFIG_THUMBNAIL,
     CONFIG_URL,
-    CONFIG_USERNAME,
-    DEFAULT_AUTHENTICATION,
-    DEFAULT_CREATE_EVENT_CLIP,
-    DEFAULT_FILENAME_PATTERN,
-    DEFAULT_IDLE_TIMEOUT,
-    DEFAULT_LOOKBACK,
-    DEFAULT_MAX_RECORDING_TIME,
-    DEFAULT_MJPEG_DRAW_MOTION,
-    DEFAULT_MJPEG_DRAW_MOTION_MASK,
-    DEFAULT_MJPEG_DRAW_OBJECT_MASK,
-    DEFAULT_MJPEG_DRAW_OBJECTS,
-    DEFAULT_MJPEG_DRAW_ZONES,
-    DEFAULT_MJPEG_HEIGHT,
-    DEFAULT_MJPEG_MIRROR,
-    DEFAULT_MJPEG_ROTATE,
-    DEFAULT_MJPEG_STREAMS,
-    DEFAULT_MJPEG_WIDTH,
-    DEFAULT_NAME,
-    DEFAULT_PASSWORD,
-    DEFAULT_RECORDER,
-    DEFAULT_REFRESH_INTERVAL,
-    DEFAULT_SAVE_TO_DISK,
-    DEFAULT_STILL_IMAGE,
-    DEFAULT_STORAGE,
-    DEFAULT_THUMBNAIL,
-    DEFAULT_URL,
-    DEFAULT_USERNAME,
-    DEPRECATED_EXTENSION,
-    DEPRECATED_FILENAME_PATTERN_THUMBNAIL,
-    DEPRECATED_FOLDER,
-    DEPRECATED_RETAIN,
-    DESC_AUTHENTICATION,
-    DESC_CREATE_EVENT_CLIP,
-    DESC_EXTENSION,
-    DESC_FILENAME_PATTERN,
-    DESC_FILENAME_PATTERN_THUMBNAIL,
-    DESC_FOLDER,
-    DESC_IDLE_TIMEOUT,
-    DESC_LOOKBACK,
-    DESC_MAX_RECORDING_TIME,
-    DESC_MJPEG_DRAW_MOTION,
-    DESC_MJPEG_DRAW_MOTION_MASK,
-    DESC_MJPEG_DRAW_OBJECT_MASK,
-    DESC_MJPEG_DRAW_OBJECTS,
-    DESC_MJPEG_DRAW_ZONES,
-    DESC_MJPEG_HEIGHT,
-    DESC_MJPEG_MIRROR,
-    DESC_MJPEG_ROTATE,
-    DESC_MJPEG_STREAM,
-    DESC_MJPEG_STREAMS,
-    DESC_MJPEG_WIDTH,
-    DESC_NAME,
-    DESC_PASSWORD,
-    DESC_RECORDER,
-    DESC_REFRESH_INTERVAL,
-    DESC_RETAIN,
-    DESC_SAVE_TO_DISK,
-    DESC_STILL_IMAGE,
-    DESC_STORAGE,
-    DESC_THUMBNAIL,
-    DESC_URL,
-    DESC_USERNAME,
     EVENT_CAMERA_STARTED,
+    EVENT_CAMERA_STATUS,
+    EVENT_CAMERA_STATUS_CONNECTED,
+    EVENT_CAMERA_STATUS_DISCONNECTED,
+    EVENT_CAMERA_STILL_IMAGE_AVAILABLE,
     EVENT_CAMERA_STOPPED,
-    EVENT_STATUS,
-    EVENT_STATUS_CONNECTED,
-    EVENT_STATUS_DISCONNECTED,
-    INCLUSION_GROUP_AUTHENTICATION,
     UPDATE_TOKEN_INTERVAL_MINUTES,
     VIDEO_CONTAINER,
-    WARNING_EXTENSION,
-    WARNING_FILENAME_PATTERN_THUMBNAIL,
-    WARNING_FOLDER,
-    WARNING_RETAIN,
 )
-from .entity.binary_sensor import ConnectionStatusBinarySensor
+from .entity.binary_sensor import (
+    ConnectionStatusBinarySensor,
+    StillImageAvailableBinarySensor,
+)
 from .entity.toggle import CameraConnectionToggle
 from .shared_frames import SharedFrames
 
@@ -175,208 +87,21 @@ if TYPE_CHECKING:
     from .shared_frames import SharedFrame
 
 
-MJPEG_STREAM_SCHEMA = vol.Schema(
-    {
-        vol.Optional(
-            CONFIG_MJPEG_WIDTH,
-            default=DEFAULT_MJPEG_WIDTH,
-            description=DESC_MJPEG_WIDTH,
-        ): vol.Coerce(int),
-        vol.Optional(
-            CONFIG_MJPEG_HEIGHT,
-            default=DEFAULT_MJPEG_HEIGHT,
-            description=DESC_MJPEG_HEIGHT,
-        ): vol.Coerce(int),
-        vol.Optional(
-            CONFIG_MJPEG_DRAW_OBJECTS,
-            default=DEFAULT_MJPEG_DRAW_OBJECTS,
-            description=DESC_MJPEG_DRAW_OBJECTS,
-        ): vol.Coerce(bool),
-        vol.Optional(
-            CONFIG_MJPEG_DRAW_MOTION,
-            default=DEFAULT_MJPEG_DRAW_MOTION,
-            description=DESC_MJPEG_DRAW_MOTION,
-        ): vol.Coerce(bool),
-        vol.Optional(
-            CONFIG_MJPEG_DRAW_MOTION_MASK,
-            default=DEFAULT_MJPEG_DRAW_MOTION_MASK,
-            description=DESC_MJPEG_DRAW_MOTION_MASK,
-        ): vol.Coerce(bool),
-        vol.Optional(
-            CONFIG_MJPEG_DRAW_OBJECT_MASK,
-            default=DEFAULT_MJPEG_DRAW_OBJECT_MASK,
-            description=DESC_MJPEG_DRAW_OBJECT_MASK,
-        ): vol.Coerce(bool),
-        vol.Optional(
-            CONFIG_MJPEG_DRAW_ZONES,
-            default=DEFAULT_MJPEG_DRAW_ZONES,
-            description=DESC_MJPEG_DRAW_ZONES,
-        ): vol.Coerce(bool),
-        vol.Optional(
-            CONFIG_MJPEG_ROTATE,
-            default=DEFAULT_MJPEG_ROTATE,
-            description=DESC_MJPEG_ROTATE,
-        ): vol.Coerce(int),
-        vol.Optional(
-            CONFIG_MJPEG_MIRROR,
-            default=DEFAULT_MJPEG_MIRROR,
-            description=DESC_MJPEG_MIRROR,
-        ): vol.Coerce(bool),
-    }
-)
-
-THUMBNAIL_SCHEMA = vol.Schema(
-    {
-        vol.Optional(
-            CONFIG_SAVE_TO_DISK,
-            default=DEFAULT_SAVE_TO_DISK,
-            description=DESC_SAVE_TO_DISK,
-        ): bool,
-        Deprecated(
-            CONFIG_FILENAME_PATTERN,
-            description=DESC_FILENAME_PATTERN_THUMBNAIL,
-            message=DEPRECATED_FILENAME_PATTERN_THUMBNAIL,
-            warning=WARNING_FILENAME_PATTERN_THUMBNAIL,
-        ): str,
-    }
-)
-
-
-RECORDER_SCHEMA = vol.Schema(
-    {
-        vol.Optional(
-            CONFIG_LOOKBACK, default=DEFAULT_LOOKBACK, description=DESC_LOOKBACK
-        ): vol.All(int, vol.Range(min=0)),
-        vol.Optional(
-            CONFIG_IDLE_TIMEOUT,
-            default=DEFAULT_IDLE_TIMEOUT,
-            description=DESC_IDLE_TIMEOUT,
-        ): vol.All(int, vol.Range(min=0)),
-        vol.Optional(
-            CONFIG_MAX_RECORDING_TIME,
-            default=DEFAULT_MAX_RECORDING_TIME,
-            description=DESC_MAX_RECORDING_TIME,
-        ): vol.All(int, vol.Range(min=0)),
-        Deprecated(
-            CONFIG_RETAIN,
-            description=DESC_RETAIN,
-            message=DEPRECATED_RETAIN,
-            warning=WARNING_RETAIN,
-        ): vol.All(int, vol.Range(min=1)),
-        Deprecated(
-            CONFIG_FOLDER,
-            description=DESC_FOLDER,
-            message=DEPRECATED_FOLDER,
-            warning=WARNING_FOLDER,
-        ): str,
-        vol.Optional(
-            CONFIG_FILENAME_PATTERN,
-            default=DEFAULT_FILENAME_PATTERN,
-            description=DESC_FILENAME_PATTERN,
-        ): str,
-        Deprecated(
-            CONFIG_EXTENSION,
-            description=DESC_EXTENSION,
-            message=DEPRECATED_EXTENSION,
-            warning=WARNING_EXTENSION,
-        ): str,
-        vol.Optional(
-            CONFIG_THUMBNAIL, default=DEFAULT_THUMBNAIL, description=DESC_THUMBNAIL
-        ): vol.All(CoerceNoneToDict(), THUMBNAIL_SCHEMA),
-        vol.Optional(
-            CONFIG_STORAGE,
-            default=DEFAULT_STORAGE,
-            description=DESC_STORAGE,
-        ): Maybe(
-            {
-                vol.Required(CONFIG_TIERS, description=DESC_RECORDER_TIERS,): vol.All(
-                    [TIER_SCHEMA_RECORDER],
-                    vol.Length(min=1),
-                )
-            },
-        ),
-        vol.Optional(
-            CONFIG_CONTINUOUS,
-            default=DEFAULT_CONTINUOUS,
-            description=DESC_CONTINUOUS,
-        ): Maybe(TIER_SCHEMA_BASE),
-        vol.Optional(
-            CONFIG_EVENTS,
-            default=DEFAULT_EVENTS,
-            description=DESC_EVENTS,
-        ): Maybe(TIER_SCHEMA_BASE),
-        vol.Optional(
-            CONFIG_CREATE_EVENT_CLIP,
-            default=DEFAULT_CREATE_EVENT_CLIP,
-            description=DESC_CREATE_EVENT_CLIP,
-        ): bool,
-    }
-)
-
-STILL_IMAGE_SCHEMA = vol.Schema(
-    {
-        vol.Optional(
-            CONFIG_URL,
-            default=DEFAULT_URL,
-            description=DESC_URL,
-        ): Maybe(str),
-        vol.Inclusive(
-            CONFIG_USERNAME,
-            INCLUSION_GROUP_AUTHENTICATION,
-            default=DEFAULT_USERNAME,
-            description=DESC_USERNAME,
-        ): Maybe(str),
-        vol.Inclusive(
-            CONFIG_PASSWORD,
-            INCLUSION_GROUP_AUTHENTICATION,
-            default=DEFAULT_PASSWORD,
-            description=DESC_PASSWORD,
-        ): Maybe(str),
-        vol.Optional(
-            CONFIG_AUTHENTICATION,
-            default=DEFAULT_AUTHENTICATION,
-            description=DESC_AUTHENTICATION,
-        ): Maybe(vol.In([AUTHENTICATION_BASIC, AUTHENTICATION_DIGEST])),
-        vol.Optional(
-            CONFIG_REFRESH_INTERVAL,
-            default=DEFAULT_REFRESH_INTERVAL,
-            description=DESC_REFRESH_INTERVAL,
-        ): vol.All(int, vol.Range(min=1)),
-    }
-)
-
-BASE_CONFIG_SCHEMA = vol.Schema(
-    {
-        vol.Optional(CONFIG_NAME, default=DEFAULT_NAME, description=DESC_NAME): vol.All(
-            str, vol.Length(min=1)
-        ),
-        vol.Optional(
-            CONFIG_MJPEG_STREAMS,
-            default=DEFAULT_MJPEG_STREAMS,
-            description=DESC_MJPEG_STREAMS,
-        ): vol.All(
-            CoerceNoneToDict(),
-            {Slug(description=DESC_MJPEG_STREAM): MJPEG_STREAM_SCHEMA},
-        ),
-        vol.Optional(
-            CONFIG_RECORDER, default=DEFAULT_RECORDER, description=DESC_RECORDER
-        ): vol.All(CoerceNoneToDict(), RECORDER_SCHEMA),
-        vol.Optional(
-            CONFIG_STILL_IMAGE,
-            default=DEFAULT_STILL_IMAGE,
-            description=DESC_STILL_IMAGE,
-        ): vol.All(CoerceNoneToDict(), STILL_IMAGE_SCHEMA),
-    }
-)
-
 LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class EventStatusData(EventData):
+class EventCameraStatusData(EventData):
     """Hold information on camera status event."""
 
     status: str
+
+
+@dataclass
+class EventCameraStillImageAvailable(EventData):
+    """Hold information on camera still image available event."""
+
+    available: bool
 
 
 DATA_FRAME_BYTES_TOPIC = "{camera_identifier}/camera/frame_bytes"
@@ -392,8 +117,13 @@ class AbstractCamera(ABC):
 
         self._logger = logging.getLogger(f"{self.__module__}.{self.identifier}")
 
+        if self._config[CONFIG_STORAGE]:
+            validate_tiers(self._config)
+
         self._connected: bool = False
+        self._still_image_available: bool = False
         self.stopped = Event()
+        self.stopped.set()
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self.current_frame: SharedFrame | None = None
         self.shared_frames = SharedFrames(vis)
@@ -405,6 +135,7 @@ class AbstractCamera(ABC):
 
         self._clear_cache_timer: Timer | None = None
         vis.add_entity(component, ConnectionStatusBinarySensor(vis, self))
+        vis.add_entity(component, StillImageAvailableBinarySensor(vis, self))
         vis.add_entity(component, CameraConnectionToggle(vis, self))
         self._access_token_entity = vis.add_entity(
             component, CamerAccessTokenSensor(vis, self)
@@ -416,21 +147,21 @@ class AbstractCamera(ABC):
         )
 
         self._storage: Storage = vis.data[STORAGE_COMPONENT]
-        self.recordings_folder: str = self._storage.get_recordings_path(self)
+        self.event_clips_folder: str = self._storage.get_event_clips_path(self)
         self.segments_folder: str = self._storage.get_segments_path(self)
         self.thumbnails_folder: str = self._storage.get_thumbnails_path(self)
         self.temp_segments_folder: str = TEMP_DIR + self.segments_folder
         self.snapshots_object_folder: str = self._storage.get_snapshots_path(
-            self, "object_detector"
+            self, SnapshotDomain.OBJECT_DETECTOR
         )
         self.snapshots_face_folder: str = self._storage.get_snapshots_path(
-            self, "face_recognition"
+            self, SnapshotDomain.FACE_RECOGNITION
         )
         self.snapshots_license_plate_folder: str = self._storage.get_snapshots_path(
-            self, "license_plate_recognition"
+            self, SnapshotDomain.LICENSE_PLATE_RECOGNITION
         )
         self.snapshots_motion_folder: str = self._storage.get_snapshots_path(
-            self, "motion_detector"
+            self, SnapshotDomain.MOTION_DETECTOR
         )
 
         self.fragmenter: Fragmenter = Fragmenter(vis, self)
@@ -442,6 +173,10 @@ class AbstractCamera(ABC):
                 escape_string(self._config[CONFIG_PASSWORD])
             )
 
+        if self.still_image_configured:
+            self._logger.debug("Still image is configured, setting availability.")
+            self.still_image_available = True
+
     def as_dict(self) -> dict[str, Any]:
         """Return camera information as dict."""
         return {
@@ -450,7 +185,12 @@ class AbstractCamera(ABC):
             "width": self.resolution[0],
             "height": self.resolution[1],
             "access_token": self.access_token,
-            "still_image_refresh_interval": self.still_image[CONFIG_REFRESH_INTERVAL],
+            "still_image": {
+                "refresh_interval": self.still_image[CONFIG_REFRESH_INTERVAL],
+                "available": self.still_image_available,
+                "width": self.still_image_width,
+                "height": self.still_image_height,
+            },
             "is_on": self.is_on,
             "connected": self.connected,
         }
@@ -497,6 +237,7 @@ class AbstractCamera(ABC):
     def stop_camera(self):
         """Stop camera streaming."""
         self._stop_camera()
+        self.still_image_available = self.still_image_configured
         self.stopped.set()
         self._vis.dispatch_event(
             EVENT_CAMERA_STOPPED.format(camera_identifier=self.identifier),
@@ -546,11 +287,6 @@ class AbstractCamera(ABC):
         return self.access_tokens[-1]
 
     @property
-    def still_image(self) -> dict[str, Any]:
-        """Return still image config."""
-        return self._config[CONFIG_STILL_IMAGE]
-
-    @property
     @abstractmethod
     def output_fps(self):
         """Return stream output fps."""
@@ -580,7 +316,6 @@ class AbstractCamera(ABC):
         """Return recording status."""
 
     @property
-    @abstractmethod
     def is_on(self):
         """Return if camera is on.
 
@@ -588,6 +323,7 @@ class AbstractCamera(ABC):
         A camera can be on (or armed) while still being disconnected, eg during
         network outages.
         """
+        return not self.stopped.is_set()
 
     @property
     def connected(self) -> bool:
@@ -601,12 +337,55 @@ class AbstractCamera(ABC):
 
         self._connected = connected
         self._vis.dispatch_event(
-            EVENT_STATUS.format(camera_identifier=self.identifier),
-            EventStatusData(
-                status=EVENT_STATUS_CONNECTED
+            EVENT_CAMERA_STATUS.format(camera_identifier=self.identifier),
+            EventCameraStatusData(
+                status=EVENT_CAMERA_STATUS_CONNECTED
                 if connected
-                else EVENT_STATUS_DISCONNECTED
+                else EVENT_CAMERA_STATUS_DISCONNECTED
             ),
+        )
+
+    @property
+    def still_image(self) -> dict[str, Any]:
+        """Return still image config."""
+        return self._config[CONFIG_STILL_IMAGE]
+
+    @property
+    def still_image_configured(self) -> bool:
+        """Return if still image is configured."""
+        return bool(self._config[CONFIG_STILL_IMAGE][CONFIG_URL])
+
+    @property
+    def still_image_width(self) -> int:
+        """Return still image width."""
+        if self.still_image[CONFIG_STILL_IMAGE_WIDTH]:
+            return self.still_image[CONFIG_STILL_IMAGE_WIDTH]
+        return self.resolution[0]
+
+    @property
+    def still_image_height(self) -> int:
+        """Return still image height."""
+        if self.still_image[CONFIG_STILL_IMAGE_HEIGHT]:
+            return self.still_image[CONFIG_STILL_IMAGE_HEIGHT]
+        return self.resolution[1]
+
+    @property
+    def still_image_available(self) -> bool:
+        """Return if still image is available."""
+        return self._still_image_available
+
+    @still_image_available.setter
+    def still_image_available(self, available: bool) -> None:
+        """Set still image availability."""
+        if available == self._still_image_available:
+            return
+
+        self._still_image_available = available
+        self._vis.dispatch_event(
+            EVENT_CAMERA_STILL_IMAGE_AVAILABLE.format(
+                camera_identifier=self.identifier
+            ),
+            EventCameraStillImageAvailable(available=available),
         )
 
     @property
@@ -659,13 +438,21 @@ class AbstractCamera(ABC):
             return ret, jpg.tobytes()
         return ret, False
 
+    def _get_folder(self, domain: SnapshotDomain) -> str:
+        if domain is SnapshotDomain.OBJECT_DETECTOR:
+            return self.snapshots_object_folder
+        if domain is SnapshotDomain.FACE_RECOGNITION:
+            return self.snapshots_face_folder
+        if domain is SnapshotDomain.LICENSE_PLATE_RECOGNITION:
+            return self.snapshots_license_plate_folder
+        if domain == SnapshotDomain.MOTION_DETECTOR:
+            return self.snapshots_motion_folder
+        assert_never(domain)
+
     def save_snapshot(
         self,
         shared_frame: SharedFrame,
-        domain: Literal["object_detector"]
-        | Literal["face_recognition"]
-        | Literal["license_plate_recognition"]
-        | Literal["motion_detector"],
+        domain: SnapshotDomain,
         zoom_coordinates: tuple[float, float, float, float] | None = None,
         detected_object: DetectedObject | None = None,
         bbox: tuple[float, float, float, float] | None = None,
@@ -692,16 +479,7 @@ class AbstractCamera(ABC):
                 crop_correction_factor=1.2,
             )
 
-        if domain == "object_detector":
-            folder = self.snapshots_object_folder
-        elif domain == "face_recognition":
-            folder = self.snapshots_face_folder
-        elif domain == "license_plate_recognition":
-            folder = self.snapshots_license_plate_folder
-        elif domain == "motion_detector":
-            folder = self.snapshots_motion_folder
-        else:
-            raise ValueError(f"Invalid domain {domain}")
+        folder = self._get_folder(domain)
 
         if subfolder:
             folder = os.path.join(folder, subfolder)
@@ -746,8 +524,8 @@ class FailedCamera:
                 select(Files)
                 .distinct(Files.directory)
                 .where(Files.camera_identifier == self.identifier)
-                .where(Files.category == "recorder")
-                .where(Files.subcategory == "segments")
+                .where(Files.category == TIER_CATEGORY_RECORDER)
+                .where(Files.subcategory == TIER_SUBCATEGORY_SEGMENTS)
                 .order_by(Files.directory, Files.created_at.desc())
             )
             for file in session.execute(recorder_dir_stmt).scalars():
@@ -757,8 +535,8 @@ class FailedCamera:
                     file.directory,
                     rf"{file.directory}/(.*.m4s$)",
                     self,
-                    "recorder",
-                    "segments",
+                    TIER_CATEGORY_RECORDER,
+                    TIER_SUBCATEGORY_SEGMENTS,
                 )
                 add_file_handler(
                     vis,
@@ -766,8 +544,8 @@ class FailedCamera:
                     file.directory,
                     rf"{file.directory}/(.*.mp4$)",
                     self,
-                    "recorder",
-                    "segments",
+                    TIER_CATEGORY_RECORDER,
+                    TIER_SUBCATEGORY_SEGMENTS,
                 )
 
         # Try to guess the path to the camera snapshots and thumbnails
@@ -778,8 +556,8 @@ class FailedCamera:
                 .where(Files.camera_identifier == self.identifier)
                 .where(
                     or_(
-                        Files.subcategory == "thumbnails",
-                        Files.subcategory == "snapshots",
+                        Files.category == TIER_CATEGORY_SNAPSHOTS,
+                        Files.subcategory == TIER_SUBCATEGORY_THUMBNAILS,
                     )
                 )
                 .order_by(Files.directory, Files.created_at.desc())

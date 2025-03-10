@@ -3,7 +3,7 @@
 from typing import Final
 
 COMPONENT = "compreface"
-
+SUBJECTS = "subjects"
 
 # CONFIG_SCHEMA constants
 CONFIG_FACE_RECOGNITION = "face_recognition"
@@ -25,6 +25,7 @@ CONFIG_LIMIT = "limit"
 CONFIG_PREDICTION_COUNT = "prediction_count"
 CONFIG_FACE_PLUGINS = "face_plugins"
 CONFIG_STATUS = "status"
+CONFIG_USE_SUBJECTS = "use_subjects"
 
 DEFAULT_TRAIN = False
 DEFAULT_DET_PROB_THRESHOLD = 0.8
@@ -33,6 +34,7 @@ DEFAULT_LIMIT = 0
 DEFAULT_PREDICTION_COUNT = 1
 DEFAULT_FACE_PLUGINS: Final = None
 DEFAULT_STATUS = False
+DEFAULT_USE_SUBJECTS = False
 
 DESC_TRAIN = (
     "Train CompreFace to recognize faces on Viseron start. "
@@ -64,4 +66,9 @@ DESC_FACE_PLUGINS = (
 )
 DESC_STATUS = (
     "If true includes system information like execution_time and plugin_version fields."
+)
+DESC_USE_SUBJECTS = (
+    "If true ignores the face_recognition folder structure and uses subjects "
+    "inside compreface. User can then call the api/v1/compreface/update_subjects "
+    "endpoint to update entities if new subjects are added into compreface."
 )

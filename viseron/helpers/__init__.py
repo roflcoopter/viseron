@@ -7,7 +7,9 @@ import logging
 import math
 import multiprocessing as mp
 import os
+import re
 import socket
+import time
 import tracemalloc
 import urllib.parse
 from queue import Full, Queue
@@ -29,7 +31,32 @@ LOGGER = logging.getLogger(__name__)
 
 def utcnow() -> datetime.datetime:
     """Return current UTC time."""
-    return datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc)
+    return datetime.datetime.now(tz=datetime.timezone.utc)
+
+
+def get_utc_offset() -> datetime.timedelta:
+    """Return the current UTC offset."""
+    return datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+
+
+def daterange_to_utc(
+    date: str, utc_offset: datetime.timedelta
+) -> tuple[datetime.datetime, datetime.datetime]:
+    """Convert date range to UTC.
+
+    The result is independent of the timezone of the server.
+    It is adjusted to the clients timezone by subtracting the utc_offset.
+    """
+    time_from = (
+        datetime.datetime.strptime(date, "%Y-%m-%d").replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=datetime.timezone.utc
+        )
+        - utc_offset
+    )
+    time_to = time_from + datetime.timedelta(
+        hours=23, minutes=59, seconds=59, microseconds=999999
+    )
+    return time_from, time_to
 
 
 def calculate_relative_contours(
@@ -374,6 +401,11 @@ def draw_object_mask(frame, mask_points) -> None:
     draw_mask("Object mask", frame, mask_points, color=(255, 255, 255))
 
 
+def apply_mask(frame: np.ndarray, mask_image) -> None:
+    """Apply mask to frame."""
+    frame[mask_image] = [0]
+
+
 def pop_if_full(
     queue: Queue | mp.Queue | tq.Queue,
     item: Any,
@@ -420,6 +452,22 @@ def generate_mask(coordinates):
     for mask_coordinates in coordinates:
         mask.append(generate_numpy_from_coordinates(mask_coordinates["coordinates"]))
     return mask
+
+
+def generate_mask_image(mask, resolution):
+    """Return an image with the mask drawn on it."""
+    mask_image = np.zeros(
+        (
+            resolution[0],
+            resolution[1],
+            3,
+        ),
+        np.uint8,
+    )
+    mask_image[:] = 255
+
+    cv2.fillPoly(mask_image, pts=mask, color=(0, 0, 0))
+    return np.where(mask_image[:, :, 0] == [0])
 
 
 def object_in_polygon(resolution, obj: DetectedObject, coordinates):
@@ -611,6 +659,46 @@ def get_free_port(port=1024, max_port=65535) -> int:
 def escape_string(string: str) -> str:
     """Escape special characters in a string."""
     return urllib.parse.quote(string, safe="")
+
+
+def parse_size_to_bytes(size_str: str) -> int:
+    """Convert human-readable size strings to bytes (e.g. '10mb' -> 10485760)."""
+
+    units = {
+        "tb": 1024**4,
+        "gb": 1024**3,
+        "mb": 1024**2,
+        "kb": 1024,
+        "b": 1,
+    }
+
+    size_str = str(size_str).strip().lower()
+
+    # If it's just a number, assume bytes
+    if size_str.isdigit():
+        return int(size_str)
+
+    # Extract number and unit
+    for unit in units:
+        if size_str.endswith(unit):
+            try:
+                number = float(size_str[: -len(unit)])
+                return int(number * units[unit])
+            except ValueError as err:
+                raise ValueError(f"Invalid size format: {size_str}") from err
+
+    raise ValueError(
+        f"Invalid size unit in {size_str}. Must be one of: {', '.join(units.keys())}"
+    )
+
+
+def get_image_files_in_folder(folder) -> list[str]:
+    """Return all files with JPG, JPEG or PNG extension."""
+    return [
+        os.path.join(folder, f)
+        for f in os.listdir(folder)
+        if re.match(r".*\.(jpg|jpeg|png)", f, flags=re.I)
+    ]
 
 
 def memory_usage_profiler(logger, key_type="lineno", limit=5) -> None:

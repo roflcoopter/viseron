@@ -6,6 +6,7 @@ built into domain setup.
 """
 from __future__ import annotations
 
+import datetime
 import logging
 import threading
 import time
@@ -31,6 +32,7 @@ from viseron.domains.object_detector.const import (
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import EventData
 from viseron.exceptions import DomainNotRegisteredError
+from viseron.helpers import utcnow
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -43,6 +45,7 @@ from .const import (
     NO_DETECTOR,
     NO_DETECTOR_FPS,
     OBJECT_DETECTOR,
+    SCANNER_RESULT_RETRIES,
 )
 from .sensor import OperationStateSensor
 
@@ -227,7 +230,8 @@ class NVR:
 
         self._trigger_type: TriggerTypes | None = None
         self._start_recorder = False
-        self._idle_frames = 0
+        self._stop_recorder_at: datetime.datetime | None = None
+        self._seconds_left = 0
         self._kill_received = False
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self._removal_timers: list[threading.Timer] = []
@@ -293,7 +297,7 @@ class NVR:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
                 self._frame_scanners[
                     MOTION_DETECTOR
-                ].scan = self._motion_detector.trigger_recorder
+                ].scan = self._motion_detector.trigger_event_recording
 
             case _ if self._object_detector:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
@@ -399,19 +403,20 @@ class NVR:
         self._frame_scanner_errors = []
         for name, frame_scanner in self._current_frame_scanners.items():
             frame_scanner.scan_error = False
-            try:
-                # Wait for scanner to return.
-                # We dont care about the result since its referenced directly
-                # from the scanner instead of storing it locally
-                frame_scanner.result_queue.get(
-                    timeout=3,
-                )
-            except Empty:  # Make sure we dont wait forever
-                if self._kill_received:
-                    return
-                self._logger.error(f"Failed to retrieve result for {name}")
-                frame_scanner.scan_error = True
-                self._frame_scanner_errors.append(name)
+            retry_count = 0
+            while retry_count < SCANNER_RESULT_RETRIES and not self._kill_received:
+                try:
+                    # Wait for scanner to return.
+                    # We dont care about the result since its referenced directly
+                    # from the scanner instead of storing it locally
+                    frame_scanner.result_queue.get(timeout=1)
+                    break
+                except Empty:  # Make sure we dont wait forever
+                    retry_count += 1
+                    if retry_count == SCANNER_RESULT_RETRIES:
+                        self._logger.error(f"Failed to retrieve result for {name}")
+                        frame_scanner.scan_error = True
+                        self._frame_scanner_errors.append(name)
 
     def event_over_check_motion(
         self, obj: DetectedObject, object_filters: dict[str, Filter]
@@ -432,7 +437,7 @@ class NVR:
         self, obj: DetectedObject, object_filters: dict[str, Filter]
     ) -> bool:
         """Check if object should stop the recorder."""
-        if obj.trigger_recorder:
+        if obj.trigger_event_recording:
             if self._motion_detector:
                 if not self.event_over_check_motion(obj, object_filters):
                     return False
@@ -487,13 +492,13 @@ class NVR:
             return False
         return True
 
-    def trigger_recorder(
+    def trigger_event_recording(
         self, obj: DetectedObject, object_filters: dict[str, Filter]
     ) -> bool:
         """Check if object should start the recorder."""
         # Discard object if it requires motion but motion is not detected
         if (
-            obj.trigger_recorder
+            obj.trigger_event_recording
             and object_filters.get(obj.label)
             and object_filters.get(obj.label).require_motion  # type: ignore[union-attr]
             and self._motion_detector
@@ -501,7 +506,7 @@ class NVR:
         ):
             return False
 
-        if obj.trigger_recorder:
+        if obj.trigger_event_recording:
             return True
 
         return False
@@ -526,14 +531,14 @@ class NVR:
             return
 
         for obj in self._object_detector.objects_in_fov:
-            if self.trigger_recorder(obj, self._object_detector.object_filters):
+            if self.trigger_event_recording(obj, self._object_detector.object_filters):
                 self._trigger_type = TriggerTypes.OBJECT
                 self._start_recorder = True
                 return
 
         for zone in self._object_detector.zones:
             for obj in zone.objects_in_zone:
-                if self.trigger_recorder(obj, zone.object_filters):
+                if self.trigger_event_recording(obj, zone.object_filters):
                     self._trigger_type = TriggerTypes.OBJECT
                     self._start_recorder = True
                     return
@@ -566,7 +571,10 @@ class NVR:
                 self._frame_scanners[OBJECT_DETECTOR].scan = True
                 self._logger.debug("Starting object detector")
 
-            if self._motion_detector.trigger_recorder and not self._camera.is_recording:
+            if (
+                self._motion_detector.trigger_event_recording
+                and not self._camera.is_recording
+            ):
                 self._trigger_type = TriggerTypes.MOTION
                 self._start_recorder = True
                 self._motion_only_frames = 0
@@ -586,7 +594,7 @@ class NVR:
         self, shared_frame: SharedFrame, trigger_type: TriggerTypes
     ) -> None:
         """Start recorder."""
-        self._idle_frames = 0
+        self._stop_recorder_at = None
         self._camera.start_recorder(
             shared_frame,
             self._object_detector.objects_in_fov if self._object_detector else None,
@@ -605,31 +613,33 @@ class NVR:
         """Stop recorder."""
 
         def _stop():
-            self._idle_frames = 0
+            self._stop_recorder_at = None
+            self._seconds_left = 0
             self._camera.stop_recorder()
 
         if force:
             _stop()
             return
 
-        if self._idle_frames % self._camera.output_fps == 0:
-            self._logger.info(
-                "Stopping recording in: {}".format(
-                    int(
-                        self._camera.recorder.idle_timeout
-                        - (self._idle_frames / self._camera.output_fps)
-                    )
-                )
+        if not self._stop_recorder_at:
+            self._stop_recorder_at = utcnow() + datetime.timedelta(
+                seconds=self._camera.recorder.idle_timeout
             )
 
-        if self._idle_frames >= (
-            self._camera.output_fps * self._camera.recorder.idle_timeout
-        ):
+        if self._stop_recorder_at:
+            seconds_left = max(
+                round((self._stop_recorder_at - utcnow()).total_seconds()), 0
+            )
+            if seconds_left != self._seconds_left:
+                self._logger.info(f"Stopping recording in: {seconds_left}s")
+                self._seconds_left = seconds_left
+
+        if utcnow() > self._stop_recorder_at:
             if (
                 self._motion_detector
                 and self._object_detector
                 and not self._object_detector.scan_on_motion_only
-                and not self._motion_detector.trigger_recorder
+                and not self._motion_detector.trigger_event_recording
             ):
                 self._frame_scanners[MOTION_DETECTOR].scan = False
                 self._logger.info("Pausing motion detector")
@@ -656,19 +666,28 @@ class NVR:
             self._logger.info("Max recording time exceeded, stopping recorder")
             self.stop_recorder(force=True)
         elif self._camera.is_recording and self.event_over():
-            self._idle_frames += 1
             self.stop_recorder()
         else:
-            self._idle_frames = 0
+            self._stop_recorder_at = None
 
-    def remove_frame(self, shared_frame) -> None:
+    def remove_frame(self, shared_frame: SharedFrame) -> None:
         """Remove frame after a delay.
 
         This makes sure all frames are cleaned up eventually.
         """
+
+        def _remove():
+            self._camera.shared_frames.remove(shared_frame, self._camera)
+            self._removal_timers.remove(timer)
+
         timer = threading.Timer(
-            2, self._camera.shared_frames.remove, args=(shared_frame, self._camera)
+            2,
+            _remove,
+            args=(),
         )
+        timer.name = f"{str(self)}.remove_frame.{shared_frame.name}"
+        timer.daemon = True
+        self._removal_timers.append(timer)
         timer.start()
 
     def run(self) -> None:
@@ -724,14 +743,6 @@ class NVR:
         # Stop potential recording
         if self._camera.is_recording:
             self._camera.stop_recorder()
-
-        # Empty frame queue before exiting
-        while True:
-            try:
-                shared_frame = self._frame_queue.get(timeout=1)
-            except Empty:
-                break
-            self._camera.shared_frames.remove(shared_frame, self._camera)
 
         for timer in self._removal_timers:
             timer.cancel()

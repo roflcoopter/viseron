@@ -18,11 +18,11 @@
       "onAutoForward": "silent"
     }
   },
+  "userEnvProbe": "loginInteractiveShell",
+  "runArgs": ["-e", "GIT_EDITOR=code --wait"],
   "mounts": [
     "source=${localWorkspaceFolder}/config,target=/config,type=bind,consistency=cached"
   ],
-  "userEnvProbe": "loginInteractiveShell",
-  "runArgs": ["-e", "GIT_EDITOR=code --wait"],
   "customizations": {
     "vscode": {
       "extensions": [
@@ -79,9 +79,21 @@
         "[javascript]": {
           "editor.defaultFormatter": "esbenp.prettier-vscode"
         },
+        "[mdx]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[markdown]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
         "files.associations": {
           "**/azure-pipelines/*.yml": "azure-pipelines",
           "**/azure-pipelines/*.yaml": "azure-pipelines"
+        },
+        "search.exclude": {
+          "**/node_modules": true,
+          "**/build": true,
+          "**/.docusaurus": true,
+          "**/dist": true
         }
       }
     }

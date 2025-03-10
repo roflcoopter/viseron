@@ -13,6 +13,10 @@ from typing import Any, AnyStr, Literal, TextIO
 
 from colorlog import ColoredFormatter
 
+LOG_FORMAT = "%(asctime)s.%(msecs)03d [%(levelname)-8s] [%(name)s] - %(message)s"
+STREAM_LOG_FORMAT = "%(log_color)s" + LOG_FORMAT
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
 
 class DuplicateFilter(logging.Filter):
     """Formats identical log entries to overwrite the last."""
@@ -103,13 +107,13 @@ class UnhelpfullLogFilter(logging.Filter):
 
 
 class ViseronLogFormat(ColoredFormatter):
-    """Log formatter."""
+    """Log formatter.
+
+    Used only by the StreamHandler logs.
+    """
 
     # pylint: disable=protected-access
-    base_format = (
-        "%(log_color)s[%(asctime)s] [%(levelname)-8s] [%(name)s] - %(message)s"
-    )
-    overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K" + base_format
+    overwrite_fmt = "\x1b[80D\x1b[1A\x1b[K" + STREAM_LOG_FORMAT
 
     def __init__(self) -> None:
         log_colors = {
@@ -121,8 +125,8 @@ class ViseronLogFormat(ColoredFormatter):
         }
 
         super().__init__(
-            fmt=self.base_format,
-            datefmt="%Y-%m-%d %H:%M:%S",
+            fmt=STREAM_LOG_FORMAT,
+            datefmt=LOG_DATE_FORMAT,
             style="%",
             reset=True,
             log_colors=log_colors,
@@ -164,6 +168,7 @@ class LogPipe(threading.Thread):
         self._output_level_func = output_level_func
         self._read_filedescriptor, self._write_filedescriptor = os.pipe()
         self.pipe_reader = os.fdopen(self._read_filedescriptor)
+        self._kill_received = False
         self.start()
 
     def fileno(self):
@@ -172,7 +177,8 @@ class LogPipe(threading.Thread):
 
     def run(self) -> None:
         """Run the thread, logging everything."""
-        for line in iter(self.pipe_reader.readline, ""):
+        while not self._kill_received:
+            line = self.pipe_reader.readline()
             log_str = line.strip().strip("\n")
             if not log_str:
                 continue
@@ -195,10 +201,13 @@ class LogPipe(threading.Thread):
             else:
                 self._logger.log(logging.ERROR, log_str)
 
+        self._logger.debug("LogPipe thread ended")
         self.pipe_reader.close()
 
     def close(self) -> None:
         """Close the write end of the pipe."""
+        self._logger.debug("Closing LogPipe")
+        self._kill_received = True
         os.close(self._write_filedescriptor)
 
 
@@ -271,7 +280,7 @@ class StreamToLogger(typing.TextIO):
         """Return if the stream is a tty."""
         raise io.UnsupportedOperation
 
-    def read(self, num: int = -1) -> AnyStr:
+    def read(self, num: int = -1):
         """Read from the stream."""
         raise io.UnsupportedOperation
 
@@ -279,7 +288,7 @@ class StreamToLogger(typing.TextIO):
         """Return if the stream is readable."""
         raise io.UnsupportedOperation
 
-    def readline(self, limit: int = -1) -> AnyStr:
+    def readline(self, limit: int = -1):
         """Read a line from the stream."""
         raise io.UnsupportedOperation
 
@@ -311,7 +320,7 @@ class StreamToLogger(typing.TextIO):
         """Write lines to the stream."""
         raise io.UnsupportedOperation
 
-    def __next__(self) -> AnyStr:
+    def __next__(self):
         """Return the next line from the stream."""
         raise io.UnsupportedOperation
 

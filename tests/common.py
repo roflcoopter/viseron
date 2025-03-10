@@ -3,14 +3,14 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Callable, Generator
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
-from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.components.storage.models import Files, Recordings
 from viseron.const import LOADED
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.helpers import utcnow
@@ -60,18 +60,6 @@ class MockCamera(MagicMock):
             vis.register_domain(CAMERA_DOMAIN, identifier, self)
 
 
-def return_any(cls: type[Any]):
-    """Mock any return value."""
-
-    class MockAny(cls):
-        """Mock any return value."""
-
-        def __eq__(self, other) -> Literal[True]:
-            return True
-
-    return MockAny()
-
-
 class BaseTestWithRecordings:
     """Test class that provides a database with recordings."""
 
@@ -97,14 +85,8 @@ class BaseTestWithRecordings:
                         directory="test",
                         filename=filename,
                         size=10,
-                        created_at=timestamp,
-                    )
-                )
-                session.execute(
-                    insert(FilesMeta).values(
-                        path=f"/test/{filename}",
                         orig_ctime=timestamp,
-                        meta={"m3u8": {"EXTINF": 5}},
+                        duration=5,
                         created_at=timestamp,
                     )
                 )
@@ -119,14 +101,8 @@ class BaseTestWithRecordings:
                         directory="test2",
                         filename=filename,
                         size=10,
-                        created_at=timestamp,
-                    )
-                )
-                session.execute(
-                    insert(FilesMeta).values(
-                        path=f"/test2/{filename}",
                         orig_ctime=timestamp,
-                        meta={"m3u8": {"EXTINF": 5}},
+                        duration=5,
                         created_at=timestamp,
                     )
                 )

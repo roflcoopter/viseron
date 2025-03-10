@@ -14,13 +14,13 @@ from viseron.components.storage.const import (
 )
 from viseron.components.storage.models import Recordings
 from viseron.components.storage.tier_handler import (
-    RecordingsTierHandler,
+    EventClipTierHandler,
     SegmentsTierHandler,
     ThumbnailTierHandler,
     find_next_tier_segments,
     handle_file,
 )
-from viseron.domains.camera.const import CONFIG_LOOKBACK
+from viseron.domains.camera.const import CONFIG_CONTINUOUS_RECORDING, CONFIG_LOOKBACK
 
 from tests.common import BaseTestWithRecordings
 
@@ -56,12 +56,15 @@ def test_handle_file_move(
     tier_2 = {
         "path": "/tmp/tier2/",
     }
+    storage = MagicMock()
     session = MagicMock()
     logger = MagicMock()
     handle_file(
-        session, MagicMock(), "test", tier_1, tier_2, tier_1_file, "/tmp/tier1/", logger
+        session, storage, "test", tier_1, tier_2, tier_1_file, "/tmp/tier1/", logger
     )
-    mock_move_file.assert_called_once_with(session, tier_1_file, tier_2_file, logger)
+    mock_move_file.assert_called_once_with(
+        storage, session, tier_1_file, tier_2_file, logger
+    )
 
 
 @dataclass
@@ -143,7 +146,9 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
 
         mock_camera = Mock()
         mock_camera.identifier = "test"
-        mock_camera.config = {CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
+        mock_camera.config = {
+            CONFIG_RECORDER: {CONFIG_LOOKBACK: 5, CONFIG_CONTINUOUS_RECORDING: True}
+        }
 
         tier_handler = SegmentsTierHandler(
             vis,
@@ -262,7 +267,9 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
         """Test that check_tier finds the correct tier."""
         mock_camera = Mock()
         mock_camera.identifier = "test"
-        mock_camera.config = {CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
+        mock_camera.config = {
+            CONFIG_RECORDER: {CONFIG_LOOKBACK: 5, CONFIG_CONTINUOUS_RECORDING: True}
+        }
 
         tier_handlers = []
         for i, tier_config in enumerate(tiers_config):
@@ -276,7 +283,7 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
                 None,
             )
             tier_handlers.append(tier_handler)
-        recordings_tier_handler = MagicMock(spec=RecordingsTierHandler)
+        recordings_tier_handler = MagicMock(spec=EventClipTierHandler)
         thumbnail_tier_handler = MagicMock(spec=ThumbnailTierHandler)
         vis.data[STORAGE_COMPONENT].camera_tier_handlers = {
             "test": {
@@ -284,7 +291,7 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
                     {
                         "segments": tier_handler,
                         "thumbnails": thumbnail_tier_handler,
-                        "recordings": recordings_tier_handler,
+                        "event_clips": recordings_tier_handler,
                     }
                     for tier_handler in tier_handlers
                 ]
@@ -333,7 +340,9 @@ def test_find_next_tier_segments(vis: Viseron):
     mock_storage = Mock(spec=Storage)
     mock_camera = Mock()
     mock_camera.identifier = "test_camera"
-    mock_camera.config = {CONFIG_RECORDER: {CONFIG_LOOKBACK: 5}}
+    mock_camera.config = {
+        CONFIG_RECORDER: {CONFIG_LOOKBACK: 5, CONFIG_CONTINUOUS_RECORDING: True}
+    }
 
     tier_handler_0 = SegmentsTierHandler(
         vis,

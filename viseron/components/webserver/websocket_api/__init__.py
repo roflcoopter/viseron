@@ -5,12 +5,12 @@ import asyncio
 import json
 import logging
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from functools import partial
+from typing import TYPE_CHECKING, Any
 
 import tornado.gen
 import tornado.websocket
 import voluptuous as vol
-from tornado.ioloop import IOLoop
 from tornado.queues import Queue
 from voluptuous.humanize import humanize_error
 
@@ -26,6 +26,7 @@ from viseron.components.webserver.const import (
 )
 from viseron.components.webserver.request_handler import ViseronRequestHandler
 from viseron.exceptions import Unauthorized
+from viseron.helpers.json import JSONEncoder
 
 from .messages import (
     MINIMAL_MESSAGE_SCHEMA,
@@ -60,20 +61,43 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
         self._last_id = 0
         self.subscriptions: dict[int, Callable[[], None]] = {}
 
-        self._message_queue: Queue[str | None] = Queue()
+        self._message_queue: Queue[str | dict[str, Any] | None] = Queue()
         self._waiting_for_auth = True
+        self._writer_task: asyncio.Task | None = None
         self._writer_exited = False
 
         self.vis.data[WEBSOCKET_CONNECTIONS].append(self)
 
     async def _write_message(self) -> None:
         """Write messages to client."""
+
+        def _json_dumps(message):
+            return partial(json.dumps, cls=JSONEncoder, allow_nan=False)(message)
+
         while True:
             if (message := await self._message_queue.get()) is None:
                 break
 
             # LOGGER.debug("Sending message {message}".format(message=message))
+
+            if isinstance(message, dict):
+                try:
+                    json_message = await self.run_in_executor(_json_dumps, message)
+                    await self.write_message(json_message)
+                except (ValueError, TypeError):
+                    LOGGER.error(
+                        f"Unable to serialize to JSON. Object: {message}", exc_info=True
+                    )
+                    await self.write_message(
+                        error_message(
+                            message["command_id"],
+                            WS_ERROR_UNKNOWN_ERROR,
+                            "Invalid JSON in response",
+                        )
+                    )
+                continue
             await self.write_message(message)
+
         self._writer_exited = True
         LOGGER.debug("Exiting WebSocket message writer")
 
@@ -85,7 +109,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
 
     def send_message(self, message) -> None:
         """Send message to client."""
-        self._message_queue.put(message)
+        self.ioloop.add_callback(self.async_send_message, message)
 
     async def async_send_message(self, message) -> None:
         """Send message to client."""
@@ -128,7 +152,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             return
 
         try:
-            message = MINIMAL_MESSAGE_SCHEMA(message)
+            message = await self.run_in_executor(MINIMAL_MESSAGE_SCHEMA, message)
         except vol.Invalid:
             LOGGER.error("Message incorrectly formatted: %s", message)
             await self.async_send_message(
@@ -162,7 +186,7 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
         handler, schema = handlers[message["type"]]
 
         try:
-            handler(self, schema(message))
+            await handler(self, schema(message))
         except Exception as err:  # pylint: disable=broad-except
             await self.handle_exception(command_id, message, err)
         self._last_id = command_id
@@ -183,7 +207,12 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             code = WS_ERROR_UNKNOWN_ERROR
             err_msg = "Unknown error"
 
-        log_handler("Error handling message. Code: %s, message: %s", code, err_msg)
+        log_handler(
+            "Error handling message. Error Code: %s, Error Message: %s, Message: %s",
+            code,
+            err_msg,
+            message,
+        )
         await self.async_send_message(
             error_message(
                 command_id,
@@ -192,33 +221,38 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             )
         )
 
-    def open(self, *_args: str, **_kwargs: str) -> None:
+    async def open(  # pylint: disable=invalid-overridden-method
+        self, *_args: str, **_kwargs: str
+    ) -> None:
         """Websocket open."""
         LOGGER.debug("WebSocket opened")
         if self._webserver.auth:
             self._waiting_for_auth = True
-            IOLoop.current().spawn_callback(self.send_message, auth_required_message())
+            await self.async_send_message(auth_required_message())
         else:
-            IOLoop.current().spawn_callback(
-                self.send_message, auth_not_required_message(self.vis)
-            )
+            await self.async_send_message(auth_not_required_message(self.vis))
             self._waiting_for_auth = False
-        IOLoop.current().spawn_callback(self._write_message)
 
-    def on_message(self, message) -> None:
+        self._writer_task = asyncio.create_task(
+            self._write_message(), name="WebSocketWriter"
+        )
+
+    async def on_message(  # pylint: disable=invalid-overridden-method
+        self, message
+    ) -> None:
         """Websocket message received."""
         LOGGER.debug(f"Received {message}")
         try:
-            message_data = json.loads(message)
+            message_data = await self.run_in_executor(json.loads, message)
         except ValueError:
             LOGGER.error("Invalid JSON message received.")
-            self.send_message(
+            await self.async_send_message(
                 invalid_error_message(
                     WS_ERROR_INVALID_JSON, "Invalid JSON message received"
                 )
             )
             return
-        IOLoop.current().spawn_callback(self.handle_message, message_data)
+        await self.handle_message(message_data)
 
     async def force_close(self) -> None:
         """Close websocket."""
@@ -242,4 +276,6 @@ class WebSocketHandler(ViseronRequestHandler, tornado.websocket.WebSocketHandler
             unsub()
 
         self._message_queue.put(None)
+        if self._writer_task:
+            self._writer_task.cancel()
         self.vis.data[WEBSOCKET_CONNECTIONS].remove(self)

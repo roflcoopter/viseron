@@ -4,21 +4,27 @@ from __future__ import annotations
 import datetime
 import logging
 import os
-import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import voluptuous as vol
-from sqlalchemy import Row, select
+from sqlalchemy import select
 
+from viseron.components.storage.const import (
+    TIER_CATEGORY_RECORDER,
+    TIER_SUBCATEGORY_SEGMENTS,
+)
 from viseron.components.storage.models import Files, Recordings
 from viseron.components.storage.queries import get_time_period_fragments
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.const import CAMERA_SEGMENT_DURATION
-from viseron.domains.camera.fragmenter import Fragment, generate_playlist
-from viseron.helpers import utcnow
+from viseron.domains.camera.fragmenter import (
+    Fragment,
+    generate_playlist,
+    get_available_timespans,
+)
+from viseron.helpers import daterange_to_utc, utcnow
 from viseron.helpers.fixed_size_dict import FixedSizeDict
 from viseron.helpers.validators import request_argument_no_value
 
@@ -132,7 +138,7 @@ class HlsAPIHandler(BaseAPIHandler):
         self.set_header("Content-Type", "application/x-mpegURL")
         self.set_header("Cache-Control", "no-cache")
         self.set_header("Access-Control-Allow-Origin", "*")
-        self.response_success(response=playlist)
+        await self.response_success(response=playlist)
 
     async def get_hls_playlist_time_period(
         self,
@@ -167,7 +173,7 @@ class HlsAPIHandler(BaseAPIHandler):
         self.set_header("Content-Type", "application/x-mpegURL")
         self.set_header("Cache-control", "no-cache, must-revalidate, max-age=0")
         self.set_header("Access-Control-Allow-Origin", "*")
-        self.response_success(response=playlist)
+        await self.response_success(response=playlist)
 
     async def get_available_timespans(
         self,
@@ -183,71 +189,25 @@ class HlsAPIHandler(BaseAPIHandler):
             )
             return
 
-        # Get start of day in utc
+        # Convert local start of day to UTC
         if "date" in self.request_arguments:
-            time_from = (
-                datetime.datetime.strptime(self.request_arguments["date"], "%Y-%m-%d")
-                - datetime.timedelta(seconds=time.localtime().tm_gmtoff)
-            ).timestamp()
-            time_to = time_from + 86400
+            _time_from, _time_to = daterange_to_utc(
+                self.request_arguments["date"], self.utc_offset
+            )
+            time_from = _time_from.timestamp()
+            time_to = _time_to.timestamp()
         else:
             time_from = self.request_arguments["time_from"]
             time_to = self.request_arguments["time_to"]
 
         timespans = await self.run_in_executor(
-            _get_available_timespans,
+            get_available_timespans,
             self._get_session,
-            camera,
+            [camera.identifier],
             time_from,
             time_to,
         )
-        self.response_success(response={"timespans": timespans})
-
-
-def _get_available_timespans(
-    get_session: Callable[[], Session],
-    camera: AbstractCamera | FailedCamera,
-    time_from: int,
-    time_to: int | None = None,
-):
-    """Get the available timespans of HLS fragments for a time period."""
-    files = get_time_period_fragments(
-        camera.identifier, time_from, time_to, get_session
-    )
-    fragments = [
-        Fragment(
-            file.filename,
-            f"/files{file.path}",
-            float(
-                file.meta["m3u8"]["EXTINF"],
-            ),
-            file.orig_ctime,
-        )
-        for file in files
-        if file.meta.get("m3u8", {}).get("EXTINF", False)
-    ]
-
-    timespans = []
-    start = None
-    end = None
-    for fragment in fragments:
-        if start is None:
-            start = fragment.creation_time.timestamp()
-        if end is None:
-            end = fragment.creation_time.timestamp() + fragment.duration
-        if fragment.creation_time.timestamp() > end + fragment.duration:
-            timespans.append(
-                {"start": int(start), "end": int(end), "duration": int(end - start)}
-            )
-            start = None
-            end = None
-        else:
-            end = fragment.creation_time.timestamp() + fragment.duration
-    if start is not None and end is not None:
-        timespans.append(
-            {"start": int(start), "end": int(end), "duration": int(end - start)}
-        )
-    return timespans
+        await self.response_success(response={"timespans": timespans})
 
 
 def _get_init_file(
@@ -259,8 +219,8 @@ def _get_init_file(
             select(Files)
             .distinct(Files.directory)
             .where(Files.camera_identifier == camera.identifier)
-            .where(Files.category == "recorder")
-            .where(Files.subcategory == "segments")
+            .where(Files.category == TIER_CATEGORY_RECORDER)
+            .where(Files.subcategory == TIER_SUBCATEGORY_SEGMENTS)
             .order_by(Files.directory, Files.created_at.desc())
         )
         files = session.execute(stmt).scalars().all()
@@ -295,13 +255,10 @@ def _generate_playlist(
         Fragment(
             file.filename,
             f"/files{file.path}",
-            float(
-                file.meta["m3u8"]["EXTINF"],
-            ),
+            file.duration,
             file.orig_ctime,
         )
         for file in files
-        if file.meta.get("m3u8", {}).get("EXTINF", False)
     ]
 
     end: bool = True
@@ -318,12 +275,12 @@ def _generate_playlist(
     # Recording has ended but the last file is not finished yet
     elif len(files) > 0 and recording.end_time.timestamp() > float(
         files[-1].filename.split(".")[0]
-    ) + float(files[-1].meta["m3u8"]["EXTINF"]):
+    ) + float(files[-1].duration):
         LOGGER.debug("Recording has ended but the last file is not finished yet")
         end = False
 
     init_file = _get_init_file(get_session, camera)
-    if not init_file:
+    if not init_file or not fragments:
         return None
 
     playlist = generate_playlist(
@@ -333,24 +290,6 @@ def _generate_playlist(
         file_directive=False,
     )
     return playlist
-
-
-def has_gap_before_start(files: list[Row[Any]], start_timestamp: int) -> bool:
-    """Check if there is a gap before the start of the playlist."""
-    if files and files[0].orig_ctime - datetime.datetime.fromtimestamp(
-        start_timestamp, datetime.timezone.utc
-    ) > datetime.timedelta(seconds=300):
-        return True
-    return False
-
-
-def has_gap_in_segments(prev_file: Row[Any] | None, file: Row[Any]) -> bool:
-    """Check if there is a gap in segments."""
-    if prev_file and file.orig_ctime - prev_file.orig_ctime > datetime.timedelta(
-        seconds=CAMERA_SEGMENT_DURATION * 3
-    ):
-        return True
-    return False
 
 
 def update_hls_client(
@@ -382,30 +321,19 @@ def _generate_playlist_time_period(
 ) -> str | None:
     """Generate the HLS playlist for a time period."""
     files = get_time_period_fragments(
-        camera.identifier, start_timestamp, end_timestamp, get_session
+        [camera.identifier], start_timestamp, end_timestamp, get_session
     )
-    fragments = []
-    prev_file: Row[Any] | None = None
+    fragments = [
+        Fragment(
+            file.filename,
+            f"/files{file.path}",
+            file.duration,
+            file.orig_ctime,
+        )
+        for file in files
+    ]
+
     end_playlist = bool(end_timestamp) if not end_playlist_at_timestamp else False
-
-    if has_gap_before_start(files, start_timestamp):
-        end_playlist = True
-    else:
-        for file in files:
-            if has_gap_in_segments(prev_file, file):
-                end_playlist = True
-                break
-
-            if file.meta.get("m3u8", {}).get("EXTINF", False):
-                fragments.append(
-                    Fragment(
-                        file.filename,
-                        f"/files{file.path}",
-                        float(file.meta["m3u8"]["EXTINF"]),
-                        file.orig_ctime,
-                    )
-                )
-                prev_file = file
 
     media_sequence = (
         update_hls_client(hls_client_id, fragments)

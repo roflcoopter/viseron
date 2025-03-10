@@ -6,7 +6,6 @@ import datetime
 import logging
 import os
 import shutil
-import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -24,7 +23,8 @@ from viseron.const import CAMERA_SEGMENT_DURATION
 from viseron.domains.camera.fragmenter import Fragment
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import EventData
-from viseron.helpers import create_directory, draw_objects, utcnow
+from viseron.helpers import create_directory, draw_objects, get_utc_offset, utcnow
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
     CONFIG_CREATE_EVENT_CLIP,
@@ -60,7 +60,6 @@ class RecordingDict(TypedDict):
     start_timestamp: float
     end_time: datetime.datetime | None
     end_timestamp: float | None
-    date: str
     trigger_type: TriggerTypes | None
     trigger_id: int | None
     thumbnail_path: str
@@ -92,8 +91,6 @@ class Recording:
     end_time: datetime.datetime | None
     end_timestamp: float | None
     date: str
-    path: str
-    filename: str
     thumbnail: np.ndarray | None
     thumbnail_path: str | None
     objects: list[DetectedObject]
@@ -107,8 +104,6 @@ class Recording:
             "end_time": self.end_time,
             "end_timestamp": self.end_timestamp,
             "date": self.date,
-            "path": self.path,
-            "filename": self.filename,
             "thumbnail_path": self.thumbnail_path,
             "objects": self.objects,
         }
@@ -136,23 +131,41 @@ class RecorderBase:
 
         self._storage: Storage = vis.data[STORAGE_COMPONENT]
 
-    def get_recordings(self, date=None) -> dict[str, dict[int, RecordingDict]]:
+    def get_recordings(
+        self, utc_offset: datetime.timedelta, date=None
+    ) -> dict[str, dict[int, RecordingDict]]:
         """Return all recordings."""
-        return get_recordings(self._storage.get_session, self._camera.identifier, date)
+        return get_recordings(
+            self._storage.get_session, self._camera.identifier, utc_offset, date=date
+        )
 
-    def get_latest_recording(self, date=None) -> dict[str, dict[int, RecordingDict]]:
+    def get_latest_recording(
+        self, utc_offset: datetime.timedelta, date=None
+    ) -> dict[str, dict[int, RecordingDict]]:
         """Return the latest recording."""
         return get_recordings(
-            self._storage.get_session, self._camera.identifier, date, latest=True
+            self._storage.get_session,
+            self._camera.identifier,
+            utc_offset,
+            date=date,
+            latest=True,
         )
 
-    def get_latest_recording_daily(self) -> dict[str, dict[int, RecordingDict]]:
+    def get_latest_recording_daily(
+        self, utc_offset: datetime.timedelta
+    ) -> dict[str, dict[int, RecordingDict]]:
         """Return the latest recording for each day."""
         return get_recordings(
-            self._storage.get_session, self._camera.identifier, latest=True, daily=True
+            self._storage.get_session,
+            self._camera.identifier,
+            utc_offset,
+            latest=True,
+            daily=True,
         )
 
-    def delete_recording(self, date=None, recording_id=None) -> bool:
+    def delete_recording(
+        self, utc_offset: datetime.timedelta, date=None, recording_id=None
+    ) -> bool:
         """Delete a single recording.
 
         We dont have to delete the segments as they will be deleted by the tier
@@ -162,6 +175,7 @@ class RecorderBase:
             delete_recordings(
                 self._storage.get_session,
                 self._camera.identifier,
+                utc_offset,
                 date=date,
                 recording_id=recording_id,
             )
@@ -184,7 +198,7 @@ class AbstractRecorder(ABC, RecorderBase):
         self.is_recording = False
         self._active_recording: Recording | None = None
 
-        create_directory(self._camera.recordings_folder)
+        create_directory(self._camera.event_clips_folder)
         create_directory(self._camera.segments_folder)
         create_directory(self._camera.temp_segments_folder)
         create_directory(self._camera.thumbnails_folder)
@@ -194,7 +208,7 @@ class AbstractRecorder(ABC, RecorderBase):
 
     def as_dict(self) -> dict[str, dict[int, RecordingDict]]:
         """Return recorder information as dict."""
-        return self.get_recordings()
+        return self.get_recordings(get_utc_offset())
 
     def create_thumbnail(
         self,
@@ -235,18 +249,6 @@ class AbstractRecorder(ABC, RecorderBase):
         self.is_recording = True
         start_time = utcnow()
 
-        # Create filename
-        filename_pattern = start_time.strftime(
-            self._config[CONFIG_RECORDER][CONFIG_FILENAME_PATTERN]
-        )
-        video_name = f"{filename_pattern}.{self._camera.extension}"
-
-        # Create foldername
-        full_path = os.path.join(
-            self._camera.recordings_folder, start_time.date().isoformat()
-        )
-        create_directory(full_path)
-
         with self._storage.get_session() as session:
             stmt = (
                 insert(Recordings)
@@ -284,8 +286,6 @@ class AbstractRecorder(ABC, RecorderBase):
             end_time=None,
             end_timestamp=None,
             date=start_time.date().isoformat(),
-            path=os.path.join(full_path, video_name),
-            filename=video_name,
             thumbnail=thumbnail,
             thumbnail_path=(
                 thumbnail_path
@@ -349,10 +349,20 @@ class AbstractRecorder(ABC, RecorderBase):
         self.is_recording = False
 
         if self._config[CONFIG_RECORDER][CONFIG_CREATE_EVENT_CLIP]:
-            concat_thread = threading.Thread(
-                target=self._concatenate_fragments, args=(recording,)
+            concat_thread = RestartableThread(
+                name=f"viseron.camera.{self._camera.identifier}.concatenate_fragments",
+                target=self._concatenate_fragments,
+                args=(recording,),
+                register=False,
             )
             concat_thread.start()
+
+    def video_name(self, start_time: datetime.datetime) -> str:
+        """Return video name."""
+        filename_pattern = (start_time + get_utc_offset()).strftime(
+            self._config[CONFIG_RECORDER][CONFIG_FILENAME_PATTERN]
+        )
+        return f"{filename_pattern}.{self._camera.extension}"
 
     def _concatenate_fragments(self, recording: Recording) -> None:
         files = recording.get_fragments(
@@ -360,28 +370,36 @@ class AbstractRecorder(ABC, RecorderBase):
             self._storage.get_session,
         )
         fragments = [
-            Fragment(
-                file.filename, file.path, file.meta["m3u8"]["EXTINF"], file.orig_ctime
-            )
+            Fragment(file.filename, file.path, file.duration, file.orig_ctime)
             for file in files
-            if file.meta.get("m3u8", False).get("EXTINF", False)
         ]
         event_clip = self._camera.fragmenter.concatenate_fragments(fragments)
         if not event_clip:
             return
 
+        # Create filename
+        video_name = self.video_name(recording.start_time)
+
+        # Create foldername
+        full_path = os.path.join(
+            self._camera.event_clips_folder, recording.start_time.date().isoformat()
+        )
+
+        clip_path = os.path.join(full_path, video_name)
+
+        create_directory(os.path.dirname(clip_path))
         shutil.move(
             event_clip,
-            recording.path,
+            clip_path,
         )
-        self._logger.debug(f"Moved event clip to {recording.path}")
+        self._logger.debug(f"Moved event clip to {clip_path}")
 
         with self._storage.get_session() as session:
             stmt = (
                 update(Recordings)
                 .where(Recordings.id == recording.id)
                 .values(
-                    clip_path=recording.path,
+                    clip_path=clip_path,
                 )
             )
             session.execute(stmt)
@@ -445,31 +463,52 @@ class FailedCameraRecorder(RecorderBase):
 
 def get_recordings(
     get_session: Callable[[], Session],
-    camera_identifier,
-    date=None,
-    latest=False,
-    daily=False,
+    camera_identifier: str,
+    utc_offset: datetime.timedelta,
+    date: str | None = None,
+    latest: bool = False,
+    daily: bool = False,
 ) -> dict[str, dict[int, RecordingDict]]:
-    """Return all recordings."""
+    """Return all recordings using PostgreSQL UTC offset conversion.
+
+    Args:
+        get_session: Callable that returns a database session
+        camera_identifier: Identifier for the camera
+        utc_offset: User's UTC offset as timedelta (e.g., timedelta(hours=-5))
+        date: Optional date filter in user's local timezone (YYYY-MM-DD)
+        latest: If True, return only the most recent recording(s)
+        daily: If True and latest is True, return the latest recording for each day
+
+    Returns:
+        Dictionary of recordings organized by date in user's local timezone
+    """
     recordings: dict[str, dict[int, RecordingDict]] = {}
+
+    local_timestamp = Recordings.start_time.local(utc_offset)
+    local_date = func.date(local_timestamp).label("local_date")
+
     stmt = (
-        select(Recordings)
+        select(Recordings, local_date)
         .where(Recordings.camera_identifier == camera_identifier)
-        .order_by(func.DATE(Recordings.start_time).desc(), Recordings.start_time.desc())
+        .order_by(local_date.desc(), local_timestamp.desc())
     )
     if date:
-        stmt = stmt.where(func.DATE(Recordings.start_time) == date)
+        stmt = stmt.where(local_date == date)
+
     if latest and daily:
-        stmt = stmt.distinct(func.DATE(Recordings.start_time))
+        stmt = stmt.distinct(local_date)
     elif latest:
         stmt = stmt.limit(1)
+
     with get_session() as session:
-        for recording in session.execute(stmt).scalars():
-            if recording.start_time.date().isoformat() not in recordings:
-                recordings[recording.start_time.date().isoformat()] = {}
-            recordings[recording.start_time.date().isoformat()][
-                recording.id
-            ] = _recording_file_dict(recording)
+        for row in session.execute(stmt):
+            recording = row.Recordings
+            _local_date = row.local_date.isoformat()
+
+            if _local_date not in recordings:
+                recordings[_local_date] = {}
+
+            recordings[_local_date][recording.id] = _recording_file_dict(recording)
 
     return recordings
 
@@ -477,6 +516,7 @@ def get_recordings(
 def delete_recordings(
     get_session: Callable[[], Session],
     camera_identifier,
+    utc_offset: datetime.timedelta,
     date=None,
     recording_id=None,
 ) -> Sequence[Recordings]:
@@ -490,7 +530,7 @@ def delete_recordings(
         .returning(Recordings)
     )
     if date:
-        stmt = stmt.where(func.DATE(Recordings.start_time) == date)
+        stmt = stmt.where(func.date(Recordings.start_time.local(utc_offset)) == date)
     if recording_id:
         stmt = stmt.where(Recordings.id == recording_id)
     with get_session() as session:
@@ -508,7 +548,6 @@ def _recording_file_dict(recording: Recordings) -> RecordingDict:
         "start_timestamp": recording.start_time.timestamp(),
         "end_time": recording.end_time,
         "end_timestamp": recording.end_time.timestamp() if recording.end_time else None,
-        "date": recording.start_time.date().isoformat(),
         "trigger_type": recording.trigger_type,
         "trigger_id": recording.trigger_id,
         "thumbnail_path": f"/files{recording.thumbnail_path}",

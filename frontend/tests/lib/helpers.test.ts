@@ -11,6 +11,23 @@ import {
 } from "lib/helpers";
 import * as types from "lib/types";
 
+const mockCamera: types.Camera = {
+  width: 1920,
+  height: 1080,
+  identifier: "",
+  name: "",
+  access_token: "",
+  still_image: {
+    refresh_interval: 0,
+    available: true,
+    width: 1920,
+    height: 1080,
+  },
+  failed: false,
+  is_on: true,
+  connected: true,
+};
+
 describe("sortObj", () => {
   it("should sort the object keys in ascending order", () => {
     const obj = { c: 3, a: 1, b: 2 };
@@ -74,7 +91,6 @@ describe("getRecordingVideoJSOptions", () => {
       start_timestamp: 0,
       end_time: "",
       end_timestamp: 0,
-      date: "",
       trigger_type: "",
       trigger_id: 0,
     };
@@ -110,50 +126,18 @@ describe("getRecordingVideoJSOptions", () => {
 
 describe("getVideoElement", () => {
   it("should render VideoPlayerPlaceholder if recording is null", () => {
-    const camera: types.Camera = {
-      width: 1920,
-      height: 1080,
-      identifier: "",
-      name: "",
-      access_token: "",
-      still_image_refresh_interval: 0,
-      failed: false,
-      is_on: true,
-      connected: true,
-    };
-    const { getByTestId } = render(getVideoElement(camera, null, false));
+    const { getByTestId } = render(getVideoElement(mockCamera, null, false));
     expect(getByTestId("video-player-placeholder")).toBeInTheDocument();
   });
 
   it("should render VideoPlayerPlaceholder if recording is undefined", () => {
-    const camera: types.Camera = {
-      width: 1920,
-      height: 1080,
-      identifier: "",
-      name: "",
-      access_token: "",
-      still_image_refresh_interval: 0,
-      failed: false,
-      is_on: true,
-      connected: true,
-    };
-
-    const { getByTestId } = render(getVideoElement(camera, undefined, false));
+    const { getByTestId } = render(
+      getVideoElement(mockCamera, undefined, false),
+    );
     expect(getByTestId("video-player-placeholder")).toBeInTheDocument();
   });
 
   it("should render VideoPlayer if recording has values", async () => {
-    const camera: types.Camera = {
-      width: 1920,
-      height: 1080,
-      identifier: "",
-      name: "",
-      access_token: "",
-      still_image_refresh_interval: 0,
-      failed: false,
-      is_on: true,
-      connected: true,
-    };
     const recording: types.Recording = {
       thumbnail_path: "thumbnail.jpg",
       hls_url: "video.m3u8",
@@ -163,11 +147,12 @@ describe("getVideoElement", () => {
       start_timestamp: 0,
       end_time: "",
       end_timestamp: 0,
-      date: "",
       trigger_type: "",
       trigger_id: 0,
     };
-    const { getByTestId } = render(getVideoElement(camera, recording, false));
+    const { getByTestId } = render(
+      getVideoElement(mockCamera, recording, false),
+    );
     await waitFor(() =>
       expect(getByTestId("video-player")).toBeInTheDocument(),
     );

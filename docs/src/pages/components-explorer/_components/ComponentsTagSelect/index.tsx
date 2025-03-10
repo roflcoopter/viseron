@@ -45,7 +45,7 @@ function replaceSearchTags(search: string, newTags: DomainType[]) {
 
 function ComponentsTagSelect(
   { id, icon, label, tag, ...rest }: Props,
-  ref: React.ForwardedRef<HTMLLabelElement>
+  ref: React.ForwardedRef<HTMLLabelElement>,
 ) {
   const location = useLocation();
   const history = useHistory();

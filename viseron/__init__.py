@@ -12,6 +12,7 @@ import time
 import tracemalloc
 from collections.abc import Callable
 from functools import partial
+from logging.handlers import RotatingFileHandler
 from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Any, Literal, overload
 
@@ -47,12 +48,15 @@ from viseron.const import (
     DOMAIN_LOADING,
     DOMAIN_SETUP_TASKS,
     DOMAINS_TO_SETUP,
+    ENV_LOG_BACKUP_COUNT,
+    ENV_LOG_MAX_BYTES,
     ENV_PROFILE_MEMORY,
     EVENT_DOMAIN_REGISTERED,
     FAILED,
     LOADED,
     LOADING,
     REGISTERED_DOMAINS,
+    VISERON_LOG_PATH,
     VISERON_SIGNAL_LAST_WRITE,
     VISERON_SIGNAL_SHUTDOWN,
     VISERON_SIGNAL_STOPPING,
@@ -60,15 +64,18 @@ from viseron.const import (
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.events import Event, EventData
 from viseron.exceptions import DataStreamNotLoaded, DomainNotRegisteredError
-from viseron.helpers import memory_usage_profiler, utcnow
+from viseron.helpers import memory_usage_profiler, parse_size_to_bytes, utcnow
 from viseron.helpers.json import JSONEncoder
 from viseron.helpers.logs import (
+    LOG_DATE_FORMAT,
+    LOG_FORMAT,
     DuplicateFilter,
     SensitiveInformationFilter,
     ViseronLogFormat,
 )
 from viseron.states import States
 from viseron.types import SupportedDomains
+from viseron.watchdog.process_watchdog import ProcessWatchDog
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import ThreadWatchDog
 
@@ -99,16 +106,61 @@ SIGNAL_SCHEMA = vol.Schema(
 LOGGER = logging.getLogger(f"{__name__}.core")
 
 
+def _get_rotation_rules() -> tuple[int, int]:
+    env_max_bytes = os.getenv(ENV_LOG_MAX_BYTES)
+    env_backup_count = os.getenv(ENV_LOG_BACKUP_COUNT)
+
+    max_bytes = 0
+    if env_max_bytes is not None:
+        try:
+            max_bytes = parse_size_to_bytes(env_max_bytes)
+        except ValueError as error:
+            LOGGER.error(
+                f"Failed to parse {ENV_LOG_MAX_BYTES} as int, using default value",
+                exc_info=error,
+            )
+
+    backup_count = 1
+    if env_backup_count is not None:
+        try:
+            backup_count = parse_size_to_bytes(env_backup_count)
+        except ValueError as error:
+            LOGGER.error(
+                f"Failed to parse {ENV_LOG_BACKUP_COUNT} as int, using default value",
+                exc_info=error,
+            )
+
+    return max_bytes, backup_count
+
+
 def enable_logging() -> None:
     """Enable logging."""
     root_logger = logging.getLogger()
     root_logger.propagate = False
-    handler = logging.StreamHandler()
     formatter = ViseronLogFormat()
+    duplicate_filter = DuplicateFilter()
+    sensitive_information_filter = SensitiveInformationFilter()
+
+    handler = logging.StreamHandler()
     handler.setFormatter(formatter)
-    handler.addFilter(DuplicateFilter())
-    handler.addFilter(SensitiveInformationFilter())
+    handler.addFilter(duplicate_filter)
+    handler.addFilter(sensitive_information_filter)
     root_logger.addHandler(handler)
+
+    max_bytes, backup_count = _get_rotation_rules()
+    file_handler = RotatingFileHandler(
+        VISERON_LOG_PATH,
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        delay=True,
+    )
+    file_handler.setFormatter(
+        logging.Formatter(fmt=LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+    )
+    file_handler.addFilter(sensitive_information_filter)
+    file_handler.doRollover()
+    root_logger.addHandler(file_handler)
+
     root_logger.setLevel(logging.INFO)
 
     # Silence noisy loggers
@@ -125,7 +177,7 @@ def enable_logging() -> None:
     logging.getLogger("watchdog.observers.inotify_buffer").setLevel(logging.WARNING)
 
     sys.excepthook = lambda *args: logging.getLogger(None).exception(
-        "Uncaught exception", exc_info=args  # type: ignore[arg-type]
+        "Uncaught exception", exc_info=args
     )
     threading.excepthook = lambda args: logging.getLogger(None).exception(
         "Uncaught thread exception in thread %s",
@@ -138,7 +190,7 @@ def enable_logging() -> None:
     )
 
 
-def setup_viseron() -> Viseron:
+def setup_viseron(start_background_scheduler=True) -> Viseron:
     """Set up and run Viseron."""
     start = timer()
     enable_logging()
@@ -146,7 +198,7 @@ def setup_viseron() -> Viseron:
     LOGGER.info("-------------------------------------------")
     LOGGER.info(f"Initializing Viseron {viseron_version if viseron_version else ''}")
 
-    vis = Viseron()
+    vis = Viseron(start_background_scheduler=start_background_scheduler)
 
     try:
         config = load_config()
@@ -190,15 +242,15 @@ def setup_viseron() -> Viseron:
     else:
         vis.critical_components_config_store.save(config)
 
-    end = timer()
-    LOGGER.info("Viseron initialized in %.1f seconds", end - start)
+    LOGGER.info("Viseron initialized in %.1f seconds", timer() - start)
     return vis
 
 
 class Viseron:
     """Viseron."""
 
-    def __init__(self) -> None:
+    def __init__(self, start_background_scheduler=True) -> None:
+        self.logger = LOGGER
         self.states = States(self)
 
         self.setup_threads: list[threading.Thread] = []
@@ -218,10 +270,16 @@ class Viseron:
         self._domain_register_lock = threading.Lock()
         self.data[REGISTERED_DOMAINS] = {}
 
-        self._thread_watchdog = ThreadWatchDog()
-        self._subprocess_watchdog = SubprocessWatchDog()
+        self._thread_watchdog: ThreadWatchDog | None = None
+        self._subprocess_watchdog: SubprocessWatchDog | None = None
+        self._process_watchdog: ProcessWatchDog | None = None
+
         self.background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
-        self.background_scheduler.start()
+        if start_background_scheduler:
+            self.background_scheduler.start()
+            self._thread_watchdog = ThreadWatchDog(self)
+            self._subprocess_watchdog = SubprocessWatchDog(self)
+            self._process_watchdog = ProcessWatchDog(self)
 
         self.storage: Storage | None = None
 
@@ -264,8 +322,9 @@ class Viseron:
             )
             return False
 
-        return self.data[DATA_STREAM_COMPONENT].subscribe_data(
-            f"viseron/signal/{viseron_signal}", callback
+        data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
+        return data_stream.subscribe_data(
+            VISERON_SIGNALS[viseron_signal], callback, stage=viseron_signal
         )
 
     def listen_event(self, event: str, callback, ioloop=None) -> Callable[[], None]:
@@ -482,15 +541,24 @@ class Viseron:
 
     def shutdown(self) -> None:
         """Shut down Viseron."""
+        start = timer()
         LOGGER.info("Initiating shutdown")
 
         if self.data.get(DATA_STREAM_COMPONENT, None):
             data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
 
-        self._thread_watchdog.stop()
-        self._subprocess_watchdog.stop()
+        if (
+            self._thread_watchdog
+            and self._subprocess_watchdog
+            and self._process_watchdog
+        ):
+            self._thread_watchdog.stop()
+            self._subprocess_watchdog.stop()
+            self._process_watchdog.stop()
+
         try:
-            self.background_scheduler.shutdown()
+            self.background_scheduler.remove_all_jobs()
+            self.background_scheduler.shutdown(wait=False)
         except SchedulerNotRunningError as err:
             LOGGER.warning(f"Failed to shutdown scheduler: {err}")
 
@@ -504,7 +572,12 @@ class Viseron:
             self, data_stream, VISERON_SIGNAL_STOPPING
         )
 
-        LOGGER.info("Shutdown complete")
+        if data_stream:
+            data_stream.remove_all_subscriptions()
+            data_stream.stop()
+            data_stream.join()
+
+        LOGGER.info("Shutdown complete in %.1f seconds", timer() - start)
 
     def add_entity(self, component: str, entity: Entity):
         """Add entity to states registry."""
@@ -543,9 +616,10 @@ def wait_for_threads_and_processes_to_exit(
     stage: Literal["shutdown", "last_write", "stopping"],
 ) -> None:
     """Wait for all threads and processes to exit."""
+    LOGGER.debug(f"Sending signal for stage {stage}")
     vis.shutdown_stage = stage
     data_stream.publish_data(VISERON_SIGNALS[stage])
-
+    time.sleep(0.1)  # Wait for signal to be processed
     LOGGER.debug(f"Waiting for threads and processes to exit in stage {stage}")
 
     def join(
@@ -553,8 +627,20 @@ def wait_for_threads_and_processes_to_exit(
         | multiprocessing.Process
         | multiprocessing.process.BaseProcess,
     ) -> None:
-        thread_or_process.join(timeout=10)
-        time.sleep(0.5)  # Wait for process to exit properly
+        start_time = time.time()
+        LOGGER.debug(f"Waiting for {thread_or_process.name} to exit")
+        try:
+            thread_or_process.join(timeout=5)
+        except RuntimeError:
+            LOGGER.debug(f"Failed to join {thread_or_process.name}")
+            time.sleep(0.1)
+            thread_or_process.join(timeout=5)
+        LOGGER.debug(
+            f"Finished waiting for {thread_or_process.name} "
+            f"after {time.time() - start_time:.2f}s"
+        )
+
+        time.sleep(0.1)  # Wait for process to exit properly
         if thread_or_process.is_alive():
             LOGGER.error(f"{thread_or_process.name} did not exit in time")
             if isinstance(thread_or_process, multiprocessing.Process):

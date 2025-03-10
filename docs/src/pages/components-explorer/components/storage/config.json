@@ -55,7 +55,7 @@
                       "name": "minutes",
                       "description": "Minutes between checks for files to move/delete.",
                       "optional": true,
-                      "default": 1
+                      "default": 0
                     },
                     {
                       "type": "integer",
@@ -69,7 +69,9 @@
                   "name": "check_interval",
                   "description": "How often to check for files to move to the next tier.",
                   "optional": true,
-                  "default": null
+                  "default": {
+                    "minutes": 1
+                  }
                 },
                 {
                   "type": "map",
@@ -483,7 +485,7 @@
                       "name": "minutes",
                       "description": "Minutes between checks for files to move/delete.",
                       "optional": true,
-                      "default": 1
+                      "default": 0
                     },
                     {
                       "type": "integer",
@@ -497,7 +499,9 @@
                   "name": "check_interval",
                   "description": "How often to check for files to move to the next tier.",
                   "optional": true,
-                  "default": null
+                  "default": {
+                    "minutes": 1
+                  }
                 }
               ]
             ],
@@ -673,7 +677,7 @@
                           "name": "minutes",
                           "description": "Minutes between checks for files to move/delete.",
                           "optional": true,
-                          "default": 1
+                          "default": 0
                         },
                         {
                           "type": "integer",
@@ -687,7 +691,9 @@
                       "name": "check_interval",
                       "description": "How often to check for files to move to the next tier.",
                       "optional": true,
-                      "default": null
+                      "default": {
+                        "minutes": 1
+                      }
                     }
                   ]
                 ],
@@ -862,7 +868,7 @@
                           "name": "minutes",
                           "description": "Minutes between checks for files to move/delete.",
                           "optional": true,
-                          "default": 1
+                          "default": 0
                         },
                         {
                           "type": "integer",
@@ -876,7 +882,9 @@
                       "name": "check_interval",
                       "description": "How often to check for files to move to the next tier.",
                       "optional": true,
-                      "default": null
+                      "default": {
+                        "minutes": 1
+                      }
                     }
                   ]
                 ],
@@ -1051,7 +1059,7 @@
                           "name": "minutes",
                           "description": "Minutes between checks for files to move/delete.",
                           "optional": true,
-                          "default": 1
+                          "default": 0
                         },
                         {
                           "type": "integer",
@@ -1065,7 +1073,9 @@
                       "name": "check_interval",
                       "description": "How often to check for files to move to the next tier.",
                       "optional": true,
-                      "default": null
+                      "default": {
+                        "minutes": 1
+                      }
                     }
                   ]
                 ],
@@ -1240,7 +1250,7 @@
                           "name": "minutes",
                           "description": "Minutes between checks for files to move/delete.",
                           "optional": true,
-                          "default": 1
+                          "default": 0
                         },
                         {
                           "type": "integer",
@@ -1254,7 +1264,9 @@
                       "name": "check_interval",
                       "description": "How often to check for files to move to the next tier.",
                       "optional": true,
-                      "default": null
+                      "default": {
+                        "minutes": 1
+                      }
                     }
                   ]
                 ],
@@ -1272,7 +1284,7 @@
           }
         ],
         "name": "snapshots",
-        "description": "Snapshots are images taken when events are triggered or post processors finds anything. Snapshots will be taken for object detection, motiond detection, and any post processor that scans the image, for example face and license plate recognition.",
+        "description": "Snapshots are images taken when events are triggered or post processors finds anything. Snapshots will be taken for object detection, motion detection, and any post processor that scans the image, for example face and license plate recognition.",
         "optional": true,
         "default": {}
       }

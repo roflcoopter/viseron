@@ -40,10 +40,26 @@ type WebSocketPongResponse = {
   type: "pong";
 };
 
-export type WebSocketEventResponse = {
+export type WebSocketSubscriptionResultResponse = {
   command_id: number;
-  type: "event";
-  event: Event;
+  type: "subscription_result";
+  success: true;
+  result: Event | HlsAvailableTimespans | DownloadFileResponse;
+};
+
+export type WebSocketSubscriptionErrorResponse = {
+  command_id: number;
+  type: "subscription_result";
+  success: false;
+  error: {
+    code: string;
+    message: string;
+  };
+};
+
+export type WebSocketSubscriptionCancelResponse = {
+  command_id: number;
+  type: "cancel_subscription";
 };
 
 export type WebSocketResultResponse = {
@@ -65,7 +81,9 @@ export type WebSocketResultErrorResponse = {
 
 export type WebSocketResponse =
   | WebSocketPongResponse
-  | WebSocketEventResponse
+  | WebSocketSubscriptionResultResponse
+  | WebSocketSubscriptionErrorResponse
+  | WebSocketSubscriptionCancelResponse
   | WebSocketResultResponse
   | WebSocketResultErrorResponse;
 
@@ -119,7 +137,6 @@ export interface Recording {
   start_timestamp: number;
   end_time: string;
   end_timestamp: number;
-  date: string;
   trigger_type: string;
   trigger_id: number;
   thumbnail_path: string;
@@ -146,7 +163,12 @@ export interface Camera {
   width: number;
   height: number;
   access_token: string;
-  still_image_refresh_interval: number;
+  still_image: {
+    refresh_interval: number;
+    available: boolean;
+    width: number;
+    height: number;
+  };
   failed: false;
   is_on: boolean;
   connected: boolean;
@@ -302,11 +324,11 @@ export type CameraObjectEvents = Array<CameraObjectEvent>;
 export type EventsAmount = {
   events_amount: {
     [date: string]: {
-      motion: number;
-      object: number;
-      recording: number;
-      face_recognition: number;
-      license_plate_recognition: number;
+      motion?: number;
+      object?: number;
+      recording?: number;
+      face_recognition?: number;
+      license_plate_recognition?: number;
     };
   };
 };
@@ -345,4 +367,9 @@ export type HlsAvailableTimespan = {
 
 export type HlsAvailableTimespans = {
   timespans: HlsAvailableTimespan[];
+};
+
+export type DownloadFileResponse = {
+  filename: string;
+  token: string;
 };

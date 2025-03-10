@@ -17,22 +17,22 @@ Coordinates `coords="522,11,729,275,333,603,171,97"` should be turned into this:
       ? props.meta.name
       : "<object detector component>"
   }:
-  object_detector:
-    cameras:
-      camera_one:
-        ...
-        // highlight-start
-        mask:
-          - coordinates:
-              - x: 522
-                y: 11
-              - x: 729
-                y: 275
-              - x: 333
-                y: 603
-              - x: 171
-                y: 97
-        // highlight-end`}
+    object_detector:
+      cameras:
+        camera_one:
+          ...
+          // highlight-start
+          mask:
+            - coordinates:
+                - x: 522
+                  y: 11
+                - x: 729
+                  y: 275
+                - x: 333
+                  y: 603
+                - x: 171
+                  y: 97
+          // highlight-end`}
 </CodeBlock>
 
 <CoordinatesGenerator meta={props.meta} domain={"object_detector"} />

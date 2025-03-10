@@ -133,6 +133,7 @@ class SubProcessWorker(ABC):
             )
             self._process_frames_proc.kill()
             self._process_frames_proc.communicate()
+        self._log_pipe.close()
         LOGGER.debug(f"{self.subprocess_name} exited")
 
 

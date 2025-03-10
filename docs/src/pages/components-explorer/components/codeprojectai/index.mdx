@@ -1,14 +1,12 @@
+import Admonition from "@theme/Admonition";
+import CodeBlock from "@theme/CodeBlock";
+
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
-import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
 import FaceRecognition from "@site/src/pages/components-explorer/_domains/face_recognition/index.mdx";
-import FaceRecognitionLabels from "@site/src/pages/components-explorer/_domains/face_recognition/labels.mdx";
-import FaceRecognitionTrain from "@site/src/pages/components-explorer/_domains/face_recognition/train.mdx";
 import LicensePlateRecognition from "@site/src/pages/components-explorer/_domains/license_plate_recognition/index.mdx";
 import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";
-import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
-import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
-import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
 
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
@@ -38,7 +36,7 @@ codeprojectai:
         labels:
           - label: person
             confidence: 0.8
-            trigger_recorder: true
+            trigger_event_recording: true
           - label: cat
             confidence: 0.8
         zones:
@@ -55,7 +53,7 @@ codeprojectai:
             labels:
               - label: person
                 confidence: 0.8
-                trigger_recorder: true
+                trigger_event_recording: true
         mask:
           - coordinates:
               - x: 400
@@ -71,10 +69,10 @@ codeprojectai:
         labels:
           - label: person
             confidence: 0.7
-            trigger_recorder: true
+            trigger_event_recording: true
           - label: cat
             confidence: 0.8
-            trigger_recorder: false
+            trigger_event_recording: false
   face_recognition:
     save_unknown_faces: true
     cameras:
@@ -94,40 +92,53 @@ codeprojectai:
 
 </details>
 
-<ComponentConfiguration meta={ComponentMetadata} config={config} />
-
-## Face recognition
+<ComponentConfiguration config={config} />
 
 <FaceRecognition />
 
-### Labels
-
-<FaceRecognitionLabels />
-
-### Train
-
-<FaceRecognitionTrain />
-
-## License plate recognition
-
 <LicensePlateRecognition />
 
-## Object detector
+<ObjectDetector
+  meta={ComponentMetadata}
+  showLabels={false}
+  extras={
+    <Admonition type="tip">
+      The available labels depend on the detection model used. At the time of writing, the default model includes the following labels:
+      <CodeBlock language="bash">
+        person, vehicle, plus objects in ipcam-dark
+      </CodeBlock>
 
-<ObjectDetector />
+      At the time of writing, the custom models available are:
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Labels</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ipcam-animal</td>
+            <td>bird, cat, dog, horse, sheep, cow, bear, deer, rabbit, raccoon, fox, skunk, squirrel, pig</td>
+          </tr>
+          <tr>
+            <td>ipcam-dark</td>
+            <td>Bicycle, Bus, Car, Cat, Dog, Motorcycle, Person</td>
+          </tr>
+          <tr>
+            <td>ipcam-general</td>
+            <td>person, vehicle, plus objects in ipcam-dark</td>
+          </tr>
+          <tr>
+            <td>ipcam-combined</td>
+            <td>person, bicycle, car, motorcycle, bus, truck, bird, cat, dog, horse, sheep, cow, bear, deer, rabbit, raccoon, fox, skunk, squirrel, pig</td>
+          </tr>
+        </tbody>
+      </table>
+    </Admonition>
 
-### Labels
+}
 
-<ObjectDetectorLabels label_path="/detectors/models/darknet/coco.names" />
-
-### Zones
-
-<ObjectDetectorZones meta={ComponentMetadata} />
-
-### Mask
-
-<ObjectDetectorMask meta={ComponentMetadata} />
-
-## Troubleshooting
+/>
 
 <ComponentTroubleshooting meta={ComponentMetadata} />

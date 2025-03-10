@@ -1,6 +1,7 @@
 import dayjs, { Dayjs } from "dayjs";
 import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
 import ServerDown from "svg/undraw/server_down.svg?react";
+import { useShallow } from "zustand/react/shallow";
 
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { HoverLine } from "components/events/timeline/HoverLine";
@@ -13,14 +14,16 @@ import {
   calculateStart,
   getDateAtPosition,
   getTimelineItems,
-  useCameraStore,
   useFilterStore,
+  useFilteredCameras,
+  useReferencePlayerStore,
+  useTimespans,
 } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { ViseronContext } from "context/ViseronContext";
 import { useEventsMultiple } from "lib/api/events";
-import { useHlsAvailableTimespansMultiple } from "lib/api/hls";
-import { dateToTimestamp } from "lib/helpers";
+import { dateToTimestamp, objHasValues } from "lib/helpers";
+import * as types from "lib/types";
 
 // Move startRef.current forward every SCALE seconds
 const useAddTicks = (
@@ -89,103 +92,108 @@ const timelineClick = (
 type TimelineTableProps = {
   parentRef: React.MutableRefObject<HTMLDivElement | null>;
   date: Dayjs | null;
-  setRequestedTimestamp: (timestamp: number | null) => void;
 };
-export const TimelineTable = memo(
-  ({ parentRef, date, setRequestedTimestamp }: TimelineTableProps) => {
-    const containerRef = useRef<HTMLDivElement | null>(null);
-    const startRef = useRef<number>(calculateStart(date));
-    const endRef = useRef<number>(calculateEnd(date));
+export const TimelineTable = memo(({ parentRef, date }: TimelineTableProps) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const startRef = useRef<number>(calculateStart(date));
+  const endRef = useRef<number>(calculateEnd(date));
 
-    // Add timeticks every SCALE seconds
-    // Components mostly use startRef.current for performance reasons,
-    // but the state is used to trigger a re-render when the time changes
-    const [start, setStart] = useState<number>(startRef.current);
-    useAddTicks(date, startRef, setStart);
-    startRef.current = start;
+  const firstRender = useRef(true);
+  const eventsData = useRef<types.CameraEvent[] | null>(null);
 
-    const { selectedCameras } = useCameraStore();
-    const eventsQueries = useEventsMultiple({
-      camera_identifiers: selectedCameras,
-      time_from: endRef.current,
-      time_to: startRef.current,
-      configOptions: {
-        keepPreviousData: true,
-      },
-    });
-    const availableTimespansQueries = useHlsAvailableTimespansMultiple({
-      camera_identifiers: selectedCameras,
-      time_from: endRef.current,
-      time_to: startRef.current,
-      configOptions: {
-        keepPreviousData: true,
-      },
-    });
+  // Add timeticks every SCALE seconds
+  // Components mostly use startRef.current for performance reasons,
+  // but the state is used to trigger a re-render when the time changes
+  const [start, setStart] = useState<number>(startRef.current);
+  useAddTicks(date, startRef, setStart);
+  startRef.current = start;
 
-    const { filters } = useFilterStore();
-    const timelineItems = useMemo(
-      () =>
-        getTimelineItems(
-          startRef,
-          eventsQueries.data || [],
-          availableTimespansQueries.data?.timespans || [],
-          filters,
-        ),
-      [eventsQueries.data, availableTimespansQueries.data?.timespans, filters],
-    );
+  const filteredCameras = useFilteredCameras();
+  const eventsQueries = useEventsMultiple({
+    camera_identifiers: Object.keys(filteredCameras),
+    date: date ? date.format("YYYY-MM-DD") : "",
+    configOptions: { enabled: !!date },
+  });
+  const { setRequestedTimestamp } = useReferencePlayerStore(
+    useShallow((state) => ({
+      setRequestedTimestamp: state.setRequestedTimestamp,
+    })),
+  );
 
-    if (eventsQueries.error || availableTimespansQueries.error) {
-      const subtext = eventsQueries.error
-        ? eventsQueries.error.message
-        : availableTimespansQueries.error
-          ? availableTimespansQueries.error.message
-          : "Unknown error";
-      return (
-        <ErrorMessage
-          text={"Error loading events and/or timespans"}
-          subtext={subtext}
-          image={
-            <ServerDown width={150} height={150} role="img" aria-label="Void" />
-          }
-        />
-      );
-    }
-    if (eventsQueries.isInitialLoading || eventsQueries.isInitialLoading) {
-      return <Loading text="Loading Timeline" fullScreen={false} />;
-    }
+  const { availableTimespans } = useTimespans(date);
 
+  // Since React Query v5 doesn't support keepPreviousData, and the
+  // alternatives does not work for useQueries, we need to use a ref
+  // to keep the previous data
+  // https://github.com/TanStack/query/discussions/6521
+  if (eventsQueries.data && objHasValues(eventsQueries.data)) {
+    eventsData.current = eventsQueries.data;
+  }
+
+  const { filters } = useFilterStore();
+  const timelineItems = useMemo(
+    () =>
+      getTimelineItems(
+        startRef,
+        eventsData.current || [],
+        availableTimespans,
+        filters,
+      ),
+    // False positive, the refs are derived from the data
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [eventsData.current, availableTimespans, filters],
+  );
+
+  if (eventsQueries.error) {
+    const subtext = eventsQueries.error
+      ? eventsQueries.error.message
+      : "Unknown error";
     return (
-      <div
-        ref={containerRef}
-        onClick={(event) =>
-          timelineClick(
-            event,
-            containerRef,
-            startRef,
-            endRef,
-            setRequestedTimestamp,
-          )
+      <ErrorMessage
+        text={"Error loading events and/or timespans"}
+        subtext={subtext}
+        image={
+          <ServerDown width={150} height={150} role="img" aria-label="Void" />
         }
-      >
-        <div style={{ position: "relative" }}>
-          <ProgressLine
-            containerRef={containerRef}
-            startRef={startRef}
-            endRef={endRef}
-          />
-        </div>
-        <HoverLine
+      />
+    );
+  }
+  if (firstRender.current && eventsQueries.isLoading) {
+    return <Loading text="Loading Timeline" fullScreen={false} />;
+  }
+
+  firstRender.current = false;
+  return (
+    <div
+      ref={containerRef}
+      onClick={(event) =>
+        timelineClick(
+          event,
+          containerRef,
+          startRef,
+          endRef,
+          setRequestedTimestamp,
+        )
+      }
+    >
+      <div style={{ position: "relative" }}>
+        <ProgressLine
           containerRef={containerRef}
           startRef={startRef}
           endRef={endRef}
         />
-        <VirtualList
-          parentRef={parentRef}
-          startRef={startRef}
-          endRef={endRef}
-          timelineItems={timelineItems}
-        />
       </div>
-    );
-  },
-);
+      <HoverLine
+        containerRef={containerRef}
+        startRef={startRef}
+        endRef={endRef}
+      />
+      <VirtualList
+        parentRef={parentRef}
+        startRef={startRef}
+        endRef={endRef}
+        timelineItems={timelineItems}
+      />
+    </div>
+  );
+});

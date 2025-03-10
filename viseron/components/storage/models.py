@@ -4,10 +4,22 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
-from sqlalchemy import DateTime, Float, Integer, LargeBinary, String, types
+from sqlalchemy import (
+    ColumnElement,
+    DateTime,
+    Float,
+    Index,
+    Integer,
+    Label,
+    LargeBinary,
+    String,
+    text,
+    types,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
@@ -24,7 +36,10 @@ class UTCDateTime(types.TypeDecorator):
 
     def process_bind_param(self, value, _dialect):
         """Remove timezone info from datetime."""
+        # Only allow UTC datetimes
         if isinstance(value, datetime.datetime):
+            if value.tzinfo is None:
+                raise ValueError("Only UTC datetimes are allowed")
             return value.replace(tzinfo=None)
         return value
 
@@ -33,6 +48,36 @@ class UTCDateTime(types.TypeDecorator):
         if isinstance(value, datetime.datetime):
             return value.replace(tzinfo=datetime.timezone.utc)
         return value
+
+    class Comparator(DateTime.Comparator):
+        """Comparator for UTCDateTime."""
+
+        def local(
+            self, utc_offset: datetime.timedelta | None = None
+        ) -> Label | ColumnElement:
+            """Convert UTC timestamp to local time using PostgreSQL timezone arithmetic.
+
+            Args:
+                utc_offset: User's UTC offset as timedelta (e.g., timedelta(hours=-5))
+
+            Returns:
+                Column expression with localized timestamp
+            """
+            if utc_offset is None:
+                return self.expr
+
+            # Convert timedelta to PostgreSQL interval string
+            total_seconds = int(utc_offset.total_seconds())
+            hours, remainder = divmod(abs(total_seconds), 3600)
+            minutes, _seconds = divmod(remainder, 60)
+            offset_str = f"{'-' if total_seconds < 0 else '+'}{hours:02d}:{minutes:02d}"
+
+            # Convert UTC timestamp to local time using interval arithmetic
+            return (self.expr + text(f"interval '{offset_str}'")).label(
+                "local_timestamp"
+            )
+
+    comparator_factory = Comparator
 
 
 class UTCNow(expression.FunctionElement):
@@ -61,6 +106,11 @@ class Files(Base):
 
     __tablename__ = "files"
 
+    __table_args__ = (
+        Index("idx_files_path", "path"),
+        Index("idx_files_camera_id", "camera_identifier"),
+    )
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     tier_id: Mapped[int] = mapped_column(Integer)
     tier_path: Mapped[str] = mapped_column(String)
@@ -71,6 +121,10 @@ class Files(Base):
     directory: Mapped[str] = mapped_column(String)
     filename: Mapped[str] = mapped_column(String)
     size: Mapped[int] = mapped_column(Integer)
+    duration: Mapped[float] = mapped_column(Float, nullable=True)
+    orig_ctime: Mapped[datetime.datetime] = mapped_column(
+        UTCDateTime(timezone=False), nullable=False
+    )
     created_at: Mapped[datetime.datetime] = mapped_column(
         UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
     )
@@ -79,24 +133,15 @@ class Files(Base):
     )
 
 
-class FilesMeta(Base):
-    """Database model for files metadata.
+@dataclass
+class FilesMeta:
+    """Files meta dataclass.
 
-    Used to store arbitrary metadata about files.
+    Holds temporary information about files before they are inserted into the DB.
     """
 
-    __tablename__ = "files_meta"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    path: Mapped[str] = mapped_column(String, unique=True)
-    orig_ctime = mapped_column(UTCDateTime(timezone=False), nullable=False)
-    meta: Mapped[ColumnMeta] = mapped_column(JSONB)
-    created_at: Mapped[datetime.datetime] = mapped_column(
-        UTCDateTime(timezone=False), server_default=UTCNow(), nullable=True
-    )
-    updated_at: Mapped[datetime.datetime] = mapped_column(
-        UTCDateTime(timezone=False), onupdate=UTCNow(), nullable=True
-    )
+    orig_ctime: datetime.datetime
+    duration: float
 
 
 class TriggerTypes(Enum):
@@ -110,6 +155,14 @@ class Recordings(Base):
     """Database model for recordings."""
 
     __tablename__ = "recordings"
+
+    __table_args__ = (
+        Index(
+            "idx_recordings_camera_times", "camera_identifier", "start_time", "end_time"
+        ),
+        Index("idx_recordings_thumbnail", "thumbnail_path"),
+        Index("idx_recordings_clip", "clip_path"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
@@ -150,6 +203,8 @@ class Objects(Base):
 
     __tablename__ = "objects"
 
+    __table_args__ = (Index("idx_objects_snapshot", "snapshot_path"),)
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
     label: Mapped[str] = mapped_column(String)
@@ -174,6 +229,8 @@ class Motion(Base):
     """Database model for motion."""
 
     __tablename__ = "motion"
+
+    __table_args__ = (Index("idx_motion_snapshot", "snapshot_path"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)
@@ -210,6 +267,8 @@ class PostProcessorResults(Base):
     """Database model for post processor results."""
 
     __tablename__ = "post_processor_results"
+
+    __table_args__ = (Index("idx_ppr_snapshot", "snapshot_path"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     camera_identifier: Mapped[str] = mapped_column(String)

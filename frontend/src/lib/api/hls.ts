@@ -7,17 +7,17 @@ type HlsAvailableTimespansVariablesWithTime = {
   camera_identifier: string | null;
   time_from: number;
   time_to: number;
-  configOptions?: UseQueryOptions<
-    types.HlsAvailableTimespans,
-    types.APIErrorResponse
+  configOptions?: Omit<
+    UseQueryOptions<types.HlsAvailableTimespans, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
   >;
 };
 type HlsAvailableTimespansVariablesWithDate = {
   camera_identifier: string | null;
   date: string;
-  configOptions?: UseQueryOptions<
-    types.HlsAvailableTimespans,
-    types.APIErrorResponse
+  configOptions?: Omit<
+    UseQueryOptions<types.HlsAvailableTimespans, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
   >;
 };
 type HlsAvailableTimespansVariables =
@@ -72,28 +72,28 @@ export const useHlsAvailableTimespans = (
           "available_timespans",
           variables.date,
         ];
-  return useQuery<types.HlsAvailableTimespans, types.APIErrorResponse>(
+  return useQuery({
     queryKey,
-    async () => availableTimespans(variables),
-    variables.configOptions,
-  );
+    queryFn: async () => availableTimespans(variables),
+    ...variables.configOptions,
+  });
 };
 
 type HlsAvailableTimespansMultipleVariablesWithTime = {
   camera_identifiers: string[];
   time_from: number;
   time_to: number;
-  configOptions?: UseQueryOptions<
-    types.HlsAvailableTimespans,
-    types.APIErrorResponse
+  configOptions?: Omit<
+    UseQueryOptions<types.HlsAvailableTimespans, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
   >;
 };
 type HlsAvailableTimespansMultipleVariablesWithDate = {
   camera_identifiers: string[];
   date: string;
-  configOptions?: UseQueryOptions<
-    types.HlsAvailableTimespans,
-    types.APIErrorResponse
+  configOptions?: Omit<
+    UseQueryOptions<types.HlsAvailableTimespans, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
   >;
 };
 type HlsAvailableTimespansMultipleVariables =
@@ -129,6 +129,7 @@ export function useHlsAvailableTimespansMultiple(
           newVariables as HlsAvailableTimespansVariables,
         );
       },
+      ...variables.configOptions,
     })),
   });
 
@@ -141,9 +142,7 @@ export function useHlsAvailableTimespansMultiple(
     data,
     isError: availableTimespansQueries.some((query) => query.isError),
     error: availableTimespansQueries.find((query) => query.error)?.error,
+    isPending: availableTimespansQueries.some((query) => query.isPending),
     isLoading: availableTimespansQueries.some((query) => query.isLoading),
-    isInitialLoading: availableTimespansQueries.some(
-      (query) => query.isInitialLoading,
-    ),
   };
 }

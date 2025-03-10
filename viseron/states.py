@@ -168,6 +168,10 @@ class States:
         else:
             entity.object_id = slugify(entity.name)
 
+    def entity_exists(self, entity: Entity) -> bool:
+        """Return if entity has already been added."""
+        return self._generate_entity_id(entity) in self._registry
+
     def _generate_entity_id(self, entity: Entity) -> str:
         """Generate entity id for an entity."""
         self._assign_object_id(entity)

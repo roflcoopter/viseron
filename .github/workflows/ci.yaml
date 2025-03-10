@@ -39,7 +39,7 @@ jobs:
           echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements_test.txt') }}-${{ hashFiles('requirements_ci.txt') }}" >> $GITHUB_OUTPUT
       - name: Restore Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ steps.python-venv-cache-key.outputs.key }}
@@ -73,7 +73,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -91,7 +91,7 @@ jobs:
       # Install pre-commit hooks into the cached virtual environment
       - name: Restore pre-commit hooks
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ steps.pre-commit-cache-key.outputs.key }}
@@ -116,7 +116,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -127,7 +127,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -156,7 +156,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -167,7 +167,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -196,7 +196,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -207,7 +207,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -236,7 +236,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -247,7 +247,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -260,6 +260,7 @@ jobs:
         uses: ./.github/templates/run_in_venv
         with:
           command: |
+            mypy --install-types --non-interactive viseron
             pre-commit run --hook-stage manual mypy --all-files --show-diff-on-failure
 
   run-pylint:
@@ -276,7 +277,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -287,7 +288,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -321,7 +322,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -332,7 +333,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -361,7 +362,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -372,7 +373,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -403,7 +404,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -450,7 +451,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -461,7 +462,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}

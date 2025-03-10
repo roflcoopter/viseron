@@ -1,15 +1,22 @@
 import Image from "@jy95/material-ui-image";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
+import CardActionArea from "@mui/material/CardActionArea";
+import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
+import IconButton from "@mui/material/IconButton";
+import Popover from "@mui/material/Popover";
 import Stack from "@mui/material/Stack";
-import Tooltip, { TooltipProps, tooltipClasses } from "@mui/material/Tooltip";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { styled, useTheme } from "@mui/material/styles";
+import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { memo } from "react";
+import PopupState, { bindHover, bindPopover } from "material-ui-popup-state";
+import HoverPopover from "material-ui-popup-state/HoverPopover";
+import { memo, useCallback, useRef } from "react";
 
 import {
   EVENT_ICON_HEIGHT,
@@ -21,20 +28,11 @@ import {
   getEventTimestamp,
   getIcon,
   getSrc,
+  useSelectEvent,
 } from "components/events/utils";
-import { toTitleCase } from "lib/helpers";
+import { useExportEvent } from "lib/commands";
+import { isTouchDevice, toTitleCase } from "lib/helpers";
 import * as types from "lib/types";
-
-const CustomWidthTooltip = styled(({ className, ...props }: TooltipProps) => (
-  <Tooltip {...props} classes={{ popper: className }} />
-))(() => ({
-  [`& .${tooltipClasses.tooltip}`]: {
-    overflowX: "hidden",
-    overflowY: "scroll",
-    maxHeight: "50vh",
-    maxWidth: "100vw",
-  },
-}));
 
 const getText = (event: types.CameraEvent) => {
   const date = new Date(getEventTime(event));
@@ -115,10 +113,29 @@ const getText = (event: types.CameraEvent) => {
   }
 };
 
-const ToolTipContent = ({ events }: { events: types.CameraEvent[] }) => {
+const getTooltipTitle = (event: types.CameraEvent) => {
+  switch (event.type) {
+    case "object":
+    case "face_recognition":
+    case "license_plate_recognition":
+    case "motion":
+      return "Download Snapshot";
+
+    case "recording":
+      return "Download Recording";
+
+    default:
+      return event satisfies never;
+  }
+};
+
+const PopoverContent = ({ events }: { events: types.CameraEvent[] }) => {
   const theme = useTheme();
   const matches = useMediaQuery(theme.breakpoints.up("sm"));
   const width = matches ? (events.length > 1 ? "50vw" : "25vw") : "90vw";
+  const handleEventClick = useSelectEvent();
+  const exportEvent = useExportEvent();
+
   return (
     <Grid
       container
@@ -127,32 +144,55 @@ const ToolTipContent = ({ events }: { events: types.CameraEvent[] }) => {
       sx={{ flexGrow: 1, width }}
       columns={2}
     >
-      {events.reverse().map((event, index) => (
-        <Grid
-          item
-          key={`${index}-${getEventTimestamp(event)}`}
-          xs={events.length > 1 ? 1 : 2}
-        >
-          <Card>
-            <CardMedia
-              sx={{
-                borderRadius: theme.shape.borderRadius,
-                overflow: "hidden",
-              }}
-            >
-              <Image
-                src={getSrc(event)}
-                color={theme.palette.background.default}
-                animationDuration={0}
-                imageStyle={{
-                  objectFit: "contain",
+      {events
+        .slice()
+        .reverse()
+        .map((event, index) => (
+          <Grid
+            key={`${index}-${getEventTimestamp(event)}`}
+            size={events.length > 1 ? 1 : 2}
+          >
+            <Card>
+              <CardActionArea
+                onClick={() => {
+                  handleEventClick(event);
                 }}
-              />
-            </CardMedia>
-            <CardContent>{getText(event)}</CardContent>
-          </Card>
-        </Grid>
-      ))}
+              >
+                <CardMedia
+                  sx={{
+                    borderRadius: 1, // theme.shape.borderRadius * 1
+                    overflow: "hidden",
+                  }}
+                >
+                  <Image
+                    src={getSrc(event)}
+                    color={theme.palette.background.default}
+                    animationDuration={0}
+                    imageStyle={{
+                      objectFit: "contain",
+                    }}
+                  />
+                </CardMedia>
+              </CardActionArea>
+              <CardContent>{getText(event)}</CardContent>
+              <CardActions>
+                <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
+                  <Tooltip title={getTooltipTitle(event)}>
+                    <IconButton
+                      onClick={(e) => {
+                        exportEvent(event);
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
+                    >
+                      <FileDownloadIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              </CardActions>
+            </Card>
+          </Grid>
+        ))}
     </Grid>
   );
 };
@@ -168,35 +208,113 @@ const Divider = () => (
 );
 
 export const SnapshotIcon = ({ events }: { events: types.CameraEvent[] }) => {
-  const theme = useTheme();
   const Icon = getIcon(events[0]);
+  const PopoverComponent = isTouchDevice() ? Popover : HoverPopover;
+
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const handleOnMouseEnter = useCallback(
+    (
+      e: React.MouseEvent<HTMLElement>,
+      onMouseOver: (e: React.MouseEvent<HTMLElement>) => void,
+    ) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      const currentTarget = e.currentTarget;
+      timeoutRef.current = setTimeout(() => {
+        e.currentTarget = currentTarget;
+        onMouseOver(e);
+      }, 100);
+    },
+    [timeoutRef],
+  );
+
+  const handleMouseLeave = useCallback(
+    (e: React.MouseEvent, onMouseLeave: (event: React.MouseEvent) => void) => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+
+      onMouseLeave(e);
+    },
+    [timeoutRef],
+  );
+
   return (
-    <CustomWidthTooltip title={<ToolTipContent events={events} />} arrow>
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "5px",
-          cursor: "pointer",
-          "&:hover": {
-            backgroundColor:
-              theme.palette.mode === "dark"
-                ? theme.palette.primary[900]
-                : theme.palette.primary[200],
-            borderRadius: "5px",
-          },
-        }}
-      >
-        <Icon
-          color="primary"
-          style={{
-            height: EVENT_ICON_HEIGHT,
-            width: EVENT_ICON_HEIGHT,
-          }}
-        />
-      </Box>
-    </CustomWidthTooltip>
+    <PopupState variant="popover">
+      {(popupState) => {
+        const { onMouseLeave, onMouseOver, ...rest } = bindHover(popupState);
+
+        return (
+          <div>
+            <Box
+              {...rest}
+              onMouseOver={(e) => handleOnMouseEnter(e, onMouseOver)}
+              onMouseLeave={(e) => handleMouseLeave(e, onMouseLeave)}
+              sx={(theme) => ({
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "5px",
+                cursor: "pointer",
+                borderRadius: 1, // theme.shape.borderRadius * 1
+                "&:hover": {
+                  backgroundColor: theme.palette.primary[200],
+
+                  ...theme.applyStyles("dark", {
+                    backgroundColor: theme.palette.primary[900],
+                  }),
+                },
+                ...(popupState.isOpen && {
+                  backgroundColor: theme.palette.primary[200],
+
+                  ...theme.applyStyles("dark", {
+                    backgroundColor: theme.palette.primary[900],
+                  }),
+                }),
+              })}
+            >
+              <Icon
+                color="primary"
+                style={{
+                  height: EVENT_ICON_HEIGHT,
+                  width: EVENT_ICON_HEIGHT,
+                }}
+              />
+            </Box>
+            <PopoverComponent
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+              {...bindPopover(popupState)}
+              slotProps={{
+                paper: {
+                  style: {
+                    padding: 10,
+                    overflowX: "hidden",
+                    overflowY: "scroll",
+                    maxHeight: "50vh",
+                    maxWidth: "100vw",
+                  },
+                },
+              }}
+              anchorOrigin={{
+                vertical: "bottom",
+                horizontal: "left",
+              }}
+              transformOrigin={{
+                vertical: "top",
+                horizontal: "left",
+              }}
+            >
+              <PopoverContent events={events} />
+            </PopoverComponent>
+          </div>
+        );
+      }}
+    </PopupState>
   );
 };
 
@@ -234,21 +352,20 @@ const Snapshot = ({ snapshotPath }: { snapshotPath: string }) => {
   const theme = useTheme();
   return (
     <Box
-      sx={{
+      sx={() => ({
         width: "35%",
         margin: "auto",
         marginLeft: "10px",
         marginRight: "10px",
         overflow: "hidden",
-        borderRadius: "5px",
-        border: `1px solid ${
-          theme.palette.mode === "dark"
-            ? theme.palette.primary[900]
-            : theme.palette.primary[200]
-        }`,
+        borderRadius: 1, // theme.shape.borderRadius * 1
         transform: `translateY(calc(-50% + ${TICK_HEIGHT / 2}px))`,
         boxShadow: "0px 0px 5px 0px rgba(0,0,0,0.75)",
-      }}
+        border: `1px solid ${theme.palette.primary[200]}`,
+        ...theme.applyStyles("dark", {
+          border: `1px solid ${theme.palette.primary[900]}`,
+        }),
+      })}
     >
       <Image
         src={snapshotPath}

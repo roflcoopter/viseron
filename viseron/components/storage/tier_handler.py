@@ -10,9 +10,10 @@ from queue import Queue
 from threading import Lock, Timer
 from typing import TYPE_CHECKING, Any, Literal
 
-from sqlalchemy import Result, delete, insert, select, update
+from sqlalchemy import Delete, Result, delete, insert, select, update
 from sqlalchemy.exc import IntegrityError, NoResultFound
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.dml import ReturningDelete
 from watchdog.events import (
     FileCreatedEvent,
     FileDeletedEvent,
@@ -39,22 +40,52 @@ from viseron.components.storage.const import (
     CONFIG_PATH,
     CONFIG_POLL,
     CONFIG_SECONDS,
+    EVENT_FILE_CREATED,
+    EVENT_FILE_DELETED,
+    TIER_CATEGORY_RECORDER,
+    TIER_SUBCATEGORY_EVENT_CLIPS,
+    TIER_SUBCATEGORY_FACE_RECOGNITION,
+    TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
+    TIER_SUBCATEGORY_MOTION_DETECTOR,
+    TIER_SUBCATEGORY_OBJECT_DETECTOR,
+    TIER_SUBCATEGORY_SEGMENTS,
+    TIER_SUBCATEGORY_THUMBNAILS,
 )
-from viseron.components.storage.models import Files, FilesMeta, Recordings
+from viseron.components.storage.models import (
+    Files,
+    FilesMeta,
+    Motion,
+    MotionContours,
+    Objects,
+    PostProcessorResults,
+    Recordings,
+)
 from viseron.components.storage.queries import (
     files_to_move_query,
     recordings_to_move_query,
 )
 from viseron.components.storage.util import (
+    EventFileCreated,
+    EventFileDeleted,
     calculate_age,
     calculate_bytes,
     files_to_move_overlap,
-    get_recorder_path,
+    get_event_clips_path,
+    get_segments_path,
+    get_thumbnails_path,
 )
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
-from viseron.const import CAMERA_SEGMENT_DURATION, VISERON_SIGNAL_LAST_WRITE
+from viseron.const import (
+    CAMERA_SEGMENT_DURATION,
+    VISERON_SIGNAL_LAST_WRITE,
+    VISERON_SIGNAL_STOPPING,
+)
 from viseron.domains.camera import FailedCamera
-from viseron.domains.camera.const import CONFIG_RECORDER, CONFIG_RETAIN
+from viseron.domains.camera.const import (
+    CONFIG_CONTINUOUS_RECORDING,
+    CONFIG_RECORDER,
+    CONFIG_RETAIN,
+)
 from viseron.helpers import utcnow
 from viseron.watchdog.thread_watchdog import RestartableThread
 
@@ -79,7 +110,7 @@ class TierHandler(FileSystemEventHandler):
         next_tier: dict[str, Any] | None,
     ) -> None:
         self._logger = logging.getLogger(
-            f"{__name__}.{camera.identifier}.tier_{tier_id}"
+            f"{__name__}.{camera.identifier}.tier_{tier_id}.{category}.{subcategory}"
         )
         super().__init__()
 
@@ -95,6 +126,7 @@ class TierHandler(FileSystemEventHandler):
 
         self.initialize()
         vis.register_signal_handler(VISERON_SIGNAL_LAST_WRITE, self._shutdown)
+        vis.register_signal_handler(VISERON_SIGNAL_STOPPING, self._stop_observer)
 
         self._pending_updates: dict[str, Timer] = {}
         self._event_queue: Queue[FileSystemEvent | None] = Queue()
@@ -178,9 +210,9 @@ class TierHandler(FileSystemEventHandler):
             time_since_last_call = now - self._time_of_last_call
             if time_since_last_call < self._throttle_period:
                 return
+            self._time_of_last_call = now
 
         self._check_tier(self._storage.get_session)
-        self._time_of_last_call = now
 
     def _check_tier(self, get_session: Callable[[], Session]) -> None:
         file_ids = None
@@ -195,7 +227,7 @@ class TierHandler(FileSystemEventHandler):
                 self._min_age,
                 self._min_bytes,
                 self._max_age,
-            )
+            ).all()
 
             if file_ids is not None:
                 for file in file_ids:
@@ -233,6 +265,7 @@ class TierHandler(FileSystemEventHandler):
     def _on_created(self, event: FileCreatedEvent) -> None:
         """Insert into database when file is created."""
         self._logger.debug("File created: %s", event.src_path)
+        file_meta = self._storage.temporary_files_meta.pop(event.src_path, None)
         try:
             with self._storage.get_session() as session:
                 stmt = insert(Files).values(
@@ -245,12 +278,30 @@ class TierHandler(FileSystemEventHandler):
                     directory=os.path.dirname(event.src_path),
                     filename=os.path.basename(event.src_path),
                     size=os.path.getsize(event.src_path),
+                    orig_ctime=file_meta.orig_ctime if file_meta else utcnow(),
+                    duration=file_meta.duration if file_meta else None,
                 )
                 session.execute(stmt)
                 session.commit()
         except IntegrityError:
             self._logger.error(
                 "Failed to insert file %s into database, already exists", event.src_path
+            )
+        else:
+            self._vis.dispatch_event(
+                EVENT_FILE_CREATED.format(
+                    camera_identifier=self._camera.identifier,
+                    category=self._category,
+                    subcategory=self._subcategory,
+                    file_name="*",
+                ),
+                EventFileCreated(
+                    camera_identifier=self._camera.identifier,
+                    category=self._category,
+                    subcategory=self._subcategory,
+                    file_name=os.path.basename(event.src_path),
+                    path=event.src_path,
+                ),
             )
 
         self.check_tier()
@@ -293,21 +344,42 @@ class TierHandler(FileSystemEventHandler):
             session.execute(stmt)
             session.commit()
 
+        self._vis.dispatch_event(
+            EVENT_FILE_DELETED.format(
+                camera_identifier=self._camera.identifier,
+                category=self._category,
+                subcategory=self._subcategory,
+                file_name=os.path.basename(event.src_path),
+            ),
+            EventFileDeleted(
+                camera_identifier=self._camera.identifier,
+                category=self._category,
+                subcategory=self._subcategory,
+                file_name=os.path.basename(event.src_path),
+                path=event.src_path,
+            ),
+        )
+
     def _shutdown(self) -> None:
         """Shutdown the observer and event handler."""
-        self._logger.debug("Stopping observer")
+        self._logger.debug("Initiating observer shutdown")
         if self._tier[CONFIG_MOVE_ON_SHUTDOWN]:
             self._logger.debug("Forcing move of files")
             force_move_files(
                 self._storage,
                 self._storage.get_session,
                 self._category,
+                self._subcategory,
                 self._tier_id,
                 self._camera.identifier,
                 self._tier,
                 self._next_tier,
                 self._logger,
             )
+
+    def _stop_observer(self) -> None:
+        """Stop the observer."""
+        self._logger.debug("Stopping observer")
         for pending_update in self._pending_updates.copy().values():
             pending_update.join()
         self._event_queue.put(None)
@@ -321,7 +393,7 @@ class SegmentsTierHandler(TierHandler):
 
     def initialize(self) -> None:
         """Initialize recorder tier."""
-        self._path = get_recorder_path(self._tier, self._camera, self._subcategory)
+        self._path = get_segments_path(self._tier, self._camera)
 
         self._continuous_max_bytes = calculate_bytes(
             self._tier[CONFIG_CONTINUOUS][CONFIG_MAX_SIZE]
@@ -376,7 +448,10 @@ class SegmentsTierHandler(TierHandler):
         ]
 
         self._events_enabled = any(self._events_params)
-        self._continuous_enabled = any(self._continuous_params)
+        self._continuous_enabled = (
+            any(self._continuous_params)
+            and self._camera.config[CONFIG_RECORDER][CONFIG_CONTINUOUS_RECORDING]
+        )
 
         self.add_file_handler(self._path, rf"{self._path}/(.*.m4s$)")
         self.add_file_handler(self._path, rf"{self._path}/(.*.mp4$)")
@@ -530,7 +605,7 @@ class SegmentsTierHandler(TierHandler):
                     thumbnail_tier_handler: ThumbnailTierHandler = (
                         self._storage.camera_tier_handlers[self._camera.identifier][
                             self._category
-                        ][self._tier_id]["thumbnails"]
+                        ][self._tier_id][TIER_SUBCATEGORY_THUMBNAILS]
                     )
                     thumbnail_tier_handler.move_thumbnail(
                         recording_id,
@@ -543,10 +618,10 @@ class SegmentsTierHandler(TierHandler):
                     "Handle event clip for recordings: %s", recording_ids
                 )
                 for recording_id in recording_ids:
-                    recordings_tier_handler: RecordingsTierHandler = (
+                    recordings_tier_handler: EventClipTierHandler = (
                         self._storage.camera_tier_handlers[self._camera.identifier][
                             self._category
-                        ][self._tier_id]["recordings"]
+                        ][self._tier_id][TIER_SUBCATEGORY_EVENT_CLIPS]
                     )
                     recordings_tier_handler.move_event_clip(
                         recording_id,
@@ -572,27 +647,57 @@ class SnapshotTierHandler(TierHandler):
         super().initialize()
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
 
+    def _on_deleted(self, event: FileDeletedEvent) -> None:
+        stmt: Delete | ReturningDelete[tuple[int]]
+        if self._subcategory == TIER_SUBCATEGORY_MOTION_DETECTOR:
+            with self._storage.get_session() as session:
+                stmt = (
+                    delete(Motion)
+                    .where(Motion.snapshot_path == event.src_path)
+                    .returning(Motion.id)
+                )
+                result = session.execute(stmt)
+                motion_ids = [row[0] for row in result]
+
+                if motion_ids:
+                    stmt2 = delete(MotionContours).where(
+                        MotionContours.motion_id.in_(motion_ids)
+                    )
+                    session.execute(stmt2)
+
+                session.commit()
+
+        elif self._subcategory == TIER_SUBCATEGORY_OBJECT_DETECTOR:
+            with self._storage.get_session() as session:
+                stmt = delete(Objects).where(Objects.snapshot_path == event.src_path)
+                session.execute(stmt)
+                session.commit()
+
+        elif self._subcategory in [
+            TIER_SUBCATEGORY_FACE_RECOGNITION,
+            TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
+        ]:
+            with self._storage.get_session() as session:
+                stmt = delete(PostProcessorResults).where(
+                    PostProcessorResults.snapshot_path == event.src_path
+                )
+                session.execute(stmt)
+                session.commit()
+
+        super()._on_deleted(event)
+
 
 class ThumbnailTierHandler(TierHandler):
     """Handle thumbnails."""
 
     def initialize(self):
         """Initialize thumbnail tier."""
-        self._path = os.path.join(
-            self._tier[CONFIG_PATH],
-            "thumbnails",
-            self._camera.identifier,
-        )
+        self._path = get_thumbnails_path(self._tier, self._camera)
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
+        self._storage.ignore_file("latest_thumbnail.jpg")
 
     def check_tier(self) -> None:
         """Do nothing, as we don't want to move thumbnails."""
-
-    def on_any_event(self, event: FileSystemEvent) -> None:
-        """Ignore changes to latest_thumbnail.jpg."""
-        if os.path.basename(event.src_path) == "latest_thumbnail.jpg":
-            return
-        return super().on_any_event(event)
 
     def _on_created(self, event: FileCreatedEvent) -> None:
         try:
@@ -642,22 +747,18 @@ class ThumbnailTierHandler(TierHandler):
             session.commit()
 
 
-class RecordingsTierHandler(TierHandler):
-    """Handle recordings created by create_event_clip."""
+class EventClipTierHandler(TierHandler):
+    """Handle event clips created by create_event_clip."""
 
     def initialize(self):
-        """Initialize recordings tier."""
-        self._path = os.path.join(
-            self._tier[CONFIG_PATH],
-            "recordings",
-            self._camera.identifier,
-        )
+        """Initialize event clips tier."""
+        self._path = get_event_clips_path(self._tier, self._camera)
         self.add_file_handler(
             self._path, rf"{self._path}/(.*.{self._camera.identifier}$)"
         )
 
     def check_tier(self) -> None:
-        """Do nothing, as we move recordings manually."""
+        """Do nothing, as we move event clips manually."""
 
     def _update_clip_path(self, event: FileCreatedEvent) -> None:
         try:
@@ -721,10 +822,10 @@ def find_next_tier_segments(
 ) -> SegmentsTierHandler | None:
     """Find the next tier for segments."""
     next_tier = None
-    for tier in storage.camera_tier_handlers[camera.identifier]["recorder"][
+    for tier in storage.camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][
         tier_id + 1 :
     ]:
-        segments_tier_handler: SegmentsTierHandler = tier["segments"]
+        segments_tier_handler: SegmentsTierHandler = tier[TIER_SUBCATEGORY_SEGMENTS]
         if segments_tier_handler.events_enabled and file_type == "events":
             next_tier = segments_tier_handler
             break
@@ -763,6 +864,7 @@ def handle_file(
             )
         else:
             move_file(
+                storage,
                 get_session,
                 path,
                 new_path,
@@ -788,6 +890,7 @@ def handle_file(
 
 
 def move_file(
+    storage: Storage,
     get_session: Callable[..., Session],
     src: str,
     dst: str,
@@ -802,22 +905,29 @@ def move_file(
     logger.debug("Moving file from %s to %s", src, dst)
     try:
         with get_session() as session:
-            sel = select(FilesMeta).where(FilesMeta.path == src)
+            sel = select(Files).where(Files.path == src)
             res = session.execute(sel).scalar_one()
-            ins = insert(FilesMeta).values(
-                path=dst, meta=res.meta, orig_ctime=res.orig_ctime
+            storage.temporary_files_meta[dst] = FilesMeta(
+                orig_ctime=res.orig_ctime, duration=res.duration
             )
-            session.execute(ins)
+    except NoResultFound as error:
+        logger.debug(f"Failed to find metadata for {src}: {error}")
+        with get_session() as session:
+            stmt = delete(Files).where(Files.path == src)
+            session.execute(stmt)
             session.commit()
-    except IntegrityError:
-        logger.error(f"Failed to insert metadata for {dst}", exc_info=True)
+        try:
+            os.remove(src)
+        except FileNotFoundError as _error:
+            logger.debug(f"Failed to delete file {src}: {_error}")
+        return
 
     try:
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copy(src, dst)
         os.remove(src)
     except FileNotFoundError as error:
-        logger.error(f"Failed to move file {src} to {dst}: {error}")
+        logger.debug(f"Failed to move file {src} to {dst}: {error}")
         with get_session() as session:
             stmt = delete(Files).where(Files.path == src)
             session.execute(stmt)
@@ -839,7 +949,7 @@ def delete_file(
     try:
         os.remove(path)
     except FileNotFoundError as error:
-        logger.error(f"Failed to delete file {path}: {error}")
+        logger.debug(f"Failed to delete file {path}: {error}")
 
 
 def get_files_to_move(
@@ -924,6 +1034,7 @@ def force_move_files(
     storage: Storage,
     get_session: Callable[..., Session],
     category: str,
+    subcategory: str,
     tier_id: int,
     camera_identifier: str,
     curr_tier: dict[str, Any],
@@ -931,14 +1042,15 @@ def force_move_files(
     logger: logging.Logger,
 ) -> None:
     """Get and move/delete all files in tier."""
-    with get_session() as session:
+    with get_session(expire_on_commit=False) as session:
         stmt = (
-            select(Files)
-            .where(Files.category == category)
-            .where(Files.tier_id == tier_id)
+            select(Files.path, Files.tier_path)
             .where(Files.camera_identifier == camera_identifier)
+            .where(Files.tier_id == tier_id)
+            .where(Files.category == category)
+            .where(Files.subcategory == subcategory)
         )
-        result = session.execute(stmt)
+        result = session.execute(stmt).all()
         for file in result:
             handle_file(
                 get_session,
@@ -946,8 +1058,8 @@ def force_move_files(
                 camera_identifier,
                 curr_tier,
                 next_tier,
-                file.path,
-                file.tier_path,
+                file[0],
+                file[1],
                 logger,
             )
         session.commit()

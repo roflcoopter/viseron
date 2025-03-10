@@ -2,6 +2,7 @@
 import React from "react";
 
 import Link from "@docusaurus/Link";
+import Heading from "@theme/Heading";
 // This throws error in typechecking but works in runtime?
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
@@ -25,13 +26,13 @@ const TagComp = React.forwardRef<HTMLLIElement, Domain>(
       <span className={styles.textLabel}>{label.toLowerCase()}</span>
       <span className={styles.colorLabel} style={{ backgroundColor: color }} />
     </li>
-  )
+  ),
 );
 
 function ComponentCardTag({ tags }: { tags: DomainType[] }) {
   const tagObjects = tags.map((tag) => ({ tag, ...Domains[tag] }));
   const tagObjectsSorted = sortBy(tagObjects, (tagObject) =>
-    DomainsList.indexOf(tagObject.tag)
+    DomainsList.indexOf(tagObject.tag),
   );
 
   return (
@@ -44,21 +45,21 @@ function ComponentCardTag({ tags }: { tags: DomainType[] }) {
 }
 
 function ComponentCard({ component }: { component: Component }) {
-  const componentLink = `components-explorer/components/${component.name}`;
+  const componentLink = `/components-explorer/components/${component.name}`;
   return (
     <li key={component.title} className="card shadow--md outline">
-      <a href={componentLink}>
+      <Link href={componentLink}>
         <div className={clsx("card__image", styles.componentCardImage)}>
           <IdealImage img={component.image} alt={component.title} />
         </div>
-      </a>
+      </Link>
       <div className="card__body">
         <div className={clsx(styles.componentCardHeader)}>
-          <h4 className={styles.componentCardTitle}>
+          <Heading as="h4" className={styles.componentCardTitle}>
             <Link href={componentLink} className={styles.componentCardLink}>
               {component.title}
             </Link>
-          </h4>
+          </Heading>
         </div>
         <p className={styles.componentCardBody}>{component.description}</p>
       </div>

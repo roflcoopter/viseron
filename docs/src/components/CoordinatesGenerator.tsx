@@ -27,7 +27,7 @@ const CoordinatesGenerator = (props: {
 
     if (coordinateArray.length < 6) {
       setError(
-        "Invalid coordinate string, must be at least 3 pairs (6 in total) of values"
+        "Invalid coordinate string, must be at least 3 pairs (6 in total) of values",
       );
       return;
     }

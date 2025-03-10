@@ -103,7 +103,7 @@ Viseron requires a lot of dependencies.
 To make testing with `pytest` as easy as possible, `tox` will build and run a Docker container which executes `pytest`.
 If you would like to run tests outside of `tox` you can build and run this container manually:
 
-```bash
+```shell
 docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build amd64-viseron-tests
 docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env run --rm amd64-viseron-tests
 ```

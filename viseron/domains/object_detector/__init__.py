@@ -15,19 +15,24 @@ from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, OBJECT_DETECTOR
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Objects
-from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.const import INSERT, VISERON_SIGNAL_SHUTDOWN
+from viseron.domains.camera.const import (
+    DOMAIN as CAMERA_DOMAIN,
+    EVENT_CAMERA_EVENT_DB_OPERATION,
+)
+from viseron.domains.camera.events import EventCameraEventData
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.motion_detector.const import DOMAIN as MOTION_DETECTOR_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
-from viseron.helpers import generate_mask
+from viseron.helpers import apply_mask, generate_mask, generate_mask_image
 from viseron.helpers.filter import Filter
 from viseron.helpers.schemas import (
     COORDINATES_SCHEMA,
     FLOAT_MIN_ZERO,
     FLOAT_MIN_ZERO_MAX_ONE,
 )
-from viseron.helpers.validators import CameraIdentifier
+from viseron.helpers.validators import CameraIdentifier, Deprecated
+from viseron.types import SnapshotDomain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .binary_sensor import (
@@ -45,6 +50,7 @@ from .const import (
     CONFIG_LABEL_REQUIRE_MOTION,
     CONFIG_LABEL_STORE,
     CONFIG_LABEL_STORE_INTERVAL,
+    CONFIG_LABEL_TRIGGER_EVENT_RECORDING,
     CONFIG_LABEL_TRIGGER_RECORDER,
     CONFIG_LABEL_WIDTH_MAX,
     CONFIG_LABEL_WIDTH_MIN,
@@ -64,7 +70,7 @@ from .const import (
     DEFAULT_LABEL_REQUIRE_MOTION,
     DEFAULT_LABEL_STORE,
     DEFAULT_LABEL_STORE_INTERVAL,
-    DEFAULT_LABEL_TRIGGER_RECORDER,
+    DEFAULT_LABEL_TRIGGER_EVENT_RECORDING,
     DEFAULT_LABEL_WIDTH_MAX,
     DEFAULT_LABEL_WIDTH_MIN,
     DEFAULT_LABELS,
@@ -73,6 +79,7 @@ from .const import (
     DEFAULT_MAX_FRAME_AGE,
     DEFAULT_SCAN_ON_MOTION_ONLY,
     DEFAULT_ZONES,
+    DEPRECATED_LABEL_TRIGGER_RECORDER,
     DESC_CAMERAS,
     DESC_COORDINATES,
     DESC_FPS,
@@ -83,6 +90,7 @@ from .const import (
     DESC_LABEL_REQUIRE_MOTION,
     DESC_LABEL_STORE,
     DESC_LABEL_STORE_INTERVAL,
+    DESC_LABEL_TRIGGER_EVENT_RECORDING,
     DESC_LABEL_TRIGGER_RECORDER,
     DESC_LABEL_WIDTH_MAX,
     DESC_LABEL_WIDTH_MIN,
@@ -95,6 +103,7 @@ from .const import (
     DESC_ZONES,
     DOMAIN,
     EVENT_OBJECTS_IN_FOV,
+    WARNING_LABEL_TRIGGER_RECORDER,
 )
 from .detected_object import DetectedObject, EventDetectedObjectsData
 from .sensor import ObjectDetectorFPSSensor
@@ -148,10 +157,16 @@ LABEL_SCHEMA = vol.Schema(
                 default=DEFAULT_LABEL_WIDTH_MAX,
                 description=DESC_LABEL_WIDTH_MAX,
             ): FLOAT_MIN_ZERO_MAX_ONE,
-            vol.Optional(
+            Deprecated(
                 CONFIG_LABEL_TRIGGER_RECORDER,
-                default=DEFAULT_LABEL_TRIGGER_RECORDER,
                 description=DESC_LABEL_TRIGGER_RECORDER,
+                message=DEPRECATED_LABEL_TRIGGER_RECORDER,
+                warning=WARNING_LABEL_TRIGGER_RECORDER,
+            ): bool,
+            vol.Optional(
+                CONFIG_LABEL_TRIGGER_EVENT_RECORDING,
+                default=DEFAULT_LABEL_TRIGGER_EVENT_RECORDING,
+                description=DESC_LABEL_TRIGGER_EVENT_RECORDING,
             ): bool,
             vol.Optional(
                 CONFIG_LABEL_STORE,
@@ -262,6 +277,7 @@ class AbstractObjectDetector(ABC):
             self._mask = generate_mask(
                 config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK]
             )
+            self._mask_image = generate_mask_image(self._mask, self._camera.resolution)
 
         if config[CONFIG_CAMERAS][camera_identifier][CONFIG_LABELS]:
             for object_filter in config[CONFIG_CAMERAS][camera_identifier][
@@ -352,8 +368,8 @@ class AbstractObjectDetector(ABC):
                 obj.relevant = True
                 objects_in_fov.append(obj)
 
-                if self.object_filters[obj.label].trigger_recorder:
-                    obj.trigger_recorder = True
+                if self.object_filters[obj.label].trigger_event_recording:
+                    obj.trigger_event_recording = True
                 self.object_filters[obj.label].should_store(obj)
 
         self._objects_in_fov_setter(shared_frame, objects_in_fov)
@@ -395,20 +411,17 @@ class AbstractObjectDetector(ABC):
             session.execute(stmt)
             session.commit()
 
-    def _objects_in_fov_setter(
-        self, shared_frame: SharedFrame | None, objects: list[DetectedObject]
+    def _insert_objects(
+        self, shared_frame: SharedFrame, objects: list[DetectedObject]
     ) -> None:
-        """Set objects in field of view."""
-        if objects == self._objects_in_fov:
-            return
-
+        """Insert objects into database."""
         for obj in objects:
             if obj.store:
                 snapshot_path = None
                 if shared_frame:
                     snapshot_path = self._camera.save_snapshot(
                         shared_frame,
-                        DOMAIN,
+                        SnapshotDomain.OBJECT_DETECTOR,
                         (
                             obj.rel_x1,
                             obj.rel_y1,
@@ -418,6 +431,26 @@ class AbstractObjectDetector(ABC):
                         detected_object=obj,
                     )
                 self._insert_object(obj, snapshot_path)
+                self._vis.dispatch_event(
+                    EVENT_CAMERA_EVENT_DB_OPERATION.format(
+                        camera_identifier=self._camera.identifier,
+                        domain=DOMAIN,
+                        operation=INSERT,
+                    ),
+                    EventCameraEventData(
+                        camera_identifier=self._camera.identifier,
+                        domain=DOMAIN,
+                        operation=INSERT,
+                        data=obj,
+                    ),
+                )
+
+    def _objects_in_fov_setter(
+        self, shared_frame: SharedFrame | None, objects: list[DetectedObject]
+    ) -> None:
+        """Set objects in field of view."""
+        if objects == self._objects_in_fov:
+            return
 
         self._objects_in_fov = objects
         self._vis.dispatch_event(
@@ -463,15 +496,21 @@ class AbstractObjectDetector(ABC):
     def _detect(self, shared_frame: SharedFrame, frame_time: float):
         """Perform object detection and publish data."""
         decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(shared_frame)
+        if self._mask:
+            apply_mask(decoded_frame, self._mask_image)
         preprocessed_frame = self.preprocess(decoded_frame)
         self._preproc_fps.append(1 / (time.time() - frame_time))
 
         frame_time = time.time()
         objects = self.return_objects(preprocessed_frame)
+        if objects is None:
+            return
+
         self._inference_fps.append(1 / (time.time() - frame_time))
 
         self.filter_fov(shared_frame, objects)
         self.filter_zones(shared_frame, objects)
+        self._insert_objects(shared_frame, objects)
         self._vis.data[DATA_STREAM_COMPONENT].publish_data(
             DATA_OBJECT_DETECTOR_RESULT.format(
                 camera_identifier=shared_frame.camera_identifier
@@ -481,7 +520,7 @@ class AbstractObjectDetector(ABC):
         self._theoretical_max_fps.append(1 / (time.time() - frame_time))
 
     @abstractmethod
-    def return_objects(self, frame) -> list[DetectedObject]:
+    def return_objects(self, frame) -> list[DetectedObject] | None:
         """Perform object detection."""
 
     @property

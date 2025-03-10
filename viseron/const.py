@@ -7,6 +7,7 @@ DEFAULT_PORT = 8888
 CONFIG_PATH = "/config/config.yaml"
 SECRETS_PATH = "/config/secrets.yaml"
 STORAGE_PATH = "/config/.viseron"
+VISERON_LOG_PATH = "/config/viseron.log"
 TEMP_DIR = "/tmp/viseron"
 DEFAULT_CONFIG = """# Thanks for trying out Viseron!
 # This is a small walkthrough of the configuration to get you started.
@@ -43,14 +44,14 @@ darknet:
         labels:
           - label: person
             confidence: 0.75
-            trigger_recorder: true
+            trigger_event_recording: true
 
       camera_2:  # Attach detector to the configured camera_2 above
         fps: 1
         labels:
           - label: person
             confidence: 0.75
-            trigger_recorder: true
+            trigger_event_recording: true
 
 
 ## You can also use motion detection
@@ -88,6 +89,7 @@ CAMERA_INPUT_ARGS = [
 CAMERA_SEGMENT_DURATION = 5
 
 
+# Environment variables
 ENV_CUDA_SUPPORTED = "VISERON_CUDA_SUPPORTED"
 ENV_VAAPI_SUPPORTED = "VISERON_VAAPI_SUPPORTED"
 ENV_OPENCL_SUPPORTED = "VISERON_OPENCL_SUPPORTED"
@@ -95,6 +97,8 @@ ENV_RASPBERRYPI3 = "VISERON_RASPBERRYPI3"
 ENV_RASPBERRYPI4 = "VISERON_RASPBERRYPI4"
 ENV_JETSON_NANO = "VISERON_JETSON_NANO"
 ENV_PROFILE_MEMORY = "VISERON_PROFILE_MEMORY"
+ENV_LOG_MAX_BYTES = "VISERON_LOG_MAX_BYTES"
+ENV_LOG_BACKUP_COUNT = "VISERON_LOG_BACKUP_COUNT"
 
 
 FONT = cv2.FONT_HERSHEY_SIMPLEX
@@ -144,3 +148,8 @@ SLOW_DEPENDENCY_WARNING = 60
 
 
 RESTART_EXIT_CODE = 100
+
+# Database constants
+INSERT: Final = "insert"
+UPDATE: Final = "update"
+DELETE: Final = "delete"

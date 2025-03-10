@@ -37,7 +37,7 @@ The images available are:
 Below are a few examples on how to run Viseron. <br />
 Both `docker` and `docker-compose` examples are given.
 
-:::caution IMPORTANT
+:::warning IMPORTANT
 
 You have to change the values between the brackets `{}` to match your setup.
 
@@ -49,16 +49,17 @@ You have to change the values between the brackets `{}` to match your setup.
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
 
-```bash
+```shell
 docker run --rm \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   roflcoopter/viseron:latest
 ```
 
@@ -72,11 +73,12 @@ services:
   viseron:
     image: roflcoopter/viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -93,16 +95,17 @@ services:
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
 
-```bash
+```shell
 docker run --rm \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   --device /dev/dri \
   roflcoopter/viseron:latest
 ```
@@ -117,11 +120,12 @@ services:
   viseron:
     image: roflcoopter/viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -140,16 +144,17 @@ services:
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
 
-```bash
+```shell
 docker run --rm \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   --runtime=nvidia \
   roflcoopter/amd64-cuda-viseron:latest
 ```
@@ -164,11 +169,12 @@ services:
   viseron:
     image: roflcoopter/amd64-cuda-viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -179,7 +185,7 @@ services:
 </TabItem>
 </Tabs>
 
-:::caution
+:::warning
 
 Make sure [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-toolkit) is installed.
 
@@ -193,22 +199,23 @@ Make sure [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-container-
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
 
-```bash
+```shell
 docker run --rm \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   --runtime=nvidia \
   --privileged \
   roflcoopter/jetson-nano-viseron:latest
 ```
 
-:::caution
+:::warning
 
 It is a must to run with `--privileged` so the container gets access to all the needed devices for hardware acceleration.<br />
 You can probably get around this by manually mounting all the needed devices but this is not something I have looked into.
@@ -225,11 +232,12 @@ services:
   viseron:
     image: roflcoopter/jetson-nano-viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -238,7 +246,7 @@ services:
     privileged: true
 ```
 
-:::caution
+:::warning
 
 It is a must to run with `privileged: true` so the container gets access to all the needed devices for hardware acceleration.<br />
 You can probably get around this by manually mounting all the needed devices but this is not something I have looked into.
@@ -255,19 +263,20 @@ You can probably get around this by manually mounting all the needed devices but
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
 
-```bash
+```shell
 docker run --rm \
   --privileged \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -v /dev/bus/usb:/dev/bus/usb \
   -v /opt/vc/lib:/opt/vc/lib \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   --device=/dev/video10:/dev/video10 \
   --device=/dev/video11:/dev/video11 \
   --device=/dev/video12:/dev/video12 \
@@ -284,11 +293,12 @@ services:
   viseron:
     image: roflcoopter/viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     devices:
@@ -304,7 +314,7 @@ services:
 </TabItem>
 </Tabs>
 
-:::caution
+:::warning
 
 Viseron is quite RAM intensive, mostly because of the object detection.<br />
 I do not recommend using an RPi unless you have a Google Coral EdgeTPU.<br />
@@ -325,18 +335,19 @@ Configure a substream if you plan on running Viseron on an RPi.
 <Tabs groupId="docker-type">
 <TabItem value="docker" label="Docker">
 
-```bash
+```shell
 docker run --rm \
   --privileged \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -v /opt/vc/lib:/opt/vc/lib \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   --device /dev/vchiq:/dev/vchiq \
   --device /dev/vcsm:/dev/vcsm \
   --device /dev/bus/usb:/dev/bus/usb \
@@ -352,11 +363,12 @@ services:
   viseron:
     image: roflcoopter/viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
       - /opt/vc/lib:/opt/vc/lib
@@ -372,7 +384,7 @@ services:
 </TabItem>
 </Tabs>
 
-:::caution
+:::warning
 
 Viseron is quite RAM intensive, mostly because of the object detection.<br />
 I do not recommend using an RPi unless you have a Google Coral EdgeTPU.<br />
@@ -397,6 +409,16 @@ Configure a substream if you plan on running Viseron on an RPi.
 Viseron will start up immediately and serve the Web UI on port `8888`.<br />
 Please proceed to the next chapter on [how to configure Viseron.](configuration)
 
+:::info Mounted Volumes
+
+- `/config` - Where the configuration file, database, etc is stored
+- `/segments` - Where the recordings (video segments) are stored
+- `/snapshots` - Where the snapshots from object detection, motion detection, etc are stored
+- `/thumbnails` - Where the thumbnails for recordings triggered by `trigger_event_recording` are stored
+- `/event_clips` - Where the event clips created by `create_event_clip` are stored
+
+:::
+
 :::tip VAAPI
 
 VAAPI hardware acceleration support is built into every `amd64` container.<br />
@@ -419,16 +441,17 @@ To solve this, you can specify the user `PUID` and group `PGID` as environment v
 <details>
   <summary>Docker command</summary>
 
-```bash
+```shell
 docker run --rm \
-  -v {recordings path}:/recordings \
-  -v {recordings path}:/segments \
-  -v {recordings path}:/snapshots \
-  -v {recordings path}:/thumbnails \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
   --name viseron \
+  --shm-size=1024mb \
   -e PUID=1000 \
   -e PGID=1000 \
   roflcoopter/viseron:latest
@@ -448,11 +471,12 @@ services:
   viseron:
     image: roflcoopter/viseron:latest
     container_name: viseron
+    shm_size: "1024mb"
     volumes:
-      - {recordings path}:/recordings
-      - {recordings path}:/segments
-      - {recordings path}:/snapshots
-      - {recordings path}:/thumbnails
+      - {segments path}:/segments \
+      - {snapshots path}:/snapshots \
+      - {thumbnails path}:/thumbnails \
+      - {event clips path}:/event_clips \
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:

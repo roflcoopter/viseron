@@ -4,11 +4,8 @@ import Tabs from "@theme/Tabs";
 
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
-import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
 import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";
-import ObjectDetectorLabels from "@site/src/pages/components-explorer/_domains/object_detector/labels.mdx";
-import ObjectDetectorMask from "@site/src/pages/components-explorer/_domains/object_detector/mask.mdx";
-import ObjectDetectorZones from "@site/src/pages/components-explorer/_domains/object_detector/zones.mdx";
 
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
@@ -51,7 +48,7 @@ darknet:
         labels:
           - label: dog
             confidence: 0.7
-            trigger_recorder: false
+            trigger_event_recording: false
           - label: cat
             confidence: 0.8
         zones:
@@ -68,7 +65,7 @@ darknet:
             labels:
               - label: person
                 confidence: 0.8
-                trigger_recorder: true
+                trigger_event_recording: true
         mask:
           - coordinates:
               - x: 400
@@ -83,23 +80,12 @@ darknet:
 
 </details>
 
-<ComponentConfiguration meta={ComponentMetadata} config={config} />
+<ComponentConfiguration config={config} />
 
-## Object detector
-
-<ObjectDetector />
-
-### Labels
-
-<ObjectDetectorLabels labelPath="/detectors/models/darknet/coco.names" />
-
-### Zones
-
-<ObjectDetectorZones meta={ComponentMetadata} />
-
-### Mask
-
-<ObjectDetectorMask meta={ComponentMetadata} />
+<ObjectDetector
+  meta={ComponentMetadata}
+  labelPath="/detectors/models/darknet/coco.names"
+/>
 
 ### Pre-trained models
 
@@ -221,7 +207,5 @@ Hopefully this will be resolved in future updates of the libraries.
 :::info
 When not running on CUDA, OpenCVs implementation of Darknet is used.
 :::
-
-## Troubleshooting
 
 <ComponentTroubleshooting meta={ComponentMetadata} />

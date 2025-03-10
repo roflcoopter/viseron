@@ -7,23 +7,26 @@ import os
 import re
 import shutil
 import subprocess as sp
-import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from math import ceil
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 import psutil
 from path import Path
-from sqlalchemy import insert
 
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import FilesMeta
-from viseron.const import TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
+from viseron.components.storage.queries import get_time_period_fragments
+from viseron.const import CAMERA_SEGMENT_DURATION, TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import CONFIG_FFMPEG_LOGLEVEL, CONFIG_RECORDER
+from viseron.helpers import get_utc_offset
 from viseron.helpers.logs import LogPipe
 
 if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
     from viseron import Viseron
     from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera
@@ -35,7 +38,7 @@ def _get_open_files(path: str, process: psutil.Process) -> list[str]:
     try:
         open_files = process.open_files()
         for file in open_files:
-            if file.path.startswith(path):
+            if file.path.startswith(f"{path}/"):
                 files.append(file.path.split("/")[-1])
     except psutil.Error:
         pass
@@ -91,8 +94,8 @@ def _extract_program_date_time(
             # Remove timezone information since fromisoformat does not support it
             no_tz = re.sub(r"\+[0-9]{4}$", "", match.group(1))
             # Adjust according to local timezone
-            return datetime.datetime.fromisoformat(no_tz) - datetime.timedelta(
-                seconds=time.localtime().tm_gmtoff
+            return (datetime.datetime.fromisoformat(no_tz) - get_utc_offset()).replace(
+                tzinfo=datetime.timezone.utc
             )
     except ValueError:
         pass
@@ -130,6 +133,7 @@ class Fragmenter:
             seconds=1,
             id=self._fragment_job_id,
             max_instances=1,
+            coalesce=True,
         )
 
     def _mp4box_command(self, file: str):
@@ -204,24 +208,21 @@ class Fragmenter:
         extinf: float,
         program_date_time: datetime.datetime | None = None,
     ):
-        """Write metadata about the fragmented mp4 to the database."""
-        with self._storage.get_session() as session:
-            if program_date_time:
-                orig_ctime = program_date_time
-            else:
-                orig_ctime = datetime.datetime.fromtimestamp(
-                    int(file.split(".")[0]), tz=None
-                ) - datetime.timedelta(seconds=time.localtime().tm_gmtoff)
-
-            stmt = insert(FilesMeta).values(
-                path=os.path.join(
-                    self._camera.segments_folder, file.split(".")[0] + ".m4s"
-                ),
-                orig_ctime=orig_ctime,
-                meta={"m3u8": {"EXTINF": extinf}},
+        """Save temporary metadata which is later used when inserting into the DB."""
+        if program_date_time:
+            orig_ctime = program_date_time
+        else:
+            orig_ctime = (
+                datetime.datetime.fromtimestamp(int(file.split(".")[0]), tz=None)
+                - get_utc_offset()
             )
-            session.execute(stmt)
-            session.commit()
+            orig_ctime = orig_ctime.replace(tzinfo=datetime.timezone.utc)
+
+        path = os.path.join(self._camera.segments_folder, file.split(".")[0] + ".m4s")
+        self._storage.temporary_files_meta[path] = FilesMeta(
+            orig_ctime=orig_ctime,
+            duration=extinf,
+        )
 
     def _read_m3u8_mp4box(self, file: str) -> str:
         """Read m3u8 file created by MP4Box."""
@@ -289,7 +290,10 @@ class Fragmenter:
 
     def _create_fragmented_mp4(self):
         """Create fragmented mp4 from mp4 using MP4Box."""
-        self._logger.debug("Checking for new segments to fragment")
+        self._logger.debug(
+            "Checking for new segments to fragment in "
+            f"{self._camera.temp_segments_folder}"
+        )
         mp4s = _get_mp4_files_to_fragment(self._camera.temp_segments_folder)
         # Handle max 5 files per iteration to avoid blocking the thread for too long
         for mp4 in sorted(mp4s)[:5]:
@@ -302,10 +306,13 @@ class Fragmenter:
     def _shutdown(self) -> None:
         """Handle shutdown event."""
         self._logger.debug("Shutting down fragment thread")
-        self._camera.stopped.wait()
+        if not self._camera.stopped.is_set():
+            self._camera.stopped.wait(timeout=5)
         self._logger.debug("Camera stopped, running final fragmentation")
         self._create_fragmented_mp4()
         self._logger.debug("Fragment thread shutdown complete")
+        self._log_pipe.close()
+        self._log_pipe_ffmpeg.close()
 
     def concatenate_fragments(
         self, fragments: list[Fragment], media_sequence=0
@@ -321,7 +328,7 @@ class Fragmenter:
             end=True,
             file_directive=True,
         )
-        self._logger.debug(f"HLS Playlist for contatenation: {playlist}")
+        self._logger.debug(f"HLS Playlist for concatenation: {playlist}")
         ffmpeg_cmd = (
             [
                 "ffmpeg",
@@ -368,6 +375,17 @@ def _get_file_path(
     return file
 
 
+def gap_in_fragments(prev_fragment: Fragment, fragment: Fragment) -> bool:
+    """Check if there is a gap between two fragments."""
+    return (
+        fragment.creation_time
+        - (
+            prev_fragment.creation_time
+            + datetime.timedelta(seconds=prev_fragment.duration)
+        )
+    ).total_seconds() > 1
+
+
 def generate_playlist(
     fragments: list[Fragment],
     init_file: str,
@@ -386,18 +404,26 @@ def generate_playlist(
 
     if fragments:
         target_duration = ceil(max(f.duration for f in fragments))
-        playlist.append(f"#EXT-X-TARGETDURATION:{target_duration}")
+        playlist.append(
+            f"#EXT-X-TARGETDURATION:{max(target_duration, CAMERA_SEGMENT_DURATION)}"
+        )
+    else:
+        playlist.append(f"#EXT-X-TARGETDURATION:{CAMERA_SEGMENT_DURATION}")
 
     playlist.append("#EXT-X-INDEPENDENT-SEGMENTS")
     playlist.append(f'#EXT-X-MAP:URI="{_get_file_path(init_file, file_directive)}"')
+
+    prev_fragment: Fragment | None = None
     for fragment in fragments:
-        playlist.append("#EXT-X-DISCONTINUITY")
+        if prev_fragment and gap_in_fragments(prev_fragment, fragment):
+            playlist.append("#EXT-X-DISCONTINUITY")
         program_date_time = fragment.creation_time.replace(
             tzinfo=datetime.timezone.utc
         ).isoformat(timespec="milliseconds")
         playlist.append(f"#EXT-X-PROGRAM-DATE-TIME:{program_date_time}")
         playlist.append(f"#EXTINF:{fragment.duration},")
         playlist.append(_get_file_path(fragment.path, file_directive))
+        prev_fragment = fragment
     if end:
         playlist.append("#EXT-X-ENDLIST")
     return "\n".join(playlist)
@@ -411,3 +437,54 @@ class Fragment:
     path: str
     duration: float
     creation_time: datetime.datetime
+
+
+class Timespan(TypedDict):
+    """Timespan of available HLS fragments."""
+
+    start: int
+    end: int
+    duration: int
+
+
+def get_available_timespans(
+    get_session: Callable[[], Session],
+    camera_identifiers: list[str],
+    time_from: int | float,
+    time_to: int | float | None = None,
+) -> list[Timespan]:
+    """Get the available timespans of HLS fragments for a time period."""
+    files = get_time_period_fragments(
+        camera_identifiers, time_from, time_to, get_session
+    )
+    fragments = [
+        Fragment(
+            file.filename,
+            f"/files{file.path}",
+            file.duration,
+            file.orig_ctime,
+        )
+        for file in files
+    ]
+
+    timespans: list[Timespan] = []
+    start = None
+    end = None
+    for fragment in fragments:
+        if start is None:
+            start = fragment.creation_time.timestamp()
+        if end is None:
+            end = fragment.creation_time.timestamp() + fragment.duration
+        if fragment.creation_time.timestamp() > end + fragment.duration:
+            timespans.append(
+                {"start": int(start), "end": int(end), "duration": int(end - start)}
+            )
+            start = None
+            end = None
+        else:
+            end = fragment.creation_time.timestamp() + fragment.duration
+    if start is not None and end is not None:
+        timespans.append(
+            {"start": int(start), "end": int(end), "duration": int(end - start)}
+        )
+    return timespans

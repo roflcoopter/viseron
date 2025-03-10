@@ -94,10 +94,9 @@ class RecordingsAPIHandler(BaseAPIHandler):
                 ),
             ),
         },
-        {
+        {  # Delete a specific recording
             "path_pattern": (
                 r"/recordings/(?P<camera_identifier>[A-Za-z0-9_]+)"
-                r"/(?P<date>[0-9]{4}-[0-9]{2}-[0-9]{2})"
                 r"/(?P<recording_id>[0-9]+)"
             ),
             "supported_methods": ["DELETE"],
@@ -108,7 +107,7 @@ class RecordingsAPIHandler(BaseAPIHandler):
                 },
             ),
         },
-        {
+        {  # Delete all recordings for a specific camera and date
             "path_pattern": (
                 r"/recordings/(?P<camera_identifier>[A-Za-z0-9_]+)"
                 r"/(?P<date>[0-9]{4}-[0-9]{2}-[0-9]{2})"
@@ -121,7 +120,7 @@ class RecordingsAPIHandler(BaseAPIHandler):
                 },
             ),
         },
-        {
+        {  # Delete all recordings for a specific camera
             "path_pattern": r"/recordings/(?P<camera_identifier>[A-Za-z0-9_]+)",
             "supported_methods": ["DELETE"],
             "method": "delete_recording",
@@ -150,19 +149,19 @@ class RecordingsAPIHandler(BaseAPIHandler):
                 "daily", False
             ):
                 recordings[camera.identifier] = await self.run_in_executor(
-                    camera.recorder.get_latest_recording_daily
+                    camera.recorder.get_latest_recording_daily, self.utc_offset
                 )
                 continue
             if self.request_arguments["latest"]:
                 recordings[camera.identifier] = await self.run_in_executor(
-                    camera.recorder.get_latest_recording
+                    camera.recorder.get_latest_recording, self.utc_offset
                 )
                 continue
             recordings[camera.identifier] = await self.run_in_executor(
-                camera.recorder.get_recordings
+                camera.recorder.get_recordings, self.utc_offset
             )
 
-        self.response_success(response=recordings)
+        await self.response_success(response=recordings)
         return
 
     async def get_recordings_camera(
@@ -183,23 +182,25 @@ class RecordingsAPIHandler(BaseAPIHandler):
         if self.request_arguments["latest"] and self.request_arguments.get(
             "daily", False
         ):
-            self.response_success(
+            await self.response_success(
                 response=await self.run_in_executor(
-                    camera.recorder.get_latest_recording_daily
+                    camera.recorder.get_latest_recording_daily, self.utc_offset
                 )
             )
             return
 
         if self.request_arguments["latest"]:
-            self.response_success(
+            await self.response_success(
                 response=await self.run_in_executor(
-                    camera.recorder.get_latest_recording, date
+                    camera.recorder.get_latest_recording, self.utc_offset, date
                 )
             )
             return
 
-        self.response_success(
-            response=await self.run_in_executor(camera.recorder.get_recordings, date)
+        await self.response_success(
+            response=await self.run_in_executor(
+                camera.recorder.get_recordings, self.utc_offset, date
+            )
         )
         return
 
@@ -223,9 +224,9 @@ class RecordingsAPIHandler(BaseAPIHandler):
 
         # Try to delete recording
         if await self.run_in_executor(
-            camera.recorder.delete_recording, date, recording_id
+            camera.recorder.delete_recording, self.utc_offset, date, recording_id
         ):
-            self.response_success()
+            await self.response_success()
             return
         self.response_error(
             HTTPStatus.INTERNAL_SERVER_ERROR,

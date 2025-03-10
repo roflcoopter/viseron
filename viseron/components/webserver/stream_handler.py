@@ -15,7 +15,7 @@ from viseron.components.nvr import COMPONENT as NVR_COMPONENT
 from viseron.components.nvr.const import DATA_PROCESSED_FRAME_TOPIC
 from viseron.components.nvr.nvr import NVR, DataProcessedFrame
 from viseron.const import TOPIC_STATIC_MJPEG_STREAMS
-from viseron.domains.camera import MJPEG_STREAM_SCHEMA
+from viseron.domains.camera.config import MJPEG_STREAM_SCHEMA
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.helpers import (
     draw_contours,
@@ -87,7 +87,7 @@ class StreamHandler(ViseronRequestHandler):
         await self.flush()
 
     @staticmethod
-    async def process_frame(
+    def process_frame(
         nvr: NVR, processed_frame: DataProcessedFrame, mjpeg_stream_config
     ) -> tuple[bool, np.ndarray]:
         """Return JPG with drawn objects, zones etc."""
@@ -181,7 +181,7 @@ class DynamicStreamHandler(StreamHandler):
             camera_identifier=nvr.camera.identifier
         )
         unique_id = DataStream.subscribe_data(
-            frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
+            frame_topic, frame_queue, ioloop=self.ioloop
         )
 
         self._set_stream_headers()
@@ -189,8 +189,8 @@ class DynamicStreamHandler(StreamHandler):
         while True:
             try:
                 processed_frame = await frame_queue.get()
-                ret, jpg = await self.process_frame(
-                    nvr, processed_frame, mjpeg_stream_config
+                ret, jpg = await self.run_in_executor(
+                    self.process_frame, nvr, processed_frame, mjpeg_stream_config
                 )
 
                 if ret:
@@ -215,13 +215,13 @@ class StaticStreamHandler(StreamHandler):
             camera_identifier=nvr.camera.identifier
         )
         unique_id = DataStream.subscribe_data(
-            frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
+            frame_topic, frame_queue, ioloop=self.ioloop
         )
 
         while self.active_streams[(nvr.camera.identifier, mjpeg_stream)]:
             processed_frame = await frame_queue.get()
-            ret, jpg = await self.process_frame(
-                nvr, processed_frame, mjpeg_stream_config
+            ret, jpg = await self.run_in_executor(
+                self.process_frame, nvr, processed_frame, mjpeg_stream_config
             )
 
             if ret:
@@ -265,7 +265,7 @@ class StaticStreamHandler(StreamHandler):
             f"{TOPIC_STATIC_MJPEG_STREAMS}/{nvr.camera.identifier}/{mjpeg_stream}"
         )
         unique_id = DataStream.subscribe_data(
-            frame_topic, frame_queue, ioloop=tornado.ioloop.IOLoop.current()
+            frame_topic, frame_queue, ioloop=self.ioloop
         )
 
         if self.active_streams.get((nvr.camera.identifier, mjpeg_stream), False):
@@ -277,7 +277,7 @@ class StaticStreamHandler(StreamHandler):
         else:
             LOGGER.debug(f"Stream {mjpeg_stream} is not active, starting")
             self.active_streams[(nvr.camera.identifier, mjpeg_stream)] = 1
-            tornado.ioloop.IOLoop.current().spawn_callback(
+            self.ioloop.add_callback(
                 self.stream, nvr, mjpeg_stream, mjpeg_stream_config, frame_topic
             )
 
