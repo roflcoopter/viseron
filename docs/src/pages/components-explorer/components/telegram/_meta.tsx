@@ -5,8 +5,7 @@ const ComponentMetadata: Component = {
   name: "telegram",
   description: "Control PTZ cameras and receive notifications via Telegram",
   image: "https://27bslash6.com/images/SPIDER1.jpg",
-  tags: ["ptz", "notifications", "telegram", "ONVIF"],
+  tags: [],
 };
 
 export default ComponentMetadata;
-
