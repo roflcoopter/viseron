@@ -192,8 +192,8 @@ class TelegramEventNotifier:
         )
 
     async def _send_notifications(self, event_data: Event[EventRecorderData]) -> None:
-        file = event_data.data.recording.path
-        if os.path.exists(file) and self._config[CONFIG_SEND_VIDEO]:
+        file = event_data.data.recording.clip_path
+        if file and os.path.exists(file) and self._config[CONFIG_SEND_VIDEO]:
             caption = f"{event_data.data.camera.identifier}"
             if event_data.data.recording.objects:
                 caption += f" detected a {event_data.data.recording.objects[0].label}"
