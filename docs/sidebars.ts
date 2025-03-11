@@ -2,7 +2,27 @@ import type { SidebarsConfig } from "@docusaurus/plugin-content-docs";
 
 const sidebars: SidebarsConfig = {
   docs: [
-    "documentation",
+    {
+      type: "category",
+      label: "Introduction",
+      link: {
+        type: "doc",
+        id: "documentation",
+      },
+      collapsed: false,
+      items: [
+        {
+          type: "link",
+          label: "Notable features",
+          href: "/docs/documentation#notable-features",
+        },
+        {
+          type: "link",
+          label: "Screenshots",
+          href: "/docs/documentation#screenshots",
+        },
+      ],
+    },
     {
       type: "category",
       label: "Installation",
