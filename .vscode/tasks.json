@@ -283,6 +283,19 @@
         "panel": "new"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "Docs: Generate Component Docs for All Components",
+      "type": "shell",
+      "command": "python3 -m scripts.gen_docs -a",
+      "group": {
+        "kind": "build"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
     }
   ],
   "inputs": [
