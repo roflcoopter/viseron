@@ -138,6 +138,7 @@ const sidebars: SidebarsConfig = {
         "developers/backend/entities",
         "developers/backend/events",
         "developers/backend/vis_object",
+        "developers/backend/database",
       ],
     },
     {
