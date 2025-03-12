@@ -102,6 +102,10 @@ const sidebars: SidebarsConfig = {
         },
         { type: "doc", id: "documentation/configuration/recordings" },
         { type: "doc", id: "documentation/configuration/snapshots" },
+        {
+          type: "doc",
+          id: "documentation/configuration/run_without_detectors",
+        },
         { type: "doc", id: "documentation/configuration/authentication" },
         { type: "doc", id: "documentation/configuration/logging" },
         { type: "doc", id: "documentation/configuration/secrets" },
