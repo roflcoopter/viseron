@@ -102,6 +102,10 @@ const sidebars: SidebarsConfig = {
         },
         { type: "doc", id: "documentation/configuration/recordings" },
         { type: "doc", id: "documentation/configuration/snapshots" },
+        {
+          type: "doc",
+          id: "documentation/configuration/run_without_detectors",
+        },
         { type: "doc", id: "documentation/configuration/authentication" },
         { type: "doc", id: "documentation/configuration/logging" },
         { type: "doc", id: "documentation/configuration/secrets" },
@@ -134,6 +138,8 @@ const sidebars: SidebarsConfig = {
         "developers/backend/entities",
         "developers/backend/events",
         "developers/backend/vis_object",
+        "developers/backend/database",
+        "developers/backend/logging",
       ],
     },
     {
@@ -146,15 +152,7 @@ const sidebars: SidebarsConfig = {
       items: ["developers/frontend/proxy"],
     },
     "developers/docker",
-    {
-      type: "category",
-      label: "Docs",
-      link: {
-        type: "doc",
-        id: "developers/docs",
-      },
-      items: ["developers/docs"],
-    },
+    "developers/documentation",
   ],
 };
 

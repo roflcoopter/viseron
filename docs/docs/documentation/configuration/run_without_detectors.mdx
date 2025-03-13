@@ -1,0 +1,90 @@
+# Run without detectors
+
+If you are only interested in recording 24/7 without running any sort of detection (motion, object, post processors) you can do so by using the following configuration:
+
+This mode will use very little resources since the streams are never decoded.
+
+```yaml /config/config.yaml
+ffmpeg: # Does NOT work with gstreamer as of now
+  camera:
+    camera_one:
+      name: Camera 1
+      host: !secret camera_one_host
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_username
+      password: !secret camera_one_password
+      // highlight-start
+      record_only: true
+      recorder:
+        continuous_recording: true  # Not needed since it is the default, included for clarity
+        continuous:  # Example of setting a max size of 10 GB for this individual camera
+          max_age:
+            days: 7
+      // highlight-end
+
+nvr:
+  camera_one:
+
+```
+
+:::tip
+
+See the [retention rules](/docs/documentation/configuration/recordings#retention-rules) section for more information on retention rules.
+
+:::
+
+## Viewing the recordings
+
+The created recordings can be viewed using the `Timeline` tab on the `Events` page
+
+TODO: Add screenshot
+
+## Considerations
+
+Enabling the record only mode comes with a few drawbacks.
+
+### Still image
+
+The still image in the frontend camera cards is normally taken from the stream.
+When `record_only: true` is set, the stream is never decoded and the still image will not work.
+
+If your camera supports taking snapshots via URL, you can utilize that in Viseron instead.
+
+Here is an example for a Hikvision camera:
+
+```yaml /config/config.yaml
+ffmpeg:
+  camera:
+    camera_one:
+      name: Camera 1
+      host: !secret camera_one_host
+      path: /Streaming/Channels/101/
+      username: !secret camera_one_username
+      password: !secret camera_one_password
+      record_only: true
+      recorder:
+        continuous_recording: true  # Not needed since it is the default, included for clarity
+        continuous:  # Example of setting a max size of 10 GB for this individual camera
+          max_age:
+            days: 7
+      // highlight-start
+      still_image:
+        url: http://camera_one.lan:80/ISAPI/Streaming/channels/101/picture
+        username: !secret camera_one_username
+        password: !secret camera_one_password
+        authentication: digest
+      // highlight-end
+
+nvr:
+  camera_one:
+
+```
+
+### Live stream
+
+The live stream which is accessed from the button on the camera card will not work either.
+It is simply an MJPEG stream of what Viseron "sees", and since the stream is not decoded, Viseron never receives any frames.
+This will change in the future and true live streams will be added.
+
+Until then, you can utilize the `Events` page to view the stream in (near) real time.
+It uses HLS so the delay is somewhere between 10-15 seconds.

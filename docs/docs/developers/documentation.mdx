@@ -1,0 +1,98 @@
+---
+title: Documentation
+---
+
+Viseron uses [Docusaurus](https://docusaurus.io/) for documentation.
+
+## Develop locally
+
+To develop the documentation locally, you can run the following command from the `docs` directory:
+
+```shell
+npm run start
+```
+
+This will start a local server on `http://localhost:3000` where you can view the documentation as you are typing it.
+
+## Linting
+
+To lint the documentation, you can run the following command from the `docs` directory:
+
+```shell
+npm run lint
+```
+
+This will lint the documentation and output any errors or warnings.
+
+## Component documentation
+
+To create documentation for your component, you can utilize the script `gen_docs` located in the `scripts` directory.
+
+```shell
+python3 -u -m scripts.gen_docs -c fancy_component
+```
+
+This will generate a number of files in the `docs/pages/components-explorer/components/fancy_component` directory.
+
+- `_meta.tsx`: Metadata for the component.
+- `index.mdx`: The main documentation file for the component.
+- `config.json`: The configuration schema for the component.
+
+:::tip VSCode task
+
+If you are using the VSCode Devcontainer, you can run the `Docs: Generate component docs` task to generate the documentation.
+
+:::
+
+### \_meta.tsx
+
+The `_meta.tsx` file contains metadata for the component.
+
+```code title="/docs/pages/components-explorer/components/fancy_component/_meta.tsx"
+import { Component } from "@site/src/types";
+
+const ComponentMetadata: Component = {
+  title: "Fancy Component",
+  name: "fancy_component",
+  description: "A fancy component",
+  image: "/img/components/fancy_component.png",
+  tags: ["motion_detector"],
+};
+
+export default ComponentMetadata;
+```
+
+If domains are set up in the component, they will be automatically added to the `tags` array.
+
+:::info tags
+
+The following tags are available:
+
+- `camera`
+- `face_recognition`
+- `image_classification`
+- `license_plate_recognition`
+- `motion_detector`
+- `nvr`
+- `object_detector`
+- `system`
+
+:::warning
+
+Do not add other tags than the ones listed above, as that will result in build errors for the documentation.
+
+:::
+
+### index.mdx
+
+The `index.mdx` file contains the main documentation for the component.
+
+The generated file will contain a template with placeholders for the component header, configuration, troubleshooting and domain specific information.
+Leave the placeholders in the file and fill in any extra information needed.
+
+### config.json
+
+The `config.json` file contains the configuration schema for the component in a JSON format that is used to display the configuration documentation.
+
+It is generated from the `CONFIG_SCHEMA` constant in the components `__init__.py` file. The `gen_docs` script will automatically generate this file for you.
+You should **never** edit this file manually. If you need to make changes to the configuration schema, you should do so in the `CONFIG_SCHEMA` and then regenerate the documentation.
