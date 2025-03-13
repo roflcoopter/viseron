@@ -151,15 +151,7 @@ const sidebars: SidebarsConfig = {
       items: ["developers/frontend/proxy"],
     },
     "developers/docker",
-    {
-      type: "category",
-      label: "Docs",
-      link: {
-        type: "doc",
-        id: "developers/docs",
-      },
-      items: ["developers/docs"],
-    },
+    "developers/documentation",
   ],
 };
 
