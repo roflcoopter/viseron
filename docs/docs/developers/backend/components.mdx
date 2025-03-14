@@ -1,11 +1,249 @@
----
-title: Components
----
-
-_Information has not yet been added._
+# Components
 
 :::info
 
 The developer documentation is still under construction and this page is not complete.
 
 :::
+
+Viseron is built up of multiple components. These components are responsible for different tasks such as object detection, face recognition, recording etc.
+This guide will walk you through the process of creating a new component.
+
+:::info
+
+A component name of `fancy_component` will be used as an example throughout this guide.
+
+:::
+
+## Creating a new Component
+
+To create a new component called `fancy_component` you need to create the directory `viseron/components/fancy_component`. The directory name should be in lowercase.
+
+Inside the directory you need to create an `__init__.py` file with a `setup` function.
+
+```python title="/viseron/components/fancy_component/__init__.py" showLineNumbers
+"""The fancy_component component."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from viseron import Viseron
+
+
+def setup(vis: Viseron, config: dict[str, Any]) -> bool:
+    """Set up the fancy_component component."""
+    # Your setup code for the fancy_component here
+
+    return True
+
+```
+
+The `setup` function will be called when Viseron is started. The function should return `True` if the setup was successful, otherwise `False`.
+
+You should also create a `const.py` file where you define constants for your component.
+
+```python title="viseron/components/fancy_component/const.py" showLineNumbers
+"""Constants for the fancy_component component."""
+
+COMPONENT = "fancy_component"
+
+```
+
+From here you can start adding your component code. The component will be loaded by adding the component name to the `config.yaml`:
+
+```yaml title="/config/config.yaml"
+fancy_component:
+```
+
+## Configuration schema
+
+Viseron uses [voluptuous](https://pypi.org/project/voluptuous/) for configuration validation.
+
+To add configuration options to your component you need to define a `CONFIG_SCHEMA` constant in the `__init__.py` file.
+
+```python title="/viseron/components/fancy_component/__init__.py" showLineNumbers
+"""The fancy_component component."""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+import voluptuous as vol
+
+from viseron.components.fancy_component.const import (
+    CONFIG_COOL_OPTION,
+    DEFAULT_COOL_OPTION,
+    DESC_COOL_OPTION,
+)
+from viseron.components.storage.const import COMPONENT, DESC_COMPONENT
+
+if TYPE_CHECKING:
+    from viseron import Viseron
+
+
+CONFIG_SCHEMA = vol.Schema(
+    {
+        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
+            {
+                vol.Optional(
+                    CONFIG_COOL_OPTION,
+                    default=DEFAULT_COOL_OPTION,
+                    description=DESC_COOL_OPTION,
+                ): str,
+            }
+        )
+    },
+    extra=vol.ALLOW_EXTRA,
+)
+
+
+def setup(vis: Viseron, config: dict[str, Any]) -> bool:
+    """Set up the fancy_component component."""
+    # Your setup code for the fancy_component here
+
+    return True
+
+```
+
+```python title="/viseron/components/fancy_component/const.py" showLineNumbers
+"""Constants for the fancy_component component."""
+
+COMPONENT = "fancy_component"
+DESC_COMPONENT = "The fancy_component component."
+
+CONFIG_COOL_OPTION = "cool_option"
+DESC_COOL_OPTION = "A cool option"
+DEFAULT_COOL_OPTION = "cool_value"
+
+```
+
+:::tip
+
+The description is used to generate documentation for the component.
+More information can be found in the [documentation section](/docs/developers/documentation#component-documentation).
+
+:::
+
+### Deprecating a config option
+
+If you need to deprecate a config option, you can use the `Deprecated` validator.
+
+```python title="/viseron/components/fancy_component/__init__.py" showLineNumbers
+import voluptuous as vol
+
+from viseron.components.fancy_component.const import (
+    CONFIG_COOL_OPTION,
+    DEFAULT_COOL_OPTION,
+    DESC_COOL_OPTION,
+)
+from viseron.components.storage.const import COMPONENT, DESC_COMPONENT
+
+if TYPE_CHECKING:
+    from viseron import Viseron
+
+
+CONFIG_SCHEMA = vol.Schema(
+    {
+        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
+            {
+                Deprecated(
+                    CONFIG_FILENAME_PATTERN,
+                    description=DESC_FILENAME_PATTERN_THUMBNAIL,
+                    message=DEPRECATED_FILENAME_PATTERN_THUMBNAIL,
+                    warning=WARNING_FILENAME_PATTERN_THUMBNAIL,
+                ): str,
+            }
+        )
+    },
+    extra=vol.ALLOW_EXTRA,
+)
+
+```
+
+:::tip Deprecated
+
+The `Deprecated` validator has the following parameters:
+
+- `config`: The config option to deprecate.
+- `description`: Displayed in the generated documentation.
+- `message`: Displayed in the generated documentation.
+- `warning`: Displayed in the logs.
+
+:::
+
+## Setup domains
+
+If your component needs to set up domains, it has to be done in the components `setup` function.
+
+```python title="/viseron/components/fancy_component/__init__.py" showLineNumbers
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+import voluptuous as vol
+
+from viseron.components.fancy_component.const import (
+    CONFIG_COOL_OPTION,
+    CONFIG_MOTION_DETECTOR,
+    DEFAULT_COOL_OPTION,
+    DESC_COOL_OPTION,
+    DESC_MOTION_DETECTOR,
+)
+from viseron.components.storage.const import COMPONENT, DESC_COMPONENT
+from viseron.domains import RequireDomain, setup_domain
+from viseron.domains.motion_detector import CAMERA_SCHEMA_SCANNER
+from viseron.domains.motion_detector.const import CONFIG_CAMERAS, DESC_CAMERAS
+from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
+
+if TYPE_CHECKING:
+    from viseron import Viseron
+
+
+CONFIG_SCHEMA = vol.Schema(
+    {
+        vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
+            {
+                vol.Optional(
+                    CONFIG_COOL_OPTION,
+                    default=DEFAULT_COOL_OPTION,
+                    description=DESC_COOL_OPTION,
+                ): str,
+                vol.Required(
+                    CONFIG_MOTION_DETECTOR, description=DESC_MOTION_DETECTOR
+                ): {
+                    vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
+                        CameraIdentifier(): vol.All(CoerceNoneToDict(), CAMERA_SCHEMA_SCANNER),
+                    },
+                },
+            }
+        )
+    },
+    extra=vol.ALLOW_EXTRA,
+)
+
+
+def setup(vis: Viseron, config: dict[str, Any]) -> bool:
+    """Set up the fancy_component component."""
+    config = config[COMPONENT]
+    for camera_identifier in config[CONFIG_MOTION_DETECTOR][CONFIG_CAMERAS].keys():
+        setup_domain(
+            vis,
+            COMPONENT,
+            CONFIG_MOTION_DETECTOR,
+            config,
+            identifier=camera_identifier,
+            require_domains=[
+                RequireDomain(
+                    domain="camera",
+                    identifier=camera_identifier,
+                )
+            ],
+        )
+
+    return True
+
+```
+
+## Component documentation
+
+For information on how to generate documentation for your component, see the [documentation section](/docs/developers/documentation#component-documentation).

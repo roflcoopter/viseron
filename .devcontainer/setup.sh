@@ -7,7 +7,7 @@ export WORKSPACE_DIR=$PWD
 echo "export WORKSPACE_DIR=$PWD" >> $HOME/.bashrc
 
 # Install python deps
-pip3 install -r requirements.txt
+python3 -m pip install -r requirements.txt
 
 # Install frontend dependencies
 cd $WORKSPACE_DIR/frontend
@@ -25,7 +25,10 @@ do
     sed -i "s/$FILE=true/$FILE=false/g" $HOME/.bashrc
 done
 
-# Symlink config
+# Enable terminal colors
+sed -i 's/#force_color_prompt=yes/force_color_prompt=yes/g' $HOME/.bashrc
+
+# Create default config if it is missing
 cd $WORKSPACE_DIR
 mkdir -p $WORKSPACE_DIR/config
 FILE=$WORKSPACE_DIR/config/config.yaml
@@ -35,7 +38,7 @@ else
     echo "Creating default config"
     python3 -c "import viseron.config; viseron.config.create_default_config('$FILE')"
 fi
-ln -s $WORKSPACE_DIR/config/config.yaml /config/config.yaml
+
 
 # Create .env.local
 FILE=$WORKSPACE_DIR/frontend/.env.local
@@ -45,3 +48,6 @@ else
     echo "Creating frontend .env.local"
     echo "VITE_PROXY_HOST=localhost:8888" > $FILE
 fi
+
+# Generate locale
+locale-gen

@@ -24,9 +24,18 @@ parameters:
   - name: release
     type: boolean
     default: false
+  - name: noCache
+    displayName: "Build without cache"
+    type: boolean
+    default: false
 
 jobs:
   - job: "build_${{ parameters.image }}"
+    variables:
+      ${{ if eq(parameters.noCache, true) }}:
+        noCacheOption: "--no-cache"
+      ${{ if ne(parameters.noCache, true) }}:
+        noCacheOption: ""
     timeoutInMinutes: ${{ parameters.timeoutJob }}
     strategy:
       matrix:
@@ -36,41 +45,67 @@ jobs:
     pool:
       vmImage: "ubuntu-latest"
     steps:
+      - template: release_version.yaml
+        parameters:
+          release: ${{ parameters.release }}
       - task: Docker@2
         displayName: Login to Docker Hub
         inputs:
           command: login
           containerRegistry: "Docker Hub"
 
+      - script: |
+          df -h
+        displayName: List free space before cleaning
+      - script: |
+          docker rmi -f $(docker images -aq)
+          docker system prune --force --all --volumes
+        displayName: Clean up Docker images
+      - script: |
+          df -h
+        displayName: List free space after cleaning
+
       - script: docker run --rm --privileged tonistiigi/binfmt --install all
         displayName: Register QEMU for cross-builds
         condition: and(succeeded(), eq('${{ parameters.crossBuild }}', true))
 
-      - script: |
-          cd $(Agent.BuildDirectory)/s/docker
-          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull $(arch)-${{ parameters.image }}
-        displayName: Pull image for Docker layer caching
-        continueOnError: true
-        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false))
-      - script: |
-          cd $(Agent.BuildDirectory)/s/docker
-          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull ${{ parameters.image }}
-        displayName: Pull image for Docker layer caching
-        continueOnError: true
-        condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true))
+      # - script: |
+      #     cd $(Agent.BuildDirectory)/s/docker
+      #     docker compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull $(arch)-${{ parameters.image }}
+      #   displayName: Pull image for Docker layer caching
+      #   continueOnError: true
+      #   condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false))
+      # - script: |
+      #     cd $(Agent.BuildDirectory)/s/docker
+      #     docker compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env pull ${{ parameters.image }}
+      #   displayName: Pull image for Docker layer caching
+      #   continueOnError: true
+      #   condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true))
 
-      - script: |
-          cd $(Agent.BuildDirectory)/s/docker
-          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 $(arch)-${{ parameters.image }}
+      - script: >
+          cd $(Agent.BuildDirectory)/s/docker &&
+          docker compose --file ../azure-pipelines/docker-compose-build.yaml
+          --env-file ../azure-pipelines/.env
+          build $(noCacheOption)
+          --build-arg BUILDKIT_INLINE_CACHE=1
+          --build-arg VISERON_VERSION=$(viseronVersion)
+          --build-arg VISERON_GIT_COMMIT=$(Build.SourceVersion)
+          $(arch)-${{ parameters.image }}
         displayName: Build $(arch)-${{ parameters.image }}
         condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false))
         env:
           DOCKER_BUILDKIT: 1
           COMPOSE_DOCKER_CLI_BUILD: 1
           BUILDKIT_PROGRESS: plain
-      - script: |
-          cd $(Agent.BuildDirectory)/s/docker
-          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 ${{ parameters.image }}
+      - script: >
+          cd $(Agent.BuildDirectory)/s/docker &&
+          docker compose --file ../azure-pipelines/docker-compose-build.yaml
+          --env-file ../azure-pipelines/.env
+          build $(noCacheOption)
+          --build-arg BUILDKIT_INLINE_CACHE=1
+          --build-arg VISERON_VERSION=$(viseronVersion)
+          --build-arg VISERON_GIT_COMMIT=$(Build.SourceVersion)
+          ${{ parameters.image }}
         displayName: Build ${{ parameters.image }}
         condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true))
         env:
@@ -81,30 +116,54 @@ jobs:
       # Runs only for non-release triggers
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
-          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env push $(arch)-${{ parameters.image }}
-        displayName: Push $(arch)-${{ parameters.image }}
+          docker compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env push $(arch)-${{ parameters.image }}
+
+          # Push tag with commit hash
+          docker image tag $(arch)-${{ parameters.image }}:dev $(arch)-${{ parameters.image }}:$(Build.SourceVersion)
+          docker image push $(arch)-${{ parameters.image }}:$(Build.SourceVersion)
+
+          # Push tag with timestamp
+          now=$(date -u +"%Y%m%d%H%M%S")
+          docker image tag $(arch)-${{ parameters.image }}:dev $(arch)-${{ parameters.image }}:$now
+          docker image push $(arch)-${{ parameters.image }}:$now
+        displayName: Push $(arch)-${{ parameters.image }} (non-release)
         condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false), eq('${{ parameters.release }}', false))
       - script: |
           cd $(Agent.BuildDirectory)/s/docker
-          docker-compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env push ${{ parameters.image }}
-        displayName: Push ${{ parameters.image }}
+          docker compose --file ../azure-pipelines/docker-compose-build.yaml --env-file ../azure-pipelines/.env push ${{ parameters.image }}
+
+          # Push tag with commit hash
+          docker image tag ${{ parameters.image }}:dev ${{ parameters.image }}:$(Build.SourceVersion)
+          docker image push ${{ parameters.image }}:$(Build.SourceVersion)
+
+          # Push tag with timestamp
+          now=$(date -u +"%Y%m%d%H%M%S")
+          docker image tag ${{ parameters.image }}:dev ${{ parameters.image }}:$now
+          docker image push ${{ parameters.image }}:$now
+        displayName: Push ${{ parameters.image }} (non-release)
         condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true), eq('${{ parameters.release }}', false))
 
       # Runs only for release triggers
-      - template: release_version.yaml
-        parameters:
-          release: ${{ parameters.release }}
       - script: |
           echo tagging roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
           docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
           docker image push roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)
+
+          # Push tag with commit hash
+          docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)-$(Build.SourceVersion)
+          docker image push roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)-$(Build.SourceVersion)
+
+          # Push tag with timestamp
+          now=$(date -u +"%Y%m%d%H%M%S")
+          docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)-$now
+          docker image push roflcoopter/$(arch)-${{ parameters.image }}:$(viseronVersion)-$now
 
           if [ $(latestRelease) = true ] ; then
             echo tagging roflcoopter/$(arch)-${{ parameters.image }}:latest
             docker image tag roflcoopter/$(arch)-${{ parameters.image }}:dev roflcoopter/$(arch)-${{ parameters.image }}:latest
             docker image push roflcoopter/$(arch)-${{ parameters.image }}:latest
           fi
-        displayName: Push $(arch)-${{ parameters.image }}
+        displayName: Push $(arch)-${{ parameters.image }} (release)
         condition: and(succeeded(), eq('${{ parameters.release }}', true))
 
       - task: Docker@2

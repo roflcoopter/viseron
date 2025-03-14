@@ -2,7 +2,6 @@
 import logging
 import threading
 from queue import Queue
-from typing import List
 
 import cv2
 import numpy as np
@@ -45,8 +44,8 @@ class ObjectDetector(AbstractObjectDetector):
         self._config = config
         self._camera_identifier = camera_identifier
 
-        self._edgetpu = vis.data[COMPONENT][CONFIG_OBJECT_DETECTOR]
-        self._object_result_queue: Queue[List[DetectedObject]] = Queue(maxsize=1)
+        self._edgetpu: EdgeTPUDetection = vis.data[COMPONENT][CONFIG_OBJECT_DETECTOR]
+        self._object_result_queue: Queue[list[DetectedObject]] = Queue(maxsize=1)
 
         super().__init__(vis, COMPONENT, config, camera_identifier)
 
@@ -61,10 +60,13 @@ class ObjectDetector(AbstractObjectDetector):
         )
         return np.expand_dims(frame, axis=0)
 
-    def return_objects(self, frame) -> List[DetectedObject]:
+    def return_objects(self, frame) -> list[DetectedObject]:
         """Perform object detection."""
         return self._edgetpu.invoke(
-            frame, self._camera_identifier, self._object_result_queue
+            frame,
+            self._camera_identifier,
+            self._object_result_queue,
+            self._camera.resolution,
         )
 
     @property

@@ -5,8 +5,9 @@ import os
 
 import face_recognition
 import PIL
-from face_recognition.face_recognition_cli import image_files_in_folder
 from sklearn import neighbors
+
+from viseron.helpers import get_image_files_in_folder
 
 LOGGER = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ def train(
 
         # Loop through each training image for the current person
         try:
-            img_paths = image_files_in_folder(
+            img_paths = get_image_files_in_folder(
                 os.path.join(face_recognition_path, face_dir)
             )
         except NotADirectoryError as error:

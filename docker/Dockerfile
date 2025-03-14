@@ -3,24 +3,64 @@ ARG BASE_VERSION
 ARG OPENCV_VERSION
 ARG FFMPEG_VERSION
 ARG WHEELS_VERSION
-FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} as opencv
-FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION} as ffmpeg
-FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} as wheels
-FROM node:14.18.3 as frontend
+ARG UBUNTU_VERSION
+FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} AS opencv
+FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION} AS ffmpeg
+FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} AS wheels
+
+# Build GPAC
+FROM roflcoopter/${ARCH}-base:${BASE_VERSION} AS gpac
+
+ENV \
+  DEBIAN_FRONTEND=noninteractive
+
+RUN \
+  if [ "$ARCH" = "armhf" ] || \
+  [ "$ARCH" = "rpi3" ] || \
+  [ "$ARCH" = "aarch64" ] || \
+  [ "$ARCH" = "jetson-nano" ]; then echo "Crossbuilding!" && cross-build-start; fi
+
+RUN \
+  apt-get update && apt-get install -y --no-install-recommends \
+  build-essential \
+  ca-certificates \
+  pkg-config \
+  g++ \
+  git \
+  cmake \
+  yasm \
+  zlib1g-dev
+
+RUN \
+  git clone https://github.com/gpac/gpac.git
+RUN \
+  cd gpac && \
+  ./configure --static-bin / && \
+  make -j$(nproc)
+
+
+# Build frontend
+FROM node:20.10.0 AS frontend
 
 WORKDIR /frontend
 
 COPY frontend/package.json ./
 COPY frontend/package-lock.json ./
+# npm 10+ fails to install in Docker for some reason
+RUN npm install -g npm@9
+RUN npm ci --legacy-peer-deps
+
 COPY frontend/ ./
+RUN npm run build
 
-RUN npm ci && npm run build
 
+# Build Viseron
 FROM roflcoopter/${ARCH}-base:${BASE_VERSION}
 
 WORKDIR /src
 
 COPY --from=wheels /wheels /wheels
+COPY --from=wheels /wheels-3.9 /wheels-3.9
 
 ARG S6_OVERLAY_ARCH
 ARG S6_OVERLAY_VERSION
@@ -29,17 +69,21 @@ ARG EXTRA_APT_PACKAGES
 ENV \
   DEBIAN_FRONTEND=noninteractive \
   S6_KEEP_ENV=1 \
-  S6_SERVICES_GRACETIME=20000 \
-  S6_KILL_GRACETIME=1000 \
+  S6_SERVICES_GRACETIME=30000 \
+  S6_KILL_GRACETIME=30000 \
+  S6_KILL_FINISH_MAXTIME=30000 \
   PATH=$PATH:/home/abc/bin \
   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib \
-  PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.8/site-packages \
-  OPENCV_OPENCL_CACHE_ENABLE=false
+  PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.10/site-packages \
+  OPENCV_OPENCL_CACHE_ENABLE=false \
+  PGDATA=/config/postgresql \
+  PG_COLOR="always"
 
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}-installer /tmp/s6-overlay-installer
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \
+  software-properties-common \
   curl \
   gnupg \
   tzdata \
@@ -50,6 +94,9 @@ RUN \
   libgomp1 \
   # dlib Dependencies
   libopenblas-base \
+  # PostgreSQL
+  postgresql \
+  postgresql-contrib \
   # Install extra apt packages from build-arg
   ${EXTRA_APT_PACKAGES} \
   # GStreamer
@@ -70,15 +117,27 @@ RUN \
   && rm -rf /var/lib/apt/lists/* \
   \
   && python3 -m pip install --upgrade pip \
-  && pip3 install /wheels/*.whl \
+  && python3 -m pip install /wheels/*.whl \
   && rm -r /wheels \
   \
+  # Install Python 3.9 if it doesn't exist
+  && if [ ! -f /usr/local/bin/python3.9 ]; then \
+  add-apt-repository ppa:deadsnakes/ppa -y && \
+  apt-get update && apt-get install -y --no-install-recommends \
+  python3.9 \
+  python3.9-distutils \
+  # Get pip
+  && curl -s https://bootstrap.pypa.io/get-pip.py | python3.9 - ; \
+  fi \
+  \
+  # Install Coral Edge TPU
   && echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" | tee /etc/apt/sources.list.d/coral-edgetpu.list \
   && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - \
   && echo "libedgetpu1-max libedgetpu/accepted-eula select true" | debconf-set-selections \
-  && apt-get -qq update && apt-get -qq install --no-install-recommends -y \
+  && apt-get -qq update && apt-get -qq install -y --no-install-recommends \
   libedgetpu1-max \
-  python3-pycoral \
+  && python3.9 -m pip install /wheels-3.9/*.whl \
+  && rm -r /wheels-3.9 \
   \
   && chmod +x /tmp/s6-overlay-installer && /tmp/s6-overlay-installer / \
   && apt-get autoremove -y \
@@ -89,15 +148,19 @@ RUN \
   && useradd --uid 911 --user-group --create-home abc \
   && mkdir -p /home/abc/bin /segments
 
-VOLUME /config
-VOLUME /recordings
-
 ENTRYPOINT ["/init"]
 
 COPY docker/ffprobe_wrapper /home/abc/bin/ffprobe
 COPY docker/ffmpeg_wrapper /home/abc/bin/ffmpeg
 COPY --from=opencv /opt/opencv /usr/local/
 COPY --from=ffmpeg /usr/local /ffmpeg/
+COPY --from=gpac /gpac/bin/gcc /usr/bin
 COPY rootfs/ /
 COPY --from=frontend /frontend/dist /src/viseron/frontend/
+COPY manager.py /src/manager.py
 COPY viseron /src/viseron/
+
+ARG VISERON_VERSION="dev"
+ARG VISERON_GIT_COMMIT="unknown"
+ENV VISERON_VERSION=${VISERON_VERSION}
+ENV VISERON_GIT_COMMIT=${VISERON_GIT_COMMIT}

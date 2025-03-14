@@ -2,7 +2,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 
-import { ErrorNotFound } from "components/error/Error";
+import { ErrorNotFound } from "components/error/ErrorMessage";
 
 const NotFound = () => (
   <Container

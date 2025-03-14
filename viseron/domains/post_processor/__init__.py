@@ -4,11 +4,16 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from queue import Queue
-from typing import TYPE_CHECKING
+from queue import Empty, Queue
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
+from sqlalchemy import insert
 
+from viseron.components.storage import Storage
+from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.models import PostProcessorResults
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.object_detector.const import (
     EVENT_OBJECTS_IN_FOV,
@@ -19,6 +24,7 @@ from viseron.domains.object_detector.detected_object import (
     EventDetectedObjectsData,
 )
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
+from viseron.types import SupportedDomains
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -69,6 +75,7 @@ class AbstractPostProcessor(ABC):
 
     def __init__(self, vis: Viseron, config, camera_identifier) -> None:
         self._vis = vis
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
         self._config = config
         self._camera_identifier = camera_identifier
         self._camera = vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
@@ -86,6 +93,7 @@ class AbstractPostProcessor(ABC):
         else:
             self._logger.debug(f"Post processor will run for labels: {self._labels}")
 
+        self._kill_received = False
         self._post_processor_queue: Queue[Event[EventDetectedObjectsData]] = Queue(
             maxsize=1
         )
@@ -104,11 +112,16 @@ class AbstractPostProcessor(ABC):
             ),
             self._post_processor_queue,
         )
+        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
     def post_process(self) -> None:
         """Post processor loop."""
-        while True:
-            event_data = self._post_processor_queue.get()
+        while not self._kill_received:
+            try:
+                event_data = self._post_processor_queue.get(timeout=1)
+            except Empty:
+                continue
+
             detected_objects_data = event_data.data
 
             if detected_objects_data.shared_frame is None:
@@ -141,7 +154,26 @@ class AbstractPostProcessor(ABC):
                         zone=detected_objects_data.zone,
                     )
                 )
+        self._logger.debug(f"Post processor {self.__class__.__name__} stopped")
 
     @abstractmethod
     def process(self, post_processor_frame: PostProcessorFrame):
         """Process frame."""
+
+    def _insert_result(
+        self, domain: SupportedDomains, snapshot_path: str | None, data: dict[str, Any]
+    ) -> None:
+        """Insert face recognition result into database."""
+        with self._storage.get_session() as session:
+            stmt = insert(PostProcessorResults).values(
+                camera_identifier=self._camera.identifier,
+                domain=domain,
+                snapshot_path=snapshot_path,
+                data=data,
+            )
+            session.execute(stmt)
+            session.commit()
+
+    def stop(self) -> None:
+        """Stop post processor."""
+        self._kill_received = True

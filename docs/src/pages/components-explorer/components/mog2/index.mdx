@@ -1,7 +1,7 @@
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
 import MotionDetector from "@site/src/pages/components-explorer/_domains/motion_detector/index.mdx";
-import MotionDetectorMask from "@site/src/pages/components-explorer/_domains/motion_detector/mask.mdx";
 
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
@@ -37,18 +37,14 @@ mog2:
                 y: 750
       camera_two:
         fps: 2
-        trigger_recorder: true
+        trigger_event_recording: true
         threshold: 25
 ```
 
 </details>
 
-<ComponentConfiguration meta={ComponentMetadata} config={config} />
+<ComponentConfiguration config={config} />
 
-## Motion detector
+<MotionDetector meta={ComponentMetadata} />
 
-<MotionDetector />
-
-### Mask
-
-<MotionDetectorMask meta={ComponentMetadata} />
+<ComponentTroubleshooting meta={ComponentMetadata} />

@@ -32,33 +32,39 @@ class OnboardingAPIHandler(BaseAPIHandler):
         },
     ]
 
-    def onboarding(self) -> None:
+    async def onboarding(self) -> None:
         """Onboard the first user."""
-        if self._webserver.auth.users or self._webserver.auth.onboarding_complete:
+        if self._webserver.auth.users or await self.run_in_executor(
+            self._webserver.auth.onboarding_complete
+        ):
             self.response_error(
                 HTTPStatus.FORBIDDEN,
                 reason="Onboarding has already been completed",
             )
             return
 
-        user = self._webserver.auth.onboard_user(
+        user = await self.run_in_executor(
+            self._webserver.auth.onboard_user,
             self.json_body["name"],
             self.json_body["username"],
             self.json_body["password"],
         )
 
-        refresh_token = self._webserver.auth.generate_refresh_token(
+        refresh_token = await self.run_in_executor(
+            self._webserver.auth.generate_refresh_token,
             user.id,
             self.json_body["client_id"],
             "normal",
         )
-        access_token = self._webserver.auth.generate_access_token(
-            refresh_token, self.request.remote_ip
+        access_token = await self.run_in_executor(
+            self._webserver.auth.generate_access_token,
+            refresh_token,
+            self.request.remote_ip,
         )
 
         self.set_cookies(refresh_token, access_token, user, new_session=True)
 
-        self.response_success(
+        await self.response_success(
             response=token_response(
                 refresh_token,
                 access_token,

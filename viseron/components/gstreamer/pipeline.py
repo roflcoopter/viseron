@@ -5,11 +5,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from viseron.components.ffmpeg.const import (
-    CAMERA_SEGMENT_DURATION,
-    CONFIG_SEGMENTS_FOLDER,
-)
-from viseron.domains.camera.const import CONFIG_EXTENSION
+from viseron.const import CAMERA_SEGMENT_DURATION, ENV_VAAPI_SUPPORTED
 
 from .const import (
     CONFIG_AUDIO_CODEC,
@@ -26,10 +22,12 @@ from .const import (
     PARSE_ELEMENT_MAP,
     PIXEL_FORMAT,
     STREAM_FORMAT_MAP,
+    VAAPI_DECODER_ELEMENT_MAP,
 )
 
 if TYPE_CHECKING:
     from viseron.components.gstreamer.stream import Stream
+    from viseron.domains.camera import AbstractCamera
 
 
 class AbstractPipeline(ABC):
@@ -54,10 +52,10 @@ class RawPipeline(AbstractPipeline):
 class BasePipeline(AbstractPipeline):
     """Base GStreamer pipeline."""
 
-    def __init__(self, config, stream: Stream, camera_identifier) -> None:
+    def __init__(self, config, stream: Stream, camera: AbstractCamera) -> None:
         self._config = config
         self._stream = stream
-        self._camera_identifier = camera_identifier
+        self._camera = camera
 
     def input_pipeline(self):
         """Generate GStreamer input pipeline."""
@@ -66,7 +64,6 @@ class BasePipeline(AbstractPipeline):
             + [f"location={self._stream.mainstream.url}"]
             + [
                 "name=input_stream",
-                "do-timestamp=true",
             ]
             + STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]]["options"]
             + (
@@ -136,7 +133,14 @@ class BasePipeline(AbstractPipeline):
         Returns decoder element from override map if it exists.
         Otherwise we assume the decoder element shares name with the codec.
         """
-        decoder_element = DECODER_ELEMENT_MAP.get(self._stream.mainstream.codec, None)
+        if os.getenv(ENV_VAAPI_SUPPORTED) == "true":
+            decoder_element = VAAPI_DECODER_ELEMENT_MAP.get(
+                self._stream.mainstream.codec, None
+            )
+        else:
+            decoder_element = DECODER_ELEMENT_MAP.get(
+                self._stream.mainstream.codec, None
+            )
 
         if decoder_element:
             return [
@@ -169,7 +173,7 @@ class BasePipeline(AbstractPipeline):
             ]
         )
 
-    def parse_element(self):
+    def parse_element(self) -> list[str]:
         """Return parse element.
 
         Returns parse element from override map if it exists.
@@ -180,13 +184,8 @@ class BasePipeline(AbstractPipeline):
 
         return ["!", f"{self._stream.mainstream.codec}parse"]
 
-    def segment_pipeline(self):
+    def segment_pipeline(self) -> list[str]:
         """Generate GStreamer segment args."""
-        segment_filepattern = os.path.join(
-            self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
-            self._camera_identifier,
-            f"%01d.{self._config[CONFIG_RECORDER][CONFIG_EXTENSION]}",
-        )
         return (
             [
                 "!",
@@ -203,7 +202,6 @@ class BasePipeline(AbstractPipeline):
                 f"muxer={self._config[CONFIG_RECORDER][CONFIG_MUXER]}",
                 f"max-size-time={str(CAMERA_SEGMENT_DURATION)}000000000",
             ]
-            + [f"location={segment_filepattern}"]
         )
 
     def audio_pipeline(self):

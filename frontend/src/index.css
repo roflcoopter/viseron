@@ -11,6 +11,10 @@ body {
   flex-direction: column;
 }
 
+.overflow-hidden {
+  overflow: hidden;
+}
+
 :root {
   --toastify-toast-min-height: 0px;
   --toastify-font-family: "Roboto","Helvetica","Arial",sans-serif;
@@ -30,4 +34,22 @@ body {
 
 .Toastify__close-button {
   align-self: auto;
+}
+
+.page-enter {
+  opacity: 0;
+}
+
+.page-enter-active {
+  opacity: 1;
+  transition: opacity 200ms, transform 200ms;
+}
+
+.page-exit {
+  opacity: 0;
+}
+
+.page-exit-active {
+  opacity: 0;
+  transition: opacity 200ms, transform 200ms;
 }

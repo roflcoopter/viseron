@@ -1,0 +1,96 @@
+#!/usr/bin/with-contenv bash
+
+source /helpers/logger.sh
+source /helpers/set_env.sh
+source /etc/os-release
+
+log_info "***************** Preparing PostgreSQL *******************"
+mkdir -p $PGDATA /var/run/postgresql
+chown -R postgres:abc $PGDATA /var/run/postgresql
+
+init_db() {
+  path=$1
+  createdb=${2:-true}
+  log_info "Database has not been initialized. Initializing..."
+  s6-setuidgid postgres $PG_BIN/initdb -D $path
+  if [ "$createdb" = true ]; then
+    log_info "Starting PostgreSQL..."
+    s6-setuidgid postgres $PG_BIN/pg_ctl -D $path -l $path/logfile start
+    create_db
+    log_info "Stopping PostgreSQL..."
+    s6-setuidgid postgres $PG_BIN/pg_ctl -D $path -l $path/logfile stop
+  fi
+}
+
+create_db() {
+  if s6-setuidgid postgres psql -q -d viseron -tc "SELECT 1 FROM pg_database WHERE datname = 'viseron';" ; then
+      log_info "Database has already been created."
+  else
+      log_info "Database has not been created. Creating..."
+      s6-setuidgid postgres createdb -U postgres -O postgres viseron
+      s6-setuidgid postgres createuser abc
+  fi
+}
+
+upgrade_db() {
+  old_version=$(cat $PGDATA/PG_VERSION)
+  log_warning "Upgrading database to new PostgreSQL version..."
+
+  log_info "Installing PostgreSQL $old_version..."
+  echo "deb https://apt.postgresql.org/pub/repos/apt ${UBUNTU_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+  wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add -
+  apt-get update && apt-get install -y --no-install-recommends postgresql-$old_version
+
+  new_db_path=/tmp/postgresql
+  mkdir -p $new_db_path
+  chown postgres:abc $new_db_path
+  init_db $new_db_path false
+
+  # Make sure that the rolname for oid 10 is postgres
+  # In previous versions the database superuser was set to abc which breaks pg_upgrade
+  log_info "Starting PostgreSQL..."
+  s6-setuidgid postgres /usr/lib/postgresql/$old_version/bin/pg_ctl -D $PGDATA -l $PGDATA/logfile start
+  PG_SUPERUSER=$(s6-setuidgid postgres psql -q -d viseron -tc "SELECT rolname FROM pg_roles WHERE oid = 10;" | xargs)
+  if [ "$PG_SUPERUSER" != "postgres" ]; then
+    log_info "Changing superuser role name to postgres..."
+    log_info "Creating temporary superuser..."
+    s6-setuidgid postgres psql -d viseron -c 'CREATE ROLE "temp" WITH SUPERUSER CREATEDB CREATEROLE REPLICATION BYPASSRLS LOGIN;'
+    log_info "Dropping old postgres user..."
+    s6-setuidgid postgres psql -d viseron -U temp -c 'DROP ROLE "postgres";'
+    log_info "Renaming old superuser to postgres..."
+    s6-setuidgid postgres psql -d viseron -U temp -c "ALTER ROLE $PG_SUPERUSER RENAME TO postgres;"
+    log_info "Dropping temporary superuser..."
+    s6-setuidgid postgres psql -d viseron -c 'DROP ROLE "temp";'
+    log_info "Create abc user"
+    s6-setuidgid postgres createuser abc
+  fi
+  log_info "Stopping PostgreSQL..."
+  s6-setuidgid postgres /usr/lib/postgresql/$old_version/bin/pg_ctl -D $PGDATA -l $PGDATA/logfile stop
+
+  log_info "Running pg_upgrade..."
+  cd $new_db_path
+  s6-setuidgid postgres $PG_BIN/pg_upgrade -b /usr/lib/postgresql/$old_version/bin -B $PG_BIN -d $PGDATA -D $new_db_path
+
+  log_info "Cleaning up..."
+  apt-get remove -y postgresql-$old_version postgresql-client-$old_version
+  apt-get autoremove -y
+  rm -rf /var/lib/apt/lists/*
+
+  mv $PGDATA $PGDATA-$old_version
+  chown -R abc:abc $PGDATA-$old_version
+  mv $new_db_path $PGDATA
+  log_info "Upgrade complete. It is recommended to remove the old database files: $PGDATA-$old_version"
+}
+
+if [ -e $PGDATA/postgresql.conf ]; then
+  log_info "Database has already been initialized."
+  DATABASE_VERSION=$(cat $PGDATA/PG_VERSION)
+  if [ $DATABASE_VERSION != $PG_VERSION ]; then
+    log_warning "Database version ($DATABASE_VERSION) is not the same as the installed PostgreSQL version ($PG_VERSION)."
+    upgrade_db
+  fi
+else
+  init_db $PGDATA
+fi
+
+log_info "*********************** Done *****************************"

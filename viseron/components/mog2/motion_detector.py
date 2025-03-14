@@ -1,6 +1,7 @@
 """Background Subtractor MOG2 motion detector."""
 
 import cv2
+import numpy as np
 
 from viseron import Viseron
 from viseron.domains.motion_detector import AbstractMotionDetectorScanner
@@ -36,6 +37,7 @@ class MotionDetector(AbstractMotionDetectorScanner):
             self._camera_config[CONFIG_DETECT_SHADOWS],
         )
 
+        self._empty_mat = cv2.Mat(np.empty((3, 3), np.uint8))
         vis.register_domain(DOMAIN, camera_identifier, self)
 
     def preprocess(self, frame):
@@ -52,8 +54,8 @@ class MotionDetector(AbstractMotionDetectorScanner):
             frame,
             learningRate=self._camera_config[CONFIG_LEARNING_RATE],
         )
-        fgmask = cv2.erode(fgmask, None, iterations=1)
-        fgmask = cv2.dilate(fgmask, None, iterations=4)
+        fgmask = cv2.erode(fgmask, self._empty_mat, iterations=1)
+        fgmask = cv2.dilate(fgmask, self._empty_mat, iterations=4)
 
         return Contours(
             cv2.findContours(fgmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0],

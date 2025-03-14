@@ -5,11 +5,9 @@ import logging
 import threading
 from typing import TYPE_CHECKING
 
+from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.face_recognition import AbstractFaceRecognition
-from viseron.domains.face_recognition.const import (
-    CONFIG_FACE_RECOGNITION_PATH,
-    CONFIG_SAVE_UNKNOWN_FACES,
-)
+from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH
 from viseron.helpers import calculate_absolute_coords
 
 from .const import COMPONENT, CONFIG_FACE_RECOGNITION, CONFIG_MODEL
@@ -19,7 +17,6 @@ from .train import train
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains.object_detector.detected_object import DetectedObject
-    from viseron.domains.post_processor import PostProcessorFrame
 
 LOGGER = logging.getLogger(__name__)
 
@@ -54,8 +51,11 @@ class FaceRecognition(AbstractFaceRecognition):
         )
         self._classifier = classifier
 
-    def face_recognition(self, frame, detected_object: DetectedObject) -> None:
+    def face_recognition(
+        self, shared_frame: SharedFrame, detected_object: DetectedObject
+    ) -> None:
         """Perform face recognition."""
+        frame = self._camera.shared_frames.get_decoded_frame_rgb(shared_frame)
         if not self._classifier:
             self._logger.error(
                 "Classifier has not been trained, "
@@ -83,14 +83,6 @@ class FaceRecognition(AbstractFaceRecognition):
 
         for face, coordinates in faces:
             if face != "unknown":
-                self.known_face_found(face, coordinates)
-            elif self._config[CONFIG_SAVE_UNKNOWN_FACES]:
-                self.unknown_face_found(cropped_frame)
-
-    def process(self, post_processor_frame: PostProcessorFrame) -> None:
-        """Process received frame."""
-        decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(
-            post_processor_frame.shared_frame
-        )
-        for detected_object in post_processor_frame.filtered_objects:
-            self.face_recognition(decoded_frame, detected_object)
+                self.known_face_found(face, coordinates, shared_frame)
+            else:
+                self.unknown_face_found(coordinates, shared_frame)

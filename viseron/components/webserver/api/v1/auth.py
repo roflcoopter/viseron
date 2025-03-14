@@ -80,20 +80,23 @@ class AuthAPIHandler(BaseAPIHandler):
         },
     ]
 
-    def auth_enabled(self) -> None:
+    async def auth_enabled(self) -> None:
         """Return if auth is enabled."""
         response = {
             "enabled": bool(self._webserver.auth) if self._webserver.auth else False,
-            "onboarding_complete": self._webserver.auth.onboarding_complete
+            "onboarding_complete": await self.run_in_executor(
+                self._webserver.auth.onboarding_complete
+            )
             if self._webserver.auth
             else False,
         }
-        self.response_success(response=response)
+        await self.response_success(response=response)
 
-    def auth_create(self) -> None:
+    async def auth_create(self) -> None:
         """Create a new user."""
         try:
-            self._webserver.auth.add_user(
+            await self.run_in_executor(
+                self._webserver.auth.add_user,
                 self.json_body["name"].strip(),
                 self.json_body["username"].strip().casefold(),
                 self.json_body["password"],
@@ -102,18 +105,18 @@ class AuthAPIHandler(BaseAPIHandler):
         except UserExistsError as error:
             self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
             return
-        self.response_success()
+        await self.response_success()
 
-    def auth_user(self, user_id: str) -> None:
+    async def auth_user(self, user_id: str) -> None:
         """Get a user.
 
         Returns 200 OK with user data if user exists.
         """
-        user = self._webserver.auth.get_user(user_id)
+        user = await self.run_in_executor(self._webserver.auth.get_user, user_id)
         if user is None:
             self.response_error(HTTPStatus.NOT_FOUND, reason="User not found")
             return
-        self.response_success(
+        await self.response_success(
             response={
                 "name": user.name,
                 "username": user.username,
@@ -121,11 +124,13 @@ class AuthAPIHandler(BaseAPIHandler):
             }
         )
 
-    def auth_login(self) -> None:
+    async def auth_login(self) -> None:
         """Login."""
         try:
-            user = self._webserver.auth.validate_user(
-                self.json_body["username"], self.json_body["password"]
+            user = await self.run_in_executor(
+                self._webserver.auth.validate_user,
+                self.json_body["username"],
+                self.json_body["password"],
             )
         except AuthenticationFailed:
             self.response_error(
@@ -133,36 +138,42 @@ class AuthAPIHandler(BaseAPIHandler):
             )
             return
 
-        refresh_token = self._webserver.auth.generate_refresh_token(
+        refresh_token = await self.run_in_executor(
+            self._webserver.auth.generate_refresh_token,
             user.id,
             self.json_body["client_id"],
             "normal",
         )
-        access_token = self._webserver.auth.generate_access_token(
-            refresh_token, self.request.remote_ip
+        access_token = await self.run_in_executor(
+            self._webserver.auth.generate_access_token,
+            refresh_token,
+            self.request.remote_ip,
         )
 
         self.set_cookies(refresh_token, access_token, user, new_session=True)
 
-        self.response_success(
+        await self.response_success(
             response=token_response(
                 refresh_token,
                 access_token,
             ),
         )
 
-    def auth_logout(self) -> None:
+    async def auth_logout(self) -> None:
         """Logout."""
         refresh_token_cookie = self.get_secure_cookie("refresh_token")
         if refresh_token_cookie is not None:
-            refresh_token = self._webserver.auth.get_refresh_token_from_token(
-                refresh_token_cookie.decode()
+            refresh_token = await self.run_in_executor(
+                self._webserver.auth.get_refresh_token_from_token,
+                refresh_token_cookie.decode(),
             )
             if refresh_token is not None:
-                self._webserver.auth.delete_refresh_token(refresh_token)
+                await self.run_in_executor(
+                    self._webserver.auth.delete_refresh_token, refresh_token
+                )
 
         self.clear_all_cookies()
-        self.response_success()
+        await self.response_success()
 
     def _handle_refresh_token(
         self,
@@ -202,12 +213,12 @@ class AuthAPIHandler(BaseAPIHandler):
             ),
         )
 
-    def auth_token(self) -> None:
+    async def auth_token(self) -> None:
         """Handle token request."""
         if self.json_body["grant_type"] == "refresh_token":
-            status, response = self._handle_refresh_token()
+            status, response = await self.run_in_executor(self._handle_refresh_token)
             if status == HTTPStatus.OK:
-                self.response_success(response=response)
+                await self.response_success(response=response)
                 return
             self.clear_all_cookies()
             # Mypy doesn't understand that status is HTTPStatus.BAD_REQUEST here

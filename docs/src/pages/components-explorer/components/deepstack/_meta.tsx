@@ -5,7 +5,7 @@ const ComponentMetadata: Component = {
   name: "deepstack",
   description:
     "DeepStack is an Open-Source AI API engine that serves pre-built models and custom models on multiple edge devices locally or on your private cloud.",
-  image: "https://www.deepstack.cc/static/img/deepstacklogo.png",
+  image: "https://deepstack.readthedocs.io/en/latest/_static/logo.png",
   tags: ["object_detector", "face_recognition"],
 };
 

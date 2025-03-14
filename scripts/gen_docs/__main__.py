@@ -10,11 +10,18 @@ import typing_extensions
 import voluptuous as vol
 
 from viseron.config import UNSUPPORTED
-from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict, Maybe, Slug
+from viseron.helpers.validators import (
+    CameraIdentifier,
+    CoerceNoneToDict,
+    Deprecated,
+    Maybe,
+    Slug,
+)
 from viseron.types import SupportedDomains
 
 from .const import (
     DOCS_CONTENTS,
+    DOCS_FOOTER,
     DOCS_IMPORTS,
     DOMAIN_CONTENT,
     DOMAIN_IMPORTS,
@@ -63,13 +70,13 @@ def convert(schema, custom_convert=None):  # noqa: C901
             if isinstance(pval, list):
                 pval = {"type": "map", "value": pval}
 
-            if not isinstance(pkey, str):
+            if not isinstance(pkey, str) or isinstance(key, Deprecated):
                 pval["name"] = convert(key, custom_convert=custom_convert)
             else:
                 pval["name"] = pkey
             pval["description"] = description
 
-            if isinstance(key, (vol.Required, vol.Optional)):
+            if isinstance(key, (vol.Required, vol.Optional, Deprecated)):
                 pval[key.__class__.__name__.lower()] = True
 
                 if key.default is not vol.UNDEFINED:
@@ -216,6 +223,13 @@ def convert(schema, custom_convert=None):  # noqa: C901
             "type": "string",
         }
 
+    if isinstance(schema, Deprecated):
+        return {
+            "type": "deprecated",
+            "name": schema.key,
+            "value": schema.message,
+        }
+
     if callable(schema):
         return {"type": "custom_validator", "value": "unable_to_convert"}
 
@@ -258,6 +272,7 @@ def generate_index(supported_domains):
     docs += DOCS_CONTENTS
     for domain in sorted_domains:
         docs += DOMAIN_CONTENT.get(domain, "")
+    docs += DOCS_FOOTER
 
     return docs
 

@@ -1,4 +1,5 @@
 """GStreamer constants."""
+# pyright: reportMissingModuleSource=false
 from __future__ import annotations
 
 import logging
@@ -17,10 +18,10 @@ RECORDER = "recorder"
 # pylint: disable=useless-suppression
 # pylint: disable=wrong-import-position,wrong-import-order,no-name-in-module
 gi.require_version("Gst", "1.0")
-from gi.repository import Gst  # pyright: ignore[reportMissingImports] # noqa: E402
+from gi.repository import Gst  # noqa: E402
 
-# pylint: enable=wrong-import-position,wrong-import-order,no-name-in-module
-# pylint: enable=useless-suppression
+# enable: disable=useless-suppression
+# enable: disable=wrong-import-position,wrong-import-order,no-name-in-module
 
 
 class StreamFormat(TypedDict):
@@ -69,6 +70,13 @@ PARSE_ELEMENT_MAP = {
 DECODER_ELEMENT_MAP = {
     "hevc": "avdec_h265",
     "mjpeg": "jpegdec",
+}
+
+VAAPI_DECODER_ELEMENT_MAP = {
+    "h264": "vaapih264dec",
+    "h265": "vaapih265dec",
+    "hevc": "vaapih265dec",
+    "mjpeg": "vaapimjpegdec",
 }
 
 PIXEL_FORMAT = "NV12"

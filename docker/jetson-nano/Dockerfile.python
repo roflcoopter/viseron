@@ -14,11 +14,9 @@ RUN [ "cross-build-start" ]
 ARG PYTHON_VERSION
 ARG PYTHON_PIP_VERSION
 
-ENV GPG_KEY E3FF2839C048B25C084DEBE9B26995E310250568
 ENV LANG=C.UTF-8
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_URL=https://bootstrap.pypa.io/get-pip.py
-ENV PIP_SHA256=b3153ec0cf7b7bbf9556932aa37e4981c35dc2a2c501d70d91d2795aa532be79
 
 RUN \
   apt-get -yqq update && apt-get install -yq --no-install-recommends \
@@ -41,11 +39,12 @@ RUN \
   xz-utils \
   zlib1g-dev
 
+ARG PYTHON_GPG_KEY
 RUN \
   wget --no-verbose --output-document=python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" \
   && wget --no-verbose --output-document=python.tar.xz.asc "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc" \
   && export GNUPGHOME="$(mktemp -d)" \
-  && gpg --batch --keyserver keyserver.ubuntu.com --recv-keys "$GPG_KEY" \
+  && gpg --batch --keyserver keys.openpgp.org --recv-keys "$PYTHON_GPG_KEY" \
   && gpg --batch --verify python.tar.xz.asc python.tar.xz \
   && { command -v gpgconf > /dev/null && gpgconf --kill all || :; } \
   && rm -rf "$GNUPGHOME" python.tar.xz.asc \
@@ -69,11 +68,13 @@ RUN \
   && make install
 
 RUN \
-  strip /usr/local/bin/python3.8
+  strip /usr/local/bin/python$(echo $PYTHON_VERSION | cut -d'.' -f1,2)
 
 # install pip
+ENV PIP_SHA256=c518250e91a70d7b20cceb15272209a4ded2a0c263ae5776f129e0d9b5674309
 RUN \
   wget --no-verbose --output-document=get-pip.py "$PIP_URL"; \
+  echo "$PYTHON_GET_PIP_SHA256 *get-pip.py" | sha256sum --check --strict -; \
   \
   /usr/local/bin/python3 get-pip.py \
   --disable-pip-version-check \

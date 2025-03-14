@@ -7,16 +7,13 @@ from typing import TYPE_CHECKING
 
 import cv2
 from compreface import CompreFace
-from compreface.collections import FaceCollection
-from compreface.service import RecognitionService
-from face_recognition.face_recognition_cli import image_files_in_folder
+from compreface.collections import FaceCollection, Subjects
 
+from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.face_recognition import AbstractFaceRecognition
-from viseron.domains.face_recognition.const import (
-    CONFIG_FACE_RECOGNITION_PATH,
-    CONFIG_SAVE_UNKNOWN_FACES,
-)
-from viseron.helpers import calculate_absolute_coords
+from viseron.domains.face_recognition.binary_sensor import FaceDetectionBinarySensor
+from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH
+from viseron.helpers import calculate_absolute_coords, get_image_files_in_folder
 
 from .const import (
     COMPONENT,
@@ -30,12 +27,13 @@ from .const import (
     CONFIG_PREDICTION_COUNT,
     CONFIG_SIMILARITTY_THRESHOLD,
     CONFIG_STATUS,
+    CONFIG_USE_SUBJECTS,
+    SUBJECTS,
 )
 
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains.object_detector.detected_object import DetectedObject
-    from viseron.domains.post_processor import PostProcessorFrame
 
 LOGGER = logging.getLogger(__name__)
 
@@ -52,7 +50,11 @@ class FaceRecognition(AbstractFaceRecognition):
 
     def __init__(self, vis: Viseron, config, camera_identifier) -> None:
         super().__init__(
-            vis, COMPONENT, config[CONFIG_FACE_RECOGNITION], camera_identifier
+            vis,
+            COMPONENT,
+            config[CONFIG_FACE_RECOGNITION],
+            camera_identifier,
+            not config[CONFIG_FACE_RECOGNITION][CONFIG_USE_SUBJECTS],
         )
 
         options = {
@@ -75,12 +77,34 @@ class FaceRecognition(AbstractFaceRecognition):
             port=str(config[CONFIG_FACE_RECOGNITION][CONFIG_PORT]),
             options=options,
         )
-        self._recognition: RecognitionService = self._compre_face.init_face_recognition(
+        if COMPONENT not in self._vis.data:
+            self._vis.data[COMPONENT] = {}
+        self._vis.data[COMPONENT][
+            CONFIG_FACE_RECOGNITION
+        ] = self._compre_face.init_face_recognition(
             config[CONFIG_FACE_RECOGNITION][CONFIG_API_KEY]
         )
+        if config[CONFIG_FACE_RECOGNITION][CONFIG_USE_SUBJECTS]:
+            self.update_subject_entities()
 
-    def face_recognition(self, frame, detected_object: DetectedObject) -> None:
+    def update_subject_entities(self) -> None:
+        """Update entities with binary face recognition subjects from compreface."""
+        subjects: Subjects = self._vis.data[COMPONENT][
+            CONFIG_FACE_RECOGNITION
+        ].get_subjects()
+        for subject in subjects.list()[SUBJECTS]:
+            binary_sensor = FaceDetectionBinarySensor(self._vis, self._camera, subject)
+            if not self._vis.states.entity_exists(binary_sensor):
+                self._vis.add_entity(
+                    COMPONENT,
+                    FaceDetectionBinarySensor(self._vis, self._camera, subject),
+                )
+
+    def face_recognition(
+        self, shared_frame: SharedFrame, detected_object: DetectedObject
+    ) -> None:
         """Perform face recognition."""
+        frame = self._camera.shared_frames.get_decoded_frame_rgb(shared_frame)
         x1, y1, x2, y2 = calculate_absolute_coords(
             (
                 detected_object.rel_x1,
@@ -93,7 +117,7 @@ class FaceRecognition(AbstractFaceRecognition):
         cropped_frame = frame[y1:y2, x1:x2].copy()
 
         try:
-            detections = self._recognition.recognize(
+            detections = self._vis.data[COMPONENT][CONFIG_FACE_RECOGNITION].recognize(
                 cv2.imencode(".jpg", cropped_frame)[1].tobytes(),
             )
         except Exception as error:  # pylint: disable=broad-except
@@ -105,37 +129,41 @@ class FaceRecognition(AbstractFaceRecognition):
             return
 
         for result in detections["result"]:
-            subject = result["subjects"][0]
+            subject = result[SUBJECTS][0]
             if subject["similarity"] >= self._config[CONFIG_SIMILARITTY_THRESHOLD]:
                 self._logger.debug(f"Face found: {subject}")
                 self.known_face_found(
                     subject["subject"],
                     (
-                        result["box"]["x_min"],
-                        result["box"]["y_min"],
-                        result["box"]["x_max"],
-                        result["box"]["y_max"],
+                        result["box"]["x_min"] + x1,
+                        result["box"]["y_min"] + y1,
+                        result["box"]["x_max"] + x2,
+                        result["box"]["y_max"] + y2,
                     ),
+                    shared_frame,
                     confidence=subject["similarity"],
                     extra_attributes=result,
                 )
-            elif self._config[CONFIG_SAVE_UNKNOWN_FACES]:
-                self.unknown_face_found(cropped_frame)
-
-    def process(self, post_processor_frame: PostProcessorFrame) -> None:
-        """Process received frame."""
-        decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(
-            post_processor_frame.shared_frame
-        )
-        for detected_object in post_processor_frame.filtered_objects:
-            self.face_recognition(decoded_frame, detected_object)
+            else:
+                self.unknown_face_found(
+                    (
+                        result["box"]["x_min"] + x1,
+                        result["box"]["y_min"] + y1,
+                        result["box"]["x_max"] + x2,
+                        result["box"]["y_max"] + y2,
+                    ),
+                    shared_frame,
+                    confidence=subject["similarity"],
+                    extra_attributes=result,
+                )
 
 
 class CompreFaceTrain:
     """Train CompreFace to recognize faces."""
 
-    def __init__(self, config) -> None:
+    def __init__(self, vis: Viseron, config) -> None:
         self._config = config
+        self._vis = vis
 
         options = {
             CONFIG_LIMIT: config[CONFIG_FACE_RECOGNITION][CONFIG_LIMIT],
@@ -157,10 +185,14 @@ class CompreFaceTrain:
             port=str(config[CONFIG_FACE_RECOGNITION][CONFIG_PORT]),
             options=options,
         )
-        self._recognition: RecognitionService = self._compre_face.init_face_recognition(
+        self._vis.data[COMPONENT][
+            CONFIG_FACE_RECOGNITION
+        ] = self._compre_face.init_face_recognition(
             config[CONFIG_FACE_RECOGNITION][CONFIG_API_KEY]
         )
-        self._face_collection: FaceCollection = self._recognition.get_face_collection()
+        self._face_collection: FaceCollection = self._vis.data[COMPONENT][
+            CONFIG_FACE_RECOGNITION
+        ].get_face_collection()
 
         self.train()
 
@@ -185,7 +217,7 @@ class CompreFaceTrain:
 
             # Loop through each training image for the current person
             try:
-                img_paths = image_files_in_folder(os.path.join(train_dir, face_dir))
+                img_paths = get_image_files_in_folder(os.path.join(train_dir, face_dir))
             except NotADirectoryError as error:
                 LOGGER.error(
                     f"{train_dir} can only contain directories. "

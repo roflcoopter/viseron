@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import concurrent
 import logging
 import secrets
 import threading
@@ -15,17 +14,7 @@ import voluptuous as vol
 from tornado.routing import PathMatches
 
 from viseron.components.webserver.auth import Auth
-from viseron.components.webserver.static_file_handler import (
-    AccessTokenStaticFileHandler,
-)
-from viseron.const import (
-    DOMAIN_FAILED,
-    EVENT_DOMAIN_REGISTERED,
-    EVENT_DOMAIN_SETUP_STATUS,
-    VISERON_SIGNAL_SHUTDOWN,
-)
-from viseron.domains.camera import AbstractCamera, FailedCamera
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.const import DEFAULT_PORT, VISERON_SIGNAL_SHUTDOWN
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers.storage import Storage
 from viseron.helpers.validators import CoerceNoneToDict
@@ -42,7 +31,6 @@ from .const import (
     CONFIG_SESSION_EXPIRY,
     DEFAULT_COMPONENT,
     DEFAULT_DEBUG,
-    DEFAULT_PORT,
     DEFAULT_SESSION_EXPIRY,
     DESC_AUTH,
     DESC_COMPONENT,
@@ -52,6 +40,7 @@ from .const import (
     DESC_MINUTES,
     DESC_PORT,
     DESC_SESSION_EXPIRY,
+    DOWNLOAD_TOKENS,
     PATH_ASSETS,
     PATH_INDEX,
     PATH_STATIC,
@@ -64,6 +53,9 @@ from .request_handler import ViseronRequestHandler
 from .stream_handler import DynamicStreamHandler, StaticStreamHandler
 from .websocket_api import WebSocketHandler
 from .websocket_api.commands import (
+    export_recording,
+    export_snapshot,
+    export_timespan,
     get_cameras,
     get_config,
     get_entities,
@@ -72,13 +64,15 @@ from .websocket_api.commands import (
     save_config,
     subscribe_event,
     subscribe_states,
+    subscribe_timespans,
     unsubscribe_event,
     unsubscribe_states,
+    unsubscribe_timespans,
 )
 
 if TYPE_CHECKING:
-    from viseron import Event, Viseron
-    from viseron.components import DomainToSetup
+    from viseron import Viseron
+    from viseron.components.webserver.download_token import DownloadToken
 
 
 LOGGER = logging.getLogger(__name__)
@@ -146,6 +140,11 @@ def setup(vis: Viseron, config) -> bool:
     webserver.register_websocket_command(save_config)
     webserver.register_websocket_command(restart_viseron)
     webserver.register_websocket_command(get_entities)
+    webserver.register_websocket_command(subscribe_timespans)
+    webserver.register_websocket_command(unsubscribe_timespans)
+    webserver.register_websocket_command(export_recording)
+    webserver.register_websocket_command(export_snapshot)
+    webserver.register_websocket_command(export_timespan)
 
     webserver.start()
 
@@ -188,7 +187,9 @@ class WebserverStore:
         return self._data["cookie_secret"]
 
 
-def create_application(vis: Viseron, config, cookie_secret, xsrf_cookies=True):
+def create_application(
+    vis: Viseron, config, cookie_secret, xsrf_cookies=True
+) -> tornado.web.Application:
     """Return tornado web app."""
     application = tornado.web.Application(
         [
@@ -224,8 +225,8 @@ def create_application(vis: Viseron, config, cookie_secret, xsrf_cookies=True):
         ],
         default_handler_class=NotFoundHandler,
         static_path=PATH_STATIC,
-        websocket_ping_interval=10,
         debug=config[CONFIG_DEBUG],
+        autoreload=False,
         cookie_secret=cookie_secret,
         xsrf_cookies=xsrf_cookies,
     )
@@ -253,12 +254,17 @@ class Webserver(threading.Thread):
         vis.data[COMPONENT] = self
         vis.data[WEBSOCKET_COMMANDS] = {}
         vis.data[WEBSOCKET_CONNECTIONS] = []
+        vis.data[DOWNLOAD_TOKENS] = {}
 
         self._asyncio_ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._asyncio_ioloop)
-        self.application = create_application(vis, config, self._store.cookie_secret)
+        if config[CONFIG_DEBUG]:
+            self._asyncio_ioloop.set_debug(True)
+
+        self._application = create_application(vis, config, self._store.cookie_secret)
+        self._httpserver = None
         try:
-            self.application.listen(
+            self._httpserver = self._application.listen(
                 config[CONFIG_PORT],
                 xheaders=True,
             )
@@ -268,20 +274,20 @@ class Webserver(threading.Thread):
             raise error
         self._ioloop = tornado.ioloop.IOLoop.current()
 
-        self._vis.listen_event(
-            EVENT_DOMAIN_REGISTERED.format(domain=CAMERA_DOMAIN), self.camera_registered
-        )
-        self._vis.listen_event(
-            EVENT_DOMAIN_SETUP_STATUS.format(
-                status=DOMAIN_FAILED, domain=CAMERA_DOMAIN, identifier="*"
-            ),
-            self.camera_registered,
-        )
-
     @property
     def auth(self):
         """Return auth."""
         return self._auth
+
+    @property
+    def application(self):
+        """Return application."""
+        return self._application
+
+    @property
+    def download_tokens(self) -> dict[str, DownloadToken]:
+        """Return download tokens."""
+        return self._vis.data[DOWNLOAD_TOKENS]
 
     def register_websocket_command(self, handler) -> None:
         """Register a websocket command."""
@@ -291,68 +297,42 @@ class Webserver(threading.Thread):
 
         self._vis.data[WEBSOCKET_COMMANDS][handler.command] = (handler, handler.schema)
 
-    def _serve_camera_recordings(
-        self, camera: AbstractCamera | FailedCamera, failed=False
-    ) -> None:
-        """Serve recordings of each camera in a static file handler."""
-        self.application.add_handlers(
-            r".*",
-            [
-                (
-                    (
-                        rf"\/recordings\/{camera.identifier}\/"
-                        rf"(.*\/.*\.(mp4$|mkv$|mov$|jpg$|{camera.extension}$))"
-                    ),
-                    AccessTokenStaticFileHandler,
-                    {
-                        "path": camera.recorder.recordings_folder,
-                        "vis": self._vis,
-                        "camera_identifier": camera.identifier,
-                        "failed": failed,
-                    },
-                )
-            ],
-        )
-
-    def camera_registered(
-        self, event_data: Event[AbstractCamera | DomainToSetup]
-    ) -> None:
-        """Handle camera registering."""
-        camera: AbstractCamera | FailedCamera | None = None
-        failed = False
-        if isinstance(event_data.data, AbstractCamera):
-            camera = event_data.data
-        else:
-            camera = event_data.data.error_instance
-            failed = True
-
-        if camera:
-            self._serve_camera_recordings(camera, failed)
-
     def run(self) -> None:
         """Start ioloop."""
         self._ioloop.start()
-        self._ioloop.close()
+        self._ioloop.close(True)
+        LOGGER.debug("IOLoop closed")
 
     def stop(self) -> None:
         """Stop ioloop."""
         LOGGER.debug("Stopping webserver")
-        futures = []
-        connection: WebSocketHandler
-        for connection in self._vis.data[WEBSOCKET_CONNECTIONS]:
-            LOGGER.debug("Closing websocket connection, %s", connection)
-            futures.append(
-                asyncio.run_coroutine_threadsafe(
-                    connection.force_close(), self._asyncio_ioloop
-                )
-            )
+        if self._httpserver:
+            LOGGER.debug("Stopping HTTPServer")
+            self._httpserver.stop()
 
-        for future in concurrent.futures.as_completed(futures):
-            # Await results
-            future.result()
+        shutdown_event = threading.Event()
 
-        asyncio.set_event_loop(self._asyncio_ioloop)
-        for task in asyncio.Task.all_tasks():
-            task.cancel()
+        async def shutdown():
+            connection: WebSocketHandler
+            for connection in self._vis.data[WEBSOCKET_CONNECTIONS]:
+                LOGGER.debug("Closing websocket connection, %s", connection)
+                await connection.force_close()
 
-        self._ioloop.stop()
+            tasks = [
+                t
+                for t in asyncio.all_tasks(self._asyncio_ioloop)
+                if t is not asyncio.current_task()
+            ]
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            LOGGER.debug("Stopping IOloop")
+            self._asyncio_ioloop.stop()
+            self._ioloop.stop()
+            LOGGER.debug("IOloop stopped")
+            shutdown_event.set()
+
+        self._ioloop.add_callback(shutdown)
+        self.join()
+        shutdown_event.wait()
+        LOGGER.debug("Webserver stopped")

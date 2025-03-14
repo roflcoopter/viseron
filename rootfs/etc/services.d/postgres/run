@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bash
+
+source /helpers/set_env.sh
+
+echo "Starting PostgreSQL Server..."
+s6-setuidgid postgres $PG_BIN/postgres -D /config/postgresql

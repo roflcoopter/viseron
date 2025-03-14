@@ -7,7 +7,6 @@ COPY --from=ffmpeg /usr/local /usr/local/
 
 WORKDIR /tmp/workdir
 
-ARG OPENCV_VERSION
 ARG OPENVINO_VERSION
 ARG MAKEFLAGS="-j2"
 
@@ -16,11 +15,12 @@ ENV \
   PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig" \
   PREFIX=/opt/opencv \
   LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib" \
-  PYTHONPATH=$PYTHONPATH:/opt/opencv/lib/python3.8/site-packages
+  PYTHONPATH=$PYTHONPATH:/opt/opencv/lib/python3.10/dist-packages
 
 RUN buildDeps="autoconf \
   automake \
   ca-certificates \
+  gnupg \
   cmake \
   curl \
   wget \
@@ -43,6 +43,7 @@ RUN buildDeps="autoconf \
   pkg-config \
   python3 \
   python3-dev \
+  python3-pip \
   python3-numpy \
   libssl-dev \
   yasm \
@@ -54,26 +55,17 @@ RUN buildDeps="autoconf \
 
 
 ## Install OpenVINO
-RUN mkdir /opt/openvino && \
-  cd /opt/openvino && \
-  git clone --recurse-submodules --shallow-submodules --branch ${OPENVINO_VERSION} --depth 1 https://github.com/openvinotoolkit/openvino.git .
-
-RUN cd /opt/openvino && \
-  chmod +x install_build_dependencies.sh && \
-  ./install_build_dependencies.sh && \
-  pip3 install --upgrade pip && \
-  pip3 install -r src/bindings/python/wheel/requirements-dev.txt && \
-  mkdir build && cd build && \
-  cmake -DCMAKE_BUILD_TYPE=Release .. \
-  -DENABLE_OPENCV=OFF \
-  -DNGRAPH_PYTHON_BUILD_ENABLE=ON \
-  -DNGRAPH_ONNX_IMPORT_ENABLE=ON \
-  -DENABLE_PYTHON=ON && \
-  make --jobs=$(nproc --all) && \
-  make install 
-
+ARG UBUNTU_VERSION_NUMBER
+RUN \
+  UBUNTU_YEAR=$(echo $UBUNTU_VERSION_NUMBER | cut -d'.' -f1) && \
+  OPENVINO_YEAR=$(echo $OPENVINO_VERSION | cut -d'.' -f1) && \
+  echo "deb https://apt.repos.intel.com/openvino/${OPENVINO_YEAR} ubuntu${UBUNTU_YEAR} main" | sudo tee /etc/apt/sources.list.d/intel-openvino-${OPENVINO_YEAR}.list && \
+  wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB && \
+  apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB  && \
+  apt-get update && apt-get install -y --no-install-recommends openvino-${OPENVINO_VERSION}
 
 ## OpenCV
+ARG OPENCV_VERSION
 RUN  \
   DIR=/tmp/opencv && mkdir -p ${DIR} && cd ${DIR} && \
   curl -sL -o opencv-${OPENCV_VERSION}.tar.gz https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.tar.gz && \
@@ -84,7 +76,6 @@ RUN  \
   tar -x --strip-components=1 -f opencv_contrib-${OPENCV_VERSION}.tar.gz
 
 RUN \
-  /bin/bash /opt/openvino/scripts/setupvars/setupvars.sh && \
   DIR=/tmp/opencv/build && mkdir -p ${DIR} && cd ${DIR} && \
   cmake -D CMAKE_BUILD_TYPE=RELEASE \
   -DBUILD_TIFF=ON \
@@ -95,8 +86,6 @@ RUN \
   -D WITH_OPENCL=ON \
   -D WITH_OPENVINO=ON \
   -D WITH_INF_ENGINE=ON \
-  -D InferenceEngine_DIR="/usr/local/runtime/cmake" \
-  -D ngraph_DIR="/usr/local/runtime/cmake" \
   -D WITH_NGRAPH=ON \
   -D ENABLE_CXX11=ON \
   -D WITH_OPENMP=ON \
@@ -121,7 +110,6 @@ RUN \
   -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib/modules \
   -D BUILD_DOCS=OFF \
   -D BUILD_EXAMPLES=OFF \
-  # Turn off some unnecessary modules that only take extra time to build
   -D BUILD_opencv_face=OFF \
   -D HIGHGUI_ENABLE_PLUGINS=OFF \
   -D WITH_WIN32UI=OFF \
@@ -135,5 +123,4 @@ RUN python3 -c 'import cv2; print(cv2.getBuildInformation())'
 
 FROM scratch
 
-COPY --from=build /usr/local /usr/local/
 COPY --from=build /opt/opencv /opt/opencv/

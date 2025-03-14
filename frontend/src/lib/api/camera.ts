@@ -1,6 +1,6 @@
 import { UseQueryOptions, useQuery } from "@tanstack/react-query";
 
-import { viseronAPI } from "lib/api/client";
+import { useInvalidateQueryOnStateChange, viseronAPI } from "lib/api/client";
 import * as types from "lib/types";
 
 type CameraRequest = {
@@ -11,7 +11,7 @@ type CameraRequest = {
 async function camera({ camera_identifier, failed }: CameraRequest) {
   const response = await viseronAPI.get(
     `camera/${camera_identifier}`,
-    failed ? { params: { failed: true } } : undefined
+    failed ? { params: { failed: true } } : undefined,
   );
   return response.data;
 }
@@ -19,25 +19,40 @@ async function camera({ camera_identifier, failed }: CameraRequest) {
 export function useCamera<T extends boolean = false>(
   camera_identifier: string,
   failed?: T,
-  configOptions?: UseQueryOptions<
-    T extends true
-      ? types.Camera | types.FailedCamera
-      : T extends undefined
-      ? types.Camera
-      : types.Camera,
-    types.APIErrorResponse
-  >
+  configOptions?: Omit<
+    UseQueryOptions<
+      T extends true
+        ? types.Camera | types.FailedCamera
+        : T extends undefined
+          ? types.Camera
+          : types.Camera,
+      types.APIErrorResponse
+    >,
+    "queryKey" | "queryFn"
+  >,
 ) {
-  return useQuery<
-    T extends true
-      ? types.Camera | types.FailedCamera
-      : T extends undefined
-      ? types.Camera
-      : types.Camera,
-    types.APIErrorResponse
-  >(
-    ["camera", camera_identifier],
-    async () => camera({ camera_identifier, failed }),
-    configOptions
-  );
+  useInvalidateQueryOnStateChange([
+    {
+      entityId: `binary_sensor.${camera_identifier}_connected`,
+      queryKey: ["camera", camera_identifier],
+    },
+    {
+      entityId: `binary_sensor.${camera_identifier}_still_image_available`,
+      queryKey: ["camera", camera_identifier],
+    },
+    {
+      entityId: `toggle.${camera_identifier}_connection`,
+      queryKey: ["camera", camera_identifier],
+    },
+    {
+      entityId: `sensor.${camera_identifier}_access_token`,
+      queryKey: ["camera", camera_identifier],
+    },
+  ]);
+
+  return useQuery({
+    queryKey: ["camera", camera_identifier],
+    queryFn: async () => camera({ camera_identifier, failed }),
+    ...configOptions,
+  });
 }

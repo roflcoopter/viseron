@@ -1,12 +1,13 @@
 """API handlers."""
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 from functools import partial
 from http import HTTPStatus
-from re import Pattern
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from re import Match, Pattern
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 import tornado.routing
 import voluptuous as vol
@@ -42,6 +43,7 @@ class Route(TypedDict):
     requires_auth: NotRequired[bool]
     requires_camera_token: NotRequired[bool]
     requires_group: NotRequired[list[Group]]
+    allow_token_parameter: NotRequired[bool]
     json_body_schema: NotRequired[Schema]
     request_arguments_schema: NotRequired[Schema]
 
@@ -69,20 +71,24 @@ class BaseAPIHandler(ViseronRequestHandler):
         """Set JSON body."""
         self._json_body = value
 
-    def response_success(
+    async def response_success(
         self, *, status: HTTPStatus = HTTPStatus.OK, response=None, headers=None
     ) -> None:
         """Send successful response."""
+
+        def _json_dumps() -> str:
+            return partial(json.dumps, cls=JSONEncoder, allow_nan=False)(response)
+
         if response is None:
             response = {"success": True}
         self.set_status(status)
 
         if headers:
             for header, value in headers.items():
-                self.set_header(header, value)
+                await self.run_in_executor(self.set_header, header, value)
 
         if isinstance(response, dict):
-            self.finish(partial(json.dumps, cls=JSONEncoder, allow_nan=False)(response))
+            self.finish(await self.run_in_executor(_json_dumps))
             return
 
         self.finish(response)
@@ -103,17 +109,15 @@ class BaseAPIHandler(ViseronRequestHandler):
             HTTPStatus.METHOD_NOT_ALLOWED, f"Method '{self.request.method}' not allowed"
         )
 
-    def validate_json_body(self, route: Route) -> bool:
+    def validate_json_body(
+        self, route: Route
+    ) -> tuple[Literal[False], str] | tuple[Literal[True], None]:
         """Validate JSON body."""
         if schema := route.get("json_body_schema", None):
             try:
                 json_body = json.loads(self.request.body)
             except json.JSONDecodeError:
-                self.response_error(
-                    HTTPStatus.BAD_REQUEST,
-                    reason=f"Invalid JSON in body: {self.request.body.decode()}",
-                )
-                return False
+                return False, f"Invalid JSON in body: {self.request.body.decode()}"
 
             try:
                 self.json_body = schema(json_body)
@@ -122,30 +126,47 @@ class BaseAPIHandler(ViseronRequestHandler):
                     f"Invalid body: {self.request.body.decode()}",
                     exc_info=True,
                 )
-                self.response_error(
-                    HTTPStatus.BAD_REQUEST,
-                    reason="Invalid body: {}. {}".format(
+                return (
+                    False,
+                    "Invalid body: {}. {}".format(
                         self.request.body.decode(),
                         humanize_error(json_body, err),
                     ),
                 )
-                return False
-        return True
+        return True, None
 
-    def _construct_jwt_from_cookies(self) -> str | None:
-        """Construct JWT from cookies."""
+    def _construct_jwt_from_header_and_cookies(self) -> str | None:
+        """Construct JWT from Header and Cookies."""
         signature = self.get_secure_cookie("signature_cookie")
         if signature is None:
             return None
-        return self.request.headers.get("Authorization", "") + "." + signature.decode()
+        jwt_header_payload = self.request.headers.get("Authorization", None)
+        if jwt_header_payload is None:
+            return None
+        return jwt_header_payload + "." + signature.decode()
+
+    def _construct_jwt_from_parameter_and_cookies(self) -> str | None:
+        """Construct JWT from Query parameter 'token' and Cookies."""
+        signature = self.get_secure_cookie("signature_cookie")
+        if signature is None:
+            return None
+        jwt_header_payload = self.get_argument("token", None)
+        if jwt_header_payload is None:
+            return None
+        return "Bearer " + jwt_header_payload + "." + signature.decode()
 
     def validate_auth_header(self) -> bool:
         """Validate auth header."""
         # Call is coming from browser? Construct the JWT from the cookies
+        auth_header = None
         if self.request.headers.get("X-Requested-With", "") == "XMLHttpRequest":
             self.browser_request = True
-            auth_header = self._construct_jwt_from_cookies()
-        else:
+            auth_header = self._construct_jwt_from_header_and_cookies()
+        # Route allows JWT Header + Payload in URL parameter
+        if auth_header is None and self.route.get("allow_token_parameter", False):
+            auth_header = self._construct_jwt_from_parameter_and_cookies()
+        # Header could not be constructed from cookies or URL parameter
+        if auth_header is None:
             auth_header = self.request.headers.get("Authorization", None)
 
         if auth_header is None:
@@ -166,22 +187,41 @@ class BaseAPIHandler(ViseronRequestHandler):
             auth_val, check_refresh_token=self.browser_request
         )
 
-    def route_request(self) -> None:
+    def _allow_token_parameter(self, schema: Schema, route: Route) -> Schema:
+        """Allow token parameter in schema."""
+        if route.get("allow_token_parameter", False):
+            try:
+                schema = schema.extend({vol.Optional("token"): str})
+            except AssertionError:
+                LOGGER.warning(
+                    "Schema is not a dict, cannot extend with token parameter "
+                    "for route %s",
+                    self.request.uri,
+                )
+        return schema
+
+    def _path_match(self, route: Route) -> Match[str] | None:
+        """Check if path matches."""
+        path_match = tornado.routing.PathMatches(f"{API_BASE}{route['path_pattern']}")
+        return path_match.regex.match(self.request.path)
+
+    def _get_params(self, route: Route) -> dict[str, Any] | None:
+        path_match = tornado.routing.PathMatches(f"{API_BASE}{route['path_pattern']}")
+        return path_match.match(self.request)
+
+    async def route_request(self) -> None:
         """Route request to correct API endpoint."""
         unsupported_method = False
 
         for route in self.routes:
-            path_match = tornado.routing.PathMatches(
-                f"{API_BASE}{route['path_pattern']}"
-            )
-            if path_match.regex.match(self.request.path):
+            if await self.run_in_executor(self._path_match, route):
                 if self.request.method not in route["supported_methods"]:
                     unsupported_method = True
                     continue
 
                 self.route = route
                 if self._webserver.auth and route.get("requires_auth", True):
-                    if not self.validate_auth_header():
+                    if not await self.run_in_executor(self.validate_auth_header):
                         self.response_error(
                             HTTPStatus.UNAUTHORIZED, reason="Authentication required"
                         )
@@ -219,7 +259,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                             )
                             return
 
-                params = path_match.match(self.request)
+                params = await self.run_in_executor(self._get_params, route)
                 if params is None:
                     params = {}
 
@@ -228,6 +268,8 @@ class BaseAPIHandler(ViseronRequestHandler):
                 }
                 if schema := route.get("request_arguments_schema", None):
                     try:
+                        # Implicitly allow token parameter if route allows it
+                        schema = self._allow_token_parameter(schema, route)
                         self.request_arguments = schema(request_arguments)
                     except vol.Invalid as err:
                         LOGGER.error(
@@ -257,7 +299,9 @@ class BaseAPIHandler(ViseronRequestHandler):
                         )
                         return
 
-                    camera = self._get_camera(camera_identifier)
+                    camera = await self.run_in_executor(
+                        self._get_camera, camera_identifier
+                    )
                     if not camera:
                         self.response_error(
                             HTTPStatus.NOT_FOUND,
@@ -265,14 +309,23 @@ class BaseAPIHandler(ViseronRequestHandler):
                         )
                         return
 
-                    if not self.validate_camera_token(camera):
+                    if not await self.run_in_executor(
+                        self.validate_camera_token, camera
+                    ):
                         self.response_error(
                             HTTPStatus.UNAUTHORIZED,
                             reason="Unauthorized",
                         )
                         return
 
-                if not self.validate_json_body(route):
+                result, reason = await self.run_in_executor(
+                    self.validate_json_body, route
+                )
+                if not result:
+                    self.response_error(
+                        HTTPStatus.BAD_REQUEST,
+                        reason=cast(str, reason),
+                    )
                     return
 
                 LOGGER.debug(
@@ -287,8 +340,10 @@ class BaseAPIHandler(ViseronRequestHandler):
                     ),
                 )
                 try:
-                    getattr(self, route["method"])(*path_args, **path_kwargs)
-                    return
+                    func = getattr(self, route["method"])
+                    if inspect.iscoroutinefunction(func):
+                        return await func(*path_args, **path_kwargs)
+                    return func(*path_args, **path_kwargs)
                 except Exception as error:  # pylint: disable=broad-except
                     LOGGER.error(
                         f"Error in API {self.__class__.__name__}."
@@ -308,26 +363,26 @@ class BaseAPIHandler(ViseronRequestHandler):
             LOGGER.warning(f"Endpoint not found for URI: {self.request.uri}")
             self.handle_endpoint_not_found()
 
-    def delete(self) -> None:
+    async def delete(self) -> None:
         """Route DELETE requests."""
-        self.route_request()
+        await self.route_request()
 
-    def get(self) -> None:
+    async def get(self) -> None:
         """Route GET requests."""
-        self.route_request()
+        await self.route_request()
 
-    def post(self) -> None:
+    async def post(self) -> None:
         """Route POST requests."""
-        self.route_request()
+        await self.route_request()
 
-    def put(self) -> None:
+    async def put(self) -> None:
         """Route PUT requests."""
-        self.route_request()
+        await self.route_request()
 
 
 class APINotFoundHandler(BaseAPIHandler):
     """Default handler."""
 
-    def get(self) -> None:
+    async def get(self) -> None:
         """Catch all methods."""
         self.response_error(HTTPStatus.NOT_FOUND, "Endpoint not found")

@@ -8,14 +8,15 @@ from typing import TYPE_CHECKING
 import codeprojectai.core as cpai
 import cv2
 import requests
-from face_recognition.face_recognition_cli import image_files_in_folder
 
+from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.face_recognition import AbstractFaceRecognition
-from viseron.domains.face_recognition.const import (
-    CONFIG_FACE_RECOGNITION_PATH,
-    CONFIG_SAVE_UNKNOWN_FACES,
+from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH
+from viseron.helpers import (
+    calculate_absolute_coords,
+    get_image_files_in_folder,
+    letterbox_resize,
 )
-from viseron.helpers import calculate_absolute_coords, letterbox_resize
 
 from .const import (
     COMPONENT,
@@ -29,7 +30,6 @@ from .const import (
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains.object_detector.detected_object import DetectedObject
-    from viseron.domains.post_processor import PostProcessorFrame
 
 LOGGER = logging.getLogger(__name__)
 
@@ -57,8 +57,11 @@ class FaceRecognition(AbstractFaceRecognition):
             min_confidence=config[CONFIG_FACE_RECOGNITION][CONFIG_MIN_CONFIDENCE],
         )
 
-    def face_recognition(self, frame, detected_object: DetectedObject) -> None:
+    def face_recognition(
+        self, shared_frame: SharedFrame, detected_object: DetectedObject
+    ) -> None:
         """Perform face recognition."""
+        frame = self._camera.shared_frames.get_decoded_frame_rgb(shared_frame)
         x1, y1, x2, y2 = calculate_absolute_coords(
             (
                 detected_object.rel_x1,
@@ -91,23 +94,25 @@ class FaceRecognition(AbstractFaceRecognition):
                 self.known_face_found(
                     detection["userid"],
                     (
-                        detection["x_min"],
-                        detection["y_min"],
-                        detection["x_max"],
-                        detection["y_max"],
+                        detection["x_min"] + x1,
+                        detection["y_min"] + y1,
+                        detection["x_max"] + x2,
+                        detection["y_max"] + y2,
                     ),
+                    shared_frame,
                     confidence=detection["confidence"],
                 )
-            elif self._config[CONFIG_SAVE_UNKNOWN_FACES]:
-                self.unknown_face_found(cropped_frame)
-
-    def process(self, post_processor_frame: PostProcessorFrame) -> None:
-        """Process received frame."""
-        decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(
-            post_processor_frame.shared_frame
-        )
-        for detected_object in post_processor_frame.filtered_objects:
-            self.face_recognition(decoded_frame, detected_object)
+            else:
+                self.unknown_face_found(
+                    (
+                        detection["x_min"] + x1,
+                        detection["y_min"] + y1,
+                        detection["x_max"] + x2,
+                        detection["y_max"] + y2,
+                    ),
+                    shared_frame,
+                    confidence=detection["confidence"],
+                )
 
 
 class CodeProjectAITrain:
@@ -144,7 +149,7 @@ class CodeProjectAITrain:
 
             # Loop through each training image for the current person
             try:
-                img_paths = image_files_in_folder(os.path.join(train_dir, face_dir))
+                img_paths = get_image_files_in_folder(os.path.join(train_dir, face_dir))
             except NotADirectoryError as error:
                 LOGGER.error(
                     f"{train_dir} can only contain directories. "
@@ -167,7 +172,7 @@ class CodeProjectAITrain:
                 width, height, _ = face_image.shape
                 max_dimension = max(width, height)
                 face_image = letterbox_resize(face_image, max_dimension, max_dimension)
-                face_image = cv2.imencode(".jpg", face_image)[1].tobytes()
+                face_image_jpg = cv2.imencode(".jpg", face_image)[1].tobytes()
                 detections = self._cpai.detect(face_image)
                 LOGGER.debug("Face detection result: %s", detections)
                 if len(detections) != 1:
@@ -181,7 +186,7 @@ class CodeProjectAITrain:
                         )
                     )
                 else:
-                    self._cpai.register(face_dir, face_image)
+                    self._cpai.register(face_dir, face_image_jpg)
 
 
 HTTP_OK = 200

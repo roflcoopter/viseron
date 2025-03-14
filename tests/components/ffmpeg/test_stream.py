@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from contextlib import nullcontext
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -22,6 +22,7 @@ from viseron.components.ffmpeg.const import (
     CONFIG_PORT,
     CONFIG_PROTOCOL,
     CONFIG_RECORDER,
+    CONFIG_RECORDER_AUDIO_CODEC,
     CONFIG_STREAM_FORMAT,
     CONFIG_SUBSTREAM,
     CONFIG_USERNAME,
@@ -30,7 +31,9 @@ from viseron.components.ffmpeg.const import (
     DEFAULT_CODEC,
     DEFAULT_FPS,
     DEFAULT_HEIGHT,
+    DEFAULT_PASSWORD,
     DEFAULT_PROTOCOL,
+    DEFAULT_RECORDER_AUDIO_CODEC,
     DEFAULT_STREAM_FORMAT,
     DEFAULT_USERNAME,
     DEFAULT_WIDTH,
@@ -42,12 +45,11 @@ from viseron.const import (
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
-from viseron.domains.camera.const import CONFIG_EXTENSION
 from viseron.exceptions import StreamInformationError
 
 from tests.common import MockCamera
 
-CONFIG = {
+CONFIG: dict[str, Any] = {
     CONFIG_HOST: "test_host",
     CONFIG_PORT: 1234,
     CONFIG_PATH: "/",
@@ -64,9 +66,7 @@ CONFIG = {
     CONFIG_CODEC: DEFAULT_CODEC,
     CONFIG_AUDIO_CODEC: DEFAULT_AUDIO_CODEC,
     CONFIG_PIX_FMT: "yuv420p",
-    CONFIG_RECORDER: {
-        CONFIG_EXTENSION: "mp4",
-    },
+    CONFIG_RECORDER: {},
 }
 
 CONFIG_WITH_SUBSTREAM: dict[str, Any] = {
@@ -165,7 +165,7 @@ class TestStream:
             (DEFAULT_CODEC, "dummy", ENV_CUDA_SUPPORTED, []),
         ],
     )
-    def test_get_codec(
+    def test_get_decoder_codec(
         self, monkeypatch, config_codec, stream_codec, device_env, expected_cmd
     ) -> None:
         """Test that the correct codec is returned."""
@@ -181,48 +181,130 @@ class TestStream:
         ):
             stream = Stream(config, mocked_camera, "test_camera_identifier")
             stream._logger = MagicMock()  # pylint: disable=protected-access
-            assert stream.get_codec(config, stream_codec) == expected_cmd
+            assert stream.get_decoder_codec(config, stream_codec) == expected_cmd
 
     @pytest.mark.parametrize(
-        "config_audio_codec, stream_audio_codec, extension, expected_audio_cmd",
+        "config_audio_codec, stream_audio_codec, expected_audio_cmd",
         [
-            (DEFAULT_AUDIO_CODEC, "aac", "mp4", ["-c:a", "copy"]),
-            (DEFAULT_AUDIO_CODEC, "pcm_alaw", "mp4", ["-c:a", "aac"]),
-            ("test_codec", "pcm_alaw", "mkv", ["-c:a", "test_codec"]),
-            (DEFAULT_AUDIO_CODEC, None, "mp4", []),
+            (DEFAULT_RECORDER_AUDIO_CODEC, "aac", ["-c:a", "copy"]),
+            (DEFAULT_RECORDER_AUDIO_CODEC, "pcm_alaw", ["-c:a", "aac"]),
+            ("test_codec", "pcm_alaw", ["-c:a", "test_codec"]),
+            (DEFAULT_RECORDER_AUDIO_CODEC, None, ["-an"]),
+            (None, None, ["-an"]),
+            (None, "aac", ["-an"]),
         ],
     )
-    def test_get_audio_codec(
-        self, vis, config_audio_codec, stream_audio_codec, extension, expected_audio_cmd
+    def test_get_encoder_audio_codec(
+        self, vis, config_audio_codec, stream_audio_codec, expected_audio_cmd
     ) -> None:
         """Test that the correct audio codec is returned."""
         mocked_camera = MockCamera(identifier="test_camera_identifier")
         config = CONFIG
-        config[CONFIG_AUDIO_CODEC] = config_audio_codec
+        config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC] = config_audio_codec
 
         with patch.object(
             Stream, "__init__", MagicMock(spec=Stream, return_value=None)
         ):
             stream = Stream(config, mocked_camera, "test_camera_identifier")
             stream._logger = MagicMock()  # pylint: disable=protected-access
+            stream._config = config  # pylint: disable=protected-access
             assert (
-                stream.get_audio_codec(config, stream_audio_codec, extension)
-                == expected_audio_cmd
+                stream.get_encoder_audio_codec(stream_audio_codec) == expected_audio_cmd
             )
 
-    def test_get_stream_url(self) -> None:
+    @pytest.mark.parametrize(
+        "username, password, expected_url",
+        [
+            (
+                "test_username",
+                "test_password",
+                "rtsp://test_username:test_password@test_host:1234/",
+            ),
+            ("admin", "", "rtsp://admin:@test_host:1234/"),
+            (DEFAULT_USERNAME, DEFAULT_PASSWORD, "rtsp://test_host:1234/"),
+        ],
+    )
+    def test_get_stream_url(self, username, password, expected_url) -> None:
         """Test that the correct stream url is returned."""
         mocked_camera = MockCamera(identifier="test_camera_identifier")
+        config = dict(CONFIG)
+        config[CONFIG_USERNAME] = username
+        config[CONFIG_PASSWORD] = password
+
         with patch.object(
             Stream, "__init__", MagicMock(spec=Stream, return_value=None)
         ):
             stream = Stream(CONFIG, mocked_camera, "test_camera_identifier")
-            stream._config = CONFIG  # pylint: disable=protected-access
-            assert (
-                stream.get_stream_url(CONFIG)
-                == "rtsp://test_username:test_password@test_host:1234/"
+            stream._config = config  # pylint: disable=protected-access
+            assert stream.get_stream_url(config) == expected_url
+
+    def test_get_stream_information(self):
+        """Test that the correct stream information is returned."""
+        mocked_camera = MockCamera(identifier="test_camera_identifier")
+        config = CONFIG
+        config[CONFIG_CODEC] = DEFAULT_CODEC
+        config[CONFIG_AUDIO_CODEC] = DEFAULT_AUDIO_CODEC
+
+        with patch.object(
+            Stream, "__init__", MagicMock(spec=Stream, return_value=None)
+        ), patch.object(
+            Stream, "get_stream_url", MagicMock(return_value="test_stream_url")
+        ):
+            stream = Stream(config, mocked_camera, "test_camera_identifier")
+            mock_ffprobe = MagicMock(spec=FFprobe)
+            mock_ffprobe.stream_information.return_value = (
+                1920,
+                1080,
+                30,
+                "h264",
+                "aac",
             )
-            stream._config[  # pylint: disable=protected-access
-                CONFIG_USERNAME
-            ] = DEFAULT_USERNAME
-            assert stream.get_stream_url(CONFIG) == "rtsp://test_host:1234/"
+            stream._ffprobe = mock_ffprobe  # pylint: disable=protected-access
+            mock_logger = MagicMock()
+            stream._logger = mock_logger  # pylint: disable=protected-access
+
+            result = stream.get_stream_information(config)
+
+            assert result.width == 1920
+            assert result.height == 1080
+            assert result.fps == 30
+            assert result.codec == "h264"
+            assert result.audio_codec == "aac"
+
+            mock_ffprobe.stream_information.assert_called_once_with(
+                "test_stream_url", ANY
+            )
+
+    def test_get_stream_information_missing_parameters(self):
+        """Test that StreamInformationError is raised when parameters are missing."""
+        mocked_camera = MockCamera(identifier="test_camera_identifier")
+        config = CONFIG
+        config[CONFIG_CODEC] = DEFAULT_CODEC
+        config[CONFIG_AUDIO_CODEC] = DEFAULT_AUDIO_CODEC
+
+        with patch.object(
+            Stream, "__init__", MagicMock(spec=Stream, return_value=None)
+        ), patch.object(
+            Stream, "get_stream_url", MagicMock(return_value="test_stream_url")
+        ):
+            stream = Stream(config, mocked_camera, "test_camera_identifier")
+            mock_ffprobe = MagicMock(spec=FFprobe)
+            mock_ffprobe.stream_information.return_value = (
+                None,
+                1080,
+                30,
+                "h264",
+                "mp4",
+            )
+            stream._ffprobe = mock_ffprobe  # pylint: disable=protected-access
+            mock_logger = MagicMock()
+            stream._logger = mock_logger  # pylint: disable=protected-access
+
+            with pytest.raises(StreamInformationError) as excinfo:
+                stream.get_stream_information(config)
+
+            assert "Width: None Height: 1080 FPS: 30 Codec: h264" in str(excinfo.value)
+
+            mock_ffprobe.stream_information.assert_called_once_with(
+                "test_stream_url", ANY
+            )

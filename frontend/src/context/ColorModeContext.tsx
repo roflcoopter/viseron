@@ -1,3 +1,4 @@
+import darkScrollbar from "@mui/material/darkScrollbar";
 import {
   Theme,
   ThemeOptions,
@@ -33,15 +34,25 @@ declare module "@mui/material/styles/createPalette" {
 
   interface Palette {
     primaryDark: PaletteColor;
+    motion: string;
+    recording: string;
   }
 }
 
 declare module "@mui/material/styles" {
   interface Theme {
     headerHeight: number;
+    margin: string;
   }
   interface ThemeOptions {
     headerHeight?: number;
+    margin?: string;
+  }
+}
+
+declare module "@mui/material/Typography" {
+  interface TypographyPropsVariantOverrides {
+    uppercase: true;
   }
 }
 
@@ -95,7 +106,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         });
       },
     }),
-    []
+    [],
   );
 
   useEffect(() => {
@@ -118,30 +129,38 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         shape: {
           borderRadius: 5,
         },
+
         ...(mode === "light" && {
           text: {
             primary: grey[900],
             secondary: grey[700],
           },
         }),
+
         ...(mode === "dark" && {
           text: {
             primary: "#fff",
             secondary: grey[400],
           },
         }),
+
         grey,
         headerHeight: 56,
+        margin: "0.5dvh",
+
         palette: {
           mode,
+          motion: "#f9b4f6",
+          recording: "#5df15d",
           ...(requestedMode === "light"
             ? {
                 // palette values for light mode
                 background: {
-                  paper: "#fff",
-                  default: "#fafafa",
+                  paper: "#f7f7f7",
+                  default: "#ebebeb",
                 },
-                divider: grey[300],
+                primary: blue,
+                divider: blue[200],
               }
             : {
                 // palette values for dark mode
@@ -153,21 +172,50 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
                 divider: blue[900],
               }),
         },
+
         typography: {
           h5: {
             color: mode === "dark" ? blue[300] : blue.main,
           },
+          uppercase: {
+            textTransform: "uppercase",
+            letterSpacing: "0.0333333333em",
+            fontWeight: 800,
+          },
         },
-      } as ThemeOptions),
-    [mode]
+      }) as ThemeOptions,
+    [mode],
   );
 
   function getThemedComponents(theme: Theme) {
     return {
       components: {
+        MuiCssBaseline: {
+          styleOverrides: (themeParam: Theme) => ({
+            body:
+              themeParam.palette.mode === "dark"
+                ? darkScrollbar({
+                    track: "#0f2740",
+                    thumb: "#1f5286",
+                    active: "#2867a9",
+                  })
+                : darkScrollbar({
+                    track: "#f1f1f1",
+                    thumb: "#c1c1c1",
+                    active: "#a8a8a8",
+                  }),
+          }),
+        },
         MuiContainer: {
+          styleOverrides: {
+            root: {
+              paddingLeft: 5,
+              paddingRight: 5,
+            },
+          },
           defaultProps: {
             maxWidth: false,
+            disableGutters: true,
           },
         },
         MuiButton: {
@@ -188,9 +236,9 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
                 border: `1px solid ${
                   theme.palette.mode === "dark"
                     ? theme.palette.primary[900]
-                    : theme.palette.grey[300]
+                    : theme.palette.primary[200]
                 }`,
-                borderRadius: theme.shape.borderRadius,
+                borderRadius: 5, // = theme.shape.borderRadius * 5
               },
             },
           ],
@@ -203,7 +251,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
               borderRight: `1px solid ${
                 theme.palette.mode === "dark"
                   ? theme.palette.primary[900]
-                  : theme.palette.grey[300]
+                  : theme.palette.primary[200]
               }`,
             },
           },
@@ -211,11 +259,48 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         MuiPaper: {
           styleOverrides: {
             root: {
-              border: `1px solid ${
+              border: `2px solid ${
                 theme.palette.mode === "dark"
                   ? theme.palette.primary[900]
-                  : theme.palette.grey[300]
+                  : theme.palette.primary[200]
               }`,
+              boxShadow: "5px 5px 8px 0px rgba(0,0,0,0.40)",
+            },
+          },
+        },
+        MuiDialog: {
+          styleOverrides: {
+            paper: {
+              backgroundImage: "unset",
+            },
+          },
+        },
+        MuiPickersPopper: {
+          styleOverrides: {
+            paper: {
+              backgroundImage: "unset",
+            },
+          },
+        },
+        MuiPopover: {
+          styleOverrides: {
+            paper: {
+              backgroundImage:
+                "linear-gradient(rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05))",
+            },
+          },
+        },
+        MuiTooltip: {
+          styleOverrides: {
+            tooltip: {
+              backgroundColor: theme.palette.background.paper,
+              border: `2px solid ${
+                theme.palette.mode === "dark"
+                  ? theme.palette.primary[900]
+                  : theme.palette.primary[200]
+              }`,
+              color: theme.palette.text.primary,
+              boxShadow: "5px 5px 8px 0px rgba(0,0,0,0.40)",
             },
           },
         },
@@ -225,12 +310,12 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
 
   const viseronTheme = useMemo(
     () => createTheme(getDesignTokens(mode)),
-    [mode, getDesignTokens]
+    [mode, getDesignTokens],
   );
   const theme = useMemo(
     () =>
       createTheme(deepmerge(viseronTheme, getThemedComponents(viseronTheme))),
-    [viseronTheme]
+    [viseronTheme],
   );
   return (
     <ColorModeContext.Provider value={colorMode}>

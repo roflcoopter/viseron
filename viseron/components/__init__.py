@@ -31,8 +31,11 @@ from viseron.const import (
     LOADING,
     SLOW_DEPENDENCY_WARNING,
     SLOW_SETUP_WARNING,
+    VISERON_SIGNAL_SHUTDOWN,
 )
+from viseron.events import EventData
 from viseron.exceptions import ComponentNotReady, DomainNotReady
+from viseron.helpers.storage import Storage
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -52,7 +55,7 @@ class DomainToSetup:
     optional_domains: list[OptionalDomain]
     error: str | None = None
     error_instance: FailedCamera | None = None
-    retrying = False
+    retrying: bool = False
 
     def as_dict(self):
         """Return as dict."""
@@ -67,11 +70,19 @@ class DomainToSetup:
         }
 
 
+@dataclass
+class EventDomanSetupStatusData(EventData, DomainToSetup):
+    """Event with information on domain setup status."""
+
+
 LOGGING_COMPONENTS = {"logger"}
 # Core components are always loaded even if they are not present in config
 CORE_COMPONENTS = {"data_stream"}
 # Default components are always loaded even if they are not present in config
-DEFAULT_COMPONENTS = {"webserver"}
+DEFAULT_COMPONENTS = {"webserver", "storage"}
+# Critical components are required for Viseron to function properly
+# If one of these components fail to load, Viseron will activate safe mode
+CRITICAL_COMPONENTS = LOGGING_COMPONENTS | CORE_COMPONENTS | DEFAULT_COMPONENTS
 
 DOMAIN_SETUP_LOCK = threading.Lock()
 
@@ -165,12 +176,26 @@ class Component:
                     f"Retrying in {wait_time} seconds in the background. "
                     f"Error: {str(error)}"
                 )
-                threading.Timer(
+                retry_timer = threading.Timer(
                     wait_time,
                     setup_component,
                     args=(self._vis, self),
                     kwargs={"tries": tries + 1},
-                ).start()
+                )
+
+                def cancel_retry_timer() -> None:
+                    """Cancel retry timer."""
+                    LOGGER.debug(
+                        "Cancelling retry timer for component %s and try number %s",
+                        self.name,
+                        tries,
+                    )
+                    retry_timer.cancel()
+
+                self._vis.register_signal_handler(
+                    VISERON_SIGNAL_SHUTDOWN, cancel_retry_timer
+                )
+                retry_timer.start()
             except Exception as ex:  # pylint: disable=broad-except
                 LOGGER.error(
                     f"Uncaught exception setting up component {self.name}: {ex}\n"
@@ -655,6 +680,62 @@ def setup_domains(vis: Viseron) -> None:
             future.result()
 
 
+STORAGE_KEY = "critical_components_config"
+
+
+class CriticalComponentsConfigStore:
+    """Storage for critical components config.
+
+    Used to store the last known good config for critical components.
+    """
+
+    def __init__(self, vis) -> None:
+        self._vis = vis
+        self._store = Storage(vis, STORAGE_KEY)
+
+    def load(self) -> dict[str, Any]:
+        """Load config."""
+        return self._store.load()
+
+    def save(self, config: dict[str, Any]) -> None:
+        """Save config.
+
+        Extracts only the critical components from the config.
+        """
+        critical_components_config = {
+            component: config[component]
+            for component in CRITICAL_COMPONENTS
+            if component in config
+        }
+        self._store.save(critical_components_config)
+
+
+def activate_safe_mode(vis: Viseron) -> None:
+    """Activate safe mode."""
+    vis.safe_mode = True
+    # Get the last known good config
+    critical_components_config = vis.critical_components_config_store.load()
+    if not critical_components_config:
+        LOGGER.warning(
+            "No last known good config for critical components found, "
+            "running with default config"
+        )
+        critical_components_config = {}
+
+    loaded_set = set(vis.data[LOADED])
+    # Setup logger first
+    for component in LOGGING_COMPONENTS - loaded_set:
+        setup_component(vis, get_component(vis, component, critical_components_config))
+
+    # Setup core components
+    for component in CORE_COMPONENTS - loaded_set:
+        setup_component(vis, get_component(vis, component, critical_components_config))
+
+    # Setup default components
+    for component in DEFAULT_COMPONENTS - loaded_set:
+        setup_component(vis, get_component(vis, component, critical_components_config))
+
+
 def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
     """Set up configured components."""
     components_in_config = {key.split(" ")[0] for key in config}
@@ -670,6 +751,15 @@ def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
     for component in DEFAULT_COMPONENTS:
         setup_component(vis, get_component(vis, component, config))
 
+    if vis.safe_mode:
+        return
+
+    # If any of the critical components failed to load, we activate safe mode
+    if any(component in vis.data[FAILED] for component in CRITICAL_COMPONENTS):
+        LOGGER.warning("Critical components failed to load. Activating safe mode")
+        activate_safe_mode(vis)
+        return
+
     # Setup components in parallel
     setup_threads = []
     for component in (
@@ -683,6 +773,7 @@ def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
                 target=setup_component,
                 args=(vis, get_component(vis, component, config)),
                 name=f"{component}_setup",
+                daemon=True,
             )
         )
     for thread in setup_threads:
@@ -741,10 +832,10 @@ def domain_setup_status(
         handle_failed_domain()
     else:
         raise ValueError(f"Invalid domain status: {status}")
-
     vis.dispatch_event(
         EVENT_DOMAIN_SETUP_STATUS.format(
             status=status, domain=domain.domain, identifier=domain.identifier
         ),
-        domain,
+        EventDomanSetupStatusData(**domain.__dict__),
+        store=False,
     )

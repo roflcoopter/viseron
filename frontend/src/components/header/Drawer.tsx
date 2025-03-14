@@ -1,24 +1,25 @@
 import { SvgIconComponent } from "@mui/icons-material";
 import GitHubIcon from "@mui/icons-material/GitHub";
+import ImageSearchIcon from "@mui/icons-material/ImageSearch";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SettingsIcon from "@mui/icons-material/Settings";
 import VideoFileIcon from "@mui/icons-material/VideoFile";
 import VideocamIcon from "@mui/icons-material/Videocam";
 import ViewListIcon from "@mui/icons-material/ViewList";
+import ViewTimelineIcon from "@mui/icons-material/ViewTimeline";
 import VolunteerActivismIcon from "@mui/icons-material/VolunteerActivism";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import List from "@mui/material/List";
-import ListItem from "@mui/material/ListItem";
+import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import ListSubheader from "@mui/material/ListSubheader";
 import Typography from "@mui/material/Typography";
 import { Link, Location, useLocation } from "react-router-dom";
-
-import { ReactComponent as ViseronLogo } from "../../viseron-logo.svg";
+import ViseronLogo from "svg/viseron-logo.svg?react";
 
 type DrawerItemHeader = { type: "header"; title: string };
 
@@ -42,6 +43,18 @@ const drawerItems: Array<DrawerItemTypes> = [
     title: "Recordings",
     icon: VideoFileIcon,
     path: "/recordings",
+  },
+  {
+    type: "link",
+    title: "Events",
+    icon: ImageSearchIcon,
+    path: "/events?tab=events",
+  },
+  {
+    type: "link",
+    title: "Timeline",
+    icon: ViewTimelineIcon,
+    path: "/events?tab=timeline",
   },
   { type: "link", title: "Entities", icon: ViewListIcon, path: "/entities" },
   { type: "divider" },
@@ -88,14 +101,14 @@ function AppDrawerHeader() {
     <Container
       fixed
       disableGutters={true}
-      sx={{
+      sx={(theme) => ({
         display: "flex",
         alignItems: "center",
         justifyContent: "start",
         paddingRight: "10px",
-        height: (theme) => theme.headerHeight,
-        borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
-      }}
+        height: theme.headerHeight,
+        borderBottom: `1px solid ${theme.palette.divider}`,
+      })}
     >
       <Box sx={{ margin: "10px" }}>
         <ViseronLogo width={45} height={45} />
@@ -123,9 +136,8 @@ function getItem(index: number, location: Location, item: DrawerItemTypes) {
     case "link":
       if (item.external) {
         return (
-          <ListItem
+          <ListItemButton
             key={index}
-            button
             component="a"
             href={item.path}
             target="_blank"
@@ -135,13 +147,12 @@ function getItem(index: number, location: Location, item: DrawerItemTypes) {
               <item.icon />
             </ListItemIcon>
             <ListItemText primary={item.title} />
-          </ListItem>
+          </ListItemButton>
         );
       }
       return (
-        <ListItem
+        <ListItemButton
           key={index}
-          button
           component={Link}
           to={item.path}
           selected={item.path === location.pathname}
@@ -150,7 +161,7 @@ function getItem(index: number, location: Location, item: DrawerItemTypes) {
             <item.icon />
           </ListItemIcon>
           <ListItemText primary={item.title} />
-        </ListItem>
+        </ListItemButton>
       );
     case "divider":
       return <Divider key={index} />;
@@ -177,7 +188,9 @@ export default function AppDrawer({
     >
       <AppDrawerHeader />
       <List>
-        {drawerItems.map((item, index) => getItem(index, location, item))}
+        <Box onClick={() => setDrawerOpen(false)}>
+          {drawerItems.map((item, index) => getItem(index, location, item))}
+        </Box>
       </List>
     </Drawer>
   );

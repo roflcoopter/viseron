@@ -13,8 +13,19 @@
                 "value": [
                   {
                     "type": "boolean",
-                    "name": "trigger_recorder",
+                    "name": {
+                      "type": "deprecated",
+                      "name": "trigger_recorder",
+                      "value": "Use <code>trigger_event_recording</code> instead."
+                    },
                     "description": "If true, detected motion will start the recorder.",
+                    "deprecated": true,
+                    "default": null
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "trigger_event_recording",
+                    "description": "If true, detected motion will trigger an event recording.",
                     "optional": true,
                     "default": false
                   },

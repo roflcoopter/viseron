@@ -1,0 +1,46 @@
+# Database
+
+:::info
+
+The developer documentation is still under construction and this page is not complete.
+
+:::
+
+Viseron runs a PostgreSQL database to store all the data needed for the application.
+
+The database runs within the container and is not exposed to the host machine.
+
+:::info
+
+It is currently not supported to point Viseron to an external database.
+
+:::
+
+## Models
+
+The database models are defined in the `viseron/components/storage/models.py` file.
+
+## Migrations
+
+The database is managed using `alembic`.
+
+To create a new migration, you can run the following command:
+
+```shell
+cd viseron/components/storage
+alembic revision --autogenerate -m "Your message here"
+```
+
+:::tip
+
+Using the VSCode Devcontainer, you can run the `Python: Generate database migration` task to create a new migration.
+
+:::
+
+## Recreating the database
+
+To recreate the database, you can run the following command:
+
+```shell
+python3 -u -m scripts.recreate_db
+```

@@ -42,7 +42,7 @@ export const useAuthCreate = () => {
       toast.error(
         error.response && error.response.data.error
           ? `Error creating user: ${error.response.data.error}`
-          : `An error occurred: ${error.message}`
+          : `An error occurred: ${error.message}`,
       );
     },
   });
@@ -54,40 +54,25 @@ type AuthUserRequest = {
 
 type AuthUserVariables = {
   username: string;
-  setUser: React.Dispatch<
-    React.SetStateAction<types.AuthUserResponse | undefined>
-  >;
-  configOptions?: UseQueryOptions<
-    types.AuthUserResponse,
-    types.APIErrorResponse
+  configOptions?: Omit<
+    UseQueryOptions<types.AuthUserResponse, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
   >;
 };
 
 async function authUser({ username }: AuthUserRequest) {
   const response = await viseronAPI.get<types.AuthUserResponse>(
-    `/auth/user/${username}`
+    `/auth/user/${username}`,
   );
   return response.data;
 }
 
-export const useAuthUser = ({
-  username,
-  setUser,
-  configOptions,
-}: AuthUserVariables) =>
-  useQuery<types.AuthUserResponse, types.APIErrorResponse>(
-    ["auth", "user", username],
-    async () => authUser({ username }),
-    {
-      onSuccess: async (data) => {
-        setUser(data);
-      },
-      onError: async (_error) => {
-        setUser(undefined);
-      },
-      ...configOptions,
-    }
-  );
+export const useAuthUser = ({ username, configOptions }: AuthUserVariables) =>
+  useQuery({
+    queryKey: ["auth", "user", username],
+    queryFn: async () => authUser({ username }),
+    ...configOptions,
+  });
 
 interface AuthLoginVariables {
   username: string;
@@ -149,31 +134,13 @@ export async function authToken({
 }
 
 async function authEnabled() {
-  const response = await viseronAPI.get<types.AuthEnabledResponse>(
-    "/auth/enabled"
-  );
+  const response =
+    await viseronAPI.get<types.AuthEnabledResponse>("/auth/enabled");
   return response.data;
 }
 
-interface AuthEnabledVariables {
-  setAuth: React.Dispatch<React.SetStateAction<types.AuthEnabledResponse>>;
-}
-
-export const useAuthEnabled = ({ setAuth }: AuthEnabledVariables) =>
-  useQuery<types.AuthEnabledResponse, types.APIErrorResponse>(
-    ["auth", "enabled"],
-    async () => authEnabled(),
-    {
-      onSuccess: async (data) => {
-        setAuth((prevAuth) => {
-          if (
-            prevAuth.enabled === data.enabled &&
-            prevAuth.onboarding_complete === data.onboarding_complete
-          ) {
-            return prevAuth;
-          }
-          return data;
-        });
-      },
-    }
-  );
+export const useAuthEnabled = () =>
+  useQuery({
+    queryKey: ["auth", "enabled"],
+    queryFn: async () => authEnabled(),
+  });

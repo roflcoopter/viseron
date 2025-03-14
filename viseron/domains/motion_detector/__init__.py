@@ -3,18 +3,25 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
-import cv2
 import numpy as np
 import voluptuous as vol
+from sqlalchemy import insert, update
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import EVENT_SCAN_FRAMES, MOTION_DETECTOR
-from viseron.const import VISERON_SIGNAL_SHUTDOWN
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.models import Motion, MotionContours
+from viseron.const import INSERT, UPDATE, VISERON_SIGNAL_SHUTDOWN
+from viseron.domains.camera.const import (
+    DOMAIN as CAMERA_DOMAIN,
+    EVENT_CAMERA_EVENT_DB_OPERATION,
+)
+from viseron.domains.camera.events import EventCameraEventData
 from viseron.domains.motion_detector.binary_sensor import MotionDetectionBinarySensor
 from viseron.domains.motion_detector.const import (
     CONFIG_AREA,
@@ -25,6 +32,7 @@ from viseron.domains.motion_detector.const import (
     CONFIG_MASK,
     CONFIG_MAX_RECORDER_KEEPALIVE,
     CONFIG_RECORDER_KEEPALIVE,
+    CONFIG_TRIGGER_EVENT_RECORDING,
     CONFIG_TRIGGER_RECORDER,
     CONFIG_WIDTH,
     DATA_MOTION_DETECTOR_RESULT,
@@ -35,8 +43,9 @@ from viseron.domains.motion_detector.const import (
     DEFAULT_MASK,
     DEFAULT_MAX_RECORDER_KEEPALIVE,
     DEFAULT_RECORDER_KEEPALIVE,
-    DEFAULT_TRIGGER_RECORDER,
+    DEFAULT_TRIGGER_EVENT_RECORDING,
     DEFAULT_WIDTH,
+    DEPRECATED_TRIGGER_RECORDER,
     DESC_AREA,
     DESC_CAMERAS,
     DESC_COORDINATES,
@@ -45,23 +54,29 @@ from viseron.domains.motion_detector.const import (
     DESC_MASK,
     DESC_MAX_RECORDER_KEEPALIVE,
     DESC_RECORDER_KEEPALIVE,
+    DESC_TRIGGER_EVENT_RECORDING,
     DESC_TRIGGER_RECORDER,
     DESC_WIDTH,
+    DOMAIN,
     EVENT_MOTION_DETECTED,
+    WARNING_TRIGGER_RECORDER,
 )
-from viseron.helpers import generate_mask
+from viseron.events import EventData
+from viseron.helpers import apply_mask, generate_mask, generate_mask_image, utcnow
 from viseron.helpers.schemas import (
     COORDINATES_SCHEMA,
     FLOAT_MIN_ZERO,
     FLOAT_MIN_ZERO_MAX_ONE,
 )
-from viseron.helpers.validators import CameraIdentifier
+from viseron.helpers.validators import CameraIdentifier, Deprecated
+from viseron.types import SnapshotDomain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
     from viseron.components.data_stream import DataStream
     from viseron.components.nvr.nvr import EventScanFrames
+    from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.camera.shared_frames import SharedFrame
 
@@ -70,10 +85,16 @@ if TYPE_CHECKING:
 
 CAMERA_SCHEMA = vol.Schema(
     {
-        vol.Optional(
+        Deprecated(
             CONFIG_TRIGGER_RECORDER,
-            default=DEFAULT_TRIGGER_RECORDER,
             description=DESC_TRIGGER_RECORDER,
+            message=DEPRECATED_TRIGGER_RECORDER,
+            warning=WARNING_TRIGGER_RECORDER,
+        ): bool,
+        vol.Optional(
+            CONFIG_TRIGGER_EVENT_RECORDING,
+            default=DEFAULT_TRIGGER_EVENT_RECORDING,
+            description=DESC_TRIGGER_EVENT_RECORDING,
         ): bool,
         vol.Optional(
             CONFIG_RECORDER_KEEPALIVE,
@@ -98,13 +119,21 @@ BASE_CONFIG_SCHEMA = vol.Schema(
 
 
 @dataclass
-class EventMotionDetected:
+class EventMotionDetected(EventData):
     """Hold information on motion event."""
 
     camera_identifier: str
     motion_detected: bool
     shared_frame: SharedFrame | None = None
     motion_contours: Contours | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return event data as dict."""
+        return {
+            "camera_identifier": self.camera_identifier,
+            "motion_detected": self.motion_detected,
+            "motion_contours": self.motion_contours,
+        }
 
 
 class AbstractMotionDetector(ABC):
@@ -119,6 +148,7 @@ class AbstractMotionDetector(ABC):
     ) -> None:
         self._vis = vis
         self._config = config
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
 
         self._camera: AbstractCamera = vis.get_registered_domain(
             CAMERA_DOMAIN, camera_identifier
@@ -126,14 +156,23 @@ class AbstractMotionDetector(ABC):
         self._logger = logging.getLogger(f"{self.__module__}.{camera_identifier}")
         self._motion_detected = False
         self._motion_contours: Contours | None = None
+        self._motion_id: int | None = None
 
         vis.add_entity(component, MotionDetectionBinarySensor(vis, self, self._camera))
 
     @property
-    def trigger_recorder(self):
+    def trigger_event_recording(self):
         """Return if detected motion should start recorder."""
-        return self._config[CONFIG_CAMERAS][self._camera.identifier][
+        if (
             CONFIG_TRIGGER_RECORDER
+            in self._config[CONFIG_CAMERAS][self._camera.identifier]
+        ):
+            return self._config[CONFIG_CAMERAS][self._camera.identifier][
+                CONFIG_TRIGGER_RECORDER
+            ]
+
+        return self._config[CONFIG_CAMERAS][self._camera.identifier][
+            CONFIG_TRIGGER_EVENT_RECORDING
         ]
 
     @property
@@ -160,6 +199,44 @@ class AbstractMotionDetector(ABC):
         """Return motion contours."""
         return self._motion_contours
 
+    def _insert_motion(self, snapshot_path: str | None) -> None:
+        """Insert motion event into database."""
+        with self._storage.get_session() as session:
+            stmt = (
+                insert(Motion)
+                .values(
+                    camera_identifier=self._camera.identifier,
+                    start_time=utcnow(),
+                    end_time=None,
+                    snapshot_path=snapshot_path,
+                )
+                .returning(Motion.id)
+            )
+            result = session.execute(stmt).scalars()
+            self._motion_id = result.one()
+            if self._motion_contours:
+                for contour in self._motion_contours.contours:
+                    stmt2 = insert(MotionContours).values(
+                        motion_id=self._motion_id,
+                        contour=contour,
+                    )
+                    session.execute(stmt2)
+
+            session.commit()
+
+    def _update_motion(self) -> None:
+        """Update motion event to set end_time."""
+        with self._storage.get_session() as session:
+            stmt = (
+                update(Motion)
+                .values(
+                    end_time=utcnow(),
+                )
+                .where(Motion.id == self._motion_id)
+            )
+            session.execute(stmt)
+            session.commit()
+
     def _motion_detected_setter(
         self,
         motion_detected,
@@ -169,6 +246,44 @@ class AbstractMotionDetector(ABC):
         self._motion_contours = contours
         if self._motion_detected == motion_detected:
             return
+
+        if self._motion_id is None:
+            snapshot_path = None
+            if shared_frame:
+                snapshot_path = self._camera.save_snapshot(
+                    shared_frame,
+                    SnapshotDomain.MOTION_DETECTOR,
+                )
+            self._insert_motion(snapshot_path)
+            self._vis.dispatch_event(
+                EVENT_CAMERA_EVENT_DB_OPERATION.format(
+                    camera_identifier=self._camera.identifier,
+                    operation=INSERT,
+                    domain=DOMAIN,
+                ),
+                EventCameraEventData(
+                    camera_identifier=self._camera.identifier,
+                    domain=DOMAIN,
+                    operation=INSERT,
+                    data={},
+                ),
+            )
+        else:
+            self._update_motion()
+            self._motion_id = None
+            self._vis.dispatch_event(
+                EVENT_CAMERA_EVENT_DB_OPERATION.format(
+                    camera_identifier=self._camera.identifier,
+                    domain=DOMAIN,
+                    operation=UPDATE,
+                ),
+                EventCameraEventData(
+                    camera_identifier=self._camera.identifier,
+                    domain=DOMAIN,
+                    operation=UPDATE,
+                    data={},
+                ),
+            )
 
         self._motion_detected = motion_detected
         self._logger.debug("Motion detected" if motion_detected else "Motion stopped")
@@ -230,30 +345,7 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
             self._mask = generate_mask(
                 config[CONFIG_CAMERAS][camera_identifier][CONFIG_MASK]
             )
-
-            # Scale mask to fit resized frame
-            scaled_mask = []
-            for point_list in self._mask:
-                rel_mask = np.divide(
-                    (point_list),
-                    self._camera.resolution,
-                )
-                scaled_mask.append(
-                    np.multiply(rel_mask, self._resolution).astype("int32")
-                )
-
-            mask = np.zeros(
-                (
-                    self._resolution[0],
-                    self._resolution[1],
-                    3,
-                ),
-                np.uint8,
-            )
-            mask[:] = 255
-
-            cv2.fillPoly(mask, pts=scaled_mask, color=(0, 0, 0))
-            self._mask_image = np.where(mask[:, :, 0] == [0])
+            self._mask_image = generate_mask_image(self._mask, self._camera.resolution)
 
         self._kill_received = False
         self.motion_detection_queue: Queue[SharedFrame] = Queue(maxsize=1)
@@ -316,19 +408,20 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
             except Empty:
                 continue
 
-            decoded_frame = self._get_frame_function(shared_frame).copy()
-            preprocessed_frame = self.preprocess(decoded_frame)
-            if self._mask:
-                preprocessed_frame = self._apply_mask(preprocessed_frame)
+            with shared_frame:
+                decoded_frame = self._get_frame_function(shared_frame).copy()
+                if self._mask:
+                    apply_mask(decoded_frame, self._mask_image)
+                preprocessed_frame = self.preprocess(decoded_frame)
 
-            contours = self.return_motion(preprocessed_frame)
-            self._filter_motion(shared_frame, contours)
-            self._data_stream.publish_data(
-                DATA_MOTION_DETECTOR_RESULT.format(
-                    camera_identifier=shared_frame.camera_identifier
-                ),
-                contours,
-            )
+                contours = self.return_motion(preprocessed_frame)
+                self._filter_motion(shared_frame, contours)
+                self._data_stream.publish_data(
+                    DATA_MOTION_DETECTOR_RESULT.format(
+                        camera_identifier=shared_frame.camera_identifier
+                    ),
+                    contours,
+                )
         self._logger.debug("Motion detection thread stopped")
 
     @abstractmethod

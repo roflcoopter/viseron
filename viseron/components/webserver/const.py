@@ -16,12 +16,13 @@ ONBOARDING_STORAGE_KEY = "onboarding"
 
 ACCESS_TOKEN_EXPIRATION = timedelta(minutes=30)
 
+DOWNLOAD_PATH = "/tmp/downloads"
+
 # CONFIG_SCHEMA constants
 CONFIG_PORT = "port"
 CONFIG_DEBUG = "debug"
 
 DEFAULT_COMPONENT: Final = None
-DEFAULT_PORT = 8888
 DEFAULT_DEBUG = False
 
 DESC_COMPONENT = "Webserver configuration."
@@ -52,6 +53,7 @@ DESC_MINUTES = "Minutes to expire session."
 
 # Websocket constants
 TYPE_RESULT = "result"
+TYPE_SUBSCRIPTION_RESULT = "subscription_result"
 TYPE_AUTH_OK = "auth_ok"
 TYPE_AUTH_REQUIRED = "auth_required"
 TYPE_AUTH_NOT_REQUIRED = "auth_not_required"
@@ -72,3 +74,4 @@ WS_ERROR_UNAUTHORIZED = "unauthorized"
 # Viseron data constants
 WEBSOCKET_COMMANDS = "websocket_commands"
 WEBSOCKET_CONNECTIONS = "websocket_connections"
+DOWNLOAD_TOKENS = "download_tokens"

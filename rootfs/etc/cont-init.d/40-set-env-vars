@@ -44,4 +44,21 @@ fi
 export XDG_RUNTIME_DIR=/home/abc
 printf "/home/abc" > /var/run/environment/XDG_RUNTIME_DIR
 
+# Set XDG_CURRENT_DESKTOP to avoid GStreamer hanging
+# Context: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3487
+export XDG_CURRENT_DESKTOP=ubuntu:GNOME
+printf "ubuntu:GNOME" > /var/run/environment/XDG_CURRENT_DESKTOP
+
+
+# Set HOME to /home/abc
+export HOME=/home/abc
+printf "/home/abc" > /var/run/environment/HOME
+
+# Find latest version of postgresql
+export PG_VERSION=$(psql --version | awk '{print $3}' | awk -F'.' '{print $1}')
+export PG_BIN="/usr/lib/postgresql/$PG_VERSION/bin"
+printf "$PG_VERSION" > /var/run/environment/PG_VERSION
+printf "$PG_BIN" > /var/run/environment/PG_BIN
+log_info "PostgreSQL major version: $PG_VERSION"
+log_info "PostgreSQL bin: $PG_BIN"
 log_info "*********************** Done *****************************"

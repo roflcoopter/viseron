@@ -1,6 +1,7 @@
 import React from "react";
 
 import Head from "@docusaurus/Head";
+import Heading from "@theme/Heading";
 
 import { Component } from "@site/src/types";
 
@@ -13,7 +14,7 @@ function ComponentHeader({ meta }: { meta: Component }) {
         <title>{meta.title} | Viseron</title>
       </Head>
       <div className={styles.header}>
-        <h1>{meta.title}</h1>
+        <Heading as="h1">{meta.title}</Heading>
         <img src={meta.image} alt={meta.title} />
       </div>
       <hr className="divider" />

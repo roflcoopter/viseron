@@ -40,6 +40,8 @@
 !/docker/ffprobe_wrapper
 !/docker/ffmpeg_wrapper
 !/docker/yolov4*.cfg
+!/docker/opencv-python-headless-setup.py
+!/docker/jetson-nano/opencv-tuple.patch
 !/rootfs/
 !/rootfs/etc/
 !/rootfs/etc/**
@@ -52,6 +54,8 @@
 !/tests/*
 !/tests/components
 !/tests/components/**
+!/tests/domains
+!/tests/domains/**
 !/tests/helpers
 !/tests/helpers/*
 
@@ -69,7 +73,9 @@
 !/requirements_ci.txt
 !/requirements_test.txt
 !/requirements.txt
+!/requirements-3.9.txt
 !setup.py
+!manager.py
 
 # Frontend
 !/frontend
@@ -81,7 +87,7 @@
 !/frontend/src/**
 !/frontend/tests
 !/frontend/tests/**
-!/frontend/.eslintrc.js
+!/frontend/.eslintrc.cjs
 !/frontend/.prettierrc.json
 !/frontend/404.html
 !/frontend/index.html
@@ -117,5 +123,6 @@
 !/netlify.toml
 !/README.md
 !tox.ini
+!/config
 
 *__pycache*

@@ -1,6 +1,8 @@
 import React from "react";
 
+import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
+import Heading from "@theme/Heading";
 import clsx from "clsx";
 
 import styles from "./HomepageFeatures.module.css";
@@ -29,7 +31,9 @@ const FeatureList: FeatureItem[] = [
       <>
         Viseron comes with a good number of components which can be mixed and
         matched to your liking.<br></br>
-        <a href="/components-explorer">See full list of components here.</a>
+        <Link href="/components-explorer">
+          See full list of components here.
+        </Link>
       </>
     ),
   },
@@ -56,7 +60,7 @@ function Feature({ title, image, description }: FeatureItem) {
         />
       </div>
       <div className="text--center padding-horiz--md">
-        <h3>{title}</h3>
+        <Heading as="h3">{title}</Heading>
         <p>{description}</p>
       </div>
     </div>

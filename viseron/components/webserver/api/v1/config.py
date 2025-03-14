@@ -18,9 +18,12 @@ class ConfigAPIHandler(BaseAPIHandler):
         },
     ]
 
-    def get_config(self) -> None:
+    async def get_config(self) -> None:
         """Return Viseron config."""
-        with open(CONFIG_PATH, encoding="utf-8") as config_file:
-            config = config_file.read()
 
-        self.response_success(response=config)
+        def read_config() -> str:
+            with open(CONFIG_PATH, encoding="utf-8") as config_file:
+                return config_file.read()
+
+        config = await self.run_in_executor(read_config)
+        await self.response_success(response=config)

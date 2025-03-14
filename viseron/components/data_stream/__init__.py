@@ -2,14 +2,16 @@
 from __future__ import annotations
 
 import fnmatch
+import inspect
 import logging
 import multiprocessing as mp
 import subprocess
 import threading
 import time
 import uuid
-from queue import Queue
-from typing import Any, Callable, TypedDict
+from collections.abc import Callable
+from queue import Empty, Queue
+from typing import Any, TypedDict
 
 from tornado.ioloop import IOLoop
 from tornado.queues import Queue as tornado_queue
@@ -27,6 +29,7 @@ class DataSubscriber(TypedDict):
 
     callback: Callable | Queue | tornado_queue
     ioloop: IOLoop | None
+    stage: str | None
 
 
 class Subscribe(TypedDict):
@@ -69,10 +72,11 @@ class DataStream:
         self._max_threads = self._get_max_threads()
         LOGGER.debug(f"Max threads: {self._max_threads}")
 
-        data_consumer = RestartableThread(
+        self._kill_received = False
+        self._data_consumer = RestartableThread(
             name="data_stream", target=self.consume_data, daemon=True, register=True
         )
-        data_consumer.start()
+        self._data_consumer.start()
 
     def _get_max_threads(self) -> int:
         """Get the maximum number of threads allowed."""
@@ -104,7 +108,10 @@ class DataStream:
 
     @staticmethod
     def subscribe_data(
-        data_topic: str, callback: Callable | Queue | tornado_queue, ioloop=None
+        data_topic: str,
+        callback: Callable | Queue | tornado_queue,
+        ioloop=None,
+        stage=None,
     ) -> uuid.UUID:
         """Subscribe to data on a topic.
 
@@ -119,12 +126,14 @@ class DataStream:
             ] = DataSubscriber(
                 callback=callback,
                 ioloop=ioloop,
+                stage=stage,
             )
             return unique_id
 
         DataStream._subscribers.setdefault(data_topic, {})[unique_id] = DataSubscriber(
             callback=callback,
             ioloop=ioloop,
+            stage=stage,
         )
         return unique_id
 
@@ -138,6 +147,32 @@ class DataStream:
 
         DataStream._subscribers[data_topic].pop(unique_id)
 
+    @staticmethod
+    def remove_all_subscriptions() -> None:
+        """Remove all subscriptions."""
+        DataStream._subscribers.clear()
+        DataStream._wildcard_subscribers.clear()
+
+    async def run_callback_in_ioloop(
+        self, callback: Callable, data: Any, ioloop: IOLoop
+    ) -> None:
+        """Run callback in IOLoop."""
+
+        def _wrapper():
+            IOLoop.current()
+            if data:
+                callback(data)
+                return
+            callback()
+
+        if inspect.iscoroutinefunction(callback):
+            if data:
+                await callback(data)
+                return
+            await callback()
+        else:
+            await ioloop.run_in_executor(None, _wrapper)
+
     def run_callbacks(
         self,
         callbacks: dict[uuid.UUID, DataSubscriber],
@@ -146,16 +181,24 @@ class DataStream:
         """Run callbacks or put to queues."""
         for callback in callbacks.copy().values():
             if callable(callback["callback"]) and callback["ioloop"] is None:
+                name = f"data_stream.callback.{callback['callback']}"
+                daemon = bool(callback["stage"] is None)
                 if data:
-                    thread = threading.Thread(
+                    thread = RestartableThread(
+                        name=name,
                         target=callback["callback"],
                         args=(data,),
-                        daemon=True,
+                        daemon=daemon,
+                        register=False,
+                        stage=callback["stage"],
                     )
                 else:
-                    thread = threading.Thread(
+                    thread = RestartableThread(
+                        name=name,
                         target=callback["callback"],
-                        daemon=True,
+                        daemon=daemon,
+                        register=False,
+                        stage=callback["stage"],
                     )
 
                 while True:
@@ -181,10 +224,12 @@ class DataStream:
                 continue
 
             if callable(callback["callback"]) and callback["ioloop"] is not None:
-                if data:
-                    callback["ioloop"].add_callback(callback["callback"], data)
-                else:
-                    callback["ioloop"].add_callback(callback["callback"])
+                callback["ioloop"].add_callback(
+                    self.run_callback_in_ioloop,
+                    callback["callback"],
+                    data,
+                    callback["ioloop"],
+                )
                 continue
 
             if isinstance(callback["callback"], Queue):
@@ -195,7 +240,9 @@ class DataStream:
                 callback["callback"], tornado_queue
             ):
                 callback["ioloop"].add_callback(
-                    helpers.pop_if_full, callback["callback"], data
+                    helpers.pop_if_full,
+                    callback["callback"],
+                    data,
                 )
                 continue
 
@@ -225,7 +272,20 @@ class DataStream:
 
     def consume_data(self) -> None:
         """Publish data to topics."""
-        while True:
-            data_item = self._data_queue.get()
+        while not self._kill_received:
+            try:
+                data_item = self._data_queue.get(timeout=0.1)
+            except Empty:
+                continue
+
             self.static_subscriptions(data_item)
             self.wildcard_subscriptions(data_item)
+        LOGGER.debug("Data stream stopped")
+
+    def join(self) -> None:
+        """Join the data stream."""
+        self._data_consumer.join()
+
+    def stop(self) -> None:
+        """Stop the data stream."""
+        self._kill_received = True

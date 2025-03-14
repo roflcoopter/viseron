@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.object_detector.const import CONFIG_LABEL_LABEL
@@ -37,13 +37,14 @@ class Zone:
     def __init__(
         self,
         vis: Viseron,
-        component,
-        camera_identifier,
-        zone_config,
-        mask,
+        component: str,
+        camera_identifier: str,
+        zone_config: dict[str, Any],
+        mask: list,
     ) -> None:
         self._vis = vis
         self._camera = vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
+        self._zone_config = zone_config
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
 
         self._coordinates = generate_numpy_from_coordinates(
@@ -53,7 +54,7 @@ class Zone:
 
         self._name: str = zone_config[CONFIG_ZONE_NAME]
         self._objects_in_zone: list[DetectedObject] = []
-        self._object_filters = {}
+        self._object_filters: dict[str, Filter] = {}
         if zone_config[CONFIG_LABELS]:
             for object_filter in zone_config[CONFIG_LABELS]:
                 self._object_filters[object_filter[CONFIG_LABEL_LABEL]] = Filter(
@@ -91,8 +92,9 @@ class Zone:
                     obj.relevant = True
                     objects_in_zone.append(obj)
 
-                    if self._object_filters[obj.label].trigger_recorder:
-                        obj.trigger_recorder = True
+                    if self._object_filters[obj.label].trigger_event_recording:
+                        obj.trigger_event_recording = True
+                    self._object_filters[obj.label].should_store(obj)
 
         self.objects_in_zone_setter(shared_frame, objects_in_zone)
 
@@ -135,3 +137,11 @@ class Zone:
     def name(self) -> str:
         """Return name of zone."""
         return self._name
+
+    def as_dict(self) -> dict[str, Any]:
+        """Return zone as dict."""
+        return {
+            "coordinates": self._zone_config,
+            "name": self._name,
+            "camera_identifier": self._camera.identifier,
+        }

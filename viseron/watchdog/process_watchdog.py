@@ -1,11 +1,17 @@
 """Watchdog for long-running processes."""
 from __future__ import annotations
 
-import datetime
 import logging
 import multiprocessing as mp
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
+from viseron.helpers import utcnow
 from viseron.watchdog import WatchDog
+
+if TYPE_CHECKING:
+    from viseron import Viseron
 
 LOGGER = logging.getLogger(__name__)
 
@@ -18,16 +24,28 @@ class RestartableProcess:
     """
 
     def __init__(
-        self, *args, name=None, grace_period=20, register=True, **kwargs
+        self,
+        *args,
+        name=None,
+        grace_period=20,
+        register=True,
+        stage: str | None = VISERON_SIGNAL_SHUTDOWN,
+        create_process_method: Callable[[], mp.Process] | None = None,
+        **kwargs,
     ) -> None:
         self._args = args
         self._name = name
         self._grace_period = grace_period
         self._kwargs = kwargs
+        self._kwargs["name"] = name
         self._process: mp.Process | None = None
         self._started = False
         self._start_time: float | None = None
         self._register = register
+        self._create_process_method = create_process_method
+        if self._register:
+            ProcessWatchDog.register(self)
+        setattr(self, "__stage__", stage)
 
     def __getattr__(self, attr):
         """Forward all undefined attribute calls to mp.Process."""
@@ -69,15 +87,16 @@ class RestartableProcess:
 
     def start(self) -> None:
         """Start the process."""
-        self._process = mp.Process(
-            *self._args,
-            **self._kwargs,
-        )
-        self._start_time = datetime.datetime.now().timestamp()
+        if self._create_process_method:
+            self._process = self._create_process_method()
+        else:
+            self._process = mp.Process(
+                *self._args,
+                **self._kwargs,
+            )
+        self._start_time = utcnow().timestamp()
         self._started = True
         self._process.start()
-        if self._register:
-            ProcessWatchDog.register(self)
 
     def restart(self, timeout: float | None = None) -> None:
         """Restart the process."""
@@ -119,9 +138,18 @@ class ProcessWatchDog(WatchDog):
 
     registered_items: list[RestartableProcess] = []
 
-    def __init__(self) -> None:
+    def __init__(self, vis: Viseron) -> None:
         super().__init__()
-        self._scheduler.add_job(self.watchdog, "interval", seconds=15)
+        vis.background_scheduler.add_job(
+            self.watchdog,
+            "interval",
+            id="process_watchdog",
+            name="process_watchdog",
+            seconds=15,
+            max_instances=1,
+            coalesce=True,
+            replace_existing=True,
+        )
 
     def watchdog(self) -> None:
         """Check for stopped processes and restart them."""
@@ -131,7 +159,7 @@ class ProcessWatchDog(WatchDog):
             if registered_process.is_alive():
                 continue
 
-            now = datetime.datetime.now().timestamp()
+            now = utcnow().timestamp()
             if (
                 registered_process.start_time
                 and now - registered_process.start_time

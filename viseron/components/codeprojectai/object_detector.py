@@ -39,7 +39,7 @@ class ObjectDetector(AbstractObjectDetector):
         )
 
         self._ds_config = config
-        self._detector = cpai.CodeProjectAIObject(
+        self._detector = CodeProjectAIObject(
             ip=config[CONFIG_HOST],
             port=config[CONFIG_PORT],
             timeout=config[CONFIG_TIMEOUT],
@@ -72,18 +72,30 @@ class ObjectDetector(AbstractObjectDetector):
         """Return CodeProject.AI detections as DetectedObject."""
         objects = []
         for detection in detections:
+            if self._image_resolution[0] == self._image_resolution[1]:
+                objects.append(
+                    DetectedObject.from_absolute_letterboxed(
+                        detection["label"],
+                        detection["confidence"],
+                        detection["x_min"],
+                        detection["y_min"],
+                        detection["x_max"],
+                        detection["y_max"],
+                        frame_res=self._camera.resolution,
+                        model_res=self._image_resolution,
+                    )
+                )
+                continue
             objects.append(
-                DetectedObject(
+                DetectedObject.from_absolute(
                     detection["label"],
                     detection["confidence"],
                     detection["x_min"],
                     detection["y_min"],
                     detection["x_max"],
                     detection["y_max"],
-                    relative=False,
-                    model_res=self._image_resolution,
-                    letterboxed=bool(self._config[CONFIG_IMAGE_SIZE]),
                     frame_res=self._camera.resolution,
+                    model_res=self._image_resolution,
                 )
             )
         return objects
@@ -97,3 +109,21 @@ class ObjectDetector(AbstractObjectDetector):
             return []
 
         return self.postprocess(detections)
+
+
+class CodeProjectAIObject(cpai.CodeProjectAIObject):
+    """CodeProject.AI object detection."""
+
+    def __init__(self, ip, port, timeout, min_confidence, custom_model):
+        super().__init__(ip, port, timeout, min_confidence, custom_model)
+
+    def detect(self, image_bytes: bytes):
+        """Process image_bytes and detect."""
+        response = cpai.process_image(
+            url=self._url_detect,
+            image_bytes=image_bytes,
+            min_confidence=self.min_confidence,
+            timeout=self.timeout,
+        )
+        LOGGER.debug("CodeProject.AI response: %s", response)
+        return response["predictions"]

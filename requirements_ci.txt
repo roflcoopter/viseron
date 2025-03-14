@@ -1,6 +1,4 @@
 # Extra requirements for GitHub Actions CI
-opencv-python==4.6.0.66
-pycoral~=2.0
+opencv-python==4.9.0.80
+opencv-contrib-python==4.9.0.80
 pygobject
-vext
-vext.gi

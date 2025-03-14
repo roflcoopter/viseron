@@ -3,24 +3,30 @@ from __future__ import annotations
 
 import hmac
 import logging
-from datetime import datetime, timedelta
+from collections.abc import Callable
+from datetime import timedelta
 from http import HTTPStatus
-from typing import TYPE_CHECKING, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, TypeVar, overload
 
 import tornado.web
+from sqlalchemy.orm import Session
 from tornado.ioloop import IOLoop
 
+from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.webserver.const import COMPONENT
 from viseron.const import DOMAIN_FAILED
-from viseron.domains.camera import FailedCamera
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.exceptions import DomainNotRegisteredError
+from viseron.helpers import get_utc_offset, utcnow
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.components.storage import Storage
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.auth import RefreshToken, User
-    from viseron.domains.camera import AbstractCamera
+    from viseron.domains.camera import AbstractCamera, FailedCamera
+
+_T = TypeVar("_T")
 
 LOGGER = logging.getLogger(__name__)
 
@@ -32,13 +38,14 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         """Initialize request handler."""
         self._vis = vis
         self._webserver: Webserver = vis.data[COMPONENT]
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
         self.current_user = None
         # Manually set xsrf cookie
         self.xsrf_token  # pylint: disable=pointless-statement
 
-    async def run_in_executor(self, func, *args):
+    async def run_in_executor(self, func: Callable[..., _T], *args) -> _T:
         """Run function in executor."""
-        return await IOLoop.current().run_in_executor(None, func, *args)
+        return await self.ioloop.run_in_executor(None, func, *args)
 
     async def prepare(self) -> None:  # pylint: disable=invalid-overridden-method
         """Prepare request handler.
@@ -48,7 +55,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         if not self._webserver.auth:
             return
 
-        _user = self.get_cookie("user")
+        _user = await self.run_in_executor(self.get_cookie, "user")
         if _user:
             self.current_user = await self.run_in_executor(
                 self._webserver.auth.get_user, _user
@@ -73,6 +80,25 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         """Return the status of the request."""
         return self.get_status()
 
+    @property
+    def utc_offset(self) -> timedelta:
+        """Return the UTC offset for the client.
+
+        The offset is calculated from the X-Client-UTC-Offset header.
+        If the header is not present, look for a cookie with the same name.
+        If the cookie is not present, the offset is set to the servers timezone.
+        """
+        if header := self.request.headers.get("X-Client-UTC-Offset", None):
+            return timedelta(minutes=int(header))
+        if cookie := self.get_cookie("X-Client-UTC-Offset", None):
+            return timedelta(minutes=int(cookie))
+        return get_utc_offset()
+
+    @property
+    def ioloop(self) -> IOLoop:
+        """Return the IOLoop."""
+        return IOLoop.current()
+
     def on_finish(self) -> None:
         """Log requests with failed authentication."""
         if self.status == HTTPStatus.UNAUTHORIZED:
@@ -89,7 +115,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         new_session=False,
     ) -> None:
         """Set session cookies."""
-        now = datetime.utcnow()
+        now = utcnow()
 
         _header, _payload, signature = access_token.split(".")
 
@@ -137,7 +163,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
             secure=bool(self.request.protocol == "https"),
         )
 
-    def clear_all_cookies(self, path: str = "/", domain: str | None = None) -> None:
+    def clear_all_cookies(self, **kwargs: Any) -> None:
         """Overridden clear_all_cookies.
 
         Clears all cookies except for the XSRF cookie.
@@ -145,7 +171,7 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         for name in self.request.cookies:
             if name == "_xsrf":
                 continue
-            self.clear_cookie(name, path=path, domain=domain)
+            self.clear_cookie(name, *kwargs)
 
     def validate_access_token(
         self, access_token: str, check_refresh_token: bool = True
@@ -209,13 +235,15 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     ) -> AbstractCamera | FailedCamera | None:
         ...
 
-    def _get_camera(self, camera_identifier: str, failed: bool = False):
+    def _get_camera(
+        self, camera_identifier: str, failed: bool = False
+    ) -> AbstractCamera | FailedCamera | None:
         """Get camera instance.
 
         If failed is True, check for failed camera instances
         if the camera is not found.
         """
-        camera = None
+        camera: AbstractCamera | FailedCamera | None = None
         try:
             camera = self._vis.get_registered_domain(CAMERA_DOMAIN, camera_identifier)
         except DomainNotRegisteredError:
@@ -228,6 +256,42 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
                 if domain_to_setup:
                     camera = domain_to_setup.error_instance
         return camera
+
+    @overload
+    def get_camera(self, camera_identifier: str) -> AbstractCamera | None:
+        ...
+
+    @overload
+    def get_camera(
+        self, camera_identifier: str, failed: Literal[False]
+    ) -> AbstractCamera | None:
+        ...
+
+    @overload
+    def get_camera(
+        self, camera_identifier: str, failed: Literal[True]
+    ) -> AbstractCamera | FailedCamera | None:
+        ...
+
+    @overload
+    def get_camera(
+        self, camera_identifier: str, failed: bool
+    ) -> AbstractCamera | FailedCamera | None:
+        ...
+
+    def get_camera(
+        self, camera_identifier: str, failed: bool = False
+    ) -> AbstractCamera | FailedCamera | None:
+        """Get camera instance."""
+        return self._get_camera(camera_identifier, failed)
+
+    def _get_session(self) -> Session:
+        """Get a database session."""
+        return self._storage.get_session()
+
+    def get_session(self) -> Session:
+        """Get a database session."""
+        return self._get_session()
 
     def validate_camera_token(self, camera: AbstractCamera) -> bool:
         """Validate camera token."""

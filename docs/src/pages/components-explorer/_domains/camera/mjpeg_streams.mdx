@@ -1,13 +1,15 @@
+### MJPEG Streams
+
 Viseron will serve MJPEG streams of all cameras.
 
-### Dynamic streams
+#### Dynamic streams
 
 The dynamic streams are automatically created for each camera.
 They utilize [query parameters](#query-parameters) to control what is displayed on the stream.
 
 Example URL: `http://localhost:8888/<camera_identifier>/mjpeg-stream`
 
-#### Query parameters
+##### Query parameters
 
 A number of query parameters are available to instruct Viseron to resize the stream or draw different things on the image.<br />
 To utilize a parameter you append it to the URL after a `?`. To add multiple parameters you separate them with `&`, like this:<br />
@@ -40,7 +42,7 @@ This is because each dynamic stream will process their frames individually, dupl
 
 :::
 
-### Static streams
+#### Static streams
 
 The MJPEG streams work exactly as the [dynamic streams](#dynamic-streams), but instead of defining the query parameters in the URL, they are defined in the `config.yaml`<br />
 The benefit of using these predefined streams instead is that frame processing happens only once.<br />

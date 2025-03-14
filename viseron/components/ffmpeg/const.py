@@ -1,6 +1,6 @@
 """FFmpeg constants."""
 import logging
-from typing import Final, List
+from typing import Final
 
 COMPONENT = "ffmpeg"
 
@@ -16,19 +16,6 @@ STREAM_FORMAT_MAP = {
 
 RECORDER = "recorder"
 
-CAMERA_SEGMENT_DURATION = 5
-CAMERA_SEGMENT_ARGS = [
-    "-f",
-    "segment",
-    "-segment_time",
-    str(CAMERA_SEGMENT_DURATION),
-    "-reset_timestamps",
-    "1",
-    "-strftime",
-    "1",
-    "-c:v",
-    "copy",
-]
 CAMERA_INPUT_ARGS = [
     "-avoid_negative_ts",
     "make_zero",
@@ -99,11 +86,11 @@ DEFAULT_WIDTH: Final = None
 DEFAULT_HEIGHT: Final = None
 DEFAULT_FPS: Final = None
 DEFAULT_INPUT_ARGS: Final = None
-DEFAULT_HWACCEL_ARGS: List["str"] = []
+DEFAULT_HWACCEL_ARGS: list["str"] = []
 DEFAULT_CODEC = "unset"
 DEFAULT_AUDIO_CODEC = "unset"
 DEFAULT_RTSP_TRANSPORT = "tcp"
-DEFAULT_VIDEO_FILTERS: List[str] = []
+DEFAULT_VIDEO_FILTERS: list[str] = []
 DEFAULT_PIX_FMT = "nv12"
 DEFAULT_FRAME_TIMEOUT = 60
 
@@ -134,9 +121,8 @@ DESC_CODEC = (
     "see <a href=#ffprobe-stream-information>FFprobe stream information.</a>"
 )
 DESC_AUDIO_CODEC = (
-    "FFmpeg audio encoder codec for the generated segments, eg <code>aac</code>.<br>"
-    "Note that if you set this, FFmpeg will have to re-encode your stream which "
-    "increases system load.<br>Will use FFprobe to get this information if not given, "
+    "Audio codec of the stream, eg <code>aac</code>.<br>"
+    "Will use FFprobe to get this information if not given, "
     "see <a href=#ffprobe-stream-information>FFprobe stream information.</a>"
 )
 DESC_RTSP_TRANSPORT = (
@@ -164,17 +150,20 @@ CONFIG_RECORDER_AUDIO_FILTERS = "audio_filters"
 CONFIG_SEGMENTS_FOLDER = "segments_folder"
 CONFIG_RECORDER_OUPTUT_ARGS = "output_args"
 
-DEFAULT_RECORDER_HWACCEL_ARGS: List[str] = []
+DEFAULT_RECORDER_HWACCEL_ARGS: list[str] = []
 DEFAULT_RECORDER_CODEC = "copy"
-DEFAULT_RECORDER_AUDIO_CODEC = "copy"
-DEFAULT_RECORDER_VIDEO_FILTERS: List[str] = []
-DEFAULT_RECORDER_AUDIO_FILTERS: List[str] = []
-DEFAULT_RECORDER_OUTPUT_ARGS: List[str] = []
+DEFAULT_RECORDER_AUDIO_CODEC = "unset"
+DEFAULT_RECORDER_VIDEO_FILTERS: list[str] = []
+DEFAULT_RECORDER_AUDIO_FILTERS: list[str] = []
+DEFAULT_RECORDER_OUTPUT_ARGS: list[str] = []
 DEFAULT_SEGMENTS_FOLDER = "/segments"
 
 DESC_RECORDER_HWACCEL_ARGS = "FFmpeg encoder hardware acceleration arguments."
 DESC_RECORDER_CODEC = "FFmpeg video encoder codec, eg <code>h264_nvenc</code>."
-DESC_RECORDER_AUDIO_CODEC = "FFmpeg audio encoder codec, eg <code>aac</code>."
+DESC_RECORDER_AUDIO_CODEC = (
+    "FFmpeg audio encoder codec, eg <code>aac</code>.<br>"
+    "If your source has audio and you want to remove it, set this to <code>null</code>."
+)
 DESC_RECORDER_VIDEO_FILTERS = (
     "A list of FFmpeg filter arguments. "
     "These filters are applied to the recorder videos."
@@ -207,6 +196,7 @@ CONFIG_FFMPEG_RECOVERABLE_ERRORS = "ffmpeg_recoverable_errors"
 CONFIG_FFPROBE_LOGLEVEL = "ffprobe_loglevel"
 CONFIG_RECORDER = "recorder"
 CONFIG_RAW_COMMAND = "raw_command"
+CONFIG_RECORD_ONLY = "record_only"
 
 DEFAULT_USERNAME: Final = None
 DEFAULT_PASSWORD: Final = None
@@ -220,9 +210,11 @@ DEFAULT_FFMPEG_RECOVERABLE_ERRORS = [
     "non-existing PPS 0 referenced",
     "no frame!",
     "decode_slice_header error",
+    "failed to delete old segment",
 ]
 DEFAULT_FFPROBE_LOGLEVEL = "error"
 DEFAULT_RAW_COMMAND: Final = None
+DEFAULT_RECORD_ONLY = False
 
 DESC_CAMERA = "Camera domain config."
 DESC_HOST = "IP or hostname of camera."
@@ -253,4 +245,11 @@ DESC_RAW_COMMAND = (
     "This is useful if you want to use sources that Viseron does not support. "
     "This is an advanced option and should only be used if you know what you are doing."
     "<br>See <a href=#raw-command>Raw command</a> for more information."
+)
+DESC_RECORD_ONLY = (
+    "Only record the camera stream, do not process it. "
+    "This is useful if you only want to record the stream and not do any processing "
+    "like object detection.<br>"
+    "Be aware that this will record the main stream, making substream redundant. "
+    "Still images will not work either unless you have setup `still_image`."
 )

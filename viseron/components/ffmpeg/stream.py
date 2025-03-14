@@ -17,6 +17,7 @@ from tenacity import (
 )
 
 from viseron.const import (
+    CAMERA_SEGMENT_DURATION,
     ENV_CUDA_SUPPORTED,
     ENV_JETSON_NANO,
     ENV_RASPBERRYPI3,
@@ -24,12 +25,12 @@ from viseron.const import (
 )
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
+from viseron.helpers import escape_string
 from viseron.helpers.logs import LogPipe, UnhelpfullLogFilter
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
 
 from .const import (
     CAMERA_INPUT_ARGS,
-    CAMERA_SEGMENT_ARGS,
     CONFIG_AUDIO_CODEC,
     CONFIG_CODEC,
     CONFIG_FFMPEG_LOGLEVEL,
@@ -48,8 +49,12 @@ from .const import (
     CONFIG_PROTOCOL,
     CONFIG_RAW_COMMAND,
     CONFIG_RECORDER,
+    CONFIG_RECORDER_AUDIO_CODEC,
+    CONFIG_RECORDER_AUDIO_FILTERS,
+    CONFIG_RECORDER_CODEC,
+    CONFIG_RECORDER_OUPTUT_ARGS,
+    CONFIG_RECORDER_VIDEO_FILTERS,
     CONFIG_RTSP_TRANSPORT,
-    CONFIG_SEGMENTS_FOLDER,
     CONFIG_STREAM_FORMAT,
     CONFIG_SUBSTREAM,
     CONFIG_USERNAME,
@@ -57,6 +62,8 @@ from .const import (
     CONFIG_WIDTH,
     DEFAULT_AUDIO_CODEC,
     DEFAULT_CODEC,
+    DEFAULT_FFMPEG_RECOVERABLE_ERRORS,
+    DEFAULT_RECORDER_AUDIO_CODEC,
     ENV_FFMPEG_PATH,
     FFMPEG_LOGLEVELS,
     FFPROBE_LOGLEVELS,
@@ -93,7 +100,12 @@ class Stream:
     ) -> None:
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.addFilter(
-            UnhelpfullLogFilter(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS])
+            UnhelpfullLogFilter(
+                list(  # Remove duplicates
+                    set(config[CONFIG_FFMPEG_RECOVERABLE_ERRORS])
+                    | set(DEFAULT_FFMPEG_RECOVERABLE_ERRORS)
+                )
+            )
         )
         self._config = config
         self._camera_identifier = camera_identifier
@@ -101,10 +113,8 @@ class Stream:
         self._camera: Camera = camera
 
         self._pipe: sp.Popen | None = None
-        self._segment_process: RestartablePopen | None = None
-        self._log_pipe = LogPipe(
-            self._logger, FFMPEG_LOGLEVELS[config[CONFIG_FFMPEG_LOGLEVEL]]
-        )
+        self.segment_process: RestartablePopen | None = None
+        self._log_pipe: LogPipe | None = None
         self._ffprobe = FFprobe(config, camera_identifier)
 
         self._mainstream = self.get_stream_information(config)
@@ -194,9 +204,11 @@ class Stream:
 
     def get_stream_url(self, stream_config: dict[str, Any]) -> str:
         """Return stream url."""
+        username = self._config[CONFIG_USERNAME]
+        password = self._config[CONFIG_PASSWORD]
         auth = ""
-        if self._config[CONFIG_USERNAME] and self._config[CONFIG_PASSWORD]:
-            auth = f"{self._config[CONFIG_USERNAME]}:{self._config[CONFIG_PASSWORD]}@"
+        if username is not None and password is not None:
+            auth = f"{username}:{escape_string(password)}@"
 
         protocol = (
             stream_config[CONFIG_PROTOCOL]
@@ -227,7 +239,7 @@ class Stream:
         ):
             self._logger.debug(f"Getting stream information for {stream_url}")
             width, height, fps, codec, audio_codec = self._ffprobe.stream_information(
-                stream_url
+                stream_url, stream_config
             )
 
         width = stream_config[CONFIG_WIDTH] if stream_config[CONFIG_WIDTH] else width
@@ -264,8 +276,8 @@ class Stream:
         )
 
     @staticmethod
-    def get_codec(stream_config: dict[str, Any], stream_codec: str):
-        """Return codec set in config or from predefined codec map."""
+    def get_decoder_codec(stream_config: dict[str, Any], stream_codec: str):
+        """Return decoder codec set in config or from predefined codec map."""
         if stream_config[CONFIG_CODEC] and stream_config[CONFIG_CODEC] != DEFAULT_CODEC:
             return ["-c:v", stream_config[CONFIG_CODEC]]
 
@@ -287,6 +299,10 @@ class Stream:
             return ["-c:v", codec]
         return []
 
+    def get_encoder_codec(self):
+        """Return encoder codec set in config."""
+        return ["-c:v", self._config[CONFIG_RECORDER][CONFIG_RECORDER_CODEC]]
+
     def stream_command(
         self, stream_config: dict[str, Any], stream_codec: str, stream_url: str
     ):
@@ -295,35 +311,40 @@ class Stream:
             input_args = stream_config[CONFIG_INPUT_ARGS]
         else:
             input_args = CAMERA_INPUT_ARGS + list(
-                STREAM_FORMAT_MAP[self._config[CONFIG_STREAM_FORMAT]]["timeout_option"]
+                STREAM_FORMAT_MAP[stream_config[CONFIG_STREAM_FORMAT]]["timeout_option"]
             )
 
         return (
             input_args
             + stream_config[CONFIG_HWACCEL_ARGS]
-            + self.get_codec(stream_config, stream_codec)
+            + self.get_decoder_codec(stream_config, stream_codec)
             + (
                 ["-rtsp_transport", stream_config[CONFIG_RTSP_TRANSPORT]]
-                if self._config[CONFIG_STREAM_FORMAT] == "rtsp"
+                if stream_config[CONFIG_STREAM_FORMAT] == "rtsp"
                 else []
             )
             + ["-i", stream_url]
         )
 
-    def get_audio_codec(
+    def get_encoder_audio_codec(
         self,
-        stream_config: dict[str, Any],
         stream_audio_codec: str | None,
-        extension: str,
     ) -> list[str]:
         """Return audio codec used for saving segments."""
         if (
-            stream_config[CONFIG_AUDIO_CODEC]
-            and stream_config[CONFIG_AUDIO_CODEC] != DEFAULT_AUDIO_CODEC
+            self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]
+            and self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC]
+            != DEFAULT_RECORDER_AUDIO_CODEC
         ):
-            return ["-c:a", stream_config[CONFIG_AUDIO_CODEC]]
+            return [
+                "-c:a",
+                self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC],
+            ]
 
-        if extension == "mp4" and stream_audio_codec in [
+        if self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_CODEC] is None:
+            return ["-an"]
+
+        if stream_audio_codec in [
             "pcm_alaw",
             "pcm_mulaw",
         ]:
@@ -333,27 +354,61 @@ class Stream:
             )
             return ["-c:a", "aac"]
 
-        if (
-            stream_audio_codec
-            and stream_config[CONFIG_AUDIO_CODEC] == DEFAULT_AUDIO_CODEC
-        ):
+        if stream_audio_codec:
             return ["-c:a", "copy"]
 
+        return ["-an"]
+
+    def recorder_video_filter_args(self) -> list[str] | list:
+        """Return video filter arguments."""
+        if filters := self._config[CONFIG_RECORDER][CONFIG_RECORDER_VIDEO_FILTERS]:
+            return [
+                "-vf",
+                ",".join(filters),
+            ]
+        return []
+
+    def recorder_audio_filter_args(self) -> list[str] | list:
+        """Return audio filter arguments."""
+        if filters := self._config[CONFIG_RECORDER][CONFIG_RECORDER_AUDIO_FILTERS]:
+            return [
+                "-af",
+                ",".join(filters),
+            ]
         return []
 
     def segment_args(self):
         """Generate FFmpeg segment args."""
         return (
-            CAMERA_SEGMENT_ARGS
-            + self.get_audio_codec(
-                self._config, self._mainstream.audio_codec, self._camera.extension
-            )
+            [
+                "-f",
+                "hls",
+                "-hls_time",
+                str(CAMERA_SEGMENT_DURATION),
+                "-hls_segment_type",
+                "fmp4",
+                "-hls_list_size",
+                "10",
+                "-hls_flags",
+                "program_date_time+delete_segments",
+                "-strftime",
+                "1",
+                "-hls_segment_filename",
+                os.path.join(
+                    self._camera.temp_segments_folder,
+                    "%s.m4s",
+                ),
+            ]
+            + self.get_encoder_codec()
+            + self.recorder_video_filter_args()
+            + self.get_encoder_audio_codec(self._mainstream.audio_codec)
+            + self.recorder_audio_filter_args()
+            + self._camera.config[CONFIG_RECORDER][CONFIG_RECORDER_OUPTUT_ARGS]
             + [
                 os.path.join(
-                    self._config[CONFIG_RECORDER][CONFIG_SEGMENTS_FOLDER],
-                    self._camera.identifier,
-                    f"%Y%m%d%H%M%S.{self._camera.extension}",
-                )
+                    self._camera.temp_segments_folder,
+                    "index.m3u8",
+                ),
             ]
         )
 
@@ -375,8 +430,8 @@ class Stream:
 
         Only used when a substream is configured.
         """
-        if self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND]:
-            return self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND].split(" ")
+        if self._config[CONFIG_RAW_COMMAND]:
+            return self._config[CONFIG_RAW_COMMAND].split(" ")
 
         stream_input_command = self.stream_command(
             self._config, self._mainstream.codec, self._mainstream.url
@@ -392,10 +447,9 @@ class Stream:
 
     def build_command(self):
         """Return full FFmpeg command."""
-        if self._config[CONFIG_RAW_COMMAND]:
-            return self._config[CONFIG_RAW_COMMAND].split(" ")
-
         if self._substream:
+            if self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND]:
+                return self._config[CONFIG_SUBSTREAM][CONFIG_RAW_COMMAND].split(" ")
             stream_input_command = self.stream_command(
                 self._substream.config,
                 self._substream.codec,
@@ -403,6 +457,8 @@ class Stream:
             )
             camera_segment_args = []
         else:
+            if self._config[CONFIG_RAW_COMMAND]:
+                return self._config[CONFIG_RAW_COMMAND].split(" ")
             stream_input_command = self.stream_command(
                 self._mainstream.config,
                 self._mainstream.codec,
@@ -423,8 +479,19 @@ class Stream:
 
     def pipe(self):
         """Return subprocess pipe for FFmpeg."""
+        try:
+            if self._log_pipe:
+                self._log_pipe.close()
+                self._log_pipe = None
+        except OSError as error:
+            self._logger.error("Failed to close log pipe: %s", error)
+
+        self._log_pipe = LogPipe(
+            self._logger, FFMPEG_LOGLEVELS[self._config[CONFIG_FFMPEG_LOGLEVEL]]
+        )
+
         if self._config.get(CONFIG_SUBSTREAM, None):
-            self._segment_process = RestartablePopen(
+            self.segment_process = RestartablePopen(
                 self.build_segment_command(),
                 name=f"viseron.camera.{self._camera.identifier}.segments",
                 stdout=sp.PIPE,
@@ -449,23 +516,27 @@ class Stream:
 
     def close_pipe(self) -> None:
         """Close FFmpeg pipe."""
-        if self._segment_process:
-            self._segment_process.terminate()
+        if self.segment_process:
+            self.segment_process.terminate()
 
-        if not self._pipe:
-            self._logger.error("No pipe to close")
-            return
+        if self._pipe:
+            try:
+                self._pipe.terminate()
+                try:
+                    self._pipe.communicate(timeout=5)
+                except sp.TimeoutExpired:
+                    self._logger.debug("FFmpeg did not terminate, killing instead.")
+                    self._pipe.kill()
+                    self._pipe.communicate()
+            except AttributeError as error:
+                self._logger.error("Failed to close pipe: %s", error)
 
         try:
-            self._pipe.terminate()
-            try:
-                self._pipe.communicate(timeout=5)
-            except sp.TimeoutExpired:
-                self._logger.debug("FFmpeg did not terminate, killing instead.")
-                self._pipe.kill()
-                self._pipe.communicate()
-        except AttributeError as error:
-            self._logger.error("Failed to close pipe: %s", error)
+            if self._log_pipe:
+                self._log_pipe.close()
+                self._log_pipe = None
+        except OSError as error:
+            self._logger.error("Failed to close log pipe: %s", error)
 
     def poll(self):
         """Poll pipe."""
@@ -491,6 +562,27 @@ class Stream:
             self._logger.error(f"Error reading frame from pipe: {err}")
         return None
 
+    def record_only(self):
+        """Record only the stream."""
+        self._logger.debug(f"Recording only stream: {' '.join(self.build_command())}")
+        try:
+            if self._log_pipe:
+                self._log_pipe.close()
+                self._log_pipe = None
+        except OSError as error:
+            self._logger.error("Failed to close log pipe: %s", error)
+
+        self._log_pipe = LogPipe(
+            self._logger, FFMPEG_LOGLEVELS[self._config[CONFIG_FFMPEG_LOGLEVEL]]
+        )
+
+        self.segment_process = RestartablePopen(
+            self.build_segment_command(),
+            name=f"viseron.camera.{self._camera.identifier}.segments",
+            stdout=sp.PIPE,
+            stderr=self._log_pipe,
+        )
+
 
 class FFprobe:
     """FFprobe wrapper class."""
@@ -498,17 +590,14 @@ class FFprobe:
     def __init__(self, config: dict[str, Any], camera_identifier: str) -> None:
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._config = config
-        self._log_pipe = LogPipe(
-            self._logger, FFPROBE_LOGLEVELS[config[CONFIG_FFPROBE_LOGLEVEL]]
-        )
         self._ffprobe_timeout = FFPROBE_TIMEOUT
 
     def stream_information(
-        self, stream_url: str
+        self, stream_url: str, stream_config: dict[str, Any]
     ) -> tuple[int, int, int, str | None, str | None]:
         """Return stream information using FFprobe."""
         width, height, fps, codec, audio_codec = 0, 0, 0, None, None
-        streams = self.run_ffprobe(stream_url)
+        streams = self.run_ffprobe(stream_url, stream_config)
 
         video_stream: dict[str, Any] | None = None
         audio_stream: dict[str, Any] | None = None
@@ -546,6 +635,7 @@ class FFprobe:
     def run_ffprobe(
         self,
         stream_url: str,
+        stream_config: dict[str, Any],
     ) -> dict[str, Any]:
         """Run FFprobe command."""
         ffprobe_command = (
@@ -562,6 +652,11 @@ class FFprobe:
                 "-show_entries",
                 "stream=codec_type,codec_name,width,height,avg_frame_rate",
             ]
+            + (
+                ["-rtsp_transport", stream_config[CONFIG_RTSP_TRANSPORT]]
+                if stream_config[CONFIG_STREAM_FORMAT] == "rtsp"
+                else []
+            )
             + [stream_url]
         )
         self._logger.debug(f"FFprobe command: {' '.join(ffprobe_command)}")
@@ -574,10 +669,14 @@ class FFprobe:
             reraise=True,
         ):
             with attempt:
+                log_pipe = LogPipe(
+                    self._logger,
+                    FFPROBE_LOGLEVELS[self._config[CONFIG_FFPROBE_LOGLEVEL]],
+                )
                 pipe = sp.Popen(  # type: ignore[call-overload]
                     ffprobe_command,
                     stdout=sp.PIPE,
-                    stderr=self._log_pipe,
+                    stderr=log_pipe,
                 )
                 try:
                     stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
@@ -588,6 +687,8 @@ class FFprobe:
                     ffprobe_timeout = self._ffprobe_timeout
                     self._ffprobe_timeout += FFPROBE_TIMEOUT
                     raise FFprobeTimeout(ffprobe_timeout) from error
+                finally:
+                    log_pipe.close()
                 self._ffprobe_timeout = FFPROBE_TIMEOUT
 
         try:

@@ -1,3 +1,7 @@
+import MotionDetectorMask from "@site/src/pages/components-explorer/_domains/motion_detector/mask.mdx";
+
+## Motion detector
+
 A motion detector scans an image for moving parts.
 
 :::info
@@ -9,6 +13,10 @@ This is good because object detection uses far more resources compared to motion
 
 :::tip Recorder
 
-A motion detector can start the recorder if `trigger_recorder` is set to `true`, meaning an object detector is not strictly needed.<br />
+A motion detector can start the recorder if `trigger_event_recording` is set to `true`, meaning an object detector is not strictly needed.<br />
 
 :::
+
+### Mask \{#motion-detector-mask\}
+
+<MotionDetectorMask meta={props.meta} />

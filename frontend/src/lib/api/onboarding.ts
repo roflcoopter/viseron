@@ -19,7 +19,7 @@ async function onboarding({ name, username, password }: OnboardingVariables) {
       name,
       username,
       password,
-    }
+    },
   );
   return response.data;
 }
@@ -40,7 +40,7 @@ export const useOnboarding = () => {
       toast.error(
         error.response && error.response.data.error
           ? `Error creating user: ${error.response.data.error}`
-          : `An error occurred: ${error.message}`
+          : `An error occurred: ${error.message}`,
       );
     },
   });

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from viseron.const import EVENT_ENTITY_ADDED, EVENT_STATE_CHANGED
+from viseron.events import EventData
 from viseron.helpers import slugify
 
 if TYPE_CHECKING:
@@ -19,7 +20,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class EventStateChangedData:
+class EventStateChangedData(EventData):
     """State changed event data."""
 
     entity_id: str
@@ -40,7 +41,7 @@ class EventStateChangedData:
 
 
 @dataclass
-class EventEntityAddedData:
+class EventEntityAddedData(EventData):
     """Entity event data."""
 
     entity: Entity
@@ -149,8 +150,7 @@ class States:
                 entity.setup()
 
             self._vis.dispatch_event(
-                EVENT_ENTITY_ADDED,
-                EventEntityAddedData(entity),
+                EVENT_ENTITY_ADDED, EventEntityAddedData(entity), store=False
             )
             self.set_state(entity)
             return entity
@@ -167,6 +167,10 @@ class States:
             entity.object_id = slugify(entity.object_id)
         else:
             entity.object_id = slugify(entity.name)
+
+    def entity_exists(self, entity: Entity) -> bool:
+        """Return if entity has already been added."""
+        return self._generate_entity_id(entity) in self._registry
 
     def _generate_entity_id(self, entity: Entity) -> str:
         """Generate entity id for an entity."""

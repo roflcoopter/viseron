@@ -1,10 +1,14 @@
 import TabItem from "@theme/TabItem";
 import Tabs from "@theme/Tabs";
+
 import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
 import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
+
 import ComponentMetadata from "./_meta";
 import config from "./config.json";
-<ComponentHeader meta={ComponentMetadata} />;
+
+<ComponentHeader meta={ComponentMetadata} />
 
 The `mqtt` integration allows Viseron to connect to an MQTT broker and publish and subscribe to topics.
 
@@ -25,7 +29,7 @@ mqtt:
 
 </details>
 
-<ComponentConfiguration meta={ComponentMetadata} config={config} />
+<ComponentConfiguration config={config} />
 
 ## Topics
 
@@ -85,12 +89,29 @@ Shows whether the recorder is recording or not.
 
 ```json
 {
-  "state": "on",
+  "state": "off",
   "attributes": {
-    "last_recording_start": "2022-09-14T06:53:34.602066",
-    "last_recording_end": null,
-    "path": "/recordings/front_door/2022-09-14/06:53:34.mp4",
-    "thumbnail_path": "/recordings/front_door/2022-09-14/06:53:34.jpg"
+    "name": "Porch Recorder",
+    "domain": "binary_sensor",
+    "id": 33406,
+    "start_time": "2025-03-12T10:14:10.887491+00:00",
+    "start_timestamp": 1741774450.887491,
+    "end_time": null,
+    "end_timestamp": null,
+    "date": "2025-03-12",
+    "thumbnail_path": "/thumbnails/porch/33406.jpg",
+    "objects": [
+      {
+        "label": "person",
+        "confidence": 0.93,
+        "rel_width": 0.092,
+        "rel_height": 0.391,
+        "rel_x1": 0.761,
+        "rel_y1": 0.081,
+        "rel_x2": 0.853,
+        "rel_y2": 0.472
+      }
+    ]
   }
 }
 ```
@@ -102,10 +123,27 @@ Shows whether the recorder is recording or not.
 {
   "state": "off",
   "attributes": {
-    "last_recording_start": "2022-09-14T06:53:34.602066",
-    "last_recording_end": "2022-09-14T06:54:11.596465",
-    "path": "/recordings/front_door/2022-09-14/06:53:34.mp4",
-    "thumbnail_path": "/recordings/front_door/2022-09-14/06:53:34.jpg"
+    "name": "Porch Recorder",
+    "domain": "binary_sensor",
+    "id": 33406,
+    "start_time": "2025-03-12T10:14:10.887491+00:00",
+    "start_timestamp": 1741774450.887491,
+    "end_time": "2025-03-12T10:15:36.798942+00:00",
+    "end_timestamp": 1741774536.798942,
+    "date": "2025-03-12",
+    "thumbnail_path": "/thumbnails/porch/33406.jpg",
+    "objects": [
+      {
+        "label": "person",
+        "confidence": 0.93,
+        "rel_width": 0.092,
+        "rel_height": 0.391,
+        "rel_x1": 0.761,
+        "rel_y1": 0.081,
+        "rel_x2": 0.853,
+        "rel_y2": 0.472
+      }
+    ]
   }
 }
 ```
@@ -296,6 +334,38 @@ A JSON formatted payload is published to this topic when a tracked face is detec
     "confidence": "<detection confidence>",
     "coordinates": "<detection coordinates>"
   }
+}
+```
+
+</TabItem>
+<TabItem value="off" label="off" default>
+
+```json
+{
+  "state": "off",
+  "attributes": {}
+}
+```
+
+</TabItem>
+</Tabs>
+
+</details>
+
+#### `{client_id}/binary_sensor/{camera_identifier}_still_image_available/state`
+
+A JSON formatted payload is published to this topic when still image becomes available/unavailable.
+
+<details>
+  <summary>Payloads</summary>
+
+<Tabs>
+<TabItem value="on" label="on" default>
+
+```json
+{
+  "state": "on",
+  "attributes": {}
 }
 ```
 
@@ -571,3 +641,5 @@ A variable amount of binary sensors will be created based on your configuration.
 ### Switch
 
 1. A switch used to arm/disarm a camera. When disarmed, no system resources are used for the camera.
+
+<ComponentTroubleshooting meta={ComponentMetadata} />

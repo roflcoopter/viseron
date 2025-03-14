@@ -18,7 +18,11 @@
       "onAutoForward": "silent"
     }
   },
+  "userEnvProbe": "loginInteractiveShell",
   "runArgs": ["-e", "GIT_EDITOR=code --wait"],
+  "mounts": [
+    "source=${localWorkspaceFolder}/config,target=/config,type=bind,consistency=cached"
+  ],
   "customizations": {
     "vscode": {
       "extensions": [
@@ -26,6 +30,9 @@
         "ms-python.vscode-pylance",
         "ms-python.isort",
         "ms-python.flake8",
+        "ms-python.black-formatter",
+        "ms-python.pylint",
+        "ms-python.mypy-type-checker",
         "redhat.vscode-yaml",
         "esbenp.prettier-vscode",
         "GitHub.vscode-pull-request-github",
@@ -34,29 +41,27 @@
         "eamodio.gitlens",
         "dbaeumer.vscode-eslint",
         "ms-azuretools.vscode-docker",
-        "unifiedjs.vscode-mdx"
+        "unifiedjs.vscode-mdx",
+        "ckolkman.vscode-postgres",
+        "ms-azure-devops.azure-pipelines"
       ],
       "settings": {
         "python.pythonPath": "/usr/local/bin/python",
-        "python.linting.enabled": true,
-        "python.linting.pylintEnabled": true,
-        "python.linting.pylintPath": "/usr/local/bin/pylint",
-        "python.linting.flake8Enabled": true,
-        "python.linting.flake8Path": "/usr/local/bin/flake8",
-        "python.linting.pycodestylePath": "/usr/local/bin/pycodestyle",
-        "python.linting.pydocstylePath": "/usr/local/bin/pydocstyle",
-        "python.formatting.blackPath": "/usr/local/bin/black",
-        "python.formatting.provider": "black",
         "python.testing.pytestArgs": ["--no-cov"],
-        "python.linting.mypyEnabled": true,
-        "python.linting.mypyPath": "/usr/local/bin/mypy",
+        "isort.check": true,
         "editor.rulers": [80],
         "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter",
           "editor.rulers": [88],
           "editor.codeActionsOnSave": {
-            "source.organizeImports": true
+            "source.organizeImports": "explicit"
           }
         },
+        "mypy-type-checker.importStrategy": "fromEnvironment",
+        "pylint.importStrategy": "fromEnvironment",
+        "black-formatter.importStrategy": "fromEnvironment",
+        "flake8.importStrategy": "fromEnvironment",
+        "isort.importStrategy": "fromEnvironment",
         "editor.formatOnPaste": false,
         "editor.formatOnSave": true,
         "editor.formatOnType": true,
@@ -73,13 +78,24 @@
         },
         "[javascript]": {
           "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[mdx]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[markdown]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "files.associations": {
+          "**/azure-pipelines/*.yml": "azure-pipelines",
+          "**/azure-pipelines/*.yaml": "azure-pipelines"
+        },
+        "search.exclude": {
+          "**/node_modules": true,
+          "**/build": true,
+          "**/.docusaurus": true,
+          "**/dist": true
         }
       }
     }
-  },
-  "features": {
-    "ghcr.io/devcontainers-contrib/features/curl-apt-get:1": {},
-    "ghcr.io/devcontainers/features/git:1": {},
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   }
 }

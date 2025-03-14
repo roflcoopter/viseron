@@ -1,15 +1,15 @@
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import { useContext, useEffect, useReducer, useRef } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { ReactComponent as ViseronLogo } from "viseron-logo.svg";
+import ViseronLogo from "svg/viseron-logo.svg?react";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
-import { AuthContext } from "context/AuthContext";
+import { useAuthContext } from "context/AuthContext";
 import { useTitle } from "hooks/UseTitle";
 import { useAuthLogin } from "lib/api/auth";
 import queryClient from "lib/api/client";
@@ -43,7 +43,7 @@ function reducer(state: InputState, action: InputAction): InputState {
 
 const Login = () => {
   useTitle("Login");
-  const { auth } = useContext(AuthContext);
+  const { auth } = useAuthContext();
   const location = useLocation();
   const navigate = useNavigate();
   const login = useAuthLogin();
@@ -67,7 +67,9 @@ const Login = () => {
     fromRef.current =
       location.state && location.state.from ? location.state.from : null;
     // Clear the state parameter
-    navigate(location.pathname, { replace: true });
+    if (fromRef.current) {
+      navigate(location.pathname, { replace: true });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -124,8 +126,9 @@ const Login = () => {
                 dispatch={dispatch}
                 password
               />
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Button
+                  type="submit"
                   fullWidth
                   variant="contained"
                   disabled={
@@ -133,7 +136,7 @@ const Login = () => {
                     !inputState.password.value ||
                     !!inputState.username.error ||
                     !!inputState.password.error ||
-                    login.isLoading
+                    login.isPending
                   }
                   onClick={() => {
                     login.mutate(
@@ -145,7 +148,7 @@ const Login = () => {
                         onSuccess: async (_data, _variables, _context) => {
                           navigate(fromRef.current ? fromRef.current : "/");
                         },
-                      }
+                      },
                     );
                   }}
                 >

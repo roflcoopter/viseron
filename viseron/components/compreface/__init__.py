@@ -26,6 +26,7 @@ from .const import (
     CONFIG_SIMILARITTY_THRESHOLD,
     CONFIG_STATUS,
     CONFIG_TRAIN,
+    CONFIG_USE_SUBJECTS,
     DEFAULT_DET_PROB_THRESHOLD,
     DEFAULT_FACE_PLUGINS,
     DEFAULT_LIMIT,
@@ -33,6 +34,7 @@ from .const import (
     DEFAULT_SIMILARITTY_THRESHOLD,
     DEFAULT_STATUS,
     DEFAULT_TRAIN,
+    DEFAULT_USE_SUBJECTS,
     DESC_API_KEY,
     DESC_COMPONENT,
     DESC_DET_PROB_THRESHOLD,
@@ -45,6 +47,7 @@ from .const import (
     DESC_SIMILARITY_THRESHOLD,
     DESC_STATUS,
     DESC_TRAIN,
+    DESC_USE_SUBJECTS,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -81,6 +84,11 @@ FACE_RECOGNITION_SCHEMA = FACE_RECOGNITION_BASE_CONFIG_SCHEMA.extend(
         ): Maybe(str),
         vol.Optional(
             CONFIG_STATUS, default=DEFAULT_STATUS, description=DESC_STATUS
+        ): bool,
+        vol.Optional(
+            CONFIG_USE_SUBJECTS,
+            default=DEFAULT_USE_SUBJECTS,
+            description=DESC_USE_SUBJECTS,
         ): bool,
     }
 )
@@ -120,6 +128,6 @@ def setup(vis: Viseron, config) -> bool:
             )
 
         if config[CONFIG_FACE_RECOGNITION][CONFIG_TRAIN]:
-            CompreFaceTrain(config)
+            CompreFaceTrain(vis, config)
 
     return True

@@ -75,14 +75,14 @@ class TestAppBase(AsyncHTTPTestCase):
             "viseron.components.webserver.create_application"
         ):
             mocked_load_config.return_value = self.config
-            self.vis = setup_viseron()
+            self.vis = setup_viseron(start_background_scheduler=False)
         self.webserver: Webserver = self.vis.data[COMPONENT]
         return super().setUp()
 
     def tearDown(self) -> None:
         """Tear down the test."""
+        super().tearDown()
         self.vis.shutdown()
-        return super().tearDown()
 
     def get_app(self):
         """Get the application.
@@ -115,12 +115,16 @@ class TestAppBaseAuth(TestAppBase):
             os.remove(
                 self.webserver.auth._auth_store.path  # pylint: disable=protected-access
             )
-        if os.path.exists(self.webserver.auth.onboarding_path):
-            os.remove(self.webserver.auth.onboarding_path)
+        if os.path.exists(self.webserver.auth.onboarding_path()):
+            os.remove(self.webserver.auth.onboarding_path())
         return super().tearDown()
 
     def fetch_with_auth(
-        self, path: str, raise_error: bool = False, **kwargs: Any
+        self,
+        path: str,
+        raise_error: bool = False,
+        token_parameter: bool = False,
+        **kwargs: Any,
     ) -> HTTPResponse:
         """Add authentication headers when running fetch."""
         os.makedirs(
@@ -139,20 +143,22 @@ class TestAppBaseAuth(TestAppBase):
         if "headers" not in kwargs:
             kwargs["headers"] = {}
 
+        # Add refresh token cookie
         refresh_token = self.webserver.auth.get_refresh_token(REFRESH_TOKEN_ID)
-        access_token = self.webserver.auth.generate_access_token(
-            refresh_token, "dummy.lan"
-        )
-
         refresh_token_cookie = create_signed_value(
             self._app.settings["cookie_secret"],
             "refresh_token",
             "token",
         ).decode()
-
         kwargs["headers"][
             "Cookie"
         ] = f"refresh_token={refresh_token_cookie};user={USER_ID};"
+
+        # Create access token
+        access_token = self.webserver.auth.generate_access_token(
+            refresh_token, "dummy.lan"
+        )
+        header, payload, signature = access_token.split(".")
 
         # Add optional static asset key cookie
         static_asset_key_cookie = create_signed_value(
@@ -162,6 +168,20 @@ class TestAppBaseAuth(TestAppBase):
         ).decode()
         kwargs["headers"]["Cookie"] += f"static_asset_key={static_asset_key_cookie};"
 
-        kwargs["headers"]["Authorization"] = "Bearer " + access_token
+        if token_parameter:
+            if "?" in path:
+                path += "&"
+            else:
+                path += "?"
+            path += f"token={header}.{payload}"
+            signature_token_cookie = create_signed_value(
+                self._app.settings["cookie_secret"],
+                "signature_cookie",
+                signature,
+            ).decode()
+            kwargs["headers"]["Cookie"] += f"signature_cookie={signature_token_cookie};"
+        else:
+            if not kwargs["headers"].get("Authorization", False):
+                kwargs["headers"]["Authorization"] = "Bearer " + access_token
 
         return self.fetch(path, raise_error, **kwargs)

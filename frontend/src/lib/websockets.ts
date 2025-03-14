@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import React from "react";
 
 import { Toast, toastIds } from "hooks/UseToast";
@@ -40,16 +41,22 @@ interface SubscribeEventCommmandInFlight<T> {
   callback: (ev: T) => void;
   subscribe: (() => Promise<SubscriptionUnsubscribe>) | undefined;
   unsubscribe: SubscriptionUnsubscribe;
+  errorCallback?: (message: types.WebSocketSubscriptionErrorResponse) => void;
 }
 
-export function createSocket(wsURL: string): Promise<WebSocket> {
+export type SocketPromise = {
+  socket: WebSocket;
+  system_information: types.SystemInformation;
+};
+
+export function createSocket(wsURL: string): Promise<SocketPromise> {
   if (DEBUG) {
     console.debug("[Socket] Initializing", wsURL);
   }
 
   function connect(
-    promResolve: (socket: WebSocket) => void,
-    promReject: (err: Error) => void
+    promResolve: ({ socket, system_information }: SocketPromise) => void,
+    promReject: (err: Error) => void,
   ) {
     if (DEBUG) {
       console.debug("[Socket] New connection", wsURL);
@@ -75,7 +82,7 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
 
     const handleMessage = async (event: MessageEvent) => {
       let storedTokens = loadTokens();
-      const message = JSON.parse(event.data);
+      const message: types.WebSocketAuthResponse = JSON.parse(event.data);
 
       if (DEBUG) {
         console.debug("[Socket] Received", message);
@@ -102,7 +109,10 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
             // Since we authenticate by partly using cookies, we need to close the
             // socket and open a new one so the refreshed signature_cookie is sent.
             socket.close();
-            let newSocket: WebSocket;
+            let newSocket: {
+              socket: WebSocket;
+              system_information: types.SystemInformation;
+            };
             try {
               newSocket = await createSocket(wsURL);
             } catch (error) {
@@ -121,8 +131,8 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
           }
           socket.send(
             JSON.stringify(
-              messages.auth(`${storedTokens.header}.${storedTokens.payload}`)
-            )
+              messages.auth(`${storedTokens.header}.${storedTokens.payload}`),
+            ),
           );
           break;
 
@@ -139,7 +149,10 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
           socket.removeEventListener("message", handleMessage);
           socket.removeEventListener("close", closeMessage);
           socket.removeEventListener("error", closeMessage);
-          promResolve(socket);
+          promResolve({
+            socket,
+            system_information: message.system_information,
+          });
           break;
 
         default:
@@ -156,12 +169,14 @@ export function createSocket(wsURL: string): Promise<WebSocket> {
 
   return new Promise((resolve, reject) =>
     // eslint-disable-next-line no-promise-executor-return
-    connect(resolve, reject)
+    connect(resolve, reject),
   );
 }
 
 export class Connection {
   socket: WebSocket | null = null;
+
+  system_information: types.SystemInformation | null = null;
 
   reconnectTimer: NodeJS.Timeout | null = null;
 
@@ -199,6 +214,7 @@ export class Connection {
       return;
     }
 
+    document.cookie = `X-Client-UTC-Offset=${dayjs().utcOffset()}; path=/websocket`;
     const wsURL = `${
       window.location.protocol === "https:" ? "wss://" : "ws://"
     }${location.host}/websocket`;
@@ -206,8 +222,9 @@ export class Connection {
     // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
-        // eslint-disable-next-line no-await-in-loop
-        this.socket = await createSocket(wsURL);
+        ({ socket: this.socket, system_information: this.system_information } =
+          // eslint-disable-next-line no-await-in-loop
+          await createSocket(wsURL));
         break;
       } catch (error) {
         if (error === ERR_INVALID_AUTH) {
@@ -275,7 +292,7 @@ export class Connection {
               subscription.resolve();
             });
           }
-        }
+        },
       );
     }
 
@@ -307,16 +324,43 @@ export class Connection {
     const command_info = this.commands.get(message.command_id);
 
     switch (message.type) {
-      case "event":
+      case "subscription_result":
         if (command_info) {
-          command_info.callback(
-            (message as types.WebSocketEventResponse).event
-          );
+          if (message.success) {
+            command_info.callback(
+              (message as types.WebSocketSubscriptionResultResponse).result,
+            );
+          } else if (command_info.errorCallback) {
+            command_info.errorCallback(
+              message as types.WebSocketSubscriptionErrorResponse,
+            );
+          } else {
+            console.warn(
+              `Received error for subscription ${message.command_id}. Unsubscribing.`,
+            );
+            this.toast.error(
+              (message as types.WebSocketSubscriptionErrorResponse).error
+                .message,
+              {
+                toastId: toastIds.websocketSubscriptionResultError,
+              },
+            );
+            command_info.unsubscribe();
+          }
         } else {
           console.warn(
-            `Received event for unknown subscription ${message.command_id}. Unsubscribing.`
+            `Received message for unknown subscription ${message.command_id}. Unsubscribing.`,
           );
-          // TODO UNSUB HERE
+        }
+        break;
+
+      case "cancel_subscription":
+        if (command_info) {
+          command_info.unsubscribe();
+        } else {
+          console.warn(
+            `Received message for unknown subscription ${message.command_id}. Unsubscribing.`,
+          );
         }
         break;
 
@@ -451,7 +495,7 @@ export class Connection {
 
   fireEvent(eventType: Events, eventData?: any) {
     (this.eventListeners.get(eventType) || []).forEach((callback: any) =>
-      callback(this, eventData)
+      callback(this, eventData),
     );
   }
 
@@ -515,9 +559,11 @@ export class Connection {
     callback: (message: EventType) => void,
     subMessage:
       | messages.SubscribeEventMessage
-      | messages.SubscribeStatesMessage,
+      | messages.SubscribeStatesMessage
+      | messages.SubscribeTimespansMessage,
     unsubMessage: (subscription: number) => Message,
-    resubscribe = true
+    resubscribe = true,
+    errorCallback?: (message: types.WebSocketSubscriptionErrorResponse) => void,
   ): Promise<SubscriptionUnsubscribe> {
     if (this.queuedMessages) {
       await new Promise((resolve, reject) => {
@@ -548,6 +594,7 @@ export class Connection {
             this.oldSubscriptions.delete(commandId);
           }
         },
+        errorCallback,
       };
 
       this.commands.set(commandId, subscription);
@@ -560,10 +607,52 @@ export class Connection {
     return () => subscription.unsubscribe();
   }
 
+  private async serverControlledSubscribe<EventType>(
+    callback: (message: EventType) => void,
+    subMessage:
+      | messages.ExportRecordingMessage
+      | messages.ExportSnapshotMessage
+      | messages.ExportTimespanMessage,
+    errorCallback?: (message: types.WebSocketSubscriptionErrorResponse) => void,
+  ) {
+    if (this.queuedMessages) {
+      await new Promise((resolve, reject) => {
+        this.queuedMessages!.push({ resolve, reject });
+      });
+    }
+    let subscription: SubscribeEventCommmandInFlight<any>;
+
+    await new Promise((resolve, reject) => {
+      const commandId = this._generateCommandId();
+
+      subscription = {
+        resolve,
+        reject,
+        callback,
+        subscribe: undefined,
+        unsubscribe: async () => {
+          this.commands.delete(commandId);
+          if (this.oldSubscriptions) {
+            this.oldSubscriptions.delete(commandId);
+          }
+        },
+        errorCallback,
+      };
+
+      this.commands.set(commandId, subscription);
+      try {
+        this.sendMessage(subMessage, commandId);
+      } catch (err) {
+        // Socket is closing
+      }
+    });
+  }
+
   async subscribeEvent<EventType>(
     event: string,
     callback: (message: EventType) => void,
-    resubscribe = true
+    resubscribe = true,
+    debounce?: number,
   ): Promise<SubscriptionUnsubscribe> {
     if (this.queuedMessages) {
       await new Promise((resolve, reject) => {
@@ -575,9 +664,9 @@ export class Connection {
     }
     const unsub = await this.subscribe(
       callback,
-      messages.subscribeEvent(event),
+      messages.subscribeEvent(event, debounce),
       (subscription) => messages.unsubscribeEvent(subscription),
-      resubscribe
+      resubscribe,
     );
     return unsub;
   }
@@ -586,7 +675,7 @@ export class Connection {
     callback: (message: types.StateChangedEvent) => void,
     entity_id?: string,
     entity_ids?: string[],
-    resubscribe = true
+    resubscribe = true,
   ): Promise<SubscriptionUnsubscribe> {
     if (this.queuedMessages) {
       await new Promise((resolve, reject) => {
@@ -600,8 +689,100 @@ export class Connection {
       callback,
       messages.subscribeStates(entity_id, entity_ids),
       (subscription) => messages.unsubscribeStates(subscription),
-      resubscribe
+      resubscribe,
     );
     return unsub;
+  }
+
+  async subscribeTimespans(
+    callback: (message: types.HlsAvailableTimespans) => void,
+    camera_identifiers: string[],
+    date: string | null,
+    debounce?: number,
+    resubscribe = true,
+  ): Promise<SubscriptionUnsubscribe> {
+    if (this.queuedMessages) {
+      await new Promise((resolve, reject) => {
+        this.queuedMessages!.push({ resolve, reject });
+      });
+    }
+    if (DEBUG) {
+      console.debug("Subscribing to timespans for ", camera_identifiers);
+    }
+    const unsub = await this.subscribe(
+      callback,
+      messages.subscribeTimespans(camera_identifiers, date, debounce),
+      (subscription) => messages.unsubscribeTimespans(subscription),
+      resubscribe,
+    );
+    return unsub;
+  }
+
+  async exportRecording(
+    camera_identifier: string,
+    recording_id: number,
+    callback: (message: any) => void,
+    errorCallback: (message: types.WebSocketSubscriptionErrorResponse) => void,
+  ) {
+    if (this.queuedMessages) {
+      await new Promise((resolve, reject) => {
+        this.queuedMessages!.push({ resolve, reject });
+      });
+    }
+    if (DEBUG) {
+      console.debug("Exporting recording", recording_id);
+    }
+
+    await this.serverControlledSubscribe(
+      callback,
+      messages.exportRecording(camera_identifier, recording_id),
+      errorCallback,
+    );
+  }
+
+  async exportSnapshot(
+    event_type: string,
+    camera_identifier: string,
+    snapshot_id: number,
+    callback: (message: any) => void,
+    errorCallback: (message: types.WebSocketSubscriptionErrorResponse) => void,
+  ) {
+    if (this.queuedMessages) {
+      await new Promise((resolve, reject) => {
+        this.queuedMessages!.push({ resolve, reject });
+      });
+    }
+    if (DEBUG) {
+      console.debug("Exporting snapshot", snapshot_id);
+    }
+
+    await this.serverControlledSubscribe(
+      callback,
+      messages.exportSnapshot(event_type, camera_identifier, snapshot_id),
+      errorCallback,
+    );
+  }
+
+  async exportTimespan(
+    camera_identifier: string,
+    start: number,
+    end: number,
+    callback: (message: any) => void,
+    errorCallback: (message: types.WebSocketSubscriptionErrorResponse) => void,
+  ) {
+    if (this.queuedMessages) {
+      await new Promise((resolve, reject) => {
+        this.queuedMessages!.push({ resolve, reject });
+      });
+    }
+    if (DEBUG) {
+      console.debug("Exporting timespan", start, end);
+    }
+
+    await this.serverControlledSubscribe(
+      callback,
+      messages.exportTimespan(camera_identifier, start, end),
+      errorCallback,
+    );
   }
 }

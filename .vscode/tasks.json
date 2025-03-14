@@ -8,7 +8,7 @@
       "group": "test",
       "presentation": {
         "reveal": "always",
-        "panel": "new"
+        "panel": "dedicated"
       },
       "problemMatcher": []
     },
@@ -66,7 +66,7 @@
       "label": "Python: Install all Requirements",
       "detail": "Install all requirements in requirements.txt",
       "type": "shell",
-      "command": "pip3 install -r requirements.txt",
+      "command": "python3 -m pip install -r requirements.txt",
       "group": {
         "kind": "build",
         "isDefault": true
@@ -81,10 +81,27 @@
       "label": "Python: Install all Test Requirements",
       "detail": "Install all requirements in requirements_test.txt",
       "type": "shell",
-      "command": "pip3 install -r requirements_test.txt",
+      "command": "python3 -m pip install -r requirements_test.txt",
       "group": {
         "kind": "build",
         "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Python: Generate database migration",
+      "detail": "Generates a new revision file for the database.",
+      "type": "shell",
+      "command": "alembic revision --autogenerate -m '${input:revision_message}'",
+      "options": {
+        "cwd": "${workspaceFolder}/viseron/components/storage"
+      },
+      "group": {
+        "kind": "build"
       },
       "presentation": {
         "reveal": "always",
@@ -267,12 +284,30 @@
       },
       "problemMatcher": []
     },
+    {
+      "label": "Docs: Generate Component Docs for All Components",
+      "type": "shell",
+      "command": "python3 -m scripts.gen_docs -a",
+      "group": {
+        "kind": "build"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    }
   ],
   "inputs": [
     {
       "id": "component",
       "type": "promptString",
-      "description": "The component to generate docs for",
+      "description": "The component to generate docs for"
     },
+    {
+      "id": "revision_message",
+      "type": "promptString",
+      "description": "Revision message (should end with a period)"
+    }
   ]
 }

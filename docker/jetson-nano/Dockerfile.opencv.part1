@@ -70,12 +70,16 @@ RUN buildDeps="autoconf \
   libcublas-dev" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps} && \
-  pip3 install numpy
+  python3 -m pip install numpy
 
 # Minimal cuda install does not create symlink so we do it manually
 RUN ln -s /usr/local/cuda-10.2 /usr/local/cuda
 
 ## OpenCV
+# Patch OpenCV to build with CUDA on Jetson Nano
+# Can be removed with Opencv => 4.11
+# https://github.com/opencv/opencv_contrib/pull/3751
+ADD docker/jetson-nano/opencv-tuple.patch /tmp/opencv_contrib/opencv-tuple.patch
 RUN  \
   DIR=/tmp/opencv && mkdir -p ${DIR} && cd ${DIR} && \
   curl -sL -o opencv-${OPENCV_VERSION}.tar.gz https://github.com/opencv/opencv/archive/${OPENCV_VERSION}.tar.gz && \
@@ -83,7 +87,8 @@ RUN  \
 RUN  \
   DIR=/tmp/opencv_contrib && mkdir -p ${DIR} && cd ${DIR} && \
   curl -sL -o opencv_contrib-${OPENCV_VERSION}.tar.gz https://github.com/opencv/opencv_contrib/archive/${OPENCV_VERSION}.tar.gz && \
-  tar -x --strip-components=1 -f opencv_contrib-${OPENCV_VERSION}.tar.gz
+  tar -x --strip-components=1 -f opencv_contrib-${OPENCV_VERSION}.tar.gz && \
+  git apply opencv-tuple.patch
 
 RUN \
   DIR=/tmp/opencv/build && mkdir -p ${DIR} && cd ${DIR} && \

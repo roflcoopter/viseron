@@ -1,12 +1,16 @@
 """Watchdog for long-running threads."""
 from __future__ import annotations
 
-import datetime
 import logging
 import subprocess as sp
+from typing import TYPE_CHECKING
 
+from viseron.const import VISERON_SIGNAL_SHUTDOWN
+from viseron.helpers import utcnow
 from viseron.watchdog import WatchDog
 
+if TYPE_CHECKING:
+    from viseron import Viseron
 LOGGER = logging.getLogger(__name__)
 
 
@@ -18,7 +22,13 @@ class RestartablePopen:
     """
 
     def __init__(
-        self, *args, name=None, grace_period=20, register=True, **kwargs
+        self,
+        *args,
+        name=None,
+        grace_period=20,
+        register=True,
+        stage: str | None = VISERON_SIGNAL_SHUTDOWN,
+        **kwargs,
     ) -> None:
         self._args = args
         self._name = name
@@ -29,6 +39,7 @@ class RestartablePopen:
         self.start()
         if register:
             SubprocessWatchDog.register(self)
+        setattr(self, "__stage__", stage)
 
     def __getattr__(self, attr):
         """Forward all undefined attribute calls to sp.Popen."""
@@ -67,7 +78,7 @@ class RestartablePopen:
             *self._args,
             **self._kwargs,
         )
-        self._start_time = datetime.datetime.now().timestamp()
+        self._start_time = utcnow().timestamp()
         self._started = True
 
     def restart(self) -> None:
@@ -96,9 +107,18 @@ class SubprocessWatchDog(WatchDog):
 
     registered_items: list[RestartablePopen] = []
 
-    def __init__(self) -> None:
+    def __init__(self, vis: Viseron) -> None:
         super().__init__()
-        self._scheduler.add_job(self.watchdog, "interval", seconds=15)
+        vis.background_scheduler.add_job(
+            self.watchdog,
+            "interval",
+            id="subprocess_watchdog",
+            name="subprocess_watchdog",
+            seconds=15,
+            max_instances=1,
+            coalesce=True,
+            replace_existing=True,
+        )
 
     def watchdog(self) -> None:
         """Check for stopped processes and restart them."""
@@ -107,7 +127,7 @@ class SubprocessWatchDog(WatchDog):
                 continue
             if registered_process.subprocess.poll() is None:
                 continue
-            now = datetime.datetime.now().timestamp()
+            now = utcnow().timestamp()
             if now - registered_process.start_time < registered_process.grace_period:
                 continue
 

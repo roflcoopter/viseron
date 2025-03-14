@@ -9,7 +9,7 @@ on:
 
 env:
   CACHE_VERSION: 1
-  DEFAULT_PYTHON: 3.8
+  DEFAULT_PYTHON: "3.10"
   PRE_COMMIT_CACHE: ~/.cache/pre-commit
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
@@ -18,7 +18,7 @@ env:
 jobs:
   prepare-python-venv:
     name: Prepare Python venv
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       python-venv-cache-key: ${{ steps.python-venv-cache-key.outputs.key }}
     steps:
@@ -39,28 +39,27 @@ jobs:
           echo "key=${{ runner.os }}-${{ github.job }}-${{ env.cache-name }}-${{ env.CACHE_VERSION }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('requirements.txt') }}-${{ hashFiles('requirements_test.txt') }}-${{ hashFiles('requirements_ci.txt') }}" >> $GITHUB_OUTPUT
       - name: Restore Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ steps.python-venv-cache-key.outputs.key }}
       - name: Create Python virtual environment
         if: steps.cache-venv.outputs.cache-hit != 'true'
-        # Install pycoral from Google Coral repo since it is not on PyPI
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libgirepository1.0-dev
-          python3 -m venv venv
+          python3 -m venv --system-site-packages venv
       - name: Install requirements into Python virtual environment
         if: steps.cache-venv.outputs.cache-hit != 'true'
         uses: ./.github/templates/run_in_venv
         with:
           command: |
-            pip3 install --extra-index-url https://google-coral.github.io/py-repo/ -r requirements.txt -r requirements_test.txt -r requirements_ci.txt && \
+            pip3 install -r requirements.txt -r requirements_test.txt -r requirements_ci.txt && \
             pre-commit install
 
   prepare-pre-commit:
     name: Prepare pre-commit
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: prepare-python-venv
     outputs:
       pre-commit-cache-key: ${{ steps.pre-commit-cache-key.outputs.key }}
@@ -74,7 +73,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -92,7 +91,7 @@ jobs:
       # Install pre-commit hooks into the cached virtual environment
       - name: Restore pre-commit hooks
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ steps.pre-commit-cache-key.outputs.key }}
@@ -105,7 +104,7 @@ jobs:
 
   run-isort:
     name: Run isort
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -117,7 +116,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -128,7 +127,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -145,7 +144,7 @@ jobs:
 
   run-black:
     name: Run black
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -157,7 +156,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -168,7 +167,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -185,7 +184,7 @@ jobs:
 
   run-codespell:
     name: Run codespell
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -197,7 +196,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -208,7 +207,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -225,7 +224,7 @@ jobs:
 
   run-mypy:
     name: Run mypy
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -237,7 +236,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -248,7 +247,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -261,11 +260,12 @@ jobs:
         uses: ./.github/templates/run_in_venv
         with:
           command: |
+            mypy --install-types --non-interactive viseron
             pre-commit run --hook-stage manual mypy --all-files --show-diff-on-failure
 
   run-pylint:
     name: Run pylint
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -277,7 +277,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -288,7 +288,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -297,6 +297,10 @@ jobs:
         run: |
           echo "Failed to restore pre-commit environment from cache"
           exit 1
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-gi python3-gst-1.0
       - name: Run pylint
         uses: ./.github/templates/run_in_venv
         with:
@@ -306,7 +310,7 @@ jobs:
 
   run-flake8:
     name: Run flake8
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -318,7 +322,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -329,7 +333,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -346,7 +350,7 @@ jobs:
 
   run-pyupgrade:
     name: Run pyupgrade
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -358,7 +362,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -369,7 +373,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}
@@ -386,7 +390,7 @@ jobs:
 
   run-pytest:
     name: Run pytest
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: prepare-python-venv
     steps:
       - name: Check out code from GitHub
@@ -400,7 +404,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -411,18 +415,22 @@ jobs:
           exit 1
       - name: Pull current Docker dev tag
         run: |
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-viseron
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-wheels
+          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-viseron
+          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-wheels
       - name: Re-build wheels
         run: |
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-wheels
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron
+          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-wheels
+          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron
       - name: Build pytest Docker image
         run: |
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron-tests
+          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron-tests
       - name: Run pytest
         run: |
-          docker-compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env up amd64-viseron-tests
+          if docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env up amd64-viseron-tests; then
+            exit 0
+          else
+            exit 1
+          fi
       - name: Copy .coverage to host
         run: |
           docker cp amd64-viseron-tests:/src/coverage.xml coverage.xml
@@ -431,7 +439,7 @@ jobs:
 
   run-generated-docs:
     name: Check generated docs
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: [prepare-python-venv, prepare-pre-commit]
     steps:
       - name: Check out code from GitHub
@@ -443,7 +451,7 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: Restore base Python virtual environment
         id: cache-venv
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: venv
           key: ${{ needs.prepare-python-venv.outputs.python-venv-cache-key }}
@@ -454,7 +462,7 @@ jobs:
           exit 1
       - name: Restore pre-commit environment from cache
         id: cache-pre-commit
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v4
         with:
           path: ${{ env.PRE_COMMIT_CACHE }}
           key: ${{ needs.prepare-pre-commit.outputs.pre-commit-cache-key }}

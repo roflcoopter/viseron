@@ -1,15 +1,15 @@
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid";
+import Grid from "@mui/material/Grid2";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import { useContext, useReducer } from "react";
+import { useReducer } from "react";
 import { Navigate } from "react-router-dom";
-import { ReactComponent as ViseronLogo } from "viseron-logo.svg";
+import ViseronLogo from "svg/viseron-logo.svg?react";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
-import { AuthContext } from "context/AuthContext";
+import { useAuthContext } from "context/AuthContext";
 import { useTitle } from "hooks/UseTitle";
 import queryClient from "lib/api/client";
 import { useOnboarding } from "lib/api/onboarding";
@@ -53,7 +53,7 @@ function reducer(state: InputState, action: InputAction): InputState {
 
 const Onboarding = () => {
   useTitle("Onboarding");
-  const { auth } = useContext(AuthContext);
+  const { auth } = useAuthContext();
 
   const [inputState, dispatch] = useReducer(reducer, initialState);
   const onboarding = useOnboarding();
@@ -125,8 +125,9 @@ const Onboarding = () => {
                 dispatch={dispatch}
                 password
               />
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <Button
+                  type="submit"
                   fullWidth
                   variant="contained"
                   disabled={
@@ -138,7 +139,7 @@ const Onboarding = () => {
                     !!inputState.username.error ||
                     !!inputState.password.error ||
                     !!inputState.confirmPassword.error ||
-                    onboarding.isLoading
+                    onboarding.isPending
                   }
                   onClick={() => {
                     onboarding.mutate(
@@ -150,9 +151,11 @@ const Onboarding = () => {
                       {
                         onSuccess: async (_data, _variables, _context) => {
                           // Invalidate auth query to force a re-fetch, which will redirect to the dashboard
-                          await queryClient.invalidateQueries(["auth"]);
+                          await queryClient.invalidateQueries({
+                            queryKey: ["auth"],
+                          });
                         },
-                      }
+                      },
                     );
                   }}
                 >

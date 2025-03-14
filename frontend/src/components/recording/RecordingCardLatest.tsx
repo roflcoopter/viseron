@@ -9,15 +9,15 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import { useQuery } from "@tanstack/react-query";
 import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
+import { useAuthContext } from "context/AuthContext";
 import { useCamera } from "lib/api/camera";
-import { deleteRecordingParams, useDeleteRecording } from "lib/api/client";
-import { getVideoElement, objHasValues } from "lib/helpers";
+import { useDeleteRecording, useRecordings } from "lib/api/recordings";
+import { getTimeFromDate, getVideoElement, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
 interface RecordingCardLatestProps {
@@ -30,12 +30,13 @@ export default function RecordingCardLatest({
   failed,
 }: RecordingCardLatestProps) {
   const theme = useTheme();
+  const { auth } = useAuthContext();
   const deleteRecording = useDeleteRecording();
 
-  const recordingsQuery = useQuery<types.RecordingsCamera>({
-    queryKey: [
-      `/recordings/${camera_identifier}?latest${failed ? "&failed=1" : ""}`,
-    ],
+  const recordingsQuery = useRecordings({
+    camera_identifier,
+    latest: true,
+    failed,
   });
 
   const cameraQuery = useCamera(camera_identifier, failed);
@@ -44,10 +45,10 @@ export default function RecordingCardLatest({
   if (
     objHasValues<types.RecordingsCamera>(recordingsQuery.data) &&
     objHasValues<types.RecordingsCamera>(
-      Object.values(recordingsQuery.data)[0]
+      Object.values(recordingsQuery.data)[0],
     ) &&
     objHasValues<types.RecordingsCamera>(
-      Object.values(Object.values(recordingsQuery.data)[0])[0]
+      Object.values(Object.values(recordingsQuery.data)[0])[0],
     )
   ) {
     const recordingDate = Object.values(recordingsQuery.data)[0];
@@ -57,7 +58,7 @@ export default function RecordingCardLatest({
   let text = "No recordings found";
   if (recordingsQuery.status === "error") {
     text = "Error getting latest recording";
-  } else if (recordingsQuery.status === "loading") {
+  } else if (recordingsQuery.status === "pending") {
     text = "Loading latest recording";
   } else if (recordingsQuery.status === "success" && !objHasValues(recording)) {
     text = "No recordings found";
@@ -66,80 +67,85 @@ export default function RecordingCardLatest({
     objHasValues(recording) &&
     recording
   ) {
-    text = `Latest recording: ${recording.date} - ${
-      recording.filename.split(".")[0]
-    }`;
+    const startDate = new Date(recording.start_time);
+    text = `Latest recording: ${startDate.toLocaleDateString()} - ${getTimeFromDate(
+      new Date(recording.start_time),
+    )}`;
   }
 
-  if (cameraQuery.isLoading || !cameraQuery.data) {
+  if (cameraQuery.isPending || !cameraQuery.data) {
     return null;
   }
 
   return (
-    <LazyLoad height={200}>
-      <Card
-        variant="outlined"
-        sx={{
+    <Card
+      variant="outlined"
+      sx={[
+        {
           // Vertically space items evenly to accommodate different aspect ratios
           height: "100%",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          ...(cameraQuery.data.failed && {
-            border: `2px solid ${
-              cameraQuery.data.retrying
-                ? theme.palette.warning.main
-                : theme.palette.error.main
-            }`,
-          }),
-        }}
-      >
-        <CardContent>
-          <Typography variant="h5" align="center">
-            {cameraQuery.data.name}
-          </Typography>
-          <Typography align="center">{text}</Typography>
-        </CardContent>
-        <CardMedia>
-          <LazyLoad
-            height={200}
-            placeholder={<VideoPlayerPlaceholder camera={cameraQuery.data} />}
-          >
-            {getVideoElement(cameraQuery.data, recording)}
-          </LazyLoad>
-        </CardMedia>
-        <CardActions>
-          <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
-            <Tooltip title="View Recordings">
-              <span>
-                <IconButton
-                  component={Link}
-                  to={`/recordings/${camera_identifier}`}
-                  disabled={!objHasValues(recording)}
-                >
-                  <VideoFileIcon />
-                </IconButton>
-              </span>
-            </Tooltip>
-            <Tooltip title="Delete Recordings">
-              <span>
-                <MutationIconButton<deleteRecordingParams>
-                  mutation={deleteRecording}
-                  disabled={!objHasValues(recording)}
-                  onClick={() => {
-                    deleteRecording.mutate({
-                      identifier: camera_identifier,
-                      failed,
-                    });
-                  }}
-                >
-                  <DeleteForeverIcon />
-                </MutationIconButton>
-              </span>
-            </Tooltip>
-          </Stack>
-        </CardActions>
-      </Card>
-    </LazyLoad>
+        },
+        cameraQuery.data.failed && {
+          border: `2px solid ${
+            cameraQuery.data.retrying
+              ? theme.palette.warning.main
+              : theme.palette.error.main
+          }`,
+        },
+      ]}
+    >
+      <CardContent>
+        <Typography variant="h5" align="center">
+          {cameraQuery.data.name}
+        </Typography>
+        <Typography align="center">{text}</Typography>
+      </CardContent>
+      <CardMedia>
+        <LazyLoad
+          height={200}
+          placeholder={
+            <VideoPlayerPlaceholder
+              aspectRatio={cameraQuery.data.width / cameraQuery.data.height}
+            />
+          }
+        >
+          {getVideoElement(cameraQuery.data, recording, auth.enabled)}
+        </LazyLoad>
+      </CardMedia>
+      <CardActions>
+        <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
+          <Tooltip title="View Recordings">
+            <span>
+              <IconButton
+                component={Link}
+                to={`/recordings/${camera_identifier}`}
+                disabled={!objHasValues(recording)}
+              >
+                <VideoFileIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Delete Recordings">
+            <span>
+              <MutationIconButton
+                mutation={deleteRecording}
+                disabled={!objHasValues(recording)}
+                onClick={() => {
+                  deleteRecording.mutate({
+                    identifier: camera_identifier,
+                    failed,
+                  });
+                }}
+              >
+                <DeleteForeverIcon />
+              </MutationIconButton>
+            </span>
+          </Tooltip>
+        </Stack>
+      </CardActions>
+    </Card>
   );
 }

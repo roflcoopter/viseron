@@ -1,17 +1,24 @@
 """General helper functions."""
 from __future__ import annotations
 
+import datetime
 import linecache
 import logging
 import math
+import multiprocessing as mp
 import os
+import re
+import socket
+import time
 import tracemalloc
+import urllib.parse
 from queue import Full, Queue
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import cv2
 import numpy as np
 import slugify as unicode_slug
+import supervision as sv
 import tornado.queues as tq
 
 from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
@@ -22,7 +29,39 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
-def calculate_relative_contours(contours, resolution: tuple[int, int]):
+def utcnow() -> datetime.datetime:
+    """Return current UTC time."""
+    return datetime.datetime.now(tz=datetime.timezone.utc)
+
+
+def get_utc_offset() -> datetime.timedelta:
+    """Return the current UTC offset."""
+    return datetime.timedelta(seconds=time.localtime().tm_gmtoff)
+
+
+def daterange_to_utc(
+    date: str, utc_offset: datetime.timedelta
+) -> tuple[datetime.datetime, datetime.datetime]:
+    """Convert date range to UTC.
+
+    The result is independent of the timezone of the server.
+    It is adjusted to the clients timezone by subtracting the utc_offset.
+    """
+    time_from = (
+        datetime.datetime.strptime(date, "%Y-%m-%d").replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=datetime.timezone.utc
+        )
+        - utc_offset
+    )
+    time_to = time_from + datetime.timedelta(
+        hours=23, minutes=59, seconds=59, microseconds=999999
+    )
+    return time_from, time_to
+
+
+def calculate_relative_contours(
+    contours, resolution: tuple[int, int]
+) -> list[np.ndarray]:
     """Convert contours with absolute coords to relative."""
     relative_contours = []
     for contour in contours:
@@ -43,7 +82,7 @@ def calculate_relative_coords(
 
 
 def calculate_absolute_coords(
-    bounding_box: tuple[int, int, int, int], frame_res: tuple[int, int]
+    bounding_box: tuple[float, float, float, float], frame_res: tuple[int, int]
 ) -> tuple[int, int, int, int]:
     """Convert relative coords to absolute."""
     return (
@@ -109,7 +148,7 @@ def put_object_label_relative(frame, obj, frame_res, color=(255, 0, 0)) -> None:
         thickness=FONT_THICKNESS,
     )[0]
 
-    filter_text = None
+    filter_text = ""
     if obj.filter_hit:
         filter_text = f"Filter: {obj.filter_hit}"
         (filter_text_width, filter_text_height) = cv2.getTextSize(
@@ -179,10 +218,93 @@ def draw_object(
     put_object_label_relative(frame, obj, camera_resolution, color=color)
 
 
-def draw_objects(frame, objects, camera_resolution) -> None:
+def _annotate_frame(
+    frame: np.ndarray,
+    bounding_boxes: np.ndarray,
+    class_ids: np.ndarray,
+    labels: list[str] | None,
+) -> np.ndarray:
+    """Annotate a frame with bounding boxes and labels."""
+    detections = sv.Detections(xyxy=bounding_boxes, class_id=class_ids)
+    box_corner_annotator = sv.BoxCornerAnnotator(corner_length=20, thickness=4)
+    label_annotator = sv.LabelAnnotator(
+        text_scale=1.0, border_radius=5, text_thickness=2
+    )
+
+    annotated_image = box_corner_annotator.annotate(scene=frame, detections=detections)
+    annotated_image = label_annotator.annotate(
+        scene=annotated_image, detections=detections, labels=labels
+    )
+    return annotated_image
+
+
+def annotate_frame(
+    frame: np.ndarray,
+    bounding_box: tuple[int, int, int, int],
+    label: str | None = None,
+) -> np.ndarray:
+    """Annotate a frame with a single bounding box and label."""
+    _bounding_box = np.array(
+        [
+            [
+                bounding_box[0],
+                bounding_box[1],
+                bounding_box[2],
+                bounding_box[3],
+            ]
+        ]
+    )
+    return _annotate_frame(
+        frame, _bounding_box, np.array([0]), [label] if label else None
+    )
+
+
+def _get_object_text(detected_object: DetectedObject) -> str:
+    """Return text to be displayed for an object."""
+    text = f"{detected_object.label.title()} {int(detected_object.confidence * 100)}%"
+    if detected_object.filter_hit:
+        text += f"\nFilter: {detected_object.filter_hit}"
+    return text
+
+
+def draw_objects(
+    frame: np.ndarray,
+    detected_objects: list[DetectedObject],
+    resolution: tuple[int, int] | None = None,
+) -> None:
     """Draw objects on supplied frame."""
-    for obj in objects:
-        draw_object(frame, obj, camera_resolution)
+    if resolution:
+        bounding_boxes = np.array(
+            [
+                list(
+                    calculate_absolute_coords(
+                        (
+                            detected_object.rel_x1,
+                            detected_object.rel_y1,
+                            detected_object.rel_x2,
+                            detected_object.rel_y2,
+                        ),
+                        resolution,
+                    )
+                )
+                for detected_object in detected_objects
+            ]
+        )
+    else:
+        bounding_boxes = np.array(
+            [
+                [
+                    detected_object.abs_x1,
+                    detected_object.abs_y1,
+                    detected_object.abs_x2,
+                    detected_object.abs_y2,
+                ]
+                for detected_object in detected_objects
+            ]
+        )
+    class_id = np.array([index for index, _ in enumerate(detected_objects)])
+    labels = [_get_object_text(detected_object) for detected_object in detected_objects]
+    _annotate_frame(frame, bounding_boxes, class_id, labels)
 
 
 def draw_zones(frame, zones) -> None:
@@ -220,14 +342,19 @@ def draw_contours(frame, contours, resolution, threshold) -> None:
     cv2.drawContours(frame, filtered_contours, -1, (130, 0, 75), thickness=1)
 
 
-def draw_mask(text, frame, mask_points, color=(255, 255, 255)) -> None:
+def draw_mask(
+    text: str,
+    frame: np.ndarray,
+    mask_points: list[np.ndarray],
+    color: tuple[int, int, int] = (255, 255, 255),
+) -> None:
     """Draw mask on supplied frame."""
-    mask_overlay = frame.copy()
+    mask_overlay: np.ndarray = frame.copy()
     # Draw polygon filled with black color
     cv2.fillPoly(
         mask_overlay,
         pts=mask_points,
-        color=(0),
+        color=(0, 0, 0),  # Specify the color as a tuple of three integers
     )
     # Apply overlay on frame with 70% opacity
     cv2.addWeighted(
@@ -274,8 +401,13 @@ def draw_object_mask(frame, mask_points) -> None:
     draw_mask("Object mask", frame, mask_points, color=(255, 255, 255))
 
 
+def apply_mask(frame: np.ndarray, mask_image) -> None:
+    """Apply mask to frame."""
+    frame[mask_image] = [0]
+
+
 def pop_if_full(
-    queue: Queue,
+    queue: Queue | mp.Queue | tq.Queue,
     item: Any,
     logger: logging.Logger = LOGGER,
     name: str = "unknown",
@@ -296,7 +428,7 @@ def slugify(text: str) -> str:
     return unicode_slug.slugify(text, separator="_")
 
 
-def create_directory(path) -> None:
+def create_directory(path: str) -> None:
     """Create a directory."""
     try:
         if not os.path.isdir(path):
@@ -320,6 +452,22 @@ def generate_mask(coordinates):
     for mask_coordinates in coordinates:
         mask.append(generate_numpy_from_coordinates(mask_coordinates["coordinates"]))
     return mask
+
+
+def generate_mask_image(mask, resolution):
+    """Return an image with the mask drawn on it."""
+    mask_image = np.zeros(
+        (
+            resolution[0],
+            resolution[1],
+            3,
+        ),
+        np.uint8,
+    )
+    mask_image[:] = 255
+
+    cv2.fillPoly(mask_image, pts=mask, color=(0, 0, 0))
+    return np.where(mask_image[:, :, 0] == [0])
 
 
 def object_in_polygon(resolution, obj: DetectedObject, coordinates):
@@ -356,13 +504,38 @@ def letterbox_resize(image: np.ndarray, width, height):
     return output_image
 
 
+@overload
 def convert_letterboxed_bbox(
     frame_width: int,
     frame_height: int,
     model_width: int,
     model_height: int,
     bbox: tuple[int, int, int, int],
+    return_absolute: Literal[False] = ...,
 ) -> tuple[float, float, float, float]:
+    ...
+
+
+@overload
+def convert_letterboxed_bbox(
+    frame_width: int,
+    frame_height: int,
+    model_width: int,
+    model_height: int,
+    bbox: tuple[int, int, int, int],
+    return_absolute: Literal[True],
+) -> tuple[int, int, int, int]:
+    ...
+
+
+def convert_letterboxed_bbox(
+    frame_width: int,
+    frame_height: int,
+    model_width: int,
+    model_height: int,
+    bbox: tuple[int, int, int, int],
+    return_absolute: bool = False,
+) -> tuple[float, float, float, float] | tuple[int, int, int, int]:
     """Convert boundingbox from a letterboxed image to the original image.
 
     To improve accuracy, images are resized with letterboxing before running
@@ -374,12 +547,17 @@ def convert_letterboxed_bbox(
             Width of original input image.
         frame_height:
             Height of original input image.
-        frame_width:
+        model_width:
             Width of object detection model.
-        frame_height:
+        model_height:
             Height of object detection model.
         bbox:
             The ABSOLUTE bounding box coordinates predicted from the model.
+        return_absolute:
+            If True, return absolute coordinates. If False, return relative coordinates.
+
+    Returns:
+        The converted relative or absolute bounding box coordinates.
     """
     if model_width != model_height:
         raise ValueError(
@@ -426,12 +604,101 @@ def convert_letterboxed_bbox(
         new_y2 = (
             y2 / model_height * frame_height
         )  # Scale height from model to frame height
-    return (
-        new_x1,
-        new_y1,
-        new_x2,
-        new_y2,
+    if return_absolute:
+        return (
+            round(new_x1),
+            round(new_y1),
+            round(new_x2),
+            round(new_y2),
+        )
+
+    return calculate_relative_coords(
+        (
+            round(new_x1),
+            round(new_y1),
+            round(new_x2),
+            round(new_y2),
+        ),
+        (frame_width, frame_height),
     )
+
+
+def zoom_boundingbox(
+    frame: np.ndarray,
+    bounding_box: tuple[int, int, int, int],
+    min_size=300,
+    crop_correction_factor=1,
+) -> np.ndarray:
+    """Zoom in on a bounding box in an image."""
+    x1, y1, x2, y2 = bounding_box
+    size = max(int(max(x2 - x1, y2 - y1) * crop_correction_factor), min_size)
+
+    x_offset = max(
+        0, min(int((x2 - x1) / 2.0 + x1 - size / 2.0), frame.shape[1] - size)
+    )
+    y_offset = max(
+        0, min(int((y2 - y1) / 2.0 + y1 - size / 2.0), frame.shape[0] - size)
+    )
+
+    return frame.copy()[y_offset : y_offset + size, x_offset : x_offset + size]
+
+
+def get_free_port(port=1024, max_port=65535) -> int:
+    """Find a free port."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    while port <= max_port:
+        try:
+            sock.bind(("", port))
+            sock.close()
+            return port
+        except OSError:
+            port += 1
+    raise OSError("no free ports")
+
+
+def escape_string(string: str) -> str:
+    """Escape special characters in a string."""
+    return urllib.parse.quote(string, safe="")
+
+
+def parse_size_to_bytes(size_str: str) -> int:
+    """Convert human-readable size strings to bytes (e.g. '10mb' -> 10485760)."""
+
+    units = {
+        "tb": 1024**4,
+        "gb": 1024**3,
+        "mb": 1024**2,
+        "kb": 1024,
+        "b": 1,
+    }
+
+    size_str = str(size_str).strip().lower()
+
+    # If it's just a number, assume bytes
+    if size_str.isdigit():
+        return int(size_str)
+
+    # Extract number and unit
+    for unit in units:
+        if size_str.endswith(unit):
+            try:
+                number = float(size_str[: -len(unit)])
+                return int(number * units[unit])
+            except ValueError as err:
+                raise ValueError(f"Invalid size format: {size_str}") from err
+
+    raise ValueError(
+        f"Invalid size unit in {size_str}. Must be one of: {', '.join(units.keys())}"
+    )
+
+
+def get_image_files_in_folder(folder) -> list[str]:
+    """Return all files with JPG, JPEG or PNG extension."""
+    return [
+        os.path.join(folder, f)
+        for f in os.listdir(folder)
+        if re.match(r".*\.(jpg|jpeg|png)", f, flags=re.I)
+    ]
 
 
 def memory_usage_profiler(logger, key_type="lineno", limit=5) -> None:
