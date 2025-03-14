@@ -66,6 +66,10 @@ Viserons features include, but not limited to the following:
 
 <img src="/img/screenshots/Viseron-screenshot-events-timeline.png" alt-text="Timeline view"/>
 
+### Responsive camera grid for Events and Timeline
+
+<img src="/img/screenshots/Viseron-Events-responsive-grid.gif" alt-text="Timeline view"/>
+
 ### Entities view
 
 <img src="/img/screenshots/Viseron-screenshot-entities.png" alt-text="Entities view"/>
