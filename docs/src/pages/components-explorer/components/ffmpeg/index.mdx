@@ -231,10 +231,10 @@ services:
     container_name: viseron
     shm_size: "1024mb"
     volumes:
-      - {segments path}:/segments \
-      - {snapshots path}:/snapshots \
-      - {thumbnails path}:/thumbnails \
-      - {event clips path}:/event_clips \
+      - {segments path}:/segments
+      - {snapshots path}:/snapshots
+      - {thumbnails path}:/thumbnails
+      - {event clips path}:/event_clips
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
