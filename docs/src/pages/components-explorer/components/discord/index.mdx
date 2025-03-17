@@ -1,0 +1,58 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting";
+
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+The Discord component sends notifications to a Discord webhook when events are detected. It can send text messages, thumbnail images, and video clips (up to 8MB by default).
+
+The component sends notifications at two key moments:
+1. **At the start of recording**: A notification message is always sent as soon as recording starts, with a thumbnail if configured and available
+2. **At the end of recording**: If video sending is enabled, a notification with the video is sent when the recording is complete
+   - If the video is smaller than the configured size limit, the complete video is sent
+   - If the video exceeds the size limit, the first portion of the video (up to the configured size limit) is sent
+
+This approach ensures you get immediate notification of events while also receiving video evidence once the recording is complete.
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml
+discord:
+  webhook_url: "https://discord.com/api/webhooks/your-webhook-url"  # Global default webhook URL
+  send_detection_thumbnail: true  # Global default
+  send_detection_video: true  # Global default
+  max_video_size_mb: 8  # Global default (8MB for free tier, 50MB for level 2 boosted servers, 100MB for level 3)
+  detection_label: "person"  # Global default, defaults to "person"
+  cameras:
+    camera_1:  # Replace with your camera identifier
+      # Camera-specific overrides (optional)
+      webhook_url: "https://discord.com/api/webhooks/camera1-specific-webhook"  # Camera-specific webhook URL
+      send_detection_thumbnail: false  # Override global setting for this camera
+      send_detection_video: false  # Override global setting for this camera
+      max_video_size_mb: 50  # Override global setting for this camera (if you have a boosted server)
+      detection_label: "car"  # Override global setting for this camera
+    camera_2:  # Replace with your camera identifier
+      # You can have different webhooks for different cameras
+      webhook_url: "https://discord.com/api/webhooks/camera2-specific-webhook"
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Discord Webhook Setup
+
+1. In your Discord server, go to Server Settings > Integrations > Webhooks
+2. Click "New Webhook"
+3. Give your webhook a name and select the channel it should post to
+4. Click "Copy Webhook URL" and use this URL in your Viseron configuration
+
+## Troubleshooting
+
+<ComponentTroubleshooting meta={ComponentMetadata} />
