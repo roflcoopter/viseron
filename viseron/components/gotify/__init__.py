@@ -89,8 +89,6 @@ CONFIG_SCHEMA: vol.Schema = vol.Schema(
 def setup(vis: Viseron, config) -> bool:
     """Set up the Gotify component."""
     component_config = config[COMPONENT]
-    
-    LOGGER.info(f"Setting up Gotify component for {len(component_config[CONFIG_CAMERAS])} cameras")
 
     gotify_notifier = GotifyEventNotifier(vis, component_config)
     Thread(target=gotify_notifier.run_async).start()
