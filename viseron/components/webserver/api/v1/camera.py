@@ -18,6 +18,7 @@ from viseron.domains.camera.const import (
     CONFIG_AUTHENTICATION,
     CONFIG_PASSWORD,
     CONFIG_URL,
+    CONFIG_USE_LAST_SNAPSHOT_ON_ERROR,
     CONFIG_USERNAME,
 )
 from viseron.helpers.validators import request_argument_bool
@@ -27,6 +28,8 @@ LOGGER = logging.getLogger(__name__)
 
 class CameraAPIHandler(BaseAPIHandler):
     """Handler for API calls related to a camera."""
+
+    camera_snapshots: dict[str, bytes | None] = {}
 
     routes = [
         {
@@ -136,10 +139,22 @@ class CameraAPIHandler(BaseAPIHandler):
             return
 
         jpg = None
-        if camera.still_image_configured:
-            jpg = await self.run_in_executor(self._snapshot_from_url, camera)
+        try:
+            if camera.still_image_configured:
+                jpg = await self.run_in_executor(self._snapshot_from_url, camera)
+            else:
+                jpg = await self.run_in_executor(self._snapshot_from_memory, camera)
+        except Exception as exception:  # pylint: disable=broad-except
+            LOGGER.error(
+                "Error fetching camera snapshot for camera %s: %s",
+                camera_identifier,
+                exception,
+            )
+            if camera.still_image[CONFIG_USE_LAST_SNAPSHOT_ON_ERROR]:
+                jpg = CameraAPIHandler.camera_snapshots.get(camera_identifier, None)
         else:
-            jpg = await self.run_in_executor(self._snapshot_from_memory, camera)
+            if camera.still_image[CONFIG_USE_LAST_SNAPSHOT_ON_ERROR]:
+                CameraAPIHandler.camera_snapshots[camera_identifier] = jpg
 
         if jpg is None:
             self.response_error(
