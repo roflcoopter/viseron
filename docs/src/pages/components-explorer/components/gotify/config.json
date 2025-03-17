@@ -1,0 +1,79 @@
+[
+  {
+    "type": "map",
+    "value": [
+      {
+        "type": "string",
+        "name": "gotify_url",
+        "description": "Gotify server URL (e.g., https://gotify.example.com).",
+        "required": true,
+        "default": null
+      },
+      {
+        "type": "string",
+        "name": "gotify_token",
+        "description": "Gotify application token.",
+        "required": true,
+        "default": null
+      },
+      {
+        "type": "integer",
+        "valueMin": 1,
+        "valueMax": 10,
+        "name": "priority",
+        "description": "Priority of the notification (1-10).",
+        "optional": true,
+        "default": 5
+      },
+      {
+        "type": "string",
+        "name": "detection_label",
+        "description": "Label(s) of the object(s) to send notifications for (comma-separated for multiple labels, e.g., 'person,cat').",
+        "optional": true,
+        "default": "person"
+      },
+      {
+        "type": "boolean",
+        "name": "send_thumbnail",
+        "description": "Send a thumbnail of the detected object.",
+        "optional": true,
+        "default": false
+      },
+      {
+        "type": "map",
+        "value": [
+          {
+            "name": {
+              "type": "CAMERA_IDENTIFIER"
+            },
+            "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+            "cameraidentifier": true,
+            "default": null
+          },
+          {
+            "type": "string",
+            "name": "detection_label",
+            "description": "Label(s) of the object(s) to send notifications for this camera (comma-separated for multiple labels).",
+            "optional": true,
+            "default": null
+          },
+          {
+            "type": "boolean",
+            "name": "send_thumbnail",
+            "description": "Send a thumbnail of the detected object for this camera.",
+            "optional": true,
+            "default": null
+          }
+        ],
+        "name": "cameras",
+        "description": "Cameras to get notifications from.",
+        "required": true,
+        "default": null
+      }
+    ],
+    "name": "gotify",
+    "description": "Gotify server to send notifications for events.",
+    "required": true,
+    "default": null
+  }
+]
