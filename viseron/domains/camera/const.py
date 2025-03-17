@@ -169,6 +169,7 @@ CONFIG_AUTHENTICATION = "authentication"
 CONFIG_REFRESH_INTERVAL = "refresh_interval"
 CONFIG_STILL_IMAGE_WIDTH = "width"
 CONFIG_STILL_IMAGE_HEIGHT = "height"
+CONFIG_USE_LAST_SNAPSHOT_ON_ERROR = "use_last_snapshot_on_error"
 
 
 DEFAULT_STILL_IMAGE: Final = None
@@ -179,6 +180,8 @@ DEFAULT_AUTHENTICATION: Final = None
 DEFAULT_REFRESH_INTERVAL: Final = 10
 DEFAULT_STILL_IMAGE_WIDTH: Final = None
 DEFAULT_STILL_IMAGE_HEIGHT: Final = None
+DEFAULT_USE_LAST_SNAPSHOT_ON_ERROR: Final = False
+
 
 DESC_STILL_IMAGE = "Options for still image."
 DESC_URL = (
@@ -200,6 +203,10 @@ DESC_REFRESH_INTERVAL = (
 DESC_STILL_IMAGE_WIDTH = "Width of the still image, if different from the stream width."
 DESC_STILL_IMAGE_HEIGHT = (
     "Height of the still image, if different from the stream height."
+)
+DESC_USE_LAST_SNAPSHOT_ON_ERROR = (
+    "If <code>true</code>, the last snapshot will be used if the current snapshot "
+    "fails to load. Uses some extra memory which is why it is disabled by default."
 )
 
 INCLUSION_GROUP_AUTHENTICATION = "authentication"

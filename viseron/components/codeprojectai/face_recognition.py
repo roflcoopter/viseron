@@ -173,7 +173,7 @@ class CodeProjectAITrain:
                 max_dimension = max(width, height)
                 face_image = letterbox_resize(face_image, max_dimension, max_dimension)
                 face_image_jpg = cv2.imencode(".jpg", face_image)[1].tobytes()
-                detections = self._cpai.detect(face_image)
+                detections = self._cpai.detect(face_image_jpg)
                 LOGGER.debug("Face detection result: %s", detections)
                 if len(detections) != 1:
                     # Skip image if amount of people !=1

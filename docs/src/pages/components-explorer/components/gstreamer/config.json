@@ -184,6 +184,13 @@
                     "description": "Height of the still image, if different from the stream height.",
                     "optional": true,
                     "default": null
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "use_last_snapshot_on_error",
+                    "description": "If <code>true</code>, the last snapshot will be used if the current snapshot fails to load. Uses some extra memory which is why it is disabled by default.",
+                    "optional": true,
+                    "default": false
                   }
                 ],
                 "name": "still_image",
