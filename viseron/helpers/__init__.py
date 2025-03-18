@@ -458,8 +458,8 @@ def generate_mask_image(mask, resolution):
     """Return an image with the mask drawn on it."""
     mask_image = np.zeros(
         (
-            resolution[0],
             resolution[1],
+            resolution[0],
             3,
         ),
         np.uint8,
