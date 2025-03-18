@@ -98,7 +98,7 @@ def setup(vis: Viseron, config) -> bool:
 
 
 class GotifyEventNotifier:
-    """Gotify event notifier class that sends notifications to a Gotify server when an event occurs."""
+    """Gotify event notifier class that sends notifications to a Gotify server."""
 
     def __init__(self, vis, config) -> None:
         self._vis = vis
@@ -142,7 +142,7 @@ class GotifyEventNotifier:
             return
 
         # Check if we should filter by detection label
-        # First check camera-specific setting, then fall back to global setting, then to default
+        # First check camera setting, then fall back to global setting, then to default
         camera_detection_label = camera_config.get("detection_label")
         global_detection_label = self._config.get(
             CONFIG_DETECTION_LABEL, CONFIG_DETECTION_LABEL_DEFAULT
@@ -213,7 +213,7 @@ class GotifyEventNotifier:
                     ),
                     self._loop,
                 )
-            except Exception as exc:
+            except (cv2.error, TypeError, ValueError) as exc:
                 LOGGER.error("Failed to prepare image notification: %s", exc)
                 # Fall back to text-only notification
                 asyncio.run_coroutine_threadsafe(
@@ -229,7 +229,7 @@ class GotifyEventNotifier:
         """Send a text-only notification to Gotify."""
         try:
             self._send_gotify_message(title, message)
-        except Exception as exc:
+        except requests.RequestException as exc:
             LOGGER.error("Failed to send Gotify message: %s", exc)
 
     async def _send_notification_with_image(self, title, message, image):
@@ -242,7 +242,7 @@ class GotifyEventNotifier:
 
         try:
             self._send_gotify_message_with_image(title, message, image)
-        except Exception as exc:
+        except requests.RequestException as exc:
             LOGGER.error("Failed to send Gotify message with image: %s", exc)
             # Fall back to text-only notification
             await self._send_text_notification(title, message)
@@ -277,7 +277,7 @@ class GotifyEventNotifier:
         headers = {"X-Gotify-Key": self._gotify_token}
 
         # Encode the image as base64
-        _, buffer = cv2.imencode('.jpg', image)
+        _, buffer = cv2.imencode(".jpg", image)
         image_base64 = base64.b64encode(buffer.tobytes()).decode("utf-8")
 
         # Include the image directly in the message using markdown

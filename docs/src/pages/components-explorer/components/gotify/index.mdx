@@ -27,8 +27,6 @@ The Gotify component listens for the `EVENT_RECORDER_START` event, which is trig
    - A text message
    - A thumbnail image (if `send_thumbnail` is enabled and a thumbnail is available)
 
-This ensures that notifications are only sent when recordings are actually triggered, reducing unnecessary notifications.
-
 ## Installation
 
 1. Set up a Gotify server if you don't already have one. You can follow the [official documentation](https://gotify.net/docs/install).
@@ -55,26 +53,6 @@ gotify:
 ```
 
 </details>
-
-### Configuration Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `gotify_url` | URL to your Gotify server (required) | - |
-| `gotify_token` | Application token from Gotify (required) | - |
-| `priority` | Priority of the notifications (1-10) | 5 |
-| `detection_label` | Label(s) of the object(s) to send notifications for (comma-separated for multiple labels, e.g., "person,cat") | "person" |
-| `send_thumbnail` | Send a thumbnail of the detected object | false |
-| `cameras` | List of cameras to get notifications from (required) | - |
-
-### Camera-specific Configuration Options
-
-Each camera can have its own configuration options:
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| `detection_label` | Label(s) of the object(s) to send notifications for this camera (comma-separated for multiple labels, e.g., "person,cat") | Global setting |
-| `send_thumbnail` | Send a thumbnail of the detected object for this camera | Global setting |
 
 <ComponentConfiguration meta={ComponentMetadata} config={config} />
 
