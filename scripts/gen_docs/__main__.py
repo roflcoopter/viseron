@@ -74,7 +74,10 @@ def convert(schema, custom_convert=None):  # noqa: C901
                 pval["name"] = convert(key, custom_convert=custom_convert)
             else:
                 pval["name"] = pkey
-            pval["description"] = description
+
+            # Ne pas ajouter la description si elle est None
+            if description is not None:
+                pval["description"] = description
 
             if isinstance(key, (vol.Required, vol.Optional, Deprecated)):
                 pval[key.__class__.__name__.lower()] = True
@@ -83,7 +86,10 @@ def convert(schema, custom_convert=None):  # noqa: C901
                     pval["default"] = key.default()
                 else:
                     pval["default"] = None
-                pval["description"] = description
+
+                # Ne pas écraser la description déjà définie si elle est None
+                if description is not None:
+                    pval["description"] = description
 
             val.append(pval)
 
