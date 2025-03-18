@@ -14,48 +14,48 @@
         "value": [
           {
             "type": "map",
-            "name": {
-              "type": "CAMERA_IDENTIFIER"
-            },
-            "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
-            "cameraidentifier": true,
             "value": [
               {
                 "type": "string",
                 "name": "webhook_url",
-                "description": "Discord webhook URL (camera-specific override).",
+                "description": "Discord webhook URL. Can be overridden per camera.",
                 "optional": true,
                 "default": null
               },
               {
                 "type": "string",
                 "name": "detection_label",
-                "description": "Label of the object to send notifications for (camera-specific override).",
+                "description": "Label of the object to send notifications for.",
                 "optional": true,
                 "default": null
               },
               {
                 "type": "boolean",
                 "name": "send_detection_thumbnail",
-                "description": "Send a thumbnail of the detected object (camera-specific override).",
+                "description": "Send a thumbnail of the detected object.",
                 "optional": true,
                 "default": null
               },
               {
                 "type": "boolean",
                 "name": "send_detection_video",
-                "description": "Send a video of the detected object (camera-specific override).",
+                "description": "Send a video of the detected object.",
                 "optional": true,
                 "default": null
               },
               {
                 "type": "integer",
                 "name": "max_video_size_mb",
-                "description": "Maximum size of video to send in MB (camera-specific override).",
+                "description": "Maximum size of video to send in MB (Discord limit is 8MB for free tier, 50MB for level 2 boosted servers and 100MB for level 3 boosted servers).",
                 "optional": true,
                 "default": null
               }
             ],
+            "name": {
+              "type": "CAMERA_IDENTIFIER"
+            },
+            "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+            "cameraidentifier": true,
             "default": null
           }
         ],
@@ -81,7 +81,7 @@
       {
         "type": "boolean",
         "name": "send_detection_video",
-        "description": "Send a video of the detected object (up to 8MB due to Discord webhook limit).",
+        "description": "Send a video of the detected object.",
         "optional": true,
         "default": true
       },
