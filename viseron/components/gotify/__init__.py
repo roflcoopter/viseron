@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
-from threading import Thread
 from typing import TYPE_CHECKING
 
 import cv2
@@ -17,7 +16,8 @@ from viseron.domains.camera.const import EVENT_RECORDER_START
 from viseron.domains.camera.recorder import EventRecorderData
 from viseron.helpers import escape_string
 from viseron.helpers.logs import SensitiveInformationFilter
-from viseron.helpers.validators import CoerceNoneToDict
+from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
     COMPONENT,
@@ -78,7 +78,7 @@ CONFIG_SCHEMA: vol.Schema = vol.Schema(
                 CONFIG_SEND_THUMBNAIL, description=DESC_SEND_THUMBNAIL, default=False
             ): bool,
             vol.Required(CONFIG_CAMERAS, description=DESC_CAMERAS): {
-                vol.Any(str): vol.All(CoerceNoneToDict(), CAMERA_SCHEMA),
+                CameraIdentifier(): vol.All(CoerceNoneToDict(), CAMERA_SCHEMA)
             },
         }
     },
@@ -91,7 +91,9 @@ def setup(vis: Viseron, config) -> bool:
     component_config = config[COMPONENT]
 
     gotify_notifier = GotifyEventNotifier(vis, component_config)
-    Thread(target=gotify_notifier.run_async).start()
+    RestartableThread(
+        target=gotify_notifier.run_async, name="gotify_event_notifier"
+    ).start()
 
     vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, gotify_notifier.stop)
     return True

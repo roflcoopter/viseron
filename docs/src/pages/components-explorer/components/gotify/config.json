@@ -38,13 +38,11 @@
               }
             ],
             "name": {
-              "type": "select",
-              "options": [
-                {
-                  "type": "string"
-                }
-              ]
-            }
+              "type": "CAMERA_IDENTIFIER"
+            },
+            "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+            "cameraidentifier": true,
+            "default": null
           }
         ],
         "name": "cameras",
