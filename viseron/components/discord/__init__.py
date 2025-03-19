@@ -6,7 +6,7 @@ import asyncio
 import logging
 import os
 from threading import Lock, Thread
-from typing import TYPE_CHECKING, Dict, Set
+from typing import TYPE_CHECKING
 
 import requests
 import voluptuous as vol
@@ -122,10 +122,10 @@ class DiscordNotifier:
         self._webhook_url = self._config[CONFIG_DISCORD_WEBHOOK_URL]
         self._loop = asyncio.new_event_loop()
         self._stop_event = asyncio.Event()
-        self._active_recordings: Dict[int, Recording] = {}
-        self._sent_recordings: Set[int] = set()
+        self._active_recordings: dict[int, Recording] = {}
+        self._sent_recordings: set[int] = set()
         self._lock = Lock()
-        
+
         # Register for recorder events for all configured cameras
         for camera_identifier in self._config[CONFIG_CAMERAS]:
             self._vis.listen_event(
@@ -136,35 +136,35 @@ class DiscordNotifier:
                 EVENT_RECORDER_COMPLETE.format(camera_identifier=camera_identifier),
                 self._recorder_complete_event,
             )
-        
+
         self._vis.data[COMPONENT] = self
-        
+
     def _get_camera_config(self, camera_identifier: str, key: str, default=None):
         """Get camera-specific config or global default."""
         camera_config = self._config[CONFIG_CAMERAS].get(camera_identifier, {})
         return camera_config.get(key, self._config.get(key, default))
-        
+
     def _get_webhook_url(self, camera_identifier: str | None):
         """Get webhook URL for a specific camera or global default."""
         camera_config = self._config[CONFIG_CAMERAS].get(camera_identifier, {})
         return camera_config.get(CONFIG_DISCORD_WEBHOOK_URL, self._webhook_url)
-        
+
     def _recorder_start_event(self, event_data: Event[EventRecorderData]) -> None:
         """Handle recorder start event."""
         camera = event_data.data.camera
         recording = event_data.data.recording
-        
+
         # Always send a start notification with message
         message = f"Recording started on {camera.identifier}"
         if recording.objects:
             message += f" - Detected {recording.objects[0].label}"
-        
+
         # Check if thumbnail should be included
         send_thumbnail = self._get_camera_config(
             camera.identifier, CONFIG_SEND_THUMBNAIL, True
         )
         thumbnail_path = recording.thumbnail_path
-        
+
         if (
             send_thumbnail
             and thumbnail_path is not None
@@ -172,10 +172,7 @@ class DiscordNotifier:
         ):
             # Send message with thumbnail
             self._send_discord_file(
-                thumbnail_path,
-                message,
-                "thumbnail.jpg",
-                camera.identifier
+                thumbnail_path, message, "thumbnail.jpg", camera.identifier
             )
         else:
             # Send message only
@@ -191,27 +188,27 @@ class DiscordNotifier:
         """Send notifications to Discord webhook."""
         camera: AbstractCamera = event_data.data.camera
         recording = event_data.data.recording
-        
+
         # Check if this recording has already been sent
         with self._lock:
             already_sent = recording.id in self._sent_recordings
-        
+
         # Check if video sending is enabled for this camera
-        send_video = self._get_camera_config(
-            camera.identifier, CONFIG_SEND_VIDEO, True
-        )
-        
+        send_video = self._get_camera_config(camera.identifier, CONFIG_SEND_VIDEO, True)
+
         # Get max video size for this camera
         max_size_mb = self._get_camera_config(
-            camera.identifier, CONFIG_MAX_VIDEO_SIZE_MB, CONFIG_MAX_VIDEO_SIZE_MB_DEFAULT
+            camera.identifier,
+            CONFIG_MAX_VIDEO_SIZE_MB,
+            CONFIG_MAX_VIDEO_SIZE_MB_DEFAULT,
         )
         max_size_bytes = max_size_mb * 1024 * 1024
-        
+
         # Prepare message
         message = f"Recording completed for {camera.identifier}"
         if recording.objects:
             message += f" - Detected {recording.objects[0].label}"
-        
+
         # Check if we can send video
         clip_path = recording.clip_path
         can_send_video = (
@@ -220,12 +217,12 @@ class DiscordNotifier:
             and clip_path is not None
             and os.path.exists(clip_path)
         )
-        
+
         # If we can't send video, send a message with thumbnail
         if not can_send_video:
             # Send message
             self._send_discord_message(message, camera.identifier)
-            
+
             # Send thumbnail if configured and available
             send_thumbnail = self._get_camera_config(
                 camera.identifier, CONFIG_SEND_THUMBNAIL, True
@@ -240,21 +237,18 @@ class DiscordNotifier:
                     thumbnail_path,
                     f"Thumbnail for {camera.identifier}",
                     "thumbnail.jpg",
-                    camera.identifier
+                    camera.identifier,
                 )
         else:
             # We can send video, check file size
             assert clip_path is not None  # For type checking
             file_size = os.path.getsize(clip_path)
-            
+
             # Prepare caption for video
             caption = f"Complete video from {camera.identifier}"
             if recording.objects:
                 caption += f" - Detected {recording.objects[0].label}"
-            
-            # We already checked that clip_path is not None above, but let's assert it again for type checking
-            assert clip_path is not None
-            
+
             # If file is smaller than the limit, send the complete video
             if file_size <= max_size_bytes:
                 LOGGER.info(
@@ -264,49 +258,59 @@ class DiscordNotifier:
                     clip_path,
                     caption,
                     f"{camera.identifier}_event_complete.mp4",
-                    camera.identifier
+                    camera.identifier,
                 )
             else:
                 # Video is too large, send the first max_size_bytes
                 LOGGER.info(
-                    f"Video too large ({file_size/1024/1024:.1f}MB), sending first {max_size_mb}MB."
+                    f"Video too large ({file_size/1024/1024:.1f}MB), "
+                    f"sending first {max_size_mb}MB."
                 )
                 # Calculate approximate percentage of the video that is being sent
                 percentage = min(100, int((max_size_bytes / file_size) * 100))
                 self._send_discord_file_partial(
                     clip_path,
-                    f"{caption} \r\nTruncated to {max_size_mb}MB / {percentage}% of the original video due to Discord file size limit.\r\n"
-                    f"Note: The video player may show the full duration, but playback will stop early due to truncation.",
+                    f"{caption} \r\n"
+                    f"Truncated to {max_size_mb}MB / {percentage}% of the original "
+                    f"video due to Discord file size limit.\r\n"
+                    f"Note: The video player may show the full duration, "
+                    f"but playback will stop early due to truncation.",
                     f"{camera.identifier}_event_partial.mp4",
                     max_size_bytes,
-                    camera.identifier
+                    camera.identifier,
                 )
 
     def _send_discord_message(self, content: str, camera_identifier: str) -> bool:
         """Send a text message to Discord webhook."""
-        webhook_url = self._get_webhook_url(camera_identifier) if camera_identifier else self._webhook_url
+        webhook_url = (
+            self._get_webhook_url(camera_identifier)
+            if camera_identifier
+            else self._webhook_url
+        )
         try:
-            response = requests.post(
-                webhook_url,
-                json={"content": content},
-                timeout=30
-            )
+            response = requests.post(webhook_url, json={"content": content}, timeout=30)
             response.raise_for_status()
             return True
         except requests.RequestException as e:
             LOGGER.error(f"Failed to send Discord message: {e}")
             return False
 
-    def _send_discord_file(self, file_path: str, content: str, filename: str, camera_identifier: str) -> bool:
+    def _send_discord_file(
+        self, file_path: str, content: str, filename: str, camera_identifier: str
+    ) -> bool:
         """Send a file to Discord webhook."""
-        webhook_url = self._get_webhook_url(camera_identifier) if camera_identifier else self._webhook_url
+        webhook_url = (
+            self._get_webhook_url(camera_identifier)
+            if camera_identifier
+            else self._webhook_url
+        )
         try:
             with open(file_path, "rb") as file:
                 response = requests.post(
                     webhook_url,
                     files={"file": (filename, file)},
                     data={"content": content},
-                    timeout=60
+                    timeout=60,
                 )
             response.raise_for_status()
             return True
@@ -315,19 +319,28 @@ class DiscordNotifier:
             return False
 
     def _send_discord_file_partial(
-        self, file_path: str, content: str, filename: str, max_bytes: int, camera_identifier: str
+        self,
+        file_path: str,
+        content: str,
+        filename: str,
+        max_bytes: int,
+        camera_identifier: str,
     ) -> bool:
         """Send a partial file to Discord webhook (first max_bytes only)."""
-        webhook_url = self._get_webhook_url(camera_identifier) if camera_identifier else self._webhook_url
+        webhook_url = (
+            self._get_webhook_url(camera_identifier)
+            if camera_identifier
+            else self._webhook_url
+        )
         try:
             with open(file_path, "rb") as file:
                 file_data = file.read(max_bytes)
-                
+
             response = requests.post(
                 webhook_url,
                 files={"file": (filename, file_data)},
                 data={"content": content},
-                timeout=60
+                timeout=60,
             )
             response.raise_for_status()
             return True
