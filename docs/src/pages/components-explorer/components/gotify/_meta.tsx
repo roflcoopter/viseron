@@ -5,7 +5,7 @@ const ComponentMetadata: Component = {
   name: "gotify",
   description: "Send notifications to a Gotify server when recordings start",
   image: "https://gotify.net/img/logo.png",
-  tags: ["system"],
+  tags: ["notification"],
 };
 
 export default ComponentMetadata;
