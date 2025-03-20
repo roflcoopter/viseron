@@ -1,0 +1,101 @@
+[
+  {
+    "type": "map",
+    "value": [
+      {
+        "type": "string",
+        "name": "webhook_url",
+        "description": "Discord webhook URL. Can be overridden per camera.",
+        "required": true,
+        "default": null
+      },
+      {
+        "type": "map",
+        "value": [
+          {
+            "type": "map",
+            "value": [
+              {
+                "type": "string",
+                "name": "webhook_url",
+                "description": "Discord webhook URL. Can be overridden per camera.",
+                "optional": true,
+                "default": null
+              },
+              {
+                "type": "string",
+                "name": "detection_label",
+                "description": "Label of the object to send notifications for.",
+                "optional": true,
+                "default": null
+              },
+              {
+                "type": "boolean",
+                "name": "send_detection_thumbnail",
+                "description": "Send a thumbnail of the detected object.",
+                "optional": true,
+                "default": null
+              },
+              {
+                "type": "boolean",
+                "name": "send_detection_video",
+                "description": "Send a video of the detected object.",
+                "optional": true,
+                "default": null
+              },
+              {
+                "type": "integer",
+                "name": "max_video_size_mb",
+                "description": "Maximum size of video to send in MB (Discord limit is 8MB for free tier, 50MB for level 2 boosted servers and 100MB for level 3 boosted servers).",
+                "optional": true,
+                "default": null
+              }
+            ],
+            "name": {
+              "type": "CAMERA_IDENTIFIER"
+            },
+            "description": "Camera identifier. Valid characters are lowercase a-z, numbers and underscores.",
+            "cameraidentifier": true,
+            "default": null
+          }
+        ],
+        "name": "cameras",
+        "description": "Cameras to get notifications from.",
+        "required": true,
+        "default": null
+      },
+      {
+        "type": "string",
+        "name": "detection_label",
+        "description": "Label of the object to send notifications for.",
+        "optional": true,
+        "default": "person"
+      },
+      {
+        "type": "boolean",
+        "name": "send_detection_thumbnail",
+        "description": "Send a thumbnail of the detected object.",
+        "optional": true,
+        "default": true
+      },
+      {
+        "type": "boolean",
+        "name": "send_detection_video",
+        "description": "Send a video of the detected object.",
+        "optional": true,
+        "default": true
+      },
+      {
+        "type": "integer",
+        "name": "max_video_size_mb",
+        "description": "Maximum size of video to send in MB (Discord limit is 8MB for free tier, 50MB for level 2 boosted servers and 100MB for level 3 boosted servers).",
+        "optional": true,
+        "default": 8
+      }
+    ],
+    "name": "discord",
+    "description": "Discord webhook to send notifications.",
+    "required": true,
+    "default": null
+  }
+]
