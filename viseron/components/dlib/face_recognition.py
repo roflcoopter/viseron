@@ -5,7 +5,8 @@ import logging
 import threading
 from typing import TYPE_CHECKING
 
-from viseron.domains.camera.shared_frames import SharedFrame
+import numpy as np
+
 from viseron.domains.face_recognition import AbstractFaceRecognition
 from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH
 from viseron.helpers import calculate_absolute_coords
@@ -17,6 +18,7 @@ from .train import train
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains.object_detector.detected_object import DetectedObject
+    from viseron.domains.post_processor import PostProcessorFrame
 
 LOGGER = logging.getLogger(__name__)
 
@@ -51,11 +53,14 @@ class FaceRecognition(AbstractFaceRecognition):
         )
         self._classifier = classifier
 
+    def preprocess(self, frame) -> np.ndarray:
+        """Preprocess frame."""
+        return frame
+
     def face_recognition(
-        self, shared_frame: SharedFrame, detected_object: DetectedObject
+        self, post_processor_frame: PostProcessorFrame, detected_object: DetectedObject
     ) -> None:
         """Perform face recognition."""
-        frame = self._camera.shared_frames.get_decoded_frame_rgb(shared_frame)
         if not self._classifier:
             self._logger.error(
                 "Classifier has not been trained, "
@@ -72,7 +77,7 @@ class FaceRecognition(AbstractFaceRecognition):
             ),
             self._camera.resolution,
         )
-        cropped_frame = frame[y1:y2, x1:x2].copy()
+        cropped_frame = post_processor_frame.frame[y1:y2, x1:x2].copy()
 
         faces = predict(
             cropped_frame,
@@ -83,6 +88,8 @@ class FaceRecognition(AbstractFaceRecognition):
 
         for face, coordinates in faces:
             if face != "unknown":
-                self.known_face_found(face, coordinates, shared_frame)
+                self.known_face_found(
+                    face, coordinates, post_processor_frame.shared_frame
+                )
             else:
-                self.unknown_face_found(coordinates, shared_frame)
+                self.unknown_face_found(coordinates, post_processor_frame.shared_frame)

@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING
 
 import cv2
 import deepstack.core as ds
+import numpy as np
 import requests
 
-from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.domains.face_recognition import AbstractFaceRecognition
 from viseron.domains.face_recognition.const import CONFIG_FACE_RECOGNITION_PATH
 from viseron.helpers import calculate_absolute_coords, get_image_files_in_folder
@@ -27,6 +27,7 @@ from .const import (
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.domains.object_detector.detected_object import DetectedObject
+    from viseron.domains.post_processor import PostProcessorFrame
 
 LOGGER = logging.getLogger(__name__)
 
@@ -55,11 +56,14 @@ class FaceRecognition(AbstractFaceRecognition):
             min_confidence=config[CONFIG_FACE_RECOGNITION][CONFIG_MIN_CONFIDENCE],
         )
 
+    def preprocess(self, frame) -> np.ndarray:
+        """Preprocess frame."""
+        return frame
+
     def face_recognition(
-        self, shared_frame: SharedFrame, detected_object: DetectedObject
+        self, post_processor_frame: PostProcessorFrame, detected_object: DetectedObject
     ) -> None:
         """Perform face recognition."""
-        frame = self._camera.shared_frames.get_decoded_frame_rgb(shared_frame)
         x1, y1, x2, y2 = calculate_absolute_coords(
             (
                 detected_object.rel_x1,
@@ -69,7 +73,7 @@ class FaceRecognition(AbstractFaceRecognition):
             ),
             self._camera.resolution,
         )
-        cropped_frame = frame[y1:y2, x1:x2].copy()
+        cropped_frame = post_processor_frame.frame[y1:y2, x1:x2].copy()
 
         try:
             detections = self._ds.recognize(
@@ -89,7 +93,7 @@ class FaceRecognition(AbstractFaceRecognition):
                         detection["box"]["x_max"] + x2,
                         detection["box"]["y_max"] + y2,
                     ),
-                    shared_frame,
+                    post_processor_frame.shared_frame,
                     confidence=detection["confidence"],
                 )
             else:
@@ -100,7 +104,7 @@ class FaceRecognition(AbstractFaceRecognition):
                         detection["box"]["x_max"] + x2,
                         detection["box"]["y_max"] + y2,
                     ),
-                    shared_frame,
+                    post_processor_frame.shared_frame,
                     confidence=detection["confidence"],
                 )
 

@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from threading import Timer
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import voluptuous as vol
 
 from viseron.domains.license_plate_recognition.binary_sensor import (
@@ -158,12 +157,8 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
             )
 
     @abstractmethod
-    def preprocess(self, post_processor_frame: PostProcessorFrame) -> np.ndarray:
-        """Perform preprocessing of frame before running recognition."""
-
-    @abstractmethod
     def license_plate_recognition(
-        self, frame: np.ndarray, post_processor_frame: PostProcessorFrame
+        self, post_processor_frame: PostProcessorFrame
     ) -> list[DetectedLicensePlate]:
         """Perform license plate recognition."""
 
@@ -250,11 +245,9 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
         If at least one plate is found, an event is dispatched, and a timer is started
         to expire the result after a given number of seconds.
         """
-        with post_processor_frame.shared_frame:
-            preprocessed_frame = self.preprocess(post_processor_frame)
-            result = self._process_result(
-                self.license_plate_recognition(preprocessed_frame, post_processor_frame)
-            )
+        result = self._process_result(
+            self.license_plate_recognition(post_processor_frame)
+        )
 
         if result is None:
             return

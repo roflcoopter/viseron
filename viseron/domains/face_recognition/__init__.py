@@ -127,17 +127,14 @@ class AbstractFaceRecognition(AbstractPostProcessor):
 
     @abstractmethod
     def face_recognition(
-        self, shared_frame: SharedFrame, detected_object: DetectedObject
+        self, post_processor_frame: PostProcessorFrame, detected_object: DetectedObject
     ) -> None:
         """Perform face recognition on detected object."""
 
     def process(self, post_processor_frame: PostProcessorFrame) -> None:
         """Process received frame."""
         for detected_object in post_processor_frame.filtered_objects:
-            with post_processor_frame.shared_frame:
-                self.face_recognition(
-                    post_processor_frame.shared_frame, detected_object
-                )
+            self.face_recognition(post_processor_frame, detected_object)
 
     def _save_face(
         self,
