@@ -89,6 +89,13 @@
                       },
                       {
                         "type": "boolean",
+                        "name": "draw_post_processor_mask",
+                        "description": "If set, configured post processor masks will be drawn.",
+                        "optional": true,
+                        "default": false
+                      },
+                      {
+                        "type": "boolean",
                         "name": "draw_zones",
                         "description": "If set, configured zones will be drawn.",
                         "optional": true,
