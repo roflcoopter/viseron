@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from queue import Empty, Queue
@@ -17,6 +17,7 @@ from viseron.components.nvr.const import EVENT_SCAN_FRAMES, MOTION_DETECTOR
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Motion, MotionContours
 from viseron.const import INSERT, UPDATE, VISERON_SIGNAL_SHUTDOWN
+from viseron.domains import AbstractDomain
 from viseron.domains.camera.const import (
     DOMAIN as CAMERA_DOMAIN,
     EVENT_CAMERA_EVENT_DB_OPERATION,
@@ -136,7 +137,7 @@ class EventMotionDetected(EventData):
         }
 
 
-class AbstractMotionDetector(ABC):
+class AbstractMotionDetector(AbstractDomain):
     """Abstract motion detector."""
 
     def __init__(
@@ -148,6 +149,7 @@ class AbstractMotionDetector(ABC):
     ) -> None:
         self._vis = vis
         self._config = config
+        self._camera_identifier = camera_identifier
         self._storage: Storage = vis.data[STORAGE_COMPONENT]
 
         self._camera: AbstractCamera = vis.get_registered_domain(
@@ -159,6 +161,10 @@ class AbstractMotionDetector(ABC):
         self._motion_id: int | None = None
 
         vis.add_entity(component, MotionDetectionBinarySensor(vis, self, self._camera))
+
+    def __post_init__(self, *args, **kwargs):
+        """Post init hook."""
+        self._vis.register_domain(DOMAIN, self._camera_identifier, self)
 
     @property
     def trigger_event_recording(self):

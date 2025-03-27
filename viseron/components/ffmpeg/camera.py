@@ -17,7 +17,6 @@ from viseron.domains.camera.config import (
     DEFAULT_RECORDER,
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
 )
-from viseron.domains.camera.const import DOMAIN
 from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
 from viseron.helpers import escape_string, utcnow
 from viseron.helpers.logs import SensitiveInformationFilter
@@ -347,7 +346,6 @@ class Camera(AbstractCamera):
         self._recorder = Recorder(vis, config, self)
 
         self.initialize_camera()
-        vis.register_domain(DOMAIN, self.identifier, self)
 
     def _create_frame_reader(self):
         """Return a frame reader thread."""

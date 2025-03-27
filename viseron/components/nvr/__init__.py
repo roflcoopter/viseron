@@ -8,15 +8,9 @@ import voluptuous as vol
 
 from viseron.domains import OptionalDomain, RequireDomain, setup_domain
 from viseron.helpers.validators import CameraIdentifier, CoerceNoneToDict
+from viseron.types import Domain
 
-from .const import (
-    CAMERA,
-    COMPONENT,
-    DESC_COMPONENT,
-    DOMAIN,
-    MOTION_DETECTOR,
-    OBJECT_DETECTOR,
-)
+from .const import CAMERA, COMPONENT, DESC_COMPONENT, DOMAIN
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -31,6 +25,17 @@ CONFIG_SCHEMA = vol.Schema(
     },
     extra=vol.ALLOW_EXTRA,
 )
+
+
+def optional_domains(identifier: str) -> list[OptionalDomain]:
+    """Mark all domains as optional."""
+    _optional_domains = []
+    for domain in Domain:
+        if domain not in (Domain.NVR, Domain.CAMERA):
+            _optional_domains.append(
+                OptionalDomain(domain=domain.value, identifier=identifier)
+            )
+    return _optional_domains
 
 
 def setup(
@@ -53,15 +58,6 @@ def setup(
                     identifier=camera_identifier,
                 )
             ],
-            optional_domains=[
-                OptionalDomain(
-                    domain=OBJECT_DETECTOR,
-                    identifier=camera_identifier,
-                ),
-                OptionalDomain(
-                    domain=MOTION_DETECTOR,
-                    identifier=camera_identifier,
-                ),
-            ],
+            optional_domains=optional_domains(camera_identifier),
         )
     return True

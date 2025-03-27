@@ -34,6 +34,7 @@ CONFIG_MJPEG_DRAW_OBJECTS = "draw_objects"
 CONFIG_MJPEG_DRAW_MOTION = "draw_motion"
 CONFIG_MJPEG_DRAW_MOTION_MASK = "draw_motion_mask"
 CONFIG_MJPEG_DRAW_OBJECT_MASK = "draw_object_mask"
+CONFIG_MJPEG_DRAW_POST_PROCESSOR_MASK = "draw_post_processor_mask"
 CONFIG_MJPEG_DRAW_ZONES = "draw_zones"
 CONFIG_MJPEG_ROTATE = "rotate"
 CONFIG_MJPEG_MIRROR = "mirror"
@@ -44,6 +45,7 @@ DEFAULT_MJPEG_DRAW_OBJECTS = False
 DEFAULT_MJPEG_DRAW_MOTION = False
 DEFAULT_MJPEG_DRAW_MOTION_MASK = False
 DEFAULT_MJPEG_DRAW_OBJECT_MASK = False
+DEFAULT_MJPEG_DRAW_POST_PROCESSOR_MASK = False
 DEFAULT_MJPEG_DRAW_ZONES = False
 DEFAULT_MJPEG_ROTATE = 0
 DEFAULT_MJPEG_MIRROR = False
@@ -54,6 +56,9 @@ DESC_MJPEG_DRAW_OBJECTS = "If set, found objects will be drawn."
 DESC_MJPEG_DRAW_MOTION = "If set, detected motion will be drawn."
 DESC_MJPEG_DRAW_MOTION_MASK = "If set, configured motion masks will be drawn."
 DESC_MJPEG_DRAW_OBJECT_MASK = "If set, configured object masks will be drawn."
+DESC_MJPEG_DRAW_POST_PROCESSOR_MASK = (
+    "If set, configured post processor masks will be drawn."
+)
 DESC_MJPEG_DRAW_ZONES = "If set, configured zones will be drawn."
 DESC_MJPEG_ROTATE = (
     "Degrees to rotate the image. "

@@ -21,6 +21,7 @@ from viseron.components.nvr.const import COMPONENT
 from viseron.components.storage.models import TriggerTypes
 from viseron.const import DOMAIN_IDENTIFIERS, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.motion_detector import AbstractMotionDetectorScanner
 from viseron.domains.motion_detector.const import (
     DATA_MOTION_DETECTOR_RESULT,
     DATA_MOTION_DETECTOR_SCAN,
@@ -33,6 +34,7 @@ from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.events import EventData
 from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import utcnow
+from viseron.types import Domain
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -54,8 +56,9 @@ if TYPE_CHECKING:
     from viseron.components.data_stream import DataStream
     from viseron.domains.camera import AbstractCamera
     from viseron.domains.camera.shared_frames import SharedFrame
-    from viseron.domains.motion_detector import AbstractMotionDetectorScanner, Contours
+    from viseron.domains.motion_detector import AbstractMotionDetector, Contours
     from viseron.domains.object_detector import AbstractObjectDetector
+    from viseron.domains.post_processor import AbstractPostProcessor
     from viseron.helpers.filter import Filter
 
 LOGGER = logging.getLogger(__name__)
@@ -73,7 +76,7 @@ def setup(vis: Viseron, config, identifier) -> bool:
         except DomainNotRegisteredError:
             object_detector = False
 
-    motion_detector: AbstractMotionDetectorScanner | Literal[False] = False
+    motion_detector: AbstractMotionDetector | Literal[False] = False
     if (
         MOTION_DETECTOR in vis.data[DOMAIN_IDENTIFIERS]
         and identifier in vis.data[DOMAIN_IDENTIFIERS][MOTION_DETECTOR]
@@ -217,7 +220,7 @@ class NVR:
         config: dict,
         camera_identifier: str,
         object_detector: AbstractObjectDetector | Literal[False],
-        motion_detector: AbstractMotionDetectorScanner | Literal[False],
+        motion_detector: AbstractMotionDetector | Literal[False],
     ) -> None:
         self._vis = vis
         self._config = config
@@ -247,7 +250,9 @@ class NVR:
         self._motion_only_frames = 0
         self._motion_recorder_keepalive_reached = False
         self._motion_detector = motion_detector
-        if self._motion_detector:
+        if self._motion_detector and isinstance(
+            self._motion_detector, AbstractMotionDetectorScanner
+        ):
             self._frame_scanners[MOTION_DETECTOR] = FrameIntervalCalculator(
                 vis,
                 self._camera.identifier,
@@ -320,6 +325,9 @@ class NVR:
                 ),
             )
 
+        self._post_processors: dict[Domain, AbstractPostProcessor] = {}
+        self.set_post_processors()
+
         self._frame_queue: Queue[SharedFrame] = Queue(maxsize=100)
         self._data_stream.subscribe_data(
             self._camera.frame_bytes_topic, self._frame_queue
@@ -347,6 +355,17 @@ class NVR:
     def __repr__(self) -> str:
         """Return string representation."""
         return f"NVR_{self._camera.identifier}"
+
+    def set_post_processors(self) -> None:
+        """Set post processors."""
+        for domain in Domain.post_processors():
+            try:
+                post_processor = self._vis.get_registered_domain(
+                    domain, self._camera.identifier
+                )
+            except DomainNotRegisteredError:
+                continue
+            self._post_processors[domain] = post_processor
 
     def calculate_output_fps(self, scanners: list[FrameIntervalCalculator]) -> None:
         """Calculate output fps based on fps of all scanners."""
@@ -758,6 +777,11 @@ class NVR:
         return self._object_detector
 
     @property
-    def motion_detector(self) -> AbstractMotionDetectorScanner | Literal[False]:
+    def motion_detector(self) -> AbstractMotionDetector | Literal[False]:
         """Return motion_detector."""
         return self._motion_detector
+
+    @property
+    def post_processors(self) -> dict[Domain, AbstractPostProcessor]:
+        """Return post_processors."""
+        return self._post_processors

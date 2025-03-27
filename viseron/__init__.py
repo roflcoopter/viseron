@@ -74,7 +74,7 @@ from viseron.helpers.logs import (
     ViseronLogFormat,
 )
 from viseron.states import States
-from viseron.types import SupportedDomains
+from viseron.types import Domain, SupportedDomains
 from viseron.watchdog.process_watchdog import ProcessWatchDog
 from viseron.watchdog.subprocess_watchdog import SubprocessWatchDog
 from viseron.watchdog.thread_watchdog import ThreadWatchDog
@@ -87,7 +87,7 @@ if TYPE_CHECKING:
     from viseron.domains.license_plate_recognition import (
         AbstractLicensePlateRecognition,
     )
-    from viseron.domains.motion_detector import AbstractMotionDetectorScanner
+    from viseron.domains.motion_detector import AbstractMotionDetector
     from viseron.domains.object_detector import AbstractObjectDetector
     from viseron.helpers.entity import Entity
 
@@ -416,7 +416,7 @@ class Viseron:
         self,
         domain: Literal["motion_detector"],
         identifier: str,
-        instance: AbstractMotionDetectorScanner,
+        instance: AbstractMotionDetector,
     ) -> None:
         ...
 
@@ -451,40 +451,61 @@ class Viseron:
 
     @overload
     def get_registered_domain(
-        self, domain: Literal["camera"], identifier: str
+        self, domain: Literal["camera"] | Literal[Domain.CAMERA], identifier: str
     ) -> AbstractCamera:
         ...
 
     @overload
     def get_registered_domain(
-        self, domain: Literal["face_recognition"], identifier: str
+        self,
+        domain: Literal["face_recognition"] | Literal[Domain.FACE_RECOGNITION],
+        identifier: str,
     ) -> AbstractFaceRecognition:
         ...
 
     @overload
     def get_registered_domain(
-        self, domain: Literal["image_classification"], identifier: str
+        self,
+        domain: Literal["image_classification"] | Literal[Domain.IMAGE_CLASSIFICATION],
+        identifier: str,
     ) -> AbstractImageClassification:
         ...
 
     @overload
     def get_registered_domain(
-        self, domain: Literal["motion_detector"], identifier: str
-    ) -> AbstractMotionDetectorScanner:
+        self,
+        domain: Literal["license_plate_recognition"]
+        | Literal[Domain.LICENSE_PLATE_RECOGNITION],
+        identifier: str,
+    ) -> AbstractLicensePlateRecognition:
         ...
 
     @overload
     def get_registered_domain(
-        self, domain: Literal["object_detector"], identifier: str
+        self,
+        domain: Literal["motion_detector"] | Literal[Domain.MOTION_DETECTOR],
+        identifier: str,
+    ) -> AbstractMotionDetector:
+        ...
+
+    @overload
+    def get_registered_domain(
+        self,
+        domain: Literal["object_detector"] | Literal[Domain.OBJECT_DETECTOR],
+        identifier: str,
     ) -> AbstractObjectDetector:
         ...
 
     @overload
-    def get_registered_domain(self, domain: Literal["nvr"], identifier: str) -> NVR:
+    def get_registered_domain(
+        self, domain: Literal["nvr"] | Literal[Domain.NVR], identifier: str
+    ) -> NVR:
         ...
 
-    def get_registered_domain(self, domain: SupportedDomains, identifier: str):
+    def get_registered_domain(self, domain: SupportedDomains | Domain, identifier: str):
         """Return a registered domain with a specific identifier."""
+        if isinstance(domain, Domain):
+            domain = domain.value
         if (
             domain in self.data[REGISTERED_DOMAINS]
             and identifier in self.data[REGISTERED_DOMAINS][domain]
@@ -517,7 +538,7 @@ class Viseron:
     @overload
     def get_registered_identifiers(
         self, domain: Literal["motion_detector"]
-    ) -> dict[str, AbstractMotionDetectorScanner]:
+    ) -> dict[str, AbstractMotionDetector]:
         ...
 
     @overload

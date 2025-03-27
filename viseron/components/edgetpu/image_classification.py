@@ -58,16 +58,12 @@ class ImageClassification(AbstractImageClassification):
         ] = Queue(maxsize=1)
         super().__init__(vis, component, config, camera_identifier)
 
-    def preprocess(self, post_processor_frame: PostProcessorFrame) -> np.ndarray:
-        """Perform preprocessing of frame before running classification."""
-        decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(
-            post_processor_frame.shared_frame
-        )
-
-        return decoded_frame
+    def preprocess(self, frame) -> np.ndarray:
+        """Preprocess frame."""
+        return frame
 
     def image_classification(
-        self, frame: np.ndarray, post_processor_frame: PostProcessorFrame
+        self, post_processor_frame: PostProcessorFrame
     ) -> list[ImageClassificationResult]:
         """Perform image classification."""
         image_classifications = []
@@ -82,7 +78,7 @@ class ImageClassification(AbstractImageClassification):
                 self._camera.resolution,
             )
             cropped_frame = crop_frame(
-                frame,
+                post_processor_frame.frame,
                 self._camera.resolution[0],
                 self._camera.resolution[1],
                 x1,

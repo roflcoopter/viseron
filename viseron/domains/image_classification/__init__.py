@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from threading import Timer
 from typing import TYPE_CHECKING, Any
 
-import numpy as np
 import voluptuous as vol
 
 from viseron.domains.post_processor import BASE_CONFIG_SCHEMA, AbstractPostProcessor
@@ -17,6 +16,7 @@ from .const import (
     CONFIG_EXPIRE_AFTER,
     DEFAULT_EXPIRE_AFTER,
     DESC_EXPIRE_AFTER,
+    DOMAIN,
     EVENT_IMAGE_CLASSIFICATION_EXPIRED,
     EVENT_IMAGE_CLASSIFICATION_RESULT,
 )
@@ -70,13 +70,13 @@ class AbstractImageClassification(AbstractPostProcessor):
         self._expire_timer: Timer | None = None
         vis.add_entity(component, ImageClassificationSensor(vis, self._camera))
 
-    @abstractmethod
-    def preprocess(self, post_processor_frame: PostProcessorFrame) -> np.ndarray:
-        """Perform preprocessing of frame before running classification."""
+    def __post_init__(self, *args, **kwargs):
+        """Post init hook."""
+        self._vis.register_domain(DOMAIN, self._camera_identifier, self)
 
     @abstractmethod
     def image_classification(
-        self, frame: np.ndarray, post_processor_frame: PostProcessorFrame
+        self, post_processor_frame: PostProcessorFrame
     ) -> list[ImageClassificationResult]:
         """Perform image classification."""
 
@@ -85,9 +85,7 @@ class AbstractImageClassification(AbstractPostProcessor):
         if self._expire_timer:
             self._expire_timer.cancel()
 
-        with post_processor_frame.shared_frame:
-            preprocessed_frame = self.preprocess(post_processor_frame)
-            result = self.image_classification(preprocessed_frame, post_processor_frame)
+        result = self.image_classification(post_processor_frame)
 
         self._vis.dispatch_event(
             EVENT_IMAGE_CLASSIFICATION_RESULT.format(

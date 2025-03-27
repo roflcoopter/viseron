@@ -22,6 +22,7 @@ from viseron.helpers import (
     draw_motion_mask,
     draw_object_mask,
     draw_objects,
+    draw_post_processor_mask,
     draw_zones,
 )
 
@@ -136,6 +137,14 @@ class StreamHandler(ViseronRequestHandler):
                     resolution=resolution,
                 )
 
+        for domain, post_processor in nvr.post_processors.items():
+            if mjpeg_stream_config["draw_post_processor_mask"] and post_processor.mask:
+                draw_post_processor_mask(
+                    frame,
+                    domain,
+                    post_processor.mask,
+                )
+
         if mjpeg_stream_config["rotate"]:
             frame = imutils.rotate_bound(frame, mjpeg_stream_config["rotate"])
 
@@ -195,7 +204,10 @@ class DynamicStreamHandler(StreamHandler):
 
                 if ret:
                     await self.write_jpg(jpg)
-            except tornado.iostream.StreamClosedError:
+            except (
+                tornado.iostream.StreamClosedError,
+                asyncio.exceptions.CancelledError,
+            ):
                 DataStream.unsubscribe_data(frame_topic, unique_id)
                 LOGGER.debug(f"Stream closed for camera {nvr.camera.identifier}")
                 break
