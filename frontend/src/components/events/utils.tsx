@@ -28,42 +28,81 @@ export const LIVE_EDGE_DELAY = 10;
 
 export const playerCardSmMaxHeight = () => window.innerHeight * 0.4;
 
-type Filters = {
-  [key in types.CameraEvent["type"]]: {
-    label: string;
-    checked: boolean;
+// Get all possible keys from Filters
+export type FilterKeysFromFilters =
+  | keyof Filters["eventTypes"]
+  | keyof Pick<Filters, Exclude<keyof Filters, "eventTypes">>;
+
+// Update FilterKey to use the mapped type
+type FilterKey = FilterKeysFromFilters;
+
+export type Filters = {
+  eventTypes: {
+    [key in types.CameraEvent["type"]]: {
+      label: string;
+      checked: boolean;
+    };
   };
+  groupCameras: { label: string; checked: boolean };
+};
+
+const initialFilters: Filters = {
+  eventTypes: {
+    motion: { label: "Motion", checked: true },
+    object: { label: "Object", checked: true },
+    recording: { label: "Recording", checked: true },
+    face_recognition: { label: "Face Recognition", checked: true },
+    license_plate_recognition: {
+      label: "License Plate Recognition",
+      checked: true,
+    },
+  },
+  groupCameras: { label: "Group Cameras", checked: false },
 };
 
 interface FilterState {
   filters: Filters;
   setFilters: (filters: Filters) => void;
-  toggleFilter: (filterKey: types.CameraEvent["type"]) => void;
+  toggleFilter: (filterKey: FilterKey) => void;
 }
 
 export const useFilterStore = create<FilterState>()(
   persist(
     (set) => ({
-      filters: {
-        motion: { label: "Motion", checked: true },
-        object: { label: "Object", checked: true },
-        recording: { label: "Recording", checked: true },
-        face_recognition: { label: "Face Recognition", checked: true },
-        license_plate_recognition: {
-          label: "License Plate Recognition",
-          checked: true,
-        },
-      },
+      filters: initialFilters,
       setFilters: (filters) => set({ filters }),
-      toggleFilter: (filterKey: types.CameraEvent["type"]) => {
+      toggleFilter: (filterKey) => {
         set((state) => {
           const newFilters = { ...state.filters };
-          newFilters[filterKey].checked = !newFilters[filterKey].checked;
+
+          switch (filterKey) {
+            case "groupCameras":
+              newFilters.groupCameras = {
+                ...newFilters.groupCameras,
+                checked: !newFilters.groupCameras.checked,
+              };
+              break;
+            case "motion":
+            case "object":
+            case "recording":
+            case "face_recognition":
+            case "license_plate_recognition":
+              newFilters.eventTypes[filterKey] = {
+                ...newFilters.eventTypes[filterKey],
+                checked: !newFilters.eventTypes[filterKey].checked,
+              };
+              break;
+            default:
+              // eslint-disable-next-line no-case-declarations
+              const _exhaustiveCheck: never = filterKey;
+              throw new Error(`Unhandled filter key: ${_exhaustiveCheck}`);
+          }
+
           return { filters: newFilters };
         });
       },
     }),
-    { name: "filter-store" },
+    { name: "filter-store", version: 1 },
   ),
 );
 
@@ -454,7 +493,7 @@ export const getTimelineItems = (
   let timelineItems: TimelineItems = {};
 
   const filteredEvents = eventsData.filter(
-    (event) => filters[event.type].checked,
+    (event) => filters.eventTypes[event.type].checked,
   );
 
   // Loop over available HLS files

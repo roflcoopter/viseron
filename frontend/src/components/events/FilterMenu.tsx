@@ -9,7 +9,11 @@ import MenuItem from "@mui/material/MenuItem";
 import { NestedMenuItem } from "mui-nested-menu";
 import React, { MouseEvent, useState } from "react";
 
-import { getIconFromType, useFilterStore } from "components/events/utils";
+import {
+  FilterKeysFromFilters,
+  getIconFromType,
+  useFilterStore,
+} from "components/events/utils";
 import * as types from "lib/types";
 
 interface MenuProps {
@@ -48,8 +52,7 @@ export const FilterMenu: React.FC = () => {
   };
 
   const handleCheckboxClick =
-    (filterKey: types.CameraEvent["type"]) =>
-    (event: MouseEvent<HTMLElement>) => {
+    (filterKey: FilterKeysFromFilters) => (event: MouseEvent<HTMLElement>) => {
       event.stopPropagation();
       event.preventDefault();
       toggleFilter(filterKey);
@@ -80,26 +83,36 @@ export const FilterMenu: React.FC = () => {
           parentMenuOpen={open}
           MenuProps={menuProps}
         >
-          {Object.keys(filters).map((filterKey) => {
+          {Object.keys(filters.eventTypes).map((filterKey) => {
             const key = filterKey as types.CameraEvent["type"];
             const Icon = getIconFromType(key);
             return (
               <MenuItem
-                key={filters[key].label}
+                key={filters.eventTypes[key].label}
                 onClick={handleCheckboxClick(key)}
               >
                 <Checkbox
-                  checked={filters[key].checked}
+                  checked={filters.eventTypes[key].checked}
                   onClick={handleCheckboxClick(key)}
                 />
                 <ListItemIcon>
                   <Icon />
                 </ListItemIcon>
-                <ListItemText primary={filters[key].label} />
+                <ListItemText primary={filters.eventTypes[key].label} />
               </MenuItem>
             );
           })}
         </NestedMenuItem>
+        <MenuItem
+          key={"groupCameras"}
+          onClick={handleCheckboxClick("groupCameras")}
+        >
+          <Checkbox
+            checked={filters.groupCameras.checked}
+            onClick={handleCheckboxClick("groupCameras")}
+          />
+          <ListItemText primary={filters.groupCameras.label} />
+        </MenuItem>
       </Menu>
     </>
   );

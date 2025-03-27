@@ -31,13 +31,14 @@ const useGroupedEvents = (snapshotEvents: types.CameraEvent[]) => {
 
     snapshotEvents.forEach((event) => {
       // Filter out unwanted event types
-      if (!filters[event.type].checked) return;
+      if (!filters.eventTypes[event.type].checked) return;
 
       const currentTime = getEventTimestamp(event);
 
       if (
         groupStartTime - currentTime < 120 &&
-        event.camera_identifier === groupCameraIdentifier
+        (filters.groupCameras.checked ||
+          event.camera_identifier === groupCameraIdentifier)
       ) {
         currentGroup.push(event);
       } else {
