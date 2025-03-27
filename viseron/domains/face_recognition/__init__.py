@@ -125,6 +125,10 @@ class AbstractFaceRecognition(AbstractPostProcessor):
                     component, FaceDetectionBinarySensor(vis, self._camera, face_dir)
                 )
 
+    def __post_init__(self, *args, **kwargs):
+        """Post init hook."""
+        self._vis.register_domain(DOMAIN, self._camera_identifier, self)
+
     @abstractmethod
     def face_recognition(
         self, post_processor_frame: PostProcessorFrame, detected_object: DetectedObject

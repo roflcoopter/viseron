@@ -6,7 +6,6 @@ import cv2
 
 from viseron import Viseron
 from viseron.domains.object_detector import AbstractObjectDetector
-from viseron.domains.object_detector.const import DOMAIN
 from viseron.domains.object_detector.detected_object import DetectedObject
 from viseron.helpers import letterbox_resize
 
@@ -55,8 +54,6 @@ class ObjectDetector(AbstractObjectDetector):
             if self._config[CONFIG_IMAGE_SIZE]
             else self._camera.resolution[1],
         )
-
-        vis.register_domain(DOMAIN, camera_identifier, self)
 
     def preprocess(self, frame):
         """Preprocess frame before detection."""

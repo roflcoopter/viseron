@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any
@@ -15,6 +15,7 @@ from viseron.components.storage import Storage
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import PostProcessorResults
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
+from viseron.domains import AbstractDomain
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
 from viseron.domains.object_detector.const import (
     EVENT_OBJECTS_IN_FOV,
@@ -86,7 +87,7 @@ class PostProcessorFrame:
     zone: Zone | None = None
 
 
-class AbstractPostProcessor(ABC):
+class AbstractPostProcessor(AbstractDomain):
     """Abstract Post Processor."""
 
     def __init__(self, vis: Viseron, config, camera_identifier) -> None:

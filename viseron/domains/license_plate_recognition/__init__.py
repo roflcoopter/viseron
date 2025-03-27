@@ -156,6 +156,10 @@ class AbstractLicensePlateRecognition(AbstractPostProcessor):
                 LicensePlateRecognitionBinarySensor(vis, self._camera, plate),
             )
 
+    def __post_init__(self, *args, **kwargs):
+        """Post init hook."""
+        self._vis.register_domain(DOMAIN, self._camera_identifier, self)
+
     @abstractmethod
     def license_plate_recognition(
         self, post_processor_frame: PostProcessorFrame

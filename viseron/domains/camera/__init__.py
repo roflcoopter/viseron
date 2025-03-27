@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import secrets
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
@@ -33,6 +33,8 @@ from viseron.components.storage.const import (
 from viseron.components.storage.models import Files
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import TEMP_DIR
+from viseron.domains import AbstractDomain
+from viseron.domains.camera.const import DOMAIN
 from viseron.domains.camera.entity.sensor import CamerAccessTokenSensor
 from viseron.domains.camera.fragmenter import Fragmenter
 from viseron.domains.camera.recorder import FailedCameraRecorder
@@ -107,7 +109,7 @@ class EventCameraStillImageAvailable(EventData):
 DATA_FRAME_BYTES_TOPIC = "{camera_identifier}/camera/frame_bytes"
 
 
-class AbstractCamera(ABC):
+class AbstractCamera(AbstractDomain):
     """Represent a camera."""
 
     def __init__(self, vis: Viseron, component: str, config, identifier: str) -> None:
@@ -176,6 +178,10 @@ class AbstractCamera(ABC):
         if self.still_image_configured:
             self._logger.debug("Still image is configured, setting availability.")
             self.still_image_available = True
+
+    def __post_init__(self, *args, **kwargs):
+        """Post init hook."""
+        self._vis.register_domain(DOMAIN, self._identifier, self)
 
     def as_dict(self) -> dict[str, Any]:
         """Return camera information as dict."""

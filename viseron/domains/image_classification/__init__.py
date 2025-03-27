@@ -16,6 +16,7 @@ from .const import (
     CONFIG_EXPIRE_AFTER,
     DEFAULT_EXPIRE_AFTER,
     DESC_EXPIRE_AFTER,
+    DOMAIN,
     EVENT_IMAGE_CLASSIFICATION_EXPIRED,
     EVENT_IMAGE_CLASSIFICATION_RESULT,
 )
@@ -68,6 +69,10 @@ class AbstractImageClassification(AbstractPostProcessor):
         super().__init__(vis, config, camera_identifier)
         self._expire_timer: Timer | None = None
         vis.add_entity(component, ImageClassificationSensor(vis, self._camera))
+
+    def __post_init__(self, *args, **kwargs):
+        """Post init hook."""
+        self._vis.register_domain(DOMAIN, self._camera_identifier, self)
 
     @abstractmethod
     def image_classification(
