@@ -9,20 +9,20 @@ interface AuthCreateVariables {
   name: string;
   username: string;
   password: string;
-  group?: string;
+  role?: "admin" | "write" | "read";
 }
 
 async function authCreate({
   name,
   username,
   password,
-  group,
+  role,
 }: AuthCreateVariables) {
   const response = await viseronAPI.post(`/auth/create`, {
     name,
     username,
     password,
-    group,
+    role,
   });
   return response.data;
 }

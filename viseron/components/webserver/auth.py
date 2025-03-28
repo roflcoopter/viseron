@@ -42,8 +42,8 @@ class UserExistsError(ViseronError):
     """User already exists."""
 
 
-class InvalidGroupError(ViseronError):
-    """Invalid group specified."""
+class InvalidRoleError(ViseronError):
+    """Invalid role specified."""
 
 
 class AuthenticationFailed(ViseronError):
@@ -71,8 +71,8 @@ class RefreshToken:
     used_by: str | None = None
 
 
-class Group(enum.Enum):
-    """Group enum."""
+class Role(enum.Enum):
+    """Role enum."""
 
     ADMIN = "admin"
     READ = "read"
@@ -86,7 +86,7 @@ class User:
     name: str
     username: str
     password: str
-    group: Group
+    role: Role
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     enabled: bool = True
 
@@ -196,7 +196,7 @@ class Auth:
         name: str,
         username: str,
         password: str,
-        group: Group,
+        role: Role,
         enabled: bool = True,
     ):
         """Add user."""
@@ -207,14 +207,14 @@ class Auth:
             if self.get_user_by_username(username):
                 raise UserExistsError(f"A user with username {username} already exists")
 
-            if not isinstance(group, Group):
-                raise InvalidGroupError(f"Invalid group {group}")
+            if not isinstance(role, Role):
+                raise InvalidRoleError(f"Invalid role {role}")
 
             user = User(
                 name,
                 username,
                 self.hash_password(password),
-                group,
+                role,
                 enabled=enabled,
             )
             self.users[user.id] = user
@@ -228,7 +228,7 @@ class Auth:
         password: str,
     ):
         """Onboard the first user."""
-        user = self.add_user(name, username, password, Group.ADMIN)
+        user = self.add_user(name, username, password, Role.ADMIN)
         Path(self.onboarding_path()).touch()
         return user
 
@@ -281,7 +281,8 @@ class Auth:
                 name=user["name"],
                 username=user["username"],
                 password=user["password"],
-                group=Group(user["group"]),
+                # Group was renamed to role, make sure it is backwards compatible
+                role=Role(user["group"] if user.get("group", False) else user["role"]),
                 id=user["id"],
                 enabled=user["enabled"],
             )

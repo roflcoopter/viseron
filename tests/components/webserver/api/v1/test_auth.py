@@ -61,7 +61,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
                     "name": "test",
                     "username": "testuser",
                     "password": "test",
-                    "group": "admin",
+                    "role": "admin",
                 }
             ),
         )
@@ -80,7 +80,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
                     "name": "test",
                     "username": USER_NAME,
                     "password": "test",
-                    "group": "admin",
+                    "role": "admin",
                 }
             ),
         )
@@ -90,8 +90,8 @@ class TestAuthAPIHandler(TestAppBaseAuth):
             "status": 400,
         }
 
-    def test_auth_create_invalid_group(self):
-        """Test adding a user with an invalid group."""
+    def test_auth_create_invalid_role(self):
+        """Test adding a user with an invalid role."""
         response = self.fetch_with_auth(
             "/api/v1/auth/create",
             method="POST",
@@ -100,7 +100,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
                     "name": "test2",
                     "username": "test2",
                     "password": "test2",
-                    "group": "invalid",
+                    "role": "invalid",
                 }
             ),
         )
@@ -119,7 +119,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
         assert json.loads(response.body) == {
             "name": "Asd",
             "username": USER_NAME,
-            "group": "admin",
+            "role": "admin",
         }
 
     def test_auth_user_missing(self):

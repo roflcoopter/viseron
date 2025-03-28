@@ -10,7 +10,7 @@ import voluptuous as vol
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.auth import (
     AuthenticationFailed,
-    Group,
+    Role,
     UserExistsError,
     token_response,
 )
@@ -37,7 +37,7 @@ class AuthAPIHandler(BaseAPIHandler):
                     vol.Required("name"): str,
                     vol.Required("username"): str,
                     vol.Required("password"): str,
-                    vol.Required("group"): vol.In([e.value for e in Group]),
+                    vol.Required("role"): vol.In([e.value for e in Role]),
                 }
             ),
         },
@@ -100,7 +100,7 @@ class AuthAPIHandler(BaseAPIHandler):
                 self.json_body["name"].strip(),
                 self.json_body["username"].strip().casefold(),
                 self.json_body["password"],
-                Group(self.json_body["group"]),
+                Role(self.json_body["role"]),
             )
         except UserExistsError as error:
             self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
@@ -120,7 +120,7 @@ class AuthAPIHandler(BaseAPIHandler):
             response={
                 "name": user.name,
                 "username": user.username,
-                "group": user.group.value,
+                "role": user.role.value,
             }
         )
 

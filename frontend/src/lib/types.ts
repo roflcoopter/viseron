@@ -124,7 +124,7 @@ export type StoredTokens = {
 export type AuthUserResponse = {
   name: string;
   username: string;
-  group: string;
+  role: "admin" | "read" | "write";
 };
 
 export type AuthLoginResponse = AuthTokenResponse;

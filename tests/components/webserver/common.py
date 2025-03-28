@@ -32,7 +32,7 @@ AUTH_STORAGE_DATA = {
                 "name": "Asd",
                 "username": USER_NAME,
                 "password": "JDJiJDEyJFJsNm9HeVVKcEx5cXlXSlFsaFBVNWVhVlJ3TWJaRlR4d3U4YUo0Y2JwaC4uU0VMbjliWlUy",  # pylint: disable=line-too-long
-                "group": "admin",
+                "role": "admin",
                 "id": USER_ID,
                 "enabled": True,
             }
