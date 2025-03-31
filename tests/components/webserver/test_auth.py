@@ -11,7 +11,9 @@ from viseron.components.webserver.auth import (
     Auth,
     AuthenticationFailed,
     InvalidRoleError,
+    LastAdminUserError,
     Role,
+    UserDoesNotExistError,
     UserExistsError,
     token_response,
 )
@@ -112,6 +114,95 @@ class TestAuth:
         user_add = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         user_get = self.auth.get_user_by_username("test")
         assert user_add == user_get
+
+    def test_get_users(self):
+        """Test getting all users."""
+        user1 = self.auth.add_user("Test1", "test1", "test", Role.ADMIN)
+        user2 = self.auth.add_user("Test2", "test2", "test", Role.WRITE)
+        users = self.auth.get_users()
+        assert len(users) == 2
+        assert user1.id in users
+        assert user2.id in users
+
+    def test_delete_user(self):
+        """Test deleting a user."""
+        user = self.auth.add_user("Test", "test", "test", Role.WRITE)
+        assert user.id in self.auth.users
+
+        self.auth.delete_user(user.id)
+        assert user.id not in self.auth.users
+
+    def test_delete_user_nonexistent(self):
+        """Test deleting a nonexistent user."""
+        with pytest.raises(UserDoesNotExistError):
+            self.auth.delete_user("nonexistent_id")
+
+    def test_delete_last_admin_user(self):
+        """Test deleting the last admin user."""
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
+        with pytest.raises(
+            LastAdminUserError, match="Cannot delete the last admin user"
+        ):
+            self.auth.delete_user(user.id)
+
+    def test_change_password(self):
+        """Test changing a user's password."""
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
+        self.auth.change_password(user.id, "new_password")
+        updated_user = self.auth.validate_user("test", "new_password")
+        assert updated_user == user
+
+    def test_change_password_nonexistent_user(self):
+        """Test changing the password of a nonexistent user."""
+        with pytest.raises(UserDoesNotExistError):
+            self.auth.change_password("nonexistent_id", "new_password")
+
+    def test_update_user(self):
+        """Test updating a user's details."""
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
+        self.auth.update_user(user.id, "Updated Name", "updated_username", Role.ADMIN)
+        updated_user = self.auth.get_user(user.id)
+        assert updated_user is not None
+        assert updated_user.id == user.id
+        assert updated_user.name == "Updated Name"
+        assert updated_user.username == "updated_username"
+        assert updated_user.role == Role.ADMIN
+
+    def test_update_user_last_admin(self):
+        """Test updating the last admin user."""
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
+        with pytest.raises(
+            LastAdminUserError, match="Cannot change the role of the last admin user"
+        ):
+            self.auth.update_user(
+                user.id, "Updated Name", "updated_username", Role.WRITE
+            )
+
+    def test_update_user_nonexistent(self):
+        """Test updating a nonexistent user."""
+        with pytest.raises(UserDoesNotExistError):
+            self.auth.update_user(
+                "nonexistent_id", "Updated Name", "updated_username", Role.WRITE
+            )
+
+    def test_update_user_duplicate_username(self):
+        """Test updating a user with a duplicate username."""
+        self.auth.add_user("Test1", "test1", "test", Role.ADMIN)
+        user2 = self.auth.add_user("Test2", "test2", "test", Role.WRITE)
+        with pytest.raises(UserExistsError, match="Username test1 is already taken"):
+            self.auth.update_user(user2.id, "Updated Name", "test1", Role.WRITE)
+
+    def test_update_user_invalid_role(self):
+        """Test updating a user with an invalid role."""
+        self.auth.add_user("Test", "test", "test", Role.ADMIN)
+        user2 = self.auth.add_user("Test2", "test2", "test2", Role.WRITE)
+        with pytest.raises(InvalidRoleError, match="Invalid role invalid"):
+            self.auth.update_user(
+                user2.id,
+                "Updated Name",
+                "updated_username",
+                "invalid",  # type: ignore[arg-type]
+            )
 
     def test_generate_refresh_token(self):
         """Test generating refresh token."""
