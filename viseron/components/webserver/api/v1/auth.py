@@ -70,6 +70,7 @@ class AuthAPIHandler(BaseAPIHandler):
             ),
         },
         {
+            "requires_role": [Role.ADMIN, Role.READ, Role.WRITE],
             "path_pattern": r"/auth/logout",
             "supported_methods": ["POST"],
             "method": "auth_logout",
