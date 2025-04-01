@@ -2,17 +2,10 @@
 import logging
 from http import HTTPStatus
 
-from compreface.collections import Subjects
-
-from viseron.components.compreface.const import (
-    COMPONENT,
-    CONFIG_FACE_RECOGNITION,
-    SUBJECTS,
-)
+from viseron.components.compreface.const import COMPONENT
+from viseron.components.compreface.face_recognition import FaceRecognition
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.const import REGISTERED_DOMAINS
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
-from viseron.domains.face_recognition.binary_sensor import FaceDetectionBinarySensor
+from viseron.domains.face_recognition.const import DOMAIN as FACE_RECOGNITION_DOMAIN
 
 LOGGER = logging.getLogger(__name__)
 
@@ -35,24 +28,15 @@ class ComprefaceAPIHandler(BaseAPIHandler):
                 status_code=HTTPStatus.BAD_REQUEST,
                 reason="Compreface Recognition not initialized.",
             )
-        else:
-            subjects: Subjects = self._vis.data[COMPONENT][
-                CONFIG_FACE_RECOGNITION
-            ].get_subjects()
-            added_subjects = []
-            for camera in (
-                self._vis.data[REGISTERED_DOMAINS].get(CAMERA_DOMAIN, {}).values()
-            ):
-                for subject in subjects.list()[SUBJECTS]:
-                    binary_sensor = FaceDetectionBinarySensor(
-                        self._vis, camera, subject
-                    )
-                    if not self._vis.states.entity_exists(binary_sensor):
-                        added_subjects.append(f"{camera.identifier}_{subject}")
-                        self._vis.add_entity(
-                            COMPONENT,
-                            FaceDetectionBinarySensor(self._vis, camera, subject),
-                        )
-            response = {}
-            response["added_subjects"] = added_subjects
-            await self.response_success(response=response)
+            return
+
+        added_subjects = []
+        for face_rec in self._vis.get_registered_identifiers(
+            FACE_RECOGNITION_DOMAIN
+        ).values():
+            if isinstance(face_rec, FaceRecognition):
+                added_subjects.extend(face_rec.update_subject_entities())
+
+        response = {}
+        response["added_subjects"] = added_subjects
+        await self.response_success(response=response)

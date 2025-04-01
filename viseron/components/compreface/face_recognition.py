@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import numpy as np
 from compreface import CompreFace
-from compreface.collections import FaceCollection, Subjects
+from compreface.service.recognition_service import RecognitionService
 
 from viseron.domains.face_recognition import AbstractFaceRecognition
 from viseron.domains.face_recognition.binary_sensor import FaceDetectionBinarySensor
@@ -58,48 +58,46 @@ class FaceRecognition(AbstractFaceRecognition):
             not config[CONFIG_FACE_RECOGNITION][CONFIG_USE_SUBJECTS],
         )
 
-        options = {
-            CONFIG_LIMIT: config[CONFIG_FACE_RECOGNITION][CONFIG_LIMIT],
-            CONFIG_DET_PROB_THRESHOLD: config[CONFIG_FACE_RECOGNITION][
-                CONFIG_DET_PROB_THRESHOLD
-            ],
-            CONFIG_PREDICTION_COUNT: config[CONFIG_FACE_RECOGNITION][
-                CONFIG_PREDICTION_COUNT
-            ],
-            CONFIG_STATUS: config[CONFIG_FACE_RECOGNITION][CONFIG_STATUS],
-        }
-        if config[CONFIG_FACE_RECOGNITION][CONFIG_FACE_PLUGINS]:
-            options[CONFIG_FACE_PLUGINS] = config[CONFIG_FACE_RECOGNITION][
-                CONFIG_FACE_PLUGINS
-            ]
-
-        self._compre_face: CompreFace = CompreFace(
-            domain=f"http://{config[CONFIG_FACE_RECOGNITION][CONFIG_HOST]}",
-            port=str(config[CONFIG_FACE_RECOGNITION][CONFIG_PORT]),
-            options=options,
-        )
         if COMPONENT not in self._vis.data:
-            self._vis.data[COMPONENT] = {}
-        self._vis.data[COMPONENT][
+            raise RuntimeError(
+                "CompreFace face recognition not initialized. "
+                "Make sure the component is set up correctly."
+            )
+
+        self._compreface_service: CompreFaceService = self._vis.data[COMPONENT][
             CONFIG_FACE_RECOGNITION
-        ] = self._compre_face.init_face_recognition(
-            config[CONFIG_FACE_RECOGNITION][CONFIG_API_KEY]
-        )
+        ]
+
         if config[CONFIG_FACE_RECOGNITION][CONFIG_USE_SUBJECTS]:
             self.update_subject_entities()
 
-    def update_subject_entities(self) -> None:
+    @property
+    def compreface(self) -> CompreFace:
+        """Return the CompreFace instance."""
+        return self._compreface_service.compreface
+
+    @property
+    def recognition_service(self) -> RecognitionService:
+        """Return the CompreFace recognition service."""
+        return self._compreface_service.recognition_service
+
+    def update_subject_entities(self) -> list:
         """Update entities with binary face recognition subjects from compreface."""
-        subjects: Subjects = self._vis.data[COMPONENT][
-            CONFIG_FACE_RECOGNITION
-        ].get_subjects()
-        for subject in subjects.list()[SUBJECTS]:
+        subjects = self.recognition_service.get_subjects().list()
+        if SUBJECTS not in subjects:
+            self._logger.error(f"Failed to get subjects from CompreFace: {subjects} ")
+            return []
+
+        added_subjects = []
+        for subject in subjects[SUBJECTS]:
             binary_sensor = FaceDetectionBinarySensor(self._vis, self._camera, subject)
             if not self._vis.states.entity_exists(binary_sensor):
+                added_subjects.append(f"{self._camera.identifier}_{subject}")
                 self._vis.add_entity(
                     COMPONENT,
                     FaceDetectionBinarySensor(self._vis, self._camera, subject),
                 )
+        return added_subjects
 
     def preprocess(self, frame) -> np.ndarray:
         """Preprocess frame."""
@@ -121,7 +119,7 @@ class FaceRecognition(AbstractFaceRecognition):
         cropped_frame = post_processor_frame.frame[y1:y2, x1:x2].copy()
 
         try:
-            detections = self._vis.data[COMPONENT][CONFIG_FACE_RECOGNITION].recognize(
+            detections = self.recognition_service.recognize(
                 cv2.imencode(".jpg", cropped_frame)[1].tobytes(),
             )
         except Exception as error:  # pylint: disable=broad-except
@@ -162,13 +160,10 @@ class FaceRecognition(AbstractFaceRecognition):
                 )
 
 
-class CompreFaceTrain:
-    """Train CompreFace to recognize faces."""
+class CompreFaceService:
+    """CompreFace service."""
 
-    def __init__(self, vis: Viseron, config) -> None:
-        self._config = config
-        self._vis = vis
-
+    def __init__(self, config: dict[str, Any]):
         options = {
             CONFIG_LIMIT: config[CONFIG_FACE_RECOGNITION][CONFIG_LIMIT],
             CONFIG_DET_PROB_THRESHOLD: config[CONFIG_FACE_RECOGNITION][
@@ -184,19 +179,45 @@ class CompreFaceTrain:
                 CONFIG_FACE_PLUGINS
             ]
 
-        self._compre_face: CompreFace = CompreFace(
+        self._compreface = CompreFace(
             domain=f"http://{config[CONFIG_FACE_RECOGNITION][CONFIG_HOST]}",
             port=str(config[CONFIG_FACE_RECOGNITION][CONFIG_PORT]),
             options=options,
         )
-        self._vis.data[COMPONENT][
-            CONFIG_FACE_RECOGNITION
-        ] = self._compre_face.init_face_recognition(
+        self._recognition_service = self._compreface.init_face_recognition(
             config[CONFIG_FACE_RECOGNITION][CONFIG_API_KEY]
         )
-        self._face_collection: FaceCollection = self._vis.data[COMPONENT][
+
+    @property
+    def compreface(self) -> CompreFace:
+        """Return the CompreFace instance."""
+        return self._compreface
+
+    @property
+    def recognition_service(self) -> RecognitionService:
+        """Return the CompreFace recognition service."""
+        return self._recognition_service
+
+
+class CompreFaceTrain:
+    """Train CompreFace to recognize faces."""
+
+    def __init__(self, vis: Viseron, config) -> None:
+        self._config = config
+        self._vis = vis
+
+        if COMPONENT not in self._vis.data:
+            raise RuntimeError(
+                "CompreFace face recognition not initialized. "
+                "Make sure the component is set up correctly."
+            )
+
+        self._compreface_service: CompreFaceService = self._vis.data[COMPONENT][
             CONFIG_FACE_RECOGNITION
-        ].get_face_collection()
+        ]
+        self._face_collection = (
+            self._compreface_service.recognition_service.get_face_collection()
+        )
 
         self.train()
 
