@@ -168,11 +168,11 @@ export default function AppHeader() {
                 )}
               </IconButton>
             </Tooltip>
-            <Tooltip title={"Edit Configuration"} enterDelay={300}>
+            <Tooltip title={"Settings"} enterDelay={300}>
               <IconButton
                 component={RouterLink}
                 color="primary"
-                to={"/configuration"}
+                to={"/settings"}
               >
                 <SettingsIcon />
               </IconButton>

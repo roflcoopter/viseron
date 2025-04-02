@@ -337,6 +337,9 @@ class AuthAPIHandler(BaseAPIHandler):
         except UserExistsError as error:
             self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
             return
+        except LastAdminUserError as error:
+            self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
+            return
         except (ValueError, InvalidRoleError) as error:
             self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
             return

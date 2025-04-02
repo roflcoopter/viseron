@@ -61,9 +61,9 @@ const drawerItems: Array<DrawerItemTypes> = [
   { type: "header", title: "Administration" },
   {
     type: "link",
-    title: "Configuration",
+    title: "Settings",
     icon: SettingsIcon,
-    path: "/configuration",
+    path: "/settings",
   },
   { type: "divider" },
   { type: "header", title: "Links" },
