@@ -10,11 +10,11 @@ import {
   Select,
   TextField,
 } from "@mui/material";
-import Cookies from "js-cookie";
 import { useState } from "react";
 
 import ChangePasswordDialog from "components/settings/user/ChangePasswordDialog";
-import { useAuthDelete, useAuthUpdateUser, useAuthUser } from "lib/api/auth";
+import { useAuthContext } from "context/AuthContext";
+import { useAuthDelete, useAuthUpdateUser } from "lib/api/auth";
 import * as types from "lib/types";
 
 interface UserDialogProps {
@@ -23,12 +23,10 @@ interface UserDialogProps {
 }
 
 const UserDialog: React.FC<UserDialogProps> = ({ user, onClose }) => {
+  const { user: currentUser } = useAuthContext();
   const authUpdateUser = useAuthUpdateUser();
   const authDelete = useAuthDelete();
-  const cookies = Cookies.get();
-  const authUser = useAuthUser({
-    username: cookies.user,
-  });
+
   const [name, setName] = useState(user.name);
   const [username, setUsername] = useState(user.username);
   const [role, setRole] = useState(user.role);
@@ -98,7 +96,7 @@ const UserDialog: React.FC<UserDialogProps> = ({ user, onClose }) => {
           <Button
             onClick={handleDeleteUser}
             color="error"
-            disabled={authUser.data && authUser.data.username === user.username}
+            disabled={!!(currentUser && currentUser.username === user.username)}
           >
             Delete User
           </Button>

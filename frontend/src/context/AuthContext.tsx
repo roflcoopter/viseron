@@ -1,16 +1,37 @@
+import { Container } from "@mui/material";
+import Button from "@mui/material/Button";
 import { AxiosHeaders } from "axios";
 import Cookies from "js-cookie";
 import { FC, createContext, useContext, useLayoutEffect, useRef } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation } from "react-router-dom";
 
 import SessionExpired from "components/dialog/SessionExpired";
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { Loading } from "components/loading/Loading";
 import { useToast } from "hooks/UseToast";
-import { useAuthEnabled } from "lib/api/auth";
+import { useAuthEnabled, useAuthUser } from "lib/api/auth";
 import { viseronAPI } from "lib/api/client";
 import { getToken } from "lib/tokens";
 import * as types from "lib/types";
+
+function ErrorLoadingUser() {
+  return (
+    <Container
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: 2,
+      }}
+    >
+      <ErrorMessage text="Error loading user" />
+      <Button variant="contained" component={Link} to="/login">
+        Navigate to Login
+      </Button>
+    </Container>
+  );
+}
 
 const useAuthAxiosInterceptor = (
   auth: types.AuthEnabledResponse | undefined,
@@ -74,6 +95,7 @@ const useAuthAxiosInterceptor = (
 
 type AuthContextState = {
   auth: types.AuthEnabledResponse;
+  user: types.AuthUserResponse | null;
 };
 
 export const AuthContext = createContext<AuthContextState | null>(null);
@@ -86,9 +108,14 @@ export const AuthProvider: FC<AuthProviderProps> = ({
   children,
 }: AuthProviderProps) => {
   const authQuery = useAuthEnabled();
+  useAuthAxiosInterceptor(authQuery.data);
   const location = useLocation();
 
-  useAuthAxiosInterceptor(authQuery.data);
+  const cookies = Cookies.get();
+  const userQuery = useAuthUser({
+    username: cookies.user,
+    configOptions: { enabled: !!(authQuery.data?.enabled && !!cookies.user) },
+  });
 
   if (authQuery.isPending || authQuery.isLoading) {
     return <Loading text="Loading Auth" />;
@@ -103,6 +130,15 @@ export const AuthProvider: FC<AuthProviderProps> = ({
     );
   }
 
+  // isLoading instead of isPending because query might be disabled
+  if (userQuery.isLoading) {
+    return <Loading text="Loading User" />;
+  }
+
+  if (userQuery.isError) {
+    return <ErrorLoadingUser />;
+  }
+
   if (
     authQuery.data.enabled &&
     !authQuery.data.onboarding_complete &&
@@ -112,7 +148,12 @@ export const AuthProvider: FC<AuthProviderProps> = ({
   }
 
   return (
-    <AuthContext.Provider value={{ auth: authQuery.data }}>
+    <AuthContext.Provider
+      value={{
+        auth: authQuery.data,
+        user: userQuery.data || null,
+      }}
+    >
       {authQuery.data.enabled ? <SessionExpired /> : null}
       {children}
     </AuthContext.Provider>

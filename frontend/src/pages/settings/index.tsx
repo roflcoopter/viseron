@@ -11,24 +11,17 @@ import Container from "@mui/material/Container";
 import List from "@mui/material/List";
 import ListItemAvatar from "@mui/material/ListItemAvatar";
 import ListItemText from "@mui/material/ListItemText";
-import Cookies from "js-cookie";
 import { Link } from "react-router-dom";
 
-import { Loading } from "components/loading/Loading";
 import { useAuthContext } from "context/AuthContext";
 import { useHideScrollbar } from "hooks/UseHideScrollbar";
 import { useTitle } from "hooks/UseTitle";
-import { useAuthUser } from "lib/api/auth";
 
 const Settings = () => {
   useTitle("Settings");
   useHideScrollbar();
 
-  const { auth } = useAuthContext();
-  const userQuery = useAuthUser({
-    username: Cookies.get().user,
-    configOptions: { enabled: auth.enabled && !!Cookies.get().user },
-  });
+  const { auth, user } = useAuthContext();
 
   const settingsMenuItems = [
     {
@@ -38,6 +31,7 @@ const Settings = () => {
       icon: <SettingsIcon />,
       color: "blue",
       disabled: false,
+      disabledReason: null,
     },
     {
       name: "User Management",
@@ -45,21 +39,21 @@ const Settings = () => {
       path: "/settings/users",
       icon: <PeopleIcon />,
       color: "green",
-      disabled: !auth.enabled || userQuery.data?.role !== "admin",
+      disabled: !auth.enabled || user?.role !== "admin",
+      disabledReason: !auth.enabled
+        ? "Enable authentication to manage users"
+        : "Only admins can manage users",
     },
     {
       name: "Logs",
-      description: "View system logs, not implemented yet",
+      description: "View system logs",
       path: "/settings/logs",
       icon: <ArticleIcon />,
       color: "orange",
       disabled: true,
+      disabledReason: "Not implemented yet",
     },
   ];
-
-  if (userQuery.isLoading) {
-    return <Loading text="Loading Settings" />;
-  }
 
   return (
     <Container maxWidth={false}>
@@ -98,7 +92,11 @@ const Settings = () => {
                   </ListItemAvatar>
                   <ListItemText
                     primary={item.name}
-                    secondary={item.description}
+                    secondary={
+                      item.disabled
+                        ? `${item.description}. ${item.disabledReason}`
+                        : item.description
+                    }
                   />
                   <ArrowForwardIosIcon fontSize="small" />
                 </ListItemButton>
