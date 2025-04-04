@@ -21,6 +21,9 @@ import Typography from "@mui/material/Typography";
 import { Link, Location, useLocation } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
+import { useAuthContext } from "context/AuthContext";
+import * as types from "lib/types";
+
 type DrawerItemHeader = { type: "header"; title: string };
 
 type DrawerItemLink = {
@@ -35,61 +38,71 @@ type DrawerItemDivider = { type: "divider" };
 
 type DrawerItemTypes = DrawerItemHeader | DrawerItemLink | DrawerItemDivider;
 
-const drawerItems: Array<DrawerItemTypes> = [
-  { type: "header", title: "Pages" },
-  { type: "link", title: "Cameras", icon: VideocamIcon, path: "/" },
-  {
-    type: "link",
-    title: "Recordings",
-    icon: VideoFileIcon,
-    path: "/recordings",
-  },
-  {
-    type: "link",
-    title: "Events",
-    icon: ImageSearchIcon,
-    path: "/events?tab=events",
-  },
-  {
-    type: "link",
-    title: "Timeline",
-    icon: ViewTimelineIcon,
-    path: "/events?tab=timeline",
-  },
-  { type: "link", title: "Entities", icon: ViewListIcon, path: "/entities" },
-  { type: "divider" },
-  { type: "header", title: "Administration" },
-  {
-    type: "link",
-    title: "Configuration",
-    icon: SettingsIcon,
-    path: "/configuration",
-  },
-  { type: "divider" },
-  { type: "header", title: "Links" },
-  {
-    type: "link",
-    title: "GitHub",
-    icon: GitHubIcon,
-    path: "https://github.com/roflcoopter/viseron",
-    external: true,
-  },
-  {
-    type: "link",
-    title: "Documentation",
-    icon: MenuBookIcon,
-    path: "https://viseron.netlify.app",
-    external: true,
-  },
-  {
-    type: "link",
-    title: "Donations",
-    icon: VolunteerActivismIcon,
-    path: "https://github.com/sponsors/roflcoopter",
-    external: true,
-  },
-  { type: "divider" },
-];
+const getDrawerItems = (
+  auth: types.AuthEnabledResponse,
+  user: types.AuthUserResponse | null,
+) => {
+  const drawerItems: Array<DrawerItemTypes> = [
+    { type: "header", title: "Pages" },
+    { type: "link", title: "Cameras", icon: VideocamIcon, path: "/" },
+    {
+      type: "link",
+      title: "Recordings",
+      icon: VideoFileIcon,
+      path: "/recordings",
+    },
+    {
+      type: "link",
+      title: "Events",
+      icon: ImageSearchIcon,
+      path: "/events?tab=events",
+    },
+    {
+      type: "link",
+      title: "Timeline",
+      icon: ViewTimelineIcon,
+      path: "/events?tab=timeline",
+    },
+    { type: "link", title: "Entities", icon: ViewListIcon, path: "/entities" },
+    ...(!auth.enabled || (auth.enabled && user?.role === "admin")
+      ? [
+          { type: "divider" } as DrawerItemTypes,
+          { type: "header", title: "Administration" } as DrawerItemTypes,
+          {
+            type: "link",
+            title: "Settings",
+            icon: SettingsIcon,
+            path: "/settings",
+          } as DrawerItemTypes,
+        ]
+      : []),
+    { type: "divider" },
+    { type: "header", title: "Links" },
+    {
+      type: "link",
+      title: "GitHub",
+      icon: GitHubIcon,
+      path: "https://github.com/roflcoopter/viseron",
+      external: true,
+    },
+    {
+      type: "link",
+      title: "Documentation",
+      icon: MenuBookIcon,
+      path: "https://viseron.netlify.app",
+      external: true,
+    },
+    {
+      type: "link",
+      title: "Donations",
+      icon: VolunteerActivismIcon,
+      path: "https://github.com/sponsors/roflcoopter",
+      external: true,
+    },
+    { type: "divider" },
+  ];
+  return drawerItems;
+};
 
 interface AppDrawerProps {
   drawerOpen: boolean;
@@ -174,7 +187,10 @@ export default function AppDrawer({
   drawerOpen,
   setDrawerOpen,
 }: AppDrawerProps) {
+  const { auth, user } = useAuthContext();
   const location = useLocation();
+
+  const drawerItems = getDrawerItems(auth, user);
 
   return (
     <Drawer

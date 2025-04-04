@@ -60,13 +60,7 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
   useEffect(() => {
     if (connection) {
       onConnectRef.current = async () => {
-        queryClient.invalidateQueries({
-          predicate(query) {
-            return (
-              query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled"
-            );
-          },
-        });
+        queryClient.invalidateQueries();
         setContextValue((prevContextValue) => ({
           ...prevContextValue,
           connected: true,

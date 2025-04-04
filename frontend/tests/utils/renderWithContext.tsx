@@ -22,6 +22,12 @@ function customRender(
     enabled: true,
     onboarding_complete: true,
   },
+  user: types.AuthUserResponse = {
+    id: "123456789",
+    name: "",
+    username: "",
+    role: "admin",
+  },
   options?: Omit<RenderOptions, "wrapper">,
 ) {
   function ProvidersWrapper({ children }: ProvidersWrapperProps) {
@@ -33,6 +39,7 @@ function customRender(
             <AuthContext.Provider
               value={{
                 auth,
+                user,
               }}
             >
               <ViseronContext.Provider

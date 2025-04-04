@@ -8,7 +8,7 @@ import tornado.web
 import voluptuous as vol
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
-from viseron.components.webserver.auth import Group, User
+from viseron.components.webserver.auth import Role, User
 
 from tests.common import MockCamera
 from tests.components.webserver.common import TestAppBaseAuth
@@ -36,10 +36,10 @@ class DummyAPIHandler(BaseAPIHandler):
             ),
         },
         {
-            "path_pattern": r"/requires_group",
+            "path_pattern": r"/requires_role",
             "supported_methods": ["GET"],
             "method": "test_get",
-            "requires_group": [Group.WRITE],
+            "requires_role": [Role.WRITE],
         },
         {
             "requires_auth": False,
@@ -155,8 +155,8 @@ class TestBaseAPIHandler(TestAppBaseAuth):
         assert response.code == HTTPStatus.OK
         assert json.loads(response.body) == {"test": "test"}
 
-    def test_requires_group(self):
-        """Test endpoint with overridden requires_group setting."""
+    def test_requires_role(self):
+        """Test endpoint with overridden requires_role setting."""
         with patch(
             "viseron.components.webserver.api.handlers.BaseAPIHandler.validate_auth_header",  # pylint: disable=line-too-long
             return_value=True,
@@ -167,18 +167,18 @@ class TestBaseAPIHandler(TestAppBaseAuth):
                 name="Test",
                 username="test",
                 password="test",
-                group=Group.READ,
+                role=Role.READ,
             ),
         ):
-            response = self.fetch("/api/v1/requires_group", method="GET")
+            response = self.fetch("/api/v1/requires_role", method="GET")
             assert response.code == HTTPStatus.FORBIDDEN
             assert json.loads(response.body) == {
                 "error": "Insufficient permissions",
                 "status": HTTPStatus.FORBIDDEN,
             }
 
-    def test_requires_group_default(self):
-        """Test endpoint with default requires_group setting."""
+    def test_requires_role_default(self):
+        """Test endpoint with default requires_role setting."""
         with patch(
             "viseron.components.webserver.api.handlers.BaseAPIHandler.validate_auth_header",  # pylint: disable=line-too-long
             return_value=True,
@@ -189,7 +189,7 @@ class TestBaseAPIHandler(TestAppBaseAuth):
                 name="Test",
                 username="test",
                 password="test",
-                group=Group.READ,
+                role=Role.READ,
             ),
         ):
             response = self.fetch("/api/v1/test", method="DELETE")

@@ -1,7 +1,10 @@
-import PrivateLayout from "layouts/PrivateLayout";
+import PrivateLayout, { RequireRole } from "layouts/PrivateLayout";
 import { lazy } from "react";
 import { Navigate, useRoutes } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
+
+import Settings from "pages/settings";
+import Users from "pages/settings/Users";
 
 const Cameras = lazy(() => import("pages/Cameras"));
 const CameraRecordings = lazy(
@@ -53,12 +56,27 @@ function App() {
           element: <Events />,
         },
         {
-          path: "/configuration",
-          element: <Configuration />,
-        },
-        {
           path: "/entities",
           element: <Entities />,
+        },
+        {
+          element: <RequireRole role={["admin"]} />,
+          children: [
+            {
+              path: "/settings",
+              children: [
+                { index: true, element: <Settings /> },
+                {
+                  path: "/settings/configuration",
+                  element: <Configuration />,
+                },
+                {
+                  path: "/settings/users",
+                  element: <Users />,
+                },
+              ],
+            },
+          ],
         },
       ],
     },

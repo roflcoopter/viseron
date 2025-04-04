@@ -37,7 +37,7 @@ from viseron.components.storage.queries import (
     get_time_period_fragments,
 )
 from viseron.components.storage.util import EventFileCreated, EventFileDeleted
-from viseron.components.webserver.auth import Group
+from viseron.components.webserver.auth import Role
 from viseron.components.webserver.const import (
     DOWNLOAD_PATH,
     WS_ERROR_NOT_FOUND,
@@ -122,7 +122,7 @@ def require_admin(func):
             """Check admin and call async function."""
             if connection.webserver.auth:
                 user = connection.current_user
-                if user is None or not user.group == Group.ADMIN:
+                if user is None or not user.role == Role.ADMIN:
                     raise Unauthorized()
 
             await func(connection, message)
@@ -134,7 +134,7 @@ def require_admin(func):
         """Check admin and call function."""
         if connection.webserver.auth:
             user = connection.current_user
-            if user is None or not user.group == Group.ADMIN:
+            if user is None or not user.role == Role.ADMIN:
                 raise Unauthorized()
 
         func(connection, message)

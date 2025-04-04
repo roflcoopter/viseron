@@ -1,7 +1,6 @@
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import { styled } from "@mui/material/styles";
-import Cookies from "js-cookie";
 import { Suspense, useRef } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { CSSTransition, SwitchTransition } from "react-transition-group";
@@ -14,8 +13,8 @@ import { Loading } from "components/loading/Loading";
 import { useAuthContext } from "context/AuthContext";
 import { ViseronProvider } from "context/ViseronContext";
 import { toastIds, useToast } from "hooks/UseToast";
-import { useAuthUser } from "lib/api/auth";
 import { sessionExpired } from "lib/tokens";
+import * as types from "lib/types";
 
 const FullHeightContainer = styled("div")(() => ({
   minHeight: "100%",
@@ -25,49 +24,11 @@ export default function PrivateLayout() {
   const nodeRef = useRef(null);
   const location = useLocation();
 
-  const { auth } = useAuthContext();
-  const cookies = Cookies.get();
+  const { auth, user } = useAuthContext();
   const toast = useToast();
 
-  const userQuery = useAuthUser({
-    username: cookies.user,
-    configOptions: { enabled: auth.enabled && !!cookies.user },
-  });
-
-  // isLoading instead of isPending because query might be disabled
-  if (userQuery.isLoading) {
-    return <Loading text="Loading User" />;
-  }
-
-  // Failed to load user
-  if (userQuery.isError) {
-    toast.error("Failed to load user", {
-      toastId: toastIds.userLoadError,
-    });
-    return (
-      <Container
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-          gap: 2,
-          height: "100vh",
-        }}
-      >
-        <ErrorMessage
-          text="Error loading user"
-          subtext={userQuery.error.message}
-        />
-        <Button variant="contained" component={Link} to="/login">
-          Navigate to Login
-        </Button>
-      </Container>
-    );
-  }
-
   // User is not logged in
-  if (auth.enabled && (!cookies.user || !userQuery.data)) {
+  if (auth.enabled && !user) {
     return (
       <Navigate
         to="/login"
@@ -121,4 +82,52 @@ export default function PrivateLayout() {
       </FullHeightContainer>
     </ViseronProvider>
   );
+}
+
+type RequireRoleProps = {
+  role: types.AuthUserResponse["role"][];
+};
+
+export function RequireRole({ role }: RequireRoleProps) {
+  const { auth, user } = useAuthContext();
+
+  if (!auth.enabled) {
+    return <Outlet />;
+  }
+
+  // User is not logged in
+  if (!user) {
+    return (
+      <Navigate
+        to="/login"
+        state={{
+          from: location,
+        }}
+      />
+    );
+  }
+
+  if (!role.includes(user.role)) {
+    return (
+      <Container
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 2,
+        }}
+      >
+        <ErrorMessage
+          text="Access Denied"
+          subtext="You do not have permission to view this page."
+        />
+        <Button variant="contained" component={Link} to="/">
+          Navigate to Home
+        </Button>
+      </Container>
+    );
+  }
+
+  return <Outlet />;
 }

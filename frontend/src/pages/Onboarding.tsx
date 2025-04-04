@@ -4,58 +4,20 @@ import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid2";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
-import { useReducer } from "react";
 import { Navigate } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
-import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
+import { TextFieldItem } from "components/TextFieldItem";
 import { useAuthContext } from "context/AuthContext";
 import { useTitle } from "hooks/UseTitle";
+import { InputState, useUserForm } from "hooks/UseUserForm";
 import queryClient from "lib/api/client";
 import { useOnboarding } from "lib/api/onboarding";
-
-type InputState = {
-  displayName: TextFieldItemState;
-  username: TextFieldItemState;
-  password: TextFieldItemState;
-  confirmPassword: TextFieldItemState;
-};
-
-type InputAction = {
-  type: keyof InputState;
-  value: string;
-};
-
-const initialState: InputState = {
-  displayName: { label: "Display Name", value: "", error: null },
-  username: { label: "Username", value: "", error: null },
-  password: { label: "Password", value: "", error: null },
-  confirmPassword: { label: "Confirm Password", value: "", error: null },
-};
-
-function reducer(state: InputState, action: InputAction): InputState {
-  let error = null;
-  if (action.type === "confirmPassword") {
-    if (state.password.value !== action.value) {
-      error = "Passwords do not match.";
-    }
-  }
-
-  if (!action.value) {
-    error = "Required.";
-  }
-
-  return {
-    ...state,
-    [action.type]: { ...state[action.type], value: action.value, error },
-  };
-}
 
 const Onboarding = () => {
   useTitle("Onboarding");
   const { auth } = useAuthContext();
-
-  const [inputState, dispatch] = useReducer(reducer, initialState);
+  const { inputState, dispatch, isFormValid } = useUserForm(false);
   const onboarding = useOnboarding();
 
   if ((auth.enabled && auth.onboarding_complete) || !auth.enabled) {
@@ -130,17 +92,7 @@ const Onboarding = () => {
                   type="submit"
                   fullWidth
                   variant="contained"
-                  disabled={
-                    !inputState.username.value ||
-                    !inputState.password.value ||
-                    !inputState.confirmPassword.value ||
-                    inputState.password.value !==
-                      inputState.confirmPassword.value ||
-                    !!inputState.username.error ||
-                    !!inputState.password.error ||
-                    !!inputState.confirmPassword.error ||
-                    onboarding.isPending
-                  }
+                  disabled={!isFormValid() || onboarding.isPending}
                   onClick={() => {
                     onboarding.mutate(
                       {
@@ -149,7 +101,7 @@ const Onboarding = () => {
                         password: inputState.password.value,
                       },
                       {
-                        onSuccess: async (_data, _variables, _context) => {
+                        onSuccess: async () => {
                           // Invalidate auth query to force a re-fetch, which will redirect to the dashboard
                           await queryClient.invalidateQueries({
                             queryKey: ["auth"],
