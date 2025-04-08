@@ -112,7 +112,11 @@ const Login = () => {
                 : "An error occurred."}
             </Typography>
           ) : null}
-          <form>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+            }}
+          >
             <Grid container spacing={3} sx={{ padding: "15px" }}>
               <TextFieldItem<keyof InputState>
                 inputKind={"username"}
