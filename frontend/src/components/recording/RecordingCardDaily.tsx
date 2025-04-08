@@ -31,7 +31,7 @@ export default function RecordingCardDaily({
   recording,
 }: RecordingCardDailyProps) {
   const theme = useTheme();
-  const { auth } = useAuthContext();
+  const { auth, user } = useAuthContext();
   const deleteRecording = useDeleteRecording();
 
   return (
@@ -87,20 +87,22 @@ export default function RecordingCardDaily({
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title="Delete Recordings">
-            <MutationIconButton
-              mutation={deleteRecording}
-              onClick={() => {
-                deleteRecording.mutate({
-                  identifier: camera.identifier,
-                  date,
-                  failed: camera.failed,
-                });
-              }}
-            >
-              <DeleteForeverIcon />
-            </MutationIconButton>
-          </Tooltip>
+          {!user || user.role === "admin" || user.role === "write" ? (
+            <Tooltip title="Delete Recordings">
+              <MutationIconButton
+                mutation={deleteRecording}
+                onClick={() => {
+                  deleteRecording.mutate({
+                    identifier: camera.identifier,
+                    date,
+                    failed: camera.failed,
+                  });
+                }}
+              >
+                <DeleteForeverIcon />
+              </MutationIconButton>
+            </Tooltip>
+          ) : null}
         </Stack>
       </CardActions>
     </Card>
