@@ -10,7 +10,10 @@ import voluptuous as vol
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.auth import (
     AuthenticationFailed,
-    Group,
+    InvalidRoleError,
+    LastAdminUserError,
+    Role,
+    UserDoesNotExistError,
     UserExistsError,
     token_response,
 )
@@ -29,6 +32,7 @@ class AuthAPIHandler(BaseAPIHandler):
             "method": "auth_enabled",
         },
         {
+            "requires_role": [Role.ADMIN],
             "path_pattern": r"/auth/create",
             "supported_methods": ["POST"],
             "method": "auth_create",
@@ -37,7 +41,7 @@ class AuthAPIHandler(BaseAPIHandler):
                     vol.Required("name"): str,
                     vol.Required("username"): str,
                     vol.Required("password"): str,
-                    vol.Required("group"): vol.In([e.value for e in Group]),
+                    vol.Required("role"): vol.In([e.value for e in Role]),
                 }
             ),
         },
@@ -45,6 +49,12 @@ class AuthAPIHandler(BaseAPIHandler):
             "path_pattern": r"/auth/user/(?P<user_id>[A-Za-z0-9_]+)",
             "supported_methods": ["GET"],
             "method": "auth_user",
+        },
+        {
+            "requires_role": [Role.ADMIN],
+            "path_pattern": r"/auth/user/(?P<user_id>[A-Za-z0-9_]+)",
+            "supported_methods": ["DELETE"],
+            "method": "auth_delete",
         },
         {
             "requires_auth": False,
@@ -60,6 +70,7 @@ class AuthAPIHandler(BaseAPIHandler):
             ),
         },
         {
+            "requires_role": [Role.ADMIN, Role.READ, Role.WRITE],
             "path_pattern": r"/auth/logout",
             "supported_methods": ["POST"],
             "method": "auth_logout",
@@ -75,6 +86,38 @@ class AuthAPIHandler(BaseAPIHandler):
                         vol.In(["refresh_token"]), str
                     ),
                     vol.Required("client_id"): str,
+                }
+            ),
+        },
+        {
+            "requires_role": [Role.ADMIN],
+            "path_pattern": r"/auth/users",
+            "supported_methods": ["GET"],
+            "method": "auth_users",
+        },
+        {
+            "requires_role": [Role.ADMIN],
+            "path_pattern": (
+                r"/auth/user/(?P<user_id>[A-Za-z0-9_]+)/admin_change_password"
+            ),
+            "supported_methods": ["PUT"],
+            "method": "auth_admin_change_password",
+            "json_body_schema": vol.Schema(
+                {
+                    vol.Required("new_password"): str,
+                }
+            ),
+        },
+        {
+            "requires_role": [Role.ADMIN],
+            "path_pattern": r"/auth/user/(?P<user_id>[A-Za-z0-9_]+)",
+            "supported_methods": ["PUT"],
+            "method": "auth_update_user",
+            "json_body_schema": vol.Schema(
+                {
+                    vol.Required("name"): str,
+                    vol.Required("username"): str,
+                    vol.Required("role"): vol.In([e.value for e in Role]),
                 }
             ),
         },
@@ -100,7 +143,7 @@ class AuthAPIHandler(BaseAPIHandler):
                 self.json_body["name"].strip(),
                 self.json_body["username"].strip().casefold(),
                 self.json_body["password"],
-                Group(self.json_body["group"]),
+                Role(self.json_body["role"]),
             )
         except UserExistsError as error:
             self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
@@ -120,9 +163,28 @@ class AuthAPIHandler(BaseAPIHandler):
             response={
                 "name": user.name,
                 "username": user.username,
-                "group": user.group.value,
+                "role": user.role.value,
             }
         )
+
+    async def auth_delete(self, user_id: str) -> None:
+        """Delete a user."""
+        if self.current_user and self.current_user.id == user_id:
+            self.response_error(
+                HTTPStatus.FORBIDDEN, reason="You cannot delete your own account"
+            )
+            return
+
+        try:
+            await self.run_in_executor(self._webserver.auth.delete_user, user_id)
+        except UserDoesNotExistError as error:
+            self.response_error(HTTPStatus.NOT_FOUND, reason=str(error))
+            return
+        except LastAdminUserError as error:
+            self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
+            return
+
+        await self.response_success()
 
     async def auth_login(self) -> None:
         """Login."""
@@ -230,3 +292,56 @@ class AuthAPIHandler(BaseAPIHandler):
             HTTPStatus.BAD_REQUEST,
             reason="Invalid grant_type",
         )
+
+    async def auth_users(self) -> None:
+        """Get all users."""
+        users = await self.run_in_executor(self._webserver.auth.get_users)
+        response = {}
+        response["users"] = list(users.values())
+        await self.response_success(response=response)
+
+    async def auth_admin_change_password(self, user_id: str) -> None:
+        """Change the password of a user as an admin."""
+        if self.current_user and self.current_user.role != Role.ADMIN:
+            self.response_error(
+                HTTPStatus.FORBIDDEN,
+                reason="You are not authorized to change this password",
+            )
+            return
+
+        try:
+            await self.run_in_executor(
+                self._webserver.auth.change_password,
+                user_id,
+                self.json_body["new_password"],
+            )
+        except UserDoesNotExistError as error:
+            self.response_error(HTTPStatus.NOT_FOUND, reason=str(error))
+            return
+
+        await self.response_success()
+
+    async def auth_update_user(self, user_id: str) -> None:
+        """Update user details."""
+        try:
+            await self.run_in_executor(
+                self._webserver.auth.update_user,
+                user_id,
+                self.json_body["name"],
+                self.json_body["username"],
+                Role(self.json_body["role"]),
+            )
+        except UserDoesNotExistError as error:
+            self.response_error(HTTPStatus.NOT_FOUND, reason=str(error))
+            return
+        except UserExistsError as error:
+            self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
+            return
+        except LastAdminUserError as error:
+            self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
+            return
+        except (ValueError, InvalidRoleError) as error:
+            self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
+            return
+
+        await self.response_success()

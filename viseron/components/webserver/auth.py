@@ -42,12 +42,20 @@ class UserExistsError(ViseronError):
     """User already exists."""
 
 
-class InvalidGroupError(ViseronError):
-    """Invalid group specified."""
+class InvalidRoleError(ViseronError):
+    """Invalid role specified."""
 
 
 class AuthenticationFailed(ViseronError):
     """Authentication failed."""
+
+
+class UserDoesNotExistError(ViseronError):
+    """User does not exist."""
+
+
+class LastAdminUserError(ViseronError):
+    """Cannot delete the last admin user."""
 
 
 @dataclass
@@ -71,8 +79,8 @@ class RefreshToken:
     used_by: str | None = None
 
 
-class Group(enum.Enum):
-    """Group enum."""
+class Role(enum.Enum):
+    """Role enum."""
 
     ADMIN = "admin"
     READ = "read"
@@ -86,9 +94,18 @@ class User:
     name: str
     username: str
     password: str
-    group: Group
+    role: Role
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     enabled: bool = True
+
+    def asdict(self) -> dict[str, Any]:
+        """Convert user to dict."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "username": self.username,
+            "role": self.role.value,
+        }
 
 
 @dataclass
@@ -174,6 +191,10 @@ class Auth:
             ),
         )
 
+    def get_users(self) -> dict[str, User]:
+        """Get all users."""
+        return self.users
+
     def onboarding_path(self) -> str:
         """Return onboarding path."""
         return os.path.join(STORAGE_PATH, ONBOARDING_STORAGE_KEY)
@@ -196,7 +217,7 @@ class Auth:
         name: str,
         username: str,
         password: str,
-        group: Group,
+        role: Role,
         enabled: bool = True,
     ):
         """Add user."""
@@ -207,14 +228,14 @@ class Auth:
             if self.get_user_by_username(username):
                 raise UserExistsError(f"A user with username {username} already exists")
 
-            if not isinstance(group, Group):
-                raise InvalidGroupError(f"Invalid group {group}")
+            if not isinstance(role, Role):
+                raise InvalidRoleError(f"Invalid role {role}")
 
             user = User(
                 name,
                 username,
                 self.hash_password(password),
-                group,
+                role,
                 enabled=enabled,
             )
             self.users[user.id] = user
@@ -228,7 +249,7 @@ class Auth:
         password: str,
     ):
         """Onboard the first user."""
-        user = self.add_user(name, username, password, Group.ADMIN)
+        user = self.add_user(name, username, password, Role.ADMIN)
         Path(self.onboarding_path()).touch()
         return user
 
@@ -268,6 +289,68 @@ class Auth:
                 found = user
         return found
 
+    def delete_user(self, user_id: str) -> None:
+        """Delete a user."""
+        with self._user_lock:
+            if user_id not in self.users:
+                raise UserDoesNotExistError(f"User with ID {user_id} does not exist")
+
+            # Prevent deletion of the last admin user
+            user_to_delete = self.users[user_id]
+            if user_to_delete.role == Role.ADMIN:
+                admin_count = sum(
+                    1 for user in self.users.values() if user.role == Role.ADMIN
+                )
+                if admin_count <= 1:
+                    raise LastAdminUserError("Cannot delete the last admin user")
+
+            LOGGER.debug(f"Deleting user {user_to_delete.username}")
+            del self.users[user_id]
+            self.save()
+
+    def change_password(self, user_id: str, new_password: str) -> None:
+        """Change the password of a user."""
+        with self._user_lock:
+            if user_id not in self.users:
+                raise UserDoesNotExistError(f"User with ID {user_id} does not exist")
+
+            user = self.users[user_id]
+            user.password = self.hash_password(new_password)
+            LOGGER.debug(f"Password changed for user {user.username}")
+            self.save()
+
+    def update_user(self, user_id: str, name: str, username: str, role: Role) -> None:
+        """Update user details."""
+        with self._user_lock:
+            if user_id not in self.users:
+                raise UserDoesNotExistError(f"User with ID {user_id} does not exist")
+
+            user = self.users[user_id]
+
+            # Check if the new username is already taken by another user
+            if username.strip().casefold() != user.username:
+                if self.get_user_by_username(username.strip().casefold()):
+                    raise UserExistsError(f"Username {username} is already taken")
+
+            # Prevent role change of the last admin user
+            if user.role == Role.ADMIN and role != Role.ADMIN:
+                admin_count = sum(
+                    1 for _user in self.users.values() if _user.role == Role.ADMIN
+                )
+                if admin_count <= 1:
+                    raise LastAdminUserError(
+                        "Cannot change the role of the last admin user"
+                    )
+
+            if not isinstance(role, Role):
+                raise InvalidRoleError(f"Invalid role {role}")
+
+            user.name = name.strip()
+            user.username = username.strip().casefold()
+            user.role = role
+            LOGGER.debug(f"Updated user {user.username}")
+            self.save()
+
     def _load(self) -> None:
         """Load users from storage."""
         LOGGER.debug("Loading data from auth store")
@@ -281,7 +364,8 @@ class Auth:
                 name=user["name"],
                 username=user["username"],
                 password=user["password"],
-                group=Group(user["group"]),
+                # Group was renamed to role, make sure it is backwards compatible
+                role=Role(user["group"] if user.get("group", False) else user["role"]),
                 id=user["id"],
                 enabled=user["enabled"],
             )

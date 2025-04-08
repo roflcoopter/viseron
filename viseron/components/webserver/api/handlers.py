@@ -15,7 +15,7 @@ from voluptuous.humanize import humanize_error
 from voluptuous.schema_builder import Schema
 
 from viseron.components.webserver.api.const import API_BASE
-from viseron.components.webserver.auth import Group
+from viseron.components.webserver.auth import Role
 from viseron.components.webserver.request_handler import ViseronRequestHandler
 from viseron.helpers.json import JSONEncoder
 
@@ -26,11 +26,11 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger(__name__)
 
-METHOD_ALLOWED_GROUPS = {
-    "GET": [Group.ADMIN, Group.WRITE, Group.READ],
-    "POST": [Group.ADMIN, Group.WRITE],
-    "PUT": [Group.ADMIN, Group.WRITE],
-    "DELETE": [Group.ADMIN, Group.WRITE],
+METHOD_ALLOWED_ROLES = {
+    "GET": [Role.ADMIN, Role.WRITE, Role.READ],
+    "POST": [Role.ADMIN, Role.WRITE],
+    "PUT": [Role.ADMIN, Role.WRITE],
+    "DELETE": [Role.ADMIN, Role.WRITE],
 }
 
 
@@ -42,7 +42,7 @@ class Route(TypedDict):
     method: str
     requires_auth: NotRequired[bool]
     requires_camera_token: NotRequired[bool]
-    requires_group: NotRequired[list[Group]]
+    requires_role: NotRequired[list[Role]]
     allow_token_parameter: NotRequired[bool]
     json_body_schema: NotRequired[Schema]
     request_arguments_schema: NotRequired[Schema]
@@ -233,12 +233,12 @@ class BaseAPIHandler(ViseronRequestHandler):
                         )
                         return
 
-                    if requires_group := route.get("requires_group", None):
-                        if self.current_user.group not in requires_group:
+                    if requires_role := route.get("requires_role", None):
+                        if self.current_user.role not in requires_role:
                             LOGGER.debug(
                                 "Request with invalid permissions, endpoint requires"
-                                f" {requires_group}, user is in group"
-                                f" {self.current_user.group}"
+                                f" {requires_role}, user has role"
+                                f" {self.current_user.role}"
                             )
                             self.response_error(
                                 HTTPStatus.FORBIDDEN, reason="Insufficient permissions"
@@ -246,13 +246,13 @@ class BaseAPIHandler(ViseronRequestHandler):
                             return
                     else:
                         if (
-                            self.current_user.group
-                            not in METHOD_ALLOWED_GROUPS[self.request.method]
+                            self.current_user.role
+                            not in METHOD_ALLOWED_ROLES[self.request.method]
                         ):
                             LOGGER.debug(
                                 "Request with invalid permissions, endpoint requires"
-                                f" {METHOD_ALLOWED_GROUPS[self.request.method]}, user"
-                                f" is in group {self.current_user.group}"
+                                f" {METHOD_ALLOWED_ROLES[self.request.method]}, user"
+                                f" has role {self.current_user.role}"
                             )
                             self.response_error(
                                 HTTPStatus.FORBIDDEN, reason="Insufficient permissions"
