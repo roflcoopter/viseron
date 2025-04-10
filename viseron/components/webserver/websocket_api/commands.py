@@ -44,13 +44,7 @@ from viseron.components.webserver.const import (
     WS_ERROR_SAVE_CONFIG_FAILED,
 )
 from viseron.components.webserver.download_token import DownloadToken
-from viseron.const import (
-    CONFIG_PATH,
-    EVENT_STATE_CHANGED,
-    REGISTERED_DOMAINS,
-    RESTART_EXIT_CODE,
-)
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.const import CONFIG_PATH, EVENT_STATE_CHANGED, RESTART_EXIT_CODE
 from viseron.domains.camera.fragmenter import (
     Fragment,
     Timespan,
@@ -263,7 +257,7 @@ async def get_cameras(connection: WebSocketHandler, message) -> None:
     await connection.async_send_message(
         result_message(
             message["command_id"],
-            connection.vis.data[REGISTERED_DOMAINS].get(CAMERA_DOMAIN, {}),
+            connection.get_cameras(),
         ),
     )
 

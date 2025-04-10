@@ -97,6 +97,7 @@ class User:
     role: Role
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     enabled: bool = True
+    assigned_cameras: list[str] | None = None
 
     def asdict(self) -> dict[str, Any]:
         """Convert user to dict."""
@@ -105,6 +106,7 @@ class User:
             "name": self.name,
             "username": self.username,
             "role": self.role.value,
+            "assigned_cameras": self.assigned_cameras,
         }
 
 
@@ -319,7 +321,14 @@ class Auth:
             LOGGER.debug(f"Password changed for user {user.username}")
             self.save()
 
-    def update_user(self, user_id: str, name: str, username: str, role: Role) -> None:
+    def update_user(
+        self,
+        user_id: str,
+        name: str,
+        username: str,
+        role: Role,
+        assigned_cameras: list[str] | None,
+    ) -> None:
         """Update user details."""
         with self._user_lock:
             if user_id not in self.users:
@@ -348,6 +357,7 @@ class Auth:
             user.name = name.strip()
             user.username = username.strip().casefold()
             user.role = role
+            user.assigned_cameras = assigned_cameras
             LOGGER.debug(f"Updated user {user.username}")
             self.save()
 
@@ -368,6 +378,7 @@ class Auth:
                 role=Role(user["group"] if user.get("group", False) else user["role"]),
                 id=user["id"],
                 enabled=user["enabled"],
+                assigned_cameras=user.get("assigned_cameras", None),
             )
 
         for refresh_token in data.get("refresh_tokens", {}).values():

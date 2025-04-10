@@ -126,6 +126,7 @@ export type AuthUserResponse = {
   name: string;
   username: string;
   role: "admin" | "read" | "write";
+  assigned_cameras: string[] | null;
 };
 
 export type AuthUsersResponse = {
