@@ -118,6 +118,7 @@ class AuthAPIHandler(BaseAPIHandler):
                     vol.Required("name"): str,
                     vol.Required("username"): str,
                     vol.Required("role"): vol.In([e.value for e in Role]),
+                    vol.Required("assigned_cameras"): vol.Maybe(list),
                 }
             ),
         },
@@ -330,6 +331,7 @@ class AuthAPIHandler(BaseAPIHandler):
                 self.json_body["name"],
                 self.json_body["username"],
                 Role(self.json_body["role"]),
+                self.json_body["assigned_cameras"],
             )
         except UserDoesNotExistError as error:
             self.response_error(HTTPStatus.NOT_FOUND, reason=str(error))

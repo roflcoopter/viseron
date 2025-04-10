@@ -27,6 +27,7 @@ function customRender(
     name: "",
     username: "",
     role: "admin",
+    assigned_cameras: null,
   },
   options?: Omit<RenderOptions, "wrapper">,
 ) {

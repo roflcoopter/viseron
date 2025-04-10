@@ -512,6 +512,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
                         "name": "Updated Name",
                         "username": "updated_username",
                         "role": "write",
+                        "assigned_cameras": None,
                     }
                 ),
             )
@@ -534,6 +535,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
                         "name": "Updated Name",
                         "username": "updated_username",
                         "role": "write",
+                        "assigned_cameras": None,
                     }
                 ),
             )
@@ -557,6 +559,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
                         "name": "Updated Name",
                         "username": "test1",
                         "role": "write",
+                        "assigned_cameras": None,
                     }
                 ),
             )
@@ -572,6 +575,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
             "name": "Updated Name",
             "username": "updated_username",
             "role": "invalid",
+            "assigned_cameras": None,
         }
         response = self.fetch_with_auth(
             "/api/v1/auth/user/123456789",
