@@ -90,6 +90,12 @@ const useAuthAxiosInterceptor = (
         return config;
       },
     );
+
+    return () => {
+      if (requestInterceptorRef.current !== undefined) {
+        viseronAPI.interceptors.request.eject(requestInterceptorRef.current);
+      }
+    };
   }, [auth, toast]);
 };
 
@@ -114,7 +120,13 @@ export const AuthProvider: FC<AuthProviderProps> = ({
   const cookies = Cookies.get();
   const userQuery = useAuthUser({
     username: cookies.user,
-    configOptions: { enabled: !!(authQuery.data?.enabled && !!cookies.user) },
+    configOptions: {
+      enabled: !!(
+        authQuery.data?.enabled &&
+        authQuery.data?.onboarding_complete &&
+        !!cookies.user
+      ),
+    },
   });
 
   if (authQuery.isPending || authQuery.isLoading) {
