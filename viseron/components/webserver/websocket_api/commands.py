@@ -262,6 +262,7 @@ async def get_cameras(connection: WebSocketHandler, message) -> None:
     )
 
 
+@require_admin
 @websocket_command({vol.Required("type"): "get_config"})
 async def get_config(connection: WebSocketHandler, message) -> None:
     """Return config in text format."""

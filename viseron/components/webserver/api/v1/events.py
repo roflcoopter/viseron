@@ -17,6 +17,7 @@ from viseron.components.storage.models import (
     Recordings,
 )
 from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.components.webserver.auth import Role
 from viseron.domains.camera import FailedCamera
 from viseron.domains.face_recognition.const import DOMAIN as FACE_RECOGNITION_DOMAIN
 from viseron.domains.license_plate_recognition.const import (
@@ -58,6 +59,7 @@ class EventsAPIHandler(BaseAPIHandler):
             "method": "get_events_amount",
         },
         {
+            "requires_role": [Role.ADMIN, Role.READ, Role.WRITE],
             "path_pattern": r"/events/amount",
             "supported_methods": ["POST"],
             "method": "post_events_amount_multiple",
