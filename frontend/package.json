@@ -49,6 +49,7 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@open-draft/deferred-promise": "^2.2.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",
@@ -83,6 +84,7 @@
     "husky": "^9.1.5",
     "jsdom": "^25.0.0",
     "lint-staged": "^15.2.10",
+    "msw": "^2.7.3",
     "prettier": "^3.3.3",
     "vite": "^5.4.3",
     "vite-plugin-eslint": "^1.8.1",

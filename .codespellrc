@@ -1,0 +1,3 @@
+[codespell]
+
+ignore-regex = .*codespell-ignore$
