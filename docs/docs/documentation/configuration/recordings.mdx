@@ -9,6 +9,8 @@ There are two types of recordings in Viseron, event recordings and continuous re
 
 Event recordings are triggered by events such as motion detection or object detection. The recordings are saved to disk and can be viewed in the web interface on the `Events` tab on the `Events` page.
 
+### Configuration
+
 The config option `trigger_event_recording: true` instructs Viseron to start recording when the event is detected.
 
 Example configuration to record when detecting a person:
@@ -40,9 +42,72 @@ The `trigger_event_recording` option is only available for motion and object det
 
 :::
 
+### Viewing event recordings
+
+To view event recordings, go to the `Events` tab on the `Events` page. Here you can see all events that have been detected and recorded.
+Clicking on one will seek to the time of the event.
+
+:::info
+
+If you see a snapshot instead of a video when you click the event, it means that the video is no longer available. Tune your retention rules to keep the recordings longer.
+
+:::
+
+#### Filters
+
+Various types of filtering can be applied:
+
+- Any number of cameras can be selected by clicking on the Cameras button in the bottom right.
+
+  <details>
+    <summary>Cameras Button (highlighted in green)</summary>
+    <img
+      src="/img/screenshots/Viseron-Events-camera-button.png"
+      alt-text="Cameras Button"
+      width={700}
+    />
+  </details>
+
+- You can filter by date by clicking on the date button in the bottom right.
+
+  <details>
+    <summary>Date Button (highlighted in green)</summary>
+    <img
+      src="/img/screenshots/Viseron-Events-date-button.png"
+      alt-text="Date Button"
+      width={700}
+    />
+  </details>
+
+- You can also filter by event type, such as motion or object detection. The filter menu is located next to the Events/Timeline tab selector.
+  <details>
+    <summary>Event type filter demo</summary>
+    <video
+      controls
+      muted
+      autoPlay
+      loop
+      style={{ maxWidth: 700, width: "100%" }}
+    >
+      <source
+        src="/img/videos/Viseron-Events-filter-event-type.mp4"
+        type="video/mp4"
+      />
+      Your browser does not support the video tag.
+    </video>
+  </details>
+
+#### Grouping
+
+Events from the same camera that are within 2 minutes of each other are grouped together.
+If you want to group adjacent events from different cameras, you can select the `Group Cameras` option in the filter menu.
+The filter menu is located next to the Events/Timeline tab selector.
+
 ## Continuous recordings
 
 If configured, continuous recordings are always running and stored to disk. The recordings can be viewed in the web interface on the `Timeline` tab on the `Events` page.
+
+### Configuration
 
 To enable continuous recordings, all you need to do is set [retention rules](#retention-rules) since the default value of `continuous_recording` is `true`.
 
@@ -71,6 +136,33 @@ ffmpeg: # or any other camera component
             gb: 10
         // highlight-end
 ```
+
+### Viewing continuous recordings
+
+To view continuous recordings, go to the `Timeline` tab on the `Events` page. Here you can see all continuous recordings that have been recorded.
+
+To seek to a specific point in time, you simply click on the timeline. The timeline will show you the recordings for all cameras that are selected, if video is available.
+
+The `Activity Line` visually represents the activity detected by the cameras over time, helping to quickly identify periods of interest.
+
+<details>
+  <summary>Activity Line explanation</summary>
+  <img
+    src="/img/screenshots/Viseron-Events-activity-line.png"
+    alt-text="Activity Line"
+    width={700}
+  />
+  <p>Activity Line colors:</p>
+  - **Slim dark blue**: No activity detected, and recorder video is **not** available.
+  - **Thick light blue**: No activity detected, but recorder video is available.
+  - **Thick pink**: Motion detected.
+  - **Thick green**: Event recording is available.
+
+</details>
+
+#### Filters
+
+The same [filters as for event recordings](#filters) can be applied to continuous recordings.
 
 ## Retention rules
 
