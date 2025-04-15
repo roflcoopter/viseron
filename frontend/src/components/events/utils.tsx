@@ -44,6 +44,7 @@ export type Filters = {
     };
   };
   groupCameras: { label: string; checked: boolean };
+  lookbackAdjust: { label: string; checked: boolean };
 };
 
 const initialFilters: Filters = {
@@ -58,6 +59,7 @@ const initialFilters: Filters = {
     },
   },
   groupCameras: { label: "Group Cameras", checked: false },
+  lookbackAdjust: { label: "Adjust for Lookback", checked: true },
 };
 
 interface FilterState {
@@ -77,9 +79,10 @@ export const useFilterStore = create<FilterState>()(
 
           switch (filterKey) {
             case "groupCameras":
-              newFilters.groupCameras = {
-                ...newFilters.groupCameras,
-                checked: !newFilters.groupCameras.checked,
+            case "lookbackAdjust":
+              newFilters[filterKey] = {
+                ...newFilters[filterKey],
+                checked: !newFilters[filterKey].checked,
               };
               break;
             case "motion":
@@ -776,24 +779,32 @@ export const useSelectEvent = () => {
       availableTimespansRef: state.availableTimespansRef,
     })),
   );
+  const { lookbackAdjust } = useFilterStore(
+    useShallow((state) => ({
+      lookbackAdjust: state.filters.lookbackAdjust.checked,
+    })),
+  );
 
   const selectEvent = useCallback(
     (event: types.CameraEvent) => {
-      if (
-        isTimespanAvailable(
-          Math.round(getEventTimestamp(event)),
-          availableTimespansRef.current,
-        )
-      ) {
+      const eventTimestamp = Math.round(getEventTimestamp(event));
+      if (isTimespanAvailable(eventTimestamp, availableTimespansRef.current)) {
         setSelectedEvent(event);
-        setRequestedTimestamp(Math.round(getEventTimestamp(event)));
+        setRequestedTimestamp(
+          eventTimestamp - (lookbackAdjust ? event.lookback : 0),
+        );
         return;
       }
 
       setSelectedEvent(event);
       setRequestedTimestamp(0);
     },
-    [availableTimespansRef, setSelectedEvent, setRequestedTimestamp],
+    [
+      availableTimespansRef,
+      setSelectedEvent,
+      setRequestedTimestamp,
+      lookbackAdjust,
+    ],
   );
   return selectEvent;
 };

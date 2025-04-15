@@ -257,6 +257,7 @@ type CameraBaseEvent = {
   id: number;
   created_at: string;
   created_at_timestamp: number;
+  lookback: number;
 };
 
 type CameraBaseTimedEvent = CameraBaseEvent & {
