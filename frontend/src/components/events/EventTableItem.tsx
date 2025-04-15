@@ -23,11 +23,11 @@ import {
 } from "lib/helpers";
 import * as types from "lib/types";
 
-type EventTableItemIconProps = {
+type EventTableItemIconsProps = {
   sortedEvents: types.CameraEvent[];
 };
 
-const EventTableItemIcon = ({ sortedEvents }: EventTableItemIconProps) => {
+const EventTableItemIcons = ({ sortedEvents }: EventTableItemIconsProps) => {
   const uniqueEvents = extractUniqueTypes(sortedEvents);
   const cameraName = getCameraNameFromQueryCache(
     sortedEvents[0].camera_identifier,
@@ -143,7 +143,7 @@ export const EventTableItem = memo(
             alignItems="center"
           >
             <Grid size={8}>
-              <EventTableItemIcon sortedEvents={events} />
+              <EventTableItemIcons sortedEvents={sortedEvents} />
             </Grid>
             <Grid size={4}>
               <CardMedia
