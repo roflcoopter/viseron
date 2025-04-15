@@ -113,6 +113,16 @@ export const FilterMenu: React.FC = () => {
           />
           <ListItemText primary={filters.groupCameras.label} />
         </MenuItem>
+        <MenuItem
+          key={"lookbackAdjust"}
+          onClick={handleCheckboxClick("lookbackAdjust")}
+        >
+          <Checkbox
+            checked={filters.lookbackAdjust.checked}
+            onClick={handleCheckboxClick("lookbackAdjust")}
+          />
+          <ListItemText primary={filters.lookbackAdjust.label} />
+        </MenuItem>
       </Menu>
     </>
   );

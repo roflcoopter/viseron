@@ -115,6 +115,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         else None,
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
+                        "lookback": camera.recorder.lookback,
                     }
                 )
         return motion_events
@@ -155,6 +156,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
                         "snapshot_path": f"/files{event.snapshot_path}",
+                        "lookback": camera.recorder.lookback,
                     }
                 )
         return object_events
@@ -206,6 +208,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         "thumbnail_path": f"/files{event.thumbnail_path}",
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
+                        "lookback": camera.recorder.lookback,
                     }
                 )
         return recording_events
@@ -254,6 +257,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         "data": event.data,
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
+                        "lookback": camera.recorder.lookback,
                     }
                 )
         return post_processor_events
