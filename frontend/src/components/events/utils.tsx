@@ -547,23 +547,15 @@ export const getTimelineItems = (
       };
     });
 
-  // Loop over events where type is object
-  filteredEvents
-    .filter(
-      (cameraEvent): cameraEvent is types.CameraObjectEvent =>
-        cameraEvent.type === "object",
-    )
-    .forEach((cameraEvent) => {
-      addSnapshotEvent(startRef, timelineItems, cameraEvent);
-    });
-
   filteredEvents
     .filter(
       (
         cameraEvent,
       ): cameraEvent is
+        | types.CameraObjectEvent
         | types.CameraFaceRecognitionEvent
         | types.CameraLicensePlateRecognitionEvent =>
+        cameraEvent.type === "object" ||
         cameraEvent.type === "face_recognition" ||
         cameraEvent.type === "license_plate_recognition",
     )
@@ -678,7 +670,7 @@ export const extractUniqueTypes = (snapshotEvents: types.CameraEvent[]) => {
     if (!typeMap.has(type)) {
       typeMap.set(type, []);
     }
-    typeMap.get(type)!.push(event);
+    typeMap.get(type)!.unshift(event);
   });
 
   const result: { [key: string]: types.CameraEvent[] } = {};
@@ -756,7 +748,7 @@ const isTimespanAvailable = (
   availableTimespans: types.HlsAvailableTimespan[],
 ) => {
   for (const timespan of availableTimespans) {
-    if (timestamp >= timespan.start && timestamp <= timespan.end) {
+    if (timestamp >= timespan.start - 5 && timestamp <= timespan.end + 5) {
       return true;
     }
   }
