@@ -748,7 +748,7 @@ const isTimespanAvailable = (
   availableTimespans: types.HlsAvailableTimespan[],
 ) => {
   for (const timespan of availableTimespans) {
-    if (timestamp >= timespan.start && timestamp <= timespan.end) {
+    if (timestamp >= timespan.start - 5 && timestamp <= timespan.end + 5) {
       return true;
     }
   }
