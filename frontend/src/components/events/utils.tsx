@@ -105,7 +105,7 @@ export const useFilterStore = create<FilterState>()(
         });
       },
     }),
-    { name: "filter-store", version: 1 },
+    { name: "filter-store", version: 2 },
   ),
 );
 
