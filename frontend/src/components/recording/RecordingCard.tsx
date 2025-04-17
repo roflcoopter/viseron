@@ -26,7 +26,7 @@ export default function RecordingCard({
   recording,
 }: RecordingCardInterface) {
   const theme = useTheme();
-  const { auth } = useAuthContext();
+  const { auth, user } = useAuthContext();
   const deleteRecording = useDeleteRecording();
 
   return (
@@ -62,24 +62,26 @@ export default function RecordingCard({
           {getVideoElement(camera, recording, auth.enabled)}
         </LazyLoad>
       </CardMedia>
-      <CardActions>
-        <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
-          <Tooltip title="Delete Recording">
-            <MutationIconButton
-              mutation={deleteRecording}
-              onClick={() => {
-                deleteRecording.mutate({
-                  identifier: camera.identifier,
-                  recording_id: recording.id,
-                  failed: camera.failed,
-                });
-              }}
-            >
-              <DeleteForeverIcon />
-            </MutationIconButton>
-          </Tooltip>
-        </Stack>
-      </CardActions>
+      {!user || user.role === "admin" || user.role === "write" ? (
+        <CardActions>
+          <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
+            <Tooltip title="Delete Recording">
+              <MutationIconButton
+                mutation={deleteRecording}
+                onClick={() => {
+                  deleteRecording.mutate({
+                    identifier: camera.identifier,
+                    recording_id: recording.id,
+                    failed: camera.failed,
+                  });
+                }}
+              >
+                <DeleteForeverIcon />
+              </MutationIconButton>
+            </Tooltip>
+          </Stack>
+        </CardActions>
+      ) : null}
     </Card>
   );
 }

@@ -8,10 +8,10 @@ from viseron import Viseron
 from viseron.components.codeprojectai import CONFIG_SCHEMA
 from viseron.components.codeprojectai.const import COMPONENT
 from viseron.components.codeprojectai.object_detector import (
-    DOMAIN as OBJECT_DETECTOR_DOMAIN,
     ObjectDetector,
     setup as cpai_setup,
 )
+from viseron.domains.object_detector.const import DOMAIN as OBJECT_DETECTOR_DOMAIN
 from viseron.domains.object_detector.detected_object import DetectedObject
 
 from tests.common import MockCamera, MockComponent

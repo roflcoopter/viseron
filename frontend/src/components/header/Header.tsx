@@ -61,7 +61,7 @@ export default function AppHeader() {
   const [showHeader, setShowHeader] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const lastTogglePos = useRef(0);
-  const { auth } = useAuthContext();
+  const { auth, user } = useAuthContext();
   const { safeMode } = useContext(ViseronContext);
 
   useScrollPosition((prevPos: any, currPos: any) => {
@@ -168,15 +168,17 @@ export default function AppHeader() {
                 )}
               </IconButton>
             </Tooltip>
-            <Tooltip title={"Edit Configuration"} enterDelay={300}>
-              <IconButton
-                component={RouterLink}
-                color="primary"
-                to={"/configuration"}
-              >
-                <SettingsIcon />
-              </IconButton>
-            </Tooltip>
+            {!auth.enabled || (auth.enabled && user?.role) === "admin" ? (
+              <Tooltip title={"Settings"} enterDelay={300}>
+                <IconButton
+                  component={RouterLink}
+                  color="primary"
+                  to={"/settings"}
+                >
+                  <SettingsIcon />
+                </IconButton>
+              </Tooltip>
+            ) : null}
             {auth.enabled && (
               <Tooltip title={"Logout"} enterDelay={300}>
                 <IconButton

@@ -12,7 +12,9 @@ import tornado.web
 from sqlalchemy.orm import Session
 from tornado.ioloop import IOLoop
 
+from viseron.components import DomainToSetup
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.webserver.auth import Role
 from viseron.components.webserver.const import COMPONENT
 from viseron.const import DOMAIN_FAILED
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
@@ -206,12 +208,57 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
 
         return True
 
-    def _get_cameras(self):
+    def _get_cameras(self) -> None | dict[str, AbstractCamera]:
         """Get all registered camera instances."""
         try:
-            return self._vis.get_registered_identifiers(CAMERA_DOMAIN)
+            cameras = self._vis.get_registered_identifiers(CAMERA_DOMAIN)
         except DomainNotRegisteredError:
             return None
+
+        if (
+            not self.current_user
+            or self.current_user.assigned_cameras is None
+            or self.current_user.role == Role.ADMIN
+        ):
+            return cameras
+
+        filtered_cameras = {
+            camera_identifier: camera_instance
+            for camera_identifier, camera_instance in cameras.items()
+            if camera_identifier in self.current_user.assigned_cameras
+        }
+        return filtered_cameras
+
+    def get_cameras(self) -> None | dict[str, AbstractCamera]:
+        """Get all registered camera instances."""
+        return self._get_cameras()
+
+    def _get_failed_cameras(self) -> None | dict[str, FailedCamera]:
+        """Get all registered failed camera instances."""
+        try:
+            camera_domains: list[DomainToSetup] = (
+                self._vis.data[DOMAIN_FAILED].get(CAMERA_DOMAIN, {}).values()
+            )
+        except DomainNotRegisteredError:
+            return None
+
+        if (
+            not self.current_user
+            or self.current_user.assigned_cameras is None
+            or self.current_user.role == Role.ADMIN
+        ):
+            return {
+                camera_domain.identifier: camera_domain.error_instance
+                for camera_domain in camera_domains
+                if camera_domain.error_instance
+            }
+
+        return {
+            camera_domain.identifier: camera_domain.error_instance
+            for camera_domain in camera_domains
+            if camera_domain.error_instance
+            and camera_domain.identifier in self.current_user.assigned_cameras
+        }
 
     @overload
     def _get_camera(self, camera_identifier: str) -> AbstractCamera | None:
@@ -255,7 +302,21 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
                 )
                 if domain_to_setup:
                     camera = domain_to_setup.error_instance
-        return camera
+
+        if (
+            not self.current_user
+            or self.current_user.assigned_cameras is None
+            or self.current_user.role == Role.ADMIN
+        ):
+            return camera
+
+        if (
+            self.current_user
+            and camera_identifier in self.current_user.assigned_cameras
+        ):
+            return camera
+
+        return None
 
     @overload
     def get_camera(self, camera_identifier: str) -> AbstractCamera | None:

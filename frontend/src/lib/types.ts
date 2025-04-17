@@ -122,9 +122,15 @@ export type StoredTokens = {
 };
 
 export type AuthUserResponse = {
+  id: string;
   name: string;
   username: string;
-  group: string;
+  role: "admin" | "read" | "write";
+  assigned_cameras: string[] | null;
+};
+
+export type AuthUsersResponse = {
+  users: AuthUserResponse[];
 };
 
 export type AuthLoginResponse = AuthTokenResponse;
@@ -251,6 +257,7 @@ type CameraBaseEvent = {
   id: number;
   created_at: string;
   created_at_timestamp: number;
+  lookback: number;
 };
 
 type CameraBaseTimedEvent = CameraBaseEvent & {

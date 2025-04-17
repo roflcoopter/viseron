@@ -37,20 +37,14 @@ from viseron.components.storage.queries import (
     get_time_period_fragments,
 )
 from viseron.components.storage.util import EventFileCreated, EventFileDeleted
-from viseron.components.webserver.auth import Group
+from viseron.components.webserver.auth import Role
 from viseron.components.webserver.const import (
     DOWNLOAD_PATH,
     WS_ERROR_NOT_FOUND,
     WS_ERROR_SAVE_CONFIG_FAILED,
 )
 from viseron.components.webserver.download_token import DownloadToken
-from viseron.const import (
-    CONFIG_PATH,
-    EVENT_STATE_CHANGED,
-    REGISTERED_DOMAINS,
-    RESTART_EXIT_CODE,
-)
-from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.const import CONFIG_PATH, EVENT_STATE_CHANGED, RESTART_EXIT_CODE
 from viseron.domains.camera.fragmenter import (
     Fragment,
     Timespan,
@@ -122,7 +116,7 @@ def require_admin(func):
             """Check admin and call async function."""
             if connection.webserver.auth:
                 user = connection.current_user
-                if user is None or not user.group == Group.ADMIN:
+                if user is None or not user.role == Role.ADMIN:
                     raise Unauthorized()
 
             await func(connection, message)
@@ -134,7 +128,7 @@ def require_admin(func):
         """Check admin and call function."""
         if connection.webserver.auth:
             user = connection.current_user
-            if user is None or not user.group == Group.ADMIN:
+            if user is None or not user.role == Role.ADMIN:
                 raise Unauthorized()
 
         func(connection, message)
@@ -263,11 +257,12 @@ async def get_cameras(connection: WebSocketHandler, message) -> None:
     await connection.async_send_message(
         result_message(
             message["command_id"],
-            connection.vis.data[REGISTERED_DOMAINS].get(CAMERA_DOMAIN, {}),
+            connection.get_cameras(),
         ),
     )
 
 
+@require_admin
 @websocket_command({vol.Required("type"): "get_config"})
 async def get_config(connection: WebSocketHandler, message) -> None:
     """Return config in text format."""

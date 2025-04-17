@@ -8,8 +8,18 @@ import os
 from pathlib import Path
 from unittest.mock import PropertyMock, patch
 
+from viseron.components.webserver.auth import (
+    LastAdminUserError,
+    Role,
+    User,
+    UserDoesNotExistError,
+    UserExistsError,
+)
+
 from tests.components.webserver.common import (
     CLIENT_ID,
+    READ_REFRESH_TOKEN_ID,
+    REFRESH_TOKEN_ID,
     USER_ID,
     USER_NAME,
     TestAppBaseAuth,
@@ -61,7 +71,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
                     "name": "test",
                     "username": "testuser",
                     "password": "test",
-                    "group": "admin",
+                    "role": "admin",
                 }
             ),
         )
@@ -80,7 +90,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
                     "name": "test",
                     "username": USER_NAME,
                     "password": "test",
-                    "group": "admin",
+                    "role": "admin",
                 }
             ),
         )
@@ -90,8 +100,8 @@ class TestAuthAPIHandler(TestAppBaseAuth):
             "status": 400,
         }
 
-    def test_auth_create_invalid_group(self):
-        """Test adding a user with an invalid group."""
+    def test_auth_create_invalid_role(self):
+        """Test adding a user with an invalid role."""
         response = self.fetch_with_auth(
             "/api/v1/auth/create",
             method="POST",
@@ -100,7 +110,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
                     "name": "test2",
                     "username": "test2",
                     "password": "test2",
-                    "group": "invalid",
+                    "role": "invalid",
                 }
             ),
         )
@@ -119,7 +129,7 @@ class TestAuthAPIHandler(TestAppBaseAuth):
         assert json.loads(response.body) == {
             "name": "Asd",
             "username": USER_NAME,
-            "group": "admin",
+            "role": "admin",
         }
 
     def test_auth_user_missing(self):
@@ -204,7 +214,8 @@ class TestAuthAPIHandler(TestAppBaseAuth):
         assert json.loads(response.body) == {
             "success": True,
         }
-        assert self.webserver.auth.refresh_tokens == {}
+        assert REFRESH_TOKEN_ID not in self.webserver.auth.refresh_tokens
+        assert READ_REFRESH_TOKEN_ID in self.webserver.auth.refresh_tokens
 
     def test_auth_token(self):
         """Test the auth token endpoint."""
@@ -350,3 +361,227 @@ class TestAuthAPIHandler(TestAppBaseAuth):
                 "error": "Invalid user",
                 "status": 400,
             }
+
+    def test_auth_delete(self):
+        """Test deleting a user."""
+        with patch("viseron.components.webserver.auth.Auth.delete_user"):
+            response = self.fetch_with_auth(
+                "/api/v1/auth/user/123456789",
+                method="DELETE",
+            )
+            assert response.code == 200
+            assert json.loads(response.body) == {"success": True}
+
+    def test_auth_delete_self(self):
+        """Test deleting your own user."""
+        response = self.fetch_with_auth(
+            f"/api/v1/auth/user/{USER_ID}",
+            method="DELETE",
+        )
+        assert response.code == 403
+        assert json.loads(response.body) == {
+            "error": "You cannot delete your own account",
+            "status": 403,
+        }
+
+    def test_auth_delete_nonexistent_user(self):
+        """Test deleting a nonexistent user."""
+        with patch(
+            "viseron.components.webserver.auth.Auth.delete_user",
+            side_effect=UserDoesNotExistError(
+                "User with ID nonexistent_id does not exist"
+            ),
+        ):
+            response = self.fetch_with_auth(
+                "/api/v1/auth/user/nonexistent_id",
+                method="DELETE",
+            )
+            assert response.code == 404
+            assert json.loads(response.body) == {
+                "error": "User with ID nonexistent_id does not exist",
+                "status": 404,
+            }
+
+    def test_auth_delete_last_admin_user(self):
+        """Test deleting the last admin user."""
+        with patch(
+            "viseron.components.webserver.auth.Auth.delete_user",
+            side_effect=LastAdminUserError("Cannot delete the last admin user"),
+        ), patch(
+            "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
+            new_callable=PropertyMock,
+            return_value=User(
+                name="Test",
+                username="test",
+                password="test",
+                role=Role.ADMIN,
+            ),
+        ), patch(
+            "viseron.components.webserver.request_handler.ViseronRequestHandler.validate_access_token",  # pylint: disable=line-too-long
+            return_value=True,
+        ):
+            response = self.fetch_with_auth(
+                f"/api/v1/auth/user/{USER_ID}",
+                method="DELETE",
+            )
+            assert response.code == 400
+            assert json.loads(response.body) == {
+                "error": "Cannot delete the last admin user",
+                "status": 400,
+            }
+
+    def test_auth_users(self):
+        """Test retrieving all users."""
+        response = self.fetch_with_auth("/api/v1/auth/users", method="GET")
+        assert response.code == 200
+        users = json.loads(response.body)["users"]
+        assert len(users) == 2
+        assert users[0]["id"] == USER_ID
+        assert users[0]["username"] == USER_NAME
+
+    def test_auth_admin_change_password(self):
+        """Test changing a user's password as an admin."""
+        with patch(
+            "viseron.components.webserver.auth.Auth.change_password"
+        ) as mock_change_password:
+            mock_change_password.return_value = None
+            response = self.fetch_with_auth(
+                f"/api/v1/auth/user/{USER_ID}/admin_change_password",
+                method="PUT",
+                body=json.dumps({"new_password": "new_password"}),
+            )
+            assert response.code == 200
+            assert json.loads(response.body) == {"success": True}
+
+    def test_auth_admin_change_password_not_admin(self):
+        """Test changing a user's password when not an admin."""
+        with patch(
+            "viseron.components.webserver.request_handler.ViseronRequestHandler.current_user",  # pylint: disable=line-too-long
+            new_callable=PropertyMock,
+            return_value=User(
+                name="Test",
+                username="test",
+                password="test",
+                role=Role.READ,
+            ),
+        ), patch(
+            "viseron.components.webserver.request_handler.ViseronRequestHandler.validate_access_token",  # pylint: disable=line-too-long
+            return_value=True,
+        ):
+            response = self.fetch_with_auth(
+                f"/api/v1/auth/user/{USER_ID}/admin_change_password",
+                method="PUT",
+                body=json.dumps({"new_password": "new_password"}),
+            )
+            assert response.code == 403
+            assert json.loads(response.body) == {
+                "error": "Insufficient permissions",
+                "status": 403,
+            }
+
+    def test_auth_change_password_nonexistent_user(self):
+        """Test changing the password of a nonexistent user."""
+        with patch(
+            "viseron.components.webserver.auth.Auth.change_password",
+            side_effect=UserDoesNotExistError(
+                "User with ID nonexistent_id does not exist"
+            ),
+        ):
+            response = self.fetch_with_auth(
+                "/api/v1/auth/user/nonexistent_id/admin_change_password",
+                method="PUT",
+                body=json.dumps({"new_password": "new_password"}),
+            )
+            assert response.code == 404
+            assert json.loads(response.body) == {
+                "error": "User with ID nonexistent_id does not exist",
+                "status": 404,
+            }
+
+    def test_auth_update_user(self):
+        """Test updating a user's details."""
+        with patch(
+            "viseron.components.webserver.auth.Auth.update_user"
+        ) as mock_update_user:
+            mock_update_user.return_value = None
+            response = self.fetch_with_auth(
+                f"/api/v1/auth/user/{USER_ID}",
+                method="PUT",
+                body=json.dumps(
+                    {
+                        "name": "Updated Name",
+                        "username": "updated_username",
+                        "role": "write",
+                        "assigned_cameras": None,
+                    }
+                ),
+            )
+            assert response.code == 200
+            assert json.loads(response.body) == {"success": True}
+
+    def test_auth_update_user_nonexistent(self):
+        """Test updating a nonexistent user."""
+        with patch(
+            "viseron.components.webserver.auth.Auth.update_user",
+            side_effect=UserDoesNotExistError(
+                "User with ID nonexistent_id does not exist"
+            ),
+        ):
+            response = self.fetch_with_auth(
+                "/api/v1/auth/user/nonexistent_id",
+                method="PUT",
+                body=json.dumps(
+                    {
+                        "name": "Updated Name",
+                        "username": "updated_username",
+                        "role": "write",
+                        "assigned_cameras": None,
+                    }
+                ),
+            )
+            assert response.code == 404
+            assert json.loads(response.body) == {
+                "error": "User with ID nonexistent_id does not exist",
+                "status": 404,
+            }
+
+    def test_auth_update_user_duplicate_username(self):
+        """Test updating a user with a duplicate username."""
+        with patch(
+            "viseron.components.webserver.auth.Auth.update_user",
+            side_effect=UserExistsError("Username test1 is already taken"),
+        ):
+            response = self.fetch_with_auth(
+                f"/api/v1/auth/user/{USER_ID}",
+                method="PUT",
+                body=json.dumps(
+                    {
+                        "name": "Updated Name",
+                        "username": "test1",
+                        "role": "write",
+                        "assigned_cameras": None,
+                    }
+                ),
+            )
+            assert response.code == 400
+            assert json.loads(response.body) == {
+                "error": "Username test1 is already taken",
+                "status": 400,
+            }
+
+    def test_auth_update_user_invalid_role(self):
+        """Test updating a user with an invalid role."""
+        body = {
+            "name": "Updated Name",
+            "username": "updated_username",
+            "role": "invalid",
+            "assigned_cameras": None,
+        }
+        response = self.fetch_with_auth(
+            "/api/v1/auth/user/123456789",
+            method="PUT",
+            body=json.dumps(body),
+        )
+        assert response.code == 400
+        _body = json.loads(response.body)
+        assert "Invalid body" in _body["error"]

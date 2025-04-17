@@ -30,7 +30,7 @@ export default function RecordingCardLatest({
   failed,
 }: RecordingCardLatestProps) {
   const theme = useTheme();
-  const { auth } = useAuthContext();
+  const { auth, user } = useAuthContext();
   const deleteRecording = useDeleteRecording();
 
   const recordingsQuery = useRecordings({
@@ -128,8 +128,8 @@ export default function RecordingCardLatest({
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title="Delete Recordings">
-            <span>
+          {!user || user.role === "admin" || user.role === "write" ? (
+            <Tooltip title="Delete Recordings">
               <MutationIconButton
                 mutation={deleteRecording}
                 disabled={!objHasValues(recording)}
@@ -142,8 +142,8 @@ export default function RecordingCardLatest({
               >
                 <DeleteForeverIcon />
               </MutationIconButton>
-            </span>
-          </Tooltip>
+            </Tooltip>
+          ) : null}
         </Stack>
       </CardActions>
     </Card>

@@ -528,7 +528,7 @@ class Stream:
                     self._logger.debug("FFmpeg did not terminate, killing instead.")
                     self._pipe.kill()
                     self._pipe.communicate()
-            except AttributeError as error:
+            except (AttributeError, OSError) as error:
                 self._logger.error("Failed to close pipe: %s", error)
 
         try:

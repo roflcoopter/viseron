@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -35,6 +36,30 @@ class OptionalDomain(RequireDomain):
     the domain.
     If the optional domain is NOT marked for setup, Viseron will ignore the dependency.
     """
+
+
+class DomainMeta(ABCMeta):
+    """Metaclass for domains.
+
+    This metaclass will call __post_init__ after __init__ in order to register
+    domains without explicitly doing so in __init__.
+    """
+
+    def __call__(cls, *args, **kwargs):
+        """Call __post_init__ after __init__."""
+        instance = super().__call__(*args, **kwargs)
+        if hasattr(instance, "__post_init__"):
+            instance.__post_init__(*args, **kwargs)
+            return instance
+        raise NotImplementedError(f"Class {cls} must implement __post_init__")
+
+
+class AbstractDomain(metaclass=DomainMeta):
+    """Abstract domain class."""
+
+    @abstractmethod
+    def __post_init__(self, *args, **kwargs):
+        """Post init, called automatically after __init__."""
 
 
 def setup_domain(

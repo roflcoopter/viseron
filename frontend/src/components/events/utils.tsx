@@ -28,42 +28,84 @@ export const LIVE_EDGE_DELAY = 10;
 
 export const playerCardSmMaxHeight = () => window.innerHeight * 0.4;
 
-type Filters = {
-  [key in types.CameraEvent["type"]]: {
-    label: string;
-    checked: boolean;
+// Get all possible keys from Filters
+export type FilterKeysFromFilters =
+  | keyof Filters["eventTypes"]
+  | keyof Pick<Filters, Exclude<keyof Filters, "eventTypes">>;
+
+// Update FilterKey to use the mapped type
+type FilterKey = FilterKeysFromFilters;
+
+export type Filters = {
+  eventTypes: {
+    [key in types.CameraEvent["type"]]: {
+      label: string;
+      checked: boolean;
+    };
   };
+  groupCameras: { label: string; checked: boolean };
+  lookbackAdjust: { label: string; checked: boolean };
+};
+
+const initialFilters: Filters = {
+  eventTypes: {
+    motion: { label: "Motion", checked: true },
+    object: { label: "Object", checked: true },
+    recording: { label: "Recording", checked: true },
+    face_recognition: { label: "Face Recognition", checked: true },
+    license_plate_recognition: {
+      label: "License Plate Recognition",
+      checked: true,
+    },
+  },
+  groupCameras: { label: "Group Cameras", checked: false },
+  lookbackAdjust: { label: "Adjust for Lookback", checked: true },
 };
 
 interface FilterState {
   filters: Filters;
   setFilters: (filters: Filters) => void;
-  toggleFilter: (filterKey: types.CameraEvent["type"]) => void;
+  toggleFilter: (filterKey: FilterKey) => void;
 }
 
 export const useFilterStore = create<FilterState>()(
   persist(
     (set) => ({
-      filters: {
-        motion: { label: "Motion", checked: true },
-        object: { label: "Object", checked: true },
-        recording: { label: "Recording", checked: true },
-        face_recognition: { label: "Face Recognition", checked: true },
-        license_plate_recognition: {
-          label: "License Plate Recognition",
-          checked: true,
-        },
-      },
+      filters: initialFilters,
       setFilters: (filters) => set({ filters }),
-      toggleFilter: (filterKey: types.CameraEvent["type"]) => {
+      toggleFilter: (filterKey) => {
         set((state) => {
           const newFilters = { ...state.filters };
-          newFilters[filterKey].checked = !newFilters[filterKey].checked;
+
+          switch (filterKey) {
+            case "groupCameras":
+            case "lookbackAdjust":
+              newFilters[filterKey] = {
+                ...newFilters[filterKey],
+                checked: !newFilters[filterKey].checked,
+              };
+              break;
+            case "motion":
+            case "object":
+            case "recording":
+            case "face_recognition":
+            case "license_plate_recognition":
+              newFilters.eventTypes[filterKey] = {
+                ...newFilters.eventTypes[filterKey],
+                checked: !newFilters.eventTypes[filterKey].checked,
+              };
+              break;
+            default:
+              // eslint-disable-next-line no-case-declarations
+              const _exhaustiveCheck: never = filterKey;
+              throw new Error(`Unhandled filter key: ${_exhaustiveCheck}`);
+          }
+
           return { filters: newFilters };
         });
       },
     }),
-    { name: "filter-store" },
+    { name: "filter-store", version: 2 },
   ),
 );
 
@@ -454,7 +496,7 @@ export const getTimelineItems = (
   let timelineItems: TimelineItems = {};
 
   const filteredEvents = eventsData.filter(
-    (event) => filters[event.type].checked,
+    (event) => filters.eventTypes[event.type].checked,
   );
 
   // Loop over available HLS files
@@ -505,23 +547,15 @@ export const getTimelineItems = (
       };
     });
 
-  // Loop over events where type is object
-  filteredEvents
-    .filter(
-      (cameraEvent): cameraEvent is types.CameraObjectEvent =>
-        cameraEvent.type === "object",
-    )
-    .forEach((cameraEvent) => {
-      addSnapshotEvent(startRef, timelineItems, cameraEvent);
-    });
-
   filteredEvents
     .filter(
       (
         cameraEvent,
       ): cameraEvent is
+        | types.CameraObjectEvent
         | types.CameraFaceRecognitionEvent
         | types.CameraLicensePlateRecognitionEvent =>
+        cameraEvent.type === "object" ||
         cameraEvent.type === "face_recognition" ||
         cameraEvent.type === "license_plate_recognition",
     )
@@ -636,7 +670,7 @@ export const extractUniqueTypes = (snapshotEvents: types.CameraEvent[]) => {
     if (!typeMap.has(type)) {
       typeMap.set(type, []);
     }
-    typeMap.get(type)!.push(event);
+    typeMap.get(type)!.unshift(event);
   });
 
   const result: { [key: string]: types.CameraEvent[] } = {};
@@ -714,7 +748,7 @@ const isTimespanAvailable = (
   availableTimespans: types.HlsAvailableTimespan[],
 ) => {
   for (const timespan of availableTimespans) {
-    if (timestamp >= timespan.start && timestamp <= timespan.end) {
+    if (timestamp >= timespan.start - 5 && timestamp <= timespan.end + 5) {
       return true;
     }
   }
@@ -737,24 +771,32 @@ export const useSelectEvent = () => {
       availableTimespansRef: state.availableTimespansRef,
     })),
   );
+  const { lookbackAdjust } = useFilterStore(
+    useShallow((state) => ({
+      lookbackAdjust: state.filters.lookbackAdjust.checked,
+    })),
+  );
 
   const selectEvent = useCallback(
     (event: types.CameraEvent) => {
-      if (
-        isTimespanAvailable(
-          Math.round(getEventTimestamp(event)),
-          availableTimespansRef.current,
-        )
-      ) {
+      const eventTimestamp = Math.round(getEventTimestamp(event));
+      if (isTimespanAvailable(eventTimestamp, availableTimespansRef.current)) {
         setSelectedEvent(event);
-        setRequestedTimestamp(Math.round(getEventTimestamp(event)));
+        setRequestedTimestamp(
+          eventTimestamp - (lookbackAdjust ? event.lookback : 0),
+        );
         return;
       }
 
       setSelectedEvent(event);
       setRequestedTimestamp(0);
     },
-    [availableTimespansRef, setSelectedEvent, setRequestedTimestamp],
+    [
+      availableTimespansRef,
+      setSelectedEvent,
+      setRequestedTimestamp,
+      lookbackAdjust,
+    ],
   );
   return selectEvent;
 };

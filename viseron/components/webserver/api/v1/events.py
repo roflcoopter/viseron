@@ -17,6 +17,7 @@ from viseron.components.storage.models import (
     Recordings,
 )
 from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.components.webserver.auth import Role
 from viseron.domains.camera import FailedCamera
 from viseron.domains.face_recognition.const import DOMAIN as FACE_RECOGNITION_DOMAIN
 from viseron.domains.license_plate_recognition.const import (
@@ -58,6 +59,7 @@ class EventsAPIHandler(BaseAPIHandler):
             "method": "get_events_amount",
         },
         {
+            "requires_role": [Role.ADMIN, Role.READ, Role.WRITE],
             "path_pattern": r"/events/amount",
             "supported_methods": ["POST"],
             "method": "post_events_amount_multiple",
@@ -113,6 +115,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         else None,
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
+                        "lookback": camera.recorder.lookback,
                     }
                 )
         return motion_events
@@ -153,6 +156,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
                         "snapshot_path": f"/files{event.snapshot_path}",
+                        "lookback": camera.recorder.lookback,
                     }
                 )
         return object_events
@@ -204,6 +208,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         "thumbnail_path": f"/files{event.thumbnail_path}",
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
+                        "lookback": camera.recorder.lookback,
                     }
                 )
         return recording_events
@@ -252,6 +257,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         "data": event.data,
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
+                        "lookback": camera.recorder.lookback,
                     }
                 )
         return post_processor_events

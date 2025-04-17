@@ -89,6 +89,13 @@
                       },
                       {
                         "type": "boolean",
+                        "name": "draw_post_processor_mask",
+                        "description": "If set, configured post processor masks will be drawn.",
+                        "optional": true,
+                        "default": false
+                      },
+                      {
+                        "type": "boolean",
                         "name": "draw_zones",
                         "description": "If set, configured zones will be drawn.",
                         "optional": true,
@@ -184,6 +191,13 @@
                     "description": "Height of the still image, if different from the stream height.",
                     "optional": true,
                     "default": null
+                  },
+                  {
+                    "type": "boolean",
+                    "name": "use_last_snapshot_on_error",
+                    "description": "If <code>true</code>, the last snapshot will be used if the current snapshot fails to load. Uses some extra memory which is why it is disabled by default.",
+                    "optional": true,
+                    "default": false
                   }
                 ],
                 "name": "still_image",

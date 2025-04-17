@@ -111,6 +111,7 @@
 !/scripts/gen_docs/*
 
 # Repo
+!/.codespellrc
 !/.coveragerc
 !/.flake8
 !/.gitignore

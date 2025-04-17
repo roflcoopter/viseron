@@ -22,6 +22,43 @@
                     "description": "A list of labels that when detected will be sent to the post processor. Applies <b>only</b> to this specific camera.",
                     "optional": true,
                     "default": null
+                  },
+                  {
+                    "type": "list",
+                    "values": [
+                      [
+                        {
+                          "type": "list",
+                          "values": [
+                            [
+                              {
+                                "type": "integer",
+                                "name": "x",
+                                "description": "X-coordinate (horizontal axis).",
+                                "required": true,
+                                "default": null
+                              },
+                              {
+                                "type": "integer",
+                                "name": "y",
+                                "description": "Y-coordinate (vertical axis).",
+                                "required": true,
+                                "default": null
+                              }
+                            ]
+                          ],
+                          "lengthMin": 3,
+                          "name": "coordinates",
+                          "description": "List of X and Y coordinates to form a polygon",
+                          "required": true,
+                          "default": null
+                        }
+                      ]
+                    ],
+                    "name": "mask",
+                    "description": "A mask is used to exclude certain areas in the image from post processing.",
+                    "optional": true,
+                    "default": []
                   }
                 ],
                 "name": {

@@ -35,8 +35,6 @@ class ObjectDetector(AbstractObjectDetector):
         self._darknet: BaseDarknet = vis.data[COMPONENT]
         self._object_result_queue: Queue[list[DetectedObject]] = Queue(maxsize=1)
 
-        vis.register_domain(DOMAIN, camera_identifier, self)
-
     def preprocess(self, frame: SharedFrame):
         """Return preprocessed frame before performing object detection."""
         return self._darknet.preprocess(frame)

@@ -1,6 +1,8 @@
 """Exceptions used by Viseron."""
 from __future__ import annotations
 
+from viseron.types import Domain
+
 
 class ViseronError(Exception):
     """General Viseron exception occurred."""
@@ -94,10 +96,13 @@ class StreamInformationError(ViseronError):
 class DomainNotRegisteredError(ViseronError):
     """Raised when trying to get a domain that has not been registered."""
 
-    def __init__(self, domain: str, identifier: str | None = None) -> None:
+    def __init__(self, domain: str | Domain, identifier: str | None = None) -> None:
         """Initialize error."""
         super().__init__(self)
-        self.domain = domain
+        if isinstance(domain, Domain):
+            self.domain = domain.value
+        else:
+            self.domain = domain
         self.identifier = identifier
 
     def __str__(self) -> str:

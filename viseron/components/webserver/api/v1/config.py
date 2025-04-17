@@ -2,6 +2,7 @@
 import logging
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
+from viseron.components.webserver.auth import Role
 from viseron.const import CONFIG_PATH
 
 LOGGER = logging.getLogger(__name__)
@@ -12,6 +13,7 @@ class ConfigAPIHandler(BaseAPIHandler):
 
     routes = [
         {
+            "requires_role": [Role.ADMIN],
             "path_pattern": r"/config",
             "supported_methods": ["GET"],
             "method": "get_config",

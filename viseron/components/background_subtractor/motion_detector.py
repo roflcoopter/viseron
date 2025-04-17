@@ -29,8 +29,6 @@ class MotionDetector(AbstractMotionDetectorScanner):
         self._avg: np.ndarray | None = None
         self._empty_mat = cv2.Mat(np.empty((3, 3), np.uint8))
 
-        vis.register_domain(DOMAIN, camera_identifier, self)
-
     def preprocess(self, frame: np.ndarray):
         """Resize the frame to the desired width and height."""
         return cv2.resize(

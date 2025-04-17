@@ -22,6 +22,7 @@ import supervision as sv
 import tornado.queues as tq
 
 from viseron.const import FONT, FONT_SIZE, FONT_THICKNESS
+from viseron.types import Domain
 
 if TYPE_CHECKING:
     from viseron.domains.object_detector.detected_object import DetectedObject
@@ -401,6 +402,16 @@ def draw_object_mask(frame, mask_points) -> None:
     draw_mask("Object mask", frame, mask_points, color=(255, 255, 255))
 
 
+def draw_post_processor_mask(frame, domain: Domain, mask_points) -> None:
+    """Draw post processor mask."""
+    draw_mask(
+        f"{domain.value.capitalize().replace('_', ' ')} mask",
+        frame,
+        mask_points,
+        color=(255, 125, 0),
+    )
+
+
 def apply_mask(frame: np.ndarray, mask_image) -> None:
     """Apply mask to frame."""
     frame[mask_image] = [0]
@@ -458,8 +469,8 @@ def generate_mask_image(mask, resolution):
     """Return an image with the mask drawn on it."""
     mask_image = np.zeros(
         (
-            resolution[0],
             resolution[1],
+            resolution[0],
             3,
         ),
         np.uint8,

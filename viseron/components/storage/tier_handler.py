@@ -87,6 +87,7 @@ from viseron.domains.camera.const import (
     CONFIG_RETAIN,
 )
 from viseron.helpers import utcnow
+from viseron.helpers.named_timer import NamedTimer
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
@@ -333,7 +334,12 @@ class TierHandler(FileSystemEventHandler):
 
         if event.src_path in self._pending_updates:
             self._pending_updates[event.src_path].cancel()
-        self._pending_updates[event.src_path] = Timer(1, _update_size)
+        self._pending_updates[event.src_path] = NamedTimer(
+            1,
+            _update_size,
+            name=f"update_size for {event.src_path}",
+            daemon=False,  # We want to wait for the update to finish on shutdown
+        )
         self._pending_updates[event.src_path].start()
 
     def _on_deleted(self, event: FileDeletedEvent) -> None:

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import time
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections import deque
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any
@@ -16,6 +16,7 @@ from viseron.components.nvr.const import EVENT_SCAN_FRAMES, OBJECT_DETECTOR
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.storage.models import Objects
 from viseron.const import INSERT, VISERON_SIGNAL_SHUTDOWN
+from viseron.domains import AbstractDomain
 from viseron.domains.camera.const import (
     DOMAIN as CAMERA_DOMAIN,
     EVENT_CAMERA_EVENT_DB_OPERATION,
@@ -246,7 +247,7 @@ BASE_CONFIG_SCHEMA = vol.Schema(
 )
 
 
-class AbstractObjectDetector(ABC):
+class AbstractObjectDetector(AbstractDomain):
     """Abstract Object Detector."""
 
     def __init__(
@@ -347,6 +348,10 @@ class AbstractObjectDetector(ABC):
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
         vis.add_entity(component, ObjectDetectedBinarySensorFoV(vis, self._camera))
         vis.add_entity(component, ObjectDetectorFPSSensor(vis, self, self._camera))
+
+    def __post_init__(self, *args, **kwargs):
+        """Post init hook."""
+        self._vis.register_domain(DOMAIN, self._camera_identifier, self)
 
     def concat_labels(self) -> list[Filter]:
         """Return a concatenated list of global filters + all filters in each zone."""

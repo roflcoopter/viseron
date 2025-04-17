@@ -62,13 +62,9 @@ class LicensePlateRecognition(AbstractLicensePlateRecognition):
             ],
         )
 
-    def preprocess(self, post_processor_frame: PostProcessorFrame) -> np.ndarray:
-        """Perform preprocessing of frame before running recognition."""
-        decoded_frame = self._camera.shared_frames.get_decoded_frame_rgb(
-            post_processor_frame.shared_frame
-        )
-
-        return decoded_frame
+    def preprocess(self, frame) -> np.ndarray:
+        """Preprocess frame."""
+        return frame
 
     def _process_frame(
         self, frame: np.ndarray, detected_object: DetectedObject
@@ -141,12 +137,14 @@ class LicensePlateRecognition(AbstractLicensePlateRecognition):
         return detections
 
     def license_plate_recognition(
-        self, frame: np.ndarray, post_processor_frame: PostProcessorFrame
+        self, post_processor_frame: PostProcessorFrame
     ) -> list[DetectedLicensePlate]:
         """Perform license plate recognition."""
         detections = []
         for detected_object in post_processor_frame.filtered_objects:
-            detections += self._process_frame(frame, detected_object)
+            detections += self._process_frame(
+                post_processor_frame.frame, detected_object
+            )
         return detections
 
 

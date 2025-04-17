@@ -18,6 +18,7 @@ import PopupState, { bindHover, bindPopover } from "material-ui-popup-state";
 import HoverPopover from "material-ui-popup-state/HoverPopover";
 import { memo, useCallback, useRef } from "react";
 
+import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import {
   EVENT_ICON_HEIGHT,
   TICK_HEIGHT,
@@ -28,6 +29,7 @@ import {
   getEventTimestamp,
   getIcon,
   getSrc,
+  useFilterStore,
   useSelectEvent,
 } from "components/events/utils";
 import { useExportEvent } from "lib/commands";
@@ -135,6 +137,7 @@ const PopoverContent = ({ events }: { events: types.CameraEvent[] }) => {
   const width = matches ? (events.length > 1 ? "50vw" : "25vw") : "90vw";
   const handleEventClick = useSelectEvent();
   const exportEvent = useExportEvent();
+  const { filters } = useFilterStore();
 
   return (
     <Grid
@@ -172,6 +175,11 @@ const PopoverContent = ({ events }: { events: types.CameraEvent[] }) => {
                       objectFit: "contain",
                     }}
                   />
+                  {filters.groupCameras.checked && (
+                    <CameraNameOverlay
+                      camera_identifier={event.camera_identifier}
+                    />
+                  )}
                 </CardMedia>
               </CardActionArea>
               <CardContent>{getText(event)}</CardContent>

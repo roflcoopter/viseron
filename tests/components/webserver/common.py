@@ -18,8 +18,12 @@ from viseron.components.webserver.const import COMPONENT
 
 USER_ID = "ffa448c2623b45ba8be62bfc6b0ae859"
 USER_NAME = "asd"
-
 REFRESH_TOKEN_ID = "77541fd8343543a7be6057270b23cdfe"
+
+READ_USER_ID = "b2f5ff467c4d4a3e8f1a0b7c9e6d2f3b"
+READ_USER_NAME = "read_user"
+READ_REFRESH_TOKEN_ID = "77541fd8343543a7be6057270b23cdff"
+
 CLIENT_ID = "http://dummy.lan:8888/"
 
 STATIC_ASSET_KEY = "static_asset_key"
@@ -32,10 +36,18 @@ AUTH_STORAGE_DATA = {
                 "name": "Asd",
                 "username": USER_NAME,
                 "password": "JDJiJDEyJFJsNm9HeVVKcEx5cXlXSlFsaFBVNWVhVlJ3TWJaRlR4d3U4YUo0Y2JwaC4uU0VMbjliWlUy",  # pylint: disable=line-too-long
-                "group": "admin",
+                "role": "admin",
                 "id": USER_ID,
                 "enabled": True,
-            }
+            },
+            READ_USER_ID: {
+                "name": "Read User",
+                "username": READ_USER_NAME,
+                "password": "JDJiJDEyJFJsNm9HeVVKcEx5cXlXSlFsaFBVNWVhVlJ3TWJaRlR4d3U4YUo0Y2JwaC4uU0VMbjliWlUy",  # pylint: disable=line-too-long
+                "role": "read",
+                "id": READ_USER_ID,
+                "enabled": True,
+            },
         },
         "refresh_tokens": {
             REFRESH_TOKEN_ID: {
@@ -47,6 +59,20 @@ AUTH_STORAGE_DATA = {
                 "created_at": 1678198479.662633,
                 "id": REFRESH_TOKEN_ID,
                 "token": "token",
+                "jwt_key": "jwt_key",
+                "static_asset_key": STATIC_ASSET_KEY,
+                "used_at": 1678196574.598274,
+                "used_by": "192.168.100.100",
+            },
+            READ_REFRESH_TOKEN_ID: {
+                "user_id": READ_USER_ID,
+                "client_id": CLIENT_ID,
+                "session_expiration": 3600,
+                "access_token_type": "normal",
+                "access_token_expiration": 1800,
+                "created_at": 1678198479.662633,
+                "id": READ_REFRESH_TOKEN_ID,
+                "token": "read_token",
                 "jwt_key": "jwt_key",
                 "static_asset_key": STATIC_ASSET_KEY,
                 "used_at": 1678196574.598274,

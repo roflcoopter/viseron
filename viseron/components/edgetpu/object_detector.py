@@ -49,8 +49,6 @@ class ObjectDetector(AbstractObjectDetector):
 
         super().__init__(vis, COMPONENT, config, camera_identifier)
 
-        vis.register_domain(DOMAIN, camera_identifier, self)
-
     def preprocess(self, frame):
         """Return preprocessed frame before performing object detection."""
         frame = cv2.resize(

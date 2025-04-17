@@ -10,8 +10,10 @@ import pytest
 from viseron.components.webserver.auth import (
     Auth,
     AuthenticationFailed,
-    Group,
-    InvalidGroupError,
+    InvalidRoleError,
+    LastAdminUserError,
+    Role,
+    UserDoesNotExistError,
     UserExistsError,
     token_response,
 )
@@ -37,10 +39,10 @@ class TestAuth:
 
     def test_add_user(self):
         """Test adding user."""
-        user = self.auth.add_user("Test", "Test ", "test", Group.ADMIN)
+        user = self.auth.add_user("Test", "Test ", "test", Role.ADMIN)
         assert user.name == "Test"
         assert user.username == "test"
-        assert user.group == Group.ADMIN
+        assert user.role == Role.ADMIN
         assert user.enabled is True
         assert user.password != "test"
 
@@ -52,8 +54,8 @@ class TestAuth:
             is True
         )
 
-        user2 = self.auth.add_user("Test2", "Test2", "test", Group.WRITE)
-        assert user2.group == Group.WRITE
+        user2 = self.auth.add_user("Test2", "Test2", "test", Role.WRITE)
+        assert user2.role == Role.WRITE
 
     def test_onboard_user(self):
         """Test oboarding user."""
@@ -61,16 +63,21 @@ class TestAuth:
         self.auth.onboard_user("Test", "Test ", "test")
         assert self.auth.onboarding_complete() is True
 
-    def test_add_user_invalid_group(self):
-        """Test adding user with invalid group."""
-        with pytest.raises(InvalidGroupError):
-            self.auth.add_user("Test", "Test ", "test", "invalid")
+    def test_add_user_invalid_role(self):
+        """Test adding user with invalid role."""
+        with pytest.raises(InvalidRoleError):
+            self.auth.add_user(
+                "Test",
+                "Test ",
+                "test",
+                "invalid",  # type: ignore[arg-type]
+            )
 
     def test_add_user_duplicate_username(self):
         """Test adding user with duplicate username."""
-        self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        self.auth.add_user("Test", "test", "test", Role.ADMIN)
         with pytest.raises(UserExistsError):
-            self.auth.add_user("Test", "test", "test", Group.ADMIN)
+            self.auth.add_user("Test", "test", "test", Role.ADMIN)
 
     def test_hash_password(self):
         """Test hashing password."""
@@ -80,33 +87,125 @@ class TestAuth:
 
     def test_validate_user(self):
         """Test validating user."""
-        user_add = self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        user_add = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         user_pw = self.auth.validate_user("test", "test")
         assert user_add == user_pw
 
     def test_validate_user_invalid_password(self):
         """Test validating user with invalid password."""
-        self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        self.auth.add_user("Test", "test", "test", Role.ADMIN)
         with pytest.raises(AuthenticationFailed):
             self.auth.validate_user("test", "invalid")
 
     def test_validate_user_missing_user(self):
         """Test validating user with missing username."""
-        self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        self.auth.add_user("Test", "test", "test", Role.ADMIN)
         with pytest.raises(AuthenticationFailed):
             self.auth.validate_user("missing", "invalid")
 
     def test_get_user(self):
         """Test getting user."""
-        user_add = self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        user_add = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         user_get = self.auth.get_user(user_add.id)
         assert user_add == user_get
 
     def test_get_user_by_username(self):
         """Test getting user."""
-        user_add = self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        user_add = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         user_get = self.auth.get_user_by_username("test")
         assert user_add == user_get
+
+    def test_get_users(self):
+        """Test getting all users."""
+        user1 = self.auth.add_user("Test1", "test1", "test", Role.ADMIN)
+        user2 = self.auth.add_user("Test2", "test2", "test", Role.WRITE)
+        users = self.auth.get_users()
+        assert len(users) == 2
+        assert user1.id in users
+        assert user2.id in users
+
+    def test_delete_user(self):
+        """Test deleting a user."""
+        user = self.auth.add_user("Test", "test", "test", Role.WRITE)
+        assert user.id in self.auth.users
+
+        self.auth.delete_user(user.id)
+        assert user.id not in self.auth.users
+
+    def test_delete_user_nonexistent(self):
+        """Test deleting a nonexistent user."""
+        with pytest.raises(UserDoesNotExistError):
+            self.auth.delete_user("nonexistent_id")
+
+    def test_delete_last_admin_user(self):
+        """Test deleting the last admin user."""
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
+        with pytest.raises(
+            LastAdminUserError, match="Cannot delete the last admin user"
+        ):
+            self.auth.delete_user(user.id)
+
+    def test_change_password(self):
+        """Test changing a user's password."""
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
+        self.auth.change_password(user.id, "new_password")
+        updated_user = self.auth.validate_user("test", "new_password")
+        assert updated_user == user
+
+    def test_change_password_nonexistent_user(self):
+        """Test changing the password of a nonexistent user."""
+        with pytest.raises(UserDoesNotExistError):
+            self.auth.change_password("nonexistent_id", "new_password")
+
+    def test_update_user(self):
+        """Test updating a user's details."""
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
+        self.auth.update_user(
+            user.id, "Updated Name", "updated_username", Role.ADMIN, None
+        )
+        updated_user = self.auth.get_user(user.id)
+        assert updated_user is not None
+        assert updated_user.id == user.id
+        assert updated_user.name == "Updated Name"
+        assert updated_user.username == "updated_username"
+        assert updated_user.role == Role.ADMIN
+
+    def test_update_user_last_admin(self):
+        """Test updating the last admin user."""
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
+        with pytest.raises(
+            LastAdminUserError, match="Cannot change the role of the last admin user"
+        ):
+            self.auth.update_user(
+                user.id, "Updated Name", "updated_username", Role.WRITE, None
+            )
+
+    def test_update_user_nonexistent(self):
+        """Test updating a nonexistent user."""
+        with pytest.raises(UserDoesNotExistError):
+            self.auth.update_user(
+                "nonexistent_id", "Updated Name", "updated_username", Role.WRITE, None
+            )
+
+    def test_update_user_duplicate_username(self):
+        """Test updating a user with a duplicate username."""
+        self.auth.add_user("Test1", "test1", "test", Role.ADMIN)
+        user2 = self.auth.add_user("Test2", "test2", "test", Role.WRITE)
+        with pytest.raises(UserExistsError, match="Username test1 is already taken"):
+            self.auth.update_user(user2.id, "Updated Name", "test1", Role.WRITE, None)
+
+    def test_update_user_invalid_role(self):
+        """Test updating a user with an invalid role."""
+        self.auth.add_user("Test", "test", "test", Role.ADMIN)
+        user2 = self.auth.add_user("Test2", "test2", "test2", Role.WRITE)
+        with pytest.raises(InvalidRoleError, match="Invalid role invalid"):
+            self.auth.update_user(
+                user2.id,
+                "Updated Name",
+                "updated_username",
+                "invalid",  # type: ignore[arg-type]
+                None,
+            )
 
     def test_generate_refresh_token(self):
         """Test generating refresh token."""
@@ -123,7 +222,7 @@ class TestAuth:
 
     def test_get_refresh_token(self):
         """Test getting refresh token."""
-        user = self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         refresh_token = self.auth.generate_refresh_token(
             user.id, "test_client", "normal", timedelta(seconds=3600)
         )
@@ -132,7 +231,7 @@ class TestAuth:
 
     def test_get_refresh_token_from_token(self):
         """Test getting refresh token from token."""
-        user = self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         refresh_token = self.auth.generate_refresh_token(
             user.id, "test_client", "normal", timedelta(seconds=3600)
         )
@@ -141,7 +240,7 @@ class TestAuth:
 
     def test_delete_refresh_token(self):
         """Test deleting refresh token."""
-        user = self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         refresh_token = self.auth.generate_refresh_token(
             user.id, "test_client", "normal", timedelta(seconds=3600)
         )
@@ -153,7 +252,7 @@ class TestAuth:
 
     def test_get_refresh_token_from_token_invalid_token(self):
         """Test getting refresh token from invalid token."""
-        user = self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         self.auth.generate_refresh_token(
             user.id, "test_client", "normal", timedelta(seconds=3600)
         )
@@ -162,7 +261,7 @@ class TestAuth:
 
     def test_generate_access_token(self):
         """Test generating access token."""
-        user = self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         refresh_token = self.auth.generate_refresh_token(
             user.id, "test_client", "normal", timedelta(seconds=3600)
         )
@@ -170,7 +269,7 @@ class TestAuth:
 
     def test_validate_access_token(self):
         """Test validating access token."""
-        user = self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         refresh_token = self.auth.generate_refresh_token(
             user.id, "test_client", "normal", timedelta(seconds=3600)
         )
@@ -179,7 +278,7 @@ class TestAuth:
 
     def test_validate_access_token_expired(self):
         """Test validating access token expired."""
-        user = self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         refresh_token = self.auth.generate_refresh_token(
             user.id, "test_client", "normal", timedelta(seconds=-10)
         )
@@ -192,7 +291,7 @@ class TestAuth:
 
     def test_validate_access_token_disabled_user(self):
         """Test validating access token for disabled user."""
-        user = self.auth.add_user("Test", "test", "test", Group.ADMIN, enabled=False)
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN, enabled=False)
         assert user.enabled is False
         refresh_token = self.auth.generate_refresh_token(
             user.id, "test_client", "normal", timedelta(seconds=3600)
@@ -202,7 +301,7 @@ class TestAuth:
 
     def test_validate_access_token_missing_refresh_token(self):
         """Test validating access token missing refresh token."""
-        user = self.auth.add_user("Test", "test", "test", Group.ADMIN)
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
         refresh_token = self.auth.generate_refresh_token(
             user.id, "test_client", "normal", timedelta(seconds=3600)
         )
@@ -212,8 +311,8 @@ class TestAuth:
 
     def test_load(self, vis):
         """Test loading storage."""
-        user = self.auth.add_user("Test", "test", "test", Group.ADMIN)
-        user2 = self.auth.add_user("Test2", "test2", "test", Group.ADMIN)
+        user = self.auth.add_user("Test", "test", "test", Role.ADMIN)
+        user2 = self.auth.add_user("Test2", "test2", "test", Role.ADMIN)
         refresh_token = self.auth.generate_refresh_token(
             user.id, "test_client", "normal", timedelta(seconds=3600)
         )
