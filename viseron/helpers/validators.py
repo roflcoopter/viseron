@@ -10,6 +10,31 @@ from viseron.helpers import slugify
 LOGGER = logging.getLogger(__name__)
 
 
+class UNDEFINED:
+    """Class to represent undefined value.
+
+    This is used in voluptuous schemas to indicate that an optional key
+    is not present in the configuration. It is used to differentiate
+    between defined and undefined values.
+    """
+
+    def __repr__(self) -> str:
+        """Return representation."""
+        return "UNDEFINED(%s)" % "undefined"
+
+    def __bool__(self):
+        """Return False for UNDEFINED."""
+        return False
+
+    def __eq__(self, other):
+        """Check if other is UNDEFINED."""
+        return other is UNDEFINED
+
+    def __ne__(self, other):
+        """Check if other is not UNDEFINED."""
+        return other is not UNDEFINED
+
+
 def deprecated(key: str, replacement: str | None = None) -> Callable[[dict], dict]:
     """Mark key as deprecated and optionally replace it.
 
@@ -183,7 +208,14 @@ class Maybe(vol.Any):
     """
 
     def __init__(self, *validators, **kwargs) -> None:
-        super().__init__(*validators + (None,), **kwargs)
+        super().__init__(
+            *validators
+            + (
+                None,
+                UNDEFINED,
+            ),
+            **kwargs,
+        )
 
 
 class Slug:
