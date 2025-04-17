@@ -99,7 +99,7 @@ from viseron.components.storage.const import (
 from viseron.components.storage.util import calculate_age, calculate_bytes
 from viseron.config import UNSUPPORTED
 from viseron.const import TEMP_DIR
-from viseron.helpers.validators import CoerceNoneToDict, Maybe
+from viseron.helpers.validators import UNDEFINED, CoerceNoneToDict, Maybe
 
 
 def custom_convert(value) -> dict[str, str] | object:
@@ -315,7 +315,7 @@ def get_snapshots_schema(undefined_defaults=False):
     return {
         vol.Optional(
             CONFIG_TIERS,
-            default=vol.UNDEFINED if undefined_defaults else DEFAULT_SNAPSHOTS_TIERS,
+            default=UNDEFINED if undefined_defaults else DEFAULT_SNAPSHOTS_TIERS,
             description=DESC_SNAPSHOTS_TIERS,
         ): vol.All(
             [TIER_SCHEMA_SNAPSHOTS],
@@ -323,7 +323,7 @@ def get_snapshots_schema(undefined_defaults=False):
         ),
         vol.Optional(
             CONFIG_FACE_RECOGNITION,
-            default=vol.UNDEFINED if undefined_defaults else DEFAULT_FACE_RECOGNITION,
+            default=UNDEFINED if undefined_defaults else DEFAULT_FACE_RECOGNITION,
             description=DESC_FACE_RECOGNITION,
         ): Maybe(
             {
@@ -335,7 +335,7 @@ def get_snapshots_schema(undefined_defaults=False):
         ),
         vol.Optional(
             CONFIG_OBJECT_DETECTOR,
-            default=vol.UNDEFINED if undefined_defaults else DEFAULT_OBJECT_DETECTOR,
+            default=UNDEFINED if undefined_defaults else DEFAULT_OBJECT_DETECTOR,
             description=DESC_OBJECT_DETECTOR,
         ): Maybe(
             {
@@ -347,7 +347,7 @@ def get_snapshots_schema(undefined_defaults=False):
         ),
         vol.Optional(
             CONFIG_LICENSE_PLATE_RECOGNITION,
-            default=vol.UNDEFINED
+            default=UNDEFINED
             if undefined_defaults
             else DEFAULT_LICENSE_PLATE_RECOGNITION,
             description=DESC_LICENSE_PLATE_RECOGNITION,
@@ -361,7 +361,7 @@ def get_snapshots_schema(undefined_defaults=False):
         ),
         vol.Optional(
             CONFIG_MOTION_DETECTOR,
-            default=vol.UNDEFINED if undefined_defaults else DEFAULT_MOTION_DETECTOR,
+            default=UNDEFINED if undefined_defaults else DEFAULT_MOTION_DETECTOR,
             description=DESC_MOTION_DETECTOR,
         ): Maybe(
             {
@@ -477,18 +477,9 @@ def _storage_type_enabled(config: dict[str, Any]) -> bool:
     return any(params)
 
 
-def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
-    """Validate tiers.
-
-    Rules:
-    - Paths cannot be reserved paths.
-    - The same path cannot be defined multiple times.
-    - max_age has to be greater than previous tier max_age.
-    - If continuous and/or events is not defined in the first tier,
-      it can't be defined in any other tier.
-    """
-    component_config: dict[str, Any] = config[COMPONENT]
-
+def _validate_recorder_tiers(
+    component_config: dict[str, Any],
+):
     # Check continuous and events config in first tier
     first_tier = component_config.get(CONFIG_RECORDER, {}).get(CONFIG_TIERS, [])[0]
     continuous_enabled = _storage_type_enabled(first_tier[CONFIG_CONTINUOUS])
@@ -533,9 +524,13 @@ def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
             _check_tier(_tier, previous_tier, paths, CONFIG_RECORDER)
             previous_tier = _tier
 
+
+def _validate_snapshots_tiers(
+    component_config: dict[str, Any],
+):
     # Check snapshots config
     previous_tier = None
-    paths = []
+    paths: list[str] = []
     for tier in component_config.get(CONFIG_SNAPSHOTS, {}).get(CONFIG_TIERS, []):
         _tier = Tier(path=tier[CONFIG_PATH], max_age=tier[CONFIG_MAX_AGE])
         _check_tier(_tier, previous_tier, paths, CONFIG_SNAPSHOTS)
@@ -556,5 +551,23 @@ def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
             _tier = Tier(path=tier[CONFIG_PATH], max_age=tier[CONFIG_MAX_AGE])
             _check_tier(_tier, previous_tier, paths, CONFIG_SNAPSHOTS)
             previous_tier = _tier
+
+
+def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
+    """Validate tiers.
+
+    Rules:
+    - Paths cannot be reserved paths.
+    - The same path cannot be defined multiple times.
+    - max_age has to be greater than previous tier max_age.
+    - If continuous and/or events is not defined in the first tier,
+      it can't be defined in any other tier.
+    """
+    component_config: dict[str, Any] = config[COMPONENT]
+    if component_config.get(CONFIG_RECORDER, None):
+        _validate_recorder_tiers(component_config)
+
+    if component_config.get(CONFIG_SNAPSHOTS, None):
+        _validate_snapshots_tiers(component_config)
 
     return config

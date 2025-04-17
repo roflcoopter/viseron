@@ -11,6 +11,7 @@ import voluptuous as vol
 
 from viseron.config import UNSUPPORTED
 from viseron.helpers.validators import (
+    UNDEFINED,
     CameraIdentifier,
     CoerceNoneToDict,
     Deprecated,
@@ -79,8 +80,8 @@ def convert(schema, custom_convert=None):  # noqa: C901
             if isinstance(key, (vol.Required, vol.Optional, Deprecated)):
                 pval[key.__class__.__name__.lower()] = True
 
-                if key.default is not vol.UNDEFINED:
-                    pval["default"] = key.default()
+                if key.default is not vol.UNDEFINED and key.default is not UNDEFINED:
+                    pval["default"] = key.default()  # type: ignore[operator]
                 else:
                     pval["default"] = None
                 pval["description"] = description
@@ -101,7 +102,7 @@ def convert(schema, custom_convert=None):  # noqa: C901
     if isinstance(schema, Maybe):
         val = []
         for validator in schema.validators:
-            if validator is None:
+            if validator is None or validator is UNDEFINED:
                 continue
             val.append(convert(validator, custom_convert=custom_convert))
         options = recurse_options(val)

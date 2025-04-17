@@ -14,7 +14,13 @@ from viseron.components.storage.const import (
     DESC_EVENTS,
     DESC_SNAPSHOTS,
 )
-from viseron.helpers.validators import CoerceNoneToDict, Deprecated, Maybe, Slug
+from viseron.helpers.validators import (
+    UNDEFINED,
+    CoerceNoneToDict,
+    Deprecated,
+    Maybe,
+    Slug,
+)
 
 from .const import (
     AUTHENTICATION_BASIC,
@@ -246,12 +252,12 @@ RECORDER_SCHEMA = vol.Schema(
         ): vol.All(CoerceNoneToDict(), THUMBNAIL_SCHEMA),
         vol.Optional(
             CONFIG_CONTINUOUS,
-            default=vol.UNDEFINED,
+            default=UNDEFINED,
             description=DESC_CONTINUOUS,
         ): Maybe(TIER_SCHEMA_BASE),
         vol.Optional(
             CONFIG_EVENTS,
-            default=vol.UNDEFINED,
+            default=UNDEFINED,
             description=DESC_EVENTS,
         ): Maybe(TIER_SCHEMA_BASE),
         vol.Optional(
@@ -343,14 +349,14 @@ BASE_CONFIG_SCHEMA = vol.Schema(
             {
                 vol.Optional(
                     CONFIG_RECORDER,
-                    default=vol.UNDEFINED,
+                    default=UNDEFINED,
                     description=DESC_RECORDER,
-                ): STORAGE_RECORDER_SCHEMA,
+                ): Maybe(STORAGE_RECORDER_SCHEMA),
                 vol.Optional(
                     CONFIG_SNAPSHOTS,
-                    default=vol.UNDEFINED,
+                    default=UNDEFINED,
                     description=DESC_SNAPSHOTS,
-                ): get_snapshots_schema(undefined_defaults=True),
+                ): Maybe(get_snapshots_schema(undefined_defaults=True)),
             }
         ),
     }

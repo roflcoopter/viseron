@@ -62,6 +62,7 @@ from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera.const import CONFIG_STORAGE, DOMAIN as CAMERA_DOMAIN
 from viseron.helpers import utcnow
 from viseron.helpers.logs import StreamToLogger
+from viseron.helpers.validators import UNDEFINED
 from viseron.types import SnapshotDomain
 
 if TYPE_CHECKING:
@@ -437,13 +438,13 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
     # Override recorder tiers with camera config
     _recorder_tier: dict[str, Any] = {}
     continuous = camera.config[CONFIG_RECORDER].get(CONFIG_CONTINUOUS, None)
-    if continuous and continuous != vol.UNDEFINED:
+    if continuous and continuous != UNDEFINED:
         _recorder_tier[CONFIG_PATH] = "/"
         _recorder_tier[CONFIG_CONTINUOUS] = continuous
         tier_config[CONFIG_RECORDER][CONFIG_TIERS] = [_recorder_tier]
 
     events = camera.config[CONFIG_RECORDER].get(CONFIG_EVENTS, None)
-    if events and events != vol.UNDEFINED:
+    if events and events != UNDEFINED:
         _recorder_tier[CONFIG_PATH] = "/"
         _recorder_tier[CONFIG_EVENTS] = events
         tier_config[CONFIG_RECORDER][CONFIG_TIERS] = [_recorder_tier]
@@ -451,7 +452,7 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
     if (
         not _recorder_tier
         and camera.config[CONFIG_STORAGE]
-        and camera.config[CONFIG_STORAGE][CONFIG_RECORDER] != vol.UNDEFINED
+        and camera.config[CONFIG_STORAGE][CONFIG_RECORDER] != UNDEFINED
     ):
         _recorder_tier = camera.config[CONFIG_STORAGE][CONFIG_RECORDER][CONFIG_TIERS]
         tier_config[CONFIG_RECORDER][CONFIG_TIERS] = _recorder_tier
@@ -472,7 +473,7 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
     _snapshot_tier: dict[str, Any] = {}
     if (
         camera.config[CONFIG_STORAGE]
-        and camera.config[CONFIG_STORAGE][CONFIG_SNAPSHOTS] != vol.UNDEFINED
+        and camera.config[CONFIG_STORAGE][CONFIG_SNAPSHOTS] != UNDEFINED
     ):
         for subcategory in camera.config[CONFIG_STORAGE][CONFIG_SNAPSHOTS].keys():
             _snapshot_tier = camera.config[CONFIG_STORAGE][CONFIG_SNAPSHOTS][
@@ -489,7 +490,7 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
         domains = list(camera.config[CONFIG_STORAGE][CONFIG_SNAPSHOTS].keys())
         domains.remove(CONFIG_TIERS)
         for domain in domains:
-            if tier_config[CONFIG_SNAPSHOTS][domain] == vol.UNDEFINED:
+            if tier_config[CONFIG_SNAPSHOTS][domain] == UNDEFINED:
                 continue
             tier_config[CONFIG_SNAPSHOTS][domain][CONFIG_TIERS] = vol.Schema(
                 vol.All(

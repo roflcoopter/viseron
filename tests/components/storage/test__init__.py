@@ -49,6 +49,7 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_THUMBNAILS,
 )
 from viseron.domains.camera.const import CONFIG_STORAGE
+from viseron.helpers.validators import UNDEFINED
 
 from tests.common import MockCamera
 from tests.conftest import MockViseron
@@ -149,7 +150,7 @@ TIER_CONFIG = {
                             },
                         ]
                     },
-                    CONFIG_SNAPSHOTS: vol.UNDEFINED,
+                    CONFIG_SNAPSHOTS: UNDEFINED,
                 },
             },
             {
@@ -218,7 +219,7 @@ TIER_CONFIG = {
                             },
                         ]
                     },
-                    CONFIG_RECORDER: vol.UNDEFINED,
+                    CONFIG_RECORDER: UNDEFINED,
                 },
             },
             {
@@ -278,9 +279,9 @@ TIER_CONFIG = {
                                 },
                             ]
                         },
-                        CONFIG_OBJECT_DETECTOR: vol.UNDEFINED,
+                        CONFIG_OBJECT_DETECTOR: UNDEFINED,
                     },
-                    CONFIG_RECORDER: vol.UNDEFINED,
+                    CONFIG_RECORDER: UNDEFINED,
                 },
             },
             {
@@ -337,7 +338,7 @@ TIER_CONFIG = {
                             }
                         ]
                     },
-                    CONFIG_OBJECT_DETECTOR: vol.UNDEFINED,
+                    CONFIG_OBJECT_DETECTOR: UNDEFINED,
                 },
                 CONFIG_RECORDER: TIER_CONFIG[CONFIG_RECORDER],
             },
