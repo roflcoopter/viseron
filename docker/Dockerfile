@@ -11,6 +11,8 @@ FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} AS wheels
 # Build GPAC
 FROM roflcoopter/${ARCH}-base:${BASE_VERSION} AS gpac
 
+ARG GPAC_VERSION
+
 ENV \
   DEBIAN_FRONTEND=noninteractive
 
@@ -32,7 +34,7 @@ RUN \
   zlib1g-dev
 
 RUN \
-  git clone https://github.com/gpac/gpac.git
+  git clone --branch v${GPAC_VERSION} --depth 1 https://github.com/gpac/gpac.git
 RUN \
   cd gpac && \
   ./configure --static-bin / && \
