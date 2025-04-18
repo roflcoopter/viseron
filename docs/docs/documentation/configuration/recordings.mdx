@@ -356,3 +356,20 @@ This will create `.mp4` files for all event recordings, which will be stored in 
 THe `.mp4` files will be created in the `/event_clips` directory, unless you have set a different path in the [storage component](/components-explorer/components/storage).
 
 :::
+
+## Events page query parameters
+
+The `Events` page supports a number of query parameters to control the behavior of the page.
+
+The following query parameters are supported:
+
+- `tab`: The tab to show. This can be `events` or `timeline`.
+- `camera`: The camera identifier of the camera to show.
+- `date`: The date to show, in the format `YYYY-MM-DD`.
+- `timestamp`: The timestamp to seek to. This is a Unix timestamp in seconds.
+
+Example URL to show the timeline for camera `camera_one` and seek to the timestamp `1745001300`:
+
+```bash
+http://localhost:8888/#/events?tab=timeline&camera=camera_one&timestamp=1745001300
+```
