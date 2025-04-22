@@ -64,7 +64,7 @@ const calculateCellDimensions = (
   const containerHeight = getContainerHeight(paperRef, smBreakpoint);
   const cellWidth = containerWidth / gridLayout.columns;
   const cellHeight = containerHeight / gridLayout.rows;
-  const cameraAspectRatio = camera.width / camera.height;
+  const cameraAspectRatio = camera.mainstream.width / camera.mainstream.height;
   const cellAspectRatio = cellWidth / cellHeight;
 
   if (cameraAspectRatio > cellAspectRatio) {
@@ -103,7 +103,7 @@ const calculateLayout = (
 
     // Adjust for aspect ratio
     Object.values(cameras).forEach((camera) => {
-      const aspectRatio = camera.width / camera.height;
+      const aspectRatio = camera.mainstream.width / camera.mainstream.height;
       const adjustedWidth = Math.min(cellWidth, cellHeight * aspectRatio);
       const adjustedHeight = Math.min(cellHeight, cellWidth / aspectRatio);
       minDimension = Math.min(minDimension, adjustedWidth, adjustedHeight);

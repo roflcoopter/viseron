@@ -173,6 +173,11 @@ class Stream:
             pass
 
     @property
+    def mainstream(self) -> StreamInformation:
+        """Return main stream information."""
+        return self._mainstream
+
+    @property
     def width(self) -> int:
         """Return stream width."""
         if self._substream:

@@ -17,6 +17,10 @@ const mockCamera: types.Camera = {
   identifier: "",
   name: "",
   access_token: "",
+  mainstream: {
+    width: 1920,
+    height: 1080,
+  },
   still_image: {
     refresh_interval: 0,
     available: true,

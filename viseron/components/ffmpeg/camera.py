@@ -540,6 +540,11 @@ class Camera(AbstractCamera):
         self._resolution = resolution
 
     @property
+    def mainstream_resolution(self) -> tuple[int, int]:
+        """Return mainstream resolution."""
+        return self.stream.mainstream.width, self.stream.mainstream.height
+
+    @property
     def recorder(self) -> Recorder:
         """Return recorder instance."""
         return self._recorder
