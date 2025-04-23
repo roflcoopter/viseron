@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from threading import Thread
+import os
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -14,9 +14,10 @@ from onvif import ONVIFCamera, ONVIFError, ONVIFService
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
-from viseron.helpers import escape_string
+from viseron.helpers import escape_string, find_file
 from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import CameraIdentifier
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
     COMPONENT,
@@ -99,7 +100,7 @@ CONFIG_SCHEMA = vol.Schema(
 def setup(vis: Viseron, config) -> bool:
     """Set up the ptz component."""
     ptz = PTZ(vis, config[COMPONENT])
-    Thread(
+    RestartableThread(
         target=ptz.run,
         name="ptz",
     ).start()
@@ -128,6 +129,8 @@ class PTZ:
         self._stop_patrol_events: dict[str, asyncio.Event] = {}
         self._register_lock: asyncio.Lock = asyncio.Lock()
         self._stop_event: asyncio.Event = asyncio.Event()
+        self._devicemgmt_path = self._get_wsdl_dir()
+        LOGGER.debug(f"Device management file path: ${self._devicemgmt_path}")
         vis.data[COMPONENT] = self
 
     def initialize(self):
@@ -157,16 +160,23 @@ class PTZ:
             event.set()
         self._stop_event.set()
 
+    def _get_wsdl_dir(self):
+        """Find the wsdl dir."""
+        wsdl_file = find_file("devicemgmt.wsdl", ["/usr/local/lib", "/home"])
+        return os.path.dirname(wsdl_file)
+
     def _camera_registered(self, event: Event[AbstractCamera]) -> None:
         camera: AbstractCamera = event.data
         if camera.identifier in self._config[CONFIG_CAMERAS]:
             self._cameras.update({camera.identifier: camera})
             config = self._config[CONFIG_CAMERAS][camera.identifier]
+
             onvif_camera = ONVIFCamera(
                 camera.config[CONFIG_HOST],
                 config[CONFIG_CAMERA_PORT],
                 config[CONFIG_CAMERA_USERNAME],
                 config[CONFIG_CAMERA_PASSWORD],
+                wsdl_dir=self._devicemgmt_path,
             )
             self._onvif_cameras.update({camera.identifier: onvif_camera})
             self._ptz_services.update(

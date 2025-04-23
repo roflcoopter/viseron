@@ -747,3 +747,12 @@ def memory_usage_profiler(logger, key_type="lineno", limit=5) -> None:
     log_message += "\nTotal allocated size: %.1f KiB" % (total / 1024)
     log_message += "\n----------------------------------------------------------------"
     logger.debug(log_message)
+
+
+def find_file(name: str, paths: list[str]):
+    """Find file in directory."""
+    for path in paths:
+        for root, _dirs, files in os.walk(path):
+            if name in files:
+                return os.path.join(root, name)
+    return None
