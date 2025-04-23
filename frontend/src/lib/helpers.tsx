@@ -69,7 +69,9 @@ export function getVideoElement(
 ) {
   if (!objHasValues(recording) || !recording) {
     return (
-      <VideoPlayerPlaceholder aspectRatio={camera.width / camera.height} />
+      <VideoPlayerPlaceholder
+        aspectRatio={camera.mainstream.width / camera.mainstream.height}
+      />
     );
   }
 
@@ -84,7 +86,9 @@ export function getVideoElement(
   return (
     <Suspense
       fallback={
-        <VideoPlayerPlaceholder aspectRatio={camera.width / camera.height} />
+        <VideoPlayerPlaceholder
+          aspectRatio={camera.mainstream.width / camera.mainstream.height}
+        />
       }
     >
       <VideoPlayer options={videoJsOptions} />

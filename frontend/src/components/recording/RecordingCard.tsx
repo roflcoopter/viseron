@@ -55,7 +55,7 @@ export default function RecordingCard({
           offset={500}
           placeholder={
             <VideoPlayerPlaceholder
-              aspectRatio={camera.width / camera.height}
+              aspectRatio={camera.mainstream.width / camera.mainstream.height}
             />
           }
         >

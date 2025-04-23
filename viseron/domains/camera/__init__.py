@@ -191,6 +191,10 @@ class AbstractCamera(AbstractDomain):
             "width": self.resolution[0],
             "height": self.resolution[1],
             "access_token": self.access_token,
+            "mainstream": {
+                "width": self.mainstream_resolution[0],
+                "height": self.mainstream_resolution[1],
+            },
             "still_image": {
                 "refresh_interval": self.still_image[CONFIG_REFRESH_INTERVAL],
                 "available": self.still_image_available,
@@ -305,6 +309,14 @@ class AbstractCamera(AbstractDomain):
     @abstractmethod
     def resolution(self) -> tuple[int, int]:
         """Return stream resolution."""
+
+    @property
+    @abstractmethod
+    def mainstream_resolution(self) -> tuple[int, int]:
+        """Return mainstream resolution.
+
+        Only applicable for components that support substreams.
+        """
 
     @property
     def extension(self) -> str:
@@ -586,6 +598,10 @@ class FailedCamera:
             "identifier": self.identifier,
             "width": self.width,
             "height": self.height,
+            "mainstream": {
+                "width": self.width,
+                "height": self.height,
+            },
             "error": self.error,
             "retrying": self.retrying,
             "failed": True,

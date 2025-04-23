@@ -108,7 +108,10 @@ export default function RecordingCardLatest({
           height={200}
           placeholder={
             <VideoPlayerPlaceholder
-              aspectRatio={cameraQuery.data.width / cameraQuery.data.height}
+              aspectRatio={
+                cameraQuery.data.mainstream.width /
+                cameraQuery.data.mainstream.height
+              }
             />
           }
         >
