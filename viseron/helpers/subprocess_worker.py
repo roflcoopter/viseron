@@ -39,8 +39,14 @@ class SubProcessWorker(ABC):
         self._name = name
 
         self._authkey_store = BaseManagerAuthkeyStore(vis)
-        self._server_port = get_free_port(port=50000)
 
+        self.start()
+
+        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+
+    def start(self) -> None:
+        """Start the subprocess worker."""
+        self._server_port = get_free_port(port=50000)
         self._process_frames_proc_exit = mp.Event()
 
         self.input_queue: Any = Queue(maxsize=100)
@@ -77,8 +83,6 @@ class SubProcessWorker(ABC):
         LOGGER.debug("Spawned subprocess")
         self._process_frames_proc = self.spawn_subprocess()
         LOGGER.debug(f"Started subprocess {self.subprocess_name}")
-
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
     @property
     def subprocess_name(self) -> str:
@@ -165,7 +169,7 @@ class Server:
 
     def start_server(self):
         """Start the server."""
-        LOGGER.debug("Starting queue manager server")
+        LOGGER.debug(f"Starting queue manager server on {self.address}:{self.port}")
         self._manager = start(
             address=self.address,
             port=self.port,
