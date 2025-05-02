@@ -37,7 +37,7 @@ YOLOv7 is the default model used by `darknet` in all images.
 <details>
   <summary>Configuration example</summary>
 
-```yaml
+```yaml title="/config/config.yaml"
 darknet:
   object_detector:
     cameras:
@@ -127,7 +127,7 @@ If you want to swap to a tiny-model you can change these configuration options:
 <Tabs>
 <TabItem value="yolov7" label="YOLOv7" default>
 
-```yaml
+```yaml title="/config/config.yaml"
 darknet:
   object_detector:
     model_path: /detectors/models/darknet/yolov7-tiny.weights
@@ -137,7 +137,7 @@ darknet:
 </TabItem>
 <TabItem value="yolov4" label="YOLOv4" default>
 
-```yaml
+```yaml title="/config/config.yaml"
 darknet:
   object_detector:
     model_path: /detectors/models/darknet/yolov4-tiny.weights
@@ -147,7 +147,7 @@ darknet:
 </TabItem>
 <TabItem value="yolov3" label="YOLOv3">
 
-```yaml
+```yaml title="/config/config.yaml"
 darknet:
   object_detector:
     model_path: /detectors/models/darknet/yolov3-tiny.weights
@@ -181,7 +181,7 @@ When running on CUDA, native [Darknet](https://github.com/AlexeyAB/darknet) is u
 :::tip
 If you want to force `darknet` to run on OpenCL even if you have an NVIDIA GPU you can set these config options:
 
-```yaml
+```yaml title="/config/config.yaml"
 darknet:
   object_detector:
     dnn_backend: opencv

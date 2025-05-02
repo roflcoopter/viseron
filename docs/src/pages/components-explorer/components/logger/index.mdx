@@ -18,7 +18,7 @@ Logs are in the format: <code>[timestamp] [level] [log_name] - message</code>
 <details>
   <summary>Configuration example</summary>
 
-```yaml
+```yaml title="/config/config.yaml"
 logger:
   default_level: info
   logs:
@@ -125,7 +125,7 @@ Setting `default_level` to `debug` will create a lot of noise.
 To isolate the logs of a specific camera, use the `cameras` config option.
 The following example will enable debug logging for _all_ logs related to the camera with the identifier `camera_one`.
 
-```yaml
+```yaml title="/config/config.yaml"
 logger:
   cameras:
     camera_one: debug
@@ -136,7 +136,7 @@ logger:
 If you are experiencing issues with a specific component, you can enable debug logging for it.
 The following example will enable debug logging for _all_ logs related to the `ffmpeg` component.
 
-```yaml
+```yaml title="/config/config.yaml"
 logger:
   logs:
     viseron.components.ffmpeg: debug
@@ -146,7 +146,7 @@ logger:
 
 To enable debug logging for the entire application, set `default_level` to `debug`.
 
-```yaml
+```yaml title="/config/config.yaml"
 logger:
   default_level: debug
 ```
