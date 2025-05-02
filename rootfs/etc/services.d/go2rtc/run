@@ -1,0 +1,11 @@
+#!/usr/bin/with-contenv bash
+
+source /helpers/set_env.sh
+
+touch /tmp/go2rtc.yaml
+chown -R --silent abc:abc /tmp/go2rtc.yaml || :
+
+rm -f /config/go2rtc.log
+
+echo "Starting go2rtc..."
+exec justc-envdir /var/run/environment s6-setuidgid abc exec go2rtc --config /tmp/go2rtc.yaml 2>&1 | tee -a /config/go2rtc.log

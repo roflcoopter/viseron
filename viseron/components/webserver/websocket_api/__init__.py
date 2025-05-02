@@ -8,7 +8,6 @@ from collections.abc import Callable
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-import tornado.gen
 import tornado.websocket
 import voluptuous as vol
 from tornado.queues import Queue

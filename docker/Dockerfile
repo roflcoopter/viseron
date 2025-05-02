@@ -41,6 +41,24 @@ RUN \
   make -j$(nproc)
 
 
+# Install go2rtc
+FROM roflcoopter/${ARCH}-base:${BASE_VERSION} AS go2rtc-base
+ARG ARCH
+ARG GO2RTC_VERSION
+
+WORKDIR /usr/local/bin
+
+RUN if [ "$ARCH" = "amd64-cuda" ]; then PLATFORM="amd64"; \
+  elif [ "$ARCH" = "armhf" ] || [ "$ARCH" = "rpi3" ]; then PLATFORM="arm"; \
+  elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "jetson-nano" ]; then PLATFORM="arm64"; \
+  else PLATFORM="$ARCH"; fi \
+  && wget https://github.com/AlexxIT/go2rtc/releases/download/v${GO2RTC_VERSION}/go2rtc_linux_$PLATFORM -O go2rtc \
+  && chmod +x /usr/local/bin/go2rtc
+
+FROM scratch AS go2rtc
+COPY --from=go2rtc-base /usr/local/bin/go2rtc /usr/local/bin/go2rtc
+
+
 # Build frontend
 FROM node:22.11.0 AS frontend
 
@@ -98,6 +116,8 @@ RUN \
   # PostgreSQL
   postgresql \
   postgresql-contrib \
+  # NGNX \
+  nginx \
   # Install extra apt packages from build-arg
   ${EXTRA_APT_PACKAGES} \
   # GStreamer
@@ -156,6 +176,7 @@ COPY docker/ffmpeg_wrapper /home/abc/bin/ffmpeg
 COPY --from=opencv /opt/opencv /usr/local/
 COPY --from=ffmpeg /usr/local /ffmpeg/
 COPY --from=gpac /gpac/bin/gcc /usr/bin
+COPY --from=go2rtc /usr/local/bin/go2rtc /usr/local/bin/go2rtc
 COPY rootfs/ /
 COPY --from=frontend /frontend/dist /src/viseron/frontend/
 COPY manager.py /src/manager.py

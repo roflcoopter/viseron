@@ -49,6 +49,12 @@ export default defineConfig(({ mode }) => {
           }`,
           ...proxyOptions,
         },
+        "/live": {
+          target: `ws://${
+            env.VITE_PROXY_HOST ? env.VITE_PROXY_HOST : "localhost:8888"
+          }`,
+          ...proxyOptions,
+        },
         "/*/mjpeg-stream": {
           target: `http://${
             env.VITE_PROXY_HOST ? env.VITE_PROXY_HOST : "localhost:8888"

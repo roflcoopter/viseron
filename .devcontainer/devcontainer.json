@@ -11,10 +11,22 @@
   },
   "containerUser": "root",
   "remoteUser": "abc",
-  "forwardPorts": [8888],
+  "forwardPorts": [8888, 1984, 8554, 8555],
   "portsAttributes": {
     "8888": {
       "label": "Viseron",
+      "onAutoForward": "silent"
+    },
+    "1984": {
+      "label": "go2rtc",
+      "onAutoForward": "silent"
+    },
+    "8554": {
+      "label": "go2rtc RTSP",
+      "onAutoForward": "silent"
+    },
+    "8555": {
+      "label": "WebRTC",
       "onAutoForward": "silent"
     }
   },

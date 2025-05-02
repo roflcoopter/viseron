@@ -122,6 +122,23 @@ class AuthAPIHandler(BaseAPIHandler):
                 }
             ),
         },
+        {
+            "requires_auth": False,
+            "requires_camera_token": True,
+            "path_pattern": r"/auth/request/(?P<camera_identifier>[A-Za-z0-9_]+)",
+            "supported_methods": ["GET"],
+            "method": "auth_request_camera_token",
+            "request_arguments_schema": vol.Schema(
+                {
+                    vol.Optional("access_token", default=None): vol.Maybe(str),
+                },
+            ),
+        },
+        {
+            "path_pattern": r"/auth/request",
+            "supported_methods": ["GET"],
+            "method": "auth_request",
+        },
     ]
 
     async def auth_enabled(self) -> None:
@@ -346,4 +363,16 @@ class AuthAPIHandler(BaseAPIHandler):
             self.response_error(HTTPStatus.BAD_REQUEST, reason=str(error))
             return
 
+        await self.response_success()
+
+    async def auth_request(self) -> None:
+        """Auth request endpoint for NGINX.
+
+        Broken since an Authorization header is required for this endpoint, which NGINX
+        can't send since it is stored in local storage.
+        """
+        await self.response_success()
+
+    async def auth_request_camera_token(self, _camera_identifier) -> None:
+        """Auth request endpoint for NGINX using camera token."""
         await self.response_success()

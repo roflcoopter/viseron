@@ -6,10 +6,14 @@
         "type": "integer",
         "valueMin": 1024,
         "valueMax": 49151,
-        "name": "port",
+        "name": {
+          "type": "deprecated",
+          "name": "port",
+          "value": "Config option 'port' is deprecated and will be removed in a future version."
+        },
         "description": "Port to run the webserver on.",
-        "optional": true,
-        "default": 8888
+        "deprecated": true,
+        "default": null
       },
       {
         "type": "boolean",

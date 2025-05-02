@@ -122,6 +122,7 @@ services:
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
         GPAC_VERSION: "$GPAC_VERSION"
+        GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
         - roflcoopter/amd64-viseron:dev
     image: roflcoopter/amd64-viseron:dev
@@ -262,6 +263,7 @@ services:
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
         GPAC_VERSION: "$GPAC_VERSION"
+        GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
         - roflcoopter/amd64-cuda-viseron:dev
     image: roflcoopter/amd64-cuda-viseron:dev
@@ -361,6 +363,7 @@ services:
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
         GPAC_VERSION: "$GPAC_VERSION"
+        GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
         - roflcoopter/rpi3-viseron:dev
     image: roflcoopter/rpi3-viseron:dev
@@ -451,6 +454,7 @@ services:
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
         GPAC_VERSION: "$GPAC_VERSION"
+        GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
         - roflcoopter/aarch64-viseron:dev
     image: roflcoopter/aarch64-viseron:dev
@@ -606,6 +610,7 @@ services:
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
         GPAC_VERSION: "$GPAC_VERSION"
+        GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
         - roflcoopter/jetson-nano-viseron:dev
     image: roflcoopter/jetson-nano-viseron:dev
