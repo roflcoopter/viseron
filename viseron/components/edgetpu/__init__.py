@@ -59,7 +59,7 @@ EDGETPU_SCHEMA = {
     ): Maybe(str),
     vol.Optional(
         CONFIG_DEVICE, default=DEFAULT_DEVICE, description=DESC_DEVICE
-    ): DeviceValidator(),
+    ): vol.Any(DeviceValidator(), [DeviceValidator()]),
 }
 
 
@@ -283,12 +283,15 @@ class EdgeTPU(SubProcessWorker):
 
     def spawn_subprocess(self) -> RestartablePopen:
         """Spawn subprocess."""
+        device = self._device
+        if isinstance(device, list):
+            device = ",".join(device)
         return RestartablePopen(
             (
                 "python3.9 -u viseron/components/edgetpu/edgetpu_subprocess.py "
                 f"--manager-port {self._server_port} "
                 f"--manager-authkey {self._authkey_store.authkey} "
-                f"--device {self._device} "
+                f"--device {device} "
                 f"--model {self._model} "
                 f"--model-type {self._domain} "
                 f"--loglevel DEBUG"

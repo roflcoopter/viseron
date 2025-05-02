@@ -35,7 +35,7 @@ DESC_MODEL_PATH = "Path to model."
 DESC_LABEL_PATH = "Path to the file containing labels for the model."
 DESC_DEVICE = (
     "Which EdgeTPU to use. "
-    "Change this if you have multiple devices and want to use a specific one."
+    "Change this if you want to run on multiple devices or run on a specific one."
 )
 
 # Image classification config constants
