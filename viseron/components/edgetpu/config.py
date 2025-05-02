@@ -41,6 +41,23 @@ def custom_convert(value):
                 {"value": "cpu", "description": "Run on the CPU"},
             ],
         }
+    if (
+        isinstance(value, list)
+        and len(value) == 1
+        and isinstance(value[0], DeviceValidator)
+    ):
+        return {
+            "type": "select",
+            "options": [
+                {
+                    "value": "<list>",
+                    "description": (
+                        "A list of any of the above to run the model on "
+                        "multiple devices"
+                    ),
+                },
+            ],
+        }
     return UNSUPPORTED
 
 
@@ -62,6 +79,23 @@ class DeviceValidator:
             "cpu" : Run on the CPU
         """
         if device is None:
+            return device
+
+        if isinstance(device, list):
+            for dev in device:
+                if not isinstance(dev, str):
+                    raise vol.Invalid(
+                        f"EdgeTPU device {dev} is invalid. "
+                        "Please check your configuration"
+                    )
+                for regex in DEVICE_REGEXES:
+                    if regex.match(dev):
+                        break
+                else:
+                    raise vol.Invalid(
+                        f"EdgeTPU device {dev} is invalid. "
+                        "Please check your configuration"
+                    )
             return device
 
         for regex in DEVICE_REGEXES:

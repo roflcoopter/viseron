@@ -22,7 +22,7 @@ The `edgetpu` component can also run on the CPU with compatible Tensorflow Lite 
 <details>
   <summary>Configuration example</summary>
 
-```yaml
+```yaml title="/config/config.yaml"
 edgetpu:
   object_detector:
     cameras:
@@ -82,5 +82,44 @@ It was chosen because it has high accuracy and low latency.
 More image classification models can be found on the [coral.ai website](https://coral.ai/models/image-classification/)
 
 There you will also find information to help you understand if you might want to switch to another model.
+
+## Using multiple Coral EdgeTPU devices
+
+If you have multiple Coral EdgeTPU devices, you can specify which devices to use by setting the `device` parameter in the configuration.
+
+This example shows how to use two Coral EdgeTPU (one USB and one PCIe) devices with the `object_detector` component:
+
+```yaml title="/config/config.yaml"
+edgetpu:
+  object_detector:
+    // highlight-start
+    device:
+      - usb
+      - pci
+    // highlight-end
+    cameras:
+      camera_one:
+        fps: 1
+        labels:
+          - label: person
+            confidence: 0.8
+          - label: cat
+            confidence: 0.8
+      camera_two:
+        fps: 1
+        scan_on_motion_only: false
+        labels:
+          - label: dog
+            confidence: 0.8
+            trigger_event_recording: false
+```
+
+The load will then be balanced between the two devices.
+
+:::info
+
+Note that the model must be compatible with all device types used.
+
+:::
 
 <ComponentTroubleshooting meta={ComponentMetadata} />
