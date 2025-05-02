@@ -116,6 +116,8 @@ RUN \
   # PostgreSQL
   postgresql \
   postgresql-contrib \
+  # NGNX \
+  nginx \
   # Install extra apt packages from build-arg
   ${EXTRA_APT_PACKAGES} \
   # GStreamer
