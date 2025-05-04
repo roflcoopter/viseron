@@ -23,7 +23,6 @@ from viseron.const import (
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
 )
-from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.exceptions import FFprobeError, FFprobeTimeout, StreamInformationError
 from viseron.helpers import escape_string
 from viseron.helpers.logs import LogPipe, UnhelpfullLogFilter
@@ -123,14 +122,14 @@ class Stream:
             self._substream = self.get_stream_information(config[CONFIG_SUBSTREAM])
 
         self._output_fps = self.fps
-        self._pixel_format = (
+        self.pixel_format = (
             self._substream.config[CONFIG_PIX_FMT]
             if self._substream
             else self._mainstream.config[CONFIG_PIX_FMT]
         )
-        self._color_plane_width = self.width
-        self._color_plane_height = int(self.height * 1.5)
-        self._frame_bytes_size = int(self.width * self.height * 1.5)
+        self.color_plane_width = self.width
+        self.color_plane_height = int(self.height * 1.5)
+        self.frame_bytes_size = int(self.width * self.height * 1.5)
 
         self.create_symlink(self.alias)
         self.create_symlink(self.segments_alias)
@@ -142,7 +141,7 @@ class Stream:
             "-f",
             "rawvideo",
             "-pix_fmt",
-            self._pixel_format,
+            self.pixel_format,
             "pipe:1",
         ]
 
@@ -548,21 +547,11 @@ class Stream:
         if self._pipe:
             return self._pipe.poll()
 
-    def read(self):
+    def read(self) -> bytes | None:
         """Return a single frame from FFmpeg pipe."""
         try:
             if self._pipe and self._pipe.stdout:
-                frame_bytes = self._pipe.stdout.read(self._frame_bytes_size)
-                if len(frame_bytes) == self._frame_bytes_size:
-                    shared_frame = SharedFrame(
-                        self._color_plane_width,
-                        self._color_plane_height,
-                        self._pixel_format,
-                        (self.width, self.height),
-                        self._camera_identifier,
-                    )
-                    self._camera.shared_frames.create(shared_frame, frame_bytes)
-                    return shared_frame
+                return self._pipe.stdout.read(self.frame_bytes_size)
         except Exception as err:  # pylint: disable=broad-except
             self._logger.error(f"Error reading frame from pipe: {err}")
         return None
