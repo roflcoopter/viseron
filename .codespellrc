@@ -1,4 +1,4 @@
 [codespell]
 
-ignore-regex = .*codespell-ignore$
-skip = frontend/src/video-rtc.js
+ignore-regex = .\*codespell-ignore$
+skip = frontend/src/components/player/liveplayer/video-rtc.js

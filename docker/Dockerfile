@@ -74,7 +74,7 @@ COPY frontend/package-lock.json ./
 RUN npm ci --legacy-peer-deps
 
 COPY frontend/ ./
-COPY --from=go2rtc /go2rtc/video-rtc.js /frontend/src/
+COPY --from=go2rtc /go2rtc/video-rtc.js /frontend/src/components/player/liveplayer/video-rtc.js
 RUN npm run build
 
 
