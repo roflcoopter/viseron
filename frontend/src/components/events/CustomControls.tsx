@@ -19,6 +19,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { isTouchDevice } from "lib/helpers";
 
+const ZINDEX = 3;
+
 interface CustomFabProps {
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   size?: "small" | "medium" | "large";
@@ -30,7 +32,7 @@ const CustomFab = ({ onClick, size = "small", children }: CustomFabProps) => (
     onTouchStart={(e) => e.stopPropagation()}
     size={size}
     color="primary"
-    sx={{ margin: 0.25, zIndex: 2 }}
+    sx={{ margin: 0.25, zIndex: ZINDEX }}
   >
     {children}
   </Fab>
@@ -138,6 +140,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
+          zIndex: ZINDEX,
         }}
       >
         {/* Center controls */}

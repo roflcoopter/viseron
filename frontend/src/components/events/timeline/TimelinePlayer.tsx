@@ -420,7 +420,7 @@ export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({ camera }) => {
             height: "100%",
             backgroundColor:
               "rgba(0,0,0,0.65)" /* Black background with opacity */,
-            zIndex: 1,
+            zIndex: 2,
             pointerEvents: "none",
             userSelect: "none",
             padding: "10px",
