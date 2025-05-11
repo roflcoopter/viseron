@@ -9,7 +9,8 @@ import {
 import dayjs, { Dayjs } from "dayjs";
 import { useMemo } from "react";
 
-import { useFilteredCameras, useTimespans } from "components/events/utils";
+import { useFilteredCameras } from "components/camera/useCameraStore";
+import { useTimespans } from "components/events/utils";
 import { useEventsAmountMultiple } from "lib/api/events";
 import * as types from "lib/types";
 

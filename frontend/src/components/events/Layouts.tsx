@@ -11,6 +11,7 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { Dayjs } from "dayjs";
 import { SyntheticEvent, memo, useCallback, useEffect, useRef } from "react";
 
+import { useFilteredCameras } from "components/camera/useCameraStore";
 import { PlayerCard } from "components/events/EventPlayerCard";
 import { EventTable } from "components/events/EventTable";
 import { FilterMenu } from "components/events/FilterMenu";
@@ -20,7 +21,6 @@ import {
   COLUMN_HEIGHT,
   COLUMN_HEIGHT_SMALL,
   playerCardSmMaxHeight,
-  useFilteredCameras,
 } from "components/events/utils";
 import { useResizeObserver } from "hooks/UseResizeObserver";
 import { insertURLParameter } from "lib/helpers";

@@ -7,7 +7,7 @@ import Tooltip from "@mui/material/Tooltip";
 import { Dayjs } from "dayjs";
 import { memo, useState } from "react";
 
-import { CameraPickerDialog } from "components/events/CameraPickerDialog";
+import { CameraPickerDialog } from "components/camera/CameraPickerDialog";
 import { EventDatePickerDialog } from "components/events/EventDatePickerDialog";
 import { ExportDialog } from "components/events/ExportDialog";
 

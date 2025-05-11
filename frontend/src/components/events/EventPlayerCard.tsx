@@ -17,6 +17,7 @@ import {
 import { useShallow } from "zustand/react/shallow";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
+import { useFilteredCameras } from "components/camera/useCameraStore";
 import { CustomControls } from "components/events/CustomControls";
 import SyncManager from "components/events/SyncManager";
 import { TimelinePlayer } from "components/events/timeline/TimelinePlayer";
@@ -25,7 +26,6 @@ import {
   getSrc,
   playerCardSmMaxHeight,
   useEventStore,
-  useFilteredCameras,
   useHlsStore,
   useReferencePlayerStore,
 } from "components/events/utils";
