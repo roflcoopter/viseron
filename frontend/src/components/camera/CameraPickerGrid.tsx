@@ -10,7 +10,7 @@ import {
 import { useCamerasAll } from "lib/api/cameras";
 import * as types from "lib/types";
 
-export function CameraGrid() {
+export function CameraPickerGrid() {
   const theme = useTheme();
   const { toggleCamera } = useCameraStore();
   const camerasAll = useCamerasAll();
