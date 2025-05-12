@@ -1,5 +1,7 @@
 import CircleIcon from "@mui/icons-material/Circle";
 import Forward10Icon from "@mui/icons-material/Forward10";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import PauseIcon from "@mui/icons-material/Pause";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import Replay10Icon from "@mui/icons-material/Replay10";
@@ -45,33 +47,37 @@ const iconStyles: SxProps<Theme> = {
 };
 
 interface CustomControlsProps {
-  isPlaying: boolean;
-  onPlayPause: () => void;
-  onJumpBackward: () => void;
-  onJumpForward: () => void;
-  isVisible: boolean;
-  isLive: boolean;
-  onLiveClick: () => void;
-  onVolumeChange: (event: Event, volume: number | number[]) => void;
-  isMuted: boolean;
-  onMuteToggle: () => void;
-  onPlaybackSpeedChange: (speed: number) => void;
-  playbackSpeed: number;
+  isPlaying?: boolean;
+  onPlayPause?: () => void;
+  onJumpBackward?: () => void;
+  onJumpForward?: () => void;
+  isVisible?: boolean;
+  isLive?: boolean;
+  onLiveClick?: () => void;
+  onVolumeChange?: (event: Event, volume: number | number[]) => void;
+  isMuted?: boolean;
+  onMuteToggle?: () => void;
+  onPlaybackSpeedChange?: (speed: number) => void;
+  playbackSpeed?: number;
+  isFullscreen?: boolean;
+  onFullscreenToggle?: () => void;
 }
 
 export const CustomControls: React.FC<CustomControlsProps> = ({
-  isPlaying,
+  isPlaying = false,
   onPlayPause,
   onJumpBackward,
   onJumpForward,
-  isVisible,
-  isLive,
+  isVisible = false,
+  isLive = false,
   onLiveClick,
   onVolumeChange,
-  isMuted,
+  isMuted = false,
   onMuteToggle,
   onPlaybackSpeedChange,
-  playbackSpeed,
+  playbackSpeed = 1,
+  isFullscreen = false,
+  onFullscreenToggle,
 }) => {
   const [isVolumeSliderVisible, setIsVolumeSliderVisible] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -107,7 +113,9 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
   };
 
   const handlePlaybackSpeedChange = (speed: number) => {
-    onPlaybackSpeedChange(speed);
+    if (onPlaybackSpeedChange) {
+      onPlaybackSpeedChange(speed);
+    }
     handleClose();
   };
 
@@ -145,15 +153,21 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
       >
         {/* Center controls */}
         <Box display="flex" justifyContent="center" alignItems="center">
-          <CustomFab onClick={onJumpBackward}>
-            <Replay10Icon />
-          </CustomFab>
-          <CustomFab onClick={onPlayPause} size="medium">
-            {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
-          </CustomFab>
-          <CustomFab onClick={onJumpForward}>
-            <Forward10Icon />
-          </CustomFab>
+          {onJumpBackward && (
+            <CustomFab onClick={onJumpBackward}>
+              <Replay10Icon />
+            </CustomFab>
+          )}
+          {onPlayPause && (
+            <CustomFab onClick={onPlayPause} size="medium">
+              {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
+            </CustomFab>
+          )}
+          {onJumpForward && (
+            <CustomFab onClick={onJumpForward}>
+              <Forward10Icon />
+            </CustomFab>
+          )}
         </Box>
 
         {/* Bottom controls */}
@@ -169,126 +183,144 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
           }}
         >
           {/* LIVE button */}
-          <Button
-            onClick={onLiveClick}
-            onTouchStart={(e) => e.stopPropagation()}
-            variant="contained"
-            size="small"
-            sx={{ margin: 0.25 }}
-          >
-            <CircleIcon htmlColor={isLive ? "red" : "gray"} sx={iconStyles} />
-            <Typography variant="button">LIVE</Typography>
-          </Button>
+          {onLiveClick ? (
+            <Button
+              onClick={onLiveClick}
+              onTouchStart={(e) => e.stopPropagation()}
+              variant="contained"
+              size="small"
+              sx={{ margin: 0.25 }}
+            >
+              <CircleIcon htmlColor={isLive ? "red" : "gray"} sx={iconStyles} />
+              <Typography variant="button">LIVE</Typography>
+            </Button>
+          ) : (
+            // Empty div so that 'space-between' works
+            <div></div>
+          )}
 
           {/* Right-aligned controls */}
           <Box display="flex" alignItems="center">
-            <Box
-              ref={volumeControlRef}
-              sx={{
-                position: "relative",
-                display: "flex",
-                alignItems: "center",
-              }}
-              onMouseEnter={handleVolumeControlMouseEnter}
-              onMouseLeave={handleVolumeControlMouseLeave}
-            >
-              {isTouchDevice() ? null : (
-                <Box
-                  sx={(theme) => ({
-                    position: "absolute",
-                    right: "50%",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    height: 35,
-                    width: isVolumeSliderVisible || isDragging ? 150 : 0,
-                    visibility:
-                      isVolumeSliderVisible || isDragging
-                        ? "visible"
-                        : "hidden",
-                    bgcolor: "background.paper",
-                    boxShadow: 1,
-                    border: `1px solid ${
-                      theme.palette.mode === "dark"
-                        ? theme.palette.primary[900]
-                        : theme.palette.primary[200]
-                    }`,
-                    borderTopLeftRadius: 20,
-                    borderBottomLeftRadius: 20,
-                    overflow: "hidden",
-                    transition: "width 0.2s ease-in-out, visibility 0.2s",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    pr: 3,
-                  })}
+            {(onVolumeChange || onMuteToggle) && (
+              <Box
+                ref={volumeControlRef}
+                sx={{
+                  position: "relative",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+                onMouseEnter={handleVolumeControlMouseEnter}
+                onMouseLeave={handleVolumeControlMouseLeave}
+              >
+                {onVolumeChange && !isTouchDevice() && (
+                  <Box
+                    sx={(theme) => ({
+                      position: "absolute",
+                      right: "50%",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      height: 35,
+                      width: isVolumeSliderVisible || isDragging ? 150 : 0,
+                      visibility:
+                        isVolumeSliderVisible || isDragging
+                          ? "visible"
+                          : "hidden",
+                      bgcolor: "background.paper",
+                      boxShadow: 1,
+                      border: `1px solid ${
+                        theme.palette.mode === "dark"
+                          ? theme.palette.primary[900]
+                          : theme.palette.primary[200]
+                      }`,
+                      borderTopLeftRadius: 20,
+                      borderBottomLeftRadius: 20,
+                      overflow: "hidden",
+                      transition: "width 0.2s ease-in-out, visibility 0.2s",
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      pr: 3,
+                    })}
+                  >
+                    <Slider
+                      defaultValue={100}
+                      orientation="horizontal"
+                      onChange={onVolumeChange}
+                      onMouseDown={handleMouseDown}
+                      onMouseUp={handleMouseUp}
+                      aria-labelledby="horizontal-volume-slider"
+                      sx={{
+                        width: "80%",
+                        "& .MuiSlider-thumb": {
+                          transition: "none",
+                        },
+                      }}
+                      min={0}
+                      max={100}
+                    />
+                  </Box>
+                )}
+                {onMuteToggle && (
+                  <CustomFab onClick={onMuteToggle}>
+                    {isMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
+                  </CustomFab>
+                )}
+              </Box>
+            )}
+            {onPlaybackSpeedChange && (
+              <>
+                <CustomFab onClick={handleSpeedClick}>
+                  <SpeedIcon />
+                </CustomFab>
+                <Menu
+                  anchorEl={anchorEl}
+                  open={Boolean(anchorEl)}
+                  onClose={handleClose}
+                  onTouchStart={(e) => e.stopPropagation()}
                 >
-                  <Slider
-                    defaultValue={100}
-                    orientation="horizontal"
-                    onChange={onVolumeChange}
-                    onMouseDown={handleMouseDown}
-                    onMouseUp={handleMouseUp}
-                    aria-labelledby="horizontal-volume-slider"
-                    sx={{
-                      width: "80%",
-                      "& .MuiSlider-thumb": {
-                        transition: "none",
-                      },
-                    }}
-                    min={0}
-                    max={100}
-                  />
-                </Box>
-              )}
-              <CustomFab onClick={onMuteToggle}>
-                {isMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
+                  <MenuItem
+                    onClick={() => handlePlaybackSpeedChange(0.5)}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    selected={playbackSpeed === 0.5}
+                  >
+                    0.5x
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => handlePlaybackSpeedChange(1)}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    selected={playbackSpeed === 1}
+                  >
+                    1x
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => handlePlaybackSpeedChange(2)}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    selected={playbackSpeed === 2}
+                  >
+                    2x
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => handlePlaybackSpeedChange(5)}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    selected={playbackSpeed === 5}
+                  >
+                    5x
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => handlePlaybackSpeedChange(10)}
+                    onTouchStart={(e) => e.stopPropagation()}
+                    selected={playbackSpeed === 10}
+                  >
+                    10x
+                  </MenuItem>
+                </Menu>
+              </>
+            )}
+            {onFullscreenToggle && (
+              <CustomFab onClick={onFullscreenToggle}>
+                {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
               </CustomFab>
-            </Box>
-            <CustomFab onClick={handleSpeedClick}>
-              <SpeedIcon />
-            </CustomFab>
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleClose}
-              onTouchStart={(e) => e.stopPropagation()}
-            >
-              <MenuItem
-                onClick={() => handlePlaybackSpeedChange(0.5)}
-                onTouchStart={(e) => e.stopPropagation()}
-                selected={playbackSpeed === 0.5}
-              >
-                0.5x
-              </MenuItem>
-              <MenuItem
-                onClick={() => handlePlaybackSpeedChange(1)}
-                onTouchStart={(e) => e.stopPropagation()}
-                selected={playbackSpeed === 1}
-              >
-                1x
-              </MenuItem>
-              <MenuItem
-                onClick={() => handlePlaybackSpeedChange(2)}
-                onTouchStart={(e) => e.stopPropagation()}
-                selected={playbackSpeed === 2}
-              >
-                2x
-              </MenuItem>
-              <MenuItem
-                onClick={() => handlePlaybackSpeedChange(5)}
-                onTouchStart={(e) => e.stopPropagation()}
-                selected={playbackSpeed === 5}
-              >
-                5x
-              </MenuItem>
-              <MenuItem
-                onClick={() => handlePlaybackSpeedChange(10)}
-                onTouchStart={(e) => e.stopPropagation()}
-                selected={playbackSpeed === 10}
-              >
-                10x
-              </MenuItem>
-            </Menu>
+            )}
           </Box>
         </Box>
       </Box>
