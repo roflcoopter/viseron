@@ -184,7 +184,7 @@ const setPlayerSize = (
   }
 };
 
-const usePlayerCardCallbacks = () => {
+const usePlayerCardCallbacks = (paperRef: React.RefObject<HTMLDivElement>) => {
   const { hlsRefs, setHlsRefsError } = useHlsStore(
     useShallow((state) => ({
       hlsRefs: state.hlsRefs,
@@ -212,6 +212,7 @@ const usePlayerCardCallbacks = () => {
   );
   const [controlsVisible, setControlsVisible] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const showControlsTemporarily = useCallback(() => {
@@ -320,6 +321,28 @@ const usePlayerCardCallbacks = () => {
     showControlsTemporarily();
   }, [hlsRefs, isMuted, setIsMuted, showControlsTemporarily]);
 
+  const handleFullscreenToggle = useCallback(() => {
+    const elem = paperRef.current;
+    if (!elem) return;
+    if (!isFullscreen) {
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen();
+      }
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen();
+    }
+  }, [isFullscreen, paperRef]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
   const handleMouseEnter = useCallback(() => {
     setIsHovering(true);
     setControlsVisible(true);
@@ -358,6 +381,7 @@ const usePlayerCardCallbacks = () => {
     handlePlaybackSpeedChange,
     handleVolumeChange,
     handleMuteToggle,
+    handleFullscreenToggle,
     handleMouseEnter,
     handleMouseLeave,
     handleTouchStart,
@@ -366,6 +390,7 @@ const usePlayerCardCallbacks = () => {
     isPlaying,
     isLive,
     isMuted,
+    isFullscreen,
     playbackSpeed,
   };
 };
@@ -466,6 +491,7 @@ export const PlayerCard = () => {
     handlePlaybackSpeedChange,
     handleVolumeChange,
     handleMuteToggle,
+    handleFullscreenToggle,
     handleMouseEnter,
     handleMouseLeave,
     handleTouchStart,
@@ -474,8 +500,9 @@ export const PlayerCard = () => {
     isPlaying,
     isLive,
     isMuted,
+    isFullscreen,
     playbackSpeed,
-  } = usePlayerCardCallbacks();
+  } = usePlayerCardCallbacks(paperRef);
 
   const setPlayerItemsSize = useCallback(() => {
     playerItemRefs.current.forEach((playerItemRef) => {
@@ -563,6 +590,8 @@ export const PlayerCard = () => {
           onVolumeChange={handleVolumeChange}
           isMuted={isMuted}
           onMuteToggle={handleMuteToggle}
+          isFullscreen={isFullscreen}
+          onFullscreenToggle={handleFullscreenToggle}
         />
       </Paper>
     </SyncManager>
