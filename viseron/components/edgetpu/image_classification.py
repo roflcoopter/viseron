@@ -66,7 +66,7 @@ class ImageClassification(AbstractImageClassification):
         self, post_processor_frame: PostProcessorFrame
     ) -> list[ImageClassificationResult]:
         """Perform image classification."""
-        image_classifications = []
+        image_classifications: list[ImageClassificationResult] = []
         for detected_object in post_processor_frame.filtered_objects:
             x1, y1, x2, y2 = calculate_absolute_coords(
                 (
@@ -90,14 +90,15 @@ class ImageClassification(AbstractImageClassification):
             resized_frame = cv2.resize(
                 cropped_frame, (self.model_width, self.model_height)
             )
-            result = self._edgetpu.invoke(
+            result: list[ImageClassificationResult] = self._edgetpu.invoke(
                 resized_frame,
                 self._camera_identifier,
                 self._classification_result_queue,
                 self._camera.resolution,
             )
             if result:
-                image_classifications.append(result)
+                image_classifications.extend(result)
+        self._logger.debug("Results: %s", image_classifications)
         return image_classifications
 
     @property

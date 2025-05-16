@@ -348,17 +348,18 @@ class EdgeTPU(SubProcessWorker):
             LOGGER.debug("EdgeTPU initialized")
             return
 
+        if item == "init_failed":
+            LOGGER.error("Failed to initialize EdgeTPU")
+            self._process_initialization_error.set()
+            self._process_initialization_done.set()
+            return
+
         if item.get("get_model_size", None):
             self._model_width = item["get_model_size"]["model_width"]
             self._model_height = item["get_model_size"]["model_height"]
             self._model_size_event.set()
             return
 
-        if item == "init_failed":
-            LOGGER.error("Failed to initialize EdgeTPU")
-            self._process_initialization_error.set()
-            self._process_initialization_done.set()
-            return
         self.post_process(item)
         pop_if_full(self._result_queues[item["camera_identifier"]], item)
 
@@ -398,12 +399,17 @@ class EdgeTPUDetection(EdgeTPU):
 class EdgeTPUClassification(EdgeTPU):
     """EdgeTPU image classification interface."""
 
-    def post_process(self, item) -> ImageClassificationResult | None:
+    def post_process(self, item) -> None:
         """Post process classifications."""
+        processed_classes = []
         for classification in item["result"]:
-            return ImageClassificationResult(
-                item["camera_identifier"],
-                self.labels.get(classification.id, int(classification.id)),
-                classification.score,
+            processed_classes.append(
+                ImageClassificationResult(
+                    item["camera_identifier"],
+                    self.labels.get(
+                        classification["label"], int(classification["label"])
+                    ),
+                    classification["score"],
+                )
             )
-        return None
+        item["result"] = processed_classes
