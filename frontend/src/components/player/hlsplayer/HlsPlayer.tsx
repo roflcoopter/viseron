@@ -355,11 +355,11 @@ const useSeekToTimestamp = (
   ]);
 };
 
-interface TimelinePlayerProps {
+interface HlsPlayerProps {
   camera: types.Camera | types.FailedCamera;
 }
 
-export const TimelinePlayer: React.FC<TimelinePlayerProps> = ({ camera }) => {
+export const HlsPlayer: React.FC<HlsPlayerProps> = ({ camera }) => {
   const theme = useTheme();
   const hlsRef = useRef<Hls | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);

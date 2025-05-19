@@ -12,10 +12,10 @@ import { Dayjs } from "dayjs";
 import { SyntheticEvent, memo, useCallback, useEffect, useRef } from "react";
 
 import { useFilteredCameras } from "components/camera/useCameraStore";
-import { PlayerCard } from "components/events/EventPlayerCard";
 import { EventTable } from "components/events/EventTable";
 import { FilterMenu } from "components/events/FilterMenu";
 import { FloatingMenu } from "components/events/FloatingMenu";
+import { PlayerCard } from "components/events/PlayerCard";
 import { TimelineTable } from "components/events/timeline/TimelineTable";
 import {
   COLUMN_HEIGHT,
