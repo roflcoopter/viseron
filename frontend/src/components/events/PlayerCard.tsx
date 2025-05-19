@@ -9,7 +9,6 @@ import { useShallow } from "zustand/react/shallow";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { useFilteredCameras } from "components/camera/useCameraStore";
-import { CustomControls } from "components/events/CustomControls";
 import SyncManager from "components/events/SyncManager";
 import {
   LIVE_EDGE_DELAY,
@@ -18,6 +17,7 @@ import {
   useHlsStore,
   useReferencePlayerStore,
 } from "components/events/utils";
+import { CustomControls } from "components/player/CustomControls";
 import { PlayerGrid } from "components/player/grid/PlayerGrid";
 import { HlsPlayer } from "components/player/hlsplayer/HlsPlayer";
 import { useCamerasAll } from "lib/api/cameras";

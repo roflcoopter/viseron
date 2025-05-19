@@ -8,7 +8,7 @@ import { Dayjs } from "dayjs";
 import { memo, useState } from "react";
 
 import { CameraPickerDialog } from "components/camera/CameraPickerDialog";
-import { EventDatePickerDialog } from "components/events/EventDatePickerDialog";
+import { DatePickerDialog } from "components/events/DatePickerDialog";
 import { ExportDialog } from "components/events/ExportDialog";
 
 type FloatingMenuProps = {
@@ -27,7 +27,7 @@ export const FloatingMenu = memo(({ date, setDate }: FloatingMenuProps) => {
         open={cameraDialogOpen}
         setOpen={setCameraDialogOpen}
       />
-      <EventDatePickerDialog
+      <DatePickerDialog
         open={dateDialogOpen}
         setOpen={setDateDialogOpen}
         date={date}

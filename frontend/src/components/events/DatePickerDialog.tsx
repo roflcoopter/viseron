@@ -105,7 +105,7 @@ export function getHighlightedDays(
   return result;
 }
 
-type EventDatePickerDialogProps = {
+type DatePickerDialogProps = {
   open: boolean;
   setOpen: (open: boolean) => void;
   date: Dayjs | null;
@@ -115,12 +115,12 @@ type EventDatePickerDialogProps = {
   ) => void;
 };
 
-export function EventDatePickerDialog({
+export function DatePickerDialog({
   open,
   setOpen,
   date,
   onChange,
-}: EventDatePickerDialogProps) {
+}: DatePickerDialogProps) {
   const filteredCameras = useFilteredCameras();
   const eventsAmountQuery = useEventsAmountMultiple({
     camera_identifiers: Object.keys(filteredCameras),

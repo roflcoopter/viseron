@@ -196,7 +196,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
             </Button>
           ) : (
             // Empty div so that 'space-between' works
-            <div></div>
+            <div />
           )}
 
           {/* Right-aligned controls */}

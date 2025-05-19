@@ -4,7 +4,7 @@ import dayjs, { Dayjs } from "dayjs";
 import { memo, useLayoutEffect, useMemo, useState } from "react";
 
 import { useFilteredCameras } from "components/camera/useCameraStore";
-import { EventTableItem } from "components/events/EventTableItem";
+import { EventTableItem } from "components/events/events/EventTableItem";
 import {
   getEventTimestamp,
   useFilterStore,

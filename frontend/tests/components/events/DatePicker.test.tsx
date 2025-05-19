@@ -1,6 +1,6 @@
 import { describe, expect } from "vitest";
 
-import { getHighlightedDays } from "components/events/EventDatePickerDialog";
+import { getHighlightedDays } from "components/events/DatePickerDialog";
 import * as types from "lib/types";
 
 describe("getHighlightedDays", () => {
