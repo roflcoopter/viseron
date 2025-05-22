@@ -17,6 +17,7 @@ const Configuration = lazy(() => import("pages/Configuration"));
 const Entities = lazy(() => import("pages/Entities"));
 const Events = lazy(() => import("pages/Events"));
 const Login = lazy(() => import("pages/Login"));
+const Live = lazy(() => import("pages/Live"));
 const NotFound = lazy(() => import("pages/NotFound"));
 const Onboarding = lazy(() => import("pages/Onboarding"));
 const PublicLayout = lazy(() => import("layouts/PublicLayout"));
@@ -54,6 +55,10 @@ function App() {
         {
           path: "/events",
           element: <Events />,
+        },
+        {
+          path: "/live",
+          element: <Live />,
         },
         {
           path: "/entities",

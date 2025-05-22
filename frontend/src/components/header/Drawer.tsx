@@ -63,6 +63,12 @@ const getDrawerItems = (
       icon: ViewTimelineIcon,
       path: "/events?tab=timeline",
     },
+    {
+      type: "link",
+      title: "Live",
+      icon: ViewTimelineIcon,
+      path: "/live",
+    },
     { type: "link", title: "Entities", icon: ViewListIcon, path: "/entities" },
     ...(!auth.enabled || (auth.enabled && user?.role === "admin")
       ? [
