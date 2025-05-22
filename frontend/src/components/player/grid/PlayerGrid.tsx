@@ -19,11 +19,17 @@ type PlayerItemProps = {
     camera: types.Camera | types.FailedCamera,
     playerRef: React.RefObject<any>,
   ) => JSX.Element;
+  forceBreakpoint?: boolean;
 };
 const PlayerItem = forwardRef<PlayerItemRef, PlayerItemProps>(
-  ({ camera, containerRef, gridLayout, renderPlayer }, ref) => {
+  (
+    { camera, containerRef, gridLayout, renderPlayer, forceBreakpoint },
+    ref,
+  ) => {
     const theme = useTheme();
-    const smBreakpoint = useMediaQuery(theme.breakpoints.up("sm"));
+    const _smBreakpoint = useMediaQuery(theme.breakpoints.up("sm"));
+    const smBreakpoint =
+      forceBreakpoint !== undefined ? forceBreakpoint : _smBreakpoint;
     const boxRef = useRef<HTMLDivElement>(null);
     const playerRef = useRef<any>(null);
 
@@ -68,11 +74,13 @@ type PlayerGridProps = {
     camera: types.Camera | types.FailedCamera,
     playerRef: React.RefObject<any>,
   ) => JSX.Element;
+  forceBreakpoint?: boolean;
 };
 export const PlayerGrid = ({
   cameras,
   containerRef,
   renderPlayer,
+  forceBreakpoint,
 }: PlayerGridProps) => {
   const playerItemRefs = useRef<(PlayerItemRef | null)[]>([]);
   const setPlayerItemRef = (index: number, ref: PlayerItemRef | null) => {
@@ -107,6 +115,7 @@ export const PlayerGrid = ({
           containerRef={containerRef}
           gridLayout={gridLayout}
           renderPlayer={renderPlayer}
+          forceBreakpoint={forceBreakpoint}
         />
       ))}
     </Grid>

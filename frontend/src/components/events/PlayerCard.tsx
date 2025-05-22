@@ -5,6 +5,7 @@ import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import { useCallback, useEffect, useRef, useState } from "react";
+import screenfull from "screenfull";
 import { useShallow } from "zustand/react/shallow";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
@@ -167,11 +168,11 @@ const usePlayerCardCallbacks = (paperRef: React.RefObject<HTMLDivElement>) => {
     const elem = paperRef.current;
     if (!elem) return;
     if (!isFullscreen) {
-      if (elem.requestFullscreen) {
-        elem.requestFullscreen();
+      if (screenfull.isEnabled) {
+        screenfull.request(elem);
       }
-    } else if (document.fullscreenElement) {
-      document.exitFullscreen();
+    } else {
+      screenfull.exit();
     }
   }, [isFullscreen, paperRef]);
 

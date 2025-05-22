@@ -18,6 +18,7 @@ import Slider from "@mui/material/Slider";
 import Typography from "@mui/material/Typography";
 import { SxProps, Theme } from "@mui/material/styles";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import screenfull from "screenfull";
 
 import { isTouchDevice } from "lib/helpers";
 
@@ -316,7 +317,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
                 </Menu>
               </>
             )}
-            {onFullscreenToggle && (
+            {onFullscreenToggle && screenfull.isEnabled && (
               <CustomFab onClick={onFullscreenToggle}>
                 {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
               </CustomFab>
