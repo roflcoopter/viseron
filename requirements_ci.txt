@@ -2,3 +2,4 @@
 opencv-python==4.9.0.80
 opencv-contrib-python==4.9.0.80
 pygobject
+typing-extensions==4.13.2
