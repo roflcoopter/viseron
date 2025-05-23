@@ -4,7 +4,7 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 
-import { EventsCameraGrid } from "components/events/EventsCameraGrid";
+import { CameraPickerGrid } from "components/camera/CameraPickerGrid";
 
 type CameraPickerDialogProps = {
   open: boolean;
@@ -22,7 +22,7 @@ export const CameraPickerDialog = ({
     <Dialog fullWidth maxWidth={false} open={open} onClose={handleClose}>
       <DialogTitle>Cameras</DialogTitle>
       <DialogContent onClick={handleClose}>
-        <EventsCameraGrid />
+        <CameraPickerGrid />
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose}>Close</Button>

@@ -9,11 +9,12 @@ import * as types from "lib/types";
 
 type CameraNameOverlayProps = {
   camera_identifier: string;
+  extraStatusText?: string;
 };
 
 const overlayStyles: SxProps<Theme> = {
   position: "absolute",
-  zIndex: 999,
+  zIndex: 1,
   right: "0px",
   top: "0px",
   margin: "5px",
@@ -42,6 +43,7 @@ const StatusIcon = ({ camera }: { camera: types.Camera }) =>
 
 export const CameraNameOverlay = ({
   camera_identifier,
+  extraStatusText,
 }: CameraNameOverlayProps) => {
   const cameraQuery = useCamera(camera_identifier);
   if (!cameraQuery.data) {
@@ -70,9 +72,17 @@ export const CameraNameOverlay = ({
       {showStatusText && (
         <Typography
           variant="body2"
-          sx={{ ...cameraNameStyles, fontSize: "0.7rem" }}
+          sx={{ ...cameraNameStyles, fontSize: "0.7rem", textAlign: "right" }}
         >
           {statusText}
+        </Typography>
+      )}
+      {extraStatusText && (
+        <Typography
+          variant="body2"
+          sx={{ ...cameraNameStyles, fontSize: "0.7rem", textAlign: "right" }}
+        >
+          {extraStatusText}
         </Typography>
       )}
     </Box>

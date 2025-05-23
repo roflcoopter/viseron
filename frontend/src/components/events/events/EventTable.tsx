@@ -3,11 +3,11 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import dayjs, { Dayjs } from "dayjs";
 import { memo, useLayoutEffect, useMemo, useState } from "react";
 
-import { EventTableItem } from "components/events/EventTableItem";
+import { useFilteredCameras } from "components/camera/useCameraStore";
+import { EventTableItem } from "components/events/events/EventTableItem";
 import {
   getEventTimestamp,
   useFilterStore,
-  useFilteredCameras,
   useTimespansRef,
 } from "components/events/utils";
 import { Loading } from "components/loading/Loading";

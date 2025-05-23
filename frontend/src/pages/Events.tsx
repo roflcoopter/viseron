@@ -4,12 +4,10 @@ import { useSearchParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
 import { useShallow } from "zustand/react/shallow";
 
+import { useCameraStore } from "components/camera/useCameraStore";
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { Layout } from "components/events/Layouts";
-import {
-  useCameraStore,
-  useReferencePlayerStore,
-} from "components/events/utils";
+import { useReferencePlayerStore } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { useHideScrollbar } from "hooks/UseHideScrollbar";
 import { useTitle } from "hooks/UseTitle";

@@ -3,11 +3,14 @@ import Grow from "@mui/material/Grow";
 import { useTheme } from "@mui/material/styles";
 
 import { CameraCard } from "components/camera/CameraCard";
-import { useCameraStore, useFilteredCameras } from "components/events/utils";
+import {
+  useCameraStore,
+  useFilteredCameras,
+} from "components/camera/useCameraStore";
 import { useCamerasAll } from "lib/api/cameras";
 import * as types from "lib/types";
 
-export function EventsCameraGrid() {
+export function CameraPickerGrid() {
   const theme = useTheme();
   const { toggleCamera } = useCameraStore();
   const camerasAll = useCamerasAll();
@@ -31,10 +34,10 @@ export function EventsCameraGrid() {
             <Grid
               key={camera_identifier}
               size={{
-                xs: 12,
-                sm: 12,
-                md: 6,
-                lg: 6,
+                xs: 6,
+                sm: 6,
+                md: 4,
+                lg: 4,
                 xl: 4,
               }}
             >

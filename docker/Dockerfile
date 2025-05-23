@@ -55,8 +55,12 @@ RUN if [ "$ARCH" = "amd64-cuda" ]; then PLATFORM="amd64"; \
   && wget https://github.com/AlexxIT/go2rtc/releases/download/v${GO2RTC_VERSION}/go2rtc_linux_$PLATFORM -O go2rtc \
   && chmod +x /usr/local/bin/go2rtc
 
+WORKDIR /go2rtc
+RUN wget https://raw.githubusercontent.com/AlexxIT/go2rtc/refs/tags/v${GO2RTC_VERSION}/www/video-rtc.js -O video-rtc.js
+
 FROM scratch AS go2rtc
 COPY --from=go2rtc-base /usr/local/bin/go2rtc /usr/local/bin/go2rtc
+COPY --from=go2rtc-base /go2rtc/video-rtc.js /go2rtc/
 
 
 # Build frontend
@@ -70,6 +74,7 @@ COPY frontend/package-lock.json ./
 RUN npm ci --legacy-peer-deps
 
 COPY frontend/ ./
+COPY --from=go2rtc /go2rtc/video-rtc.js /frontend/src/components/player/liveplayer/video-rtc.js
 RUN npm run build
 
 

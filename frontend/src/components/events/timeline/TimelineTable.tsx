@@ -3,6 +3,7 @@ import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
 import ServerDown from "svg/undraw/server_down.svg?react";
 import { useShallow } from "zustand/react/shallow";
 
+import { useFilteredCameras } from "components/camera/useCameraStore";
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { HoverLine } from "components/events/timeline/HoverLine";
 import { ProgressLine } from "components/events/timeline/ProgressLine";
@@ -15,7 +16,6 @@ import {
   getDateAtPosition,
   getTimelineItems,
   useFilterStore,
-  useFilteredCameras,
   useReferencePlayerStore,
   useTimespans,
 } from "components/events/utils";

@@ -37,7 +37,7 @@ const Header = styled("header", {
   backdropFilter: "blur(20px)",
   boxShadow: `inset 0px -1px 1px ${theme.palette.grey[300]}`,
   backgroundColor: "rgba(255,255,255,0.72)",
-  marginBottom: theme.margin,
+  marginBottom: theme.headerMargin,
   transform: "translateY(-100%)",
   transition: "transform 300ms ease-in",
   ...theme.applyStyles("dark", {
