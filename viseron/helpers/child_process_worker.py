@@ -31,7 +31,7 @@ class ChildProcessWorker(ABC):
     Work is then performed in the child process and returned through output queue.
     """
 
-    def __init__(self, vis: Viseron, name) -> None:
+    def __init__(self, vis: Viseron, name: str) -> None:
         self._name = name
 
         self._process_frames_proc_exit = mp.Event()
@@ -92,7 +92,7 @@ class ChildProcessWorker(ABC):
     @property
     def child_process_name(self) -> str:
         """Return spawned child process name."""
-        return f"child_process.{self._name}.process"
+        return f"viseron.child_process.{self._name}.process"
 
     def _process_input_queue(self) -> None:
         """Read from thread queue and put to multiprocessing queue."""

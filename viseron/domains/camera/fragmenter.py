@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import datetime
 import logging
+import multiprocessing as mp
 import os
+import queue
 import re
 import shutil
 import subprocess as sp
@@ -22,6 +24,7 @@ from viseron.components.storage.queries import get_time_period_fragments
 from viseron.const import CAMERA_SEGMENT_DURATION, TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import CONFIG_FFMPEG_LOGLEVEL, CONFIG_RECORDER
 from viseron.helpers import get_utc_offset
+from viseron.helpers.child_process_worker import ChildProcessWorker
 from viseron.helpers.logs import LogPipe
 
 if TYPE_CHECKING:
@@ -102,43 +105,58 @@ def _extract_program_date_time(
     return None
 
 
-class Fragmenter:
-    """Convert MP4 to fragmented MP4 for streaming."""
+class FragmenterSubProcessWorker(ChildProcessWorker):
+    """Child process worker for running fragmentation in a child process."""
 
     def __init__(
         self,
         vis: Viseron,
         camera: AbstractCamera,
-    ) -> None:
-        self._logger = logging.getLogger(f"{self.__module__}.{camera.identifier}")
-        self._vis = vis
-        self._camera = camera
-        self._storage: Storage = vis.data[STORAGE_COMPONENT]
-        os.makedirs(camera.temp_segments_folder, exist_ok=True)
-        self._storage.ignore_file("init.mp4")
-
+        temp_segments_folder: str,
+        segments_folder: str,
+        metadata_callback: Callable[[dict], None] | None,
+    ):
+        self._logger = logging.getLogger(
+            f"{self.__module__}.subprocess.{camera.identifier}"
+        )
+        self.temp_segments_folder = temp_segments_folder
+        self.segments_folder = segments_folder
         self._log_pipe = LogPipe(
             logging.getLogger(f"{self.__module__}.{camera.identifier}.mp4box"),
             logging.DEBUG,
         )
-        self._log_pipe_ffmpeg = LogPipe(
-            logging.getLogger(f"{self.__module__}.{camera.identifier}.ffmpeg"),
-            logging.ERROR,
+
+        self._worker_event = mp.Event()
+        self.on_metadata = metadata_callback
+        super().__init__(
+            vis,
+            f"fragmenter.{camera.identifier}",
         )
-        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self._shutdown)
-        self._fragment_job_id = f"fragment_{self._camera.identifier}"
-        self._vis.background_scheduler.add_job(
-            self._create_fragmented_mp4,
-            "interval",
-            seconds=1,
-            id=self._fragment_job_id,
-            max_instances=1,
-            coalesce=True,
-        )
+
+    def work_input(self, item):
+        """Handle input commands in the child process."""
+        if item.get("cmd") == "fragment":
+            self._logger.debug(
+                "Checking for new segments to fragment in "
+                f"{self.temp_segments_folder}"
+            )
+            mp4s = _get_mp4_files_to_fragment(self.temp_segments_folder)
+            for mp4 in sorted(mp4s)[:5]:
+                self._logger.debug(f"Processing {mp4}")
+                if mp4.split(".")[1] == "m4s":
+                    self._handle_m4s(mp4)
+                else:
+                    self._handle_mp4(mp4)
+
+    def work_output(self, item):
+        """Relay metadata from child process to main process via callback."""
+        if item is not None and self.on_metadata:
+            self.on_metadata(item)
+            self._worker_event.set()
 
     def _mp4box_command(self, file: str):
         """Create fragmented fmp4 from mp4 using MP4Box."""
-        outdir = os.path.join(self._camera.temp_segments_folder, file.split(".")[0])
+        outdir = os.path.join(self.temp_segments_folder, file.split(".")[0])
         os.makedirs(outdir, exist_ok=True)
         try:
             sp.run(  # type: ignore[call-overload]
@@ -155,7 +173,7 @@ class Fragmenter:
                     "clip_",
                     "-out",
                     os.path.join(outdir, "master.m3u8"),
-                    os.path.join(self._camera.temp_segments_folder, file),
+                    os.path.join(self.temp_segments_folder, file),
                 ],
                 stdout=self._log_pipe,
                 stderr=self._log_pipe,
@@ -171,19 +189,19 @@ class Fragmenter:
         try:
             shutil.move(
                 os.path.join(
-                    self._camera.temp_segments_folder,
+                    self.temp_segments_folder,
                     file.split(".")[0],
                     "clip_1.m4s",
                 ),
-                os.path.join(self._camera.segments_folder, file.split(".")[0] + ".m4s"),
+                os.path.join(self.segments_folder, file.split(".")[0] + ".m4s"),
             )
             shutil.move(
                 os.path.join(
-                    self._camera.temp_segments_folder,
+                    self.temp_segments_folder,
                     file.split(".")[0],
                     "clip_init.mp4",
                 ),
-                os.path.join(self._camera.segments_folder, "init.mp4"),
+                os.path.join(self.segments_folder, "init.mp4"),
             )
         except FileNotFoundError:
             self._logger.debug(f"{file} not found")
@@ -192,12 +210,12 @@ class Fragmenter:
         """Move fragmented mp4 created by encoder to segments folder."""
         try:
             shutil.move(
-                os.path.join(self._camera.temp_segments_folder, file),
-                os.path.join(self._camera.segments_folder, file),
+                os.path.join(self.temp_segments_folder, file),
+                os.path.join(self.segments_folder, file),
             )
             shutil.copy(
-                os.path.join(self._camera.temp_segments_folder, "init.mp4"),
-                os.path.join(self._camera.segments_folder, "init.mp4"),
+                os.path.join(self.temp_segments_folder, "init.mp4"),
+                os.path.join(self.segments_folder, "init.mp4"),
             )
         except FileNotFoundError:
             self._logger.debug(f"{file} not found", exc_info=True)
@@ -218,17 +236,23 @@ class Fragmenter:
             )
             orig_ctime = orig_ctime.replace(tzinfo=datetime.timezone.utc)
 
-        path = os.path.join(self._camera.segments_folder, file.split(".")[0] + ".m4s")
-        self._storage.temporary_files_meta[path] = FilesMeta(
-            orig_ctime=orig_ctime,
-            duration=extinf,
+        path = os.path.join(self.segments_folder, file.split(".")[0] + ".m4s")
+
+        self._worker_event.clear()
+        self._output_queue.put(
+            {
+                "path": path,
+                "orig_ctime": orig_ctime,
+                "duration": extinf,
+            }
         )
+        self._worker_event.wait(timeout=1)
 
     def _read_m3u8_mp4box(self, file: str) -> str:
         """Read m3u8 file created by MP4Box."""
         return open(
             os.path.join(
-                self._camera.temp_segments_folder,
+                self.temp_segments_folder,
                 file.split(".")[0],
                 "master_1.m3u8",
             ),
@@ -239,7 +263,7 @@ class Fragmenter:
         """Read m3u8 file created by encoder."""
         return open(
             os.path.join(
-                self._camera.temp_segments_folder,
+                self.temp_segments_folder,
                 "index.m3u8",
             ),
             encoding="utf-8",
@@ -261,9 +285,9 @@ class Fragmenter:
             self._logger.error(f"Failed to fragment {file}", exc_info=err)
 
         try:
-            os.remove(os.path.join(self._camera.temp_segments_folder, file))
+            os.remove(os.path.join(self.temp_segments_folder, file))
             shutil.rmtree(
-                os.path.join(self._camera.temp_segments_folder, file.split(".")[0]),
+                os.path.join(self.temp_segments_folder, file.split(".")[0]),
             )
         except FileNotFoundError as err:
             self._logger.error("Failed to delete broken fragment", exc_info=err)
@@ -279,39 +303,79 @@ class Fragmenter:
                 self._move_to_segments_folder(file)
             else:
                 self._logger.error(f"Failed to get extinf for {file}")
-                os.remove(os.path.join(self._camera.temp_segments_folder, file))
+                os.remove(os.path.join(self.temp_segments_folder, file))
         except Exception as err:  # pylint: disable=broad-except
             self._logger.error(f"Failed to process m4s file {file}", exc_info=err)
         finally:
             try:
-                os.remove(os.path.join(self._camera.temp_segments_folder, file))
+                os.remove(os.path.join(self.temp_segments_folder, file))
             except FileNotFoundError:
                 pass
 
-    def _create_fragmented_mp4(self):
-        """Create fragmented mp4 from mp4 using MP4Box."""
-        self._logger.debug(
-            "Checking for new segments to fragment in "
-            f"{self._camera.temp_segments_folder}"
+    def stop(self) -> None:
+        """Stop the child process."""
+        super().stop()
+        self._log_pipe.close()
+
+
+class Fragmenter:
+    """Convert MP4 to fragmented MP4 for streaming."""
+
+    def __init__(
+        self,
+        vis: Viseron,
+        camera: AbstractCamera,
+    ) -> None:
+        self._logger = logging.getLogger(f"{self.__module__}.{camera.identifier}")
+        self._vis = vis
+        self._camera = camera
+        self._storage: Storage = vis.data[STORAGE_COMPONENT]
+        os.makedirs(camera.temp_segments_folder, exist_ok=True)
+        self._storage.ignore_file("init.mp4")
+
+        self._log_pipe_ffmpeg = LogPipe(
+            logging.getLogger(f"{self.__module__}.{camera.identifier}.ffmpeg"),
+            logging.ERROR,
         )
-        mp4s = _get_mp4_files_to_fragment(self._camera.temp_segments_folder)
-        # Handle max 5 files per iteration to avoid blocking the thread for too long
-        for mp4 in sorted(mp4s)[:5]:
-            self._logger.debug(f"Processing {mp4}")
-            if mp4.split(".")[1] == "m4s":
-                self._handle_m4s(mp4)
-            else:
-                self._handle_mp4(mp4)
+
+        # Subprocess worker for fragmentation
+        self._fragment_worker = FragmenterSubProcessWorker(
+            vis,
+            camera,
+            camera.temp_segments_folder,
+            camera.segments_folder,
+            self._on_metadata_from_worker,
+        )
+
+        self._fragment_job_id = f"fragment_{self._camera.identifier}"
+        self._vis.background_scheduler.add_job(
+            self._fragment_command,
+            "interval",
+            seconds=1,
+            id=self._fragment_job_id,
+            max_instances=1,
+            coalesce=True,
+        )
+        vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self._shutdown)
+
+    def _on_metadata_from_worker(self, item):
+        """Update temporary_files_meta with metadata from subprocess."""
+        self._storage.temporary_files_meta[item["path"]] = FilesMeta(
+            orig_ctime=item["orig_ctime"], duration=item["duration"]
+        )
+
+    def _fragment_command(self):
+        """Periodically send work to the subprocess."""
+        try:
+            self._fragment_worker.input_queue.put({"cmd": "fragment"}, timeout=1)
+        except queue.Full:
+            pass
 
     def _shutdown(self) -> None:
         """Handle shutdown event."""
         self._logger.debug("Shutting down fragment thread")
         if not self._camera.stopped.is_set():
             self._camera.stopped.wait(timeout=5)
-        self._logger.debug("Camera stopped, running final fragmentation")
-        self._create_fragmented_mp4()
-        self._logger.debug("Fragment thread shutdown complete")
-        self._log_pipe.close()
         self._log_pipe_ffmpeg.close()
 
     def concatenate_fragments(
@@ -356,7 +420,7 @@ class Fragmenter:
                 stderr=self._log_pipe_ffmpeg,
                 check=True,
             )
-        except sp.CalledProcessError as err:
+        except (sp.CalledProcessError, OSError) as err:
             self._logger.error(err)
             return False
         return filename

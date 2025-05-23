@@ -208,7 +208,10 @@ class LogPipe(threading.Thread):
         """Close the write end of the pipe."""
         self._logger.debug("Closing LogPipe")
         self._kill_received = True
-        os.close(self._write_filedescriptor)
+        try:
+            os.close(self._write_filedescriptor)
+        except OSError:
+            pass
 
 
 class CTypesLogPipe(threading.Thread):
