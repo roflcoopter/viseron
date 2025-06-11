@@ -18,11 +18,18 @@ from typing import TYPE_CHECKING, Literal, TypedDict
 import psutil
 from path import Path
 
-from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
+from viseron.components.storage.const import (
+    COMPONENT as STORAGE_COMPONENT,
+    EVENT_CHECK_TIER,
+    TIER_CATEGORY_RECORDER,
+    TIER_SUBCATEGORY_SEGMENTS,
+    CleanupJobNames,
+)
 from viseron.components.storage.models import FilesMeta
 from viseron.components.storage.queries import get_time_period_fragments
 from viseron.const import CAMERA_SEGMENT_DURATION, TEMP_DIR, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import CONFIG_FFMPEG_LOGLEVEL, CONFIG_RECORDER
+from viseron.events import EventEmptyData
 from viseron.helpers import get_utc_offset
 from viseron.helpers.child_process_worker import ChildProcessWorker
 from viseron.helpers.logs import LogPipe
@@ -111,14 +118,18 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
     def __init__(
         self,
         vis: Viseron,
+        storage: Storage,
         camera: AbstractCamera,
         temp_segments_folder: str,
         segments_folder: str,
-        metadata_callback: Callable[[dict], None] | None,
+        metadata_callback: Callable[[dict], None],
     ):
         self._logger = logging.getLogger(
             f"{self.__module__}.subprocess.{camera.identifier}"
         )
+        self._vis = vis
+        self._storage = storage
+        self._camera = camera
         self.temp_segments_folder = temp_segments_folder
         self.segments_folder = segments_folder
         self._log_pipe = LogPipe(
@@ -148,11 +159,27 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
                 else:
                     self._handle_mp4(mp4)
 
-    def work_output(self, item):
+    def work_output(self, item: dict | None):
         """Relay metadata from child process to main process via callback."""
-        if item is not None and self.on_metadata:
+        if item is None:
+            return
+
+        if item.get("error") == "no_space_left":
+            self._vis.dispatch_event(
+                EVENT_CHECK_TIER.format(
+                    camera_identifier=self._camera.identifier,
+                    tier_id=0,
+                    category=TIER_CATEGORY_RECORDER,
+                    subcategory=TIER_SUBCATEGORY_SEGMENTS,
+                ),
+                EventEmptyData(),
+            )
+            self._storage.cleanup_manager.run_job(CleanupJobNames.ORPHANED_FILES)
+
+        if "path" in item:
             self.on_metadata(item)
-            self._worker_event.set()
+
+        self._worker_event.set()
 
     def _mp4box_command(self, file: str):
         """Create fragmented fmp4 from mp4 using MP4Box."""
@@ -219,6 +246,19 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             )
         except FileNotFoundError:
             self._logger.debug(f"{file} not found", exc_info=True)
+        except OSError as err:
+            if err.errno == 28:  # No space left on device
+                self._logger.error(
+                    "No space left on device, trigger tier check",
+                    exc_info=err,
+                )
+                self._worker_event.clear()
+                self._output_queue.put(
+                    {
+                        "error": "no_space_left",
+                    }
+                )
+                self._worker_event.wait(timeout=1)
 
     def _write_files_metadata(
         self,
@@ -341,6 +381,7 @@ class Fragmenter:
         # Subprocess worker for fragmentation
         self._fragment_worker = FragmenterSubProcessWorker(
             vis,
+            self._storage,
             camera,
             camera.temp_segments_folder,
             camera.segments_folder,

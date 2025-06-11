@@ -17,6 +17,7 @@ from sqlalchemy import and_, delete, exists, func, select
 from viseron.components.storage.const import (
     TIER_CATEGORY_RECORDER,
     TIER_SUBCATEGORY_SEGMENTS,
+    CleanupJobNames,
 )
 from viseron.components.storage.models import (
     Events,
@@ -79,10 +80,6 @@ class BaseCleanupJob(ABC):
 
     def _wrapped_run(self):
         setproctitle.setproctitle(f"viseron_{self.name}")
-        if self._storage.engine is None:
-            LOGGER.debug("Engine has not been created, skipping cleanup job")
-            return
-
         self._storage.engine.dispose(close=False)
         self._run()
 
@@ -176,7 +173,7 @@ class OrphanedFilesCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_files"
+        return CleanupJobNames.ORPHANED_FILES.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -252,7 +249,7 @@ class OrphanedDatabaseFilesCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_db_files"
+        return CleanupJobNames.ORPHANED_DB_FILES.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -328,7 +325,7 @@ class EmptyFoldersCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_empty_folders"
+        return CleanupJobNames.EMPTY_FOLDERS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -376,7 +373,7 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_thumbnails"
+        return CleanupJobNames.ORPHANED_THUMBNAILS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -456,7 +453,7 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_clips"
+        return CleanupJobNames.ORPHANED_EVENT_CLIPS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -537,7 +534,7 @@ class OrphanedRecordingsCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_recordings"
+        return CleanupJobNames.ORPHANED_RECORDINGS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -636,7 +633,7 @@ class OrphanedPostProcessorResultsCleanup(BaseTableCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_postprocessor_results"
+        return CleanupJobNames.ORPHANED_POSTPROCESSOR_RESULTS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -658,7 +655,7 @@ class OrphanedObjectsCleanup(BaseTableCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_objects"
+        return CleanupJobNames.ORPHANED_OBJECTS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -678,7 +675,7 @@ class OrphanedMotionCleanup(BaseTableCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_motion"
+        return CleanupJobNames.ORPHANED_MOTION.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -697,7 +694,7 @@ class OldEventsCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_old_events"
+        return CleanupJobNames.OLD_EVENTS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -728,11 +725,9 @@ class CleanupManager:
     def __init__(self, vis: Viseron, storage: Storage):
         self._vis = vis
         self.jobs: list[BaseCleanupJob] = [
-            OrphanedFilesCleanup(
-                vis, storage, CronTrigger(day_of_week="mon", hour=3, minute=0)
-            ),
+            OrphanedFilesCleanup(vis, storage, CronTrigger(minute=0, jitter=600)),
             OrphanedDatabaseFilesCleanup(
-                vis, storage, CronTrigger(day_of_week="wed", hour=3, minute=0)
+                vis, storage, CronTrigger(minute=0, jitter=600)
             ),
             EmptyFoldersCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedThumbnailsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
@@ -746,6 +741,15 @@ class CleanupManager:
             OldEventsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
         ]
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+
+    def run_job(self, job_name: CleanupJobNames) -> None:
+        """Run a specific cleanup job."""
+        for job in self.jobs:
+            if job.name == job_name.value:
+                LOGGER.debug("Running cleanup job %s", job.name)
+                job.run()
+                return
+        LOGGER.warning("No cleanup job found with name %s", job_name.value)
 
     def start(self):
         """Start the cleanup scheduler."""
