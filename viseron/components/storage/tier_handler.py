@@ -40,6 +40,7 @@ from viseron.components.storage.const import (
     CONFIG_PATH,
     CONFIG_POLL,
     CONFIG_SECONDS,
+    EVENT_CHECK_TIER,
     EVENT_FILE_CREATED,
     EVENT_FILE_DELETED,
     TIER_CATEGORY_RECORDER,
@@ -86,6 +87,7 @@ from viseron.domains.camera.const import (
     CONFIG_RECORDER,
     CONFIG_RETAIN,
 )
+from viseron.events import Event
 from viseron.helpers import utcnow
 from viseron.helpers.named_timer import NamedTimer
 from viseron.watchdog.thread_watchdog import RestartableThread
@@ -128,6 +130,15 @@ class TierHandler(FileSystemEventHandler):
         self.initialize()
         vis.register_signal_handler(VISERON_SIGNAL_LAST_WRITE, self._shutdown)
         vis.register_signal_handler(VISERON_SIGNAL_STOPPING, self._stop_observer)
+        vis.listen_event(
+            EVENT_CHECK_TIER.format(
+                camera_identifier=camera.identifier,
+                tier_id=tier_id,
+                category=category,
+                subcategory=subcategory,
+            ),
+            self._check_tier_event_handler,
+        )
 
         self._pending_updates: dict[str, Timer] = {}
         self._event_queue: Queue[FileSystemEvent | None] = Queue()
@@ -203,6 +214,10 @@ class TierHandler(FileSystemEventHandler):
         self._min_bytes = calculate_bytes(self._tier[CONFIG_MIN_SIZE])
         self._max_age = calculate_age(self._tier[CONFIG_MAX_AGE])
         self._min_age = calculate_age(self._tier[CONFIG_MIN_AGE])
+
+    def _check_tier_event_handler(self, _event: Event) -> None:
+        """Handle check tier event."""
+        self.check_tier()
 
     def check_tier(self) -> None:
         """Check if file should be moved to next tier."""

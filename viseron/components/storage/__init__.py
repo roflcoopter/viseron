@@ -13,7 +13,7 @@ import voluptuous as vol
 from alembic import command, script
 from alembic.config import Config
 from alembic.migration import MigrationContext
-from sqlalchemy import Engine, create_engine, update
+from sqlalchemy import update
 from sqlalchemy.orm import Session, scoped_session, sessionmaker
 
 from viseron.components.storage.config import (
@@ -30,9 +30,9 @@ from viseron.components.storage.const import (
     CONFIG_RECORDER,
     CONFIG_SNAPSHOTS,
     CONFIG_TIERS,
-    DATABASE_URL,
     DEFAULT_COMPONENT,
     DESC_COMPONENT,
+    ENGINE,
     TIER_CATEGORY_RECORDER,
     TIER_CATEGORY_SNAPSHOTS,
     TIER_SUBCATEGORY_EVENT_CLIPS,
@@ -188,13 +188,13 @@ class Storage:
         self.camera_requested_files_count: dict[str, RequestedFilesCount] = {}
 
         self.ignored_files: list[str] = []
-        self.engine: Engine | None = None
+        self.engine = ENGINE
         self._get_session: Callable[[], Session] | None = None
 
         self.temporary_files_meta: dict[str, FilesMeta] = {}
 
-        self._cleanup_manager = CleanupManager(vis, self)
-        self._cleanup_manager.start()
+        self.cleanup_manager = CleanupManager(vis, self)
+        self.cleanup_manager.start()
 
     @property
     def camera_tier_handlers(self):
@@ -238,9 +238,6 @@ class Storage:
     def _create_new_db(self) -> None:
         """Create and stamp a new DB for fresh installs."""
         LOGGER.debug("Creating new database")
-        if self.engine is None:
-            raise RuntimeError("The database connection has not been established")
-
         try:
             Base.metadata.create_all(self.engine)
             command.stamp(self._alembic_cfg, "head")
@@ -249,10 +246,6 @@ class Storage:
 
     def create_database(self) -> None:
         """Create database."""
-        self.engine = create_engine(
-            DATABASE_URL, connect_args={"options": "-c timezone=UTC"}
-        )
-
         conn = self.engine.connect()
         context = MigrationContext.configure(conn)
         current_rev = context.get_current_revision()

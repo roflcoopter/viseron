@@ -1,11 +1,31 @@
 """Storage component constants."""
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any, Final
+
+from sqlalchemy import create_engine
 
 COMPONENT = "storage"
 
 DATABASE_URL = "postgresql://postgres@localhost/viseron"
+ENGINE = create_engine(DATABASE_URL, connect_args={"options": "-c timezone=UTC"})
+
+
+class CleanupJobNames(Enum):
+    """Enum for job names."""
+
+    ORPHANED_FILES = "cleanup_orphaned_files"
+    ORPHANED_DB_FILES = "cleanup_orphaned_db_files"
+    EMPTY_FOLDERS = "cleanup_empty_folders"
+    ORPHANED_THUMBNAILS = "cleanup_orphaned_thumbnails"
+    ORPHANED_EVENT_CLIPS = "cleanup_orphaned_clips"
+    ORPHANED_RECORDINGS = "cleanup_orphaned_recordings"
+    ORPHANED_POSTPROCESSOR_RESULTS = "cleanup_orphaned_postprocessor_results"
+    ORPHANED_OBJECTS = "cleanup_orphaned_objects"
+    ORPHANED_MOTION = "cleanup_orphaned_motion"
+    OLD_EVENTS = "cleanup_old_events"
+
 
 EVENT_FILE_CREATED = (
     "file_created/{camera_identifier}/{category}/{subcategory}/{file_name}"
@@ -13,6 +33,7 @@ EVENT_FILE_CREATED = (
 EVENT_FILE_DELETED = (
     "file_deleted/{camera_identifier}/{category}/{subcategory}/{file_name}"
 )
+EVENT_CHECK_TIER = "check_tier/{camera_identifier}/{tier_id}/{category}/{subcategory}"
 
 # Tier categories
 TIER_CATEGORY_RECORDER: Final = "recorder"
