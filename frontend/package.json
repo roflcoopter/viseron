@@ -28,7 +28,7 @@
     "buffer": "^6.0.3",
     "dayjs": "^1.11.13",
     "dompurify": "^3.1.6",
-    "hls.js": "^1.5.15",
+    "hls.js": "^1.6.5",
     "http-proxy-middleware": "^3.0.2",
     "js-cookie": "^3.0.5",
     "material-ui-popup-state": "^5.3.3",
