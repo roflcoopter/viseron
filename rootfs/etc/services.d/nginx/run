@@ -3,4 +3,4 @@
 source /helpers/set_env.sh
 
 echo "Starting nginx..."
-exec justc-envdir /var/run/environment exec nginx -c /usr/local/nginx/conf/nginx.conf 2>&1 | tee -a /config/nginx.log
+exec justc-envdir /var/run/environment exec nginx -c /usr/local/nginx/conf/nginx.conf 2>&1 | tee -a $VISERON_CONFIG_DIR/nginx.log

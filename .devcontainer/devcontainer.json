@@ -6,6 +6,7 @@
   "overrideCommand": false,
   "containerEnv": {
     "DEVCONTAINER": "1",
+    "VISERON_CONFIG_DIR": "${containerWorkspaceFolder}/config",
     "PUID": "1000",
     "PGID": "1000"
   },
@@ -32,9 +33,6 @@
   },
   "userEnvProbe": "loginInteractiveShell",
   "runArgs": ["-e", "GIT_EDITOR=code --wait"],
-  "mounts": [
-    "source=${localWorkspaceFolder}/config,target=/config,type=bind,consistency=cached"
-  ],
   "customizations": {
     "vscode": {
       "extensions": [

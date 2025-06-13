@@ -1,4 +1,6 @@
 """Generate docs skeleton."""
+# pylint: disable=wrong-import-position
+# flake8: noqa: E402
 import argparse
 import importlib
 import json
@@ -8,6 +10,9 @@ from collections.abc import Mapping
 
 import typing_extensions
 import voluptuous as vol
+
+# Hardcode the config dir to /config, as it is overridden in the Devcontainer
+os.environ["VISERON_CONFIG_DIR"] = "/config"
 
 from viseron.config import UNSUPPORTED
 from viseron.helpers.validators import (

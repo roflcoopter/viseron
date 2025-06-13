@@ -91,6 +91,7 @@ ARG S6_OVERLAY_VERSION
 ARG EXTRA_APT_PACKAGES
 
 ENV \
+  VISERON_CONFIG_DIR=/config \
   DEBIAN_FRONTEND=noninteractive \
   S6_KEEP_ENV=1 \
   S6_SERVICES_GRACETIME=30000 \
@@ -100,7 +101,6 @@ ENV \
   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib \
   PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.10/site-packages \
   OPENCV_OPENCL_CACHE_ENABLE=false \
-  PGDATA=/config/postgresql \
   PG_COLOR="always"
 
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}-installer /tmp/s6-overlay-installer
