@@ -125,7 +125,10 @@ class AuthAPIHandler(BaseAPIHandler):
         {
             "requires_auth": False,
             "requires_camera_token": True,
-            "path_pattern": r"/auth/request/(?P<camera_identifier>[A-Za-z0-9_]+)",
+            "path_pattern": (
+                "/auth/request/camera_access_token/"
+                r"(?P<camera_identifier>[A-Za-z0-9_]+)"
+            ),
             "supported_methods": ["GET"],
             "method": "auth_request_camera_token",
             "request_arguments_schema": vol.Schema(
@@ -373,6 +376,6 @@ class AuthAPIHandler(BaseAPIHandler):
         """
         await self.response_success()
 
-    async def auth_request_camera_token(self, _camera_identifier) -> None:
+    async def auth_request_camera_token(self, camera_identifier) -> None:
         """Auth request endpoint for NGINX using camera token."""
-        await self.response_success()
+        await self.response_success(response={"camera_identifier": camera_identifier})
