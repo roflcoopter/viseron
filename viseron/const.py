@@ -1,13 +1,15 @@
 """Constants."""
+import os
 from typing import Final
 
 import cv2
 
 DEFAULT_PORT = 9999
-CONFIG_PATH = "/config/config.yaml"
-SECRETS_PATH = "/config/secrets.yaml"
-STORAGE_PATH = "/config/.viseron"
-VISERON_LOG_PATH = "/config/viseron.log"
+CONFIG_DIR = os.getenv("VISERON_CONFIG_DIR", "/config")
+CONFIG_PATH = f"{CONFIG_DIR}/config.yaml"
+SECRETS_PATH = f"{CONFIG_DIR}/secrets.yaml"
+STORAGE_PATH = f"{CONFIG_DIR}/.viseron"
+VISERON_LOG_PATH = f"{CONFIG_DIR}/viseron.log"
 TEMP_DIR = "/tmp/viseron"
 DEFAULT_CONFIG = """# Thanks for trying out Viseron!
 # This is a small walkthrough of the configuration to get you started.
