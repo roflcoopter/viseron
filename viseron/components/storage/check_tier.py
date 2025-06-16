@@ -409,128 +409,132 @@ def get_recordings_to_move(
     file_min_age_timestamp: float,
 ):
     """Get files to move based on recording grouping."""
-    # Sort recordings by adjusted start time
-    if recordings_data.size == 0:
-        return np.empty(0, dtype=RECORDINGS_FILES_DTYPE)
+    # Sort recordings by adjusted start time (descending)
+    sorted_indices_recordings = np.argsort(recordings_data["adjusted_start_time"])[::-1]
+    recordings_data = recordings_data[sorted_indices_recordings]
 
-    sorted_indices = np.argsort(recordings_data["adjusted_start_time"])
-    recordings_data = recordings_data[sorted_indices][::-1]
+    # Sort files_data by orig_ctime (ascending) for efficient searching
+    files_data.sort(order="orig_ctime")
 
-    # Calculate cumulative size of files for each recording
     recordings_size = np.zeros(len(recordings_data), dtype=np.int64)
-
-    # Initialize a list to store arrays of files for each recording
-    all_recording_files_list = []
+    associated_files_data_list = []
 
     for i, recording in enumerate(recordings_data):
-        # Filter files_data for the current recording
-        mask = (files_data["orig_ctime"] >= recording["adjusted_start_time"]) & (
-            files_data["orig_ctime"] <= recording["end_time"] + segment_length
-        )
-        relevant_files_for_recording = files_data[mask]
+        if files_data.size > 0:
+            start_time_search = recording["adjusted_start_time"]
+            end_time_search = recording["end_time"] + segment_length
 
-        if relevant_files_for_recording.size > 0:
-            current_recording_files_np = np.empty(
-                len(relevant_files_for_recording), dtype=RECORDINGS_FILES_DTYPE
+            # Find relevant files using searchsorted
+            start_idx = np.searchsorted(
+                files_data["orig_ctime"], start_time_search, side="left"
             )
-            current_recording_files_np["recording_id"] = recording["id"]
-            current_recording_files_np["id"] = relevant_files_for_recording["id"]
-            current_recording_files_np["size"] = relevant_files_for_recording["size"]
-            current_recording_files_np["orig_ctime"] = relevant_files_for_recording[
-                "orig_ctime"
-            ]
-            current_recording_files_np["path"] = relevant_files_for_recording["path"]
-            current_recording_files_np["tier_path"] = relevant_files_for_recording[
-                "tier_path"
-            ]
-
-            recordings_size[i] = np.sum(current_recording_files_np["size"])
-            all_recording_files_list.append(current_recording_files_np)
+            end_idx = np.searchsorted(
+                files_data["orig_ctime"], end_time_search, side="right"
+            )
+            relevant_files_for_recording = files_data[start_idx:end_idx]
         else:
-            recordings_size[i] = 0
+            relevant_files_for_recording = np.empty(0, dtype=files_data.dtype)
 
-    if all_recording_files_list:
-        associated_recording_files = np.concatenate(all_recording_files_list)
-    else:
-        associated_recording_files = np.empty(0, dtype=RECORDINGS_FILES_DTYPE)
+        current_recording_total_size = 0
+        if relevant_files_for_recording.size > 0:
+            for file_row in relevant_files_for_recording:
+                associated_files_data_list.append(
+                    (
+                        recording["id"],
+                        file_row["id"],
+                        file_row["size"],
+                        file_row["orig_ctime"],
+                        file_row["path"],
+                        file_row["tier_path"],
+                    )
+                )
+                current_recording_total_size += file_row["size"]
+        recordings_size[i] = current_recording_total_size
 
-    # Identify files from files_data not present in associated_recording_files
-    if associated_recording_files.size > 0:
-        associated_file_ids = associated_recording_files["id"]
-        unassociated_mask = ~np.isin(files_data["id"], associated_file_ids)
-    else:
-        unassociated_mask = np.ones(len(files_data), dtype=bool)
+    associated_file_ids_set = {tup[1] for tup in associated_files_data_list}
 
-    unassociated_files_subset = files_data[unassociated_mask]
+    other_files_data_list = []
+    if files_data.size > 0:
+        for file_row in files_data:
+            if file_row["id"] not in associated_file_ids_set:
+                other_files_data_list.append(
+                    (
+                        -1,  # recording_id for unassociated files
+                        file_row["id"],
+                        file_row["size"],
+                        file_row["orig_ctime"],
+                        file_row["path"],
+                        file_row["tier_path"],
+                    )
+                )
 
-    other_files_np = np.empty(0, dtype=RECORDINGS_FILES_DTYPE)
-    if unassociated_files_subset.size > 0:
-        other_files_np = np.empty(
-            len(unassociated_files_subset), dtype=RECORDINGS_FILES_DTYPE
-        )
-        other_files_np["recording_id"] = -1
-        other_files_np["id"] = unassociated_files_subset["id"]
-        other_files_np["size"] = unassociated_files_subset["size"]
-        other_files_np["orig_ctime"] = unassociated_files_subset["orig_ctime"]
-        other_files_np["path"] = unassociated_files_subset["path"]
-        other_files_np["tier_path"] = unassociated_files_subset["tier_path"]
+    combined_files_list = associated_files_data_list + other_files_data_list
 
-    # Combine associated files and other files
-    if associated_recording_files.size > 0 and other_files_np.size > 0:
-        recordings_files = np.concatenate((associated_recording_files, other_files_np))
-    elif associated_recording_files.size > 0:
-        recordings_files = associated_recording_files
-    elif other_files_np.size > 0:
-        recordings_files = other_files_np
-    else:
-        recordings_files = np.empty(0, dtype=RECORDINGS_FILES_DTYPE)
-
-    if recordings_files.size == 0:
+    if not combined_files_list:
         return np.empty(0, dtype=RECORDINGS_FILES_DTYPE)
 
-    # Sort the recordings_files by id and then by orig_ctime
+    recordings_files = np.array(combined_files_list, dtype=RECORDINGS_FILES_DTYPE)
+
+    # Sort by id, then orig_ctime to ensure consistent unique selection if needed
+    # Although file IDs should be unique.
     recordings_files.sort(order=["id", "orig_ctime"])
 
     recording_cumulative_sizes = np.cumsum(recordings_size)
 
-    bytes_indices_to_move = np.empty(0, dtype=np.int64)
+    bytes_indices_to_move_recordings = np.empty(0, dtype=np.int64)
     if max_bytes > 0:
-        bytes_indices_to_move = np.where(
+        bytes_indices_to_move_recordings = np.where(
             (recording_cumulative_sizes >= max_bytes)
             & (recordings_data["created_at"] <= min_age_timestamp)
         )[0]
 
-    age_indices_to_move = np.empty(0, dtype=np.int64)
+    age_indices_to_move_recordings = np.empty(0, dtype=np.int64)
     if max_age_timestamp > 0:
-        age_indices_to_move = np.where(
+        age_indices_to_move_recordings = np.where(
             (recordings_data["created_at"] < max_age_timestamp)
             & (recording_cumulative_sizes >= min_bytes)
         )[0]
 
-    indices_to_move = np.unique(
-        np.concatenate((bytes_indices_to_move, age_indices_to_move))
+    # Indices of recordings_data that need to be moved
+    recording_indices_to_move = np.unique(
+        np.concatenate(
+            (bytes_indices_to_move_recordings, age_indices_to_move_recordings)
+        )
     )
 
-    files_to_move = np.empty(0, dtype=RECORDINGS_FILES_DTYPE)
-    if indices_to_move.size > 0:
-        moved_recording_ids = recordings_data[indices_to_move]["id"]
-        mask_files_from_moved_recordings = np.isin(
-            recordings_files["recording_id"], moved_recording_ids
-        )
-        mask_other_files = recordings_files["recording_id"] == -1
-        files_to_move = recordings_files[
-            mask_files_from_moved_recordings | mask_other_files
-        ]
-    elif np.any(recordings_files["recording_id"] == -1):
-        files_to_move = recordings_files[recordings_files["recording_id"] == -1]
+    files_to_move_list = []
 
-    if files_to_move.size > 0:
-        _, unique_indices = np.unique(files_to_move["id"], return_index=True)
-        files_to_move = files_to_move[unique_indices]
-        indices_to_move = np.where(
-            files_to_move["orig_ctime"] <= file_min_age_timestamp
-        )[0]
-        files_to_move = files_to_move[indices_to_move]
+    if recording_indices_to_move.size > 0:
+        moved_recording_ids = recordings_data[recording_indices_to_move]["id"]
+        # Select files associated with these moved recordings
+        for r_file in recordings_files:
+            if r_file["recording_id"] in moved_recording_ids:
+                if r_file["orig_ctime"] <= file_min_age_timestamp:
+                    files_to_move_list.append(r_file)
+            elif r_file["recording_id"] == -1:  # Always consider "other" files
+                if r_file["orig_ctime"] <= file_min_age_timestamp:
+                    files_to_move_list.append(r_file)
+    elif files_data.size > 0:  # No recordings to move, but check "other" files
+        for r_file in recordings_files:
+            if r_file["recording_id"] == -1:
+                if r_file["orig_ctime"] <= file_min_age_timestamp:
+                    files_to_move_list.append(r_file)
 
-    stripped_files_to_move = files_to_move[["recording_id", "id", "path", "tier_path"]]
+    if not files_to_move_list:
+        return np.empty(0, dtype=RECORDINGS_FILES_DTYPE)
+
+    # Convert list of structured array rows to a new array
+    files_to_move_np = np.array(files_to_move_list, dtype=RECORDINGS_FILES_DTYPE)
+
+    # Ensure unique files by ID, taking the first occurrence after sorting
+    if files_to_move_np.size > 0:
+        _, unique_indices = np.unique(files_to_move_np["id"], return_index=True)
+        files_to_move_np = files_to_move_np[unique_indices]
+    else:
+        return np.empty(0, dtype=RECORDINGS_FILES_DTYPE)
+
+    # Strip to required columns
+    stripped_files_to_move = files_to_move_np[
+        ["recording_id", "id", "path", "tier_path"]
+    ]
     return stripped_files_to_move
