@@ -3,6 +3,13 @@
     "type": "map",
     "value": [
       {
+        "type": "integer",
+        "name": "tier_check_cpu_limit",
+        "description": "CPU limit for the tier check process. This is used to limit the CPU usage of the process that checks for files to move or delete. This is useful to not overload the system with the tier check process. The value is an integer between 1 and 100, where 100 is 100% CPU usage. ",
+        "optional": true,
+        "default": 10
+      },
+      {
         "type": "map",
         "value": [
           {

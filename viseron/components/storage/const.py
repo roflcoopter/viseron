@@ -52,6 +52,7 @@ TIER_SUBCATEGORY_MOTION_DETECTOR: Final = "motion_detector"
 # Storage configuration
 DESC_COMPONENT = "Storage configuration."
 DEFAULT_COMPONENT: dict[str, Any] = {}
+CONFIG_TIER_CHECK_CPULIMIT: Final = "tier_check_cpu_limit"
 CONFIG_PATH: Final = "path"
 CONFIG_POLL: Final = "poll"
 CONFIG_MOVE_ON_SHUTDOWN: Final = "move_on_shutdown"
@@ -77,6 +78,7 @@ CONFIG_MOTION_DETECTOR: Final = "motion_detector"
 CONFIG_TIERS: Final = "tiers"
 
 
+DEFAULT_TIER_CHECK_CPULIMIT: Final = 10
 DEFAULT_RECORDER: dict[str, Any] = {}
 DEFAULT_RECORDER_TIERS = [
     {
@@ -123,6 +125,13 @@ DEFAULT_MAX_AGE: dict[str, Any] = {}
 DEFAULT_CONTINUOUS: Final = None
 DEFAULT_EVENTS: Final = None
 
+DESC_TIER_CHECK_CPULIMIT = (
+    "CPU limit for the tier check process. "
+    "This is used to limit the CPU usage of the process that checks for files to move "
+    "or delete. "
+    "This is useful to not overload the system with the tier check process. "
+    "The value is an integer between 1 and 100, where 100 is 100% CPU usage. "
+)
 DESC_RECORDER = "Configuration for recordings."
 DESC_TYPE = (
     "<code>continuous</code>: Will save everything but highlight Events.<br>"

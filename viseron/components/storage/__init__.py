@@ -29,6 +29,7 @@ from viseron.components.storage.const import (
     CONFIG_PATH,
     CONFIG_RECORDER,
     CONFIG_SNAPSHOTS,
+    CONFIG_TIER_CHECK_CPULIMIT,
     CONFIG_TIERS,
     DEFAULT_COMPONENT,
     DESC_COMPONENT,
@@ -45,6 +46,7 @@ from viseron.components.storage.const import (
 )
 from viseron.components.storage.jobs import CleanupManager
 from viseron.components.storage.models import Base, FilesMeta, Motion, Recordings
+from viseron.components.storage.storage_subprocess import TierCheckWorker
 from viseron.components.storage.tier_handler import (
     EventClipTierHandler,
     SegmentsTierHandler,
@@ -195,6 +197,10 @@ class Storage:
 
         self.cleanup_manager = CleanupManager(vis, self)
         self.cleanup_manager.start()
+
+        self.tier_check_worker = TierCheckWorker(
+            vis, config[CONFIG_TIER_CHECK_CPULIMIT]
+        )
 
     @property
     def camera_tier_handlers(self):

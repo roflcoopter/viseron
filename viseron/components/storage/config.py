@@ -30,6 +30,7 @@ from viseron.components.storage.const import (
     CONFIG_RECORDER,
     CONFIG_SECONDS,
     CONFIG_SNAPSHOTS,
+    CONFIG_TIER_CHECK_CPULIMIT,
     CONFIG_TIERS,
     DEFAULT_CHECK_INTERVAL,
     DEFAULT_CHECK_INTERVAL_DAYS,
@@ -57,6 +58,7 @@ from viseron.components.storage.const import (
     DEFAULT_RECORDER_TIERS,
     DEFAULT_SNAPSHOTS,
     DEFAULT_SNAPSHOTS_TIERS,
+    DEFAULT_TIER_CHECK_CPULIMIT,
     DESC_CHECK_INTERVAL,
     DESC_CHECK_INTERVAL_DAYS,
     DESC_CHECK_INTERVAL_HOURS,
@@ -90,6 +92,7 @@ from viseron.components.storage.const import (
     DESC_RECORDER_TIERS,
     DESC_SNAPSHOTS,
     DESC_SNAPSHOTS_TIERS,
+    DESC_TIER_CHECK_CPULIMIT,
     TIER_CATEGORY_RECORDER,
     TIER_CATEGORY_SNAPSHOTS,
     TIER_SUBCATEGORY_EVENT_CLIPS,
@@ -378,6 +381,11 @@ SNAPSHOTS_SCHEMA = get_snapshots_schema()
 
 STORAGE_SCHEMA = vol.Schema(
     {
+        vol.Optional(
+            CONFIG_TIER_CHECK_CPULIMIT,
+            default=DEFAULT_TIER_CHECK_CPULIMIT,
+            description=DESC_TIER_CHECK_CPULIMIT,
+        ): Maybe(vol.Coerce(int)),
         vol.Optional(
             CONFIG_RECORDER,
             default=DEFAULT_RECORDER,

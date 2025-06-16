@@ -94,6 +94,7 @@ def create_tier_snapshots(
 
 DEFAULT_CONFIG = {
     "storage": {
+        "tier_check_cpu_limit": 10,
         "recorder": {"tiers": [create_tier(events={"max_age": {"days": 7}})]},
         "snapshots": {
             "tiers": [

@@ -109,6 +109,7 @@ RUN \
   apt-get update && apt-get install -y --no-install-recommends \
   software-properties-common \
   curl \
+  cpulimit \
   gnupg \
   tzdata \
   python3 \
