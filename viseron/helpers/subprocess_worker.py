@@ -6,9 +6,10 @@ import logging
 import multiprocessing as mp
 import secrets
 import subprocess as sp
+import threading
 from abc import ABC, abstractmethod
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from manager import QueueManager, start, stop
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
@@ -25,6 +26,8 @@ BASE_MANAGER_AUTHKEY_STORAGE_KEY = "base_manager_authkey"
 
 LOGGER = logging.getLogger(__name__)
 
+WORKER_START_LOCK = threading.Lock()
+
 
 class SubProcessWorker(ABC):
     """Perform work in a spawned subprocess.
@@ -40,7 +43,8 @@ class SubProcessWorker(ABC):
 
         self._authkey_store = BaseManagerAuthkeyStore(vis)
 
-        self.start()
+        with WORKER_START_LOCK:
+            self.start()
 
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
@@ -49,7 +53,7 @@ class SubProcessWorker(ABC):
         self._server_port = get_free_port(port=50000)
         self._process_frames_proc_exit = mp.Event()
 
-        self.input_queue: Any = Queue(maxsize=100)
+        self.input_queue: Queue = Queue(maxsize=100)
         self._input_thread = RestartableThread(
             target=self._process_input_queue,
             name=f"subprocess.{self._name}.input_thread",
@@ -58,7 +62,7 @@ class SubProcessWorker(ABC):
         )
         self._input_thread.start()
 
-        self._output_queue: Any = Queue(maxsize=100)
+        self._output_queue: Queue = Queue(maxsize=100)
         self._output_thread = RestartableThread(
             target=self._process_output_queue,
             name=f"subprocess.{self._name}.output_thread",
@@ -71,7 +75,7 @@ class SubProcessWorker(ABC):
             logging.getLogger(f"{self.__module__}.subprocess"),
             output_level_func=self.get_loglevel,
         )
-        self._process_queue: Any = Queue(maxsize=100)
+        self._process_queue: Queue = Queue(maxsize=100)
         self._server = Server(
             "127.0.0.1",
             self._server_port,
