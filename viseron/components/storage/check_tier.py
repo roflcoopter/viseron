@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import logging
+import threading
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -65,9 +66,10 @@ class Worker:
         self._get_session: Callable[[], Session] = scoped_session(
             sessionmaker(bind=ENGINE)
         )
+        self._last_call: dict[str, float] = {}
+        self._locks: dict[str, threading.Lock] = {}
 
-    def work_input(self, item: DataItem) -> None:
-        """Handle input commands in the child process."""
+    def _work_input(self, item: DataItem) -> None:
         try:
             if item.cmd == "check_tier" and item.files_enabled:
                 LOGGER.debug(
@@ -138,6 +140,33 @@ class Worker:
             )
             item.error = str(e)
             return
+
+    def work_input(self, item: DataItem) -> None:
+        """Handle input commands in the child process.
+
+        Calls are throttled based on the throttle_period defined in the tier.
+        """
+        if item.camera_identifier not in self._locks:
+            self._locks[item.camera_identifier] = threading.Lock()
+
+        with self._locks[item.camera_identifier]:
+            now = utcnow().timestamp()
+            throttle_period = item.throttle_period.total_seconds()
+            last_call = self._last_call.get(item.camera_identifier, 0)
+            if throttle_period > 0 and (now - last_call) < throttle_period:
+                item.data = None
+                return
+
+            self._work_input(item)
+            LOGGER.debug(
+                "Execution took %.2f seconds for %s tier %s category %s subcategory %s",
+                now - utcnow().timestamp(),
+                item.camera_identifier,
+                item.tier_id,
+                item.category,
+                item.subcategories[0],
+            )
+            self._last_call[item.camera_identifier] = utcnow().timestamp()
 
     def load_tier(self, item: DataItem):
         """Load the tier data for the camera."""

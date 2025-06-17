@@ -34,6 +34,7 @@ class DataItem:
     tier_id: int
     category: str
     subcategories: list[str]
+    throttle_period: datetime.timedelta
     max_bytes: int
     min_age: datetime.timedelta
     max_age: datetime.timedelta
@@ -74,7 +75,6 @@ class TierCheckWorker(SubProcessWorker):
 
     def send_command(self, item: DataItem, callback: Callable[[DataItem], None]):
         """Send command to the subprocess."""
-        LOGGER.debug("Sending command to subprocess")
         # Generate a unique callback ID
         item.callback_id = str(id(callback))
         self._callbacks[item.callback_id] = callback
@@ -89,7 +89,6 @@ class TierCheckWorker(SubProcessWorker):
 
         callback = self._callbacks.pop(item.callback_id, None)
         if callback:
-            LOGGER.debug("Calling callback %s", item.callback_id)
             callback(item)
         else:
             LOGGER.warning("No callback found")

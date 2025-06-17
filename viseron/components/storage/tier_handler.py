@@ -8,7 +8,7 @@ import shutil
 from collections.abc import Callable
 from datetime import timedelta
 from queue import Queue
-from threading import Lock, Timer
+from threading import Timer
 from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
@@ -150,8 +150,6 @@ class TierHandler(FileSystemEventHandler):
             minutes=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_MINUTES, 0),
             seconds=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_SECONDS, 0),
         )
-        self._time_of_last_call = utcnow() - self._throttle_period
-        self._check_tier_lock = Lock()
 
         self._logger.debug("Tier %s monitoring path: %s", tier_id, self._path)
         os.makedirs(self._path, exist_ok=True)
@@ -217,6 +215,7 @@ class TierHandler(FileSystemEventHandler):
             tier_id=self._tier_id,
             category=self._category,
             subcategories=[self._subcategory],
+            throttle_period=self._throttle_period,
             max_bytes=self._max_bytes,
             min_age=self._min_age,
             max_age=self._max_age,
@@ -239,13 +238,7 @@ class TierHandler(FileSystemEventHandler):
 
     def check_tier(self) -> None:
         """Check if file should be moved to next tier."""
-        with self._check_tier_lock:
-            now = utcnow()
-            time_since_last_call = now - self._time_of_last_call
-            if time_since_last_call < self._throttle_period:
-                return
-            self._send_command("check_tier")
-            self._time_of_last_call = utcnow()
+        self._send_command("check_tier")
 
     def _check_tier(self, get_session: Callable[[], Session], data: np.ndarray) -> None:
         for file in data:
@@ -266,7 +259,6 @@ class TierHandler(FileSystemEventHandler):
 
     def on_check_tier_result(self, item: DataItem) -> None:
         """Handle the result of the check tier command."""
-        self._time_of_last_call = utcnow()
         if item.error:
             self._logger.error("Error in tier check process: %s", item.error)
 
@@ -509,6 +501,7 @@ class SegmentsTierHandler(TierHandler):
                 TIER_SUBCATEGORY_THUMBNAILS,
                 TIER_SUBCATEGORY_EVENT_CLIPS,
             ],
+            throttle_period=self._throttle_period,
             files_enabled=self._continuous_enabled,
             max_bytes=self._continuous_max_bytes,
             min_age=max(
