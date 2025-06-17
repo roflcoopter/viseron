@@ -29,7 +29,7 @@ from viseron.components.storage.const import (
     CONFIG_PATH,
     CONFIG_RECORDER,
     CONFIG_SNAPSHOTS,
-    CONFIG_TIER_CHECK_CPULIMIT,
+    CONFIG_TIER_CHECK_CPU_LIMIT,
     CONFIG_TIERS,
     DEFAULT_COMPONENT,
     DESC_COMPONENT,
@@ -199,7 +199,7 @@ class Storage:
         self.cleanup_manager.start()
 
         self.tier_check_worker = TierCheckWorker(
-            vis, config[CONFIG_TIER_CHECK_CPULIMIT]
+            vis, config[CONFIG_TIER_CHECK_CPU_LIMIT]
         )
 
     @property
