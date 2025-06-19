@@ -53,6 +53,7 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_OBJECT_DETECTOR,
     TIER_SUBCATEGORY_SEGMENTS,
     TIER_SUBCATEGORY_THUMBNAILS,
+    CleanupJobNames,
 )
 from viseron.components.storage.models import (
     Files,
@@ -234,6 +235,7 @@ class TierHandler(FileSystemEventHandler):
 
     def _check_tier_event_handler(self, _event: Event) -> None:
         """Handle check tier event."""
+        self._storage.cleanup_manager.run_job(CleanupJobNames.ORPHANED_FILES)
         self.check_tier()
 
     def check_tier(self) -> None:

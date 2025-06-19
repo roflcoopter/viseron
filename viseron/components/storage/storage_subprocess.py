@@ -49,6 +49,15 @@ class DataItem:
     data: np.ndarray | None = None
     error: str | None = None
 
+    @property
+    def throttle_key(self) -> str:
+        """Generate a unique key for throttling."""
+        return (
+            f"{self.camera_identifier}_"
+            f"{self.tier_id}_{self.category}_"
+            f"{self.subcategories[0]}"
+        )
+
 
 class TierCheckWorker(SubProcessWorker):
     """Check tiers in a separate subprocess."""
