@@ -48,6 +48,10 @@ ARG GO2RTC_VERSION
 
 WORKDIR /usr/local/bin
 
+RUN \
+  apt-get update && apt-get install -y --no-install-recommends \
+  wget
+
 RUN if [ "$ARCH" = "amd64-cuda" ]; then PLATFORM="amd64"; \
   elif [ "$ARCH" = "armhf" ] || [ "$ARCH" = "rpi3" ]; then PLATFORM="arm"; \
   elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "jetson-nano" ]; then PLATFORM="arm64"; \
