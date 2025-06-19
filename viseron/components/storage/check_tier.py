@@ -152,7 +152,7 @@ class Worker:
         with self._locks[item.camera_identifier]:
             now = utcnow().timestamp()
             throttle_period = item.throttle_period.total_seconds()
-            last_call = self._last_call.get(item.camera_identifier, 0)
+            last_call = self._last_call.get(item.throttle_key, 0)
             if throttle_period > 0 and (now - last_call) < throttle_period:
                 item.data = None
                 return
@@ -160,13 +160,13 @@ class Worker:
             self._work_input(item)
             LOGGER.debug(
                 "Execution took %.2f seconds for %s tier %s category %s subcategory %s",
-                now - utcnow().timestamp(),
+                utcnow().timestamp() - now,
                 item.camera_identifier,
                 item.tier_id,
                 item.category,
                 item.subcategories[0],
             )
-            self._last_call[item.camera_identifier] = utcnow().timestamp()
+            self._last_call[item.throttle_key] = utcnow().timestamp()
 
     def load_tier(self, item: DataItem):
         """Load the tier data for the camera."""
