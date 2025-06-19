@@ -41,7 +41,7 @@ class DuplicateFilter(logging.Filter):
                     record.msg = "{}, message repeated {} times".format(
                         record.msg, self.current_count + 1
                     )
-        except ValueError:
+        except (ValueError, TypeError):
             pass
         return True
 
