@@ -11,9 +11,12 @@ import pytest
 from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
-from viseron.components.storage.models import Recordings
+from viseron.components.storage.models import Files, Recordings
+from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.recorder import (
+    AbstractRecorder,
     RecorderBase,
+    Recording,
     delete_recordings,
     get_recordings,
 )
@@ -233,3 +236,152 @@ class TestRecorderBase:
             datetime.timedelta(seconds=time.localtime().tm_gmtoff)
         )
         assert result is True
+
+
+class ConcreteTestRecorder(AbstractRecorder):
+    """Test recorder class that implements abstract methods."""
+
+    def __init__(self, vis: Viseron, config, camera: AbstractCamera) -> None:
+        super().__init__(vis, "test", config, camera)
+
+    def _start(self, recording, shared_frame, objects_in_fov) -> None:
+        pass
+
+    def _stop(self, recording) -> None:
+        pass
+
+    @property
+    def lookback(self) -> Literal[5]:
+        """Return lookback."""
+        return 5
+
+
+@pytest.fixture(name="get_db_session_fragments")
+def fixture_get_db_session_fragments(get_db_session: Callable[[], Session]):
+    """Fixture to test fragments."""
+    with get_db_session() as session:
+        session.execute(
+            insert(Recordings).values(
+                camera_identifier="test1",
+                start_time=datetime.datetime(
+                    2023, 3, 1, 23, 30, tzinfo=datetime.timezone.utc
+                ),  # 23:30 UTC March 1
+                adjusted_start_time=datetime.datetime(
+                    2023, 3, 1, 23, 30, tzinfo=datetime.timezone.utc
+                ),
+                end_time=datetime.datetime(
+                    2023, 3, 2, 0, 30, tzinfo=datetime.timezone.utc
+                ),  # 00:30 UTC March 2
+                thumbnail_path="test",
+            )
+        )
+        session.execute(
+            insert(Files).values(
+                # id=1,
+                path="/tmp/fragment1.mp4",
+                tier_id=1,
+                tier_path="/tmp/tier1",
+                camera_identifier="test1",
+                category="recorder",
+                subcategory="segments",
+                duration=5.3,
+                directory="/tmp",
+                filename="fragment1.mp4",
+                size=1024,
+                orig_ctime=datetime.datetime(
+                    2023, 3, 1, 23, 30, tzinfo=datetime.timezone.utc
+                ),
+            )
+        )
+        session.commit()
+    yield get_db_session
+
+
+@pytest.fixture(name="recorder")
+def fixture_patched_recorder(vis: Viseron):
+    """Fixture to create a test recorder with mocked vis.add_entity."""
+    with patch.object(vis, "add_entity") as mock_add_entity:
+        config = MagicMock()
+        nested_dict = {"filename_pattern": "%H-%M-%S"}
+        config.__getitem__.return_value.__getitem__.side_effect = nested_dict.get
+        recorder = ConcreteTestRecorder(vis, config, MockCamera())
+        # pylint: disable=protected-access
+        recorder._logger = MagicMock()
+        assert mock_add_entity.call_count == 2
+
+        yield recorder
+
+
+class TestAbstractRecorder:
+    """Test the AbstractRecorder class."""
+
+    def test_no_active_recording(self, recorder: ConcreteTestRecorder):
+        """Test no active recording."""
+        recording = None
+
+        recorder.stop(recording)
+
+        # pylint: disable=protected-access
+        recorder._logger.error.assert_called_with(  # type: ignore [attr-defined]
+            "No active recording to stop"
+        )
+        assert recorder.active_recording is None
+
+    def test_concatenate_fragments_no_fragments(self, recorder: ConcreteTestRecorder):
+        """Test _concatenate_fragments when no fragments are available."""
+        start_time = datetime.datetime(2023, 3, 1, 12, 0, tzinfo=datetime.timezone.utc)
+        recording = Recording(
+            id=1,
+            start_time=start_time,
+            start_timestamp=start_time.timestamp(),
+            end_time=None,
+            end_timestamp=None,
+            date="2023-03-01",
+            thumbnail=None,
+            thumbnail_path="/tmp/thumbnail.jpg",
+            clip_path=None,
+            objects=[],
+        )
+
+        # pylint: disable=protected-access
+        recorder._concatenate_fragments(recording)
+
+        # pylint: disable=protected-access
+        recorder._logger.info.assert_called_with(  # type: ignore [attr-defined]
+            "No fragments immediately available to generate event clip"
+        )
+        assert recording.clip_path is None
+
+    def test_concatenate_fragments_with_fragments(
+        self,
+        recorder: ConcreteTestRecorder,
+        get_db_session_fragments: Callable[[], Session],
+    ):
+        """Test _concatenate_fragments when fragments are available."""
+        start_time = datetime.datetime(2023, 3, 1, 12, 0, tzinfo=datetime.timezone.utc)
+        recording = Recording(
+            id=1,
+            start_time=start_time,
+            start_timestamp=start_time.timestamp(),
+            end_time=None,
+            end_timestamp=None,
+            date="2023-03-01",
+            thumbnail=None,
+            thumbnail_path="/tmp/thumbnail.jpg",
+            clip_path=None,
+            objects=[],
+        )
+
+        # pylint: disable=protected-access
+        with patch.object(recorder._storage, "get_session") as mock_get_session, patch(
+            "shutil.move"
+        ) as mock_file_move:
+            # Return a list of fragments from the database session
+            mock_get_session.return_value = get_db_session_fragments()
+            recorder._concatenate_fragments(recording)
+            assert mock_file_move.call_count == 1
+
+        assert recording.clip_path is not None
+        (date, filename) = recording.clip_path.split("/")[-2:]
+        assert date == recording.date
+        assert filename == f"{recording.start_time.strftime('%H-%M-%S')}.mp4"

@@ -375,6 +375,12 @@ class AbstractRecorder(ABC, RecorderBase):
             Fragment(file.filename, file.path, file.duration, file.orig_ctime)
             for file in files
         ]
+        if len(fragments) == 0:
+            self._logger.info(
+                "No fragments immediately available to generate event clip"
+            )
+            return
+
         event_clip = self._camera.fragmenter.concatenate_fragments(fragments)
         if not event_clip:
             return
