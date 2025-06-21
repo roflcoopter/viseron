@@ -5,6 +5,7 @@ import datetime
 import logging
 import multiprocessing as mp
 import os
+import threading
 import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
@@ -33,6 +34,7 @@ from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import utcnow
 from viseron.types import SnapshotDomain
 from viseron.watchdog.process_watchdog import RestartableProcess
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -56,6 +58,8 @@ class BaseCleanupJob(ABC):
 
         self._last_log_time = 0.0
         self.kill_event = mp.Event()
+        self.run_lock = threading.Lock()
+        self.running = False
 
     def _get_cameras(self) -> dict[str, AbstractCamera] | None:
         """Get list of registered camera identifiers."""
@@ -85,11 +89,19 @@ class BaseCleanupJob(ABC):
 
     def run(self) -> None:
         """Run the cleanup job using multiprocessing."""
+        with self.run_lock:
+            if self.running:
+                return
+            self.running = True
+
         process = RestartableProcess(
             name=self.name, target=self._wrapped_run, daemon=True, register=False
         )
         process.start()
         process.join()
+
+        with self.run_lock:
+            self.running = False
 
     def log_progress(self, message: str):
         """Log progress of the cleanup job.
@@ -746,10 +758,17 @@ class CleanupManager:
         """Run a specific cleanup job."""
         for job in self.jobs:
             if job.name == job_name.value:
+                with job.run_lock:
+                    if job.running:
+                        return
                 LOGGER.debug("Running cleanup job %s", job.name)
-                job.run()
+                RestartableThread(
+                    name=f"run_job_{job.name}",
+                    target=job.run,
+                    register=False,
+                    daemon=True,
+                ).start()
                 return
-        LOGGER.warning("No cleanup job found with name %s", job_name.value)
 
     def start(self):
         """Start the cleanup scheduler."""
