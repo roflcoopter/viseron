@@ -29,7 +29,9 @@ from viseron.components.storage.const import (
     CONFIG_PATH,
     CONFIG_RECORDER,
     CONFIG_SNAPSHOTS,
+    CONFIG_TIER_CHECK_BATCH_SIZE,
     CONFIG_TIER_CHECK_CPU_LIMIT,
+    CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
     CONFIG_TIERS,
     DEFAULT_COMPONENT,
     DESC_COMPONENT,
@@ -206,6 +208,16 @@ class Storage:
     def camera_tier_handlers(self):
         """Return camera tier handlers."""
         return self._camera_tier_handlers
+
+    @property
+    def file_batch_size(self) -> int:
+        """Return the number of files to process in a single batch."""
+        return self._config[CONFIG_TIER_CHECK_BATCH_SIZE]
+
+    @property
+    def sleep_between_batches(self) -> int:
+        """Return the number of seconds to sleep between batches."""
+        return self._config[CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES]
 
     def initialize(self) -> None:
         """Initialize storage component."""

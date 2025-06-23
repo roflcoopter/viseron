@@ -53,6 +53,8 @@ TIER_SUBCATEGORY_MOTION_DETECTOR: Final = "motion_detector"
 DESC_COMPONENT = "Storage configuration."
 DEFAULT_COMPONENT: dict[str, Any] = {}
 CONFIG_TIER_CHECK_CPU_LIMIT: Final = "tier_check_cpu_limit"
+CONFIG_TIER_CHECK_BATCH_SIZE: Final = "tier_check_batch_size"
+CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES: Final = "tier_check_sleep_between_batches"
 CONFIG_PATH: Final = "path"
 CONFIG_POLL: Final = "poll"
 CONFIG_MOVE_ON_SHUTDOWN: Final = "move_on_shutdown"
@@ -79,6 +81,8 @@ CONFIG_TIERS: Final = "tiers"
 
 
 DEFAULT_TIER_CHECK_CPU_LIMIT: Final = 10
+DEFAULT_TIER_CHECK_BATCH_SIZE: Final = 5
+DEFAULT_TIER_CHECK_SLEEP_BETWEEN_BATCHES: Final = 0.5
 DEFAULT_RECORDER: dict[str, Any] = {}
 DEFAULT_RECORDER_TIERS = [
     {
@@ -131,6 +135,15 @@ DESC_TIER_CHECK_CPU_LIMIT = (
     "or delete. "
     "This is useful to not overload the system with the tier check process. "
     "The value is an integer between 1 and 100, where 100 is 100% CPU usage. "
+)
+DESC_TIER_CHECK_BATCH_SIZE = (
+    "The number of files to move/delete in each batch. "
+    "This can be used to limit the number of files moved/deleted at once, reducing "
+    "the load on the system. "
+)
+DESC_TIER_CHECK_SLEEP_BETWEEN_BATCHES = (
+    "The number of seconds to sleep between batches. "
+    "This can be used to reduce the load on the system by sleeping between batches. "
 )
 DESC_RECORDER = "Configuration for recordings."
 DESC_TYPE = (

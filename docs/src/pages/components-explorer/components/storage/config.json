@@ -10,6 +10,20 @@
         "default": 10
       },
       {
+        "type": "integer",
+        "name": "tier_check_batch_size",
+        "description": "The number of files to move/delete in each batch. This can be used to limit the number of files moved/deleted at once, reducing the load on the system. ",
+        "optional": true,
+        "default": 5
+      },
+      {
+        "type": "float",
+        "name": "tier_check_sleep_between_batches",
+        "description": "The number of seconds to sleep between batches. This can be used to reduce the load on the system by sleeping between batches. ",
+        "optional": true,
+        "default": 0.5
+      },
+      {
         "type": "map",
         "value": [
           {
