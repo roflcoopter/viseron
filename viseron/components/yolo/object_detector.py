@@ -9,6 +9,7 @@ from ultralytics import YOLO
 from viseron import Viseron
 from viseron.domains.object_detector import AbstractObjectDetector
 from viseron.domains.object_detector.detected_object import DetectedObject
+from viseron.exceptions import DomainNotReady
 
 from .const import (
     COMPONENT,
@@ -41,20 +42,9 @@ class ObjectDetector(AbstractObjectDetector):
         try:
             model = Path(self._config[CONFIG_MODEL_PATH])
             self._detector = YOLO(model)
-        except FileNotFoundError as exception:
-            LOGGER.error("YOLO model file not found: %s", exception)
-            LOGGER.error(
-                "Inference has been disabled for this camera. "
-                "Ensure model_path (config.yaml) is properly referenced in the "
-                "docker-compose.yaml 'volumes:' section"
-            )
-            self._detector = None
-            return
-        except Exception as exception:
-            LOGGER.error("Error loading YOLO model: %s", exception)
-            LOGGER.error("Inference has been disabled for this camera.")
-            self._detector = None
-            return
+        except Exception as error:
+            LOGGER.error("YOLO model file not loaded: %s", error)
+            raise DomainNotReady from error
 
         LOGGER.info(f"Loaded YOLO model: {model}")
         LOGGER.info(f"Labels: {self._detector.names}")
@@ -92,8 +82,6 @@ class ObjectDetector(AbstractObjectDetector):
 
     def return_objects(self, frame):
         """Perform object detection."""
-        if self._detector is None:
-            return []
         try:
             results = self._detector.predict(
                 frame,
@@ -103,20 +91,8 @@ class ObjectDetector(AbstractObjectDetector):
                 device=self._config[CONFIG_DEVICE],
                 verbose=False,
             )
-        except ValueError as exception:
-            LOGGER.error(f"Error calling yolo prediction: {exception}")
-            LOGGER.error(
-                "Inference has been disabled for this camera. "
-                "Check yolo configuration in config.yaml"
-            )
-            self._detector = None
-            return []
-        except Exception as exception:
-            LOGGER.error(f"Error during yolo prediction: {exception}")
-            LOGGER.error(
-                "Inference has been disabled for this camera. "
-            )
-            self._detector = None
+        except ValueError as error:
+            LOGGER.error(f"Error calling yolo prediction check yolo config: {error}")
             return []
 
         return self.postprocess(results)
