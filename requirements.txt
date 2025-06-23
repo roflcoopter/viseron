@@ -34,3 +34,4 @@ sqlalchemy==2.0.30
 watchdog==4.0.0
 python-telegram-bot==21.4
 onvif-zeep==0.2.12
+ultralytics==8.3.146
