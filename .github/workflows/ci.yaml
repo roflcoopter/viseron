@@ -413,6 +413,16 @@ jobs:
         run: |
           echo "Failed to restore Python virtual environment from cache"
           exit 1
+      - name: List free space before cleaning
+        run: |
+          df -h
+      - name: Clean up Docker images
+        run: |
+          docker rmi -f $(docker images -aq)
+          docker system prune --force --all --volumes
+      - name: List free space after cleaning
+        run: |
+          df -h
       - name: Pull current Docker dev tag
         run: |
           docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-viseron
