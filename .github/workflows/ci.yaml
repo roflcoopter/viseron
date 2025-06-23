@@ -418,6 +418,7 @@ jobs:
           df -h
       - name: Clean up Docker images
         run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
           docker rmi -f $(docker images -aq)
           docker system prune --force --all --volumes
       - name: List free space after cleaning
