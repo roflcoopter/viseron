@@ -221,7 +221,7 @@ class Storage:
         return self._config[CONFIG_TIER_CHECK_BATCH_SIZE]
 
     @property
-    def sleep_between_batches(self) -> int:
+    def sleep_between_batches(self) -> float:
         """Return the number of seconds to sleep between batches."""
         return self._config[CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES]
 
