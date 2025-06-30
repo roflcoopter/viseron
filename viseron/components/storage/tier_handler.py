@@ -989,12 +989,9 @@ def handle_file(
         return
 
     if force_delete or next_tier is None:
-        storage.tier_check_worker_send_command(
-            DataItemDeleteFile(
-                cmd="delete_file",
-                src=path,
-            ),
-            callback=None,
+        delete_file(
+            storage,
+            path,
         )
     else:
         new_path = path.replace(tier_path, next_tier[CONFIG_PATH], 1)
@@ -1037,6 +1034,20 @@ def handle_file(
             session.commit()
 
 
+def delete_file(
+    storage: Storage,
+    path: str,
+):
+    """Delete file from storage."""
+    storage.tier_check_worker_send_command(
+        DataItemDeleteFile(
+            cmd="delete_file",
+            src=path,
+        ),
+        callback=None,
+    )
+
+
 def move_file(
     vis: Viseron,
     storage: Storage,
@@ -1069,12 +1080,9 @@ def move_file(
             stmt = delete(Files).where(Files.path == src)
             session.execute(stmt)
             session.commit()
-        storage.tier_check_worker_send_command(
-            DataItemDeleteFile(
-                cmd="delete_file",
-                src=src,
-            ),
-            callback=None,
+        delete_file(
+            storage,
+            src,
         )
 
     def _move_file_callback(
