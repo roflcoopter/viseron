@@ -7,17 +7,21 @@ import logging
 import multiprocessing as mp
 import subprocess as sp
 import sys
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from queue import Empty, Queue
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import psutil
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from manager import connect
 from viseron.components.storage.check_tier import Worker
 from viseron.helpers.subprocess_worker import SubProcessWorker
 from viseron.watchdog.subprocess_watchdog import RestartablePopen
+from viseron.watchdog.thread_watchdog import RestartableThread, ThreadWatchDog
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -59,13 +63,37 @@ class DataItem:
         )
 
 
+@dataclass
+class DataItemMoveFile:
+    """Data item to be processed by the worker for moving files."""
+
+    cmd: Literal["move_file"]
+    src: str
+    dst: str
+    callback_id: str | None = None
+    error: str | None = None
+
+
+@dataclass
+class DataItemDeleteFile:
+    """Data item to be processed by the worker for deleting files."""
+
+    cmd: Literal["delete_file"]
+    src: str
+    callback_id: str | None = None
+    error: str | None = None
+
+
 class TierCheckWorker(SubProcessWorker):
     """Check tiers in a separate subprocess."""
 
-    def __init__(self, vis: Viseron, cpulimit: int | None) -> None:
+    def __init__(self, vis: Viseron, cpulimit: int | None, workers: int) -> None:
         self._cpulimit = cpulimit
-        self._callbacks: dict[str, Callable[[DataItem], None]] = {}
-        super().__init__(vis, f"{__name__}.tier_check_worker")
+        self._workers = workers
+        self._callbacks: dict[
+            str, Callable[[DataItem | DataItemMoveFile | DataItemDeleteFile], None]
+        ] = {}
+        super().__init__(vis, f"{__name__}.tier_check_worker", qsize=0)
 
     def spawn_subprocess(self) -> RestartablePopen:
         """Spawn subprocess."""
@@ -75,6 +103,7 @@ class TierCheckWorker(SubProcessWorker):
                 f"--manager-port {self._server_port} "
                 f"--manager-authkey {self._authkey_store.authkey} "
                 f"--cpulimit {self._cpulimit} "
+                f"--workers {self._workers} "
                 f"--loglevel DEBUG"
             ).split(" "),
             name=self.subprocess_name,
@@ -82,18 +111,21 @@ class TierCheckWorker(SubProcessWorker):
             stderr=self._log_pipe,
         )
 
-    def send_command(self, item: DataItem, callback: Callable[[DataItem], None]):
+    def send_command(
+        self,
+        item: DataItem | DataItemMoveFile | DataItemDeleteFile,
+        callback: Callable[[DataItem | DataItemMoveFile | DataItemDeleteFile], None]
+        | None,
+    ):
         """Send command to the subprocess."""
-        # Generate a unique callback ID
-        item.callback_id = str(id(callback))
-        self._callbacks[item.callback_id] = callback
-        # Send the command to the subprocess
+        if callback is not None:
+            item.callback_id = str(id(callback))
+            self._callbacks[item.callback_id] = callback
         self.input_queue.put(item)
 
-    def work_output(self, item: DataItem):
+    def work_output(self, item: DataItem | DataItemMoveFile | DataItemDeleteFile):
         """Perform work on output item from child process."""
         if not item.callback_id:
-            LOGGER.error("No callback ID found in item")
             return
 
         callback = self._callbacks.pop(item.callback_id, None)
@@ -133,6 +165,12 @@ def get_parser() -> argparse.ArgumentParser:
         default=None,
     )
     parser.add_argument(
+        "--workers",
+        help="Number of worker threads",
+        type=int,
+        default=4,
+    )
+    parser.add_argument(
         "--loglevel",
         help="Loglevel",
         default="INFO",
@@ -154,6 +192,19 @@ def initializer(cpulimit: int | None):
         sp.Popen(command, shell=True)
 
 
+def worker_task(worker: Worker, process_queue: Queue, output_queue: Queue):
+    """Worker thread task."""
+    while True:
+        try:
+            job = process_queue.get(block=True, timeout=1)
+            worker.work_input(job)
+            output_queue.put(job)
+        except Empty:
+            continue
+        except Exception as exc:  # pylint: disable=broad-except
+            LOGGER.exception(f"Error in worker thread: {exc}")
+
+
 def main():
     """Run tier check in a subprocess."""
     parser = get_parser()
@@ -168,12 +219,28 @@ def main():
     )
 
     worker = Worker()
+    # Run scheduler and watchdog in the subprocess since the Viseron main process
+    # watchdog is not available in the subprocess.
+    logging.getLogger("apscheduler.scheduler").setLevel(logging.ERROR)
+    logging.getLogger("apscheduler.executors").setLevel(logging.ERROR)
+    background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
+    background_scheduler.start()
+    ThreadWatchDog(background_scheduler)
 
-    LOGGER.debug("Starting loop")
+    LOGGER.debug(f"Starting {args.workers} worker threads")
+    threads: list[RestartableThread] = []
+    for i in range(args.workers):
+        thread = RestartableThread(
+            name=f"storage_subprocess.worker.{i}",
+            target=worker_task,
+            args=(worker, process_queue, output_queue),
+            daemon=True,
+        )
+        thread.start()
+        threads.append(thread)
+
     while True:
-        job = process_queue.get()
-        worker.work_input(job)
-        output_queue.put(job)
+        time.sleep(1)
 
 
 if __name__ == "__main__":

@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import logging
 import os
-import queue
-import shutil
 import threading
 import time
 from collections.abc import Callable
@@ -66,7 +64,11 @@ from viseron.components.storage.models import (
     PostProcessorResults,
     Recordings,
 )
-from viseron.components.storage.storage_subprocess import DataItem
+from viseron.components.storage.storage_subprocess import (
+    DataItem,
+    DataItemDeleteFile,
+    DataItemMoveFile,
+)
 from viseron.components.storage.util import (
     EventFileCreated,
     EventFileDeleted,
@@ -155,6 +157,7 @@ class TierHandler(FileSystemEventHandler):
             minutes=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_MINUTES, 0),
             seconds=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_SECONDS, 0),
         )
+        self._time_of_last_call = utcnow() - self._throttle_period
 
         self._logger.debug("Tier %s monitoring path: %s", tier_id, self._path)
         os.makedirs(self._path, exist_ok=True)
@@ -212,10 +215,12 @@ class TierHandler(FileSystemEventHandler):
         self._max_age = calculate_age(self._tier[CONFIG_MAX_AGE])
         self._min_age = calculate_age(self._tier[CONFIG_MIN_AGE])
 
-    def _create_dataitem(self, cmd: Literal["check_tier"]) -> DataItem:
+    def _create_dataitem(
+        self,
+    ) -> DataItem:
         """Create a DataItem for the check tier command."""
         return DataItem(
-            cmd=cmd,
+            cmd="check_tier",
             camera_identifier=self._camera.identifier,
             tier_id=self._tier_id,
             category=self._category,
@@ -227,16 +232,6 @@ class TierHandler(FileSystemEventHandler):
             min_bytes=self._min_bytes,
         )
 
-    def _send_command(self, cmd: Literal["check_tier"]):
-        """Send command to check tier."""
-        try:
-            self._storage.tier_check_worker.send_command(
-                self._create_dataitem(cmd),
-                self.on_check_tier_result,
-            )
-        except queue.Full:
-            pass
-
     def _check_tier_event_handler(self, _event: Event) -> None:
         """Handle check tier event."""
         self._storage.cleanup_manager.run_job(CleanupJobNames.ORPHANED_FILES)
@@ -246,9 +241,18 @@ class TierHandler(FileSystemEventHandler):
         """Check if file should be moved to next tier."""
         with self._check_tier_lock:
             if self._tier_check_in_progress:
-                self._logger.debug("Tier check already in progress, skipping")
                 return
-        self._send_command("check_tier")
+            # Throttling is also done in the worker process, but we do the same here
+            # in order to not spam the workers with unneeded requests.
+            now = utcnow()
+            time_since_last_call = now - self._time_of_last_call
+            if time_since_last_call < self._throttle_period:
+                return
+
+        self._storage.tier_check_worker_send_command(
+            self._create_dataitem(),
+            self.on_check_tier_result,
+        )
 
     def _check_tier(self, get_session: Callable[[], Session], data: np.ndarray) -> None:
         files_processed = 0
@@ -281,16 +285,32 @@ class TierHandler(FileSystemEventHandler):
         if item.data is None:
             return
 
-        with self._check_tier_lock:
-            self._tier_check_in_progress = True
-        try:
-            self._check_tier(
-                self._storage.get_session,
-                item.data,
-            )
-        finally:
+        def run():
+            """Run in a thread to not block the output queue handler that calls this."""
+            if item.data is None:
+                return
+
             with self._check_tier_lock:
-                self._tier_check_in_progress = False
+                self._tier_check_in_progress = True
+            try:
+                self._check_tier(
+                    self._storage.get_session,
+                    item.data,
+                )
+            finally:
+                with self._check_tier_lock:
+                    self._time_of_last_call = utcnow()
+                    self._tier_check_in_progress = False
+
+        RestartableThread(
+            target=run,
+            name=(
+                "storage.tier_handler.check_tier."
+                f"{item.camera_identifier}.{item.tier_id}"
+            ),
+            register=False,
+            daemon=True,
+        ).start()
 
     def _process_events(self) -> None:
         while True:
@@ -511,10 +531,10 @@ class SegmentsTierHandler(TierHandler):
         self.add_file_handler(self._path, rf"{self._path}/(.*.m4s$)")
         self.add_file_handler(self._path, rf"{self._path}/(.*.mp4$)")
 
-    def _create_dataitem(self, cmd: Literal["check_tier"]) -> DataItem:
+    def _create_dataitem(self) -> DataItem:
         """Create a DataItem for the check tier command."""
         return DataItem(
-            cmd=cmd,
+            cmd="check_tier",
             camera_identifier=self._camera.identifier,
             tier_id=self._tier_id,
             category=self._category,
@@ -969,7 +989,13 @@ def handle_file(
         return
 
     if force_delete or next_tier is None:
-        delete_file(get_session, path, logger)
+        storage.tier_check_worker_send_command(
+            DataItemDeleteFile(
+                cmd="delete_file",
+                src=path,
+            ),
+            callback=None,
+        )
     else:
         new_path = path.replace(tier_path, next_tier[CONFIG_PATH], 1)
         if new_path == path:
@@ -1043,62 +1069,40 @@ def move_file(
             stmt = delete(Files).where(Files.path == src)
             session.execute(stmt)
             session.commit()
-        try:
-            os.remove(src)
-        except FileNotFoundError as _error:
-            logger.debug(f"Failed to delete file {src}: {_error}")
-        return
-
-    try:
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-        shutil.copy(src, dst)
-        os.remove(src)
-    except FileNotFoundError as error:
-        logger.debug(f"Failed to move file {src} to {dst}: {error}")
-        with get_session() as session:
-            stmt = delete(Files).where(Files.path == src)
-            session.execute(stmt)
-            session.commit()
-    except OSError as error:
-        logger.debug(f"Failed to move file {src} to {dst}: {error}")
-        vis.dispatch_event(
-            EVENT_CHECK_TIER.format(
-                camera_identifier=camera_identifier,
-                # It is fine if the next tier does not exist since there will be no
-                # listeners for this event in that case
-                tier_id=curr_tier_id + 1,
-                category=curr_tier_category,
-                subcategory=curr_tier_subcategory,
+        storage.tier_check_worker_send_command(
+            DataItemDeleteFile(
+                cmd="delete_file",
+                src=src,
             ),
-            EventEmptyData(),
+            callback=None,
         )
-        with get_session() as session:
-            stmt = delete(Files).where(Files.path == src)
-            session.execute(stmt)
-            session.commit()
-        try:
-            os.remove(src)
-        except FileNotFoundError as _error:
-            logger.debug(f"Failed to delete file {src}: {_error}")
-        return
 
+    def _move_file_callback(
+        item: DataItemMoveFile,
+    ) -> None:
+        if item.error:
+            logger.error(f"Error moving file {src} to {dst}: {item.error}")
+            vis.dispatch_event(
+                EVENT_CHECK_TIER.format(
+                    camera_identifier=camera_identifier,
+                    # It is fine if the next tier does not exist since there will be no
+                    # listeners for this event in that case
+                    tier_id=curr_tier_id + 1,
+                    category=curr_tier_category,
+                    subcategory=curr_tier_subcategory,
+                ),
+                EventEmptyData(),
+            )
+            return
 
-def delete_file(
-    get_session: Callable[..., Session],
-    path: str,
-    logger: logging.Logger,
-) -> None:
-    """Delete file."""
-    logger.debug("Deleting file %s", path)
-    with get_session() as session:
-        stmt = delete(Files).where(Files.path == path)
-        session.execute(stmt)
-        session.commit()
-
-    try:
-        os.remove(path)
-    except FileNotFoundError as error:
-        logger.debug(f"Failed to delete file {path}: {error}")
+    storage.tier_check_worker_send_command(
+        DataItemMoveFile(
+            cmd="move_file",
+            src=src,
+            dst=dst,
+        ),
+        callback=_move_file_callback,
+    )
 
 
 def force_move_files(

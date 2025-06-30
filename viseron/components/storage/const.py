@@ -53,6 +53,7 @@ TIER_SUBCATEGORY_MOTION_DETECTOR: Final = "motion_detector"
 DESC_COMPONENT = "Storage configuration."
 DEFAULT_COMPONENT: dict[str, Any] = {}
 CONFIG_TIER_CHECK_CPU_LIMIT: Final = "tier_check_cpu_limit"
+CONFIG_TIER_CHECK_WORKERS: Final = "tier_check_workers"
 CONFIG_TIER_CHECK_BATCH_SIZE: Final = "tier_check_batch_size"
 CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES: Final = "tier_check_sleep_between_batches"
 CONFIG_PATH: Final = "path"
@@ -81,6 +82,7 @@ CONFIG_TIERS: Final = "tiers"
 
 
 DEFAULT_TIER_CHECK_CPU_LIMIT: Final = 10
+DEFAULT_TIER_CHECK_WORKERS: Final = 4
 DEFAULT_TIER_CHECK_BATCH_SIZE: Final = 5
 DEFAULT_TIER_CHECK_SLEEP_BETWEEN_BATCHES: Final = 0.5
 DEFAULT_RECORDER: dict[str, Any] = {}
@@ -135,6 +137,11 @@ DESC_TIER_CHECK_CPU_LIMIT = (
     "or delete. "
     "This is useful to not overload the system with the tier check process. "
     "The value is an integer between 1 and 100, where 100 is 100% CPU usage. "
+)
+DESC_TIER_CHECK_WORKERS = (
+    "The number of worker threads to use for checking tiers. "
+    "This can be used to speed up the tier check process by using multiple threads "
+    "to check for files to move or delete."
 )
 DESC_TIER_CHECK_BATCH_SIZE = (
     "The number of files to move/delete in each batch. "

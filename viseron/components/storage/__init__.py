@@ -7,7 +7,7 @@ import logging
 import os
 import pathlib
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict, overload
 
 import voluptuous as vol
 from alembic import command, script
@@ -32,6 +32,7 @@ from viseron.components.storage.const import (
     CONFIG_TIER_CHECK_BATCH_SIZE,
     CONFIG_TIER_CHECK_CPU_LIMIT,
     CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
+    CONFIG_TIER_CHECK_WORKERS,
     CONFIG_TIERS,
     DEFAULT_COMPONENT,
     DESC_COMPONENT,
@@ -71,6 +72,11 @@ from viseron.types import SnapshotDomain
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
+    from viseron.components.storage.storage_subprocess import (
+        DataItem,
+        DataItemDeleteFile,
+        DataItemMoveFile,
+    )
     from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
@@ -201,7 +207,7 @@ class Storage:
         self.cleanup_manager.start()
 
         self.tier_check_worker = TierCheckWorker(
-            vis, config[CONFIG_TIER_CHECK_CPU_LIMIT]
+            vis, config[CONFIG_TIER_CHECK_CPU_LIMIT], config[CONFIG_TIER_CHECK_WORKERS]
         )
 
     @property
@@ -426,6 +432,38 @@ class Storage:
                         tier,
                         next_tier,
                     )
+
+    @overload
+    def tier_check_worker_send_command(
+        self,
+        item: DataItem,
+        callback: Callable[[DataItem], None] | None = None,
+    ) -> None:
+        ...
+
+    @overload
+    def tier_check_worker_send_command(
+        self,
+        item: DataItemMoveFile,
+        callback: Callable[[DataItemMoveFile], None] | None = None,
+    ) -> None:
+        ...
+
+    @overload
+    def tier_check_worker_send_command(
+        self,
+        item: DataItemDeleteFile,
+        callback: Callable[[DataItemDeleteFile], None] | None = None,
+    ) -> None:
+        ...
+
+    def tier_check_worker_send_command(
+        self,
+        item: DataItem | DataItemMoveFile | DataItemDeleteFile,
+        callback: Callable[[Any], None] | None = None,
+    ) -> None:
+        """Send command to tier check worker."""
+        self.tier_check_worker.send_command(item, callback)
 
     def _shutdown(self) -> None:
         """Shutdown."""
