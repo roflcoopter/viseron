@@ -29,7 +29,8 @@ DESC_MODEL_PATH = (
 )
 DESC_MIN_CONFIDENCE = (
     "Minimum confidence to consider a detection.<br>"
-    "This minimum is enforced during inference before being filtered by values in <code>labels</code>"
+    "This minimum is enforced during inference before being filtered by values "
+    "in <code>labels</code>"
 )
 DESC_IOU = "Intersection Over Union (IoU) threshold for Non-Maximum Suppression (NMS)."
 DESC_HALF_PRECISION = (
