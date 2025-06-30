@@ -1,0 +1,113 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
+
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+Ultralytics YOLO supports a wide range of models, from early versions like YOLOv3 to the latest YOLO11.
+
+:::warning
+
+This component has undergone limited testing.  In addition to partial functional testing, only the following models have been confirmed to work: yolov5mu.pt, yolov8n, and yolo11s.pt
+
+:::
+
+:::note
+
+`yolo` component uses the official [`ultralytics`](https://docs.ultralytics.com/usage/python) python package.  A GPU is used when available.
+
+:::
+
+:::info
+
+Models are not installed by default.  See below for steps to define the model as well as make them available to Viseron.
+
+:::
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml title="/config/config.yaml"
+yolo:
+  object_detector:
+    model_path: /detectors/models/yolo/my_model.pt
+    cameras:
+      viseron_camera1:
+        fps: 1
+        scan_on_motion_only: true
+        log_all_objects: false
+        labels:
+          - label: dog
+            confidence: 0.7
+            trigger_event_recording: false
+          - label: cat
+            confidence: 0.8
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+### Pre-trained models
+
+These steps should assist in locating models, configuring your container to access them, and configuring Viseron to use them.
+
+#### Finding models
+
+Pre-trained YOLO models can be found online or you can train them yourself.
+
+Examples of where to find pre-trained models:
+
+- [Ultralytics](https://docs.ultralytics.com/models/)
+- [Roboflow](https://universe.roboflow.com/)
+- [Hugging Face](https://huggingface.co/models?pipeline_tag=object-detection&sort=trending)
+
+There are models for many different tasks, including object detection.  If you are not sure if there is a problem with Viseron please confirm your
+Viseron environment with a stock YOLO model from Ultralytics.  For example: [yolov8n.pt](https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n.pt)
+
+This component does not provide any training capabilities.  See the [Ultralytics training](https://docs.ultralytics.com/modes/train/) documentation for more information.
+
+#### Where to place models
+
+Place your YOLO models in a directory of your choice.
+
+There will be a later step to map the directory to the container.  Therefore, choose a location supported by docker compose.  If in doubt, do not use a SMB or NFS share.
+
+#### Configuring Docker to make models available to Viseron
+
+The following `docker-compose.yaml` snippet will show how to map the directory above to the container:
+```yaml title="/docker-compose.yaml"
+    volumes:
+      - {models path}:/detectors/models/yolo
+```
+
+This is the only change to `docker-compose.yaml` required for this component.
+
+#### Configuring Viseron to use a model
+
+Modify the `model_path` setting in your Viseron `config.yaml` to point to one of the model(s) you installed.  See the example above.
+
+Only one model can be used at a time.
+
+### Image resizing
+
+Images inferenced by the component are resized by the underlying `ultralytics` package to match the model's input size.
+
+There is no functionality to resize the image in the `yolo` component configuration before inferencing.
+
+### Labels
+
+When Viseron loads the model, it will print that model's labels to the log.
+```
+cd {location of Viseron docker-compose.yaml}
+docker compose logs | grep "Labels"
+viseron  | 2025-05-29 08:19:04.943 [INFO    ] [viseron.components.yolo.object_detector] - Labels: {0: 'bicycle', 1: 'bird', 2: 'bus', 3: 'car', 4: 'cat', 5: 'dog', 6: 'motorcycle', 7: 'person', 8: 'truck', 9: 'squirrel', 10: 'car-light', 11: 'rabbit', 12: 'fox', 13: 'opossum', 14: 'skunk', 15: 'racoon'}
+```
+
+<ComponentTroubleshooting meta={ComponentMetadata} />
+
