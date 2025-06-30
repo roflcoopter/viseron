@@ -4,13 +4,13 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from typing import TYPE_CHECKING, overload
+from typing import overload
+
+from apscheduler.schedulers.background import BackgroundScheduler
 
 from viseron.const import VISERON_SIGNAL_SHUTDOWN
 from viseron.watchdog import WatchDog
 
-if TYPE_CHECKING:
-    from viseron import Viseron
 LOGGER = logging.getLogger(__name__)
 
 
@@ -192,9 +192,9 @@ class ThreadWatchDog(WatchDog):
 
     registered_items: list[RestartableThread] = []
 
-    def __init__(self, vis: Viseron) -> None:
+    def __init__(self, background_scheduler: BackgroundScheduler) -> None:
         super().__init__()
-        vis.background_scheduler.add_job(
+        background_scheduler.add_job(
             self.watchdog,
             "interval",
             id="thread_watchdog",

@@ -277,7 +277,7 @@ class Viseron:
         self.background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
         if start_background_scheduler:
             self.background_scheduler.start()
-            self._thread_watchdog = ThreadWatchDog(self)
+            self._thread_watchdog = ThreadWatchDog(self.background_scheduler)
             self._subprocess_watchdog = SubprocessWatchDog(self)
             self._process_watchdog = ProcessWatchDog(self)
 

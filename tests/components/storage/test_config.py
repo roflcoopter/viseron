@@ -8,6 +8,12 @@ import voluptuous as vol
 
 from viseron.components.storage import CONFIG_SCHEMA, validate_tiers
 from viseron.components.storage.config import _check_path_exists
+from viseron.components.storage.const import (
+    DEFAULT_TIER_CHECK_BATCH_SIZE,
+    DEFAULT_TIER_CHECK_CPU_LIMIT,
+    DEFAULT_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
+    DEFAULT_TIER_CHECK_WORKERS,
+)
 
 
 def create_time_config(days=None, hours=None, minutes=None):
@@ -94,7 +100,10 @@ def create_tier_snapshots(
 
 DEFAULT_CONFIG = {
     "storage": {
-        "tier_check_cpu_limit": 10,
+        "tier_check_cpu_limit": DEFAULT_TIER_CHECK_CPU_LIMIT,
+        "tier_check_batch_size": DEFAULT_TIER_CHECK_BATCH_SIZE,
+        "tier_check_sleep_between_batches": DEFAULT_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
+        "tier_check_workers": DEFAULT_TIER_CHECK_WORKERS,
         "recorder": {"tiers": [create_tier(events={"max_age": {"days": 7}})]},
         "snapshots": {
             "tiers": [

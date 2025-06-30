@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import datetime
 import logging
+import os
+import shutil
 import threading
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from viseron.components.storage.const import ENGINE
@@ -20,8 +22,11 @@ from viseron.helpers import utcnow
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
-    from viseron.components.storage.storage_subprocess import DataItem
-
+    from viseron.components.storage.storage_subprocess import (
+        DataItem,
+        DataItemDeleteFile,
+        DataItemMoveFile,
+    )
 
 LOGGER = logging.getLogger(__name__)
 
@@ -67,97 +72,96 @@ class Worker:
             sessionmaker(bind=ENGINE)
         )
         self._last_call: dict[str, float] = {}
-        self._locks: dict[str, threading.Lock] = {}
+        self._check_locks: dict[str, threading.Lock] = {}
+        self._checks_in_progress: dict[str, bool] = {}
 
-    def _work_input(self, item: DataItem) -> None:
-        try:
-            if item.cmd == "check_tier" and item.files_enabled:
-                LOGGER.debug(
-                    "Received check_tier command for files "
-                    "for %s tier %s category %s subcategory %s",
-                    item.camera_identifier,
-                    item.tier_id,
-                    item.category,
-                    item.subcategories[0],
-                )
-                files = self.check_tier_files(item)
-
-            if item.cmd == "check_tier" and item.events_enabled:
-                LOGGER.debug(
-                    "Received check_tier command for recordings "
-                    "for %s tier %s category %s subcategory %s",
-                    item.camera_identifier,
-                    item.tier_id,
-                    item.category,
-                    item.subcategories[0],
-                )
-                recordings = self.check_tier_recordings(item)
-
-            if item.events_enabled and not item.files_enabled:
-                item.data = recordings
-            elif item.files_enabled and not item.events_enabled:
-                item.data = files
-            elif item.events_enabled and item.files_enabled:
-                LOGGER.debug(
-                    "Finding overlapping files and recordings "
-                    "for %s tier %s category %s subcategory %s",
-                    item.camera_identifier,
-                    item.tier_id,
-                    item.category,
-                    item.subcategories[0],
-                )
-                # Find overlapping IDs
-                if files.size > 0 and recordings.size > 0:
-                    overlapping_ids = np.intersect1d(files["id"], recordings["id"])
-                    if overlapping_ids.size > 0:
-                        # Return full recordings array for overlapping IDs
-                        item.data = recordings[
-                            np.isin(recordings["id"], overlapping_ids)
-                        ]
-                    else:
-                        item.data = np.empty(0, dtype=recordings.dtype)
-                else:
-                    item.data = np.empty(
-                        0,
-                        dtype=recordings.dtype if recordings.size > 0 else files.dtype,
-                    )
-            else:
-                item.data = np.empty(0, dtype=FILES_DTYPE)
-
+    def _check_tier(self, item: DataItem) -> None:
+        if item.cmd == "check_tier" and item.files_enabled:
             LOGGER.debug(
-                "Found %d files to move for %s tier %s category %s subcategory %s",
-                len(item.data) if item.data is not None else 0,
+                "Received check_tier command for files "
+                "for %s tier %s category %s subcategory %s",
                 item.camera_identifier,
                 item.tier_id,
                 item.category,
                 item.subcategories[0],
             )
+            files = self.check_tier_files(item)
 
-        except Exception as e:  # pylint: disable=broad-except
-            LOGGER.error(
-                "Error processing command: %s",
-                e,
+        if item.cmd == "check_tier" and item.events_enabled:
+            LOGGER.debug(
+                "Received check_tier command for recordings "
+                "for %s tier %s category %s subcategory %s",
+                item.camera_identifier,
+                item.tier_id,
+                item.category,
+                item.subcategories[0],
             )
-            item.error = str(e)
-            return
+            recordings = self.check_tier_recordings(item)
 
-    def work_input(self, item: DataItem) -> None:
+        if item.events_enabled and not item.files_enabled:
+            item.data = recordings
+        elif item.files_enabled and not item.events_enabled:
+            item.data = files
+        elif item.events_enabled and item.files_enabled:
+            LOGGER.debug(
+                "Finding overlapping files and recordings "
+                "for %s tier %s category %s subcategory %s",
+                item.camera_identifier,
+                item.tier_id,
+                item.category,
+                item.subcategories[0],
+            )
+            # Find overlapping IDs
+            if files.size > 0 and recordings.size > 0:
+                overlapping_ids = np.intersect1d(files["id"], recordings["id"])
+                if overlapping_ids.size > 0:
+                    # Return full recordings array for overlapping IDs
+                    item.data = recordings[np.isin(recordings["id"], overlapping_ids)]
+                else:
+                    item.data = np.empty(0, dtype=recordings.dtype)
+            else:
+                item.data = np.empty(
+                    0,
+                    dtype=recordings.dtype if recordings.size > 0 else files.dtype,
+                )
+        else:
+            item.data = np.empty(0, dtype=FILES_DTYPE)
+
+        LOGGER.debug(
+            "Found %d files to move for %s tier %s category %s subcategory %s",
+            len(item.data) if item.data is not None else 0,
+            item.camera_identifier,
+            item.tier_id,
+            item.category,
+            item.subcategories[0],
+        )
+
+    def check_tier(self, item: DataItem) -> None:
         """Handle input commands in the child process.
 
         Calls are throttled based on the throttle_period defined in the tier.
         """
-        if item.camera_identifier not in self._locks:
-            self._locks[item.camera_identifier] = threading.Lock()
+        if item.camera_identifier not in self._check_locks:
+            self._check_locks[item.camera_identifier] = threading.Lock()
+        if item.throttle_key not in self._last_call:
+            self._last_call[item.throttle_key] = 0
+        if item.camera_identifier not in self._checks_in_progress:
+            self._checks_in_progress[item.camera_identifier] = False
 
-        with self._locks[item.camera_identifier]:
+        with self._check_locks[item.camera_identifier]:
+            if self._checks_in_progress[item.camera_identifier]:
+                return
             now = utcnow().timestamp()
             throttle_period = item.throttle_period.total_seconds()
-            last_call = self._last_call.get(item.throttle_key, 0)
+            last_call = self._last_call[item.throttle_key]
             if throttle_period > 0 and (now - last_call) < throttle_period:
                 item.data = None
                 return
+            self._checks_in_progress[item.camera_identifier] = True
 
-            self._work_input(item)
+        try:
+            self._check_tier(item)
+        finally:
             LOGGER.debug(
                 "Execution took %.2f seconds for %s tier %s category %s subcategory %s",
                 utcnow().timestamp() - now,
@@ -166,7 +170,42 @@ class Worker:
                 item.category,
                 item.subcategories[0],
             )
-            self._last_call[item.throttle_key] = utcnow().timestamp()
+            with self._check_locks[item.camera_identifier]:
+                self._last_call[item.throttle_key] = utcnow().timestamp()
+                self._checks_in_progress[item.camera_identifier] = False
+
+    def move_file(self, item: DataItemMoveFile) -> None:
+        """Move file from source to destination."""
+        move_file(
+            self._get_session,
+            item.src,
+            item.dst,
+            LOGGER,
+        )
+
+    def delete_file(self, item: DataItemDeleteFile) -> None:
+        """Delete file."""
+        delete_file(
+            self._get_session,
+            item.src,
+            LOGGER,
+        )
+
+    def work_input(self, item: DataItem | DataItemMoveFile | DataItemDeleteFile):
+        """Perform work on input item from child process."""
+        try:
+            if item.cmd == "check_tier":
+                self.check_tier(item)
+            if item.cmd == "move_file":
+                self.move_file(item)
+            if item.cmd == "delete_file":
+                self.delete_file(item)
+        except Exception as e:  # pylint: disable=broad-except
+            LOGGER.error(
+                "Error processing command: %s",
+                e,
+            )
+            item.error = str(e)
 
     def load_tier(self, item: DataItem):
         """Load the tier data for the camera."""
@@ -566,4 +605,65 @@ def get_recordings_to_move(
     stripped_files_to_move = files_to_move_np[
         ["recording_id", "id", "path", "tier_path"]
     ]
+
+    # Remove any files that are not m4s
+    stripped_files_to_move = stripped_files_to_move[
+        np.char.endswith(stripped_files_to_move["path"], ".m4s")
+    ]
     return stripped_files_to_move
+
+
+def delete_file(
+    get_session: Callable[..., Session],
+    path: str,
+    logger: logging.Logger,
+) -> None:
+    """Delete file."""
+    logger.debug("Deleting file %s", path)
+    with get_session() as session:
+        stmt = delete(Files).where(Files.path == path)
+        session.execute(stmt)
+        session.commit()
+
+    try:
+        os.remove(path)
+    except FileNotFoundError as error:
+        logger.debug(f"Failed to delete file {path}: {error}")
+        raise error
+
+
+def move_file(
+    get_session: Callable[..., Session],
+    src: str,
+    dst: str,
+    logger: logging.Logger,
+) -> None:
+    """Move file from src to dst.
+
+    To avoid race conditions where a file is referenced at the same time as it is being
+    moved, causing a 404 in the browser, we copy the file to the new location and then
+    delete the old one.
+    """
+    logger.debug("Moving file from %s to %s", src, dst)
+    try:
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copy(src, dst)
+        os.remove(src)
+    except FileNotFoundError as error:
+        logger.debug(f"Failed to move file {src} to {dst}: {error}")
+        with get_session() as session:
+            stmt = delete(Files).where(Files.path == src)
+            session.execute(stmt)
+            session.commit()
+        raise error
+    except OSError as error:
+        logger.debug(f"Failed to move file {src} to {dst}: {error}")
+        with get_session() as session:
+            stmt = delete(Files).where(Files.path == src)
+            session.execute(stmt)
+            session.commit()
+        try:
+            os.remove(src)
+        except FileNotFoundError as _error:
+            logger.debug(f"Failed to delete file {src}: {_error}")
+        raise error

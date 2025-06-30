@@ -39,10 +39,11 @@ def test_handle_file_delete(mock_delete_file: Mock, vis: MockViseron) -> None:
     tier_2 = None
     session = MagicMock()
     logger = MagicMock()
+    storage = MagicMock()
     handle_file(
         vis,
         session,
-        MagicMock(),
+        storage,
         "test",
         0,
         TIER_CATEGORY_RECORDER,
@@ -53,7 +54,7 @@ def test_handle_file_delete(mock_delete_file: Mock, vis: MockViseron) -> None:
         "/tmp/tier1/",
         logger,
     )
-    mock_delete_file.assert_called_once_with(session, file, logger)
+    mock_delete_file.assert_called_once_with(storage, file)
 
 
 @patch("viseron.components.storage.tier_handler.move_file")

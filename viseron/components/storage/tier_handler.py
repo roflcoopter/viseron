@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import logging
 import os
-import queue
-import shutil
+import threading
+import time
 from collections.abc import Callable
 from datetime import timedelta
 from queue import Queue
@@ -64,7 +64,11 @@ from viseron.components.storage.models import (
     PostProcessorResults,
     Recordings,
 )
-from viseron.components.storage.storage_subprocess import DataItem
+from viseron.components.storage.storage_subprocess import (
+    DataItem,
+    DataItemDeleteFile,
+    DataItemMoveFile,
+)
 from viseron.components.storage.util import (
     EventFileCreated,
     EventFileDeleted,
@@ -134,6 +138,8 @@ class TierHandler(FileSystemEventHandler):
             ),
             self._check_tier_event_handler,
         )
+        self._check_tier_lock = threading.Lock()
+        self._tier_check_in_progress = False
 
         self._pending_updates: dict[str, Timer] = {}
         self._event_queue: Queue[FileSystemEvent | None] = Queue()
@@ -151,6 +157,7 @@ class TierHandler(FileSystemEventHandler):
             minutes=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_MINUTES, 0),
             seconds=tier[CONFIG_CHECK_INTERVAL].get(CONFIG_SECONDS, 0),
         )
+        self._time_of_last_call = utcnow() - self._throttle_period
 
         self._logger.debug("Tier %s monitoring path: %s", tier_id, self._path)
         os.makedirs(self._path, exist_ok=True)
@@ -208,10 +215,12 @@ class TierHandler(FileSystemEventHandler):
         self._max_age = calculate_age(self._tier[CONFIG_MAX_AGE])
         self._min_age = calculate_age(self._tier[CONFIG_MIN_AGE])
 
-    def _create_dataitem(self, cmd: Literal["check_tier"]) -> DataItem:
+    def _create_dataitem(
+        self,
+    ) -> DataItem:
         """Create a DataItem for the check tier command."""
         return DataItem(
-            cmd=cmd,
+            cmd="check_tier",
             camera_identifier=self._camera.identifier,
             tier_id=self._tier_id,
             category=self._category,
@@ -223,16 +232,6 @@ class TierHandler(FileSystemEventHandler):
             min_bytes=self._min_bytes,
         )
 
-    def _send_command(self, cmd: Literal["check_tier"]):
-        """Send command to check tier."""
-        try:
-            self._storage.tier_check_worker.send_command(
-                self._create_dataitem(cmd),
-                self.on_check_tier_result,
-            )
-        except queue.Full:
-            pass
-
     def _check_tier_event_handler(self, _event: Event) -> None:
         """Handle check tier event."""
         self._storage.cleanup_manager.run_job(CleanupJobNames.ORPHANED_FILES)
@@ -240,10 +239,28 @@ class TierHandler(FileSystemEventHandler):
 
     def check_tier(self) -> None:
         """Check if file should be moved to next tier."""
-        self._send_command("check_tier")
+        with self._check_tier_lock:
+            if self._tier_check_in_progress:
+                return
+            # Throttling is also done in the worker process, but we do the same here
+            # in order to not spam the workers with unneeded requests.
+            now = utcnow()
+            time_since_last_call = now - self._time_of_last_call
+            if time_since_last_call < self._throttle_period:
+                return
+
+        self._storage.tier_check_worker_send_command(
+            self._create_dataitem(),
+            self.on_check_tier_result,
+        )
 
     def _check_tier(self, get_session: Callable[[], Session], data: np.ndarray) -> None:
+        files_processed = 0
         for file in data:
+            if files_processed >= self._storage.file_batch_size:
+                time.sleep(self._storage.sleep_between_batches)
+                files_processed = 0
+
             handle_file(
                 self._vis,
                 get_session,
@@ -258,6 +275,7 @@ class TierHandler(FileSystemEventHandler):
                 file["tier_path"],
                 self._logger,
             )
+            files_processed += 1
 
     def on_check_tier_result(self, item: DataItem) -> None:
         """Handle the result of the check tier command."""
@@ -267,10 +285,32 @@ class TierHandler(FileSystemEventHandler):
         if item.data is None:
             return
 
-        self._check_tier(
-            self._storage.get_session,
-            item.data,
-        )
+        def run():
+            """Run in a thread to not block the output queue handler that calls this."""
+            if item.data is None:
+                return
+
+            with self._check_tier_lock:
+                self._tier_check_in_progress = True
+            try:
+                self._check_tier(
+                    self._storage.get_session,
+                    item.data,
+                )
+            finally:
+                with self._check_tier_lock:
+                    self._time_of_last_call = utcnow()
+                    self._tier_check_in_progress = False
+
+        RestartableThread(
+            target=run,
+            name=(
+                "storage.tier_handler.check_tier."
+                f"{item.camera_identifier}.{item.tier_id}"
+            ),
+            register=False,
+            daemon=True,
+        ).start()
 
     def _process_events(self) -> None:
         while True:
@@ -491,10 +531,10 @@ class SegmentsTierHandler(TierHandler):
         self.add_file_handler(self._path, rf"{self._path}/(.*.m4s$)")
         self.add_file_handler(self._path, rf"{self._path}/(.*.mp4$)")
 
-    def _create_dataitem(self, cmd: Literal["check_tier"]) -> DataItem:
+    def _create_dataitem(self) -> DataItem:
         """Create a DataItem for the check tier command."""
         return DataItem(
-            cmd=cmd,
+            cmd="check_tier",
             camera_identifier=self._camera.identifier,
             tier_id=self._tier_id,
             category=self._category,
@@ -529,55 +569,153 @@ class SegmentsTierHandler(TierHandler):
         """Return if continuous is enabled."""
         return self._continuous_enabled
 
-    def _check_tier(self, get_session: Callable[[], Session], data: np.ndarray) -> None:
+    def _handle_events(
+        self,
+        get_session: Callable[[], Session],
+        data: np.ndarray,
+        events_next_tier: SegmentsTierHandler | None,
+    ) -> list[int]:
         # A file can be in multiple recordings, so we need to keep track of which
         # files we have already processed using processed_paths
-        processed_paths = []
+        files_processed = 0
+        processed_paths: list[str] = []
+        recording_ids: list[int] = []
+        for file in data:
+            if file["path"] in processed_paths:
+                continue
+
+            if files_processed >= self._storage.file_batch_size:
+                time.sleep(self._storage.sleep_between_batches)
+                files_processed = 0
+
+            if file["recording_id"] >= 0 and file["recording_id"] not in recording_ids:
+                recording_ids.append(int(file["recording_id"]))
+
+            force_delete = bool(file["recording_id"] == -1)
+            handle_file(
+                self._vis,
+                get_session,
+                self._storage,
+                self._camera.identifier,
+                self._tier_id,
+                self._category,
+                self._subcategory,
+                self._tier,
+                events_next_tier.tier if events_next_tier else None,
+                file["path"],
+                file["tier_path"],
+                self._logger,
+                force_delete,
+            )
+            processed_paths.append(file["path"])
+            files_processed += 1
+        return recording_ids
+
+    def _handle_continuous(
+        self,
+        get_session: Callable[[], Session],
+        data: np.ndarray,
+        continuous_next_tier: SegmentsTierHandler | None,
+    ) -> None:
+        files_processed = 0
+        for file in data:
+            if files_processed >= self._storage.file_batch_size:
+                time.sleep(self._storage.sleep_between_batches)
+                files_processed = 0
+
+            handle_file(
+                self._vis,
+                get_session,
+                self._storage,
+                self._camera.identifier,
+                self._tier_id,
+                self._category,
+                self._subcategory,
+                self._tier,
+                continuous_next_tier.tier if continuous_next_tier else None,
+                file["path"],
+                file["tier_path"],
+                self._logger,
+            )
+            files_processed += 1
+
+    def _handle_events_and_continuous(
+        self,
+        get_session: Callable[[], Session],
+        data: np.ndarray,
+        events_next_tier: SegmentsTierHandler | None,
+        continuous_next_tier: SegmentsTierHandler | None,
+    ) -> list[int]:
+        # A file can be in multiple recordings, so we need to keep track of which
+        # files we have already processed using processed_paths
+        files_processed = 0
+        processed_paths: list[str] = []
+        recording_ids: list[int] = []
+        for file in data:
+            if file["path"] in processed_paths:
+                continue
+
+            if files_processed >= self._storage.file_batch_size:
+                time.sleep(self._storage.sleep_between_batches)
+                files_processed = 0
+
+            if file["recording_id"] >= 0 and file["recording_id"] not in recording_ids:
+                recording_ids.append(int(file["recording_id"]))
+
+            force_delete = False
+            next_tier = None
+            # If the file is not part of a recording, and no succeeding tiers
+            # store continuous recordings we can delete the file
+            if file["recording_id"] == -1 and continuous_next_tier is None:
+                force_delete = True
+            # If no succeeding tier stores either events or continuous
+            # recordings, we can delete the file
+            elif events_next_tier is None and continuous_next_tier is None:
+                force_delete = True
+            elif events_next_tier and continuous_next_tier is None:
+                next_tier = events_next_tier
+            elif continuous_next_tier and events_next_tier is None:
+                next_tier = continuous_next_tier
+            elif events_next_tier and continuous_next_tier:
+                # Find the lowest tier_id for the two next tiers
+                next_tier = (
+                    events_next_tier
+                    if events_next_tier.tier_id < continuous_next_tier.tier_id
+                    else continuous_next_tier
+                )
+
+            handle_file(
+                self._vis,
+                get_session,
+                self._storage,
+                self._camera.identifier,
+                self._tier_id,
+                self._category,
+                self._subcategory,
+                self._tier,
+                next_tier.tier if next_tier else None,
+                file["path"],
+                file["tier_path"],
+                self._logger,
+                force_delete=force_delete,
+            )
+            processed_paths.append(file["path"])
+            files_processed += 1
+        return recording_ids
+
+    def _check_tier(self, get_session: Callable[[], Session], data: np.ndarray) -> None:
         events_next_tier = None
-        continuous_next_tier = None
+        recording_ids: list[int] = []
         if self._events_enabled and not self._continuous_enabled:
             events_next_tier = find_next_tier_segments(
                 self._storage, self._tier_id, self._camera, "events"
             )
-            for file in data:
-                if file["path"] in processed_paths:
-                    continue
-                force_delete = bool(file["recording_id"] == -1)
-                handle_file(
-                    self._vis,
-                    get_session,
-                    self._storage,
-                    self._camera.identifier,
-                    self._tier_id,
-                    self._category,
-                    self._subcategory,
-                    self._tier,
-                    events_next_tier.tier if events_next_tier else None,
-                    file["path"],
-                    file["tier_path"],
-                    self._logger,
-                    force_delete,
-                )
-                processed_paths.append(file["path"])
+            recording_ids = self._handle_events(get_session, data, events_next_tier)
         elif self._continuous_enabled and not self._events_enabled:
             continuous_next_tier = find_next_tier_segments(
                 self._storage, self._tier_id, self._camera, "continuous"
             )
-            for file in data:
-                handle_file(
-                    self._vis,
-                    get_session,
-                    self._storage,
-                    self._camera.identifier,
-                    self._tier_id,
-                    self._category,
-                    self._subcategory,
-                    self._tier,
-                    continuous_next_tier.tier if continuous_next_tier else None,
-                    file["path"],
-                    file["tier_path"],
-                    self._logger,
-                )
+            self._handle_continuous(get_session, data, continuous_next_tier)
         else:
             events_next_tier = find_next_tier_segments(
                 self._storage, self._tier_id, self._camera, "events"
@@ -585,56 +723,9 @@ class SegmentsTierHandler(TierHandler):
             continuous_next_tier = find_next_tier_segments(
                 self._storage, self._tier_id, self._camera, "continuous"
             )
-            for file in data:
-                if file["path"] in processed_paths:
-                    continue
-
-                force_delete = False
-                next_tier = None
-                # If the file is not part of a recording, and no succeeding tiers
-                # store continuous recordings we can delete the file
-                if file["recording_id"] == -1 and continuous_next_tier is None:
-                    force_delete = True
-                # If no succeeding tier stores either events or continuous
-                # recordings, we can delete the file
-                elif events_next_tier is None and continuous_next_tier is None:
-                    force_delete = True
-                elif events_next_tier and continuous_next_tier is None:
-                    next_tier = events_next_tier
-                elif continuous_next_tier and events_next_tier is None:
-                    next_tier = continuous_next_tier
-                elif events_next_tier and continuous_next_tier:
-                    # Find the lowest tier_id for the two next tiers
-                    next_tier = (
-                        events_next_tier
-                        if events_next_tier.tier_id < continuous_next_tier.tier_id
-                        else continuous_next_tier
-                    )
-
-                handle_file(
-                    self._vis,
-                    get_session,
-                    self._storage,
-                    self._camera.identifier,
-                    self._tier_id,
-                    self._category,
-                    self._subcategory,
-                    self._tier,
-                    next_tier.tier if next_tier else None,
-                    file["path"],
-                    file["tier_path"],
-                    self._logger,
-                    force_delete=force_delete,
-                )
-                processed_paths.append(file["path"])
-
-        recording_ids: list[int] = []
-        for recording in data:
-            if (
-                recording["recording_id"] >= 0
-                and recording["recording_id"] not in recording_ids
-            ):
-                recording_ids.append(int(recording["recording_id"]))
+            recording_ids = self._handle_events_and_continuous(
+                get_session, data, events_next_tier, continuous_next_tier
+            )
 
         # Signal to the thumbnail tier that the recording has been moved
         if recording_ids:
@@ -650,7 +741,7 @@ class SegmentsTierHandler(TierHandler):
                     events_next_tier.tier if events_next_tier else None,
                 )
 
-        # Signal to the recordings tier that the recording has been moved
+        # Signal to the event clips tier that the recording has been moved
         if recording_ids:
             self._logger.debug("Handle event clip for recordings: %s", recording_ids)
             for recording_id in recording_ids:
@@ -898,7 +989,10 @@ def handle_file(
         return
 
     if force_delete or next_tier is None:
-        delete_file(get_session, path, logger)
+        delete_file(
+            storage,
+            path,
+        )
     else:
         new_path = path.replace(tier_path, next_tier[CONFIG_PATH], 1)
         if new_path == path:
@@ -940,6 +1034,20 @@ def handle_file(
             session.commit()
 
 
+def delete_file(
+    storage: Storage,
+    path: str,
+):
+    """Delete file from storage."""
+    storage.tier_check_worker_send_command(
+        DataItemDeleteFile(
+            cmd="delete_file",
+            src=path,
+        ),
+        callback=None,
+    )
+
+
 def move_file(
     vis: Viseron,
     storage: Storage,
@@ -972,62 +1080,37 @@ def move_file(
             stmt = delete(Files).where(Files.path == src)
             session.execute(stmt)
             session.commit()
-        try:
-            os.remove(src)
-        except FileNotFoundError as _error:
-            logger.debug(f"Failed to delete file {src}: {_error}")
-        return
-
-    try:
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-        shutil.copy(src, dst)
-        os.remove(src)
-    except FileNotFoundError as error:
-        logger.debug(f"Failed to move file {src} to {dst}: {error}")
-        with get_session() as session:
-            stmt = delete(Files).where(Files.path == src)
-            session.execute(stmt)
-            session.commit()
-    except OSError as error:
-        logger.debug(f"Failed to move file {src} to {dst}: {error}")
-        vis.dispatch_event(
-            EVENT_CHECK_TIER.format(
-                camera_identifier=camera_identifier,
-                # It is fine if the next tier does not exist since there will be no
-                # listeners for this event in that case
-                tier_id=curr_tier_id + 1,
-                category=curr_tier_category,
-                subcategory=curr_tier_subcategory,
-            ),
-            EventEmptyData(),
+        delete_file(
+            storage,
+            src,
         )
-        with get_session() as session:
-            stmt = delete(Files).where(Files.path == src)
-            session.execute(stmt)
-            session.commit()
-        try:
-            os.remove(src)
-        except FileNotFoundError as _error:
-            logger.debug(f"Failed to delete file {src}: {_error}")
-        return
 
+    def _move_file_callback(
+        item: DataItemMoveFile,
+    ) -> None:
+        if item.error:
+            logger.error(f"Error moving file {src} to {dst}: {item.error}")
+            vis.dispatch_event(
+                EVENT_CHECK_TIER.format(
+                    camera_identifier=camera_identifier,
+                    # It is fine if the next tier does not exist since there will be no
+                    # listeners for this event in that case
+                    tier_id=curr_tier_id + 1,
+                    category=curr_tier_category,
+                    subcategory=curr_tier_subcategory,
+                ),
+                EventEmptyData(),
+            )
+            return
 
-def delete_file(
-    get_session: Callable[..., Session],
-    path: str,
-    logger: logging.Logger,
-) -> None:
-    """Delete file."""
-    logger.debug("Deleting file %s", path)
-    with get_session() as session:
-        stmt = delete(Files).where(Files.path == path)
-        session.execute(stmt)
-        session.commit()
-
-    try:
-        os.remove(path)
-    except FileNotFoundError as error:
-        logger.debug(f"Failed to delete file {path}: {error}")
+    storage.tier_check_worker_send_command(
+        DataItemMoveFile(
+            cmd="move_file",
+            src=src,
+            dst=dst,
+        ),
+        callback=_move_file_callback,
+    )
 
 
 def force_move_files(
