@@ -169,6 +169,8 @@ interface LivePlayerProps extends React.HTMLAttributes<HTMLElement> {
   src: string;
   style?: React.CSSProperties;
   playerRef?: React.RefObject<VideoRTC>;
+  extraButtons?: React.ReactNode;
+  isMenuOpen?: boolean;
 }
 
 export const LivePlayer = ({
@@ -177,6 +179,8 @@ export const LivePlayer = ({
   src,
   style,
   playerRef,
+  extraButtons,
+  isMenuOpen = false,
 }: LivePlayerProps) => {
   const _elementRef = useRef<VideoRTC>(null);
   const elementRef = playerRef || _elementRef;
@@ -218,11 +222,12 @@ export const LivePlayer = ({
         onPlayPause={handlePlayPause}
         onVolumeChange={handleVolumeChange}
         onMuteToggle={handleMuteToggle}
-        isVisible={controlsVisible || isHovering}
+        isVisible={controlsVisible || isHovering || isMenuOpen}
         isPlaying={isPlaying}
         isMuted={isMuted}
         isFullscreen={isFullscreen}
         onFullscreenToggle={handleFullscreenToggle}
+        extraButtons={extraButtons}
       />
       <video-stream
         ref={elementRef}

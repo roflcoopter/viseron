@@ -182,6 +182,7 @@ export interface Camera {
   failed: false;
   is_on: boolean;
   connected: boolean;
+  live_stream_available: boolean;
 }
 
 export interface Cameras {
@@ -197,6 +198,7 @@ export interface FailedCamera {
     width: number;
     height: number;
   };
+  live_stream_available: boolean;
   error: string;
   retrying: boolean;
   failed: true;

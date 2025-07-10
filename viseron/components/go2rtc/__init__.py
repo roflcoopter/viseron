@@ -47,6 +47,18 @@ class Go2RTC:
         with open(GO2RTC_CONFIG, "w", encoding="utf-8") as config_file:
             yaml.dump(self._config[COMPONENT], config_file)
 
+    def configured_cameras(self) -> list[str]:
+        """Return a list of configured cameras."""
+        try:
+            response = requests.get("http://localhost:1984/api/streams", timeout=5)
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            LOGGER.error("Failed to fetch cameras from go2rtc: %s", exc)
+            return []
+
+        cameras = response.json()
+        return list(cameras)
+
     def restart(self) -> None:
         """Restart the go2rtc."""
         LOGGER.debug("Restarting go2rtc")

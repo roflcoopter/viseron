@@ -22,6 +22,7 @@ from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
+from viseron.components.go2rtc.const import COMPONENT as GO2RTC_COMPONENT
 from viseron.components.storage.config import validate_tiers
 from viseron.components.storage.const import (
     COMPONENT as STORAGE_COMPONENT,
@@ -79,6 +80,7 @@ from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.components.go2rtc import Go2RTC
     from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.components.storage import Storage
     from viseron.components.storage.models import TriggerTypes
@@ -203,6 +205,7 @@ class AbstractCamera(AbstractDomain):
             },
             "is_on": self.is_on,
             "connected": self.connected,
+            "live_stream_available": self.live_stream_available,
         }
 
     def generate_token(self):
@@ -405,6 +408,15 @@ class AbstractCamera(AbstractDomain):
             ),
             EventCameraStillImageAvailable(available=available),
         )
+
+    @property
+    def live_stream_available(self) -> bool:
+        """Return if live stream is available."""
+        go2rtc: Go2RTC
+        if go2rtc := self._vis.data.get(GO2RTC_COMPONENT, None):
+            if self.identifier in go2rtc.configured_cameras():
+                return True
+        return False
 
     @property
     def config(self) -> dict[str, Any]:
