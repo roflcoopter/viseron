@@ -54,7 +54,7 @@ jobs:
         uses: ./.github/templates/run_in_venv
         with:
           command: |
-            pip3 install -r requirements.txt -r requirements_test.txt -r requirements_ci.txt && \
+            pip3 install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt -r requirements_test.txt -r requirements_ci.txt && \
             pre-commit install
 
   prepare-pre-commit:
@@ -430,7 +430,7 @@ jobs:
           docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env pull amd64-wheels
       - name: Re-build wheels
         run: |
-          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-wheels
+          docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 --build-arg EXTRA_PIP_ARGS="--extra-index-url https://download.pytorch.org/whl/cpu" amd64-wheels
           docker compose --file azure-pipelines/docker-compose-build.yaml --env-file azure-pipelines/.env build --build-arg BUILDKIT_INLINE_CACHE=1 amd64-viseron
       - name: Build pytest Docker image
         run: |
