@@ -29,7 +29,11 @@ interface CustomFabProps {
   size?: "small" | "medium" | "large";
   children: React.ReactNode;
 }
-const CustomFab = ({ onClick, size = "small", children }: CustomFabProps) => (
+export const CustomFab = ({
+  onClick,
+  size = "small",
+  children,
+}: CustomFabProps) => (
   <Fab
     onClick={onClick}
     onTouchStart={(e) => e.stopPropagation()}
@@ -62,6 +66,7 @@ interface CustomControlsProps {
   playbackSpeed?: number;
   isFullscreen?: boolean;
   onFullscreenToggle?: () => void;
+  extraButtons?: React.ReactNode;
 }
 
 export const CustomControls: React.FC<CustomControlsProps> = ({
@@ -79,6 +84,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
   playbackSpeed = 1,
   isFullscreen = false,
   onFullscreenToggle,
+  extraButtons,
 }) => {
   const [isVolumeSliderVisible, setIsVolumeSliderVisible] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -317,6 +323,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
                 </Menu>
               </>
             )}
+            {extraButtons}
             {onFullscreenToggle && screenfull.isEnabled && (
               <CustomFab onClick={onFullscreenToggle}>
                 {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}

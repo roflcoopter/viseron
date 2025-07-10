@@ -236,9 +236,8 @@ const SuccessCameraCard = ({
               </Tooltip>
               <Tooltip title="Live View">
                 <IconButton
-                  component={"a" as React.ElementType}
-                  target="_blank"
-                  href={`/${camera.identifier}/mjpeg-stream`}
+                  component={Link}
+                  to={`/live?camera=${camera.identifier}`}
                 >
                   <LiveTvIcon />
                 </IconButton>
