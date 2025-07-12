@@ -13,7 +13,7 @@ import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
-import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
+import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
 import { useCamera } from "lib/api/camera";
 import { useDeleteRecording, useRecordings } from "lib/api/recordings";
@@ -108,7 +108,10 @@ export default function RecordingCardLatest({
           height={200}
           placeholder={
             <VideoPlayerPlaceholder
-              aspectRatio={cameraQuery.data.width / cameraQuery.data.height}
+              aspectRatio={
+                cameraQuery.data.mainstream.width /
+                cameraQuery.data.mainstream.height
+              }
             />
           }
         >

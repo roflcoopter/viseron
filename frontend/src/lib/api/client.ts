@@ -24,7 +24,6 @@ export const clientId = (): string => `${location.protocol}//${location.host}/`;
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: false,
       refetchOnWindowFocus: false,
       staleTime: 1000 * 60 * 1,
       gcTime: 1000 * 60 * 5,

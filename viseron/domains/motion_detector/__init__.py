@@ -454,6 +454,13 @@ class AbstractMotionDetectorScanner(AbstractMotionDetector):
         if event_data.data.scan is False:
             self._motion_detected_setter(False, None, None)
 
+    def result_failed_callback(self):
+        """Detector result failed callback.
+
+        Called when the NVR component does not receive a result from the motion
+        detector.
+        """
+
     def stop(self) -> None:
         """Stop motion detector."""
         self._kill_received = True

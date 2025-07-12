@@ -90,11 +90,14 @@ class TestFragmenter:
         shutil.rmtree(self.camera.temp_segments_folder)
         shutil.rmtree(self.camera.segments_folder)
 
+    @patch("viseron.helpers.child_process_worker.RestartableProcess")
     @patch("viseron.domains.camera.fragmenter.sp.run")
-    def test_mp4box_command(self, mock_sp_run: Mock):
+    def test_mp4box_command(self, mock_sp_run: Mock, _mock_restartable_process: Mock):
         """Test mp4box command generation."""
         mock_sp_run.return_value = MagicMock()
-        self.fragmenter._mp4box_command("test.mp4")  # pylint: disable=protected-access
+        self.fragmenter._fragment_worker._mp4box_command(  # pylint: disable=protected-access
+            "test.mp4"
+        )
         mock_sp_run.assert_called_once_with(
             [
                 "MP4Box",
@@ -111,16 +114,19 @@ class TestFragmenter:
                 os.path.join(self.camera.temp_segments_folder, "test", "master.m3u8"),
                 os.path.join(self.camera.temp_segments_folder, "test.mp4"),
             ],
-            stdout=self.fragmenter._log_pipe,  # pylint: disable=protected-access
-            stderr=self.fragmenter._log_pipe,  # pylint: disable=protected-access
+            stdout=self.fragmenter._fragment_worker._log_pipe,  # pylint: disable=protected-access
+            stderr=self.fragmenter._fragment_worker._log_pipe,  # pylint: disable=protected-access
             check=True,
         )
 
+    @patch("viseron.helpers.child_process_worker.RestartableProcess")
     @patch("viseron.domains.camera.fragmenter.shutil.move")
-    def test_move_to_segments_folder_mp4box(self, mock_shutil_move: Mock):
+    def test_move_to_segments_folder_mp4box(
+        self, mock_shutil_move: Mock, _mock_restartable_process: Mock
+    ):
         """Test that the files are moved to the segments folder."""
         mock_shutil_move.return_value = MagicMock()
-        self.fragmenter._move_to_segments_folder_mp4box(  # pylint: disable=protected-access
+        self.fragmenter._fragment_worker._move_to_segments_folder_mp4box(  # pylint: disable=protected-access
             "test.mp4"
         )
         mock_shutil_move.assert_any_call(

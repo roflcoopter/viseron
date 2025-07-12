@@ -1,0 +1,10 @@
+[
+  {
+    "type": "map",
+    "value": [],
+    "name": "go2rtc",
+    "description": "go2rtc configuration.",
+    "required": true,
+    "default": null
+  }
+]

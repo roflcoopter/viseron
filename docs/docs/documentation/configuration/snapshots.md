@@ -94,7 +94,7 @@ codeprojectai:
 
 Retention rules can be used to control the number of snapshots stored on disk.
 
-```yaml /config/config.yaml
+```yaml title="/config/config.yaml"
 storage:
   snapshots:
     tiers:
@@ -122,7 +122,7 @@ Size based retention rules are calculated **per camera**, meaning that if you ha
 You can set specific retention rules for each domain by following the example below.
 The example stores 1 GB of face recognition snapshots, and 14 days of license plate recognition snapshots.
 
-```yaml /config/config.yaml
+```yaml title="/config/config.yaml"
 storage:
   snapshots:
     face_recognition:
@@ -142,7 +142,7 @@ storage:
 You can set retention rules for a specific camera by adding the `storage` key to the camera config.
 The example stores 1gb of face recognition snapshots for `camera_one`, while other cameras and types of snapshots will be stored based on the global retention rules (defaults to 7 days).
 
-```yaml /config/config.yaml
+```yaml title="/config/config.yaml"
 ffmpeg: # or any other camera component
   camera:
     camera_one:

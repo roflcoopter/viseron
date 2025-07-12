@@ -67,6 +67,10 @@ class ObjectDetector(AbstractObjectDetector):
             self._camera.resolution,
         )
 
+    def result_failed_callback(self):
+        """Call EdgeTPU reload_if_needed on failure."""
+        self._edgetpu.reload_if_needed()
+
     @property
     def model_width(self) -> int:
         """Return trained model width."""

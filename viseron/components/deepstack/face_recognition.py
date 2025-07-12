@@ -88,10 +88,10 @@ class FaceRecognition(AbstractFaceRecognition):
                 self.known_face_found(
                     detection["userid"],
                     (
-                        detection["box"]["x_min"] + x1,
-                        detection["box"]["y_min"] + y1,
-                        detection["box"]["x_max"] + x2,
-                        detection["box"]["y_max"] + y2,
+                        detection["x_min"] + x1,
+                        detection["y_min"] + y1,
+                        detection["x_max"] + x2,
+                        detection["y_max"] + y2,
                     ),
                     post_processor_frame.shared_frame,
                     confidence=detection["confidence"],
@@ -99,10 +99,10 @@ class FaceRecognition(AbstractFaceRecognition):
             else:
                 self.unknown_face_found(
                     (
-                        detection["box"]["x_min"] + x1,
-                        detection["box"]["y_min"] + y1,
-                        detection["box"]["x_max"] + x2,
-                        detection["box"]["y_max"] + y2,
+                        detection["x_min"] + x1,
+                        detection["y_min"] + y1,
+                        detection["x_max"] + x2,
+                        detection["y_max"] + y2,
                     ),
                     post_processor_frame.shared_frame,
                     confidence=detection["confidence"],

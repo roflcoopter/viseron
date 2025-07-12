@@ -30,6 +30,10 @@ from viseron.components.storage.const import (
     CONFIG_RECORDER,
     CONFIG_SECONDS,
     CONFIG_SNAPSHOTS,
+    CONFIG_TIER_CHECK_BATCH_SIZE,
+    CONFIG_TIER_CHECK_CPU_LIMIT,
+    CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
+    CONFIG_TIER_CHECK_WORKERS,
     CONFIG_TIERS,
     DEFAULT_CHECK_INTERVAL,
     DEFAULT_CHECK_INTERVAL_DAYS,
@@ -57,6 +61,10 @@ from viseron.components.storage.const import (
     DEFAULT_RECORDER_TIERS,
     DEFAULT_SNAPSHOTS,
     DEFAULT_SNAPSHOTS_TIERS,
+    DEFAULT_TIER_CHECK_BATCH_SIZE,
+    DEFAULT_TIER_CHECK_CPU_LIMIT,
+    DEFAULT_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
+    DEFAULT_TIER_CHECK_WORKERS,
     DESC_CHECK_INTERVAL,
     DESC_CHECK_INTERVAL_DAYS,
     DESC_CHECK_INTERVAL_HOURS,
@@ -90,6 +98,10 @@ from viseron.components.storage.const import (
     DESC_RECORDER_TIERS,
     DESC_SNAPSHOTS,
     DESC_SNAPSHOTS_TIERS,
+    DESC_TIER_CHECK_BATCH_SIZE,
+    DESC_TIER_CHECK_CPU_LIMIT,
+    DESC_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
+    DESC_TIER_CHECK_WORKERS,
     TIER_CATEGORY_RECORDER,
     TIER_CATEGORY_SNAPSHOTS,
     TIER_SUBCATEGORY_EVENT_CLIPS,
@@ -378,6 +390,26 @@ SNAPSHOTS_SCHEMA = get_snapshots_schema()
 
 STORAGE_SCHEMA = vol.Schema(
     {
+        vol.Optional(
+            CONFIG_TIER_CHECK_CPU_LIMIT,
+            default=DEFAULT_TIER_CHECK_CPU_LIMIT,
+            description=DESC_TIER_CHECK_CPU_LIMIT,
+        ): Maybe(vol.Coerce(int)),
+        vol.Optional(
+            CONFIG_TIER_CHECK_WORKERS,
+            default=DEFAULT_TIER_CHECK_WORKERS,
+            description=DESC_TIER_CHECK_WORKERS,
+        ): Maybe(vol.Coerce(int)),
+        vol.Optional(
+            CONFIG_TIER_CHECK_BATCH_SIZE,
+            default=DEFAULT_TIER_CHECK_BATCH_SIZE,
+            description=DESC_TIER_CHECK_BATCH_SIZE,
+        ): Maybe(vol.Coerce(int)),
+        vol.Optional(
+            CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
+            default=DEFAULT_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
+            description=DESC_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
+        ): Maybe(vol.Coerce(float)),
         vol.Optional(
             CONFIG_RECORDER,
             default=DEFAULT_RECORDER,

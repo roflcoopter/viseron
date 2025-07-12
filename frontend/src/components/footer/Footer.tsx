@@ -19,7 +19,9 @@ export default function AppFooter() {
   const theme = useTheme();
   const location = useLocation();
   const { version, gitCommit } = useContext(ViseronContext);
-  const showFooter = !["/configuration", "/events"].includes(location.pathname);
+  const showFooter = !["/configuration", "/events", "/live"].includes(
+    location.pathname,
+  );
 
   return showFooter ? (
     <Footer>

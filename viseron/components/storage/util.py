@@ -95,17 +95,6 @@ def get_snapshots_path(
     )
 
 
-def files_to_move_overlap(events_file_ids, continuous_file_ids):
-    """Find the files that are in both events and continuous delete list."""
-    events_dict = {row.file_id: row for row in events_file_ids}
-    continuous_dict = {row.id: row for row in continuous_file_ids}
-    # Find the matching tuples based on "file_id" and "id"
-    matched_ids = [
-        events_dict[file_id] for file_id in events_dict if file_id in continuous_dict
-    ]
-    return matched_ids
-
-
 @dataclass
 class EventFile(EventData):
     """Event data for file events."""

@@ -10,8 +10,11 @@ a newer version of Python.
 """
 import argparse
 import logging
+import queue
 import sys
+import threading
 from abc import abstractmethod
+from typing import Any
 
 import numpy as np
 import tflite_runtime.interpreter as tflite
@@ -154,7 +157,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--manager-authkey", help="Password for the Manager", required=True
     )
-    parser.add_argument("--device", help="Device to run model on", required=True)
+    parser.add_argument("--device", help="Device(s) to run model on", required=True)
     parser.add_argument("--model", help="Path to model", required=True)
     parser.add_argument(
         "--model-type",
@@ -171,6 +174,44 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def worker_thread(
+    device: str,
+    model: str,
+    model_type: str,
+    input_queue: queue.Queue,
+    output_queue: queue.Queue,
+):
+    """Run EdgeTPU model in a thread."""
+    edgetpu_type = (
+        EdgeTPUDetection if model_type == "object_detector" else EdgeTPUClassification
+    )
+    try:
+        edgetpu = edgetpu_type(device=device, model=model)
+    except MakeInterpreterError:
+        LOGGER.error(f"Failed to make interpreter for device {device}")
+        output_queue.put((device, "init_failed"))
+        return
+    output_queue.put((device, "init_done"))
+    while True:
+        job = input_queue.get()
+        if job == "get_model_size":
+            model_width, model_height = edgetpu.get_model_size()
+            output_queue.put(
+                (
+                    device,
+                    {
+                        "get_model_size": {
+                            "model_width": model_width,
+                            "model_height": model_height,
+                        }
+                    },
+                )
+            )
+            continue
+        edgetpu.work_input(job)
+        output_queue.put((device, job))
+
+
 def main():
     """Run EdgeTPU in a Python 3.9 subprocess."""
     parser = get_parser()
@@ -180,43 +221,43 @@ def main():
         "127.0.0.1", int(args.manager_port), args.manager_authkey
     )
 
-    edgetpu_type: type[EdgeTPUDetection] | type[EdgeTPUClassification]
-    # Invoke correct class based on model type
-    if args.model_type == "object_detector":
-        edgetpu_type = EdgeTPUDetection
-    else:
-        edgetpu_type = EdgeTPUClassification
-
-    try:
-        edgetpu = edgetpu_type(
-            device=args.device,
-            model=args.model,
+    devices = [d.strip() for d in args.device.split(",")]
+    worker_output_queue: queue.Queue[dict[str, Any]] = queue.Queue()
+    threads = []
+    for device in devices:
+        t = threading.Thread(
+            target=worker_thread,
+            args=(
+                device,
+                args.model,
+                args.model_type,
+                process_queue,
+                worker_output_queue,
+            ),
+            daemon=True,
         )
-    except MakeInterpreterError:
-        LOGGER.error("Failed to make interpreter")
-        output_queue.put("init_failed")
-        sys.exit(1)
+        t.start()
+        threads.append(t)
+
+    # Wait for all workers to initialize
+    init_count = 0
+    while init_count < len(devices):
+        device, msg = worker_output_queue.get()
+        if msg == "init_failed":
+            LOGGER.error(f"Worker for device {device} failed to initialize")
+            output_queue.put("init_failed")
+            sys.exit(1)
+        elif msg == "init_done":
+            LOGGER.debug(f"Worker for device {device} initialized")
+            init_count += 1
 
     LOGGER.debug("Sending init_done")
     output_queue.put("init_done")
 
     LOGGER.debug("Starting loop")
     while True:
-        job = process_queue.get()
-        if job == "get_model_size":
-            model_width, model_height = edgetpu.get_model_size()
-            output_queue.put(
-                {
-                    "get_model_size": {
-                        "model_width": model_width,
-                        "model_height": model_height,
-                    }
-                }
-            )
-            continue
-
-        edgetpu.work_input(job)
-        output_queue.put(job)
+        device, result = worker_output_queue.get()
+        output_queue.put(result)
 
 
 if __name__ == "__main__":

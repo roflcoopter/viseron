@@ -2,10 +2,12 @@ import dayjs, { Dayjs } from "dayjs";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
+import { useShallow } from "zustand/react/shallow";
 
+import { useCameraStore } from "components/camera/useCameraStore";
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { Layout } from "components/events/Layouts";
-import { useCameraStore } from "components/events/utils";
+import { useReferencePlayerStore } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { useHideScrollbar } from "hooks/UseHideScrollbar";
 import { useTitle } from "hooks/UseTitle";
@@ -33,7 +35,11 @@ const Events = () => {
   useHideScrollbar();
   const [searchParams] = useSearchParams();
   const { selectSingleCamera } = useCameraStore();
-
+  const { setRequestedTimestamp } = useReferencePlayerStore(
+    useShallow((state) => ({
+      setRequestedTimestamp: state.setRequestedTimestamp,
+    })),
+  );
   const camerasAll = useCamerasAll();
 
   const [date, setDate] = useState<Dayjs | null>(
@@ -51,6 +57,7 @@ const Events = () => {
         camerasAll.combinedData[searchParams.get("camera") as string]
           .identifier,
       );
+      searchParams.delete("camera");
       const newUrl = removeURLParameter(window.location.href, "camera");
       window.history.pushState({ path: newUrl }, "", newUrl);
     }
@@ -61,6 +68,18 @@ const Events = () => {
       insertURLParameter("date", date.format("YYYY-MM-DD"));
     }
   }, [date]);
+
+  useEffect(() => {
+    if (searchParams.has("timestamp")) {
+      const timestamp = searchParams.get("timestamp");
+      if (timestamp && !isNaN(Number(timestamp))) {
+        setRequestedTimestamp(Number(timestamp));
+      }
+      searchParams.delete("timestamp");
+      const newUrl = removeURLParameter(window.location.href, "timestamp");
+      window.history.pushState({ path: newUrl }, "", newUrl);
+    }
+  }, [searchParams, setRequestedTimestamp]);
 
   if (camerasAll.cameras.isError) {
     return (

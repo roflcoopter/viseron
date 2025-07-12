@@ -1,6 +1,7 @@
 import { SvgIconComponent } from "@mui/icons-material";
 import GitHubIcon from "@mui/icons-material/GitHub";
 import ImageSearchIcon from "@mui/icons-material/ImageSearch";
+import LiveTvIcon from "@mui/icons-material/LiveTv";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import SettingsIcon from "@mui/icons-material/Settings";
 import VideoFileIcon from "@mui/icons-material/VideoFile";
@@ -62,6 +63,12 @@ const getDrawerItems = (
       title: "Timeline",
       icon: ViewTimelineIcon,
       path: "/events?tab=timeline",
+    },
+    {
+      type: "link",
+      title: "Live",
+      icon: LiveTvIcon,
+      path: "/live",
     },
     { type: "link", title: "Entities", icon: ViewListIcon, path: "/entities" },
     ...(!auth.enabled || (auth.enabled && user?.role === "admin")

@@ -136,11 +136,13 @@ class FrameIntervalCalculator:
         scan_fps: int,
         topic_scan: str,
         topic_result: str,
+        domain_instance: AbstractObjectDetector | AbstractMotionDetectorScanner | None,
     ) -> None:
         self._vis = vis
         self._camera_identifier = camera_identifier
         self._name = name
         self._topic_scan = topic_scan
+        self._domain_instance = domain_instance
         if scan_fps > output_fps:
             logger.warning(
                 f"FPS for {name} is too high, highest possible FPS is {output_fps}"
@@ -210,6 +212,13 @@ class FrameIntervalCalculator:
     def scan_error(self, value: bool) -> None:
         self._scan_error = value
 
+    @property
+    def domain_instance(
+        self,
+    ) -> AbstractObjectDetector | AbstractMotionDetectorScanner | None:
+        """Return domain instance of scanner."""
+        return self._domain_instance
+
 
 class NVR:
     """NVR class that orchestrates all handling of camera streams."""
@@ -266,6 +275,7 @@ class NVR:
                 DATA_MOTION_DETECTOR_RESULT.format(
                     camera_identifier=self._camera.identifier
                 ),
+                self._motion_detector,
             )
         else:
             self._logger.info("Motion detector is disabled")
@@ -285,6 +295,7 @@ class NVR:
                 DATA_OBJECT_DETECTOR_RESULT.format(
                     camera_identifier=self._camera.identifier
                 ),
+                self._object_detector,
             )
         else:
             self._logger.info("Object detector is disabled")
@@ -323,6 +334,7 @@ class NVR:
                 DATA_NO_DETECTOR_RESULT.format(
                     camera_identifier=self._camera.identifier
                 ),
+                None,
             )
 
         self._post_processors: dict[Domain, AbstractPostProcessor] = {}
@@ -436,6 +448,10 @@ class NVR:
                         self._logger.error(f"Failed to retrieve result for {name}")
                         frame_scanner.scan_error = True
                         self._frame_scanner_errors.append(name)
+                        if frame_scanner.domain_instance and hasattr(
+                            frame_scanner.domain_instance, "result_failed_callback"
+                        ):
+                            frame_scanner.domain_instance.result_failed_callback()
 
     def event_over_check_motion(
         self, obj: DetectedObject, object_filters: dict[str, Filter]

@@ -11,6 +11,8 @@ FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} AS wheels
 # Build GPAC
 FROM roflcoopter/${ARCH}-base:${BASE_VERSION} AS gpac
 
+ARG GPAC_VERSION
+
 ENV \
   DEBIAN_FRONTEND=noninteractive
 
@@ -32,11 +34,37 @@ RUN \
   zlib1g-dev
 
 RUN \
-  git clone https://github.com/gpac/gpac.git
+  git clone --branch v${GPAC_VERSION} --depth 1 https://github.com/gpac/gpac.git
 RUN \
   cd gpac && \
   ./configure --static-bin / && \
   make -j$(nproc)
+
+
+# Install go2rtc
+FROM roflcoopter/${ARCH}-base:${BASE_VERSION} AS go2rtc-base
+ARG ARCH
+ARG GO2RTC_VERSION
+
+WORKDIR /usr/local/bin
+
+RUN \
+  apt-get update && apt-get install -y --no-install-recommends \
+  wget
+
+RUN if [ "$ARCH" = "amd64-cuda" ]; then PLATFORM="amd64"; \
+  elif [ "$ARCH" = "armhf" ] || [ "$ARCH" = "rpi3" ]; then PLATFORM="arm"; \
+  elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "jetson-nano" ]; then PLATFORM="arm64"; \
+  else PLATFORM="$ARCH"; fi \
+  && wget https://github.com/AlexxIT/go2rtc/releases/download/v${GO2RTC_VERSION}/go2rtc_linux_$PLATFORM -O go2rtc \
+  && chmod +x /usr/local/bin/go2rtc
+
+WORKDIR /go2rtc
+RUN wget https://raw.githubusercontent.com/AlexxIT/go2rtc/refs/tags/v${GO2RTC_VERSION}/www/video-rtc.js -O video-rtc.js
+
+FROM scratch AS go2rtc
+COPY --from=go2rtc-base /usr/local/bin/go2rtc /usr/local/bin/go2rtc
+COPY --from=go2rtc-base /go2rtc/video-rtc.js /go2rtc/
 
 
 # Build frontend
@@ -50,6 +78,7 @@ COPY frontend/package-lock.json ./
 RUN npm ci --legacy-peer-deps
 
 COPY frontend/ ./
+COPY --from=go2rtc /go2rtc/video-rtc.js /frontend/src/components/player/liveplayer/video-rtc.js
 RUN npm run build
 
 
@@ -66,6 +95,7 @@ ARG S6_OVERLAY_VERSION
 ARG EXTRA_APT_PACKAGES
 
 ENV \
+  VISERON_CONFIG_DIR=/config \
   DEBIAN_FRONTEND=noninteractive \
   S6_KEEP_ENV=1 \
   S6_SERVICES_GRACETIME=30000 \
@@ -75,7 +105,6 @@ ENV \
   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib \
   PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.10/site-packages \
   OPENCV_OPENCL_CACHE_ENABLE=false \
-  PGDATA=/config/postgresql \
   PG_COLOR="always"
 
 ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-${S6_OVERLAY_ARCH}-installer /tmp/s6-overlay-installer
@@ -84,6 +113,7 @@ RUN \
   apt-get update && apt-get install -y --no-install-recommends \
   software-properties-common \
   curl \
+  cpulimit \
   gnupg \
   tzdata \
   python3 \
@@ -96,6 +126,8 @@ RUN \
   # PostgreSQL
   postgresql \
   postgresql-contrib \
+  # NGNX \
+  nginx \
   # Install extra apt packages from build-arg
   ${EXTRA_APT_PACKAGES} \
   # GStreamer
@@ -154,6 +186,7 @@ COPY docker/ffmpeg_wrapper /home/abc/bin/ffmpeg
 COPY --from=opencv /opt/opencv /usr/local/
 COPY --from=ffmpeg /usr/local /ffmpeg/
 COPY --from=gpac /gpac/bin/gcc /usr/bin
+COPY --from=go2rtc /usr/local/bin/go2rtc /usr/local/bin/go2rtc
 COPY rootfs/ /
 COPY --from=frontend /frontend/dist /src/viseron/frontend/
 COPY manager.py /src/manager.py

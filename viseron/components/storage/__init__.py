@@ -7,13 +7,13 @@ import logging
 import os
 import pathlib
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, overload
 
 import voluptuous as vol
 from alembic import command, script
 from alembic.config import Config
 from alembic.migration import MigrationContext
-from sqlalchemy import Engine, create_engine, update
+from sqlalchemy import update
 from sqlalchemy.orm import Session, scoped_session, sessionmaker
 
 from viseron.components.storage.config import (
@@ -29,10 +29,14 @@ from viseron.components.storage.const import (
     CONFIG_PATH,
     CONFIG_RECORDER,
     CONFIG_SNAPSHOTS,
+    CONFIG_TIER_CHECK_BATCH_SIZE,
+    CONFIG_TIER_CHECK_CPU_LIMIT,
+    CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
+    CONFIG_TIER_CHECK_WORKERS,
     CONFIG_TIERS,
-    DATABASE_URL,
     DEFAULT_COMPONENT,
     DESC_COMPONENT,
+    ENGINE,
     TIER_CATEGORY_RECORDER,
     TIER_CATEGORY_SNAPSHOTS,
     TIER_SUBCATEGORY_EVENT_CLIPS,
@@ -45,6 +49,7 @@ from viseron.components.storage.const import (
 )
 from viseron.components.storage.jobs import CleanupManager
 from viseron.components.storage.models import Base, FilesMeta, Motion, Recordings
+from viseron.components.storage.storage_subprocess import TierCheckWorker
 from viseron.components.storage.tier_handler import (
     EventClipTierHandler,
     SegmentsTierHandler,
@@ -67,6 +72,11 @@ from viseron.types import SnapshotDomain
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
+    from viseron.components.storage.storage_subprocess import (
+        DataItem,
+        DataItemDeleteFile,
+        DataItemMoveFile,
+    )
     from viseron.domains.camera import AbstractCamera
 
 LOGGER = logging.getLogger(__name__)
@@ -188,18 +198,32 @@ class Storage:
         self.camera_requested_files_count: dict[str, RequestedFilesCount] = {}
 
         self.ignored_files: list[str] = []
-        self.engine: Engine | None = None
+        self.engine = ENGINE
         self._get_session: Callable[[], Session] | None = None
 
         self.temporary_files_meta: dict[str, FilesMeta] = {}
 
-        self._cleanup_manager = CleanupManager(vis, self)
-        self._cleanup_manager.start()
+        self.cleanup_manager = CleanupManager(vis, self)
+        self.cleanup_manager.start()
+
+        self.tier_check_worker = TierCheckWorker(
+            vis, config[CONFIG_TIER_CHECK_CPU_LIMIT], config[CONFIG_TIER_CHECK_WORKERS]
+        )
 
     @property
     def camera_tier_handlers(self):
         """Return camera tier handlers."""
         return self._camera_tier_handlers
+
+    @property
+    def file_batch_size(self) -> int:
+        """Return the number of files to process in a single batch."""
+        return self._config[CONFIG_TIER_CHECK_BATCH_SIZE]
+
+    @property
+    def sleep_between_batches(self) -> float:
+        """Return the number of seconds to sleep between batches."""
+        return self._config[CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES]
 
     def initialize(self) -> None:
         """Initialize storage component."""
@@ -238,9 +262,6 @@ class Storage:
     def _create_new_db(self) -> None:
         """Create and stamp a new DB for fresh installs."""
         LOGGER.debug("Creating new database")
-        if self.engine is None:
-            raise RuntimeError("The database connection has not been established")
-
         try:
             Base.metadata.create_all(self.engine)
             command.stamp(self._alembic_cfg, "head")
@@ -249,10 +270,6 @@ class Storage:
 
     def create_database(self) -> None:
         """Create database."""
-        self.engine = create_engine(
-            DATABASE_URL, connect_args={"options": "-c timezone=UTC"}
-        )
-
         conn = self.engine.connect()
         context = MigrationContext.configure(conn)
         current_rev = context.get_current_revision()
@@ -284,27 +301,97 @@ class Storage:
             return self._get_session_expire()
         return self._get_session()
 
+    @overload
     def get_event_clips_path(self, camera: AbstractCamera) -> str:
+        ...
+
+    @overload
+    def get_event_clips_path(
+        self, camera: AbstractCamera, all_tiers: Literal[False]
+    ) -> str:
+        ...
+
+    @overload
+    def get_event_clips_path(
+        self, camera: AbstractCamera, all_tiers: Literal[True]
+    ) -> list[str]:
+        ...
+
+    def get_event_clips_path(
+        self, camera: AbstractCamera, all_tiers: bool = False
+    ) -> str | list[str]:
         """Get event clips path for camera."""
         self.create_tier_handlers(camera)
-        return get_event_clips_path(
-            self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][0][
-                TIER_SUBCATEGORY_EVENT_CLIPS
-            ].tier,
-            camera,
-        )
+        if not all_tiers:
+            return get_event_clips_path(
+                self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][
+                    0
+                ][TIER_SUBCATEGORY_EVENT_CLIPS].tier,
+                camera,
+            )
+        return [
+            get_event_clips_path(
+                tier_handler[TIER_SUBCATEGORY_EVENT_CLIPS].tier, camera
+            )
+            for tier_handler in self._camera_tier_handlers[camera.identifier][
+                TIER_CATEGORY_RECORDER
+            ]
+        ]
 
+    @overload
     def get_segments_path(self, camera: AbstractCamera) -> str:
+        ...
+
+    @overload
+    def get_segments_path(
+        self, camera: AbstractCamera, all_tiers: Literal[False]
+    ) -> str:
+        ...
+
+    @overload
+    def get_segments_path(
+        self, camera: AbstractCamera, all_tiers: Literal[True]
+    ) -> list[str]:
+        ...
+
+    def get_segments_path(
+        self, camera: AbstractCamera, all_tiers: bool = False
+    ) -> str | list[str]:
         """Get segments path for camera."""
         self.create_tier_handlers(camera)
-        return get_segments_path(
-            self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][0][
-                TIER_SUBCATEGORY_SEGMENTS
-            ].tier,
-            camera,
-        )
+        if not all_tiers:
+            return get_segments_path(
+                self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][
+                    0
+                ][TIER_SUBCATEGORY_SEGMENTS].tier,
+                camera,
+            )
+        return [
+            get_segments_path(tier_handler[TIER_SUBCATEGORY_SEGMENTS].tier, camera)
+            for tier_handler in self._camera_tier_handlers[camera.identifier][
+                TIER_CATEGORY_RECORDER
+            ]
+        ]
 
+    @overload
     def get_thumbnails_path(self, camera: AbstractCamera) -> str:
+        ...
+
+    @overload
+    def get_thumbnails_path(
+        self, camera: AbstractCamera, all_tiers: Literal[False]
+    ) -> str:
+        ...
+
+    @overload
+    def get_thumbnails_path(
+        self, camera: AbstractCamera, all_tiers: Literal[True]
+    ) -> list[str]:
+        ...
+
+    def get_thumbnails_path(
+        self, camera: AbstractCamera, all_tiers: bool = False
+    ) -> str | list[str]:
         """Get thumbnails path for camera.
 
         This is an UNMONITORED path, meaning that the files in this path will not be
@@ -312,27 +399,55 @@ class Storage:
         recording.
         """
         self.create_tier_handlers(camera)
-        return get_thumbnails_path(
-            self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][0][
-                TIER_SUBCATEGORY_EVENT_CLIPS
-            ].tier,
-            camera,
-        )
+        if not all_tiers:
+            return get_thumbnails_path(
+                self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][
+                    0
+                ][TIER_SUBCATEGORY_THUMBNAILS].tier,
+                camera,
+            )
+        return [
+            get_thumbnails_path(tier_handler[TIER_SUBCATEGORY_THUMBNAILS].tier, camera)
+            for tier_handler in self._camera_tier_handlers[camera.identifier][
+                TIER_CATEGORY_RECORDER
+            ]
+        ]
+
+    @overload
+    def get_snapshots_path(self, camera: AbstractCamera, domain: SnapshotDomain) -> str:
+        ...
+
+    @overload
+    def get_snapshots_path(
+        self, camera: AbstractCamera, domain: SnapshotDomain, all_tiers: Literal[False]
+    ) -> str:
+        ...
+
+    @overload
+    def get_snapshots_path(
+        self, camera: AbstractCamera, domain: SnapshotDomain, all_tiers: Literal[True]
+    ) -> list[str]:
+        ...
 
     def get_snapshots_path(
-        self,
-        camera: AbstractCamera,
-        domain: SnapshotDomain,
-    ) -> str:
+        self, camera: AbstractCamera, domain: SnapshotDomain, all_tiers: bool = False
+    ) -> str | list[str]:
         """Get snapshots path for camera."""
         self.create_tier_handlers(camera)
-        return get_snapshots_path(
-            self._camera_tier_handlers[camera.identifier]["snapshots"][0][
-                domain.value
-            ].tier,
-            camera,
-            domain,
-        )
+        if not all_tiers:
+            return get_snapshots_path(
+                self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_SNAPSHOTS][
+                    0
+                ][domain.value].tier,
+                camera,
+                domain,
+            )
+        return [
+            get_snapshots_path(tier_handler[domain.value].tier, camera, domain)
+            for tier_handler in self._camera_tier_handlers[camera.identifier][
+                TIER_CATEGORY_SNAPSHOTS
+            ]
+        ]
 
     def search_file(
         self, camera_identifier: str, category: str, subcategory: str, path: str
@@ -415,6 +530,38 @@ class Storage:
                         tier,
                         next_tier,
                     )
+
+    @overload
+    def tier_check_worker_send_command(
+        self,
+        item: DataItem,
+        callback: Callable[[DataItem], None] | None = None,
+    ) -> None:
+        ...
+
+    @overload
+    def tier_check_worker_send_command(
+        self,
+        item: DataItemMoveFile,
+        callback: Callable[[DataItemMoveFile], None] | None = None,
+    ) -> None:
+        ...
+
+    @overload
+    def tier_check_worker_send_command(
+        self,
+        item: DataItemDeleteFile,
+        callback: Callable[[DataItemDeleteFile], None] | None = None,
+    ) -> None:
+        ...
+
+    def tier_check_worker_send_command(
+        self,
+        item: DataItem | DataItemMoveFile | DataItemDeleteFile,
+        callback: Callable[[Any], None] | None = None,
+    ) -> None:
+        """Send command to tier check worker."""
+        self.tier_check_worker.send_command(item, callback)
 
     def _shutdown(self) -> None:
         """Shutdown."""

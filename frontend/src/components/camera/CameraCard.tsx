@@ -19,7 +19,6 @@ import { Link } from "react-router-dom";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { FailedCameraCard } from "components/camera/FailedCameraCard";
-import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
 import { useFirstRender } from "hooks/UseFirstRender";
 import useOnScreen from "hooks/UseOnScreen";
@@ -63,7 +62,6 @@ const SuccessCameraCard = ({
   border,
 }: SuccessCameraCardProps) => {
   const { connected } = useContext(ViseronContext);
-  const { auth } = useAuthContext();
   const theme = useTheme();
   const ref: any = useRef<HTMLDivElement>();
   const onScreen = useOnScreen<HTMLDivElement>(ref);
@@ -179,9 +177,7 @@ const SuccessCameraCard = ({
         >
           <CardMedia>
             <Image
-              src={`${snapshotURL.url}${
-                auth.enabled ? `&access_token=${camera.access_token}` : ""
-              }`}
+              src={snapshotURL.url}
               disableSpinner={snapshotURL.disableSpinner}
               disableTransition={snapshotURL.disableTransition}
               animationDuration={1000}
@@ -240,9 +236,8 @@ const SuccessCameraCard = ({
               </Tooltip>
               <Tooltip title="Live View">
                 <IconButton
-                  component={"a" as React.ElementType}
-                  target="_blank"
-                  href={`/${camera.identifier}/mjpeg-stream`}
+                  component={Link}
+                  to={`/live?camera=${camera.identifier}`}
                 >
                   <LiveTvIcon />
                 </IconButton>

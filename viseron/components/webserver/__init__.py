@@ -7,7 +7,6 @@ import secrets
 import threading
 from typing import TYPE_CHECKING
 
-import tornado.gen
 import tornado.ioloop
 import tornado.web
 import voluptuous as vol
@@ -17,7 +16,7 @@ from viseron.components.webserver.auth import Auth
 from viseron.const import DEFAULT_PORT, VISERON_SIGNAL_SHUTDOWN
 from viseron.exceptions import ComponentNotReady
 from viseron.helpers.storage import Storage
-from viseron.helpers.validators import CoerceNoneToDict
+from viseron.helpers.validators import CoerceNoneToDict, Deprecated
 
 from .api import APIRouter
 from .const import (
@@ -41,15 +40,10 @@ from .const import (
     DESC_PORT,
     DESC_SESSION_EXPIRY,
     DOWNLOAD_TOKENS,
-    PATH_ASSETS,
-    PATH_INDEX,
-    PATH_STATIC,
     WEBSERVER_STORAGE_KEY,
     WEBSOCKET_COMMANDS,
     WEBSOCKET_CONNECTIONS,
 )
-from .not_found_handler import NotFoundHandler
-from .request_handler import ViseronRequestHandler
 from .stream_handler import DynamicStreamHandler, StaticStreamHandler
 from .websocket_api import WebSocketHandler
 from .websocket_api.commands import (
@@ -85,9 +79,9 @@ CONFIG_SCHEMA = vol.Schema(
         ): vol.All(
             CoerceNoneToDict(),
             {
-                vol.Optional(
-                    CONFIG_PORT, default=DEFAULT_PORT, description=DESC_PORT
-                ): vol.All(int, vol.Range(min=1024, max=49151)),
+                Deprecated(CONFIG_PORT, description=DESC_PORT): vol.All(
+                    int, vol.Range(min=1024, max=49151)
+                ),
                 vol.Optional(
                     CONFIG_DEBUG, default=DEFAULT_DEBUG, description=DESC_DEBUG
                 ): bool,
@@ -151,26 +145,6 @@ def setup(vis: Viseron, config) -> bool:
     return True
 
 
-class IndexHandler(ViseronRequestHandler):
-    """Handler for index page."""
-
-    def get(self) -> None:
-        """GET request."""
-        self.render(PATH_INDEX)
-
-
-class DeprecatedStreamHandler(tornado.web.RequestHandler):
-    """Socket handler."""
-
-    def get(self, camera) -> None:
-        """GET request."""
-        LOGGER.warning(
-            f"The endpoint /{camera}/stream is deprecated. "
-            f"Please use /{camera}/mjpeg-stream instead."
-        )
-        self.redirect(f"/{camera}/mjpeg-stream")
-
-
 class WebserverStore:
     """Webserver storage."""
 
@@ -215,16 +189,7 @@ def create_application(
                 {"vis": vis},
             ),
             (r"/websocket$", WebSocketHandler, {"vis": vis}),
-            (
-                r"/assets/(.*)",
-                tornado.web.StaticFileHandler,
-                {"path": PATH_ASSETS},
-            ),
-            (r"/$", IndexHandler, {"vis": vis}),
-            (r"/index.html$", IndexHandler, {"vis": vis}),
         ],
-        default_handler_class=NotFoundHandler,
-        static_path=PATH_STATIC,
         debug=config[CONFIG_DEBUG],
         autoreload=False,
         cookie_secret=cookie_secret,
@@ -265,7 +230,7 @@ class Webserver(threading.Thread):
         self._httpserver = None
         try:
             self._httpserver = self._application.listen(
-                config[CONFIG_PORT],
+                DEFAULT_PORT,
                 xheaders=True,
             )
         except OSError as error:

@@ -42,11 +42,11 @@ declare module "@mui/material/styles/createPalette" {
 declare module "@mui/material/styles" {
   interface Theme {
     headerHeight: number;
-    margin: string;
+    headerMargin: string;
   }
   interface ThemeOptions {
     headerHeight?: number;
-    margin?: string;
+    headerMargin?: string;
   }
 }
 
@@ -146,7 +146,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
 
         grey,
         headerHeight: 56,
-        margin: "0.5dvh",
+        headerMargin: "0.5dvh",
 
         palette: {
           mode,

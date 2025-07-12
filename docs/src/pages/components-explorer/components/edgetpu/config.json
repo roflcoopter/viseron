@@ -373,10 +373,14 @@
               {
                 "value": "cpu",
                 "description": "Run on the CPU"
+              },
+              {
+                "value": "<list>",
+                "description": "A list of any of the above to run the model on multiple devices"
               }
             ],
             "name": "device",
-            "description": "Which EdgeTPU to use. Change this if you have multiple devices and want to use a specific one.",
+            "description": "Which EdgeTPU to use. Change this if you want to run on multiple devices or run on a specific one.",
             "optional": true,
             "default": null
           },
@@ -518,10 +522,14 @@
               {
                 "value": "cpu",
                 "description": "Run on the CPU"
+              },
+              {
+                "value": "<list>",
+                "description": "A list of any of the above to run the model on multiple devices"
               }
             ],
             "name": "device",
-            "description": "Which EdgeTPU to use. Change this if you have multiple devices and want to use a specific one.",
+            "description": "Which EdgeTPU to use. Change this if you want to run on multiple devices or run on a specific one.",
             "optional": true,
             "default": null
           },

@@ -463,6 +463,15 @@ class Camera(AbstractCamera):
         self._resolution = resolution
 
     @property
+    def mainstream_resolution(self) -> tuple[int, int]:
+        """Return mainstream resolution.
+
+        GStreamer does not support substream, so we return the same value as
+        self.resolution.
+        """
+        return self.resolution
+
+    @property
     def recorder(self) -> Recorder:
         """Return recorder instance."""
         return self._recorder

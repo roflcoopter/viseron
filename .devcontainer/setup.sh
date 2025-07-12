@@ -30,8 +30,8 @@ sed -i 's/#force_color_prompt=yes/force_color_prompt=yes/g' $HOME/.bashrc
 
 # Create default config if it is missing
 cd $WORKSPACE_DIR
-mkdir -p $WORKSPACE_DIR/config
-FILE=$WORKSPACE_DIR/config/config.yaml
+mkdir -p $VISERON_CONFIG_DIR
+FILE=$VISERON_CONFIG_DIR/config.yaml
 if test -f "$FILE"; then
     echo "Config file already exists"
 else

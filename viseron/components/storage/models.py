@@ -109,6 +109,13 @@ class Files(Base):
     __table_args__ = (
         Index("idx_files_path", "path"),
         Index("idx_files_camera_id", "camera_identifier"),
+        Index(
+            "idx_files_tier_lookup",
+            "camera_identifier",
+            "tier_id",
+            "category",
+            "subcategory",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

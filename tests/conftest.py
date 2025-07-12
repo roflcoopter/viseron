@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from viseron import Viseron
 from viseron.components.data_stream import COMPONENT as DATA_STREAM, DataStream
 from viseron.components.storage import COMPONENT as STORAGE, Storage
+from viseron.components.storage.const import DEFAULT_TIER_CHECK_BATCH_SIZE
 from viseron.components.storage.models import Base
 from viseron.components.webserver import COMPONENT as WEBSERVER, Webserver
 from viseron.const import LOADED
@@ -40,6 +41,7 @@ def vis() -> MockViseron:
     viseron = MockViseron()
     viseron.data[DATA_STREAM] = MagicMock(spec=DataStream)
     viseron.data[STORAGE] = MagicMock(spec=Storage)
+    viseron.data[STORAGE].file_batch_size = DEFAULT_TIER_CHECK_BATCH_SIZE
     viseron.data[WEBSERVER] = MagicMock(spec=Webserver)
     viseron.data[LOADED] = {}
 

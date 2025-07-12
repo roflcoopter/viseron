@@ -11,7 +11,7 @@ done
 log_info "Viseron has stopped!"
 
 log_info "Stopping PostgreSQL..."
-s6-setuidgid postgres $PG_BIN/pg_ctl -D /config/postgresql -l /config/postgresql/logfile stop
+s6-setuidgid postgres $PG_BIN/pg_ctl -D $VISERON_CONFIG_DIR/postgresql -l $VISERON_CONFIG_DIR/postgresql/logfile stop
 
 # Wait until PostgreSQL has stopped
 log_info "Waiting for PostgreSQL Server to stop..."
@@ -21,4 +21,4 @@ done
 log_info "PostgreSQL Server has stopped!"
 
 # Restore permissions
-chown -R abc:abc /config/postgresql
+chown -R abc:abc $VISERON_CONFIG_DIR/postgresql

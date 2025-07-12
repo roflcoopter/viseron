@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import multiprocessing as mp
 from abc import ABC, abstractmethod
+from multiprocessing.synchronize import Event
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any
 
@@ -31,12 +32,12 @@ class ChildProcessWorker(ABC):
     Work is then performed in the child process and returned through output queue.
     """
 
-    def __init__(self, vis: Viseron, name) -> None:
+    def __init__(self, vis: Viseron, name: str) -> None:
         self._name = name
 
         self._process_frames_proc_exit = mp.Event()
 
-        self.input_queue: Any = Queue(maxsize=100)
+        self.input_queue: Queue[Any] = Queue(maxsize=100)
         input_thread = RestartableThread(
             target=self._process_input_queue,
             name=f"child_process.{self._name}.input_thread",
@@ -92,7 +93,7 @@ class ChildProcessWorker(ABC):
     @property
     def child_process_name(self) -> str:
         """Return spawned child process name."""
-        return f"child_process.{self._name}.process"
+        return f"viseron.child_process.{self._name}.process"
 
     def _process_input_queue(self) -> None:
         """Read from thread queue and put to multiprocessing queue."""
@@ -114,7 +115,9 @@ class ChildProcessWorker(ABC):
     def process_initialization(self) -> None:
         """Run initializations inside spawned process."""
 
-    def _process_frames(self, exit_event, process_queue, output_queue) -> None:
+    def _process_frames(
+        self, exit_event: Event, process_queue: mp.Queue, output_queue: mp.Queue
+    ) -> None:
         """Process frame and send it to the detector."""
         remove_shm_from_resource_tracker()
         setproctitle.setproctitle(self.child_process_name)
@@ -142,6 +145,10 @@ class ChildProcessWorker(ABC):
     def stop(self) -> None:
         """Stop detection process."""
         LOGGER.debug(f"Sending exit event to {self.child_process_name}")
+        if self._process_queue:
+            self._process_queue.close()
+        if self._output_queue:
+            self._output_queue.close()
         self._process_frames_proc_exit.set()
         self._process_frames_proc.join(5)
         self._process_frames_proc.terminate()

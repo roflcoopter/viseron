@@ -3,6 +3,34 @@
     "type": "map",
     "value": [
       {
+        "type": "integer",
+        "name": "tier_check_cpu_limit",
+        "description": "CPU limit for the tier check process. This is used to limit the CPU usage of the process that checks for files to move or delete. This is useful to not overload the system with the tier check process. The value is an integer between 1 and 100, where 100 is 100% CPU usage. ",
+        "optional": true,
+        "default": 10
+      },
+      {
+        "type": "integer",
+        "name": "tier_check_workers",
+        "description": "The number of worker threads to use for checking tiers. This can be used to speed up the tier check process by using multiple threads to check for files to move or delete.",
+        "optional": true,
+        "default": 4
+      },
+      {
+        "type": "integer",
+        "name": "tier_check_batch_size",
+        "description": "The number of files to move/delete in each batch. This can be used to limit the number of files moved/deleted at once, reducing the load on the system. ",
+        "optional": true,
+        "default": 5
+      },
+      {
+        "type": "float",
+        "name": "tier_check_sleep_between_batches",
+        "description": "The number of seconds to sleep between batches. This can be used to reduce the load on the system by sleeping between batches. ",
+        "optional": true,
+        "default": 0.5
+      },
+      {
         "type": "map",
         "value": [
           {

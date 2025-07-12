@@ -4,7 +4,7 @@ If you are only interested in recording 24/7 without running any sort of detecti
 
 This mode will use very little resources since the streams are never decoded.
 
-```yaml /config/config.yaml
+```yaml title="/config/config.yaml"
 ffmpeg: # Does NOT work with gstreamer as of now
   camera:
     camera_one:
@@ -52,7 +52,7 @@ If your camera supports taking snapshots via URL, you can utilize that in Visero
 
 Here is an example for a Hikvision camera:
 
-```yaml /config/config.yaml
+```yaml title="/config/config.yaml"
 ffmpeg:
   camera:
     camera_one:

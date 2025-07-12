@@ -54,6 +54,10 @@ Viserons features include, but not limited to the following:
 
 <img src="/img/screenshots/Viseron-screenshot-cameras.png" alt-text="Camera view"/>
 
+### Live view
+
+<img src="/img/screenshots/Viseron-screenshot-live.png" alt-text="Live view"/>
+
 ### Recordings view
 
 <img src="/img/screenshots/Viseron-screenshot-recordings.png" alt-text="Recordings view"/>

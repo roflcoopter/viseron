@@ -8,7 +8,7 @@ import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { Dayjs } from "dayjs";
 import { useState } from "react";
 
-import { useFilteredCameras } from "components/events/utils";
+import { useFilteredCameras } from "components/camera/useCameraStore";
 import { useExportTimespan } from "lib/commands";
 import { is12HourFormat } from "lib/helpers";
 
