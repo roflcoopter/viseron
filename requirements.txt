@@ -14,7 +14,7 @@ numpy==1.26.4
 paho-mqtt==2.1.0
 path.py==12.5.0
 pillow==11.1.0
-psutil==5.9.8
+psutil==7.0.0
 psycopg2-binary==2.9.9
 pyjwt==2.8.0
 python-debouncer==0.1.5
