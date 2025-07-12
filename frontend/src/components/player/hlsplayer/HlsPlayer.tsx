@@ -203,7 +203,7 @@ const initializePlayer = (
       case Hls.ErrorDetails.FRAG_GAP:
         break;
       default:
-        setHlsRefsError(hlsRef, data.error.message);
+        setHlsRefsError(hlsRef, data.error.message.slice(0, 200));
         break;
     }
 
