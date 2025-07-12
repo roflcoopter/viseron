@@ -7,7 +7,7 @@ import logging
 import os
 import pathlib
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, TypedDict, overload
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, overload
 
 import voluptuous as vol
 from alembic import command, script
@@ -301,27 +301,97 @@ class Storage:
             return self._get_session_expire()
         return self._get_session()
 
+    @overload
     def get_event_clips_path(self, camera: AbstractCamera) -> str:
+        ...
+
+    @overload
+    def get_event_clips_path(
+        self, camera: AbstractCamera, all_tiers: Literal[False]
+    ) -> str:
+        ...
+
+    @overload
+    def get_event_clips_path(
+        self, camera: AbstractCamera, all_tiers: Literal[True]
+    ) -> list[str]:
+        ...
+
+    def get_event_clips_path(
+        self, camera: AbstractCamera, all_tiers: bool = False
+    ) -> str | list[str]:
         """Get event clips path for camera."""
         self.create_tier_handlers(camera)
-        return get_event_clips_path(
-            self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][0][
-                TIER_SUBCATEGORY_EVENT_CLIPS
-            ].tier,
-            camera,
-        )
+        if not all_tiers:
+            return get_event_clips_path(
+                self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][
+                    0
+                ][TIER_SUBCATEGORY_EVENT_CLIPS].tier,
+                camera,
+            )
+        return [
+            get_event_clips_path(
+                tier_handler[TIER_SUBCATEGORY_EVENT_CLIPS].tier, camera
+            )
+            for tier_handler in self._camera_tier_handlers[camera.identifier][
+                TIER_CATEGORY_RECORDER
+            ]
+        ]
 
+    @overload
     def get_segments_path(self, camera: AbstractCamera) -> str:
+        ...
+
+    @overload
+    def get_segments_path(
+        self, camera: AbstractCamera, all_tiers: Literal[False]
+    ) -> str:
+        ...
+
+    @overload
+    def get_segments_path(
+        self, camera: AbstractCamera, all_tiers: Literal[True]
+    ) -> list[str]:
+        ...
+
+    def get_segments_path(
+        self, camera: AbstractCamera, all_tiers: bool = False
+    ) -> str | list[str]:
         """Get segments path for camera."""
         self.create_tier_handlers(camera)
-        return get_segments_path(
-            self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][0][
-                TIER_SUBCATEGORY_SEGMENTS
-            ].tier,
-            camera,
-        )
+        if not all_tiers:
+            return get_segments_path(
+                self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][
+                    0
+                ][TIER_SUBCATEGORY_SEGMENTS].tier,
+                camera,
+            )
+        return [
+            get_segments_path(tier_handler[TIER_SUBCATEGORY_SEGMENTS].tier, camera)
+            for tier_handler in self._camera_tier_handlers[camera.identifier][
+                TIER_CATEGORY_RECORDER
+            ]
+        ]
 
+    @overload
     def get_thumbnails_path(self, camera: AbstractCamera) -> str:
+        ...
+
+    @overload
+    def get_thumbnails_path(
+        self, camera: AbstractCamera, all_tiers: Literal[False]
+    ) -> str:
+        ...
+
+    @overload
+    def get_thumbnails_path(
+        self, camera: AbstractCamera, all_tiers: Literal[True]
+    ) -> list[str]:
+        ...
+
+    def get_thumbnails_path(
+        self, camera: AbstractCamera, all_tiers: bool = False
+    ) -> str | list[str]:
         """Get thumbnails path for camera.
 
         This is an UNMONITORED path, meaning that the files in this path will not be
@@ -329,27 +399,55 @@ class Storage:
         recording.
         """
         self.create_tier_handlers(camera)
-        return get_thumbnails_path(
-            self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][0][
-                TIER_SUBCATEGORY_EVENT_CLIPS
-            ].tier,
-            camera,
-        )
+        if not all_tiers:
+            return get_thumbnails_path(
+                self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_RECORDER][
+                    0
+                ][TIER_SUBCATEGORY_THUMBNAILS].tier,
+                camera,
+            )
+        return [
+            get_thumbnails_path(tier_handler[TIER_SUBCATEGORY_THUMBNAILS].tier, camera)
+            for tier_handler in self._camera_tier_handlers[camera.identifier][
+                TIER_CATEGORY_RECORDER
+            ]
+        ]
+
+    @overload
+    def get_snapshots_path(self, camera: AbstractCamera, domain: SnapshotDomain) -> str:
+        ...
+
+    @overload
+    def get_snapshots_path(
+        self, camera: AbstractCamera, domain: SnapshotDomain, all_tiers: Literal[False]
+    ) -> str:
+        ...
+
+    @overload
+    def get_snapshots_path(
+        self, camera: AbstractCamera, domain: SnapshotDomain, all_tiers: Literal[True]
+    ) -> list[str]:
+        ...
 
     def get_snapshots_path(
-        self,
-        camera: AbstractCamera,
-        domain: SnapshotDomain,
-    ) -> str:
+        self, camera: AbstractCamera, domain: SnapshotDomain, all_tiers: bool = False
+    ) -> str | list[str]:
         """Get snapshots path for camera."""
         self.create_tier_handlers(camera)
-        return get_snapshots_path(
-            self._camera_tier_handlers[camera.identifier]["snapshots"][0][
-                domain.value
-            ].tier,
-            camera,
-            domain,
-        )
+        if not all_tiers:
+            return get_snapshots_path(
+                self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_SNAPSHOTS][
+                    0
+                ][domain.value].tier,
+                camera,
+                domain,
+            )
+        return [
+            get_snapshots_path(tier_handler[domain.value].tier, camera, domain)
+            for tier_handler in self._camera_tier_handlers[camera.identifier][
+                TIER_CATEGORY_SNAPSHOTS
+            ]
+        ]
 
     def search_file(
         self, camera_identifier: str, category: str, subcategory: str, path: str

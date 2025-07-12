@@ -198,15 +198,14 @@ class OrphanedFilesCleanup(BaseCleanupJob):
 
         paths = []
         for camera in cameras.values():
-            paths += [
-                self._storage.get_event_clips_path(camera),
-                self._storage.get_segments_path(camera),
-                self._storage.get_thumbnails_path(camera),
-            ] + [
-                self._storage.get_snapshots_path(camera, domain)
-                for camera in cameras.values()
-                for domain in SnapshotDomain
-            ]
+            paths += self._storage.get_event_clips_path(camera, all_tiers=True)
+            paths += self._storage.get_segments_path(camera, all_tiers=True)
+            paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
+
+            for domain in SnapshotDomain:
+                paths += self._storage.get_snapshots_path(
+                    camera, domain, all_tiers=True
+                )
 
         total_files_processed = 0
         with self._storage.get_session() as session:
@@ -349,27 +348,28 @@ class EmptyFoldersCleanup(BaseCleanupJob):
         if not cameras:
             return
 
+        paths = []
         for camera in cameras.values():
-            for path in [
-                self._storage.get_event_clips_path(camera),
-                self._storage.get_segments_path(camera),
-                self._storage.get_thumbnails_path(camera),
-            ] + [
-                self._storage.get_snapshots_path(camera, domain)
-                for domain in SnapshotDomain
-            ]:
-                time.sleep(1)
-                for root, dirs, files in os.walk(path, topdown=False):
-                    processed_count += 1
-                    self.log_progress(
-                        f"{self.name} processed {processed_count} folders"
-                    )
-                    if root == path:
-                        continue
-                    if not dirs and not files:
-                        LOGGER.debug("Deleting folder %s", root)
-                        os.rmdir(root)
-                        deleted_count += 1
+            paths += self._storage.get_event_clips_path(camera, all_tiers=True)
+            paths += self._storage.get_segments_path(camera, all_tiers=True)
+            paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
+
+            for domain in SnapshotDomain:
+                paths += self._storage.get_snapshots_path(
+                    camera, domain, all_tiers=True
+                )
+
+        for path in paths:
+            time.sleep(1)
+            for root, dirs, files in os.walk(path, topdown=False):
+                processed_count += 1
+                self.log_progress(f"{self.name} processed {processed_count} folders")
+                if root == path:
+                    continue
+                if not dirs and not files:
+                    LOGGER.debug("Deleting folder %s", root)
+                    os.rmdir(root)
+                    deleted_count += 1
 
         LOGGER.debug(
             "%s deleted %d empty folders, took %s",
@@ -398,10 +398,13 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
         if not cameras:
             return
 
+        paths = []
+        for camera in cameras.values():
+            paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
+
         with self._storage.get_session() as session:
-            for camera in cameras.values():
+            for thumbnails_path in paths:
                 files_processed = 0
-                thumbnails_path = self._storage.get_thumbnails_path(camera)
                 if not os.path.exists(thumbnails_path):
                     continue
 
@@ -478,10 +481,13 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
         if not cameras:
             return
 
+        paths = []
+        for camera in cameras.values():
+            paths += self._storage.get_event_clips_path(camera, all_tiers=True)
+
         with self._storage.get_session() as session:
-            for camera in cameras.values():
+            for event_clips_path in paths:
                 files_processed = 0
-                event_clips_path = self._storage.get_event_clips_path(camera)
                 if not os.path.exists(event_clips_path):
                     continue
 
@@ -737,9 +743,9 @@ class CleanupManager:
     def __init__(self, vis: Viseron, storage: Storage):
         self._vis = vis
         self.jobs: list[BaseCleanupJob] = [
-            OrphanedFilesCleanup(vis, storage, CronTrigger(minute=0, jitter=600)),
+            OrphanedFilesCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedDatabaseFilesCleanup(
-                vis, storage, CronTrigger(minute=0, jitter=600)
+                vis, storage, CronTrigger(hour=0, jitter=3600)
             ),
             EmptyFoldersCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedThumbnailsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
