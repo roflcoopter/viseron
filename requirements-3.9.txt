@@ -1,2 +1,3 @@
 numpy==1.26.4
+pillow==11.1.0
 pycoral~=2.0
