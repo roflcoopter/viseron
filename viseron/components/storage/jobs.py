@@ -743,9 +743,9 @@ class CleanupManager:
     def __init__(self, vis: Viseron, storage: Storage):
         self._vis = vis
         self.jobs: list[BaseCleanupJob] = [
-            OrphanedFilesCleanup(vis, storage, CronTrigger(minute=0, jitter=600)),
+            OrphanedFilesCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedDatabaseFilesCleanup(
-                vis, storage, CronTrigger(minute=0, jitter=600)
+                vis, storage, CronTrigger(hour=0, jitter=3600)
             ),
             EmptyFoldersCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedThumbnailsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
