@@ -13,7 +13,8 @@ imutils==0.5.4
 numpy==1.26.4
 paho-mqtt==2.1.0
 path.py==12.5.0
-psutil==5.9.8
+pillow==11.1.0
+psutil==7.0.0
 psycopg2-binary==2.9.9
 pyjwt==2.8.0
 python-debouncer==0.1.5
@@ -34,4 +35,4 @@ sqlalchemy==2.0.30
 watchdog==4.0.0
 python-telegram-bot==21.4
 onvif-zeep==0.2.12
-ultralytics==8.3.146
+ultralytics==8.3.146; platform_machine == "x86_64" or platform_machine == "aarch64"
