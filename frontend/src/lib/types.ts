@@ -169,6 +169,10 @@ export interface Camera {
   width: number;
   height: number;
   access_token: string;
+  mainstream: {
+    width: number;
+    height: number;
+  };
   still_image: {
     refresh_interval: number;
     available: boolean;
@@ -178,6 +182,7 @@ export interface Camera {
   failed: false;
   is_on: boolean;
   connected: boolean;
+  live_stream_available: boolean;
 }
 
 export interface Cameras {
@@ -189,6 +194,11 @@ export interface FailedCamera {
   name: string;
   width: number;
   height: number;
+  mainstream: {
+    width: number;
+    height: number;
+  };
+  live_stream_available: boolean;
   error: string;
   retrying: boolean;
   failed: true;

@@ -8,11 +8,13 @@ colorlog==6.8.2
 compreface-sdk==0.6.0
 face-recognition==1.3.0
 httpx==0.27.0
+python-immutable==1.1.0
 imutils==0.5.4
 numpy==1.26.4
 paho-mqtt==2.1.0
 path.py==12.5.0
-psutil==5.9.8
+pillow==11.1.0
+psutil==7.0.0
 psycopg2-binary==2.9.9
 pyjwt==2.8.0
 python-debouncer==0.1.5
@@ -25,6 +27,7 @@ scipy==1.13.0
 supervision==0.21.0
 tenacity==8.3.0
 tornado==6.4.2
+typing-extensions==4.13.2
 urllib3==1.26.15
 voluptuous==0.14.2
 setproctitle==1.3.3
@@ -32,3 +35,4 @@ sqlalchemy==2.0.30
 watchdog==4.0.0
 python-telegram-bot==21.4
 onvif-zeep==0.2.12
+ultralytics==8.3.146; platform_machine == "x86_64" or platform_machine == "aarch64"

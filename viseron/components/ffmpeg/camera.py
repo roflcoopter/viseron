@@ -1,12 +1,14 @@
 """FFmpeg camera."""
 from __future__ import annotations
 
+import multiprocessing as mp
 import os
 import time
-from threading import Event
+from queue import Empty, Full
 from typing import TYPE_CHECKING
 
 import cv2
+import setproctitle
 import voluptuous as vol
 
 from viseron import Viseron
@@ -17,6 +19,7 @@ from viseron.domains.camera.config import (
     DEFAULT_RECORDER,
     RECORDER_SCHEMA as BASE_RECORDER_SCHEMA,
 )
+from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.exceptions import DomainNotReady, FFprobeError, FFprobeTimeout
 from viseron.helpers import escape_string, utcnow
 from viseron.helpers.logs import SensitiveInformationFilter
@@ -26,6 +29,7 @@ from viseron.helpers.validators import (
     Deprecated,
     Maybe,
 )
+from viseron.watchdog.process_watchdog import RestartableProcess
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
@@ -135,7 +139,6 @@ from .stream import Stream
 if TYPE_CHECKING:
     from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.components.storage.models import TriggerTypes
-    from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.object_detector.detected_object import DetectedObject
 
 
@@ -329,16 +332,20 @@ class Camera(AbstractCamera):
 
         self._poll_timer = utcnow().timestamp()
         self._frame_reader = None
+        self._frame_relay = None
         # Stream must be initialized before super().__init__ is called as it raises
         # FFprobeError/FFprobeTimeout which is caught in setup() and re-raised as
         # DomainNotReady
         self.stream = Stream(config, self, identifier)
 
         super().__init__(vis, COMPONENT, config, identifier)
-        self._capture_frames = False
+        self._frame_queue: mp.Queue[  # pylint: disable=unsubscriptable-object
+            bytes
+        ] = mp.Queue(maxsize=2)
+        self._capture_frames = mp.Event()
         self._thread_stuck = False
         self.resolution = None
-        self.decode_error = Event()
+        self.decode_error = mp.Event()
 
         if cv2.ocl.haveOpenCL():
             cv2.ocl.setUseOpenCL(True)
@@ -349,9 +356,15 @@ class Camera(AbstractCamera):
 
     def _create_frame_reader(self):
         """Return a frame reader thread."""
-        return RestartableThread(
+        return RestartableProcess(
             name="viseron.camera." + self.identifier,
+            args=(self._frame_queue,),
             target=self.read_frames,
+            daemon=True,
+            register=True,
+        ), RestartableThread(
+            name="viseron.camera." + self.identifier + ".relay_frame",
+            target=self.relay_frame,
             poll_method=self.poll_method,
             poll_target=self.poll_target,
             daemon=True,
@@ -400,20 +413,20 @@ class Camera(AbstractCamera):
 
         self._logger.debug(f"Camera {self.name} initialized")
 
-    def read_frames(self) -> None:
+    def read_frames(
+        self,
+        frame_queue: mp.Queue[bytes],  # pylint: disable=unsubscriptable-object
+    ) -> None:
         """Read frames from camera."""
+        setproctitle.setproctitle("viseron.camera." + self.identifier + ".read_frames")
         self.decode_error.clear()
-        self._poll_timer = utcnow().timestamp()
         empty_frames = 0
         self._thread_stuck = False
 
         self.stream.start_pipe()
 
-        while self._capture_frames:
+        while self._capture_frames.is_set():
             if self.decode_error.is_set():
-                self._poll_timer = utcnow().timestamp()
-                self.connected = False
-                self.still_image_available = self.still_image_configured
                 time.sleep(5)
                 self._logger.error("Restarting frame pipe")
                 self.stream.close_pipe()
@@ -421,15 +434,14 @@ class Camera(AbstractCamera):
                 self.decode_error.clear()
                 empty_frames = 0
 
-            self.current_frame = self.stream.read()
-            if self.current_frame:
-                self.connected = True
-                self.still_image_available = True
+            frame_bytes = self.stream.read()
+            if frame_bytes:
                 empty_frames = 0
-                self._poll_timer = utcnow().timestamp()
-                self._data_stream.publish_data(
-                    self.frame_bytes_topic, self.current_frame
-                )
+                # Dont queue frames if consumer is not ready
+                try:
+                    frame_queue.put_nowait(frame_bytes)
+                except Full:
+                    pass
                 continue
 
             if self._thread_stuck:
@@ -445,9 +457,43 @@ class Camera(AbstractCamera):
                 self._logger.error("Did not receive a frame")
                 self.decode_error.set()
 
-        self.connected = False
         self.stream.close_pipe()
         self._logger.debug("Frame reader stopped")
+
+    def relay_frame(self):
+        """Read from the frame queue and create a SharedFrame."""
+        self._poll_timer = utcnow().timestamp()
+        while self._capture_frames.is_set():
+            if self.decode_error.is_set():
+                self.connected = False
+                self.still_image_available = self.still_image_configured
+
+            try:
+                frame_bytes = self._frame_queue.get(timeout=1)
+            except Empty:
+                continue
+
+            self.connected = True
+            self.still_image_available = True
+
+            if len(frame_bytes) == self.stream.frame_bytes_size:
+                shared_frame = SharedFrame(
+                    self.stream.color_plane_width,
+                    self.stream.color_plane_height,
+                    self.stream.pixel_format,
+                    (self.stream.width, self.stream.height),
+                    self.identifier,
+                )
+            else:
+                continue
+
+            self._poll_timer = utcnow().timestamp()
+            self.shared_frames.create(shared_frame, frame_bytes)
+            self.current_frame = shared_frame
+            self._data_stream.publish_data(self.frame_bytes_topic, self.current_frame)
+
+        self.connected = False
+        self.still_image_available = self.still_image_configured
 
     def poll_target(self) -> None:
         """Close pipe when RestartableThread.poll_timeout has been reached."""
@@ -489,20 +535,27 @@ class Camera(AbstractCamera):
             return
 
         self._logger.debug("Starting capture thread")
-        self._capture_frames = True
+        self._capture_frames.set()
         if not self._frame_reader or not self._frame_reader.is_alive():
-            self._frame_reader = self._create_frame_reader()
+            self._frame_reader, self._frame_relay = self._create_frame_reader()
             self._frame_reader.start()
+            self._frame_relay.start()
 
     def _stop_camera(self) -> None:
         """Release the connection to the camera."""
         self._logger.debug("Stopping capture thread")
-        self._capture_frames = False
+        self._capture_frames.clear()
+        if self._frame_relay:
+            self._frame_relay.stop()
+            self._frame_relay.join(timeout=5)
+
         if self._frame_reader:
-            self._frame_reader.stop()
             self._frame_reader.join(timeout=5)
+            self._frame_reader.terminate()
             if self._frame_reader.is_alive():
                 self._logger.debug("Timed out trying to stop camera. Killing pipe")
+                self._frame_reader.terminate()
+                self._frame_reader.kill()
                 self.stream.close_pipe()
 
     def start_recorder(
@@ -538,6 +591,11 @@ class Camera(AbstractCamera):
     def resolution(self, resolution) -> None:
         """Return stream resolution."""
         self._resolution = resolution
+
+    @property
+    def mainstream_resolution(self) -> tuple[int, int]:
+        """Return mainstream resolution."""
+        return self.stream.mainstream.width, self.stream.mainstream.height
 
     @property
     def recorder(self) -> Recorder:

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from unittest.mock import MagicMock, Mock, patch
 
+import numpy as np
 import pytest
 from sqlalchemy import select
 
@@ -11,6 +12,8 @@ from viseron.components.storage import Storage
 from viseron.components.storage.const import (
     COMPONENT as STORAGE_COMPONENT,
     CONFIG_RECORDER,
+    TIER_CATEGORY_RECORDER,
+    TIER_SUBCATEGORY_SEGMENTS,
 )
 from viseron.components.storage.models import Recordings
 from viseron.components.storage.tier_handler import (
@@ -23,12 +26,11 @@ from viseron.components.storage.tier_handler import (
 from viseron.domains.camera.const import CONFIG_CONTINUOUS_RECORDING, CONFIG_LOOKBACK
 
 from tests.common import BaseTestWithRecordings
+from tests.conftest import MockViseron
 
 
 @patch("viseron.components.storage.tier_handler.delete_file")
-def test_handle_file_delete(
-    mock_delete_file: Mock,
-) -> None:
+def test_handle_file_delete(mock_delete_file: Mock, vis: MockViseron) -> None:
     """Test handle_file."""
     file = "/tmp/tier1/file1"
     tier_1 = {
@@ -37,16 +39,26 @@ def test_handle_file_delete(
     tier_2 = None
     session = MagicMock()
     logger = MagicMock()
+    storage = MagicMock()
     handle_file(
-        session, MagicMock(), "test", tier_1, tier_2, file, "/tmp/tier1/", logger
+        vis,
+        session,
+        storage,
+        "test",
+        0,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+        tier_1,
+        tier_2,
+        file,
+        "/tmp/tier1/",
+        logger,
     )
-    mock_delete_file.assert_called_once_with(session, file, logger)
+    mock_delete_file.assert_called_once_with(storage, file)
 
 
 @patch("viseron.components.storage.tier_handler.move_file")
-def test_handle_file_move(
-    mock_move_file: Mock,
-) -> None:
+def test_handle_file_move(mock_move_file: Mock, vis: MockViseron) -> None:
     """Test handle_file."""
     tier_1_file = "/tmp/tier1/file1"
     tier_2_file = "/tmp/tier2/file1"
@@ -60,10 +72,30 @@ def test_handle_file_move(
     session = MagicMock()
     logger = MagicMock()
     handle_file(
-        session, storage, "test", tier_1, tier_2, tier_1_file, "/tmp/tier1/", logger
+        vis,
+        session,
+        storage,
+        "test",
+        0,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+        tier_1,
+        tier_2,
+        tier_1_file,
+        "/tmp/tier1/",
+        logger,
     )
     mock_move_file.assert_called_once_with(
-        storage, session, tier_1_file, tier_2_file, logger
+        vis,
+        storage,
+        session,
+        "test",
+        0,
+        TIER_CATEGORY_RECORDER,
+        TIER_SUBCATEGORY_SEGMENTS,
+        tier_1_file,
+        tier_2_file,
+        logger,
     )
 
 
@@ -105,10 +137,10 @@ def _get_tier_config(events: bool, continuous: bool):
         "move_on_shutdown": False,
         "poll": False,
         "continuous": {
-            "min_age": {"minutes": max_age_continuous, "hours": None, "days": None},
-            "max_size": {"gb": None, "mb": None},
-            "max_age": {"minutes": None, "hours": None, "days": None},
+            "max_age": {"minutes": max_age_continuous, "hours": None, "days": None},
+            "min_age": {"minutes": None, "hours": None, "days": None},
             "min_size": {"gb": None, "mb": None},
+            "max_size": {"gb": None, "mb": None},
         },
         "check_interval": {
             "days": 0,
@@ -123,22 +155,102 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
     """Test the SegmentsTierHandler class."""
 
     @pytest.mark.parametrize(
-        (
-            "tier, get_recordings_to_move_called, get_files_to_move_called,"
-            "recordings_amount, first_recording_id"
-        ),
+        ("tier, data, recordings_amount, first_recording_id"),
         [
-            (_get_tier_config(events=True, continuous=False), True, False, 2, 3),
-            (_get_tier_config(events=True, continuous=True), True, True, 2, 3),
-            (_get_tier_config(events=False, continuous=True), False, True, 3, 1),
+            (
+                _get_tier_config(events=True, continuous=False),
+                np.array(
+                    [
+                        (
+                            1,
+                            1,
+                            "/tmp/test1.mp4",
+                            "/tmp/",
+                        ),
+                        (
+                            1,
+                            2,
+                            "/tmp/test2.mp4",
+                            "/tmp/",
+                        ),
+                    ],
+                    dtype=(
+                        [
+                            ("recording_id", np.int64),
+                            ("id", np.int64),
+                            ("path", "U512"),
+                            ("tier_path", "U512"),
+                        ]
+                    ),
+                ),
+                2,
+                3,
+            ),
+            (
+                _get_tier_config(events=True, continuous=True),
+                np.array(
+                    [
+                        (
+                            1,
+                            1,
+                            "/tmp/test1.mp4",
+                            "/tmp/",
+                        ),
+                        (
+                            1,
+                            2,
+                            "/tmp/test2.mp4",
+                            "/tmp/",
+                        ),
+                    ],
+                    dtype=(
+                        [
+                            ("recording_id", np.int64),
+                            ("id", np.int64),
+                            ("path", "U512"),
+                            ("tier_path", "U512"),
+                        ]
+                    ),
+                ),
+                2,
+                3,
+            ),
+            (
+                _get_tier_config(events=False, continuous=True),
+                np.array(
+                    [
+                        (
+                            -1,
+                            1,
+                            "/tmp/test1.mp4",
+                            "/tmp/",
+                        ),
+                        (
+                            -1,
+                            2,
+                            "/tmp/test2.mp4",
+                            "/tmp/",
+                        ),
+                    ],
+                    dtype=(
+                        [
+                            ("recording_id", np.int64),
+                            ("id", np.int64),
+                            ("path", "U512"),
+                            ("tier_path", "U512"),
+                        ]
+                    ),
+                ),
+                3,
+                1,
+            ),
         ],
     )
     def test__check_tier(
         self,
         vis,
         tier,
-        get_recordings_to_move_called,
-        get_files_to_move_called,
+        data,
         recordings_amount,
         first_recording_id,
     ):
@@ -160,36 +272,10 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
             None,
         )
 
-        with patch(
-            "viseron.components.storage.tier_handler.get_recordings_to_move"
-        ) as mock_get_recordings_to_move, patch(
-            "viseron.components.storage.tier_handler.get_files_to_move"
-        ) as mock_get_files_to_move, patch(
-            "viseron.components.storage.tier_handler.files_to_move_overlap"
-        ) as mock_files_to_move_overlap, patch(
-            "viseron.components.storage.tier_handler.handle_file"
-        ):
-            mock_get_recordings_to_move.return_value = [
-                MockRecordingsQueryResult(1, 1, "/tmp/test1.mp4", "/tmp/"),
-                MockRecordingsQueryResult(1, 2, "/tmp/test2.mp4", "/tmp/"),
-            ]
-            mock_get_files_to_move.return_value = [
-                MockFilesQueryResult(1, "/tmp/test1.mp4", "/tmp/"),
-                MockFilesQueryResult(2, "/tmp/test2.mp4", "/tmp/"),
-            ]
+        with patch("viseron.components.storage.tier_handler.handle_file"):
             tier_handler._check_tier(  # pylint: disable=protected-access
-                self._get_db_session
+                self._get_db_session, data
             )
-            if get_recordings_to_move_called:
-                mock_get_recordings_to_move.assert_called_once()
-            else:
-                mock_get_recordings_to_move.assert_not_called()
-            if get_files_to_move_called:
-                mock_get_files_to_move.assert_called_once()
-            else:
-                mock_get_files_to_move.assert_not_called()
-            if get_recordings_to_move_called and get_files_to_move_called:
-                mock_files_to_move_overlap.assert_called_once()
 
         with self._get_db_session() as session:
             stmt = select(Recordings).where(
@@ -254,7 +340,7 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
             ),
         ],
     )
-    def test__check_tier_next_tier4(
+    def test__check_tier_next_tier(
         self,
         vis: Viseron,
         tiers_config,
@@ -277,8 +363,8 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
                 vis,
                 mock_camera,
                 i,
-                "recorder",
-                "segments",
+                TIER_CATEGORY_RECORDER,
+                TIER_SUBCATEGORY_SEGMENTS,
                 tier_config,
                 None,
             )
@@ -299,25 +385,35 @@ class TestSegmentsTierHandler(BaseTestWithRecordings):
         }
 
         with patch(
-            "viseron.components.storage.tier_handler.get_recordings_to_move"
-        ) as mock_get_recordings_to_move, patch(
-            "viseron.components.storage.tier_handler.get_files_to_move"
-        ) as mock_get_files_to_move, patch(
             "viseron.components.storage.tier_handler.handle_file"
         ) as mock_handle_file:
-            mock_get_recordings_to_move.return_value = [
-                MockRecordingsQueryResult(recording_id, 1, "/tmp/test1.mp4", "/tmp/"),
-            ]
-            mock_get_files_to_move.return_value = [
-                MockFilesQueryResult(1, "/tmp/test1.mp4", "/tmp/"),
-            ]
+            data = np.array(
+                [
+                    (
+                        recording_id if recording_id is not None else -1,
+                        1,
+                        "/tmp/test1.mp4",
+                        "/tmp/",
+                    )
+                ],
+                dtype=[
+                    ("recording_id", np.int64),
+                    ("id", np.int64),
+                    ("path", "U512"),
+                    ("tier_path", "U512"),
+                ],
+            )
             tier_handlers[0]._check_tier(  # pylint: disable=protected-access
-                self._get_db_session
+                self._get_db_session, data
             )
             mock_handle_file.assert_called_once_with(
+                tier_handlers[0]._vis,  # pylint: disable=protected-access
                 self._get_db_session,
                 tier_handlers[0]._storage,  # pylint: disable=protected-access
                 tier_handlers[0]._camera.identifier,  # pylint: disable=protected-access
+                tier_handlers[0].tier_id,
+                TIER_CATEGORY_RECORDER,
+                TIER_SUBCATEGORY_SEGMENTS,
                 tier_handlers[0].tier,
                 tier_handlers[next_tier_index].tier if next_tier_index else None,
                 "/tmp/test1.mp4",

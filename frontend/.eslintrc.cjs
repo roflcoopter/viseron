@@ -19,11 +19,15 @@ module.exports = defineConfig({
     project: "tsconfig.json",
     tsconfigRootDir: __dirname,
   },
+  env: {
+    browser: true,
+  },
   ignorePatterns: [
     ".eslintrc.cjs",
     "vite.config.ts",
     "vitest.config.ts",
     "lint-staged.config.js",
+    "video-rtc.js",
   ],
   rules: {
     "@typescript-eslint/no-non-null-assertion": "off",

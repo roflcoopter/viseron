@@ -1,11 +1,13 @@
 import { Suspense, lazy } from "react";
 
-import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
+import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import queryClient from "lib/api/client";
 import { getAuthHeader } from "lib/tokens";
 import * as types from "lib/types";
 
-const VideoPlayer = lazy(() => import("components/videoplayer/VideoPlayer"));
+const VideoPlayer = lazy(
+  () => import("components/player/videoplayer/VideoPlayer"),
+);
 
 export const BLANK_IMAGE =
   "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
@@ -69,7 +71,9 @@ export function getVideoElement(
 ) {
   if (!objHasValues(recording) || !recording) {
     return (
-      <VideoPlayerPlaceholder aspectRatio={camera.width / camera.height} />
+      <VideoPlayerPlaceholder
+        aspectRatio={camera.mainstream.width / camera.mainstream.height}
+      />
     );
   }
 
@@ -84,7 +88,9 @@ export function getVideoElement(
   return (
     <Suspense
       fallback={
-        <VideoPlayerPlaceholder aspectRatio={camera.width / camera.height} />
+        <VideoPlayerPlaceholder
+          aspectRatio={camera.mainstream.width / camera.mainstream.height}
+        />
       }
     >
       <VideoPlayer options={videoJsOptions} />

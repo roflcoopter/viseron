@@ -5,6 +5,7 @@ import ast
 import logging
 import multiprocessing as mp
 import subprocess as sp
+import threading
 from abc import abstractmethod
 from queue import Queue
 
@@ -59,7 +60,7 @@ EDGETPU_SCHEMA = {
     ): Maybe(str),
     vol.Optional(
         CONFIG_DEVICE, default=DEFAULT_DEVICE, description=DESC_DEVICE
-    ): DeviceValidator(),
+    ): vol.Any(DeviceValidator(), [DeviceValidator()]),
 }
 
 
@@ -257,7 +258,13 @@ class EdgeTPU(SubProcessWorker):
         self._result_queues: dict[str, Queue] = {}
         self._process_initialization_done = mp.Event()
         self._process_initialization_error = mp.Event()
+        self._reload_lock = threading.Lock()
+        self._consecutive_failures = 0
         super().__init__(vis, f"{COMPONENT}.{domain}")
+        self.initialize()
+
+    def initialize(self) -> None:
+        """Initialize EdgeTPU."""
         self._process_initialization_done.wait(30)
         if (
             not self._process_initialization_done.is_set()
@@ -281,14 +288,34 @@ class EdgeTPU(SubProcessWorker):
     def post_process(self, item):
         """Post process after invoke."""
 
+    def reload_if_needed(self):
+        """Reload the interpreter if it fails 10 times in a row."""
+        with self._reload_lock:
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= 10:
+                try:
+                    LOGGER.warning(
+                        "Reloading EdgeTPU interpreter after "
+                        f"{self._consecutive_failures} consecutive failures."
+                    )
+                    self.stop()
+                    self.start()
+                except Exception as e:  # pylint: disable=broad-except
+                    LOGGER.error(f"Failed to reload EdgeTPU interpreter: {e}")
+                finally:
+                    self._consecutive_failures = 0
+
     def spawn_subprocess(self) -> RestartablePopen:
         """Spawn subprocess."""
+        device = self._device
+        if isinstance(device, list):
+            device = ",".join(device)
         return RestartablePopen(
             (
                 "python3.9 -u viseron/components/edgetpu/edgetpu_subprocess.py "
                 f"--manager-port {self._server_port} "
                 f"--manager-authkey {self._authkey_store.authkey} "
-                f"--device {self._device} "
+                f"--device {device} "
                 f"--model {self._model} "
                 f"--model-type {self._domain} "
                 f"--loglevel DEBUG"

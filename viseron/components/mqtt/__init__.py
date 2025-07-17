@@ -5,7 +5,7 @@ import logging
 import threading
 from collections.abc import Callable
 from queue import Empty, Queue
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import paho.mqtt.client as mqtt
 import voluptuous as vol
@@ -163,7 +163,7 @@ def setup(vis: Viseron, config) -> bool:
 class MQTT:
     """MQTT interface."""
 
-    def __init__(self, vis, config) -> None:
+    def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
         self._vis = vis
         self._config = config
 
@@ -171,6 +171,8 @@ class MQTT:
         self._publish_queue: Queue = Queue(maxsize=1000)
         self._subscriptions: dict[str, list[Callable]] = {}
 
+        self._connected = False
+        self._reconnect = False
         self._kill_received = False
 
         vis.data[COMPONENT] = self
@@ -198,7 +200,7 @@ class MQTT:
                 store=False,
             )
 
-    def create_entities(self, entities) -> None:
+    def create_entities(self, entities: dict[str, Entity]) -> None:
         """Create entities in Home Assistant."""
         for entity in entities.values():
             self.create_entity(entity)
@@ -221,10 +223,7 @@ class MQTT:
                 f"{MQTT_RC.get(returncode, 'Unknown error')}"
             )
             return
-
-        self._vis.listen_event(EVENT_ENTITY_ADDED, self.entity_added)
-        self.create_entities(self._vis.get_entities())
-        self._vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
+        self._connected = True
 
         # Send initial alive message
         self.publish(
@@ -241,6 +240,26 @@ class MQTT:
                 retain=True,
             )
         )
+
+        if self._reconnect:
+            LOGGER.debug("Reconnected to MQTT broker, re-subscribing to topics")
+            self._reconnect = False
+            # Re-subscribe to all topics
+            for topic, _ in self._subscriptions.items():
+                LOGGER.debug(f"Re-subscribing to topic {topic}")
+                self._client.subscribe(topic)
+            return
+
+        self._vis.listen_event(EVENT_ENTITY_ADDED, self.entity_added)
+        self.create_entities(self._vis.get_entities())
+        self._vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
+
+    def on_disconnect(self, _client, _userdata, returncode) -> None:
+        """On MQTT disconnection."""
+        LOGGER.warning(f"MQTT disconnected with returncode {str(returncode)}")
+        if self._connected:
+            self._reconnect = True
+            self._connected = False
 
     def on_message(self, _client, _userdata, msg) -> None:
         """On message received."""
@@ -261,6 +280,7 @@ class MQTT:
     def connect(self) -> None:
         """Connect to broker."""
         self._client.on_connect = self.on_connect
+        self._client.on_disconnect = self.on_disconnect
         self._client.on_message = self.on_message
         self._client.enable_logger(logger=logging.getLogger(f"{__name__}.client"))
         logging.getLogger(f"{__name__}.client").setLevel(logging.INFO)

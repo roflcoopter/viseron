@@ -15,7 +15,7 @@ The config option `trigger_event_recording: true` instructs Viseron to start rec
 
 Example configuration to record when detecting a person:
 
-```yaml /config/config.yaml
+```yaml title="/config/config.yaml"
 darknet: # or any other object detector component
   object_detector:
     cameras:
@@ -119,7 +119,7 @@ There are several ways to set retention rules. See the [retention rules section]
 
 Example configuration to record continuously:
 
-```yaml /config/config.yaml
+```yaml title="/config/config.yaml"
 ffmpeg: # or any other camera component
   camera:
     camera_one:
@@ -188,7 +188,7 @@ Size based retention rules are calculated **per camera**, meaning that if you ha
 
 Example configuration to set retention rules for all cameras:
 
-```yaml /config/config.yaml
+```yaml title="/config/config.yaml"
 storage:
   recorder:
     tiers:
@@ -216,7 +216,7 @@ Example configuration to set retention rules for a specific camera:
 <Tabs groupId="retention-type">
 <TabItem value="events" label="Event">
 
-```yaml /config/config.yaml
+```yaml title="/config/config.yaml"
 ffmpeg: # or any other camera component
   camera:
     camera_one:
@@ -236,7 +236,7 @@ ffmpeg: # or any other camera component
 </TabItem>
 <TabItem value="continuous" label="Continuous">
 
-```yaml /config/config.yaml
+```yaml title="/config/config.yaml"
 ffmpeg: # or any other camera component
   camera:
     camera_one:
@@ -257,7 +257,7 @@ ffmpeg: # or any other camera component
 
 <TabItem value="storage" label="Storage">
 
-```yaml /config/config.yaml
+```yaml title="/config/config.yaml"
 ffmpeg: # or any other camera component
   camera:
     camera_one:
@@ -334,7 +334,7 @@ If you have multiple cameras selected, one file per camera will be downloaded.
 
 If you want to create `.mp4` files for all event recordings you can use the `create_event_clip` configuration option.
 
-```yaml /config/config.yaml
+```yaml title="/config/config.yaml"
 ffmpeg: # or any other camera component
   camera:
     camera_one:
@@ -356,3 +356,20 @@ This will create `.mp4` files for all event recordings, which will be stored in 
 THe `.mp4` files will be created in the `/event_clips` directory, unless you have set a different path in the [storage component](/components-explorer/components/storage).
 
 :::
+
+## Events page query parameters
+
+The `Events` page supports a number of query parameters to control the behavior of the page.
+
+The following query parameters are supported:
+
+- `tab`: The tab to show. This can be `events` or `timeline`.
+- `camera`: The camera identifier of the camera to show.
+- `date`: The date to show, in the format `YYYY-MM-DD`.
+- `timestamp`: The timestamp to seek to. This is a Unix timestamp in seconds.
+
+Example URL to show the timeline for camera `camera_one` and seek to the timestamp `1745001300`:
+
+```shell
+http://localhost:8888/#/events?tab=timeline&camera=camera_one&timestamp=1745001300
+```

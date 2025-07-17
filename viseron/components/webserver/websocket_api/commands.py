@@ -161,7 +161,7 @@ async def subscribe_event(connection: WebSocketHandler, message) -> None:
 
     @debounce(
         wait=message["debounce"],
-        options=DebounceOptions(  # pylint: disable=unexpected-keyword-arg
+        options=DebounceOptions(
             time_window=message["debounce"],
         ),
     )

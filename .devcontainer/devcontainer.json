@@ -6,23 +6,33 @@
   "overrideCommand": false,
   "containerEnv": {
     "DEVCONTAINER": "1",
+    "VISERON_CONFIG_DIR": "${containerWorkspaceFolder}/config",
     "PUID": "1000",
     "PGID": "1000"
   },
   "containerUser": "root",
   "remoteUser": "abc",
-  "forwardPorts": [8888],
+  "forwardPorts": [8888, 1984, 8554, 8555],
   "portsAttributes": {
     "8888": {
       "label": "Viseron",
+      "onAutoForward": "silent"
+    },
+    "1984": {
+      "label": "go2rtc",
+      "onAutoForward": "silent"
+    },
+    "8554": {
+      "label": "go2rtc RTSP",
+      "onAutoForward": "silent"
+    },
+    "8555": {
+      "label": "WebRTC",
       "onAutoForward": "silent"
     }
   },
   "userEnvProbe": "loginInteractiveShell",
   "runArgs": ["-e", "GIT_EDITOR=code --wait"],
-  "mounts": [
-    "source=${localWorkspaceFolder}/config,target=/config,type=bind,consistency=cached"
-  ],
   "customizations": {
     "vscode": {
       "extensions": [
@@ -97,5 +107,8 @@
         }
       }
     }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/sshd:1": {}
   }
 }

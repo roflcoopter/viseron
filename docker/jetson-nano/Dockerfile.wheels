@@ -32,6 +32,7 @@ RUN [ "cross-build-start" ]
 RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
   wget \
   curl \
+  build-essential \
   gcc \
   python3 \
   python3-dev \

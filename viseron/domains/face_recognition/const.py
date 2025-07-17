@@ -1,6 +1,8 @@
 """Face recognition constants."""
 from typing import Final
 
+from viseron.const import CONFIG_DIR
+
 DOMAIN: Final = "face_recognition"
 
 UNKNOWN_FACE = "unknown"
@@ -19,7 +21,7 @@ CONFIG_SAVE_UNKNOWN_FACES = "save_unknown_faces"
 CONFIG_UNKNOWN_FACES_PATH = "unknown_faces_path"
 CONFIG_EXPIRE_AFTER = "expire_after"
 
-DEFAULT_FACE_RECOGNITION_PATH = "/config/face_recognition/faces"
+DEFAULT_FACE_RECOGNITION_PATH = f"{CONFIG_DIR}/face_recognition/faces"
 DEFAULT_SAVE_FACES = True
 DEFAULT_SAVE_UNKNOWN_FACES = True
 DEFAULT_EXPIRE_AFTER = 5

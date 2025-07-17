@@ -5,6 +5,7 @@ import datetime
 import logging
 import multiprocessing as mp
 import os
+import threading
 import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
@@ -17,6 +18,7 @@ from sqlalchemy import and_, delete, exists, func, select
 from viseron.components.storage.const import (
     TIER_CATEGORY_RECORDER,
     TIER_SUBCATEGORY_SEGMENTS,
+    CleanupJobNames,
 )
 from viseron.components.storage.models import (
     Events,
@@ -32,6 +34,7 @@ from viseron.exceptions import DomainNotRegisteredError
 from viseron.helpers import utcnow
 from viseron.types import SnapshotDomain
 from viseron.watchdog.process_watchdog import RestartableProcess
+from viseron.watchdog.thread_watchdog import RestartableThread
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -55,6 +58,8 @@ class BaseCleanupJob(ABC):
 
         self._last_log_time = 0.0
         self.kill_event = mp.Event()
+        self.run_lock = threading.Lock()
+        self.running = False
 
     def _get_cameras(self) -> dict[str, AbstractCamera] | None:
         """Get list of registered camera identifiers."""
@@ -79,20 +84,24 @@ class BaseCleanupJob(ABC):
 
     def _wrapped_run(self):
         setproctitle.setproctitle(f"viseron_{self.name}")
-        if self._storage.engine is None:
-            LOGGER.debug("Engine has not been created, skipping cleanup job")
-            return
-
         self._storage.engine.dispose(close=False)
         self._run()
 
     def run(self) -> None:
         """Run the cleanup job using multiprocessing."""
+        with self.run_lock:
+            if self.running:
+                return
+            self.running = True
+
         process = RestartableProcess(
             name=self.name, target=self._wrapped_run, daemon=True, register=False
         )
         process.start()
         process.join()
+
+        with self.run_lock:
+            self.running = False
 
     def log_progress(self, message: str):
         """Log progress of the cleanup job.
@@ -176,7 +185,7 @@ class OrphanedFilesCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_files"
+        return CleanupJobNames.ORPHANED_FILES.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -189,15 +198,14 @@ class OrphanedFilesCleanup(BaseCleanupJob):
 
         paths = []
         for camera in cameras.values():
-            paths += [
-                self._storage.get_event_clips_path(camera),
-                self._storage.get_segments_path(camera),
-                self._storage.get_thumbnails_path(camera),
-            ] + [
-                self._storage.get_snapshots_path(camera, domain)
-                for camera in cameras.values()
-                for domain in SnapshotDomain
-            ]
+            paths += self._storage.get_event_clips_path(camera, all_tiers=True)
+            paths += self._storage.get_segments_path(camera, all_tiers=True)
+            paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
+
+            for domain in SnapshotDomain:
+                paths += self._storage.get_snapshots_path(
+                    camera, domain, all_tiers=True
+                )
 
         total_files_processed = 0
         with self._storage.get_session() as session:
@@ -252,7 +260,7 @@ class OrphanedDatabaseFilesCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_db_files"
+        return CleanupJobNames.ORPHANED_DB_FILES.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -328,7 +336,7 @@ class EmptyFoldersCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_empty_folders"
+        return CleanupJobNames.EMPTY_FOLDERS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -340,27 +348,28 @@ class EmptyFoldersCleanup(BaseCleanupJob):
         if not cameras:
             return
 
+        paths = []
         for camera in cameras.values():
-            for path in [
-                self._storage.get_event_clips_path(camera),
-                self._storage.get_segments_path(camera),
-                self._storage.get_thumbnails_path(camera),
-            ] + [
-                self._storage.get_snapshots_path(camera, domain)
-                for domain in SnapshotDomain
-            ]:
-                time.sleep(1)
-                for root, dirs, files in os.walk(path, topdown=False):
-                    processed_count += 1
-                    self.log_progress(
-                        f"{self.name} processed {processed_count} folders"
-                    )
-                    if root == path:
-                        continue
-                    if not dirs and not files:
-                        LOGGER.debug("Deleting folder %s", root)
-                        os.rmdir(root)
-                        deleted_count += 1
+            paths += self._storage.get_event_clips_path(camera, all_tiers=True)
+            paths += self._storage.get_segments_path(camera, all_tiers=True)
+            paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
+
+            for domain in SnapshotDomain:
+                paths += self._storage.get_snapshots_path(
+                    camera, domain, all_tiers=True
+                )
+
+        for path in paths:
+            time.sleep(1)
+            for root, dirs, files in os.walk(path, topdown=False):
+                processed_count += 1
+                self.log_progress(f"{self.name} processed {processed_count} folders")
+                if root == path:
+                    continue
+                if not dirs and not files:
+                    LOGGER.debug("Deleting folder %s", root)
+                    os.rmdir(root)
+                    deleted_count += 1
 
         LOGGER.debug(
             "%s deleted %d empty folders, took %s",
@@ -376,7 +385,7 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_thumbnails"
+        return CleanupJobNames.ORPHANED_THUMBNAILS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -389,10 +398,13 @@ class OrphanedThumbnailsCleanup(BaseCleanupJob):
         if not cameras:
             return
 
+        paths = []
+        for camera in cameras.values():
+            paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
+
         with self._storage.get_session() as session:
-            for camera in cameras.values():
+            for thumbnails_path in paths:
                 files_processed = 0
-                thumbnails_path = self._storage.get_thumbnails_path(camera)
                 if not os.path.exists(thumbnails_path):
                     continue
 
@@ -456,7 +468,7 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_clips"
+        return CleanupJobNames.ORPHANED_EVENT_CLIPS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -469,10 +481,13 @@ class OrphanedEventClipsCleanup(BaseCleanupJob):
         if not cameras:
             return
 
+        paths = []
+        for camera in cameras.values():
+            paths += self._storage.get_event_clips_path(camera, all_tiers=True)
+
         with self._storage.get_session() as session:
-            for camera in cameras.values():
+            for event_clips_path in paths:
                 files_processed = 0
-                event_clips_path = self._storage.get_event_clips_path(camera)
                 if not os.path.exists(event_clips_path):
                     continue
 
@@ -537,7 +552,7 @@ class OrphanedRecordingsCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_recordings"
+        return CleanupJobNames.ORPHANED_RECORDINGS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -636,7 +651,7 @@ class OrphanedPostProcessorResultsCleanup(BaseTableCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_postprocessor_results"
+        return CleanupJobNames.ORPHANED_POSTPROCESSOR_RESULTS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -658,7 +673,7 @@ class OrphanedObjectsCleanup(BaseTableCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_objects"
+        return CleanupJobNames.ORPHANED_OBJECTS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -678,7 +693,7 @@ class OrphanedMotionCleanup(BaseTableCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_orphaned_motion"
+        return CleanupJobNames.ORPHANED_MOTION.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -697,7 +712,7 @@ class OldEventsCleanup(BaseCleanupJob):
     @property
     def name(self) -> str:
         """Return job name."""
-        return "cleanup_old_events"
+        return CleanupJobNames.OLD_EVENTS.value
 
     def _run(self) -> None:
         """Run the job."""
@@ -728,11 +743,9 @@ class CleanupManager:
     def __init__(self, vis: Viseron, storage: Storage):
         self._vis = vis
         self.jobs: list[BaseCleanupJob] = [
-            OrphanedFilesCleanup(
-                vis, storage, CronTrigger(day_of_week="mon", hour=3, minute=0)
-            ),
+            OrphanedFilesCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedDatabaseFilesCleanup(
-                vis, storage, CronTrigger(day_of_week="wed", hour=3, minute=0)
+                vis, storage, CronTrigger(hour=0, jitter=3600)
             ),
             EmptyFoldersCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedThumbnailsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
@@ -746,6 +759,22 @@ class CleanupManager:
             OldEventsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
         ]
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
+
+    def run_job(self, job_name: CleanupJobNames) -> None:
+        """Run a specific cleanup job."""
+        for job in self.jobs:
+            if job.name == job_name.value:
+                with job.run_lock:
+                    if job.running:
+                        return
+                LOGGER.debug("Running cleanup job %s", job.name)
+                RestartableThread(
+                    name=f"run_job_{job.name}",
+                    target=job.run,
+                    register=False,
+                    daemon=True,
+                ).start()
+                return
 
     def start(self):
         """Start the cleanup scheduler."""

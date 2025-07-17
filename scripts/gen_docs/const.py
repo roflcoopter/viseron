@@ -36,7 +36,7 @@ DOCS_CONTENTS = """
 <details>
   <summary>Configuration example</summary>
 
-```yaml
+```yaml title="/config/config.yaml"
 Config example here
 ```
 

@@ -11,16 +11,16 @@ import useMediaQuery from "@mui/material/useMediaQuery";
 import { Dayjs } from "dayjs";
 import { SyntheticEvent, memo, useCallback, useEffect, useRef } from "react";
 
-import { PlayerCard } from "components/events/EventPlayerCard";
-import { EventTable } from "components/events/EventTable";
+import { useFilteredCameras } from "components/camera/useCameraStore";
 import { FilterMenu } from "components/events/FilterMenu";
 import { FloatingMenu } from "components/events/FloatingMenu";
+import { PlayerCard } from "components/events/PlayerCard";
+import { EventTable } from "components/events/events/EventTable";
 import { TimelineTable } from "components/events/timeline/TimelineTable";
 import {
   COLUMN_HEIGHT,
   COLUMN_HEIGHT_SMALL,
   playerCardSmMaxHeight,
-  useFilteredCameras,
 } from "components/events/utils";
 import { useResizeObserver } from "hooks/UseResizeObserver";
 import { insertURLParameter } from "lib/helpers";

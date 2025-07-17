@@ -13,7 +13,7 @@ import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
 
 import MutationIconButton from "components/buttons/MutationIconButton";
-import VideoPlayerPlaceholder from "components/videoplayer/VideoPlayerPlaceholder";
+import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
 import { useDeleteRecording } from "lib/api/recordings";
 import { getTimeFromDate, getVideoElement, objHasValues } from "lib/helpers";
@@ -67,7 +67,7 @@ export default function RecordingCardDaily({
           offset={500}
           placeholder={
             <VideoPlayerPlaceholder
-              aspectRatio={camera.width / camera.height}
+              aspectRatio={camera.mainstream.width / camera.mainstream.height}
             />
           }
         >

@@ -22,6 +22,7 @@ from viseron.components.data_stream import (
     COMPONENT as DATA_STREAM_COMPONENT,
     DataStream,
 )
+from viseron.components.go2rtc.const import COMPONENT as GO2RTC_COMPONENT
 from viseron.components.storage.config import validate_tiers
 from viseron.components.storage.const import (
     COMPONENT as STORAGE_COMPONENT,
@@ -79,6 +80,7 @@ from .shared_frames import SharedFrames
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.components.go2rtc import Go2RTC
     from viseron.components.nvr.nvr import FrameIntervalCalculator
     from viseron.components.storage import Storage
     from viseron.components.storage.models import TriggerTypes
@@ -191,6 +193,10 @@ class AbstractCamera(AbstractDomain):
             "width": self.resolution[0],
             "height": self.resolution[1],
             "access_token": self.access_token,
+            "mainstream": {
+                "width": self.mainstream_resolution[0],
+                "height": self.mainstream_resolution[1],
+            },
             "still_image": {
                 "refresh_interval": self.still_image[CONFIG_REFRESH_INTERVAL],
                 "available": self.still_image_available,
@@ -199,6 +205,7 @@ class AbstractCamera(AbstractDomain):
             },
             "is_on": self.is_on,
             "connected": self.connected,
+            "live_stream_available": self.live_stream_available,
         }
 
     def generate_token(self):
@@ -307,6 +314,14 @@ class AbstractCamera(AbstractDomain):
         """Return stream resolution."""
 
     @property
+    @abstractmethod
+    def mainstream_resolution(self) -> tuple[int, int]:
+        """Return mainstream resolution.
+
+        Only applicable for components that support substreams.
+        """
+
+    @property
     def extension(self) -> str:
         """Return recording file extension."""
         return VIDEO_CONTAINER
@@ -393,6 +408,15 @@ class AbstractCamera(AbstractDomain):
             ),
             EventCameraStillImageAvailable(available=available),
         )
+
+    @property
+    def live_stream_available(self) -> bool:
+        """Return if live stream is available."""
+        go2rtc: Go2RTC
+        if go2rtc := self._vis.data.get(GO2RTC_COMPONENT, None):
+            if self.identifier in go2rtc.configured_cameras():
+                return True
+        return False
 
     @property
     def config(self) -> dict[str, Any]:
@@ -586,6 +610,10 @@ class FailedCamera:
             "identifier": self.identifier,
             "width": self.width,
             "height": self.height,
+            "mainstream": {
+                "width": self.width,
+                "height": self.height,
+            },
             "error": self.error,
             "retrying": self.retrying,
             "failed": True,

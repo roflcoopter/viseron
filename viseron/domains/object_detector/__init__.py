@@ -577,6 +577,13 @@ class AbstractObjectDetector(AbstractDomain):
             for zone in self.zones:
                 zone.objects_in_zone_setter(None, [])
 
+    def result_failed_callback(self):
+        """Detector result failed callback.
+
+        Called when the NVR component does not receive a result from the object
+        detector.
+        """
+
     def stop(self) -> None:
         """Stop object detector."""
         self._kill_received = True

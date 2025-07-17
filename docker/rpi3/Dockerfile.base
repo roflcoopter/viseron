@@ -8,6 +8,7 @@ COPY --from=ffmpeg /opt/vc/lib /opt/vc/lib
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
 COPY --from=models /detectors/models/darknet/yolov7-tiny.weights /detectors/models/darknet/yolov7-tiny.weights
 COPY --from=models /detectors/models/darknet/yolov7-tiny.cfg /detectors/models/darknet/yolov7-tiny.cfg
+COPY --from=models /detectors/models/darknet/coco.names /detectors/models/darknet/coco.names
 COPY --from=models /classifiers/models/edgetpu /classifiers/models/edgetpu
 
 RUN \
