@@ -496,10 +496,10 @@ services:
         <<: *ffmpeg_args
         UBUNTU_VERSION: $JETSON_NANO_UBUNTU_VERSION
         JETPACK_VERSION: "$JETPACK_VERSION_MAJOR.$JETPACK_VERSION_MINOR.$JETPACK_VERSION_PATCH"
-        FFMPEG_VERSION: "$JETSON_NANO_FFMPEG_VERSION"
+        FFMPEG_VERSION: "$SWITCHROOT_FFMPEG_VERSION"
       cache_from:
-        - roflcoopter/jetson-nano-ffmpeg:$JETSON_NANO_FFMPEG_VERSION
-    image: roflcoopter/jetson-nano-ffmpeg:$JETSON_NANO_FFMPEG_VERSION
+        - roflcoopter/jetson-nano-ffmpeg:$SWITCHROOT_FFMPEG_VERSION
+    image: roflcoopter/jetson-nano-ffmpeg:$SWITCHROOT_FFMPEG_VERSION
 
   jetson-nano-opencvpartone:
     build:
@@ -604,7 +604,7 @@ services:
         ARCH: jetson-nano
         BASE_VERSION: "$BASE_VERSION"
         OPENCV_VERSION: "$OPENCV_VERSION"
-        FFMPEG_VERSION: "$JETSON_NANO_FFMPEG_VERSION"
+        FFMPEG_VERSION: "$SWITCHROOT_FFMPEG_VERSION"
         WHEELS_VERSION: "$WHEELS_VERSION"
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
