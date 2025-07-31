@@ -86,6 +86,7 @@ services:
         ARCH: amd64
         BUILD_FROM: ubuntu:$UBUNTU_VERSION
         DLIB_VERSION: "$DLIB_VERSION"
+        EXTRA_PIP_ARGS: --extra-index-url https://download.pytorch.org/whl/cpu
         OPENCV_VERSION: "$OPENCV_VERSION"
       cache_from:
         - roflcoopter/amd64-wheels:$WHEELS_VERSION
