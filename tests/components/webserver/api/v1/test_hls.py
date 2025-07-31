@@ -179,6 +179,72 @@ class TestHlsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         assert response.code == 200
         assert len(json.loads(response.body)["timespans"]) == 2
 
+    def _get_hls_playlist_time_period(
+        self,
+        start_timestamp,
+        end_timestamp,
+        date,
+        expected_files_count,
+        expected_end_tag=0,
+    ):
+        """Test getting HLS playlist."""
+        start = int(self._now.timestamp()) + start_timestamp
+        end = (
+            int(self._now.timestamp()) + end_timestamp
+            if end_timestamp is not None
+            else None
+        )
+        url = f"/api/v1/hls/test/index.m3u8?start_timestamp={start}"
+        if end is not None:
+            url += f"&end_timestamp={end}"
+        if date is not None:
+            url += f"&date={date}"
+        mocked_camera = MockCamera(
+            identifier="test",
+        )
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=mocked_camera,
+        ), patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler"
+                "._get_session"
+            ),
+            return_value=self._get_db_session(),
+        ), patch(
+            "viseron.components.webserver.api.v1.hls._get_init_file",
+            return_value="/test/init.mp4",
+        ), patch(
+            "viseron.components.storage.queries.utcnow",
+            return_value=self._simulated_now,
+        ):
+            response = self.fetch(url)
+
+        assert response.code == 200
+        response_string = response.body.decode()
+        assert response_string.count("#EXTINF") == expected_files_count
+        assert response_string.count("#EXT-X-ENDLIST") == expected_end_tag
+
+    # Can't use parametrize for these test because we derive from unittest.TestCase
+    def test_get_hls_playlist_time_period_start(self):
+        """Test getting HLS playlist for a specific time period."""
+        self._get_hls_playlist_time_period(60, None, None, 4)
+
+    def test_get_hls_playlist_time_period_end(self):
+        """Test getting HLS playlist for a specific time period with end."""
+        self._get_hls_playlist_time_period(0, 60, None, 12, 1)
+
+    def test_get_hls_playlist_time_period_date_today(self):
+        """Test getting HLS playlist for a specific time period with date today."""
+        self._get_hls_playlist_time_period(0, None, self._now.date().isoformat(), 15, 0)
+
+    def test_get_hls_playlist_time_period_date_not_today(self):
+        """Test getting HLS playlist for a specific time period with date not today."""
+        self._get_hls_playlist_time_period(0, None, "2023-10-01", 0, 1)
+
 
 def test_count_files_removed_no_files_removed():
     """Test count_files_removed with no files removed."""

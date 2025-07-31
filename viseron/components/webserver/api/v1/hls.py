@@ -24,9 +24,8 @@ from viseron.domains.camera.fragmenter import (
     generate_playlist,
     get_available_timespans,
 )
-from viseron.helpers import daterange_to_utc, utcnow
+from viseron.helpers import client_current_datetime, daterange_to_utc, utcnow
 from viseron.helpers.fixed_size_dict import FixedSizeDict
-from viseron.helpers.validators import request_argument_no_value
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -87,7 +86,7 @@ class HlsAPIHandler(BaseAPIHandler):
                     vol.Optional("end_timestamp", default=None): vol.Maybe(
                         vol.Coerce(int)
                     ),
-                    vol.Optional("daily", default=False): request_argument_no_value,
+                    vol.Optional("date", default=None): vol.Maybe(str),
                 }
             ),
         },
@@ -160,9 +159,10 @@ class HlsAPIHandler(BaseAPIHandler):
             self._get_session,
             camera,
             hls_client_id,
+            self.utc_offset,
             self.request_arguments["start_timestamp"],
             self.request_arguments["end_timestamp"],
-            self.request_arguments["daily"],
+            self.request_arguments["date"],
         )
         if not playlist:
             self.response_error(
@@ -315,11 +315,23 @@ def _generate_playlist_time_period(
     get_session: Callable[[], Session],
     camera: AbstractCamera | FailedCamera,
     hls_client_id: str | None,
+    utc_offset: datetime.timedelta,
     start_timestamp: int,
     end_timestamp: int | None = None,
-    end_playlist_at_timestamp: bool = False,
+    date: str | None = None,
 ) -> str | None:
     """Generate the HLS playlist for a time period."""
+    end_playlist = False
+    if date and end_timestamp is None:
+        # If a date is provided, convert to timestamp range
+        _, time_to = daterange_to_utc(date, utc_offset)
+        end_timestamp = int(time_to.timestamp())
+        # If the date is not today, playlist should end
+        if date != client_current_datetime(utc_offset).date().isoformat():
+            end_playlist = True
+    elif end_timestamp is not None:
+        end_playlist = True
+
     files = get_time_period_fragments(
         [camera.identifier], start_timestamp, end_timestamp, get_session
     )
@@ -332,8 +344,6 @@ def _generate_playlist_time_period(
         )
         for file in files
     ]
-
-    end_playlist = bool(end_timestamp) if not end_playlist_at_timestamp else False
 
     media_sequence = (
         update_hls_client(hls_client_id, fragments)
