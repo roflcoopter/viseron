@@ -8,9 +8,10 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from viseron.components.storage.models import (
+    Files,
     Motion,
     Objects,
     PostProcessorResults,
@@ -63,6 +64,17 @@ class EventsAPIHandler(BaseAPIHandler):
             "path_pattern": r"/events/amount",
             "supported_methods": ["POST"],
             "method": "post_events_amount_multiple",
+            "json_body_schema": vol.Schema(
+                {
+                    vol.Required("camera_identifiers"): [str],
+                }
+            ),
+        },
+        {
+            "requires_role": [Role.ADMIN, Role.READ, Role.WRITE],
+            "path_pattern": r"/events/dates_of_interest",
+            "supported_methods": ["POST"],
+            "method": "post_events_dates_of_interest",
             "json_body_schema": vol.Schema(
                 {
                     vol.Required("camera_identifiers"): [str],
@@ -335,46 +347,64 @@ class EventsAPIHandler(BaseAPIHandler):
         camera_identifiers: list[str],
     ) -> dict[str, dict[str, Any]]:
         with get_session() as session:
-            stmt = select(Motion.start_time).where(
-                Motion.camera_identifier.in_(camera_identifiers)
+            stmt = (
+                select(
+                    func.date(Motion.start_time + self.utc_offset),
+                    func.count(),  # pylint: disable=not-callable
+                )
+                .where(Motion.camera_identifier.in_(camera_identifiers))
+                .group_by(func.date(Motion.start_time + self.utc_offset))
             )
-            motion_events = session.execute(stmt).scalars().all()
+            motion_events = session.execute(stmt).all()
 
-            stmt = select(Recordings.start_time).where(
-                Recordings.camera_identifier.in_(camera_identifiers)
+            stmt = (
+                select(
+                    func.date(Recordings.start_time + self.utc_offset),
+                    func.count(),  # pylint: disable=not-callable
+                )
+                .where(Recordings.camera_identifier.in_(camera_identifiers))
+                .group_by(func.date(Recordings.start_time + self.utc_offset))
             )
-            recording_events = session.execute(stmt).scalars().all()
+            recording_events = session.execute(stmt).all()
 
-            stmt = select(Objects.created_at).where(
-                Objects.camera_identifier.in_(camera_identifiers)
+            stmt = (
+                select(
+                    func.date(Objects.created_at + self.utc_offset),
+                    func.count(),  # pylint: disable=not-callable
+                )
+                .where(Objects.camera_identifier.in_(camera_identifiers))
+                .group_by(func.date(Objects.created_at + self.utc_offset))
             )
-            object_events = session.execute(stmt).scalars().all()
+            object_events = session.execute(stmt).all()
 
-            stmt_pp = select(PostProcessorResults).where(
-                PostProcessorResults.camera_identifier.in_(camera_identifiers)
+            stmt_pp = (
+                select(
+                    func.date(PostProcessorResults.created_at + self.utc_offset),
+                    PostProcessorResults.domain,
+                    func.count(),  # pylint: disable=not-callable
+                )
+                .where(PostProcessorResults.camera_identifier.in_(camera_identifiers))
+                .group_by(
+                    func.date(PostProcessorResults.created_at + self.utc_offset),
+                    PostProcessorResults.domain,
+                )
             )
-            post_processor_events = session.execute(stmt_pp).scalars().all()
+            post_processor_events = session.execute(stmt_pp).all()
 
         events_amount: dict[str, dict[str, Any]] = {}
-        for event in motion_events:
-            event_day = (event + self.utc_offset).date().isoformat()
-            events_amount.setdefault(event_day, {}).setdefault("motion", 0)
-            events_amount[event_day]["motion"] += 1
+        day: datetime.date
+        count: int
+        for day, count in motion_events:
+            events_amount.setdefault(day.isoformat(), {}).setdefault("motion", count)
 
-        for event in recording_events:
-            event_day = (event + self.utc_offset).date().isoformat()
-            events_amount.setdefault(event_day, {}).setdefault("recording", 0)
-            events_amount[event_day]["recording"] += 1
+        for day, count in recording_events:
+            events_amount.setdefault(day.isoformat(), {}).setdefault("recording", count)
 
-        for event in object_events:
-            event_day = (event + self.utc_offset).date().isoformat()
-            events_amount.setdefault(event_day, {}).setdefault("object", 0)
-            events_amount[event_day]["object"] += 1
+        for day, count in object_events:
+            events_amount.setdefault(day.isoformat(), {}).setdefault("object", count)
 
-        for event_pp in post_processor_events:
-            event_day = (event_pp.created_at + self.utc_offset).date().isoformat()
-            events_amount.setdefault(event_day, {}).setdefault(event_pp.domain, 0)
-            events_amount[event_day][event_pp.domain] += 1
+        for day, domain, count in post_processor_events:
+            events_amount.setdefault(day.isoformat(), {}).setdefault(domain, count)
 
         return events_amount
 
@@ -413,3 +443,68 @@ class EventsAPIHandler(BaseAPIHandler):
             self.json_body["camera_identifiers"],
         )
         await self.response_success(response={"events_amount": events_amount})
+
+    async def post_events_dates_of_interest(self):
+        """Get dates of interest for multiple cameras.
+
+        This returns a list of dates with the amount of events and whether
+        there are timespans available for that date.
+        """
+        camera_identifiers = self.json_body["camera_identifiers"]
+        if not camera_identifiers:
+            self.response_error(
+                HTTPStatus.BAD_REQUEST, reason="No camera identifiers provided"
+            )
+            return
+
+        events_amount = await self.run_in_executor(
+            self._events_amount,
+            self._get_session,
+            camera_identifiers,
+        )
+        events_per_day = {}
+        for date, event_types in events_amount.items():
+            events_per_day[date] = sum(event_types.values())
+
+        timespans_per_day = await self.run_in_executor(
+            _get_timespans_per_day,
+            self._get_session,
+            camera_identifiers,
+            self.utc_offset,
+        )
+
+        combined = {}
+        for date, event_count in events_per_day.items():
+            combined[date] = {
+                "events": event_count,
+                "timespanAvailable": date in timespans_per_day,
+            }
+
+        # Add dates that have timespans but no events
+        for date in timespans_per_day:
+            if date not in combined:
+                combined[date] = {
+                    "events": 0,
+                    "timespanAvailable": True,
+                }
+        await self.response_success(response={"dates_of_interest": combined})
+
+
+def _get_timespans_per_day(
+    get_session: Callable[[], Session],
+    camera_identifiers: list[str],
+    utc_offset: datetime.timedelta,
+) -> list[str]:
+    """Get the dates with timespans available for multiple cameras."""
+    with get_session() as session:
+        stmt = (
+            select(
+                func.date(Files.created_at + utc_offset),
+            )
+            .where(Files.camera_identifier.in_(camera_identifiers))
+            .group_by(func.date(Files.created_at + utc_offset))
+            .order_by(func.date(Files.created_at + utc_offset))
+        )
+        dates = session.execute(stmt).all()
+    date_list = [str(d[0]) for d in dates]
+    return date_list

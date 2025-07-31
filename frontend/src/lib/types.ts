@@ -350,6 +350,15 @@ export type EventsAmount = {
   };
 };
 
+export type EventsDatesOfInterest = {
+  dates_of_interest: {
+    [date: string]: {
+      events: number;
+      timespan_available: boolean;
+    };
+  };
+};
+
 export interface Entity {
   entity_id: string;
   state: string;

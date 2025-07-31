@@ -225,3 +225,56 @@ export function useEventsAmountMultiple(
     ...variables.configOptions,
   });
 }
+
+type EventsDatesOfInterestVariables = {
+  camera_identifiers: string[];
+  configOptions?: Omit<
+    UseQueryOptions<types.EventsDatesOfInterest, types.APIErrorResponse>,
+    "queryKey" | "queryFn"
+  >;
+};
+
+async function eventsDatesOfInterest({
+  camera_identifiers,
+}: EventsDatesOfInterestVariables): Promise<types.EventsDatesOfInterest> {
+  const response = await viseronAPI.post<types.EventsDatesOfInterest>(
+    "events/dates_of_interest",
+    {
+      camera_identifiers,
+    },
+  );
+  return response.data;
+}
+
+export function useEventsDatesOfInterest(
+  variables: EventsDatesOfInterestVariables,
+): UseQueryResult<types.EventsDatesOfInterest, types.APIErrorResponse> {
+  const eventQueryPairs = useMemo(() => {
+    const _eventQueryPairs: EventQueryPair[] = [];
+    variables.camera_identifiers.forEach((camera_identifier) => {
+      _eventQueryPairs.push(
+        {
+          event: `${camera_identifier}/camera_event/*/*`,
+          queryKey: ["events", "dates_of_interest"],
+        },
+        {
+          event: `${camera_identifier}/recorder/start`,
+          queryKey: ["events", "dates_of_interest"],
+        },
+        {
+          event: `${camera_identifier}/recorder/stop`,
+          queryKey: ["events", "dates_of_interest"],
+        },
+      );
+    });
+    return _eventQueryPairs;
+  }, [variables.camera_identifiers]);
+
+  useInvalidateQueryOnEvent(eventQueryPairs, 5);
+
+  return useQuery({
+    queryKey: ["events", "dates_of_interest"],
+    queryFn: async () => eventsDatesOfInterest(variables),
+    ...variables.configOptions,
+  });
+}

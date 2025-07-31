@@ -172,3 +172,44 @@ class TestEventsApiHandler(TestAppBaseNoAuth, BaseTestWithRecordings):
         assert body["events_amount"]["2024-06-22"]["motion"] == 1
         assert body["events_amount"]["2024-06-23"]["motion"] == 1
         assert body["events_amount"]["2024-06-22"]["face_recognition"] == 1
+
+    def test_post_dates_of_interest(self):
+        """Test getting dates of interest."""
+        response = self.fetch(
+            "/api/v1/events/dates_of_interest",
+            method="POST",
+            body=json.dumps(
+                {
+                    "camera_identifiers": ["test"],
+                }
+            ),
+            headers={
+                "X-Client-UTC-Offset": "0",
+            },
+        )
+
+        assert response.code == 200
+
+        body = json.loads(response.body)
+        assert body["dates_of_interest"]["2024-06-22"]["events"] == 4
+
+    def test_post_dates_of_interest_utc_offset_negative(self):
+        """Test getting dates of interest with utc offset."""
+        response = self.fetch(
+            "/api/v1/events/dates_of_interest",
+            method="POST",
+            body=json.dumps(
+                {
+                    "camera_identifiers": ["test"],
+                }
+            ),
+            headers={
+                "X-Client-UTC-Offset": "-120",
+            },
+        )
+
+        assert response.code == 200
+
+        body = json.loads(response.body)
+        assert body["dates_of_interest"]["2024-06-21"]["events"] == 2
+        assert body["dates_of_interest"]["2024-06-22"]["events"] == 2

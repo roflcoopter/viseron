@@ -7,12 +7,9 @@ import {
   PickerChangeHandlerContext,
 } from "@mui/x-date-pickers/models";
 import dayjs, { Dayjs } from "dayjs";
-import { useMemo } from "react";
 
 import { useFilteredCameras } from "components/camera/useCameraStore";
-import { useTimespans } from "components/events/utils";
-import { useEventsAmountMultiple } from "lib/api/events";
-import * as types from "lib/types";
+import { useEventsDatesOfInterest } from "lib/api/events";
 
 function HasEvent(
   props: PickersDayProps<Dayjs> & { highlightedDays?: Record<string, any> },
@@ -61,50 +58,6 @@ function HasEvent(
   );
 }
 
-type HighlightedDays = {
-  [date: string]: {
-    events: number;
-    timespanAvailable: boolean;
-  };
-};
-
-export function getHighlightedDays(
-  eventsAmount: types.EventsAmount["events_amount"],
-  availableTimespans: types.HlsAvailableTimespan[],
-) {
-  const result: HighlightedDays = {};
-  for (const timespan of availableTimespans) {
-    // Loop through all dates between start and end
-    const start = dayjs(timespan.start * 1000);
-    const end = dayjs(timespan.end * 1000);
-    for (let d = start; d.isBefore(end); d = d.add(1, "day")) {
-      const date = d.format("YYYY-MM-DD");
-      if (!(date in result)) {
-        result[date] = {
-          events: 0,
-          timespanAvailable: true,
-        };
-      }
-    }
-  }
-
-  for (const [date, events] of Object.entries(eventsAmount)) {
-    const totalEvents = Object.values(events).reduce((a, b) => a + b, 0);
-    if (totalEvents > 0) {
-      if (!(date in result)) {
-        result[date] = {
-          events: totalEvents,
-          timespanAvailable: false,
-        };
-      } else {
-        result[date].events = totalEvents;
-      }
-    }
-  }
-
-  return result;
-}
-
 type DatePickerDialogProps = {
   open: boolean;
   setOpen: (open: boolean) => void;
@@ -122,20 +75,12 @@ export function DatePickerDialog({
   onChange,
 }: DatePickerDialogProps) {
   const filteredCameras = useFilteredCameras();
-  const eventsAmountQuery = useEventsAmountMultiple({
+  const eventsDateOfInterest = useEventsDatesOfInterest({
     camera_identifiers: Object.keys(filteredCameras),
+    configOptions: {
+      enabled: open,
+    },
   });
-  const { availableTimespans } = useTimespans(null, 5, open);
-  const highlightedDays = useMemo(
-    () =>
-      eventsAmountQuery.data
-        ? getHighlightedDays(
-            eventsAmountQuery.data.events_amount,
-            availableTimespans,
-          )
-        : {},
-    [eventsAmountQuery.data, availableTimespans],
-  );
 
   const handleClose = () => {
     setOpen(false);
@@ -153,7 +98,7 @@ export function DatePickerDialog({
         }}
         slotProps={{
           day: {
-            highlightedDays,
+            highlightedDays: eventsDateOfInterest.data?.dates_of_interest,
           } as any,
           actionBar: {
             actions: ["today", "cancel"],
