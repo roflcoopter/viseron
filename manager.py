@@ -1,10 +1,8 @@
 """Manager for communication between python shells."""
 from collections.abc import Callable
-from multiprocessing.managers import (  # type: ignore
-    BaseManager,
-    dispatch,
-    listener_client,
-)
+from multiprocessing.managers import dispatch  # type: ignore[attr-defined]
+from multiprocessing.managers import listener_client  # type: ignore[attr-defined]
+from multiprocessing.managers import BaseManager
 from queue import Queue
 
 
@@ -19,12 +17,20 @@ def start(
     address: str, port: int, authkey: str, process_queue: Queue, output_queue: Queue
 ) -> QueueManager:
     """Serve manager."""
+
+    class _QueueManager(QueueManager):
+        """QueueManager subclass to register queues.
+
+        This is necessary to avoid issues with BaseManager being global, thus
+        allowing for multiple instances with different queues.
+        """
+
     # Set up queues
-    QueueManager.register("get_process_queue", callable=lambda: process_queue)
-    QueueManager.register("get_output_queue", callable=lambda: output_queue)
+    _QueueManager.register("get_process_queue", callable=lambda: process_queue)
+    _QueueManager.register("get_output_queue", callable=lambda: output_queue)
 
     # Start server
-    manager = QueueManager(address=(address, port), authkey=authkey.encode("utf-8"))
+    manager = _QueueManager(address=(address, port), authkey=authkey.encode("utf-8"))
     return manager
 
 
