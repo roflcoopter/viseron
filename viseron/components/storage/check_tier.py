@@ -202,7 +202,8 @@ class Worker:
                 self.delete_file(item)
         except Exception as e:  # pylint: disable=broad-except
             LOGGER.error(
-                "Error processing command: %s",
+                "Error processing command: %s, error: %s",
+                item,
                 e,
             )
             item.error = str(e)
