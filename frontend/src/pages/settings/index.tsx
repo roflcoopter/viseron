@@ -45,6 +45,15 @@ const Settings = () => {
         : "Only admins can manage users",
     },
     {
+      name: "System Events",
+      description: "View system events dispatched by the server",
+      path: "/settings/system-events",
+      icon: <ArticleIcon />,
+      color: "purple",
+      disabled: false,
+      disabledReason: null,
+    },
+    {
       name: "Logs",
       description: "View system logs",
       path: "/settings/logs",

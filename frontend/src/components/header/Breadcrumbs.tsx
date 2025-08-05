@@ -8,6 +8,8 @@ import { Link as RouterLink, useLocation } from "react-router-dom";
 
 import { getCameraNameFromQueryCache, toTitleCase } from "lib/helpers";
 
+const getTitle = (str: string) => toTitleCase(str.replace("-", " "));
+
 export default function Breadcrumbs() {
   const theme = useTheme();
   const mediaQuerySmall = useMediaQuery(theme.breakpoints.up("sm"));
@@ -20,7 +22,7 @@ export default function Breadcrumbs() {
   if (!mediaQuerySmall) {
     return (
       <Typography color="textPrimary" align="center" style={{ width: "100%" }}>
-        {toTitleCase(pathnames[0])}
+        {getTitle(pathnames[0])}
       </Typography>
     );
   }
@@ -42,7 +44,7 @@ export default function Breadcrumbs() {
 
         return last ? (
           <Typography color="textPrimary" key={to}>
-            {toTitleCase(value)}
+            {getTitle(value)}
           </Typography>
         ) : (
           <Link
@@ -52,7 +54,7 @@ export default function Breadcrumbs() {
             to={to}
             key={to}
           >
-            {toTitleCase(value)}
+            {getTitle(value)}
           </Link>
         );
       })}
