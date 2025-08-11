@@ -3,7 +3,7 @@
     "type": "map",
     "value": [],
     "name": "go2rtc",
-    "description": "go2rtc configuration.",
+    "description": "go2rtc configuration. See the <a href='https://github.com/AlexxIT/go2rtc'>go2rtc documentation</a> for more information on available options.",
     "required": true,
     "default": null
   }

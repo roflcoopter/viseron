@@ -60,4 +60,36 @@ go2rtc:
 
 <ComponentConfiguration meta={ComponentMetadata} config={config} />
 
+## Restreaming
+
+Using go2rtc, you can restream your cameras to Viseron or other services, reducing the number of connections per camera.
+
+<details>
+  <summary>Restreaming configuration example</summary>
+
+```yaml title="/config/config.yaml"
+ffmpeg:
+  camera:
+    camera_one:
+      name: Camera 1
+      host: localhost
+      port: 8554
+      path: /camera_one
+
+    camera_two:
+      name: Camera 2
+      host: localhost
+      port: 8554
+      path: /camera_two
+
+go2rtc:
+  streams:
+    camera_one:
+      - rtsp://user:pass@192.168.XX.X:554/Streaming/Channels/101/
+    camera_two:
+      - rtsp://user:pass@192.168.XX.X:554/Streaming/Channels/101/
+```
+
+</details>
+
 <ComponentTroubleshooting meta={ComponentMetadata} />
