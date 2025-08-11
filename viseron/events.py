@@ -21,7 +21,7 @@ class Event(Generic[T]):
     def as_dict(self) -> dict[str, Any]:
         """Convert Event to dict."""
         return {
-            "name": self.name.split("/", 1)[1],
+            "name": self.name,
             "data": self.data,
             "timestamp": self.timestamp,
         }

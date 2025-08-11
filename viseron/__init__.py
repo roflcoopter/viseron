@@ -274,6 +274,8 @@ class Viseron:
         self._subprocess_watchdog: SubprocessWatchDog | None = None
         self._process_watchdog: ProcessWatchDog | None = None
 
+        self._dispatched_events: list[str] = []
+
         self.background_scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
         if start_background_scheduler:
             self.background_scheduler.start()
@@ -300,6 +302,11 @@ class Viseron:
         if git_commit:
             return git_commit[:7]
         return "unknown"
+
+    @property
+    def dispatched_events(self) -> list[str]:
+        """Return the list of dispatched events."""
+        return self._dispatched_events
 
     def register_signal_handler(self, viseron_signal, callback):
         """Register a callback which gets called on signals emitted by Viseron.
@@ -373,10 +380,10 @@ class Viseron:
         _event: Event[EventData] = Event(event, data, utcnow().timestamp())
         if store:
             self._insert_event(_event)
-        event = f"event/{event}"
-        self.data[DATA_STREAM_COMPONENT].publish_data(
-            event, data=Event(event, data, time.time())
-        )
+        self.data[DATA_STREAM_COMPONENT].publish_data(f"event/{event}", data=_event)
+
+        if event not in self._dispatched_events:
+            self._dispatched_events.append(event)
 
     @overload
     def register_domain(
