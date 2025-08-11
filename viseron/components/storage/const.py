@@ -27,12 +27,8 @@ class CleanupJobNames(Enum):
     OLD_EVENTS = "cleanup_old_events"
 
 
-EVENT_FILE_CREATED = (
-    "file_created/{camera_identifier}/{category}/{subcategory}/{file_name}"
-)
-EVENT_FILE_DELETED = (
-    "file_deleted/{camera_identifier}/{category}/{subcategory}/{file_name}"
-)
+EVENT_FILE_CREATED = "file_created/{camera_identifier}/{category}/{subcategory}"
+EVENT_FILE_DELETED = "file_deleted/{camera_identifier}/{category}/{subcategory}"
 EVENT_CHECK_TIER = "check_tier/{camera_identifier}/{tier_id}/{category}/{subcategory}"
 
 # Tier categories

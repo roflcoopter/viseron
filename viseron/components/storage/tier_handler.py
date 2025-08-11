@@ -362,7 +362,6 @@ class TierHandler(FileSystemEventHandler):
                     camera_identifier=self._camera.identifier,
                     category=self._category,
                     subcategory=self._subcategory,
-                    file_name="*",
                 ),
                 EventFileCreated(
                     camera_identifier=self._camera.identifier,
@@ -371,6 +370,7 @@ class TierHandler(FileSystemEventHandler):
                     file_name=os.path.basename(event.src_path),
                     path=event.src_path,
                 ),
+                store=False,
             )
 
         self.check_tier()
@@ -423,7 +423,6 @@ class TierHandler(FileSystemEventHandler):
                 camera_identifier=self._camera.identifier,
                 category=self._category,
                 subcategory=self._subcategory,
-                file_name=os.path.basename(event.src_path),
             ),
             EventFileDeleted(
                 camera_identifier=self._camera.identifier,
@@ -432,6 +431,7 @@ class TierHandler(FileSystemEventHandler):
                 file_name=os.path.basename(event.src_path),
                 path=event.src_path,
             ),
+            store=False,
         )
 
     def _shutdown(self) -> None:
@@ -1100,6 +1100,7 @@ def move_file(
                     subcategory=curr_tier_subcategory,
                 ),
                 EventEmptyData(),
+                store=False,
             )
             return
 

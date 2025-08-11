@@ -1,3 +1,4 @@
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
@@ -9,11 +10,16 @@ import { useContext, useRef, useState } from "react";
 
 import { ViseronContext } from "context/ViseronContext";
 import { useToast } from "hooks/UseToast";
+import { useSystemDispatchedEvents } from "lib/api/system";
 import { subscribeEvent } from "lib/commands";
 
 const SystemEvents = () => {
   const { connection } = useContext(ViseronContext);
   const toast = useToast();
+
+  const systemDispatchedEvents = useSystemDispatchedEvents({
+    refetchInterval: 10000,
+  });
 
   const [event, setEvent] = useState("");
   const [subscribed, setSubscribed] = useState(false);
@@ -51,18 +57,29 @@ const SystemEvents = () => {
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      {/* Listen to events section */}
-      <Paper variant="outlined" sx={{ p: 3, mb: 4 }}>
+    <Container>
+      <Paper variant="outlined" sx={{ p: 3, mb: 1 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
           Listen to events
         </Typography>
-        <TextField
-          label={subscribed ? "Listening to" : "Event to subscribe to"}
-          value={event}
-          onChange={(e) => setEvent(e.target.value)}
+        <Autocomplete
           disabled={subscribed}
-          fullWidth
+          freeSolo
+          forcePopupIcon
+          options={systemDispatchedEvents.data?.events || []}
+          loading={systemDispatchedEvents.isLoading}
+          loadingText="Loading events..."
+          onChange={(e, value) => {
+            setEvent(value || "");
+          }}
+          renderInput={(params) => (
+            <TextField
+              label={subscribed ? "Listening to" : "Event to subscribe to"}
+              value={event}
+              onChange={(e) => setEvent(e.target.value)}
+              {...params}
+            />
+          )}
           sx={{ mb: 2 }}
         />
         <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
@@ -83,9 +100,15 @@ const SystemEvents = () => {
             CLEAR EVENTS
           </Button>
         </Box>
+        <Typography variant="subtitle2">
+          When clicking the text field above, you can see a list of all events
+          fired since the last restart of Viseron.
+        </Typography>
+        <Typography variant="subtitle2">
+          A star (*) can be used as a wildcard in the event name.
+        </Typography>
       </Paper>
 
-      {/* Received events section */}
       {receivedEvents.length > 0 && (
         <Paper variant="outlined" sx={{ p: 3 }}>
           {receivedEvents.map((ev, idx) => (

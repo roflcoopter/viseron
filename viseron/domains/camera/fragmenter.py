@@ -173,6 +173,7 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
                     subcategory=TIER_SUBCATEGORY_SEGMENTS,
                 ),
                 EventEmptyData(),
+                store=False,
             )
             self._storage.cleanup_manager.run_job(CleanupJobNames.ORPHANED_FILES)
 

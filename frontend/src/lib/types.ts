@@ -399,3 +399,7 @@ export type DownloadFileResponse = {
   filename: string;
   token: string;
 };
+
+export type SystemDispatchedEvents = {
+  events: string[];
+};
