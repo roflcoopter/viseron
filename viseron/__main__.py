@@ -37,7 +37,8 @@ def main():
     signal.signal(signal.SIGTERM, signal_term)
     signal.signal(signal.SIGINT, signal_term)
 
-    viseron = setup_viseron()
+    viseron = Viseron()
+    setup_viseron(viseron)
 
     signal.pause()
     if viseron:
