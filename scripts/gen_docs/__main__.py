@@ -22,6 +22,7 @@ from viseron.helpers.validators import (
     Deprecated,
     Maybe,
     Slug,
+    jinja2_template,
 )
 from viseron.types import SupportedDomains
 
@@ -234,6 +235,12 @@ def convert(schema, custom_convert=None):  # noqa: C901
             "type": "deprecated",
             "name": schema.key,
             "value": schema.message,
+        }
+
+    if schema == jinja2_template:  # pylint: disable=comparison-with-callable
+        return {
+            "type": "jinja2_template",
+            "value": "jinja2_template",
         }
 
     if callable(schema):

@@ -85,6 +85,11 @@ class States:
 
         self._current_states: dict[str, State] = {}
 
+    @property
+    def current(self) -> dict[str, State]:
+        """Return current states."""
+        return self._current_states
+
     def set_state(self, entity: Entity) -> None:
         """Set the state in the states registry."""
         LOGGER.debug(

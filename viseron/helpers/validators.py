@@ -4,6 +4,7 @@ from collections.abc import Callable
 from typing import Any
 
 import voluptuous as vol
+from jinja2 import BaseLoader, Environment
 
 from viseron.helpers import slugify
 
@@ -163,6 +164,21 @@ def request_argument_no_value(value) -> bool:
     if value or (isinstance(value, str) and value == ""):
         return True
     return False
+
+
+def jinja2_template(value: Any) -> str:
+    """Validate that value is a valid Jinja2 template."""
+    if not isinstance(value, str):
+        msg = f"Expected Jinja2 template, got {value}"
+        raise vol.Invalid(msg)
+
+    env = Environment(loader=BaseLoader())
+    try:
+        env.compile(value)
+    except Exception as e:
+        msg = f"Invalid Jinja2 template: {e}"
+        raise vol.Invalid(msg)
+    return value
 
 
 class CameraIdentifier(vol.Required):
