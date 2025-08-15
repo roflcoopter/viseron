@@ -256,6 +256,23 @@ class Slug:
         raise vol.Invalid("Invalid slug.")
 
 
+class StringKey:
+    """Ensure that a config key is a string."""
+
+    def __init__(
+        self,
+        description: str,
+    ) -> None:
+        self.description = description
+
+    def __call__(self, value):
+        """Ensure slug."""
+        if not isinstance(value, str):
+            msg = f"Expected string. Got {value}"
+            LOGGER.error(msg)
+            raise vol.Invalid(msg)
+
+
 def request_argument_bool(value):
     """Boolean HTTP request argument.
 
