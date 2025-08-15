@@ -4,6 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 
+import Link from "@docusaurus/Link";
 import CodeBlock from "@theme/CodeBlock";
 import Tippy from "@tippyjs/react";
 import clsx from "clsx";
@@ -124,7 +125,7 @@ function getName(item: any) {
   return `<${item.name.type}>`;
 }
 
-function getDefault(item: any) {
+function getDefault(item: any, optional: boolean) {
   function getCodeBlock() {
     return (
       <span className={styles.configVariablesDefault}>
@@ -153,7 +154,7 @@ function getDefault(item: any) {
 
   // Handle object defaults
   if (
-    item.optional &&
+    optional &&
     item.default !== null &&
     typeof item.default === "object" &&
     !Array.isArray(item.default) &&
@@ -165,7 +166,7 @@ function getDefault(item: any) {
 
   // Handle array defaults
   if (
-    item.optional &&
+    optional &&
     item.default !== null &&
     // Only display default values for arrays if the length is greater than zero
     Array.isArray(item.default) &&
@@ -177,7 +178,7 @@ function getDefault(item: any) {
 
   // Handle other defaults
   if (
-    item.optional &&
+    optional &&
     item.default !== null &&
     !Array.isArray(item.default) &&
     !(typeof item.default === "object")
@@ -189,7 +190,7 @@ function getDefault(item: any) {
     );
   }
 
-  if (item.optional) {
+  if (optional) {
     return ")";
   }
   return null;
@@ -206,7 +207,15 @@ function buildHeader(item: any) {
       {/* Zero width space to prevent selecting type when double clicking the name */}
       &#8203;
       <span className={styles.configVariablesType}>
-        {item.format ? item.format : item.type}
+        {item.format ? (
+          item.format
+        ) : item.type === "jinja2_template" ? (
+          <Link href="/docs/documentation/configuration/templating">
+            Jinja2 template
+          </Link>
+        ) : (
+          item.type
+        )}
       </span>
       <span className={styles.configVariablesRequired}>
         {optional ? " (" : null}
@@ -221,7 +230,7 @@ function buildHeader(item: any) {
               ? " deprecated"
               : " required"}
         </span>
-        {getDefault(item)}
+        {getDefault(item, optional)}
       </span>
     </div>
   );
