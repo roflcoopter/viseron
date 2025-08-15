@@ -133,7 +133,9 @@ class EventMotionDetected(EventData):
         return {
             "camera_identifier": self.camera_identifier,
             "motion_detected": self.motion_detected,
-            "motion_contours": self.motion_contours,
+            "max_area": (
+                self.motion_contours.max_area if self.motion_contours else None
+            ),
         }
 
 
