@@ -5,7 +5,7 @@ import multiprocessing as mp
 import os
 import time
 from queue import Empty, Full
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import setproctitle
@@ -308,10 +308,10 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config, identifier) -> bool:
+def setup(vis: Viseron, config: dict[str, Any], identifier: str, attempt: int) -> bool:
     """Set up the ffmpeg camera domain."""
     try:
-        Camera(vis, config[identifier], identifier)
+        Camera(vis, config[identifier], identifier, attempt)
     except (FFprobeError, FFprobeTimeout) as error:
         raise DomainNotReady from error
     return True
@@ -320,7 +320,9 @@ def setup(vis: Viseron, config, identifier) -> bool:
 class Camera(AbstractCamera):
     """Represents a camera which is consumed via FFmpeg."""
 
-    def __init__(self, vis: Viseron, config, identifier) -> None:
+    def __init__(
+        self, vis: Viseron, config: dict[str, Any], identifier: str, attempt: int
+    ) -> None:
         # Add password to SensitiveInformationFilter.
         # It is done in AbstractCamera but since we are calling Stream before
         # super().__init__ we need to do it here as well
@@ -336,7 +338,7 @@ class Camera(AbstractCamera):
         # Stream must be initialized before super().__init__ is called as it raises
         # FFprobeError/FFprobeTimeout which is caught in setup() and re-raised as
         # DomainNotReady
-        self.stream = Stream(config, self, identifier)
+        self.stream = Stream(config, self, identifier, attempt)
 
         super().__init__(vis, COMPONENT, config, identifier)
         self._frame_queue: mp.Queue[  # pylint: disable=unsubscriptable-object

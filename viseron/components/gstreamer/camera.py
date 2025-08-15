@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 from threading import Event
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import cv2
 import voluptuous as vol
@@ -270,10 +270,10 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-def setup(vis: Viseron, config, identifier) -> bool:
+def setup(vis: Viseron, config: dict[str, Any], identifier: str, attempt: int) -> bool:
     """Set up the gstreamer camera domain."""
     try:
-        Camera(vis, config[identifier], identifier)
+        Camera(vis, config[identifier], identifier, attempt)
     except (FFprobeError, FFprobeTimeout) as error:
         raise DomainNotReady from error
     return True
@@ -282,13 +282,15 @@ def setup(vis: Viseron, config, identifier) -> bool:
 class Camera(AbstractCamera):
     """Represents a camera which is consumed via GStreamer."""
 
-    def __init__(self, vis: Viseron, config, identifier) -> None:
+    def __init__(
+        self, vis: Viseron, config: dict[str, Any], identifier: str, attempt: int
+    ) -> None:
         self._poll_timer = utcnow().timestamp()
         self._frame_reader = None
         # Stream must be initialized before super().__init__ is called as it raises
         # FFprobeError/FFprobeTimeout which is caught in setup() and re-raised as
         # DomainNotReady
-        self.stream = Stream(config, self, identifier)
+        self.stream = Stream(config, self, identifier, attempt)
 
         super().__init__(vis, COMPONENT, config, identifier)
         self._capture_frames = False

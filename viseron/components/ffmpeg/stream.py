@@ -8,14 +8,6 @@ import subprocess as sp
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from tenacity import (
-    Retrying,
-    before_sleep_log,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
-
 from viseron.const import (
     CAMERA_SEGMENT_DURATION,
     ENV_CUDA_SUPPORTED,
@@ -95,7 +87,11 @@ class Stream:
     """Represents a stream of frames from a camera."""
 
     def __init__(
-        self, config: dict[str, Any], camera: Camera, camera_identifier: str
+        self,
+        config: dict[str, Any],
+        camera: Camera,
+        camera_identifier: str,
+        attempt: int = 1,
     ) -> None:
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.addFilter(
@@ -114,7 +110,7 @@ class Stream:
         self._pipe: sp.Popen | None = None
         self.segment_process: RestartablePopen | None = None
         self._log_pipe: LogPipe | None = None
-        self._ffprobe = FFprobe(config, camera_identifier)
+        self._ffprobe = FFprobe(config, camera_identifier, attempt)
 
         self._mainstream = self.get_stream_information(config)
         self._substream = None
@@ -581,10 +577,12 @@ class Stream:
 class FFprobe:
     """FFprobe wrapper class."""
 
-    def __init__(self, config: dict[str, Any], camera_identifier: str) -> None:
+    def __init__(
+        self, config: dict[str, Any], camera_identifier: str, attempt: int
+    ) -> None:
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._config = config
-        self._ffprobe_timeout = FFPROBE_TIMEOUT
+        self._ffprobe_timeout = FFPROBE_TIMEOUT * attempt
 
     def stream_information(
         self, stream_url: str, stream_config: dict[str, Any]
@@ -655,35 +653,24 @@ class FFprobe:
         )
         self._logger.debug(f"FFprobe command: {' '.join(ffprobe_command)}")
 
-        for attempt in Retrying(
-            retry=retry_if_exception_type((sp.TimeoutExpired, FFprobeTimeout)),
-            stop=stop_after_attempt(10),
-            wait=wait_exponential(multiplier=2, min=1, max=30),
-            before_sleep=before_sleep_log(self._logger, logging.ERROR),
-            reraise=True,
-        ):
-            with attempt:
-                log_pipe = LogPipe(
-                    self._logger,
-                    FFPROBE_LOGLEVELS[self._config[CONFIG_FFPROBE_LOGLEVEL]],
-                )
-                pipe = sp.Popen(  # type: ignore[call-overload]
-                    ffprobe_command,
-                    stdout=sp.PIPE,
-                    stderr=log_pipe,
-                )
-                try:
-                    stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
-                    pipe.wait(timeout=FFPROBE_TIMEOUT)
-                except sp.TimeoutExpired as error:
-                    pipe.terminate()
-                    pipe.wait(timeout=FFPROBE_TIMEOUT)
-                    ffprobe_timeout = self._ffprobe_timeout
-                    self._ffprobe_timeout += FFPROBE_TIMEOUT
-                    raise FFprobeTimeout(ffprobe_timeout) from error
-                finally:
-                    log_pipe.close()
-                self._ffprobe_timeout = FFPROBE_TIMEOUT
+        log_pipe = LogPipe(
+            self._logger,
+            FFPROBE_LOGLEVELS[self._config[CONFIG_FFPROBE_LOGLEVEL]],
+        )
+        pipe = sp.Popen(  # type: ignore[call-overload]
+            ffprobe_command,
+            stdout=sp.PIPE,
+            stderr=log_pipe,
+        )
+        try:
+            stdout, _ = pipe.communicate(timeout=self._ffprobe_timeout)
+            pipe.wait(timeout=FFPROBE_TIMEOUT)
+        except sp.TimeoutExpired as error:
+            pipe.terminate()
+            pipe.wait(timeout=FFPROBE_TIMEOUT)
+            raise FFprobeTimeout(self._ffprobe_timeout) from error
+        finally:
+            log_pipe.close()
 
         try:
             # Trim away any text before start of JSON object
