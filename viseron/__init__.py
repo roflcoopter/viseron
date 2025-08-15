@@ -190,15 +190,13 @@ def enable_logging() -> None:
     )
 
 
-def setup_viseron(start_background_scheduler=True) -> Viseron:
+def setup_viseron(vis: Viseron):
     """Set up and run Viseron."""
     start = timer()
     enable_logging()
     viseron_version = os.getenv("VISERON_VERSION")
     LOGGER.info("-------------------------------------------")
     LOGGER.info(f"Initializing Viseron {viseron_version if viseron_version else ''}")
-
-    vis = Viseron(start_background_scheduler=start_background_scheduler)
 
     try:
         config = load_config()
@@ -243,7 +241,6 @@ def setup_viseron(start_background_scheduler=True) -> Viseron:
         vis.critical_components_config_store.save(config)
 
     LOGGER.info("Viseron initialized in %.1f seconds", timer() - start)
-    return vis
 
 
 class Viseron:
@@ -289,6 +286,7 @@ class Viseron:
         self.safe_mode = False
         self.exit_code = 0
         self.shutdown_stage: Literal["shutdown", "last_write", "stopping"] | None = None
+        self.shutdown_event = threading.Event()
 
     @property
     def version(self) -> str:
@@ -571,6 +569,7 @@ class Viseron:
         """Shut down Viseron."""
         start = timer()
         LOGGER.info("Initiating shutdown")
+        self.shutdown_event.set()
 
         if self.data.get(DATA_STREAM_COMPONENT, None):
             data_stream: DataStream = self.data[DATA_STREAM_COMPONENT]
@@ -680,11 +679,15 @@ def wait_for_threads_and_processes_to_exit(
     ] = [
         thread
         for thread in threading.enumerate()
-        if not thread.daemon and thread != threading.current_thread()
+        if not thread.daemon
+        and thread != threading.current_thread()
+        and "setup_domains" not in thread.name
     ]
     threads_and_processes += multiprocessing.active_children()
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=100) as executor:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=100, thread_name_prefix="wait_for_threads_and_processes_to_exit"
+    ) as executor:
         thread_or_process_future = {
             executor.submit(join, thread_or_process): thread_or_process
             for thread_or_process in threads_and_processes
