@@ -22,6 +22,7 @@ from viseron.helpers.validators import (
     Deprecated,
     Maybe,
     Slug,
+    StringKey,
     jinja2_template,
 )
 from viseron.types import SupportedDomains
@@ -225,7 +226,7 @@ def convert(schema, custom_convert=None):  # noqa: C901
         return {
             "type": "CAMERA_IDENTIFIER",
         }
-    if isinstance(schema, Slug):
+    if isinstance(schema, (Slug, StringKey)):
         return {
             "type": "string",
         }
