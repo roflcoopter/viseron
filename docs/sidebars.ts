@@ -110,6 +110,8 @@ const sidebars: SidebarsConfig = {
         { type: "doc", id: "documentation/configuration/authentication" },
         { type: "doc", id: "documentation/configuration/logging" },
         { type: "doc", id: "documentation/configuration/secrets" },
+        { type: "doc", id: "documentation/configuration/templating" },
+        { type: "doc", id: "documentation/configuration/system_events" },
       ],
     },
   ],
