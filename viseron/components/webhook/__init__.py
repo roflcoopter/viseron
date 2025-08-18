@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any
 
 import requests
 import voluptuous as vol
-from jinja2 import BaseLoader, Environment
 
 from viseron.events import Event
 from viseron.helpers.template import render_template, render_template_condition
@@ -155,7 +154,6 @@ class Webhook:
     def __init__(self, vis: Viseron, config: dict[str, Any]) -> None:
         self.vis = vis
         self.config = config
-        self.jinja_env = Environment(loader=BaseLoader())
         self._setup_hooks()
 
     def _setup_hook(self, hook_name: str, hook_conf: dict[str, Any]) -> None:
@@ -184,7 +182,7 @@ class Webhook:
         condition_template = hook_conf[CONFIG_TRIGGER][CONFIG_CONDITION]
         if condition_template:
             result, rendered_condition = render_template_condition(
-                self.vis, self.jinja_env, condition_template, event=event
+                self.vis, condition_template, event=event
             )
             if not result:
                 LOGGER.debug(
@@ -193,21 +191,15 @@ class Webhook:
                 )
                 return
 
-        url = render_template(
-            self.vis, self.jinja_env, hook_conf[CONFIG_URL], event=event
-        )
+        url = render_template(self.vis, hook_conf[CONFIG_URL], event=event)
         if not url:
             LOGGER.error(f"Webhook '{hook_name}' URL is empty, skipping webhook")
             return
 
-        payload = render_template(
-            self.vis, self.jinja_env, hook_conf[CONFIG_PAYLOAD], event=event
-        )
+        payload = render_template(self.vis, hook_conf[CONFIG_PAYLOAD], event=event)
         headers = {}
         for header, value in hook_conf[CONFIG_HEADERS].items():
-            rendered_value = render_template(
-                self.vis, self.jinja_env, value, event=event
-            )
+            rendered_value = render_template(self.vis, value, event=event)
             if rendered_value is not None:
                 headers[str(header)] = str(rendered_value)
 

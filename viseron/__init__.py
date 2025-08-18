@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Literal, overload
 import voluptuous as vol
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.base import SchedulerNotRunningError
+from jinja2 import BaseLoader, Environment, StrictUndefined
 from sqlalchemy import insert
 
 from viseron.components import (
@@ -281,6 +282,7 @@ class Viseron:
             self._process_watchdog = ProcessWatchDog(self)
 
         self.storage: Storage | None = None
+        self.jinja_env = Environment(loader=BaseLoader(), undefined=StrictUndefined)
 
         self.critical_components_config_store = CriticalComponentsConfigStore(self)
         self.safe_mode = False

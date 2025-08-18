@@ -1,11 +1,11 @@
 """Jinja2 template helpers for Viseron."""
+from __future__ import annotations
 
 from numbers import Number
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-from jinja2 import Environment
-
-from viseron import Viseron
+if TYPE_CHECKING:
+    from viseron import Viseron
 
 
 class StateNamespace:
@@ -41,14 +41,12 @@ class _DomainNamespace:
         return self._states[key]
 
 
-def render_template(
-    vis: Viseron, jinja_env: Environment, template_str: str | None, **kwargs
-) -> None | str:
+def render_template(vis: Viseron, template_str: str | None, **kwargs) -> None | str:
     """Render a Jinja2 template with the states and any other arbitrary data."""
     if not template_str:
         return None
     states_ns = StateNamespace(vis.states.current)
-    template = jinja_env.from_string(template_str)
+    template = vis.jinja_env.from_string(template_str)
     return template.render(states=states_ns, **kwargs)
 
 
@@ -67,14 +65,14 @@ def _template_boolean(value: Any) -> bool:
 
 
 def render_template_condition(
-    vis: Viseron, jinja_env: Environment, template_str: str | None, **kwargs
+    vis: Viseron, template_str: str | None, **kwargs
 ) -> tuple[Literal[False], None] | tuple[bool, str]:
     """Render a Jinja2 template condition.
 
     Returns True if the condition evaluates to a truthy value, otherwise False.
     Considers any number greater than 0 as truthy.
     """
-    rendered_condition = render_template(vis, jinja_env, template_str, **kwargs)
+    rendered_condition = render_template(vis, template_str, **kwargs)
     if rendered_condition is None:
         return False, rendered_condition
     try:
