@@ -347,6 +347,7 @@ class Stream:
         if stream_audio_codec in [
             "pcm_alaw",
             "pcm_mulaw",
+            "pcm_s16be",
         ]:
             self._logger.warning(
                 f"Container mp4 does not support {stream_audio_codec} audio "
