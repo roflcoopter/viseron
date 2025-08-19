@@ -58,9 +58,16 @@ jobs:
           df -h
         displayName: List free space before cleaning
       - script: |
-          docker rmi -f $(docker images -aq)
-          docker system prune --force --all --volumes
+          docker rmi -f $(docker images -aq) || true
         displayName: Clean up Docker images
+      - script: |
+          docker system prune --force --all --volumes
+        displayName: Docker prune
+      - script: |
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+        displayName: Remove unused files
       - script: |
           df -h
         displayName: List free space after cleaning
