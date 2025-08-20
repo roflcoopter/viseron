@@ -15,8 +15,8 @@ describe("Loading Component", () => {
 
   test("renders app header without auth", () => {
     const { queryByRole } = renderWithContext(<AppHeader />, {
-      enabled: false,
-      onboarding_complete: false,
+      auth: { enabled: false, onboarding_complete: false },
+      user: null,
     });
     expect(
       queryByRole("button", {
