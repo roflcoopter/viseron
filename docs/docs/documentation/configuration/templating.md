@@ -23,6 +23,20 @@ Viseron provides some additional context variables that can be used in templates
 - `states`: A dictionary of all the current states of all Entities in Viseron.
 - `event`: The event data that triggered the component. This is only available for components that are triggered by events, such as the [webhook component](/components-explorer/components/webhook).
 
+## Template editor
+
+A template editor (heavily inspired by Home Assistant) is available that allows you to test your templates before using them in your configuration.
+You can access it from the Settings > Template Editor page in the web interface.
+
+<details>
+  <summary>Template editor screenshot</summary>
+  <img
+    src="/img/screenshots/Viseron-Settings-template-editor.png"
+    alt-text="Jinja2 Template"
+    width={700}
+  />
+</details>
+
 ## Examples
 
 ### Using the `event` context variable
