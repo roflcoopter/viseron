@@ -285,3 +285,9 @@ export const useExportTimespan = () => {
 
   return exportTimespanCallback;
 };
+
+export const renderTemplate = async (
+  connection: Connection,
+  template: string,
+): Promise<string> =>
+  connection.sendMessagePromise(messages.renderTemplate(template));
