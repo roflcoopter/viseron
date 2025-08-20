@@ -539,6 +539,7 @@ class Camera(AbstractCamera):
         self._logger.debug("Starting capture thread")
         self._capture_frames.set()
         if not self._frame_reader or not self._frame_reader.is_alive():
+            self._logger.debug("Creating new frame reader")
             self._frame_reader, self._frame_relay = self._create_frame_reader()
             self._frame_reader.start()
             self._frame_relay.start()
@@ -558,6 +559,8 @@ class Camera(AbstractCamera):
                 self._logger.debug("Timed out trying to stop camera. Killing pipe")
                 self._frame_reader.terminate()
                 self._frame_reader.kill()
+                self._frame_reader.join(timeout=5)
+                self._frame_reader = None
                 self.stream.close_pipe()
 
     def start_recorder(
