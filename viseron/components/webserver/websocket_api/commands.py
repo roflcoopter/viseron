@@ -697,18 +697,19 @@ async def export_timespan(connection: WebSocketHandler, message) -> None:
 @websocket_command(
     {
         vol.Required("type"): "render_template",
-        vol.Required("template"): jinja2_template,
+        vol.Required("template"): str,
     }
 )
 async def handle_render_template(connection: WebSocketHandler, message) -> None:
     """Render a Jinja2 template."""
     template = message["template"]
     try:
+        jinja2_template(template)
         rendered = await connection.run_in_executor(
             render_template, connection.vis, template
         )
     except Exception as exception:  # pylint: disable=broad-except
-        LOGGER.error("Failed to render template: %s", exception)
+        LOGGER.debug("Failed to render template: %s", exception)
         await connection.async_send_message(
             error_message(
                 message["command_id"],
