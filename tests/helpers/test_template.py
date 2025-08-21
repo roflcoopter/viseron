@@ -2,7 +2,6 @@
 from types import SimpleNamespace
 
 import pytest
-from jinja2 import Environment
 
 from viseron.helpers.template import (
     StateNamespace,
@@ -60,21 +59,20 @@ def test_render_template_valid_and_empty(vis: MockViseron):
         "sensor.temp": SimpleNamespace(state="23"),  # type: ignore[dict-item]
         "switch.light": SimpleNamespace(state="on"),  # type: ignore[dict-item]
     }
-    env = Environment()
     # Valid template
     tpl = (
         "Sensor is {{ states.sensor.temp.state }} "
         "and switch is {{ states.switch.light.state }}."
     )
-    result = render_template(vis, env, tpl)
+    result = render_template(vis, tpl)
     assert result == "Sensor is 23 and switch is on."
     # With extra kwargs
     tpl2 = "Value: {{ value }}"
-    result2 = render_template(vis, env, tpl2, value=42)
+    result2 = render_template(vis, tpl2, value=42)
     assert result2 == "Value: 42"
     # Empty template
-    assert render_template(vis, env, "") is None
-    assert render_template(vis, env, None) is None
+    assert render_template(vis, "") is None
+    assert render_template(vis, None) is None
 
 
 @pytest.mark.parametrize(
@@ -96,8 +94,7 @@ def test_render_template_condition_truthy(vis: MockViseron, template):
     vis.states._current_states = {  # pylint: disable=protected-access
         "sensor.x": SimpleNamespace(state="on"),  # type: ignore[dict-item]
     }
-    env = Environment()
-    result, _ = render_template_condition(vis, env, template)
+    result, _ = render_template_condition(vis, template)
     assert result is True
 
 
@@ -121,8 +118,7 @@ def test_render_template_condition_false(vis: MockViseron, template):
     vis.states._current_states = {  # pylint: disable=protected-access
         "sensor.x": SimpleNamespace(state="on"),  # type: ignore[dict-item]
     }
-    env = Environment()
-    result, _ = render_template_condition(vis, env, template)
+    result, _ = render_template_condition(vis, template)
     assert result is False
 
 
@@ -131,7 +127,6 @@ def test_render_template_missing_state_raises(vis: MockViseron):
     vis.states._current_states = {  # pylint: disable=protected-access
         "sensor.x": SimpleNamespace(state="on"),  # type: ignore[dict-item]
     }
-    env = Environment()
     tpl = "{{ states.sensor.y.state }}"
     with pytest.raises(KeyError):
-        render_template(vis, env, tpl)
+        render_template(vis, tpl)
