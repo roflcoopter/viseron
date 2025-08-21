@@ -52,6 +52,8 @@ from viseron.domains.camera.fragmenter import (
 )
 from viseron.exceptions import Unauthorized
 from viseron.helpers import create_directory, daterange_to_utc, get_utc_offset
+from viseron.helpers.template import render_template
+from viseron.helpers.validators import jinja2_template
 
 from .messages import (
     BASE_MESSAGE_SCHEMA,
@@ -690,3 +692,30 @@ async def export_timespan(connection: WebSocketHandler, message) -> None:
     await connection.async_send_message(
         cancel_subscription_message(message["command_id"])
     )
+
+
+@websocket_command(
+    {
+        vol.Required("type"): "render_template",
+        vol.Required("template"): str,
+    }
+)
+async def handle_render_template(connection: WebSocketHandler, message) -> None:
+    """Render a Jinja2 template."""
+    template = message["template"]
+    try:
+        jinja2_template(template)
+        rendered = await connection.run_in_executor(
+            render_template, connection.vis, template
+        )
+    except Exception as exception:  # pylint: disable=broad-except
+        LOGGER.debug("Failed to render template: %s", exception)
+        await connection.async_send_message(
+            error_message(
+                message["command_id"],
+                WS_ERROR_NOT_FOUND,
+                f"Failed to render template: {exception}",
+            )
+        )
+        return
+    await connection.async_send_message(result_message(message["command_id"], rendered))

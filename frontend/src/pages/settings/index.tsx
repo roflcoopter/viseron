@@ -54,6 +54,15 @@ const Settings = () => {
       disabledReason: null,
     },
     {
+      name: "Template Editor",
+      description: "Test and render Jinja2 templates",
+      path: "/settings/template-editor",
+      icon: <ArticleIcon />,
+      color: "teal",
+      disabled: false,
+      disabledReason: null,
+    },
+    {
       name: "Logs",
       description: "View system logs",
       path: "/settings/logs",
