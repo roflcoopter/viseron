@@ -11,6 +11,7 @@
       },
       {
         "type": "integer",
+        "valueMin": 1,
         "name": "tier_check_workers",
         "description": "The number of worker threads to use for checking tiers. This can be used to speed up the tier check process by using multiple threads to check for files to move or delete.",
         "optional": true,

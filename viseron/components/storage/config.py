@@ -399,7 +399,7 @@ STORAGE_SCHEMA = vol.Schema(
             CONFIG_TIER_CHECK_WORKERS,
             default=DEFAULT_TIER_CHECK_WORKERS,
             description=DESC_TIER_CHECK_WORKERS,
-        ): Maybe(vol.Coerce(int)),
+        ): Maybe(vol.All(vol.Coerce(int), vol.Range(min=1))),
         vol.Optional(
             CONFIG_TIER_CHECK_BATCH_SIZE,
             default=DEFAULT_TIER_CHECK_BATCH_SIZE,
