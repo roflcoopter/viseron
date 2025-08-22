@@ -5,7 +5,6 @@ import argparse
 import datetime
 import logging
 import multiprocessing as mp
-import subprocess as sp
 import sys
 import time
 from collections.abc import Callable
@@ -189,7 +188,11 @@ def initializer(cpulimit: int | None):
     if pid and cpulimit is not None:
         command = f"cpulimit -l {cpulimit} -p {pid} -z -q"
         LOGGER.debug(f"Running command: {command}")
-        sp.Popen(command, shell=True)
+        RestartablePopen(
+            command,
+            register=False,
+            shell=True,
+        )
 
 
 def worker_task(worker: Worker, process_queue: Queue, output_queue: Queue):

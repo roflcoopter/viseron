@@ -499,8 +499,10 @@ class Stream:
                 stderr=self._log_pipe,
             )
 
-        return sp.Popen(  # type: ignore[call-overload]
+        return RestartablePopen(
             self.build_command(),
+            name=f"viseron.camera.{self._camera.identifier}.pipe",
+            register=False,
             stdout=sp.PIPE,
             stderr=self._log_pipe,
         )
@@ -583,6 +585,7 @@ class FFprobe:
     ) -> None:
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._config = config
+        self._camera_identifier = camera_identifier
         self._ffprobe_timeout = FFPROBE_TIMEOUT * attempt
 
     def stream_information(
@@ -658,8 +661,10 @@ class FFprobe:
             self._logger,
             FFPROBE_LOGLEVELS[self._config[CONFIG_FFPROBE_LOGLEVEL]],
         )
-        pipe = sp.Popen(  # type: ignore[call-overload]
+        pipe = RestartablePopen(
             ffprobe_command,
+            name=f"viseron.camera.{self._camera_identifier}.ffprobe",
+            register=False,
             stdout=sp.PIPE,
             stderr=log_pipe,
         )
