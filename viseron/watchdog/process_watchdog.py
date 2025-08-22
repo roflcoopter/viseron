@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import multiprocessing as mp
+import os
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -38,6 +39,7 @@ class RestartableProcess:
         self._grace_period = grace_period
         self._kwargs = kwargs
         self._kwargs["name"] = name
+        self._original_target: Callable | None = self._kwargs.get("target")
         self._process: mp.Process | None = None
         self._started = False
         self._start_time: float | None = None
@@ -87,6 +89,25 @@ class RestartableProcess:
 
     def start(self) -> None:
         """Start the process."""
+        # Always (re)set the wrapped target so that restarts also create a new
+        # process that calls os.setsid() before executing the user target.
+        if self._original_target:
+            original_target = self._original_target
+
+            def wrapped_target(*targs, **tkwargs):
+                """Wrap original target to establish its own session ID.
+
+                Creating a new session (setsid) ensures the child process becomes
+                the leader of a new session and process group. This makes signal
+                management (e.g. terminating entire groups) more robust and
+                prevents the process from receiving signals intended for the
+                parent group.
+                """
+                os.setsid()
+                original_target(*targs, **tkwargs)
+
+            self._kwargs["target"] = wrapped_target
+
         if self._create_process_method:
             self._process = self._create_process_method()
         else:

@@ -28,12 +28,14 @@ class RestartablePopen:
         grace_period=20,
         register=True,
         stage: str | None = VISERON_SIGNAL_SHUTDOWN,
+        start_new_session: bool = True,
         **kwargs,
     ) -> None:
         self._args = args
         self._name = name
         self._grace_period = grace_period
         self._kwargs = kwargs
+        self._kwargs["start_new_session"] = start_new_session
         self._subprocess: sp.Popen | None = None
         self._started = False
         self.start()
