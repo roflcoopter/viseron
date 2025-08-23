@@ -17,6 +17,7 @@ class CleanupJobNames(Enum):
 
     ORPHANED_FILES = "cleanup_orphaned_files"
     ORPHANED_DB_FILES = "cleanup_orphaned_db_files"
+    ZERO_SIZE_FILES = "cleanup_zero_size_files"
     EMPTY_FOLDERS = "cleanup_empty_folders"
     ORPHANED_THUMBNAILS = "cleanup_orphaned_thumbnails"
     ORPHANED_EVENT_CLIPS = "cleanup_orphaned_clips"
