@@ -12,6 +12,7 @@
 !requirements.txt
 !requirements_test.txt
 !requirements-3.9.txt
+!docker/azure-agent-start.sh
 !docker/opencv-python-headless-setup.py
 !docker/jetson-nano/opencv-tuple.patch
 !rootfs/

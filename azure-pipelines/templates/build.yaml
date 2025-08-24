@@ -7,6 +7,7 @@ parameters:
       - amd64-cuda
       - jetson-nano
       - rpi3
+      - rpi5
   - name: namespace
     type: string
     default: roflcoopter
@@ -42,8 +43,15 @@ jobs:
         ${{ each architecture in parameters.architectures }}:
           ${{ architecture }}:
             arch: ${{ architecture }}
-    pool:
-      vmImage: "ubuntu-latest"
+    ${{ if eq(arch, 'aarch64') }}:
+      pool:
+        name: rpi5
+    ${{ elseif eq(arch, 'jetson-nano') }}:
+      pool:
+        name: rpi5
+    ${{ else }}:
+      pool:
+        vmImage: ubuntu-latest
     steps:
       - template: release_version.yaml
         parameters:
