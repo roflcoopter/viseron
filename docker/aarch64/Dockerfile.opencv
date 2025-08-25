@@ -2,7 +2,6 @@ ARG FFMPEG_VERSION
 ARG UBUNTU_VERSION
 FROM roflcoopter/aarch64-ffmpeg:${FFMPEG_VERSION} as ffmpeg
 FROM balenalib/aarch64-ubuntu:${UBUNTU_VERSION}-build as build
-RUN [ "cross-build-start" ]
 
 COPY --from=ffmpeg /usr/local /usr/local/
 
@@ -17,6 +16,13 @@ ENV \
   PKG_CONFIG_PATH="/opt/opencv/share/pkgconfig:/opt/opencv/lib/pkgconfig:/opt/opencv/lib64/pkgconfig" \
   PREFIX=/opt/opencv \
   LD_LIBRARY_PATH="/opt/opencv/lib:/opt/opencv/lib64:/usr/lib64:/usr/lib:/lib64:/lib:/usr/local/lib"
+
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 
 RUN buildDeps="autoconf \
   automake \
@@ -90,8 +96,6 @@ RUN \
   /tmp/opencv && \
   make && \
   make install
-
-RUN [ "cross-build-end" ]
 
 FROM scratch
 

@@ -9,7 +9,12 @@ COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
 COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
 COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
 
-RUN [ "cross-build-start" ]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 
 WORKDIR /tmp/workdir
 

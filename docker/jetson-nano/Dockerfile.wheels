@@ -27,7 +27,12 @@ ENV \
   DEBIAN_FRONTEND=noninteractive \
   PIP_IGNORE_INSTALLED=0
 
-RUN [ "cross-build-start" ]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 
 RUN apt-get -yqq update && apt-get install -yq --no-install-recommends \
   wget \

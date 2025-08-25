@@ -17,8 +17,6 @@ RUN \
   ln -s pydoc3 pydoc && \
   ln -s python3 python
 
-RUN [ "cross-build-start" ]
-
 WORKDIR /tmp/workdir
 
 ARG OPENCV_VERSION
@@ -33,6 +31,13 @@ ENV \
   # Jetson Nano uses compute capability 5.3
   CUDA_ARCH_BIN="53" \
   CUDA_ARCH_PTX="70"
+
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \

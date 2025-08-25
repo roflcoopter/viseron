@@ -21,8 +21,6 @@ RUN \
 
 COPY --from=opencv /opt/opencv /opt/opencv/
 
-RUN [ "cross-build-start" ]
-
 ARG MAKEFLAGS="-j2"
 ARG SOC
 ARG JETPACK_VERSION_MAJOR
@@ -35,6 +33,13 @@ ENV \
   NVIDIA_VISIBLE_DEVICES=0 \
   PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/opt/opencv/lib/pkgconfig \
   LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/opencv/lib:/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra-egl
+
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \
@@ -65,7 +70,7 @@ RUN buildDeps="autoconf \
   nvidia-l4t-cuda \
   cuda-libraries-dev-10-2" && \
   apt-get -yqq update && \
-  apt-get install -yq -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' --no-install-recommends ${buildDeps} 
+  apt-get install -yq -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' --no-install-recommends ${buildDeps}
 
 # Minimal cuda install does not create symlink so we do it manually
 RUN ln -s /usr/local/cuda-10.2 /usr/local/cuda

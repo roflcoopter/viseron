@@ -37,9 +37,12 @@
 !/docker/jetson-nano/tflite_runtime-2.5.0.post1-cp38-cp38-linux_aarch64.whl
 !/docker/rpi3
 !/docker/rpi3/Dockerfile*
+!/docker/rpi5
+!/docker/rpi5/Dockerfile*
 !/docker/ffprobe_wrapper
 !/docker/ffmpeg_wrapper
 !/docker/yolov4*.cfg
+!/docker/azure-agent-start.sh
 !/docker/opencv-python-headless-setup.py
 !/docker/jetson-nano/opencv-tuple.patch
 !/rootfs/

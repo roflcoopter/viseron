@@ -1,0 +1,42 @@
+ARG UBUNTU_VERSION
+FROM ubuntu:${UBUNTU_VERSION}
+ENV TARGETARCH="linux-arm64" \
+    DOCKER_BUILDKIT=1
+
+ARG DOCKER_GID
+
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y curl git jq libicu70 ca-certificates curl
+
+# Install Docker
+RUN \
+    install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && \
+    chmod a+r /etc/apt/keyrings/docker.asc && \
+    echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+    $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+    tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    apt-get update && \
+    apt-get install -y \
+    docker-ce-cli \
+    docker-buildx-plugin \
+    docker-compose-plugin
+
+# Install Azure CLI
+RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
+WORKDIR /azp/
+
+COPY ./docker/azure-agent-start.sh ./
+RUN chmod +x ./azure-agent-start.sh
+
+# Create agent user and set up home directory
+RUN useradd -m -d /home/agent agent
+RUN chown -R agent:agent /azp /home/agent
+RUN groupadd -g ${DOCKER_GID} docker && usermod -aG docker agent
+
+USER agent
+
+ENTRYPOINT [ "./azure-agent-start.sh" ]
