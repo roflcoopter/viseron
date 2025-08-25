@@ -1,7 +1,6 @@
 # Shameless copy of https://github.com/jrottenberg/ffmpeg/
 ARG UBUNTU_VERSION
 FROM balenalib/aarch64-ubuntu:${UBUNTU_VERSION}-build as build
-RUN [ "cross-build-start" ]
 
 WORKDIR /tmp/workdir
 
@@ -14,6 +13,13 @@ ENV \
   PKG_CONFIG_PATH="/opt/ffmpeg/share/pkgconfig:/opt/ffmpeg/lib/pkgconfig:/opt/ffmpeg/lib64/pkgconfig" \
   PREFIX=/opt/ffmpeg \
   LD_LIBRARY_PATH="/opt/ffmpeg/lib:/opt/ffmpeg/lib64:/usr/lib64:/usr/lib:/lib64:/lib"
+
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 
 RUN buildDeps="autoconf \
   automake \
@@ -105,12 +111,22 @@ RUN \
   curl -sLO https://archive.mozilla.org/pub/opus/opus-${OPUS_VERSION}.tar.gz && \
   echo ${OPUS_SHA256SUM} | sha256sum --check && \
   tar -zx --strip-components=1 -f opus-${OPUS_VERSION}.tar.gz
-RUN ["cross-build-end"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Stopping Crossbuilding!" && cross-build-end; \
+  fi
 RUN \
   DIR=/tmp/opus && \
   cd ${DIR} && \
   autoreconf -fiv
-RUN ["cross-build-start"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 RUN \
   DIR=/tmp/opus && \
   cd ${DIR} && \
@@ -215,12 +231,22 @@ RUN \
   cd ${DIR} && \
   curl -sL https://github.com/mstorsjo/fdk-aac/archive/v${FDKAAC_VERSION}.tar.gz | \
   tar -zx --strip-components=1
-RUN ["cross-build-end"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Stopping Crossbuilding!" && cross-build-end; \
+  fi
 RUN \
   DIR=/tmp/fdk-aac && \
   cd ${DIR} && \
   autoreconf -fiv
-RUN ["cross-build-start"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 RUN \
   DIR=/tmp/fdk-aac && \
   cd ${DIR} && \
@@ -279,13 +305,23 @@ RUN  \
   curl -sLO https://github.com/fribidi/fribidi/archive/${FRIBIDI_VERSION}.tar.gz && \
   echo ${FRIBIDI_SHA256SUM} | sha256sum --check && \
   tar -zx --strip-components=1 -f ${FRIBIDI_VERSION}.tar.gz
-RUN ["cross-build-end"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Stopping Crossbuilding!" && cross-build-end; \
+  fi
 RUN \
   export NOCONFIGURE=1 && \
   DIR=/tmp/fribidi && \
   cd ${DIR} && \
   ./autogen.sh
-RUN ["cross-build-start"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 RUN \
   DIR=/tmp/fribidi && \
   cd ${DIR} && \
@@ -316,12 +352,22 @@ RUN  \
   curl -sLO https://github.com/libass/libass/archive/${LIBASS_VERSION}.tar.gz && \
   echo ${LIBASS_SHA256SUM} | sha256sum --check && \
   tar -zx --strip-components=1 -f ${LIBASS_VERSION}.tar.gz
-RUN ["cross-build-end"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Stopping Crossbuilding!" && cross-build-end; \
+  fi
 RUN \
   DIR=/tmp/libass && \
   cd ${DIR} && \
   ./autogen.sh
-RUN ["cross-build-start"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 RUN \
   DIR=/tmp/libass && \
   cd ${DIR} && \
@@ -337,12 +383,22 @@ RUN \
   cd ${DIR} && \
   curl -sLO https://github.com/ultravideo/kvazaar/archive/v${KVAZAAR_VERSION}.tar.gz && \
   tar -zx --strip-components=1 -f v${KVAZAAR_VERSION}.tar.gz
-RUN ["cross-build-end"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Stopping Crossbuilding!" && cross-build-end; \
+  fi
 RUN \
   DIR=/tmp/kvazaar && \
   cd ${DIR} && \
   ./autogen.sh
-RUN ["cross-build-start"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 RUN \
   DIR=/tmp/kvazaar && \
   cd ${DIR} && \
@@ -426,12 +482,22 @@ RUN \
   curl -sLO https://gitlab.gnome.org/GNOME/libxml2/-/archive/v${LIBXML2_VERSION}/libxml2-v${LIBXML2_VERSION}.tar.gz && \
   echo ${LIBXML2_SHA256SUM} | sha256sum --check && \
   tar -xz --strip-components=1 -f libxml2-v${LIBXML2_VERSION}.tar.gz
-RUN ["cross-build-end"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Stopping Crossbuilding!" && cross-build-end; \
+  fi
 RUN \
   DIR=/tmp/libxml2 && \
   cd ${DIR} && \
   ./autogen.sh --prefix="${PREFIX}" --with-ftp=no --with-http=no --with-python=no
-RUN ["cross-build-start"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 RUN \
   DIR=/tmp/libxml2 && \
   cd ${DIR} && \
@@ -464,12 +530,22 @@ RUN \
   curl -sLO https://github.com/zeromq/libzmq/archive/v${LIBZMQ_VERSION}.tar.gz && \
   echo ${LIBZMQ_SHA256SUM} | sha256sum --check && \
   tar -xz --strip-components=1 -f v${LIBZMQ_VERSION}.tar.gz
-RUN ["cross-build-end"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Stopping Crossbuilding!" && cross-build-end; \
+  fi
 RUN \
   DIR=/tmp/libzmq && \
   cd ${DIR} && \
   ./autogen.sh
-RUN ["cross-build-start"]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 RUN \
   DIR=/tmp/libzmq && \
   cd ${DIR} && \
@@ -551,8 +627,6 @@ RUN \
   for pc in ${PREFIX}/lib/pkgconfig/libav*.pc ${PREFIX}/lib/pkgconfig/libpostproc.pc ${PREFIX}/lib/pkgconfig/libsw*.pc; do \
   sed "s:${PREFIX}:/usr/local:g" <"$pc" >/usr/local/lib/pkgconfig/"${pc##*/}"; \
   done
-
-RUN [ "cross-build-end" ]
 
 FROM scratch
 COPY --from=ffmpeg /usr/local /usr/local/

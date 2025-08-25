@@ -16,11 +16,15 @@ ARG GPAC_VERSION
 ENV \
   DEBIAN_FRONTEND=noninteractive
 
+ARG BUILDPLATFORM
 RUN \
-  if [ "$ARCH" = "armhf" ] || \
-  [ "$ARCH" = "rpi3" ] || \
-  [ "$ARCH" = "aarch64" ] || \
-  [ "$ARCH" = "jetson-nano" ]; then echo "Crossbuilding!" && cross-build-start; fi
+  echo "Build platform: $BUILDPLATFORM" && \
+  echo "Target architecture: $ARCH" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  case "$ARCH" in \
+  aarch64|jetson-nano|rpi3) echo "Crossbuilding!" && cross-build-start;; \
+  esac \
+  fi
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \

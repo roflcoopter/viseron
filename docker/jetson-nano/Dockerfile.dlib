@@ -17,8 +17,6 @@ RUN \
   ln -s pydoc3 pydoc && \
   ln -s python3 python
 
-RUN [ "cross-build-start" ]
-
 ARG DLIB_VERSION
 ARG MAKEFLAGS="-j2"
 ARG SOC
@@ -28,6 +26,13 @@ ARG JETPACK_VERSION_MINOR
 ENV \
   DEBIAN_FRONTEND=noninteractive \
   PIP_IGNORE_INSTALLED=0
+
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 
 # NVIDIA repos use HTTPS so we need some additional libraries first
 RUN \
@@ -72,8 +77,6 @@ RUN \
   cd dlib; python3 setup.py bdist_wheel --dist-dir=/wheels \
   \
   && ls -al /wheels/
-
-RUN [ "cross-build-end" ]
 
 FROM scratch as scratch
 COPY --from=build /wheels /wheels/

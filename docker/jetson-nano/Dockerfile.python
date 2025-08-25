@@ -9,14 +9,19 @@ COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
 COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
 COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
 
-RUN [ "cross-build-start" ]
-
 ARG PYTHON_VERSION
 ARG PYTHON_PIP_VERSION
 
 ENV LANG=C.UTF-8
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PIP_URL=https://bootstrap.pypa.io/get-pip.py
+
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 
 RUN \
   apt-get -yqq update && apt-get install -yq --no-install-recommends \
@@ -90,8 +95,6 @@ RUN \
   -name turtledemo -o \
   -name pydoc_data -o \
   -name tkinter \) -exec rm -rf {} +
-
-RUN [ "cross-build-end" ]
 
 FROM scratch
 
