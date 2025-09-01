@@ -1,8 +1,10 @@
 ARG DARKNET_COMMIT
 ARG CUDA_VERSION
 ARG UBUNTU_VERSION_NUMBER
+ARG HAILO_VERSION
 FROM roflcoopter/viseron-models:latest as models
 FROM roflcoopter/amd64-cuda-darknet:${DARKNET_COMMIT} as darknet
+FROM roflcoopter/amd64-hailo:${HAILO_VERSION} as hailo
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn9-runtime-ubuntu${UBUNTU_VERSION_NUMBER}
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
@@ -79,3 +81,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ln -s /detectors/models/darknet/yolov7.cfg /detectors/models/darknet/default.cfg
 
 COPY --from=darknet /darknet/lib /usr/local/lib
+
+ARG HAILO_VERSION
+COPY --from=hailo /usr/local/bin/hailortcli /usr/local/bin/hailortcli
+COPY --from=hailo /usr/local/lib/libhailort.so.${HAILO_VERSION} /usr/local/lib/libhailort.so.${HAILO_VERSION}
+COPY --from=hailo /wheels /wheels/

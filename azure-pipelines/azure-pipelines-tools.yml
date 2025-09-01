@@ -30,3 +30,10 @@ jobs:
       architectures:
         - amd64-cuda
         - jetson-nano
+  - template: templates/build.yaml
+    parameters:
+      image: hailo
+      noCache: ${{ parameters.noCache }}
+      architectures:
+        - amd64
+        - aarch64
