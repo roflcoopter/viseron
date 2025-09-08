@@ -273,6 +273,44 @@ class StringKey:
             raise vol.Invalid(msg)
 
 
+class Url:
+    """Wrap voluptuous.Url but as a class instead.
+
+    This allows for special handling when generating docs with scripts/gen_docs.py.
+    """
+
+    def __init__(
+        self,
+    ) -> None:
+        self.url_validator = vol.Url()  # pylint: disable=no-value-for-parameter
+
+    def __call__(self, value):
+        """Validate URL."""
+        return self.url_validator(
+            value,
+        )
+
+
+class PathExists:
+    """Wrap voluptuous.PathExists but as a class instead.
+
+    This allows for special handling when generating docs with scripts/gen_docs.py.
+    """
+
+    def __init__(
+        self,
+    ) -> None:
+        self.path_exists_validator = (
+            vol.PathExists()  # pylint: disable=no-value-for-parameter
+        )
+
+    def __call__(self, value):
+        """Validate path exists."""
+        return self.path_exists_validator(  # pylint: disable=not-callable
+            value,
+        )
+
+
 def request_argument_bool(value):
     """Boolean HTTP request argument.
 

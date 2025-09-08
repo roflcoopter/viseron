@@ -36,20 +36,45 @@ function getValidValues(options) {
 // Return div that contains valid values for the config option
 function buildValidValues(item: any) {
   if (item.options) {
+    const options = item.options.slice();
+    const hasFormat = options.some((x) => x.format !== undefined);
+    const hasValue = options.some((x) => x.value !== undefined);
     return (
-      <div className={styles.configVariablesValues}>
-        Valid values:
-        <ul className={styles.configVariablesValidValuesValue}>
-          {getValidValues(item.options).map((option, index) => (
-            <li key={`${option.value}${index}`}>
-              <code>
-                {option.value === undefined ? `<${option.type}>` : option.value}
-              </code>
-              {option.description ? `: ${option.description}` : null}
-            </li>
-          ))}
-        </ul>
-      </div>
+      <>
+        {hasFormat && (
+          <div className={styles.configVariablesValues}>
+            Valid formats:
+            <ul className={styles.configVariablesValidValuesValue}>
+              {getValidValues(item.options).map(
+                (option, index) =>
+                  option.format && (
+                    <li key={`${option.value}${index}`}>
+                      <code>{option.format}</code>
+                      {option.description ? `: ${option.description}` : null}
+                    </li>
+                  ),
+              )}
+            </ul>
+          </div>
+        )}
+        {hasValue && (
+          <div className={styles.configVariablesValues}>
+            Valid values:
+            <ul className={styles.configVariablesValidValuesValue}>
+              {getValidValues(item.options).map((option, index) => (
+                <li key={`${option.value}${index}`}>
+                  <code>
+                    {option.value === undefined
+                      ? `<${option.type}>`
+                      : option.value}
+                  </code>
+                  {option.description ? `: ${option.description}` : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </>
     );
   }
   return null;
