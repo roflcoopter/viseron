@@ -1,0 +1,128 @@
+import TabItem from "@theme/TabItem";
+import Tabs from "@theme/Tabs";
+
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
+
+import ObjectDetector from "@site/src/pages/components-explorer/_domains/object_detector/index.mdx";
+
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+The `hailo` component in Viseron allows you to integrate [Hailo-8 AI Accelerators](https://hailo.ai/products/ai-accelerators/hailo-8-ai-accelerator/) for object detection.
+
+:::info
+
+The `hailo` component is only available for `aarch64` and `amd64` architectures.
+
+:::
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml title="/config/config.yaml"
+hailo:
+  object_detector:
+    cameras:
+      camera_one:
+        fps: 1
+        labels:
+          - label: person
+            confidence: 0.8
+          - label: cat
+            confidence: 0.8
+      camera_two:
+        fps: 1
+        scan_on_motion_only: false
+        labels:
+          - label: dog
+            confidence: 0.8
+            trigger_event_recording: false
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Installation
+
+For a Raspberry Pi 5 with the AI kit, follow the instructions in the [Raspberry Pi 5 documentation](https://www.raspberrypi.com/documentation/accessories/ai-kit.html#ai-kit-installation).
+
+If you have installed Ubuntu on your Raspberry Pi 5 instead of Raspberry Pi OS, you need to perform some additional steps. These steps are outlined well in [this guide](https://github.com/opensensor/rpi5-resources/?tab=readme-ov-file#hailo-8l-installation).
+
+For other platforms, please refer to the official [Hailo documentation](https://hailo.ai/developer-zone/documentation/hailort-v4-22-0/?sp_referrer=install/install.html#installation-on-ubuntu).
+
+:::note
+
+It is only required to install the `HailoRT PCIe driver` and `HailoRT`. `PyHailoRT` is not necessary since it is installed inside the container.
+
+:::
+
+:::warning
+
+Viseron is currently using the version 4.22.0 of the Hailo runtime, and you may encounter compatibility issues if you install a different version of the drivers on your host.
+
+:::
+
+## Mounting the device
+To allow the Viseron container to access the Hailo device, you need to mount it when starting the container.
+
+<Tabs groupId="docker-type">
+<TabItem value="docker" label="Docker">
+
+```shell
+docker run --rm \
+  -v {segments path}:/segments \
+  -v {snapshots path}:/snapshots \
+  -v {thumbnails path}:/thumbnails \
+  -v {event clips path}:/event_clips \
+  -v {config path}:/config \
+  -v /etc/localtime:/etc/localtime:ro \
+  -p 8888:8888 \
+  --name viseron \
+  --shm-size=1024mb \
+// highlight-start
+  --device /dev/hailo0 \
+// highlight-end
+  roflcoopter/viseron:latest
+```
+
+</TabItem>
+<TabItem value="docker-compose" label="Docker-Compose">
+
+```yaml
+services:
+  viseron:
+    image: roflcoopter/viseron:latest
+    container_name: viseron
+    shm_size: "1024mb"
+    volumes:
+      - {segments path}:/segments
+      - {snapshots path}:/snapshots
+      - {thumbnails path}:/thumbnails
+      - {event clips path}:/event_clips
+      - {config path}:/config
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - 8888:8888
+    // highlight-start
+    devices:
+      - /dev/hailo0
+    // highlight-end
+
+```
+
+</TabItem>
+</Tabs>
+
+<ObjectDetector
+  meta={ComponentMetadata}
+  labelPath="/detectors/models/darknet/coco.names"
+/>
+
+<ComponentTroubleshooting meta={ComponentMetadata} />
