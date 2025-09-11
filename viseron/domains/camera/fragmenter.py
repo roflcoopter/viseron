@@ -41,6 +41,9 @@ if TYPE_CHECKING:
     from viseron.components.storage import Storage
     from viseron.domains.camera import AbstractCamera
 
+# Constants
+TIMELAPSE_FFMPEG_TIMEOUT = 10
+
 
 def _get_open_files(path: str, process: psutil.Process) -> list[str]:
     """Get open files for a process."""
@@ -212,8 +215,77 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             return False
         return True
 
+    def _segment_hook_mp4box(self, file: str):
+        """Hook called before moving fragmented mp4 created by mp4box."""
+        if self._camera.timelapse_folder is None:
+            return
+        # Calculate paths for mp4box segments
+        assert self._camera.timelapse_folder is not None
+        frame_filename = os.path.splitext(os.path.basename(file))[0] + ".jpg"
+        frame_path = os.path.join(self._camera.timelapse_folder, frame_filename)
+        init_path = os.path.join(
+            self.temp_segments_folder, file.split(".")[0], "clip_init.mp4"
+        )
+        segment_path = os.path.join(
+            self.temp_segments_folder, file.split(".")[0], "clip_1.m4s"
+        )
+
+        self._extract_timelapse_frame(init_path, segment_path, frame_path)
+
+    def _segment_hook(self, file: str):
+        """Hook called before moving fragmented mp4 created by encoder."""
+        if self._camera.timelapse_folder is None:
+            return
+        # Calculate paths for encoder segments
+        assert self._camera.timelapse_folder is not None
+        frame_filename = os.path.splitext(os.path.basename(file))[0] + ".jpg"
+        frame_path = os.path.join(self._camera.timelapse_folder, frame_filename)
+        init_path = os.path.join(self.temp_segments_folder, "init.mp4")
+        segment_path = os.path.join(self.temp_segments_folder, file)
+
+        self._extract_timelapse_frame(init_path, segment_path, frame_path)
+
+    def _extract_timelapse_frame(self, init_path: str, segment_path: str, frame_path: str):
+        """Extract a timelapse frame from segment files."""
+        try:
+            tmp_frame_path = frame_path + ".tmp"
+
+            # Run ffmpeg command to extract first keyframe of the segment
+            cmd = [
+                "bash", "-c",
+                f"cat '{init_path}' '{segment_path}' | "
+                f"ffmpeg -skip_frame nokey -i pipe:0 -frames:v 1 "
+                f"-update true -f mjpeg '{tmp_frame_path}' -y"
+            ]
+
+            result = sp.run(cmd, capture_output=True, text=True, timeout=TIMELAPSE_FFMPEG_TIMEOUT, check=False)
+            if result.returncode == 0:
+                self._logger.debug(f"Timelapse: Extracted frame {frame_path}")
+                shutil.move(tmp_frame_path, frame_path)
+            else:
+                self._logger.warning(
+                    f"Timelapse: Failed to extract frame {frame_path}: "
+                    f"{result.stderr}"
+                )
+                os.remove(tmp_frame_path)
+
+        except FileNotFoundError:
+            self._logger.debug(f"{tmp_frame_path} not found")
+
+        except (OSError, sp.TimeoutExpired, sp.SubprocessError) as error:
+            self._logger.error(
+                f"Timelapse: Error extracting frame {frame_path}: {error}"
+            )
+
+        finally:
+            try:
+                os.remove(tmp_frame_path)
+            except FileNotFoundError:
+                pass
+
     def _move_to_segments_folder_mp4box(self, file: str):
         """Move fragmented mp4 created by mp4box to segments folder."""
+        self._segment_hook_mp4box(file)
         try:
             shutil.move(
                 os.path.join(
@@ -236,6 +308,7 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
 
     def _move_to_segments_folder(self, file: str):
         """Move fragmented mp4 created by encoder to segments folder."""
+        self._segment_hook(file)
         try:
             shutil.move(
                 os.path.join(self.temp_segments_folder, file),

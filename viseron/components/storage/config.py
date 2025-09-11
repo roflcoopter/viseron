@@ -15,6 +15,7 @@ from viseron.components.storage.const import (
     CONFIG_FACE_RECOGNITION,
     CONFIG_GB,
     CONFIG_HOURS,
+    CONFIG_INTERVAL,
     CONFIG_LICENSE_PLATE_RECOGNITION,
     CONFIG_MAX_AGE,
     CONFIG_MAX_SIZE,
@@ -35,6 +36,7 @@ from viseron.components.storage.const import (
     CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
     CONFIG_TIER_CHECK_WORKERS,
     CONFIG_TIERS,
+    CONFIG_TIMELAPSE,
     DEFAULT_CHECK_INTERVAL,
     DEFAULT_CHECK_INTERVAL_DAYS,
     DEFAULT_CHECK_INTERVAL_HOURS,
@@ -46,6 +48,7 @@ from viseron.components.storage.const import (
     DEFAULT_FACE_RECOGNITION,
     DEFAULT_GB,
     DEFAULT_HOURS,
+    DEFAULT_INTERVAL,
     DEFAULT_LICENSE_PLATE_RECOGNITION,
     DEFAULT_MAX_AGE,
     DEFAULT_MAX_SIZE,
@@ -59,12 +62,14 @@ from viseron.components.storage.const import (
     DEFAULT_POLL,
     DEFAULT_RECORDER,
     DEFAULT_RECORDER_TIERS,
+    DEFAULT_SECONDS,
     DEFAULT_SNAPSHOTS,
     DEFAULT_SNAPSHOTS_TIERS,
     DEFAULT_TIER_CHECK_BATCH_SIZE,
     DEFAULT_TIER_CHECK_CPU_LIMIT,
     DEFAULT_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
     DEFAULT_TIER_CHECK_WORKERS,
+    DEFAULT_TIMELAPSE,
     DESC_CHECK_INTERVAL,
     DESC_CHECK_INTERVAL_DAYS,
     DESC_CHECK_INTERVAL_HOURS,
@@ -74,6 +79,7 @@ from viseron.components.storage.const import (
     DESC_DOMAIN_TIERS,
     DESC_EVENTS,
     DESC_FACE_RECOGNITION,
+    DESC_INTERVAL,
     DESC_LICENSE_PLATE_RECOGNITION,
     DESC_MAX_AGE,
     DESC_MAX_DAYS,
@@ -102,8 +108,11 @@ from viseron.components.storage.const import (
     DESC_TIER_CHECK_CPU_LIMIT,
     DESC_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
     DESC_TIER_CHECK_WORKERS,
+    DESC_TIMELAPSE,
+    DESC_TIMELAPSE_TIERS,
     TIER_CATEGORY_RECORDER,
     TIER_CATEGORY_SNAPSHOTS,
+    TIER_CATEGORY_TIMELAPSE,
     TIER_SUBCATEGORY_EVENT_CLIPS,
     TIER_SUBCATEGORY_SEGMENTS,
     TIER_SUBCATEGORY_THUMBNAILS,
@@ -388,6 +397,53 @@ def get_snapshots_schema(undefined_defaults=False):
 
 SNAPSHOTS_SCHEMA = get_snapshots_schema()
 
+
+TIER_SCHEMA_TIMELAPSE = vol.All(
+    TIER_SCHEMA_SNAPSHOTS.extend(
+        {
+            vol.Optional(
+                CONFIG_INTERVAL,
+                default=DEFAULT_INTERVAL,
+                description=DESC_INTERVAL,
+            ): {
+                vol.Optional(
+                    CONFIG_DAYS,
+                    default=DEFAULT_DAYS,
+                    description=DESC_MAX_DAYS,
+                ): Maybe(vol.Coerce(int)),
+                vol.Optional(
+                    CONFIG_HOURS,
+                    default=DEFAULT_HOURS,
+                    description=DESC_MAX_HOURS,
+                ): Maybe(vol.Coerce(int)),
+                vol.Optional(
+                    CONFIG_MINUTES,
+                    default=DEFAULT_MINUTES,
+                    description=DESC_MAX_MINUTES,
+                ): Maybe(vol.Coerce(int)),
+                vol.Optional(
+                    CONFIG_SECONDS,
+                    default=DEFAULT_SECONDS,
+                    description=DESC_CHECK_INTERVAL_SECONDS,
+                ): Maybe(vol.Coerce(int)),
+            },
+        }
+    ),
+)
+
+
+def get_timelapse_schema():
+    """Get timelapse schema."""
+    return {
+        vol.Required(CONFIG_TIERS, description=DESC_TIMELAPSE_TIERS): vol.All(
+            [TIER_SCHEMA_TIMELAPSE],
+            vol.Length(min=1),
+        ),
+    }
+
+
+TIMELAPSE_SCHEMA = get_timelapse_schema()
+
 STORAGE_SCHEMA = vol.Schema(
     {
         vol.Optional(
@@ -420,6 +476,11 @@ STORAGE_SCHEMA = vol.Schema(
             default=DEFAULT_SNAPSHOTS,
             description=DESC_SNAPSHOTS,
         ): SNAPSHOTS_SCHEMA,
+        vol.Optional(
+            CONFIG_TIMELAPSE,
+            default=DEFAULT_TIMELAPSE,
+            description=DESC_TIMELAPSE,
+        ): Maybe(TIMELAPSE_SCHEMA),
     }
 )
 
@@ -443,6 +504,14 @@ def _check_path_exists(tier: Tier, category: str):
         if not os.path.exists(f"/{TIER_CATEGORY_SNAPSHOTS}"):
             raise vol.Invalid(
                 f"The /{TIER_CATEGORY_SNAPSHOTS} folder does not exist. "
+                "Please mount it to the container."
+            )
+        return
+
+    if category == TIER_CATEGORY_TIMELAPSE and tier[CONFIG_PATH] == "/":
+        if not os.path.exists(f"/{TIER_CATEGORY_TIMELAPSE}"):
+            raise vol.Invalid(
+                f"The /{TIER_CATEGORY_TIMELAPSE} folder does not exist. "
                 "Please mount it to the container."
             )
         return
@@ -585,6 +654,22 @@ def _validate_snapshots_tiers(
             previous_tier = _tier
 
 
+def _validate_timelapse_tiers(
+    component_config: dict[str, Any],
+):
+    # Check timelapse config
+    timelapse_config = component_config.get(CONFIG_TIMELAPSE)
+    if not timelapse_config:
+        return
+
+    previous_tier = None
+    paths: list[str] = []
+    for tier in timelapse_config.get(CONFIG_TIERS, []):
+        _tier = Tier(path=tier[CONFIG_PATH], max_age=tier[CONFIG_MAX_AGE])
+        _check_tier(_tier, previous_tier, paths, CONFIG_TIMELAPSE)
+        previous_tier = _tier
+
+
 def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
     """Validate tiers.
 
@@ -601,5 +686,8 @@ def validate_tiers(config: dict[str, Any]) -> dict[str, Any]:
 
     if component_config.get(CONFIG_SNAPSHOTS, None):
         _validate_snapshots_tiers(component_config)
+
+    if component_config.get(CONFIG_TIMELAPSE):
+        _validate_timelapse_tiers(component_config)
 
     return config

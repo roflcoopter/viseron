@@ -34,11 +34,13 @@ from viseron.components.storage.const import (
     CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES,
     CONFIG_TIER_CHECK_WORKERS,
     CONFIG_TIERS,
+    CONFIG_TIMELAPSE,
     DEFAULT_COMPONENT,
     DESC_COMPONENT,
     ENGINE,
     TIER_CATEGORY_RECORDER,
     TIER_CATEGORY_SNAPSHOTS,
+    TIER_CATEGORY_TIMELAPSE,
     TIER_SUBCATEGORY_EVENT_CLIPS,
     TIER_SUBCATEGORY_FACE_RECOGNITION,
     TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION,
@@ -46,6 +48,7 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_OBJECT_DETECTOR,
     TIER_SUBCATEGORY_SEGMENTS,
     TIER_SUBCATEGORY_THUMBNAILS,
+    TIER_SUBCATEGORY_TIMELAPSE,
 )
 from viseron.components.storage.jobs import CleanupManager
 from viseron.components.storage.models import Base, FilesMeta, Motion, Recordings
@@ -55,6 +58,7 @@ from viseron.components.storage.tier_handler import (
     SegmentsTierHandler,
     SnapshotTierHandler,
     ThumbnailTierHandler,
+    TimelapseTierHandler,
 )
 from viseron.components.storage.util import (
     RequestedFilesCount,
@@ -62,6 +66,7 @@ from viseron.components.storage.util import (
     get_segments_path,
     get_snapshots_path,
     get_thumbnails_path,
+    get_timelapse_path,
 )
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera.const import CONFIG_STORAGE, DOMAIN as CAMERA_DOMAIN
@@ -104,6 +109,7 @@ class TierSubcategory(TypedDict):
         | SegmentsTierHandler
         | ThumbnailTierHandler
         | EventClipTierHandler
+        | TimelapseTierHandler
     ]
 
 
@@ -112,6 +118,7 @@ class TierCategories(TypedDict):
 
     recorder: list[TierSubcategory]
     snapshots: list[TierSubcategory]
+    timelapse: list[TierSubcategory]
 
 
 TIER_CATEGORIES: TierCategories = {
@@ -145,6 +152,12 @@ TIER_CATEGORIES: TierCategories = {
         {
             "subcategory": TIER_SUBCATEGORY_MOTION_DETECTOR,
             "tier_handler": SnapshotTierHandler,
+        },
+    ],
+    TIER_CATEGORY_TIMELAPSE: [
+        {
+            "subcategory": TIER_SUBCATEGORY_TIMELAPSE,
+            "tier_handler": TimelapseTierHandler,
         },
     ],
 }
@@ -192,8 +205,17 @@ class Storage:
         self._config = config
         self._recordings_tiers = config[CONFIG_RECORDER][CONFIG_TIERS]
         self._snapshots_tiers = config[CONFIG_SNAPSHOTS][CONFIG_TIERS]
+        self._timelapse_tiers = (
+            config[CONFIG_TIMELAPSE][CONFIG_TIERS]
+            if config.get(CONFIG_TIMELAPSE)
+            else []
+        )
         self._camera_tier_handlers: dict[
-            str, dict[str, list[dict[str, SnapshotTierHandler | SegmentsTierHandler]]]
+            str, dict[
+                str, list[
+                    dict[str, SnapshotTierHandler | SegmentsTierHandler | TimelapseTierHandler]
+                ]
+            ]
         ] = {}
         self.camera_requested_files_count: dict[str, RequestedFilesCount] = {}
 
@@ -449,6 +471,43 @@ class Storage:
             ]
         ]
 
+    @overload
+    def get_timelapse_path(self, camera: AbstractCamera) -> str | None:
+        ...
+
+    @overload
+    def get_timelapse_path(
+        self, camera: AbstractCamera, all_tiers: Literal[False]
+    ) -> str | None:
+        ...
+
+    @overload
+    def get_timelapse_path(
+        self, camera: AbstractCamera, all_tiers: Literal[True]
+    ) -> list[str] | None:
+        ...
+
+    def get_timelapse_path(
+        self, camera: AbstractCamera, all_tiers: bool = False
+    ) -> str | list[str] | None:
+        """Get timelapse path for camera."""
+        if not self._timelapse_tiers:
+            return None
+        self.create_tier_handlers(camera)
+        if not all_tiers:
+            return get_timelapse_path(
+                self._camera_tier_handlers[camera.identifier][TIER_CATEGORY_TIMELAPSE][
+                    0
+                ][TIER_SUBCATEGORY_TIMELAPSE].tier,
+                camera,
+            )
+        return [
+            get_timelapse_path(tier_handler[TIER_SUBCATEGORY_TIMELAPSE].tier, camera)
+            for tier_handler in self._camera_tier_handlers[camera.identifier][
+                TIER_CATEGORY_TIMELAPSE
+            ]
+        ]
+
     def search_file(
         self, camera_identifier: str, category: str, subcategory: str, path: str
     ) -> str | None:
@@ -496,6 +555,12 @@ class Storage:
 
         tier_config = _get_tier_config(self._config, camera)
         for category in TIER_CATEGORIES:
+            # Skip timelapse if not configured
+            if (
+                category == TIER_CATEGORY_TIMELAPSE
+                and not tier_config.get(CONFIG_TIMELAPSE)
+            ):
+                continue
             self._camera_tier_handlers[camera.identifier].setdefault(category, [])
             # pylint: disable-next=line-too-long
             for subcategory in TIER_CATEGORIES[category]:  # type: ignore[literal-required] # noqa: E501
@@ -652,5 +717,30 @@ def _get_tier_config(config: dict[str, Any], camera: AbstractCamera) -> dict[str
                 vol.Length(min=1),
             )
         )(tier_config[CONFIG_SNAPSHOTS][CONFIG_TIERS])
+
+    # Handle timelapse tiers (only if timelapse is configured)
+    if tier_config.get(CONFIG_TIMELAPSE):
+        _timelapse_tier: dict[str, Any] = {}
+        if (
+            camera.config[CONFIG_STORAGE]
+            and camera.config[CONFIG_STORAGE][CONFIG_TIMELAPSE] != UNDEFINED
+        ):
+            _timelapse_tier = camera.config[CONFIG_STORAGE][CONFIG_TIMELAPSE][
+                CONFIG_TIERS
+            ]
+            tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS] = _timelapse_tier
+
+        if _timelapse_tier:
+            LOGGER.debug(
+                f"Camera {camera.name} has custom timelapse tiers, "
+                "overwriting storage timelapse tiers"
+            )
+            # Validate the tier schema to fill in defaults
+            tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS] = vol.Schema(
+                vol.All(
+                    [TIER_SCHEMA_SNAPSHOTS],
+                    vol.Length(min=1),
+                )
+            )(tier_config[CONFIG_TIMELAPSE][CONFIG_TIERS])
 
     return tier_config
