@@ -6,7 +6,7 @@ import os
 import threading
 import time
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import timedelta
 from queue import Queue
 from threading import Timer
 from typing import TYPE_CHECKING, Any, Literal
@@ -1200,8 +1200,21 @@ class TimelapseTierHandler(TierHandler):
         self._interval = calculate_age(self._tier.get(CONFIG_INTERVAL, {}))
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
 
+    def _on_deleted(self, event: FileDeletedEvent) -> None:
+        if event.src_path.endswith(".tmp"):
+            return
+        super()._on_deleted(event)
+
+    def _on_modified(self, event: FileModifiedEvent) -> None:
+        if event.src_path.endswith(".tmp"):
+            return
+        super()._on_modified(event)
+
     def _on_created(self, event: FileCreatedEvent) -> None:
         """Handle file creation with interval-based cleanup."""
+        if event.src_path.endswith(".tmp"):
+            return
+
         super()._on_created(event)
 
         # If no interval is set, keep all files
@@ -1211,7 +1224,6 @@ class TimelapseTierHandler(TierHandler):
         # Check if there's already a file within the interval
         try:
             with self._storage.get_session() as session:
-                # Get the current file's orig_ctime from database
                 current_file_stmt = select(Files.orig_ctime).where(
                     Files.path == event.src_path
                 )
@@ -1226,7 +1238,7 @@ class TimelapseTierHandler(TierHandler):
                     Files.camera_identifier == self._camera.identifier,
                     Files.category == self._category,
                     Files.subcategory == self._subcategory,
-                    Files.path != event.src_path,  # Exclude the current file
+                    Files.path != event.src_path,
                     Files.orig_ctime >= interval_start,
                     Files.orig_ctime <= interval_end,
                 )
@@ -1234,17 +1246,13 @@ class TimelapseTierHandler(TierHandler):
                 result = session.execute(stmt).scalars().all()
 
                 if result:
-                    # Another file exists within interval, remove current file
                     self._logger.debug(
                         f"File within interval already exists, removing current file: "
                         f"{event.src_path}"
                     )
                     delete_file(self._storage, event.src_path)
 
-                    # Delete from database
-                    delete_stmt = delete(Files).where(
-                        Files.path == event.src_path
-                    )
+                    delete_stmt = delete(Files).where(Files.path == event.src_path)
                     session.execute(delete_stmt)
                     session.commit()
 

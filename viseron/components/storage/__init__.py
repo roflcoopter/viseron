@@ -211,11 +211,18 @@ class Storage:
             else []
         )
         self._camera_tier_handlers: dict[
-            str, dict[
-                str, list[
-                    dict[str, SnapshotTierHandler | SegmentsTierHandler | TimelapseTierHandler]
-                ]
-            ]
+            str,
+            dict[
+                str,
+                list[
+                    dict[
+                        str,
+                        SnapshotTierHandler
+                        | SegmentsTierHandler
+                        | TimelapseTierHandler,
+                    ]
+                ],
+            ],
         ] = {}
         self.camera_requested_files_count: dict[str, RequestedFilesCount] = {}
 
@@ -556,9 +563,8 @@ class Storage:
         tier_config = _get_tier_config(self._config, camera)
         for category in TIER_CATEGORIES:
             # Skip timelapse if not configured
-            if (
-                category == TIER_CATEGORY_TIMELAPSE
-                and not tier_config.get(CONFIG_TIMELAPSE)
+            if category == TIER_CATEGORY_TIMELAPSE and not tier_config.get(
+                CONFIG_TIMELAPSE
             ):
                 continue
             self._camera_tier_handlers[camera.identifier].setdefault(category, [])

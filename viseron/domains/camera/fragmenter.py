@@ -245,20 +245,29 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
 
         self._extract_timelapse_frame(init_path, segment_path, frame_path)
 
-    def _extract_timelapse_frame(self, init_path: str, segment_path: str, frame_path: str):
+    def _extract_timelapse_frame(
+        self, init_path: str, segment_path: str, frame_path: str
+    ):
         """Extract a timelapse frame from segment files."""
         try:
             tmp_frame_path = frame_path + ".tmp"
 
             # Run ffmpeg command to extract first keyframe of the segment
             cmd = [
-                "bash", "-c",
+                "bash",
+                "-c",
                 f"cat '{init_path}' '{segment_path}' | "
                 f"ffmpeg -skip_frame nokey -i pipe:0 -frames:v 1 "
-                f"-update true -f mjpeg '{tmp_frame_path}' -y"
+                f"-update true -f mjpeg '{tmp_frame_path}' -y",
             ]
 
-            result = sp.run(cmd, capture_output=True, text=True, timeout=TIMELAPSE_FFMPEG_TIMEOUT, check=False)
+            result = sp.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=TIMELAPSE_FFMPEG_TIMEOUT,
+                check=False,
+            )
             if result.returncode == 0:
                 self._logger.debug(f"Timelapse: Extracted frame {frame_path}")
                 shutil.move(tmp_frame_path, frame_path)

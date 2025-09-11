@@ -184,10 +184,7 @@ DESC_SNAPSHOTS_TIERS = (
     "Default tiers for all domains, unless overridden in the domain configuration.<br>"
     f"{DESC_RECORDER_TIERS} "
 )
-DESC_TIMELAPSE_TIERS = (
-    "Tiers for timelapse videos. "
-    f"{DESC_RECORDER_TIERS} "
-)
+DESC_TIMELAPSE_TIERS = "Tiers for timelapse videos. " f"{DESC_RECORDER_TIERS} "
 DESC_DOMAIN_TIERS = DESC_RECORDER_TIERS
 DESC_FACE_RECOGNITION = (
     "Override the default snapshot tiers for face recognition. "
