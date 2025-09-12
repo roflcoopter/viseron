@@ -1,4 +1,5 @@
 # Extra requirements for GitHub Actions CI
+hailort==4.22.0
 opencv-python==4.9.0.80
 opencv-contrib-python==4.9.0.80
 pygobject
