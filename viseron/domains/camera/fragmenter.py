@@ -216,7 +216,11 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
         return True
 
     def _segment_hook_mp4box(self, file: str):
-        """Hook called before moving fragmented mp4 created by mp4box."""
+        """
+        Perform per fragment tasks before moving fragment to storage.
+
+        Currently only used for extracting timelapse frames from fragments.
+        """
         if self._camera.timelapse_folder is None:
             return
         # Calculate paths for mp4box segments
@@ -233,7 +237,11 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
         self._extract_timelapse_frame(init_path, segment_path, frame_path)
 
     def _segment_hook(self, file: str):
-        """Hook called before moving fragmented mp4 created by encoder."""
+        """
+        Perform per fragment tasks before moving fragment to storage.
+
+        Currently only used for extracting timelapse frames from fragments.
+        """
         if self._camera.timelapse_folder is None:
             return
         # Calculate paths for encoder segments
