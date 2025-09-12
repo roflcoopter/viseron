@@ -18,6 +18,8 @@ RUN \
     gcc \
     git \
     make \
+    zip \
+    unzip \
     python3-dev \
     python3-pip \
     python3-setuptools \
@@ -37,6 +39,15 @@ RUN \
     cd /tmp/hailort/hailort/libhailort/bindings/python/platform && \
     python3 setup.py bdist_wheel --dist-dir=/wheels && \
     pip3 wheel . -w /wheels && \
+    # Sanitize produced wheels to remove any lingering 'license-file' metadata lines
+    for whl in /wheels/*.whl; do \
+    tmpdir=$(mktemp -d); \
+    unzip -q "$whl" -d "$tmpdir"; \
+    find "$tmpdir" -maxdepth 2 -type f -path '*/METADATA' -exec sed -i '/^license-file:/Id' {} +; \
+    (cd "$tmpdir" && zip -qr "$whl.fixed" .); \
+    mv "$whl.fixed" "$whl"; \
+    rm -rf "$tmpdir"; \
+    done && \
     ls -al /wheels/
 
 FROM scratch as scratch

@@ -37,3 +37,61 @@ jobs:
       architectures:
         - amd64
         - aarch64
+
+  # Hailo wheel publish jobs (architecture-specific) after images are built & pushed
+  - job: publish_hailo_wheels
+    displayName: Publish Hailo wheels
+    dependsOn:
+      - build_hailo_amd64
+      - build_hailo_aarch64
+    condition: succeeded()
+    strategy:
+      maxParallel: 1
+      matrix:
+        amd64:
+          ARCH: amd64
+        aarch64:
+          ARCH: aarch64
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - task: Docker@2
+        displayName: Login to Docker Hub
+        inputs:
+          command: login
+          containerRegistry: "Docker Hub"
+      - script: |
+          set -e
+          ARCH=$(ARCH)
+          HAILO_VERSION=$(grep '^HAILO_VERSION=' azure-pipelines/.env | cut -d'"' -f2)
+          if [ -z "$HAILO_VERSION" ]; then
+            echo "Failed to determine HAILO_VERSION" >&2
+            exit 1
+          fi
+          IMAGE_NAME="roflcoopter/${ARCH}-hailo:${HAILO_VERSION}"
+          echo "Pulling $IMAGE_NAME"
+          docker pull $IMAGE_NAME
+          CID=$(docker create "$IMAGE_NAME" bash)
+          mkdir -p hailo-wheels/${ARCH}
+          docker cp $CID:/wheels/. hailo-wheels/${ARCH}/
+          docker rm $CID
+          echo "Extracted files:"; ls -1 hailo-wheels/${ARCH}
+        displayName: Extract wheels
+      - task: TwineAuthenticate@1
+        displayName: Authenticate to Azure Artifacts (Python feed)
+        inputs:
+          artifactFeed: "Viseron Pipelines/viseron-wheels"
+      - script: |
+          set -e
+          ARCH=$(ARCH)
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --no-cache-dir twine==6.1.0
+          echo "Uploading wheels to Azure Artifacts feed 'viseron-wheels'"
+          python3 -m twine upload --skip-existing --config-file $(PYPIRC_PATH) -r viseron-wheels hailo-wheels/${ARCH}/*.whl
+        displayName: Upload wheels
+      - task: Docker@2
+        displayName: Logoff Docker Hub
+        inputs:
+          command: logout
+          containerRegistry: "Docker Hub"
+        condition: always()
