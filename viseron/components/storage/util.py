@@ -19,6 +19,7 @@ from viseron.components.storage.const import (
     TIER_SUBCATEGORY_EVENT_CLIPS,
     TIER_SUBCATEGORY_SEGMENTS,
     TIER_SUBCATEGORY_THUMBNAILS,
+    TIER_SUBCATEGORY_TIMELAPSE,
 )
 from viseron.events import EventData
 from viseron.types import SnapshotDomain
@@ -92,6 +93,15 @@ def get_snapshots_path(
     """Get snapshots path for camera."""
     return os.path.join(
         tier[CONFIG_PATH], TIER_CATEGORY_SNAPSHOTS, domain.value, camera.identifier
+    )
+
+
+def get_timelapse_path(
+    tier: dict[str, Any], camera: AbstractCamera | FailedCamera
+) -> str:
+    """Get timelapse path for camera."""
+    return os.path.join(
+        tier[CONFIG_PATH], TIER_SUBCATEGORY_TIMELAPSE, camera.identifier
     )
 
 

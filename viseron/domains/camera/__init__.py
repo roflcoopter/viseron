@@ -167,6 +167,7 @@ class AbstractCamera(AbstractDomain):
         self.snapshots_motion_folder: str = self._storage.get_snapshots_path(
             self, SnapshotDomain.MOTION_DETECTOR
         )
+        self.timelapse_folder: str | None = self._storage.get_timelapse_path(self)
 
         self.fragmenter: Fragmenter = Fragmenter(vis, self)
         if self.config[CONFIG_PASSWORD]:
