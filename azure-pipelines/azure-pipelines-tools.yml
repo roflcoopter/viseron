@@ -30,3 +30,86 @@ jobs:
       architectures:
         - amd64-cuda
         - jetson-nano
+  - template: templates/build.yaml
+    parameters:
+      image: hailo
+      noCache: ${{ parameters.noCache }}
+      architectures:
+        - amd64
+        - aarch64
+
+  # Publish hailo wheels and libhailort packages
+  - job: publish_hailo_artifacts
+    displayName: Publish Hailo artifacts
+    dependsOn:
+      - build_hailo_amd64
+      - build_hailo_aarch64
+    condition: succeeded()
+    strategy:
+      maxParallel: 1
+      matrix:
+        amd64:
+          ARCH: amd64
+        aarch64:
+          ARCH: aarch64
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+      - task: Docker@2
+        displayName: Login to Docker Hub
+        inputs:
+          command: login
+          containerRegistry: "Docker Hub"
+      - script: |
+          set -e
+          ARCH=$(ARCH)
+          HAILO_VERSION=$(grep '^HAILO_VERSION=' azure-pipelines/.env | cut -d'"' -f2)
+          if [ -z "$HAILO_VERSION" ]; then
+            echo "Failed to determine HAILO_VERSION" >&2
+            exit 1
+          fi
+          IMAGE_NAME="roflcoopter/${ARCH}-hailo:${HAILO_VERSION}"
+          echo "Pulling $IMAGE_NAME"
+          docker pull $IMAGE_NAME
+          CID=$(docker create "$IMAGE_NAME" bash)
+
+          mkdir -p hailo-wheels/${ARCH}
+          docker cp $CID:/wheels/. hailo-wheels/${ARCH}/
+
+          # Prepare libhailort universal package directory per architecture
+          mkdir -p libhailort-dist-${ARCH}
+          docker cp $CID:/usr/local/lib/libhailort.so.${HAILO_VERSION} libhailort-dist-${ARCH}/
+
+          docker rm $CID
+          echo "Extracted files:"; ls -1 hailo-wheels/${ARCH}
+          echo "libhailort files:"; ls -1 libhailort-dist-${ARCH}
+          echo "##vso[task.setvariable variable=HAILO_VERSION]$HAILO_VERSION"
+        displayName: Extract wheels
+      - task: TwineAuthenticate@1
+        displayName: Authenticate to Azure Artifacts (Python feed)
+        inputs:
+          artifactFeed: "Viseron Pipelines/viseron-wheels"
+      - script: |
+          set -e
+          ARCH=$(ARCH)
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --no-cache-dir twine==6.1.0
+          echo "Uploading wheels to Azure Artifacts feed 'viseron-wheels'"
+          python3 -m twine upload --skip-existing --config-file $(PYPIRC_PATH) -r viseron-wheels hailo-wheels/${ARCH}/*.whl
+        displayName: Upload wheels
+      - task: UniversalPackages@0
+        displayName: Publish libhailort universal package
+        inputs:
+          command: publish
+          publishDirectory: libhailort-dist-$(ARCH)
+          vstsFeedPublish: "Viseron Pipelines/viseron-binaries"
+          vstsFeedPackagePublish: libhailort-$(ARCH)
+          versionOption: custom
+          versionPublish: $(HAILO_VERSION)
+          packagePublishDescription: "libhailort shared library ($(ARCH)) for Hailo version $(HAILO_VERSION)"
+      - task: Docker@2
+        displayName: Logoff Docker Hub
+        inputs:
+          command: logout
+          containerRegistry: "Docker Hub"
+        condition: always()
