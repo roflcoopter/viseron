@@ -70,6 +70,7 @@ Viseron is currently using the version 4.22.0 of the Hailo runtime, and you may 
 :::
 
 ## Mounting the device
+
 To allow the Viseron container to access the Hailo device, you need to mount it when starting the container.
 
 <Tabs groupId="docker-type">
@@ -81,6 +82,7 @@ docker run --rm \
   -v {snapshots path}:/snapshots \
   -v {thumbnails path}:/thumbnails \
   -v {event clips path}:/event_clips \
+  -v {timelapse path}:/timelapse \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -106,6 +108,7 @@ services:
       - {snapshots path}:/snapshots
       - {thumbnails path}:/thumbnails
       - {event clips path}:/event_clips
+      - {timelapse path}:/timelapse
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:

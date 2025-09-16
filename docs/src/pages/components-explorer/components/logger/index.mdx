@@ -68,6 +68,7 @@ docker run --rm \
   -v {snapshots path}:/snapshots \
   -v {thumbnails path}:/thumbnails \
   -v {event clips path}:/event_clips \
+  -v {timelapse path}:/timelapse \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -84,8 +85,6 @@ docker run --rm \
 <TabItem value="docker-compose" label="Docker-Compose">
 
 ```yaml
-version: "2.4"
-
 services:
   viseron:
     image: roflcoopter/viseron:latest
@@ -96,6 +95,7 @@ services:
       - {snapshots path}:/snapshots
       - {thumbnails path}:/thumbnails
       - {event clips path}:/event_clips
+      - {timelapse path}:/timelapse
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
