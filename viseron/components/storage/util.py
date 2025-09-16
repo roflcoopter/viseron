@@ -15,6 +15,7 @@ from viseron.components.storage.const import (
     CONFIG_MB,
     CONFIG_MINUTES,
     CONFIG_PATH,
+    CONFIG_SECONDS,
     TIER_CATEGORY_SNAPSHOTS,
     TIER_SUBCATEGORY_EVENT_CLIPS,
     TIER_SUBCATEGORY_SEGMENTS,
@@ -37,6 +38,7 @@ def calculate_age(age: dict[str, Any]) -> timedelta:
         days=age[CONFIG_DAYS] if age[CONFIG_DAYS] else 0,
         hours=age[CONFIG_HOURS] if age[CONFIG_HOURS] else 0,
         minutes=age[CONFIG_MINUTES] if age[CONFIG_MINUTES] else 0,
+        seconds=age.get(CONFIG_SECONDS, None) if age.get(CONFIG_SECONDS, None) else 0,
     )
 
 
