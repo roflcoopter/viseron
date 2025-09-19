@@ -211,6 +211,7 @@ docker run --rm \
   -v {snapshots path}:/snapshots \
   -v {thumbnails path}:/thumbnails \
   -v {event clips path}:/event_clips \
+  -v {timelapse path}:/timelapse \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -235,6 +236,7 @@ services:
       - {snapshots path}:/snapshots
       - {thumbnails path}:/thumbnails
       - {event clips path}:/event_clips
+      - {timelapse path}:/timelapse
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:

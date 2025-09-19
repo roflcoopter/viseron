@@ -201,6 +201,10 @@ class OrphanedFilesCleanup(BaseCleanupJob):
             paths += self._storage.get_event_clips_path(camera, all_tiers=True)
             paths += self._storage.get_segments_path(camera, all_tiers=True)
             paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
+            if timelapse_path := self._storage.get_timelapse_path(
+                camera, all_tiers=True
+            ):
+                paths += timelapse_path
 
             for domain in SnapshotDomain:
                 paths += self._storage.get_snapshots_path(
@@ -438,6 +442,10 @@ class EmptyFoldersCleanup(BaseCleanupJob):
             paths += self._storage.get_event_clips_path(camera, all_tiers=True)
             paths += self._storage.get_segments_path(camera, all_tiers=True)
             paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
+            if timelapse_path := self._storage.get_timelapse_path(
+                camera, all_tiers=True
+            ):
+                paths += timelapse_path
 
             for domain in SnapshotDomain:
                 paths += self._storage.get_snapshots_path(

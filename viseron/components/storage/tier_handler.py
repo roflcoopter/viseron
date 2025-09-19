@@ -1200,21 +1200,8 @@ class TimelapseTierHandler(TierHandler):
         self._interval = calculate_age(self._tier.get(CONFIG_INTERVAL, {}))
         self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
 
-    def _on_deleted(self, event: FileDeletedEvent) -> None:
-        if event.src_path.endswith(".tmp"):
-            return
-        super()._on_deleted(event)
-
-    def _on_modified(self, event: FileModifiedEvent) -> None:
-        if event.src_path.endswith(".tmp"):
-            return
-        super()._on_modified(event)
-
     def _on_created(self, event: FileCreatedEvent) -> None:
         """Handle file creation with interval-based cleanup."""
-        if event.src_path.endswith(".tmp"):
-            return
-
         super()._on_created(event)
 
         # If no interval is set, keep all files

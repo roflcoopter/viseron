@@ -221,11 +221,16 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
 
         Currently only used for extracting timelapse frames from fragments.
         """
-        if self._camera.timelapse_folder is None:
+        if (
+            self._camera.timelapse_folder is None
+            or self._camera.temp_timelapse_folder is None
+        ):
             return
-        # Calculate paths for mp4box segments
-        assert self._camera.timelapse_folder is not None
+
         frame_filename = os.path.splitext(os.path.basename(file))[0] + ".jpg"
+        tmp_frame_path = os.path.join(
+            self._camera.temp_timelapse_folder, frame_filename
+        )
         frame_path = os.path.join(self._camera.timelapse_folder, frame_filename)
         init_path = os.path.join(
             self.temp_segments_folder, file.split(".")[0], "clip_init.mp4"
@@ -234,7 +239,9 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
             self.temp_segments_folder, file.split(".")[0], "clip_1.m4s"
         )
 
-        self._extract_timelapse_frame(init_path, segment_path, frame_path)
+        self._extract_timelapse_frame(
+            init_path, segment_path, tmp_frame_path, frame_path
+        )
 
     def _segment_hook(self, file: str):
         """
@@ -242,24 +249,29 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
 
         Currently only used for extracting timelapse frames from fragments.
         """
-        if self._camera.timelapse_folder is None:
+        if (
+            self._camera.timelapse_folder is None
+            or self._camera.temp_timelapse_folder is None
+        ):
             return
-        # Calculate paths for encoder segments
-        assert self._camera.timelapse_folder is not None
+
         frame_filename = os.path.splitext(os.path.basename(file))[0] + ".jpg"
+        tmp_frame_path = os.path.join(
+            self._camera.temp_timelapse_folder, frame_filename
+        )
         frame_path = os.path.join(self._camera.timelapse_folder, frame_filename)
         init_path = os.path.join(self.temp_segments_folder, "init.mp4")
         segment_path = os.path.join(self.temp_segments_folder, file)
 
-        self._extract_timelapse_frame(init_path, segment_path, frame_path)
+        self._extract_timelapse_frame(
+            init_path, segment_path, tmp_frame_path, frame_path
+        )
 
     def _extract_timelapse_frame(
-        self, init_path: str, segment_path: str, frame_path: str
+        self, init_path: str, segment_path: str, tmp_frame_path: str, frame_path: str
     ):
         """Extract a timelapse frame from segment files."""
         try:
-            tmp_frame_path = frame_path + ".tmp"
-
             # Run ffmpeg command to extract first keyframe of the segment
             cmd = [
                 "bash",
@@ -277,7 +289,7 @@ class FragmenterSubProcessWorker(ChildProcessWorker):
                 check=False,
             )
             if result.returncode == 0:
-                self._logger.debug(f"Timelapse: Extracted frame {frame_path}")
+                self._logger.debug(f"Timelapse: Extracted frame {tmp_frame_path}")
                 shutil.move(tmp_frame_path, frame_path)
             else:
                 self._logger.warning(
@@ -462,6 +474,8 @@ class Fragmenter:
         self._camera = camera
         self._storage: Storage = vis.data[STORAGE_COMPONENT]
         os.makedirs(camera.temp_segments_folder, exist_ok=True)
+        if camera.temp_timelapse_folder is not None:
+            os.makedirs(camera.temp_timelapse_folder, exist_ok=True)
         self._storage.ignore_file("init.mp4")
 
         self._log_pipe_ffmpeg = LogPipe(

@@ -55,6 +55,7 @@ docker run --rm \
   -v {snapshots path}:/snapshots \
   -v {thumbnails path}:/thumbnails \
   -v {event clips path}:/event_clips \
+  -v {timelapse path}:/timelapse \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -67,8 +68,6 @@ docker run --rm \
 <TabItem value="docker-compose" label="Docker-Compose">
 
 ```yaml
-version: "2.4"
-
 services:
   viseron:
     image: roflcoopter/viseron:latest
@@ -79,6 +78,7 @@ services:
       - {snapshots path}:/snapshots
       - {thumbnails path}:/thumbnails
       - {event clips path}:/event_clips
+      - {timelapse path}:/timelapse
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -101,6 +101,7 @@ docker run --rm \
   -v {snapshots path}:/snapshots \
   -v {thumbnails path}:/thumbnails \
   -v {event clips path}:/event_clips \
+  -v {timelapse path}:/timelapse \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -114,8 +115,6 @@ docker run --rm \
 <TabItem value="docker-compose" label="Docker-Compose">
 
 ```yaml
-version: "2.4"
-
 services:
   viseron:
     image: roflcoopter/viseron:latest
@@ -126,6 +125,7 @@ services:
       - {snapshots path}:/snapshots
       - {thumbnails path}:/thumbnails
       - {event clips path}:/event_clips
+      - {timelapse path}:/timelapse
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -150,6 +150,7 @@ docker run --rm \
   -v {snapshots path}:/snapshots \
   -v {thumbnails path}:/thumbnails \
   -v {event clips path}:/event_clips \
+  -v {timelapse path}:/timelapse \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -163,8 +164,6 @@ docker run --rm \
 <TabItem value="docker-compose" label="Docker-Compose">
 
 ```yaml
-version: "2.4"
-
 services:
   viseron:
     image: roflcoopter/amd64-cuda-viseron:latest
@@ -175,6 +174,7 @@ services:
       - {snapshots path}:/snapshots
       - {thumbnails path}:/thumbnails
       - {event clips path}:/event_clips
+      - {timelapse path}:/timelapse
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -205,6 +205,7 @@ docker run --rm \
   -v {snapshots path}:/snapshots \
   -v {thumbnails path}:/thumbnails \
   -v {event clips path}:/event_clips \
+  -v {timelapse path}:/timelapse \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -226,8 +227,6 @@ You can probably get around this by manually mounting all the needed devices but
 <TabItem value="docker-compose" label="Docker-Compose">
 
 ```yaml
-version: "2.4"
-
 services:
   viseron:
     image: roflcoopter/jetson-nano-viseron:latest
@@ -238,6 +237,7 @@ services:
       - {snapshots path}:/snapshots
       - {thumbnails path}:/thumbnails
       - {event clips path}:/event_clips
+      - {timelapse path}:/timelapse
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
@@ -270,6 +270,7 @@ docker run --rm \
   -v {snapshots path}:/snapshots \
   -v {thumbnails path}:/thumbnails \
   -v {event clips path}:/event_clips \
+  -v {timelapse path}:/timelapse \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -v /dev/bus/usb:/dev/bus/usb \
@@ -288,7 +289,6 @@ docker run --rm \
 <TabItem value="docker-compose" label="Docker-Compose">
 
 ```yaml
-version: "2.4"
 services:
   viseron:
     image: roflcoopter/viseron:latest
@@ -299,6 +299,7 @@ services:
       - {snapshots path}:/snapshots
       - {thumbnails path}:/thumbnails
       - {event clips path}:/event_clips
+      - {timelapse path}:/timelapse
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     devices:
@@ -342,6 +343,7 @@ docker run --rm \
   -v {snapshots path}:/snapshots \
   -v {thumbnails path}:/thumbnails \
   -v {event clips path}:/event_clips \
+  -v {timelapse path}:/timelapse \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -v /opt/vc/lib:/opt/vc/lib \
@@ -358,7 +360,6 @@ docker run --rm \
 <TabItem value="docker-compose" label="Docker-Compose">
 
 ```yaml
-version: "2.4"
 services:
   viseron:
     image: roflcoopter/viseron:latest
@@ -369,6 +370,7 @@ services:
       - {snapshots path}:/snapshots
       - {thumbnails path}:/thumbnails
       - {event clips path}:/event_clips
+      - {timelapse path}:/timelapse
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
       - /opt/vc/lib:/opt/vc/lib
@@ -447,6 +449,7 @@ docker run --rm \
   -v {snapshots path}:/snapshots \
   -v {thumbnails path}:/thumbnails \
   -v {event clips path}:/event_clips \
+  -v {timelapse path}:/timelapse \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
@@ -465,8 +468,6 @@ docker run --rm \
 Example docker-compose
 
 ```yaml
-version: "2.4"
-
 services:
   viseron:
     image: roflcoopter/viseron:latest
@@ -477,6 +478,7 @@ services:
       - {snapshots path}:/snapshots
       - {thumbnails path}:/thumbnails
       - {event clips path}:/event_clips
+      - {timelapse path}:/timelapse
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
