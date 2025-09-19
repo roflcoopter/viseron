@@ -42,7 +42,9 @@ RUN buildDeps="autoconf \
   yasm \
   libgomp1 \
   zlib1g-dev \
-  libomxil-bellagio-dev" && \
+  libomxil-bellagio-dev \
+  libdrm-dev \
+  libv4l-dev" && \
   apt-get -yqq update && \
   apt-get install -yq --no-install-recommends ${buildDeps}
 
@@ -605,6 +607,8 @@ RUN  \
   --extra-libs=-lpthread \
   --enable-neon \
   --enable-v4l2_m2m \
+  --enable-libv4l2 \
+  --enable-libdrm \
   --extra-cflags="-I${PREFIX}/include" \
   --extra-ldflags="-L${PREFIX}/lib" && \
   make && \
