@@ -19,6 +19,7 @@ from viseron.const import (
     ENV_JETSON_NANO,
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
+    ENV_RASPBERRYPI5,
 )
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.helpers import pop_if_full
@@ -97,6 +98,8 @@ class Stream(FFmpegStream):
         elif os.getenv(ENV_RASPBERRYPI3) == "true":
             self._pipeline = BasePipeline(config, self, camera)
         elif os.getenv(ENV_RASPBERRYPI4) == "true":
+            self._pipeline = BasePipeline(config, self, camera)
+        elif os.getenv(ENV_RASPBERRYPI5) == "true":
             self._pipeline = BasePipeline(config, self, camera)
         elif os.getenv(ENV_JETSON_NANO) == "true":
             self._pipeline = JetsonPipeline(config, self, camera)

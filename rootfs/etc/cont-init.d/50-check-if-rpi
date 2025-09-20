@@ -3,23 +3,56 @@
 source /helpers/logger.sh
 
 log_info "********** Checking if we are running on an RPi **********"
-# Check if we are running on an RPi3 or RPi4
-# Hardware revision table is found here: https://www.raspberrypi-spy.co.uk/2012/09/checking-your-raspberry-pi-board-version/
-OUTPUT=$(cat /proc/cpuinfo | grep 'Revision' | awk '{print $3}')
-case "$OUTPUT" in
-    "a02082" | "a22082" | "a020d3")
+# Check if we are running on a supported Raspberry Pi
+# Based on https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#getting-the-revision-code-in-your-program
+
+# Get the revision code from /proc/cpuinfo
+REV_CODE=$(awk '/Revision/ {print $3}' /proc/cpuinfo)
+
+# Convert hex revision code to decimal
+CODE=$((0x$REV_CODE))
+
+# Extract fields
+NEW=$(( (CODE >> 23) & 0x1 ))
+MODEL=$(( (CODE >> 4) & 0xff ))
+MEM=$(( (CODE >> 20) & 0x7 ))
+
+# Supported models
+RPI3=(8 13 14)   # 0x08, 0x0d, 0x0e = Raspberry Pi 3A+, 3B, 3B+
+RPI4=(17)        # 0x11 = Raspberry Pi 4B
+RPI5=(23)        # 0x17 = Raspberry Pi 5
+
+SUPPORTED=0
+
+for m in "${RPI3[@]}"; do
+    if [[ $NEW -eq 1 && $MODEL -eq $m ]]; then
+        log_info "Detected Raspberry Pi 3 Model (revision: $REV_CODE)"
         export VISERON_RASPBERRYPI3=true
         printf "true" > /var/run/environment/VISERON_RASPBERRYPI3
-        log_info "Running on an RPi3"
-        ;;
+        SUPPORTED=1
+    fi
+done
 
-    "a03111" | "b03111" | "b03112" | "c03111" | "c03112" | "d03114")
+for m in "${RPI4[@]}"; do
+    if [[ $NEW -eq 1 && $MODEL -eq $m ]]; then
+        log_info "Detected Raspberry Pi 4 Model (revision: $REV_CODE)"
         export VISERON_RASPBERRYPI4=true
         printf "true" > /var/run/environment/VISERON_RASPBERRYPI4
-        log_info "Running on an RPi4"
-        ;;
+        SUPPORTED=1
+    fi
+done
 
-    *)
-        log_info "Not running on any supported RPi"
-esac
+for m in "${RPI5[@]}"; do
+    if [[ $NEW -eq 1 && $MODEL -eq $m ]]; then
+        log_info "Detected Raspberry Pi 5 Model (revision: $REV_CODE)"
+        export VISERON_RASPBERRYPI5=true
+        printf "true" > /var/run/environment/VISERON_RASPBERRYPI5
+        SUPPORTED=1
+    fi
+done
+
+
+if [[ $SUPPORTED -eq 0 ]]; then
+    log_info "No supported Raspberry Pi model detected"
+fi
 log_info "*********************** Done *****************************"
