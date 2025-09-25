@@ -215,7 +215,7 @@ docker run --rm \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
-  --tmpfs /tmp \
+  --tmpfs /tmp/tier1 \
   --name viseron \
   --shm-size=1024mb \
   roflcoopter/viseron:latest
@@ -224,8 +224,6 @@ docker run --rm \
 Example docker-compose
 
 ```yaml
-version: "2.4"
-
 services:
   viseron:
     image: roflcoopter/viseron:latest
@@ -242,7 +240,7 @@ services:
     ports:
       - 8888:8888
     tmpfs:
-      - /tmp
+      - /tmp/tier1
 ```
 
 ```yaml title="/config/config.yaml"
