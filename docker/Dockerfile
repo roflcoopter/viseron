@@ -106,7 +106,7 @@ ENV \
   S6_KILL_GRACETIME=30000 \
   S6_KILL_FINISH_MAXTIME=30000 \
   PATH=$PATH:/home/abc/bin \
-  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib \
+  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:/ffmpeg/lib \
   PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.10/site-packages \
   OPENCV_OPENCL_CACHE_ENABLE=false \
   PG_COLOR="always"
