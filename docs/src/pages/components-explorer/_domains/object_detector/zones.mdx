@@ -15,27 +15,27 @@ actually interested in, excluding the sidewalk.
       ? props.meta.name
       : "<object detector component>"
   }:
-  object_detector:
-    cameras:
-      camera_one:
-        ...
-        // highlight-start
-        zones:
-          - name: sidewalk
-            coordinates:
-              - x: 522
-                y: 11
-              - x: 729
-                y: 275
-              - x: 333
-                y: 603
-              - x: 171
-                y: 97
-            labels:
-              - label: person
-                confidence: 0.8
-                trigger_event_recording: true
-        // highlight-end`}
+    object_detector:
+      cameras:
+        camera_one:
+          ...
+          // highlight-start
+          zones:
+            - name: sidewalk
+              coordinates:
+                - x: 522
+                  y: 11
+                - x: 729
+                  y: 275
+                - x: 333
+                  y: 603
+                - x: 171
+                  y: 97
+              labels:
+                - label: person
+                  confidence: 0.8
+                  trigger_event_recording: true
+          // highlight-end`}
 
 </CodeBlock>
 
