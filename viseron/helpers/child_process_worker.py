@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import multiprocessing as mp
+import os
 from abc import ABC, abstractmethod
 from multiprocessing.synchronize import Event
 from queue import Empty, Queue
@@ -119,6 +120,7 @@ class ChildProcessWorker(ABC):
         self, exit_event: Event, process_queue: mp.Queue, output_queue: mp.Queue
     ) -> None:
         """Process frame and send it to the detector."""
+        os.setsid()
         remove_shm_from_resource_tracker()
         setproctitle.setproctitle(self.child_process_name)
         self.process_initialization()

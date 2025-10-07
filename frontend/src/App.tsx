@@ -3,9 +3,6 @@ import { lazy } from "react";
 import { Navigate, useRoutes } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
 
-import Settings from "pages/settings";
-import Users from "pages/settings/Users";
-
 const Cameras = lazy(() => import("pages/Cameras"));
 const CameraRecordings = lazy(
   () => import("pages/recordings/CameraRecordings"),
@@ -22,6 +19,10 @@ const NotFound = lazy(() => import("pages/NotFound"));
 const Onboarding = lazy(() => import("pages/Onboarding"));
 const PublicLayout = lazy(() => import("layouts/PublicLayout"));
 const Recordings = lazy(() => import("pages/recordings/Recordings"));
+const Settings = lazy(() => import("pages/settings"));
+const SystemEvents = lazy(() => import("pages/settings/SystemEvents"));
+const Users = lazy(() => import("pages/settings/Users"));
+const TemplateEditor = lazy(() => import("pages/settings/TemplateEditor"));
 
 function App() {
   const routes = useRoutes([
@@ -78,6 +79,14 @@ function App() {
                 {
                   path: "/settings/users",
                   element: <Users />,
+                },
+                {
+                  path: "/settings/system-events",
+                  element: <SystemEvents />,
+                },
+                {
+                  path: "/settings/template-editor",
+                  element: <TemplateEditor />,
                 },
               ],
             },

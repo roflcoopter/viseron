@@ -15,10 +15,12 @@ from viseron.components.storage.const import (
     CONFIG_MB,
     CONFIG_MINUTES,
     CONFIG_PATH,
+    CONFIG_SECONDS,
     TIER_CATEGORY_SNAPSHOTS,
     TIER_SUBCATEGORY_EVENT_CLIPS,
     TIER_SUBCATEGORY_SEGMENTS,
     TIER_SUBCATEGORY_THUMBNAILS,
+    TIER_SUBCATEGORY_TIMELAPSE,
 )
 from viseron.events import EventData
 from viseron.types import SnapshotDomain
@@ -36,6 +38,7 @@ def calculate_age(age: dict[str, Any]) -> timedelta:
         days=age[CONFIG_DAYS] if age[CONFIG_DAYS] else 0,
         hours=age[CONFIG_HOURS] if age[CONFIG_HOURS] else 0,
         minutes=age[CONFIG_MINUTES] if age[CONFIG_MINUTES] else 0,
+        seconds=age.get(CONFIG_SECONDS, None) if age.get(CONFIG_SECONDS, None) else 0,
     )
 
 
@@ -92,6 +95,15 @@ def get_snapshots_path(
     """Get snapshots path for camera."""
     return os.path.join(
         tier[CONFIG_PATH], TIER_CATEGORY_SNAPSHOTS, domain.value, camera.identifier
+    )
+
+
+def get_timelapse_path(
+    tier: dict[str, Any], camera: AbstractCamera | FailedCamera
+) -> str:
+    """Get timelapse path for camera."""
+    return os.path.join(
+        tier[CONFIG_PATH], TIER_SUBCATEGORY_TIMELAPSE, camera.identifier
     )
 
 

@@ -5,7 +5,6 @@ import argparse
 import datetime
 import logging
 import multiprocessing as mp
-import subprocess as sp
 import sys
 import time
 from collections.abc import Callable
@@ -189,20 +188,81 @@ def initializer(cpulimit: int | None):
     if pid and cpulimit is not None:
         command = f"cpulimit -l {cpulimit} -p {pid} -z -q"
         LOGGER.debug(f"Running command: {command}")
-        sp.Popen(command, shell=True)
+        RestartablePopen(
+            command,
+            register=False,
+            shell=True,
+        )
 
 
-def worker_task(worker: Worker, process_queue: Queue, output_queue: Queue):
-    """Worker thread task."""
+def worker_task_files(
+    worker: Worker,
+    file_queue: Queue[DataItemDeleteFile | DataItemMoveFile],
+    output_queue: Queue[DataItemDeleteFile | DataItemMoveFile],
+):
+    """Worker thread that only processes file operation commands."""
     while True:
         try:
-            job = process_queue.get(block=True, timeout=1)
+            job = file_queue.get(timeout=1)
             worker.work_input(job)
             output_queue.put(job)
         except Empty:
             continue
         except Exception as exc:  # pylint: disable=broad-except
-            LOGGER.exception(f"Error in worker thread: {exc}")
+            LOGGER.exception(f"Error in file worker thread: {exc}")
+
+
+def worker_task_mixed(
+    worker: Worker,
+    check_queue: Queue[DataItem],
+    file_queue: Queue[DataItemDeleteFile | DataItemMoveFile],
+    output_queue: Queue[DataItem | DataItemDeleteFile | DataItemMoveFile],
+    name: str,
+):
+    """Worker thread that prioritizes file operations but also handles check_tier.
+
+    This ensures that file operations are not blocked by slow check_tier jobs.
+    """
+    job: DataItem | DataItemDeleteFile | DataItemMoveFile
+    while True:
+        try:
+            try:
+                job = file_queue.get_nowait()
+            except Empty:
+                job = check_queue.get(timeout=1)
+            worker.work_input(job)
+            output_queue.put(job)
+        except Empty:
+            continue
+        except Exception as exc:  # pylint: disable=broad-except
+            LOGGER.exception(f"Error in mixed worker thread {name}: {exc}")
+
+
+def dispatcher_task(
+    process_queue: Queue[DataItem | DataItemDeleteFile | DataItemMoveFile],
+    check_queue: Queue[DataItem],
+    file_queue: Queue[DataItemDeleteFile | DataItemMoveFile],
+):
+    """Dispatcher thread routing jobs to dedicated queues.
+
+    check_tier commands can be slow. File operations should not be blocked by them,
+    so they get their own queue and worker.
+    """
+    while True:
+        try:
+            job = process_queue.get(timeout=1)
+        except Empty:
+            continue
+
+        try:
+            if job.cmd == "check_tier":
+                check_queue.put(job)
+            elif job.cmd in ("move_file", "delete_file"):
+                file_queue.put(job)
+            else:
+                LOGGER.debug("Unknown command %s", job.cmd)
+        except Exception as exc:  # pylint: disable=broad-except
+            LOGGER.exception(f"Dispatcher error routing job: {exc}")
 
 
 def main():
@@ -210,6 +270,8 @@ def main():
     parser = get_parser()
     args = parser.parse_args()
     setup_logger(args.loglevel)
+    process_queue: Queue[DataItem | DataItemDeleteFile | DataItemMoveFile]
+    output_queue: Queue[DataItem | DataItemDeleteFile | DataItemMoveFile]
     process_queue, output_queue = connect(
         "127.0.0.1", int(args.manager_port), args.manager_authkey
     )
@@ -228,16 +290,40 @@ def main():
     ThreadWatchDog(background_scheduler)
 
     LOGGER.debug(f"Starting {args.workers} worker threads")
-    threads: list[RestartableThread] = []
+
+    check_queue: Queue[DataItem] = Queue()
+    file_queue: Queue[DataItemDeleteFile | DataItemMoveFile] = Queue()
+
+    dispatcher = RestartableThread(
+        name="storage_subprocess.dispatcher",
+        target=dispatcher_task,
+        args=(process_queue, check_queue, file_queue),
+        daemon=True,
+    )
+    dispatcher.start()
+
     for i in range(args.workers):
         thread = RestartableThread(
-            name=f"storage_subprocess.worker.{i}",
-            target=worker_task,
-            args=(worker, process_queue, output_queue),
+            name=f"storage_subprocess.mixed_worker.{i}",
+            target=worker_task_mixed,
+            args=(
+                worker,
+                check_queue,
+                file_queue,
+                output_queue,
+                f"mixed_worker.{i}",
+            ),
             daemon=True,
         )
         thread.start()
-        threads.append(thread)
+
+    thread = RestartableThread(
+        name="storage_subprocess.file_worker",
+        target=worker_task_files,
+        args=(worker, file_queue, output_queue),
+        daemon=True,
+    )
+    thread.start()
 
     while True:
         time.sleep(1)

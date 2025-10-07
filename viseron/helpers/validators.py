@@ -4,6 +4,7 @@ from collections.abc import Callable
 from typing import Any
 
 import voluptuous as vol
+from jinja2 import BaseLoader, Environment
 
 from viseron.helpers import slugify
 
@@ -165,6 +166,21 @@ def request_argument_no_value(value) -> bool:
     return False
 
 
+def jinja2_template(value: Any) -> str:
+    """Validate that value is a valid Jinja2 template."""
+    if not isinstance(value, str):
+        msg = f"Expected Jinja2 template, got {value}"
+        raise vol.Invalid(msg)
+
+    env = Environment(loader=BaseLoader())
+    try:
+        env.compile(value)
+    except Exception as e:
+        msg = f"Invalid Jinja2 template: {e}"
+        raise vol.Invalid(msg)
+    return value
+
+
 class CameraIdentifier(vol.Required):
     """Validate Camera Identifier."""
 
@@ -238,6 +254,61 @@ class Slug:
         if slug(value):
             return value
         raise vol.Invalid("Invalid slug.")
+
+
+class StringKey:
+    """Ensure that a config key is a string."""
+
+    def __init__(
+        self,
+        description: str,
+    ) -> None:
+        self.description = description
+
+    def __call__(self, value):
+        """Ensure slug."""
+        if not isinstance(value, str):
+            msg = f"Expected string. Got {value}"
+            LOGGER.error(msg)
+            raise vol.Invalid(msg)
+
+
+class Url:
+    """Wrap voluptuous.Url but as a class instead.
+
+    This allows for special handling when generating docs with scripts/gen_docs.py.
+    """
+
+    def __init__(
+        self,
+    ) -> None:
+        self.url_validator = vol.Url()  # pylint: disable=no-value-for-parameter
+
+    def __call__(self, value):
+        """Validate URL."""
+        return self.url_validator(
+            value,
+        )
+
+
+class PathExists:
+    """Wrap voluptuous.PathExists but as a class instead.
+
+    This allows for special handling when generating docs with scripts/gen_docs.py.
+    """
+
+    def __init__(
+        self,
+    ) -> None:
+        self.path_exists_validator = (
+            vol.PathExists()  # pylint: disable=no-value-for-parameter
+        )
+
+    def __call__(self, value):
+        """Validate path exists."""
+        return self.path_exists_validator(  # pylint: disable=not-callable
+            value,
+        )
 
 
 def request_argument_bool(value):

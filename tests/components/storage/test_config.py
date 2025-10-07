@@ -120,6 +120,7 @@ DEFAULT_CONFIG = {
             "motion_detector": None,
             "object_detector": None,
         },
+        "timelapse": None,
     },
 }
 

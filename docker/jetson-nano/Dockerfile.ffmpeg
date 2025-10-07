@@ -131,7 +131,12 @@ COPY --from=qemu /usr/bin/cross-build-start /bin/cross-build-start
 COPY --from=qemu /usr/bin/cross-build-end /bin/cross-build-end
 COPY --from=qemu /usr/bin/resin-xbuild /usr/bin/resin-xbuild
 
-RUN [ "cross-build-start" ]
+ARG BUILDPLATFORM
+RUN \
+  echo "Build platform: $BUILDPLATFORM" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  echo "Crossbuilding!" && cross-build-start; \
+  fi
 
 WORKDIR /tmp/workdir
 
@@ -599,8 +604,6 @@ RUN \
   for pc in ${PREFIX}/lib/pkgconfig/libav*.pc ${PREFIX}/lib/pkgconfig/libpostproc.pc ${PREFIX}/lib/pkgconfig/libsw*.pc; do \
   sed "s:${PREFIX}:/usr/local:g" <"$pc" >/usr/local/lib/pkgconfig/"${pc##*/}"; \
   done
-
-RUN [ "cross-build-end" ]
 
 FROM scratch
 COPY --from=build /usr/local /usr/local/

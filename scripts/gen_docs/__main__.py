@@ -21,7 +21,11 @@ from viseron.helpers.validators import (
     CoerceNoneToDict,
     Deprecated,
     Maybe,
+    PathExists,
     Slug,
+    StringKey,
+    Url,
+    jinja2_template,
 )
 from viseron.types import SupportedDomains
 
@@ -191,9 +195,21 @@ def convert(schema, custom_convert=None):  # noqa: C901
             schema.__name__.lower(): True,
         }
 
-    if schema in (vol.Email, vol.Url, vol.FqdnUrl):
+    if schema in (vol.Email, vol.FqdnUrl):
         return {
             "format": schema.__name__.lower(),
+        }
+
+    if isinstance(schema, Url):
+        return {
+            "type": "string",
+            "format": schema.__class__.__name__.lower(),
+        }
+
+    if isinstance(schema, PathExists):
+        return {
+            "type": "string",
+            "format": "file path",
         }
 
     if isinstance(schema, vol.Coerce):
@@ -224,7 +240,7 @@ def convert(schema, custom_convert=None):  # noqa: C901
         return {
             "type": "CAMERA_IDENTIFIER",
         }
-    if isinstance(schema, Slug):
+    if isinstance(schema, (Slug, StringKey)):
         return {
             "type": "string",
         }
@@ -234,6 +250,12 @@ def convert(schema, custom_convert=None):  # noqa: C901
             "type": "deprecated",
             "name": schema.key,
             "value": schema.message,
+        }
+
+    if schema == jinja2_template:  # pylint: disable=comparison-with-callable
+        return {
+            "type": "jinja2_template",
+            "value": "jinja2_template",
         }
 
     if callable(schema):

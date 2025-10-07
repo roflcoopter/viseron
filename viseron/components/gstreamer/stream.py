@@ -19,6 +19,7 @@ from viseron.const import (
     ENV_JETSON_NANO,
     ENV_RASPBERRYPI3,
     ENV_RASPBERRYPI4,
+    ENV_RASPBERRYPI5,
 )
 from viseron.domains.camera.shared_frames import SharedFrame
 from viseron.helpers import pop_if_full
@@ -56,7 +57,11 @@ class Stream(FFmpegStream):
     """
 
     def __init__(  # pylint: disable=super-init-not-called
-        self, config: dict[str, Any], camera: Camera, camera_identifier: str
+        self,
+        config: dict[str, Any],
+        camera: Camera,
+        camera_identifier: str,
+        attempt: int = 1,
     ) -> None:
         self._logger = logging.getLogger(__name__ + "." + camera_identifier)
         self._logger.addFilter(
@@ -67,7 +72,7 @@ class Stream(FFmpegStream):
 
         self._camera: Camera = camera  # type: ignore[assignment]
 
-        self._ffprobe = FFprobe(config, camera_identifier)
+        self._ffprobe = FFprobe(config, camera_identifier, attempt)
 
         self._mainstream = self.get_stream_information(config)
         self._substream = None  # Substream is not implemented for GStreamer
@@ -93,6 +98,8 @@ class Stream(FFmpegStream):
         elif os.getenv(ENV_RASPBERRYPI3) == "true":
             self._pipeline = BasePipeline(config, self, camera)
         elif os.getenv(ENV_RASPBERRYPI4) == "true":
+            self._pipeline = BasePipeline(config, self, camera)
+        elif os.getenv(ENV_RASPBERRYPI5) == "true":
             self._pipeline = BasePipeline(config, self, camera)
         elif os.getenv(ENV_JETSON_NANO) == "true":
             self._pipeline = JetsonPipeline(config, self, camera)

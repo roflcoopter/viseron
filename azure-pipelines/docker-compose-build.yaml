@@ -78,6 +78,18 @@ services:
         - roflcoopter/amd64-dlib:$DLIB_VERSION
     image: roflcoopter/amd64-dlib:$DLIB_VERSION
 
+  amd64-hailo:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.hailo
+      args:
+        BUILD_FROM: ubuntu:$UBUNTU_VERSION
+        MAKEFLAGS: "$MAKEFLAGS"
+        HAILO_VERSION: "$HAILO_VERSION"
+      cache_from:
+        - roflcoopter/amd64-hailo:$HAILO_VERSION
+    image: roflcoopter/amd64-hailo:$HAILO_VERSION
+
   amd64-wheels:
     build:
       context: ..
@@ -86,6 +98,7 @@ services:
         ARCH: amd64
         BUILD_FROM: ubuntu:$UBUNTU_VERSION
         DLIB_VERSION: "$DLIB_VERSION"
+        EXTRA_PIP_ARGS: --extra-index-url https://download.pytorch.org/whl/cpu
         OPENCV_VERSION: "$OPENCV_VERSION"
       cache_from:
         - roflcoopter/amd64-wheels:$WHEELS_VERSION
@@ -102,6 +115,7 @@ services:
         IGC_VERSION: "$IGC_VERSION"
         LEVEL_ZERO_GPU: "$LEVEL_ZERO_GPU"
         OPENCL_SHA256_FILENAME: "$OPENCL_SHA256_FILENAME"
+        HAILO_VERSION: "$HAILO_VERSION"
       context: ..
       dockerfile: ./docker/amd64/Dockerfile.base
       cache_from:
@@ -245,6 +259,7 @@ services:
         IGC_VERSION: "$IGC_VERSION"
         LEVEL_ZERO_GPU: "$LEVEL_ZERO_GPU"
         OPENCL_SHA256_FILENAME: "$OPENCL_SHA256_FILENAME"
+        HAILO_VERSION: "$HAILO_VERSION"
       cache_from:
         - roflcoopter/amd64-cuda-base:$BASE_VERSION
     image: roflcoopter/amd64-cuda-base:$BASE_VERSION
@@ -416,6 +431,17 @@ services:
         - roflcoopter/aarch64-dlib:$DLIB_VERSION
     image: roflcoopter/aarch64-dlib:$DLIB_VERSION
 
+  aarch64-hailo:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.hailo
+      args:
+        BUILD_FROM: ubuntu:$UBUNTU_VERSION
+        MAKEFLAGS: "$MAKEFLAGS"
+        HAILO_VERSION: "$HAILO_VERSION"
+      cache_from:
+        - roflcoopter/aarch64-hailo:$HAILO_VERSION
+    image: roflcoopter/aarch64-hailo:$HAILO_VERSION
   aarch64-wheels:
     build:
       context: ..
@@ -436,6 +462,7 @@ services:
       args:
         UBUNTU_VERSION: "$UBUNTU_VERSION"
         FFMPEG_VERSION: "$FFMPEG_VERSION"
+        HAILO_VERSION: "$HAILO_VERSION"
       cache_from:
         - roflcoopter/aarch64-base:$BASE_VERSION
     image: roflcoopter/aarch64-base:$BASE_VERSION
@@ -615,6 +642,19 @@ services:
         - roflcoopter/jetson-nano-viseron:dev
     image: roflcoopter/jetson-nano-viseron:dev
 
+  ################ RaspberryPi 5 #####################################
+  rpi5-azure-agent:
+    build:
+      context: ..
+      dockerfile: ./docker/rpi5/Dockerfile.azure
+      args:
+        TARGETARCH: "linux-arm64"
+        UBUNTU_VERSION: "$UBUNTU_VERSION"
+      cache_from:
+        - roflcoopter/rpi5-azure-agent:latest
+    image: roflcoopter/rpi5-azure-agent:latest
+
+  ################### Other ##########################################
   models:
     build:
       context: ..

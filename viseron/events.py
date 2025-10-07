@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Generic
 
 from typing_extensions import TypeVar
+
+from viseron.helpers.json import JSONEncoder
 
 T = TypeVar("T")
 
@@ -21,10 +25,14 @@ class Event(Generic[T]):
     def as_dict(self) -> dict[str, Any]:
         """Convert Event to dict."""
         return {
-            "name": self.name.split("/", 1)[1],
+            "name": self.name,
             "data": self.data,
             "timestamp": self.timestamp,
         }
+
+    def as_json(self) -> str:
+        """Convert Event to JSON string."""
+        return partial(json.dumps, cls=JSONEncoder, allow_nan=False)(self.as_dict())
 
 
 class EventData:

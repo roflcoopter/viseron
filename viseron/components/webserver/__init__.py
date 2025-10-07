@@ -53,6 +53,7 @@ from .websocket_api.commands import (
     get_cameras,
     get_config,
     get_entities,
+    handle_render_template,
     ping,
     restart_viseron,
     save_config,
@@ -139,6 +140,7 @@ def setup(vis: Viseron, config) -> bool:
     webserver.register_websocket_command(export_recording)
     webserver.register_websocket_command(export_snapshot)
     webserver.register_websocket_command(export_timespan)
+    webserver.register_websocket_command(handle_render_template)
 
     webserver.start()
 

@@ -1,0 +1,144 @@
+[
+  {
+    "type": "map",
+    "value": [
+      {
+        "type": "map",
+        "value": [
+          {
+            "type": "map",
+            "value": [
+              {
+                "type": "string",
+                "name": "event",
+                "description": "The event type that triggers the webhook.",
+                "required": true,
+                "default": null
+              },
+              {
+                "type": "jinja2_template",
+                "value": "jinja2_template",
+                "name": "condition",
+                "description": "Template condition to check before sending the webhook. If set, the webhook will only be sent if the template evaluates to a truthy value (True, true, 1, yes, on).",
+                "optional": true,
+                "default": null
+              }
+            ],
+            "name": "trigger",
+            "description": "The trigger configuration for the webhook.",
+            "required": true,
+            "default": null
+          },
+          {
+            "type": "jinja2_template",
+            "value": "jinja2_template",
+            "name": "url",
+            "description": "The URL to send the webhook request to.",
+            "required": true,
+            "default": null
+          },
+          {
+            "lower": true,
+            "type": "select",
+            "options": [
+              {
+                "type": "constant",
+                "value": "get"
+              },
+              {
+                "type": "constant",
+                "value": "patch"
+              },
+              {
+                "type": "constant",
+                "value": "post"
+              },
+              {
+                "type": "constant",
+                "value": "put"
+              },
+              {
+                "type": "constant",
+                "value": "delete"
+              }
+            ],
+            "name": "method",
+            "description": "The HTTP method to use for the webhook request.",
+            "optional": true,
+            "default": "get"
+          },
+          {
+            "type": "map",
+            "value": [
+              {
+                "type": "jinja2_template",
+                "value": "jinja2_template",
+                "name": {
+                  "type": "string"
+                },
+                "description": "Header key for the webhook request."
+              }
+            ],
+            "name": "headers",
+            "description": "Headers to include in the webhook request.",
+            "optional": true,
+            "default": null
+          },
+          {
+            "type": "jinja2_template",
+            "value": "jinja2_template",
+            "name": "username",
+            "description": "Username for basic authentication.",
+            "inclusive": true,
+            "default": null
+          },
+          {
+            "type": "jinja2_template",
+            "value": "jinja2_template",
+            "name": "password",
+            "description": "Password for basic authentication.",
+            "inclusive": true,
+            "default": null
+          },
+          {
+            "type": "jinja2_template",
+            "value": "jinja2_template",
+            "name": "payload",
+            "description": "Payload to send with the webhook request.",
+            "optional": true,
+            "default": null
+          },
+          {
+            "type": "integer",
+            "name": "timeout",
+            "description": "The timeout for the webhook request in seconds.",
+            "optional": true,
+            "default": 10
+          },
+          {
+            "type": "string",
+            "name": "content_type",
+            "description": "The content type of the webhook request.",
+            "optional": true,
+            "default": "application/json"
+          },
+          {
+            "type": "boolean",
+            "name": "verify_ssl",
+            "description": "Whether to verify SSL certificates for the webhook request.",
+            "optional": true,
+            "default": true
+          }
+        ],
+        "name": {
+          "type": "string"
+        },
+        "description": "Hook configuration."
+      }
+    ],
+    "name": "webhook",
+    "description": "Webhook component configuration.",
+    "required": true,
+    "default": null
+  }
+]

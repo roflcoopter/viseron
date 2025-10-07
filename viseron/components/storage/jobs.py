@@ -201,6 +201,10 @@ class OrphanedFilesCleanup(BaseCleanupJob):
             paths += self._storage.get_event_clips_path(camera, all_tiers=True)
             paths += self._storage.get_segments_path(camera, all_tiers=True)
             paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
+            if timelapse_path := self._storage.get_timelapse_path(
+                camera, all_tiers=True
+            ):
+                paths += timelapse_path
 
             for domain in SnapshotDomain:
                 paths += self._storage.get_snapshots_path(
@@ -325,6 +329,91 @@ class OrphanedDatabaseFilesCleanup(BaseCleanupJob):
         )
 
 
+class ZeroSizeFilesCleanup(BaseCleanupJob):
+    """Cleanup job that handles zero-size files in the database.
+
+    For any Files in the database with zero size, the job will attempt to update the
+    size. If the size on disk is zero the file is removed.
+    """
+
+    @property
+    def name(self) -> str:
+        """Return job name."""
+        return CleanupJobNames.ZERO_SIZE_FILES.value
+
+    def _run(self) -> None:
+        now = time.time()
+        LOGGER.debug("Running %s", self.name)
+        processed = 0
+        updated = 0
+        deleted = 0
+        last_id = 0
+
+        # Only consider files older than 5 minutes
+        cutoff_time = utcnow() - datetime.timedelta(minutes=5)
+
+        with self._storage.get_session() as session:
+            while True:
+                if self.kill_event.is_set():
+                    break
+
+                batch = (
+                    session.execute(
+                        select(Files)
+                        .where(
+                            and_(
+                                Files.id > last_id,
+                                Files.size == 0,
+                                Files.created_at < cutoff_time,
+                            )
+                        )
+                        .order_by(Files.id)
+                        .limit(BATCH_SIZE)
+                    )
+                    .scalars()
+                    .all()
+                )
+
+                if not batch:
+                    break
+
+                last_id = batch[-1].id
+
+                to_delete_ids: list[int] = []
+                for file_row in batch:
+                    if self.kill_event.is_set():
+                        break
+                    processed += 1
+                    path = file_row.path
+                    try:
+                        stat_size = os.path.getsize(path)
+                    except OSError:
+                        stat_size = 0
+
+                    if stat_size > 0:
+                        file_row.size = stat_size
+                        updated += 1
+                    else:
+                        if os.path.exists(path):
+                            os.remove(path)
+                        to_delete_ids.append(file_row.id)
+                        deleted += 1
+
+                if to_delete_ids:
+                    session.execute(delete(Files).where(Files.id.in_(to_delete_ids)))
+                session.commit()
+                time.sleep(0.5)
+
+        LOGGER.debug(
+            "%s processed %d files, updated %d sizes, deleted %d records, took %s",
+            self.name,
+            processed,
+            updated,
+            deleted,
+            time.time() - now,
+        )
+
+
 class EmptyFoldersCleanup(BaseCleanupJob):
     """Cleanup job that removes empty directories from the storage locations.
 
@@ -353,6 +442,10 @@ class EmptyFoldersCleanup(BaseCleanupJob):
             paths += self._storage.get_event_clips_path(camera, all_tiers=True)
             paths += self._storage.get_segments_path(camera, all_tiers=True)
             paths += self._storage.get_thumbnails_path(camera, all_tiers=True)
+            if timelapse_path := self._storage.get_timelapse_path(
+                camera, all_tiers=True
+            ):
+                paths += timelapse_path
 
             for domain in SnapshotDomain:
                 paths += self._storage.get_snapshots_path(
@@ -747,6 +840,7 @@ class CleanupManager:
             OrphanedDatabaseFilesCleanup(
                 vis, storage, CronTrigger(hour=0, jitter=3600)
             ),
+            ZeroSizeFilesCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             EmptyFoldersCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedThumbnailsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),
             OrphanedEventClipsCleanup(vis, storage, CronTrigger(hour=0, jitter=3600)),

@@ -211,10 +211,11 @@ docker run --rm \
   -v {snapshots path}:/snapshots \
   -v {thumbnails path}:/thumbnails \
   -v {event clips path}:/event_clips \
+  -v {timelapse path}:/timelapse \
   -v {config path}:/config \
   -v /etc/localtime:/etc/localtime:ro \
   -p 8888:8888 \
-  --tmpfs /tmp \
+  --tmpfs /tmp/tier1 \
   --name viseron \
   --shm-size=1024mb \
   roflcoopter/viseron:latest
@@ -223,8 +224,6 @@ docker run --rm \
 Example docker-compose
 
 ```yaml
-version: "2.4"
-
 services:
   viseron:
     image: roflcoopter/viseron:latest
@@ -235,12 +234,13 @@ services:
       - {snapshots path}:/snapshots
       - {thumbnails path}:/thumbnails
       - {event clips path}:/event_clips
+      - {timelapse path}:/timelapse
       - {config path}:/config
       - /etc/localtime:/etc/localtime:ro
     ports:
       - 8888:8888
     tmpfs:
-      - /tmp
+      - /tmp/tier1
 ```
 
 ```yaml title="/config/config.yaml"

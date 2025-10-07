@@ -8,6 +8,7 @@ import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from inspect import signature
 from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -168,6 +169,12 @@ class Component:
                 slow_setup_warning.start()
                 result = component_module.setup(self._vis, config)
             except ComponentNotReady as error:
+                if self._vis.shutdown_event.is_set():
+                    LOGGER.warning(
+                        f"Component {self.name} setup aborted due to shutdown"
+                    )
+                    slow_setup_warning.cancel()
+                    return False
                 wait_time = min(
                     tries * COMPONENT_RETRY_INTERVAL, COMPONENT_RETRY_INTERVAL_MAX
                 )
@@ -375,7 +382,10 @@ class Component:
             if future.result() is True:
                 continue
             failed.append(future)
-        slow_dependency_warning.remove()
+        try:
+            slow_dependency_warning.remove()
+        except Exception:  # pylint: disable=broad-except
+            pass
 
         if failed:
             LOGGER.error(
@@ -440,10 +450,24 @@ class Component:
         if config:
             try:
                 slow_setup_warning.start()
-                result = domain_module.setup(
-                    self._vis, config, domain_to_setup.identifier
-                )
+                sig = signature(domain_module.setup)
+                if len(sig.parameters) == 4:
+                    # If the setup function has an attempt parameter, we pass it
+                    result = domain_module.setup(
+                        self._vis, config, domain_to_setup.identifier, tries
+                    )
+                else:
+                    result = domain_module.setup(
+                        self._vis, config, domain_to_setup.identifier
+                    )
             except DomainNotReady as error:
+                if self._vis.shutdown_event.is_set():
+                    LOGGER.warning(
+                        f"Domain {domain_to_setup.domain} for "
+                        f"component {self.name} setup aborted due to shutdown"
+                    )
+                    slow_setup_warning.cancel()
+                    return False
                 # Cancel the slow setup warning here since the retrying blocks
                 domain_to_setup.error = str(error)
                 domain_to_setup.retrying = True
@@ -458,10 +482,19 @@ class Component:
                     f"Retrying in {wait_time} seconds. "
                     f"Error: {str(error)}"
                 )
-                time.sleep(wait_time)
+                elapsed = 0.0
+                interval = 0.2
+                while elapsed < wait_time:
+                    if self._vis.shutdown_event.is_set():
+                        LOGGER.warning("Domain setup retry aborted due to shutdown")
+                        return False
+                    time.sleep(interval)
+                    elapsed += interval
                 # Running with ThreadPoolExecutor and awaiting the future does not
                 # cause a max recursion error if we retry for a long time
-                with ThreadPoolExecutor(max_workers=1) as executor:
+                with ThreadPoolExecutor(
+                    max_workers=1, thread_name_prefix="Component.setup_domain"
+                ) as executor:
                     future = executor.submit(
                         self.setup_domain,
                         domain_to_setup,
@@ -664,7 +697,9 @@ def setup_domains(vis: Viseron) -> None:
     # Check that all domain dependencies are resolved
     domain_dependencies(vis)
 
-    with ThreadPoolExecutor(max_workers=100) as executor:
+    with ThreadPoolExecutor(
+        max_workers=100, thread_name_prefix="setup_domains"
+    ) as executor:
         for domain in vis.data[DOMAINS_TO_SETUP]:
             for domain_to_setup in vis.data[DOMAINS_TO_SETUP][domain].values():
                 setup_domain(vis, executor, domain_to_setup)
@@ -785,7 +820,9 @@ def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
         if thread.is_alive():
             LOGGER.error(f"{thread.name} did not finish in time")
 
-    with ThreadPoolExecutor(max_workers=100) as executor:
+    with ThreadPoolExecutor(
+        max_workers=100, thread_name_prefix="setup_components"
+    ) as executor:
         setup_thread_future = {
             executor.submit(join, setup_thread): setup_thread
             for setup_thread in setup_threads

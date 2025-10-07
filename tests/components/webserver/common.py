@@ -12,7 +12,7 @@ from tornado.httpclient import HTTPResponse
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import create_signed_value
 
-from viseron import setup_viseron
+from viseron import Viseron, setup_viseron
 from viseron.components.webserver import Webserver, create_application
 from viseron.components.webserver.const import COMPONENT
 
@@ -101,7 +101,8 @@ class TestAppBase(AsyncHTTPTestCase):
             "viseron.components.webserver.create_application"
         ):
             mocked_load_config.return_value = self.config
-            self.vis = setup_viseron(start_background_scheduler=False)
+            self.vis = Viseron(start_background_scheduler=False)
+            setup_viseron(self.vis)
         self.webserver: Webserver = self.vis.data[COMPONENT]
         return super().setUp()
 

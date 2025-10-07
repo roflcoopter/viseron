@@ -60,6 +60,11 @@ def daterange_to_utc(
     return time_from, time_to
 
 
+def client_current_datetime(utc_offset: datetime.timedelta) -> datetime.datetime:
+    """Return the current datetime adjusted to the clients timezone."""
+    return utcnow() + utc_offset
+
+
 def calculate_relative_contours(
     contours, resolution: tuple[int, int]
 ) -> list[np.ndarray]:

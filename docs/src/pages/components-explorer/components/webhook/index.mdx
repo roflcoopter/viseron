@@ -1,0 +1,40 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
+
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+This component allows you to send HTTP requests to a specified URL when an event is dispatched on the server.
+It can be used to integrate with external services in a flexible way.
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml title="/config/config.yaml"
+webhook:
+  cool_hook:
+    trigger:
+      event: camera_one/motion_detected # The event to listen for
+      condition:
+        > # Optional condition to filter events, e.g., only trigger if motion is detected
+        {{ event.motion_detected }}
+    url: http://example.com/webhook
+    payload: "Motion detected on {{ event.camera_identifier }}!"
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Templates
+
+The component supports Jinja2 templates for dynamic content in many of its configuration options, such as `url`, `payload`, and `condition`.
+
+See the [templating documentation](/docs/documentation/configuration/templating) for more details on how to use templates.
+
+<ComponentTroubleshooting meta={ComponentMetadata} />

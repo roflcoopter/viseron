@@ -193,3 +193,10 @@ export function exportTimespan(
     end,
   } as ExportTimespanMessage;
 }
+
+export function renderTemplate(template: string) {
+  return {
+    type: "render_template",
+    template,
+  };
+}

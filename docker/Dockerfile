@@ -16,11 +16,15 @@ ARG GPAC_VERSION
 ENV \
   DEBIAN_FRONTEND=noninteractive
 
+ARG BUILDPLATFORM
 RUN \
-  if [ "$ARCH" = "armhf" ] || \
-  [ "$ARCH" = "rpi3" ] || \
-  [ "$ARCH" = "aarch64" ] || \
-  [ "$ARCH" = "jetson-nano" ]; then echo "Crossbuilding!" && cross-build-start; fi
+  echo "Build platform: $BUILDPLATFORM" && \
+  echo "Target architecture: $ARCH" && \
+  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+  case "$ARCH" in \
+  aarch64|jetson-nano|rpi3) echo "Crossbuilding!" && cross-build-start;; \
+  esac \
+  fi
 
 RUN \
   apt-get update && apt-get install -y --no-install-recommends \
@@ -102,7 +106,7 @@ ENV \
   S6_KILL_GRACETIME=30000 \
   S6_KILL_FINISH_MAXTIME=30000 \
   PATH=$PATH:/home/abc/bin \
-  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib \
+  LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:/ffmpeg/lib \
   PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.10/site-packages \
   OPENCV_OPENCL_CACHE_ENABLE=false \
   PG_COLOR="always"

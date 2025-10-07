@@ -60,11 +60,18 @@ export const useInvalidateQueryOnStateChange = (
           count: 0,
           subscribing: false,
           unsubscribe: null,
+          queryKeys: [],
         };
       }
 
+      if (!subscriptionRef.current[entityId].queryKeys.includes(queryKey)) {
+        subscriptionRef.current[entityId].queryKeys.push(queryKey);
+      }
+
+      const queryKeys = subscriptionRef.current[entityId].queryKeys;
+
       const _stateChanged = (_event: types.StateChangedEvent) => {
-        queryClient.invalidateQueries({ queryKey });
+        queryClient.invalidateQueries({ queryKey: queryKeys });
       };
 
       subscriptionRef.current[entityId].count++;
@@ -137,11 +144,20 @@ export const useInvalidateQueryOnEvent = (
           count: 0,
           subscribing: false,
           unsubscribe: null,
+          queryKeys: [],
         };
       }
 
+      if (!subscriptionRef.current[event].queryKeys.includes(queryKey)) {
+        subscriptionRef.current[event].queryKeys.push(queryKey);
+      }
+
+      const queryKeys = subscriptionRef.current[event].queryKeys;
+
       const callback = (_event: types.Event) => {
-        queryClient.invalidateQueries({ queryKey });
+        queryKeys.forEach((key) => {
+          queryClient.invalidateQueries({ queryKey: key });
+        });
       };
 
       subscriptionRef.current[event].count++;

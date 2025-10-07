@@ -1,8 +1,12 @@
 """Object detector domain constants."""
+import os
 from typing import Any, Final
+
+from viseron.const import CONFIG_DIR
 
 DOMAIN: Final = "object_detector"
 
+MODEL_CACHE: Final = os.path.join(CONFIG_DIR, "models")
 
 # Data stream topic constants
 DATA_OBJECT_DETECTOR_SCAN = "object_detector/{camera_identifier}/scan"

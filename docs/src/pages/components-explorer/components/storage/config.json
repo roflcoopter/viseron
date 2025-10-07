@@ -11,6 +11,7 @@
       },
       {
         "type": "integer",
+        "valueMin": 1,
         "name": "tier_check_workers",
         "description": "The number of worker threads to use for checking tiers. This can be used to speed up the tier check process by using multiple threads to check for files to move or delete.",
         "optional": true,
@@ -1315,6 +1316,234 @@
         "description": "Snapshots are images taken when events are triggered or post processors finds anything. Snapshots will be taken for object detection, motion detection, and any post processor that scans the image, for example face and license plate recognition.",
         "optional": true,
         "default": {}
+      },
+      {
+        "type": "map",
+        "value": [
+          {
+            "type": "list",
+            "values": [
+              [
+                {
+                  "type": "map",
+                  "value": [
+                    {
+                      "type": "float",
+                      "name": "gb",
+                      "description": "Min size in GB. Added together with <code>min_mb</code>.",
+                      "optional": true,
+                      "default": null
+                    },
+                    {
+                      "type": "float",
+                      "name": "mb",
+                      "description": "Min size in MB. Added together with <code>min_gb</code>.",
+                      "optional": true,
+                      "default": null
+                    }
+                  ],
+                  "name": "min_size",
+                  "description": "Minimum size of files to keep in this tier.",
+                  "optional": true,
+                  "default": {}
+                },
+                {
+                  "type": "map",
+                  "value": [
+                    {
+                      "type": "float",
+                      "name": "gb",
+                      "description": "Max size in GB. Added together with <code>max_mb</code>.",
+                      "optional": true,
+                      "default": null
+                    },
+                    {
+                      "type": "float",
+                      "name": "mb",
+                      "description": "Max size in MB. Added together with <code>max_gb</code>.",
+                      "optional": true,
+                      "default": null
+                    }
+                  ],
+                  "name": "max_size",
+                  "description": "Maximum size of files to keep in this tier.",
+                  "optional": true,
+                  "default": {}
+                },
+                {
+                  "type": "map",
+                  "value": [
+                    {
+                      "type": "integer",
+                      "name": "days",
+                      "description": "Max age in days.",
+                      "optional": true,
+                      "default": null
+                    },
+                    {
+                      "type": "integer",
+                      "name": "hours",
+                      "description": "Max age in hours.",
+                      "optional": true,
+                      "default": null
+                    },
+                    {
+                      "type": "integer",
+                      "name": "minutes",
+                      "description": "Max age in minutes.",
+                      "optional": true,
+                      "default": null
+                    }
+                  ],
+                  "name": "max_age",
+                  "description": "Maximum age of files to keep in this tier.",
+                  "optional": true,
+                  "default": {}
+                },
+                {
+                  "type": "map",
+                  "value": [
+                    {
+                      "type": "integer",
+                      "name": "days",
+                      "description": "Min age in days.",
+                      "optional": true,
+                      "default": null
+                    },
+                    {
+                      "type": "integer",
+                      "name": "hours",
+                      "description": "Min age in hours.",
+                      "optional": true,
+                      "default": null
+                    },
+                    {
+                      "type": "integer",
+                      "name": "minutes",
+                      "description": "Min age in minutes.",
+                      "optional": true,
+                      "default": null
+                    }
+                  ],
+                  "name": "min_age",
+                  "description": "Minimum age of files to keep in this tier.",
+                  "optional": true,
+                  "default": {}
+                },
+                {
+                  "type": "string",
+                  "name": "path",
+                  "description": "Path to store files in. Cannot be <code>/tmp</code> or <code>/tmp/viseron</code>.",
+                  "required": true,
+                  "default": null
+                },
+                {
+                  "type": "boolean",
+                  "name": "poll",
+                  "description": "Poll the file system for new files. Much slower than non-polling but required for some file systems like NTFS mounts.",
+                  "optional": true,
+                  "default": false
+                },
+                {
+                  "type": "boolean",
+                  "name": "move_on_shutdown",
+                  "description": "Move/delete files to the next tier when Viseron shuts down. Useful to not lose files when shutting down Viseron if using a RAM disk.",
+                  "optional": true,
+                  "default": false
+                },
+                {
+                  "type": "map",
+                  "value": [
+                    {
+                      "type": "integer",
+                      "valueMin": 0,
+                      "name": "days",
+                      "description": "Days between checks for files to move/delete.",
+                      "optional": true,
+                      "default": 0
+                    },
+                    {
+                      "type": "integer",
+                      "valueMin": 0,
+                      "name": "hours",
+                      "description": "Hours between checks for files to move/delete.",
+                      "optional": true,
+                      "default": 0
+                    },
+                    {
+                      "type": "integer",
+                      "valueMin": 0,
+                      "name": "minutes",
+                      "description": "Minutes between checks for files to move/delete.",
+                      "optional": true,
+                      "default": 0
+                    },
+                    {
+                      "type": "integer",
+                      "valueMin": 0,
+                      "name": "seconds",
+                      "description": "Seconds between checks for files to move/delete.",
+                      "optional": true,
+                      "default": 0
+                    }
+                  ],
+                  "name": "check_interval",
+                  "description": "How often to check for files to move to the next tier.",
+                  "optional": true,
+                  "default": {
+                    "minutes": 1
+                  }
+                },
+                {
+                  "type": "map",
+                  "value": [
+                    {
+                      "type": "integer",
+                      "name": "days",
+                      "description": "Max age in days.",
+                      "optional": true,
+                      "default": null
+                    },
+                    {
+                      "type": "integer",
+                      "name": "hours",
+                      "description": "Max age in hours.",
+                      "optional": true,
+                      "default": null
+                    },
+                    {
+                      "type": "integer",
+                      "name": "minutes",
+                      "description": "Max age in minutes.",
+                      "optional": true,
+                      "default": null
+                    },
+                    {
+                      "type": "integer",
+                      "name": "seconds",
+                      "description": "Seconds between checks for files to move/delete.",
+                      "optional": true,
+                      "default": null
+                    }
+                  ],
+                  "name": "interval",
+                  "description": "Time interval between timelapse frame extractions.",
+                  "optional": true,
+                  "default": {}
+                }
+              ]
+            ],
+            "lengthMin": 1,
+            "name": "tiers",
+            "description": "Tiers for timelapse videos. Tiers are used to move files between different storage locations. When a file reaches the max age or max size of a tier, it will be moved to the next tier. If the file is already in the last tier, it will be deleted.  ",
+            "required": true,
+            "default": null
+          }
+        ],
+        "name": "timelapse",
+        "description": "Configuration for timelapse videos. Timelapse videos are created by combining images or video segments over time to show changes in a compressed time format.",
+        "optional": true,
+        "default": null
       }
     ],
     "name": "storage",

@@ -1,11 +1,11 @@
 ARG PYTHON_VERSION
 ARG DARKNET_COMMIT
 ARG JETPACK_VERSION
-FROM roflcoopter/viseron-models:latest as models
-FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} as python
-FROM roflcoopter/jetson-nano-python:3.9.19 as python-3.9.19
-FROM roflcoopter/jetson-nano-darknet:${DARKNET_COMMIT} as darknet
-FROM nvcr.io/nvidia/l4t-base:r${JETPACK_VERSION} as build
+FROM roflcoopter/viseron-models:latest AS models
+FROM roflcoopter/jetson-nano-python:${PYTHON_VERSION} AS python
+FROM roflcoopter/jetson-nano-python:3.9.19 AS python-3.9.19
+FROM roflcoopter/jetson-nano-darknet:${DARKNET_COMMIT} AS darknet
+FROM nvcr.io/nvidia/l4t-base:r${JETPACK_VERSION} AS build
 
 COPY --from=models /detectors/models/darknet /detectors/models/darknet
 COPY --from=models /detectors/models/edgetpu /detectors/models/edgetpu
@@ -30,10 +30,11 @@ RUN \
   apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates \
   gnupg && \
+  echo "deb https://newrepo.switchroot.org/ switchroot unstable" >> /etc/apt/sources.list.d/switchroot.list && \
+  apt-key del 92813F6A23DB6DFC && \
+  wget -O - https://newrepo.switchroot.org/pubkey | apt-key add - && \
   echo "deb https://repo.download.nvidia.com/jetson/common r${JETPACK_VERSION_MAJOR}.${JETPACK_VERSION_MINOR} main" >> /etc/apt/sources.list.d/nvidia.list && \
   echo "deb https://repo.download.nvidia.com/jetson/${SOC} r${JETPACK_VERSION_MAJOR}.${JETPACK_VERSION_MINOR} main" >> /etc/apt/sources.list.d/nvidia.list && \
-  echo "deb https://repo.download.nvidia.com/jetson/ffmpeg main main" >> /etc/apt/sources.list.d/nvidia.list && \
-  echo "deb-src https://repo.download.nvidia.com/jetson/ffmpeg main main" >> /etc/apt/sources.list.d/nvidia.list && \
   apt-key adv --fetch-key http://repo.download.nvidia.com/jetson/jetson-ota-public.asc && \
   mkdir -p /opt/nvidia/l4t-packages/ && touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall && \
   rm -r /etc/ld.so.conf.d/nvidia-tegra.conf && \

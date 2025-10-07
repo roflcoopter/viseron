@@ -33,6 +33,7 @@ from viseron.components.storage.const import (
     CONFIG_DAYS,
     CONFIG_EVENTS,
     CONFIG_HOURS,
+    CONFIG_INTERVAL,
     CONFIG_MAX_AGE,
     CONFIG_MAX_SIZE,
     CONFIG_MIN_AGE,
@@ -77,6 +78,7 @@ from viseron.components.storage.util import (
     get_event_clips_path,
     get_segments_path,
     get_thumbnails_path,
+    get_timelapse_path,
 )
 from viseron.components.webserver.const import COMPONENT as WEBSERVER_COMPONENT
 from viseron.const import VISERON_SIGNAL_LAST_WRITE, VISERON_SIGNAL_STOPPING
@@ -362,7 +364,6 @@ class TierHandler(FileSystemEventHandler):
                     camera_identifier=self._camera.identifier,
                     category=self._category,
                     subcategory=self._subcategory,
-                    file_name="*",
                 ),
                 EventFileCreated(
                     camera_identifier=self._camera.identifier,
@@ -371,6 +372,7 @@ class TierHandler(FileSystemEventHandler):
                     file_name=os.path.basename(event.src_path),
                     path=event.src_path,
                 ),
+                store=False,
             )
 
         self.check_tier()
@@ -423,7 +425,6 @@ class TierHandler(FileSystemEventHandler):
                 camera_identifier=self._camera.identifier,
                 category=self._category,
                 subcategory=self._subcategory,
-                file_name=os.path.basename(event.src_path),
             ),
             EventFileDeleted(
                 camera_identifier=self._camera.identifier,
@@ -432,6 +433,7 @@ class TierHandler(FileSystemEventHandler):
                 file_name=os.path.basename(event.src_path),
                 path=event.src_path,
             ),
+            store=False,
         )
 
     def _shutdown(self) -> None:
@@ -1100,6 +1102,7 @@ def move_file(
                     subcategory=curr_tier_subcategory,
                 ),
                 EventEmptyData(),
+                store=False,
             )
             return
 
@@ -1184,3 +1187,61 @@ def add_file_handler(
             )
         ],
     )
+
+
+class TimelapseTierHandler(TierHandler):
+    """Handle timelapse files."""
+
+    def initialize(self):
+        """Initialize timelapse tier."""
+        super().initialize()
+
+        self._path = get_timelapse_path(self._tier, self._camera)
+        self._interval = calculate_age(self._tier.get(CONFIG_INTERVAL, {}))
+        self.add_file_handler(self._path, rf"{self._path}/(.*.jpg$)")
+
+    def _on_created(self, event: FileCreatedEvent) -> None:
+        """Handle file creation with interval-based cleanup."""
+        super()._on_created(event)
+
+        # If no interval is set, keep all files
+        if not self._interval:
+            return
+
+        # Check if there's already a file within the interval
+        try:
+            with self._storage.get_session() as session:
+                current_file_stmt = select(Files.orig_ctime).where(
+                    Files.path == event.src_path
+                )
+                current_file_result = session.execute(current_file_stmt).scalar_one()
+                current_file_datetime = current_file_result
+
+                interval_start = current_file_datetime - self._interval
+                interval_end = current_file_datetime
+
+                stmt = select(Files).where(
+                    Files.tier_id == self._tier_id,
+                    Files.camera_identifier == self._camera.identifier,
+                    Files.category == self._category,
+                    Files.subcategory == self._subcategory,
+                    Files.path != event.src_path,
+                    Files.orig_ctime >= interval_start,
+                    Files.orig_ctime <= interval_end,
+                )
+
+                result = session.execute(stmt).scalars().all()
+
+                if result:
+                    self._logger.debug(
+                        f"File within interval already exists, removing current file: "
+                        f"{event.src_path}"
+                    )
+                    delete_file(self._storage, event.src_path)
+
+                    delete_stmt = delete(Files).where(Files.path == event.src_path)
+                    session.execute(delete_stmt)
+                    session.commit()
+
+        except Exception as e:  # pylint: disable=broad-except
+            self._logger.error(f"Error during timelapse interval cleanup: {e}")

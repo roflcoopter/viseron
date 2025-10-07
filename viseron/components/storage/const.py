@@ -17,6 +17,7 @@ class CleanupJobNames(Enum):
 
     ORPHANED_FILES = "cleanup_orphaned_files"
     ORPHANED_DB_FILES = "cleanup_orphaned_db_files"
+    ZERO_SIZE_FILES = "cleanup_zero_size_files"
     EMPTY_FOLDERS = "cleanup_empty_folders"
     ORPHANED_THUMBNAILS = "cleanup_orphaned_thumbnails"
     ORPHANED_EVENT_CLIPS = "cleanup_orphaned_clips"
@@ -27,17 +28,14 @@ class CleanupJobNames(Enum):
     OLD_EVENTS = "cleanup_old_events"
 
 
-EVENT_FILE_CREATED = (
-    "file_created/{camera_identifier}/{category}/{subcategory}/{file_name}"
-)
-EVENT_FILE_DELETED = (
-    "file_deleted/{camera_identifier}/{category}/{subcategory}/{file_name}"
-)
+EVENT_FILE_CREATED = "file_created/{camera_identifier}/{category}/{subcategory}"
+EVENT_FILE_DELETED = "file_deleted/{camera_identifier}/{category}/{subcategory}"
 EVENT_CHECK_TIER = "check_tier/{camera_identifier}/{tier_id}/{category}/{subcategory}"
 
 # Tier categories
 TIER_CATEGORY_RECORDER: Final = "recorder"
 TIER_CATEGORY_SNAPSHOTS: Final = "snapshots"
+TIER_CATEGORY_TIMELAPSE: Final = "timelapse"
 
 # Tier subcategories
 TIER_SUBCATEGORY_SEGMENTS: Final = "segments"
@@ -47,6 +45,7 @@ TIER_SUBCATEGORY_FACE_RECOGNITION: Final = "face_recognition"
 TIER_SUBCATEGORY_OBJECT_DETECTOR: Final = "object_detector"
 TIER_SUBCATEGORY_LICENSE_PLATE_RECOGNITION: Final = "license_plate_recognition"
 TIER_SUBCATEGORY_MOTION_DETECTOR: Final = "motion_detector"
+TIER_SUBCATEGORY_TIMELAPSE: Final = "timelapse"
 
 
 # Storage configuration
@@ -78,7 +77,9 @@ CONFIG_FACE_RECOGNITION: Final = "face_recognition"
 CONFIG_OBJECT_DETECTOR: Final = "object_detector"
 CONFIG_LICENSE_PLATE_RECOGNITION: Final = "license_plate_recognition"
 CONFIG_MOTION_DETECTOR: Final = "motion_detector"
+CONFIG_TIMELAPSE: Final = "timelapse"
 CONFIG_TIERS: Final = "tiers"
+CONFIG_INTERVAL: Final = "interval"
 
 
 DEFAULT_TIER_CHECK_CPU_LIMIT: Final = 10
@@ -105,6 +106,7 @@ DEFAULT_SNAPSHOTS_TIERS = [
         },
     },
 ]
+DEFAULT_TIMELAPSE: Final = None
 DEFAULT_FACE_RECOGNITION: Final = None
 DEFAULT_OBJECT_DETECTOR: Final = None
 DEFAULT_LICENSE_PLATE_RECOGNITION: Final = None
@@ -124,12 +126,14 @@ DEFAULT_MB: Final = None
 DEFAULT_DAYS: Final = None
 DEFAULT_HOURS: Final = None
 DEFAULT_MINUTES: Final = None
+DEFAULT_SECONDS: Final = None
 DEFAULT_MIN_SIZE: dict[str, Any] = {}
 DEFAULT_MAX_SIZE: dict[str, Any] = {}
 DEFAULT_MIN_AGE: dict[str, Any] = {}
 DEFAULT_MAX_AGE: dict[str, Any] = {}
 DEFAULT_CONTINUOUS: Final = None
 DEFAULT_EVENTS: Final = None
+DEFAULT_INTERVAL: dict[str, Any] = {}
 
 DESC_TIER_CHECK_CPU_LIMIT = (
     "CPU limit for the tier check process. "
@@ -171,10 +175,16 @@ DESC_SNAPSHOTS = (
     "Snapshots will be taken for object detection, motion detection, and any post "
     "processor that scans the image, for example face and license plate recognition."
 )
+DESC_TIMELAPSE = (
+    "Configuration for timelapse videos. "
+    "Timelapse videos are created by combining images or video segments over time "
+    "to show changes in a compressed time format."
+)
 DESC_SNAPSHOTS_TIERS = (
     "Default tiers for all domains, unless overridden in the domain configuration.<br>"
     f"{DESC_RECORDER_TIERS} "
 )
+DESC_TIMELAPSE_TIERS = "Tiers for timelapse videos. " f"{DESC_RECORDER_TIERS} "
 DESC_DOMAIN_TIERS = DESC_RECORDER_TIERS
 DESC_FACE_RECOGNITION = (
     "Override the default snapshot tiers for face recognition. "
@@ -225,3 +235,4 @@ DESC_MIN_AGE = "Minimum age of files to keep in this tier."
 DESC_MAX_AGE = "Maximum age of files to keep in this tier."
 DESC_CONTINUOUS = "Retention rules for continuous recordings."
 DESC_EVENTS = "Retention rules for event recordings."
+DESC_INTERVAL = "Time interval between timelapse frame extractions."
