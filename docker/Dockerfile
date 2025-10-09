@@ -3,47 +3,12 @@ ARG BASE_VERSION
 ARG OPENCV_VERSION
 ARG FFMPEG_VERSION
 ARG WHEELS_VERSION
+ARG GPAC_IMAGE
 ARG UBUNTU_VERSION
 FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} AS opencv
 FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION} AS ffmpeg
 FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} AS wheels
-
-# Build GPAC
-FROM roflcoopter/${ARCH}-base:${BASE_VERSION} AS gpac
-
-ARG GPAC_VERSION
-
-ENV \
-  DEBIAN_FRONTEND=noninteractive
-
-ARG BUILDPLATFORM
-RUN \
-  echo "Build platform: $BUILDPLATFORM" && \
-  echo "Target architecture: $ARCH" && \
-  if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
-  case "$ARCH" in \
-  aarch64|jetson-nano|rpi3) echo "Crossbuilding!" && cross-build-start;; \
-  esac \
-  fi
-
-RUN \
-  apt-get update && apt-get install -y --no-install-recommends \
-  build-essential \
-  ca-certificates \
-  pkg-config \
-  g++ \
-  git \
-  cmake \
-  yasm \
-  zlib1g-dev
-
-RUN \
-  git clone --branch v${GPAC_VERSION} --depth 1 https://github.com/gpac/gpac.git
-RUN \
-  cd gpac && \
-  ./configure --static-bin / && \
-  make -j$(nproc)
-
+FROM ${GPAC_IMAGE} AS gpac
 
 # Install go2rtc
 FROM roflcoopter/${ARCH}-base:${BASE_VERSION} AS go2rtc-base

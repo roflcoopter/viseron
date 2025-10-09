@@ -37,6 +37,14 @@ jobs:
       architectures:
         - amd64
         - aarch64
+  - template: templates/build.yaml
+    parameters:
+      image: gpac
+      noCache: ${{ parameters.noCache }}
+      architectures:
+        - amd64
+        - aarch64
+        - rpi3
 
   # Publish hailo wheels and libhailort packages
   - job: publish_hailo_artifacts

@@ -60,7 +60,7 @@ jobs:
               docker rmi -f $(docker images -aq) || true
             displayName: Clean up Docker images
           - script: |
-              docker system prune --force --all --volumes
+              docker system prune --force --all --volumes || true
             displayName: Docker prune
           - script: |
               sudo rm -rf /usr/local/lib/android || true
