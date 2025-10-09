@@ -379,6 +379,13 @@
         "description": "Object detector domain config.",
         "required": true,
         "default": null
+      },
+      {
+        "type": "boolean",
+        "name": "multi_process_service",
+        "description": "Allow multiple processes to share the Hailo device.",
+        "optional": true,
+        "default": true
       }
     ],
     "name": "hailo",
