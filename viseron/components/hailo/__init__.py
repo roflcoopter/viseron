@@ -37,14 +37,17 @@ from .const import (
     CONFIG_LABEL_PATH,
     CONFIG_MAX_DETECTIONS,
     CONFIG_MODEL_PATH,
+    CONFIG_MULTI_PROCESS_SERVICE,
     CONFIG_OBJECT_DETECTOR,
     DEFAULT_LABEL_PATH,
     DEFAULT_MAX_DETECTIONS,
     DEFAULT_MODEL_PATH,
+    DEFAULT_MULTI_PROCESS_SERVICE,
     DESC_COMPONENT,
     DESC_LABEL_PATH,
     DESC_MAX_DETECTIONS,
     DESC_MODEL_PATH,
+    DESC_MULTI_PROCESS_SERVICE,
     DESC_OBJECT_DETECTOR,
 )
 
@@ -74,6 +77,11 @@ CONFIG_SCHEMA = vol.Schema(
     {
         vol.Required(COMPONENT, description=DESC_COMPONENT): vol.Schema(
             {
+                vol.Optional(
+                    CONFIG_MULTI_PROCESS_SERVICE,
+                    default=DEFAULT_MULTI_PROCESS_SERVICE,
+                    description=DESC_MULTI_PROCESS_SERVICE,
+                ): bool,
                 vol.Required(
                     CONFIG_OBJECT_DETECTOR, description=DESC_OBJECT_DETECTOR
                 ): OBJECT_DETECTOR_SCHEMA,
@@ -121,6 +129,7 @@ class Hailo8Detector(ChildProcessWorker):
     """Hailo 8 object detector."""
 
     def __init__(self, vis: Viseron, config: dict[str, Any]):
+        self._config = config
         hailo_arch = get_hailo_arch()
         LOGGER.debug(f"Detected Hailo architecture: {hailo_arch}")
 
@@ -167,7 +176,10 @@ class Hailo8Detector(ChildProcessWorker):
     def process_initialization(self) -> None:
         """Load network inside the child process."""
         try:
-            self._hailo_inference = HailoInfer(self.model_path)
+            self._hailo_inference = HailoInfer(
+                self.model_path,
+                multi_process_service=self._config[CONFIG_MULTI_PROCESS_SERVICE],
+            )
             (
                 self._model_height,
                 self._model_width,
@@ -296,11 +308,14 @@ class HailoInfer:
         input_type: str | None = None,
         output_type: str | None = None,
         priority: int | None = 0,
+        multi_process_service: bool = True,
     ) -> None:
         """Initialize async inference wrapper for a HEF model."""
         params = VDevice.create_params()
         # Set the scheduling algorithm to round-robin to activate the scheduler
         params.scheduling_algorithm = HailoSchedulingAlgorithm.ROUND_ROBIN
+        if multi_process_service:
+            params.multi_process_service = True
         params.group_id = "SHARED"
         vdev = VDevice(params)
 
