@@ -1,4 +1,4 @@
-import MUILoadingButton from "@mui/lab/LoadingButton";
+import Button from "@mui/material/Button";
 
 export type LoadingButtonProps = {
   text: string;
@@ -44,7 +44,7 @@ export const LoadingButton = (props: LoadingButtonProps) => {
   }
 
   return (
-    <MUILoadingButton
+    <Button
       color={getColor(props.state)}
       onClick={props.onClick}
       loading={props.state === "loading"}
@@ -53,6 +53,6 @@ export const LoadingButton = (props: LoadingButtonProps) => {
       variant={props.variant}
     >
       {getText(props.state)}
-    </MUILoadingButton>
+    </Button>
   );
 };

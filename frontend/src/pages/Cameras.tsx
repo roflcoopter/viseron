@@ -1,5 +1,5 @@
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid2";
+import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
 
 import { CameraCard } from "components/camera/CameraCard";

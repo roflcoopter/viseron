@@ -1,7 +1,6 @@
 import Editor, { Monaco, loader } from "@monaco-editor/react";
 import { RestartAlt } from "@mui/icons-material";
 import SaveIcon from "@mui/icons-material/Save";
-import LoadingButton from "@mui/lab/LoadingButton";
 import Backdrop from "@mui/material/Backdrop";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -330,7 +329,7 @@ const ConfigEditor = () => {
         >
           <Tooltip title="Ctrl+S" enterDelay={300}>
             <span>
-              <LoadingButton
+              <Button
                 startIcon={<SaveIcon />}
                 loadingPosition="start"
                 onClick={handleSave}
@@ -339,11 +338,11 @@ const ConfigEditor = () => {
                 disabled={!configUnsaved}
               >
                 Save
-              </LoadingButton>
+              </Button>
             </span>
           </Tooltip>
           <span>
-            <LoadingButton
+            <Button
               startIcon={<RestartAlt />}
               loadingPosition="start"
               onClick={handleRestart}
@@ -352,7 +351,7 @@ const ConfigEditor = () => {
               color="error"
             >
               Restart
-            </LoadingButton>
+            </Button>
           </span>
         </Stack>
         <Box

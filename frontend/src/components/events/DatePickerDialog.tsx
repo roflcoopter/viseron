@@ -10,9 +10,12 @@ import dayjs, { Dayjs } from "dayjs";
 
 import { useFilteredCameras } from "components/camera/useCameraStore";
 import { useEventsDatesOfInterest } from "lib/api/events";
+import * as types from "lib/types";
 
 function HasEvent(
-  props: PickersDayProps<Dayjs> & { highlightedDays?: Record<string, any> },
+  props: PickersDayProps & {
+    highlightedDays?: types.EventsDatesOfInterest["dates_of_interest"];
+  },
 ) {
   const { highlightedDays = {}, day, outsideCurrentMonth, ...other } = props;
   const date = day.format("YYYY-MM-DD");
