@@ -268,7 +268,7 @@ class Webserver(threading.Thread):
         self._ioloop = tornado.ioloop.IOLoop.current()
 
         # Schedule periodic cleanup of expired public images (every hour)
-        self._cleanup_task = None
+        self._cleanup_task: asyncio.Task | None = None
 
     def _cleanup_orphaned_public_images(self):
         """Clean up orphaned public images on startup (files older than max expiry)."""
@@ -413,12 +413,8 @@ class Webserver(threading.Thread):
 
         async def shutdown():
             # Cancel cleanup task
-            if self._cleanup_task:
+            if self._cleanup_task and not self._cleanup_task.done():
                 self._cleanup_task.cancel()
-                try:
-                    await self._cleanup_task
-                except asyncio.CancelledError:
-                    pass
 
             connection: WebSocketHandler
             for connection in self._vis.data[WEBSOCKET_CONNECTIONS]:
