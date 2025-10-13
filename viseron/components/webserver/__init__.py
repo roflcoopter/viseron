@@ -325,7 +325,8 @@ class Webserver(threading.Thread):
                     try:
                         os.remove(public_image_token.file_path)
                         LOGGER.debug(
-                            f"Deleted expired public image: {public_image_token.file_path}"
+                            "Deleted expired public image: %s",
+                            public_image_token.file_path,
                         )
                     except OSError as e:
                         LOGGER.error(

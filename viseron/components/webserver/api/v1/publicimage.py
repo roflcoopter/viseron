@@ -54,8 +54,8 @@ class PublicimageAPIHandler(BaseAPIHandler):
                 self.response_error(HTTPStatus.NOT_FOUND, reason="Token not found")
                 return
 
-            # File exists but token not in memory - this happens after restart
-            # We can't validate expiration without the token, but we serve the file anyway
+            # File exists but token not in memory - happens after restart
+            # We can't validate expiration, but we serve the file anyway
             # The cleanup task will eventually remove expired files
             LOGGER.debug(
                 f"Token {token} not in memory but file exists on disk, serving anyway"
