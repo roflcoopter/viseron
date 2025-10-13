@@ -1,7 +1,6 @@
 import PrivateLayout, { RequireRole } from "layouts/PrivateLayout";
 import { lazy } from "react";
 import { Navigate, useRoutes } from "react-router-dom";
-import "react-toastify/dist/ReactToastify.css";
 
 const Cameras = lazy(() => import("pages/Cameras"));
 const CameraRecordings = lazy(
