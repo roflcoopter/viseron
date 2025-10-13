@@ -8,6 +8,7 @@ import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
+import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
@@ -63,7 +64,7 @@ const SuccessCameraCard = ({
 }: SuccessCameraCardProps) => {
   const { connected } = useContext(ViseronContext);
   const theme = useTheme();
-  const ref: any = useRef<HTMLDivElement>();
+  const ref: any = useRef<HTMLDivElement>(undefined);
   const onScreen = useOnScreen<HTMLDivElement>(ref);
   const isVisible = usePageVisibility();
   const firstRender = useFirstRender();
@@ -82,7 +83,7 @@ const SuccessCameraCard = ({
     disableTransition: false,
     loading: true,
   });
-  const updateSnapshot = useRef<NodeJS.Timeout | null>();
+  const updateSnapshot = useRef<NodeJS.Timeout | null>(undefined);
   const updateImage = useCallback(() => {
     setSnapshotURL((prevSnapshotURL) => {
       if (prevSnapshotURL.loading && !firstRender) {
@@ -192,9 +193,7 @@ const SuccessCameraCard = ({
                 }));
               }}
               errorIcon={
-                camera.still_image.available
-                  ? Image.defaultProps!.loading
-                  : null
+                camera.still_image.available ? <CircularProgress /> : null
               }
               onError={() => {
                 setSnapshotURL((prevSnapshotURL) => ({

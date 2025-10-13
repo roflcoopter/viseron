@@ -49,7 +49,7 @@ const Login = () => {
   const login = useAuthLogin();
 
   const [inputState, dispatch] = useReducer(reducer, initialState);
-  const fromRef = useRef();
+  const fromRef = useRef(undefined);
 
   queryClient.removeQueries({
     predicate(query) {

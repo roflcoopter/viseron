@@ -8,7 +8,7 @@ import { isTouchDevice } from "lib/helpers.js";
 import * as types from "lib/types";
 
 const useMjpegControlsVisibility = (
-  containerRef: React.RefObject<HTMLDivElement>,
+  containerRef: React.RefObject<HTMLDivElement | null>,
 ) => {
   const [controlsVisible, setControlsVisible] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
@@ -85,7 +85,7 @@ const useMjpegControlsVisibility = (
 };
 
 const useMjpegErrorHandling = (
-  imgRef: React.RefObject<HTMLImageElement>,
+  imgRef: React.RefObject<HTMLImageElement | null>,
   src: string,
 ) => {
   const [error, setError] = useState<string | null>(null);

@@ -39,7 +39,7 @@ const loadSource = (
 const onLevelLoaded = (
   data: LevelLoadedData,
   hlsRef: React.MutableRefObject<Hls | null>,
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   playingDateRef: React.MutableRefObject<number>,
 ) => {
@@ -68,7 +68,7 @@ const onLevelLoaded = (
 
 const onManifestParsed = (
   hlsRef: React.MutableRefObject<Hls | null>,
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
 ) => {
   if (!hlsRef.current || !videoRef.current) {
     return;
@@ -80,7 +80,7 @@ const onManifestParsed = (
 
 const onMediaAttached = (
   hlsRef: React.MutableRefObject<Hls | null>,
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   playingDateRef: React.MutableRefObject<number>,
 ) => {
@@ -105,7 +105,7 @@ const onMediaAttached = (
 const initializePlayer = (
   hlsRef: React.MutableRefObject<Hls | null>,
   hlsClientIdRef: React.MutableRefObject<string>,
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   auth: types.AuthEnabledResponse,
   camera: types.Camera | types.FailedCamera,
@@ -231,7 +231,7 @@ const initializePlayer = (
 const useInitializePlayer = (
   hlsRef: React.MutableRefObject<Hls | null>,
   hlsClientIdRef: React.MutableRefObject<string>,
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   camera: types.Camera | types.FailedCamera,
 ) => {
@@ -249,8 +249,8 @@ const useInitializePlayer = (
       playingDateRef: state.playingDateRef,
     })),
   );
-  const delayedInitializationTimeoutRef = useRef<NodeJS.Timeout>();
-  const delayedRecoveryTimeoutRef = useRef<NodeJS.Timeout>();
+  const delayedInitializationTimeoutRef = useRef<NodeJS.Timeout>(undefined);
+  const delayedRecoveryTimeoutRef = useRef<NodeJS.Timeout>(undefined);
 
   const reInitPlayer = useCallback(() => {
     if (Hls.isSupported()) {
@@ -329,7 +329,7 @@ const useInitializePlayer = (
 const useSeekToTimestamp = (
   hlsRef: React.MutableRefObject<Hls | null>,
   hlsClientIdRef: React.MutableRefObject<string>,
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   camera: types.Camera | types.FailedCamera,
   reInitPlayer: () => void,

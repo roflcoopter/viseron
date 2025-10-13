@@ -14,7 +14,7 @@ export type GridLayout = {
 // Dont fully understand why we need to subtract 4 from the height
 // to keep the players from overflowing the paper
 const getContainerHeight = (
-  containerRef: React.RefObject<HTMLDivElement>,
+  containerRef: React.RefObject<HTMLDivElement | null>,
   smBreakpoint: boolean,
 ) =>
   smBreakpoint
@@ -25,7 +25,7 @@ const getContainerHeight = (
       4;
 
 const calculateCellDimensions = (
-  containerRef: React.RefObject<HTMLDivElement>,
+  containerRef: React.RefObject<HTMLDivElement | null>,
   camera: types.Camera | types.FailedCamera,
   gridLayout: GridLayout,
   smBreakpoint: boolean,
@@ -50,7 +50,7 @@ const calculateCellDimensions = (
 };
 
 const calculateLayout = (
-  containerRef: React.RefObject<HTMLDivElement>,
+  containerRef: React.RefObject<HTMLDivElement | null>,
   cameras: types.CamerasOrFailedCameras,
   smBreakpoint: boolean,
 ) => {
@@ -95,7 +95,7 @@ const calculateLayout = (
 };
 
 export const useGridLayout = (
-  containerRef: React.RefObject<HTMLDivElement>,
+  containerRef: React.RefObject<HTMLDivElement | null>,
   cameras: types.CamerasOrFailedCameras,
   setPlayerItemsSize: () => void,
   overrideSmBreakpoint?: boolean | undefined,
@@ -142,8 +142,8 @@ export const useGridLayout = (
 };
 
 export const setPlayerSize = (
-  containerRef: React.RefObject<HTMLDivElement>,
-  boxRef: React.RefObject<HTMLDivElement>,
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  boxRef: React.RefObject<HTMLDivElement | null>,
   camera: types.Camera | types.FailedCamera,
   gridLayout: GridLayout,
   smBreakpoint: boolean,

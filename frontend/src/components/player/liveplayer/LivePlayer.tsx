@@ -8,7 +8,9 @@ import "components/player/liveplayer/video-stream.js";
 import { isTouchDevice } from "lib/helpers.js";
 import * as types from "lib/types";
 
-const useVideoControlsVisibility = (playerRef: React.RefObject<VideoRTC>) => {
+const useVideoControlsVisibility = (
+  playerRef: React.RefObject<VideoRTC | null>,
+) => {
   const [controlsVisible, setControlsVisible] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -146,7 +148,7 @@ const useVideoControlsVisibility = (playerRef: React.RefObject<VideoRTC>) => {
   };
 };
 
-const usePlayerStatus = (playerRef: React.RefObject<VideoRTC>) => {
+const usePlayerStatus = (playerRef: React.RefObject<VideoRTC | null>) => {
   const [status, setStatus] = useState<string>("");
 
   useEffect(() => {
@@ -168,7 +170,7 @@ interface LivePlayerProps extends React.HTMLAttributes<HTMLElement> {
   controls?: boolean;
   src: string;
   style?: React.CSSProperties;
-  playerRef?: React.RefObject<VideoRTC>;
+  playerRef?: React.RefObject<VideoRTC | null>;
   extraButtons?: React.ReactNode;
   isMenuOpen?: boolean;
 }

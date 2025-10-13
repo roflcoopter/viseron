@@ -2,7 +2,13 @@ import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid2";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import {
+  type JSX,
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useRef,
+} from "react";
 
 import {
   GridLayout,
@@ -13,7 +19,7 @@ import * as types from "lib/types";
 
 type PlayerItemProps = {
   camera: types.Camera | types.FailedCamera;
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   gridLayout: GridLayout;
   renderPlayer: (
     camera: types.Camera | types.FailedCamera,
@@ -69,7 +75,7 @@ export interface PlayerItemRef {
 
 type PlayerGridProps = {
   cameras: types.CamerasOrFailedCameras;
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   renderPlayer: (
     camera: types.Camera | types.FailedCamera,
     playerRef: React.RefObject<any>,

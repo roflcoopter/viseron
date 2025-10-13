@@ -131,7 +131,7 @@ const CameraPlayer = memo(
     playerRef,
   }: {
     camera: types.Camera | types.FailedCamera;
-    playerRef: React.RefObject<VideoRTC>;
+    playerRef: React.RefObject<VideoRTC | null>;
   }) => {
     const theme = useTheme();
     const menuContext = useContext(MenuContext);
@@ -221,7 +221,7 @@ export const PlayerCard = () => {
   const renderPlayer = useCallback(
     (
       camera: types.Camera | types.FailedCamera,
-      playerRef: React.RefObject<VideoRTC>,
+      playerRef: React.RefObject<VideoRTC | null>,
     ) => <CameraPlayer camera={camera} playerRef={playerRef} />,
     [],
   );

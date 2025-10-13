@@ -61,7 +61,7 @@ const useGroupedEvents = (snapshotEvents: types.CameraEvent[]) => {
 };
 
 type EventTableProps = {
-  parentRef: React.RefObject<HTMLDivElement>;
+  parentRef: React.RefObject<HTMLDivElement | null>;
   date: Dayjs | null;
 };
 

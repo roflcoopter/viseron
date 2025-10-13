@@ -26,9 +26,9 @@ import { useResizeObserver } from "hooks/UseResizeObserver";
 import { insertURLParameter } from "lib/helpers";
 
 const setTableHeight = (
-  tabListRef: React.RefObject<HTMLDivElement>,
-  eventsRef: React.RefObject<HTMLDivElement>,
-  timelineRef: React.RefObject<HTMLDivElement>,
+  tabListRef: React.RefObject<HTMLDivElement | null>,
+  eventsRef: React.RefObject<HTMLDivElement | null>,
+  timelineRef: React.RefObject<HTMLDivElement | null>,
   playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>,
   theme: any,
   smBreakpoint: boolean,
@@ -50,9 +50,9 @@ const setTableHeight = (
 };
 
 const useSetTableHeight = (
-  tabListRef: React.RefObject<HTMLDivElement>,
-  eventsRef: React.RefObject<HTMLDivElement>,
-  timelineRef: React.RefObject<HTMLDivElement>,
+  tabListRef: React.RefObject<HTMLDivElement | null>,
+  eventsRef: React.RefObject<HTMLDivElement | null>,
+  timelineRef: React.RefObject<HTMLDivElement | null>,
   playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>,
 ) => {
   const theme = useTheme();

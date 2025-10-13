@@ -55,6 +55,6 @@ function MutationIconButtonInner<T>(
 
 const MutationIconButton = React.forwardRef(MutationIconButtonInner) as <T>(
   p: MutationIconButtonProps<T> & { ref?: React.Ref<HTMLDivElement> },
-) => React.ReactElement;
+) => React.ReactElement<any>;
 
 export default MutationIconButton;

@@ -54,9 +54,9 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
     subscriptionRef,
   });
   const { connection } = contextValue;
-  const onConnectRef = React.useRef<() => void>();
-  const onDisconnectRef = React.useRef<() => void>();
-  const onConnectionErrorRef = React.useRef<() => void>();
+  const onConnectRef = React.useRef<() => void>(undefined);
+  const onDisconnectRef = React.useRef<() => void>(undefined);
+  const onConnectionErrorRef = React.useRef<() => void>(undefined);
 
   useEffect(() => {
     if (connection) {

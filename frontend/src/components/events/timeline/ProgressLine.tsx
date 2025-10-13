@@ -73,7 +73,7 @@ const useWidthObserver = (
   containerRef: React.MutableRefObject<HTMLDivElement | null>,
   ref: React.MutableRefObject<HTMLDivElement | null>,
 ) => {
-  const resizeObserver = useRef<ResizeObserver>();
+  const resizeObserver = useRef<ResizeObserver>(undefined);
   useEffect(() => {
     if (containerRef.current) {
       resizeObserver.current = new ResizeObserver(() => {

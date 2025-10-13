@@ -94,7 +94,7 @@ const ConfigEditor = () => {
   const viseron = useContext(ViseronContext);
   const theme = useTheme();
 
-  const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>();
+  const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>(undefined);
   const markersRef = useRef<monaco.editor.IMarker[]>([]);
 
   useResize(editorInstance);

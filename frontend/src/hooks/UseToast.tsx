@@ -4,6 +4,7 @@ import ReportProblemOutlined from "@mui/icons-material/ReportProblemOutlined";
 import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
 import { Theme, useTheme } from "@mui/material/styles";
 import {
+  Id,
   ToastContent,
   ToastOptions,
   UpdateOptions,
@@ -11,10 +12,10 @@ import {
 } from "react-toastify";
 
 export type Toast = {
-  info: (content: ToastContent, options?: ToastOptions) => React.ReactText;
-  success: (content: ToastContent, options?: ToastOptions) => React.ReactText;
-  warning: (content: ToastContent, options?: ToastOptions) => React.ReactText;
-  error: (content: ToastContent, options?: ToastOptions) => React.ReactText;
+  info: (content: ToastContent, options?: ToastOptions) => Id;
+  success: (content: ToastContent, options?: ToastOptions) => Id;
+  warning: (content: ToastContent, options?: ToastOptions) => Id;
+  error: (content: ToastContent, options?: ToastOptions) => Id;
   dismiss: (id?: string | number | undefined) => void;
 };
 

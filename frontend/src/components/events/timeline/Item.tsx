@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { type JSX, memo } from "react";
 
 import { SnapshotEvent } from "components/events/SnapshotEvent";
 import { ActivityLine } from "components/events/timeline/ActivityLine";

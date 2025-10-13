@@ -32,7 +32,7 @@ const useAddTicks = (
   setStart: React.Dispatch<React.SetStateAction<number>>,
 ) => {
   const { connected } = useContext(ViseronContext);
-  const timeout = useRef<NodeJS.Timeout>();
+  const timeout = useRef<NodeJS.Timeout>(undefined);
 
   useEffect(() => {
     // If date is not today, don't add ticks
