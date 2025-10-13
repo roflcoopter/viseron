@@ -40,7 +40,8 @@ DESC_IMAGE_MAX_SIZE = (
     "For 4K cameras, use 1920 or higher. Set to 0 for no resizing."
 )
 DESC_IMAGE_QUALITY = (
-    "JPEG quality for images (1-100, default: 95). Higher = better quality but larger files."
+    "JPEG quality for images (1-100, default: 95). "
+    "Higher = better quality but larger files."
 )
 
 DESC_CAMERAS = "Cameras to get notifications from."

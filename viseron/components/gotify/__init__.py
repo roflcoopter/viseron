@@ -14,7 +14,11 @@ import cv2
 import requests
 import voluptuous as vol
 
-from viseron.components.webserver.const import PUBLIC_IMAGE_TOKENS, PUBLIC_IMAGES_PATH
+from viseron.components.webserver.const import (
+    COMPONENT as WEBSERVER_COMPONENT,
+    PUBLIC_IMAGE_TOKENS,
+    PUBLIC_IMAGES_PATH,
+)
 from viseron.components.webserver.public_image_token import PublicImageToken
 from viseron.const import DEFAULT_PORT, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import EVENT_RECORDER_START
@@ -372,10 +376,6 @@ class GotifyEventNotifier:
 
         try:
             # Get webserver component for configuration
-            from viseron.components.webserver.const import (
-                COMPONENT as WEBSERVER_COMPONENT,
-            )
-
             webserver = self._vis.data.get(WEBSERVER_COMPONENT)
 
             # Save the image with configured quality
@@ -385,9 +385,7 @@ class GotifyEventNotifier:
             cv2.imwrite(image_file, image, [cv2.IMWRITE_JPEG_QUALITY, quality])
 
             # Get expiry hours from webserver config
-            expiry_hours = (
-                webserver.public_url_expiry_hours if webserver else 24
-            )
+            expiry_hours = webserver.public_url_expiry_hours if webserver else 24
 
             # Create public image token
             expires_at = utcnow() + timedelta(hours=expiry_hours)
@@ -443,7 +441,7 @@ class GotifyEventNotifier:
                 if os.path.exists(image_file):
                     os.remove(image_file)
                 del self._vis.data[PUBLIC_IMAGE_TOKENS][token]
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception as exc:
             LOGGER.error("Failed to create public URL for image: %s", exc)
             # Clean up on error
             if os.path.exists(image_file):
