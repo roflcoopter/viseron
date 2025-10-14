@@ -2,13 +2,7 @@ import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import {
-  type JSX,
-  forwardRef,
-  useCallback,
-  useImperativeHandle,
-  useRef,
-} from "react";
+import { type JSX, forwardRef, useImperativeHandle, useRef } from "react";
 
 import {
   GridLayout,
@@ -82,24 +76,24 @@ type PlayerGridProps = {
   ) => JSX.Element;
   forceBreakpoint?: boolean;
 };
-export const PlayerGrid = ({
+export function PlayerGrid({
   cameras,
   containerRef,
   renderPlayer,
   forceBreakpoint,
-}: PlayerGridProps) => {
+}: PlayerGridProps) {
   const playerItemRefs = useRef<(PlayerItemRef | null)[]>([]);
   const setPlayerItemRef = (index: number, ref: PlayerItemRef | null) => {
     playerItemRefs.current[index] = ref;
   };
 
-  const setPlayerItemsSize = useCallback(() => {
+  const setPlayerItemsSize = () => {
     playerItemRefs.current.forEach((playerItemRef) => {
       if (playerItemRef) {
         playerItemRef.setSize();
       }
     });
-  }, [playerItemRefs]);
+  };
 
   const gridLayout = useGridLayout(containerRef, cameras, setPlayerItemsSize);
 
@@ -126,4 +120,4 @@ export const PlayerGrid = ({
       ))}
     </Grid>
   );
-};
+}

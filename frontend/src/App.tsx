@@ -65,7 +65,7 @@ function App() {
           element: <Entities />,
         },
         {
-          element: <RequireRole role={["admin"]} />,
+          element: <RequireRole userRole={["admin"]} />,
           children: [
             {
               path: "/settings",

@@ -23,6 +23,7 @@ type TextFieldItemProps<T extends string = string> = TextFieldProps & {
 };
 
 export function TextFieldItem<T extends string>(props: TextFieldItemProps<T>) {
+  const { inputKind, inputState, dispatch, password, ...strippedProps } = props;
   const [showPassword, setShowPassword] = useState(false);
   const togglePasswordVisibility = () => {
     setShowPassword((prev) => !prev);
@@ -30,20 +31,18 @@ export function TextFieldItem<T extends string>(props: TextFieldItemProps<T>) {
   const defaultProps = {
     fullWidth: true,
     autoComplete: "off",
-    type: props.password ? (showPassword ? "text" : "password") : "text",
-    label: props.inputState[props.inputKind].label,
-    helperText: props.inputState[props.inputKind].error
-      ? props.inputState[props.inputKind].error
-      : " ",
-    error: !!props.inputState[props.inputKind].error,
+    type: password ? (showPassword ? "text" : "password") : "text",
+    label: inputState[inputKind].label,
+    helperText: inputState[inputKind].error ? inputState[inputKind].error : " ",
+    error: !!inputState[inputKind].error,
     onChange: (
       event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>,
     ) =>
-      props.dispatch({
-        type: props.inputKind,
+      dispatch({
+        type: inputKind,
         value: event.target.value,
       }),
-    InputProps: props.password
+    InputProps: password
       ? {
           endAdornment: (
             <InputAdornment position="end">
@@ -59,9 +58,7 @@ export function TextFieldItem<T extends string>(props: TextFieldItemProps<T>) {
       : undefined,
   };
 
-  props = { ...defaultProps, ...props };
-  const { inputKind, inputState, dispatch, password, ...forwardedProps } =
-    props;
+  const forwardedProps = { ...defaultProps, ...strippedProps };
 
   return (
     <Grid size={12}>

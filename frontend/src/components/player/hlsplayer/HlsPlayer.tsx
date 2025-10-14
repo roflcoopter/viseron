@@ -394,7 +394,7 @@ interface HlsPlayerProps {
   camera: types.Camera | types.FailedCamera;
 }
 
-export const HlsPlayer: React.FC<HlsPlayerProps> = ({ camera }) => {
+export function HlsPlayer({ camera }: HlsPlayerProps) {
   const theme = useTheme();
   const hlsRef = useRef<Hls | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -467,4 +467,4 @@ export const HlsPlayer: React.FC<HlsPlayerProps> = ({ camera }) => {
       </Fade>
     </div>
   );
-};
+}

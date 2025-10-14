@@ -16,19 +16,23 @@ function MutationIconButtonInner<T>(
   props: MutationIconButtonProps<T>,
   ref: React.ForwardedRef<any>,
 ) {
-  const { mutation, ...forwardedProps } = props;
-  forwardedProps.sx = {
-    ...props.sx,
-    transition: "color .5s ease",
-    WebkitTransition: "color .5s ease",
-    MozTransition: "color .5s ease",
+  const { mutation, sx, disabled, ...forwardedProps } = props;
+
+  const newProps = {
+    ...forwardedProps,
+    sx: {
+      ...sx,
+      transition: "color .5s ease",
+      WebkitTransition: "color .5s ease",
+      MozTransition: "color .5s ease",
+    },
   };
 
   const [color, setColor] = React.useState<"default" | "error">("default");
 
   React.useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
-    if (props.mutation.isError) {
+    if (mutation.isError) {
       setColor("error");
       timer = setTimeout(() => {
         setColor("default");
@@ -39,15 +43,16 @@ function MutationIconButtonInner<T>(
         clearTimeout(timer);
       }
     };
-  }, [props.mutation.isError]);
+  }, [mutation.isError]);
 
   return (
     <div>
       <IconButton
-        {...forwardedProps}
+        // eslint-disable-next-line react/jsx-props-no-spreading
+        {...newProps}
         ref={ref}
         color={color}
-        disabled={props.mutation.isPending || props.disabled}
+        disabled={mutation.isPending || disabled}
       />
     </div>
   );

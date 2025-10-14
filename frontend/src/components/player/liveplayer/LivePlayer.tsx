@@ -175,7 +175,7 @@ interface LivePlayerProps extends React.HTMLAttributes<HTMLElement> {
   isMenuOpen?: boolean;
 }
 
-export const LivePlayer = ({
+export function LivePlayer({
   camera,
   controls,
   src,
@@ -183,7 +183,7 @@ export const LivePlayer = ({
   playerRef,
   extraButtons,
   isMenuOpen = false,
-}: LivePlayerProps) => {
+}: LivePlayerProps) {
   const _elementRef = useRef<VideoRTC>(null);
   const elementRef = playerRef || _elementRef;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -231,15 +231,11 @@ export const LivePlayer = ({
         onFullscreenToggle={handleFullscreenToggle}
         extraButtons={extraButtons}
       />
-      <video-stream
-        ref={elementRef}
-        style={style}
-        controls={controlsVisible}
-      ></video-stream>
+      <video-stream ref={elementRef} style={style} controls={controlsVisible} />
       <CameraNameOverlay
         camera_identifier={camera.identifier}
         extraStatusText={playerStatus}
       />
     </div>
   );
-};
+}

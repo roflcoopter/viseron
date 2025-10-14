@@ -41,7 +41,7 @@ function reducer(state: InputState, action: InputAction): InputState {
   };
 }
 
-const Login = () => {
+function Login() {
   useTitle("Login");
   const { auth } = useAuthContext();
   const location = useLocation();
@@ -119,13 +119,13 @@ const Login = () => {
           >
             <Grid container spacing={3} sx={{ padding: "15px" }}>
               <TextFieldItem<keyof InputState>
-                inputKind={"username"}
+                inputKind="username"
                 inputState={inputState}
                 dispatch={dispatch}
                 value={inputState.username.value}
               />
               <TextFieldItem<keyof InputState>
-                inputKind={"password"}
+                inputKind="password"
                 inputState={inputState}
                 dispatch={dispatch}
                 password
@@ -165,6 +165,6 @@ const Login = () => {
       </Box>
     </Container>
   );
-};
+}
 
 export default Login;

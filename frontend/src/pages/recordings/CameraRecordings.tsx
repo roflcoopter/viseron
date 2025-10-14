@@ -18,7 +18,7 @@ import * as types from "lib/types";
 type CameraRecordingsParams = {
   camera_identifier: string;
 };
-const CameraRecordings = () => {
+function CameraRecordings() {
   const { camera_identifier } = useParams<
     keyof CameraRecordingsParams
   >() as CameraRecordingsParams;
@@ -38,7 +38,7 @@ const CameraRecordings = () => {
   if (recordingsQuery.isError || cameraQuery.isError) {
     return (
       <ErrorMessage
-        text={`Error loading recordings`}
+        text="Error loading recordings"
         subtext={recordingsQuery.error?.message || cameraQuery.error?.message}
         image={
           <ServerDown width={150} height={150} role="img" aria-label="Void" />
@@ -97,6 +97,6 @@ const CameraRecordings = () => {
       </Grid>
     </Container>
   );
-};
+}
 
 export default CameraRecordings;

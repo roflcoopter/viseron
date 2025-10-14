@@ -18,11 +18,11 @@ interface FailedCameraCardProps {
   ) => void;
 }
 
-export const FailedCameraCard = ({
+export function FailedCameraCard({
   failedCamera,
   compact = false,
   onClick,
-}: FailedCameraCardProps) => {
+}: FailedCameraCardProps) {
   const theme = useTheme();
 
   return (
@@ -69,4 +69,4 @@ export const FailedCameraCard = ({
       )}
     </Card>
   );
-};
+}

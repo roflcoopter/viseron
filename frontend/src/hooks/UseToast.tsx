@@ -7,9 +7,11 @@ import {
   Id,
   ToastContent,
   ToastOptions,
+  TypeOptions,
   UpdateOptions,
   toast,
 } from "react-toastify";
+import type { IconProps as ToastifyIconProps } from "react-toastify";
 
 export type Toast = {
   info: (content: ToastContent, options?: ToastOptions) => Id;
@@ -17,9 +19,25 @@ export type Toast = {
   warning: (content: ToastContent, options?: ToastOptions) => Id;
   error: (content: ToastContent, options?: ToastOptions) => Id;
   dismiss: (id?: string | number | undefined) => void;
+  update: (id: string | number, options: UpdateOptions) => void;
 };
 
-const defaultToastOptions = (theme: Theme) => ({
+function ToastIcon({ type }: { type: TypeOptions }) {
+  switch (type) {
+    case "info":
+      return <InfoOutlinedIcon />;
+    case "error":
+      return <ErrorOutlineOutlinedIcon />;
+    case "success":
+      return <TaskAltOutlinedIcon />;
+    case "warning":
+      return <ReportProblemOutlined />;
+    default:
+      return null;
+  }
+}
+
+const defaultToastOptions = (theme: Theme): ToastOptions => ({
   style: {
     fontWeight: "500 !important",
     fontSize: "0.875rem",
@@ -28,6 +46,7 @@ const defaultToastOptions = (theme: Theme) => ({
     border: `1px solid ${theme.palette.divider}`,
     borderRadius: theme.shape.borderRadius,
   },
+  icon: ({ type }: ToastifyIconProps) => <ToastIcon type={type} />,
 });
 
 export const toastIds = {
@@ -39,51 +58,23 @@ export const toastIds = {
 };
 
 export const useToast = () => {
-  const theme = useTheme();
+  const localTheme = useTheme();
   return {
     info: (content: ToastContent, options: ToastOptions = {}) => {
-      options = { ...defaultToastOptions(theme), ...options };
-      return toast.info(content, {
-        ...options,
-        icon: (
-          <>
-            <InfoOutlinedIcon />
-          </>
-        ),
-      });
+      options = { ...defaultToastOptions(localTheme), ...options };
+      return toast.info(content, options);
     },
     success: (content: ToastContent, options: ToastOptions = {}) => {
-      options = { ...defaultToastOptions(theme), ...options };
-      return toast.success(content, {
-        ...options,
-        icon: (
-          <>
-            <TaskAltOutlinedIcon />
-          </>
-        ),
-      });
+      options = { ...defaultToastOptions(localTheme), ...options };
+      return toast.success(content, options);
     },
     warning: (content: ToastContent, options: ToastOptions = {}) => {
-      options = { ...defaultToastOptions(theme), ...options };
-      return toast.warning(content, {
-        ...options,
-        icon: (
-          <>
-            <ReportProblemOutlined />
-          </>
-        ),
-      });
+      options = { ...defaultToastOptions(localTheme), ...options };
+      return toast.warning(content, options);
     },
     error: (content: ToastContent, options: ToastOptions = {}) => {
-      options = { ...defaultToastOptions(theme), ...options };
-      return toast.error(content, {
-        ...options,
-        icon: (
-          <>
-            <ErrorOutlineOutlinedIcon />
-          </>
-        ),
-      });
+      options = { ...defaultToastOptions(localTheme), ...options };
+      return toast.error(content, options);
     },
     dismiss: (id: string | number | undefined = undefined) => toast.dismiss(id),
     update: (id: string | number, options: UpdateOptions) =>

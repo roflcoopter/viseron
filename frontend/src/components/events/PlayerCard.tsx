@@ -240,7 +240,7 @@ const usePlayerCardCallbacks = (
   };
 };
 
-export const PlayerCard = () => {
+export function PlayerCard() {
   const theme = useTheme();
   const paperRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
 
@@ -353,4 +353,4 @@ export const PlayerCard = () => {
       </Paper>
     </SyncManager>
   );
-};
+}

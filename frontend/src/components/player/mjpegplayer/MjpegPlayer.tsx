@@ -115,7 +115,7 @@ interface MjpegPlayerProps extends React.HTMLAttributes<HTMLElement> {
   isMenuOpen?: boolean;
 }
 
-export const MjpegPlayer: React.FC<MjpegPlayerProps> = ({
+export function MjpegPlayer({
   camera,
   src,
   style,
@@ -127,7 +127,7 @@ export const MjpegPlayer: React.FC<MjpegPlayerProps> = ({
   drawZones = false,
   drawPostProcessorMask = false,
   isMenuOpen = false,
-}) => {
+}: MjpegPlayerProps) {
   const theme = useTheme();
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -195,4 +195,4 @@ export const MjpegPlayer: React.FC<MjpegPlayerProps> = ({
       />
     </div>
   );
-};
+}

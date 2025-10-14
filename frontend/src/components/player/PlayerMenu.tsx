@@ -11,21 +11,22 @@ import { usePlayerSettingsStore } from "components/player/UsePlayerSettingsStore
 import * as types from "lib/types";
 
 interface PlayerMenuProps {
-  camera: types.Camera | types.FailedCamera;
   onMenuOpen: (event: React.MouseEvent<HTMLElement>) => void;
 }
 
-export const PlayerMenu: React.FC<PlayerMenuProps> = ({ onMenuOpen }) => (
-  <CustomFab onClick={onMenuOpen}>
-    <MoreVertIcon />
-  </CustomFab>
-);
+export function PlayerMenu({ onMenuOpen }: PlayerMenuProps) {
+  return (
+    <CustomFab onClick={onMenuOpen}>
+      <MoreVertIcon />
+    </CustomFab>
+  );
+}
 
 interface PlayerMenuItemsProps {
   camera: types.Camera | types.FailedCamera;
 }
 
-export const PlayerMenuItems: React.FC<PlayerMenuItemsProps> = ({ camera }) => {
+export function PlayerMenuItems({ camera }: PlayerMenuItemsProps) {
   const {
     mjpegPlayer,
     setMjpegPlayer,
@@ -172,4 +173,4 @@ export const PlayerMenuItems: React.FC<PlayerMenuItemsProps> = ({ camera }) => {
       </MenuItem>
     </>
   );
-};
+}

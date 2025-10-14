@@ -39,13 +39,13 @@ type EditorProps = {
   loading: boolean;
 };
 
-const Editor = ({
+function Editor({
   template,
   setTemplate,
   handleRender,
   clearTemplate,
   loading,
-}: EditorProps) => {
+}: EditorProps) {
   const theme = useTheme();
 
   return (
@@ -81,39 +81,41 @@ const Editor = ({
       </Box>
     </Paper>
   );
-};
+}
 
 type ResultProps = {
   result: string;
   error: string | null;
 };
 
-const Result = ({ result, error }: ResultProps) => (
-  <Paper variant="outlined" sx={paperStyle}>
-    <Typography variant="h6" sx={{ mb: 2 }}>
-      Result
-    </Typography>
-    {error ? (
-      <Alert severity="error" icon={<ErrorOutlineIcon />}>
-        {error}
-      </Alert>
-    ) : result ? (
-      <TextField
-        value={result}
-        multiline
-        slotProps={{
-          input: {
-            readOnly: true,
-          },
-        }}
-      >
-        {result}
-      </TextField>
-    ) : null}
-  </Paper>
-);
+function Result({ result, error }: ResultProps) {
+  return (
+    <Paper variant="outlined" sx={paperStyle}>
+      <Typography variant="h6" sx={{ mb: 2 }}>
+        Result
+      </Typography>
+      {error ? (
+        <Alert severity="error" icon={<ErrorOutlineIcon />}>
+          {error}
+        </Alert>
+      ) : result ? (
+        <TextField
+          value={result}
+          multiline
+          slotProps={{
+            input: {
+              readOnly: true,
+            },
+          }}
+        >
+          {result}
+        </TextField>
+      ) : null}
+    </Paper>
+  );
+}
 
-const TemplateEditor = () => {
+function TemplateEditor() {
   const [template, setTemplate] = useState<string>("");
 
   const { result, error, loading, renderNow, clear } =
@@ -146,6 +148,6 @@ const TemplateEditor = () => {
       </Grid>
     </Container>
   );
-};
+}
 
 export default TemplateEditor;

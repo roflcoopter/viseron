@@ -150,7 +150,7 @@ export const TimelineTable = memo(({ parentRef, date }: TimelineTableProps) => {
       : "Unknown error";
     return (
       <ErrorMessage
-        text={"Error loading events and/or timespans"}
+        text="Error loading events and/or timespans"
         subtext={subtext}
         image={
           <ServerDown width={150} height={150} role="img" aria-label="Void" />

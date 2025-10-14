@@ -111,12 +111,12 @@ type TabsProps = {
   setSelectedTab: (tab: "events" | "timeline") => void;
   playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>;
 };
-const Tabs = ({
+function Tabs({
   date,
   selectedTab,
   setSelectedTab,
   playerCardGridItemRef,
-}: TabsProps) => {
+}: TabsProps) {
   const filteredCameras = useFilteredCameras();
   const tabListRef = useRef<HTMLDivElement | null>(null);
   const eventsRef = useRef<HTMLDivElement | null>(null);
@@ -210,7 +210,7 @@ const Tabs = ({
       </TabPanel>
     </TabContext>
   );
-};
+}
 
 type LayoutProps = {
   date: Dayjs | null;
@@ -230,7 +230,7 @@ export const Layout = memo(
       <Box>
         <Grid
           container
-          direction={"row"}
+          direction="row"
           rowSpacing={{ xs: 0.5, sm: 0 }}
           columnSpacing={1}
         >

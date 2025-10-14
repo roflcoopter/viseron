@@ -89,7 +89,7 @@ const useResize = (
   }, [updateDimensions]);
 };
 
-const ConfigEditor = () => {
+function ConfigEditor() {
   const viseron = useContext(ViseronContext);
   const theme = useTheme();
 
@@ -186,10 +186,10 @@ const ConfigEditor = () => {
     }
   };
 
-  function onValidate(currentMarkers: monaco.editor.IMarker[]) {
+  const onValidate = (currentMarkers: monaco.editor.IMarker[]) => {
     setMarkers(currentMarkers);
     markersRef.current = currentMarkers;
-  }
+  };
 
   useEffect(() => {
     if (viseron.connection) {
@@ -220,7 +220,7 @@ const ConfigEditor = () => {
         aria-describedby="alert-dialog-description"
       >
         <DialogTitle id="alert-dialog-title">
-          {"An error occurred when saving configuration."}
+          An error occurred when saving configuration.
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
@@ -249,7 +249,7 @@ const ConfigEditor = () => {
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
       >
-        <DialogTitle id="alert-dialog-title">{"Syntax errors."}</DialogTitle>
+        <DialogTitle id="alert-dialog-title">Syntax errors.</DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
             You have syntax errors in your config. Are you sure you want to
@@ -286,7 +286,7 @@ const ConfigEditor = () => {
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
       >
-        <DialogTitle id="alert-dialog-title">{"Restart Viseron."}</DialogTitle>
+        <DialogTitle id="alert-dialog-title">Restart Viseron.</DialogTitle>
         {restartDialog.text && (
           <DialogContent>
             <DialogContentText id="alert-dialog-description">
@@ -402,6 +402,6 @@ const ConfigEditor = () => {
       </Stack>
     </div>
   );
-};
+}
 
 export default ConfigEditor;

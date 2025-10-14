@@ -1,4 +1,4 @@
-import { FC, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import videojs from "video.js";
 import Player from "video.js/dist/types/player";
 import "video.js/dist/video-js.css";
@@ -7,13 +7,11 @@ import "./VideoPlayer.css";
 
 interface VideoPlayerPropsInferface {
   options: Record<string, any>;
-  onReady?: (player: Player) => void;
 }
 
-const VideoJS: FC<VideoPlayerPropsInferface> = (props) => {
+function VideoJS({ options }: VideoPlayerPropsInferface) {
   const videoRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Player | null>(null);
-  const { options, onReady } = props;
 
   useEffect(() => {
     // Make sure Video.js player is only initialized once
@@ -39,7 +37,7 @@ const VideoJS: FC<VideoPlayerPropsInferface> = (props) => {
       player.poster(options.poster!);
       player.load();
     }
-  }, [onReady, options, videoRef]);
+  }, [options, videoRef]);
 
   // Dispose the Video.js player when the functional component unmounts
   useEffect(() => {
@@ -58,17 +56,10 @@ const VideoJS: FC<VideoPlayerPropsInferface> = (props) => {
       <div ref={videoRef} />
     </div>
   );
-};
+}
 
-const VideoPlayer: FC<VideoPlayerPropsInferface> = ({ options }) => {
-  const onReady = (player: Player) => {
-    player.autoplay(options.autoplay);
-    player.src(options.sources);
-    player.poster(options.poster!);
-    player.load();
-  };
-
-  return <VideoJS options={options} onReady={onReady} />;
-};
+function VideoPlayer({ options }: VideoPlayerPropsInferface) {
+  return <VideoJS options={options} />;
+}
 
 export default VideoPlayer;

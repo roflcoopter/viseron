@@ -8,33 +8,35 @@ import { useTitle } from "hooks/UseTitle";
 import { useCameras, useCamerasFailed } from "lib/api/cameras";
 import { objHasValues } from "lib/helpers";
 
-const GridItem = ({
+function GridItem({
   camera_identifier,
   failed,
 }: {
   camera_identifier: string;
   failed?: boolean;
-}) => (
-  <Grow in appear key={camera_identifier}>
-    <Grid
-      key={camera_identifier}
-      size={{
-        xs: 12,
-        sm: 12,
-        md: 6,
-        lg: 6,
-        xl: 4,
-      }}
-    >
-      <RecordingCardLatest
-        camera_identifier={camera_identifier}
-        failed={failed}
-      />
-    </Grid>
-  </Grow>
-);
+}) {
+  return (
+    <Grow in appear key={camera_identifier}>
+      <Grid
+        key={camera_identifier}
+        size={{
+          xs: 12,
+          sm: 12,
+          md: 6,
+          lg: 6,
+          xl: 4,
+        }}
+      >
+        <RecordingCardLatest
+          camera_identifier={camera_identifier}
+          failed={failed}
+        />
+      </Grid>
+    </Grow>
+  );
+}
 
-const Recordings = () => {
+function Recordings() {
   useTitle("Recordings");
 
   const cameras = useCameras({});
@@ -80,6 +82,6 @@ const Recordings = () => {
       </Grid>
     </Container>
   );
-};
+}
 
 export default Recordings;

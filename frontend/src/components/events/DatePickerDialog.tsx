@@ -20,10 +20,10 @@ function HasEvent(
   const { highlightedDays = {}, day, outsideCurrentMonth, ...other } = props;
   const date = day.format("YYYY-MM-DD");
   const isSelected =
-    !props.outsideCurrentMonth && Object.keys(highlightedDays).includes(date);
+    !outsideCurrentMonth && Object.keys(highlightedDays).includes(date);
   return (
     <Badge
-      key={props.day.toString()}
+      key={day.toString()}
       overlap="circular"
       badgeContent={
         isSelected && highlightedDays[date].events > 0
@@ -43,6 +43,7 @@ function HasEvent(
       }}
     >
       <PickersDay
+        // eslint-disable-next-line react/jsx-props-no-spreading
         {...other}
         outsideCurrentMonth={outsideCurrentMonth}
         day={day}

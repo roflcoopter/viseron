@@ -27,7 +27,7 @@ type EventTableItemIconsProps = {
   sortedEvents: types.CameraEvent[];
 };
 
-const EventTableItemIcons = ({ sortedEvents }: EventTableItemIconsProps) => {
+function EventTableItemIcons({ sortedEvents }: EventTableItemIconsProps) {
   const uniqueEvents = extractUniqueTypes(sortedEvents);
   const cameraName = getCameraNameFromQueryCache(
     sortedEvents[0].camera_identifier,
@@ -67,7 +67,7 @@ const EventTableItemIcons = ({ sortedEvents }: EventTableItemIconsProps) => {
       </Grid>
     </div>
   );
-};
+}
 
 type EventTableItemProps = {
   events: types.CameraEvent[];
@@ -154,6 +154,7 @@ export const EventTableItem = memo(
               >
                 <img
                   src={src}
+                  alt="Event snapshot"
                   style={{
                     aspectRatio: "1/1",
                     width: "100%",

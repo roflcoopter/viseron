@@ -133,7 +133,6 @@ export const useGridLayout = (
   // Observe both the containerRef and window resize to update the layout
   useResizeObserver(containerRef, handleResize);
   useEffect(() => {
-    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [handleResize]);

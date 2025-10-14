@@ -219,7 +219,6 @@ export class Connection {
       window.location.protocol === "https:" ? "wss://" : "ws://"
     }${location.host}/websocket`;
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
         ({ socket: this.socket, system_information: this.system_information } =
@@ -228,7 +227,6 @@ export class Connection {
         break;
       } catch (error) {
         if (error === ERR_INVALID_AUTH) {
-          // eslint-disable-next-line @typescript-eslint/no-throw-literal
           throw error;
         }
         console.debug("Error connecting, retrying", error);
@@ -514,7 +512,6 @@ export class Connection {
 
   private _sendMessage(message: Message) {
     if (!this.connected) {
-      // eslint-disable-next-line @typescript-eslint/no-throw-literal
       throw ERR_CONNECTION_LOST;
     }
     console.debug("Sending", message);

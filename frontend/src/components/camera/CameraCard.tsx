@@ -55,13 +55,13 @@ interface CameraCardProps {
 const blankImage =
   "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
 
-const SuccessCameraCard = ({
+function SuccessCameraCard({
   camera,
   buttons = true,
   compact = false,
   onClick,
   border,
-}: SuccessCameraCardProps) => {
+}: SuccessCameraCardProps) {
   const { connected } = useContext(ViseronContext);
   const theme = useTheme();
   const ref: any = useRef<HTMLDivElement>(undefined);
@@ -247,14 +247,14 @@ const SuccessCameraCard = ({
       </Card>
     </div>
   );
-};
-export const CameraCard = ({
+}
+export function CameraCard({
   camera_identifier,
   buttons = true,
   compact = false,
   onClick,
   border,
-}: CameraCardProps) => {
+}: CameraCardProps) {
   const { connected } = useContext(ViseronContext);
   const cameraQuery = useCamera(camera_identifier, true, {
     enabled: connected,
@@ -280,4 +280,4 @@ export const CameraCard = ({
       border={border}
     />
   );
-};
+}

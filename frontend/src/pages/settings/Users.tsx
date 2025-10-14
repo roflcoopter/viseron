@@ -27,7 +27,7 @@ const StyledTableCell = styled(TableCell)(() => ({
   },
 }));
 
-const Users = () => {
+function Users() {
   useTitle("Users");
   const theme = useTheme();
   const authUsers = useAuthUsers();
@@ -42,7 +42,7 @@ const Users = () => {
   if (authUsers.isError || !authUsers.data) {
     return (
       <ErrorMessage
-        text={"Error loading users"}
+        text="Error loading users"
         subtext={authUsers.error?.message || authUsers.error?.message}
       />
     );
@@ -117,6 +117,6 @@ const Users = () => {
       {isAddUserOpen && <AddUserDialog onClose={handleCloseAddUser} />}
     </Container>
   );
-};
+}
 
 export default Users;

@@ -132,7 +132,7 @@ export const ProgressLine = memo(
             backgroundColor: theme.palette.primary[900],
             fontSize: "0.7rem",
           })}
-        ></Box>
+        />
       </Box>
     );
   },

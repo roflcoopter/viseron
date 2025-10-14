@@ -17,7 +17,7 @@ type ExportDialogProps = {
   setOpen: (open: boolean) => void;
 };
 
-export const ExportDialog = ({ open, setOpen }: ExportDialogProps) => {
+export function ExportDialog({ open, setOpen }: ExportDialogProps) {
   const [startDate, setStartDate] = useState<Dayjs | null>(null);
   const [endDate, setEndDate] = useState<Dayjs | null>(null);
 
@@ -86,4 +86,4 @@ export const ExportDialog = ({ open, setOpen }: ExportDialogProps) => {
       </DialogActions>
     </Dialog>
   );
-};
+}

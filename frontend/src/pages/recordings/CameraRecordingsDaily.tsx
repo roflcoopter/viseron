@@ -19,7 +19,7 @@ type CameraRecordingsDailyParams = {
   camera_identifier: string;
   date: string;
 };
-const CameraRecordingsDaily = () => {
+function CameraRecordingsDaily() {
   const { camera_identifier, date } = useParams<
     keyof CameraRecordingsDailyParams
   >() as CameraRecordingsDailyParams;
@@ -38,7 +38,7 @@ const CameraRecordingsDaily = () => {
   if (recordingsQuery.isError || cameraQuery.isError) {
     return (
       <ErrorMessage
-        text={`Error loading recordings`}
+        text="Error loading recordings"
         subtext={recordingsQuery.error?.message || cameraQuery.error?.message}
         image={
           <ServerDown width={150} height={150} role="img" aria-label="Void" />
@@ -96,6 +96,6 @@ const CameraRecordingsDaily = () => {
       </Grid>
     </Container>
   );
-};
+}
 
 export default CameraRecordingsDaily;

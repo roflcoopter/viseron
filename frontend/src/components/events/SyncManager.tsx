@@ -22,13 +22,14 @@ interface SyncManagerProps {
   children: React.ReactNode;
 }
 
-const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
+function SyncManager({ children }: SyncManagerProps) {
   const { hlsRefs, setHlsRefsError } = useHlsStore(
     useShallow((state) => ({
       hlsRefs: state.hlsRefs,
       setHlsRefsError: state.setHlsRefsError,
     })),
   );
+
   const {
     setReferencePlayer,
     isPlaying,
@@ -276,7 +277,7 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
     };
   }, [hlsRefs]);
 
-  return <>{children}</>;
-};
+  return children;
+}
 
 export default SyncManager;

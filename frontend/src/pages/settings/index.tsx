@@ -17,7 +17,7 @@ import { useAuthContext } from "context/AuthContext";
 import { useHideScrollbar } from "hooks/UseHideScrollbar";
 import { useTitle } from "hooks/UseTitle";
 
-const Settings = () => {
+function Settings() {
   useTitle("Settings");
   useHideScrollbar();
 
@@ -125,6 +125,6 @@ const Settings = () => {
       </Box>
     </Container>
   );
-};
+}
 
 export default Settings;
