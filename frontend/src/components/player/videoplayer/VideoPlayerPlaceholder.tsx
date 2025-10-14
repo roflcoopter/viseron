@@ -1,5 +1,6 @@
 import Image from "@jy95/material-ui-image";
 import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 
@@ -28,7 +29,7 @@ export default function VideoPlayerPlaceholder({
         src={src || blankImage}
         aspectRatio={aspectRatio}
         color={theme.palette.background.default}
-        errorIcon={Image.defaultProps!.loading}
+        errorIcon={<CircularProgress />}
       />
       {text ? (
         <Typography

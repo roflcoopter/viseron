@@ -1,7 +1,6 @@
 import Editor, { Monaco, loader } from "@monaco-editor/react";
 import { RestartAlt } from "@mui/icons-material";
 import SaveIcon from "@mui/icons-material/Save";
-import LoadingButton from "@mui/lab/LoadingButton";
 import Backdrop from "@mui/material/Backdrop";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -90,11 +89,11 @@ const useResize = (
   }, [updateDimensions]);
 };
 
-const ConfigEditor = () => {
+function ConfigEditor() {
   const viseron = useContext(ViseronContext);
   const theme = useTheme();
 
-  const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>();
+  const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>(undefined);
   const markersRef = useRef<monaco.editor.IMarker[]>([]);
 
   useResize(editorInstance);
@@ -187,10 +186,10 @@ const ConfigEditor = () => {
     }
   };
 
-  function onValidate(currentMarkers: monaco.editor.IMarker[]) {
+  const onValidate = (currentMarkers: monaco.editor.IMarker[]) => {
     setMarkers(currentMarkers);
     markersRef.current = currentMarkers;
-  }
+  };
 
   useEffect(() => {
     if (viseron.connection) {
@@ -221,7 +220,7 @@ const ConfigEditor = () => {
         aria-describedby="alert-dialog-description"
       >
         <DialogTitle id="alert-dialog-title">
-          {"An error occurred when saving configuration."}
+          An error occurred when saving configuration.
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
@@ -250,7 +249,7 @@ const ConfigEditor = () => {
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
       >
-        <DialogTitle id="alert-dialog-title">{"Syntax errors."}</DialogTitle>
+        <DialogTitle id="alert-dialog-title">Syntax errors.</DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
             You have syntax errors in your config. Are you sure you want to
@@ -287,7 +286,7 @@ const ConfigEditor = () => {
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
       >
-        <DialogTitle id="alert-dialog-title">{"Restart Viseron."}</DialogTitle>
+        <DialogTitle id="alert-dialog-title">Restart Viseron.</DialogTitle>
         {restartDialog.text && (
           <DialogContent>
             <DialogContentText id="alert-dialog-description">
@@ -330,7 +329,7 @@ const ConfigEditor = () => {
         >
           <Tooltip title="Ctrl+S" enterDelay={300}>
             <span>
-              <LoadingButton
+              <Button
                 startIcon={<SaveIcon />}
                 loadingPosition="start"
                 onClick={handleSave}
@@ -339,11 +338,11 @@ const ConfigEditor = () => {
                 disabled={!configUnsaved}
               >
                 Save
-              </LoadingButton>
+              </Button>
             </span>
           </Tooltip>
           <span>
-            <LoadingButton
+            <Button
               startIcon={<RestartAlt />}
               loadingPosition="start"
               onClick={handleRestart}
@@ -352,7 +351,7 @@ const ConfigEditor = () => {
               color="error"
             >
               Restart
-            </LoadingButton>
+            </Button>
           </span>
         </Stack>
         <Box
@@ -403,6 +402,6 @@ const ConfigEditor = () => {
       </Stack>
     </div>
   );
-};
+}
 
 export default ConfigEditor;

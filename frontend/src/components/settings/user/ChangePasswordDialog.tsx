@@ -49,10 +49,7 @@ function reducer(state: InputState, action: InputAction): InputState {
   };
 }
 
-const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
-  user,
-  onClose,
-}) => {
+function ChangePasswordDialog({ user, onClose }: ChangePasswordDialogProps) {
   const [inputState, dispatch] = useReducer(reducer, initialState);
   const authChangePassword = useAuthAdminChangePassword();
 
@@ -118,6 +115,6 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({
       </DialogActions>
     </Dialog>
   );
-};
+}
 
 export default ChangePasswordDialog;

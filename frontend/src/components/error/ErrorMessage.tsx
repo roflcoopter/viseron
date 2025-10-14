@@ -13,36 +13,38 @@ interface ErrorMessageProps {
   image?: React.ReactNode;
 }
 
-export const ErrorMessage = ({ text, subtext, image }: ErrorMessageProps) => (
-  <Grow in appear>
-    <Stack
-      direction="row"
-      justifyContent="center"
-      alignItems="center"
-      sx={{ width: 1, height: "70vh" }}
-    >
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-          gap: 2,
-        }}
+export function ErrorMessage({ text, subtext, image }: ErrorMessageProps) {
+  return (
+    <Grow in appear>
+      <Stack
+        direction="row"
+        justifyContent="center"
+        alignItems="center"
+        sx={{ width: 1, height: "70vh" }}
       >
-        {image || <ViseronLogo width={150} height={150} />}
-        <Typography variant="h5" align="center">
-          {text}
-        </Typography>
-        {subtext && (
-          <Typography variant="h6" align="center">
-            {subtext}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 2,
+          }}
+        >
+          {image || <ViseronLogo width={150} height={150} />}
+          <Typography variant="h5" align="center">
+            {text}
           </Typography>
-        )}
-      </Box>
-    </Stack>
-  </Grow>
-);
+          {subtext && (
+            <Typography variant="h6" align="center">
+              {subtext}
+            </Typography>
+          )}
+        </Box>
+      </Stack>
+    </Grow>
+  );
+}
 
 function FourIn404({ flip }: { flip?: boolean }) {
   return (
@@ -59,82 +61,88 @@ function FourIn404({ flip }: { flip?: boolean }) {
   );
 }
 
-export const ErrorNotFound = () => (
-  <Box
-    sx={{
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "center",
-      alignItems: "center",
-      gap: 2,
-    }}
-  >
+export function ErrorNotFound() {
+  return (
     <Box
       sx={{
         display: "flex",
-        flexDirection: "row",
+        flexDirection: "column",
+        justifyContent: "center",
         alignItems: "center",
+        gap: 2,
       }}
     >
-      <FourIn404 />
-      <ViseronLogo width={150} height={150} />
-      <FourIn404 flip />
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+        }}
+      >
+        <FourIn404 />
+        <ViseronLogo width={150} height={150} />
+        <FourIn404 flip />
+      </Box>
+      <Typography variant="h5" align="center">
+        Oops! The requested page was not found.
+      </Typography>
     </Box>
-    <Typography variant="h5" align="center">
-      Oops! The requested page was not found.
-    </Typography>
-  </Box>
-);
+  );
+}
 
 interface ErrorBoundaryProps {
   error: Error;
   resetErrorBoundary: () => void;
 }
 
-export const ErrorBoundaryInner = ({
+export function ErrorBoundaryInner({
   error,
   resetErrorBoundary,
-}: ErrorBoundaryProps) => (
-  <Container
-    sx={{
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "center",
-      alignItems: "center",
-      gap: 2,
-      height: "100vh",
-    }}
-  >
-    <ErrorMessage text="An error occurred" subtext={error.message} />
-    <Button variant="contained" component={Link} to="/">
-      Navigate to Home
-    </Button>
-    <Button variant="contained" onClick={resetErrorBoundary}>
-      Retry
-    </Button>
-  </Container>
-);
+}: ErrorBoundaryProps) {
+  return (
+    <Container
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: 2,
+        height: "100vh",
+      }}
+    >
+      <ErrorMessage text="An error occurred" subtext={error.message} />
+      <Button variant="contained" component={Link} to="/">
+        Navigate to Home
+      </Button>
+      <Button variant="contained" onClick={resetErrorBoundary}>
+        Retry
+      </Button>
+    </Container>
+  );
+}
 
-export const ErrorBoundaryOuter = ({
+export function ErrorBoundaryOuter({
   error,
   resetErrorBoundary,
-}: ErrorBoundaryProps) => (
-  <Container
-    sx={{
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "center",
-      alignItems: "center",
-      gap: 2,
-      height: "100vh",
-    }}
-  >
-    <ErrorMessage text="An error occurred" subtext={error.message} />
-    <Button variant="contained" onClick={() => window.location.reload()}>
-      Refresh
-    </Button>
-    <Button variant="contained" onClick={resetErrorBoundary}>
-      Retry
-    </Button>
-  </Container>
-);
+}: ErrorBoundaryProps) {
+  return (
+    <Container
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: 2,
+        height: "100vh",
+      }}
+    >
+      <ErrorMessage text="An error occurred" subtext={error.message} />
+      <Button variant="contained" onClick={() => window.location.reload()}>
+        Refresh
+      </Button>
+      <Button variant="contained" onClick={resetErrorBoundary}>
+        Retry
+      </Button>
+    </Container>
+  );
+}

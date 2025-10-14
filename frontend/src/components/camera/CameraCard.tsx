@@ -8,6 +8,7 @@ import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
+import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
@@ -54,16 +55,16 @@ interface CameraCardProps {
 const blankImage =
   "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
 
-const SuccessCameraCard = ({
+function SuccessCameraCard({
   camera,
   buttons = true,
   compact = false,
   onClick,
   border,
-}: SuccessCameraCardProps) => {
+}: SuccessCameraCardProps) {
   const { connected } = useContext(ViseronContext);
   const theme = useTheme();
-  const ref: any = useRef<HTMLDivElement>();
+  const ref: any = useRef<HTMLDivElement>(undefined);
   const onScreen = useOnScreen<HTMLDivElement>(ref);
   const isVisible = usePageVisibility();
   const firstRender = useFirstRender();
@@ -82,7 +83,7 @@ const SuccessCameraCard = ({
     disableTransition: false,
     loading: true,
   });
-  const updateSnapshot = useRef<NodeJS.Timeout | null>();
+  const updateSnapshot = useRef<NodeJS.Timeout | null>(undefined);
   const updateImage = useCallback(() => {
     setSnapshotURL((prevSnapshotURL) => {
       if (prevSnapshotURL.loading && !firstRender) {
@@ -192,9 +193,7 @@ const SuccessCameraCard = ({
                 }));
               }}
               errorIcon={
-                camera.still_image.available
-                  ? Image.defaultProps!.loading
-                  : null
+                camera.still_image.available ? <CircularProgress /> : null
               }
               onError={() => {
                 setSnapshotURL((prevSnapshotURL) => ({
@@ -248,14 +247,14 @@ const SuccessCameraCard = ({
       </Card>
     </div>
   );
-};
-export const CameraCard = ({
+}
+export function CameraCard({
   camera_identifier,
   buttons = true,
   compact = false,
   onClick,
   border,
-}: CameraCardProps) => {
+}: CameraCardProps) {
   const { connected } = useContext(ViseronContext);
   const cameraQuery = useCamera(camera_identifier, true, {
     enabled: connected,
@@ -281,4 +280,4 @@ export const CameraCard = ({
       border={border}
     />
   );
-};
+}

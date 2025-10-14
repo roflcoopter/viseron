@@ -10,17 +10,20 @@ import dayjs, { Dayjs } from "dayjs";
 
 import { useFilteredCameras } from "components/camera/useCameraStore";
 import { useEventsDatesOfInterest } from "lib/api/events";
+import * as types from "lib/types";
 
 function HasEvent(
-  props: PickersDayProps<Dayjs> & { highlightedDays?: Record<string, any> },
+  props: PickersDayProps & {
+    highlightedDays?: types.EventsDatesOfInterest["dates_of_interest"];
+  },
 ) {
   const { highlightedDays = {}, day, outsideCurrentMonth, ...other } = props;
   const date = day.format("YYYY-MM-DD");
   const isSelected =
-    !props.outsideCurrentMonth && Object.keys(highlightedDays).includes(date);
+    !outsideCurrentMonth && Object.keys(highlightedDays).includes(date);
   return (
     <Badge
-      key={props.day.toString()}
+      key={day.toString()}
       overlap="circular"
       badgeContent={
         isSelected && highlightedDays[date].events > 0
@@ -40,6 +43,7 @@ function HasEvent(
       }}
     >
       <PickersDay
+        // eslint-disable-next-line react/jsx-props-no-spreading
         {...other}
         outsideCurrentMonth={outsideCurrentMonth}
         day={day}

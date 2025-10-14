@@ -10,10 +10,7 @@ type CameraPickerDialogProps = {
   open: boolean;
   setOpen: (open: boolean) => void;
 };
-export const CameraPickerDialog = ({
-  open,
-  setOpen,
-}: CameraPickerDialogProps) => {
+export function CameraPickerDialog({ open, setOpen }: CameraPickerDialogProps) {
   const handleClose = () => {
     setOpen(false);
   };
@@ -29,4 +26,4 @@ export const CameraPickerDialog = ({
       </DialogActions>
     </Dialog>
   );
-};
+}

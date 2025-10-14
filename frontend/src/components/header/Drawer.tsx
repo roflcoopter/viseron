@@ -120,7 +120,7 @@ function AppDrawerHeader() {
   return (
     <Container
       fixed
-      disableGutters={true}
+      disableGutters
       sx={(theme) => ({
         display: "flex",
         alignItems: "center",
@@ -204,7 +204,7 @@ export default function AppDrawer({
       anchor="left"
       open={drawerOpen}
       onClose={() => setDrawerOpen(false)}
-      color={"primary"}
+      color="primary"
       ModalProps={{
         keepMounted: true,
       }}

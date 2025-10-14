@@ -29,21 +29,23 @@ interface CustomFabProps {
   size?: "small" | "medium" | "large";
   children: React.ReactNode;
 }
-export const CustomFab = ({
+export function CustomFab({
   onClick,
   size = "small",
   children,
-}: CustomFabProps) => (
-  <Fab
-    onClick={onClick}
-    onTouchStart={(e) => e.stopPropagation()}
-    size={size}
-    color="primary"
-    sx={{ margin: 0.25, zIndex: ZINDEX }}
-  >
-    {children}
-  </Fab>
-);
+}: CustomFabProps) {
+  return (
+    <Fab
+      onClick={onClick}
+      onTouchStart={(e) => e.stopPropagation()}
+      size={size}
+      color="primary"
+      sx={{ margin: 0.25, zIndex: ZINDEX }}
+    >
+      {children}
+    </Fab>
+  );
+}
 
 const iconStyles: SxProps<Theme> = {
   width: "12px",
@@ -69,7 +71,7 @@ interface CustomControlsProps {
   extraButtons?: React.ReactNode;
 }
 
-export const CustomControls: React.FC<CustomControlsProps> = ({
+export function CustomControls({
   isPlaying = false,
   onPlayPause,
   onJumpBackward,
@@ -85,7 +87,7 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
   isFullscreen = false,
   onFullscreenToggle,
   extraButtons,
-}) => {
+}: CustomControlsProps) {
   const [isVolumeSliderVisible, setIsVolumeSliderVisible] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -334,4 +336,4 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
       </Box>
     </Fade>
   );
-};
+}

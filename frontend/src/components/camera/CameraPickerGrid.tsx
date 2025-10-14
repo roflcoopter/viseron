@@ -1,4 +1,4 @@
-import Grid from "@mui/material/Grid2";
+import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
 import { useTheme } from "@mui/material/styles";
 

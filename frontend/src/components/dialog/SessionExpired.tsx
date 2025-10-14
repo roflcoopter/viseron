@@ -27,7 +27,7 @@ const useSessionExpiredEvent = (
   }, []);
 };
 
-const SessionExpired = () => {
+function SessionExpired() {
   const [open, setOpen] = useState(false);
   useSessionExpiredEvent(setOpen);
 
@@ -57,6 +57,6 @@ const SessionExpired = () => {
       </DialogActions>
     </Dialog>
   );
-};
+}
 
 export default SessionExpired;

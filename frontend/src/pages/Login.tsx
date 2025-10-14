@@ -1,7 +1,7 @@
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid2";
+import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useEffect, useReducer, useRef } from "react";
@@ -41,7 +41,7 @@ function reducer(state: InputState, action: InputAction): InputState {
   };
 }
 
-const Login = () => {
+function Login() {
   useTitle("Login");
   const { auth } = useAuthContext();
   const location = useLocation();
@@ -49,7 +49,7 @@ const Login = () => {
   const login = useAuthLogin();
 
   const [inputState, dispatch] = useReducer(reducer, initialState);
-  const fromRef = useRef();
+  const fromRef = useRef(undefined);
 
   queryClient.removeQueries({
     predicate(query) {
@@ -119,13 +119,13 @@ const Login = () => {
           >
             <Grid container spacing={3} sx={{ padding: "15px" }}>
               <TextFieldItem<keyof InputState>
-                inputKind={"username"}
+                inputKind="username"
                 inputState={inputState}
                 dispatch={dispatch}
                 value={inputState.username.value}
               />
               <TextFieldItem<keyof InputState>
-                inputKind={"password"}
+                inputKind="password"
                 inputState={inputState}
                 dispatch={dispatch}
                 password
@@ -165,6 +165,6 @@ const Login = () => {
       </Box>
     </Container>
   );
-};
+}
 
 export default Login;

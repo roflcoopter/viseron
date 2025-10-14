@@ -1,5 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { memo } from "react";
+import { type JSX, memo } from "react";
 
 import { Row } from "components/events/timeline/Row";
 import {

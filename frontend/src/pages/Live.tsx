@@ -47,9 +47,7 @@ interface MenuContextType {
 }
 
 const MenuContext = createContext<MenuContextType | null>(null);
-const MenuProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+function MenuProvider({ children }: { children: React.ReactNode }) {
   const [menuState, setMenuState] = useState<{
     open: boolean;
     camera: types.Camera | types.FailedCamera | null;
@@ -99,7 +97,7 @@ const MenuProvider: React.FC<{ children: React.ReactNode }> = ({
       )}
     </MenuContext.Provider>
   );
-};
+}
 
 export const FloatingMenu = memo(() => {
   const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
@@ -131,7 +129,7 @@ const CameraPlayer = memo(
     playerRef,
   }: {
     camera: types.Camera | types.FailedCamera;
-    playerRef: React.RefObject<VideoRTC>;
+    playerRef: React.RefObject<VideoRTC | null>;
   }) => {
     const theme = useTheme();
     const menuContext = useContext(MenuContext);
@@ -172,8 +170,8 @@ const CameraPlayer = memo(
     );
 
     const playerMenuButton = useMemo(
-      () => <PlayerMenu camera={camera} onMenuOpen={handleMenuOpen} />,
-      [camera, handleMenuOpen],
+      () => <PlayerMenu onMenuOpen={handleMenuOpen} />,
+      [handleMenuOpen],
     );
 
     return mjpegPlayer ? (
@@ -214,14 +212,14 @@ const CameraPlayer = memo(
   },
 );
 
-export const PlayerCard = () => {
+export function PlayerCard() {
   const theme = useTheme();
   const paperRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
 
   const renderPlayer = useCallback(
     (
       camera: types.Camera | types.FailedCamera,
-      playerRef: React.RefObject<VideoRTC>,
+      playerRef: React.RefObject<VideoRTC | null>,
     ) => <CameraPlayer camera={camera} playerRef={playerRef} />,
     [],
   );
@@ -245,14 +243,14 @@ export const PlayerCard = () => {
           cameras={filteredCameras as types.Cameras}
           containerRef={paperRef}
           renderPlayer={renderPlayer}
-          forceBreakpoint={true}
+          forceBreakpoint
         />
       </Box>
     </Paper>
   );
-};
+}
 
-const Live = () => {
+function Live() {
   useTitle("Live");
   const [searchParams] = useSearchParams();
   const { selectSingleCamera } = useCameraStore();
@@ -290,6 +288,6 @@ const Live = () => {
       </Container>
     </MenuProvider>
   );
-};
+}
 
 export default Live;
