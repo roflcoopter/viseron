@@ -64,7 +64,10 @@ export function FailedCameraCard({
             title="Recordings"
             target={`/recordings/${failedCamera.identifier}`}
           />
-          <CardActionButtonLink title="Edit Config" target={`/configuration`} />
+          <CardActionButtonLink
+            title="Edit Config"
+            target="/settings/configuration"
+          />
         </CardActions>
       )}
     </Card>
