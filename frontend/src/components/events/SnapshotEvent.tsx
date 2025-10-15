@@ -377,12 +377,21 @@ function Snapshot({ snapshotPath }: { snapshotPath: string }) {
         ...theme.applyStyles("dark", {
           border: `1px solid ${theme.palette.primary[900]}`,
         }),
+        lineHeight: 0,
       })}
     >
-      <Image
+      <img
         src={snapshotPath}
+        alt="Event snapshot"
         color={theme.palette.background.default}
-        animationDuration={1000}
+        style={{
+          display: "block",
+          aspectRatio: "1/1",
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          background: theme.palette.background.default,
+        }}
       />
     </Box>
   );
