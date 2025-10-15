@@ -1,5 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type JSX, memo } from "react";
+import { type JSX, memo, useEffect } from "react";
+import { create } from "zustand";
 
 import { Row } from "components/events/timeline/Row";
 import {
@@ -9,6 +10,16 @@ import {
   calculateTimeFromIndex,
   getItem,
 } from "components/events/utils";
+
+interface ScrollingState {
+  isScrolling: boolean;
+  setIsScrolling: (isScrolling: boolean) => void;
+}
+
+export const useScrollingStore = create<ScrollingState>((set) => ({
+  isScrolling: false,
+  setIsScrolling: (isScrolling) => set({ isScrolling }),
+}));
 
 type VirtualListProps = {
   parentRef: React.MutableRefObject<HTMLDivElement | null>;
@@ -30,6 +41,15 @@ export const VirtualList = memo(
       estimateSize: () => TICK_HEIGHT,
       overscan: 10,
     });
+
+    // Sync isScrolling with rowVirtualizer.isScrolling to avoid prop drilling
+    const { setIsScrolling } = useScrollingStore();
+    useEffect(() => {
+      const next = rowVirtualizer.isScrolling;
+      if (useScrollingStore.getState().isScrolling !== next) {
+        setIsScrolling(next);
+      }
+    }, [rowVirtualizer.isScrolling, setIsScrolling]);
 
     return (
       <div

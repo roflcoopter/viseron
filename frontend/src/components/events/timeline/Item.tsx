@@ -31,7 +31,7 @@ export const Item = memo(
         active={!!item.activityLineVariant}
         cameraEvent={item.timedEvent}
         variant={item.activityLineVariant}
-        availableTimespan={!!item.availableTimespan}
+        availableTimespan={item.availableTimespan}
       />
       {item.snapshotEvents ? (
         <SnapshotEvent

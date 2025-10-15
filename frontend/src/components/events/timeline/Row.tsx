@@ -5,7 +5,7 @@ import { Item, itemEqual } from "components/events/timeline/Item";
 import { TimelineItem } from "components/events/utils";
 
 const rowEqual = (prevItem: Readonly<RowProps>, nextItem: Readonly<RowProps>) =>
-  prevItem.virtualItem === nextItem.virtualItem &&
+  prevItem.virtualItem.key === nextItem.virtualItem.key &&
   itemEqual({ item: prevItem.item }, { item: nextItem.item });
 
 type RowProps = {
