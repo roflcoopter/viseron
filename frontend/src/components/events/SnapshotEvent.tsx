@@ -16,9 +16,10 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import PopupState, { bindHover, bindPopover } from "material-ui-popup-state";
 import HoverPopover from "material-ui-popup-state/HoverPopover";
-import { memo, useCallback, useRef } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
+import { useScrollingStore } from "components/events/timeline/VirtualList";
 import {
   EVENT_ICON_HEIGHT,
   TICK_HEIGHT,
@@ -32,8 +33,9 @@ import {
   useFilterStore,
   useSelectEvent,
 } from "components/events/utils";
+import { useFirstRender } from "hooks/UseFirstRender";
 import { useExportEvent } from "lib/commands";
-import { isTouchDevice, toTitleCase } from "lib/helpers";
+import { BLANK_IMAGE, isTouchDevice, toTitleCase } from "lib/helpers";
 import * as types from "lib/types";
 
 const getText = (event: types.CameraEvent) => {
@@ -400,19 +402,28 @@ function Snapshot({ snapshotPath }: { snapshotPath: string }) {
 type SnapshotEventProps = {
   events: types.CameraEvent[];
 };
-export const SnapshotEvent = memo(({ events }: SnapshotEventProps) => (
-  <Box
-    sx={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      height: TICK_HEIGHT,
-      width: "100%",
-    }}
-  >
-    <Divider />
-    <SnapshotIcons events={events} />
-    <Divider />
-    <Snapshot snapshotPath={getSrc(events[0])} />
-  </Box>
-));
+export const SnapshotEvent = memo(({ events }: SnapshotEventProps) => {
+  const firstRender = useFirstRender();
+  const isScrolling = useScrollingStore((s) => s.isScrolling);
+  const src = useMemo(
+    () => (isScrolling && firstRender ? BLANK_IMAGE : getSrc(events[0])),
+    [isScrolling, firstRender, events],
+  );
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: TICK_HEIGHT,
+        width: "100%",
+      }}
+    >
+      <Divider />
+      <SnapshotIcons events={events} />
+      <Divider />
+      <Snapshot snapshotPath={src} />
+    </Box>
+  );
+});
