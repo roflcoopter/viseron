@@ -385,7 +385,6 @@ function Snapshot({ snapshotPath }: { snapshotPath: string }) {
       <img
         src={snapshotPath}
         alt="Event snapshot"
-        color={theme.palette.background.default}
         style={{
           display: "block",
           aspectRatio: "1/1",
@@ -405,9 +404,11 @@ type SnapshotEventProps = {
 export const SnapshotEvent = memo(({ events }: SnapshotEventProps) => {
   const firstRender = useFirstRender();
   const isScrolling = useScrollingStore((s) => s.isScrolling);
+  // Show a blank image only on the first render while scrolling to avoid unnecessary image loads
+  const showBlankImageOnFirstScroll = isScrolling && firstRender;
   const src = useMemo(
-    () => (isScrolling && firstRender ? BLANK_IMAGE : getSrc(events[0])),
-    [isScrolling, firstRender, events],
+    () => (showBlankImageOnFirstScroll ? BLANK_IMAGE : getSrc(events[0])),
+    [showBlankImageOnFirstScroll, events],
   );
 
   return (
