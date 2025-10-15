@@ -19,7 +19,17 @@ export default defineConfig(({ mode }) => {
 
   return {
     appType: "mpa",
-    plugins: [react(), viteTsconfigPaths(), svgr(), eslint()],
+    plugins: [
+      react({
+        babel: {
+          plugins: ["babel-plugin-react-compiler"],
+        },
+      }),
+      ,
+      viteTsconfigPaths(),
+      svgr(),
+      eslint(),
+    ],
     build: {
       rollupOptions: {
         input: {
