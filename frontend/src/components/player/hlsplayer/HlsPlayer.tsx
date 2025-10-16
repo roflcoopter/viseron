@@ -203,9 +203,12 @@ const initializePlayer = (
 
   // Handle errors
   hlsRef.current.on(Hls.Events.ERROR, (_event, data) => {
-    // Ignore FRAG_GAP errors
+    // Ignore some HLS errors:
+    // - FRAG_GAP: Natural since recordings are not necessarily continuous
+    // - BUFFER_STALLED_ERROR: Happens when too close to live edge, automatically stabilizezes itself
     switch (data.details) {
       case Hls.ErrorDetails.FRAG_GAP:
+      case Hls.ErrorDetails.BUFFER_STALLED_ERROR:
         break;
       default:
         setHlsRefsError(hlsRef, data.error.message.slice(0, 200));
