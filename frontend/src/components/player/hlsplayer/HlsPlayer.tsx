@@ -31,7 +31,12 @@ const loadSource = (
   if (!hlsRef.current) {
     return;
   }
-  const source = `/api/v1/hls/${camera.identifier}/index.m3u8?start_timestamp=${playingDate}&date=${dayjs(playingDate * 1000).format("YYYY-MM-DD")}`;
+  // Subtract 1 hour from playingDate.
+  // This is to allow clicking on the timeline and then seek backwards a bit to get some
+  // context before the requested timestamp
+  const startTimestamp = playingDate - 3600;
+
+  const source = `/api/v1/hls/${camera.identifier}/index.m3u8?start_timestamp=${startTimestamp}&date=${dayjs(playingDate * 1000).format("YYYY-MM-DD")}`;
   hlsClientIdRef.current = uuidv4();
   hlsRef.current.loadSource(source);
 };
@@ -198,9 +203,12 @@ const initializePlayer = (
 
   // Handle errors
   hlsRef.current.on(Hls.Events.ERROR, (_event, data) => {
-    // Ignore FRAG_GAP errors
+    // Ignore some HLS errors:
+    // - FRAG_GAP: Natural since recordings are not necessarily continuous
+    // - BUFFER_STALLED_ERROR: Happens when too close to live edge, automatically stabilizezes itself
     switch (data.details) {
       case Hls.ErrorDetails.FRAG_GAP:
+      case Hls.ErrorDetails.BUFFER_STALLED_ERROR:
         break;
       default:
         setHlsRefsError(hlsRef, data.error.message.slice(0, 200));
