@@ -165,6 +165,15 @@ function SyncManager({ children }: SyncManagerProps) {
       setReferencePlayer(null);
     }
 
+    // If there are no players with time, play the first player
+    if (playersWithTime.length === 0) {
+      if (hlsRefs.length > 0 && hlsRefs[0].current) {
+        hlsRefs[0].current.media!.play().then(() => {
+          setHlsRefsError(hlsRefs[0], null);
+        });
+      }
+    }
+
     // Check if all players are paused
     if (playersWithTime.every((player) => player.current.media!.paused)) {
       const playingDateMillis = playingDateRef.current * 1000;
@@ -174,7 +183,8 @@ function SyncManager({ children }: SyncManagerProps) {
 
       playersWithTime.forEach((player, index) => {
         const fragments =
-          player.current.levels[player.current.currentLevel].details?.fragments;
+          player.current.levels[player.current.currentLevel]?.details
+            ?.fragments;
         if (!fragments || fragments.length === 0) {
           return;
         }
@@ -199,8 +209,8 @@ function SyncManager({ children }: SyncManagerProps) {
       if (playerToPlayIndex !== -1) {
         const playerToPlay = playersWithTime[playerToPlayIndex];
         const fragments =
-          playerToPlay.current.levels[playerToPlay.current.currentLevel].details
-            ?.fragments;
+          playerToPlay.current.levels[playerToPlay.current.currentLevel]
+            ?.details?.fragments;
         if (!fragments || fragments.length === 0) {
           return;
         }
@@ -255,7 +265,8 @@ function SyncManager({ children }: SyncManagerProps) {
           if (
             data.details === Hls.ErrorDetails.BUFFER_NUDGE_ON_STALL ||
             data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR ||
-            data.details === Hls.ErrorDetails.LEVEL_LOAD_ERROR
+            data.details === Hls.ErrorDetails.LEVEL_LOAD_ERROR ||
+            data.details === Hls.ErrorDetails.LEVEL_PARSING_ERROR
           ) {
             player.current!.media!.play().catch(() => {
               // Ignore play errors
