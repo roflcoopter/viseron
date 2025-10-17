@@ -1,20 +1,20 @@
-import MUILoadingButton from "@mui/lab/LoadingButton";
+import Button from "@mui/material/Button";
 
 export type LoadingButtonProps = {
   text: string;
   icon: React.ReactNode;
   textSuccess?: string;
-  iconSuccess?: React.ReactNode;
   textError?: string;
-  iconError?: React.ReactNode;
   onClick: React.MouseEventHandler<HTMLButtonElement> | undefined;
   variant?: "text" | "outlined" | "contained" | undefined;
   state: "normal" | "loading" | "success" | "error";
 };
 
-export const LoadingButton = (props: LoadingButtonProps) => {
-  function getColor(state: LoadingButtonProps["state"]) {
-    switch (state) {
+export function LoadingButton(props: LoadingButtonProps) {
+  const { text, textSuccess, textError, state, onClick, variant, icon } = props;
+
+  function getColor(buttonState: LoadingButtonProps["state"]) {
+    switch (buttonState) {
       case "normal":
         return "primary";
       case "loading":
@@ -28,31 +28,31 @@ export const LoadingButton = (props: LoadingButtonProps) => {
     }
   }
 
-  function getText(state: LoadingButtonProps["state"]) {
-    switch (state) {
+  function getText(buttonState: LoadingButtonProps["state"]) {
+    switch (buttonState) {
       case "normal":
-        return props.text;
+        return text;
       case "loading":
-        return props.text;
+        return text;
       case "success":
-        return props.textSuccess ? props.textSuccess : "Success!";
+        return textSuccess || "Success!";
       case "error":
-        return props.textError ? props.textError : "Error!";
+        return textError || "Error!";
       default:
-        return props.text;
+        return text;
     }
   }
 
   return (
-    <MUILoadingButton
-      color={getColor(props.state)}
-      onClick={props.onClick}
-      loading={props.state === "loading"}
+    <Button
+      color={getColor(state)}
+      onClick={onClick}
+      loading={state === "loading"}
       loadingPosition="start"
-      startIcon={props.icon}
-      variant={props.variant}
+      startIcon={icon}
+      variant={variant}
     >
-      {getText(props.state)}
-    </MUILoadingButton>
+      {getText(state)}
+    </Button>
   );
-};
+}

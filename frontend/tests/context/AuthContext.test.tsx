@@ -193,4 +193,23 @@ describe("AuthContext", () => {
       expect(screen.getByTestId("user-name").textContent).toBe("Test User");
     });
   });
+
+  it("renders error message when auth query succeeds but data is empty", async () => {
+    // Simulate server empty response
+    server.use(
+      http.get(
+        `${API_BASE_URL}/auth/enabled`,
+        () => HttpResponse.json(undefined, { status: 200 }),
+        { once: true },
+      ),
+    );
+
+    renderWithProviders(<TestComponent />);
+    await waitFor(() => {
+      expect(screen.getByText("Error loading auth")).toBeInTheDocument();
+      expect(
+        screen.getByText("Auth context value is null"),
+      ).toBeInTheDocument();
+    });
+  });
 });

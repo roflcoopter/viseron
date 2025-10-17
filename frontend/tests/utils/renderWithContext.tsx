@@ -53,6 +53,7 @@ export function createProvidersWrapper(options: TestContextOptions = {}) {
   } = options;
 
   function ProvidersWrapper({ children }: ProvidersWrapperProps) {
+    // eslint-disable-next-line react/jsx-no-constructed-context-values
     const viseronValue: ViseronContextState = {
       connected: true,
       safeMode: false,
@@ -69,6 +70,7 @@ export function createProvidersWrapper(options: TestContextOptions = {}) {
         <CssBaseline enableColorScheme />
         <QueryClientProvider client={queryClient}>
           <MemoryRouter>
+            {/* eslint-disable-next-line react/jsx-no-constructed-context-values */}
             <AuthContext.Provider value={{ auth, user }}>
               <ViseronContext.Provider value={viseronValue}>
                 {children}

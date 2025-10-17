@@ -32,7 +32,7 @@ const useAddTicks = (
   setStart: React.Dispatch<React.SetStateAction<number>>,
 ) => {
   const { connected } = useContext(ViseronContext);
-  const timeout = useRef<NodeJS.Timeout>();
+  const timeout = useRef<NodeJS.Timeout>(undefined);
 
   useEffect(() => {
     // If date is not today, don't add ticks
@@ -150,7 +150,7 @@ export const TimelineTable = memo(({ parentRef, date }: TimelineTableProps) => {
       : "Unknown error";
     return (
       <ErrorMessage
-        text={"Error loading events and/or timespans"}
+        text="Error loading events and/or timespans"
         subtext={subtext}
         image={
           <ServerDown width={150} height={150} role="img" aria-label="Void" />

@@ -8,7 +8,7 @@ import { isTouchDevice } from "lib/helpers.js";
 import * as types from "lib/types";
 
 const useMjpegControlsVisibility = (
-  containerRef: React.RefObject<HTMLDivElement>,
+  containerRef: React.RefObject<HTMLDivElement | null>,
 ) => {
   const [controlsVisible, setControlsVisible] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
@@ -85,7 +85,7 @@ const useMjpegControlsVisibility = (
 };
 
 const useMjpegErrorHandling = (
-  imgRef: React.RefObject<HTMLImageElement>,
+  imgRef: React.RefObject<HTMLImageElement | null>,
   src: string,
 ) => {
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +115,7 @@ interface MjpegPlayerProps extends React.HTMLAttributes<HTMLElement> {
   isMenuOpen?: boolean;
 }
 
-export const MjpegPlayer: React.FC<MjpegPlayerProps> = ({
+export function MjpegPlayer({
   camera,
   src,
   style,
@@ -127,7 +127,7 @@ export const MjpegPlayer: React.FC<MjpegPlayerProps> = ({
   drawZones = false,
   drawPostProcessorMask = false,
   isMenuOpen = false,
-}) => {
+}: MjpegPlayerProps) {
   const theme = useTheme();
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -195,4 +195,4 @@ export const MjpegPlayer: React.FC<MjpegPlayerProps> = ({
       />
     </div>
   );
-};
+}

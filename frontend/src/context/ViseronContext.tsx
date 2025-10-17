@@ -1,5 +1,5 @@
 import { QueryKey, useQueryClient } from "@tanstack/react-query";
-import React, { FC, createContext, useEffect, useState } from "react";
+import React, { createContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAuthContext } from "context/AuthContext";
@@ -40,9 +40,7 @@ const contextDefaultValues: ViseronContextState = {
 export const ViseronContext =
   createContext<ViseronContextState>(contextDefaultValues);
 
-export const ViseronProvider: FC<ViseronProviderProps> = ({
-  children,
-}: ViseronProviderProps) => {
+export function ViseronProvider({ children }: ViseronProviderProps) {
   const { auth } = useAuthContext();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -54,9 +52,9 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
     subscriptionRef,
   });
   const { connection } = contextValue;
-  const onConnectRef = React.useRef<() => void>();
-  const onDisconnectRef = React.useRef<() => void>();
-  const onConnectionErrorRef = React.useRef<() => void>();
+  const onConnectRef = React.useRef<() => void>(undefined);
+  const onDisconnectRef = React.useRef<() => void>(undefined);
+  const onConnectionErrorRef = React.useRef<() => void>(undefined);
 
   useEffect(() => {
     if (connection) {
@@ -139,4 +137,4 @@ export const ViseronProvider: FC<ViseronProviderProps> = ({
       {children}
     </ViseronContext.Provider>
   );
-};
+}

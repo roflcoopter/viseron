@@ -6,7 +6,7 @@ import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
-import Grid from "@mui/material/Grid2";
+import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import Popover from "@mui/material/Popover";
 import Stack from "@mui/material/Stack";
@@ -16,9 +16,10 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import PopupState, { bindHover, bindPopover } from "material-ui-popup-state";
 import HoverPopover from "material-ui-popup-state/HoverPopover";
-import { memo, useCallback, useRef } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
+import { useScrollingStore } from "components/events/timeline/VirtualList";
 import {
   EVENT_ICON_HEIGHT,
   TICK_HEIGHT,
@@ -32,8 +33,9 @@ import {
   useFilterStore,
   useSelectEvent,
 } from "components/events/utils";
+import { useFirstRender } from "hooks/UseFirstRender";
 import { useExportEvent } from "lib/commands";
-import { isTouchDevice, toTitleCase } from "lib/helpers";
+import { BLANK_IMAGE, isTouchDevice, toTitleCase } from "lib/helpers";
 import * as types from "lib/types";
 
 const getText = (event: types.CameraEvent) => {
@@ -42,7 +44,7 @@ const getText = (event: types.CameraEvent) => {
     case "object":
       return (
         <Box>
-          <Typography variant="h5" fontSize={"1rem"}>
+          <Typography variant="h5" fontSize="1rem">
             Object Detection
           </Typography>
 
@@ -55,7 +57,7 @@ const getText = (event: types.CameraEvent) => {
     case "face_recognition":
       return (
         <Box>
-          <Typography variant="h5" fontSize={"1rem"}>
+          <Typography variant="h5" fontSize="1rem">
             Face Recognition
           </Typography>
           <Box>{`Name: ${toTitleCase(event.data.name)}`}</Box>
@@ -69,7 +71,7 @@ const getText = (event: types.CameraEvent) => {
     case "license_plate_recognition":
       return (
         <Box>
-          <Typography variant="h5" fontSize={"1rem"}>
+          <Typography variant="h5" fontSize="1rem">
             License Plate Recognition
           </Typography>
           <Box>{`Plate: ${event.data.plate}`}</Box>
@@ -84,7 +86,7 @@ const getText = (event: types.CameraEvent) => {
     case "motion":
       return (
         <Box>
-          <Typography variant="h5" fontSize={"1rem"}>
+          <Typography variant="h5" fontSize="1rem">
             Motion Detection
           </Typography>
           {event.duration ? (
@@ -97,7 +99,7 @@ const getText = (event: types.CameraEvent) => {
     case "recording":
       return (
         <Box>
-          <Typography variant="h5" fontSize={"1rem"}>
+          <Typography variant="h5" fontSize="1rem">
             Recording
           </Typography>
           {event.trigger_type ? (
@@ -131,7 +133,7 @@ const getTooltipTitle = (event: types.CameraEvent) => {
   }
 };
 
-const PopoverContent = ({ events }: { events: types.CameraEvent[] }) => {
+function PopoverContent({ events }: { events: types.CameraEvent[] }) {
   const theme = useTheme();
   const matches = useMediaQuery(theme.breakpoints.up("sm"));
   const width = matches ? (events.length > 1 ? "50vw" : "25vw") : "90vw";
@@ -150,9 +152,9 @@ const PopoverContent = ({ events }: { events: types.CameraEvent[] }) => {
       {events
         .slice()
         .reverse()
-        .map((event, index) => (
+        .map((event) => (
           <Grid
-            key={`${index}-${getEventTimestamp(event)}`}
+            key={`${event.id}-${getEventTimestamp(event)}`}
             size={events.length > 1 ? 1 : 2}
           >
             <Card>
@@ -203,19 +205,21 @@ const PopoverContent = ({ events }: { events: types.CameraEvent[] }) => {
         ))}
     </Grid>
   );
-};
+}
 
-const Divider = () => (
-  <Box
-    sx={(theme) => ({
-      height: "1px",
-      flexGrow: 1,
-      backgroundColor: theme.palette.divider,
-    })}
-  />
-);
+function Divider() {
+  return (
+    <Box
+      sx={(theme) => ({
+        height: "1px",
+        flexGrow: 1,
+        backgroundColor: theme.palette.divider,
+      })}
+    />
+  );
+}
 
-export const SnapshotIcon = ({ events }: { events: types.CameraEvent[] }) => {
+export function SnapshotIcon({ events }: { events: types.CameraEvent[] }) {
   const Icon = getIcon(events[0]);
   const PopoverComponent = isTouchDevice() ? Popover : HoverPopover;
 
@@ -257,6 +261,7 @@ export const SnapshotIcon = ({ events }: { events: types.CameraEvent[] }) => {
         return (
           <div>
             <Box
+              // eslint-disable-next-line react/jsx-props-no-spreading
               {...rest}
               onMouseOver={(e) => handleOnMouseEnter(e, onMouseOver)}
               onMouseLeave={(e) => handleMouseLeave(e, onMouseLeave)}
@@ -296,6 +301,7 @@ export const SnapshotIcon = ({ events }: { events: types.CameraEvent[] }) => {
                 e.stopPropagation();
                 e.preventDefault();
               }}
+              // eslint-disable-next-line react/jsx-props-no-spreading
               {...bindPopover(popupState)}
               slotProps={{
                 paper: {
@@ -324,9 +330,9 @@ export const SnapshotIcon = ({ events }: { events: types.CameraEvent[] }) => {
       }}
     </PopupState>
   );
-};
+}
 
-const SnapshotIcons = ({ events }: { events: types.CameraEvent[] }) => {
+function SnapshotIcons({ events }: { events: types.CameraEvent[] }) {
   // Show the oldest event first in the list, API returns latest first
   const sortedEvents = events
     .slice()
@@ -354,9 +360,9 @@ const SnapshotIcons = ({ events }: { events: types.CameraEvent[] }) => {
       })}
     </Stack>
   );
-};
+}
 
-const Snapshot = ({ snapshotPath }: { snapshotPath: string }) => {
+function Snapshot({ snapshotPath }: { snapshotPath: string }) {
   const theme = useTheme();
   return (
     <Box
@@ -373,33 +379,52 @@ const Snapshot = ({ snapshotPath }: { snapshotPath: string }) => {
         ...theme.applyStyles("dark", {
           border: `1px solid ${theme.palette.primary[900]}`,
         }),
+        lineHeight: 0,
       })}
     >
-      <Image
+      <img
         src={snapshotPath}
-        color={theme.palette.background.default}
-        animationDuration={1000}
+        alt="Event snapshot"
+        style={{
+          display: "block",
+          aspectRatio: "1/1",
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          background: theme.palette.background.default,
+        }}
       />
     </Box>
   );
-};
+}
 
 type SnapshotEventProps = {
   events: types.CameraEvent[];
 };
-export const SnapshotEvent = memo(({ events }: SnapshotEventProps) => (
-  <Box
-    sx={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      height: TICK_HEIGHT,
-      width: "100%",
-    }}
-  >
-    <Divider />
-    <SnapshotIcons events={events} />
-    <Divider />
-    <Snapshot snapshotPath={getSrc(events[0])} />
-  </Box>
-));
+export const SnapshotEvent = memo(({ events }: SnapshotEventProps) => {
+  const firstRender = useFirstRender();
+  const isScrolling = useScrollingStore((s) => s.isScrolling);
+  // Show a blank image only on the first render while scrolling to avoid unnecessary image loads
+  const showBlankImageOnFirstScroll = isScrolling && firstRender;
+  const src = useMemo(
+    () => (showBlankImageOnFirstScroll ? BLANK_IMAGE : getSrc(events[0])),
+    [showBlankImageOnFirstScroll, events],
+  );
+
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        height: TICK_HEIGHT,
+        width: "100%",
+      }}
+    >
+      <Divider />
+      <SnapshotIcons events={events} />
+      <Divider />
+      <Snapshot snapshotPath={src} />
+    </Box>
+  );
+});

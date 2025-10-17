@@ -220,7 +220,7 @@ export const DEFAULT_ITEM: TimelineItem = {
   time: 0,
   timedEvent: null,
   snapshotEvents: null,
-  availableTimespan: null,
+  availableTimespan: false,
   activityLineVariant: null,
 };
 
@@ -228,7 +228,7 @@ export type TimelineItem = {
   time: number;
   timedEvent: null | types.CameraMotionEvent | types.CameraRecordingEvent;
   snapshotEvents: null | types.CameraSnapshotEvents;
-  availableTimespan: null | types.HlsAvailableTimespan;
+  availableTimespan: boolean;
   activityLineVariant: "first" | "middle" | "last" | "round" | null;
 };
 
@@ -326,13 +326,27 @@ export const calculateIndexFromTime = (
 ) => Math.round((startRef.current - (timestamp || dayjs().unix())) / SCALE);
 
 // Common logic for items that affect the activity line
-export const createActivityLineItem = (
+export function createActivityLineItem(
   startRef: React.MutableRefObject<number>,
   indexStart: number,
   indexEnd: number,
-  event: types.CameraEvent | types.HlsAvailableTimespan,
+  event: boolean,
+  eventType: "availableTimespan",
+): TimelineItems;
+export function createActivityLineItem(
+  startRef: React.MutableRefObject<number>,
+  indexStart: number,
+  indexEnd: number,
+  event: types.CameraTimedEvents,
+  eventType: "timedEvent",
+): TimelineItems;
+export function createActivityLineItem(
+  startRef: React.MutableRefObject<number>,
+  indexStart: number,
+  indexEnd: number,
+  event: types.CameraEvent | boolean,
   eventType: "availableTimespan" | "timedEvent",
-) => {
+): TimelineItems {
   const timelineItems: TimelineItems = {};
 
   let time = calculateTimeFromIndex(startRef, indexStart);
@@ -364,7 +378,7 @@ export const createActivityLineItem = (
   }
 
   return timelineItems;
-};
+}
 
 // For snapshot events, make sure adjacent events are grouped together
 const addSnapshotEvent = (
@@ -426,7 +440,7 @@ export const getTimelineItems = (
         startRef,
         indexStart,
         indexEnd,
-        timespan,
+        true,
         "availableTimespan",
       ),
     };

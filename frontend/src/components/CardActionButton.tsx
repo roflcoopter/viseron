@@ -2,13 +2,6 @@ import Button, { ButtonProps } from "@mui/material/Button";
 import { styled } from "@mui/material/styles";
 import { Link } from "react-router-dom";
 
-interface CardActionButtonProps {
-  title: string;
-  target: string;
-  width?: string;
-  disabled?: boolean;
-}
-
 type ExtendedButtonProps = ButtonProps & {
   component?: any;
   target?: any;
@@ -25,12 +18,19 @@ const StyledButton = styled(Button)<ExtendedButtonProps>(({ theme }) => ({
   }),
 }));
 
+interface CardActionButtonLinkProps {
+  title: string;
+  target: string;
+  width?: string;
+  disabled?: boolean;
+}
+
 export function CardActionButtonLink({
   title,
   target,
   width = "50%",
   disabled = false,
-}: CardActionButtonProps) {
+}: CardActionButtonLinkProps) {
   return (
     <StyledButton
       component={Link}
@@ -47,7 +47,15 @@ export function CardActionButtonLink({
   );
 }
 
-export function CardActionButtonHref({ title, target }: CardActionButtonProps) {
+interface CardActionButtonHrefProps {
+  title: string;
+  target: string;
+}
+
+export function CardActionButtonHref({
+  title,
+  target,
+}: CardActionButtonHrefProps) {
   return (
     <StyledButton
       component={"a" as React.ElementType}

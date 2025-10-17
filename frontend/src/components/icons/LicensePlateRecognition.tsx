@@ -16,29 +16,31 @@ type LicensePlateRecognitionProps = {
     | undefined;
 };
 
-const LicensePlateRecognition = ({
+function LicensePlateRecognition({
   color = undefined,
-}: LicensePlateRecognitionProps) => (
-  <Box sx={{ position: "relative" }}>
-    <DirectionsCarIcon color={color} />
-    <SearchIcon
-      sx={(theme) => ({
-        position: "absolute",
-        right: "-6.5px",
-        bottom: "-1px",
-        strokeWidth: 2,
-        stroke: theme.palette.background.paper,
-      })}
-    />
-    <SearchIcon
-      color={color}
-      sx={{
-        position: "absolute",
-        right: "-6.5px",
-        bottom: "-1px",
-      }}
-    />
-  </Box>
-);
+}: LicensePlateRecognitionProps) {
+  return (
+    <Box sx={{ position: "relative" }}>
+      <DirectionsCarIcon color={color} />
+      <SearchIcon
+        sx={(theme) => ({
+          position: "absolute",
+          right: "-6.5px",
+          bottom: "-1px",
+          strokeWidth: 2,
+          stroke: theme.palette.background.paper,
+        })}
+      />
+      <SearchIcon
+        color={color}
+        sx={{
+          position: "absolute",
+          right: "-6.5px",
+          bottom: "-1px",
+        }}
+      />
+    </Box>
+  );
+}
 
 export default LicensePlateRecognition;

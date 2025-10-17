@@ -28,7 +28,7 @@ interface UserDialogProps {
   onClose: () => void;
 }
 
-const UserDialog: React.FC<UserDialogProps> = ({ user, onClose }) => {
+function UserDialog({ user, onClose }: UserDialogProps) {
   const { user: currentUser } = useAuthContext();
   const authUpdateUser = useAuthUpdateUser();
   const authDelete = useAuthDelete();
@@ -137,7 +137,7 @@ const UserDialog: React.FC<UserDialogProps> = ({ user, onClose }) => {
                   .join(", ")
               }
             >
-              <MenuItem value={"<select-all-cameras>"}>
+              <MenuItem value="<select-all-cameras>">
                 <Checkbox
                   checked={
                     assignedCameras.length ===
@@ -183,6 +183,6 @@ const UserDialog: React.FC<UserDialogProps> = ({ user, onClose }) => {
       )}
     </>
   );
-};
+}
 
 export default UserDialog;

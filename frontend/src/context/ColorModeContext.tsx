@@ -7,13 +7,7 @@ import {
 } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { deepmerge } from "@mui/utils";
-import {
-  createContext,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useCallback, useMemo, useState } from "react";
 
 declare module "@mui/material/styles/createPalette" {
   interface ColorRange {
@@ -29,7 +23,6 @@ declare module "@mui/material/styles/createPalette" {
     900: string;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-interface
   interface PaletteColor extends ColorRange {}
 
   interface Palette {
@@ -95,33 +88,26 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
   const preferredMode = useMediaQuery("(prefers-color-scheme: dark)")
     ? "dark"
     : "light";
-  const [mode, setMode] = useState<"light" | "dark">("light");
+
+  // Persisted user choice (or null if not set)
+  const [chosenMode, setChosenMode] = useState<"light" | "dark" | null>(() => {
+    const stored = localStorage.getItem("chosenMode");
+    return stored === "dark" ? "dark" : stored === "light" ? "light" : null;
+  });
+
+  // Effective mode: user choice overrides system preference
+  const mode = chosenMode ?? preferredMode;
+
   const colorMode = useMemo(
     () => ({
       toggleColorMode: () => {
-        setMode((prevMode) => {
-          const nextMode = prevMode === "light" ? "dark" : "light";
-          localStorage.setItem("chosenMode", nextMode);
-          return nextMode;
-        });
+        const nextMode = mode === "light" ? "dark" : "light";
+        setChosenMode(nextMode);
+        localStorage.setItem("chosenMode", nextMode);
       },
     }),
-    [],
+    [mode],
   );
-
-  useEffect(() => {
-    const chosenMode = localStorage.getItem("chosenMode");
-    switch (chosenMode) {
-      case "dark":
-        setMode("dark");
-        break;
-      case "light":
-        setMode("light");
-        break;
-      default:
-        setMode(preferredMode);
-    }
-  }, [preferredMode]);
 
   const getDesignTokens = useCallback(
     (requestedMode: "light" | "dark") =>
@@ -130,14 +116,14 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
           borderRadius: 5,
         },
 
-        ...(mode === "light" && {
+        ...(requestedMode === "light" && {
           text: {
             primary: grey[900],
             secondary: grey[700],
           },
         }),
 
-        ...(mode === "dark" && {
+        ...(requestedMode === "dark" && {
           text: {
             primary: "#fff",
             secondary: grey[400],
@@ -149,7 +135,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         headerMargin: "0.5dvh",
 
         palette: {
-          mode,
+          mode: requestedMode,
           motion: "#f9b4f6",
           recording: "#5df15d",
           ...(requestedMode === "light"
@@ -175,7 +161,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
 
         typography: {
           h5: {
-            color: mode === "dark" ? blue[300] : blue.main,
+            color: requestedMode === "dark" ? blue[300] : blue.main,
           },
           uppercase: {
             textTransform: "uppercase",
@@ -184,7 +170,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
           },
         },
       }) as ThemeOptions,
-    [mode],
+    [],
   );
 
   function getThemedComponents(theme: Theme) {

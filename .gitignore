@@ -92,7 +92,7 @@
 !/frontend/src/**
 !/frontend/tests
 !/frontend/tests/**
-!/frontend/.eslintrc.cjs
+!/frontend/eslint.config.cjs
 !/frontend/.prettierrc.json
 !/frontend/404.html
 !/frontend/index.html

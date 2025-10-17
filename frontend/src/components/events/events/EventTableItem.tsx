@@ -1,7 +1,7 @@
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardMedia from "@mui/material/CardMedia";
-import Grid from "@mui/material/Grid2";
+import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
 import { memo, useMemo } from "react";
@@ -27,7 +27,7 @@ type EventTableItemIconsProps = {
   sortedEvents: types.CameraEvent[];
 };
 
-const EventTableItemIcons = ({ sortedEvents }: EventTableItemIconsProps) => {
+function EventTableItemIcons({ sortedEvents }: EventTableItemIconsProps) {
   const uniqueEvents = extractUniqueTypes(sortedEvents);
   const cameraName = getCameraNameFromQueryCache(
     sortedEvents[0].camera_identifier,
@@ -67,7 +67,7 @@ const EventTableItemIcons = ({ sortedEvents }: EventTableItemIconsProps) => {
       </Grid>
     </div>
   );
-};
+}
 
 type EventTableItemProps = {
   events: types.CameraEvent[];
@@ -154,6 +154,7 @@ export const EventTableItem = memo(
               >
                 <img
                   src={src}
+                  alt="Event snapshot"
                   style={{
                     aspectRatio: "1/1",
                     width: "100%",

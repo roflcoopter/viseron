@@ -18,10 +18,16 @@ export class VideoRTC extends HTMLElement {
   }
 
   onmessage: { stream?: (msg: { type: string; value: string }) => void };
+
   oninit(): void;
+
   onconnect(): any;
+
   ondisconnect(): void;
+
   onopen(): any;
+
   onclose(): any;
+
   onpcvideo(ev: Event): void;
 }

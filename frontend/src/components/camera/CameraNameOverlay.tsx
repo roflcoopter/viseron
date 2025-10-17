@@ -34,17 +34,18 @@ const iconStyles: SxProps<Theme> = {
   marginLeft: 1,
 };
 
-const StatusIcon = ({ camera }: { camera: types.Camera }) =>
-  camera.is_on ? (
+function StatusIcon({ camera }: { camera: types.Camera }) {
+  return camera.is_on ? (
     <CircleIcon htmlColor={camera.connected ? "red" : "gray"} sx={iconStyles} />
   ) : (
     <VideocamOffIcon htmlColor="white" sx={iconStyles} />
   );
+}
 
-export const CameraNameOverlay = ({
+export function CameraNameOverlay({
   camera_identifier,
   extraStatusText,
-}: CameraNameOverlayProps) => {
+}: CameraNameOverlayProps) {
   const cameraQuery = useCamera(camera_identifier);
   if (!cameraQuery.data) {
     return null;
@@ -87,4 +88,4 @@ export const CameraNameOverlay = ({
       )}
     </Box>
   );
-};
+}
