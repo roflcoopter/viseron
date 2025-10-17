@@ -113,7 +113,7 @@ export const HoverLine = memo(
             backgroundColor: theme.palette.primary.main,
             fontSize: "0.7rem",
           })}
-        ></Box>
+        />
       </Box>
     );
   },

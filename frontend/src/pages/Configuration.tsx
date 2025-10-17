@@ -5,7 +5,7 @@ import { useHideScrollbar } from "hooks/UseHideScrollbar";
 import { useTitle } from "hooks/UseTitle";
 
 const Editor = lazy(() => import("components/editor/Editor"));
-const Configuration = () => {
+function Configuration() {
   useTitle("Configuration");
   useHideScrollbar();
 
@@ -14,6 +14,6 @@ const Configuration = () => {
       <Editor />
     </Container>
   );
-};
+}
 
 export default Configuration;

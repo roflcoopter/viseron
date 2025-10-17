@@ -2,7 +2,13 @@ import { Container } from "@mui/material";
 import Button from "@mui/material/Button";
 import { AxiosHeaders } from "axios";
 import Cookies from "js-cookie";
-import { FC, createContext, useContext, useLayoutEffect, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 
 import SessionExpired from "components/dialog/SessionExpired";
@@ -110,9 +116,7 @@ type AuthProviderProps = {
   children: React.ReactNode;
 };
 
-export const AuthProvider: FC<AuthProviderProps> = ({
-  children,
-}: AuthProviderProps) => {
+export function AuthProvider({ children }: AuthProviderProps) {
   const authQuery = useAuthEnabled();
   useAuthAxiosInterceptor(authQuery.data);
   const location = useLocation();
@@ -128,6 +132,14 @@ export const AuthProvider: FC<AuthProviderProps> = ({
       ),
     },
   });
+
+  const authContextState = useMemo<AuthContextState>(
+    () => ({
+      auth: authQuery.data!,
+      user: userQuery.data ?? null,
+    }),
+    [authQuery.data, userQuery.data],
+  );
 
   if (authQuery.isPending || authQuery.isLoading) {
     return <Loading text="Loading Auth" />;
@@ -159,18 +171,22 @@ export const AuthProvider: FC<AuthProviderProps> = ({
     return <Navigate to="/onboarding" replace />;
   }
 
+  if (!authQuery.data) {
+    return (
+      <ErrorMessage
+        text="Error loading auth"
+        subtext="Auth context value is null"
+      />
+    );
+  }
+
   return (
-    <AuthContext.Provider
-      value={{
-        auth: authQuery.data,
-        user: userQuery.data || null,
-      }}
-    >
+    <AuthContext.Provider value={authContextState}>
       {authQuery.data.enabled ? <SessionExpired /> : null}
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
 export const useAuthContext = () => {
   const context = useContext(AuthContext);

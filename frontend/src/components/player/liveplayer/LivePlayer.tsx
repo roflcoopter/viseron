@@ -8,7 +8,9 @@ import "components/player/liveplayer/video-stream.js";
 import { isTouchDevice } from "lib/helpers.js";
 import * as types from "lib/types";
 
-const useVideoControlsVisibility = (playerRef: React.RefObject<VideoRTC>) => {
+const useVideoControlsVisibility = (
+  playerRef: React.RefObject<VideoRTC | null>,
+) => {
   const [controlsVisible, setControlsVisible] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -146,7 +148,7 @@ const useVideoControlsVisibility = (playerRef: React.RefObject<VideoRTC>) => {
   };
 };
 
-const usePlayerStatus = (playerRef: React.RefObject<VideoRTC>) => {
+const usePlayerStatus = (playerRef: React.RefObject<VideoRTC | null>) => {
   const [status, setStatus] = useState<string>("");
 
   useEffect(() => {
@@ -168,12 +170,12 @@ interface LivePlayerProps extends React.HTMLAttributes<HTMLElement> {
   controls?: boolean;
   src: string;
   style?: React.CSSProperties;
-  playerRef?: React.RefObject<VideoRTC>;
+  playerRef?: React.RefObject<VideoRTC | null>;
   extraButtons?: React.ReactNode;
   isMenuOpen?: boolean;
 }
 
-export const LivePlayer = ({
+export function LivePlayer({
   camera,
   controls,
   src,
@@ -181,7 +183,7 @@ export const LivePlayer = ({
   playerRef,
   extraButtons,
   isMenuOpen = false,
-}: LivePlayerProps) => {
+}: LivePlayerProps) {
   const _elementRef = useRef<VideoRTC>(null);
   const elementRef = playerRef || _elementRef;
   const containerRef = useRef<HTMLDivElement>(null);
@@ -229,15 +231,11 @@ export const LivePlayer = ({
         onFullscreenToggle={handleFullscreenToggle}
         extraButtons={extraButtons}
       />
-      <video-stream
-        ref={elementRef}
-        style={style}
-        controls={controlsVisible}
-      ></video-stream>
+      <video-stream ref={elementRef} style={style} controls={controlsVisible} />
       <CameraNameOverlay
         camera_identifier={camera.identifier}
         extraStatusText={playerStatus}
       />
     </div>
   );
-};
+}

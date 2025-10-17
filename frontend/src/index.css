@@ -28,14 +28,6 @@ body {
   --toastify-color-error: #d32f2f;
 }
 
-.Toastify__toast {
-  min-height: "0px";
-}
-
-.Toastify__close-button {
-  align-self: auto;
-}
-
 .page-enter {
   opacity: 0;
 }

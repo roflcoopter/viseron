@@ -13,7 +13,7 @@ import { useToast } from "hooks/UseToast";
 import { useSystemDispatchedEvents } from "lib/api/system";
 import { subscribeEvent } from "lib/commands";
 
-const SystemEvents = () => {
+function SystemEvents() {
   const { connection } = useContext(ViseronContext);
   const toast = useToast();
 
@@ -112,6 +112,7 @@ const SystemEvents = () => {
       {receivedEvents.length > 0 && (
         <Paper variant="outlined" sx={{ p: 3 }}>
           {receivedEvents.map((ev, idx) => (
+            // eslint-disable-next-line react/no-array-index-key
             <Box key={idx} sx={{ mb: 3 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Event {receivedEvents.length - idx - 1}:
@@ -135,6 +136,6 @@ const SystemEvents = () => {
       )}
     </Container>
   );
-};
+}
 
 export default SystemEvents;

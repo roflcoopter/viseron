@@ -1,5 +1,5 @@
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid2";
+import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
 
 import { CameraCard } from "components/camera/CameraCard";
@@ -9,7 +9,7 @@ import { useTitle } from "hooks/UseTitle";
 import { useCameras, useCamerasFailed } from "lib/api/cameras";
 import { objHasValues } from "lib/helpers";
 
-const Cameras = () => {
+function Cameras() {
   useTitle("Cameras");
   const cameras = useCameras({});
   const failedCameras = useCamerasFailed({});
@@ -75,6 +75,6 @@ const Cameras = () => {
       </Grid>
     </Container>
   );
-};
+}
 
 export default Cameras;

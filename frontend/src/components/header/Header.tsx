@@ -125,7 +125,7 @@ export default function AppHeader() {
             <Tooltip title="Home" enterDelay={300}>
               <Box
                 component={RouterLink}
-                to={"/"}
+                to="/"
                 aria-label="Home"
                 sx={{ marginLeft: "16px" }}
               >
@@ -169,18 +169,18 @@ export default function AppHeader() {
               </IconButton>
             </Tooltip>
             {!auth.enabled || (auth.enabled && user?.role) === "admin" ? (
-              <Tooltip title={"Settings"} enterDelay={300}>
+              <Tooltip title="Settings" enterDelay={300}>
                 <IconButton
                   component={RouterLink}
                   color="primary"
-                  to={"/settings"}
+                  to="/settings"
                 >
                   <SettingsIcon />
                 </IconButton>
               </Tooltip>
             ) : null}
             {auth.enabled && (
-              <Tooltip title={"Logout"} enterDelay={300}>
+              <Tooltip title="Logout" enterDelay={300}>
                 <IconButton
                   color="primary"
                   onClick={() =>

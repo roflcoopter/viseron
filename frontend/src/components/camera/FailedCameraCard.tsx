@@ -18,11 +18,11 @@ interface FailedCameraCardProps {
   ) => void;
 }
 
-export const FailedCameraCard = ({
+export function FailedCameraCard({
   failedCamera,
   compact = false,
   onClick,
-}: FailedCameraCardProps) => {
+}: FailedCameraCardProps) {
   const theme = useTheme();
 
   return (
@@ -64,9 +64,12 @@ export const FailedCameraCard = ({
             title="Recordings"
             target={`/recordings/${failedCamera.identifier}`}
           />
-          <CardActionButtonLink title="Edit Config" target={`/configuration`} />
+          <CardActionButtonLink
+            title="Edit Config"
+            target="/settings/configuration"
+          />
         </CardActions>
       )}
     </Card>
   );
-};
+}

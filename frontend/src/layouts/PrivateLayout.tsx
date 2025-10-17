@@ -85,10 +85,10 @@ export default function PrivateLayout() {
 }
 
 type RequireRoleProps = {
-  role: types.AuthUserResponse["role"][];
+  userRole: types.AuthUserResponse["role"][];
 };
 
-export function RequireRole({ role }: RequireRoleProps) {
+export function RequireRole({ userRole }: RequireRoleProps) {
   const { auth, user } = useAuthContext();
 
   if (!auth.enabled) {
@@ -107,7 +107,7 @@ export function RequireRole({ role }: RequireRoleProps) {
     );
   }
 
-  if (!role.includes(user.role)) {
+  if (!userRole.includes(user.role)) {
     return (
       <Container
         sx={{

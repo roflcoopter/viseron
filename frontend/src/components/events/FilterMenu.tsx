@@ -38,7 +38,7 @@ const menuProps: MenuProps = {
   },
 };
 
-export const FilterMenu: React.FC = () => {
+export function FilterMenu() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
   const { filters, toggleFilter } = useFilterStore();
@@ -104,7 +104,7 @@ export const FilterMenu: React.FC = () => {
           })}
         </NestedMenuItem>
         <MenuItem
-          key={"groupCameras"}
+          key="groupCameras"
           onClick={handleCheckboxClick("groupCameras")}
         >
           <Checkbox
@@ -114,7 +114,7 @@ export const FilterMenu: React.FC = () => {
           <ListItemText primary={filters.groupCameras.label} />
         </MenuItem>
         <MenuItem
-          key={"lookbackAdjust"}
+          key="lookbackAdjust"
           onClick={handleCheckboxClick("lookbackAdjust")}
         >
           <Checkbox
@@ -126,4 +126,4 @@ export const FilterMenu: React.FC = () => {
       </Menu>
     </>
   );
-};
+}

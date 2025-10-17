@@ -71,7 +71,7 @@ const calculateEntities = (entities: types.Entities, filters: Filters) =>
     return true;
   });
 
-const Entities = () => {
+function Entities() {
   useTitle("Entities");
   const viseron = useContext(ViseronContext);
   const theme = useTheme();
@@ -193,6 +193,6 @@ const Entities = () => {
       </TableContainer>
     </Container>
   );
-};
+}
 
 export default Entities;

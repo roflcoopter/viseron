@@ -1,7 +1,7 @@
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid2";
+import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { Navigate } from "react-router-dom";
@@ -14,7 +14,7 @@ import { InputState, useUserForm } from "hooks/UseUserForm";
 import queryClient from "lib/api/client";
 import { useOnboarding } from "lib/api/onboarding";
 
-const Onboarding = () => {
+function Onboarding() {
   useTitle("Onboarding");
   const { auth } = useAuthContext();
   const { inputState, dispatch, isFormValid } = useUserForm(false);
@@ -61,12 +61,12 @@ const Onboarding = () => {
             <Grid container spacing={3} sx={{ padding: "15px" }}>
               <TextFieldItem<keyof InputState>
                 autoFocus
-                inputKind={"displayName"}
+                inputKind="displayName"
                 inputState={inputState}
                 dispatch={dispatch}
               />
               <TextFieldItem<keyof InputState>
-                inputKind={"username"}
+                inputKind="username"
                 inputState={inputState}
                 dispatch={dispatch}
                 value={inputState.username.value}
@@ -80,13 +80,13 @@ const Onboarding = () => {
                 }}
               />
               <TextFieldItem<keyof InputState>
-                inputKind={"password"}
+                inputKind="password"
                 inputState={inputState}
                 dispatch={dispatch}
                 password
               />
               <TextFieldItem<keyof InputState>
-                inputKind={"confirmPassword"}
+                inputKind="confirmPassword"
                 inputState={inputState}
                 dispatch={dispatch}
                 password
@@ -124,6 +124,6 @@ const Onboarding = () => {
       </Box>
     </Container>
   );
-};
+}
 
 export default Onboarding;
