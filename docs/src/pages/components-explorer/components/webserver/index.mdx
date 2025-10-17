@@ -27,6 +27,8 @@ The user interface can be reached by default on port 8888 inside the container.
 ```yaml title="/config/config.yaml"
 webserver:
   port: 8888
+  public_base_url: "https://public.dns-viseron.org"
+  public_url_expiry_hours: 240 # default: 24, max: 744 = 31 days
 ```
 
 </details>
