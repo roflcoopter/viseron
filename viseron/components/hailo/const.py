@@ -6,7 +6,6 @@ COMPONENT = "hailo"
 HAILO8_DEFAULT_URL = (
     "https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/"
     "ModelZoo/Compiled/v2.16.0/hailo8l/yolov11m.hef"
-    "ModelZoo/Compiled/v2.14.0/hailo8/yolov6n.hef"
 )
 HAILO8L_DEFAULT_URL = (
     "https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/"
