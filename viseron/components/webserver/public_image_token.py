@@ -10,3 +10,4 @@ class PublicImageToken:
     file_path: str
     token: str
     expires_at: datetime
+    remaining_downloads: int

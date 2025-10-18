@@ -19,10 +19,12 @@ CONFIG_PORT = "port"
 CONFIG_DEBUG = "debug"
 CONFIG_PUBLIC_BASE_URL = "public_base_url"
 CONFIG_PUBLIC_URL_EXPIRY_HOURS = "public_url_expiry_hours"
+CONFIG_PUBLIC_URL_MAX_DOWNLOADS = "public_url_max_downloads"
 
 DEFAULT_COMPONENT: Final = None
 DEFAULT_DEBUG = False
 DEFAULT_PUBLIC_URL_EXPIRY_HOURS = 24
+DEFAULT_PUBLIC_URL_MAX_DOWNLOADS = 0
 
 DESC_COMPONENT = "Webserver configuration."
 
@@ -37,6 +39,10 @@ DESC_PUBLIC_BASE_URL = (
 )
 DESC_PUBLIC_URL_EXPIRY_HOURS = (
     "Number of hours before public image URLs expire (default: 24, max: 744 = 31 days)."
+)
+DESC_PUBLIC_URL_MAX_DOWNLOADS = (
+    "Maximum number of times a public image URL can be downloaded before it is automatically "
+    "deleted. Set to 0 for unlimited downloads (default: 0 = unlimited)."
 )
 
 # Auth constants

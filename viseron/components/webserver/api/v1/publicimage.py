@@ -55,7 +55,7 @@ class PublicimageAPIHandler(BaseAPIHandler):
                 return
 
             # File exists but token not in memory - happens after restart
-            # We can't validate expiration, but we serve the file anyway
+            # We can't validate download limits, but we serve the file anyway
             # The cleanup task will eventually remove expired files
             LOGGER.debug(
                 f"Token {token} not in memory but file exists on disk, serving anyway"
@@ -102,6 +102,23 @@ class PublicimageAPIHandler(BaseAPIHandler):
 
             image_data = await self.run_in_executor(read_image)
 
+            # Decrement remaining downloads counter if token is in memory
+            should_delete_after_serving = False
+            if public_image_token and public_image_token.remaining_downloads > 0:
+                public_image_token.remaining_downloads -= 1
+                LOGGER.debug(
+                    f"Token {token} remaining downloads: "
+                    f"{public_image_token.remaining_downloads}"
+                )
+
+                # Check if this was the last allowed download
+                if public_image_token.remaining_downloads <= 0:
+                    should_delete_after_serving = True
+                    LOGGER.debug(
+                        f"Token {token} reached final download, "
+                        "will clean up after serving"
+                    )
+
             # Set appropriate headers
             self.set_header("Content-Type", ALLOWED_EXTENSIONS[ext])
             self.set_header("Cache-Control", "public, max-age=3600")
@@ -110,6 +127,13 @@ class PublicimageAPIHandler(BaseAPIHandler):
             # Write the image data and finish
             self.write(image_data)
             await self.finish()
+
+            # Clean up after serving if this was the last download
+            if should_delete_after_serving:
+                LOGGER.debug(f"Cleaning up token {token} after final download")
+                if await self.run_in_executor(os.path.exists, file_path):
+                    await self.run_in_executor(os.remove, file_path)
+                del self._webserver.public_image_tokens[token]
 
         except Exception as e:  # pylint: disable=broad-except
             LOGGER.error(f"Failed to serve public image: {str(e)}")
