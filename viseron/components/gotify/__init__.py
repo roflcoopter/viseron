@@ -384,13 +384,17 @@ class GotifyEventNotifier:
             )
             cv2.imwrite(image_file, image, [cv2.IMWRITE_JPEG_QUALITY, quality])
 
-            # Get expiry hours from webserver config
+            # Get expiry hours and max downloads from webserver config
             expiry_hours = webserver.public_url_expiry_hours if webserver else 24
+            max_downloads = webserver.public_url_max_downloads if webserver else 0
 
             # Create public image token
             expires_at = utcnow() + timedelta(hours=expiry_hours)
             public_image_token = PublicImageToken(
-                file_path=image_file, token=token, expires_at=expires_at
+                file_path=image_file,
+                token=token,
+                expires_at=expires_at,
+                remaining_downloads=max_downloads,
             )
 
             # Store the token
