@@ -16,7 +16,7 @@ from tornado.routing import PathMatches
 from viseron.components.webserver.auth import Auth
 from viseron.const import DEFAULT_PORT, VISERON_SIGNAL_SHUTDOWN
 from viseron.exceptions import ComponentNotReady
-from viseron.helpers import utcnow
+from viseron.helpers import current_system_datetime
 from viseron.helpers.storage import Storage
 from viseron.helpers.validators import CoerceNoneToDict, Deprecated
 
@@ -246,8 +246,8 @@ class Webserver(threading.Thread):
         # Create persistent directory for public images
         os.makedirs(PUBLIC_IMAGES_PATH, exist_ok=True)
 
-        # Clean up orphaned public images on startup
-        self._cleanup_orphaned_public_images()
+        # Clean up expired public images on startup
+        self._cleanup_expired_public_images()
 
         self._asyncio_ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._asyncio_ioloop)
@@ -270,13 +270,13 @@ class Webserver(threading.Thread):
         # Schedule periodic cleanup of expired public images (every hour)
         self._cleanup_task: asyncio.Task | None = None
 
-    def _cleanup_orphaned_public_images(self):
-        """Clean up orphaned public images on startup (files older than max expiry)."""
+    def _cleanup_expired_public_images(self):
+        """Clean up expired public images (files older than max expiry)."""
         try:
-            max_age_seconds = (
+
+            timestamp_limit = current_system_datetime().timestamp() - (
                 self.public_url_expiry_hours * 3600
-            )  # Convert hours to seconds
-            now = utcnow().timestamp()
+            )
             cleaned_count = 0
 
             # Scan all files in the public images directory
@@ -291,55 +291,20 @@ class Webserver(threading.Thread):
                     # Check file age
                     try:
                         file_mtime = os.path.getmtime(file_path)
-                        file_age_seconds = now - file_mtime
-
                         # If file is older than max expiry, delete it
-                        if file_age_seconds > max_age_seconds:
+                        if file_mtime < timestamp_limit:
                             os.remove(file_path)
                             cleaned_count += 1
-                            LOGGER.debug(
-                                f"Deleted orphaned public image: {file_path} "
-                                f"(age: {file_age_seconds / 3600:.1f} hours)"
-                            )
+                            LOGGER.debug(f"Deleted expired public image: {file_path} ")
                     except OSError as e:
                         LOGGER.error(f"Failed to process file {file_path}: {e}")
 
             if cleaned_count > 0:
                 LOGGER.info(
-                    f"Cleaned up {cleaned_count} orphaned public image(s) on startup"
+                    f"Cleaned up {cleaned_count} expired public image(s) on startup"
                 )
         except Exception as e:  # pylint: disable=broad-except
-            LOGGER.error(f"Error during orphaned public images cleanup: {e}")
-
-    def _cleanup_expired_public_images(self):
-        """Clean up expired public image files."""
-        now = utcnow()
-        expired_tokens = []
-
-        # Find expired tokens
-        for token, public_image_token in self._vis.data[PUBLIC_IMAGE_TOKENS].items():
-            if public_image_token.expires_at < now:
-                expired_tokens.append(token)
-                # Delete the file if it exists
-                if os.path.exists(public_image_token.file_path):
-                    try:
-                        os.remove(public_image_token.file_path)
-                        LOGGER.debug(
-                            "Deleted expired public image: %s",
-                            public_image_token.file_path,
-                        )
-                    except OSError as e:
-                        LOGGER.error(
-                            f"Failed to delete expired public image "
-                            f"{public_image_token.file_path}: {e}"
-                        )
-
-        # Remove expired tokens from memory
-        for token in expired_tokens:
-            del self._vis.data[PUBLIC_IMAGE_TOKENS][token]
-
-        if expired_tokens:
-            LOGGER.info(f"Cleaned up {len(expired_tokens)} expired public image(s)")
+            LOGGER.error(f"Error during expired public images cleanup: {e}")
 
     async def _periodic_cleanup(self):
         """Run periodic cleanup of expired public images."""
