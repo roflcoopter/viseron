@@ -39,6 +39,14 @@
         "default": 24
       },
       {
+        "type": "integer",
+        "valueMin": 0,
+        "name": "public_url_max_downloads",
+        "description": "Maximum number of times a public image URL can be downloaded before it is automatically deleted. Set to 0 for unlimited downloads (default: 0 = unlimited).",
+        "optional": true,
+        "default": 0
+      },
+      {
         "type": "map",
         "value": [
           {

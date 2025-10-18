@@ -31,10 +31,12 @@ from .const import (
     CONFIG_PORT,
     CONFIG_PUBLIC_BASE_URL,
     CONFIG_PUBLIC_URL_EXPIRY_HOURS,
+    CONFIG_PUBLIC_URL_MAX_DOWNLOADS,
     CONFIG_SESSION_EXPIRY,
     DEFAULT_COMPONENT,
     DEFAULT_DEBUG,
     DEFAULT_PUBLIC_URL_EXPIRY_HOURS,
+    DEFAULT_PUBLIC_URL_MAX_DOWNLOADS,
     DEFAULT_SESSION_EXPIRY,
     DESC_AUTH,
     DESC_COMPONENT,
@@ -45,6 +47,7 @@ from .const import (
     DESC_PORT,
     DESC_PUBLIC_BASE_URL,
     DESC_PUBLIC_URL_EXPIRY_HOURS,
+    DESC_PUBLIC_URL_MAX_DOWNLOADS,
     DESC_SESSION_EXPIRY,
     DOWNLOAD_TOKENS,
     PUBLIC_IMAGE_TOKENS,
@@ -105,6 +108,11 @@ CONFIG_SCHEMA = vol.Schema(
                     description=DESC_PUBLIC_URL_EXPIRY_HOURS,
                     default=DEFAULT_PUBLIC_URL_EXPIRY_HOURS,
                 ): vol.All(vol.Coerce(int), vol.Range(min=1, max=744)),
+                vol.Optional(
+                    CONFIG_PUBLIC_URL_MAX_DOWNLOADS,
+                    description=DESC_PUBLIC_URL_MAX_DOWNLOADS,
+                    default=DEFAULT_PUBLIC_URL_MAX_DOWNLOADS,
+                ): vol.All(vol.Coerce(int), vol.Range(min=0)),
                 vol.Optional(CONFIG_AUTH, description=DESC_AUTH): vol.All(
                     CoerceNoneToDict(),
                     {
@@ -349,6 +357,13 @@ class Webserver(threading.Thread):
         """Return public URL expiry hours."""
         return self._config.get(
             CONFIG_PUBLIC_URL_EXPIRY_HOURS, DEFAULT_PUBLIC_URL_EXPIRY_HOURS
+        )
+
+    @property
+    def public_url_max_downloads(self) -> int:
+        """Return public URL max downloads."""
+        return self._config.get(
+            CONFIG_PUBLIC_URL_MAX_DOWNLOADS, DEFAULT_PUBLIC_URL_MAX_DOWNLOADS
         )
 
     def register_websocket_command(self, handler) -> None:
