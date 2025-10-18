@@ -65,6 +65,11 @@ def client_current_datetime(utc_offset: datetime.timedelta) -> datetime.datetime
     return utcnow() + utc_offset
 
 
+def current_system_datetime() -> datetime.datetime:
+    """Return the current system datetime."""
+    return datetime.datetime.now()
+
+
 def calculate_relative_contours(
     contours, resolution: tuple[int, int]
 ) -> list[np.ndarray]:
