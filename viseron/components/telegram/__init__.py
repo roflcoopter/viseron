@@ -113,8 +113,9 @@ def setup(vis: Viseron, config) -> bool:
     """Set up the ptz component."""
     component_config = config[COMPONENT]
 
-    if not config[CONFIG_PTZ_COMPONENT]:
+    if not config.get(CONFIG_PTZ_COMPONENT):
         LOGGER.info("No PTZ component. Won't start Telegram PTZ Controller.")
+        telegram_ptz = None
     else:
         telegram_ptz = TelegramPTZ(vis, component_config)
         Thread(target=telegram_ptz.run_async).start()
