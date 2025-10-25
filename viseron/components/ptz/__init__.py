@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import voluptuous as vol
-from onvif import ONVIFCamera, ONVIFError, ONVIFService
+from onvif import ONVIFClient, ONVIFOperationException
 
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera import AbstractCamera
@@ -123,14 +123,12 @@ class PTZ:
                     escape_string(camera[CONFIG_CAMERA_PASSWORD])
                 )
         self._cameras: dict[str, AbstractCamera] = {}
-        self._onvif_cameras: dict[str, ONVIFCamera] = {}
-        self._ptz_services: dict[str, ONVIFService] = {}
+        self._onvif_cameras: dict[str, ONVIFClient] = {}
+        self._ptz_services: dict[str, any] = {}
         self._ptz_tokens: dict[str, str] = {}
         self._stop_patrol_events: dict[str, asyncio.Event] = {}
         self._register_lock: asyncio.Lock = asyncio.Lock()
         self._stop_event: asyncio.Event = asyncio.Event()
-        self._devicemgmt_path = self._get_wsdl_dir()
-        LOGGER.debug(f"Device management file path: ${self._devicemgmt_path}")
         vis.data[COMPONENT] = self
 
     def initialize(self):
@@ -160,29 +158,21 @@ class PTZ:
             event.set()
         self._stop_event.set()
 
-    def _get_wsdl_dir(self):
-        """Find the wsdl dir."""
-        wsdl_file = find_file("devicemgmt.wsdl", ["/usr/local/lib", "/home"])
-        return os.path.dirname(wsdl_file)
-
     def _camera_registered(self, event: Event[AbstractCamera]) -> None:
         camera: AbstractCamera = event.data
         if camera.identifier in self._config[CONFIG_CAMERAS]:
             self._cameras.update({camera.identifier: camera})
             config = self._config[CONFIG_CAMERAS][camera.identifier]
 
-            onvif_camera = ONVIFCamera(
+            onvif_camera = ONVIFClient(
                 camera.config[CONFIG_HOST],
                 config[CONFIG_CAMERA_PORT],
                 config[CONFIG_CAMERA_USERNAME],
                 config[CONFIG_CAMERA_PASSWORD],
-                wsdl_dir=self._devicemgmt_path,
             )
             self._onvif_cameras.update({camera.identifier: onvif_camera})
-            self._ptz_services.update(
-                {camera.identifier: onvif_camera.create_ptz_service()}
-            )
-            media_service = onvif_camera.create_media_service()
+            self._ptz_services.update({camera.identifier: onvif_camera.ptz()})
+            media_service = onvif_camera.media()
             self._ptz_tokens.update(
                 {camera.identifier: media_service.GetProfiles()[0].token}
             )
@@ -262,7 +252,7 @@ class PTZ:
 
             # Get and store starting position
             status = ptz_service.GetStatus(
-                {"ProfileToken": self._ptz_tokens.get(camera_identifier)}
+                ProfileToken=self._ptz_tokens.get(camera_identifier)
             )
             if status is None:
                 LOGGER.warning("Cannot determine starting position")
@@ -472,16 +462,14 @@ class PTZ:
 
         try:
             ptz_service.RelativeMove(
-                {
-                    "ProfileToken": self._ptz_tokens.get(camera_identifier),
-                    "Translation": {
-                        "PanTilt": {"x": pan, "y": tilt},
-                        "Zoom": {"x": 0.0},
-                    },
-                }
+                ProfileToken=self._ptz_tokens.get(camera_identifier),
+                Translation={
+                    "PanTilt": {"x": pan, "y": tilt},
+                    "Zoom": {"x": 0.0},
+                },
             )
             return True
-        except ONVIFError as e:
+        except ONVIFOperationException as e:
             LOGGER.warning(f"ONVIF error in RelativeMove (usually harmless): {e}")
             return False
 
@@ -494,16 +482,14 @@ class PTZ:
 
         try:
             ptz_service.RelativeMove(
-                {
-                    "ProfileToken": self._ptz_tokens.get(camera_identifier),
-                    "Translation": {
-                        "PanTilt": {"x": 0.0, "y": 0.0},
-                        "Zoom": {"x": zoom},
-                    },
-                }
+                ProfileToken=self._ptz_tokens.get(camera_identifier),
+                Translation={
+                    "PanTilt": {"x": 0.0, "y": 0.0},
+                    "Zoom": {"x": zoom},
+                },
             )
             return True
-        except ONVIFError as e:
+        except ONVIFOperationException as e:
             # errors occur when the zoom exceeds the camera's limits?, silence them
             # can't check, camera does not support zoom
             LOGGER.warning(f"ONVIF error in Zoom (usually harmless): {e}")
@@ -517,15 +503,13 @@ class PTZ:
             return False
         try:
             ptz_service.AbsoluteMove(
-                {
-                    "ProfileToken": self._ptz_tokens.get(camera_identifier),
-                    "Position": {
-                        "PanTilt": {"x": pan, "y": tilt},
-                    },
-                }
+                ProfileToken=self._ptz_tokens.get(camera_identifier),
+                Position={
+                    "PanTilt": {"x": pan, "y": tilt},
+                },
             )
             return True
-        except ONVIFError as e:
+        except ONVIFOperationException as e:
             LOGGER.warning(f"ONVIF error in AbsoluteMove (usually harmless): {e}")
             return False
 
@@ -565,17 +549,15 @@ class PTZ:
             return False
         try:
             ptz_service.ContinuousMove(
-                {
-                    "ProfileToken": self._ptz_tokens.get(camera_identifier),
-                    "Velocity": {
-                        "PanTilt": {"x": x_velocity, "y": y_velocity},
-                        "Zoom": {"x": 0.0},
-                    },
-                }
+                ProfileToken=self._ptz_tokens.get(camera_identifier),
+                Velocity={
+                    "PanTilt": {"x": x_velocity, "y": y_velocity},
+                    "Zoom": {"x": 0.0},
+                },
             )
             await asyncio.sleep(seconds)
             ptz_service.Stop({"ProfileToken": self._ptz_tokens.get(camera_identifier)})
-        except ONVIFError as e:
+        except ONVIFOperationException as e:
             LOGGER.warning(f"ONVIF error in ContinuousMove (usually harmless): {e}")
 
     def pan_left(self, camera_identifier: str, step_size: float = 0.1) -> bool:
@@ -618,10 +600,10 @@ class PTZ:
             return 0.0, 0.0
         try:
             status = ptz_service.GetStatus(
-                {"ProfileToken": self._ptz_tokens.get(camera_identifier)}
+                ProfileToken=self._ptz_tokens.get(camera_identifier)
             )
             return status.Position.PanTilt.x, status.Position.PanTilt.y
-        except ONVIFError as e:
+        except ONVIFOperationException as e:
             LOGGER.warning(f"ONVIF error in GetStatus (usually harmless): {e}")
             return -255.0, -255.0
 
