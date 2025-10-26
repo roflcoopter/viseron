@@ -33,6 +33,7 @@ import { VideoRTC } from "components/player/liveplayer/video-rtc";
 import { MjpegPlayer } from "components/player/mjpegplayer/MjpegPlayer";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras } from "lib/api/cameras";
+import { BASE_PATH } from "lib/api/client";
 import { objHasValues, removeURLParameter } from "lib/helpers";
 import * as types from "lib/types";
 
@@ -177,7 +178,7 @@ const CameraPlayer = memo(
     return mjpegPlayer ? (
       <MjpegPlayer
         camera={camera}
-        src={`/${camera.identifier}/mjpeg-stream`}
+        src={`${BASE_PATH}/${camera.identifier}/mjpeg-stream`}
         style={{
           width: "100%",
           height: "100%",
@@ -197,7 +198,7 @@ const CameraPlayer = memo(
       <LivePlayer
         playerRef={playerRef}
         camera={camera}
-        src={`/live?src=${camera.identifier}`}
+        src={`${BASE_PATH}/live?src=${camera.identifier}`}
         controls={false}
         style={{
           width: "100%",

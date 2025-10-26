@@ -89,9 +89,10 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
                 self._tries += 1
                 redirect_path = await self.run_in_executor(self._search_file, path)
                 if redirect_path:
-                    LOGGER.debug("Redirecting to /files%s", redirect_path)
+                    subpath = self.get_subpath()
+                    LOGGER.debug("Redirecting to %s/files%s", subpath, redirect_path)
                     self._redirect = True
-                    self.redirect(f"/files{redirect_path}", permanent=True)
+                    self.redirect(f"{subpath}/files{redirect_path}", permanent=True)
                     return
 
                 if not await self.run_in_executor(
