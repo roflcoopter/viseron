@@ -41,8 +41,8 @@ DESC_PUBLIC_URL_EXPIRY_HOURS = (
     "Number of hours before public image URLs expire (default: 24, max: 744 = 31 days)."
 )
 DESC_PUBLIC_URL_MAX_DOWNLOADS = (
-    "Maximum number of times a public image URL can be downloaded before it is automatically "
-    "deleted. Set to 0 for unlimited downloads (default: 0 = unlimited)."
+    "Maximum number of times a public image URL can be downloaded before it is"
+    " automatically deleted. Set to 0 for unlimited downloads (default: 0 = unlimited)."
 )
 
 # Auth constants
