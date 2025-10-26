@@ -33,11 +33,13 @@ from .const import (
     CONFIG_PUBLIC_URL_EXPIRY_HOURS,
     CONFIG_PUBLIC_URL_MAX_DOWNLOADS,
     CONFIG_SESSION_EXPIRY,
+    CONFIG_SUBPATH,
     DEFAULT_COMPONENT,
     DEFAULT_DEBUG,
     DEFAULT_PUBLIC_URL_EXPIRY_HOURS,
     DEFAULT_PUBLIC_URL_MAX_DOWNLOADS,
     DEFAULT_SESSION_EXPIRY,
+    DEFAULT_SUBPATH,
     DESC_AUTH,
     DESC_COMPONENT,
     DESC_DAYS,
@@ -49,6 +51,7 @@ from .const import (
     DESC_PUBLIC_URL_EXPIRY_HOURS,
     DESC_PUBLIC_URL_MAX_DOWNLOADS,
     DESC_SESSION_EXPIRY,
+    DESC_SUBPATH,
     DOWNLOAD_TOKENS,
     PUBLIC_IMAGE_TOKENS,
     PUBLIC_IMAGES_PATH,
@@ -99,6 +102,9 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(
                     CONFIG_DEBUG, default=DEFAULT_DEBUG, description=DESC_DEBUG
                 ): bool,
+                vol.Optional(
+                    CONFIG_SUBPATH, default=DEFAULT_SUBPATH, description=DESC_SUBPATH
+                ): vol.Maybe(str),
                 vol.Optional(
                     CONFIG_PUBLIC_BASE_URL,
                     description=DESC_PUBLIC_BASE_URL,
@@ -244,6 +250,7 @@ class Webserver(threading.Thread):
         if self._config.get(CONFIG_AUTH, False):
             self._auth = Auth(vis, config)
         self._store = WebserverStore(vis)
+        self._subpath = self._normalize_subpath(config.get(CONFIG_SUBPATH))
 
         vis.data[COMPONENT] = self
         vis.data[WEBSOCKET_COMMANDS] = {}
@@ -277,6 +284,18 @@ class Webserver(threading.Thread):
 
         # Schedule periodic cleanup of expired public images (every hour)
         self._cleanup_task: asyncio.Task | None = None
+
+    @staticmethod
+    def _normalize_subpath(subpath: str | None) -> str:
+        """Normalize subpath to ensure it starts with / and doesn't end with /."""
+        if not subpath:
+            return ""
+        subpath = subpath.strip()
+        if not subpath.startswith("/"):
+            subpath = "/" + subpath
+        if subpath.endswith("/"):
+            subpath = subpath.rstrip("/")
+        return subpath
 
     def _cleanup_expired_public_images(self):
         """Clean up expired public images (files older than max expiry)."""
@@ -365,6 +384,11 @@ class Webserver(threading.Thread):
         return self._config.get(
             CONFIG_PUBLIC_URL_MAX_DOWNLOADS, DEFAULT_PUBLIC_URL_MAX_DOWNLOADS
         )
+
+    @property
+    def configured_subpath(self) -> str:
+        """Return configured subpath."""
+        return self._subpath
 
     def register_websocket_command(self, handler) -> None:
         """Register a websocket command."""

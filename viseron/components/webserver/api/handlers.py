@@ -206,6 +206,7 @@ class BaseAPIHandler(ViseronRequestHandler):
         return path_match.regex.match(self.request.path)
 
     def _get_params(self, route: Route) -> dict[str, Any] | None:
+        """Get params from path."""
         path_match = tornado.routing.PathMatches(f"{API_BASE}{route['path_pattern']}")
         return path_match.match(self.request)
 

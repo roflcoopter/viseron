@@ -16,6 +16,7 @@ import {
 import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
 import { useFirstRender } from "hooks/UseFirstRender";
+import { BASE_PATH } from "lib/api/client";
 import { BLANK_IMAGE } from "lib/helpers";
 import { getToken } from "lib/tokens";
 import * as types from "lib/types";
@@ -36,7 +37,7 @@ const loadSource = (
   // context before the requested timestamp
   const startTimestamp = playingDate - 3600;
 
-  const source = `/api/v1/hls/${camera.identifier}/index.m3u8?start_timestamp=${startTimestamp}&date=${dayjs(playingDate * 1000).format("YYYY-MM-DD")}`;
+  const source = `${BASE_PATH}/api/v1/hls/${camera.identifier}/index.m3u8?start_timestamp=${startTimestamp}&date=${dayjs(playingDate * 1000).format("YYYY-MM-DD")}`;
   hlsClientIdRef.current = uuidv4();
   hlsRef.current.loadSource(source);
 };
