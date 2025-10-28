@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -14,7 +13,7 @@ from onvif import ONVIFClient, ONVIFOperationException
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
-from viseron.helpers import escape_string, find_file
+from viseron.helpers import escape_string
 from viseron.helpers.logs import SensitiveInformationFilter
 from viseron.helpers.validators import CameraIdentifier
 from viseron.watchdog.thread_watchdog import RestartableThread

@@ -252,7 +252,7 @@ class DiscordNotifier:
             # If file is smaller than the limit, send the complete video
             if file_size <= max_size_bytes:
                 LOGGER.info(
-                    f"Sending complete video file ({file_size/1024/1024:.1f}MB)."
+                    f"Sending complete video file ({file_size / 1024 / 1024:.1f}MB)."
                 )
                 self._send_discord_file(
                     clip_path,
@@ -263,7 +263,7 @@ class DiscordNotifier:
             else:
                 # Video is too large, send the first max_size_bytes
                 LOGGER.info(
-                    f"Video too large ({file_size/1024/1024:.1f}MB), "
+                    f"Video too large ({file_size / 1024 / 1024:.1f}MB), "
                     f"sending first {max_size_mb}MB."
                 )
                 # Calculate approximate percentage of the video that is being sent
