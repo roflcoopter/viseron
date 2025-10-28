@@ -23,6 +23,30 @@
         "default": false
       },
       {
+        "type": "string",
+        "name": "public_base_url",
+        "description": "Public base URL for Viseron (e.g., https://viseron.example.com). Used for generating public links accessible from outside your network.",
+        "optional": true,
+        "default": null
+      },
+      {
+        "type": "integer",
+        "valueMin": 1,
+        "valueMax": 744,
+        "name": "public_url_expiry_hours",
+        "description": "Number of hours before public image URLs expire (default: 24, max: 744 = 31 days).",
+        "optional": true,
+        "default": 24
+      },
+      {
+        "type": "integer",
+        "valueMin": 0,
+        "name": "public_url_max_downloads",
+        "description": "Maximum number of times a public image URL can be downloaded before it is automatically deleted. Set to 0 for unlimited downloads (default: 0 = unlimited).",
+        "optional": true,
+        "default": 0
+      },
+      {
         "type": "map",
         "value": [
           {

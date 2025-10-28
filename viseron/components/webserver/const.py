@@ -12,13 +12,19 @@ ONBOARDING_STORAGE_KEY = "onboarding"
 ACCESS_TOKEN_EXPIRATION = timedelta(minutes=30)
 
 DOWNLOAD_PATH = "/tmp/downloads"
+PUBLIC_IMAGES_PATH = "/config/public_images"
 
 # CONFIG_SCHEMA constants
 CONFIG_PORT = "port"
 CONFIG_DEBUG = "debug"
+CONFIG_PUBLIC_BASE_URL = "public_base_url"
+CONFIG_PUBLIC_URL_EXPIRY_HOURS = "public_url_expiry_hours"
+CONFIG_PUBLIC_URL_MAX_DOWNLOADS = "public_url_max_downloads"
 
 DEFAULT_COMPONENT: Final = None
 DEFAULT_DEBUG = False
+DEFAULT_PUBLIC_URL_EXPIRY_HOURS = 24
+DEFAULT_PUBLIC_URL_MAX_DOWNLOADS = 0
 
 DESC_COMPONENT = "Webserver configuration."
 
@@ -26,6 +32,17 @@ DESC_PORT = "Port to run the webserver on."
 DESC_DEBUG = (
     "Enable debug mode for the webserver. <b>WARNING: Dont have this enabled in"
     " production as it weakens security.</b>"
+)
+DESC_PUBLIC_BASE_URL = (
+    "Public base URL for Viseron (e.g., https://viseron.example.com). "
+    "Used for generating public links accessible from outside your network."
+)
+DESC_PUBLIC_URL_EXPIRY_HOURS = (
+    "Number of hours before public image URLs expire (default: 24, max: 744 = 31 days)."
+)
+DESC_PUBLIC_URL_MAX_DOWNLOADS = (
+    "Maximum number of times a public image URL can be downloaded before it is"
+    " automatically deleted. Set to 0 for unlimited downloads (default: 0 = unlimited)."
 )
 
 # Auth constants
@@ -70,3 +87,4 @@ WS_ERROR_UNAUTHORIZED = "unauthorized"
 WEBSOCKET_COMMANDS = "websocket_commands"
 WEBSOCKET_CONNECTIONS = "websocket_connections"
 DOWNLOAD_TOKENS = "download_tokens"
+PUBLIC_IMAGE_TOKENS = "public_image_tokens"
