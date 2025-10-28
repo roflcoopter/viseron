@@ -45,11 +45,15 @@ class PublicimageAPIHandler(BaseAPIHandler):
 
         # If token not in memory, try to find file on disk (survives restart)
         if not public_image_token:
-            # Construct expected file path
-            file_path = os.path.join(PUBLIC_IMAGES_PATH, f"{token}.jpg")
+            # Try all allowed extensions to find the file
+            file_path = None
+            for ext in ALLOWED_EXTENSIONS:
+                candidate = os.path.join(PUBLIC_IMAGES_PATH, f"{token}{ext}")
+                if await self.run_in_executor(os.path.exists, candidate):
+                    file_path = candidate
+                    break
 
-            # Check if file exists on disk
-            if not await self.run_in_executor(os.path.exists, file_path):
+            if not file_path:
                 LOGGER.debug(f"Token not found in memory and file not on disk: {token}")
                 self.response_error(HTTPStatus.NOT_FOUND, reason="Token not found")
                 return
