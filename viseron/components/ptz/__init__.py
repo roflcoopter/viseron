@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import voluptuous as vol
@@ -123,7 +123,7 @@ class PTZ:
                 )
         self._cameras: dict[str, AbstractCamera] = {}
         self._onvif_cameras: dict[str, ONVIFClient] = {}
-        self._ptz_services: dict[str, any] = {}
+        self._ptz_services: dict[str, Any] = {}
         self._ptz_tokens: dict[str, str] = {}
         self._stop_patrol_events: dict[str, asyncio.Event] = {}
         self._register_lock: asyncio.Lock = asyncio.Lock()
