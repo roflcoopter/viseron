@@ -284,7 +284,7 @@ class StaticStreamHandler(StreamHandler):
             self.active_streams[(nvr.camera.identifier, mjpeg_stream)] += 1
             LOGGER.debug(
                 f"Stream {mjpeg_stream} already active, number of streams: "
-                f"{self.active_streams[(nvr.camera.identifier,mjpeg_stream)]}"
+                f"{self.active_streams[(nvr.camera.identifier, mjpeg_stream)]}"
             )
         else:
             LOGGER.debug(f"Stream {mjpeg_stream} is not active, starting")
