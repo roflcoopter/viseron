@@ -427,6 +427,12 @@ class AbstractCamera(AbstractDomain):
         """Return camera config."""
         return self._config
 
+    def tier_base_path(self, tier_id: int, tier_category: str, subcategory: str) -> str:
+        """Return storage tier base path."""
+        return self._storage.camera_tier_handlers[self.identifier][tier_category][
+            tier_id
+        ][subcategory].tier_base_path
+
     @staticmethod
     def _clear_snapshot_cache(clear_cache) -> None:
         """Clear snapshot cache."""
@@ -667,6 +673,23 @@ class FailedCamera:
     def recorder(self) -> FailedCameraRecorder:
         """Return recorder."""
         return self._recorder
+
+    def tier_base_path(self, tier_id: int, tier_category: str, subcategory: str) -> str:
+        """Return storage tier base path."""
+        with self._storage.get_session() as session:
+            tier_stmt = (
+                select(Files.tier_path)
+                .where(Files.tier_id == tier_id)
+                .where(Files.camera_identifier == self.identifier)
+                .where(Files.category == tier_category)
+                .where(Files.subcategory == subcategory)
+                .order_by(Files.created_at.desc())
+                .limit(1)
+            )
+            tier_base_path = session.execute(tier_stmt).scalars().first()
+        if tier_base_path is None:
+            raise ValueError("No storage tier found for failed camera")
+        return tier_base_path
 
 
 def setup_failed(vis: Viseron, domain_to_setup: DomainToSetup):

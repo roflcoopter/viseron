@@ -116,13 +116,13 @@ def get_time_period_fragments(
         .where(Files.duration.isnot(None))
         .where(
             or_(
-                # Fetch all files that start within the recording
+                # Fetch all files that start between the start and end timestamp
                 Files.orig_ctime.between(
                     start,
                     end,
                 ),
-                # Fetch the first file that starts before the recording but
-                # ends during the recording
+                # Fetch the first file that starts before the start timestamp but
+                # ends during the requested time period
                 and_(
                     start >= Files.orig_ctime,
                     start

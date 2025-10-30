@@ -190,6 +190,11 @@ class TierHandler(FileSystemEventHandler):
         """Return tier id."""
         return self._tier_id
 
+    @property
+    def tier_base_path(self) -> str:
+        """Return tier base path."""
+        return self._tier[CONFIG_PATH]
+
     def add_file_handler(self, path: str, pattern: str):
         """Add file handler to webserver."""
         self._logger.debug(f"Adding handler for /files{pattern}")
