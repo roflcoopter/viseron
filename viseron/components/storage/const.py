@@ -58,6 +58,7 @@ CONFIG_TIER_CHECK_SLEEP_BETWEEN_BATCHES: Final = "tier_check_sleep_between_batch
 CONFIG_PATH: Final = "path"
 CONFIG_POLL: Final = "poll"
 CONFIG_MOVE_ON_SHUTDOWN: Final = "move_on_shutdown"
+CONFIG_DRAIN: Final = "drain"
 CONFIG_CHECK_INTERVAL: Final = "check_interval"
 CONFIG_MIN_SIZE: Final = "min_size"
 CONFIG_MAX_SIZE: Final = "max_size"
@@ -114,6 +115,7 @@ DEFAULT_MOTION_DETECTOR: Final = None
 
 DEFAULT_POLL = False
 DEFAULT_MOVE_ON_SHUTDOWN = False
+DEFAULT_DRAIN = False
 DEFAULT_CHECK_INTERVAL: Final = {
     CONFIG_MINUTES: 1,
 }
@@ -223,6 +225,14 @@ DESC_POLL = (
 DESC_MOVE_ON_SHUTDOWN = (
     "Move/delete files to the next tier when Viseron shuts down. "
     "Useful to not lose files when shutting down Viseron if using a RAM disk."
+)
+DESC_DRAIN = (
+    "When a tier limit is reached, move all files to the next tier. "
+    "If disabled, only move the files that exceed the limit. "
+    "By using drain together with a smaller RAM disk as the first tier, you reduce the "
+    "stress on storage devices by moving files in larger batches. "
+    "Note that when using drain together with event recordings, partial moves of files "
+    "will still occur."
 )
 DESC_CHECK_INTERVAL = "How often to check for files to move to the next tier."
 DESC_CHECK_INTERVAL_DAYS = "Days between checks for files to move/delete."

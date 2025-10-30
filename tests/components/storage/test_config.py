@@ -62,6 +62,7 @@ def create_tier(
     events=None,
     continuous=None,
     move_on_shutdown=False,
+    drain=False,
     poll=False,
     check_interval=None,
 ):
@@ -71,6 +72,7 @@ def create_tier(
         "events": create_retain_config(**(events or {})),
         "continuous": create_retain_config(**(continuous or {})),
         "move_on_shutdown": move_on_shutdown,
+        "drain": drain,
         "poll": poll,
         "check_interval": create_check_interval(**(check_interval or {})),
     }
@@ -79,6 +81,7 @@ def create_tier(
 def create_tier_snapshots(
     path="/",
     move_on_shutdown=False,
+    drain=False,
     poll=False,
     check_interval=None,
     max_age=None,
@@ -90,6 +93,7 @@ def create_tier_snapshots(
     return {
         "path": path,
         "move_on_shutdown": move_on_shutdown,
+        "drain": drain,
         "poll": poll,
         "check_interval": create_check_interval(**(check_interval or {})),
         **create_retain_config(
@@ -111,6 +115,7 @@ DEFAULT_CONFIG = {
                     "path": "/",
                     **create_retain_config(max_age={"days": 7}),
                     "move_on_shutdown": False,
+                    "drain": False,
                     "poll": False,
                     "check_interval": create_check_interval(),
                 }

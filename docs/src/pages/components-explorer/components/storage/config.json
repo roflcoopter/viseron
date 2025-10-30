@@ -60,6 +60,13 @@
                   "default": false
                 },
                 {
+                  "type": "boolean",
+                  "name": "drain",
+                  "description": "When a tier limit is reached, move all files to the next tier. If disabled, only move the files that exceed the limit. By using drain together with a smaller RAM disk as the first tier, you reduce the stress on storage devices by moving files in larger batches. Note that when using drain together with event recordings, partial moves of files will still occur.",
+                  "optional": true,
+                  "default": false
+                },
+                {
                   "type": "map",
                   "value": [
                     {
@@ -490,6 +497,13 @@
                   "default": false
                 },
                 {
+                  "type": "boolean",
+                  "name": "drain",
+                  "description": "When a tier limit is reached, move all files to the next tier. If disabled, only move the files that exceed the limit. By using drain together with a smaller RAM disk as the first tier, you reduce the stress on storage devices by moving files in larger batches. Note that when using drain together with event recordings, partial moves of files will still occur.",
+                  "optional": true,
+                  "default": false
+                },
+                {
                   "type": "map",
                   "value": [
                     {
@@ -678,6 +692,13 @@
                       "type": "boolean",
                       "name": "move_on_shutdown",
                       "description": "Move/delete files to the next tier when Viseron shuts down. Useful to not lose files when shutting down Viseron if using a RAM disk.",
+                      "optional": true,
+                      "default": false
+                    },
+                    {
+                      "type": "boolean",
+                      "name": "drain",
+                      "description": "When a tier limit is reached, move all files to the next tier. If disabled, only move the files that exceed the limit. By using drain together with a smaller RAM disk as the first tier, you reduce the stress on storage devices by moving files in larger batches. Note that when using drain together with event recordings, partial moves of files will still occur.",
                       "optional": true,
                       "default": false
                     },
@@ -873,6 +894,13 @@
                       "default": false
                     },
                     {
+                      "type": "boolean",
+                      "name": "drain",
+                      "description": "When a tier limit is reached, move all files to the next tier. If disabled, only move the files that exceed the limit. By using drain together with a smaller RAM disk as the first tier, you reduce the stress on storage devices by moving files in larger batches. Note that when using drain together with event recordings, partial moves of files will still occur.",
+                      "optional": true,
+                      "default": false
+                    },
+                    {
                       "type": "map",
                       "value": [
                         {
@@ -1064,6 +1092,13 @@
                       "default": false
                     },
                     {
+                      "type": "boolean",
+                      "name": "drain",
+                      "description": "When a tier limit is reached, move all files to the next tier. If disabled, only move the files that exceed the limit. By using drain together with a smaller RAM disk as the first tier, you reduce the stress on storage devices by moving files in larger batches. Note that when using drain together with event recordings, partial moves of files will still occur.",
+                      "optional": true,
+                      "default": false
+                    },
+                    {
                       "type": "map",
                       "value": [
                         {
@@ -1251,6 +1286,13 @@
                       "type": "boolean",
                       "name": "move_on_shutdown",
                       "description": "Move/delete files to the next tier when Viseron shuts down. Useful to not lose files when shutting down Viseron if using a RAM disk.",
+                      "optional": true,
+                      "default": false
+                    },
+                    {
+                      "type": "boolean",
+                      "name": "drain",
+                      "description": "When a tier limit is reached, move all files to the next tier. If disabled, only move the files that exceed the limit. By using drain together with a smaller RAM disk as the first tier, you reduce the stress on storage devices by moving files in larger batches. Note that when using drain together with event recordings, partial moves of files will still occur.",
                       "optional": true,
                       "default": false
                     },
@@ -1448,6 +1490,13 @@
                   "type": "boolean",
                   "name": "move_on_shutdown",
                   "description": "Move/delete files to the next tier when Viseron shuts down. Useful to not lose files when shutting down Viseron if using a RAM disk.",
+                  "optional": true,
+                  "default": false
+                },
+                {
+                  "type": "boolean",
+                  "name": "drain",
+                  "description": "When a tier limit is reached, move all files to the next tier. If disabled, only move the files that exceed the limit. By using drain together with a smaller RAM disk as the first tier, you reduce the stress on storage devices by moving files in larger batches. Note that when using drain together with event recordings, partial moves of files will still occur.",
                   "optional": true,
                   "default": false
                 },

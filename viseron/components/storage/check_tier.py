@@ -275,6 +275,7 @@ class Worker:
             min_age_timestamp,
             item.min_bytes,
             max_age_timestamp,
+            item.drain,
         )
 
         return rows_to_move
@@ -347,6 +348,7 @@ class Worker:
             item.events_min_bytes,
             max_age_timestamp,
             file_min_age,
+            drain=item.drain,
         )
 
         return rows_to_move
@@ -425,6 +427,7 @@ def get_files_to_move(
     min_age_timestamp: float,
     min_bytes: int,
     max_age_timestamp: float,
+    drain: bool,
 ):
     """Get id of files to move.
 
@@ -454,17 +457,21 @@ def get_files_to_move(
             (data["orig_ctime"] < max_age_timestamp) & (cumulative_size >= min_bytes)
         )[0]
 
-    # Combine the indices to move based on size and age
-    indices_to_move = np.unique(
-        np.concatenate((bytes_indices_to_move, age_indices_to_move))
-    )
+    rows_to_move = np.empty(0, dtype=data.dtype)
+    if drain and (bytes_indices_to_move.size > 0 or age_indices_to_move.size > 0):
+        # If drain is set, move all files
+        rows_to_move = data
+    else:
+        # Combine the indices to move based on size and age
+        indices_to_move = np.unique(
+            np.concatenate((bytes_indices_to_move, age_indices_to_move))
+        )
 
-    if indices_to_move.size > 0:
-        rows_to_move = data[indices_to_move]
-        stripped_rows = rows_to_move[["id", "path", "tier_path"]]
-        return stripped_rows[::-1]
+        if indices_to_move.size > 0:
+            rows_to_move = data[indices_to_move]
 
-    return np.empty(0, dtype=data.dtype)
+    stripped_rows = rows_to_move[["id", "path", "tier_path"]]
+    return stripped_rows[::-1]
 
 
 def get_recordings_to_move(
@@ -476,6 +483,7 @@ def get_recordings_to_move(
     min_bytes: int,
     max_age_timestamp: float,
     file_min_age_timestamp: float,
+    drain: bool,
 ):
     """Get files to move based on recording grouping."""
     # Sort recordings by adjusted start time (descending)
@@ -564,36 +572,46 @@ def get_recordings_to_move(
             & (recording_cumulative_sizes >= min_bytes)
         )[0]
 
-    # Indices of recordings_data that need to be moved
-    recording_indices_to_move = np.unique(
-        np.concatenate(
-            (bytes_indices_to_move_recordings, age_indices_to_move_recordings)
+    files_to_move_np = np.empty(0, dtype=RECORDINGS_FILES_DTYPE)
+    if drain and (
+        bytes_indices_to_move_recordings.size > 0
+        or age_indices_to_move_recordings.size > 0
+    ):
+        # If drain is set, move all files
+        files_to_move_np = recordings_files
+    else:
+        # Indices of recordings_data that need to be moved
+        recording_indices_to_move = np.unique(
+            np.concatenate(
+                (bytes_indices_to_move_recordings, age_indices_to_move_recordings)
+            )
         )
-    )
 
-    files_to_move_list = []
+        files_to_move_list = []
 
-    if recording_indices_to_move.size > 0:
-        moved_recording_ids = recordings_data[recording_indices_to_move]["id"]
-        # Select files associated with these moved recordings
-        for r_file in recordings_files:
-            if r_file["recording_id"] in moved_recording_ids:
-                if r_file["orig_ctime"] <= file_min_age_timestamp:
+        if recording_indices_to_move.size > 0:
+            moved_recording_ids = recordings_data[recording_indices_to_move]["id"]
+            # Select files associated with these moved recordings
+            for r_file in recordings_files:
+                if r_file["recording_id"] in moved_recording_ids:
+                    if r_file["orig_ctime"] <= file_min_age_timestamp:
+                        files_to_move_list.append(r_file)
+                elif r_file["recording_id"] == -1:  # Always consider "other" files
+                    if r_file["orig_ctime"] <= file_min_age_timestamp:
+                        files_to_move_list.append(r_file)
+        elif files_data.size > 0:  # No recordings to move, but check "other" files
+            for r_file in recordings_files:
+                if (
+                    r_file["recording_id"] == -1
+                    and r_file["orig_ctime"] <= file_min_age_timestamp
+                ):
                     files_to_move_list.append(r_file)
-            elif r_file["recording_id"] == -1:  # Always consider "other" files
-                if r_file["orig_ctime"] <= file_min_age_timestamp:
-                    files_to_move_list.append(r_file)
-    elif files_data.size > 0:  # No recordings to move, but check "other" files
-        for r_file in recordings_files:
-            if r_file["recording_id"] == -1:
-                if r_file["orig_ctime"] <= file_min_age_timestamp:
-                    files_to_move_list.append(r_file)
 
-    if not files_to_move_list:
-        return np.empty(0, dtype=RECORDINGS_FILES_DTYPE)
+        if not files_to_move_list:
+            return np.empty(0, dtype=RECORDINGS_FILES_DTYPE)
 
-    # Convert list of structured array rows to a new array
-    files_to_move_np = np.array(files_to_move_list, dtype=RECORDINGS_FILES_DTYPE)
+        # Convert list of structured array rows to a new array
+        files_to_move_np = np.array(files_to_move_list, dtype=RECORDINGS_FILES_DTYPE)
 
     # Ensure unique files by ID, taking the first occurrence after sorting
     if files_to_move_np.size > 0:

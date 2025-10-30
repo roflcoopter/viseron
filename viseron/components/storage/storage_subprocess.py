@@ -42,6 +42,7 @@ class DataItem:
     min_age: datetime.timedelta
     max_age: datetime.timedelta
     min_bytes: int
+    drain: bool
     files_enabled: bool = True
     events_enabled: bool = False
     events_max_bytes: int | None = None
