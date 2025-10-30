@@ -5,6 +5,7 @@ ARG FFMPEG_VERSION
 ARG WHEELS_VERSION
 ARG GPAC_IMAGE
 ARG UBUNTU_VERSION
+ARG NODE_VERSION
 FROM roflcoopter/${ARCH}-opencv:${OPENCV_VERSION} AS opencv
 FROM roflcoopter/${ARCH}-ffmpeg:${FFMPEG_VERSION} AS ffmpeg
 FROM roflcoopter/${ARCH}-wheels:${WHEELS_VERSION} AS wheels
@@ -37,7 +38,7 @@ COPY --from=go2rtc-base /go2rtc/video-rtc.js /go2rtc/
 
 
 # Build frontend
-FROM node:22.11.0 AS frontend
+FROM node:${NODE_VERSION} AS frontend
 
 WORKDIR /frontend
 
