@@ -11,6 +11,7 @@ from viseron.components.storage.const import (
     CONFIG_CHECK_INTERVAL,
     CONFIG_CONTINUOUS,
     CONFIG_DAYS,
+    CONFIG_DRAIN,
     CONFIG_EVENTS,
     CONFIG_FACE_RECOGNITION,
     CONFIG_GB,
@@ -44,6 +45,7 @@ from viseron.components.storage.const import (
     DEFAULT_CHECK_INTERVAL_SECONDS,
     DEFAULT_CONTINUOUS,
     DEFAULT_DAYS,
+    DEFAULT_DRAIN,
     DEFAULT_EVENTS,
     DEFAULT_FACE_RECOGNITION,
     DEFAULT_GB,
@@ -77,6 +79,7 @@ from viseron.components.storage.const import (
     DESC_CHECK_INTERVAL_SECONDS,
     DESC_CONTINUOUS,
     DESC_DOMAIN_TIERS,
+    DESC_DRAIN,
     DESC_EVENTS,
     DESC_FACE_RECOGNITION,
     DESC_INTERVAL,
@@ -230,6 +233,11 @@ TIER_SCHEMA_SNAPSHOTS = TIER_SCHEMA_BASE.extend(
             description=DESC_MOVE_ON_SHUTDOWN,
         ): bool,
         vol.Optional(
+            CONFIG_DRAIN,
+            default=DEFAULT_DRAIN,
+            description=DESC_DRAIN,
+        ): bool,
+        vol.Optional(
             CONFIG_CHECK_INTERVAL,
             default=DEFAULT_CHECK_INTERVAL,
             description=DESC_CHECK_INTERVAL,
@@ -276,6 +284,11 @@ TIER_SCHEMA_RECORDER = vol.Schema(
             CONFIG_MOVE_ON_SHUTDOWN,
             default=DEFAULT_MOVE_ON_SHUTDOWN,
             description=DESC_MOVE_ON_SHUTDOWN,
+        ): bool,
+        vol.Optional(
+            CONFIG_DRAIN,
+            default=DEFAULT_DRAIN,
+            description=DESC_DRAIN,
         ): bool,
         vol.Optional(
             CONFIG_CHECK_INTERVAL,

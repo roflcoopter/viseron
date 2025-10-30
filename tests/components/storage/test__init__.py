@@ -18,6 +18,7 @@ from viseron.components.storage.const import (
     CONFIG_CHECK_INTERVAL,
     CONFIG_CONTINUOUS,
     CONFIG_DAYS,
+    CONFIG_DRAIN,
     CONFIG_EVENTS,
     CONFIG_FACE_RECOGNITION,
     CONFIG_GB,
@@ -113,7 +114,7 @@ TIER_CONFIG = {
                                     CONFIG_HOURS: None,
                                     CONFIG_MINUTES: None,
                                 },
-                                CONFIG_MAX_SIZE: {CONFIG_GB: None, CONFIG_MB: 1024},
+                                CONFIG_MAX_SIZE: {CONFIG_GB: None, CONFIG_MB: 1024.0},
                                 CONFIG_MIN_AGE: {
                                     CONFIG_DAYS: None,
                                     CONFIG_HOURS: None,
@@ -122,6 +123,7 @@ TIER_CONFIG = {
                                 CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
                             },
                             CONFIG_MOVE_ON_SHUTDOWN: False,
+                            CONFIG_DRAIN: False,
                             CONFIG_PATH: "/",
                             CONFIG_POLL: False,
                         }
@@ -192,6 +194,7 @@ TIER_CONFIG = {
                                 CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
                             },
                             CONFIG_MOVE_ON_SHUTDOWN: False,
+                            CONFIG_DRAIN: False,
                             CONFIG_PATH: "/test/",
                             CONFIG_POLL: False,
                         }
@@ -245,6 +248,7 @@ TIER_CONFIG = {
                             },
                             CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
                             CONFIG_MOVE_ON_SHUTDOWN: False,
+                            CONFIG_DRAIN: False,
                             CONFIG_PATH: "/test/",
                             CONFIG_POLL: False,
                         }
@@ -307,6 +311,7 @@ TIER_CONFIG = {
                             },
                             CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
                             CONFIG_MOVE_ON_SHUTDOWN: False,
+                            CONFIG_DRAIN: False,
                             CONFIG_PATH: "/test/",
                             CONFIG_POLL: False,
                         }
@@ -334,6 +339,7 @@ TIER_CONFIG = {
                                 },
                                 CONFIG_MIN_SIZE: {CONFIG_GB: None, CONFIG_MB: None},
                                 CONFIG_MOVE_ON_SHUTDOWN: False,
+                                CONFIG_DRAIN: False,
                                 CONFIG_POLL: False,
                             }
                         ]
