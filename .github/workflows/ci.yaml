@@ -494,8 +494,10 @@ jobs:
         run: |
           set -e
           HAILO_VERSION=$(grep '^HAILO_VERSION=' azure-pipelines/.env | cut -d'"' -f2)
+          echo "Installing azure-devops extension"
+          az extension add --name azure-devops
           echo "Logging in to Azure DevOps"
-          echo "$AZURE_DEVOPS_EXT_PAT" | az devops login --organization https://dev.azure.com/viseron || true
+          echo "$AZURE_DEVOPS_EXT_PAT" | az devops login --organization https://dev.azure.com/viseron
           echo "Downloading libhailort-amd64 version $HAILO_VERSION"
           az artifacts universal download --organization https://dev.azure.com/viseron/ --project="Viseron Pipelines" --scope project --feed viseron-binaries --name libhailort-amd64 --version "$HAILO_VERSION" --path libhailort_pkg
           echo "Installing libhailort to /usr/local/lib"
