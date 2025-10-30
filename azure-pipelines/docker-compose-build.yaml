@@ -147,6 +147,7 @@ services:
         S6_OVERLAY_ARCH: amd64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
+        NODE_VERSION: "$NODE_VERSION"
         GPAC_IMAGE: roflcoopter/amd64-gpac:${GPAC_VERSION}
         GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
@@ -289,6 +290,7 @@ services:
         S6_OVERLAY_ARCH: amd64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
+        NODE_VERSION: "$NODE_VERSION"
         GPAC_IMAGE: roflcoopter/amd64-gpac:${GPAC_VERSION}
         GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
@@ -401,6 +403,7 @@ services:
         S6_OVERLAY_ARCH: armhf
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
+        NODE_VERSION: "$NODE_VERSION"
         GPAC_IMAGE: roflcoopter/rpi3-gpac:${GPAC_VERSION}
         GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
@@ -517,6 +520,7 @@ services:
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
+        NODE_VERSION: "$NODE_VERSION"
         GPAC_IMAGE: roflcoopter/aarch64-gpac:${GPAC_VERSION}
         GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
@@ -673,6 +677,7 @@ services:
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
+        NODE_VERSION: "$NODE_VERSION"
         GPAC_IMAGE: roflcoopter/aarch64-gpac:${GPAC_VERSION}
         GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
