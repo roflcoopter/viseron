@@ -37,6 +37,22 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
         self._tries = 0
         self._redirect = False
 
+    def handle_tier_hint(self, path: str) -> str | None:
+        """Handle tier hint arguments."""
+        _path = os.path.join(self.root, path)
+        first_tier_path = self.get_argument("first_tier_path", None, strip=True)
+        actual_tier_path = self.get_argument("actual_tier_path", None, strip=True)
+
+        if first_tier_path and actual_tier_path:
+            if _path.startswith(first_tier_path):
+                _path = _path.replace(first_tier_path, actual_tier_path, 1)
+                LOGGER.debug(
+                    "first_tier_path and actual_tier_path found, adjusted path to %s",
+                    _path,
+                )
+                return _path
+        return None
+
     def _search_file(self, path: str) -> str | None:
         """Search for a file in the tiers."""
         _path = os.path.join(self.root, path)
@@ -62,6 +78,12 @@ class TieredFileHandler(AccessTokenStaticFileHandler):
 
     async def get(self, path, include_body=True) -> None:
         """Look through tiers to find a potentially moved file."""
+        tier_hint_redirect_path = self.handle_tier_hint(path)
+        if tier_hint_redirect_path:
+            self._redirect = True
+            self.redirect(f"/files{tier_hint_redirect_path}", permanent=True)
+            return
+
         if not self._failed:
             while self._tries < 10:
                 self._tries += 1

@@ -335,15 +335,37 @@ def _generate_playlist_time_period(
     files = get_time_period_fragments(
         [camera.identifier], start_timestamp, end_timestamp, get_session
     )
-    fragments = [
-        Fragment(
-            file.filename,
-            f"/files{file.path}",
-            file.duration,
-            file.orig_ctime,
+    fragments = []
+    for file in files:
+        # For tiers other than the first one, we need to alter the path to
+        # point to the first tier and then provide the actual tier path as a
+        # query parameter.
+        # This is to not break the HLS specifications for files that are moved
+        # between updates of the playlist
+        path: str
+        if file.tier_id > 0:
+            first_tier_path = camera.tier_base_path(
+                0, TIER_CATEGORY_RECORDER, TIER_SUBCATEGORY_SEGMENTS
+            )
+            path = file.path.replace(
+                file.tier_path,
+                first_tier_path,
+                1,
+            )
+            path += (
+                f"?first_tier_path={first_tier_path}&actual_tier_path={file.tier_path}"
+            )
+        else:
+            path = file.path
+
+        fragments.append(
+            Fragment(
+                file.filename,
+                f"/files{path}",
+                file.duration,
+                file.orig_ctime,
+            )
         )
-        for file in files
-    ]
 
     media_sequence = (
         update_hls_client(hls_client_id, fragments)
