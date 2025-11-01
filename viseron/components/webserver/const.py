@@ -26,6 +26,9 @@ DEFAULT_DEBUG = False
 DEFAULT_PUBLIC_URL_EXPIRY_HOURS = 24
 DEFAULT_PUBLIC_URL_MAX_DOWNLOADS = 0
 
+CONFIG_SUBPATH = "subpath"
+DEFAULT_SUBPATH: Final = None
+
 DESC_COMPONENT = "Webserver configuration."
 
 DESC_PORT = "Port to run the webserver on."
@@ -43,6 +46,10 @@ DESC_PUBLIC_URL_EXPIRY_HOURS = (
 DESC_PUBLIC_URL_MAX_DOWNLOADS = (
     "Maximum number of times a public image URL can be downloaded before it is"
     " automatically deleted. Set to 0 for unlimited downloads (default: 0 = unlimited)."
+)
+DESC_SUBPATH = (
+    "Subpath where the webserver is served from when behind a reverse proxy "
+    "(e.g. '/viseron')."
 )
 
 # Auth constants

@@ -101,6 +101,14 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
         """Return the IOLoop."""
         return IOLoop.current()
 
+    def get_subpath(self) -> str:
+        """Get the configured subpath.
+
+        Returns the subpath configured in the webserver configuration.
+        Returns empty string if not configured.
+        """
+        return self._webserver.configured_subpath
+
     def on_finish(self) -> None:
         """Log requests with failed authentication."""
         if self.status == HTTPStatus.UNAUTHORIZED:
