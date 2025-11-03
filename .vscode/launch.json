@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "Viseron",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "viseron",
       "justMyCode": true,
@@ -14,7 +14,7 @@
     },
     {
       "name": "Generate Docs",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "scripts.gen_docs",
       "args": ["-c", "${input:component}"],
