@@ -17,6 +17,7 @@
     "@codemirror/view": "6.38.6",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@fontsource-variable/ibm-plex-sans": "^5.2.8",
     "@jy95/material-ui-image": "^4.0.9",
     "@monaco-editor/react": "^4.7.0",
     "@mui/icons-material": "^7.3.4",
