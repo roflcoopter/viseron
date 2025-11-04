@@ -5,8 +5,8 @@ from __future__ import annotations
 import copy
 import logging
 import os
-import time
 import pathlib
+import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, overload
 
@@ -72,6 +72,7 @@ from viseron.components.storage.util import (
 )
 from viseron.const import EVENT_DOMAIN_REGISTERED, VISERON_SIGNAL_STOPPING
 from viseron.domains.camera.const import CONFIG_STORAGE, DOMAIN as CAMERA_DOMAIN
+from viseron.exceptions import ComponentNotReady
 from viseron.helpers import utcnow
 from viseron.helpers.logs import StreamToLogger
 from viseron.helpers.validators import UNDEFINED
@@ -179,18 +180,20 @@ def _check_database_readiness(
         except OperationalError as error:
             if attempt < max_retries - 1:
                 LOGGER.warning(
-                    f"Database not ready (attempt {attempt + 1}/{max_retries}): {error}. "
-                    f"Retrying in {retry_interval} seconds..."
+                    "Database not ready (attempt %s/%s): %s. Retrying in %s seconds...",
+                    attempt + 1,
+                    max_retries,
+                    error,
+                    retry_interval,
                 )
                 time.sleep(retry_interval)
             else:
                 LOGGER.error(
-                    f"Database connection failed after {max_retries} attempts: {error}"
+                    "Database connection failed after %s attempts: %s",
+                    max_retries,
+                    error,
                 )
                 return False
-        except Exception as error:
-            LOGGER.error(f"Unexpected error checking database readiness: {error}")
-            return False
     return False
 
 
@@ -198,8 +201,6 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     """Set up storage component."""
     # Check database readiness before initializing storage
     if not _check_database_readiness(ENGINE):
-        from viseron.exceptions import ComponentNotReady
-
         raise ComponentNotReady("Database is not ready for connections")
 
     vis.data[COMPONENT] = Storage(vis, config[COMPONENT])
@@ -344,7 +345,7 @@ class Storage:
                 conn = self.engine.connect()
                 context = MigrationContext.configure(conn)
                 current_rev = context.get_current_revision()
-                LOGGER.debug(f"Current database revision: {current_rev}")
+                LOGGER.debug("Current database revision: %s", current_rev)
 
                 _script = script.ScriptDirectory.from_config(self._alembic_cfg)
 
@@ -363,18 +364,24 @@ class Storage:
             except OperationalError as error:
                 if attempt < max_retries - 1:
                     LOGGER.warning(
-                        f"Database operation failed (attempt {attempt + 1}/{max_retries}): {error}. "
-                        f"Retrying in {retry_interval} seconds..."
+                        "Database operation failed (attempt %s/%s): %s. "
+                        "Retrying in %s seconds...",
+                        attempt + 1,
+                        max_retries,
+                        error,
+                        retry_interval,
                     )
                     time.sleep(retry_interval)
                     retry_interval *= 1.5  # Exponential backoff
                 else:
                     LOGGER.error(
-                        f"Database operations failed after {max_retries} attempts: {error}"
+                        "Database operations failed after %s attempts: %s",
+                        max_retries,
+                        error,
                     )
                     raise
-            except Exception as error:
-                LOGGER.error(f"Unexpected error during database creation: {error}")
+            except Exception:
+                LOGGER.exception("Unexpected error during database creation")
                 raise
 
     def get_session(self, expire_on_commit: bool = False) -> Session:
