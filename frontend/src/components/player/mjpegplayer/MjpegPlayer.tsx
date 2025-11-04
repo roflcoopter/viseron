@@ -1,6 +1,5 @@
 import { useTheme } from "@mui/material/styles";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import screenfull from "screenfull";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { CustomControls } from "components/player/CustomControls.js";
@@ -9,6 +8,7 @@ import * as types from "lib/types";
 
 const useMjpegControlsVisibility = (
   containerRef: React.RefObject<HTMLDivElement | null>,
+  onPlayerFullscreenChange?: (isFullscreen: boolean) => void,
 ) => {
   const [controlsVisible, setControlsVisible] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
@@ -25,14 +25,10 @@ const useMjpegControlsVisibility = (
 
   const handleFullscreenToggle = useCallback(() => {
     if (!containerRef.current) return;
-    if (!isFullscreen) {
-      if (screenfull.isEnabled) {
-        screenfull.request(containerRef.current);
-      }
-    } else {
-      screenfull.exit();
-    }
-  }, [isFullscreen, containerRef]);
+    const newFullscreenState = !isFullscreen;
+    setIsFullscreen(newFullscreenState);
+    onPlayerFullscreenChange?.(newFullscreenState);
+  }, [isFullscreen, containerRef, onPlayerFullscreenChange]);
 
   const handleMouseEnter = useCallback(() => {
     setIsHovering(true);
@@ -54,15 +50,6 @@ const useMjpegControlsVisibility = (
       showControlsTemporarily();
     }
   }, [controlsVisible, showControlsTemporarily]);
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () =>
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
 
   useEffect(
     () => () => {
@@ -113,6 +100,7 @@ interface MjpegPlayerProps extends React.HTMLAttributes<HTMLElement> {
   drawZones?: boolean;
   drawPostProcessorMask?: boolean;
   isMenuOpen?: boolean;
+  onPlayerFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
 export function MjpegPlayer({
@@ -127,6 +115,7 @@ export function MjpegPlayer({
   drawZones = false,
   drawPostProcessorMask = false,
   isMenuOpen = false,
+  onPlayerFullscreenChange,
 }: MjpegPlayerProps) {
   const theme = useTheme();
   const imgRef = useRef<HTMLImageElement>(null);
@@ -140,7 +129,7 @@ export function MjpegPlayer({
     handleMouseEnter,
     handleMouseLeave,
     handleTouchStart,
-  } = useMjpegControlsVisibility(containerRef);
+  } = useMjpegControlsVisibility(containerRef, onPlayerFullscreenChange);
 
   const error = useMjpegErrorHandling(imgRef, src);
 
@@ -148,9 +137,13 @@ export function MjpegPlayer({
     <div
       ref={containerRef}
       style={{
-        position: "relative",
-        width: "100%",
-        height: "100%",
+        position: isFullscreen ? "fixed" : "relative",
+        top: isFullscreen ? 0 : "auto",
+        left: isFullscreen ? 0 : "auto",
+        width: isFullscreen ? "100vw" : "100%",
+        height: isFullscreen ? "100vh" : "100%",
+        zIndex: isFullscreen ? 8000 : "auto",
+        backgroundColor: isFullscreen ? theme.palette.background.default : "transparent",
         ...style,
       }}
       onMouseEnter={isTouchDevice() ? undefined : handleMouseEnter}

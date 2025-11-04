@@ -22,7 +22,7 @@ import screenfull from "screenfull";
 
 import { isTouchDevice } from "lib/helpers";
 
-const ZINDEX = 3;
+const ZINDEX = 900;
 
 interface CustomFabProps {
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;

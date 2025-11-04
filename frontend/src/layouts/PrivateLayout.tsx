@@ -11,6 +11,7 @@ import Footer from "components/footer/Footer";
 import Header from "components/header/Header";
 import { Loading } from "components/loading/Loading";
 import { useAuthContext } from "context/AuthContext";
+import { FullscreenProvider } from "context/FullscreenContext";
 import { ViseronProvider } from "context/ViseronContext";
 import { toastIds, useToast } from "hooks/UseToast";
 import { sessionExpired } from "lib/tokens";
@@ -20,7 +21,7 @@ const FullHeightContainer = styled("div")(() => ({
   minHeight: "100%",
 }));
 
-export default function PrivateLayout() {
+function PrivateLayoutContent() {
   const nodeRef = useRef(null);
   const location = useLocation();
 
@@ -81,6 +82,14 @@ export default function PrivateLayout() {
         <ScrollToTopFab />
       </FullHeightContainer>
     </ViseronProvider>
+  );
+}
+
+export default function PrivateLayout() {
+  return (
+    <FullscreenProvider>
+      <PrivateLayoutContent />
+    </FullscreenProvider>
   );
 }
 

@@ -1,5 +1,5 @@
+import { useTheme } from "@mui/material/styles";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import screenfull from "screenfull";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { CustomControls } from "components/player/CustomControls.js";
@@ -10,6 +10,7 @@ import * as types from "lib/types";
 
 const useVideoControlsVisibility = (
   playerRef: React.RefObject<VideoRTC | null>,
+  onPlayerFullscreenChange?: (isFullscreen: boolean) => void,
 ) => {
   const [controlsVisible, setControlsVisible] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
@@ -71,16 +72,10 @@ const useVideoControlsVisibility = (
   }, [playerRef, isMuted, showControlsTemporarily]);
 
   const handleFullscreenToggle = useCallback(() => {
-    const elem = playerRef.current?.video;
-    if (!elem) return;
-    if (!isFullscreen) {
-      if (screenfull.isEnabled) {
-        screenfull.request(elem);
-      }
-    } else {
-      screenfull.exit();
-    }
-  }, [playerRef, isFullscreen]);
+    const newFullscreenState = !isFullscreen;
+    setIsFullscreen(newFullscreenState);
+    onPlayerFullscreenChange?.(newFullscreenState);
+  }, [isFullscreen, onPlayerFullscreenChange]);
 
   const handleMouseEnter = useCallback(() => {
     setIsHovering(true);
@@ -116,19 +111,6 @@ const useVideoControlsVisibility = (
       }
       videoElement.video!.removeEventListener("play", handlePlay);
       videoElement.video!.removeEventListener("pause", handlePause);
-    };
-  }, [playerRef]);
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(
-        !!document.fullscreenElement &&
-          document.fullscreenElement === playerRef.current,
-      );
-    };
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
   }, [playerRef]);
 
@@ -173,6 +155,7 @@ interface LivePlayerProps extends React.HTMLAttributes<HTMLElement> {
   playerRef?: React.RefObject<VideoRTC | null>;
   extraButtons?: React.ReactNode;
   isMenuOpen?: boolean;
+  onPlayerFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
 export function LivePlayer({
@@ -183,10 +166,12 @@ export function LivePlayer({
   playerRef,
   extraButtons,
   isMenuOpen = false,
+  onPlayerFullscreenChange,
 }: LivePlayerProps) {
   const _elementRef = useRef<VideoRTC>(null);
   const elementRef = playerRef || _elementRef;
   const containerRef = useRef<HTMLDivElement>(null);
+  const theme = useTheme();
 
   const playerStatus = usePlayerStatus(elementRef);
 
@@ -203,7 +188,7 @@ export function LivePlayer({
     isHovering,
     isMuted,
     isFullscreen,
-  } = useVideoControlsVisibility(elementRef);
+  } = useVideoControlsVisibility(elementRef, onPlayerFullscreenChange);
 
   useEffect(() => {
     if (elementRef.current) {
@@ -215,7 +200,15 @@ export function LivePlayer({
   return (
     <div
       ref={containerRef}
-      style={{ position: "relative", width: "100%", height: "100%" }}
+      style={{ 
+        position: isFullscreen ? "fixed" : "relative",
+        top: isFullscreen ? 0 : "auto",
+        left: isFullscreen ? 0 : "auto",
+        width: isFullscreen ? "100vw" : "100%",
+        height: isFullscreen ? "100vh" : "100%",
+        zIndex: isFullscreen ? 8000 : "auto",
+        backgroundColor: isFullscreen ? theme.palette.background.default : "transparent",
+      }}
       onMouseEnter={isTouchDevice() ? undefined : handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}

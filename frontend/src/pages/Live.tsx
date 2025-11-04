@@ -1,4 +1,6 @@
 import VideocamIcon from "@mui/icons-material/Videocam";
+import FullscreenIcon from "@mui/icons-material/Fullscreen";
+import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Fab from "@mui/material/Fab";
@@ -31,6 +33,7 @@ import { PlayerGrid } from "components/player/grid/PlayerGrid";
 import { LivePlayer } from "components/player/liveplayer/LivePlayer";
 import { VideoRTC } from "components/player/liveplayer/video-rtc";
 import { MjpegPlayer } from "components/player/mjpegplayer/MjpegPlayer";
+import { useFullscreen } from "context/FullscreenContext";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras } from "lib/api/cameras";
 import { objHasValues, removeURLParameter } from "lib/helpers";
@@ -44,10 +47,13 @@ interface MenuContextType {
   ) => void;
   closeMenu: () => void;
   isMenuOpenForCamera: (camera: types.Camera | types.FailedCamera) => boolean;
+  setPlayerFullscreen: (isPlayerFullscreen: boolean) => void;
 }
 
 const MenuContext = createContext<MenuContextType | null>(null);
 function MenuProvider({ children }: { children: React.ReactNode }) {
+  const { isFullscreen } = useFullscreen();
+  const [isPlayerFullscreen, setPlayerFullscreen] = useState(false);
   const [menuState, setMenuState] = useState<{
     open: boolean;
     camera: types.Camera | types.FailedCamera | null;
@@ -76,8 +82,8 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
   );
 
   const contextValue = useMemo(
-    () => ({ openMenu, closeMenu, isMenuOpenForCamera }),
-    [openMenu, closeMenu, isMenuOpenForCamera],
+    () => ({ openMenu, closeMenu, isMenuOpenForCamera, setPlayerFullscreen }),
+    [openMenu, closeMenu, isMenuOpenForCamera, setPlayerFullscreen],
   );
 
   return (
@@ -90,7 +96,20 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
           onClose={closeMenu}
           anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
           transformOrigin={{ vertical: "top", horizontal: "right" }}
-          slotProps={{ paper: { sx: { minWidth: 220 } } }}
+          disablePortal={false}
+          container={() => document.body}
+          slotProps={{ 
+            paper: { 
+              sx: { 
+                minWidth: 220,
+                zIndex: isFullscreen ? 9004 : (isPlayerFullscreen ? 8100 : 1001)
+              } 
+            } 
+          }}
+          BackdropProps={{
+            style: { zIndex: isFullscreen ? 9003 : (isPlayerFullscreen ? 8099 : 1000) }
+          }}
+          style={{ zIndex: isFullscreen ? 9004 : (isPlayerFullscreen ? 8100 : 1001) }}
         >
           <PlayerMenuItems camera={menuState.camera} />
         </Menu>
@@ -99,8 +118,15 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export const FloatingMenu = memo(() => {
+export const FloatingMenu = memo(({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) => {
   const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
+
+  const handleFullscreenToggle = useCallback(async () => {
+    if (containerRef.current) {
+      await toggleFullscreen(containerRef.current);
+    }
+  }, [toggleFullscreen, containerRef]);
 
   return (
     <>
@@ -108,14 +134,34 @@ export const FloatingMenu = memo(() => {
         open={cameraDialogOpen}
         setOpen={setCameraDialogOpen}
       />
-      <Box sx={{ position: "absolute", bottom: 10, left: 14 }}>
-        <Tooltip title="Select Cameras">
+      <Box sx={{ position: "absolute", bottom: 10, left: 14, zIndex: 1000 }}>
+        <Tooltip 
+          title="Select Cameras"
+          PopperProps={{
+            style: { zIndex: isFullscreen ? 9003 : 999 }
+          }}
+        >
           <Fab
             size="small"
             color="primary"
             onClick={() => setCameraDialogOpen(true)}
+            sx={{ mr: 1 }}
           >
             <VideocamIcon />
+          </Fab>
+        </Tooltip>
+        <Tooltip 
+          title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          PopperProps={{
+            style: { zIndex: isFullscreen ? 9003 : 999 }
+          }}
+        >
+          <Fab
+            size="small"
+            color="primary"
+            onClick={handleFullscreenToggle}
+          >
+            {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
           </Fab>
         </Tooltip>
       </Box>
@@ -141,6 +187,13 @@ const CameraPlayer = memo(
         }
       },
       [camera, menuContext],
+    );
+
+    const handlePlayerFullscreenChange = useCallback(
+      (isFullscreen: boolean) => {
+        menuContext?.setPlayerFullscreen(isFullscreen);
+      },
+      [menuContext],
     );
 
     const isMenuOpen = menuContext?.isMenuOpenForCamera(camera) ?? false;
@@ -192,6 +245,7 @@ const CameraPlayer = memo(
         drawPostProcessorMask={drawPostProcessorMask}
         isMenuOpen={isMenuOpen}
         extraButtons={playerMenuButton}
+        onPlayerFullscreenChange={handlePlayerFullscreenChange}
       />
     ) : (
       <LivePlayer
@@ -207,6 +261,7 @@ const CameraPlayer = memo(
         }}
         isMenuOpen={isMenuOpen}
         extraButtons={playerMenuButton}
+        onPlayerFullscreenChange={handlePlayerFullscreenChange}
       />
     );
   },
@@ -214,6 +269,7 @@ const CameraPlayer = memo(
 
 export function PlayerCard() {
   const theme = useTheme();
+  const { isFullscreen } = useFullscreen();
   const paperRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
 
   const renderPlayer = useCallback(
@@ -226,13 +282,17 @@ export function PlayerCard() {
 
   const filteredCameras = useFilteredCameras();
 
+  const height = isFullscreen 
+    ? "100vh" 
+    : `calc(100dvh - ${theme.headerHeight}px - ${theme.headerMargin})`;
+
   return (
     <Paper
       ref={paperRef}
       variant="outlined"
       sx={{
         width: "100%",
-        height: `calc(100dvh - ${theme.headerHeight}px - ${theme.headerMargin})`,
+        height,
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
@@ -255,6 +315,7 @@ function Live() {
   const [searchParams] = useSearchParams();
   const { selectSingleCamera } = useCameraStore();
   const cameras = useCameras({});
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (
@@ -282,9 +343,9 @@ function Live() {
 
   return (
     <MenuProvider>
-      <Container maxWidth={false}>
+      <Container maxWidth={false} ref={containerRef}>
         <PlayerCard />
-        <FloatingMenu />
+        <FloatingMenu containerRef={containerRef} />
       </Container>
     </MenuProvider>
   );
