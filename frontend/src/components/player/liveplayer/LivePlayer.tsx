@@ -5,6 +5,8 @@ import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { CustomControls } from "components/player/CustomControls.js";
 import { VideoRTC } from "components/player/liveplayer/video-rtc.js";
 import "components/player/liveplayer/video-stream.js";
+import { useZoomPan } from "components/player/hooks/useZoomPan";
+import { ZoomPanOverlay } from "components/player/ZoomPanOverlay";
 import { isTouchDevice } from "lib/helpers.js";
 import * as types from "lib/types";
 
@@ -190,6 +192,20 @@ export function LivePlayer({
     isFullscreen,
   } = useVideoControlsVisibility(elementRef, onPlayerFullscreenChange);
 
+  const {
+    transformStyle,
+    handleMouseDown,
+    resetTransform,
+    scale,
+    translateX,
+    translateY,
+    cursor,
+  } = useZoomPan(containerRef, {
+    minScale: 1.0,
+    maxScale: 5,
+    zoomSpeed: 0.2,
+  });
+
   useEffect(() => {
     if (elementRef.current) {
       elementRef.current.src = src;
@@ -208,10 +224,22 @@ export function LivePlayer({
         height: isFullscreen ? "100vh" : "100%",
         zIndex: isFullscreen ? 8000 : "auto",
         backgroundColor: isFullscreen ? theme.palette.background.default : "transparent",
+        overflow: "hidden",
+        cursor,
       }}
       onMouseEnter={isTouchDevice() ? undefined : handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}
+      onMouseDown={handleMouseDown}
+      onDoubleClick={resetTransform}
+      role="button"
+      tabIndex={0}
+      aria-label="Video player - scroll to zoom, drag to pan, double-click to reset"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          resetTransform();
+        }
+      }}
     >
       <CustomControls
         onPlayPause={handlePlayPause}
@@ -224,10 +252,36 @@ export function LivePlayer({
         onFullscreenToggle={handleFullscreenToggle}
         extraButtons={extraButtons}
       />
-      <video-stream ref={elementRef} style={style} controls={controlsVisible} />
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          ...transformStyle,
+        }}
+      >
+        <video-stream 
+          ref={elementRef} 
+          style={{
+            ...style,
+            userSelect: "none",
+            pointerEvents: "none",
+          }}
+          controls={controlsVisible}
+        />
+      </div>
       <CameraNameOverlay
         camera_identifier={camera.identifier}
         extraStatusText={playerStatus}
+      />
+      <ZoomPanOverlay
+        scale={scale}
+        translateX={translateX}
+        translateY={translateY}
+        isVisible={controlsVisible || isHovering || isMenuOpen}
       />
     </div>
   );

@@ -3,6 +3,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { CustomControls } from "components/player/CustomControls.js";
+import { useZoomPan } from "components/player/hooks/useZoomPan";
+import { ZoomPanOverlay } from "components/player/ZoomPanOverlay";
 import { isTouchDevice } from "lib/helpers.js";
 import * as types from "lib/types";
 
@@ -133,6 +135,20 @@ export function MjpegPlayer({
 
   const error = useMjpegErrorHandling(imgRef, src);
 
+  const {
+    transformStyle,
+    handleMouseDown,
+    resetTransform,
+    scale,
+    translateX,
+    translateY,
+    cursor,
+  } = useZoomPan(containerRef, {
+    minScale: 1.0,
+    maxScale: 5,
+    zoomSpeed: 0.2,
+  });
+
   return (
     <div
       ref={containerRef}
@@ -144,11 +160,23 @@ export function MjpegPlayer({
         height: isFullscreen ? "100vh" : "100%",
         zIndex: isFullscreen ? 8000 : "auto",
         backgroundColor: isFullscreen ? theme.palette.background.default : "transparent",
+        overflow: "hidden",
+        cursor,
         ...style,
       }}
       onMouseEnter={isTouchDevice() ? undefined : handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}
+      onMouseDown={handleMouseDown}
+      onDoubleClick={resetTransform}
+      role="button"
+      tabIndex={0}
+      aria-label="Video player - scroll to zoom, drag to pan, double-click to reset"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          resetTransform();
+        }
+      }}
     >
       <CustomControls
         isVisible={controlsVisible || isHovering || isMenuOpen}
@@ -156,35 +184,55 @@ export function MjpegPlayer({
         onFullscreenToggle={handleFullscreenToggle}
         extraButtons={extraButtons}
       />
-      <img
-        ref={imgRef}
-        src={(() => {
-          let url = src;
-          const params = [];
-          if (drawObjects) params.push("draw_objects=1");
-          if (drawMotion) params.push("draw_motion=1");
-          if (drawObjectMask) params.push("draw_object_mask=1");
-          if (drawMotionMask) params.push("draw_motion_mask=1");
-          if (drawZones) params.push("draw_zones=1");
-          if (drawPostProcessorMask) params.push("draw_post_processor_mask=1");
-          if (params.length) {
-            url += (url.includes("?") ? "&" : "?") + params.join("&");
-          }
-          return url;
-        })()}
-        alt="MJPEG Stream"
+      <div
         style={{
           width: "100%",
           height: "100%",
-          objectFit: "contain",
-          backgroundColor: theme.palette.background.default,
-          display: "block",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          ...transformStyle,
         }}
-        draggable={false}
-      />
+      >
+        <img
+          ref={imgRef}
+          src={(() => {
+            let url = src;
+            const params = [];
+            if (drawObjects) params.push("draw_objects=1");
+            if (drawMotion) params.push("draw_motion=1");
+            if (drawObjectMask) params.push("draw_object_mask=1");
+            if (drawMotionMask) params.push("draw_motion_mask=1");
+            if (drawZones) params.push("draw_zones=1");
+            if (drawPostProcessorMask) params.push("draw_post_processor_mask=1");
+            if (params.length) {
+              url += (url.includes("?") ? "&" : "?") + params.join("&");
+            }
+            return url;
+          })()}
+          alt="MJPEG Stream"
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            backgroundColor: theme.palette.background.default,
+            display: "block",
+            userSelect: "none",
+            pointerEvents: "none",
+          }}
+          draggable={false}
+        />
+      </div>
       <CameraNameOverlay
         camera_identifier={camera.identifier}
         extraStatusText={error || "MJPEG Stream"}
+      />
+      <ZoomPanOverlay
+        scale={scale}
+        translateX={translateX}
+        translateY={translateY}
+        isVisible={controlsVisible || isHovering || isMenuOpen}
       />
     </div>
   );
