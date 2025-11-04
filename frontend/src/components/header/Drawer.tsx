@@ -163,7 +163,7 @@ function getItem(index: number, location: Location, item: DrawerItemTypes) {
             target="_blank"
             rel="noopener"
           >
-            <ListItemIcon>
+            <ListItemIcon sx={{ minWidth: 40 }}>
               <item.icon />
             </ListItemIcon>
             <ListItemText primary={item.title} />
@@ -177,7 +177,7 @@ function getItem(index: number, location: Location, item: DrawerItemTypes) {
           to={item.path}
           selected={item.path === location.pathname}
         >
-          <ListItemIcon>
+          <ListItemIcon sx={{ minWidth: 40 }}>
             <item.icon />
           </ListItemIcon>
           <ListItemText primary={item.title} />
