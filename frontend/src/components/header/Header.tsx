@@ -103,6 +103,7 @@ export default function AppHeader() {
             display: "flex",
             alignItems: "center",
             minHeight: theme.headerHeight,
+            paddingX: 2,
           }}
         >
           <Stack
@@ -130,8 +131,8 @@ export default function AppHeader() {
                 sx={{ marginLeft: "16px" }}
               >
                 <ViseronLogo
-                  width={45}
-                  height={45}
+                  width={40}
+                  height={40}
                   style={{ marginTop: "4px" }}
                 />
               </Box>

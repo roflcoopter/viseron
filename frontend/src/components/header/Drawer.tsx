@@ -21,8 +21,10 @@ import ListSubheader from "@mui/material/ListSubheader";
 import Typography from "@mui/material/Typography";
 import { Link, Location, useLocation } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
+import { useContext } from "react";
 
 import { useAuthContext } from "context/AuthContext";
+import { ViseronContext } from "context/ViseronContext";
 import * as types from "lib/types";
 
 type DrawerItemHeader = { type: "header"; title: string };
@@ -117,30 +119,51 @@ interface AppDrawerProps {
 }
 
 function AppDrawerHeader() {
+  const { version } = useContext(ViseronContext);
+
   return (
     <Container
       fixed
       disableGutters
       sx={(theme) => ({
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
-        justifyContent: "start",
+        justifyContent: "center",
         paddingRight: "10px",
         height: theme.headerHeight,
         borderBottom: `1px solid ${theme.palette.divider}`,
       })}
     >
-      <Box sx={{ margin: "10px" }}>
-        <ViseronLogo width={45} height={45} />
+      <Box sx={{ display: "flex", alignItems: "center" }}>
+        <Box sx={{ marginTop: "5px", marginRight: "6px", marginLeft: "10px" }}>
+          <ViseronLogo width={40} height={40} />
+        </Box>
+        <Box sx={{ display: "flex", alignItems: "baseline", position: "relative" }}>
+          <Typography
+            variant="h5"
+            sx={{
+              paddingRight: "50px",
+            }}
+          >
+            Viseron
+          </Typography>
+          {version && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                fontSize: "0.6rem",
+                position: "absolute",
+                top: 0,
+                right: "30px",
+              }}
+            >
+              {version}
+            </Typography>
+          )}
+        </Box>
       </Box>
-      <Typography
-        variant="h5"
-        sx={{
-          paddingRight: "50px",
-        }}
-      >
-        Viseron
-      </Typography>
     </Container>
   );
 }
@@ -207,6 +230,12 @@ export default function AppDrawer({
       color="primary"
       ModalProps={{
         keepMounted: true,
+      }}
+      sx={{
+        '& .MuiDrawer-paper': {
+          borderTop: 'none !important',
+          borderBottom: 'none !important',
+        },
       }}
     >
       <AppDrawerHeader />
