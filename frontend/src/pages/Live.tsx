@@ -136,7 +136,7 @@ export const FloatingMenu = memo(({ containerRef }: { containerRef: React.RefObj
         open={cameraDialogOpen}
         setOpen={setCameraDialogOpen}
       />
-      <Box sx={{ position: "absolute", bottom: 10, left: 14, zIndex: 1000 }}>
+      <Box sx={{ position: "absolute", bottom: 10, left: 23, zIndex: 1000 }}>
         <Tooltip 
           title="Select Cameras"
           PopperProps={{
@@ -316,6 +316,7 @@ function Live() {
   useTitle("Live");
   const [searchParams] = useSearchParams();
   const { selectSingleCamera } = useCameraStore();
+  const { isFullscreen } = useFullscreen();
   const cameras = useCameras({});
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -345,7 +346,11 @@ function Live() {
 
   return (
     <MenuProvider>
-      <Container maxWidth={false} ref={containerRef}>
+      <Container 
+        maxWidth={false} 
+        ref={containerRef} 
+        sx={{ paddingX: isFullscreen ? 0 : 2 }}
+      >
         <PlayerCard />
         <FloatingMenu containerRef={containerRef} />
       </Container>

@@ -78,7 +78,7 @@ function Settings() {
   ];
 
   return (
-    <Container maxWidth={false}>
+    <Container maxWidth={false} sx={{ paddingX: 2}}>
       <Box
         sx={{
           display: "flex",

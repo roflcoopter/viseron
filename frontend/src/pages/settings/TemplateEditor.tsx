@@ -131,7 +131,7 @@ function TemplateEditor() {
   };
 
   return (
-    <Container>
+    <Container sx={{ paddingX: 2}}>
       <Grid container spacing={1} alignItems="stretch">
         <Grid size={{ xs: 12, md: 6 }}>
           <Editor
