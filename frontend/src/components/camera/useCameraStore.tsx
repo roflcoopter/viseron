@@ -76,15 +76,18 @@ export const useFilteredCameras = () => {
     };
   }, [camerasQuery.data, failedCamerasQuery.data]);
 
-  const { selectedCameras } = useCameraStore();
-  return useMemo(
-    () =>
-      Object.keys(cameraData)
-        .filter((key) => selectedCameras.includes(key))
-        .reduce((obj: types.CamerasOrFailedCameras, key) => {
-          obj[key] = cameraData[key];
-          return obj;
-        }, {}),
-    [cameraData, selectedCameras],
-  );
+  const { selectedCameras, selectionOrder } = useCameraStore();
+  return useMemo(() => {
+    // Return cameras ordered by selection order
+    const orderedCameras: types.CamerasOrFailedCameras = {};
+    
+    // Add cameras in selection order
+    selectionOrder.forEach((cameraId) => {
+      if (selectedCameras.includes(cameraId) && cameraData[cameraId]) {
+        orderedCameras[cameraId] = cameraData[cameraId];
+      }
+    });
+    
+    return orderedCameras;
+  }, [cameraData, selectedCameras, selectionOrder]);
 };

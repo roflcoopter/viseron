@@ -1,7 +1,8 @@
 import {
   VideoAdd,
   Maximize,
-  Minimize
+  Minimize,
+  Grid
 } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
@@ -9,6 +10,7 @@ import Fab from "@mui/material/Fab";
 import Menu from "@mui/material/Menu";
 import Paper from "@mui/material/Paper";
 import Tooltip from "@mui/material/Tooltip";
+import useMediaQuery from "@mui/material/useMediaQuery";
 import { useTheme } from "@mui/material/styles";
 import {
   createContext,
@@ -32,6 +34,8 @@ import { Loading } from "components/loading/Loading";
 import { PlayerMenu, PlayerMenuItems } from "components/player/PlayerMenu";
 import { usePlayerSettingsStore } from "components/player/UsePlayerSettingsStore";
 import { PlayerGrid } from "components/player/grid/PlayerGrid";
+import CustomGridLayout from "components/player/grid/CustomGridLayout";
+import { GridLayoutSelectorDialog } from "components/player/grid/GridLayoutSelectorDialog";
 import { LivePlayer } from "components/player/liveplayer/LivePlayer";
 import { VideoRTC } from "components/player/liveplayer/video-rtc";
 import { MjpegPlayer } from "components/player/mjpegplayer/MjpegPlayer";
@@ -39,6 +43,7 @@ import { useFullscreen } from "context/FullscreenContext";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras } from "lib/api/cameras";
 import { objHasValues, removeURLParameter } from "lib/helpers";
+import { useGridLayoutStore } from "stores/GridLayoutStore";
 import * as types from "lib/types";
 
 // Context for managing menu state across players
@@ -122,7 +127,9 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
 
 export const FloatingMenu = memo(({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) => {
   const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
+  const [gridLayoutDialogOpen, setGridLayoutDialogOpen] = useState(false);
   const { isFullscreen, toggleFullscreen } = useFullscreen();
+  const cameras = useCameras({});
 
   const handleFullscreenToggle = useCallback(async () => {
     if (containerRef.current) {
@@ -136,7 +143,12 @@ export const FloatingMenu = memo(({ containerRef }: { containerRef: React.RefObj
         open={cameraDialogOpen}
         setOpen={setCameraDialogOpen}
       />
-      <Box sx={{ position: "absolute", bottom: 10, left: 23, zIndex: 1000 }}>
+      <GridLayoutSelectorDialog
+        open={gridLayoutDialogOpen}
+        onClose={() => setGridLayoutDialogOpen(false)}
+        cameras={cameras.data || {}}
+      />
+      <Box sx={{ position: "absolute", bottom: 10, left: isFullscreen ? 11 : 23, zIndex: 1000 }}>
         <Tooltip 
           title="Select Cameras"
           PopperProps={{
@@ -150,6 +162,21 @@ export const FloatingMenu = memo(({ containerRef }: { containerRef: React.RefObj
             sx={{ mr: 1 }}
           >
             <VideoAdd size={20}/>
+          </Fab>
+        </Tooltip>
+        <Tooltip 
+          title="Grid Layout"
+          PopperProps={{
+            style: { zIndex: isFullscreen ? 9003 : 999 }
+          }}
+        >
+          <Fab
+            size="small"
+            color="primary"
+            onClick={() => setGridLayoutDialogOpen(true)}
+            sx={{ mr: 1 }}
+          >
+            <Grid size={20}/>
           </Fab>
         </Tooltip>
         <Tooltip 
@@ -270,8 +297,9 @@ const CameraPlayer = memo(
 );
 
 export function PlayerCard() {
+  const { currentLayout } = useGridLayoutStore();
   const theme = useTheme();
-  const { isFullscreen } = useFullscreen();
+  const isMobileOrSmall = useMediaQuery(theme.breakpoints.down('md'));
   const paperRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
 
   const renderPlayer = useCallback(
@@ -284,9 +312,10 @@ export function PlayerCard() {
 
   const filteredCameras = useFilteredCameras();
 
-  const height = isFullscreen 
-    ? "100vh" 
-    : `calc(100dvh - ${theme.headerHeight}px - ${theme.headerMargin})`;
+  // Use auto layout if:
+  // 1. Current layout is 'auto', OR
+  // 2. Device is mobile/small (below md breakpoint)
+  const shouldUseAutoLayout = currentLayout === 'auto' || isMobileOrSmall;
 
   return (
     <Paper
@@ -294,19 +323,28 @@ export function PlayerCard() {
       variant="outlined"
       sx={{
         width: "100%",
-        height,
+        flex: 1,
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
+        maxHeight: "100%",
       }}
     >
-      <Box sx={{ flexGrow: 1, position: "relative" }}>
-        <PlayerGrid
-          cameras={filteredCameras as types.Cameras}
-          containerRef={paperRef}
-          renderPlayer={renderPlayer}
-          forceBreakpoint
-        />
+      <Box sx={{ flexGrow: 1, position: "relative", overflow: "hidden", maxHeight: "100%" }}>
+        {shouldUseAutoLayout ? (
+          <PlayerGrid
+            cameras={filteredCameras as types.Cameras}
+            containerRef={paperRef}
+            renderPlayer={renderPlayer}
+            forceBreakpoint
+          />
+        ) : (
+          <CustomGridLayout
+            cameras={filteredCameras as types.Cameras}
+            containerRef={paperRef}
+            renderPlayer={renderPlayer}
+          />
+        )}
       </Box>
     </Paper>
   );
@@ -314,8 +352,10 @@ export function PlayerCard() {
 
 function Live() {
   useTitle("Live");
+  const theme = useTheme();
   const [searchParams] = useSearchParams();
   const { selectSingleCamera } = useCameraStore();
+  const { resetLayout } = useGridLayoutStore();
   const { isFullscreen } = useFullscreen();
   const cameras = useCameras({});
   const containerRef = useRef<HTMLDivElement>(null);
@@ -328,13 +368,16 @@ function Live() {
     ) {
       const cameraId = searchParams.get("camera") as string;
       if (cameras.data[cameraId]) {
+        // Reset grid layout store to auto when camera query is present
+        resetLayout();
+        
         selectSingleCamera(cameras.data[cameraId].identifier);
         searchParams.delete("camera");
         const newUrl = removeURLParameter(window.location.href, "camera");
         window.history.pushState({ path: newUrl }, "", newUrl);
       }
     }
-  }, [cameras, searchParams, selectSingleCamera]);
+  }, [cameras, searchParams, selectSingleCamera, resetLayout]);
 
   if (cameras.isPending) {
     return <Loading text="Loading Cameras" />;
@@ -349,7 +392,14 @@ function Live() {
       <Container 
         maxWidth={false} 
         ref={containerRef} 
-        sx={{ paddingX: isFullscreen ? 0 : 2 }}
+        sx={{ 
+          paddingX: isFullscreen ? 0 : 2,
+          height: isFullscreen ? '100vh' : `calc(100dvh - ${theme.headerHeight}px - ${theme.headerMargin})`,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          maxHeight: isFullscreen ? '100vh' : `calc(100dvh - ${theme.headerHeight}px - ${theme.headerMargin})`,
+        }}
       >
         <PlayerCard />
         <FloatingMenu containerRef={containerRef} />

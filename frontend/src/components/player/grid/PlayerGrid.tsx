@@ -47,13 +47,24 @@ const PlayerItem = forwardRef<PlayerItemRef, PlayerItemProps>(
         key={camera.identifier}
         sx={{
           flexBasis: "min-content",
+          ...(gridLayout.columns === 1 && gridLayout.rows > 1 && {
+            width: '100%',
+            maxWidth: '100%',
+            flexBasis: 'auto'
+          })
         }}
-        size={12 / gridLayout.columns}
+        size={gridLayout.columns === 1 && gridLayout.rows > 1 ? 12 : 12 / gridLayout.columns}
       >
         <Box
           ref={boxRef}
           sx={{
             position: "relative",
+            maxWidth: "100%",
+            maxHeight: "100%",
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
           }}
         >
           {renderPlayer(camera, playerRef)}
@@ -101,7 +112,17 @@ export function PlayerGrid({
     <Grid
       container
       spacing={0}
-      sx={{ height: "100%" }}
+      sx={{ 
+        height: "100%",
+        maxHeight: "100%",
+        overflow: "hidden",
+        ...(gridLayout.columns === 1 && gridLayout.rows > 1 && {
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+          overflowY: 'auto'
+        })
+      }}
       alignContent="center"
       justifyContent="center"
     >
