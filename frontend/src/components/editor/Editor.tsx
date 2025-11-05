@@ -322,7 +322,7 @@ function ConfigEditor() {
           </Button>
         </DialogActions>
       </Dialog>
-      <Stack justifyContent="flex-start" alignItems="flex-start" spacing={2}>
+      <Stack justifyContent="flex-start" alignItems="flex-start" paddingTop={1} spacing={2}>
         <Stack
           direction="row"
           justifyContent="flex-start"
@@ -364,10 +364,10 @@ function ConfigEditor() {
             },
             markers.length > 0
               ? {
-                  height: "80vh",
+                  height: "70vh",
                 }
               : {
-                  height: "90vh",
+                  height: "80vh",
                 },
           ]}
         >
@@ -384,7 +384,7 @@ function ConfigEditor() {
             })}
           >
             <Editor
-              height={markers.length > 0 ? "80vh" : "90vh"}
+              height={markers.length > 0 ? "70vh" : "80vh"}
               defaultLanguage="yaml"
               theme={`${theme.palette.mode === "dark" ? "vs-dark" : "light"}`}
               defaultValue={savedConfig}
