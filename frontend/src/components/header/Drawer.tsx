@@ -1,14 +1,15 @@
-import { SvgIconComponent } from "@mui/icons-material";
-import GitHubIcon from "@mui/icons-material/GitHub";
-import ImageSearchIcon from "@mui/icons-material/ImageSearch";
-import LiveTvIcon from "@mui/icons-material/LiveTv";
-import MenuBookIcon from "@mui/icons-material/MenuBook";
-import SettingsIcon from "@mui/icons-material/Settings";
-import VideoFileIcon from "@mui/icons-material/VideoFile";
-import VideocamIcon from "@mui/icons-material/Videocam";
-import ViewListIcon from "@mui/icons-material/ViewList";
-import ViewTimelineIcon from "@mui/icons-material/ViewTimeline";
-import VolunteerActivismIcon from "@mui/icons-material/VolunteerActivism";
+import {
+  LogoGithub,
+  IntrusionPrevention,
+  VideoChat,
+  Book,
+  Settings,
+  Demo,
+  Video,
+  TableSplit,
+  Roadmap,
+  Need,
+} from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Divider from "@mui/material/Divider";
@@ -33,7 +34,7 @@ type DrawerItemLink = {
   type: "link";
   path: string;
   title: string;
-  icon: SvgIconComponent;
+  icon: React.ComponentType<{ size?: number | string }>;
   external?: boolean;
 };
 
@@ -47,32 +48,32 @@ const getDrawerItems = (
 ) => {
   const drawerItems: Array<DrawerItemTypes> = [
     { type: "header", title: "Pages" },
-    { type: "link", title: "Cameras", icon: VideocamIcon, path: "/" },
+    { type: "link", title: "Cameras", icon: Video, path: "/" },
     {
       type: "link",
       title: "Recordings",
-      icon: VideoFileIcon,
+      icon: Demo,
       path: "/recordings",
     },
     {
       type: "link",
       title: "Events",
-      icon: ImageSearchIcon,
+      icon: IntrusionPrevention,
       path: "/events?tab=events",
     },
     {
       type: "link",
       title: "Timeline",
-      icon: ViewTimelineIcon,
+      icon: Roadmap,
       path: "/events?tab=timeline",
     },
     {
       type: "link",
-      title: "Live",
-      icon: LiveTvIcon,
+      title: "Live View",
+      icon: VideoChat,
       path: "/live",
     },
-    { type: "link", title: "Entities", icon: ViewListIcon, path: "/entities" },
+    { type: "link", title: "Entities", icon: TableSplit, path: "/entities" },
     ...(!auth.enabled || (auth.enabled && user?.role === "admin")
       ? [
           { type: "divider" } as DrawerItemTypes,
@@ -80,7 +81,7 @@ const getDrawerItems = (
           {
             type: "link",
             title: "Settings",
-            icon: SettingsIcon,
+            icon: Settings,
             path: "/settings",
           } as DrawerItemTypes,
         ]
@@ -90,21 +91,21 @@ const getDrawerItems = (
     {
       type: "link",
       title: "GitHub",
-      icon: GitHubIcon,
+      icon: LogoGithub,
       path: "https://github.com/roflcoopter/viseron",
       external: true,
     },
     {
       type: "link",
       title: "Documentation",
-      icon: MenuBookIcon,
+      icon: Book,
       path: "https://viseron.netlify.app",
       external: true,
     },
     {
       type: "link",
       title: "Donations",
-      icon: VolunteerActivismIcon,
+      icon: Need,
       path: "https://github.com/sponsors/roflcoopter",
       external: true,
     },
@@ -187,7 +188,7 @@ function getItem(index: number, location: Location, item: DrawerItemTypes) {
             rel="noopener"
           >
             <ListItemIcon sx={{ minWidth: 40 }}>
-              <item.icon />
+              <item.icon size={23} />
             </ListItemIcon>
             <ListItemText primary={item.title} />
           </ListItemButton>
@@ -201,7 +202,7 @@ function getItem(index: number, location: Location, item: DrawerItemTypes) {
           selected={item.path === location.pathname}
         >
           <ListItemIcon sx={{ minWidth: 40 }}>
-            <item.icon />
+            <item.icon size={23} />
           </ListItemIcon>
           <ListItemText primary={item.title} />
         </ListItemButton>

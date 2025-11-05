@@ -1,5 +1,7 @@
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import FilterListIcon from "@mui/icons-material/FilterList";
+import {
+  ChevronLeft,
+  FunnelSort,
+} from "@carbon/icons-react";
 import Checkbox from "@mui/material/Checkbox";
 import IconButton from "@mui/material/IconButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -67,7 +69,7 @@ export function FilterMenu() {
           color: theme.palette.primary.main,
         })}
       >
-        <FilterListIcon />
+        <FunnelSort size={20}/>
       </IconButton>
       <Menu
         id="filter-menu"
@@ -77,7 +79,7 @@ export function FilterMenu() {
         onClose={handleClose}
       >
         <NestedMenuItem
-          leftIcon={<ChevronLeftIcon />}
+          leftIcon={<ChevronLeft size={20}/>}
           rightIcon={<div />}
           label="Events"
           parentMenuOpen={open}

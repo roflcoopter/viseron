@@ -1,4 +1,7 @@
-import GitHubIcon from "@mui/icons-material/GitHub";
+import { 
+  LogoGithub,
+} from "@carbon/icons-react";
+import Box from "@mui/material/Box";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
 import { styled, useTheme } from "@mui/material/styles";
@@ -32,20 +35,22 @@ export default function AppFooter() {
       >
         Viseron - {version} - {gitCommit}
       </Typography>
-      <Typography align="center" variant="subtitle2">
+      <Typography align="center">
         <Link
           target="_blank"
           href="https://github.com/roflcoopter/viseron"
           color={theme.palette.text.secondary}
+          fontSize={17}
         >
-          <GitHubIcon
-            fontSize="small"
+          <Box
             sx={{
               verticalAlign: "middle",
-              marginTop: "-3px",
               marginRight: "5px",
+              display: "inline-block",
             }}
-          />
+          >
+            <LogoGithub size={17}/>
+          </Box>
           GitHub
         </Link>
       </Typography>

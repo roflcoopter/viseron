@@ -1,8 +1,10 @@
 import Image from "@jy95/material-ui-image";
-import ImageSearchIcon from "@mui/icons-material/ImageSearch";
-import LiveTvIcon from "@mui/icons-material/LiveTv";
-import VideoFileIcon from "@mui/icons-material/VideoFile";
-import ViewTimelineIcon from "@mui/icons-material/ViewTimeline";
+import {
+  IntrusionPrevention,
+  VideoChat,
+  Demo,
+  Roadmap,
+} from "@carbon/icons-react";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
@@ -214,7 +216,7 @@ function SuccessCameraCard({
                   component={Link}
                   to={`/events?camera=${camera.identifier}&tab=events`}
                 >
-                  <ImageSearchIcon />
+                  <IntrusionPrevention size={20}/>
                 </IconButton>
               </Tooltip>
               <Tooltip title="Timeline">
@@ -222,7 +224,7 @@ function SuccessCameraCard({
                   component={Link}
                   to={`/events?camera=${camera.identifier}&tab=timeline`}
                 >
-                  <ViewTimelineIcon />
+                  <Roadmap size={20}/>
                 </IconButton>
               </Tooltip>
               <Tooltip title="Recordings">
@@ -230,7 +232,7 @@ function SuccessCameraCard({
                   component={Link}
                   to={`/recordings/${camera.identifier}`}
                 >
-                  <VideoFileIcon />
+                  <Demo size={20}/>
                 </IconButton>
               </Tooltip>
               <Tooltip title="Live View">
@@ -238,7 +240,7 @@ function SuccessCameraCard({
                   component={Link}
                   to={`/live?camera=${camera.identifier}`}
                 >
-                  <LiveTvIcon />
+                  <VideoChat size={20}/>
                 </IconButton>
               </Tooltip>
             </Stack>

@@ -1,5 +1,7 @@
-import Visibility from "@mui/icons-material/Visibility";
-import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import {
+  View,
+  ViewOff,
+} from "@carbon/icons-react";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import InputAdornment from "@mui/material/InputAdornment";
@@ -50,7 +52,7 @@ export function TextFieldItem<T extends string>(props: TextFieldItemProps<T>) {
                 aria-label="toggle password visibility"
                 onClick={togglePasswordVisibility}
               >
-                {showPassword ? <Visibility /> : <VisibilityOff />}
+                {showPassword ? <View /> : <ViewOff />}
               </IconButton>
             </InputAdornment>
           ),

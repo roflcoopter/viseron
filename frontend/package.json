@@ -8,6 +8,7 @@
     "url": "https://github.com/roflcoopter/viseron.git"
   },
   "dependencies": {
+    "@carbon/icons-react": "^11.70.0",
     "@codemirror/autocomplete": "6.19.0",
     "@codemirror/commands": "6.9.0",
     "@codemirror/language": "6.11.3",

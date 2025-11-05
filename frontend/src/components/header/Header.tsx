@@ -1,8 +1,10 @@
-import Brightness4Icon from "@mui/icons-material/Brightness4";
-import Brightness7Icon from "@mui/icons-material/Brightness7";
-import LogoutIcon from "@mui/icons-material/Logout";
-import MenuIcon from "@mui/icons-material/Menu";
-import SettingsIcon from "@mui/icons-material/Settings";
+import {
+  RightPanelClose,
+  LightFilled,
+  Light,
+  Settings,
+  Logout
+} from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import IconButton from "@mui/material/IconButton";
@@ -120,7 +122,7 @@ export default function AppHeader() {
                   setDrawerOpen(true);
                 }}
               >
-                <MenuIcon fontSize="small" />
+                <RightPanelClose/>
               </IconButton>
             </Tooltip>
             <Tooltip title="Home" enterDelay={300}>
@@ -163,9 +165,9 @@ export default function AppHeader() {
             >
               <IconButton color="primary" onClick={colorMode.toggleColorMode}>
                 {theme.palette.mode === "dark" ? (
-                  <Brightness7Icon />
+                  <LightFilled/>
                 ) : (
-                  <Brightness4Icon />
+                  <Light/>
                 )}
               </IconButton>
             </Tooltip>
@@ -176,7 +178,7 @@ export default function AppHeader() {
                   color="primary"
                   to="/settings"
                 >
-                  <SettingsIcon />
+                  <Settings />
                 </IconButton>
               </Tooltip>
             ) : null}
@@ -193,7 +195,7 @@ export default function AppHeader() {
                     })
                   }
                 >
-                  <LogoutIcon />
+                  <Logout />
                 </IconButton>
               </Tooltip>
             )}

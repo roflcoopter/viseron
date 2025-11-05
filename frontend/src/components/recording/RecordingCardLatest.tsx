@@ -1,5 +1,7 @@
-import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
-import VideoFileIcon from "@mui/icons-material/VideoFile";
+import { 
+  TrashCan,
+  DocumentVideo,
+} from "@carbon/icons-react";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
@@ -127,7 +129,7 @@ export default function RecordingCardLatest({
                 to={`/recordings/${camera_identifier}`}
                 disabled={!objHasValues(recording)}
               >
-                <VideoFileIcon />
+                <DocumentVideo size={20}/>
               </IconButton>
             </span>
           </Tooltip>
@@ -143,7 +145,7 @@ export default function RecordingCardLatest({
                   });
                 }}
               >
-                <DeleteForeverIcon />
+                <TrashCan size={20}/>
               </MutationIconButton>
             </Tooltip>
           ) : null}

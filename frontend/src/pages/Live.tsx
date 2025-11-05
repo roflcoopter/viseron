@@ -1,6 +1,8 @@
-import VideocamIcon from "@mui/icons-material/Videocam";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
+import {
+  VideoAdd,
+  Maximize,
+  Minimize
+} from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Fab from "@mui/material/Fab";
@@ -147,7 +149,7 @@ export const FloatingMenu = memo(({ containerRef }: { containerRef: React.RefObj
             onClick={() => setCameraDialogOpen(true)}
             sx={{ mr: 1 }}
           >
-            <VideocamIcon />
+            <VideoAdd size={20}/>
           </Fab>
         </Tooltip>
         <Tooltip 
@@ -161,7 +163,7 @@ export const FloatingMenu = memo(({ containerRef }: { containerRef: React.RefObj
             color="primary"
             onClick={handleFullscreenToggle}
           >
-            {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+            {isFullscreen ? <Minimize size={20}/> : <Maximize size={20}/>}
           </Fab>
         </Tooltip>
       </Box>

@@ -1,6 +1,6 @@
 import { StreamLanguage } from "@codemirror/language";
 import { jinja2 } from "@codemirror/legacy-modes/mode/jinja2";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import { Warning } from "@carbon/icons-react";
 import { TextField } from "@mui/material";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -95,7 +95,7 @@ function Result({ result, error }: ResultProps) {
         Result
       </Typography>
       {error ? (
-        <Alert severity="error" icon={<ErrorOutlineIcon />}>
+        <Alert severity="error" icon={<Warning size={20}/>}>
           {error}
         </Alert>
       ) : result ? (

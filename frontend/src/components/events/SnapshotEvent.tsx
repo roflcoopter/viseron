@@ -1,5 +1,5 @@
 import Image from "@jy95/material-ui-image";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import { Download } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
@@ -195,7 +195,7 @@ function PopoverContent({ events }: { events: types.CameraEvent[] }) {
                         e.preventDefault();
                       }}
                     >
-                      <FileDownloadIcon />
+                      <Download size={20}/>
                     </IconButton>
                   </Tooltip>
                 </Stack>

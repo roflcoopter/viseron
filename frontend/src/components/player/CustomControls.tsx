@@ -1,13 +1,15 @@
-import CircleIcon from "@mui/icons-material/Circle";
-import Forward10Icon from "@mui/icons-material/Forward10";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
-import PauseIcon from "@mui/icons-material/Pause";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import Replay10Icon from "@mui/icons-material/Replay10";
-import SpeedIcon from "@mui/icons-material/Speed";
-import VolumeOffIcon from "@mui/icons-material/VolumeOff";
-import VolumeUpIcon from "@mui/icons-material/VolumeUp";
+import {
+  Rewind_10 as Rewind10,
+  Forward_10 as Forward10,
+  Pause,
+  Play,
+  VolumeMute,
+  VolumeUp,
+  MeterAlt,
+  Launch,
+  PopIn,
+  CircleFill,
+} from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Fab from "@mui/material/Fab";
@@ -16,7 +18,6 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Slider from "@mui/material/Slider";
 import Typography from "@mui/material/Typography";
-import { SxProps, Theme } from "@mui/material/styles";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import screenfull from "screenfull";
 
@@ -46,12 +47,6 @@ export function CustomFab({
     </Fab>
   );
 }
-
-const iconStyles: SxProps<Theme> = {
-  width: "12px",
-  height: "12px",
-  marginRight: 1,
-};
 
 interface CustomControlsProps {
   isPlaying?: boolean;
@@ -164,17 +159,17 @@ export function CustomControls({
         <Box display="flex" justifyContent="center" alignItems="center">
           {onJumpBackward && (
             <CustomFab onClick={onJumpBackward}>
-              <Replay10Icon />
+              <Rewind10 size={20}/>
             </CustomFab>
           )}
           {onPlayPause && (
             <CustomFab onClick={onPlayPause} size="medium">
-              {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
+              {isPlaying ? <Pause size={20}/> : <Play size={20}/>}
             </CustomFab>
           )}
           {onJumpForward && (
             <CustomFab onClick={onJumpForward}>
-              <Forward10Icon />
+              <Forward10 size={20}/>
             </CustomFab>
           )}
         </Box>
@@ -200,7 +195,7 @@ export function CustomControls({
               size="small"
               sx={{ margin: 0.25 }}
             >
-              <CircleIcon htmlColor={isLive ? "red" : "gray"} sx={iconStyles} />
+              <CircleFill fill={isLive ? "red" : "gray"} size={12} style={{ marginRight: 8 }} />
               <Typography variant="button">LIVE</Typography>
             </Button>
           ) : (
@@ -271,7 +266,7 @@ export function CustomControls({
                 )}
                 {onMuteToggle && (
                   <CustomFab onClick={onMuteToggle}>
-                    {isMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
+                    {isMuted ? <VolumeMute size={20}/> : <VolumeUp size={20}/>}
                   </CustomFab>
                 )}
               </Box>
@@ -279,7 +274,7 @@ export function CustomControls({
             {onPlaybackSpeedChange && (
               <>
                 <CustomFab onClick={handleSpeedClick}>
-                  <SpeedIcon />
+                  <MeterAlt size={20}/>
                 </CustomFab>
                 <Menu
                   anchorEl={anchorEl}
@@ -328,7 +323,7 @@ export function CustomControls({
             {extraButtons}
             {onFullscreenToggle && screenfull.isEnabled && (
               <CustomFab onClick={onFullscreenToggle}>
-                {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+                {isFullscreen ? <PopIn size={20}/> : <Launch size={20}/>}
               </CustomFab>
             )}
           </Box>

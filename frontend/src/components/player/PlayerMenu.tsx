@@ -1,4 +1,4 @@
-import MoreVertIcon from "@mui/icons-material/MoreVert";
+import { GlobalFilters } from "@carbon/icons-react";
 import Checkbox from "@mui/material/Checkbox";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
@@ -17,7 +17,7 @@ interface PlayerMenuProps {
 export function PlayerMenu({ onMenuOpen }: PlayerMenuProps) {
   return (
     <CustomFab onClick={onMenuOpen}>
-      <MoreVertIcon />
+      <GlobalFilters />
     </CustomFab>
   );
 }

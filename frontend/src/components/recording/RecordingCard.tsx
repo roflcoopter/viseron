@@ -1,4 +1,4 @@
-import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+import { TrashCan } from "@carbon/icons-react";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
@@ -76,7 +76,7 @@ export default function RecordingCard({
                   });
                 }}
               >
-                <DeleteForeverIcon />
+                <TrashCan size={20}/>
               </MutationIconButton>
             </Tooltip>
           </Stack>

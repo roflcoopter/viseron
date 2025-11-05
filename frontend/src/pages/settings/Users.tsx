@@ -1,4 +1,4 @@
-import AddIcon from "@mui/icons-material/Add";
+import { AddLarge } from "@carbon/icons-react";
 import Container from "@mui/material/Container";
 import Fab from "@mui/material/Fab";
 import Paper from "@mui/material/Paper";
@@ -111,7 +111,7 @@ function Users() {
         sx={{ zIndex: 100, position: "fixed", bottom: 16, right: 16 }}
         onClick={handleOpenAddUser}
       >
-        <AddIcon />
+        <AddLarge size={20}/>
         Add User
       </Fab>
       {isAddUserOpen && <AddUserDialog onClose={handleCloseAddUser} />}
