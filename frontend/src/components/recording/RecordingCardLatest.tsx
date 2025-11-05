@@ -135,18 +135,20 @@ export default function RecordingCardLatest({
           </Tooltip>
           {!user || user.role === "admin" || user.role === "write" ? (
             <Tooltip title="Delete Recordings">
-              <MutationIconButton
-                mutation={deleteRecording}
-                disabled={!objHasValues(recording)}
-                onClick={() => {
-                  deleteRecording.mutate({
-                    identifier: camera_identifier,
-                    failed,
-                  });
-                }}
-              >
-                <TrashCan size={20}/>
-              </MutationIconButton>
+              <span>
+                <MutationIconButton
+                  mutation={deleteRecording}
+                  disabled={!objHasValues(recording)}
+                  onClick={() => {
+                    deleteRecording.mutate({
+                      identifier: camera_identifier,
+                      failed,
+                    });
+                  }}
+                >
+                  <TrashCan size={20}/>
+                </MutationIconButton>
+              </span>
             </Tooltip>
           ) : null}
         </Stack>
