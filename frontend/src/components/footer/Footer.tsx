@@ -15,8 +15,8 @@ const Footer = styled("footer")(() => ({
   position: "relative",
   left: 0,
   bottom: 0,
-  marginTop: "90px",
-  paddingBottom: "35px",
+  marginTop: "60px",
+  paddingBottom: "25px",
 }));
 
 export default function AppFooter() {
