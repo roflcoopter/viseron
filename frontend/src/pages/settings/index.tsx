@@ -84,7 +84,7 @@ function Settings() {
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          minHeight: "80vh",
+          minHeight: "70vh",
         }}
       >
         <Card sx={{ maxWidth: 600, width: "100%" }}>
