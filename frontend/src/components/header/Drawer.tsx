@@ -170,6 +170,44 @@ function AppDrawerHeader() {
 }
 
 function getItem(index: number, location: Location, item: DrawerItemTypes) {
+  const isSelected = (itemPath: string, currentLocation: Location) => {
+    // Handle external URLs (skip selection logic for external links)
+    if (itemPath.startsWith('http://') || itemPath.startsWith('https://')) {
+      return false;
+    }
+    
+    // Handle empty or invalid paths
+    if (!itemPath || typeof itemPath !== 'string') {
+      return false;
+    }
+    
+    try {
+      // Parse the item path to extract pathname and search params
+      const url = new URL(itemPath, 'https://example.com');
+      const itemPathname = url.pathname;
+      const itemSearchParams = url.searchParams;
+      
+      // Check if pathname matches
+      if (itemPathname !== currentLocation.pathname) {
+        return false;
+      }
+      
+      // If there are search params in item path, check if they match current location
+      const currentSearchParams = new URLSearchParams(currentLocation.search);
+      for (const [key, value] of itemSearchParams) {
+        if (currentSearchParams.get(key) !== value) {
+          return false;
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      // Handle malformed URLs gracefully
+      console.warn('Invalid URL in drawer item:', itemPath, error);
+      return false;
+    }
+  };
+
   switch (item.type) {
     case "header":
       return (
@@ -199,7 +237,7 @@ function getItem(index: number, location: Location, item: DrawerItemTypes) {
           key={index}
           component={Link}
           to={item.path}
-          selected={item.path === location.pathname}
+          selected={isSelected(item.path, location)}
         >
           <ListItemIcon sx={{ minWidth: 40 }}>
             <item.icon size={23} />
