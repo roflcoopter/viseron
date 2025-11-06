@@ -442,16 +442,18 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
         display: "flex",
       }}
     >
-      {!camera.failed && !(camera as types.Camera).connected ? (
+      {(!camera.failed && !(camera as types.Camera).connected) || hlsRefError ? (
         <Box
           sx={{
             width: "100%",
             height: "100%",
             backgroundColor: theme.palette.background.default,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             minHeight: 200,
+            gap: 2,
           }}
         >
           <VideoOff 
@@ -461,6 +463,18 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
               opacity: 0.5 
             }} 
           />
+          <Box
+            sx={{
+              color: theme.palette.text.secondary,
+              textAlign: 'center',
+              fontSize: '0.875rem',
+              opacity: 0.7,
+              maxWidth: '80%',
+              wordBreak: 'break-word',
+            }}
+          >
+            {hlsRefError || (!camera.failed && !(camera as types.Camera).connected ? "Camera Disconnected" : "No Video Signal")}
+          </Box>
         </Box>
       ) : (
         <>

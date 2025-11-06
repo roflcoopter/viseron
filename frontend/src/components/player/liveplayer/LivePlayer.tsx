@@ -136,19 +136,42 @@ const useVideoControlsVisibility = (
 
 const usePlayerStatus = (playerRef: React.RefObject<VideoRTC | null>) => {
   const [status, setStatus] = useState<string>("");
+  const [hasError, setHasError] = useState<boolean>(false);
 
   useEffect(() => {
     const handleStatus = (e: Event) => {
       const customEvent = e as CustomEvent;
-      setStatus(customEvent.detail?.value || "");
+      const statusValue = customEvent.detail?.value || "";
+      setStatus(statusValue);
+      
+      // Check if status indicates an error
+      const isError = statusValue.toLowerCase().includes('error') || 
+                     statusValue.toLowerCase().includes('failed') ||
+                     statusValue.toLowerCase().includes('disconnect');
+      setHasError(isError);
     };
     const videoElement = playerRef.current;
     videoElement?.addEventListener("status", handleStatus);
+    
+    // Also listen for error events directly on the video element
+    const handleError = () => {
+      setHasError(true);
+      setStatus("Connection failed");
+    };
+    
+    if (videoElement?.video) {
+      videoElement.video.addEventListener("error", handleError);
+    }
+    
     return () => {
       videoElement?.removeEventListener("status", handleStatus);
+      if (videoElement?.video) {
+        videoElement.video.removeEventListener("error", handleError);
+      }
     };
   }, [playerRef]);
-  return status;
+  
+  return { status, hasError };
 };
 
 interface LivePlayerProps extends React.HTMLAttributes<HTMLElement> {
@@ -177,7 +200,7 @@ export function LivePlayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
 
-  const playerStatus = usePlayerStatus(elementRef);
+  const { status: playerStatus, hasError } = usePlayerStatus(elementRef);
 
   const {
     handlePlayPause,
@@ -265,16 +288,18 @@ export function LivePlayer({
           ...transformStyle,
         }}
       >
-        {!camera.failed && !(camera as types.Camera).connected ? (
+        {(!camera.failed && !(camera as types.Camera).connected) || hasError ? (
           <Box
             sx={{
               width: "100%",
               height: "100%",
               backgroundColor: theme.palette.background.default,
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               minHeight: 200,
+              gap: 2,
             }}
           >
             <VideoOff 
@@ -284,6 +309,18 @@ export function LivePlayer({
                 opacity: 0.5 
               }} 
             />
+            <Box
+              sx={{
+                color: theme.palette.text.secondary,
+                textAlign: 'center',
+                fontSize: '0.875rem',
+                opacity: 0.7,
+                maxWidth: '80%',
+                wordBreak: 'break-word',
+              }}
+            >
+              {playerStatus || (hasError ? "Connection Error" : (!camera.failed && !(camera as types.Camera).connected) ? "Camera Disconnected" : "No Video Signal")}
+            </Box>
           </Box>
         ) : (
           <video-stream 
