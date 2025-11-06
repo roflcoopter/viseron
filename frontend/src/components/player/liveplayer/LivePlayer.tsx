@@ -1,4 +1,6 @@
 import { useTheme } from "@mui/material/styles";
+import { VideoOff } from "@carbon/icons-react";
+import Box from "@mui/material/Box";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
@@ -263,15 +265,37 @@ export function LivePlayer({
           ...transformStyle,
         }}
       >
-        <video-stream 
-          ref={elementRef} 
-          style={{
-            ...style,
-            userSelect: "none",
-            pointerEvents: "none",
-          }}
-          controls={controlsVisible}
-        />
+        {!camera.failed && !(camera as types.Camera).connected ? (
+          <Box
+            sx={{
+              width: "100%",
+              height: "100%",
+              backgroundColor: theme.palette.background.default,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 200,
+            }}
+          >
+            <VideoOff 
+              size={48} 
+              style={{ 
+                color: theme.palette.text.secondary,
+                opacity: 0.5 
+              }} 
+            />
+          </Box>
+        ) : (
+          <video-stream 
+            ref={elementRef} 
+            style={{
+              ...style,
+              userSelect: "none",
+              pointerEvents: "none",
+            }}
+            controls={controlsVisible}
+          />
+        )}
       </div>
       <CameraNameOverlay
         camera_identifier={camera.identifier}

@@ -4,7 +4,9 @@ import {
   VideoChat,
   Demo,
   Roadmap,
+  VideoOff,
 } from "@carbon/icons-react";
+import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
@@ -180,33 +182,54 @@ function SuccessCameraCard({
           sx={onClick ? null : { pointerEvents: "none" }}
         >
           <CardMedia>
-            <Image
-              src={snapshotURL.url}
-              disableSpinner={snapshotURL.disableSpinner}
-              disableTransition={snapshotURL.disableTransition}
-              animationDuration={1000}
-              aspectRatio={camera.still_image.width / camera.still_image.height}
-              color={theme.palette.background.default}
-              onLoad={() => {
-                setSnapshotURL((prevSnapshotURL) => ({
-                  ...prevSnapshotURL,
-                  disableSpinner: true,
-                  disableTransition: true,
-                  loading: false,
-                }));
-              }}
-              errorIcon={
-                camera.still_image.available ? <CircularProgress enableTrackSlot/> : null
-              }
-              onError={() => {
-                setSnapshotURL((prevSnapshotURL) => ({
-                  ...prevSnapshotURL,
-                  disableSpinner: false,
-                  disableTransition: false,
-                  loading: false,
-                }));
-              }}
-            />
+            {!camera.connected ? (
+              <Box
+                sx={{
+                  aspectRatio: camera.still_image.width / camera.still_image.height,
+                  backgroundColor: theme.palette.background.default,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 200,
+                }}
+              >
+                <VideoOff 
+                  size={48} 
+                  style={{ 
+                    color: theme.palette.text.secondary,
+                    opacity: 0.5 
+                  }} 
+                />
+              </Box>
+            ) : (
+              <Image
+                src={snapshotURL.url}
+                disableSpinner={snapshotURL.disableSpinner}
+                disableTransition={snapshotURL.disableTransition}
+                animationDuration={1000}
+                aspectRatio={camera.still_image.width / camera.still_image.height}
+                color={theme.palette.background.default}
+                onLoad={() => {
+                  setSnapshotURL((prevSnapshotURL) => ({
+                    ...prevSnapshotURL,
+                    disableSpinner: true,
+                    disableTransition: true,
+                    loading: false,
+                  }));
+                }}
+                errorIcon={
+                  camera.still_image.available ? <CircularProgress enableTrackSlot/> : null
+                }
+                onError={() => {
+                  setSnapshotURL((prevSnapshotURL) => ({
+                    ...prevSnapshotURL,
+                    disableSpinner: false,
+                    disableTransition: false,
+                    loading: false,
+                  }));
+                }}
+              />
+            )}
           </CardMedia>
         </CardActionArea>
         {buttons && (

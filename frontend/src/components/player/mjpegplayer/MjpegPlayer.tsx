@@ -1,4 +1,6 @@
 import { useTheme } from "@mui/material/styles";
+import { VideoOff } from "@carbon/icons-react";
+import Box from "@mui/material/Box";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
@@ -195,34 +197,56 @@ export function MjpegPlayer({
           ...transformStyle,
         }}
       >
-        <img
-          ref={imgRef}
-          src={(() => {
-            let url = src;
-            const params = [];
-            if (drawObjects) params.push("draw_objects=1");
-            if (drawMotion) params.push("draw_motion=1");
-            if (drawObjectMask) params.push("draw_object_mask=1");
-            if (drawMotionMask) params.push("draw_motion_mask=1");
-            if (drawZones) params.push("draw_zones=1");
-            if (drawPostProcessorMask) params.push("draw_post_processor_mask=1");
-            if (params.length) {
-              url += (url.includes("?") ? "&" : "?") + params.join("&");
-            }
-            return url;
-          })()}
-          alt="MJPEG Stream"
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            backgroundColor: theme.palette.background.default,
-            display: "block",
-            userSelect: "none",
-            pointerEvents: "none",
-          }}
-          draggable={false}
-        />
+        {!camera.failed && !(camera as types.Camera).connected ? (
+          <Box
+            sx={{
+              width: "100%",
+              height: "100%",
+              backgroundColor: theme.palette.background.default,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: 200,
+            }}
+          >
+            <VideoOff 
+              size={48} 
+              style={{ 
+                color: theme.palette.text.secondary,
+                opacity: 0.5 
+              }} 
+            />
+          </Box>
+        ) : (
+          <img
+            ref={imgRef}
+            src={(() => {
+              let url = src;
+              const params = [];
+              if (drawObjects) params.push("draw_objects=1");
+              if (drawMotion) params.push("draw_motion=1");
+              if (drawObjectMask) params.push("draw_object_mask=1");
+              if (drawMotionMask) params.push("draw_motion_mask=1");
+              if (drawZones) params.push("draw_zones=1");
+              if (drawPostProcessorMask) params.push("draw_post_processor_mask=1");
+              if (params.length) {
+                url += (url.includes("?") ? "&" : "?") + params.join("&");
+              }
+              return url;
+            })()}
+            alt="MJPEG Stream"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              backgroundColor: theme.palette.background.default,
+              display: "block",
+              userSelect: "none",
+              pointerEvents: "none",
+            }}
+            draggable={false}
+          />
+        )}
       </div>
       <CameraNameOverlay
         camera_identifier={camera.identifier}

@@ -1,5 +1,7 @@
 import Fade from "@mui/material/Fade";
 import { useTheme } from "@mui/material/styles";
+import { VideoOff } from "@carbon/icons-react";
+import Box from "@mui/material/Box";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import Hls, { LevelLoadedData } from "hls.js";
@@ -440,39 +442,63 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
         display: "flex",
       }}
     >
-      <video
-        ref={videoRef}
-        poster={BLANK_IMAGE}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
-          backgroundColor: theme.palette.background.default,
-        }}
-        controls={false}
-        playsInline
-      />
-      <Fade in={!!(hlsRef.current && hlsRefError)}>
-        <div
-          style={{
-            position: "absolute",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
+      {!camera.failed && !(camera as types.Camera).connected ? (
+        <Box
+          sx={{
             width: "100%",
             height: "100%",
-            backgroundColor:
-              "rgba(0,0,0,0.65)" /* Black background with opacity */,
-            zIndex: 2,
-            pointerEvents: "none",
-            userSelect: "none",
-            padding: "10px",
+            backgroundColor: theme.palette.background.default,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 200,
           }}
         >
-          {hlsRefError}
-        </div>
-      </Fade>
+          <VideoOff 
+            size={48} 
+            style={{ 
+              color: theme.palette.text.secondary,
+              opacity: 0.5 
+            }} 
+          />
+        </Box>
+      ) : (
+        <>
+          <video
+            ref={videoRef}
+            poster={BLANK_IMAGE}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              backgroundColor: theme.palette.background.default,
+            }}
+            controls={false}
+            playsInline
+          />
+          <Fade in={!!(hlsRef.current && hlsRefError)}>
+            <div
+              style={{
+                position: "absolute",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                textAlign: "center",
+                width: "100%",
+                height: "100%",
+                backgroundColor:
+                  "rgba(0,0,0,0.65)" /* Black background with opacity */,
+                zIndex: 2,
+                pointerEvents: "none",
+                userSelect: "none",
+                padding: "10px",
+              }}
+            >
+              {hlsRefError}
+            </div>
+          </Fade>
+        </>
+      )}
     </div>
   );
 }
