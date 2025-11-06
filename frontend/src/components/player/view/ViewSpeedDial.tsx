@@ -7,7 +7,7 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import { useState } from "react";
 
-import { SaveViewDialog } from "components/view/SaveViewDialog";
+import { SaveViewDialog } from "components/player/view/SaveViewDialog";
 import { useGridLayoutStore } from "stores/GridLayoutStore";
 import { useViewStore } from "stores/ViewStore";
 import { useCameraStore } from "components/camera/useCameraStore";

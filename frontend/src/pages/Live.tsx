@@ -39,7 +39,7 @@ import { GridLayoutSelectorDialog } from "components/player/grid/GridLayoutSelec
 import { LivePlayer } from "components/player/liveplayer/LivePlayer";
 import { VideoRTC } from "components/player/liveplayer/video-rtc";
 import { MjpegPlayer } from "components/player/mjpegplayer/MjpegPlayer";
-import { ViewSpeedDial } from "components/view/ViewSpeedDial";
+import { ViewSpeedDial } from "components/player/view/ViewSpeedDial";
 import { useFullscreen } from "context/FullscreenContext";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras } from "lib/api/cameras";
@@ -126,17 +126,89 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export const FloatingMenu = memo(({ containerRef }: { containerRef: React.RefObject<HTMLDivElement | null> }) => {
+export const FloatingMenu = memo(({ containerRef, isFullscreen }: { containerRef: React.RefObject<HTMLDivElement | null>; isFullscreen: boolean }) => {
   const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
   const [gridLayoutDialogOpen, setGridLayoutDialogOpen] = useState(false);
-  const { isFullscreen, toggleFullscreen } = useFullscreen();
+  const { toggleFullscreen } = useFullscreen();
   const cameras = useCameras({});
+  const menuBoxRef = useRef<HTMLDivElement>(null);
+  
+  // State for auto-hide functionality - reset when isFullscreen prop changes
+  const [hideState, setHideState] = useState({ shouldHide: false, fullscreenKey: isFullscreen });
+  
+  // Auto-reset state when fullscreen changes (derived state pattern)
+  const currentShouldHide = hideState.fullscreenKey !== isFullscreen ? false : hideState.shouldHide;
+  
+  // Update state if fullscreen key is stale
+  if (hideState.fullscreenKey !== isFullscreen) {
+    setHideState({ shouldHide: false, fullscreenKey: isFullscreen });
+  }
+  
+  // Calculate final visibility
+  const isMenuVisible = !isFullscreen || !currentShouldHide;
 
   const handleFullscreenToggle = useCallback(async () => {
     if (containerRef.current) {
       await toggleFullscreen(containerRef.current);
     }
   }, [toggleFullscreen, containerRef]);
+
+  // Auto-hide functionality for fullscreen mode
+  useEffect(() => {
+    if (!isFullscreen) {
+      return undefined;
+    }
+
+    let hideTimeout: NodeJS.Timeout;
+    const containerElement = containerRef.current;
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!menuBoxRef.current) return;
+
+      const rect = menuBoxRef.current.getBoundingClientRect();
+      const buffer = 50; // Additional area around the menu box
+      
+      const isNearMenu = event.clientX >= rect.left - buffer &&
+                        event.clientX <= rect.right + buffer &&
+                        event.clientY >= rect.top - buffer &&
+                        event.clientY <= rect.bottom + buffer;
+
+      if (isNearMenu) {
+        setHideState(prev => ({ ...prev, shouldHide: false }));
+        clearTimeout(hideTimeout);
+      } else {
+        clearTimeout(hideTimeout);
+        hideTimeout = setTimeout(() => {
+          setHideState(prev => ({ ...prev, shouldHide: true }));
+        }, 2000); // Hide after 2 seconds of no mouse activity near menu
+      }
+    };
+
+    const handleMouseLeave = () => {
+      clearTimeout(hideTimeout);
+      hideTimeout = setTimeout(() => {
+        setHideState(prev => ({ ...prev, shouldHide: true }));
+      }, 1000); // Hide after 1 second when mouse leaves the container
+    };
+
+    // Show menu initially for 3 seconds when entering fullscreen
+    hideTimeout = setTimeout(() => {
+      setHideState(prev => ({ ...prev, shouldHide: true }));
+    }, 3000);
+
+    document.addEventListener('mousemove', handleMouseMove);
+    if (containerElement) {
+      containerElement.addEventListener('mouseleave', handleMouseLeave);
+    }
+
+    return () => {
+      clearTimeout(hideTimeout);
+      document.removeEventListener('mousemove', handleMouseMove);
+      if (containerElement) {
+        containerElement.removeEventListener('mouseleave', handleMouseLeave);
+      }
+    };
+  }, [isFullscreen, containerRef]);
 
   return (
     <>
@@ -149,7 +221,18 @@ export const FloatingMenu = memo(({ containerRef }: { containerRef: React.RefObj
         onClose={() => setGridLayoutDialogOpen(false)}
         cameras={cameras.data || {}}
       />
-      <Box sx={{ position: "absolute", bottom: 10, left: isFullscreen ? 11 : 23, zIndex: 1000 }}>
+      <Box 
+        ref={menuBoxRef}
+        sx={{ 
+          position: "absolute", 
+          bottom: 10, 
+          left: isFullscreen ? 11 : 23, 
+          zIndex: 1000,
+          opacity: isFullscreen && !isMenuVisible ? 0 : 1,
+          transition: 'opacity 0.3s ease-in-out',
+          pointerEvents: isFullscreen && !isMenuVisible ? 'none' : 'auto'
+        }}
+      >
         <Tooltip 
           title="Select Cameras"
           PopperProps={{
@@ -406,7 +489,7 @@ function Live() {
         }}
       >
         <PlayerCard />
-        <FloatingMenu containerRef={containerRef} />
+        <FloatingMenu containerRef={containerRef} isFullscreen={isFullscreen} />
       </Container>
     </MenuProvider>
   );

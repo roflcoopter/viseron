@@ -78,7 +78,7 @@ export function SaveViewDialog({ open, onClose }: SaveViewDialogProps) {
       <DialogTitle>
         <Stack direction="row" alignItems="center" spacing={1}>
           <Template size={24} />
-          <Typography variant="h6">Save</Typography>
+          <Typography variant="h6">Save View</Typography>
         </Stack>
       </DialogTitle>
       <DialogContent>
@@ -123,7 +123,7 @@ export function SaveViewDialog({ open, onClose }: SaveViewDialogProps) {
           variant="contained"
           disabled={!viewName.trim() || selectedCameras.length === 0}
         >
-          Save View
+          Save
         </Button>
       </DialogActions>
     </Dialog>

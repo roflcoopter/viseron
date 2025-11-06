@@ -358,7 +358,7 @@ export function GridLayoutSelectorDialog({
           variant="contained"
           disabled={needsMainSlot && !selectedMainSlot}
         >
-          Apply Layout
+          Apply
         </Button>
       </DialogActions>
     </Dialog>
