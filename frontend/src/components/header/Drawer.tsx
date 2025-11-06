@@ -238,6 +238,24 @@ function getItem(index: number, location: Location, item: DrawerItemTypes) {
           component={Link}
           to={item.path}
           selected={isSelected(item.path, location)}
+          sx={{
+            '&.Mui-selected': {
+              backgroundColor: 'action.selected',
+              position: 'relative',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: '4px',
+                backgroundColor: 'primary.main',
+              },
+              '&:hover': {
+                backgroundColor: 'action.selected',
+              },
+            },
+          }}
         >
           <ListItemIcon sx={{ minWidth: 40 }}>
             <item.icon size={23} />
