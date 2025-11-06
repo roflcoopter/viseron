@@ -16,6 +16,7 @@ interface CameraState {
   selectionOrder: string[];
   setSelectedCameras: (cameras: string[]) => void;
   setSelectionOrder: (order: string[]) => void;
+  swapCameraPositions: (sourceId: string, targetId: string) => void;
 }
 
 export const useCameraStore = create<CameraState>()(
@@ -77,6 +78,23 @@ export const useCameraStore = create<CameraState>()(
       },
       setSelectionOrder: (order) => {
         set({ selectionOrder: order });
+      },
+      swapCameraPositions: (sourceId, targetId) => {
+        set((state) => {
+          const newSelectionOrder = [...state.selectionOrder];
+          const sourceIndex = newSelectionOrder.indexOf(sourceId);
+          const targetIndex = newSelectionOrder.indexOf(targetId);
+          
+          if (sourceIndex !== -1 && targetIndex !== -1) {
+            // Swap positions in selection order
+            [newSelectionOrder[sourceIndex], newSelectionOrder[targetIndex]] = 
+            [newSelectionOrder[targetIndex], newSelectionOrder[sourceIndex]];
+          }
+          
+          return {
+            selectionOrder: newSelectionOrder,
+          };
+        });
       },
     }),
     { name: "camera-store" },

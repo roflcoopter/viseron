@@ -2,12 +2,16 @@ import {
   VideoAdd,
   Maximize,
   Minimize,
-  Grid
+  Grid,
+  ChevronRight
 } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Fab from "@mui/material/Fab";
 import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemText from "@mui/material/ListItemText";
+import ListItemIcon from "@mui/material/ListItemIcon";
 import Paper from "@mui/material/Paper";
 import Tooltip from "@mui/material/Tooltip";
 import useMediaQuery from "@mui/material/useMediaQuery";
@@ -56,12 +60,20 @@ interface MenuContextType {
   closeMenu: () => void;
   isMenuOpenForCamera: (camera: types.Camera | types.FailedCamera) => boolean;
   setPlayerFullscreen: (isPlayerFullscreen: boolean) => void;
+  openContextMenu: (
+    camera: types.Camera | types.FailedCamera,
+    event: React.MouseEvent,
+  ) => void;
+  closeContextMenu: () => void;
 }
 
 const MenuContext = createContext<MenuContextType | null>(null);
 function MenuProvider({ children }: { children: React.ReactNode }) {
   const { isFullscreen } = useFullscreen();
   const [isPlayerFullscreen, setPlayerFullscreen] = useState(false);
+  const { swapCameraPositions } = useCameraStore();
+  const { currentLayout, layoutConfig, setMainSlot } = useGridLayoutStore();
+  const filteredCameras = useFilteredCameras();
   const [menuState, setMenuState] = useState<{
     open: boolean;
     camera: types.Camera | types.FailedCamera | null;
@@ -69,6 +81,28 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
   }>({
     open: false,
     camera: null,
+    anchorEl: null,
+  });
+
+  const [contextMenuState, setContextMenuState] = useState<{
+    open: boolean;
+    camera: types.Camera | types.FailedCamera | null;
+    anchorEl: HTMLElement | null;
+    mouseX: number;
+    mouseY: number;
+  }>({
+    open: false,
+    camera: null,
+    anchorEl: null,
+    mouseX: 0,
+    mouseY: 0,
+  });
+
+  const [slotMenuState, setSlotMenuState] = useState<{
+    open: boolean;
+    anchorEl: HTMLElement | null;
+  }>({
+    open: false,
     anchorEl: null,
   });
 
@@ -83,6 +117,83 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
     setMenuState({ open: false, camera: null, anchorEl: null });
   }, []);
 
+  const openContextMenu = useCallback(
+    (camera: types.Camera | types.FailedCamera, event: React.MouseEvent) => {
+      event.preventDefault();
+      setContextMenuState({
+        open: true,
+        camera,
+        anchorEl: null,
+        mouseX: event.clientX - 2,
+        mouseY: event.clientY - 4,
+      });
+    },
+    [],
+  );
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenuState({
+      open: false,
+      camera: null,
+      anchorEl: null,
+      mouseX: 0,
+      mouseY: 0,
+    });
+    setSlotMenuState({
+      open: false,
+      anchorEl: null,
+    });
+  }, []);
+
+  const handleSlotMenuOpen = useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
+      setSlotMenuState({
+        open: true,
+        anchorEl: event.currentTarget,
+      });
+    },
+    [],
+  );
+
+  const handleSlotMenuClose = useCallback(() => {
+    setSlotMenuState({
+      open: false,
+      anchorEl: null,
+    });
+  }, []);
+
+  const handleSetAsMain = useCallback(() => {
+    if (contextMenuState.camera && currentLayout !== 'auto') {
+      setMainSlot(contextMenuState.camera.identifier);
+    }
+    closeContextMenu();
+  }, [contextMenuState.camera, currentLayout, setMainSlot, closeContextMenu]);
+
+  const handleSlotChange = useCallback(
+    (targetCamera: types.Camera | types.FailedCamera) => {
+      if (contextMenuState.camera && targetCamera) {
+        const sourceId = contextMenuState.camera.identifier;
+        const targetId = targetCamera.identifier;
+        
+        // Swap camera positions using the store function
+        swapCameraPositions(sourceId, targetId);
+        
+        // If we're using a custom grid layout, update mainSlot if needed
+        if (currentLayout !== 'auto' && layoutConfig.mainSlot) {
+          if (layoutConfig.mainSlot === sourceId) {
+            // If the main slot camera is being swapped, update mainSlot to target
+            setMainSlot(targetId);
+          } else if (layoutConfig.mainSlot === targetId) {
+            // If target was the main slot, update mainSlot to source
+            setMainSlot(sourceId);
+          }
+        }
+      }
+      closeContextMenu();
+    },
+    [contextMenuState.camera, swapCameraPositions, closeContextMenu, currentLayout, layoutConfig.mainSlot, setMainSlot],
+  );
+
   const isMenuOpenForCamera = useCallback(
     (camera: types.Camera | types.FailedCamera) =>
       menuState.open && menuState.camera?.identifier === camera.identifier,
@@ -90,9 +201,53 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
   );
 
   const contextValue = useMemo(
-    () => ({ openMenu, closeMenu, isMenuOpenForCamera, setPlayerFullscreen }),
-    [openMenu, closeMenu, isMenuOpenForCamera, setPlayerFullscreen],
+    () => ({ 
+      openMenu, 
+      closeMenu, 
+      isMenuOpenForCamera, 
+      setPlayerFullscreen,
+      openContextMenu,
+      closeContextMenu,
+    }),
+    [openMenu, closeMenu, isMenuOpenForCamera, setPlayerFullscreen, openContextMenu, closeContextMenu],
   );
+
+  // Add global right-click listener to close context menu when right-clicking elsewhere
+  useEffect(() => {
+    const handleGlobalContextMenu = (event: MouseEvent) => {
+      if (contextMenuState.open) {
+        // Check if the right-click is outside any camera player
+        const target = event.target as Element;
+        const isInsideCameraPlayer = target?.closest('[data-camera-player]');
+        
+        if (!isInsideCameraPlayer) {
+          closeContextMenu();
+          // Allow default browser context menu only if our context menu was open
+          // and the click was outside camera players
+        }
+      }
+    };
+
+    const handleGlobalClick = (event: MouseEvent) => {
+      if (contextMenuState.open || slotMenuState.open) {
+        // Check if click is outside the menu elements
+        const target = event.target as Element;
+        const isInsideMenu = target?.closest('[role="menu"]') || target?.closest('[data-camera-player]');
+        
+        if (!isInsideMenu) {
+          closeContextMenu();
+        }
+      }
+    };
+
+    document.addEventListener('contextmenu', handleGlobalContextMenu);
+    document.addEventListener('click', handleGlobalClick);
+    
+    return () => {
+      document.removeEventListener('contextmenu', handleGlobalContextMenu);
+      document.removeEventListener('click', handleGlobalClick);
+    };
+  }, [contextMenuState.open, slotMenuState.open, closeContextMenu]);
 
   return (
     <MenuContext.Provider value={contextValue}>
@@ -120,6 +275,95 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
           style={{ zIndex: isFullscreen ? 9004 : (isPlayerFullscreen ? 8100 : 1001) }}
         >
           <PlayerMenuItems camera={menuState.camera} />
+        </Menu>
+      )}
+      {contextMenuState.open && contextMenuState.camera && (
+        <Menu
+          open={contextMenuState.open}
+          onClose={closeContextMenu}
+          anchorReference="anchorPosition"
+          anchorPosition={
+            contextMenuState.mouseY !== null && contextMenuState.mouseX !== null
+              ? { top: contextMenuState.mouseY, left: contextMenuState.mouseX }
+              : undefined
+          }
+          disablePortal={false}
+          container={() => document.body}
+          slotProps={{ 
+            paper: { 
+              sx: { 
+                minWidth: 200,
+                zIndex: isFullscreen ? 9004 : (isPlayerFullscreen ? 8100 : 1001)
+              } 
+            } 
+          }}
+          BackdropProps={{
+            style: { zIndex: isFullscreen ? 9003 : (isPlayerFullscreen ? 8099 : 1000) }
+          }}
+          style={{ zIndex: isFullscreen ? 9004 : (isPlayerFullscreen ? 8100 : 1001) }}
+        >
+          <MenuItem 
+            onClick={handleSlotMenuOpen}
+            disabled={Object.values(filteredCameras).length <= 1}
+          >
+            <ListItemText primary="Change Slot" />
+            <ListItemIcon sx={{ minWidth: 'auto', ml: 1 }}>
+              <ChevronRight size={16} />
+            </ListItemIcon>
+          </MenuItem>
+          {currentLayout !== 'auto' && (
+            <MenuItem 
+              onClick={handleSetAsMain}
+              disabled={layoutConfig.mainSlot === contextMenuState.camera?.identifier}
+            >
+              <ListItemText 
+                primary="Set as Main Camera" 
+                secondary={layoutConfig.mainSlot === contextMenuState.camera?.identifier ? "Already main camera" : undefined}
+              />
+            </MenuItem>
+          )}
+        </Menu>
+      )}
+      {slotMenuState.open && contextMenuState.camera && (
+        <Menu
+          open={slotMenuState.open}
+          onClose={handleSlotMenuClose}
+          anchorEl={slotMenuState.anchorEl}
+          anchorOrigin={{ vertical: "top", horizontal: "right" }}
+          transformOrigin={{ vertical: "top", horizontal: "left" }}
+          disablePortal={false}
+          container={() => document.body}
+          slotProps={{ 
+            paper: { 
+              sx: { 
+                minWidth: 180,
+                zIndex: isFullscreen ? 9005 : (isPlayerFullscreen ? 8101 : 1002)
+              } 
+            } 
+          }}
+          BackdropProps={{
+            style: { zIndex: isFullscreen ? 9004 : (isPlayerFullscreen ? 8100 : 1001) }
+          }}
+          style={{ zIndex: isFullscreen ? 9005 : (isPlayerFullscreen ? 8101 : 1002) }}
+        >
+          {Object.values(filteredCameras)
+            .filter(camera => camera.identifier !== contextMenuState.camera?.identifier)
+            .map((camera) => (
+              <MenuItem
+                key={camera.identifier}
+                onClick={() => handleSlotChange(camera)}
+              >
+                <ListItemText primary={`${camera.name}`} />
+              </MenuItem>
+            ))}
+          {Object.values(filteredCameras).length <= 1 && (
+            <MenuItem disabled>
+              <ListItemText 
+                primary="No other cameras available" 
+                secondary="Add more cameras to enable slot swapping"
+              />
+            </MenuItem>
+          )}
         </Menu>
       )}
     </MenuContext.Provider>
@@ -312,6 +556,15 @@ const CameraPlayer = memo(
       [menuContext],
     );
 
+    const handleContextMenu = useCallback(
+      (event: React.MouseEvent) => {
+        if (menuContext) {
+          menuContext.openContextMenu(camera, event);
+        }
+      },
+      [camera, menuContext],
+    );
+
     const isMenuOpen = menuContext?.isMenuOpenForCamera(camera) ?? false;
 
     const {
@@ -344,41 +597,53 @@ const CameraPlayer = memo(
     );
 
     return mjpegPlayer ? (
-      <MjpegPlayer
-        camera={camera}
-        src={`/${camera.identifier}/mjpeg-stream`}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
-          backgroundColor: theme.palette.background.default,
-        }}
-        drawObjects={drawObjects}
-        drawMotion={drawMotion}
-        drawObjectMask={drawObjectMask}
-        drawMotionMask={drawMotionMask}
-        drawZones={drawZones}
-        drawPostProcessorMask={drawPostProcessorMask}
-        isMenuOpen={isMenuOpen}
-        extraButtons={playerMenuButton}
-        onPlayerFullscreenChange={handlePlayerFullscreenChange}
-      />
+      <div 
+        onContextMenu={handleContextMenu} 
+        style={{ width: "100%", height: "100%" }}
+        data-camera-player={camera.identifier}
+      >
+        <MjpegPlayer
+          camera={camera}
+          src={`/${camera.identifier}/mjpeg-stream`}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            backgroundColor: theme.palette.background.default,
+          }}
+          drawObjects={drawObjects}
+          drawMotion={drawMotion}
+          drawObjectMask={drawObjectMask}
+          drawMotionMask={drawMotionMask}
+          drawZones={drawZones}
+          drawPostProcessorMask={drawPostProcessorMask}
+          isMenuOpen={isMenuOpen}
+          extraButtons={playerMenuButton}
+          onPlayerFullscreenChange={handlePlayerFullscreenChange}
+        />
+      </div>
     ) : (
-      <LivePlayer
-        playerRef={playerRef}
-        camera={camera}
-        src={`/live?src=${camera.identifier}`}
-        controls={false}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
-          backgroundColor: theme.palette.background.default,
-        }}
-        isMenuOpen={isMenuOpen}
-        extraButtons={playerMenuButton}
-        onPlayerFullscreenChange={handlePlayerFullscreenChange}
-      />
+      <div 
+        onContextMenu={handleContextMenu} 
+        style={{ width: "100%", height: "100%" }}
+        data-camera-player={camera.identifier}
+      >
+        <LivePlayer
+          playerRef={playerRef}
+          camera={camera}
+          src={`/live?src=${camera.identifier}`}
+          controls={false}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            backgroundColor: theme.palette.background.default,
+          }}
+          isMenuOpen={isMenuOpen}
+          extraButtons={playerMenuButton}
+          onPlayerFullscreenChange={handlePlayerFullscreenChange}
+        />
+      </div>
     );
   },
 );
