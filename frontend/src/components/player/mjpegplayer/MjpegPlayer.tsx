@@ -137,6 +137,9 @@ export function MjpegPlayer({
 
   const error = useMjpegErrorHandling(imgRef, src);
 
+  // Disable zoom/pan when camera is disconnected or has error
+  const isZoomPanDisabled: boolean = Boolean((!camera.failed && !(camera as types.Camera).connected) || !!error);
+
   const {
     transformStyle,
     handleMouseDown,
@@ -149,6 +152,7 @@ export function MjpegPlayer({
     minScale: 1.0,
     maxScale: 5,
     zoomSpeed: 0.2,
+    disabled: isZoomPanDisabled,
   });
 
   return (
@@ -163,18 +167,18 @@ export function MjpegPlayer({
         zIndex: isFullscreen ? 8000 : "auto",
         backgroundColor: isFullscreen ? theme.palette.background.default : "transparent",
         overflow: "hidden",
-        cursor,
+        cursor: isZoomPanDisabled ? "default" : cursor,
         ...style,
       }}
       onMouseEnter={isTouchDevice() ? undefined : handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}
-      onMouseDown={handleMouseDown}
-      onDoubleClick={resetTransform}
+      onMouseDown={isZoomPanDisabled ? undefined : handleMouseDown}
+      onDoubleClick={isZoomPanDisabled ? undefined : resetTransform}
       role="button"
       tabIndex={0}
-      aria-label="Video player - scroll to zoom, drag to pan, double-click to reset"
-      onKeyDown={(e) => {
+      aria-label={isZoomPanDisabled ? "Video player" : "Video player - scroll to zoom, drag to pan, double-click to reset"}
+      onKeyDown={isZoomPanDisabled ? undefined : (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           resetTransform();
         }
@@ -194,7 +198,7 @@ export function MjpegPlayer({
           alignItems: "center",
           justifyContent: "center",
           overflow: "hidden",
-          ...transformStyle,
+          ...(!isZoomPanDisabled ? transformStyle : {}),
         }}
       >
         {(!camera.failed && !(camera as types.Camera).connected) || error ? (
@@ -270,7 +274,7 @@ export function MjpegPlayer({
         scale={scale}
         translateX={translateX}
         translateY={translateY}
-        isVisible={controlsVisible || isHovering || isMenuOpen}
+        isVisible={!isZoomPanDisabled && (controlsVisible || isHovering || isMenuOpen)}
       />
     </div>
   );

@@ -217,6 +217,9 @@ export function LivePlayer({
     isFullscreen,
   } = useVideoControlsVisibility(elementRef, onPlayerFullscreenChange);
 
+  // Disable zoom/pan when camera is disconnected or has error
+  const isZoomPanDisabled: boolean = Boolean((!camera.failed && !(camera as types.Camera).connected) || hasError);
+
   const {
     transformStyle,
     handleMouseDown,
@@ -229,6 +232,7 @@ export function LivePlayer({
     minScale: 1.0,
     maxScale: 5,
     zoomSpeed: 0.2,
+    disabled: isZoomPanDisabled,
   });
 
   useEffect(() => {
@@ -250,17 +254,17 @@ export function LivePlayer({
         zIndex: isFullscreen ? 8000 : "auto",
         backgroundColor: isFullscreen ? theme.palette.background.default : "transparent",
         overflow: "hidden",
-        cursor,
+        cursor: isZoomPanDisabled ? "default" : cursor,
       }}
       onMouseEnter={isTouchDevice() ? undefined : handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchStart}
-      onMouseDown={handleMouseDown}
-      onDoubleClick={resetTransform}
+      onMouseDown={isZoomPanDisabled ? undefined : handleMouseDown}
+      onDoubleClick={isZoomPanDisabled ? undefined : resetTransform}
       role="button"
       tabIndex={0}
-      aria-label="Video player - scroll to zoom, drag to pan, double-click to reset"
-      onKeyDown={(e) => {
+      aria-label={isZoomPanDisabled ? "Video player" : "Video player - scroll to zoom, drag to pan, double-click to reset"}
+      onKeyDown={isZoomPanDisabled ? undefined : (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           resetTransform();
         }
@@ -285,7 +289,7 @@ export function LivePlayer({
           alignItems: "center",
           justifyContent: "center",
           overflow: "hidden",
-          ...transformStyle,
+          ...(!isZoomPanDisabled ? transformStyle : {}),
         }}
       >
         {(!camera.failed && !(camera as types.Camera).connected) || hasError ? (
@@ -342,7 +346,7 @@ export function LivePlayer({
         scale={scale}
         translateX={translateX}
         translateY={translateY}
-        isVisible={controlsVisible || isHovering || isMenuOpen}
+        isVisible={!isZoomPanDisabled && (controlsVisible || isHovering || isMenuOpen)}
       />
     </div>
   );

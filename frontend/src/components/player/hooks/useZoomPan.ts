@@ -10,6 +10,7 @@ interface UseZoomPanOptions {
   minScale?: number;
   maxScale?: number;
   zoomSpeed?: number;
+  disabled?: boolean;
 }
 
 export const useZoomPan = (
@@ -20,6 +21,7 @@ export const useZoomPan = (
     minScale = 1.0, // Changed from 0.5 to 1.0 to prevent zooming smaller than original
     maxScale = 5, // Can be adjusted as needed
     zoomSpeed = 0.1,
+    disabled = false,
   } = options;
 
   const [transform, setTransform] = useState<ZoomPanState>({
@@ -37,6 +39,8 @@ export const useZoomPan = (
 
   const handleWheel = useCallback(
     (event: Event) => {
+      if (disabled) return; // Don't handle wheel events when disabled
+      
       const wheelEvent = event as WheelEvent;
       wheelEvent.preventDefault();
       
@@ -91,10 +95,11 @@ export const useZoomPan = (
         });
       }
     },
-    [containerRef, minScale, maxScale, zoomSpeed]
+    [containerRef, minScale, maxScale, zoomSpeed, disabled]
   );
 
   const handleMouseDown = useCallback((event: React.MouseEvent) => {
+    if (disabled) return; // Don't handle mouse down when disabled
     if (event.button !== 0) return; // Only left mouse button
     
     // Only allow dragging if zoomed in
@@ -112,7 +117,7 @@ export const useZoomPan = (
     // Prevent text selection and other default behaviors
     event.preventDefault();
     event.stopPropagation();
-  }, []);
+  }, [disabled]);
 
   const handleMouseMove = useCallback((event: MouseEvent) => {
     if (!isDragging) return;
@@ -158,12 +163,13 @@ export const useZoomPan = (
   }, []);
 
   const resetTransform = useCallback(() => {
+    if (disabled) return; // Don't reset when disabled
     setTransform({
       scale: 1,
       translateX: 0,
       translateY: 0,
     });
-  }, []);
+  }, [disabled]);
 
   // Add event listeners
   useEffect(() => {
@@ -196,7 +202,7 @@ export const useZoomPan = (
   const transformStyle = {
     transform: `translate(${transform.translateX}px, ${transform.translateY}px) scale(${transform.scale})`,
     transformOrigin: '0 0',
-    cursor: isDragging ? 'grabbing' : (transform.scale > 1.0 ? 'grab' : 'default'),
+    cursor: disabled ? 'default' : (isDragging ? 'grabbing' : (transform.scale > 1.0 ? 'grab' : 'default')),
     transition: isDragging ? 'none' : 'transform 0.1s ease-out',
   };
 
@@ -207,9 +213,11 @@ export const useZoomPan = (
     handleMouseDown,
     resetTransform,
     isZoomed: transform.scale !== 1.0 || transform.translateX !== 0 || transform.translateY !== 0,
-    cursor: isDragging 
-      ? 'grabbing' 
-      : (transform.scale > 1.0 ? 'grab' : 'default'),
+    cursor: disabled 
+      ? 'default'
+      : (isDragging 
+          ? 'grabbing' 
+          : (transform.scale > 1.0 ? 'grab' : 'default')),
     // Export transform values for overlay
     scale: transform.scale,
     translateX: transform.translateX,
