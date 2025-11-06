@@ -16,6 +16,8 @@ interface PlayerSettingsState {
   setDrawZones: (cameraId: string, value: boolean) => void;
   drawPostProcessorMaskMap: Record<string, boolean>;
   setDrawPostProcessorMask: (cameraId: string, value: boolean) => void;
+  flipViewMap: Record<string, boolean>;
+  setFlipView: (cameraId: string, value: boolean) => void;
 }
 
 export const usePlayerSettingsStore = create<PlayerSettingsState>()(
@@ -58,6 +60,11 @@ export const usePlayerSettingsStore = create<PlayerSettingsState>()(
             ...state.drawPostProcessorMaskMap,
             [cameraId]: value,
           },
+        })),
+      flipViewMap: {},
+      setFlipView: (cameraId, value) =>
+        set((state) => ({
+          flipViewMap: { ...state.flipViewMap, [cameraId]: value },
         })),
     }),
     { name: "player-settings-store", version: 1 },

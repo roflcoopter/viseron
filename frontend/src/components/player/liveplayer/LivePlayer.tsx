@@ -202,6 +202,7 @@ interface LivePlayerProps extends React.HTMLAttributes<HTMLElement> {
   playerRef?: React.RefObject<VideoRTC | null>;
   extraButtons?: React.ReactNode;
   isMenuOpen?: boolean;
+  flipView?: boolean;
   onPlayerFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
@@ -213,6 +214,7 @@ export function LivePlayer({
   playerRef,
   extraButtons,
   isMenuOpen = false,
+  flipView = false,
   onPlayerFullscreenChange,
 }: LivePlayerProps) {
   const _elementRef = useRef<VideoRTC>(null);
@@ -354,6 +356,8 @@ export function LivePlayer({
                 ...style,
                 userSelect: "none",
                 pointerEvents: "none",
+                transform: flipView ? "rotate(180deg)" : "none",
+                transition: "transform 0.3s ease-in-out",
               }}
               controls={controlsVisible}
             />

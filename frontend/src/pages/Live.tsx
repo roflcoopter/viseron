@@ -3,7 +3,10 @@ import {
   Maximize,
   Minimize,
   Grid,
-  ChevronRight
+  CenterSquare,
+  ChevronRight,
+  ArrowsVertical,
+  Compare
 } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
@@ -74,6 +77,11 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
   const [isPlayerFullscreen, setPlayerFullscreen] = useState(false);
   const { swapCameraPositions } = useCameraStore();
   const { currentLayout, layoutConfig, setMainSlot } = useGridLayoutStore();
+  const { setFlipView } = usePlayerSettingsStore(
+    useShallow((state) => ({
+      setFlipView: state.setFlipView,
+    })),
+  );
   const filteredCameras = useFilteredCameras();
   const [menuState, setMenuState] = useState<{
     open: boolean;
@@ -169,6 +177,15 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
     }
     closeContextMenu();
   }, [contextMenuState.camera, currentLayout, setMainSlot, closeContextMenu]);
+
+  const handleFlipView = useCallback(() => {
+    if (contextMenuState.camera) {
+      // Get current flip state and toggle it
+      const currentFlipState = usePlayerSettingsStore.getState().flipViewMap[contextMenuState.camera.identifier] ?? false;
+      setFlipView(contextMenuState.camera.identifier, !currentFlipState);
+    }
+    closeContextMenu();
+  }, [contextMenuState.camera, setFlipView, closeContextMenu]);
 
   const handleSlotChange = useCallback(
     (targetCamera: types.Camera | types.FailedCamera) => {
@@ -307,6 +324,9 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
             onClick={handleSlotMenuOpen}
             disabled={Object.values(filteredCameras).length <= 1}
           >
+            <ListItemIcon sx={{ minWidth: 'auto'}}>
+              <Compare size={16} />
+            </ListItemIcon>
             <ListItemText primary="Change Slot" />
             <ListItemIcon sx={{ minWidth: 'auto', ml: 1 }}>
               <ChevronRight size={16} />
@@ -317,12 +337,21 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
               onClick={handleSetAsMain}
               disabled={layoutConfig.mainSlot === contextMenuState.camera?.identifier}
             >
+              <ListItemIcon sx={{ minWidth: 'auto'}}>
+                <CenterSquare size={16} />
+              </ListItemIcon>
               <ListItemText 
                 primary="Set as Main Camera" 
                 secondary={layoutConfig.mainSlot === contextMenuState.camera?.identifier ? "Already main camera" : undefined}
               />
             </MenuItem>
           )}
+          <MenuItem onClick={handleFlipView}>
+            <ListItemIcon sx={{ minWidth: 'auto'}}>
+              <ArrowsVertical size={16} />
+            </ListItemIcon>
+            <ListItemText primary="Flip View 180°" />
+          </MenuItem>
         </Menu>
       )}
       {slotMenuState.open && contextMenuState.camera && (
@@ -580,6 +609,7 @@ const CameraPlayer = memo(
       drawMotionMask,
       drawZones,
       drawPostProcessorMask,
+      flipView,
     } = usePlayerSettingsStore(
       useShallow((state) => ({
         // mjpegPlayer defaults to true if live_stream_available is false, otherwise true
@@ -593,6 +623,7 @@ const CameraPlayer = memo(
         drawZones: state.drawZonesMap[camera.identifier] ?? false,
         drawPostProcessorMask:
           state.drawPostProcessorMaskMap[camera.identifier] ?? false,
+        flipView: state.flipViewMap[camera.identifier] ?? false,
       })),
     );
 
@@ -604,7 +635,10 @@ const CameraPlayer = memo(
     return mjpegPlayer ? (
       <div 
         onContextMenu={handleContextMenu} 
-        style={{ width: "100%", height: "100%" }}
+        style={{ 
+          width: "100%", 
+          height: "100%"
+        }}
         data-camera-player={camera.identifier}
       >
         <MjpegPlayer
@@ -622,6 +656,7 @@ const CameraPlayer = memo(
           drawMotionMask={drawMotionMask}
           drawZones={drawZones}
           drawPostProcessorMask={drawPostProcessorMask}
+          flipView={flipView}
           isMenuOpen={isMenuOpen}
           extraButtons={playerMenuButton}
           onPlayerFullscreenChange={handlePlayerFullscreenChange}
@@ -630,7 +665,10 @@ const CameraPlayer = memo(
     ) : (
       <div 
         onContextMenu={handleContextMenu} 
-        style={{ width: "100%", height: "100%" }}
+        style={{ 
+          width: "100%", 
+          height: "100%"
+        }}
         data-camera-player={camera.identifier}
       >
         <LivePlayer
@@ -644,6 +682,7 @@ const CameraPlayer = memo(
             objectFit: "contain",
             backgroundColor: theme.palette.background.default,
           }}
+          flipView={flipView}
           isMenuOpen={isMenuOpen}
           extraButtons={playerMenuButton}
           onPlayerFullscreenChange={handlePlayerFullscreenChange}

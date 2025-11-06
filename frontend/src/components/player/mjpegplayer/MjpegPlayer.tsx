@@ -166,6 +166,7 @@ interface MjpegPlayerProps extends React.HTMLAttributes<HTMLElement> {
   drawZones?: boolean;
   drawPostProcessorMask?: boolean;
   isMenuOpen?: boolean;
+  flipView?: boolean;
   onPlayerFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
@@ -181,6 +182,7 @@ export function MjpegPlayer({
   drawZones = false,
   drawPostProcessorMask = false,
   isMenuOpen = false,
+  flipView = false,
   onPlayerFullscreenChange,
 }: MjpegPlayerProps) {
   const theme = useTheme();
@@ -324,6 +326,8 @@ export function MjpegPlayer({
                 display: "block",
                 userSelect: "none",
                 pointerEvents: "none",
+                transform: flipView ? "rotate(180deg)" : "none",
+                transition: "transform 0.3s ease-in-out",
               }}
               draggable={false}
             />
