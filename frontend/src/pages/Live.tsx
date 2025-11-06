@@ -477,6 +477,7 @@ export const FloatingMenu = memo(({ containerRef, isFullscreen }: { containerRef
           transition: 'opacity 0.3s ease-in-out',
           pointerEvents: isFullscreen && !isMenuVisible ? 'none' : 'auto'
         }}
+        aria-hidden={isFullscreen && !isMenuVisible}
       >
         <Tooltip 
           title="Select Cameras"
