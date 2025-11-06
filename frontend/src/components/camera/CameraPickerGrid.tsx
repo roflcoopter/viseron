@@ -48,9 +48,9 @@ export function CameraPickerGrid() {
                 size={{
                   xs: 6,
                   sm: 6,
-                  md: 4,
-                  lg: 4,
-                  xl: 4,
+                  md: 3,
+                  lg: 3,
+                  xl: 3,
                 }}
               >
                 <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
