@@ -1,6 +1,7 @@
 import { 
   TrashCan,
   DocumentVideo,
+  FolderOff,
 } from "@carbon/icons-react";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
@@ -10,6 +11,7 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import Box from "@mui/material/Box";
 import { useTheme } from "@mui/material/styles";
 import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
@@ -69,10 +71,7 @@ export default function RecordingCardLatest({
     objHasValues(recording) &&
     recording
   ) {
-    const startDate = new Date(recording.start_time);
-    text = `Latest recording: ${startDate.toLocaleDateString()} - ${getTimeFromDate(
-      new Date(recording.start_time),
-    )}`;
+    // We'll handle the formatting in JSX for proper styling
   }
 
   if (cameraQuery.isPending || !cameraQuery.data) {
@@ -100,10 +99,9 @@ export default function RecordingCardLatest({
       ]}
     >
       <CardContent>
-        <Typography variant="h5" align="center">
+        <Typography variant="h6">
           {cameraQuery.data.name}
         </Typography>
-        <Typography align="center">{text}</Typography>
       </CardContent>
       <CardMedia>
         <LazyLoad
@@ -117,40 +115,76 @@ export default function RecordingCardLatest({
             />
           }
         >
-          {getVideoElement(cameraQuery.data, recording, auth.enabled)}
+          {objHasValues(recording) ? (
+            getVideoElement(cameraQuery.data, recording, auth.enabled)
+          ) : (
+            <Box
+              sx={{
+                width: "100%",
+                height: 200,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: theme.palette.background.default,
+              }}
+            >
+              <FolderOff 
+                size={48} 
+                style={{ 
+                  color: theme.palette.text.secondary,
+                  opacity: 0.5 
+                }} 
+              />
+            </Box>
+          )}
         </LazyLoad>
       </CardMedia>
       <CardActions>
-        <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
-          <Tooltip title="View Recordings">
-            <span>
-              <IconButton
-                component={Link}
-                to={`/recordings/${camera_identifier}`}
-                disabled={!objHasValues(recording)}
-              >
-                <DocumentVideo size={20}/>
-              </IconButton>
-            </span>
-          </Tooltip>
-          {!user || user.role === "admin" || user.role === "write" ? (
-            <Tooltip title="Delete Recordings">
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2} sx={{ width: "100%", paddingX: 1}}>
+          {objHasValues(recording) ? (
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+              Latest recording:{'\n'}
+              <span style={{ color: theme.palette.primary.main }}>
+                {(() => {
+                  const startDate = new Date(recording.start_time);
+                  return `${startDate.toLocaleDateString()} - ${getTimeFromDate(startDate)}`;
+                })()}
+              </span>
+            </Typography>
+          ) : (
+            <Typography variant="body2">{text}</Typography>
+          )}
+          <Stack direction="row" spacing={1}>
+            <Tooltip title="View Recordings">
               <span>
-                <MutationIconButton
-                  mutation={deleteRecording}
+                <IconButton
+                  component={Link}
+                  to={`/recordings/${camera_identifier}`}
                   disabled={!objHasValues(recording)}
-                  onClick={() => {
-                    deleteRecording.mutate({
-                      identifier: camera_identifier,
-                      failed,
-                    });
-                  }}
                 >
-                  <TrashCan size={20}/>
-                </MutationIconButton>
+                  <DocumentVideo size={20}/>
+                </IconButton>
               </span>
             </Tooltip>
-          ) : null}
+            {!user || user.role === "admin" || user.role === "write" ? (
+              <Tooltip title="Delete Recordings">
+                <span>
+                  <MutationIconButton
+                    mutation={deleteRecording}
+                    disabled={!objHasValues(recording)}
+                    onClick={() => {
+                      deleteRecording.mutate({
+                        identifier: camera_identifier,
+                        failed,
+                      });
+                    }}
+                  >
+                    <TrashCan size={20}/>
+                  </MutationIconButton>
+                </span>
+              </Tooltip>
+            ) : null}
+          </Stack>
         </Stack>
       </CardActions>
     </Card>

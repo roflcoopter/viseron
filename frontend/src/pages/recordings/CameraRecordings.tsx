@@ -82,8 +82,8 @@ function CameraRecordings() {
                   xs: 12,
                   sm: 12,
                   md: 6,
-                  lg: 6,
-                  xl: 4,
+                  lg: 4,
+                  xl: 3,
                 }}
               >
                 <RecordingCardDaily

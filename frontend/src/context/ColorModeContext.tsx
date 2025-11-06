@@ -164,6 +164,9 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
           h5: {
             color: requestedMode === "dark" ? blue[300] : blue.main,
           },
+          h6: {
+            color: requestedMode === "dark" ? blue[300] : blue.main,
+          },
           uppercase: {
             textTransform: "uppercase",
             letterSpacing: "0.0333333333em",
