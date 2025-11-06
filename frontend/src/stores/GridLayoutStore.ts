@@ -7,6 +7,8 @@ interface GridLayoutStore {
   currentLayout: GridLayoutType;
   layoutConfig: GridLayoutConfig;
   setLayout: (layout: GridLayoutType) => void;
+  setCurrentLayout: (layout: GridLayoutType) => void;
+  setLayoutConfig: (config: GridLayoutConfig) => void;
   setMainSlot: (cameraId: string) => void;
   setSideSlots: (cameraIds: string[]) => void;
   resetLayout: () => void;
@@ -33,6 +35,14 @@ export const useGridLayoutStore = create<GridLayoutStore>()(
             sideSlots: layout === 'auto' ? [] : state.layoutConfig.sideSlots,
           },
         }));
+      },
+
+      setCurrentLayout: (layout: GridLayoutType) => {
+        set({ currentLayout: layout });
+      },
+
+      setLayoutConfig: (config: GridLayoutConfig) => {
+        set({ layoutConfig: config });
       },
 
       setMainSlot: (cameraId: string) => {

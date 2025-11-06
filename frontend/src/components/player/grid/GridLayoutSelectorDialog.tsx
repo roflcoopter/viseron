@@ -234,9 +234,6 @@ export function GridLayoutSelectorDialog({
       
       <DialogContent>
         <Stack spacing={3}>
-          <Typography variant="body2" color="text.secondary">
-            Choose how cameras should be arranged in the live view
-          </Typography>
 
           {/* Layout Type Selection */}
           <Stack spacing={2}>

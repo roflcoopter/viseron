@@ -39,6 +39,7 @@ import { GridLayoutSelectorDialog } from "components/player/grid/GridLayoutSelec
 import { LivePlayer } from "components/player/liveplayer/LivePlayer";
 import { VideoRTC } from "components/player/liveplayer/video-rtc";
 import { MjpegPlayer } from "components/player/mjpegplayer/MjpegPlayer";
+import { ViewSpeedDial } from "components/view/ViewSpeedDial";
 import { useFullscreen } from "context/FullscreenContext";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras } from "lib/api/cameras";
@@ -193,6 +194,9 @@ export const FloatingMenu = memo(({ containerRef }: { containerRef: React.RefObj
             {isFullscreen ? <Minimize size={20}/> : <Maximize size={20}/>}
           </Fab>
         </Tooltip>
+        <Box sx={{ display: 'inline-block', verticalAlign: 'bottom'}}>
+          <ViewSpeedDial inline size="small" />
+        </Box>
       </Box>
     </>
   );
