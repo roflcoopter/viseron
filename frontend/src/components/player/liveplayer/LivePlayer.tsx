@@ -1,6 +1,7 @@
 import { useTheme } from "@mui/material/styles";
 import { VideoOff } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
@@ -137,6 +138,7 @@ const useVideoControlsVisibility = (
 const usePlayerStatus = (playerRef: React.RefObject<VideoRTC | null>) => {
   const [status, setStatus] = useState<string>("");
   const [hasError, setHasError] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const handleStatus = (e: Event) => {
@@ -149,6 +151,13 @@ const usePlayerStatus = (playerRef: React.RefObject<VideoRTC | null>) => {
                      statusValue.toLowerCase().includes('failed') ||
                      statusValue.toLowerCase().includes('disconnect');
       setHasError(isError);
+      
+      // Check if status indicates loading is complete
+      if (statusValue.toLowerCase().includes('connected') || 
+          statusValue.toLowerCase().includes('playing') ||
+          isError) {
+        setIsLoading(false);
+      }
     };
     const videoElement = playerRef.current;
     videoElement?.addEventListener("status", handleStatus);
@@ -157,21 +166,32 @@ const usePlayerStatus = (playerRef: React.RefObject<VideoRTC | null>) => {
     const handleError = () => {
       setHasError(true);
       setStatus("Connection failed");
+      setIsLoading(false);
     };
+    
+    const handleLoadStart = () => setIsLoading(true);
+    const handleCanPlay = () => setIsLoading(false);
+    const handleLoadedData = () => setIsLoading(false);
     
     if (videoElement?.video) {
       videoElement.video.addEventListener("error", handleError);
+      videoElement.video.addEventListener('loadstart', handleLoadStart);
+      videoElement.video.addEventListener('canplay', handleCanPlay);
+      videoElement.video.addEventListener('loadeddata', handleLoadedData);
     }
     
     return () => {
       videoElement?.removeEventListener("status", handleStatus);
       if (videoElement?.video) {
         videoElement.video.removeEventListener("error", handleError);
+        videoElement.video.removeEventListener('loadstart', handleLoadStart);
+        videoElement.video.removeEventListener('canplay', handleCanPlay);
+        videoElement.video.removeEventListener('loadeddata', handleLoadedData);
       }
     };
   }, [playerRef]);
   
-  return { status, hasError };
+  return { status, hasError, isLoading };
 };
 
 interface LivePlayerProps extends React.HTMLAttributes<HTMLElement> {
@@ -200,7 +220,7 @@ export function LivePlayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
 
-  const { status: playerStatus, hasError } = usePlayerStatus(elementRef);
+  const { status: playerStatus, hasError, isLoading } = usePlayerStatus(elementRef);
 
   const {
     handlePlayPause,
@@ -217,8 +237,8 @@ export function LivePlayer({
     isFullscreen,
   } = useVideoControlsVisibility(elementRef, onPlayerFullscreenChange);
 
-  // Disable zoom/pan when camera is disconnected or has error
-  const isZoomPanDisabled: boolean = Boolean((!camera.failed && !(camera as types.Camera).connected) || hasError);
+  // Disable zoom/pan when loading, camera is disconnected and still loading or has error
+  const isZoomPanDisabled: boolean = Boolean(isLoading || (!camera.failed && !(camera as types.Camera).connected) || hasError);
 
   const {
     transformStyle,
@@ -327,15 +347,36 @@ export function LivePlayer({
             </Box>
           </Box>
         ) : (
-          <video-stream 
-            ref={elementRef} 
-            style={{
-              ...style,
-              userSelect: "none",
-              pointerEvents: "none",
-            }}
-            controls={controlsVisible}
-          />
+          <>
+            <video-stream 
+              ref={elementRef} 
+              style={{
+                ...style,
+                userSelect: "none",
+                pointerEvents: "none",
+              }}
+              controls={controlsVisible}
+            />
+            {isLoading && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "rgba(0, 0, 0, 0.3)",
+                  zIndex: 1,
+                  pointerEvents: "none",
+                }}
+              >
+                <CircularProgress enableTrackSlot/>
+              </Box>
+            )}
+          </>
         )}
       </div>
       <CameraNameOverlay

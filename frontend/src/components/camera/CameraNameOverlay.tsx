@@ -16,7 +16,7 @@ type CameraNameOverlayProps = {
 
 const overlayStyles: SxProps<Theme> = {
   position: "absolute",
-  zIndex: 1,
+  zIndex: 3,
   right: "0px",
   top: "0px",
   margin: "5px",
