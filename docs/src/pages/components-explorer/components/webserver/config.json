@@ -23,6 +23,22 @@
         "default": false
       },
       {
+        "type": "select",
+        "options": [
+          {
+            "type": "none",
+            "value": "null"
+          },
+          {
+            "type": "string"
+          }
+        ],
+        "name": "subpath",
+        "description": "Subpath where the webserver is served from when behind a reverse proxy (e.g. '/viseron').",
+        "optional": true,
+        "default": null
+      },
+      {
         "type": "string",
         "name": "public_base_url",
         "description": "Public base URL for Viseron (e.g., https://viseron.example.com). Used for generating public links accessible from outside your network.",
