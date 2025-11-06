@@ -29,7 +29,7 @@ export default function VideoPlayerPlaceholder({
         src={src || blankImage}
         aspectRatio={aspectRatio}
         color={theme.palette.background.default}
-        errorIcon={<CircularProgress />}
+        errorIcon={<CircularProgress enableTrackSlot/>}
       />
       {text ? (
         <Typography

@@ -372,7 +372,7 @@ function ConfigEditor() {
           ]}
         >
           <Backdrop open={savePending} sx={{ position: "absolute", zIndex: 1 }}>
-            <CircularProgress color="inherit" />
+            <CircularProgress enableTrackSlot color="inherit" />
           </Backdrop>
           <Card
             variant="outlined"

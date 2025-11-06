@@ -196,7 +196,7 @@ function SuccessCameraCard({
                 }));
               }}
               errorIcon={
-                camera.still_image.available ? <CircularProgress /> : null
+                camera.still_image.available ? <CircularProgress enableTrackSlot/> : null
               }
               onError={() => {
                 setSnapshotURL((prevSnapshotURL) => ({

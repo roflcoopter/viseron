@@ -32,7 +32,25 @@ export function Loading({ text, fullScreen = true }: LoadingProps) {
     >
       {fullScreen && (
         <Grid>
-          <Box display="flex" justifyContent="center" alignItems="center">
+          <Box 
+            display="flex" 
+            justifyContent="center" 
+            alignItems="center"
+            sx={{
+              width: 150,
+              height: 150,
+              "& > *": {
+                animation: "viseron-spin 2s linear infinite",
+                transformOrigin: "center center",
+                display: "block",
+              },
+              "@keyframes viseron-spin": {
+                "0%": { transform: "rotate(0deg)" },
+                "100%": { transform: "rotate(360deg)" },
+              },
+            }}
+          >
+            {/* SVG will inherit animation from parent Box */}
             <ViseronLogo
               width={150}
               height={150}
@@ -44,7 +62,7 @@ export function Loading({ text, fullScreen = true }: LoadingProps) {
       )}
       <Grid>
         <Box display="flex" justifyContent="center" alignItems="center">
-          <CircularProgress />
+          <CircularProgress enableTrackSlot/>
         </Box>
       </Grid>
       <Grid>
