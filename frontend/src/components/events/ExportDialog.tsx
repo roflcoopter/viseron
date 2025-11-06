@@ -28,14 +28,11 @@ export function ExportDialog({ open, setOpen }: ExportDialogProps) {
     setOpen(false);
   };
 
-  const handleStartDateAccept = (newValue: Dayjs | null) => {
+  const handleStartDate = (newValue: Dayjs | null) => {
     setStartDate(newValue);
-    if (newValue && (!endDate || endDate.isBefore(newValue))) {
-      setEndDate(newValue.add(5, "minute"));
-    }
   };
 
-  const handleEndDateAccept = (newValue: Dayjs | null) => {
+  const handleEndDate = (newValue: Dayjs | null) => {
     setEndDate(newValue);
   };
 
@@ -51,7 +48,6 @@ export function ExportDialog({ open, setOpen }: ExportDialogProps) {
 
   const isExportDisabled =
     !startDate || !endDate || endDate.isBefore(startDate);
-
   return (
     <Dialog fullWidth maxWidth="xs" open={open} onClose={handleClose}>
       <DialogTitle>Download Recording</DialogTitle>
@@ -61,8 +57,8 @@ export function ExportDialog({ open, setOpen }: ExportDialogProps) {
             label="Start Date & Time"
             views={["year", "month", "day", "hours", "minutes", "seconds"]}
             value={startDate}
-            onAccept={handleStartDateAccept}
-            onChange={handleStartDateAccept}
+            onAccept={handleStartDate}
+            onChange={handleStartDate}
             closeOnSelect={false}
             ampm={is12HourFormat()}
           />
@@ -70,8 +66,8 @@ export function ExportDialog({ open, setOpen }: ExportDialogProps) {
             label="End Date & Time"
             views={["year", "month", "day", "hours", "minutes", "seconds"]}
             value={endDate}
-            onAccept={handleEndDateAccept}
-            onChange={handleEndDateAccept}
+            onAccept={handleEndDate}
+            onChange={handleEndDate}
             closeOnSelect={false}
             ampm={is12HourFormat()}
             minDateTime={startDate || undefined}

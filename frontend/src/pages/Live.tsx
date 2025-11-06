@@ -51,6 +51,7 @@ import { ViewSpeedDial } from "components/player/view/ViewSpeedDial";
 import { useFullscreen } from "context/FullscreenContext";
 import { useTitle } from "hooks/UseTitle";
 import { useCameras } from "lib/api/cameras";
+import { BASE_PATH } from "lib/api/client";
 import { objHasValues, removeURLParameter } from "lib/helpers";
 import { useGridLayoutStore } from "stores/GridLayoutStore";
 import * as types from "lib/types";
@@ -643,7 +644,7 @@ const CameraPlayer = memo(
       >
         <MjpegPlayer
           camera={camera}
-          src={`/${camera.identifier}/mjpeg-stream`}
+          src={`${BASE_PATH}/${camera.identifier}/mjpeg-stream`}
           style={{
             width: "100%",
             height: "100%",
@@ -674,7 +675,7 @@ const CameraPlayer = memo(
         <LivePlayer
           playerRef={safePlayerRef}
           camera={camera}
-          src={`/live?src=${camera.identifier}`}
+          src={`${BASE_PATH}/live?src=${camera.identifier}`}
           controls={false}
           style={{
             width: "100%",

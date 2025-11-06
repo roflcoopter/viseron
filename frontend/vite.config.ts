@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     appType: "mpa",
+    base: "./", // Use relative paths for assets to support any subpath
     plugins: [
       react({
         babel: {
