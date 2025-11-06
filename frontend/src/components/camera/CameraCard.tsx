@@ -24,6 +24,7 @@ import { ViseronContext } from "context/ViseronContext";
 import { useFirstRender } from "hooks/UseFirstRender";
 import useOnScreen from "hooks/UseOnScreen";
 import { useCamera } from "lib/api/camera";
+import { BASE_PATH } from "lib/api/client";
 import * as types from "lib/types";
 
 type OnClick = (
@@ -71,7 +72,9 @@ function SuccessCameraCard({
 
   const generateSnapshotURL = useCallback(
     (width = null) =>
-      `/api/v1/camera/${camera.identifier}/snapshot?rand=${(Math.random() + 1)
+      `${BASE_PATH}/api/v1/camera/${camera.identifier}/snapshot?rand=${(
+        Math.random() + 1
+      )
         .toString(36)
         .substring(7)}${width ? `&width=${Math.trunc(width)}` : ""}`,
     [camera.identifier],

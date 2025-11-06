@@ -89,6 +89,7 @@ class EventsAPIHandler(BaseAPIHandler):
         camera: AbstractCamera | FailedCamera,
         time_from: int,
         time_to: int,
+        subpath: str,
     ) -> list:
         """Select motion events from database."""
         time_from_datetime = datetime.datetime.fromtimestamp(
@@ -122,7 +123,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         "duration": (event.end_time - event.start_time).total_seconds()
                         if event.end_time
                         else None,
-                        "snapshot_path": f"/files{event.snapshot_path}"
+                        "snapshot_path": f"{subpath}/files{event.snapshot_path}"
                         if event.snapshot_path
                         else None,
                         "created_at": event.created_at,
@@ -138,6 +139,7 @@ class EventsAPIHandler(BaseAPIHandler):
         camera: AbstractCamera | FailedCamera,
         time_from: int,
         time_to: int,
+        subpath: str,
     ):
         """Select object events from database."""
         time_from_datetime = datetime.datetime.fromtimestamp(
@@ -167,7 +169,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         "confidence": event.confidence,
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
-                        "snapshot_path": f"/files{event.snapshot_path}",
+                        "snapshot_path": f"{subpath}/files{event.snapshot_path}",
                         "lookback": camera.recorder.lookback,
                     }
                 )
@@ -179,6 +181,7 @@ class EventsAPIHandler(BaseAPIHandler):
         camera: AbstractCamera | FailedCamera,
         time_from: int,
         time_to: int,
+        subpath: str,
     ) -> list:
         """Select recording events from database."""
         time_from_datetime = datetime.datetime.fromtimestamp(
@@ -214,10 +217,10 @@ class EventsAPIHandler(BaseAPIHandler):
                         if event.end_time
                         else None,
                         "hls_url": (
-                            "/api/v1/hls/"
+                            f"{subpath}/api/v1/hls/"
                             f"{event.camera_identifier}/{event.id}/index.m3u8"
                         ),
-                        "thumbnail_path": f"/files{event.thumbnail_path}",
+                        "thumbnail_path": f"{subpath}/files{event.thumbnail_path}",
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
                         "lookback": camera.recorder.lookback,
@@ -231,6 +234,7 @@ class EventsAPIHandler(BaseAPIHandler):
         camera: AbstractCamera | FailedCamera,
         time_from: int,
         time_to: int,
+        subpath: str,
     ) -> list:
         """Select post processor events from database."""
         time_from_datetime = datetime.datetime.fromtimestamp(
@@ -265,7 +269,7 @@ class EventsAPIHandler(BaseAPIHandler):
                         "id": event.id,
                         "time": event.created_at,
                         "timestamp": event.created_at.timestamp(),
-                        "snapshot_path": f"/files{event.snapshot_path}",
+                        "snapshot_path": f"{subpath}/files{event.snapshot_path}",
                         "data": event.data,
                         "created_at": event.created_at,
                         "created_at_timestamp": event.created_at.timestamp(),
@@ -299,12 +303,14 @@ class EventsAPIHandler(BaseAPIHandler):
             time_from = self.request_arguments["time_from"]
             time_to = self.request_arguments["time_to"]
 
+        subpath = self.get_subpath()
         motion_events = await self.run_in_executor(
             self._motion_events,
             self._get_session,
             camera,
             time_from,
             time_to,
+            subpath,
         )
         recording_events = await self.run_in_executor(
             self._recording_events,
@@ -312,6 +318,7 @@ class EventsAPIHandler(BaseAPIHandler):
             camera,
             time_from,
             time_to,
+            subpath,
         )
         object_events = await self.run_in_executor(
             self._object_event,
@@ -319,6 +326,7 @@ class EventsAPIHandler(BaseAPIHandler):
             camera,
             time_from,
             time_to,
+            subpath,
         )
         post_processor_events = await self.run_in_executor(
             self._post_processor_events,
@@ -326,6 +334,7 @@ class EventsAPIHandler(BaseAPIHandler):
             camera,
             time_from,
             time_to,
+            subpath,
         )
 
         def sort_events():

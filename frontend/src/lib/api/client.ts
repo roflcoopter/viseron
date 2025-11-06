@@ -7,7 +7,16 @@ import { ViseronContext } from "context/ViseronContext";
 import { subscribeEvent, subscribeStates } from "lib/commands";
 import * as types from "lib/types";
 
-export const API_V1_URL = "/api/v1";
+// Detect base path from the current URL for subpath support
+// If running at /viseron/index.html, basePath will be /viseron
+// If running at /index.html, basePath will be empty
+function getBasePath(): string {
+  const path = window.location.pathname;
+  return path.substring(0, path.lastIndexOf("/"));
+}
+
+export const BASE_PATH = getBasePath();
+export const API_V1_URL = `${BASE_PATH}/api/v1`;
 export const viseronAPI = axios.create({
   baseURL: API_V1_URL,
   // Match Tornado XSRF protection
@@ -19,7 +28,8 @@ export const viseronAPI = axios.create({
     "X-Client-UTC-Offset": dayjs().utcOffset().toString(),
   },
 });
-export const clientId = (): string => `${location.protocol}//${location.host}/`;
+export const clientId = (): string =>
+  `${location.protocol}//${location.host}${BASE_PATH}/`;
 
 const queryClient = new QueryClient({
   defaultOptions: {

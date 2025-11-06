@@ -143,22 +143,23 @@ class RecordingsAPIHandler(BaseAPIHandler):
             )
             return
 
+        subpath = self.get_subpath()
         recordings = {}
         for camera in cameras.values():
             if self.request_arguments["latest"] and self.request_arguments.get(
                 "daily", False
             ):
                 recordings[camera.identifier] = await self.run_in_executor(
-                    camera.recorder.get_latest_recording_daily, self.utc_offset
+                    camera.recorder.get_latest_recording_daily, self.utc_offset, subpath
                 )
                 continue
             if self.request_arguments["latest"]:
                 recordings[camera.identifier] = await self.run_in_executor(
-                    camera.recorder.get_latest_recording, self.utc_offset
+                    camera.recorder.get_latest_recording, self.utc_offset, None, subpath
                 )
                 continue
             recordings[camera.identifier] = await self.run_in_executor(
-                camera.recorder.get_recordings, self.utc_offset
+                camera.recorder.get_recordings, self.utc_offset, None, subpath
             )
 
         await self.response_success(response=recordings)
@@ -179,12 +180,13 @@ class RecordingsAPIHandler(BaseAPIHandler):
             )
             return
 
+        subpath = self.get_subpath()
         if self.request_arguments["latest"] and self.request_arguments.get(
             "daily", False
         ):
             await self.response_success(
                 response=await self.run_in_executor(
-                    camera.recorder.get_latest_recording_daily, self.utc_offset
+                    camera.recorder.get_latest_recording_daily, self.utc_offset, subpath
                 )
             )
             return
@@ -192,14 +194,14 @@ class RecordingsAPIHandler(BaseAPIHandler):
         if self.request_arguments["latest"]:
             await self.response_success(
                 response=await self.run_in_executor(
-                    camera.recorder.get_latest_recording, self.utc_offset, date
+                    camera.recorder.get_latest_recording, self.utc_offset, date, subpath
                 )
             )
             return
 
         await self.response_success(
             response=await self.run_in_executor(
-                camera.recorder.get_recordings, self.utc_offset, date
+                camera.recorder.get_recordings, self.utc_offset, date, subpath
             )
         )
         return
