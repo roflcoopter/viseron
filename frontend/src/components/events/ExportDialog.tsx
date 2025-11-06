@@ -35,6 +35,10 @@ export function ExportDialog({ open, setOpen }: ExportDialogProps) {
     }
   };
 
+  const handleEndDateAccept = (newValue: Dayjs | null) => {
+    setEndDate(newValue);
+  };
+
   const handleExport = () => {
     if (!startDate || !endDate) return;
     exportTimespan(
@@ -66,8 +70,8 @@ export function ExportDialog({ open, setOpen }: ExportDialogProps) {
             label="End Date & Time"
             views={["year", "month", "day", "hours", "minutes", "seconds"]}
             value={endDate}
-            onAccept={(newValue) => setEndDate(newValue)}
-            onChange={handleStartDateAccept}
+            onAccept={handleEndDateAccept}
+            onChange={handleEndDateAccept}
             closeOnSelect={false}
             ampm={is12HourFormat()}
             minDateTime={startDate || undefined}
