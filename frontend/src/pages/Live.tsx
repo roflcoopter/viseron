@@ -25,6 +25,7 @@ import {
   useMemo,
   useRef,
   useState,
+  createRef,
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
@@ -540,6 +541,9 @@ const CameraPlayer = memo(
     const theme = useTheme();
     const menuContext = useContext(MenuContext);
 
+    // Ensure we always have a valid ref - but don't use a stale fallback
+    const safePlayerRef = useMemo(() => playerRef || createRef<VideoRTC>(), [playerRef]);
+
     const handleMenuOpen = useCallback(
       (event: React.MouseEvent<HTMLElement>) => {
         if (menuContext) {
@@ -629,7 +633,7 @@ const CameraPlayer = memo(
         data-camera-player={camera.identifier}
       >
         <LivePlayer
-          playerRef={playerRef}
+          playerRef={safePlayerRef}
           camera={camera}
           src={`/live?src=${camera.identifier}`}
           controls={false}
