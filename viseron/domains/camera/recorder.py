@@ -134,15 +134,19 @@ class RecorderBase:
         self._storage: Storage = vis.data[STORAGE_COMPONENT]
 
     def get_recordings(
-        self, utc_offset: datetime.timedelta, date=None
+        self, utc_offset: datetime.timedelta, date=None, subpath: str = ""
     ) -> dict[str, dict[int, RecordingDict]]:
         """Return all recordings."""
         return get_recordings(
-            self._storage.get_session, self._camera.identifier, utc_offset, date=date
+            self._storage.get_session,
+            self._camera.identifier,
+            utc_offset,
+            date=date,
+            subpath=subpath,
         )
 
     def get_latest_recording(
-        self, utc_offset: datetime.timedelta, date=None
+        self, utc_offset: datetime.timedelta, date=None, subpath: str = ""
     ) -> dict[str, dict[int, RecordingDict]]:
         """Return the latest recording."""
         return get_recordings(
@@ -151,10 +155,11 @@ class RecorderBase:
             utc_offset,
             date=date,
             latest=True,
+            subpath=subpath,
         )
 
     def get_latest_recording_daily(
-        self, utc_offset: datetime.timedelta
+        self, utc_offset: datetime.timedelta, subpath: str = ""
     ) -> dict[str, dict[int, RecordingDict]]:
         """Return the latest recording for each day."""
         return get_recordings(
@@ -163,6 +168,7 @@ class RecorderBase:
             utc_offset,
             latest=True,
             daily=True,
+            subpath=subpath,
         )
 
     def delete_recording(
@@ -479,6 +485,7 @@ def get_recordings(
     date: str | None = None,
     latest: bool = False,
     daily: bool = False,
+    subpath: str = "",
 ) -> dict[str, dict[int, RecordingDict]]:
     """Return all recordings using PostgreSQL UTC offset conversion.
 
@@ -489,6 +496,7 @@ def get_recordings(
         date: Optional date filter in user's local timezone (YYYY-MM-DD)
         latest: If True, return only the most recent recording(s)
         daily: If True and latest is True, return the latest recording for each day
+        subpath: Subpath prefix for URLs (e.g., '/viseron')
 
     Returns:
         Dictionary of recordings organized by date in user's local timezone
@@ -519,7 +527,9 @@ def get_recordings(
             if _local_date not in recordings:
                 recordings[_local_date] = {}
 
-            recordings[_local_date][recording.id] = _recording_file_dict(recording)
+            recordings[_local_date][recording.id] = _recording_file_dict(
+                recording, subpath
+            )
 
     return recordings
 
@@ -550,7 +560,7 @@ def delete_recordings(
     return _deleted_recordings
 
 
-def _recording_file_dict(recording: Recordings) -> RecordingDict:
+def _recording_file_dict(recording: Recordings, subpath: str = "") -> RecordingDict:
     """Return a dict with recording file information."""
     return {
         "id": recording.id,
@@ -561,8 +571,9 @@ def _recording_file_dict(recording: Recordings) -> RecordingDict:
         "end_timestamp": recording.end_time.timestamp() if recording.end_time else None,
         "trigger_type": recording.trigger_type,
         "trigger_id": recording.trigger_id,
-        "thumbnail_path": f"/files{recording.thumbnail_path}",
+        "thumbnail_path": f"{subpath}/files{recording.thumbnail_path}",
         "hls_url": (
-            f"/api/v1/hls/{recording.camera_identifier}/{recording.id}/index.m3u8"
+            # pylint: disable=line-too-long
+            f"{subpath}/api/v1/hls/{recording.camera_identifier}/{recording.id}/index.m3u8"
         ),
     }
