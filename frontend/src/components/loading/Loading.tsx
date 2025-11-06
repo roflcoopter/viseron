@@ -40,7 +40,7 @@ export function Loading({ text, fullScreen = true }: LoadingProps) {
               width: 150,
               height: 150,
               "& > *": {
-                animation: "viseron-spin 2s linear infinite",
+                animation: "viseron-spin 4s linear infinite",
                 transformOrigin: "center center",
                 display: "block",
               },

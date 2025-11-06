@@ -1,11 +1,12 @@
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
+import Stack from "@mui/material/Stack";
 import { useEffect, useReducer, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useTheme } from "@mui/material/styles";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
@@ -43,6 +44,7 @@ function reducer(state: InputState, action: InputAction): InputState {
 
 function Login() {
   useTitle("Login");
+  const theme = useTheme();
   const { auth } = useAuthContext();
   const location = useLocation();
   const navigate = useNavigate();
@@ -82,88 +84,163 @@ function Login() {
   }
 
   return (
-    <Container sx={{ marginTop: "2%" }}>
-      <Box display="flex" justifyContent="center" alignItems="center">
-        <ViseronLogo width={150} height={150} />
-      </Box>
-      <Typography variant="h4" align="center">
-        Viseron
-      </Typography>
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        sx={{ marginTop: "20px" }}
-      >
-        <Paper
-          sx={{
-            paddingTop: "5px",
-            width: "95%",
-            maxWidth: 400,
-          }}
-        >
-          <Typography variant="h6" align="center" sx={{ padding: "10px" }}>
-            Enter your credentials
-          </Typography>
-          {login.error ? (
-            <Typography variant="h6" align="center" color="error">
-              {login.error.response && login.error.response.data.status === 401
-                ? "Incorrect username or password."
-                : "An error occurred."}
-            </Typography>
-          ) : null}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
+    <Box
+      sx={{
+        minHeight: "90vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        py: 2,
+        px: 2
+      }}
+    >
+      <Container maxWidth="sm">
+        <Stack spacing={4} alignItems="center">
+          {/* Logo and Brand Section */}
+          <Box
+            sx={{
+              textAlign: "center",
+              mb: 2
             }}
           >
-            <Grid container spacing={3} sx={{ padding: "15px" }}>
-              <TextFieldItem<keyof InputState>
-                inputKind="username"
-                inputState={inputState}
-                dispatch={dispatch}
-                value={inputState.username.value}
-              />
-              <TextFieldItem<keyof InputState>
-                inputKind="password"
-                inputState={inputState}
-                dispatch={dispatch}
-                password
-              />
-              <Grid size={12}>
-                <Button
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  disabled={
-                    !inputState.username.value ||
-                    !inputState.password.value ||
-                    !!inputState.username.error ||
-                    !!inputState.password.error ||
-                    login.isPending
-                  }
-                  onClick={() => {
-                    login.mutate(
-                      {
-                        username: inputState.username.value,
-                        password: inputState.password.value,
-                      },
-                      {
-                        onSuccess: async (_data, _variables, _context) => {
-                          navigate(fromRef.current ? fromRef.current : "/");
-                        },
-                      },
-                    );
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                width: 150,
+                height: 150,
+                margin: "0 auto",
+                "& > *": {
+                  animation: "viseron-slow-spin 30s linear infinite",
+                  transformOrigin: "center center",
+                  display: "block",
+                },
+                "@keyframes viseron-slow-spin": {
+                  "0%": { transform: "rotate(0deg)" },
+                  "100%": { transform: "rotate(360deg)" },
+                },
+              }}
+            >
+              <ViseronLogo width={150} height={150} />
+            </Box>
+            <Typography 
+              variant="h4" 
+              sx={{ 
+                color: 'text.primary',
+              }}
+            >
+              Viseron Login
+            </Typography>
+          </Box>
+
+          {/* Login Form */}
+          <Paper
+            elevation={8}
+            sx={{
+              width: "100%",
+              maxWidth: 400,
+              borderRadius: 2,
+              overflow: "hidden",
+              border: `1px solid ${theme.palette.divider}`,
+            }}
+          >
+            <Box sx={{ p: 4 }}>
+
+              {login.error && (
+                <Box
+                  sx={{
+                    p: 2,
+                    mb: 3,
+                    borderRadius: 2,
+                    backgroundColor: `${theme.palette.error.main}10`,
+                    border: `1px solid ${theme.palette.error.main}30`,
                   }}
                 >
-                  Login
-                </Button>
-              </Grid>
-            </Grid>
-          </form>
-        </Paper>
-      </Box>
-    </Container>
+                  <Typography 
+                    variant="body2" 
+                    align="center" 
+                    sx={{ 
+                      color: 'error.main',
+                      fontWeight: 500
+                    }}
+                  >
+                    {login.error.response && login.error.response.data.status === 401
+                      ? "Incorrect username or password"
+                      : "An error occurred. Please try again."}
+                  </Typography>
+                </Box>
+              )}
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                }}
+              >
+                <Stack spacing={3}>
+                  <TextFieldItem<keyof InputState>
+                    inputKind="username"
+                    inputState={inputState}
+                    dispatch={dispatch}
+                    value={inputState.username.value}
+                  />
+                  <TextFieldItem<keyof InputState>
+                    inputKind="password"
+                    inputState={inputState}
+                    dispatch={dispatch}
+                    password
+                  />
+                  
+                  <Button
+                    type="submit"
+                    fullWidth
+                    variant="contained"
+                    size="large"
+                    disabled={
+                      !inputState.username.value ||
+                      !inputState.password.value ||
+                      !!inputState.username.error ||
+                      !!inputState.password.error ||
+                      login.isPending
+                    }
+                    onClick={() => {
+                      login.mutate(
+                        {
+                          username: inputState.username.value,
+                          password: inputState.password.value,
+                        },
+                        {
+                          onSuccess: async (_data, _variables, _context) => {
+                            navigate(fromRef.current ? fromRef.current : "/");
+                          },
+                        },
+                      );
+                    }}
+                    sx={{
+                      py: 1.5,
+                      borderRadius: 2,
+                      textTransform: "none",
+                      fontSize: "1rem",
+                      fontWeight: 600,
+                      mt: 2,
+                      boxShadow: 2,
+                      '&:hover': {
+                        boxShadow: 4,
+                      },
+                      '&:disabled': {
+                        boxShadow: 0,
+                      }
+                    }}
+                  >
+                    {login.isPending ? "SIGNING IN..." : "SIGN IN"}
+                  </Button>
+                </Stack>
+              </form>
+            </Box>
+          </Paper>
+        </Stack>
+      </Container>
+    </Box>
   );
 }
 
