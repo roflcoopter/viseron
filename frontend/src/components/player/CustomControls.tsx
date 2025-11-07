@@ -9,6 +9,7 @@ import {
   Launch,
   PopIn,
   CircleFill,
+  ShrinkScreen,
 } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -63,6 +64,8 @@ interface CustomControlsProps {
   playbackSpeed?: number;
   isFullscreen?: boolean;
   onFullscreenToggle?: () => void;
+  onPictureInPictureToggle?: () => void;
+  isPictureInPictureSupported?: boolean;
   extraButtons?: React.ReactNode;
 }
 
@@ -81,6 +84,8 @@ export function CustomControls({
   playbackSpeed = 1,
   isFullscreen = false,
   onFullscreenToggle,
+  onPictureInPictureToggle,
+  isPictureInPictureSupported = false,
   extraButtons,
 }: CustomControlsProps) {
   const [isVolumeSliderVisible, setIsVolumeSliderVisible] = useState(false);
@@ -321,6 +326,11 @@ export function CustomControls({
               </>
             )}
             {extraButtons}
+            {onPictureInPictureToggle && isPictureInPictureSupported && (
+              <CustomFab onClick={onPictureInPictureToggle}>
+                <ShrinkScreen size={20}/>
+              </CustomFab>
+            )}
             {onFullscreenToggle && screenfull.isEnabled && (
               <CustomFab onClick={onFullscreenToggle}>
                 {isFullscreen ? <PopIn size={20}/> : <Launch size={20}/>}

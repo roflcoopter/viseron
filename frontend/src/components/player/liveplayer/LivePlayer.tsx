@@ -22,6 +22,7 @@ const useVideoControlsVisibility = (
   const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPictureInPicture, setIsPictureInPicture] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const showControlsTemporarily = useCallback(() => {
@@ -82,6 +83,27 @@ const useVideoControlsVisibility = (
     onPlayerFullscreenChange?.(newFullscreenState);
   }, [isFullscreen, onPlayerFullscreenChange]);
 
+  const handlePictureInPictureToggle = useCallback(async () => {
+    try {
+      const videoElement = playerRef.current?.video;
+      if (!videoElement) return;
+
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+        setIsPictureInPicture(false);
+      } else {
+        await videoElement.requestPictureInPicture();
+        setIsPictureInPicture(true);
+      }
+    } catch (error) {
+      console.error('Error toggling Picture in Picture:', error);
+      setIsPictureInPicture(false);
+    }
+  }, [playerRef]);
+
+  const isPictureInPictureSupported = useCallback(() => 
+    'pictureInPictureEnabled' in document && document.pictureInPictureEnabled, []);
+
   const handleMouseEnter = useCallback(() => {
     setIsHovering(true);
     setControlsVisible(true);
@@ -108,14 +130,24 @@ const useVideoControlsVisibility = (
     if (!videoElement || !videoElement.video) return () => {};
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
+    
+    // Handle PiP state changes
+    const handleEnterPiP = () => setIsPictureInPicture(true);
+    const handleLeavePiP = () => setIsPictureInPicture(false);
+    
     videoElement.video.addEventListener("play", handlePlay);
     videoElement.video.addEventListener("pause", handlePause);
+    videoElement.video.addEventListener("enterpictureinpicture", handleEnterPiP);
+    videoElement.video.addEventListener("leavepictureinpicture", handleLeavePiP);
+    
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
       videoElement.video!.removeEventListener("play", handlePlay);
       videoElement.video!.removeEventListener("pause", handlePause);
+      videoElement.video!.removeEventListener("enterpictureinpicture", handleEnterPiP);
+      videoElement.video!.removeEventListener("leavepictureinpicture", handleLeavePiP);
     };
   }, [playerRef]);
 
@@ -124,6 +156,8 @@ const useVideoControlsVisibility = (
     handleVolumeChange,
     handleMuteToggle,
     handleFullscreenToggle,
+    handlePictureInPictureToggle,
+    isPictureInPictureSupported: isPictureInPictureSupported(),
     handleMouseEnter,
     handleMouseLeave,
     handleTouchStart,
@@ -132,6 +166,7 @@ const useVideoControlsVisibility = (
     isPlaying,
     isMuted,
     isFullscreen,
+    isPictureInPicture,
   };
 };
 
@@ -229,6 +264,8 @@ export function LivePlayer({
     handleVolumeChange,
     handleMuteToggle,
     handleFullscreenToggle,
+    handlePictureInPictureToggle,
+    isPictureInPictureSupported,
     handleMouseEnter,
     handleMouseLeave,
     handleTouchStart,
@@ -237,6 +274,7 @@ export function LivePlayer({
     isHovering,
     isMuted,
     isFullscreen,
+    isPictureInPicture,
   } = useVideoControlsVisibility(elementRef, onPlayerFullscreenChange);
 
   // Disable zoom/pan when loading, camera is disconnected and still loading or has error
@@ -301,6 +339,8 @@ export function LivePlayer({
         isMuted={isMuted}
         isFullscreen={isFullscreen}
         onFullscreenToggle={handleFullscreenToggle}
+        onPictureInPictureToggle={handlePictureInPictureToggle}
+        isPictureInPictureSupported={isPictureInPictureSupported}
         extraButtons={extraButtons}
       />
       <div
@@ -314,7 +354,7 @@ export function LivePlayer({
           ...(!isZoomPanDisabled ? transformStyle : {}),
         }}
       >
-        {(!camera.failed && !(camera as types.Camera).connected) || hasError ? (
+        {(!camera.failed && !(camera as types.Camera).connected) || hasError || isPictureInPicture ? (
           <Box
             sx={{
               width: "100%",
@@ -345,7 +385,8 @@ export function LivePlayer({
                 wordBreak: 'break-word',
               }}
             >
-              {playerStatus || (hasError ? "Connection Error" : (!camera.failed && !(camera as types.Camera).connected) ? "Camera Disconnected" : "No Video Signal")}
+              {isPictureInPicture ? "Playing in Picture-in-Picture" : 
+               playerStatus || (hasError ? "Connection Error" : (!camera.failed && !(camera as types.Camera).connected) ? "Camera Disconnected" : "No Video Signal")}
             </Box>
           </Box>
         ) : (
@@ -385,7 +426,7 @@ export function LivePlayer({
       </div>
       <CameraNameOverlay
         camera_identifier={camera.identifier}
-        extraStatusText={playerStatus}
+        extraStatusText={isPictureInPicture ? "Picture-in-Picture Mode" : playerStatus}
       />
       <ZoomPanOverlay
         scale={scale}
