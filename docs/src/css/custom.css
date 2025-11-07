@@ -177,3 +177,33 @@ html[data-theme="dark"] .docusaurus-highlight-code-line {
 .menu__caret:hover {
   background: rgb(0 0 0 / 0%);
 }
+
+/* Navbar title size */
+.navbar__title {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+/* Version badge in navbar brand */
+.navbar__title::after {
+  content: "3.3.1";
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.60rem;
+  font-weight: 600;
+  margin-left: 8px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+html[data-theme="light"] .navbar__title::after {
+  background: rgba(0, 127, 255, 0.15);
+  color: #007fff;
+}
+
+html[data-theme="dark"] .navbar__title::after {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+}
