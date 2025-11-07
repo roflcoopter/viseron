@@ -4,6 +4,14 @@
  * work well for content-centric websites.
  */
 
+/* Import IBM Plex Fonts */
+@import '@fontsource/ibm-plex-sans/400.css'; /* Regular */
+@import '@fontsource/ibm-plex-sans/500.css'; /* Medium */
+@import '@fontsource/ibm-plex-sans/600.css'; /* Semi-bold */
+@import '@fontsource/ibm-plex-sans/700.css'; /* Bold */
+@import '@fontsource/ibm-plex-mono/400.css'; /* Regular for code */
+@import '@fontsource/ibm-plex-mono/600.css'; /* Semi-bold for code */
+
 /* You can override the default Infima variables here. */
 :root {
   --ifm-color-primary: #007fff;
@@ -14,6 +22,10 @@
   --ifm-color-primary-lighter: #66b2ff;
   --ifm-color-primary-lightest: #99ccf3;
   --ifm-code-font-size: 95%;
+
+  /* IBM Plex Font Configuration */
+  --ifm-font-family-base: 'IBM Plex Sans', system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+  --ifm-font-family-monospace: 'IBM Plex Mono', SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   /* Lists */
   --ifm-heading-margin-top: 35px;
