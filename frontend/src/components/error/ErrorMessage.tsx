@@ -1,10 +1,12 @@
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
 import Container from "@mui/material/Container";
 import Grow from "@mui/material/Grow";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
 interface ErrorMessageProps {
@@ -154,6 +156,23 @@ export function ErrorBoundaryInner({
   error,
   resetErrorBoundary,
 }: ErrorBoundaryProps) {
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const navigate = useNavigate();
+
+  const handleGoHome = () => {
+    setIsNavigating(true);
+    // Add small delay for smooth loading animation before client-side navigation
+    setTimeout(() => {
+      navigate('/');
+    }, 300);
+  };
+
+  const handleTryAgain = () => {
+    setIsRetrying(true);
+    resetErrorBoundary();
+  };
+
   return (
     <Container maxWidth="md">
       <Box
@@ -208,18 +227,21 @@ export function ErrorBoundaryInner({
           >
             <Button 
               variant="contained" 
-              component={Link} 
-              to="/"
+              onClick={handleGoHome}
               size="large"
               sx={{ minWidth: 120 }}
+              disabled={isNavigating || isRetrying}
+              startIcon={isNavigating ? <CircularProgress size={20} color="inherit" enableTrackSlot/> : null}
             >
               Go Home
             </Button>
             <Button 
               variant="outlined" 
-              onClick={resetErrorBoundary}
+              onClick={handleTryAgain}
               size="large"
               sx={{ minWidth: 120 }}
+              disabled={isNavigating || isRetrying}
+              startIcon={isRetrying ? <CircularProgress size={20} color="inherit" enableTrackSlot/> : null}
             >
               Try Again
             </Button>
@@ -234,6 +256,23 @@ export function ErrorBoundaryOuter({
   error,
   resetErrorBoundary,
 }: ErrorBoundaryProps) {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const navigate = useNavigate();
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    // Add small delay for smooth loading animation before client-side navigation
+    setTimeout(() => {
+      navigate(0); // This refreshes the current route
+    }, 300);
+  };
+
+  const handleTryAgain = () => {
+    setIsRetrying(true);
+    resetErrorBoundary();
+  };
+
   return (
     <Container maxWidth="md">
       <Box
@@ -288,17 +327,21 @@ export function ErrorBoundaryOuter({
           >
             <Button 
               variant="contained" 
-              onClick={() => window.location.reload()}
+              onClick={handleRefresh}
               size="large"
               sx={{ minWidth: 120 }}
+              disabled={isRefreshing || isRetrying}
+              startIcon={isRefreshing ? <CircularProgress size={20} color="inherit" enableTrackSlot/> : null}
             >
               Refresh Page
             </Button>
             <Button 
               variant="outlined" 
-              onClick={resetErrorBoundary}
+              onClick={handleTryAgain}
               size="large"
               sx={{ minWidth: 120 }}
+              disabled={isRefreshing || isRetrying}
+              startIcon={isRetrying ? <CircularProgress size={20} color="inherit" enableTrackSlot/> : null}
             >
               Try Again
             </Button>
