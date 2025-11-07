@@ -70,6 +70,8 @@ interface MenuContextType {
     event: React.MouseEvent,
   ) => void;
   closeContextMenu: () => void;
+  isFullscreen: boolean;
+  isPlayerFullscreen: boolean;
 }
 
 const MenuContext = createContext<MenuContextType | null>(null);
@@ -227,8 +229,10 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
       setPlayerFullscreen,
       openContextMenu,
       closeContextMenu,
+      isFullscreen,
+      isPlayerFullscreen,
     }),
-    [openMenu, closeMenu, isMenuOpenForCamera, setPlayerFullscreen, openContextMenu, closeContextMenu],
+    [openMenu, closeMenu, isMenuOpenForCamera, setPlayerFullscreen, openContextMenu, closeContextMenu, isFullscreen, isPlayerFullscreen],
   );
 
   // Add global right-click listener to close context menu when right-clicking elsewhere

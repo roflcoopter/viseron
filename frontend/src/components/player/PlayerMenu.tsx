@@ -16,7 +16,7 @@ interface PlayerMenuProps {
 
 export function PlayerMenu({ onMenuOpen }: PlayerMenuProps) {
   return (
-    <CustomFab onClick={onMenuOpen}>
+    <CustomFab onClick={onMenuOpen} title="Player settings">
       <GlobalFilters />
     </CustomFab>
   );

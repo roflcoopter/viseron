@@ -18,10 +18,12 @@ import Fade from "@mui/material/Fade";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Slider from "@mui/material/Slider";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import screenfull from "screenfull";
 
+import { useFullscreen } from "context/FullscreenContext";
 import { isTouchDevice } from "lib/helpers";
 
 const ZINDEX = 900;
@@ -30,13 +32,19 @@ interface CustomFabProps {
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   size?: "small" | "medium" | "large";
   children: React.ReactNode;
+  title?: string;
+  isFullscreen?: boolean;
 }
 export function CustomFab({
   onClick,
   size = "small",
   children,
+  title,
+  isFullscreen = false,
 }: CustomFabProps) {
-  return (
+  const { isFullscreen: isContainerFullscreen } = useFullscreen();
+
+  const fab = (
     <Fab
       onClick={onClick}
       onTouchStart={(e) => e.stopPropagation()}
@@ -47,6 +55,21 @@ export function CustomFab({
       {children}
     </Fab>
   );
+
+  // Determine z-index based on fullscreen state or container fullscreen
+  const tooltipZIndex = isFullscreen || isContainerFullscreen ? 9001 : 999;
+
+  return title ? (
+    <Tooltip 
+      title={title}
+      arrow={false}
+      PopperProps={{
+        style: { zIndex: tooltipZIndex }
+      }}
+    >
+      {fab}
+    </Tooltip>
+  ) : fab;
 }
 
 interface CustomControlsProps {
@@ -163,17 +186,17 @@ export function CustomControls({
         {/* Center controls */}
         <Box display="flex" justifyContent="center" alignItems="center">
           {onJumpBackward && (
-            <CustomFab onClick={onJumpBackward}>
+            <CustomFab onClick={onJumpBackward} title="Rewind 10 seconds" isFullscreen={isFullscreen}>
               <Rewind10 size={20}/>
             </CustomFab>
           )}
           {onPlayPause && (
-            <CustomFab onClick={onPlayPause} size="medium">
+            <CustomFab onClick={onPlayPause} size="medium" title={isPlaying ? "Pause" : "Play"} isFullscreen={isFullscreen}>
               {isPlaying ? <Pause size={20}/> : <Play size={20}/>}
             </CustomFab>
           )}
           {onJumpForward && (
-            <CustomFab onClick={onJumpForward}>
+            <CustomFab onClick={onJumpForward} title="Forward 10 seconds" isFullscreen={isFullscreen}>
               <Forward10 size={20}/>
             </CustomFab>
           )}
@@ -270,7 +293,7 @@ export function CustomControls({
                   </Box>
                 )}
                 {onMuteToggle && (
-                  <CustomFab onClick={onMuteToggle}>
+                  <CustomFab onClick={onMuteToggle} title={isMuted ? "Unmute" : "Mute"} isFullscreen={isFullscreen}>
                     {isMuted ? <VolumeMute size={20}/> : <VolumeUp size={20}/>}
                   </CustomFab>
                 )}
@@ -278,7 +301,7 @@ export function CustomControls({
             )}
             {onPlaybackSpeedChange && (
               <>
-                <CustomFab onClick={handleSpeedClick}>
+                <CustomFab onClick={handleSpeedClick} title="Playback speed" isFullscreen={isFullscreen}>
                   <MeterAlt size={20}/>
                 </CustomFab>
                 <Menu
@@ -327,12 +350,12 @@ export function CustomControls({
             )}
             {extraButtons}
             {onPictureInPictureToggle && isPictureInPictureSupported && (
-              <CustomFab onClick={onPictureInPictureToggle}>
+              <CustomFab onClick={onPictureInPictureToggle} title="Picture in Picture" isFullscreen={isFullscreen}>
                 <ShrinkScreen size={20}/>
               </CustomFab>
             )}
             {onFullscreenToggle && screenfull.isEnabled && (
-              <CustomFab onClick={onFullscreenToggle}>
+              <CustomFab onClick={onFullscreenToggle} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"} isFullscreen={isFullscreen}>
                 {isFullscreen ? <PopIn size={20}/> : <Launch size={20}/>}
               </CustomFab>
             )}
