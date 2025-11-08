@@ -203,7 +203,7 @@ const useMjpegControlsVisibility = (
       }
       pipVideoRef.current = null;
     }
-  }, [containerRef, isPictureInPicture]);
+  }, [containerRef]);
 
   const isPictureInPictureSupported = useCallback(() => 
     'pictureInPictureEnabled' in document && document.pictureInPictureEnabled, []);
