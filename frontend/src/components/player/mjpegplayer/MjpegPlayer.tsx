@@ -487,7 +487,6 @@ export function MjpegPlayer({
         }}
       >
         {(!camera.failed && !(camera as types.Camera).connected) ||
-        error ||
         isPictureInPicture ? (
           <Box
             sx={{

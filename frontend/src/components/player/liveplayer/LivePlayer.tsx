@@ -406,7 +406,6 @@ export function LivePlayer({
         }}
       >
         {(!camera.failed && !(camera as types.Camera).connected) ||
-        hasError ||
         isPictureInPicture ? (
           <Box
             sx={{
@@ -441,11 +440,9 @@ export function LivePlayer({
               {isPictureInPicture
                 ? "Playing in Picture-in-Picture"
                 : playerStatus ||
-                  (hasError
-                    ? "Connection Error"
-                    : !camera.failed && !(camera as types.Camera).connected
-                      ? "Camera Disconnected"
-                      : "No Video Signal")}
+                  (!(camera as types.Camera).connected
+                    ? "Camera Disconnected"
+                    : "No Video Signal")}
             </Box>
           </Box>
         ) : (
