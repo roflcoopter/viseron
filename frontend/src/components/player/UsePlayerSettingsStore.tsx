@@ -18,6 +18,8 @@ interface PlayerSettingsState {
   setDrawPostProcessorMask: (cameraId: string, value: boolean) => void;
   flipViewMap: Record<string, boolean>;
   setFlipView: (cameraId: string, value: boolean) => void;
+  muteMap: Record<string, boolean>;
+  setMute: (cameraId: string, value: boolean) => void;
 }
 
 export const usePlayerSettingsStore = create<PlayerSettingsState>()(
@@ -65,6 +67,11 @@ export const usePlayerSettingsStore = create<PlayerSettingsState>()(
       setFlipView: (cameraId, value) =>
         set((state) => ({
           flipViewMap: { ...state.flipViewMap, [cameraId]: value },
+        })),
+      muteMap: {},
+      setMute: (cameraId, value) =>
+        set((state) => ({
+          muteMap: { ...state.muteMap, [cameraId]: value },
         })),
     }),
     { name: "player-settings-store", version: 1 },

@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { CustomControls } from "components/player/CustomControls.js";
+import { usePlayerSettingsStore } from "components/player/UsePlayerSettingsStore";
 import { ZoomPanOverlay } from "components/player/ZoomPanOverlay";
 import { useZoomPan } from "components/player/hooks/useZoomPan";
 import { VideoRTC } from "components/player/liveplayer/video-rtc.js";
@@ -15,15 +16,21 @@ import * as types from "lib/types";
 
 const useVideoControlsVisibility = (
   playerRef: React.RefObject<VideoRTC | null>,
+  cameraId: string,
   onPlayerFullscreenChange?: (isFullscreen: boolean) => void,
 ) => {
   const [controlsVisible, setControlsVisible] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPictureInPicture, setIsPictureInPicture] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Get mute state from store
+  const isMuted = usePlayerSettingsStore(
+    (state) => state.muteMap[cameraId] ?? false,
+  );
+  const setMute = usePlayerSettingsStore((state) => state.setMute);
 
   const showControlsTemporarily = useCallback(() => {
     setControlsVisible(true);
@@ -59,13 +66,13 @@ const useVideoControlsVisibility = (
         videoElement.video.volume = (newVolume as number) / 100;
       }
       if ((newVolume as number) === 0) {
-        setIsMuted(true);
+        setMute(cameraId, true);
       } else {
-        setIsMuted(false);
+        setMute(cameraId, false);
       }
       showControlsTemporarily();
     },
-    [playerRef, setIsMuted, showControlsTemporarily],
+    [playerRef, cameraId, setMute, showControlsTemporarily],
   );
 
   const handleMuteToggle = useCallback(() => {
@@ -73,9 +80,9 @@ const useVideoControlsVisibility = (
     if (videoElement && videoElement.video) {
       videoElement.video.muted = !isMuted;
     }
-    setIsMuted(!isMuted);
+    setMute(cameraId, !isMuted);
     showControlsTemporarily();
-  }, [playerRef, isMuted, showControlsTemporarily]);
+  }, [playerRef, cameraId, isMuted, setMute, showControlsTemporarily]);
 
   const handleFullscreenToggle = useCallback(() => {
     const newFullscreenState = !isFullscreen;
@@ -131,6 +138,10 @@ const useVideoControlsVisibility = (
   useEffect(() => {
     const videoElement = playerRef.current;
     if (!videoElement || !videoElement.video) return () => {};
+
+    // Sync mute state with video element on mount
+    videoElement.video.muted = isMuted;
+
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
 
@@ -164,7 +175,7 @@ const useVideoControlsVisibility = (
         handleLeavePiP,
       );
     };
-  }, [playerRef]);
+  }, [playerRef, isMuted]);
 
   return {
     handlePlayPause,
@@ -297,7 +308,11 @@ export function LivePlayer({
     isMuted,
     isFullscreen,
     isPictureInPicture,
-  } = useVideoControlsVisibility(elementRef, onPlayerFullscreenChange);
+  } = useVideoControlsVisibility(
+    elementRef,
+    camera.identifier,
+    onPlayerFullscreenChange,
+  );
 
   // Disable zoom/pan when loading, camera is disconnected and still loading or has error
   const isZoomPanDisabled: boolean = Boolean(
