@@ -486,19 +486,101 @@ export function MjpegPlayer({
           ...(!isZoomPanDisabled ? transformStyle : {}),
         }}
       >
-        {(!camera.failed && !(camera as types.Camera).connected) ||
-        isPictureInPicture ? (
+        {/* Show placeholder when camera is disconnected (but NOT when in PiP mode) */}
+        {!camera.failed &&
+          !(camera as types.Camera).connected &&
+          !isPictureInPicture && (
+            <Box
+              sx={{
+                width: "100%",
+                height: "100%",
+                backgroundColor: theme.palette.background.default,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: 200,
+                gap: 2,
+              }}
+            >
+              <VideoOff
+                size={48}
+                style={{
+                  color: theme.palette.text.secondary,
+                  opacity: 0.5,
+                }}
+              />
+              <Box
+                sx={{
+                  color: theme.palette.text.secondary,
+                  textAlign: "center",
+                  fontSize: "0.875rem",
+                  opacity: 0.7,
+                  maxWidth: "80%",
+                  wordBreak: "break-word",
+                }}
+              >
+                {error ||
+                  (!(camera as types.Camera).connected
+                    ? "Camera Disconnected"
+                    : "No Video Signal")}
+              </Box>
+            </Box>
+          )}
+
+        {/* Always render img element, but hide it visually when camera is disconnected */}
+        <img
+          ref={imgRef}
+          src={(() => {
+            let url = src;
+            const params = [];
+            if (drawObjects) params.push("draw_objects=1");
+            if (drawMotion) params.push("draw_motion=1");
+            if (drawObjectMask) params.push("draw_object_mask=1");
+            if (drawMotionMask) params.push("draw_motion_mask=1");
+            if (drawZones) params.push("draw_zones=1");
+            if (drawPostProcessorMask)
+              params.push("draw_post_processor_mask=1");
+            if (params.length) {
+              url += (url.includes("?") ? "&" : "?") + params.join("&");
+            }
+            return url;
+          })()}
+          alt="MJPEG Stream"
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            backgroundColor: theme.palette.background.default,
+            userSelect: "none",
+            pointerEvents: "none",
+            transform: flipView ? "rotate(180deg)" : "none",
+            transition: "transform 0.3s ease-in-out",
+            // Hide img element when camera is disconnected (but keep it in DOM)
+            display:
+              !camera.failed && !(camera as types.Camera).connected
+                ? "none"
+                : "block",
+          }}
+          draggable={false}
+        />
+
+        {/* Show PiP overlay when in Picture-in-Picture mode */}
+        {isPictureInPicture && (
           <Box
             sx={{
-              width: "100%",
-              height: "100%",
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
               backgroundColor: theme.palette.background.default,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              minHeight: 200,
               gap: 2,
+              zIndex: 2,
             }}
           >
             <VideoOff
@@ -518,67 +600,30 @@ export function MjpegPlayer({
                 wordBreak: "break-word",
               }}
             >
-              {isPictureInPicture
-                ? "Playing in Picture-in-Picture"
-                : error ||
-                  (!camera.failed && !(camera as types.Camera).connected
-                    ? "Camera Disconnected"
-                    : "No Video Signal")}
+              Playing in Picture-in-Picture
             </Box>
           </Box>
-        ) : (
-          <>
-            <img
-              ref={imgRef}
-              src={(() => {
-                let url = src;
-                const params = [];
-                if (drawObjects) params.push("draw_objects=1");
-                if (drawMotion) params.push("draw_motion=1");
-                if (drawObjectMask) params.push("draw_object_mask=1");
-                if (drawMotionMask) params.push("draw_motion_mask=1");
-                if (drawZones) params.push("draw_zones=1");
-                if (drawPostProcessorMask)
-                  params.push("draw_post_processor_mask=1");
-                if (params.length) {
-                  url += (url.includes("?") ? "&" : "?") + params.join("&");
-                }
-                return url;
-              })()}
-              alt="MJPEG Stream"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                backgroundColor: theme.palette.background.default,
-                display: "block",
-                userSelect: "none",
-                pointerEvents: "none",
-                transform: flipView ? "rotate(180deg)" : "none",
-                transition: "transform 0.3s ease-in-out",
-              }}
-              draggable={false}
-            />
-            {isLoading && (
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: "rgba(0, 0, 0, 0.3)",
-                  zIndex: 1,
-                  pointerEvents: "none",
-                }}
-              >
-                <CircularProgress enableTrackSlot />
-              </Box>
-            )}
-          </>
+        )}
+
+        {/* Show loading indicator */}
+        {isLoading && !isPictureInPicture && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: "rgba(0, 0, 0, 0.3)",
+              zIndex: 1,
+              pointerEvents: "none",
+            }}
+          >
+            <CircularProgress enableTrackSlot />
+          </Box>
         )}
       </div>
       <CameraNameOverlay

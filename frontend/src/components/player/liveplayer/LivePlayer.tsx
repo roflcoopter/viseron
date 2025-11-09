@@ -101,6 +101,11 @@ const useVideoControlsVisibility = (
       } else {
         await videoElement.requestPictureInPicture();
         setIsPictureInPicture(true);
+
+        // Ensure video is playing before requesting PiP
+        if (videoElement.paused) {
+          await videoElement.play();
+        }
       }
     } catch (error) {
       console.error("Error toggling Picture in Picture:", error);
@@ -205,6 +210,12 @@ const usePlayerStatus = (playerRef: React.RefObject<VideoRTC | null>) => {
     const handleStatus = (e: Event) => {
       const customEvent = e as CustomEvent;
       const statusValue = customEvent.detail?.value || "";
+
+      // Ignore "Loading" status text - we show spinner instead
+      if (statusValue.toLowerCase() === "loading") {
+        return;
+      }
+
       setStatus(statusValue);
 
       // Check if status indicates an error
@@ -403,19 +414,81 @@ export function LivePlayer({
           ...(!isZoomPanDisabled ? transformStyle : {}),
         }}
       >
-        {(!camera.failed && !(camera as types.Camera).connected) ||
-        isPictureInPicture ? (
+        {/* Show placeholder when camera is disconnected (but NOT when in PiP mode) */}
+        {!camera.failed &&
+          !(camera as types.Camera).connected &&
+          !isPictureInPicture && (
+            <Box
+              sx={{
+                width: "100%",
+                height: "100%",
+                backgroundColor: theme.palette.background.default,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: 200,
+                gap: 2,
+              }}
+            >
+              <VideoOff
+                size={48}
+                style={{
+                  color: theme.palette.text.secondary,
+                  opacity: 0.5,
+                }}
+              />
+              <Box
+                sx={{
+                  color: theme.palette.text.secondary,
+                  textAlign: "center",
+                  fontSize: "0.875rem",
+                  opacity: 0.7,
+                  maxWidth: "80%",
+                  wordBreak: "break-word",
+                }}
+              >
+                {playerStatus ||
+                  (!(camera as types.Camera).connected
+                    ? "Camera Disconnected"
+                    : "No Video Signal")}
+              </Box>
+            </Box>
+          )}
+
+        {/* Always render video-stream element, but hide it visually when camera is disconnected */}
+        <video-stream
+          ref={elementRef}
+          style={{
+            ...style,
+            userSelect: "none",
+            pointerEvents: "none",
+            transform: flipView ? "rotate(180deg)" : "none",
+            transition: "transform 0.3s ease-in-out",
+            // Hide video element when camera is disconnected (but keep it in DOM)
+            display:
+              !camera.failed && !(camera as types.Camera).connected
+                ? "none"
+                : "block",
+          }}
+        />
+
+        {/* Show PiP overlay when in Picture-in-Picture mode */}
+        {isPictureInPicture && (
           <Box
             sx={{
-              width: "100%",
-              height: "100%",
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
               backgroundColor: theme.palette.background.default,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
-              minHeight: 200,
               gap: 2,
+              zIndex: 2,
             }}
           >
             <VideoOff
@@ -435,47 +508,33 @@ export function LivePlayer({
                 wordBreak: "break-word",
               }}
             >
-              {isPictureInPicture
-                ? "Playing in Picture-in-Picture"
-                : playerStatus ||
-                  (!(camera as types.Camera).connected
-                    ? "Camera Disconnected"
-                    : "No Video Signal")}
+              Playing in Picture-in-Picture
             </Box>
           </Box>
-        ) : (
-          <>
-            <video-stream
-              ref={elementRef}
-              style={{
-                ...style,
-                userSelect: "none",
-                pointerEvents: "none",
-                transform: flipView ? "rotate(180deg)" : "none",
-                transition: "transform 0.3s ease-in-out",
-              }}
-            />
-            {isLoading && (
-              <Box
-                sx={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: "rgba(0, 0, 0, 0.3)",
-                  zIndex: 1,
-                  pointerEvents: "none",
-                }}
-              >
-                <CircularProgress enableTrackSlot />
-              </Box>
-            )}
-          </>
         )}
+
+        {/* Show loading indicator */}
+        {isLoading &&
+          !isPictureInPicture &&
+          (camera.failed || (camera as types.Camera).connected) && (
+            <Box
+              sx={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "rgba(0, 0, 0, 0.3)",
+                zIndex: 1,
+                pointerEvents: "none",
+              }}
+            >
+              <CircularProgress enableTrackSlot />
+            </Box>
+          )}
       </div>
       <CameraNameOverlay
         camera_identifier={camera.identifier}
