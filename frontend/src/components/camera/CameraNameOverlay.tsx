@@ -1,7 +1,4 @@
-import {
-  CircleFill,
-  VideoOff,
-} from "@carbon/icons-react";
+import { CircleFill, VideoOff } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { SxProps, Theme } from "@mui/material/styles";
@@ -32,20 +29,20 @@ const cameraNameStyles: SxProps<Theme> = {
 
 function StatusIcon({ camera }: { camera: types.Camera }) {
   return camera.is_on ? (
-    <CircleFill 
+    <CircleFill
       size={12}
-      style={{ 
+      style={{
         color: camera.connected ? "red" : "gray",
-        marginLeft: "4px"
-      }} 
+        marginLeft: "4px",
+      }}
     />
   ) : (
-    <VideoOff 
+    <VideoOff
       size={12}
-      style={{ 
+      style={{
         color: "white",
-        marginLeft: "4px"
-      }} 
+        marginLeft: "4px",
+      }}
     />
   );
 }

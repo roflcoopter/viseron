@@ -1,4 +1,12 @@
-import { createContext, useContext, useRef, useState, useMemo, useCallback, useEffect } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 interface FullscreenContextType {
   isFullscreen: boolean;
@@ -30,9 +38,13 @@ export function FullscreenProvider({ children }: FullscreenProviderProps) {
   useEffect(() => {
     const handleFullscreenChange = () => {
       // If browser exits fullscreen but our state says we're fullscreen, clean up
-      if (!document.fullscreenElement && isFullscreen && fullscreenElementRef.current) {
+      if (
+        !document.fullscreenElement &&
+        isFullscreen &&
+        fullscreenElementRef.current
+      ) {
         const currentElement = fullscreenElementRef.current;
-        
+
         // Reset styles
         currentElement.style.position = "";
         currentElement.style.top = "";
@@ -41,10 +53,10 @@ export function FullscreenProvider({ children }: FullscreenProviderProps) {
         currentElement.style.height = "";
         currentElement.style.zIndex = "";
         currentElement.style.backgroundColor = "";
-        
+
         // Restore body overflow
         document.body.style.overflow = "";
-        
+
         fullscreenElementRef.current = null;
         setIsFullscreen(false);
       }
@@ -56,78 +68,81 @@ export function FullscreenProvider({ children }: FullscreenProviderProps) {
     };
   }, [isFullscreen]);
 
-  const toggleFullscreen = useCallback(async (targetElement?: HTMLElement) => {
-    if (!isFullscreen && targetElement) {
-      try {
-        // Store reference to the element
-        fullscreenElementRef.current = targetElement;
-        
-        // Apply fullscreen styles to the element
-        targetElement.style.position = "fixed";
-        targetElement.style.top = "0";
-        targetElement.style.left = "0";
-        targetElement.style.width = "100vw";
-        targetElement.style.height = "100vh";
-        targetElement.style.zIndex = "9000";
-        targetElement.style.backgroundColor = "black";
-        
-        // Hide body overflow
-        document.body.style.overflow = "hidden";
-        
-        // Enter browser fullscreen
-        await document.documentElement.requestFullscreen();
-        
-        setIsFullscreen(true);
-      } catch (err) {
-        console.error("Error attempting to enable fullscreen:", err);
-        // If browser fullscreen fails, clean up element styles
-        if (fullscreenElementRef.current) {
-          const currentElement = fullscreenElementRef.current;
-          currentElement.style.position = "";
-          currentElement.style.top = "";
-          currentElement.style.left = "";
-          currentElement.style.width = "";
-          currentElement.style.height = "";
-          currentElement.style.zIndex = "";
-          currentElement.style.backgroundColor = "";
+  const toggleFullscreen = useCallback(
+    async (targetElement?: HTMLElement) => {
+      if (!isFullscreen && targetElement) {
+        try {
+          // Store reference to the element
+          fullscreenElementRef.current = targetElement;
+
+          // Apply fullscreen styles to the element
+          targetElement.style.position = "fixed";
+          targetElement.style.top = "0";
+          targetElement.style.left = "0";
+          targetElement.style.width = "100vw";
+          targetElement.style.height = "100vh";
+          targetElement.style.zIndex = "9000";
+          targetElement.style.backgroundColor = "black";
+
+          // Hide body overflow
+          document.body.style.overflow = "hidden";
+
+          // Enter browser fullscreen
+          await document.documentElement.requestFullscreen();
+
+          setIsFullscreen(true);
+        } catch (err) {
+          console.error("Error attempting to enable fullscreen:", err);
+          // If browser fullscreen fails, clean up element styles
+          if (fullscreenElementRef.current) {
+            const currentElement = fullscreenElementRef.current;
+            currentElement.style.position = "";
+            currentElement.style.top = "";
+            currentElement.style.left = "";
+            currentElement.style.width = "";
+            currentElement.style.height = "";
+            currentElement.style.zIndex = "";
+            currentElement.style.backgroundColor = "";
+            document.body.style.overflow = "";
+            fullscreenElementRef.current = null;
+          }
+        }
+      } else if (isFullscreen) {
+        try {
+          // Exit browser fullscreen first
+          if (document.fullscreenElement) {
+            await document.exitFullscreen();
+          }
+
+          // Clean up element styles
+          if (fullscreenElementRef.current) {
+            const currentElement = fullscreenElementRef.current;
+            currentElement.style.position = "";
+            currentElement.style.top = "";
+            currentElement.style.left = "";
+            currentElement.style.width = "";
+            currentElement.style.height = "";
+            currentElement.style.zIndex = "";
+            currentElement.style.backgroundColor = "";
+
+            fullscreenElementRef.current = null;
+          }
+
+          // Restore body overflow
           document.body.style.overflow = "";
-          fullscreenElementRef.current = null;
+
+          setIsFullscreen(false);
+        } catch (err) {
+          console.error("Error attempting to exit fullscreen:", err);
         }
       }
-    } else if (isFullscreen) {
-      try {
-        // Exit browser fullscreen first
-        if (document.fullscreenElement) {
-          await document.exitFullscreen();
-        }
-        
-        // Clean up element styles
-        if (fullscreenElementRef.current) {
-          const currentElement = fullscreenElementRef.current;
-          currentElement.style.position = "";
-          currentElement.style.top = "";
-          currentElement.style.left = "";
-          currentElement.style.width = "";
-          currentElement.style.height = "";
-          currentElement.style.zIndex = "";
-          currentElement.style.backgroundColor = "";
-          
-          fullscreenElementRef.current = null;
-        }
-        
-        // Restore body overflow
-        document.body.style.overflow = "";
-        
-        setIsFullscreen(false);
-      } catch (err) {
-        console.error("Error attempting to exit fullscreen:", err);
-      }
-    }
-  }, [isFullscreen]);
+    },
+    [isFullscreen],
+  );
 
   const contextValue = useMemo(
     () => ({ isFullscreen, toggleFullscreen, fullscreenElementRef }),
-    [isFullscreen, toggleFullscreen]
+    [isFullscreen, toggleFullscreen],
   );
 
   return (

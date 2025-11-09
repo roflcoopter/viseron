@@ -19,19 +19,19 @@ export function CameraPickerDialog({ open, setOpen }: CameraPickerDialogProps) {
   };
 
   return (
-    <Dialog 
-      fullWidth 
-      maxWidth={false} 
-      open={open} 
+    <Dialog
+      fullWidth
+      maxWidth={false}
+      open={open}
       onClose={handleClose}
       disablePortal={false}
       container={() => document.body}
       style={{ zIndex: 9001 }}
       BackdropProps={{
-        style: { zIndex: 9001 }
+        style: { zIndex: 9001 },
       }}
       PaperProps={{
-        style: { zIndex: 9002, position: 'relative' }
+        style: { zIndex: 9002, position: "relative" },
       }}
     >
       <DialogTitle>

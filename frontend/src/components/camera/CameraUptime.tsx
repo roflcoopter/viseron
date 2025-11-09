@@ -22,7 +22,9 @@ export function CameraUptime({
 
   // Force "Offline" display when disconnected regardless of uptime value
   const displayText = isConnected ? uptime : "Offline";
-  const displayUptimeText = isConnected ? `Uptime: ${uptime}` : "Camera Offline";
+  const displayUptimeText = isConnected
+    ? `Uptime: ${uptime}`
+    : "Camera Offline";
 
   if (compact) {
     return (

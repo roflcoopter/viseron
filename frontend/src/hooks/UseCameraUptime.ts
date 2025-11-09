@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useMemo, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useReducer } from "react";
 
 interface UptimeData {
   connectedSince: number | null;
@@ -11,27 +11,27 @@ interface UptimeState {
   uptime: string;
 }
 
-type UptimeAction = 
-  | { type: 'CONNECT'; timestamp: number }
-  | { type: 'DISCONNECT' }
-  | { type: 'UPDATE_UPTIME'; uptime: string }
-  | { type: 'RESTORE'; timestamp: number };
+type UptimeAction =
+  | { type: "CONNECT"; timestamp: number }
+  | { type: "DISCONNECT" }
+  | { type: "UPDATE_UPTIME"; uptime: string }
+  | { type: "RESTORE"; timestamp: number };
 
 function uptimeReducer(state: UptimeState, action: UptimeAction): UptimeState {
   switch (action.type) {
-    case 'CONNECT':
-    case 'RESTORE':
+    case "CONNECT":
+    case "RESTORE":
       return {
         ...state,
         connectedSince: action.timestamp,
       };
-    case 'DISCONNECT':
+    case "DISCONNECT":
       return {
         ...state,
         connectedSince: null,
         uptime: "--:--:--",
       };
-    case 'UPDATE_UPTIME':
+    case "UPDATE_UPTIME":
       return {
         ...state,
         uptime: action.uptime,
@@ -43,10 +43,13 @@ function uptimeReducer(state: UptimeState, action: UptimeAction): UptimeState {
 
 export function useCameraUptime(
   cameraIdentifier: string,
-  isConnected: boolean
+  isConnected: boolean,
 ): UptimeData {
-  const storageKey = useMemo(() => `camera_uptime_${cameraIdentifier}`, [cameraIdentifier]);
-  
+  const storageKey = useMemo(
+    () => `camera_uptime_${cameraIdentifier}`,
+    [cameraIdentifier],
+  );
+
   const [state, dispatch] = useReducer(uptimeReducer, {
     connectedSince: null,
     uptime: "--:--:--",
@@ -57,15 +60,15 @@ export function useCameraUptime(
     if (isConnected) {
       const stored = localStorage.getItem(storageKey);
       if (stored) {
-        dispatch({ type: 'RESTORE', timestamp: parseInt(stored, 10) });
+        dispatch({ type: "RESTORE", timestamp: parseInt(stored, 10) });
       } else {
         const now = Date.now();
         localStorage.setItem(storageKey, now.toString());
-        dispatch({ type: 'CONNECT', timestamp: now });
+        dispatch({ type: "CONNECT", timestamp: now });
       }
     } else {
       localStorage.removeItem(storageKey);
-      dispatch({ type: 'DISCONNECT' });
+      dispatch({ type: "DISCONNECT" });
     }
   }, [isConnected, storageKey]);
 
@@ -73,7 +76,7 @@ export function useCameraUptime(
   const formatUptime = useCallback((startTime: number): string => {
     const now = Date.now();
     const diff = now - startTime;
-    
+
     const seconds = Math.floor(diff / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
@@ -102,9 +105,9 @@ export function useCameraUptime(
       if (!isConnected) {
         return;
       }
-      dispatch({ 
-        type: 'UPDATE_UPTIME', 
-        uptime: formatUptime(state.connectedSince!) 
+      dispatch({
+        type: "UPDATE_UPTIME",
+        uptime: formatUptime(state.connectedSince!),
       });
     };
 

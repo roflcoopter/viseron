@@ -1,7 +1,7 @@
-import Grid from "@mui/material/Grid";
-import Grow from "@mui/material/Grow";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
+import Grid from "@mui/material/Grid";
+import Grow from "@mui/material/Grow";
 import { useTheme } from "@mui/material/styles";
 
 import { CameraCard } from "components/camera/CameraCard";
@@ -38,9 +38,10 @@ export function CameraPickerGrid() {
         .sort()
         .map((camera_identifier) => {
           const selectionNumber = getSelectionOrder(camera_identifier);
-          const isSelected = filteredCameras &&
+          const isSelected =
+            filteredCameras &&
             Object.keys(filteredCameras).includes(camera_identifier);
-          
+
           return (
             <Grow in appear key={camera_identifier}>
               <Grid
@@ -53,7 +54,9 @@ export function CameraPickerGrid() {
                   xl: 3,
                 }}
               >
-                <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
+                <Box
+                  sx={{ position: "relative", width: "100%", height: "100%" }}
+                >
                   <CameraCard
                     camera_identifier={camera_identifier}
                     compact
@@ -78,16 +81,16 @@ export function CameraPickerGrid() {
                       color="primary"
                       size="small"
                       sx={{
-                        position: 'absolute',
+                        position: "absolute",
                         bottom: 8,
                         right: 8,
                         minWidth: 24,
                         height: 24,
-                        fontSize: '0.875rem',
-                        fontWeight: 'bold',
+                        fontSize: "0.875rem",
+                        fontWeight: "bold",
                         zIndex: 2,
-                        '& .MuiChip-label': {
-                          padding: '0 6px',
+                        "& .MuiChip-label": {
+                          padding: "0 6px",
                         },
                       }}
                     />

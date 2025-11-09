@@ -1,8 +1,8 @@
 import {
-  Warning,
-  Information,
-  WarningAltFilled,
   CheckmarkOutline,
+  Information,
+  Warning,
+  WarningAltFilled,
 } from "@carbon/icons-react";
 import { Theme, useTheme } from "@mui/material/styles";
 import {
@@ -27,13 +27,13 @@ export type Toast = {
 function ToastIcon({ type }: { type: TypeOptions }) {
   switch (type) {
     case "info":
-      return <Information size={20}/>;
+      return <Information size={20} />;
     case "error":
-      return <Warning size={20}/>;
+      return <Warning size={20} />;
     case "success":
-      return <CheckmarkOutline size={20}/>;
+      return <CheckmarkOutline size={20} />;
     case "warning":
-      return <WarningAltFilled size={20}/>;
+      return <WarningAltFilled size={20} />;
     default:
       return null;
   }

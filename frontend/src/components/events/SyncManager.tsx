@@ -96,7 +96,9 @@ function SyncManager({ children }: SyncManagerProps) {
 
     const playersWithTime = hlsRefs.filter(
       (player): player is React.MutableRefObject<Hls> =>
-        player.current !== null && player.current.playingDate !== null && player.current.media !== null,
+        player.current !== null &&
+        player.current.playingDate !== null &&
+        player.current.media !== null,
     );
 
     // Sync mute state
@@ -169,17 +171,26 @@ function SyncManager({ children }: SyncManagerProps) {
 
     // If there are no players with time, play the first player
     if (playersWithTime.length === 0) {
-      if (hlsRefs.length > 0 && hlsRefs[0].current && hlsRefs[0].current.media) {
-        hlsRefs[0].current.media.play().then(() => {
-          setHlsRefsError(hlsRefs[0], null);
-        }).catch(() => {
-          // Ignore play errors
-        });
+      if (
+        hlsRefs.length > 0 &&
+        hlsRefs[0].current &&
+        hlsRefs[0].current.media
+      ) {
+        hlsRefs[0].current.media
+          .play()
+          .then(() => {
+            setHlsRefsError(hlsRefs[0], null);
+          })
+          .catch(() => {
+            // Ignore play errors
+          });
       }
     }
 
     // Check if all players are paused
-    if (playersWithTime.every((player) => player.current.media?.paused ?? true)) {
+    if (
+      playersWithTime.every((player) => player.current.media?.paused ?? true)
+    ) {
       const playingDateMillis = playingDateRef.current * 1000;
 
       let playerToPlayIndex = -1;
@@ -222,7 +233,11 @@ function SyncManager({ children }: SyncManagerProps) {
           fragments,
           playingDateMillis,
         );
-        if (closestFragment && closestFragment.programDateTime && playerToPlay.current.media) {
+        if (
+          closestFragment &&
+          closestFragment.programDateTime &&
+          playerToPlay.current.media
+        ) {
           playerToPlay.current.media.currentTime = closestFragment.start;
         }
         if (playerToPlay.current.media) {
@@ -259,8 +274,9 @@ function SyncManager({ children }: SyncManagerProps) {
           // Dont pause if this is the only playing player
           // console.warn("SyncManager: Error event", data);
           if (
-            hlsRefs.filter((p) => p.current && p.current.media && !p.current.media.paused)
-              .length === 1
+            hlsRefs.filter(
+              (p) => p.current && p.current.media && !p.current.media.paused,
+            ).length === 1
           ) {
             if (player.current!.media) {
               player.current!.media.play().catch(() => {

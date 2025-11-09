@@ -1,8 +1,5 @@
+import { Restart, Save } from "@carbon/icons-react";
 import Editor, { Monaco, loader } from "@monaco-editor/react";
-import {
-  Save,
-  Restart,
-} from "@carbon/icons-react";
 import Backdrop from "@mui/material/Backdrop";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -322,7 +319,12 @@ function ConfigEditor() {
           </Button>
         </DialogActions>
       </Dialog>
-      <Stack justifyContent="flex-start" alignItems="flex-start" paddingTop={1} spacing={2}>
+      <Stack
+        justifyContent="flex-start"
+        alignItems="flex-start"
+        paddingTop={1}
+        spacing={2}
+      >
         <Stack
           direction="row"
           justifyContent="flex-start"

@@ -1,8 +1,5 @@
-import { 
-  TrashCan,
-  DocumentVideo,
-  CloudOffline,
-} from "@carbon/icons-react";
+import { CloudOffline, DocumentVideo, TrashCan } from "@carbon/icons-react";
+import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
@@ -11,7 +8,6 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import Box from "@mui/material/Box";
 import { useTheme } from "@mui/material/styles";
 import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
@@ -54,9 +50,7 @@ export default function RecordingCardDaily({
       }
     >
       <CardContent>
-        <Typography variant="h5">
-          {date}
-        </Typography>
+        <Typography variant="h5">{date}</Typography>
       </CardContent>
       <CardMedia>
         <LazyLoad
@@ -75,28 +69,34 @@ export default function RecordingCardDaily({
               sx={{
                 width: "100%",
                 height: 200,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 backgroundColor: theme.palette.background.default,
               }}
             >
-              <CloudOffline 
-                size={48} 
-                style={{ 
+              <CloudOffline
+                size={48}
+                style={{
                   color: theme.palette.text.secondary,
-                  opacity: 0.5 
-                }} 
+                  opacity: 0.5,
+                }}
               />
             </Box>
           )}
         </LazyLoad>
       </CardMedia>
       <CardActions>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2} sx={{ width: "100%", paddingX: 1}}>
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          spacing={2}
+          sx={{ width: "100%", paddingX: 1 }}
+        >
           {objHasValues<types.Recording>(recording) ? (
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-              Last recording:{'\n'}
+            <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+              Last recording:{"\n"}
               <span style={{ color: theme.palette.primary.main }}>
                 {getTimeFromDate(new Date(recording.start_time))}
               </span>
@@ -112,7 +112,7 @@ export default function RecordingCardDaily({
                   to={`/recordings/${camera.identifier}/${date}`}
                   disabled={!objHasValues(recording)}
                 >
-                  <DocumentVideo size={20}/>
+                  <DocumentVideo size={20} />
                 </IconButton>
               </span>
             </Tooltip>
@@ -129,7 +129,7 @@ export default function RecordingCardDaily({
                       });
                     }}
                   >
-                    <TrashCan size={20}/>
+                    <TrashCan size={20} />
                   </MutationIconButton>
                 </span>
               </Tooltip>

@@ -10,7 +10,7 @@ function Configuration() {
   useHideScrollbar();
 
   return (
-    <Container maxWidth={false} sx={{ paddingX: 2}}>
+    <Container maxWidth={false} sx={{ paddingX: 2 }}>
       <Editor />
     </Container>
   );

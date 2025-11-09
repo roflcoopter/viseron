@@ -1,15 +1,15 @@
 import {
-  Rewind_10 as Rewind10,
+  CircleFill,
   Forward_10 as Forward10,
+  Launch,
+  MeterAlt,
   Pause,
   Play,
+  PopIn,
+  Rewind_10 as Rewind10,
+  ShrinkScreen,
   VolumeMute,
   VolumeUp,
-  MeterAlt,
-  Launch,
-  PopIn,
-  CircleFill,
-  ShrinkScreen,
 } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -60,16 +60,18 @@ export function CustomFab({
   const tooltipZIndex = isFullscreen || isContainerFullscreen ? 9001 : 999;
 
   return title ? (
-    <Tooltip 
+    <Tooltip
       title={title}
       arrow={false}
       PopperProps={{
-        style: { zIndex: tooltipZIndex }
+        style: { zIndex: tooltipZIndex },
       }}
     >
       {fab}
     </Tooltip>
-  ) : fab;
+  ) : (
+    fab
+  );
 }
 
 interface CustomControlsProps {
@@ -186,18 +188,31 @@ export function CustomControls({
         {/* Center controls */}
         <Box display="flex" justifyContent="center" alignItems="center">
           {onJumpBackward && (
-            <CustomFab onClick={onJumpBackward} title="Rewind 10 seconds" isFullscreen={isFullscreen}>
-              <Rewind10 size={20}/>
+            <CustomFab
+              onClick={onJumpBackward}
+              title="Rewind 10 seconds"
+              isFullscreen={isFullscreen}
+            >
+              <Rewind10 size={20} />
             </CustomFab>
           )}
           {onPlayPause && (
-            <CustomFab onClick={onPlayPause} size="medium" title={isPlaying ? "Pause" : "Play"} isFullscreen={isFullscreen}>
-              {isPlaying ? <Pause size={20}/> : <Play size={20}/>}
+            <CustomFab
+              onClick={onPlayPause}
+              size="medium"
+              title={isPlaying ? "Pause" : "Play"}
+              isFullscreen={isFullscreen}
+            >
+              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
             </CustomFab>
           )}
           {onJumpForward && (
-            <CustomFab onClick={onJumpForward} title="Forward 10 seconds" isFullscreen={isFullscreen}>
-              <Forward10 size={20}/>
+            <CustomFab
+              onClick={onJumpForward}
+              title="Forward 10 seconds"
+              isFullscreen={isFullscreen}
+            >
+              <Forward10 size={20} />
             </CustomFab>
           )}
         </Box>
@@ -223,7 +238,11 @@ export function CustomControls({
               size="small"
               sx={{ margin: 0.25 }}
             >
-              <CircleFill fill={isLive ? "red" : "gray"} size={12} style={{ marginRight: 8 }} />
+              <CircleFill
+                fill={isLive ? "red" : "gray"}
+                size={12}
+                style={{ marginRight: 8 }}
+              />
               <Typography variant="button">LIVE</Typography>
             </Button>
           ) : (
@@ -293,16 +312,28 @@ export function CustomControls({
                   </Box>
                 )}
                 {onMuteToggle && (
-                  <CustomFab onClick={onMuteToggle} title={isMuted ? "Unmute" : "Mute"} isFullscreen={isFullscreen}>
-                    {isMuted ? <VolumeMute size={20}/> : <VolumeUp size={20}/>}
+                  <CustomFab
+                    onClick={onMuteToggle}
+                    title={isMuted ? "Unmute" : "Mute"}
+                    isFullscreen={isFullscreen}
+                  >
+                    {isMuted ? (
+                      <VolumeMute size={20} />
+                    ) : (
+                      <VolumeUp size={20} />
+                    )}
                   </CustomFab>
                 )}
               </Box>
             )}
             {onPlaybackSpeedChange && (
               <>
-                <CustomFab onClick={handleSpeedClick} title="Playback speed" isFullscreen={isFullscreen}>
-                  <MeterAlt size={20}/>
+                <CustomFab
+                  onClick={handleSpeedClick}
+                  title="Playback speed"
+                  isFullscreen={isFullscreen}
+                >
+                  <MeterAlt size={20} />
                 </CustomFab>
                 <Menu
                   anchorEl={anchorEl}
@@ -350,13 +381,21 @@ export function CustomControls({
             )}
             {extraButtons}
             {onPictureInPictureToggle && isPictureInPictureSupported && (
-              <CustomFab onClick={onPictureInPictureToggle} title="Picture in Picture" isFullscreen={isFullscreen}>
-                <ShrinkScreen size={20}/>
+              <CustomFab
+                onClick={onPictureInPictureToggle}
+                title="Picture in Picture"
+                isFullscreen={isFullscreen}
+              >
+                <ShrinkScreen size={20} />
               </CustomFab>
             )}
             {onFullscreenToggle && screenfull.isEnabled && (
-              <CustomFab onClick={onFullscreenToggle} title={isFullscreen ? "Exit fullscreen" : "Fullscreen"} isFullscreen={isFullscreen}>
-                {isFullscreen ? <PopIn size={20}/> : <Launch size={20}/>}
+              <CustomFab
+                onClick={onFullscreenToggle}
+                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                isFullscreen={isFullscreen}
+              >
+                {isFullscreen ? <PopIn size={20} /> : <Launch size={20} />}
               </CustomFab>
             )}
           </Box>

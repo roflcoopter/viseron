@@ -1,11 +1,11 @@
-import Image from "@jy95/material-ui-image";
 import {
-  IntrusionPrevention,
-  VideoChat,
   Demo,
+  IntrusionPrevention,
   Roadmap,
+  VideoChat,
   VideoOff,
 } from "@carbon/icons-react";
+import Image from "@jy95/material-ui-image";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
@@ -188,20 +188,21 @@ function SuccessCameraCard({
             {!camera.connected ? (
               <Box
                 sx={{
-                  aspectRatio: camera.still_image.width / camera.still_image.height,
+                  aspectRatio:
+                    camera.still_image.width / camera.still_image.height,
                   backgroundColor: theme.palette.background.default,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   minHeight: 200,
                 }}
               >
-                <VideoOff 
-                  size={48} 
-                  style={{ 
+                <VideoOff
+                  size={48}
+                  style={{
                     color: theme.palette.text.secondary,
-                    opacity: 0.5 
-                  }} 
+                    opacity: 0.5,
+                  }}
                 />
               </Box>
             ) : (
@@ -210,7 +211,9 @@ function SuccessCameraCard({
                 disableSpinner={snapshotURL.disableSpinner}
                 disableTransition={snapshotURL.disableTransition}
                 animationDuration={1000}
-                aspectRatio={camera.still_image.width / camera.still_image.height}
+                aspectRatio={
+                  camera.still_image.width / camera.still_image.height
+                }
                 color={theme.palette.background.default}
                 onLoad={() => {
                   setSnapshotURL((prevSnapshotURL) => ({
@@ -221,7 +224,9 @@ function SuccessCameraCard({
                   }));
                 }}
                 errorIcon={
-                  camera.still_image.available ? <CircularProgress enableTrackSlot/> : null
+                  camera.still_image.available ? (
+                    <CircularProgress enableTrackSlot />
+                  ) : null
                 }
                 onError={() => {
                   setSnapshotURL((prevSnapshotURL) => ({
@@ -237,7 +242,15 @@ function SuccessCameraCard({
         </CardActionArea>
         {buttons && (
           <CardActions>
-            <Stack direction="row" spacing={1} sx={{ width: "100%", justifyContent: "space-between", alignItems: "center" }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                width: "100%",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
               <Tooltip title="Uptime Status">
                 <div style={{ cursor: "pointer" }}>
                   <CameraUptime
@@ -253,7 +266,7 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/events?camera=${camera.identifier}&tab=events`}
                   >
-                    <IntrusionPrevention size={20}/>
+                    <IntrusionPrevention size={20} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Timeline">
@@ -261,7 +274,7 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/events?camera=${camera.identifier}&tab=timeline`}
                   >
-                    <Roadmap size={20}/>
+                    <Roadmap size={20} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Recordings">
@@ -269,7 +282,7 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/recordings/${camera.identifier}`}
                   >
-                    <Demo size={20}/>
+                    <Demo size={20} />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Live View">
@@ -277,7 +290,7 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/live?camera=${camera.identifier}`}
                   >
-                    <VideoChat size={20}/>
+                    <VideoChat size={20} />
                   </IconButton>
                 </Tooltip>
               </Stack>

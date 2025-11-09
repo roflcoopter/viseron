@@ -136,7 +136,7 @@ function Entities() {
   const filteredEntities = calculateEntities(entities, filters);
 
   return (
-    <Container maxWidth={false} sx={{ paddingX: 2}}>
+    <Container maxWidth={false} sx={{ paddingX: 2 }}>
       <TableContainer component={Paper}>
         <Table
           sx={() => ({

@@ -1,7 +1,6 @@
+import type { GridLayoutConfig, GridLayoutType } from "types/GridLayoutTypes";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-
-import type { GridLayoutConfig, GridLayoutType } from "types/GridLayoutTypes";
 
 export interface View {
   id: string;
@@ -15,9 +14,12 @@ export interface View {
 
 interface ViewStore {
   views: View[];
-  addView: (view: Omit<View, 'id' | 'createdAt'>) => void;
+  addView: (view: Omit<View, "id" | "createdAt">) => void;
   removeView: (id: string) => void;
-  updateView: (id: string, updates: Partial<Omit<View, 'id' | 'createdAt'>>) => void;
+  updateView: (
+    id: string,
+    updates: Partial<Omit<View, "id" | "createdAt">>,
+  ) => void;
   loadView: (id: string) => View | null;
   clearViews: () => void;
 }
@@ -33,7 +35,7 @@ export const useViewStore = create<ViewStore>()(
           id: Date.now().toString(),
           createdAt: Date.now(),
         };
-        
+
         set((state) => ({
           views: [...state.views, newView].slice(0, 5), // Max 5 views
         }));
@@ -41,21 +43,21 @@ export const useViewStore = create<ViewStore>()(
 
       removeView: (id) => {
         set((state) => ({
-          views: state.views.filter(view => view.id !== id),
+          views: state.views.filter((view) => view.id !== id),
         }));
       },
 
       updateView: (id, updates) => {
         set((state) => ({
-          views: state.views.map(view => 
-            view.id === id ? { ...view, ...updates } : view
+          views: state.views.map((view) =>
+            view.id === id ? { ...view, ...updates } : view,
           ),
         }));
       },
 
       loadView: (id) => {
         const state = get();
-        return state.views.find(view => view.id === id) || null;
+        return state.views.find((view) => view.id === id) || null;
       },
 
       clearViews: () => {
@@ -63,8 +65,8 @@ export const useViewStore = create<ViewStore>()(
       },
     }),
     {
-      name: 'view-store',
+      name: "view-store",
       version: 1,
-    }
-  )
+    },
+  ),
 );

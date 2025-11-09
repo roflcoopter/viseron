@@ -1,7 +1,4 @@
-import { 
-  CarFront,
-  Search
-} from  "@carbon/icons-react";
+import { CarFront, Search } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 
 type LicensePlateRecognitionProps = {
@@ -23,7 +20,7 @@ function LicensePlateRecognition({
 }: LicensePlateRecognitionProps) {
   return (
     <Box sx={{ position: "relative" }}>
-      <CarFront color={color} size={20}/>
+      <CarFront color={color} size={20} />
       <Box
         sx={{
           position: "absolute",
@@ -31,7 +28,7 @@ function LicensePlateRecognition({
           bottom: "-1px",
         }}
       >
-        <Search color={color} size={16}/>
+        <Search color={color} size={16} />
       </Box>
     </Box>
   );

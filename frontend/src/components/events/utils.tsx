@@ -1,11 +1,11 @@
-import { 
-  Movement,
+import {
   Car,
-  UserActivity,
+  DocumentVideo,
+  DogWalker,
   FaceActivated,
   IntrusionPrevention,
-  DogWalker,
-  DocumentVideo
+  Movement,
+  UserActivity,
 } from "@carbon/icons-react";
 import dayjs, { Dayjs } from "dayjs";
 import Hls, { Fragment } from "hls.js";
@@ -778,7 +778,7 @@ export const getIcon = (event: types.CameraEvent) => {
 export const getIconFromType = (type: types.CameraEvent["type"]) => {
   const IconComponent = iconMap[type];
   function IconWithSize() {
-    return <IconComponent size={20}/>;
+    return <IconComponent size={20} />;
   }
   return IconWithSize;
 };

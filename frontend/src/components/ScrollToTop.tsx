@@ -40,7 +40,7 @@ export function ScrollToTopFab() {
         sx={{ position: "fixed", bottom: 16, right: 16 }}
       >
         <Fab size="small" aria-label="scroll back to top" color="primary">
-          <ArrowUp size={20}/>
+          <ArrowUp size={20} />
         </Fab>
       </Box>
     </Fade>

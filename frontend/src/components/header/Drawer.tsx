@@ -1,14 +1,14 @@
 import {
-  LogoGithub,
-  IntrusionPrevention,
-  VideoChat,
   Book,
-  Settings,
   Demo,
-  Video,
-  TableSplit,
-  Roadmap,
+  IntrusionPrevention,
+  LogoGithub,
   Need,
+  Roadmap,
+  Settings,
+  TableSplit,
+  Video,
+  VideoChat,
 } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
@@ -20,9 +20,9 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import ListSubheader from "@mui/material/ListSubheader";
 import Typography from "@mui/material/Typography";
+import { useContext } from "react";
 import { Link, Location, useLocation } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
-import { useContext } from "react";
 
 import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
@@ -140,7 +140,9 @@ function AppDrawerHeader() {
         <Box sx={{ marginTop: "5px", marginRight: "6px", marginLeft: "10px" }}>
           <ViseronLogo width={40} height={40} />
         </Box>
-        <Box sx={{ display: "flex", alignItems: "baseline", position: "relative" }}>
+        <Box
+          sx={{ display: "flex", alignItems: "baseline", position: "relative" }}
+        >
           <Typography
             variant="h5"
             sx={{
@@ -172,26 +174,26 @@ function AppDrawerHeader() {
 function getItem(index: number, location: Location, item: DrawerItemTypes) {
   const isSelected = (itemPath: string, currentLocation: Location) => {
     // Handle external URLs (skip selection logic for external links)
-    if (itemPath.startsWith('http://') || itemPath.startsWith('https://')) {
+    if (itemPath.startsWith("http://") || itemPath.startsWith("https://")) {
       return false;
     }
-    
+
     // Handle empty or invalid paths
-    if (!itemPath || typeof itemPath !== 'string') {
+    if (!itemPath || typeof itemPath !== "string") {
       return false;
     }
-    
+
     try {
       // Parse the item path to extract pathname and search params
-      const url = new URL(itemPath, 'https://example.com');
+      const url = new URL(itemPath, "https://example.com");
       const itemPathname = url.pathname;
       const itemSearchParams = url.searchParams;
-      
+
       // Check if pathname matches
       if (itemPathname !== currentLocation.pathname) {
         return false;
       }
-      
+
       // If there are search params in item path, check if they match current location
       const currentSearchParams = new URLSearchParams(currentLocation.search);
       for (const [key, value] of itemSearchParams) {
@@ -199,11 +201,11 @@ function getItem(index: number, location: Location, item: DrawerItemTypes) {
           return false;
         }
       }
-      
+
       return true;
     } catch (error) {
       // Handle malformed URLs gracefully
-      console.warn('Invalid URL in drawer item:', itemPath, error);
+      console.warn("Invalid URL in drawer item:", itemPath, error);
       return false;
     }
   };
@@ -239,20 +241,20 @@ function getItem(index: number, location: Location, item: DrawerItemTypes) {
           to={item.path}
           selected={isSelected(item.path, location)}
           sx={{
-            '&.Mui-selected': {
-              backgroundColor: 'action.selected',
-              position: 'relative',
-              '&::before': {
+            "&.Mui-selected": {
+              backgroundColor: "action.selected",
+              position: "relative",
+              "&::before": {
                 content: '""',
-                position: 'absolute',
+                position: "absolute",
                 left: 0,
                 top: 0,
                 bottom: 0,
-                width: '4px',
-                backgroundColor: 'primary.main',
+                width: "4px",
+                backgroundColor: "primary.main",
               },
-              '&:hover': {
-                backgroundColor: 'action.selected',
+              "&:hover": {
+                backgroundColor: "action.selected",
               },
             },
           }}
@@ -289,9 +291,9 @@ export default function AppDrawer({
         keepMounted: true,
       }}
       sx={{
-        '& .MuiDrawer-paper': {
-          borderTop: 'none !important',
-          borderBottom: 'none !important',
+        "& .MuiDrawer-paper": {
+          borderTop: "none !important",
+          borderBottom: "none !important",
         },
       }}
     >

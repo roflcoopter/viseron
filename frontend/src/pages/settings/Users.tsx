@@ -65,7 +65,7 @@ function Users() {
   };
 
   return (
-    <Container maxWidth={false} sx={{ paddingX: 2}}>
+    <Container maxWidth={false} sx={{ paddingX: 2 }}>
       <TableContainer component={Paper}>
         <Table
           sx={() => ({
@@ -77,7 +77,9 @@ function Users() {
         >
           <TableHead>
             <TableRow>
-              <StyledTableCell sx={{ textAlign: 'center', width: '60px' }}>#</StyledTableCell>
+              <StyledTableCell sx={{ textAlign: "center", width: "60px" }}>
+                #
+              </StyledTableCell>
               <StyledTableCell>Display Name</StyledTableCell>
               <StyledTableCell>Username</StyledTableCell>
               <StyledTableCell>Role</StyledTableCell>
@@ -94,7 +96,9 @@ function Users() {
                   cursor: "pointer",
                 }}
               >
-                <StyledTableCell sx={{ textAlign: 'center', fontWeight: 'medium' }}>
+                <StyledTableCell
+                  sx={{ textAlign: "center", fontWeight: "medium" }}
+                >
                   {index + 1}
                 </StyledTableCell>
                 <StyledTableCell>{user.name}</StyledTableCell>
@@ -115,7 +119,7 @@ function Users() {
         sx={{ zIndex: 100, position: "fixed", bottom: 30, right: 30 }}
         onClick={handleOpenAddUser}
       >
-        <AddAlt size={20} style={{ marginRight: 8 }}/>
+        <AddAlt size={20} style={{ marginRight: 8 }} />
         Add User
       </Fab>
       {isAddUserOpen && <AddUserDialog onClose={handleCloseAddUser} />}

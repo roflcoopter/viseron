@@ -73,11 +73,11 @@ export function PlayerMenuItems({ camera }: PlayerMenuItemsProps) {
           setMjpegPlayer(camera.identifier, !mjpegPlayer);
         }}
         disabled={!camera.live_stream_available}
-        sx={{ 
-          fontWeight: 'bold',
-          backgroundColor: mjpegPlayer ? 'action.selected' : 'transparent',
-          minHeight: 'auto',
-          py: 0
+        sx={{
+          fontWeight: "bold",
+          backgroundColor: mjpegPlayer ? "action.selected" : "transparent",
+          minHeight: "auto",
+          py: 0,
         }}
       >
         <ListItemIcon>
@@ -97,14 +97,14 @@ export function PlayerMenuItems({ camera }: PlayerMenuItemsProps) {
               }
             }}
             disabled={!mjpegPlayer}
-            sx={{ 
-              ml: 3, 
-              borderLeft: '2px solid',
-              borderLeftColor: 'divider',
-              backgroundColor: drawObjects ? 'action.hover' : 'transparent',
-              minHeight: 'auto',
+            sx={{
+              ml: 3,
+              borderLeft: "2px solid",
+              borderLeftColor: "divider",
+              backgroundColor: drawObjects ? "action.hover" : "transparent",
+              minHeight: "auto",
               py: 0,
-              pl: 0
+              pl: 0,
             }}
           >
             <ListItemIcon sx={{ minWidth: 0, mr: 0 }}>
@@ -120,14 +120,14 @@ export function PlayerMenuItems({ camera }: PlayerMenuItemsProps) {
               }
             }}
             disabled={!mjpegPlayer}
-            sx={{ 
-              ml: 3, 
-              borderLeft: '2px solid',
-              borderLeftColor: 'divider',
-              backgroundColor: drawMotion ? 'action.hover' : 'transparent',
-              minHeight: 'auto',
+            sx={{
+              ml: 3,
+              borderLeft: "2px solid",
+              borderLeftColor: "divider",
+              backgroundColor: drawMotion ? "action.hover" : "transparent",
+              minHeight: "auto",
               py: 0,
-              pl: 0
+              pl: 0,
             }}
           >
             <ListItemIcon sx={{ minWidth: 0, mr: 0 }}>
@@ -143,14 +143,14 @@ export function PlayerMenuItems({ camera }: PlayerMenuItemsProps) {
               }
             }}
             disabled={!mjpegPlayer}
-            sx={{ 
-              ml: 3, 
-              borderLeft: '2px solid',
-              borderLeftColor: 'divider',
-              backgroundColor: drawObjectMask ? 'action.hover' : 'transparent',
-              minHeight: 'auto',
+            sx={{
+              ml: 3,
+              borderLeft: "2px solid",
+              borderLeftColor: "divider",
+              backgroundColor: drawObjectMask ? "action.hover" : "transparent",
+              minHeight: "auto",
               py: 0,
-              pl: 0
+              pl: 0,
             }}
           >
             <ListItemIcon sx={{ minWidth: 0, mr: 0 }}>
@@ -166,14 +166,14 @@ export function PlayerMenuItems({ camera }: PlayerMenuItemsProps) {
               }
             }}
             disabled={!mjpegPlayer}
-            sx={{ 
-              ml: 3, 
-              borderLeft: '2px solid',
-              borderLeftColor: 'divider',
-              backgroundColor: drawMotionMask ? 'action.hover' : 'transparent',
-              minHeight: 'auto',
+            sx={{
+              ml: 3,
+              borderLeft: "2px solid",
+              borderLeftColor: "divider",
+              backgroundColor: drawMotionMask ? "action.hover" : "transparent",
+              minHeight: "auto",
               py: 0,
-              pl: 0
+              pl: 0,
             }}
           >
             <ListItemIcon sx={{ minWidth: 0, mr: 0 }}>
@@ -189,14 +189,14 @@ export function PlayerMenuItems({ camera }: PlayerMenuItemsProps) {
               }
             }}
             disabled={!mjpegPlayer}
-            sx={{ 
-              ml: 3, 
-              borderLeft: '2px solid',
-              borderLeftColor: 'divider',
-              backgroundColor: drawZones ? 'action.hover' : 'transparent',
-              minHeight: 'auto',
+            sx={{
+              ml: 3,
+              borderLeft: "2px solid",
+              borderLeftColor: "divider",
+              backgroundColor: drawZones ? "action.hover" : "transparent",
+              minHeight: "auto",
               py: 0,
-              pl: 0
+              pl: 0,
             }}
           >
             <ListItemIcon sx={{ minWidth: 0, mr: 0 }}>
@@ -206,20 +206,25 @@ export function PlayerMenuItems({ camera }: PlayerMenuItemsProps) {
           </MenuItem>
           <MenuItem
             onClick={() => {
-              setDrawPostProcessorMask(camera.identifier, !drawPostProcessorMask);
+              setDrawPostProcessorMask(
+                camera.identifier,
+                !drawPostProcessorMask,
+              );
               if (!drawPostProcessorMask) {
                 setMjpegPlayer(camera.identifier, true);
               }
             }}
             disabled={!mjpegPlayer}
-            sx={{ 
-              ml: 3, 
-              borderLeft: '2px solid',
-              borderLeftColor: 'divider',
-              backgroundColor: drawPostProcessorMask ? 'action.hover' : 'transparent',
-              minHeight: 'auto',
+            sx={{
+              ml: 3,
+              borderLeft: "2px solid",
+              borderLeftColor: "divider",
+              backgroundColor: drawPostProcessorMask
+                ? "action.hover"
+                : "transparent",
+              minHeight: "auto",
               py: 0,
-              pl: 0
+              pl: 0,
             }}
           >
             <ListItemIcon sx={{ minWidth: 0, ml: 0 }}>

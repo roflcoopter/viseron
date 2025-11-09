@@ -76,7 +76,7 @@ export default function RecordingCard({
                   });
                 }}
               >
-                <TrashCan size={20}/>
+                <TrashCan size={20} />
               </MutationIconButton>
             </Tooltip>
           </Stack>

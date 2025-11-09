@@ -30,7 +30,7 @@ export default function Breadcrumbs() {
   return (
     <MuiBreadcrumbs
       maxItems={4}
-      separator={<ChevronRight size={20}/>}
+      separator={<ChevronRight size={20} />}
       aria-label="Breadcrumb"
     >
       <Typography color="textPrimary" />

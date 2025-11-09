@@ -1,10 +1,10 @@
 import {
   ArrowRight,
-  UserMultiple,
+  DataBlob,
+  Script,
   SettingsEdit,
   Trigger,
-  Script,
-  DataBlob
+  UserMultiple,
 } from "@carbon/icons-react";
 import { ListItemButton } from "@mui/material";
 import Avatar from "@mui/material/Avatar";
@@ -32,7 +32,7 @@ function Settings() {
       name: "Configuration",
       description: "Edit the YAML configuration",
       path: "/settings/configuration",
-      icon: <SettingsEdit size={23}/>,
+      icon: <SettingsEdit size={23} />,
       color: "blue",
       disabled: false,
       disabledReason: null,
@@ -41,7 +41,7 @@ function Settings() {
       name: "User Management",
       description: "Create, edit, and delete users",
       path: "/settings/users",
-      icon: <UserMultiple size={23}/>,
+      icon: <UserMultiple size={23} />,
       color: "green",
       disabled: !auth.enabled || user?.role !== "admin",
       disabledReason: !auth.enabled
@@ -52,7 +52,7 @@ function Settings() {
       name: "System Events",
       description: "View system events dispatched by the server",
       path: "/settings/system-events",
-      icon: <Trigger size={23}/>,
+      icon: <Trigger size={23} />,
       color: "purple",
       disabled: false,
       disabledReason: null,
@@ -61,7 +61,7 @@ function Settings() {
       name: "Template Editor",
       description: "Test and render Jinja2 templates",
       path: "/settings/template-editor",
-      icon: <Script size={23}/>,
+      icon: <Script size={23} />,
       color: "teal",
       disabled: false,
       disabledReason: null,
@@ -70,7 +70,7 @@ function Settings() {
       name: "Logs",
       description: "View system logs",
       path: "/settings/logs",
-      icon: <DataBlob size={23}/>,
+      icon: <DataBlob size={23} />,
       color: "orange",
       disabled: true,
       disabledReason: "Not implemented yet",
@@ -78,7 +78,7 @@ function Settings() {
   ];
 
   return (
-    <Container maxWidth={false} sx={{ paddingX: 2}}>
+    <Container maxWidth={false} sx={{ paddingX: 2 }}>
       <Box
         sx={{
           display: "flex",

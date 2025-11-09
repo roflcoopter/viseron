@@ -1,8 +1,5 @@
-import { 
-  TrashCan,
-  DocumentVideo,
-  FolderOff,
-} from "@carbon/icons-react";
+import { DocumentVideo, FolderOff, TrashCan } from "@carbon/icons-react";
+import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
@@ -11,7 +8,6 @@ import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import Box from "@mui/material/Box";
 import { useTheme } from "@mui/material/styles";
 import LazyLoad from "react-lazyload";
 import { Link } from "react-router-dom";
@@ -99,9 +95,7 @@ export default function RecordingCardLatest({
       ]}
     >
       <CardContent>
-        <Typography variant="h6">
-          {cameraQuery.data.name}
-        </Typography>
+        <Typography variant="h6">{cameraQuery.data.name}</Typography>
       </CardContent>
       <CardMedia>
         <LazyLoad
@@ -122,28 +116,34 @@ export default function RecordingCardLatest({
               sx={{
                 width: "100%",
                 height: 200,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 backgroundColor: theme.palette.background.default,
               }}
             >
-              <FolderOff 
-                size={48} 
-                style={{ 
+              <FolderOff
+                size={48}
+                style={{
                   color: theme.palette.text.secondary,
-                  opacity: 0.5 
-                }} 
+                  opacity: 0.5,
+                }}
               />
             </Box>
           )}
         </LazyLoad>
       </CardMedia>
       <CardActions>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2} sx={{ width: "100%", paddingX: 1}}>
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          spacing={2}
+          sx={{ width: "100%", paddingX: 1 }}
+        >
           {objHasValues(recording) ? (
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-              Latest recording:{'\n'}
+            <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+              Latest recording:{"\n"}
               <span style={{ color: theme.palette.primary.main }}>
                 {(() => {
                   const startDate = new Date(recording.start_time);
@@ -162,7 +162,7 @@ export default function RecordingCardLatest({
                   to={`/recordings/${camera_identifier}`}
                   disabled={!objHasValues(recording)}
                 >
-                  <DocumentVideo size={20}/>
+                  <DocumentVideo size={20} />
                 </IconButton>
               </span>
             </Tooltip>
@@ -179,7 +179,7 @@ export default function RecordingCardLatest({
                       });
                     }}
                   >
-                    <TrashCan size={20}/>
+                    <TrashCan size={20} />
                   </MutationIconButton>
                 </span>
               </Tooltip>

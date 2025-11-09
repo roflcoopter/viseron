@@ -1,15 +1,15 @@
-import { useTheme } from "@mui/material/styles";
 import { VideoOff } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
+import { useTheme } from "@mui/material/styles";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { CustomControls } from "components/player/CustomControls.js";
+import { ZoomPanOverlay } from "components/player/ZoomPanOverlay";
+import { useZoomPan } from "components/player/hooks/useZoomPan";
 import { VideoRTC } from "components/player/liveplayer/video-rtc.js";
 import "components/player/liveplayer/video-stream.js";
-import { useZoomPan } from "components/player/hooks/useZoomPan";
-import { ZoomPanOverlay } from "components/player/ZoomPanOverlay";
 import { isTouchDevice } from "lib/helpers.js";
 import * as types from "lib/types";
 
@@ -96,13 +96,16 @@ const useVideoControlsVisibility = (
         setIsPictureInPicture(true);
       }
     } catch (error) {
-      console.error('Error toggling Picture in Picture:', error);
+      console.error("Error toggling Picture in Picture:", error);
       setIsPictureInPicture(false);
     }
   }, [playerRef]);
 
-  const isPictureInPictureSupported = useCallback(() => 
-    'pictureInPictureEnabled' in document && document.pictureInPictureEnabled, []);
+  const isPictureInPictureSupported = useCallback(
+    () =>
+      "pictureInPictureEnabled" in document && document.pictureInPictureEnabled,
+    [],
+  );
 
   const handleMouseEnter = useCallback(() => {
     setIsHovering(true);
@@ -130,24 +133,36 @@ const useVideoControlsVisibility = (
     if (!videoElement || !videoElement.video) return () => {};
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
-    
+
     // Handle PiP state changes
     const handleEnterPiP = () => setIsPictureInPicture(true);
     const handleLeavePiP = () => setIsPictureInPicture(false);
-    
+
     videoElement.video.addEventListener("play", handlePlay);
     videoElement.video.addEventListener("pause", handlePause);
-    videoElement.video.addEventListener("enterpictureinpicture", handleEnterPiP);
-    videoElement.video.addEventListener("leavepictureinpicture", handleLeavePiP);
-    
+    videoElement.video.addEventListener(
+      "enterpictureinpicture",
+      handleEnterPiP,
+    );
+    videoElement.video.addEventListener(
+      "leavepictureinpicture",
+      handleLeavePiP,
+    );
+
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
       videoElement.video!.removeEventListener("play", handlePlay);
       videoElement.video!.removeEventListener("pause", handlePause);
-      videoElement.video!.removeEventListener("enterpictureinpicture", handleEnterPiP);
-      videoElement.video!.removeEventListener("leavepictureinpicture", handleLeavePiP);
+      videoElement.video!.removeEventListener(
+        "enterpictureinpicture",
+        handleEnterPiP,
+      );
+      videoElement.video!.removeEventListener(
+        "leavepictureinpicture",
+        handleLeavePiP,
+      );
     };
   }, [playerRef]);
 
@@ -180,52 +195,55 @@ const usePlayerStatus = (playerRef: React.RefObject<VideoRTC | null>) => {
       const customEvent = e as CustomEvent;
       const statusValue = customEvent.detail?.value || "";
       setStatus(statusValue);
-      
+
       // Check if status indicates an error
-      const isError = statusValue.toLowerCase().includes('error') || 
-                     statusValue.toLowerCase().includes('failed') ||
-                     statusValue.toLowerCase().includes('disconnect');
+      const isError =
+        statusValue.toLowerCase().includes("error") ||
+        statusValue.toLowerCase().includes("failed") ||
+        statusValue.toLowerCase().includes("disconnect");
       setHasError(isError);
-      
+
       // Check if status indicates loading is complete
-      if (statusValue.toLowerCase().includes('connected') || 
-          statusValue.toLowerCase().includes('playing') ||
-          isError) {
+      if (
+        statusValue.toLowerCase().includes("connected") ||
+        statusValue.toLowerCase().includes("playing") ||
+        isError
+      ) {
         setIsLoading(false);
       }
     };
     const videoElement = playerRef.current;
     videoElement?.addEventListener("status", handleStatus);
-    
+
     // Also listen for error events directly on the video element
     const handleError = () => {
       setHasError(true);
       setStatus("Connection failed");
       setIsLoading(false);
     };
-    
+
     const handleLoadStart = () => setIsLoading(true);
     const handleCanPlay = () => setIsLoading(false);
     const handleLoadedData = () => setIsLoading(false);
-    
+
     if (videoElement?.video) {
       videoElement.video.addEventListener("error", handleError);
-      videoElement.video.addEventListener('loadstart', handleLoadStart);
-      videoElement.video.addEventListener('canplay', handleCanPlay);
-      videoElement.video.addEventListener('loadeddata', handleLoadedData);
+      videoElement.video.addEventListener("loadstart", handleLoadStart);
+      videoElement.video.addEventListener("canplay", handleCanPlay);
+      videoElement.video.addEventListener("loadeddata", handleLoadedData);
     }
-    
+
     return () => {
       videoElement?.removeEventListener("status", handleStatus);
       if (videoElement?.video) {
         videoElement.video.removeEventListener("error", handleError);
-        videoElement.video.removeEventListener('loadstart', handleLoadStart);
-        videoElement.video.removeEventListener('canplay', handleCanPlay);
-        videoElement.video.removeEventListener('loadeddata', handleLoadedData);
+        videoElement.video.removeEventListener("loadstart", handleLoadStart);
+        videoElement.video.removeEventListener("canplay", handleCanPlay);
+        videoElement.video.removeEventListener("loadeddata", handleLoadedData);
       }
     };
   }, [playerRef]);
-  
+
   return { status, hasError, isLoading };
 };
 
@@ -257,7 +275,11 @@ export function LivePlayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
 
-  const { status: playerStatus, hasError, isLoading } = usePlayerStatus(elementRef);
+  const {
+    status: playerStatus,
+    hasError,
+    isLoading,
+  } = usePlayerStatus(elementRef);
 
   const {
     handlePlayPause,
@@ -278,7 +300,11 @@ export function LivePlayer({
   } = useVideoControlsVisibility(elementRef, onPlayerFullscreenChange);
 
   // Disable zoom/pan when loading, camera is disconnected and still loading or has error
-  const isZoomPanDisabled: boolean = Boolean(isLoading || (!camera.failed && !(camera as types.Camera).connected) || hasError);
+  const isZoomPanDisabled: boolean = Boolean(
+    isLoading ||
+      (!camera.failed && !(camera as types.Camera).connected) ||
+      hasError,
+  );
 
   const {
     transformStyle,
@@ -305,14 +331,16 @@ export function LivePlayer({
   return (
     <div
       ref={containerRef}
-      style={{ 
+      style={{
         position: isFullscreen ? "fixed" : "relative",
         top: isFullscreen ? 0 : "auto",
         left: isFullscreen ? 0 : "auto",
         width: isFullscreen ? "100vw" : "100%",
         height: isFullscreen ? "100vh" : "100%",
         zIndex: isFullscreen ? 8000 : "auto",
-        backgroundColor: isFullscreen ? theme.palette.background.default : "transparent",
+        backgroundColor: isFullscreen
+          ? theme.palette.background.default
+          : "transparent",
         overflow: "hidden",
         cursor: isZoomPanDisabled ? "default" : cursor,
       }}
@@ -323,12 +351,20 @@ export function LivePlayer({
       onDoubleClick={isZoomPanDisabled ? undefined : resetTransform}
       role="button"
       tabIndex={0}
-      aria-label={isZoomPanDisabled ? "Video player" : "Video player - scroll to zoom, drag to pan, double-click to reset"}
-      onKeyDown={isZoomPanDisabled ? undefined : (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          resetTransform();
-        }
-      }}
+      aria-label={
+        isZoomPanDisabled
+          ? "Video player"
+          : "Video player - scroll to zoom, drag to pan, double-click to reset"
+      }
+      onKeyDown={
+        isZoomPanDisabled
+          ? undefined
+          : (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                resetTransform();
+              }
+            }
+      }
     >
       <CustomControls
         onPlayPause={handlePlayPause}
@@ -354,45 +390,53 @@ export function LivePlayer({
           ...(!isZoomPanDisabled ? transformStyle : {}),
         }}
       >
-        {(!camera.failed && !(camera as types.Camera).connected) || hasError || isPictureInPicture ? (
+        {(!camera.failed && !(camera as types.Camera).connected) ||
+        hasError ||
+        isPictureInPicture ? (
           <Box
             sx={{
               width: "100%",
               height: "100%",
               backgroundColor: theme.palette.background.default,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
               minHeight: 200,
               gap: 2,
             }}
           >
-            <VideoOff 
-              size={48} 
-              style={{ 
+            <VideoOff
+              size={48}
+              style={{
                 color: theme.palette.text.secondary,
-                opacity: 0.5 
-              }} 
+                opacity: 0.5,
+              }}
             />
             <Box
               sx={{
                 color: theme.palette.text.secondary,
-                textAlign: 'center',
-                fontSize: '0.875rem',
+                textAlign: "center",
+                fontSize: "0.875rem",
                 opacity: 0.7,
-                maxWidth: '80%',
-                wordBreak: 'break-word',
+                maxWidth: "80%",
+                wordBreak: "break-word",
               }}
             >
-              {isPictureInPicture ? "Playing in Picture-in-Picture" : 
-               playerStatus || (hasError ? "Connection Error" : (!camera.failed && !(camera as types.Camera).connected) ? "Camera Disconnected" : "No Video Signal")}
+              {isPictureInPicture
+                ? "Playing in Picture-in-Picture"
+                : playerStatus ||
+                  (hasError
+                    ? "Connection Error"
+                    : !camera.failed && !(camera as types.Camera).connected
+                      ? "Camera Disconnected"
+                      : "No Video Signal")}
             </Box>
           </Box>
         ) : (
           <>
-            <video-stream 
-              ref={elementRef} 
+            <video-stream
+              ref={elementRef}
               style={{
                 ...style,
                 userSelect: "none",
@@ -418,7 +462,7 @@ export function LivePlayer({
                   pointerEvents: "none",
                 }}
               >
-                <CircularProgress enableTrackSlot/>
+                <CircularProgress enableTrackSlot />
               </Box>
             )}
           </>
@@ -426,13 +470,17 @@ export function LivePlayer({
       </div>
       <CameraNameOverlay
         camera_identifier={camera.identifier}
-        extraStatusText={isPictureInPicture ? "Picture-in-Picture Mode" : playerStatus}
+        extraStatusText={
+          isPictureInPicture ? "Picture-in-Picture Mode" : playerStatus
+        }
       />
       <ZoomPanOverlay
         scale={scale}
         translateX={translateX}
         translateY={translateY}
-        isVisible={!isZoomPanDisabled && (controlsVisible || isHovering || isMenuOpen)}
+        isVisible={
+          !isZoomPanDisabled && (controlsVisible || isHovering || isMenuOpen)
+        }
       />
     </div>
   );

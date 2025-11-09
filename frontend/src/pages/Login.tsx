@@ -2,11 +2,11 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import Paper from "@mui/material/Paper";
-import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import { useTheme } from "@mui/material/styles";
 import { useEffect, useReducer, useRef } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { useTheme } from "@mui/material/styles";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
@@ -91,7 +91,7 @@ function Login() {
         alignItems: "center",
         justifyContent: "center",
         py: 2,
-        px: 2
+        px: 2,
       }}
     >
       <Container maxWidth="sm">
@@ -100,7 +100,7 @@ function Login() {
           <Box
             sx={{
               textAlign: "center",
-              mb: 2
+              mb: 2,
             }}
           >
             <Box
@@ -124,10 +124,10 @@ function Login() {
             >
               <ViseronLogo width={150} height={150} />
             </Box>
-            <Typography 
-              variant="h4" 
-              sx={{ 
-                color: 'text.primary',
+            <Typography
+              variant="h4"
+              sx={{
+                color: "text.primary",
               }}
             >
               Viseron Login
@@ -146,7 +146,6 @@ function Login() {
             }}
           >
             <Box sx={{ p: 4 }}>
-
               {login.error && (
                 <Box
                   sx={{
@@ -157,15 +156,16 @@ function Login() {
                     border: `1px solid ${theme.palette.error.main}30`,
                   }}
                 >
-                  <Typography 
-                    variant="body2" 
-                    align="center" 
-                    sx={{ 
-                      color: 'error.main',
-                      fontWeight: 500
+                  <Typography
+                    variant="body2"
+                    align="center"
+                    sx={{
+                      color: "error.main",
+                      fontWeight: 500,
                     }}
                   >
-                    {login.error.response && login.error.response.data.status === 401
+                    {login.error.response &&
+                    login.error.response.data.status === 401
                       ? "Incorrect username or password"
                       : "An error occurred. Please try again."}
                   </Typography>
@@ -190,7 +190,7 @@ function Login() {
                     dispatch={dispatch}
                     password
                   />
-                  
+
                   <Button
                     type="submit"
                     fullWidth
@@ -224,12 +224,12 @@ function Login() {
                       fontWeight: 600,
                       mt: 2,
                       boxShadow: 2,
-                      '&:hover': {
+                      "&:hover": {
                         boxShadow: 4,
                       },
-                      '&:disabled': {
+                      "&:disabled": {
                         boxShadow: 0,
-                      }
+                      },
                     }}
                   >
                     {login.isPending ? "SIGNING IN..." : "SIGN IN"}

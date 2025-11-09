@@ -84,13 +84,15 @@ export const useCameraStore = create<CameraState>()(
           const newSelectionOrder = [...state.selectionOrder];
           const sourceIndex = newSelectionOrder.indexOf(sourceId);
           const targetIndex = newSelectionOrder.indexOf(targetId);
-          
+
           if (sourceIndex !== -1 && targetIndex !== -1) {
             // Swap positions in selection order
-            [newSelectionOrder[sourceIndex], newSelectionOrder[targetIndex]] = 
-            [newSelectionOrder[targetIndex], newSelectionOrder[sourceIndex]];
+            [newSelectionOrder[sourceIndex], newSelectionOrder[targetIndex]] = [
+              newSelectionOrder[targetIndex],
+              newSelectionOrder[sourceIndex],
+            ];
           }
-          
+
           return {
             selectionOrder: newSelectionOrder,
           };
@@ -120,14 +122,14 @@ export const useFilteredCameras = () => {
   return useMemo(() => {
     // Return cameras ordered by selection order
     const orderedCameras: types.CamerasOrFailedCameras = {};
-    
+
     // Add cameras in selection order
     selectionOrder.forEach((cameraId) => {
       if (selectedCameras.includes(cameraId) && cameraData[cameraId]) {
         orderedCameras[cameraId] = cameraData[cameraId];
       }
     });
-    
+
     return orderedCameras;
   }, [cameraData, selectedCameras, selectionOrder]);
 };

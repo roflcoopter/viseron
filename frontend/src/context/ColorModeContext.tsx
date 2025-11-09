@@ -160,7 +160,8 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         },
 
         typography: {
-          fontFamily: '"IBM Plex Sans Variable", "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+          fontFamily:
+            '"IBM Plex Sans Variable", "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
           h5: {
             color: requestedMode === "dark" ? blue[300] : blue.main,
           },

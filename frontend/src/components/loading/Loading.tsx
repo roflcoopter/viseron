@@ -32,9 +32,9 @@ export function Loading({ text, fullScreen = true }: LoadingProps) {
     >
       {fullScreen && (
         <Grid>
-          <Box 
-            display="flex" 
-            justifyContent="center" 
+          <Box
+            display="flex"
+            justifyContent="center"
             alignItems="center"
             sx={{
               width: 150,
@@ -62,7 +62,7 @@ export function Loading({ text, fullScreen = true }: LoadingProps) {
       )}
       <Grid>
         <Box display="flex" justifyContent="center" alignItems="center">
-          <CircularProgress enableTrackSlot/>
+          <CircularProgress enableTrackSlot />
         </Box>
       </Grid>
       <Grid>

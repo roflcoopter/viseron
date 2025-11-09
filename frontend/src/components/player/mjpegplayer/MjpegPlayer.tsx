@@ -1,13 +1,13 @@
-import { useTheme } from "@mui/material/styles";
 import { VideoOff } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
+import { useTheme } from "@mui/material/styles";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { CustomControls } from "components/player/CustomControls.js";
-import { useZoomPan } from "components/player/hooks/useZoomPan";
 import { ZoomPanOverlay } from "components/player/ZoomPanOverlay";
+import { useZoomPan } from "components/player/hooks/useZoomPan";
 import { isTouchDevice } from "lib/helpers.js";
 import * as types from "lib/types";
 
@@ -45,78 +45,85 @@ const useMjpegControlsVisibility = (
         setIsPictureInPicture(false);
       } else {
         // Find the img element in our container
-        const imgElement = containerRef.current?.querySelector('img');
+        const imgElement = containerRef.current?.querySelector("img");
         if (imgElement && imgElement.src) {
           // Create a video element for PiP
-          const videoElement = document.createElement('video');
+          const videoElement = document.createElement("video");
           videoElement.muted = true;
           videoElement.autoplay = true;
           videoElement.loop = true;
-          videoElement.style.display = 'none';
-          videoElement.style.position = 'absolute';
-          videoElement.style.top = '-9999px';
-          
+          videoElement.style.display = "none";
+          videoElement.style.position = "absolute";
+          videoElement.style.top = "-9999px";
+
           // Store reference for cleanup
           pipVideoRef.current = videoElement;
-          
+
           // Create canvas for converting MJPEG to video stream
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+
           if (ctx) {
             // Set initial canvas size
             canvas.width = imgElement.naturalWidth || 640;
             canvas.height = imgElement.naturalHeight || 480;
-            
+
             // Create MediaStream from canvas
             const stream = canvas.captureStream(15); // 15 FPS
             videoElement.srcObject = stream;
-            
+
             // Add video to DOM
             document.body.appendChild(videoElement);
-            
+
             // Function to update canvas with current MJPEG frame
             let isAnimating = false;
             const updateCanvas = () => {
-              if (isAnimating && imgElement.complete && imgElement.naturalWidth > 0) {
+              if (
+                isAnimating &&
+                imgElement.complete &&
+                imgElement.naturalWidth > 0
+              ) {
                 try {
                   // Update canvas size if needed
-                  if (canvas.width !== imgElement.naturalWidth || canvas.height !== imgElement.naturalHeight) {
+                  if (
+                    canvas.width !== imgElement.naturalWidth ||
+                    canvas.height !== imgElement.naturalHeight
+                  ) {
                     canvas.width = imgElement.naturalWidth;
                     canvas.height = imgElement.naturalHeight;
                   }
-                  
+
                   // Draw current frame
                   ctx.clearRect(0, 0, canvas.width, canvas.height);
                   ctx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
-                  
+
                   // Continue animation
                   animationRef.current = requestAnimationFrame(updateCanvas);
                 } catch (error) {
-                  console.warn('Error updating PiP canvas:', error);
+                  console.warn("Error updating PiP canvas:", error);
                 }
               }
             };
-            
+
             // Wait for video to be ready
             await new Promise<void>((resolve, reject) => {
               let isResolved = false;
-              
+
               // Define cleanup function that will be assigned later
               let cleanup: () => void;
-              
+
               // Define timeout that will be assigned later
               let timeoutId: NodeJS.Timeout;
-              
+
               const onError = () => {
                 if (!isResolved) {
                   isResolved = true;
                   clearTimeout(timeoutId);
                   cleanup();
-                  reject(new Error('Video load failed'));
+                  reject(new Error("Video load failed"));
                 }
               };
-              
+
               const onCanPlay = () => {
                 if (!isResolved) {
                   isResolved = true;
@@ -125,28 +132,28 @@ const useMjpegControlsVisibility = (
                   resolve();
                 }
               };
-              
+
               cleanup = () => {
-                videoElement.removeEventListener('canplay', onCanPlay);
-                videoElement.removeEventListener('error', onError);
+                videoElement.removeEventListener("canplay", onCanPlay);
+                videoElement.removeEventListener("error", onError);
               };
-              
+
               timeoutId = setTimeout(() => {
                 if (!isResolved) {
                   isResolved = true;
                   cleanup();
-                  reject(new Error('Video load timeout'));
+                  reject(new Error("Video load timeout"));
                 }
               }, 5000);
-              
-              videoElement.addEventListener('canplay', onCanPlay);
-              videoElement.addEventListener('error', onError);
-              
+
+              videoElement.addEventListener("canplay", onCanPlay);
+              videoElement.addEventListener("error", onError);
+
               // Draw initial frame
               if (imgElement.complete) {
                 ctx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
               }
-              
+
               // Check if already ready
               if (videoElement.readyState >= 3) {
                 onCanPlay();
@@ -155,15 +162,15 @@ const useMjpegControlsVisibility = (
                 videoElement.play().catch(onError);
               }
             });
-            
+
             // Request Picture in Picture
             await videoElement.requestPictureInPicture();
-            
+
             // Set state and start animation
             setIsPictureInPicture(true);
             isAnimating = true;
             updateCanvas();
-            
+
             // Handle PiP events
             const handleLeavePiP = () => {
               isAnimating = false;
@@ -172,17 +179,26 @@ const useMjpegControlsVisibility = (
                 cancelAnimationFrame(animationRef.current);
                 animationRef.current = null;
               }
-              if (pipVideoRef.current && document.body.contains(pipVideoRef.current)) {
+              if (
+                pipVideoRef.current &&
+                document.body.contains(pipVideoRef.current)
+              ) {
                 document.body.removeChild(pipVideoRef.current);
               }
               pipVideoRef.current = null;
             };
-            
-            videoElement.addEventListener('leavepictureinpicture', handleLeavePiP);
-            
+
+            videoElement.addEventListener(
+              "leavepictureinpicture",
+              handleLeavePiP,
+            );
+
             // Backup cleanup in case event doesn't fire
             const checkInterval = setInterval(() => {
-              if (!document.pictureInPictureElement || document.pictureInPictureElement !== videoElement) {
+              if (
+                !document.pictureInPictureElement ||
+                document.pictureInPictureElement !== videoElement
+              ) {
                 clearInterval(checkInterval);
                 handleLeavePiP();
               }
@@ -191,7 +207,7 @@ const useMjpegControlsVisibility = (
         }
       }
     } catch (error) {
-      console.error('Error toggling Picture in Picture:', error);
+      console.error("Error toggling Picture in Picture:", error);
       setIsPictureInPicture(false);
       // Cleanup on error
       if (animationRef.current) {
@@ -205,8 +221,11 @@ const useMjpegControlsVisibility = (
     }
   }, [containerRef]);
 
-  const isPictureInPictureSupported = useCallback(() => 
-    'pictureInPictureEnabled' in document && document.pictureInPictureEnabled, []);
+  const isPictureInPictureSupported = useCallback(
+    () =>
+      "pictureInPictureEnabled" in document && document.pictureInPictureEnabled,
+    [],
+  );
 
   const handleMouseEnter = useCallback(() => {
     setIsHovering(true);
@@ -283,12 +302,12 @@ const useMjpegErrorHandling = (
   useEffect(() => {
     const img = imgRef.current;
     if (!img) return () => {};
-    
+
     // Clear any existing timeout
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
-    
+
     const handleError = () => {
       setError("Failed to load MJPEG stream.");
       setIsLoading(false);
@@ -297,12 +316,12 @@ const useMjpegErrorHandling = (
         timeoutRef.current = null;
       }
     };
-    
+
     const handleLoadStart = () => {
       setIsLoading(true);
       setError(null);
     };
-    
+
     const handleLoad = () => {
       // For MJPEG streams, we want to show loading briefly even after load
       // to indicate the stream is initializing
@@ -310,23 +329,23 @@ const useMjpegErrorHandling = (
         setIsLoading(false);
       }, 500); // Show loading for at least 500ms
     };
-    
+
     img.addEventListener("error", handleError);
     img.addEventListener("loadstart", handleLoadStart);
     img.addEventListener("load", handleLoad);
-    
+
     // Fallback timeout for streams that don't fire load events properly
     const fallbackTimeout = setTimeout(() => {
       if (img.complete || img.naturalWidth > 0) {
         setIsLoading(false);
       }
     }, 2000); // 2 second fallback
-    
+
     return () => {
       img.removeEventListener("error", handleError);
       img.removeEventListener("loadstart", handleLoadStart);
       img.removeEventListener("load", handleLoad);
-      
+
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
@@ -388,7 +407,11 @@ export function MjpegPlayer({
   const { error, isLoading } = useMjpegErrorHandling(imgRef, src);
 
   // Disable zoom/pan when loading, camera is disconnected and still loading or has error
-  const isZoomPanDisabled: boolean = Boolean(isLoading || (!camera.failed && !(camera as types.Camera).connected) || !!error);
+  const isZoomPanDisabled: boolean = Boolean(
+    isLoading ||
+      (!camera.failed && !(camera as types.Camera).connected) ||
+      !!error,
+  );
 
   const {
     transformStyle,
@@ -415,7 +438,9 @@ export function MjpegPlayer({
         width: isFullscreen ? "100vw" : "100%",
         height: isFullscreen ? "100vh" : "100%",
         zIndex: isFullscreen ? 8000 : "auto",
-        backgroundColor: isFullscreen ? theme.palette.background.default : "transparent",
+        backgroundColor: isFullscreen
+          ? theme.palette.background.default
+          : "transparent",
         overflow: "hidden",
         cursor: isZoomPanDisabled ? "default" : cursor,
         ...style,
@@ -427,12 +452,20 @@ export function MjpegPlayer({
       onDoubleClick={isZoomPanDisabled ? undefined : resetTransform}
       role="button"
       tabIndex={0}
-      aria-label={isZoomPanDisabled ? "Video player" : "Video player - scroll to zoom, drag to pan, double-click to reset"}
-      onKeyDown={isZoomPanDisabled ? undefined : (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          resetTransform();
-        }
-      }}
+      aria-label={
+        isZoomPanDisabled
+          ? "Video player"
+          : "Video player - scroll to zoom, drag to pan, double-click to reset"
+      }
+      onKeyDown={
+        isZoomPanDisabled
+          ? undefined
+          : (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                resetTransform();
+              }
+            }
+      }
     >
       <CustomControls
         isVisible={controlsVisible || isHovering || isMenuOpen}
@@ -453,39 +486,45 @@ export function MjpegPlayer({
           ...(!isZoomPanDisabled ? transformStyle : {}),
         }}
       >
-        {(!camera.failed && !(camera as types.Camera).connected) || error || isPictureInPicture ? (
+        {(!camera.failed && !(camera as types.Camera).connected) ||
+        error ||
+        isPictureInPicture ? (
           <Box
             sx={{
               width: "100%",
               height: "100%",
               backgroundColor: theme.palette.background.default,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
               minHeight: 200,
               gap: 2,
             }}
           >
-            <VideoOff 
-              size={48} 
-              style={{ 
+            <VideoOff
+              size={48}
+              style={{
                 color: theme.palette.text.secondary,
-                opacity: 0.5 
-              }} 
+                opacity: 0.5,
+              }}
             />
             <Box
               sx={{
                 color: theme.palette.text.secondary,
-                textAlign: 'center',
-                fontSize: '0.875rem',
+                textAlign: "center",
+                fontSize: "0.875rem",
                 opacity: 0.7,
-                maxWidth: '80%',
-                wordBreak: 'break-word',
+                maxWidth: "80%",
+                wordBreak: "break-word",
               }}
             >
-              {isPictureInPicture ? "Playing in Picture-in-Picture" : 
-               error || (!camera.failed && !(camera as types.Camera).connected ? "Camera Disconnected" : "No Video Signal")}
+              {isPictureInPicture
+                ? "Playing in Picture-in-Picture"
+                : error ||
+                  (!camera.failed && !(camera as types.Camera).connected
+                    ? "Camera Disconnected"
+                    : "No Video Signal")}
             </Box>
           </Box>
         ) : (
@@ -500,7 +539,8 @@ export function MjpegPlayer({
                 if (drawObjectMask) params.push("draw_object_mask=1");
                 if (drawMotionMask) params.push("draw_motion_mask=1");
                 if (drawZones) params.push("draw_zones=1");
-                if (drawPostProcessorMask) params.push("draw_post_processor_mask=1");
+                if (drawPostProcessorMask)
+                  params.push("draw_post_processor_mask=1");
                 if (params.length) {
                   url += (url.includes("?") ? "&" : "?") + params.join("&");
                 }
@@ -536,7 +576,7 @@ export function MjpegPlayer({
                   pointerEvents: "none",
                 }}
               >
-                <CircularProgress enableTrackSlot/>
+                <CircularProgress enableTrackSlot />
               </Box>
             )}
           </>
@@ -544,13 +584,19 @@ export function MjpegPlayer({
       </div>
       <CameraNameOverlay
         camera_identifier={camera.identifier}
-        extraStatusText={isPictureInPicture ? "Picture-in-Picture Mode" : (error || "MJPEG Stream")}
+        extraStatusText={
+          isPictureInPicture
+            ? "Picture-in-Picture Mode"
+            : error || "MJPEG Stream"
+        }
       />
       <ZoomPanOverlay
         scale={scale}
         translateX={translateX}
         translateY={translateY}
-        isVisible={!isZoomPanDisabled && (controlsVisible || isHovering || isMenuOpen)}
+        isVisible={
+          !isZoomPanDisabled && (controlsVisible || isHovering || isMenuOpen)
+        }
       />
     </div>
   );

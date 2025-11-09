@@ -1,9 +1,9 @@
 import {
-  RightPanelClose,
-  LightFilled,
   Light,
+  LightFilled,
+  Logout,
+  RightPanelClose,
   Settings,
-  Logout
 } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
@@ -122,7 +122,7 @@ export default function AppHeader() {
                   setDrawerOpen(true);
                 }}
               >
-                <RightPanelClose/>
+                <RightPanelClose />
               </IconButton>
             </Tooltip>
             <Tooltip title="Home" enterDelay={300}>
@@ -164,11 +164,7 @@ export default function AppHeader() {
               enterDelay={300}
             >
               <IconButton color="primary" onClick={colorMode.toggleColorMode}>
-                {theme.palette.mode === "dark" ? (
-                  <LightFilled/>
-                ) : (
-                  <Light/>
-                )}
+                {theme.palette.mode === "dark" ? <LightFilled /> : <Light />}
               </IconButton>
             </Tooltip>
             {!auth.enabled || (auth.enabled && user?.role) === "admin" ? (

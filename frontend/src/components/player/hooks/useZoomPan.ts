@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface ZoomPanState {
   scale: number;
@@ -15,7 +15,7 @@ interface UseZoomPanOptions {
 
 export const useZoomPan = (
   containerRef: React.RefObject<HTMLElement | HTMLDivElement | null>,
-  options: UseZoomPanOptions = {}
+  options: UseZoomPanOptions = {},
 ) => {
   const {
     minScale = 1.0, // Changed from 0.5 to 1.0 to prevent zooming smaller than original
@@ -40,10 +40,10 @@ export const useZoomPan = (
   const handleWheel = useCallback(
     (event: Event) => {
       if (disabled) return; // Don't handle wheel events when disabled
-      
+
       const wheelEvent = event as WheelEvent;
       wheelEvent.preventDefault();
-      
+
       const container = containerRef.current;
       if (!container) return;
 
@@ -53,12 +53,17 @@ export const useZoomPan = (
 
       // Calculate zoom center relative to current transform
       const currentTransform = transformRef.current;
-      const zoomCenterX = (mouseX - currentTransform.translateX) / currentTransform.scale;
-      const zoomCenterY = (mouseY - currentTransform.translateY) / currentTransform.scale;
+      const zoomCenterX =
+        (mouseX - currentTransform.translateX) / currentTransform.scale;
+      const zoomCenterY =
+        (mouseY - currentTransform.translateY) / currentTransform.scale;
 
       // Calculate new scale
       const delta = wheelEvent.deltaY > 0 ? -zoomSpeed : zoomSpeed;
-      const newScale = Math.max(minScale, Math.min(maxScale, currentTransform.scale + delta));
+      const newScale = Math.max(
+        minScale,
+        Math.min(maxScale, currentTransform.scale + delta),
+      );
 
       // If scale is back to minimum (1.0), reset position to center
       if (newScale === minScale) {
@@ -85,8 +90,14 @@ export const useZoomPan = (
         const maxTranslateY = Math.max(0, containerHeight - contentHeight);
 
         // Clamp translate values
-        newTranslateX = Math.max(minTranslateX, Math.min(maxTranslateX, newTranslateX));
-        newTranslateY = Math.max(minTranslateY, Math.min(maxTranslateY, newTranslateY));
+        newTranslateX = Math.max(
+          minTranslateX,
+          Math.min(maxTranslateX, newTranslateX),
+        );
+        newTranslateY = Math.max(
+          minTranslateY,
+          Math.min(maxTranslateY, newTranslateY),
+        );
 
         setTransform({
           scale: newScale,
@@ -95,68 +106,80 @@ export const useZoomPan = (
         });
       }
     },
-    [containerRef, minScale, maxScale, zoomSpeed, disabled]
+    [containerRef, minScale, maxScale, zoomSpeed, disabled],
   );
 
-  const handleMouseDown = useCallback((event: React.MouseEvent) => {
-    if (disabled) return; // Don't handle mouse down when disabled
-    if (event.button !== 0) return; // Only left mouse button
-    
-    // Only allow dragging if zoomed in
-    if (transformRef.current.scale <= 1.0) {
-      return;
-    }
-    
-    setIsDragging(true);
-    setDragStart({ x: event.clientX, y: event.clientY });
-    setDragStartTransform({ 
-      x: transformRef.current.translateX, 
-      y: transformRef.current.translateY 
-    });
-    
-    // Prevent text selection and other default behaviors
-    event.preventDefault();
-    event.stopPropagation();
-  }, [disabled]);
+  const handleMouseDown = useCallback(
+    (event: React.MouseEvent) => {
+      if (disabled) return; // Don't handle mouse down when disabled
+      if (event.button !== 0) return; // Only left mouse button
 
-  const handleMouseMove = useCallback((event: MouseEvent) => {
-    if (!isDragging) return;
-    
-    const container = containerRef.current;
-    if (!container) return;
-    
-    const deltaX = event.clientX - dragStart.x;
-    const deltaY = event.clientY - dragStart.y;
+      // Only allow dragging if zoomed in
+      if (transformRef.current.scale <= 1.0) {
+        return;
+      }
 
-    // Calculate new translate values
-    const newTranslateX = dragStartTransform.x + deltaX;
-    const newTranslateY = dragStartTransform.y + deltaY;
+      setIsDragging(true);
+      setDragStart({ x: event.clientX, y: event.clientY });
+      setDragStartTransform({
+        x: transformRef.current.translateX,
+        y: transformRef.current.translateY,
+      });
 
-    // Get container dimensions
-    const containerRect = container.getBoundingClientRect();
-    const containerWidth = containerRect.width;
-    const containerHeight = containerRect.height;
+      // Prevent text selection and other default behaviors
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [disabled],
+  );
 
-    // Calculate content dimensions when scaled
-    const contentWidth = containerWidth * transformRef.current.scale;
-    const contentHeight = containerHeight * transformRef.current.scale;
+  const handleMouseMove = useCallback(
+    (event: MouseEvent) => {
+      if (!isDragging) return;
 
-    // Calculate bounds to keep content within container
-    const minTranslateX = Math.min(0, containerWidth - contentWidth);
-    const maxTranslateX = Math.max(0, containerWidth - contentWidth);
-    const minTranslateY = Math.min(0, containerHeight - contentHeight);
-    const maxTranslateY = Math.max(0, containerHeight - contentHeight);
+      const container = containerRef.current;
+      if (!container) return;
 
-    // Clamp translate values to stay within bounds
-    const clampedTranslateX = Math.max(minTranslateX, Math.min(maxTranslateX, newTranslateX));
-    const clampedTranslateY = Math.max(minTranslateY, Math.min(maxTranslateY, newTranslateY));
+      const deltaX = event.clientX - dragStart.x;
+      const deltaY = event.clientY - dragStart.y;
 
-    setTransform(prev => ({
-      ...prev,
-      translateX: clampedTranslateX,
-      translateY: clampedTranslateY,
-    }));
-  }, [isDragging, dragStart, dragStartTransform, containerRef]);
+      // Calculate new translate values
+      const newTranslateX = dragStartTransform.x + deltaX;
+      const newTranslateY = dragStartTransform.y + deltaY;
+
+      // Get container dimensions
+      const containerRect = container.getBoundingClientRect();
+      const containerWidth = containerRect.width;
+      const containerHeight = containerRect.height;
+
+      // Calculate content dimensions when scaled
+      const contentWidth = containerWidth * transformRef.current.scale;
+      const contentHeight = containerHeight * transformRef.current.scale;
+
+      // Calculate bounds to keep content within container
+      const minTranslateX = Math.min(0, containerWidth - contentWidth);
+      const maxTranslateX = Math.max(0, containerWidth - contentWidth);
+      const minTranslateY = Math.min(0, containerHeight - contentHeight);
+      const maxTranslateY = Math.max(0, containerHeight - contentHeight);
+
+      // Clamp translate values to stay within bounds
+      const clampedTranslateX = Math.max(
+        minTranslateX,
+        Math.min(maxTranslateX, newTranslateX),
+      );
+      const clampedTranslateY = Math.max(
+        minTranslateY,
+        Math.min(maxTranslateY, newTranslateY),
+      );
+
+      setTransform((prev) => ({
+        ...prev,
+        translateX: clampedTranslateX,
+        translateY: clampedTranslateY,
+      }));
+    },
+    [isDragging, dragStart, dragStartTransform, containerRef],
+  );
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -178,10 +201,10 @@ export const useZoomPan = (
       return undefined;
     }
 
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    
+    container.addEventListener("wheel", handleWheel, { passive: false });
+
     return () => {
-      container.removeEventListener('wheel', handleWheel);
+      container.removeEventListener("wheel", handleWheel);
     };
   }, [containerRef, handleWheel]);
 
@@ -190,20 +213,26 @@ export const useZoomPan = (
       return undefined;
     }
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
   const transformStyle = {
     transform: `translate(${transform.translateX}px, ${transform.translateY}px) scale(${transform.scale})`,
-    transformOrigin: '0 0',
-    cursor: disabled ? 'default' : (isDragging ? 'grabbing' : (transform.scale > 1.0 ? 'grab' : 'default')),
-    transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+    transformOrigin: "0 0",
+    cursor: disabled
+      ? "default"
+      : isDragging
+        ? "grabbing"
+        : transform.scale > 1.0
+          ? "grab"
+          : "default",
+    transition: isDragging ? "none" : "transform 0.1s ease-out",
   };
 
   return {
@@ -212,12 +241,17 @@ export const useZoomPan = (
     isDragging,
     handleMouseDown,
     resetTransform,
-    isZoomed: transform.scale !== 1.0 || transform.translateX !== 0 || transform.translateY !== 0,
-    cursor: disabled 
-      ? 'default'
-      : (isDragging 
-          ? 'grabbing' 
-          : (transform.scale > 1.0 ? 'grab' : 'default')),
+    isZoomed:
+      transform.scale !== 1.0 ||
+      transform.translateX !== 0 ||
+      transform.translateY !== 0,
+    cursor: disabled
+      ? "default"
+      : isDragging
+        ? "grabbing"
+        : transform.scale > 1.0
+          ? "grab"
+          : "default",
     // Export transform values for overlay
     scale: transform.scale,
     translateX: transform.translateX,

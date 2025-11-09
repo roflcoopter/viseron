@@ -1,7 +1,6 @@
+import type { GridLayoutConfig, GridLayoutType } from "types/GridLayoutTypes";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-
-import type { GridLayoutConfig, GridLayoutType } from "types/GridLayoutTypes";
 
 interface GridLayoutStore {
   currentLayout: GridLayoutType;
@@ -17,9 +16,9 @@ interface GridLayoutStore {
 export const useGridLayoutStore = create<GridLayoutStore>()(
   persist(
     (set, _get) => ({
-      currentLayout: 'auto',
+      currentLayout: "auto",
       layoutConfig: {
-        type: 'auto',
+        type: "auto",
         mainSlot: undefined,
         sideSlots: [],
       },
@@ -31,8 +30,9 @@ export const useGridLayoutStore = create<GridLayoutStore>()(
             ...state.layoutConfig,
             type: layout,
             // Reset slots when changing layout type
-            mainSlot: layout === 'auto' ? undefined : state.layoutConfig.mainSlot,
-            sideSlots: layout === 'auto' ? [] : state.layoutConfig.sideSlots,
+            mainSlot:
+              layout === "auto" ? undefined : state.layoutConfig.mainSlot,
+            sideSlots: layout === "auto" ? [] : state.layoutConfig.sideSlots,
           },
         }));
       },
@@ -65,9 +65,9 @@ export const useGridLayoutStore = create<GridLayoutStore>()(
 
       resetLayout: () => {
         set({
-          currentLayout: 'auto',
+          currentLayout: "auto",
           layoutConfig: {
-            type: 'auto',
+            type: "auto",
             mainSlot: undefined,
             sideSlots: [],
           },
@@ -75,8 +75,8 @@ export const useGridLayoutStore = create<GridLayoutStore>()(
       },
     }),
     {
-      name: 'grid-layout-store',
+      name: "grid-layout-store",
       version: 1,
-    }
-  )
+    },
+  ),
 );

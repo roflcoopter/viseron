@@ -1,12 +1,18 @@
-import Fade from "@mui/material/Fade";
-import { useTheme } from "@mui/material/styles";
 import { VideoOff } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
+import Fade from "@mui/material/Fade";
+import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import Hls, { LevelLoadedData } from "hls.js";
-import React, { useCallback, useContext, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useShallow } from "zustand/react/shallow";
 
@@ -446,22 +452,25 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
     const handleLoadedData = () => setIsLoading(false);
     const handleError = () => setIsLoading(false);
 
-    video.addEventListener('loadstart', handleLoadStart);
-    video.addEventListener('canplay', handleCanPlay);
-    video.addEventListener('loadeddata', handleLoadedData);
-    video.addEventListener('error', handleError);
+    video.addEventListener("loadstart", handleLoadStart);
+    video.addEventListener("canplay", handleCanPlay);
+    video.addEventListener("loadeddata", handleLoadedData);
+    video.addEventListener("error", handleError);
 
     return () => {
-      video.removeEventListener('loadstart', handleLoadStart);
-      video.removeEventListener('canplay', handleCanPlay);
-      video.removeEventListener('loadeddata', handleLoadedData);
-      video.removeEventListener('error', handleError);
+      video.removeEventListener("loadstart", handleLoadStart);
+      video.removeEventListener("canplay", handleCanPlay);
+      video.removeEventListener("loadeddata", handleLoadedData);
+      video.removeEventListener("error", handleError);
     };
   }, []);
 
   // Reset loading state when camera disconnects or has error
   useEffect(() => {
-    if ((!camera.failed && !(camera as types.Camera).connected) || hlsRefError) {
+    if (
+      (!camera.failed && !(camera as types.Camera).connected) ||
+      hlsRefError
+    ) {
       setIsLoading(false);
     }
   }, [camera, hlsRefError]);
@@ -475,38 +484,42 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
         display: "flex",
       }}
     >
-      {(!camera.failed && !(camera as types.Camera).connected) || hlsRefError ? (
+      {(!camera.failed && !(camera as types.Camera).connected) ||
+      hlsRefError ? (
         <Box
           sx={{
             width: "100%",
             height: "100%",
             backgroundColor: theme.palette.background.default,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
             minHeight: 200,
             gap: 2,
           }}
         >
-          <VideoOff 
-            size={48} 
-            style={{ 
+          <VideoOff
+            size={48}
+            style={{
               color: theme.palette.text.secondary,
-              opacity: 0.5 
-            }} 
+              opacity: 0.5,
+            }}
           />
           <Box
             sx={{
               color: theme.palette.text.secondary,
-              textAlign: 'center',
-              fontSize: '0.875rem',
+              textAlign: "center",
+              fontSize: "0.875rem",
               opacity: 0.7,
-              maxWidth: '80%',
-              wordBreak: 'break-word',
+              maxWidth: "80%",
+              wordBreak: "break-word",
             }}
           >
-            {hlsRefError || (!camera.failed && !(camera as types.Camera).connected ? "Camera Disconnected" : "No Video Signal")}
+            {hlsRefError ||
+              (!camera.failed && !(camera as types.Camera).connected
+                ? "Camera Disconnected"
+                : "No Video Signal")}
           </Box>
         </Box>
       ) : (
@@ -539,7 +552,7 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
                 pointerEvents: "none",
               }}
             >
-              <CircularProgress enableTrackSlot/>
+              <CircularProgress enableTrackSlot />
             </Box>
           )}
           <Fade in={!!(hlsRef.current && hlsRefError)}>

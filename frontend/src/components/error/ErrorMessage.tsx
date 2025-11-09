@@ -28,7 +28,7 @@ export function ErrorMessage({ text, subtext, image }: ErrorMessageProps) {
             minHeight: "60vh",
             textAlign: "center",
             px: 2,
-            pt: 4
+            pt: 4,
           }}
         >
           <Stack spacing={3} alignItems="center">
@@ -38,26 +38,26 @@ export function ErrorMessage({ text, subtext, image }: ErrorMessageProps) {
               </Box>
             )}
             <Stack spacing={2} alignItems="center">
-              <Typography 
-                variant="h4" 
+              <Typography
+                variant="h4"
                 component="h1"
                 align="center"
-                sx={{ 
+                sx={{
                   fontWeight: 600,
-                  color: 'text.primary',
-                  maxWidth: '600px'
+                  color: "text.primary",
+                  maxWidth: "600px",
                 }}
               >
                 {text}
               </Typography>
               {subtext && (
-                <Typography 
-                  variant="body1" 
+                <Typography
+                  variant="body1"
                   align="center"
-                  sx={{ 
-                    color: 'text.secondary',
-                    maxWidth: '500px',
-                    lineHeight: 1.6
+                  sx={{
+                    color: "text.secondary",
+                    maxWidth: "500px",
+                    lineHeight: 1.6,
                   }}
                 >
                   {subtext}
@@ -98,7 +98,7 @@ export function ErrorNotFound() {
           minHeight: "70vh",
           textAlign: "center",
           py: 4,
-          pt: 6
+          pt: 6,
         }}
       >
         <Stack spacing={4} alignItems="center">
@@ -108,7 +108,7 @@ export function ErrorNotFound() {
               flexDirection: "row",
               alignItems: "center",
               justifyContent: "center",
-              gap: { xs: 0.5, sm: 1 }
+              gap: { xs: 0.5, sm: 1 },
             }}
           >
             <FourIn404 />
@@ -118,27 +118,28 @@ export function ErrorNotFound() {
             <FourIn404 flip />
           </Box>
           <Stack spacing={2} alignItems="center">
-            <Typography 
-              variant="h4" 
+            <Typography
+              variant="h4"
               component="h1"
               align="center"
-              sx={{ 
+              sx={{
                 fontWeight: 600,
-                color: 'text.primary'
+                color: "text.primary",
               }}
             >
               Page Not Found
             </Typography>
-            <Typography 
-              variant="body1" 
+            <Typography
+              variant="body1"
               align="center"
-              sx={{ 
-                color: 'text.secondary',
-                maxWidth: '500px',
-                lineHeight: 1.6
+              sx={{
+                color: "text.secondary",
+                maxWidth: "500px",
+                lineHeight: 1.6,
               }}
             >
-              Oops! The requested page was not found. Please check the URL or navigate back to the home page.
+              Oops! The requested page was not found. Please check the URL or
+              navigate back to the home page.
             </Typography>
           </Stack>
         </Stack>
@@ -164,7 +165,7 @@ export function ErrorBoundaryInner({
     setIsNavigating(true);
     // Add small delay for smooth loading animation before client-side navigation
     setTimeout(() => {
-      navigate('/');
+      navigate("/");
     }, 300);
   };
 
@@ -184,7 +185,7 @@ export function ErrorBoundaryInner({
           minHeight: "80vh",
           textAlign: "center",
           px: 2,
-          pt: 4
+          pt: 4,
         }}
       >
         <Stack spacing={4} alignItems="center">
@@ -193,55 +194,63 @@ export function ErrorBoundaryInner({
               <ViseronLogo width={120} height={120} />
             </Box>
             <Stack spacing={2} alignItems="center">
-              <Typography 
-                variant="h4" 
+              <Typography
+                variant="h4"
                 component="h1"
                 align="center"
-                sx={{ 
+                sx={{
                   fontWeight: 600,
-                  color: 'text.primary',
-                  maxWidth: '600px'
+                  color: "text.primary",
+                  maxWidth: "600px",
                 }}
               >
                 An error occurred
               </Typography>
-              <Typography 
-                variant="body1" 
+              <Typography
+                variant="body1"
                 align="center"
-                sx={{ 
-                  color: 'text.secondary',
-                  maxWidth: '500px',
-                  lineHeight: 1.6
+                sx={{
+                  color: "text.secondary",
+                  maxWidth: "500px",
+                  lineHeight: 1.6,
                 }}
               >
                 {error.message}
               </Typography>
             </Stack>
           </Stack>
-          
-          <Stack 
-            direction={{ xs: "column", sm: "row" }} 
+
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
             spacing={2}
             alignItems="center"
             justifyContent="center"
           >
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               onClick={handleGoHome}
               size="large"
               sx={{ minWidth: 120 }}
               disabled={isNavigating || isRetrying}
-              startIcon={isNavigating ? <CircularProgress size={20} color="inherit" enableTrackSlot/> : null}
+              startIcon={
+                isNavigating ? (
+                  <CircularProgress size={20} color="inherit" enableTrackSlot />
+                ) : null
+              }
             >
               Go Home
             </Button>
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               onClick={handleTryAgain}
               size="large"
               sx={{ minWidth: 120 }}
               disabled={isNavigating || isRetrying}
-              startIcon={isRetrying ? <CircularProgress size={20} color="inherit" enableTrackSlot/> : null}
+              startIcon={
+                isRetrying ? (
+                  <CircularProgress size={20} color="inherit" enableTrackSlot />
+                ) : null
+              }
             >
               Try Again
             </Button>
@@ -284,7 +293,7 @@ export function ErrorBoundaryOuter({
           minHeight: "80vh",
           textAlign: "center",
           px: 2,
-          pt: 4
+          pt: 4,
         }}
       >
         <Stack spacing={4} alignItems="center">
@@ -293,55 +302,63 @@ export function ErrorBoundaryOuter({
               <ViseronLogo width={120} height={120} />
             </Box>
             <Stack spacing={2} alignItems="center">
-              <Typography 
-                variant="h4" 
+              <Typography
+                variant="h4"
                 component="h1"
                 align="center"
-                sx={{ 
+                sx={{
                   fontWeight: 600,
-                  color: 'text.primary',
-                  maxWidth: '600px'
+                  color: "text.primary",
+                  maxWidth: "600px",
                 }}
               >
                 An error occurred
               </Typography>
-              <Typography 
-                variant="body1" 
+              <Typography
+                variant="body1"
                 align="center"
-                sx={{ 
-                  color: 'text.secondary',
-                  maxWidth: '500px',
-                  lineHeight: 1.6
+                sx={{
+                  color: "text.secondary",
+                  maxWidth: "500px",
+                  lineHeight: 1.6,
                 }}
               >
                 {error.message}
               </Typography>
             </Stack>
           </Stack>
-          
-          <Stack 
-            direction={{ xs: "column", sm: "row" }} 
+
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
             spacing={2}
             alignItems="center"
             justifyContent="center"
           >
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               onClick={handleRefresh}
               size="large"
               sx={{ minWidth: 120 }}
               disabled={isRefreshing || isRetrying}
-              startIcon={isRefreshing ? <CircularProgress size={20} color="inherit" enableTrackSlot/> : null}
+              startIcon={
+                isRefreshing ? (
+                  <CircularProgress size={20} color="inherit" enableTrackSlot />
+                ) : null
+              }
             >
               Refresh Page
             </Button>
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               onClick={handleTryAgain}
               size="large"
               sx={{ minWidth: 120 }}
               disabled={isRefreshing || isRetrying}
-              startIcon={isRetrying ? <CircularProgress size={20} color="inherit" enableTrackSlot/> : null}
+              startIcon={
+                isRetrying ? (
+                  <CircularProgress size={20} color="inherit" enableTrackSlot />
+                ) : null
+              }
             >
               Try Again
             </Button>

@@ -1,7 +1,4 @@
-import { 
-  LogoGithub,
-  Cube,
-} from "@carbon/icons-react";
+import { Cube, LogoGithub } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
@@ -80,7 +77,7 @@ export default function AppFooter() {
                 marginRight: "5px",
               }}
             >
-              <LogoGithub size={16}/>
+              <LogoGithub size={16} />
             </Box>
             GitHub
           </Link>
@@ -109,7 +106,7 @@ export default function AppFooter() {
                 marginRight: "5px",
               }}
             >
-              <Cube size={16}/>
+              <Cube size={16} />
             </Box>
             Components
           </Link>
