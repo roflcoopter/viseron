@@ -7,6 +7,7 @@ import {
   Maximize,
   Minimize,
   VideoAdd,
+  WifiBridgeAlt,
 } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
@@ -70,6 +71,8 @@ interface MenuContextType {
     event: React.MouseEvent,
   ) => void;
   closeContextMenu: () => void;
+  reconnectCamera: (camera: types.Camera | types.FailedCamera) => void;
+  getPlayerKey: (cameraId: string) => number;
   isFullscreen: boolean;
   isPlayerFullscreen: boolean;
 }
@@ -86,6 +89,9 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
     })),
   );
   const filteredCameras = useFilteredCameras();
+
+  const [playerKeyMap, setPlayerKeyMap] = useState<Record<string, number>>({});
+
   const [menuState, setMenuState] = useState<{
     open: boolean;
     camera: types.Camera | types.FailedCamera | null;
@@ -193,6 +199,28 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
     closeContextMenu();
   }, [contextMenuState.camera, setFlipView, closeContextMenu]);
 
+  const reconnectCamera = useCallback(
+    (camera: types.Camera | types.FailedCamera) => {
+      setPlayerKeyMap((prev) => ({
+        ...prev,
+        [camera.identifier]: (prev[camera.identifier] || 0) + 1,
+      }));
+    },
+    [],
+  );
+
+  const getPlayerKey = useCallback(
+    (cameraId: string) => playerKeyMap[cameraId] || 0,
+    [playerKeyMap],
+  );
+
+  const handleReconnect = useCallback(() => {
+    if (contextMenuState.camera) {
+      reconnectCamera(contextMenuState.camera);
+    }
+    closeContextMenu();
+  }, [contextMenuState.camera, reconnectCamera, closeContextMenu]);
+
   const handleSlotChange = useCallback(
     (targetCamera: types.Camera | types.FailedCamera) => {
       if (contextMenuState.camera && targetCamera) {
@@ -239,6 +267,8 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
       setPlayerFullscreen,
       openContextMenu,
       closeContextMenu,
+      reconnectCamera,
+      getPlayerKey,
       isFullscreen,
       isPlayerFullscreen,
     }),
@@ -249,6 +279,8 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
       setPlayerFullscreen,
       openContextMenu,
       closeContextMenu,
+      reconnectCamera,
+      getPlayerKey,
       isFullscreen,
       isPlayerFullscreen,
     ],
@@ -391,6 +423,12 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
               <ArrowsVertical size={16} />
             </ListItemIcon>
             <ListItemText primary="Flip View 180°" />
+          </MenuItem>
+          <MenuItem onClick={handleReconnect}>
+            <ListItemIcon sx={{ minWidth: "auto" }}>
+              <WifiBridgeAlt size={16} />
+            </ListItemIcon>
+            <ListItemText primary="Reconnect" />
           </MenuItem>
         </Menu>
       )}
@@ -626,6 +664,7 @@ const CameraPlayer = memo(
   }) => {
     const theme = useTheme();
     const menuContext = useContext(MenuContext);
+    const playerKey = menuContext?.getPlayerKey(camera.identifier) || 0;
 
     // Ensure we always have a valid ref - but don't use a stale fallback
     const safePlayerRef = useMemo(
@@ -693,6 +732,7 @@ const CameraPlayer = memo(
 
     return mjpegPlayer ? (
       <div
+        key={`mjpeg-${camera.identifier}-${playerKey}`}
         onContextMenu={handleContextMenu}
         style={{
           width: "100%",
@@ -723,6 +763,7 @@ const CameraPlayer = memo(
       </div>
     ) : (
       <div
+        key={`live-${camera.identifier}-${playerKey}`}
         onContextMenu={handleContextMenu}
         style={{
           width: "100%",
@@ -734,7 +775,6 @@ const CameraPlayer = memo(
           playerRef={safePlayerRef}
           camera={camera}
           src={`${BASE_PATH}/live?src=${camera.identifier}`}
-          controls={false}
           style={{
             width: "100%",
             height: "100%",
