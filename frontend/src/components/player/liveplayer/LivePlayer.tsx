@@ -260,7 +260,6 @@ const usePlayerStatus = (playerRef: React.RefObject<VideoRTC | null>) => {
 
 interface LivePlayerProps extends React.HTMLAttributes<HTMLElement> {
   camera: types.Camera | types.FailedCamera;
-  controls?: boolean;
   src: string;
   style?: React.CSSProperties;
   playerRef?: React.RefObject<VideoRTC | null>;
@@ -272,7 +271,6 @@ interface LivePlayerProps extends React.HTMLAttributes<HTMLElement> {
 
 export function LivePlayer({
   camera,
-  controls,
   src,
   style,
   playerRef,
@@ -339,9 +337,9 @@ export function LivePlayer({
   useEffect(() => {
     if (elementRef.current) {
       elementRef.current.src = src;
-      elementRef.current.controls = controls === undefined ? true : controls;
+      elementRef.current.controls = false; // Always hide native controls
     }
-  }, [elementRef, src, controls]);
+  }, [elementRef, src]);
 
   return (
     <div
@@ -456,7 +454,6 @@ export function LivePlayer({
                 transform: flipView ? "rotate(180deg)" : "none",
                 transition: "transform 0.3s ease-in-out",
               }}
-              controls={controlsVisible}
             />
             {isLoading && (
               <Box
