@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 from typing import Final
+from viseron.const import CONFIG_DIR 
 
 COMPONENT = "webserver"
 
@@ -12,7 +13,7 @@ ONBOARDING_STORAGE_KEY = "onboarding"
 ACCESS_TOKEN_EXPIRATION = timedelta(minutes=30)
 
 DOWNLOAD_PATH = "/tmp/downloads"
-PUBLIC_IMAGES_PATH = "/config/public_images"
+PUBLIC_IMAGES_PATH = f"{CONFIG_DIR}/public_images"
 
 # CONFIG_SCHEMA constants
 CONFIG_PORT = "port"
