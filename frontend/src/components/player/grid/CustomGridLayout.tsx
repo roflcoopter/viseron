@@ -1,3 +1,4 @@
+import { useMediaQuery } from "@mui/material";
 import Box from "@mui/material/Box";
 import {
   forwardRef,
@@ -76,6 +77,9 @@ const CustomGridLayout = forwardRef<CustomGridLayoutRef, CustomGridLayoutProps>(
     const { selectionOrder } = useCameraStore();
     const { isFullscreen } = useFullscreen();
 
+    const is4K = useMediaQuery("(min-width:3840px)"); // 4K breakpoint
+    const HorizontalPadding = is4K ? "8.5vw" : "10.7vw";
+
     useImperativeHandle(ref, () => ({
       setSize: () => {
         // Custom grid layouts handle sizing internally
@@ -101,28 +105,34 @@ const CustomGridLayout = forwardRef<CustomGridLayoutRef, CustomGridLayoutProps>(
             ...baseStyle,
             gridTemplateColumns: "1fr 2fr",
             gridTemplateRows: "1fr 1fr 1fr",
-            padding: isFullscreen ? 0 : "0 8.5vw 0 8.5vw",
+            padding: isFullscreen
+              ? 0
+              : `0 ${HorizontalPadding} 0 ${HorizontalPadding}`,
           };
         case "lshape":
           return {
             ...baseStyle,
             gridTemplateColumns: "1fr 1fr 1fr",
             gridTemplateRows: "1fr 1fr 1fr",
-            padding: isFullscreen ? 0 : "0 8.5vw",
+            padding: isFullscreen ? 0 : `0 ${HorizontalPadding}`,
           };
         case "square_center":
           return {
             ...baseStyle,
             gridTemplateColumns: "1fr 1fr 1fr",
             gridTemplateRows: "1fr 1fr 1fr",
-            padding: isFullscreen ? 0 : "0 8.5vw 0 8.5vw",
+            padding: isFullscreen
+              ? 0
+              : `0 ${HorizontalPadding} 0 ${HorizontalPadding}`,
           };
         case "2plus1":
           return {
             ...baseStyle,
             gridTemplateColumns: "1fr 1fr",
             gridTemplateRows: "1fr 1fr",
-            padding: isFullscreen ? 0 : "0 8.5vw 0 8.5vw",
+            padding: isFullscreen
+              ? 0
+              : `0 ${HorizontalPadding} 0 ${HorizontalPadding}`,
           };
         default:
           return baseStyle;
