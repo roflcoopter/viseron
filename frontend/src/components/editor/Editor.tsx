@@ -331,6 +331,18 @@ function ConfigEditor() {
           alignItems="flex-start"
           spacing={2}
         >
+          <span>
+            <Button
+              startIcon={<Restart />}
+              loadingPosition="start"
+              onClick={handleRestart}
+              variant="contained"
+              loading={restartPending}
+              color="error"
+            >
+              Restart
+            </Button>
+          </span>
           <Tooltip title="Ctrl+S" enterDelay={300}>
             <span>
               <Button
@@ -345,18 +357,6 @@ function ConfigEditor() {
               </Button>
             </span>
           </Tooltip>
-          <span>
-            <Button
-              startIcon={<Restart />}
-              loadingPosition="start"
-              onClick={handleRestart}
-              variant="contained"
-              loading={restartPending}
-              color="error"
-            >
-              Restart
-            </Button>
-          </span>
         </Stack>
         <Box
           sx={[
