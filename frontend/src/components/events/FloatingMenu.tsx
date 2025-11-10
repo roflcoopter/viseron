@@ -35,7 +35,7 @@ export const FloatingMenu = memo(({ date, setDate }: FloatingMenuProps) => {
         }}
       />
       <ExportDialog open={exportDialogOpen} setOpen={setExportDialogOpen} />
-      <Box sx={{ position: "absolute", bottom: 14, right: 24 }}>
+      <Box sx={{ position: "absolute", bottom: 17, right: 24 }}>
         <Tooltip title="Select Cameras">
           <Fab
             size="small"

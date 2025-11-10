@@ -101,28 +101,28 @@ const CustomGridLayout = forwardRef<CustomGridLayoutRef, CustomGridLayoutProps>(
             ...baseStyle,
             gridTemplateColumns: "1fr 2fr",
             gridTemplateRows: "1fr 1fr 1fr",
-            padding: isFullscreen ? 0 : "0 10.3vw 0 10.3vw",
+            padding: isFullscreen ? 0 : "0 8.5vw 0 8.5vw",
           };
         case "lshape":
           return {
             ...baseStyle,
             gridTemplateColumns: "1fr 1fr 1fr",
             gridTemplateRows: "1fr 1fr 1fr",
-            padding: isFullscreen ? 0 : "0 10.3vw",
+            padding: isFullscreen ? 0 : "0 8.5vw",
           };
         case "square_center":
           return {
             ...baseStyle,
             gridTemplateColumns: "1fr 1fr 1fr",
             gridTemplateRows: "1fr 1fr 1fr",
-            padding: isFullscreen ? 0 : "0 10.3vw 0 10.3vw",
+            padding: isFullscreen ? 0 : "0 8.5vw 0 8.5vw",
           };
         case "2plus1":
           return {
             ...baseStyle,
             gridTemplateColumns: "1fr 1fr",
             gridTemplateRows: "1fr 1fr",
-            padding: isFullscreen ? 0 : "0 10.3vw 0 10.3vw",
+            padding: isFullscreen ? 0 : "0 8.5vw 0 8.5vw",
           };
         default:
           return baseStyle;

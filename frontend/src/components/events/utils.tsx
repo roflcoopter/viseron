@@ -24,7 +24,7 @@ import * as types from "lib/types";
 export const TICK_HEIGHT = 8;
 export const SCALE = 60;
 export const EXTRA_TICKS = 10;
-export const COLUMN_HEIGHT = "99dvh";
+export const COLUMN_HEIGHT = "98.2dvh";
 export const COLUMN_HEIGHT_SMALL = "98.5dvh";
 export const EVENT_ICON_HEIGHT = 30;
 export const LIVE_EDGE_DELAY = 10;
