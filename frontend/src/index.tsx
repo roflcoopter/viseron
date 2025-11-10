@@ -1,3 +1,4 @@
+import "@fontsource-variable/ibm-plex-sans";
 import CssBaseline from "@mui/material/CssBaseline";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
