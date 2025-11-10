@@ -1,3 +1,4 @@
+import { DocumentVideo, Error, SettingsEdit } from "@carbon/icons-react";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
@@ -50,12 +51,47 @@ export function FailedCameraCard({
       >
         <CardContent>
           <Typography variant="h5" align="center">
-            {failedCamera.name} -{" "}
-            {failedCamera.retrying ? "Retrying setup" : "Failed setup"}
+            <span>{failedCamera.name} → </span>
+            <span
+              style={{
+                color: failedCamera.retrying
+                  ? theme.palette.warning.main
+                  : theme.palette.error.main,
+              }}
+            >
+              {failedCamera.retrying ? "Retrying Setup" : "Failed Setup"}
+            </span>
           </Typography>
         </CardContent>
-        <CardMedia>
-          <Typography align="center">{failedCamera.error}</Typography>
+        <CardMedia
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 4,
+          }}
+        >
+          <Error
+            size={48}
+            style={{
+              color: failedCamera.retrying
+                ? theme.palette.warning.main
+                : theme.palette.error.main,
+              marginBottom: 8,
+            }}
+          />
+          <Typography
+            align="center"
+            sx={{
+              color: failedCamera.retrying
+                ? theme.palette.warning.main
+                : theme.palette.error.main,
+              padding: 2,
+            }}
+          >
+            {failedCamera.error}
+          </Typography>
         </CardMedia>
       </CardActionArea>
       {compact ? null : (
@@ -63,10 +99,12 @@ export function FailedCameraCard({
           <CardActionButtonLink
             title="Recordings"
             target={`/recordings/${failedCamera.identifier}`}
+            startIcon={<DocumentVideo size={16} />}
           />
           <CardActionButtonLink
             title="Edit Config"
             target="/settings/configuration"
+            startIcon={<SettingsEdit size={16} />}
           />
         </CardActions>
       )}
