@@ -23,7 +23,6 @@ export type Component = {
 };
 
 export const Domains: { [type in DomainType]: Domain } = {
-
   camera: {
     label: "Camera",
     color: "#dfd545",

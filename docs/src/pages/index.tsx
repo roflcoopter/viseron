@@ -1,23 +1,23 @@
 import React from "react";
 
+import {
+  Camera,
+  CarFront,
+  Chip,
+  Demo,
+  FaceActivated,
+  GroupObjects,
+  Help,
+  ImageReference,
+  Movement,
+  Video,
+} from "@carbon/icons-react";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import Heading from "@theme/Heading";
 import Layout from "@theme/Layout";
 import clsx from "clsx";
-import {
-  GroupObjects,
-  Movement,
-  FaceActivated,
-  ImageReference,
-  CarFront,
-  Chip,
-  Demo,
-  Video,
-  Camera,
-  Help,
-} from "@carbon/icons-react";
 
 import HomepageFeatures from "@site/src/components/HomepageFeatures";
 
@@ -43,9 +43,9 @@ function HomepageHeader() {
             </div>
           </div>
           <div className={clsx("col col--7")}>
-            <h2 className={styles.featuresHeading}>
+            <Heading as="h2" className={styles.featuresHeading}>
               With Modern Built In Features
-            </h2>
+            </Heading>
             <div className={styles.featuresGrid}>
               <Link
                 to="/docs/documentation/configuration/domains/#camera-domain"
