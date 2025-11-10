@@ -1,7 +1,7 @@
 import {
   Light,
-  LightFilled,
   Logout,
+  Moon,
   RightPanelClose,
   Settings,
 } from "@carbon/icons-react";
@@ -164,7 +164,7 @@ export default function AppHeader() {
               enterDelay={300}
             >
               <IconButton color="primary" onClick={colorMode.toggleColorMode}>
-                {theme.palette.mode === "dark" ? <LightFilled /> : <Light />}
+                {theme.palette.mode === "dark" ? <Light /> : <Moon />}
               </IconButton>
             </Tooltip>
             {!auth.enabled || (auth.enabled && user?.role) === "admin" ? (
