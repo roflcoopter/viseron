@@ -69,25 +69,26 @@ export function FailedCameraCard({
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            padding: 4,
           }}
         >
           <Error
-            size={48}
+            size={32}
             style={{
               color: failedCamera.retrying
                 ? theme.palette.warning.main
                 : theme.palette.error.main,
-              marginBottom: 8,
+              marginTop: 5,
+              marginBottom: 5,
             }}
           />
           <Typography
             align="center"
             sx={{
+              fontSize: 14,
               color: failedCamera.retrying
                 ? theme.palette.warning.main
                 : theme.palette.error.main,
-              padding: 2,
+              padding: 1,
             }}
           >
             {failedCamera.error}
