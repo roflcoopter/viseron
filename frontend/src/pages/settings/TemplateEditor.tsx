@@ -1,4 +1,4 @@
-import { Warning } from "@carbon/icons-react";
+import { Code, Erase, Warning } from "@carbon/icons-react";
 import { StreamLanguage } from "@codemirror/language";
 import { jinja2 } from "@codemirror/legacy-modes/mode/jinja2";
 import { TextField } from "@mui/material";
@@ -66,6 +66,7 @@ function Editor({
       <Box sx={{ display: "flex", gap: 2 }}>
         <Button
           variant="contained"
+          startIcon={<Code size={16} />}
           onClick={handleRender}
           disabled={loading || !template.trim()}
         >
@@ -73,6 +74,8 @@ function Editor({
         </Button>
         <Button
           variant="contained"
+          color="error"
+          startIcon={<Erase size={16} />}
           onClick={clearTemplate}
           disabled={!template.trim()}
         >
