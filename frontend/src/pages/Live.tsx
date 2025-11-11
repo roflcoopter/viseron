@@ -596,7 +596,7 @@ export const FloatingMenu = memo(
           ref={menuBoxRef}
           sx={{
             position: "absolute",
-            bottom: isFullscreen ? 11 : 17,
+            bottom: isFullscreen ? 11 : 16,
             left: isFullscreen ? 11 : 25,
             zIndex: 1000,
             opacity: isFullscreen && !isMenuVisible ? 0 : 1,
