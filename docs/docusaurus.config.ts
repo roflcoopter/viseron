@@ -161,6 +161,7 @@ const config: Config = {
     ],
   ],
   plugins: ["@docusaurus/plugin-ideal-image"],
+  clientModules: [require.resolve("./src/lib/injectVersion.ts")],
 };
 
 export default config;

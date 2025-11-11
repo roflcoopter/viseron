@@ -184,9 +184,9 @@ html[data-theme="dark"] .docusaurus-highlight-code-line {
   font-weight: 600;
 }
 
-/* Version badge in navbar brand */
+/* Version badge in navbar brand - fetched from GitHub Releases API */
 .navbar__title::after {
-  content: "3.3.1";
+  content: "Loading..."; /* Fallback while fetching */
   background: rgba(255, 255, 255, 0.15);
   color: white;
   padding: 2px 8px;
