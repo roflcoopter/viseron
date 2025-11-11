@@ -146,6 +146,7 @@ function AppDrawerHeader() {
           <Typography
             variant="h5"
             sx={{
+              fontWeight: "medium",
               paddingRight: "50px",
             }}
           >
