@@ -29,7 +29,7 @@ export const COLUMN_HEIGHT_SMALL = "98.5dvh";
 export const EVENT_ICON_HEIGHT = 30;
 export const LIVE_EDGE_DELAY = 10;
 
-export const playerCardSmMaxHeight = () => window.innerHeight * 0.4;
+export const playerCardSmMaxHeight = () => window.innerHeight * 0.5;
 
 // Get all possible keys from Filters
 export type FilterKeysFromFilters =

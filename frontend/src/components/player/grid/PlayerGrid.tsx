@@ -91,12 +91,14 @@ type PlayerGridProps = {
     playerRef: React.RefObject<any>,
   ) => JSX.Element;
   forceBreakpoint?: boolean;
+  useDoubleColumnMobile?: boolean;
 };
 export function PlayerGrid({
   cameras,
   containerRef,
   renderPlayer,
   forceBreakpoint,
+  useDoubleColumnMobile,
 }: PlayerGridProps) {
   const playerItemRefs = useRef<(PlayerItemRef | null)[]>([]);
   const setPlayerItemRef = (index: number, ref: PlayerItemRef | null) => {
@@ -111,7 +113,13 @@ export function PlayerGrid({
     });
   };
 
-  const gridLayout = useGridLayout(containerRef, cameras, setPlayerItemsSize);
+  const gridLayout = useGridLayout(
+    containerRef,
+    cameras,
+    setPlayerItemsSize,
+    undefined,
+    useDoubleColumnMobile,
+  );
 
   return (
     <Grid

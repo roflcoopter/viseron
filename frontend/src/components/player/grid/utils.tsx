@@ -88,6 +88,7 @@ const calculateLayout = (
   containerRef: React.RefObject<HTMLDivElement | null>,
   cameras: types.CamerasOrFailedCameras,
   smBreakpoint: boolean,
+  useDoubleColumnMobile: boolean = false,
 ) => {
   if (!containerRef.current) return { columns: 1, rows: 1 };
 
@@ -95,8 +96,16 @@ const calculateLayout = (
   const containerHeight = getContainerHeight(containerRef, smBreakpoint);
   const camerasLength = Object.keys(cameras).length;
 
-  // For mobile devices (below sm breakpoint), always use single column layout
+  // For mobile devices (below sm breakpoint)
   if (!smBreakpoint) {
+    // Use 2 columns layout if explicitly enabled (in Events/Timeline tab)
+    if (useDoubleColumnMobile) {
+      return {
+        columns: Math.min(2, camerasLength),
+        rows: Math.ceil(camerasLength / 2),
+      };
+    }
+    // Default: single column layout for mobile
     return { columns: 1, rows: camerasLength };
   }
 
@@ -139,6 +148,7 @@ export const useGridLayout = (
   cameras: types.CamerasOrFailedCameras,
   setPlayerItemsSize: () => void,
   overrideSmBreakpoint?: boolean | undefined,
+  useDoubleColumnMobile?: boolean,
 ) => {
   const theme = useTheme();
   const smBreakpoint = useMediaQuery(theme.breakpoints.up("sm"));
@@ -152,6 +162,7 @@ export const useGridLayout = (
       containerRef,
       cameras,
       overrideSmBreakpoint === undefined ? smBreakpoint : overrideSmBreakpoint,
+      useDoubleColumnMobile || false,
     );
     if (
       layout.columns !== gridLayout.columns ||
@@ -168,6 +179,7 @@ export const useGridLayout = (
     gridLayout.columns,
     gridLayout.rows,
     setPlayerItemsSize,
+    useDoubleColumnMobile,
   ]);
 
   // Observe both the containerRef and window resize to update the layout
@@ -194,7 +206,12 @@ export const setPlayerSize = (
       gridLayout,
       smBreakpoint,
     );
-    boxRef.current.style.width = `${width}px`;
-    boxRef.current.style.height = `${height}px`;
+    if (gridLayout.columns === 1) {
+      boxRef.current.style.width = "100%";
+      boxRef.current.style.height = `${height}px`;
+    } else {
+      boxRef.current.style.width = `${width}px`;
+      boxRef.current.style.height = `${height}px`;
+    }
   }
 };
