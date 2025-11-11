@@ -194,7 +194,6 @@ function SuccessCameraCard({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  minHeight: 200,
                 }}
               >
                 <VideoOff
