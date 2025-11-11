@@ -1,3 +1,4 @@
+import { Login as LoginIcon } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
@@ -86,21 +87,84 @@ function Login() {
   return (
     <Box
       sx={{
-        minHeight: "90vh",
+        minHeight: "100vh",
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         justifyContent: "center",
-        py: 2,
+        pt: "8vh",
         px: 2,
+        position: "relative",
+        overflow: "hidden",
+        background:
+          theme.palette.mode === "dark"
+            ? "linear-gradient(135deg, #0A1929 0%, #001E3C 50%, #0A1929 100%)"
+            : "linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 50%, #E3F2FD 100%)",
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundImage:
+            theme.palette.mode === "dark"
+              ? `radial-gradient(circle at 20% 50%, rgba(0, 127, 255, 0.1) 0%, transparent 50%),
+                 radial-gradient(circle at 80% 80%, rgba(0, 127, 255, 0.08) 0%, transparent 50%),
+                 radial-gradient(circle at 40% 20%, rgba(0, 127, 255, 0.06) 0%, transparent 50%)`
+              : `radial-gradient(circle at 20% 50%, rgba(0, 127, 255, 0.08) 0%, transparent 50%),
+                 radial-gradient(circle at 80% 80%, rgba(0, 127, 255, 0.06) 0%, transparent 50%),
+                 radial-gradient(circle at 40% 20%, rgba(0, 127, 255, 0.04) 0%, transparent 50%)`,
+          pointerEvents: "none",
+        },
+        "&::after": {
+          content: '""',
+          position: "absolute",
+          top: "-50%",
+          left: "-50%",
+          width: "200%",
+          height: "200%",
+          backgroundImage:
+            theme.palette.mode === "dark"
+              ? `repeating-linear-gradient(
+                  0deg,
+                  transparent,
+                  transparent 4px,
+                  rgba(0, 127, 255, 0.03) 4px,
+                  rgba(0, 127, 255, 0.03) 8px
+                ),
+                repeating-linear-gradient(
+                  90deg,
+                  transparent,
+                  transparent 4px,
+                  rgba(0, 127, 255, 0.03) 4px,
+                  rgba(0, 127, 255, 0.03) 8px
+                )`
+              : `repeating-linear-gradient(
+                  0deg,
+                  transparent,
+                  transparent 4px,
+                  rgba(0, 127, 255, 0.02) 4px,
+                  rgba(0, 127, 255, 0.02) 8px
+                ),
+                repeating-linear-gradient(
+                  90deg,
+                  transparent,
+                  transparent 4px,
+                  rgba(0, 127, 255, 0.02) 4px,
+                  rgba(0, 127, 255, 0.02) 8px
+                )`,
+          backgroundSize: "150px 150px",
+          opacity: 0.5,
+          pointerEvents: "none",
+        },
       }}
     >
-      <Container maxWidth="sm">
+      <Container maxWidth="sm" sx={{ position: "relative", zIndex: 1 }}>
         <Stack spacing={4} alignItems="center">
           {/* Logo and Brand Section */}
           <Box
             sx={{
               textAlign: "center",
-              mb: 2,
             }}
           >
             <Box
@@ -142,7 +206,21 @@ function Login() {
               maxWidth: 400,
               borderRadius: 2,
               overflow: "hidden",
-              border: `1px solid ${theme.palette.divider}`,
+              border: `1px solid ${
+                theme.palette.mode === "dark"
+                  ? "rgba(255, 255, 255, 0.1)"
+                  : "rgba(255, 255, 255, 0.3)"
+              }`,
+              backgroundColor:
+                theme.palette.mode === "dark"
+                  ? "rgba(12, 30, 48, 0.7)"
+                  : "rgba(255, 255, 255, 0.7)",
+              backdropFilter: "blur(20px) saturate(50%)",
+              WebkitBackdropFilter: "blur(20px) saturate(180%)",
+              boxShadow:
+                theme.palette.mode === "dark"
+                  ? "0px 8px 32px rgba(0, 0, 0, 0.4), inset 0px 1px 0px rgba(255, 255, 255, 0.1)"
+                  : "0px 8px 32px rgba(0, 0, 0, 0.1), inset 0px 1px 0px rgba(255, 255, 255, 0.8)",
             }}
           >
             <Box sx={{ p: 4 }}>
@@ -177,7 +255,7 @@ function Login() {
                   e.preventDefault();
                 }}
               >
-                <Stack spacing={3}>
+                <Stack spacing={3} sx={{ mt: 2 }}>
                   <TextFieldItem<keyof InputState>
                     inputKind="username"
                     inputState={inputState}
@@ -195,6 +273,7 @@ function Login() {
                     type="submit"
                     fullWidth
                     variant="contained"
+                    startIcon={<LoginIcon size={16} />}
                     size="large"
                     disabled={
                       !inputState.username.value ||
