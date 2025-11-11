@@ -206,12 +206,7 @@ export const setPlayerSize = (
       gridLayout,
       smBreakpoint,
     );
-    if (gridLayout.columns === 1) {
-      boxRef.current.style.width = "100%";
-      boxRef.current.style.height = `${height}px`;
-    } else {
-      boxRef.current.style.width = `${width}px`;
-      boxRef.current.style.height = `${height}px`;
-    }
+    boxRef.current.style.width = `${width}px`;
+    boxRef.current.style.height = `${height}px`;
   }
 };
