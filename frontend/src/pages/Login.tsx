@@ -46,7 +46,7 @@ function reducer(state: InputState, action: InputAction): InputState {
 function Login() {
   useTitle("Login");
   const theme = useTheme();
-  const { auth } = useAuthContext();
+  const { auth, user } = useAuthContext();
   const location = useLocation();
   const navigate = useNavigate();
   const login = useAuthLogin();
@@ -54,19 +54,20 @@ function Login() {
   const [inputState, dispatch] = useReducer(reducer, initialState);
   const fromRef = useRef(undefined);
 
-  queryClient.removeQueries({
-    predicate(query) {
-      return query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled";
-    },
-  });
-  queryClient.invalidateQueries({
-    refetchType: "none",
-    predicate(query) {
-      return query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled";
-    },
-  });
-
   useEffect(() => {
+    // Clean up queries when navigating to login page
+    queryClient.removeQueries({
+      predicate(query) {
+        return query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled";
+      },
+    });
+    queryClient.invalidateQueries({
+      refetchType: "none",
+      predicate(query) {
+        return query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled";
+      },
+    });
+
     fromRef.current =
       location.state && location.state.from ? location.state.from : null;
     // Clear the state parameter
@@ -81,6 +82,10 @@ function Login() {
   }
 
   if (!auth.enabled) {
+    return <Navigate to="/" />;
+  }
+
+  if (user) {
     return <Navigate to="/" />;
   }
 
@@ -290,7 +295,12 @@ function Login() {
                         },
                         {
                           onSuccess: async (_data, _variables, _context) => {
-                            navigate(fromRef.current ? fromRef.current : "/");
+                            // Wait for backend to set cookie
+                            await new Promise((resolve) => {
+                              setTimeout(resolve, 100);
+                            });
+
+                            window.location.href = "/";
                           },
                         },
                       );

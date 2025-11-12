@@ -44,6 +44,7 @@ const useAuthAxiosInterceptor = (
 ) => {
   const toast = useToast();
   const requestInterceptorRef = useRef<number | undefined>(undefined);
+  const sessionErrorShownRef = useRef(false);
 
   useLayoutEffect(() => {
     if (requestInterceptorRef.current !== undefined) {
@@ -82,7 +83,11 @@ const useAuthAxiosInterceptor = (
         }
 
         if (!cookies.user) {
-          toast.error("Session expired, please log in again");
+          // Only show toast once per session to prevent spam
+          if (!sessionErrorShownRef.current) {
+            sessionErrorShownRef.current = true;
+            toast.error("Session expired, please log in again");
+          }
           throw new Error("Invalid session.");
         }
 
@@ -128,7 +133,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       enabled: !!(
         authQuery.data?.enabled &&
         authQuery.data?.onboarding_complete &&
-        !!cookies.user
+        !!cookies.user &&
+        location.pathname !== "/login" // Don't fetch user on login page
       ),
     },
   });
@@ -159,7 +165,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return <Loading text="Loading User" />;
   }
 
-  if (userQuery.isError) {
+  // Don't show error on login page
+  if (userQuery.isError && location.pathname !== "/login") {
     return <ErrorLoadingUser />;
   }
 

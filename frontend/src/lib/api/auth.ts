@@ -127,6 +127,14 @@ export const useAuthLogout = () =>
     mutationFn: authLogout,
     onSuccess: async (_data, _variables, _context) => {
       clearTokens();
+      // Clear all queries except auth.enabled to prevent unnecessary refetching
+      queryClient.removeQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          // Keep auth.enabled query
+          return !(key[0] === "auth" && key[1] === "enabled");
+        },
+      });
     },
   });
 

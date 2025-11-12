@@ -1,7 +1,7 @@
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 import { styled } from "@mui/material/styles";
-import { Suspense, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { CSSTransition, SwitchTransition } from "react-transition-group";
 
@@ -28,6 +28,15 @@ function PrivateLayoutContent() {
   const { auth, user } = useAuthContext();
   const toast = useToast();
 
+  // Show session expired toast in useEffect to avoid state update during render
+  useEffect(() => {
+    if (auth.enabled && sessionExpired()) {
+      toast.warning("Session expired, please log in again", {
+        toastId: toastIds.sessionExpired,
+      });
+    }
+  }, [auth.enabled, toast]);
+
   // User is not logged in
   if (auth.enabled && !user) {
     return (
@@ -42,9 +51,6 @@ function PrivateLayoutContent() {
 
   // Session expired
   if (auth.enabled && sessionExpired()) {
-    toast.warning("Session expired, please log in again", {
-      toastId: toastIds.sessionExpired,
-    });
     return (
       <Navigate
         to="/login"
