@@ -17,7 +17,7 @@ import { Loading } from "components/loading/Loading";
 import { useToast } from "hooks/UseToast";
 import { useAuthEnabled, useAuthUser } from "lib/api/auth";
 import { viseronAPI } from "lib/api/client";
-import { getToken } from "lib/tokens";
+import { getToken, isManualLogoutActive } from "lib/tokens";
 import * as types from "lib/types";
 
 function ErrorLoadingUser() {
@@ -41,6 +41,7 @@ function ErrorLoadingUser() {
 
 const useAuthAxiosInterceptor = (
   auth: types.AuthEnabledResponse | undefined,
+  user: types.AuthUserResponse | null,
 ) => {
   const toast = useToast();
   const requestInterceptorRef = useRef<number | undefined>(undefined);
@@ -83,8 +84,11 @@ const useAuthAxiosInterceptor = (
         }
 
         if (!cookies.user) {
-          // Only show toast once per session to prevent spam
-          if (!sessionErrorShownRef.current) {
+          if (
+            !sessionErrorShownRef.current &&
+            !isManualLogoutActive() &&
+            user !== null
+          ) {
             sessionErrorShownRef.current = true;
             toast.error("Session expired, please log in again");
           }
@@ -107,7 +111,7 @@ const useAuthAxiosInterceptor = (
         viseronAPI.interceptors.request.eject(requestInterceptorRef.current);
       }
     };
-  }, [auth, toast]);
+  }, [auth, toast, user]);
 };
 
 type AuthContextState = {
@@ -123,7 +127,6 @@ type AuthProviderProps = {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const authQuery = useAuthEnabled();
-  useAuthAxiosInterceptor(authQuery.data);
   const location = useLocation();
 
   const cookies = Cookies.get();
@@ -133,11 +136,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       enabled: !!(
         authQuery.data?.enabled &&
         authQuery.data?.onboarding_complete &&
-        !!cookies.user &&
-        location.pathname !== "/login" // Don't fetch user on login page
+        !!cookies.user
       ),
     },
   });
+
+  useAuthAxiosInterceptor(authQuery.data, userQuery.data ?? null);
 
   const authContextState = useMemo<AuthContextState>(
     () => ({
@@ -161,12 +165,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   // isLoading instead of isPending because query might be disabled
-  if (userQuery.isLoading) {
+  // Skip loading screen during manual logout to avoid flash
+  if (userQuery.isLoading && !isManualLogoutActive()) {
     return <Loading text="Loading User" />;
   }
 
-  // Don't show error on login page
-  if (userQuery.isError && location.pathname !== "/login") {
+  // Don't show error if we're on login page or if there's no cookie (user just logged out)
+  if (userQuery.isError && cookies.user && location.pathname !== "/login") {
     return <ErrorLoadingUser />;
   }
 

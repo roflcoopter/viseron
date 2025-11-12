@@ -15,6 +15,7 @@ import { useAuthContext } from "context/AuthContext";
 import { useTitle } from "hooks/UseTitle";
 import { useAuthLogin } from "lib/api/auth";
 import queryClient from "lib/api/client";
+import { setManualLogout } from "lib/tokens";
 
 type InputState = {
   username: TextFieldItemState;
@@ -55,6 +56,9 @@ function Login() {
   const fromRef = useRef(undefined);
 
   useEffect(() => {
+    // Reset manual logout flag when entering login page
+    setManualLogout(false);
+
     // Clean up queries when navigating to login page
     queryClient.removeQueries({
       predicate(query) {
