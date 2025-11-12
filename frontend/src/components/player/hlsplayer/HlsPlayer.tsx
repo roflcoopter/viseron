@@ -269,6 +269,9 @@ const useInitializePlayer = (
   );
   const delayedInitializationTimeoutRef = useRef<NodeJS.Timeout>(undefined);
   const delayedRecoveryTimeoutRef = useRef<NodeJS.Timeout>(undefined);
+  const previousConnectedRef = useRef<boolean>(
+    !camera.failed && (camera as types.Camera).connected,
+  );
 
   const reInitPlayer = useCallback(() => {
     if (Hls.isSupported()) {
@@ -337,6 +340,20 @@ const useInitializePlayer = (
       hlsRef.current.startLoad();
     }
   }, [connected, hlsRef]);
+
+  // Reinitialize player when camera reconnects after being disconnected
+  useEffect(() => {
+    const isConnected = !camera.failed && (camera as types.Camera).connected;
+    const wasDisconnected = !previousConnectedRef.current;
+
+    // Only reinitialize if camera was disconnected and now is connected
+    if (isConnected && wasDisconnected && hlsRef.current) {
+      setHlsRefsError(hlsRef, null);
+      reInitPlayer();
+    }
+
+    previousConnectedRef.current = isConnected;
+  }, [camera, hlsRef, reInitPlayer, setHlsRefsError]);
 
   return {
     reInitPlayer,
