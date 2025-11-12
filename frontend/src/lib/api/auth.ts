@@ -102,9 +102,7 @@ async function authLogin({ username, password }: AuthLoginVariables) {
   return response.data;
 }
 
-export const useAuthLogin = () => {
-  const toast = useToast();
-  return useMutation<
+export const useAuthLogin = () => useMutation<
     types.AuthLoginResponse,
     types.APIErrorResponse,
     AuthLoginVariables
@@ -114,10 +112,8 @@ export const useAuthLogin = () => {
       storeTokens(data);
       // Reset manual logout flag on successful login
       setManualLogout(false);
-      toast.success("Successfully logged in");
     },
   });
-};
 
 async function authLogout() {
   const response = await viseronAPI.post("/auth/logout");
