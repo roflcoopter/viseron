@@ -102,7 +102,8 @@ async function authLogin({ username, password }: AuthLoginVariables) {
   return response.data;
 }
 
-export const useAuthLogin = () => useMutation<
+export const useAuthLogin = () =>
+  useMutation<
     types.AuthLoginResponse,
     types.APIErrorResponse,
     AuthLoginVariables
