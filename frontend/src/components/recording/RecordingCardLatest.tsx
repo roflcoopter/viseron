@@ -1,9 +1,10 @@
-import { DocumentVideo, FolderOff, TrashCan } from "@carbon/icons-react";
+import { FolderDetails, FolderOff, TrashCan } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
+import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
@@ -36,6 +37,7 @@ export default function RecordingCardLatest({
   const recordingsQuery = useRecordings({
     camera_identifier,
     latest: true,
+    daily: true,
     failed,
   });
 
@@ -74,6 +76,10 @@ export default function RecordingCardLatest({
     return null;
   }
 
+  const totalDays = recordingsQuery.data
+    ? Object.keys(recordingsQuery.data).length
+    : 0;
+
   return (
     <Card
       variant="outlined"
@@ -95,7 +101,21 @@ export default function RecordingCardLatest({
       ]}
     >
       <CardContent>
-        <Typography variant="h6">{cameraQuery.data.name}</Typography>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+        >
+          <Typography variant="h6">{cameraQuery.data.name}</Typography>
+          <Tooltip title="Total recording days">
+            <Chip
+              label={`${totalDays} ${totalDays === 1 ? "Day" : "Days"}`}
+              size="small"
+              variant="outlined"
+              color="info"
+            />
+          </Tooltip>
+        </Stack>
       </CardContent>
       <CardMedia>
         <LazyLoad
@@ -144,7 +164,7 @@ export default function RecordingCardLatest({
           {objHasValues(recording) ? (
             <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
               Latest recording:{"\n"}
-              <span style={{ color: theme.palette.primary.main }}>
+              <span style={{ color: theme.palette.info.main }}>
                 {(() => {
                   const startDate = new Date(recording.start_time);
                   return `${startDate.toLocaleDateString()} - ${getTimeFromDate(startDate)}`;
@@ -162,7 +182,7 @@ export default function RecordingCardLatest({
                   to={`/recordings/${camera_identifier}`}
                   disabled={!objHasValues(recording)}
                 >
-                  <DocumentVideo size={20} />
+                  <FolderDetails size={20} />
                 </IconButton>
               </span>
             </Tooltip>
@@ -172,6 +192,7 @@ export default function RecordingCardLatest({
                   <MutationIconButton
                     mutation={deleteRecording}
                     disabled={!objHasValues(recording)}
+                    color="error"
                     onClick={() => {
                       deleteRecording.mutate({
                         identifier: camera_identifier,
