@@ -1,4 +1,8 @@
-import { CloudOffline, DocumentVideo, TrashCan } from "@carbon/icons-react";
+import {
+  CloudOffline,
+  FolderDetailsReference,
+  TrashCan,
+} from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActions from "@mui/material/CardActions";
@@ -50,7 +54,7 @@ export default function RecordingCardDaily({
       }
     >
       <CardContent>
-        <Typography variant="h5">{date}</Typography>
+        <Typography variant="h6">{date}</Typography>
       </CardContent>
       <CardMedia>
         <LazyLoad
@@ -96,8 +100,8 @@ export default function RecordingCardDaily({
         >
           {objHasValues<types.Recording>(recording) ? (
             <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
-              Last recording:{"\n"}
-              <span style={{ color: theme.palette.primary.main }}>
+              Latest recording:{"\n"}
+              <span style={{ color: theme.palette.info.main }}>
                 {getTimeFromDate(new Date(recording.start_time))}
               </span>
             </Typography>
@@ -105,14 +109,14 @@ export default function RecordingCardDaily({
             <Typography variant="body2">No recordings found</Typography>
           )}
           <Stack direction="row" spacing={1}>
-            <Tooltip title="View Recordings">
+            <Tooltip title="View All Recordings">
               <span>
                 <IconButton
                   component={Link}
                   to={`/recordings/${camera.identifier}/${date}`}
                   disabled={!objHasValues(recording)}
                 >
-                  <DocumentVideo size={20} />
+                  <FolderDetailsReference size={20} />
                 </IconButton>
               </span>
             </Tooltip>
@@ -121,6 +125,7 @@ export default function RecordingCardDaily({
                 <span>
                   <MutationIconButton
                     mutation={deleteRecording}
+                    color="error"
                     onClick={() => {
                       deleteRecording.mutate({
                         identifier: camera.identifier,
