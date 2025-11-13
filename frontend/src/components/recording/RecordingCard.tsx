@@ -68,6 +68,7 @@ export default function RecordingCard({
             <Tooltip title="Delete Recording">
               <MutationIconButton
                 mutation={deleteRecording}
+                color="error"
                 onClick={() => {
                   deleteRecording.mutate({
                     identifier: camera.identifier,
