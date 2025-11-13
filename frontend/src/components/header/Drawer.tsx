@@ -160,7 +160,7 @@ function AppDrawerHeader() {
                 fontSize: "0.6rem",
                 position: "absolute",
                 top: 0,
-                right: "30px",
+                left: "87px",
               }}
             >
               {version}
