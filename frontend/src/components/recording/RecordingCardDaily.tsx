@@ -109,7 +109,7 @@ export default function RecordingCardDaily({
             <Typography variant="body2">No recordings found</Typography>
           )}
           <Stack direction="row" spacing={1}>
-            <Tooltip title="View All Recordings">
+            <Tooltip title="View All Videos">
               <span>
                 <IconButton
                   component={Link}
@@ -121,7 +121,7 @@ export default function RecordingCardDaily({
               </span>
             </Tooltip>
             {!user || user.role === "admin" || user.role === "write" ? (
-              <Tooltip title="Delete Recordings">
+              <Tooltip title="Delete All Videos">
                 <span>
                   <MutationIconButton
                     mutation={deleteRecording}

@@ -99,12 +99,9 @@ function CameraRecordings() {
   };
 
   return (
-    <Container sx={{ paddingX: 2, paddingY: 1 }}>
+    <Container sx={{ paddingX: 2 }}>
       <Box
         sx={{
-          position: "sticky",
-          top: `${theme.headerHeight + 10}px`,
-          zIndex: theme.zIndex.appBar - 1,
           mb: 1,
           paddingX: 2,
           paddingY: 2,

@@ -159,7 +159,7 @@ function CameraRecordingsDaily() {
   };
 
   return (
-    <Container sx={{ paddingX: 2}}>
+    <Container sx={{ paddingX: 2 }}>
       <Box
         sx={{
           mb: 1,
@@ -236,7 +236,7 @@ function CameraRecordingsDaily() {
             alignItems="center"
             spacing={1}
             flexWrap="wrap"
-            sx={{ display: { xs: "flex", md: "none" }}}
+            sx={{ display: { xs: "flex", md: "none" } }}
           >
             <Tooltip title="Recording date">
               <Chip
@@ -268,13 +268,13 @@ function CameraRecordingsDaily() {
             onChange={handleTriggerTypeChange}
             size="small"
             aria-label="trigger type filter"
-            sx={{ 
+            sx={{
               display: { xs: "flex", md: "none", lg: "flex" },
               position: { lg: "absolute" },
               left: { lg: "50%" },
               transform: { lg: "translateX(-50%)" },
               width: { xs: "100%", lg: "auto" },
-              paddingTop: { xs: 1, md: 0 }
+              paddingTop: { xs: 1, md: 0 },
             }}
           >
             <Tooltip title="Motion Detection">
