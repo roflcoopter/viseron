@@ -43,18 +43,18 @@ export const ActivityLine = memo(
 
     const style = {
       ...(variant === "first" && {
-        borderTopLeftRadius: "40%",
-        borderTopRightRadius: "40%",
+        borderTopLeftRadius: "25%",
+        borderTopRightRadius: "25%",
       }),
       ...(variant === "last" && {
-        borderBottomLeftRadius: "40%",
-        borderBottomRightRadius: "40%",
+        borderBottomLeftRadius: "25%",
+        borderBottomRightRadius: "25%",
       }),
       ...(variant === "middle" && {
         borderRadius: "0",
       }),
       ...(variant === "round" && {
-        borderRadius: "40%",
+        borderRadius: "25%",
       }),
     };
 
@@ -81,10 +81,10 @@ export const ActivityLine = memo(
             className={variant || undefined}
             style={{
               height: TICK_HEIGHT,
-              minWidth: "6px",
+              minWidth: "10px",
               background: `linear-gradient(${
                 theme.palette[cameraEvent.type]
-              }, ${theme.palette[cameraEvent.type]}) no-repeat center/6px 100%`,
+              }, ${theme.palette[cameraEvent.type]}) no-repeat center/10px 100%`,
               overflow: "hidden",
               transition: "background 0.5s",
               ...style,
@@ -102,7 +102,7 @@ export const ActivityLine = memo(
         className={variant || undefined}
         style={{
           height: TICK_HEIGHT,
-          width: "6px",
+          width: "10px",
           flexShrink: 0,
           background: `linear-gradient(${background}, ${background}) no-repeat center/${thickness}px 100%`,
           transition: "background 0.2s linear",
