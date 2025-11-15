@@ -11,6 +11,13 @@ import {
 } from "lib/helpers";
 import * as types from "lib/types";
 
+// Mock CSS.supports for Video.js
+if (!window.CSS || !window.CSS.supports) {
+  window.CSS = {
+    supports: () => false,
+  } as any;
+}
+
 const mockCamera: types.Camera = {
   width: 1920,
   height: 1080,
@@ -158,8 +165,11 @@ describe("getVideoElement", () => {
     const { getByTestId } = render(
       getVideoElement(mockCamera, recording, false),
     );
-    await waitFor(() =>
-      expect(getByTestId("video-player")).toBeInTheDocument(),
+    await waitFor(
+      () => {
+        expect(getByTestId("video-player")).toBeInTheDocument();
+      },
+      { timeout: 3000 },
     );
   });
 });

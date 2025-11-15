@@ -1,3 +1,4 @@
+import { Erase, PlayFilledAlt, StopFilledAlt } from "@carbon/icons-react";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -57,7 +58,7 @@ function SystemEvents() {
   };
 
   return (
-    <Container>
+    <Container sx={{ paddingX: 2 }}>
       <Paper variant="outlined" sx={{ p: 3, mb: 1 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
           Listen to events
@@ -84,7 +85,12 @@ function SystemEvents() {
         />
         <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
           {subscribed ? (
-            <Button variant="contained" onClick={handleUnsubscribe}>
+            <Button
+              variant="contained"
+              color="warning"
+              onClick={handleUnsubscribe}
+              startIcon={<StopFilledAlt size={16} />}
+            >
               STOP LISTENING
             </Button>
           ) : (
@@ -92,11 +98,17 @@ function SystemEvents() {
               variant="contained"
               onClick={handleSubscribe}
               disabled={!event}
+              startIcon={<PlayFilledAlt size={16} />}
             >
               START LISTENING
             </Button>
           )}
-          <Button variant="contained" onClick={handleClearEvents}>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleClearEvents}
+            startIcon={<Erase size={16} />}
+          >
             CLEAR EVENTS
           </Button>
         </Box>

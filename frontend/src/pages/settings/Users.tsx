@@ -1,4 +1,4 @@
-import AddIcon from "@mui/icons-material/Add";
+import { AddAlt } from "@carbon/icons-react";
 import Container from "@mui/material/Container";
 import Fab from "@mui/material/Fab";
 import Paper from "@mui/material/Paper";
@@ -65,7 +65,7 @@ function Users() {
   };
 
   return (
-    <Container maxWidth={false}>
+    <Container maxWidth={false} sx={{ paddingX: 2 }}>
       <TableContainer component={Paper}>
         <Table
           sx={() => ({
@@ -77,13 +77,16 @@ function Users() {
         >
           <TableHead>
             <TableRow>
+              <StyledTableCell sx={{ textAlign: "center", width: "60px" }}>
+                #
+              </StyledTableCell>
               <StyledTableCell>Display Name</StyledTableCell>
               <StyledTableCell>Username</StyledTableCell>
               <StyledTableCell>Role</StyledTableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {authUsers.data.users.map((user) => (
+            {authUsers.data.users.map((user, index) => (
               <TableRow
                 key={user.username}
                 hover
@@ -93,6 +96,11 @@ function Users() {
                   cursor: "pointer",
                 }}
               >
+                <StyledTableCell
+                  sx={{ textAlign: "center", fontWeight: "medium" }}
+                >
+                  {index + 1}
+                </StyledTableCell>
                 <StyledTableCell>{user.name}</StyledTableCell>
                 <StyledTableCell>{user.username}</StyledTableCell>
                 <StyledTableCell>{user.role}</StyledTableCell>
@@ -108,10 +116,10 @@ function Users() {
         variant="extended"
         color="primary"
         aria-label="add"
-        sx={{ zIndex: 100, position: "fixed", bottom: 16, right: 16 }}
+        sx={{ zIndex: 100, position: "fixed", bottom: 30, right: 30 }}
         onClick={handleOpenAddUser}
       >
-        <AddIcon />
+        <AddAlt size={20} style={{ marginRight: 8 }} />
         Add User
       </Fab>
       {isAddUserOpen && <AddUserDialog onClose={handleCloseAddUser} />}

@@ -1,4 +1,4 @@
-import SearchIcon from "@mui/icons-material/Search";
+import { Search } from "@carbon/icons-react";
 import InputAdornment from "@mui/material/InputAdornment";
 import TextField from "@mui/material/TextField";
 
@@ -17,7 +17,7 @@ export default function SearchField({ text, onChange }: SearchFieldProps) {
       InputProps={{
         startAdornment: (
           <InputAdornment position="start" sx={{ paddingLeft: "5px" }}>
-            <SearchIcon />
+            <Search />
           </InputAdornment>
         ),
       }}

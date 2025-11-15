@@ -1,6 +1,5 @@
+import { Restart, Save } from "@carbon/icons-react";
 import Editor, { Monaco, loader } from "@monaco-editor/react";
-import { RestartAlt } from "@mui/icons-material";
-import SaveIcon from "@mui/icons-material/Save";
 import Backdrop from "@mui/material/Backdrop";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -320,17 +319,34 @@ function ConfigEditor() {
           </Button>
         </DialogActions>
       </Dialog>
-      <Stack justifyContent="flex-start" alignItems="flex-start" spacing={2}>
+      <Stack
+        justifyContent="flex-start"
+        alignItems="flex-start"
+        paddingTop={1}
+        spacing={2}
+      >
         <Stack
           direction="row"
           justifyContent="flex-start"
           alignItems="flex-start"
           spacing={2}
         >
+          <span>
+            <Button
+              startIcon={<Restart />}
+              loadingPosition="start"
+              onClick={handleRestart}
+              variant="contained"
+              loading={restartPending}
+              color="error"
+            >
+              Restart
+            </Button>
+          </span>
           <Tooltip title="Ctrl+S" enterDelay={300}>
             <span>
               <Button
-                startIcon={<SaveIcon />}
+                startIcon={<Save />}
                 loadingPosition="start"
                 onClick={handleSave}
                 variant="contained"
@@ -341,18 +357,6 @@ function ConfigEditor() {
               </Button>
             </span>
           </Tooltip>
-          <span>
-            <Button
-              startIcon={<RestartAlt />}
-              loadingPosition="start"
-              onClick={handleRestart}
-              variant="contained"
-              loading={restartPending}
-              color="error"
-            >
-              Restart
-            </Button>
-          </span>
         </Stack>
         <Box
           sx={[
@@ -362,15 +366,15 @@ function ConfigEditor() {
             },
             markers.length > 0
               ? {
-                  height: "80vh",
+                  height: "70vh",
                 }
               : {
-                  height: "90vh",
+                  height: "80vh",
                 },
           ]}
         >
           <Backdrop open={savePending} sx={{ position: "absolute", zIndex: 1 }}>
-            <CircularProgress color="inherit" />
+            <CircularProgress enableTrackSlot color="inherit" />
           </Backdrop>
           <Card
             variant="outlined"
@@ -382,7 +386,7 @@ function ConfigEditor() {
             })}
           >
             <Editor
-              height={markers.length > 0 ? "80vh" : "90vh"}
+              height={markers.length > 0 ? "70vh" : "80vh"}
               defaultLanguage="yaml"
               theme={`${theme.palette.mode === "dark" ? "vs-dark" : "light"}`}
               defaultValue={savedConfig}

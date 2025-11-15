@@ -1,9 +1,11 @@
+import { DocumentDownload } from "@carbon/icons-react";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { Dayjs } from "dayjs";
 import { useState } from "react";
@@ -49,8 +51,25 @@ export function ExportDialog({ open, setOpen }: ExportDialogProps) {
   const isExportDisabled =
     !startDate || !endDate || endDate.isBefore(startDate);
   return (
-    <Dialog fullWidth maxWidth="xs" open={open} onClose={handleClose}>
-      <DialogTitle>Download Recording</DialogTitle>
+    <Dialog
+      fullWidth
+      maxWidth="xs"
+      open={open}
+      onClose={handleClose}
+      scroll="paper"
+      sx={{
+        "& .MuiDialog-container": {
+          alignItems: "flex-start",
+          paddingTop: "10vh",
+        },
+      }}
+    >
+      <DialogTitle>
+        <Stack direction="row" alignItems="center" spacing={1}>
+          <DocumentDownload size={24} />
+          <Typography variant="h6">Download Recording</Typography>
+        </Stack>
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
           <DateTimePicker

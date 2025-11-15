@@ -225,7 +225,18 @@ export class VideoRTC extends HTMLElement {
     if (this.wsState === WebSocket.CLOSED && this.pcState === WebSocket.CLOSED)
       return;
 
+    // Don't disconnect if video is in Picture-in-Picture mode
+    if (this.video && document.pictureInPictureElement === this.video) {
+      return;
+    }
+
     this.disconnectTID = setTimeout(() => {
+      // Double-check PiP status before disconnecting
+      if (this.video && document.pictureInPictureElement === this.video) {
+        this.disconnectTID = 0;
+        return;
+      }
+
       if (this.reconnectTID) {
         clearTimeout(this.reconnectTID);
         this.reconnectTID = 0;
@@ -253,8 +264,25 @@ export class VideoRTC extends HTMLElement {
     this.appendChild(this.video);
 
     this.video.addEventListener("error", (ev) => {
-      console.warn(ev);
+      // console.warn(ev);
       if (this.ws) this.ws.close(); // run reconnect for broken MSE stream
+    });
+
+    // Handle Picture-in-Picture events
+    this.video.addEventListener("enterpictureinpicture", () => {
+      // console.debug("VideoRTC: Entered Picture-in-Picture mode");
+      // Cancel any pending disconnect timeout when entering PiP
+      if (this.disconnectTID) {
+        clearTimeout(this.disconnectTID);
+        this.disconnectTID = 0;
+      }
+    });
+
+    this.video.addEventListener("leavepictureinpicture", () => {
+      // Ensure connection stays active after leaving PiP
+      if (this.isConnected) {
+        this.onconnect();
+      }
     });
 
     // all Safari lies about supported audio codecs
@@ -469,30 +497,38 @@ export class VideoRTC extends HTMLElement {
       const sb = ms.addSourceBuffer(msg.value);
       sb.mode = "segments"; // segments or sequence
       sb.addEventListener("updateend", () => {
-        if (!sb.updating && bufLen > 0) {
-          try {
-            const data = buf.slice(0, bufLen);
-            sb.appendBuffer(data);
-            bufLen = 0;
-          } catch (e) {
-            // console.debug(e);
+        // Check if SourceBuffer is still attached to MediaSource
+        try {
+          // Accessing buffered will throw if SourceBuffer has been removed
+          if (!sb.updating && bufLen > 0) {
+            try {
+              const data = buf.slice(0, bufLen);
+              sb.appendBuffer(data);
+              bufLen = 0;
+            } catch (e) {
+              // console.debug(e);
+            }
           }
-        }
 
-        if (!sb.updating && sb.buffered && sb.buffered.length) {
-          const end = sb.buffered.end(sb.buffered.length - 1);
-          const start = end - 5;
-          const start0 = sb.buffered.start(0);
-          if (start > start0) {
-            sb.remove(start0, start);
-            ms.setLiveSeekableRange(start, end);
+          if (!sb.updating && sb.buffered && sb.buffered.length) {
+            const end = sb.buffered.end(sb.buffered.length - 1);
+            const start = end - 5;
+            const start0 = sb.buffered.start(0);
+            if (start > start0) {
+              sb.remove(start0, start);
+              ms.setLiveSeekableRange(start, end);
+            }
+            if (this.video.currentTime < start) {
+              this.video.currentTime = start;
+            }
+            const gap = end - this.video.currentTime;
+            this.video.playbackRate = gap > 0.1 ? gap : 0.1;
+            // console.debug('VideoRTC.buffered', gap, this.video.playbackRate, this.video.readyState);
           }
-          if (this.video.currentTime < start) {
-            this.video.currentTime = start;
-          }
-          const gap = end - this.video.currentTime;
-          this.video.playbackRate = gap > 0.1 ? gap : 0.1;
-          // console.debug('VideoRTC.buffered', gap, this.video.playbackRate, this.video.readyState);
+        } catch (e) {
+          // SourceBuffer has been removed from MediaSource, ignore silently
+          // This can happen during disconnect/reconnect or when stream switches
+          // console.debug('SourceBuffer updateend error (SourceBuffer removed):', e);
         }
       });
 
@@ -500,17 +536,22 @@ export class VideoRTC extends HTMLElement {
       let bufLen = 0;
 
       this.ondata = (data) => {
-        if (sb.updating || bufLen > 0) {
-          const b = new Uint8Array(data);
-          buf.set(b, bufLen);
-          bufLen += b.byteLength;
-          // console.debug('VideoRTC.buffer', b.byteLength, bufLen);
-        } else {
-          try {
-            sb.appendBuffer(data);
-          } catch (e) {
-            // console.debug(e);
+        try {
+          if (sb.updating || bufLen > 0) {
+            const b = new Uint8Array(data);
+            buf.set(b, bufLen);
+            bufLen += b.byteLength;
+            // console.debug('VideoRTC.buffer', b.byteLength, bufLen);
+          } else {
+            try {
+              sb.appendBuffer(data);
+            } catch (e) {
+              // console.debug(e);
+            }
           }
+        } catch (e) {
+          // SourceBuffer has been removed, stop processing data
+          // console.debug('SourceBuffer ondata error (SourceBuffer removed):', e);
         }
       };
     };

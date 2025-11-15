@@ -160,7 +160,12 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         },
 
         typography: {
+          fontFamily:
+            '"IBM Plex Sans Variable", "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
           h5: {
+            color: requestedMode === "dark" ? blue[300] : blue.main,
+          },
+          h6: {
             color: requestedMode === "dark" ? blue[300] : blue.main,
           },
           uppercase: {
@@ -250,7 +255,10 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
                   ? theme.palette.primary[900]
                   : theme.palette.primary[200]
               }`,
-              boxShadow: "5px 5px 8px 0px rgba(0,0,0,0.40)",
+              boxShadow:
+                theme.palette.mode === "dark"
+                  ? "0px 4px 16px rgba(0, 0, 0, 0.32), 0px 2px 4px rgba(0, 0, 0, 0.24)"
+                  : "0px 2px 8px rgba(0, 0, 0, 0.08), 0px 1px 2px rgba(0, 0, 0, 0.04)",
             },
           },
         },
@@ -286,7 +294,10 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
                   : theme.palette.primary[200]
               }`,
               color: theme.palette.text.primary,
-              boxShadow: "5px 5px 8px 0px rgba(0,0,0,0.40)",
+              boxShadow:
+                theme.palette.mode === "dark"
+                  ? "0px 4px 16px rgba(0, 0, 0, 0.32), 0px 2px 4px rgba(0, 0, 0, 0.24)"
+                  : "0px 2px 8px rgba(0, 0, 0, 0.08), 0px 1px 2px rgba(0, 0, 0, 0.04)",
             },
           },
         },

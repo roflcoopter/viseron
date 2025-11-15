@@ -35,12 +35,47 @@ const calculateCellDimensions = (
   const cellWidth = containerWidth / gridLayout.columns;
   const cellHeight = containerHeight / gridLayout.rows;
   const cameraAspectRatio = camera.mainstream.width / camera.mainstream.height;
+
+  // Special case for single camera (1x1 grid) - should fill the container optimally
+  if (gridLayout.columns === 1 && gridLayout.rows === 1) {
+    const containerAspectRatio = containerWidth / containerHeight;
+
+    if (cameraAspectRatio > containerAspectRatio) {
+      // Camera is wider than container, fit to width
+      const width = Math.floor(containerWidth);
+      const height = Math.floor(containerWidth / cameraAspectRatio);
+      return { width, height };
+    }
+
+    // Camera is taller than container, fit to height
+    const height = Math.floor(containerHeight);
+    const width = Math.floor(containerHeight * cameraAspectRatio);
+    return { width, height };
+  }
+
+  // For single column layout with multiple cameras (mobile or 2+ cameras stacked vertically)
+  if (gridLayout.columns === 1) {
+    // Always fit to container width and calculate height based on aspect ratio
+    const width = Math.floor(containerWidth);
+    const height = Math.floor(containerWidth / cameraAspectRatio);
+
+    // But ensure height doesn't exceed the available cell height
+    if (height > cellHeight) {
+      const adjustedHeight = Math.floor(cellHeight);
+      const adjustedWidth = Math.floor(cellHeight * cameraAspectRatio);
+      return { width: adjustedWidth, height: adjustedHeight };
+    }
+
+    return { width, height };
+  }
+
+  // For multi-column grid layout
   const cellAspectRatio = cellWidth / cellHeight;
 
   if (cameraAspectRatio > cellAspectRatio) {
     // Video is wider than the cell, fit to width
-    const width = cellWidth;
-    const height = cellWidth / cameraAspectRatio;
+    const width = Math.floor(cellWidth);
+    const height = Math.floor(cellWidth / cameraAspectRatio);
     return { width, height };
   }
   // Video is taller than the cell, fit to height
@@ -53,12 +88,26 @@ const calculateLayout = (
   containerRef: React.RefObject<HTMLDivElement | null>,
   cameras: types.CamerasOrFailedCameras,
   smBreakpoint: boolean,
+  useDoubleColumnMobile: boolean = false,
 ) => {
   if (!containerRef.current) return { columns: 1, rows: 1 };
 
   const containerWidth = containerRef.current.clientWidth;
   const containerHeight = getContainerHeight(containerRef, smBreakpoint);
   const camerasLength = Object.keys(cameras).length;
+
+  // For mobile devices (below sm breakpoint)
+  if (!smBreakpoint) {
+    // Use 2 columns layout if explicitly enabled (in Events/Timeline tab)
+    if (useDoubleColumnMobile) {
+      return {
+        columns: Math.min(2, camerasLength),
+        rows: Math.ceil(camerasLength / 2),
+      };
+    }
+    // Default: single column layout for mobile
+    return { columns: 1, rows: camerasLength };
+  }
 
   let bestLayout = { columns: 1, rows: 1 };
   let maxMinDimension = 0;
@@ -99,6 +148,7 @@ export const useGridLayout = (
   cameras: types.CamerasOrFailedCameras,
   setPlayerItemsSize: () => void,
   overrideSmBreakpoint?: boolean | undefined,
+  useDoubleColumnMobile?: boolean,
 ) => {
   const theme = useTheme();
   const smBreakpoint = useMediaQuery(theme.breakpoints.up("sm"));
@@ -112,6 +162,7 @@ export const useGridLayout = (
       containerRef,
       cameras,
       overrideSmBreakpoint === undefined ? smBreakpoint : overrideSmBreakpoint,
+      useDoubleColumnMobile || false,
     );
     if (
       layout.columns !== gridLayout.columns ||
@@ -128,6 +179,7 @@ export const useGridLayout = (
     gridLayout.columns,
     gridLayout.rows,
     setPlayerItemsSize,
+    useDoubleColumnMobile,
   ]);
 
   // Observe both the containerRef and window resize to update the layout

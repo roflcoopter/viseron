@@ -1,5 +1,4 @@
-import CircleIcon from "@mui/icons-material/Circle";
-import VideocamOffIcon from "@mui/icons-material/VideocamOff";
+import { CircleFill, VideoOff } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { SxProps, Theme } from "@mui/material/styles";
@@ -14,7 +13,7 @@ type CameraNameOverlayProps = {
 
 const overlayStyles: SxProps<Theme> = {
   position: "absolute",
-  zIndex: 1,
+  zIndex: 3,
   right: "0px",
   top: "0px",
   margin: "5px",
@@ -28,17 +27,23 @@ const cameraNameStyles: SxProps<Theme> = {
   color: "white",
 };
 
-const iconStyles: SxProps<Theme> = {
-  width: "12px",
-  height: "12px",
-  marginLeft: 1,
-};
-
 function StatusIcon({ camera }: { camera: types.Camera }) {
   return camera.is_on ? (
-    <CircleIcon htmlColor={camera.connected ? "red" : "gray"} sx={iconStyles} />
+    <CircleFill
+      size={12}
+      style={{
+        color: camera.connected ? "red" : "gray",
+        marginLeft: "4px",
+      }}
+    />
   ) : (
-    <VideocamOffIcon htmlColor="white" sx={iconStyles} />
+    <VideoOff
+      size={12}
+      style={{
+        color: "white",
+        marginLeft: "4px",
+      }}
+    />
   );
 }
 

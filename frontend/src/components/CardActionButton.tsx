@@ -23,6 +23,7 @@ interface CardActionButtonLinkProps {
   target: string;
   width?: string;
   disabled?: boolean;
+  startIcon?: React.ReactNode;
 }
 
 export function CardActionButtonLink({
@@ -30,6 +31,7 @@ export function CardActionButtonLink({
   target,
   width = "50%",
   disabled = false,
+  startIcon,
 }: CardActionButtonLinkProps) {
   return (
     <StyledButton
@@ -38,6 +40,7 @@ export function CardActionButtonLink({
       variant="outlined"
       size="large"
       disabled={disabled}
+      startIcon={startIcon}
       sx={{
         width,
       }}

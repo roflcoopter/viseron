@@ -1,8 +1,12 @@
+import {
+  Demo,
+  IntrusionPrevention,
+  Roadmap,
+  VideoChat,
+  VideoOff,
+} from "@carbon/icons-react";
 import Image from "@jy95/material-ui-image";
-import ImageSearchIcon from "@mui/icons-material/ImageSearch";
-import LiveTvIcon from "@mui/icons-material/LiveTv";
-import VideoFileIcon from "@mui/icons-material/VideoFile";
-import ViewTimelineIcon from "@mui/icons-material/ViewTimeline";
+import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
@@ -19,6 +23,7 @@ import { usePageVisibility } from "react-page-visibility";
 import { Link } from "react-router-dom";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
+import { CameraUptime } from "components/camera/CameraUptime";
 import { FailedCameraCard } from "components/camera/FailedCameraCard";
 import { ViseronContext } from "context/ViseronContext";
 import { useFirstRender } from "hooks/UseFirstRender";
@@ -180,70 +185,114 @@ function SuccessCameraCard({
           sx={onClick ? null : { pointerEvents: "none" }}
         >
           <CardMedia>
-            <Image
-              src={snapshotURL.url}
-              disableSpinner={snapshotURL.disableSpinner}
-              disableTransition={snapshotURL.disableTransition}
-              animationDuration={1000}
-              aspectRatio={camera.still_image.width / camera.still_image.height}
-              color={theme.palette.background.default}
-              onLoad={() => {
-                setSnapshotURL((prevSnapshotURL) => ({
-                  ...prevSnapshotURL,
-                  disableSpinner: true,
-                  disableTransition: true,
-                  loading: false,
-                }));
-              }}
-              errorIcon={
-                camera.still_image.available ? <CircularProgress /> : null
-              }
-              onError={() => {
-                setSnapshotURL((prevSnapshotURL) => ({
-                  ...prevSnapshotURL,
-                  disableSpinner: false,
-                  disableTransition: false,
-                  loading: false,
-                }));
-              }}
-            />
+            {!camera.connected ? (
+              <Box
+                sx={{
+                  aspectRatio:
+                    camera.still_image.width / camera.still_image.height,
+                  backgroundColor: theme.palette.background.default,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <VideoOff
+                  size={48}
+                  style={{
+                    color: theme.palette.text.secondary,
+                    opacity: 0.5,
+                  }}
+                />
+              </Box>
+            ) : (
+              <Image
+                src={snapshotURL.url}
+                disableSpinner={snapshotURL.disableSpinner}
+                disableTransition={snapshotURL.disableTransition}
+                animationDuration={1000}
+                aspectRatio={
+                  camera.still_image.width / camera.still_image.height
+                }
+                color={theme.palette.background.default}
+                onLoad={() => {
+                  setSnapshotURL((prevSnapshotURL) => ({
+                    ...prevSnapshotURL,
+                    disableSpinner: true,
+                    disableTransition: true,
+                    loading: false,
+                  }));
+                }}
+                errorIcon={
+                  camera.still_image.available ? (
+                    <CircularProgress enableTrackSlot />
+                  ) : null
+                }
+                onError={() => {
+                  setSnapshotURL((prevSnapshotURL) => ({
+                    ...prevSnapshotURL,
+                    disableSpinner: false,
+                    disableTransition: false,
+                    loading: false,
+                  }));
+                }}
+              />
+            )}
           </CardMedia>
         </CardActionArea>
         {buttons && (
           <CardActions>
-            <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
-              <Tooltip title="Events">
-                <IconButton
-                  component={Link}
-                  to={`/events?camera=${camera.identifier}&tab=events`}
-                >
-                  <ImageSearchIcon />
-                </IconButton>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                width: "100%",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Tooltip title="Uptime Status">
+                <div style={{ cursor: "pointer" }}>
+                  <CameraUptime
+                    cameraIdentifier={camera.identifier}
+                    isConnected={camera.connected}
+                    compact
+                  />
+                </div>
               </Tooltip>
-              <Tooltip title="Timeline">
-                <IconButton
-                  component={Link}
-                  to={`/events?camera=${camera.identifier}&tab=timeline`}
-                >
-                  <ViewTimelineIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Recordings">
-                <IconButton
-                  component={Link}
-                  to={`/recordings/${camera.identifier}`}
-                >
-                  <VideoFileIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Live View">
-                <IconButton
-                  component={Link}
-                  to={`/live?camera=${camera.identifier}`}
-                >
-                  <LiveTvIcon />
-                </IconButton>
-              </Tooltip>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <Tooltip title="Events">
+                  <IconButton
+                    component={Link}
+                    to={`/events?camera=${camera.identifier}&tab=events`}
+                  >
+                    <IntrusionPrevention size={20} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Timeline">
+                  <IconButton
+                    component={Link}
+                    to={`/events?camera=${camera.identifier}&tab=timeline`}
+                  >
+                    <Roadmap size={20} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Recordings">
+                  <IconButton
+                    component={Link}
+                    to={`/recordings/${camera.identifier}`}
+                  >
+                    <Demo size={20} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Live View">
+                  <IconButton
+                    component={Link}
+                    to={`/live?camera=${camera.identifier}`}
+                  >
+                    <VideoChat size={20} />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
             </Stack>
           </CardActions>
         )}

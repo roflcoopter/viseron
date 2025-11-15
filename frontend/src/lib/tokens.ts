@@ -50,6 +50,14 @@ export const loadTokens = (): types.StoredTokens | null => {
   return null;
 };
 
+let isManualLogout = false;
+
+export const setManualLogout = (value: boolean) => {
+  isManualLogout = value;
+};
+
+export const isManualLogoutActive = () => isManualLogout;
+
 export const clearTokens = () => {
   localStorage.removeItem("tokens");
   clearSessionExpiredTimeout();

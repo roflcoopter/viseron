@@ -4,10 +4,29 @@
  */
 
 .heroBanner {
-  padding: 4rem 0;
+  padding: 3rem 0 5rem 0;
   text-align: center;
   position: relative;
   overflow: hidden;
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #06b6d4 100%);
+}
+
+.headerRow {
+  align-items: center !important;
+}
+
+.logoContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 3rem;
+}
+
+.heroLogo {
+  max-height: 14em;
+  margin-bottom: 1.5rem;
 }
 
 .heroTitle {
@@ -20,17 +39,81 @@
   color: #ffffff;
 }
 
-.heroLogo {
-  max-height: 16em;
-}
-
 .heroText {
   color: #ffffff;
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin-bottom: 2rem;
+  text-align: left;
+}
+
+.featuresHeading {
+  color: #ffffff;
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 2rem;
+  text-align: left;
+}
+
+.featuresGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-top: 1rem;
+  text-align: left;
+  width: 100%;
+}
+
+.featureItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.5rem;
+  text-decoration: none;
+  transition: all 0.2s ease-in-out;
+  border-radius: 8px;
+}
+
+.featureItem:hover {
+  transform: translateX(5px);
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.featureIcon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 0.2rem;
+}
+
+.featureTitle {
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+  color: #ffffff;
+}
+
+.featureDesc {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.4;
 }
 
 @media screen and (max-width: 966px) {
   .heroBanner {
     padding: 2rem;
+  }
+
+  .logoContainer {
+    margin-bottom: 2rem;
+  }
+
+  .heroLogo {
+    max-height: 10em;
   }
 
   .heroTitle {
@@ -40,6 +123,21 @@
   .heroTagline {
     font-size: 1rem;
     font-weight: bold;
+  }
+
+  .heroText {
+    text-align: center;
+  }
+
+  .featuresHeading {
+    font-size: 1.5rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .featuresGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
   }
 }
 

@@ -23,8 +23,8 @@ function GridItem({
           xs: 12,
           sm: 12,
           md: 6,
-          lg: 6,
-          xl: 4,
+          lg: 4,
+          xl: 3,
         }}
       >
         <RecordingCardLatest
@@ -56,7 +56,7 @@ function Recordings() {
   }
 
   return (
-    <Container>
+    <Container sx={{ paddingX: 2 }}>
       <Grid container direction="row" spacing={1}>
         {failedCameras.data
           ? Object.keys(failedCameras.data)
