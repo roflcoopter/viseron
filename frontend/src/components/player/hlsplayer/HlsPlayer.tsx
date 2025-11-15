@@ -1,7 +1,6 @@
 import { VideoOff } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
-import Fade from "@mui/material/Fade";
 import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -269,9 +268,6 @@ const useInitializePlayer = (
   );
   const delayedInitializationTimeoutRef = useRef<NodeJS.Timeout>(undefined);
   const delayedRecoveryTimeoutRef = useRef<NodeJS.Timeout>(undefined);
-  const previousConnectedRef = useRef<boolean>(
-    !camera.failed && (camera as types.Camera).connected,
-  );
 
   const reInitPlayer = useCallback(() => {
     if (Hls.isSupported()) {
@@ -340,20 +336,6 @@ const useInitializePlayer = (
       hlsRef.current.startLoad();
     }
   }, [connected, hlsRef]);
-
-  // Reinitialize player when camera reconnects after being disconnected
-  useEffect(() => {
-    const isConnected = !camera.failed && (camera as types.Camera).connected;
-    const wasDisconnected = !previousConnectedRef.current;
-
-    // Only reinitialize if camera was disconnected and now is connected
-    if (isConnected && wasDisconnected && hlsRef.current) {
-      setHlsRefsError(hlsRef, null);
-      reInitPlayer();
-    }
-
-    previousConnectedRef.current = isConnected;
-  }, [camera, hlsRef, reInitPlayer, setHlsRefsError]);
 
   return {
     reInitPlayer,
@@ -482,16 +464,6 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
     };
   }, []);
 
-  // Reset loading state when camera disconnects or has error
-  useEffect(() => {
-    if (
-      (!camera.failed && !(camera as types.Camera).connected) ||
-      hlsRefError
-    ) {
-      setIsLoading(false);
-    }
-  }, [camera, hlsRefError]);
-
   return (
     <div
       style={{
@@ -501,19 +473,63 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
         display: "flex",
       }}
     >
-      {(!camera.failed && !(camera as types.Camera).connected) ||
-      hlsRefError ? (
+      {/* Always render video-element */}
+      <video
+        ref={videoRef}
+        poster={BLANK_IMAGE}
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          backgroundColor: theme.palette.background.default,
+        }}
+        controls={false}
+        playsInline
+      />
+
+      {/* Show loading indicator and when camera is connected */}
+      {isLoading && (
         <Box
           sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "rgba(0, 0, 0, 0.3)",
+            zIndex: 1,
+            pointerEvents: "none",
+          }}
+        >
+          <CircularProgress enableTrackSlot />
+        </Box>
+      )}
+
+      {/* Show error overlay */}
+      {!!(hlsRef.current && hlsRefError) && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             width: "100%",
             height: "100%",
-            backgroundColor: theme.palette.background.default,
+            backgroundColor: (t) =>
+              t.palette.mode === "dark"
+                ? "rgba(0, 0, 0, 0.8)"
+                : "rgba(235, 235, 235, 0.8)",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
             minHeight: 200,
             gap: 2,
+            zIndex: 2,
           }}
         >
           <VideoOff
@@ -533,67 +549,9 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
               wordBreak: "break-word",
             }}
           >
-            {hlsRefError ||
-              (!camera.failed && !(camera as types.Camera).connected
-                ? "Camera Disconnected"
-                : "No Video Signal")}
+            {hlsRefError}
           </Box>
         </Box>
-      ) : (
-        <>
-          <video
-            ref={videoRef}
-            poster={BLANK_IMAGE}
-            style={{
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              backgroundColor: theme.palette.background.default,
-            }}
-            controls={false}
-            playsInline
-          />
-          {isLoading && (
-            <Box
-              sx={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "rgba(0, 0, 0, 0.3)",
-                zIndex: 2,
-                pointerEvents: "none",
-              }}
-            >
-              <CircularProgress enableTrackSlot />
-            </Box>
-          )}
-          <Fade in={!!(hlsRef.current && hlsRefError)}>
-            <div
-              style={{
-                position: "absolute",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                textAlign: "center",
-                width: "100%",
-                height: "100%",
-                backgroundColor:
-                  "rgba(0,0,0,0.65)" /* Black background with opacity */,
-                zIndex: 2,
-                pointerEvents: "none",
-                userSelect: "none",
-                padding: "10px",
-              }}
-            >
-              {hlsRefError}
-            </div>
-          </Fade>
-        </>
       )}
     </div>
   );
