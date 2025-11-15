@@ -98,9 +98,9 @@ function Login() {
       sx={{
         minHeight: "100vh",
         display: "flex",
-        alignItems: "flex-start",
+        alignItems: "center",
         justifyContent: "center",
-        pt: "8vh",
+        pb: "8vh",
         px: 2,
         position: "relative",
         overflow: "hidden",
