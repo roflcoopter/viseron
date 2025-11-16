@@ -182,20 +182,18 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
     return {
       components: {
         MuiCssBaseline: {
-          styleOverrides: (themeParam: Theme) => ({
-            body:
-              themeParam.palette.mode === "dark"
-                ? darkScrollbar({
-                    track: "#0f2740",
-                    thumb: "#1f5286",
-                    active: "#2867a9",
-                  })
-                : darkScrollbar({
-                    track: "#f1f1f1",
-                    thumb: "#c1c1c1",
-                    active: "#a8a8a8",
-                  }),
-          }),
+          styleOverrides: (themeParam: Theme) =>
+            themeParam.palette.mode === "dark"
+              ? darkScrollbar({
+                  track: "#0f2740",
+                  thumb: "#1f5286",
+                  active: "#2867a9",
+                })
+              : darkScrollbar({
+                  track: "#f1f1f1",
+                  thumb: "#c1c1c1",
+                  active: "#a8a8a8",
+                }),
         },
         MuiContainer: {
           styleOverrides: {
