@@ -295,6 +295,7 @@ export default function AppDrawer({
         "& .MuiDrawer-paper": {
           borderTop: "none !important",
           borderBottom: "none !important",
+          borderLeft: "none !important",
         },
       }}
     >

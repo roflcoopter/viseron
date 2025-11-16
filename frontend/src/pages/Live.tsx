@@ -596,8 +596,8 @@ export const FloatingMenu = memo(
           ref={menuBoxRef}
           sx={{
             position: "absolute",
-            bottom: isFullscreen ? 11 : 16,
-            left: isFullscreen ? 11 : 25,
+            bottom: isFullscreen ? 9 : 16,
+            left: isFullscreen ? 9 : 25,
             zIndex: 1000,
             opacity: isFullscreen && !isMenuVisible ? 0 : 1,
             transition: "opacity 0.3s ease-in-out",
@@ -895,7 +895,7 @@ function Live() {
         maxWidth={false}
         ref={containerRef}
         sx={{
-          paddingBottom: isFullscreen ? 0 : 1,
+          paddingBottom: isFullscreen ? 0 : 0.8,
           paddingX: isFullscreen ? 0 : 2,
           height: isFullscreen
             ? "100vh"
