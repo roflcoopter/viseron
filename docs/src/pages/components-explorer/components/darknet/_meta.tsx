@@ -5,7 +5,7 @@ const ComponentMetadata: Component = {
   name: "darknet",
   description:
     "State of the art Object Detection using the YOLOv7, YOLOv4 and YOLOv3 framework.",
-  image: "http://pjreddie.com/media/files/darknet-black-small.png",
+  image: "/img/logos/darknet.png",
   tags: ["object_detector"],
 };
 

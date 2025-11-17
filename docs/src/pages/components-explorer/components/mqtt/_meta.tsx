@@ -4,9 +4,9 @@ const ComponentMetadata: Component = {
   title: "MQTT",
   name: "mqtt",
   description:
-    "MQTT is a lightweight, publish-subscribe, machine to machine network protocol. It is designed for connections with remote locations that have devices with resource constraints or limited network bandwidth.",
-  image: "https://brands.home-assistant.io/mqtt/logo.png",
-  tags: ["system"],
+    "Enables lightweight publish-subscribe messaging for device communication using MQTT.",
+  image: "/img/logos/mqtt.svg",
+  tags: ["protocol"],
 };
 
 export default ComponentMetadata;

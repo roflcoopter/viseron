@@ -4,9 +4,9 @@ const ComponentMetadata: Component = {
   title: "ONVIF PTZ control",
   name: "ptz",
   description:
-    "Use this component to control ONVIF PTZ cameras, for now only via Telegram.",
-  image: "https://brands.home-assistant.io/_/onvif//logo.png",
-  tags: [],
+    "Controls ONVIF PTZ cameras, currently only supported via Telegram integration.",
+  image: "/img/logos/onvif.png",
+  tags: ["protocol"],
 };
 
 export default ComponentMetadata;
