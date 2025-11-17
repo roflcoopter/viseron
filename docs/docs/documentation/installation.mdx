@@ -6,7 +6,7 @@ import Tabs from "@theme/Tabs";
 Viseron runs exclusively in Docker.<br />
 First of all, choose the appropriate Docker container for your machine. <br />
 
-Builds are published to [Docker Hub](https://hub.docker.com/repository/docker/roflcoopter/viseron).
+Builds are published to [Docker Hub](https://hub.docker.com/u/roflcoopter?page=1&search=viseron).
 
 :::tip HOW DO I CHOOSE?
 
@@ -411,6 +411,30 @@ Configure a substream if you plan on running Viseron on an RPi.
 Viseron will start up immediately and serve the Web UI on port `8888`.<br />
 Please proceed to the next chapter on [how to configure Viseron.](configuration)
 
+:::info Mounted Volumes
+
+- `/config` - Where the configuration file, database, etc is stored
+- `/segments` - Where the recordings (video segments) are stored
+- `/snapshots` - Where the snapshots from object detection, motion detection, etc are stored
+- `/thumbnails` - Where the thumbnails for recordings triggered by `trigger_event_recording` are stored
+- `/event_clips` - Where the event clips created by `create_event_clip` are stored
+
+:::
+
+:::tip VAAPI
+
+VAAPI hardware acceleration support is built into every `amd64` container.<br />
+To utilize it you need to add `--device /dev/dri` to your docker command.
+
+:::
+
+:::tip EdgeTPU
+
+EdgeTPU support is also included in all containers.<br />
+To use it, add `-v /dev/bus/usb:/dev/bus/usb --privileged` to your docker command.
+
+:::
+
 ## Running Behind a Reverse Proxy
 
 You can run Viseron behind a reverse proxy (like Nginx, Traefik, Caddy, etc.) and you can also use a subpath (e.g., `https://yourdomain.com/viseron/`).
@@ -466,28 +490,6 @@ Both must:
 - Start with a forward slash `/`
 - Use the exact same path
 - Not end with a trailing slash (except in nginx location directives)
-
-:::info Mounted Volumes
-
-- `/config` - Where the configuration file, database, etc is stored
-- `/segments` - Where the recordings (video segments) are stored
-- `/snapshots` - Where the snapshots from object detection, motion detection, etc are stored
-- `/thumbnails` - Where the thumbnails for recordings triggered by `trigger_event_recording` are stored
-- `/event_clips` - Where the event clips created by `create_event_clip` are stored
-
-:::
-
-:::tip VAAPI
-
-VAAPI hardware acceleration support is built into every `amd64` container.<br />
-To utilize it you need to add `--device /dev/dri` to your docker command.
-
-:::
-
-:::tip EdgeTPU
-
-EdgeTPU support is also included in all containers.<br />
-To use it, add `-v /dev/bus/usb:/dev/bus/usb --privileged` to your docker command.
 
 :::
 
