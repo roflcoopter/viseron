@@ -77,6 +77,11 @@ const config: Config = {
           label: "GitHub",
           position: "right",
         },
+        {
+          type: 'html',
+          position: 'right',
+          value: '<span class="docker-pull-count"></span>'
+        },
       ],
     },
     footer: {
@@ -161,7 +166,10 @@ const config: Config = {
     ],
   ],
   plugins: ["@docusaurus/plugin-ideal-image"],
-  clientModules: [require.resolve("./src/lib/injectVersion.ts")],
+  clientModules: [
+    require.resolve("./src/lib/injectVersion.ts"), 
+    require.resolve("./src/lib/dockerPullCount.ts")
+  ],
 };
 
 export default config;
