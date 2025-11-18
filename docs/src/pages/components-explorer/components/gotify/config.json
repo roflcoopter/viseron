@@ -35,6 +35,13 @@
                 "description": "Send a thumbnail of the detected object for this camera.",
                 "optional": true,
                 "default": null
+              },
+              {
+                "type": "boolean",
+                "name": "use_public_url",
+                "description": "Use public URL for images instead of base64 encoding for this camera.",
+                "optional": true,
+                "default": null
               }
             ],
             "name": {
@@ -72,6 +79,31 @@
         "description": "Send a thumbnail of the detected object.",
         "optional": true,
         "default": false
+      },
+      {
+        "type": "boolean",
+        "name": "use_public_url",
+        "description": "Use public URL for images instead of base64 encoding. This creates a temporary public link that doesn't require authentication.",
+        "optional": true,
+        "default": false
+      },
+      {
+        "type": "integer",
+        "valueMin": 0,
+        "valueMax": 7680,
+        "name": "image_max_size",
+        "description": "Maximum width/height in pixels for thumbnail images (default: 800). For 4K cameras, use 1920 or higher. Set to 0 for no resizing.",
+        "optional": true,
+        "default": 800
+      },
+      {
+        "type": "integer",
+        "valueMin": 1,
+        "valueMax": 100,
+        "name": "image_quality",
+        "description": "JPEG quality for images (1-100, default: 95). Higher = better quality but larger files.",
+        "optional": true,
+        "default": 95
       }
     ],
     "name": "gotify",
