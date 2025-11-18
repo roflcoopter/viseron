@@ -183,14 +183,6 @@ class PTZ:
                             camera.identifier, preset[CONFIG_PRESET_NAME]
                         )
 
-    def get_registered_cameras(self) -> dict[str, AbstractCamera]:
-        """Get the registered cameras."""
-        return self._cameras
-
-    def get_camera(self, camera_identifier: str) -> AbstractCamera | None:
-        """Get a camera by identifier."""
-        return self._cameras.get(camera_identifier)
-
     async def patrol(
         self,
         camera_identifier: str,
