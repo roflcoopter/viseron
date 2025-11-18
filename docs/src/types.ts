@@ -28,6 +28,21 @@ export const Domains: { [type in DomainType]: Domain } = {
     color: "#dfd545",
   },
 
+  system: {
+    label: "System",
+    color: "#30cac8",
+  },
+
+  nvr: {
+    label: "NVR",
+    color: "#3063ca",
+  },
+
+  notification: {
+    label: "Notification",
+    color: "#ff2a44",
+  },
+
   face_recognition: {
     label: "Face Recognition",
     color: "#127f82",
@@ -48,24 +63,9 @@ export const Domains: { [type in DomainType]: Domain } = {
     color: "#a44fb7",
   },
 
-  notification: {
-    label: "Notification",
-    color: "#ff2a44",
-  },
-
-  nvr: {
-    label: "NVR",
-    color: "#3063ca",
-  },
-
   object_detector: {
     label: "Object Detector",
     color: "#e9669e",
-  },
-
-  system: {
-    label: "System",
-    color: "#30cac8",
   },
 };
 

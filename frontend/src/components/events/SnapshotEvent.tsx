@@ -1,5 +1,5 @@
+import { Download } from "@carbon/icons-react";
 import Image from "@jy95/material-ui-image";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
@@ -33,6 +33,7 @@ import {
   useFilterStore,
   useSelectEvent,
 } from "components/events/utils";
+import { ImageWithFallback } from "components/images/ImageWithFallback";
 import { useFirstRender } from "hooks/UseFirstRender";
 import { useExportEvent } from "lib/commands";
 import { BLANK_IMAGE, isTouchDevice, toTitleCase } from "lib/helpers";
@@ -195,7 +196,7 @@ function PopoverContent({ events }: { events: types.CameraEvent[] }) {
                         e.preventDefault();
                       }}
                     >
-                      <FileDownloadIcon />
+                      <Download size={20} />
                     </IconButton>
                   </Tooltip>
                 </Stack>
@@ -380,9 +381,12 @@ function Snapshot({ snapshotPath }: { snapshotPath: string }) {
           border: `1px solid ${theme.palette.primary[900]}`,
         }),
         lineHeight: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       })}
     >
-      <img
+      <ImageWithFallback
         src={snapshotPath}
         alt="Event snapshot"
         style={{
@@ -393,6 +397,7 @@ function Snapshot({ snapshotPath }: { snapshotPath: string }) {
           objectFit: "contain",
           background: theme.palette.background.default,
         }}
+        fallbackSize={32}
       />
     </Box>
   );

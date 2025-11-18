@@ -1,8 +1,10 @@
-import Brightness4Icon from "@mui/icons-material/Brightness4";
-import Brightness7Icon from "@mui/icons-material/Brightness7";
-import LogoutIcon from "@mui/icons-material/Logout";
-import MenuIcon from "@mui/icons-material/Menu";
-import SettingsIcon from "@mui/icons-material/Settings";
+import {
+  Light,
+  Logout,
+  Moon,
+  RightPanelClose,
+  Settings,
+} from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import IconButton from "@mui/material/IconButton";
@@ -103,6 +105,7 @@ export default function AppHeader() {
             display: "flex",
             alignItems: "center",
             minHeight: theme.headerHeight,
+            paddingX: 2,
           }}
         >
           <Stack
@@ -119,7 +122,7 @@ export default function AppHeader() {
                   setDrawerOpen(true);
                 }}
               >
-                <MenuIcon fontSize="small" />
+                <RightPanelClose />
               </IconButton>
             </Tooltip>
             <Tooltip title="Home" enterDelay={300}>
@@ -130,8 +133,8 @@ export default function AppHeader() {
                 sx={{ marginLeft: "16px" }}
               >
                 <ViseronLogo
-                  width={45}
-                  height={45}
+                  width={40}
+                  height={40}
                   style={{ marginTop: "4px" }}
                 />
               </Box>
@@ -161,11 +164,7 @@ export default function AppHeader() {
               enterDelay={300}
             >
               <IconButton color="primary" onClick={colorMode.toggleColorMode}>
-                {theme.palette.mode === "dark" ? (
-                  <Brightness7Icon />
-                ) : (
-                  <Brightness4Icon />
-                )}
+                {theme.palette.mode === "dark" ? <Light /> : <Moon />}
               </IconButton>
             </Tooltip>
             {!auth.enabled || (auth.enabled && user?.role) === "admin" ? (
@@ -175,7 +174,7 @@ export default function AppHeader() {
                   color="primary"
                   to="/settings"
                 >
-                  <SettingsIcon />
+                  <Settings />
                 </IconButton>
               </Tooltip>
             ) : null}
@@ -192,7 +191,7 @@ export default function AppHeader() {
                     })
                   }
                 >
-                  <LogoutIcon />
+                  <Logout />
                 </IconButton>
               </Tooltip>
             )}

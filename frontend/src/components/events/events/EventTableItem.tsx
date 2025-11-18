@@ -15,6 +15,7 @@ import {
   useEventStore,
   useSelectEvent,
 } from "components/events/utils";
+import { ImageWithFallback } from "components/images/ImageWithFallback";
 import { useFirstRender } from "hooks/UseFirstRender";
 import {
   BLANK_IMAGE,
@@ -152,7 +153,7 @@ export const EventTableItem = memo(
                   overflow: "hidden",
                 }}
               >
-                <img
+                <ImageWithFallback
                   src={src}
                   alt="Event snapshot"
                   style={{
@@ -162,6 +163,7 @@ export const EventTableItem = memo(
                     objectFit: "contain",
                     background: theme.palette.background.default,
                   }}
+                  fallbackSize={32}
                 />
               </CardMedia>
             </Grid>

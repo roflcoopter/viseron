@@ -16,7 +16,7 @@ function MutationIconButtonInner<T>(
   props: MutationIconButtonProps<T>,
   ref: React.ForwardedRef<any>,
 ) {
-  const { mutation, sx, disabled, ...forwardedProps } = props;
+  const { mutation, sx, disabled, color: colorProp, ...forwardedProps } = props;
 
   const newProps = {
     ...forwardedProps,
@@ -28,22 +28,26 @@ function MutationIconButtonInner<T>(
     },
   };
 
-  const [color, setColor] = React.useState<"default" | "error">("default");
+  const [color, setColor] = React.useState<IconButtonProps["color"]>(
+    colorProp || "default",
+  );
 
   React.useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
     if (mutation.isError) {
       setColor("error");
       timer = setTimeout(() => {
-        setColor("default");
+        setColor(colorProp || "default");
       }, 5000);
+    } else if (!mutation.isError && colorProp) {
+      setColor(colorProp);
     }
     return () => {
       if (timer) {
         clearTimeout(timer);
       }
     };
-  }, [mutation.isError]);
+  }, [mutation.isError, colorProp]);
 
   return (
     <div>

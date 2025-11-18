@@ -1,4 +1,5 @@
-import GitHubIcon from "@mui/icons-material/GitHub";
+import { Cube, LogoGithub } from "@carbon/icons-react";
+import Box from "@mui/material/Box";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
 import { styled, useTheme } from "@mui/material/styles";
@@ -11,44 +12,140 @@ const Footer = styled("footer")(() => ({
   position: "relative",
   left: 0,
   bottom: 0,
-  marginTop: "100px",
-  paddingBottom: "35px",
+  marginTop: "60px",
+  paddingBottom: "25px",
 }));
 
 export default function AppFooter() {
   const theme = useTheme();
   const location = useLocation();
   const { version, gitCommit } = useContext(ViseronContext);
-  const showFooter = !["/configuration", "/events", "/live"].includes(
+  const showFooter = !["/events", "/live", "/settings/configuration"].includes(
     location.pathname,
   );
 
   return showFooter ? (
     <Footer>
-      <Typography
-        align="center"
-        variant="subtitle2"
-        color={theme.palette.text.secondary}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: { xs: "column", sm: "row" },
+          flexWrap: "wrap",
+          gap: { xs: 1, sm: 3 },
+        }}
       >
-        Viseron - {version} - {gitCommit}
-      </Typography>
-      <Typography align="center" variant="subtitle2">
-        <Link
-          target="_blank"
-          href="https://github.com/roflcoopter/viseron"
+        {/* Left side - Version info */}
+        <Typography
+          variant="body2"
+          fontWeight="medium"
           color={theme.palette.text.secondary}
         >
-          <GitHubIcon
-            fontSize="small"
+          Viseron / {version} / {gitCommit}
+        </Typography>
+
+        {/* Right side - Links container */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 3,
+          }}
+        >
+          {/* GitHub link */}
+          <Link
+            target="_blank"
+            href="https://github.com/roflcoopter/viseron"
+            color={theme.palette.text.secondary}
+            variant="body2"
             sx={{
-              verticalAlign: "middle",
-              marginTop: "-3px",
-              marginRight: "5px",
+              fontWeight: "medium",
+              display: "flex",
+              alignItems: "center",
+              textDecoration: "none",
+              "&:hover": {
+                textDecoration: "underline",
+              },
             }}
-          />
-          GitHub
+          >
+            <Box
+              component="span"
+              sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                marginRight: "5px",
+              }}
+            >
+              <LogoGithub size={16} />
+            </Box>
+            GitHub
+          </Link>
+
+          {/* Components link */}
+          <Link
+            target="_blank"
+            href="https://viseron.netlify.app/components-explorer"
+            color={theme.palette.text.secondary}
+            variant="body2"
+            sx={{
+              fontWeight: "medium",
+              display: "flex",
+              alignItems: "center",
+              textDecoration: "none",
+              "&:hover": {
+                textDecoration: "underline",
+              },
+            }}
+          >
+            <Box
+              component="span"
+              sx={{
+                display: "inline-flex",
+                alignItems: "center",
+                marginRight: "5px",
+              }}
+            >
+              <Cube size={16} />
+            </Box>
+            Components
+          </Link>
+        </Box>
+      </Box>
+
+      {/* MIT License text and link */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          marginTop: 1,
+          gap: 0.5,
+        }}
+      >
+        <Typography
+          component="span"
+          variant="caption"
+          color={theme.palette.text.secondary}
+        >
+          This software is licensed under the
+        </Typography>
+        <Link
+          target="_blank"
+          href="https://github.com/roflcoopter/viseron?tab=MIT-1-ov-file"
+          color={theme.palette.text.secondary}
+          variant="caption"
+          sx={{
+            fontWeight: "medium",
+            textDecoration: "none",
+            "&:hover": {
+              textDecoration: "underline",
+            },
+          }}
+        >
+          MIT License
         </Link>
-      </Typography>
+      </Box>
     </Footer>
   ) : null;
 }

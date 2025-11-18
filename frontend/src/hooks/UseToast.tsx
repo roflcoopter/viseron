@@ -1,7 +1,9 @@
-import ErrorOutlineOutlinedIcon from "@mui/icons-material/ErrorOutlineOutlined";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
-import ReportProblemOutlined from "@mui/icons-material/ReportProblemOutlined";
-import TaskAltOutlinedIcon from "@mui/icons-material/TaskAltOutlined";
+import {
+  CheckmarkOutline,
+  Information,
+  Warning,
+  WarningAltFilled,
+} from "@carbon/icons-react";
 import { Theme, useTheme } from "@mui/material/styles";
 import {
   Id,
@@ -25,13 +27,13 @@ export type Toast = {
 function ToastIcon({ type }: { type: TypeOptions }) {
   switch (type) {
     case "info":
-      return <InfoOutlinedIcon />;
+      return <Information size={20} />;
     case "error":
-      return <ErrorOutlineOutlinedIcon />;
+      return <Warning size={20} />;
     case "success":
-      return <TaskAltOutlinedIcon />;
+      return <CheckmarkOutline size={20} />;
     case "warning":
-      return <ReportProblemOutlined />;
+      return <WarningAltFilled size={20} />;
     default:
       return null;
   }

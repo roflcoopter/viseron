@@ -1,7 +1,8 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
-import Typography from "@mui/material/Typography";
+import dayjs, { Dayjs } from "dayjs";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
 import VoidSvg from "svg/undraw/void.svg?react";
@@ -9,6 +10,7 @@ import VoidSvg from "svg/undraw/void.svg?react";
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { Loading } from "components/loading/Loading";
 import RecordingCardDaily from "components/recording/RecordingCardDaily";
+import { RecordingHeader } from "components/recording/RecordingHeader";
 import { useTitle } from "hooks/UseTitle";
 import { useCamera } from "lib/api/camera";
 import { useRecordings } from "lib/api/recordings";
@@ -22,6 +24,8 @@ function CameraRecordings() {
   const { camera_identifier } = useParams<
     keyof CameraRecordingsParams
   >() as CameraRecordingsParams;
+  const [startDate, setStartDate] = useState<Dayjs | null>(null);
+  const [endDate, setEndDate] = useState<Dayjs | null>(null);
 
   const recordingsQuery = useRecordings({
     camera_identifier,
@@ -65,13 +69,39 @@ function CameraRecordings() {
     );
   }
 
+  const availableDates = Object.keys(recordingsQuery.data);
+  const totalDays = availableDates.length;
+  const filteredDates =
+    startDate && endDate
+      ? availableDates.filter((date) => {
+          const d = dayjs(date);
+          return (
+            (d.isAfter(startDate, "day") || d.isSame(startDate, "day")) &&
+            (d.isBefore(endDate, "day") || d.isSame(endDate, "day"))
+          );
+        })
+      : availableDates;
+
+  const handleClearDates = () => {
+    setStartDate(null);
+    setEndDate(null);
+  };
+
   return (
-    <Container>
-      <Typography variant="h5" align="center">
-        {cameraQuery.data.name}
-      </Typography>
+    <Container sx={{ paddingX: 2 }}>
+      <RecordingHeader
+        camera={cameraQuery.data}
+        totalDays={totalDays}
+        availableDates={availableDates}
+        startDate={startDate}
+        endDate={endDate}
+        onStartDateChange={setStartDate}
+        onEndDateChange={setEndDate}
+        onClearDates={handleClearDates}
+      />
+
       <Grid container direction="row" spacing={1}>
-        {Object.keys(recordingsQuery.data)
+        {filteredDates
           .sort()
           .reverse()
           .map((date) => (
@@ -82,8 +112,8 @@ function CameraRecordings() {
                   xs: 12,
                   sm: 12,
                   md: 6,
-                  lg: 6,
-                  xl: 4,
+                  lg: 4,
+                  xl: 3,
                 }}
               >
                 <RecordingCardDaily

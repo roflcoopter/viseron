@@ -1,9 +1,17 @@
-import Fade from "@mui/material/Fade";
+import { VideoOff } from "@carbon/icons-react";
+import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
 import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import Hls, { LevelLoadedData } from "hls.js";
-import React, { useCallback, useContext, useEffect, useRef } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useShallow } from "zustand/react/shallow";
 
@@ -409,6 +417,7 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsClientIdRef = useRef<string>(uuidv4());
   const initialProgramDateTime = useRef<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const { hlsRefError } = useHlsStore(
     useShallow((state) => ({
@@ -432,6 +441,29 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
     reInitPlayer,
   );
 
+  // Handle loading state
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return () => {};
+
+    const handleLoadStart = () => setIsLoading(true);
+    const handleCanPlay = () => setIsLoading(false);
+    const handleLoadedData = () => setIsLoading(false);
+    const handleError = () => setIsLoading(false);
+
+    video.addEventListener("loadstart", handleLoadStart);
+    video.addEventListener("canplay", handleCanPlay);
+    video.addEventListener("loadeddata", handleLoadedData);
+    video.addEventListener("error", handleError);
+
+    return () => {
+      video.removeEventListener("loadstart", handleLoadStart);
+      video.removeEventListener("canplay", handleCanPlay);
+      video.removeEventListener("loadeddata", handleLoadedData);
+      video.removeEventListener("error", handleError);
+    };
+  }, []);
+
   return (
     <div
       style={{
@@ -441,6 +473,7 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
         display: "flex",
       }}
     >
+      {/* Always render video-element */}
       <video
         ref={videoRef}
         poster={BLANK_IMAGE}
@@ -453,27 +486,73 @@ export function HlsPlayer({ camera }: HlsPlayerProps) {
         controls={false}
         playsInline
       />
-      <Fade in={!!(hlsRef.current && hlsRefError)}>
-        <div
-          style={{
+
+      {/* Show loading indicator and when camera is connected */}
+      {isLoading && (
+        <Box
+          sx={{
             position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            textAlign: "center",
-            width: "100%",
-            height: "100%",
-            backgroundColor:
-              "rgba(0,0,0,0.65)" /* Black background with opacity */,
-            zIndex: 2,
+            backgroundColor: "rgba(0, 0, 0, 0.3)",
+            zIndex: 1,
             pointerEvents: "none",
-            userSelect: "none",
-            padding: "10px",
           }}
         >
-          {hlsRefError}
-        </div>
-      </Fade>
+          <CircularProgress enableTrackSlot />
+        </Box>
+      )}
+
+      {/* Show error overlay */}
+      {!!(hlsRef.current && hlsRefError) && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: (t) =>
+              t.palette.mode === "dark"
+                ? "rgba(0, 0, 0, 0.8)"
+                : "rgba(235, 235, 235, 0.8)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: 200,
+            gap: 2,
+            zIndex: 2,
+          }}
+        >
+          <VideoOff
+            size={48}
+            style={{
+              color: theme.palette.text.secondary,
+              opacity: 0.5,
+            }}
+          />
+          <Box
+            sx={{
+              color: theme.palette.text.secondary,
+              textAlign: "center",
+              fontSize: "0.875rem",
+              opacity: 0.7,
+              maxWidth: "80%",
+              wordBreak: "break-word",
+            }}
+          >
+            {hlsRefError}
+          </Box>
+        </Box>
+      )}
     </div>
   );
 }

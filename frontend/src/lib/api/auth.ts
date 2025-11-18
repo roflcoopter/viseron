@@ -2,7 +2,7 @@ import { UseQueryOptions, useMutation, useQuery } from "@tanstack/react-query";
 
 import { useToast } from "hooks/UseToast";
 import queryClient, { clientId, viseronAPI } from "lib/api/client";
-import { clearTokens, storeTokens } from "lib/tokens";
+import { clearTokens, setManualLogout, storeTokens } from "lib/tokens";
 import * as types from "lib/types";
 
 interface AuthCreateVariables {
@@ -102,9 +102,8 @@ async function authLogin({ username, password }: AuthLoginVariables) {
   return response.data;
 }
 
-export const useAuthLogin = () => {
-  const toast = useToast();
-  return useMutation<
+export const useAuthLogin = () =>
+  useMutation<
     types.AuthLoginResponse,
     types.APIErrorResponse,
     AuthLoginVariables
@@ -112,10 +111,10 @@ export const useAuthLogin = () => {
     mutationFn: authLogin,
     onSuccess: async (data, _variables, _context) => {
       storeTokens(data);
-      toast.success("Successfully logged in");
+      // Reset manual logout flag on successful login
+      setManualLogout(false);
     },
   });
-};
 
 async function authLogout() {
   const response = await viseronAPI.post("/auth/logout");
@@ -126,7 +125,17 @@ export const useAuthLogout = () =>
   useMutation<types.APISuccessResponse, types.APIErrorResponse>({
     mutationFn: authLogout,
     onSuccess: async (_data, _variables, _context) => {
+      // Set flag to indicate this is a manual logout
+      setManualLogout(true);
       clearTokens();
+      // Clear all queries except auth.enabled to prevent unnecessary refetching
+      queryClient.removeQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          // Keep auth.enabled query
+          return !(key[0] === "auth" && key[1] === "enabled");
+        },
+      });
     },
   });
 

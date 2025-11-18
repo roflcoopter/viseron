@@ -1,7 +1,7 @@
 import TabContext from "@mui/lab/TabContext";
 import TabList from "@mui/lab/TabList";
 import TabPanel from "@mui/lab/TabPanel";
-import Box from "@mui/material/Box";
+import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Tab from "@mui/material/Tab";
@@ -227,7 +227,7 @@ export const Layout = memo(
     useSetPlayerCardHeight(playerCardGridItemRef);
 
     return (
-      <Box>
+      <Container sx={{ paddingX: 2 }}>
         <Grid
           container
           direction="row"
@@ -255,8 +255,8 @@ export const Layout = memo(
               xs: 12,
               sm: 8,
               md: 8,
-              lg: 9,
-              xl: 10,
+              lg: 8.5,
+              xl: 9.5,
             }}
           >
             <PlayerCard />
@@ -266,8 +266,8 @@ export const Layout = memo(
               xs: 12,
               sm: 4,
               md: 4,
-              lg: 3,
-              xl: 2,
+              lg: 3.5,
+              xl: 2.5,
             }}
           >
             <Paper variant="outlined">
@@ -281,7 +281,7 @@ export const Layout = memo(
           </Grid>
           <FloatingMenu date={date} setDate={setDate} />
         </Grid>
-      </Box>
+      </Container>
     );
   },
 );

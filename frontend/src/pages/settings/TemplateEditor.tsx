@@ -1,6 +1,6 @@
+import { Code, Erase, Warning } from "@carbon/icons-react";
 import { StreamLanguage } from "@codemirror/language";
 import { jinja2 } from "@codemirror/legacy-modes/mode/jinja2";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import { TextField } from "@mui/material";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -66,6 +66,7 @@ function Editor({
       <Box sx={{ display: "flex", gap: 2 }}>
         <Button
           variant="contained"
+          startIcon={<Code size={16} />}
           onClick={handleRender}
           disabled={loading || !template.trim()}
         >
@@ -73,6 +74,8 @@ function Editor({
         </Button>
         <Button
           variant="contained"
+          color="error"
+          startIcon={<Erase size={16} />}
           onClick={clearTemplate}
           disabled={!template.trim()}
         >
@@ -95,7 +98,7 @@ function Result({ result, error }: ResultProps) {
         Result
       </Typography>
       {error ? (
-        <Alert severity="error" icon={<ErrorOutlineIcon />}>
+        <Alert severity="error" icon={<Warning size={20} />}>
           {error}
         </Alert>
       ) : result ? (
@@ -131,7 +134,7 @@ function TemplateEditor() {
   };
 
   return (
-    <Container>
+    <Container sx={{ paddingX: 2 }}>
       <Grid container spacing={1} alignItems="stretch">
         <Grid size={{ xs: 12, md: 6 }}>
           <Editor

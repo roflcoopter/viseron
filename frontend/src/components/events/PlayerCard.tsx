@@ -315,6 +315,7 @@ export function PlayerCard() {
               cameras={filteredCameras}
               containerRef={paperRef}
               renderPlayer={renderPlayer}
+              useDoubleColumnMobile
             />
           ) : (
             src &&

@@ -1,7 +1,8 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
-import Typography from "@mui/material/Typography";
+import dayjs, { Dayjs } from "dayjs";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
 import VoidSvg from "svg/undraw/void.svg?react";
@@ -9,6 +10,7 @@ import VoidSvg from "svg/undraw/void.svg?react";
 import { ErrorMessage } from "components/error/ErrorMessage";
 import { Loading } from "components/loading/Loading";
 import RecordingCard from "components/recording/RecordingCard";
+import { RecordingHeaderDaily } from "components/recording/RecordingHeaderDaily";
 import { useTitle } from "hooks/UseTitle";
 import { useCamera } from "lib/api/camera";
 import { useRecordings } from "lib/api/recordings";
@@ -23,6 +25,10 @@ function CameraRecordingsDaily() {
   const { camera_identifier, date } = useParams<
     keyof CameraRecordingsDailyParams
   >() as CameraRecordingsDailyParams;
+
+  const [startTime, setStartTime] = useState<Dayjs | null>(null);
+  const [endTime, setEndTime] = useState<Dayjs | null>(null);
+  const [triggerTypeFilter, setTriggerTypeFilter] = useState<string[]>([]);
 
   const recordingsQuery = useRecordings({
     camera_identifier,
@@ -66,33 +72,108 @@ function CameraRecordingsDaily() {
     );
   }
 
+  const allRecordings = Object.keys(recordingsQuery.data[date]);
+  const totalVideos = allRecordings.length;
+
+  const filteredRecordings =
+    startTime && endTime
+      ? allRecordings.filter((recording) => {
+          const recordingData = recordingsQuery.data[date][recording];
+          const recordingTime = dayjs(recordingData.start_time);
+          const timeMatch =
+            (recordingTime.isAfter(startTime) ||
+              recordingTime.isSame(startTime)) &&
+            (recordingTime.isBefore(endTime) || recordingTime.isSame(endTime));
+
+          const triggerTypeMatch =
+            triggerTypeFilter.length === 0 ||
+            (recordingData.trigger_type &&
+              triggerTypeFilter.includes(recordingData.trigger_type));
+
+          return timeMatch && triggerTypeMatch;
+        })
+      : allRecordings.filter((recording) => {
+          const recordingData = recordingsQuery.data[date][recording];
+          return (
+            triggerTypeFilter.length === 0 ||
+            (recordingData.trigger_type &&
+              triggerTypeFilter.includes(recordingData.trigger_type))
+          );
+        });
+
+  const handleStartTimeChange = (newValue: Dayjs | null) => {
+    if (newValue) {
+      // Set time with the correct date context
+      const timeWithDate = dayjs(date)
+        .hour(newValue.hour())
+        .minute(newValue.minute())
+        .second(newValue.second());
+      setStartTime(timeWithDate);
+    } else {
+      setStartTime(null);
+    }
+  };
+
+  const handleEndTimeChange = (newValue: Dayjs | null) => {
+    if (newValue) {
+      // Set time with the correct date context
+      const timeWithDate = dayjs(date)
+        .hour(newValue.hour())
+        .minute(newValue.minute())
+        .second(newValue.second());
+      setEndTime(timeWithDate);
+    } else {
+      setEndTime(null);
+    }
+  };
+
+  const handleClearTimes = () => {
+    setStartTime(null);
+    setEndTime(null);
+  };
+
+  const handleTriggerTypeChange = (
+    _event: React.MouseEvent<HTMLElement>,
+    newTypes: string[],
+  ) => {
+    setTriggerTypeFilter(newTypes);
+  };
+
   return (
-    <Container>
-      <Typography variant="h5" align="center">
-        {`${cameraQuery.data.name} - ${date}`}
-      </Typography>
+    <Container sx={{ paddingX: 2 }}>
+      <RecordingHeaderDaily
+        camera={cameraQuery.data}
+        date={date}
+        totalVideos={totalVideos}
+        startTime={startTime}
+        endTime={endTime}
+        triggerTypeFilter={triggerTypeFilter}
+        onStartTimeChange={handleStartTimeChange}
+        onEndTimeChange={handleEndTimeChange}
+        onClearTimes={handleClearTimes}
+        onTriggerTypeChange={handleTriggerTypeChange}
+      />
+
       <Grid container direction="row" spacing={1}>
-        {Object.keys(recordingsQuery.data[date])
-          .reverse()
-          .map((recording) => (
-            <Grow in appear key={recording}>
-              <Grid
-                key={recording}
-                size={{
-                  xs: 12,
-                  sm: 12,
-                  md: 6,
-                  lg: 6,
-                  xl: 4,
-                }}
-              >
-                <RecordingCard
-                  camera={cameraQuery.data}
-                  recording={recordingsQuery.data[date][recording]}
-                />
-              </Grid>
-            </Grow>
-          ))}
+        {filteredRecordings.reverse().map((recording) => (
+          <Grow in appear key={recording}>
+            <Grid
+              key={recording}
+              size={{
+                xs: 12,
+                sm: 12,
+                md: 6,
+                lg: 4,
+                xl: 3,
+              }}
+            >
+              <RecordingCard
+                camera={cameraQuery.data}
+                recording={recordingsQuery.data[date][recording]}
+              />
+            </Grid>
+          </Grow>
+        ))}
       </Grid>
     </Container>
   );
