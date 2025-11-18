@@ -64,6 +64,12 @@ function ensureDockerPullCount() {
 if (ExecutionEnvironment.canUseDOM) {
   fetch(
     "https://proxy.corsfix.com/?https://hub.docker.com/v2/repositories/roflcoopter/viseron",
+    {
+      headers: {
+        Origin: "http://localhost:3000", // this will bypass CORS
+        Referer: "http://localhost:3000", // same as above
+      },
+    },
   )
     .then((response) => response.json())
     .then((data) => {
