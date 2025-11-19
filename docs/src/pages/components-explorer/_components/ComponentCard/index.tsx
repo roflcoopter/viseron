@@ -10,6 +10,7 @@ import IdealImage from "@theme/IdealImage";
 import clsx from "clsx";
 
 import sortBy from "@site/src/lib/helpers";
+import { getIconComponent } from "@site/src/lib/iconMap";
 import {
   Component,
   Domain,
@@ -20,13 +21,26 @@ import {
 
 import styles from "./styles.module.css";
 
-const TagComp = React.forwardRef<HTMLLIElement, Domain>(
-  ({ label, color }, ref) => (
-    <li ref={ref} className={styles.tag}>
-      <span className={styles.textLabel}>{label.toLowerCase()}</span>
-      <span className={styles.colorLabel} style={{ backgroundColor: color }} />
-    </li>
-  ),
+const TagComp = React.forwardRef<HTMLLIElement, Domain & { tag: DomainType }>(
+  ({ label, color, icon }, ref) => {
+    const IconComponent = getIconComponent(icon);
+
+    return (
+      <li
+        ref={ref}
+        className={styles.tag}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0px",
+          padding: "4px 8px",
+        }}
+      >
+        {IconComponent && <IconComponent size={14} style={{ color }} />}
+        <span className={styles.textLabel}>{label.toLowerCase()}</span>
+      </li>
+    );
+  },
 );
 
 function ComponentCardTag({ tags }: { tags: DomainType[] }) {
@@ -44,13 +58,114 @@ function ComponentCardTag({ tags }: { tags: DomainType[] }) {
   );
 }
 
+const BADGE_CATEGORIES: Record<
+  string,
+  { label: string; style: React.CSSProperties; tooltip?: string }
+> = {
+  required: {
+    label: "Required",
+    style: {
+      background: "#e53935",
+      color: "#fff",
+      borderRadius: 10,
+      padding: "2px 8px",
+      fontSize: 12,
+      marginLeft: 8,
+      fontWeight: 600,
+    },
+    tooltip: "Component must always be present in Viseron.",
+  },
+  choose_one: {
+    label: "Choose One",
+    style: {
+      background: "#fbc02d",
+      color: "#222",
+      borderRadius: 10,
+      padding: "2px 8px",
+      fontSize: 12,
+      marginLeft: 8,
+      fontWeight: 600,
+    },
+    tooltip: "At least one component with this category must be present.",
+  },
+  new: {
+    label: "New",
+    style: {
+      background: "#43a047",
+      color: "#fff",
+      borderRadius: 10,
+      padding: "2px 8px",
+      fontSize: 12,
+      marginLeft: 8,
+      fontWeight: 600,
+    },
+    tooltip: "Component introduced in the latest version.",
+  },
+  featured: {
+    label: "Featured",
+    style: {
+      background: "#1976d2",
+      color: "#fff",
+      borderRadius: 10,
+      padding: "2px 8px",
+      fontSize: 12,
+      marginLeft: 8,
+      fontWeight: 600,
+    },
+    tooltip: "Affects important features in Viseron.",
+  },
+};
+
+function getBadgeByCategory(category?: string) {
+  if (!category) return null;
+  const badge = BADGE_CATEGORIES[category];
+  if (!badge) return null;
+  // Prevent click from propagating to card, so tooltip can show
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+  return (
+    <span
+      className={styles.componentCardBadge}
+      style={{
+        ...badge.style,
+        cursor: badge.tooltip ? "help" : undefined,
+        pointerEvents: "auto",
+      }}
+      title={badge.tooltip || undefined}
+      onClick={handleClick}
+      onMouseDown={handleClick}
+    >
+      {badge.label}
+    </span>
+  );
+}
+
 function ComponentCard({ component }: { component: Component }) {
   const componentLink = `/components-explorer/components/${component.name}`;
+  const badge = getBadgeByCategory(component.category);
   return (
-    <li key={component.title} className="card shadow--md outline">
+    <li
+      key={component.title}
+      className={clsx(
+        "card bg--secondary shadow--sm outline",
+        styles.componentCardWrapper,
+      )}
+    >
+      {badge}
       <Link href={componentLink}>
         <div className={clsx("card__image", styles.componentCardImage)}>
-          <IdealImage img={component.image} alt={component.title} />
+          <IdealImage
+            img={component.image}
+            alt={component.title}
+            style={{
+              maxHeight: 120,
+              objectFit: "contain",
+              width: "auto",
+              margin: "0 auto",
+              display: "block",
+            }}
+          />
         </div>
       </Link>
       <div className="card__body">

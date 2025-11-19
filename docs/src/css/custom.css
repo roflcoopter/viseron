@@ -145,7 +145,7 @@ html[data-theme="dark"] .docusaurus-highlight-code-line {
 }
 
 .outline {
-  outline: 1px solid var(--ifm-color-primary);
+  outline: 1px solid var(--ifm-color-primary-lighter);
   border: 3px solid transparent;
   -webkit-transition: all 0.2s ease-in-out;
   transition: all 0.2s ease-in-out;
@@ -206,4 +206,23 @@ html[data-theme="light"] .navbar__title::after {
 html[data-theme="dark"] .navbar__title::after {
   background: rgba(255, 255, 255, 0.15);
   color: white;
+}
+
+/* Hide docker pull count on devices smaller than lg (992px) */
+@media (max-width: 991px) {
+  .docker-pull-count {
+    display: none !important;
+  }
+}
+
+.docker-pull-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+/* Custom small shadow for cards */
+.shadow--sm {
+  box-shadow: 0 4px 16px 0 rgba(60, 60, 60, 0.13), 0 2px 4px 0 rgba(60, 60, 60, 0.10);
 }

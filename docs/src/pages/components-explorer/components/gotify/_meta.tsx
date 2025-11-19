@@ -3,9 +3,11 @@ import { Component } from "@site/src/types";
 const ComponentMetadata: Component = {
   title: "Gotify",
   name: "gotify",
-  description: "Send notifications to a Gotify server when recordings start",
-  image: "https://gotify.net/img/logo.png",
+  description:
+    "Sends notifications to a Gotify server when a recording starts.",
+  image: "/img/logos/gotify.png",
   tags: ["notification"],
+  category: null,
 };
 
 export default ComponentMetadata;

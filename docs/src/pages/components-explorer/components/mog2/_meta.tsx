@@ -4,9 +4,10 @@ const ComponentMetadata: Component = {
   title: "MOG2",
   name: "mog2",
   description:
-    "MOG2 is a Gaussian Mixture-based Background/Foreground Segmentation Algorithm that provides motion detection capabilities.",
-  image: "https://github.com/opencv/opencv/wiki/logo/OpenCV_logo_no_text.png",
+    "Detects motion using the MOG2 background subtraction algorithm from OpenCV.",
+  image: "/img/logos/opencv.svg",
   tags: ["motion_detector"],
+  category: null,
 };
 
 export default ComponentMetadata;

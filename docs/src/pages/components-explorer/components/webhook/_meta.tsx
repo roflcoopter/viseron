@@ -3,10 +3,11 @@ import { Component } from "@site/src/types";
 const ComponentMetadata: Component = {
   title: "Webhook",
   name: "webhook",
-  description: "A component to send webhooks on specific events.",
-  image:
-    "https://github.com/logo/webhooks/raw/refs/heads/master/images/logo.svg",
+  description:
+    "Sends webhooks to external services when specific events occur.",
+  image: "/img/logos/webhook.svg",
   tags: ["notification"],
+  category: "new",
 };
 
 export default ComponentMetadata;

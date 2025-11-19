@@ -77,6 +77,15 @@ const config: Config = {
           label: "GitHub",
           position: "right",
         },
+        {
+          type: 'html',
+          position: 'right',
+          value: `
+            <span class="docker-pull-count">
+              <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/roflcoopter/viseron?color=blue">
+            </span>
+          `
+        },
       ],
     },
     footer: {
@@ -161,7 +170,9 @@ const config: Config = {
     ],
   ],
   plugins: ["@docusaurus/plugin-ideal-image"],
-  clientModules: [require.resolve("./src/lib/injectVersion.ts")],
+  clientModules: [
+    require.resolve("./src/lib/injectVersion.ts")
+  ],
 };
 
 export default config;

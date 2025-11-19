@@ -44,6 +44,11 @@ const sidebars: SidebarsConfig = {
         },
         {
           type: "link",
+          label: "Running Behind a Reverse Proxy",
+          href: "/docs/documentation/installation#running-behind-a-reverse-proxy",
+        },
+        {
+          type: "link",
           label: "User and Group Identifiers",
           href: "/docs/documentation/installation#user-and-group-identifiers",
         },

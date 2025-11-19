@@ -124,7 +124,7 @@ function HomepageHeader() {
                 </div>
               </Link>
               <Link
-                to="/docs/documentation/configuration/components"
+                to="/docs/documentation/installation#supported-architectures"
                 className={styles.featureItem}
               >
                 <Chip size={32} className={styles.featureIcon} />

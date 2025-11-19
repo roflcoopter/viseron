@@ -4,9 +4,10 @@ const ComponentMetadata: Component = {
   title: "Hailo-8",
   name: "hailo",
   description:
-    "Hailo offers breakthrough AI processors uniquely designed to enable high performance deep learning applications on edge devices.",
-  image: "https://hailo.ai/wp-content/uploads/2023/08/Hailo.png",
+    "Enables high-performance object detection on edge devices using Hailo AI processors.",
+  image: "/img/logos/hailo.webp",
   tags: ["object_detector"],
+  category: "new",
 };
 
 export default ComponentMetadata;

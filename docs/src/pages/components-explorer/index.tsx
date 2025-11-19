@@ -7,6 +7,7 @@ import Heading from "@theme/Heading";
 import Layout from "@theme/Layout";
 import clsx from "clsx";
 
+import { getIconComponent } from "@site/src/lib/iconMap";
 import ComponentCard from "@site/src/pages/components-explorer/_components/ComponentCard";
 import ComponentsTagSelect, {
   readSearchTags,
@@ -17,7 +18,7 @@ import { Component, DomainType, Domains, DomainsList } from "@site/src/types";
 import styles from "./styles.module.css";
 
 const TITLE = "Components";
-const DESCRIPTION = "List of components that are available in Viseron.";
+const DESCRIPTION = "Explore the components available in Viseron";
 
 type UserState = {
   scrollTopPosition: number;
@@ -110,8 +111,9 @@ function ComponentFilters() {
       </div>
       <ul className={clsx("clean-list", styles.checkboxList)}>
         {DomainsList.map((tag, i) => {
-          const { label, color } = Domains[tag];
+          const { label, color, icon } = Domains[tag];
           const id = `component_checkbox_id_${tag}`;
+          const IconComponent = getIconComponent(icon);
 
           return (
             <li key={i} className={styles.checkboxListItem}>
@@ -122,13 +124,15 @@ function ComponentFilters() {
                 icon={
                   <span
                     style={{
-                      backgroundColor: color,
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
+                      display: "flex",
+                      alignItems: "center",
                       marginLeft: 8,
                     }}
-                  />
+                  >
+                    {IconComponent && (
+                      <IconComponent size={16} style={{ color }} />
+                    )}
+                  </span>
                 }
               />
             </li>
@@ -150,7 +154,7 @@ function SearchBar() {
     <div className={styles.searchContainer}>
       <input
         id="searchbar"
-        placeholder="Search for component..."
+        placeholder="Search for component.."
         value={value ?? undefined}
         onInput={(e) => {
           setValue(e.currentTarget.value);
@@ -173,10 +177,20 @@ function SearchBar() {
   );
 }
 
-function ComponentCards() {
-  const filteredComponents = usefilteredComponents();
+function ComponentCards({
+  filteredComponents,
+}: {
+  filteredComponents: Component[];
+}) {
+  // Sort by first tag (type) according to DomainsList order
+  const fallbackType = DomainsList[DomainsList.length - 1];
+  const sortedComponents = [...filteredComponents].sort((a, b) => {
+    const aType = (a.tags[0] as DomainType) ?? fallbackType;
+    const bType = (b.tags[0] as DomainType) ?? fallbackType;
+    return DomainsList.indexOf(aType) - DomainsList.indexOf(bType);
+  });
 
-  if (filteredComponents.length === 0) {
+  if (sortedComponents.length === 0) {
     return (
       <section className="margin-top--lg margin-bottom--xl">
         <div className="container padding-vert--md text--center">
@@ -191,11 +205,11 @@ function ComponentCards() {
     <section className="margin-top--lg margin-bottom--xl">
       <div className="container">
         <div className={clsx("margin-bottom--md", styles.componentListHeader)}>
-          <Heading as="h2">Components</Heading>
+          <Heading as="h2">Components ({sortedComponents.length})</Heading>
           <SearchBar />
         </div>
         <ul className={clsx("clean-list", styles.componentList)}>
-          {filteredComponents.map((component) => (
+          {sortedComponents.map((component) => (
             <ComponentCard key={component.title} component={component} />
           ))}
         </ul>
@@ -205,12 +219,13 @@ function ComponentCards() {
 }
 
 export default function Components(): JSX.Element {
+  const filteredComponents = usefilteredComponents();
   return (
     <Layout title={TITLE} description={DESCRIPTION}>
       <main className="margin-vert--lg">
         <ComponentHeader />
         <ComponentFilters />
-        <ComponentCards />
+        <ComponentCards filteredComponents={filteredComponents} />
       </main>
     </Layout>
   );
