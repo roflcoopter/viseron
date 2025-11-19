@@ -9,7 +9,7 @@ import config from "./config.json";
 
 The telegram component can do two things.
 First, it can send detection videos (and thumbnails) to a chat when a detection occurs.
-Second, it can be used to control the ptz component from the chat, with commands like '/left', '/right', etc.
+Second, it can be used to control the [PTZ component](/components-explorer/components/ptz) from the chat, with commands like `/left`, `/right`, etc.
 
 ## Configuration
 
@@ -18,8 +18,9 @@ Second, it can be used to control the ptz component from the chat, with commands
 
 ```yaml title="/config/config.yaml"
 telegram:
-  telegram_bot_token: <ask_the_bot_father>
-  telegram_chat_ids: [<run_a_script>]
+  telegram_bot_token: <bot_token_from_BotFather>
+  telegram_chat_ids:
+    - <your_chat_id>
   detection_label: person
   send_detection_thumbnail: true
   send_detection_video: true
@@ -29,33 +30,39 @@ telegram:
     camera_2:
 ```
 
-Script to get chat id:
-
-```python
-import asyncio
-from telegram import Bot
-
-# Replace 'YOUR_BOT_TOKEN' with the token you got from BotFather
-bot_token = 'your_bot_token'
-
-
-async def get_chat_id():
-    # Create an instance of the Bot
-    bot = Bot(token=bot_token)
-
-    # Get updates
-    updates = await bot.get_updates()
-
-    for update in updates:
-        print(update.message.chat.id, update.message.chat.username)
-
-if __name__ == '__main__':
-    asyncio.run(get_chat_id())
-```
-
 </details>
 
 <ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## How to create a bot and get your chat ID:
+
+### Create a bot
+
+- In Telegram, open @BotFather.
+- Send `/newbot`, choose a name and a unique username.
+- Copy the token it returns (use this as `telegram_bot_token`).
+
+### Start a conversation
+
+- Private chat: open your bot and press Start, then send any message.
+- Group: add your bot to the group and send a message in the group.
+  - If the bot does not receive group messages, disable privacy via @BotFather: /setprivacy → select your bot → Disable.
+
+### Find your chat ID
+
+You can get your `chat_id` by sending a message to the [GetIDs bot](https://t.me/getidsbot).
+
+### Configure Viseron
+
+- Put the numeric ID(s) in `telegram_chat_ids`.
+- You can list multiple IDs to notify several chats.
+
+For more thorough instructions, see the Home Assistant Telegram docs:
+https://www.home-assistant.io/integrations/telegram/
+
+## Available commands
+
+To find the available commands you can use, send `/help` to your bot in Telegram.
 
 ## Troubleshooting
 
