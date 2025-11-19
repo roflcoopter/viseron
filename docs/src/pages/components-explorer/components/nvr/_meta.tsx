@@ -7,7 +7,7 @@ const ComponentMetadata: Component = {
     "It is required that you use the NVR, without it Viseron won't really do anything.",
   image: "/img/undraw_surveillance.svg",
   tags: ["nvr"],
-  category: null,
+  category: "required",
 };
 
 export default ComponentMetadata;
