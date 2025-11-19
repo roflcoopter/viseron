@@ -177,9 +177,11 @@ function SearchBar() {
   );
 }
 
-function ComponentCards() {
-  const filteredComponents = usefilteredComponents();
-
+function ComponentCards({
+  filteredComponents,
+}: {
+  filteredComponents: Component[];
+}) {
   // Sort by first tag (type) according to DomainsList order
   const fallbackType = DomainsList[DomainsList.length - 1];
   const sortedComponents = [...filteredComponents].sort((a, b) => {
@@ -203,7 +205,7 @@ function ComponentCards() {
     <section className="margin-top--lg margin-bottom--xl">
       <div className="container">
         <div className={clsx("margin-bottom--md", styles.componentListHeader)}>
-          <Heading as="h2">Components</Heading>
+          <Heading as="h2">Components ({sortedComponents.length})</Heading>
           <SearchBar />
         </div>
         <ul className={clsx("clean-list", styles.componentList)}>
@@ -217,12 +219,13 @@ function ComponentCards() {
 }
 
 export default function Components(): JSX.Element {
+  const filteredComponents = usefilteredComponents();
   return (
     <Layout title={TITLE} description={DESCRIPTION}>
       <main className="margin-vert--lg">
         <ComponentHeader />
         <ComponentFilters />
-        <ComponentCards />
+        <ComponentCards filteredComponents={filteredComponents} />
       </main>
     </Layout>
   );
