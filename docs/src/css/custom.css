@@ -215,18 +215,11 @@ html[data-theme="dark"] .navbar__title::after {
   }
 }
 
-html[data-theme="light"] .docker-pull-count {
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: rgba(101, 101, 101, 0.15);
-  color: #6b6b6b;
-}
-
-html[data-theme="dark"] .docker-pull-count {
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
+.docker-pull-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
 }
 
 /* Custom small shadow for cards */

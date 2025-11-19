@@ -80,7 +80,11 @@ const config: Config = {
         {
           type: 'html',
           position: 'right',
-          value: '<span class="docker-pull-count"></span>'
+          value: `
+            <span class="docker-pull-count">
+              <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/roflcoopter/viseron?color=blue">
+            </span>
+          `
         },
       ],
     },
@@ -167,8 +171,7 @@ const config: Config = {
   ],
   plugins: ["@docusaurus/plugin-ideal-image"],
   clientModules: [
-    require.resolve("./src/lib/injectVersion.ts"), 
-    require.resolve("./src/lib/dockerPullCount.ts")
+    require.resolve("./src/lib/injectVersion.ts")
   ],
 };
 
