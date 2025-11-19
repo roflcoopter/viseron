@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Provides fast, efficient, and private AI inferencing with Google Coral EdgeTPU.",
   image: "/img/logos/coraltpu.png",
   tags: ["image_classification", "object_detector"],
+  category: null,
 };
 
 export default ComponentMetadata;

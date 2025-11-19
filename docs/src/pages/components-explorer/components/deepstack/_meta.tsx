@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Performs object and face detection using DeepStack AI models on local devices.",
   image: "/img/logos/deepstack.png",
   tags: ["object_detector", "face_recognition"],
+  category: null,
 };
 
 export default ComponentMetadata;

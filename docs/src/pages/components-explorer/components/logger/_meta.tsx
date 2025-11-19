@@ -6,6 +6,7 @@ const ComponentMetadata: Component = {
   description: "Provides detailed and flexible logging control for Viseron.",
   image: "/img/undraw_collecting.svg",
   tags: ["system"],
+  category: null,
 };
 
 export default ComponentMetadata;

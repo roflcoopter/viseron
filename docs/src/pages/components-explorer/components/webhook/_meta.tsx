@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Sends webhooks to external services when specific events occur.",
   image: "/img/logos/webhook.svg",
   tags: ["notification"],
+  category: "new",
 };
 
 export default ComponentMetadata;

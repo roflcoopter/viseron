@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Serves the Viseron web UI for managing and interacting with your instance via browser.",
   image: "/img/undraw_interface.svg",
   tags: ["system"],
+  category: null,
 };
 
 export default ComponentMetadata;

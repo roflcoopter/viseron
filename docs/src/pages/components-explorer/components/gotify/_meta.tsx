@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Sends notifications to a Gotify server when a recording starts.",
   image: "/img/logos/gotify.png",
   tags: ["notification"],
+  category: null,
 };
 
 export default ComponentMetadata;

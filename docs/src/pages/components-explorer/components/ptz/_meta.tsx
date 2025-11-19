@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Controls ONVIF PTZ cameras, currently only supported via Telegram integration.",
   image: "/img/logos/onvif.png",
   tags: ["protocol"],
+  category: null,
 };
 
 export default ComponentMetadata;

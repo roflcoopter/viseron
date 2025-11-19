@@ -6,6 +6,7 @@ const ComponentMetadata: Component = {
   description: "Enables live streaming and relaying of video streams.",
   image: "/img/logos/go2rtc.gif",
   tags: ["protocol"],
+  category: "featured",
 };
 
 export default ComponentMetadata;

@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Provides open-source face recognition that is easy to integrate into any system.",
   image: "/img/logos/compreface.png",
   tags: ["face_recognition"],
+  category: null,
 };
 
 export default ComponentMetadata;

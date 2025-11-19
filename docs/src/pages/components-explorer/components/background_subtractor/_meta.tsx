@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Detects motion using OpenCV background subtraction algorithms for efficient video analysis.",
   image: "/img/logos/opencv.svg",
   tags: ["motion_detector"],
+  category: null,
 };
 
 export default ComponentMetadata;

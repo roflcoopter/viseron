@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Links media processing systems for complex workflows using GStreamer pipelines.",
   image: "/img/logos/gstreamer.svg",
   tags: ["camera"],
+  category: "choose_one",
 };
 
 export default ComponentMetadata;

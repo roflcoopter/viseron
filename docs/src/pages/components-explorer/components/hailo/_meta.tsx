@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Enables high-performance object detection on edge devices using Hailo AI processors.",
   image: "/img/logos/hailo.webp",
   tags: ["object_detector"],
+  category: "new",
 };
 
 export default ComponentMetadata;

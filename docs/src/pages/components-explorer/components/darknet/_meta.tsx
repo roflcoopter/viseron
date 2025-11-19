@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "State of the art Object Detection using the YOLOv7, YOLOv4 and YOLOv3 framework.",
   image: "/img/logos/darknet.png",
   tags: ["object_detector"],
+  category: null,
 };
 
 export default ComponentMetadata;

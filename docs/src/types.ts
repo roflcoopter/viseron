@@ -23,6 +23,7 @@ export type Component = {
   description: string;
   image: string;
   tags: DomainType[];
+  category: string | null;
 };
 
 export const Domains: { [type in DomainType]: Domain } = {

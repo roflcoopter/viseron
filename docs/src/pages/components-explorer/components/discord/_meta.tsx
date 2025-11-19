@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Sends notifications to Discord channels using webhooks integration.",
   image: "/img/logos/discord.png",
   tags: ["notification"],
+  category: null,
 };
 
 export default ComponentMetadata;

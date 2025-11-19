@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Enables lightweight publish-subscribe messaging for device communication using MQTT.",
   image: "/img/logos/mqtt.svg",
   tags: ["protocol"],
+  category: null,
 };
 
 export default ComponentMetadata;

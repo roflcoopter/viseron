@@ -58,9 +58,11 @@ function ComponentCardTag({ tags }: { tags: DomainType[] }) {
   );
 }
 
-const BADGE_CATEGORIES = [
-  {
-    names: ["nvr"],
+const BADGE_CATEGORIES: Record<
+  string,
+  { label: string; style: React.CSSProperties }
+> = {
+  required: {
     label: "Required",
     style: {
       background: "#e53935",
@@ -72,8 +74,7 @@ const BADGE_CATEGORIES = [
       fontWeight: 600,
     },
   },
-  {
-    names: ["ffmpeg", "gstreamer"],
+  choose_one: {
     label: "Choose One",
     style: {
       background: "#fbc02d",
@@ -85,8 +86,7 @@ const BADGE_CATEGORIES = [
       fontWeight: 600,
     },
   },
-  {
-    names: ["webhook", "hailo"],
+  new: {
     label: "New",
     style: {
       background: "#43a047",
@@ -98,8 +98,7 @@ const BADGE_CATEGORIES = [
       fontWeight: 600,
     },
   },
-  {
-    names: ["go2rtc"],
+  featured: {
     label: "Featured",
     style: {
       background: "#1976d2",
@@ -111,22 +110,22 @@ const BADGE_CATEGORIES = [
       fontWeight: 600,
     },
   },
-];
+};
 
-function getBadge(name: string) {
-  const categories = BADGE_CATEGORIES.find((cat) => cat.names.includes(name));
-  if (!categories) return null;
-  // Add a class for absolute positioning, but keep inline style for color etc.
+function getBadgeByCategory(category?: string) {
+  if (!category) return null;
+  const badge = BADGE_CATEGORIES[category];
+  if (!badge) return null;
   return (
-    <span className={styles.componentCardBadge} style={categories.style}>
-      {categories.label}
+    <span className={styles.componentCardBadge} style={badge.style}>
+      {badge.label}
     </span>
   );
 }
 
 function ComponentCard({ component }: { component: Component }) {
   const componentLink = `/components-explorer/components/${component.name}`;
-  const badge = getBadge(component.name);
+  const badge = getBadgeByCategory(component.category);
   return (
     <li
       key={component.title}

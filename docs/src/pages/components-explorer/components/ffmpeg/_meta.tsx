@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Handles video, audio, and multimedia streams using FFmpeg libraries and tools.",
   image: "/img/logos/ffmpeg.svg",
   tags: ["camera"],
+  category: "choose_one",
 };
 
 export default ComponentMetadata;

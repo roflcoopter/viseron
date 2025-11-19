@@ -7,6 +7,7 @@ const ComponentMetadata: Component = {
     "Supports object detection using Ultralytics YOLO models from v3 to the latest versions.",
   image: "/img/logos/ultralytics_yolo.svg",
   tags: ["object_detector"],
+  category: null,
 };
 
 export default ComponentMetadata;

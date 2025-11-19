@@ -6,6 +6,7 @@ const ComponentMetadata: Component = {
   description: "Controls PTZ cameras and sends notifications through Telegram.",
   image: "/img/logos/telegram.png",
   tags: ["notification"],
+  category: null,
 };
 
 export default ComponentMetadata;
