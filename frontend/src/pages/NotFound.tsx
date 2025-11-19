@@ -3,6 +3,7 @@ import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
 
 import { ErrorNotFound } from "components/error/ErrorMessage";
+import { BASE_PATH } from "lib/api/client";
 
 function NotFound() {
   return (
@@ -25,7 +26,7 @@ function NotFound() {
       >
         <ErrorNotFound />
       </Box>
-      <Button variant="contained" component="a" href="/">
+      <Button variant="contained" component="a" href={`${BASE_PATH}/`}>
         Navigate to Home
       </Button>
     </Container>
