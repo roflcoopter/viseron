@@ -60,7 +60,7 @@ function ComponentCardTag({ tags }: { tags: DomainType[] }) {
 
 const BADGE_CATEGORIES: Record<
   string,
-  { label: string; style: React.CSSProperties }
+  { label: string; style: React.CSSProperties; tooltip?: string }
 > = {
   required: {
     label: "Required",
@@ -73,6 +73,7 @@ const BADGE_CATEGORIES: Record<
       marginLeft: 8,
       fontWeight: 600,
     },
+    tooltip: "Component must always be present in Viseron.",
   },
   choose_one: {
     label: "Choose One",
@@ -85,6 +86,7 @@ const BADGE_CATEGORIES: Record<
       marginLeft: 8,
       fontWeight: 600,
     },
+    tooltip: "At least one component with this category must be present.",
   },
   new: {
     label: "New",
@@ -97,6 +99,7 @@ const BADGE_CATEGORIES: Record<
       marginLeft: 8,
       fontWeight: 600,
     },
+    tooltip: "Component introduced in the latest version.",
   },
   featured: {
     label: "Featured",
@@ -109,6 +112,7 @@ const BADGE_CATEGORIES: Record<
       marginLeft: 8,
       fontWeight: 600,
     },
+    tooltip: "Affects important features in Viseron.",
   },
 };
 
@@ -116,8 +120,22 @@ function getBadgeByCategory(category?: string) {
   if (!category) return null;
   const badge = BADGE_CATEGORIES[category];
   if (!badge) return null;
+  // Prevent click from propagating to card, so tooltip can show
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
   return (
-    <span className={styles.componentCardBadge} style={badge.style}>
+    <span
+      className={styles.componentCardBadge}
+      style={{
+        ...badge.style,
+        cursor: badge.tooltip ? "help" : undefined,
+        pointerEvents: "auto",
+      }}
+      title={badge.tooltip || undefined}
+      onClick={handleClick}
+      onMouseDown={handleClick}
+    >
       {badge.label}
     </span>
   );
