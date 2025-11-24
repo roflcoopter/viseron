@@ -896,7 +896,7 @@ function Live() {
         ref={containerRef}
         sx={{
           paddingBottom: isFullscreen ? 0 : 0.8,
-          paddingX: isFullscreen ? 0 : 2,
+          paddingX: isFullscreen ? 0 : { xs: 1, md: 2 },
           height: isFullscreen
             ? "100vh"
             : `calc(100dvh - ${theme.headerHeight}px - ${theme.headerMargin})`,

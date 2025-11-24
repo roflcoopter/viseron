@@ -227,7 +227,7 @@ export const Layout = memo(
     useSetPlayerCardHeight(playerCardGridItemRef);
 
     return (
-      <Container sx={{ paddingX: 2 }}>
+      <Container sx={{ paddingX: { xs: 1, md: 2 } }}>
         <Grid
           container
           direction="row"

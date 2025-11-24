@@ -65,7 +65,10 @@ function Users() {
   };
 
   return (
-    <Container maxWidth={false} sx={{ paddingX: 2 }}>
+    <Container
+      maxWidth={false}
+      sx={{ paddingX: { xs: 1, md: 2 }, paddingY: 0.5 }}
+    >
       <TableContainer component={Paper}>
         <Table
           sx={() => ({

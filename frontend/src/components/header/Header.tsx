@@ -105,7 +105,7 @@ export default function AppHeader() {
             display: "flex",
             alignItems: "center",
             minHeight: theme.headerHeight,
-            paddingX: 2,
+            paddingX: { xs: 1, md: 2 },
           }}
         >
           <Stack
