@@ -12,7 +12,7 @@ const Footer = styled("footer")(() => ({
   position: "relative",
   left: 0,
   bottom: 0,
-  marginTop: "60px",
+  marginTop: "30px",
   paddingBottom: "25px",
 }));
 
@@ -132,7 +132,7 @@ export default function AppFooter() {
         </Typography>
         <Link
           target="_blank"
-          href="https://github.com/roflcoopter/viseron?tab=MIT-1-ov-file"
+          href="https://github.com/roflcoopter/viseron/blob/master/LICENSE"
           color={theme.palette.text.secondary}
           variant="caption"
           sx={{
