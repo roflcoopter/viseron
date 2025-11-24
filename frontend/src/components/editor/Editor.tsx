@@ -67,7 +67,7 @@ const options = {
   renderIndentGuides: true,
 };
 
-const editorWidth = "80vw";
+const editorWidth = "100vw";
 
 const useResize = (
   editorRef: React.MutableRefObject<
