@@ -18,6 +18,7 @@ import numpy as np
 
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import COMPONENT
+from viseron.components.nvr.sensor import OperationStateSensor
 from viseron.components.storage.models import TriggerTypes
 from viseron.const import DOMAIN_IDENTIFIERS, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
@@ -49,7 +50,6 @@ from .const import (
     OBJECT_DETECTOR,
     SCANNER_RESULT_RETRIES,
 )
-from .sensor import OperationStateSensor
 
 if TYPE_CHECKING:
     from viseron import Viseron
@@ -114,6 +114,13 @@ class EventScanFrames(EventData):
 
     camera_identifier: str
     scan: bool
+
+
+@dataclass
+class ManualRecording:
+    """Dataclass for manual recordings."""
+
+    duration: int
 
 
 class FrameIntervalCalculator:
@@ -244,6 +251,8 @@ class NVR:
         self._start_recorder = False
         self._stop_recorder_at: datetime.datetime | None = None
         self._seconds_left = 0
+        self._manual_recording: ManualRecording | None = None
+        self._start_manual_recording = False
         self._kill_received = False
         self._data_stream: DataStream = vis.data[DATA_STREAM_COMPONENT]
         self._removal_timers: list[threading.Timer] = []
@@ -465,6 +474,49 @@ class NVR:
                         ):
                             frame_scanner.domain_instance.result_failed_callback()
 
+    def start_manual_recording(self, manual_recording: ManualRecording):
+        """Start a manual recording with a set duration."""
+        self._manual_recording = manual_recording
+        self._start_manual_recording = True
+
+    def stop_manual_recording(self) -> None:
+        """Stop manual recording."""
+        self._manual_recording = None
+
+    def process_manual_recording(self) -> None:
+        """Process manual recording."""
+        if not self._manual_recording:
+            return
+
+        if not self._start_manual_recording:
+            return
+
+        if self._camera.is_recording:
+            self._logger.info(
+                "Event recording in progress, starting manual recording instead"
+            )
+            self.stop_recorder(force=True)
+
+        self._start_manual_recording = False
+        self._trigger_type = TriggerTypes.MANUAL
+        self._start_recorder = True
+        self._stop_recorder_at = utcnow() + datetime.timedelta(
+            seconds=self._manual_recording.duration
+        )
+
+    @property
+    def manual_recording_ended(self) -> bool:
+        """Return if manual recording should end."""
+        if not self._manual_recording:
+            return True
+
+        if self.camera.recorder.active_recording is None:
+            return True
+
+        return (
+            utcnow() - self.camera.recorder.active_recording.start_time
+        ).total_seconds() > self._manual_recording.duration
+
     def event_over_check_motion(
         self, obj: DetectedObject, object_filters: dict[str, Filter]
     ) -> bool:
@@ -641,7 +693,9 @@ class NVR:
         self, shared_frame: SharedFrame, trigger_type: TriggerTypes
     ) -> None:
         """Start recorder."""
-        self._stop_recorder_at = None
+        if self._stop_recorder_at and self._stop_recorder_at < utcnow():
+            self._stop_recorder_at = None
+
         self._camera.start_recorder(
             shared_frame,
             self._object_detector.objects_in_fov if self._object_detector else None,
@@ -681,7 +735,7 @@ class NVR:
                 self._logger.info(f"Stopping recording in: {seconds_left}s")
                 self._seconds_left = seconds_left
 
-        if utcnow() > self._stop_recorder_at:
+        if utcnow() >= self._stop_recorder_at:
             if (
                 self._motion_detector
                 and self._object_detector
@@ -698,6 +752,7 @@ class NVR:
         self.scanner_results()
         self.process_object_event()
         self.process_motion_event()
+        self.process_manual_recording()
 
     def process_recorder(self, shared_frame: SharedFrame) -> None:
         """Check if we should start or stop the recorder."""
@@ -712,10 +767,23 @@ class NVR:
         ):
             self._logger.info("Max recording time exceeded, stopping recorder")
             self.stop_recorder(force=True)
+        elif (
+            self._camera.is_recording
+            and self._camera.recorder.active_recording
+            and self._camera.recorder.active_recording.trigger_type
+            == TriggerTypes.MANUAL
+        ):
+            # Nested if in order to not end up in the block below
+            if self.manual_recording_ended:
+                self._logger.info("Manual recording stopped or time exceeded")
+                self.stop_recorder(force=True)
+                return
+            self.stop_recorder()
         elif self._camera.is_recording and self.event_over():
             self.stop_recorder()
         else:
             self._stop_recorder_at = None
+            self._seconds_left = 0
 
     def remove_frame(self, shared_frame: SharedFrame) -> None:
         """Remove frame after a delay.
@@ -738,44 +806,49 @@ class NVR:
         timer.start()
 
     def run(self) -> None:
-        """Read frames from camera."""
+        """Frame processing loop."""
         self._logger.debug("Waiting for first frame")
         first_frame_log = True
 
         while not self._kill_received:
-            self.update_operation_state()
-            try:
-                shared_frame = self._frame_queue.get(timeout=1)
-            except Empty:
-                continue
+            self._run(first_frame_log)
+            first_frame_log = False
 
-            if first_frame_log:
-                self._logger.debug("First frame received")
-                first_frame_log = False
-
-            if (frame_age := time.time() - shared_frame.capture_time) > 1:
-                self._logger.debug(f"Frame is {frame_age} seconds old. Discarding")
-                self.remove_frame(shared_frame)
-                continue
-
-            self.process_frame(shared_frame)
-            self.process_recorder(shared_frame)
-            self._data_stream.publish_data(
-                self._topic_processed_frame,
-                DataProcessedFrame(
-                    frame=self._camera.shared_frames.get_decoded_frame_rgb(
-                        shared_frame
-                    ).copy(),
-                    objects_in_fov=self._object_detector.objects_in_fov
-                    if self._object_detector
-                    else None,
-                    motion_contours=self._motion_detector.motion_contours
-                    if self._motion_detector
-                    else None,
-                ),
-            )
-            self.remove_frame(shared_frame)
         self._logger.debug("NVR thread stopped")
+
+    def _run(self, first_frame_log=False) -> None:
+        """Process frames from camera."""
+        self.update_operation_state()
+        try:
+            shared_frame = self._frame_queue.get(timeout=1)
+        except Empty:
+            return
+
+        if first_frame_log:
+            self._logger.debug("First frame received")
+
+        if (frame_age := time.time() - shared_frame.capture_time) > 1:
+            self._logger.debug(f"Frame is {frame_age} seconds old. Discarding")
+            self.remove_frame(shared_frame)
+            return
+
+        self.process_frame(shared_frame)
+        self.process_recorder(shared_frame)
+        self._data_stream.publish_data(
+            self._topic_processed_frame,
+            DataProcessedFrame(
+                frame=self._camera.shared_frames.get_decoded_frame_rgb(
+                    shared_frame
+                ).copy(),
+                objects_in_fov=self._object_detector.objects_in_fov
+                if self._object_detector
+                else None,
+                motion_contours=self._motion_detector.motion_contours
+                if self._motion_detector
+                else None,
+            ),
+        )
+        self.remove_frame(shared_frame)
 
     def stop(self) -> None:
         """Stop processing of events."""
