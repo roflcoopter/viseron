@@ -337,6 +337,18 @@ class NVR:
                 None,
             )
 
+        # Check if any filter in self._object_detector.object_filters requires motion
+        # and warn if motion detector is not configured
+        if not self._motion_detector and self._object_detector:
+            for filter_name, filter_obj in self._object_detector.object_filters.items():
+                if filter_obj.require_motion:
+                    self._logger.warning(
+                        f"Object filter for '{filter_name}' requires motion detection, "
+                        "but motion detector is not configured. Either remove "
+                        "'require_motion' or configure a motion detector."
+                    )
+                    filter_obj.require_motion = False
+
         self._post_processors: dict[Domain, AbstractPostProcessor] = {}
         self.set_post_processors()
 
