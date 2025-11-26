@@ -14,7 +14,6 @@ from viseron.const import CONFIG_PATH
 
 LOGGER = logging.getLogger(__name__)
 
-# CodeProjectAI model labels mapping based on custom model​
 CODEPROJECTAI_MODELS = {
     "ipcam-animal": [
         "bird",
@@ -890,7 +889,7 @@ class TuneAPIHandler(BaseAPIHandler):
                     f"'{camera_identifier}' in {component}.{domain}",
                 )
                 return
-        except (OSError, IOError, yaml.YAMLError) as e:
+        except (OSError, yaml.YAMLError) as e:
             LOGGER.error(f"Error updating camera tune: {e}", exc_info=True)
             self.response_error(
                 status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
