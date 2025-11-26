@@ -205,7 +205,7 @@ class TuneAPIHandler(BaseAPIHandler):
                 return []
             with open(file_path, encoding="utf-8") as f:
                 return [line.strip() for line in f if line.strip()]
-        except (OSError, IOError) as e:
+        except OSError as e:
             LOGGER.warning(f"Failed to load labels from {file_path}: {e}")
             return []
 
