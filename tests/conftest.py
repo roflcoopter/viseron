@@ -33,6 +33,9 @@ class MockViseron(Viseron):
             side_effect=self.register_domain,
         )
         self.mocked_register_domain = self.register_domain
+        self.add_entity = MagicMock(  # type: ignore[method-assign]
+            auto_spec=self.add_entity,
+        )
 
 
 @pytest.fixture

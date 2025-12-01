@@ -120,7 +120,7 @@ class EventScanFrames(EventData):
 class ManualRecording:
     """Dataclass for manual recordings."""
 
-    duration: int
+    duration: int | None = None
 
 
 class FrameIntervalCalculator:
@@ -476,11 +476,16 @@ class NVR:
 
     def start_manual_recording(self, manual_recording: ManualRecording):
         """Start a manual recording with a set duration."""
+        self._logger.debug(
+            "Received request to start manual recording with duration: "
+            f"{manual_recording.duration}"
+        )
         self._manual_recording = manual_recording
         self._start_manual_recording = True
 
     def stop_manual_recording(self) -> None:
         """Stop manual recording."""
+        self._logger.debug("Received request to stop manual recording")
         self._manual_recording = None
 
     def process_manual_recording(self) -> None:
@@ -500,9 +505,10 @@ class NVR:
         self._start_manual_recording = False
         self._trigger_type = TriggerTypes.MANUAL
         self._start_recorder = True
-        self._stop_recorder_at = utcnow() + datetime.timedelta(
-            seconds=self._manual_recording.duration
-        )
+        if self._manual_recording.duration:
+            self._stop_recorder_at = utcnow() + datetime.timedelta(
+                seconds=self._manual_recording.duration
+            )
 
     @property
     def manual_recording_ended(self) -> bool:
@@ -512,6 +518,9 @@ class NVR:
 
         if self.camera.recorder.active_recording is None:
             return True
+
+        if self._manual_recording.duration is None:
+            return False
 
         return (
             utcnow() - self.camera.recorder.active_recording.start_time
@@ -778,7 +787,6 @@ class NVR:
                 self._logger.info("Manual recording stopped or time exceeded")
                 self.stop_recorder(force=True)
                 return
-            self.stop_recorder()
         elif self._camera.is_recording and self.event_over():
             self.stop_recorder()
         else:
