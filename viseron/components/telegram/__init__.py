@@ -21,6 +21,8 @@ from telegram.ext import (
     CommandHandler,
 )
 
+from viseron.components.nvr import COMPONENT as NVR_COMPONENT
+from viseron.components.nvr.nvr import ManualRecording
 from viseron.components.storage.models import TriggerTypes
 from viseron.components.telegram.ptz_control import TelegramPTZ
 from viseron.components.telegram.utils import limit_user_access
@@ -68,6 +70,7 @@ from .const import (
 
 if TYPE_CHECKING:
     from viseron import Event, Viseron
+    from viseron.components.nvr.nvr import NVR
 
 LOGGER = logging.getLogger(__name__)
 
@@ -258,6 +261,8 @@ class TelegramEventNotifier:
         """Start listening for commands from Telegram."""
         self._app.add_handler(CommandHandler("record", self._record))
         self._app.add_handler(CommandHandler("r", self._record))
+        self._app.add_handler(CommandHandler("stop_recorder", self._stop_recorder))
+        self._app.add_handler(CommandHandler("sr", self._stop_recorder))
         self._app.add_handler(CommandHandler("list", self._list_cams))
         self._app.add_handler(CommandHandler("li", self._list_cams))
         self._app.add_handler(CommandHandler("select", self._list_cams))
@@ -401,7 +406,7 @@ class TelegramEventNotifier:
 
         /record 60 5 will record five 60 second videos and return them.
         """
-        duration = 5
+        duration: int | None = None
         number_of_videos = 1
         if context.args and len(context.args) > 0:
             duration = int(context.args[0])
@@ -413,7 +418,17 @@ class TelegramEventNotifier:
                 await update.message.reply_text("Camera not found.")
             return
 
-        if cam.is_recording:
+        nvr: NVR | None = self._vis.data[NVR_COMPONENT].get(cam.identifier, None)
+        if nvr is None:
+            if update.message:
+                await update.message.reply_text("NVR component not enabled for camera.")
+            return
+
+        if (
+            cam.is_recording
+            and cam.recorder.active_recording
+            and cam.recorder.active_recording.trigger_type == TriggerTypes.MANUAL
+        ):
             if update.message:
                 await update.message.reply_text("Camera is already recording.")
             return
@@ -421,15 +436,52 @@ class TelegramEventNotifier:
             if update.message:
                 await update.message.reply_text("No frame available.")
             return
+
+        manual_recording = ManualRecording(duration=duration)
         for _ in range(number_of_videos):
-            recording = cam.recorder.start(
-                shared_frame=cam.current_frame,
-                trigger_type=TriggerTypes.OBJECT,
-                objects_in_fov=[],
+            nvr.start_manual_recording(
+                manual_recording,
             )
-            await asyncio.sleep(duration)
-            if cam.recorder.is_recording:
-                cam.recorder.stop(recording)
+            if update.message:
+                await update.message.reply_text(
+                    f"Started manual recording for camera {cam.identifier} with "
+                    f"{f'duration {duration}s' if duration else 'no duration'}.",
+                )
+            if duration:
+                await asyncio.sleep(duration)
+
+    @limit_user_access
+    async def _stop_recorder(self, update: Update, _context: CallbackContext) -> None:
+        """
+        Stop an ongoing manual recording.
+
+        Example usage:
+        /stop_recorder
+        This will stop the current manual recording.
+        """
+        cam: AbstractCamera | None = self.get_camera(self.active_camera_identifier)
+        if cam is None:
+            if update.message:
+                await update.message.reply_text("Camera not found.")
+            return
+
+        nvr: NVR | None = self._vis.data[NVR_COMPONENT].get(cam.identifier, None)
+        if nvr is None:
+            if update.message:
+                await update.message.reply_text("NVR component not enabled for camera.")
+            return
+
+        if not (
+            cam.is_recording
+            and cam.recorder.active_recording
+            and cam.recorder.active_recording.trigger_type == TriggerTypes.MANUAL
+        ):
+            if update.message:
+                await update.message.reply_text("No ongoing manual recording to stop.")
+            return
+        nvr.stop_manual_recording()
+        if update.message:
+            await update.message.reply_text("Manual recording stopped.")
 
     @limit_user_access
     async def _help(self, update: Update, context: CallbackContext) -> None:
