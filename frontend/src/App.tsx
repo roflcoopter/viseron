@@ -30,12 +30,16 @@ function App() {
       element: <PrivateLayout />,
       children: [
         {
-          element: <RequireRole userRole={["admin"]} />,
+          path: "/",
+          element: <Cameras />,
+        },
+        {
+          path: "/cameras",
           children: [
+            { index: true, element: <Navigate to="/" replace /> },
             {
-              path: "/cameras",
+              element: <RequireRole userRole={["admin"]} />,
               children: [
-                { index: true, element: <Navigate to="/" replace /> },
                 {
                   path: ":camera_identifier",
                   children: [{ index: true, element: <Tuning /> }],
@@ -43,10 +47,6 @@ function App() {
               ],
             },
           ],
-        },
-        {
-          path: "/",
-          element: <Cameras />,
         },
         {
           path: "/recordings",
