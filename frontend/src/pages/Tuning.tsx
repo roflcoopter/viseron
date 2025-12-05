@@ -101,9 +101,12 @@ function Tunes() {
             freshComponentData;
 
           // Update with fresh data from backend
-          if (available_labels && Array.isArray(available_labels)) {
-            tuneHandlers.setAvailableLabels?.(available_labels);
-          }
+          // If available_labels key doesn't exist or is null/undefined, set to empty array for text input mode
+          tuneHandlers.setAvailableLabels?.(
+            available_labels && Array.isArray(available_labels)
+              ? available_labels
+              : [],
+          );
 
           // Parse OSD texts and video transforms if this is a camera component
           const componentDataWithParsed =
@@ -158,14 +161,11 @@ function Tunes() {
         typeof l === "string" ? l : l.label,
       ) || [];
 
-    // Use available_labels from API if present, otherwise fallback to hardcoded list
-    if (tuneHandlers.availableLabels.length > 0) {
-      return tuneHandlers.availableLabels.filter(
-        (label: string) => !existingLabels.includes(label),
-      );
-    }
-
-    return getAvailableLabelsForAdd(existingLabels);
+    // Use available_labels from API (returns empty array if none, triggering text input mode)
+    return getAvailableLabelsForAdd(
+      existingLabels,
+      tuneHandlers.availableLabels,
+    );
   };
 
   const getAvailableLabelsForEditWrapper = (currentLabel: string) => {
@@ -179,31 +179,27 @@ function Tunes() {
       (label: string) => label !== currentLabel,
     );
 
-    // Use available_labels from API if present, otherwise fallback to hardcoded list
-    if (tuneHandlers.availableLabels.length > 0) {
-      return tuneHandlers.availableLabels.filter(
-        (label: string) => !otherLabels.includes(label),
-      );
-    }
-
-    return getAvailableLabelsForAdd(otherLabels);
+    // Use available_labels from API (returns empty array if none, triggering text input mode)
+    return getAvailableLabelsForAdd(otherLabels, tuneHandlers.availableLabels);
   };
 
   const handleAddLabelWrapper = () => {
     const available = getAvailableLabelsForAddWrapper();
-    if (available.length === 0) return;
+
+    // If no available labels (text input mode), set empty string as initial value
+    const initialLabel = available.length > 0 ? available[0] : "";
 
     if (
       tuneHandlers.selectedComponentData?.componentType === "face_recognition"
     ) {
-      tuneHandlers.handleAddFaceRecognitionLabel(available[0]);
+      tuneHandlers.handleAddFaceRecognitionLabel(initialLabel);
     } else if (
       tuneHandlers.selectedComponentData?.componentType ===
       "license_plate_recognition"
     ) {
-      tuneHandlers.handleAddLicensePlateRecognitionLabel(available[0]);
+      tuneHandlers.handleAddLicensePlateRecognitionLabel(initialLabel);
     } else {
-      tuneHandlers.handleAddLabel(available[0]);
+      tuneHandlers.handleAddLabel(initialLabel);
     }
   };
 
@@ -582,7 +578,6 @@ function Tunes() {
               }
               isConfigModified={tuneHandlers.isConfigModified}
               isSaving={updateTuneConfig.isPending}
-              availableLabelsCount={getAvailableLabelsForAddWrapper().length}
               onLabelClick={(index) => {
                 if (
                   tuneHandlers.selectedComponentData?.componentType ===

@@ -13,7 +13,6 @@ interface LabelsSectionProps {
   labels: Label[] | string[]; // Support both object_detector (Label[]) and face_recognition (string[])
   isDrawingMode: boolean;
   isSaving: boolean;
-  availableLabelsCount: number;
   componentType?: string; // To determine which icon to use
   onLabelClick: (index: number) => void;
   onAddLabel: () => void;
@@ -28,7 +27,6 @@ export function LabelsSection({
   labels,
   isDrawingMode,
   isSaving,
-  availableLabelsCount,
   componentType,
   onLabelClick,
   onAddLabel,
@@ -47,7 +45,7 @@ export function LabelsSection({
           size="small"
           startIcon={<AddAlt size={16} />}
           onClick={onAddLabel}
-          disabled={isDrawingMode || isSaving || availableLabelsCount === 0}
+          disabled={isDrawingMode || isSaving}
         >
           Add
         </Button>

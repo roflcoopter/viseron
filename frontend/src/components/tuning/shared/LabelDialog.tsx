@@ -28,7 +28,7 @@ interface LabelDialogProps {
   showConfidence?: boolean;
   showTriggerRecording?: boolean;
   useTextInput?: boolean;
-  inputType?: "face" | "plate"; // To customize helper text and placeholder
+  inputType?: "face" | "plate" | "object"; // To customize helper text and placeholder
 }
 
 export function LabelDialog({
@@ -53,10 +53,13 @@ export function LabelDialog({
   // Use availableLabels from parent - they are already filtered to exclude existing labels
   const labels = availableLabels || [];
 
+  // Auto-detect if we should use text input: if no available labels, use text input
+  const shouldUseTextInput = useTextInput || labels.length === 0;
+
   // Check if the current label already exists (case-insensitive for text input)
   // When editing, exclude the original label from duplicate check
   const isDuplicate =
-    useTextInput &&
+    shouldUseTextInput &&
     existingLabels.some(
       (existingLabel) =>
         existingLabel.toLowerCase() === label.toLowerCase().trim() &&
@@ -64,21 +67,28 @@ export function LabelDialog({
     );
 
   // Disable confirm button if label is empty or duplicate
-  const isConfirmDisabled = !label.trim() || (useTextInput && isDuplicate);
+  const isConfirmDisabled =
+    !label.trim() || (shouldUseTextInput && isDuplicate);
 
   // Get helper text and placeholder based on input type
   const getHelperText = () => {
     if (inputType === "face") {
       return "Enter the label of the person to recognize";
     }
-    return "Enter the license plate number";
+    if (inputType === "plate") {
+      return "Enter the license plate number";
+    }
+    return "Enter the label name";
   };
 
   const getPlaceholder = () => {
     if (inputType === "face") {
       return "e.g., John Doe";
     }
-    return "e.g., ABC-1234";
+    if (inputType === "plate") {
+      return "e.g., ABC-1234";
+    }
+    return "e.g., person";
   };
 
   return (
@@ -86,7 +96,7 @@ export function LabelDialog({
       <DialogTitle>{isEdit ? "Edit" : "Add"} Label</DialogTitle>
       <DialogContent>
         <Box sx={{ pt: 1 }}>
-          {useTextInput ? (
+          {shouldUseTextInput ? (
             <TextField
               fullWidth
               label="Label"

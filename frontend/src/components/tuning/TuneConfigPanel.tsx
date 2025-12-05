@@ -35,7 +35,6 @@ interface TuneConfigPanelProps {
   drawingPoints: Array<{ x: number; y: number }>;
   isConfigModified: boolean;
   isSaving: boolean;
-  availableLabelsCount: number;
   onLabelClick: (index: number) => void;
   onAddLabel: () => void;
   onZoneClick: (index: number) => void;
@@ -74,7 +73,6 @@ export function TuneConfigPanel({
   drawingPoints,
   isConfigModified,
   isSaving,
-  availableLabelsCount,
   onLabelClick,
   onAddLabel,
   onZoneClick,
@@ -213,7 +211,6 @@ export function TuneConfigPanel({
               labels={selectedComponentData.labels || []}
               isDrawingMode={isDrawingMode}
               isSaving={isSaving}
-              availableLabelsCount={availableLabelsCount}
               componentType={selectedComponentData.componentType}
               onLabelClick={onLabelClick}
               onAddLabel={onAddLabel}
