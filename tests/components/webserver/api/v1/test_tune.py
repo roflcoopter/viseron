@@ -737,7 +737,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
     def test_get_available_labels_darknet(self) -> None:
         """Test that available_labels is populated for darknet."""
         with patch("viseron.const.CONFIG_PATH", self.config_path), patch(
-            "viseron.components.webserver.api.v1.tuning.labels.load_labels_from_file",
+            "viseron.components.webserver.api.v1.tuning.labels._load_labels_from_file",
             return_value=["person", "car", "dog", "cat"],
         ):
             response = self.fetch_with_auth("/api/v1/tune/camera_1", method="GET")

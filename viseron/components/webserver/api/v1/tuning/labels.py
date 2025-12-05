@@ -3,6 +3,8 @@
 import logging
 import os
 
+from ultralytics import YOLO
+
 LOGGER = logging.getLogger(__name__)
 
 CODEPROJECTAI_MODELS = {
@@ -59,7 +61,7 @@ CODEPROJECTAI_MODELS = {
 }
 
 
-def load_labels_from_file(file_path: str) -> list[str]:
+def _load_labels_from_file(file_path: str) -> list[str]:
     """Load labels from file."""
     try:
         if not os.path.exists(file_path):
@@ -71,20 +73,46 @@ def load_labels_from_file(file_path: str) -> list[str]:
         return []
 
 
-def get_available_labels(component_name: str, cam_config: dict) -> list[str] | None:
+def _load_yolo_labels(model_path: str) -> list[str] | None:
+    """Load labels from YOLO model."""
+    try:
+        if not os.path.exists(model_path):
+            LOGGER.warning(f"YOLO model not found: {model_path}")
+            return None
+
+        model = YOLO(model_path)
+        return list(model.names.values())
+    except (OSError, RuntimeError) as e:
+        LOGGER.warning(f"Failed to load YOLO labels from {model_path}: {e}")
+        return None
+
+
+def get_available_labels(
+    component_name: str, domain_config: dict | None = None
+) -> list[str] | None:
     """Get available labels for an object detector component."""
-    if component_name == "darknet":
-        return load_labels_from_file("/detectors/models/darknet/coco.names")
-    if component_name == "hailo":
-        return load_labels_from_file("/detectors/models/darknet/coco.names")
+    if component_name in ("darknet", "hailo"):
+        label_path = "/detectors/models/darknet/coco.names"  # Default path
+        if domain_config and "label_path" in domain_config:
+            label_path = domain_config["label_path"]
+        return _load_labels_from_file(label_path)
     if component_name == "edgetpu":
-        return load_labels_from_file("/detectors/models/edgetpu/labels.txt")
+        label_path = "/detectors/models/edgetpu/labels.txt"  # Default path
+        if domain_config and "label_path" in domain_config:
+            label_path = domain_config["label_path"]
+        return _load_labels_from_file(label_path)
     if component_name == "deepstack":
-        return load_labels_from_file("/detectors/models/darknet/coco.names")
+        if domain_config and domain_config.get("custom_model"):
+            return None  # No available labels for custom models
+        return _load_labels_from_file("/detectors/models/darknet/coco.names")
     if component_name == "codeprojectai":
-        # Get custom_model from config, default to ipcam-general
-        custom_model = cam_config.get("custom_model", "ipcam-general")
-        if custom_model is None:
-            custom_model = "ipcam-general"
-        return CODEPROJECTAI_MODELS.get(custom_model, [])
+        selected_model = "ipcam-general"  # Default model
+        if domain_config and "custom_model" in domain_config:
+            selected_model = domain_config["custom_model"]
+        return CODEPROJECTAI_MODELS.get(selected_model, [])
+    if component_name == "yolo":
+        # YOLO requires model_path to be configured (no default model)
+        if not domain_config or "model_path" not in domain_config:
+            return None
+        return _load_yolo_labels(domain_config["model_path"])
     return None

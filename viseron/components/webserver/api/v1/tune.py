@@ -145,7 +145,7 @@ class TuneAPIHandler(BaseAPIHandler):
                     config_to_store = cam_config if isinstance(cam_config, dict) else {}
                     if domain_name == "object_detector":
                         available_labels = get_available_labels(
-                            component_name, config_to_store
+                            component_name, domain_config
                         )
                         if available_labels:
                             config_to_store = (
