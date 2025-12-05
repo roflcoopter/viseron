@@ -59,7 +59,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
                             ],
                             "mask": [
                                 {
-                                    "name": "mask_1",
                                     "coordinates": [
                                         {"x": 10, "y": 10},
                                         {"x": 50, "y": 10},
@@ -87,7 +86,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
                         "camera_1": {
                             "mask": [
                                 {
-                                    "name": "motion_mask_1",
                                     "coordinates": [
                                         {"x": 20, "y": 20},
                                         {"x": 60, "y": 20},
@@ -107,7 +105,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
                             "labels": ["John Doe", "Jane Smith"],
                             "mask": [
                                 {
-                                    "name": "face_mask_1",
                                     "coordinates": [
                                         {"x": 30, "y": 30},
                                         {"x": 70, "y": 30},
@@ -115,7 +112,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
                                     ],
                                 }
                             ],
-                            "expire_after": 5,
                         }
                     }
                 }
@@ -127,7 +123,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
                             "labels": ["ABC-1234", "XYZ-5678"],
                             "mask": [
                                 {
-                                    "name": "plate_mask_1",
                                     "coordinates": [
                                         {"x": 40, "y": 40},
                                         {"x": 80, "y": 40},
@@ -143,7 +138,9 @@ class TestTuneAPIHandler(TestAppBaseAuth):
                 "camera": {
                     "camera_1": {
                         "name": "Front Door",
-                        "stream_url": "rtsp://example.com/stream",
+                        "host": "localhost",
+                        "port": 8554,
+                        "path": "/camera_1",
                         "width": 1920,
                         "height": 1080,
                     }
@@ -331,7 +328,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "data": {
                 "mask": [
                     {
-                        "name": "new_mask",
                         "coordinates": [
                             {"x": 150, "y": 150},
                             {"x": 250, "y": 150},
@@ -357,7 +353,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
 
         mask = config["darknet"]["object_detector"]["cameras"]["camera_1"]["mask"]
         assert len(mask) == 1
-        assert mask[0]["name"] == "new_mask"
 
     def test_update_motion_detector_mask(self) -> None:
         """Test updating motion detector mask."""
@@ -367,7 +362,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "data": {
                 "mask": [
                     {
-                        "name": "updated_motion_mask",
                         "coordinates": [
                             {"x": 100, "y": 100},
                             {"x": 200, "y": 100},
@@ -393,7 +387,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
 
         mask = config["mog2"]["motion_detector"]["cameras"]["camera_1"]["mask"]
         assert len(mask) == 1
-        assert mask[0]["name"] == "updated_motion_mask"
 
     def test_update_face_recognition_labels(self) -> None:
         """Test updating face recognition labels."""
@@ -430,7 +423,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "data": {
                 "mask": [
                     {
-                        "name": "face_mask_updated",
                         "coordinates": [
                             {"x": 50, "y": 50},
                             {"x": 100, "y": 50},
@@ -456,7 +448,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
 
         mask = config["dlib"]["face_recognition"]["cameras"]["camera_1"]["mask"]
         assert len(mask) == 1
-        assert mask[0]["name"] == "face_mask_updated"
 
     def test_update_license_plate_recognition_labels(self) -> None:
         """Test updating license plate recognition labels."""
@@ -495,7 +486,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "data": {
                 "mask": [
                     {
-                        "name": "plate_mask_updated",
                         "coordinates": [
                             {"x": 60, "y": 60},
                             {"x": 120, "y": 60},
@@ -523,7 +513,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "camera_1"
         ]["mask"]
         assert len(mask) == 1
-        assert mask[0]["name"] == "plate_mask_updated"
 
     def test_update_camera_config(self) -> None:
         """Test updating camera configuration."""
@@ -532,7 +521,9 @@ class TestTuneAPIHandler(TestAppBaseAuth):
             "component": "ffmpeg",
             "data": {
                 "name": "Updated Front Door",
-                "stream_url": "rtsp://example.com/updated_stream",
+                "host": "localhost",
+                "port": 8554,
+                "path": "/camera_2",
                 "width": 2560,
                 "height": 1440,
             },
@@ -553,6 +544,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
 
         camera = config["ffmpeg"]["camera"]["camera_1"]
         assert camera["name"] == "Updated Front Door"
+        assert camera["path"] == "/camera_2"
         assert camera["width"] == 2560
         assert camera["height"] == 1440
 
@@ -745,7 +737,7 @@ class TestTuneAPIHandler(TestAppBaseAuth):
     def test_get_available_labels_darknet(self) -> None:
         """Test that available_labels is populated for darknet."""
         with patch("viseron.const.CONFIG_PATH", self.config_path), patch(
-            "viseron.components.webserver.api.v1.tune.TuneAPIHandler._load_labels_from_file",
+            "viseron.components.webserver.api.v1.tuning.labels.load_labels_from_file",
             return_value=["person", "car", "dog", "cat"],
         ):
             response = self.fetch_with_auth("/api/v1/tune/camera_1", method="GET")
@@ -767,7 +759,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
                 "labels": ["Test Person"],
                 "mask": [
                     {
-                        "name": "test_mask",
                         "coordinates": [{"x": 0, "y": 0}, {"x": 10, "y": 10}],
                     }
                 ],
@@ -804,7 +795,6 @@ class TestTuneAPIHandler(TestAppBaseAuth):
                 "labels": ["TEST-123"],
                 "mask": [
                     {
-                        "name": "test_mask",
                         "coordinates": [{"x": 0, "y": 0}, {"x": 10, "y": 10}],
                     }
                 ],
