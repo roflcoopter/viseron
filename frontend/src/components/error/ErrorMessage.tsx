@@ -165,6 +165,7 @@ export function ErrorBoundaryInner({
     setIsNavigating(true);
     // Add small delay for smooth loading animation before client-side navigation
     setTimeout(() => {
+      resetErrorBoundary();
       navigate("/");
     }, 300);
   };
@@ -273,6 +274,7 @@ export function ErrorBoundaryOuter({
     setIsRefreshing(true);
     // Add small delay for smooth loading animation before client-side navigation
     setTimeout(() => {
+      resetErrorBoundary();
       navigate(0); // This refreshes the current route
     }, 300);
   };
