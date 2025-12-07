@@ -22,7 +22,6 @@ from telegram.ext import (
 )
 
 from viseron.components.nvr import COMPONENT as NVR_COMPONENT
-from viseron.components.nvr.nvr import ManualRecording
 from viseron.components.storage.models import TriggerTypes
 from viseron.components.telegram.ptz_control import TelegramPTZ
 from viseron.components.telegram.utils import limit_user_access
@@ -32,7 +31,7 @@ from viseron.domains.camera.const import (
     DOMAIN as CAMERA_DOMAIN,
     EVENT_RECORDER_COMPLETE,
 )
-from viseron.domains.camera.recorder import EventRecorderData
+from viseron.domains.camera.recorder import EventRecorderData, ManualRecording
 from viseron.exceptions import ComponentNotReady, DomainNotRegisteredError
 from viseron.helpers import escape_string
 from viseron.helpers.logs import SensitiveInformationFilter

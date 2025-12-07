@@ -19,6 +19,7 @@ import numpy as np
 from viseron.components.data_stream import COMPONENT as DATA_STREAM_COMPONENT
 from viseron.components.nvr.const import COMPONENT
 from viseron.components.nvr.sensor import OperationStateSensor
+from viseron.components.nvr.toggle import ManualRecordingToggle
 from viseron.components.storage.models import TriggerTypes
 from viseron.const import DOMAIN_IDENTIFIERS, VISERON_SIGNAL_SHUTDOWN
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
@@ -42,6 +43,7 @@ from .const import (
     DATA_NO_DETECTOR_RESULT,
     DATA_NO_DETECTOR_SCAN,
     DATA_PROCESSED_FRAME_TOPIC,
+    DOMAIN,
     EVENT_OPERATION_STATE,
     EVENT_SCAN_FRAMES,
     MOTION_DETECTOR,
@@ -55,6 +57,7 @@ if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.data_stream import DataStream
     from viseron.domains.camera import AbstractCamera
+    from viseron.domains.camera.recorder import ManualRecording
     from viseron.domains.camera.shared_frames import SharedFrame
     from viseron.domains.motion_detector import AbstractMotionDetector, Contours
     from viseron.domains.object_detector import AbstractObjectDetector
@@ -114,13 +117,6 @@ class EventScanFrames(EventData):
 
     camera_identifier: str
     scan: bool
-
-
-@dataclass
-class ManualRecording:
-    """Dataclass for manual recordings."""
-
-    duration: int | None = None
 
 
 class FrameIntervalCalculator:
@@ -379,10 +375,12 @@ class NVR:
 
         vis.data.setdefault(COMPONENT, {})[camera_identifier] = self
         vis.add_entity(COMPONENT, OperationStateSensor(vis, self))
+        vis.add_entity(COMPONENT, ManualRecordingToggle(vis, self))
 
         vis.register_signal_handler(VISERON_SIGNAL_SHUTDOWN, self.stop)
 
         self._camera.start_camera()
+        self._vis.register_domain(DOMAIN, self._camera.identifier, self)
         self._logger.info(f"NVR for camera {self._camera.name} initialized")
 
     def __repr__(self) -> str:

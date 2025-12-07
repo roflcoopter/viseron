@@ -18,8 +18,9 @@ from viseron.components.nvr.const import (
     NO_DETECTOR,
     OBJECT_DETECTOR,
 )
-from viseron.components.nvr.nvr import DATA_MOTION_DETECTOR_RESULT, NVR, ManualRecording
+from viseron.components.nvr.nvr import DATA_MOTION_DETECTOR_RESULT, NVR
 from viseron.components.storage.models import TriggerTypes
+from viseron.domains.camera.recorder import ManualRecording
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from tests.common import MockCamera, MockMotionDetector, MockObjectDetector

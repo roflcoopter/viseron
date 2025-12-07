@@ -119,6 +119,13 @@ class Recording:
         return get_recording_fragments(self.id, lookback, get_session, now)
 
 
+@dataclass
+class ManualRecording:
+    """Dataclass for manual recordings."""
+
+    duration: int | None = None
+
+
 class RecorderBase:
     """Base recorder."""
 
