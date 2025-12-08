@@ -19,7 +19,7 @@ class ManualRecordingToggle(CameraToggle):
 
     def __init__(self, vis: Viseron, nvr: NVR) -> None:
         super().__init__(vis, nvr.camera)
-        self._nvr = nvr
+        self.nvr = nvr
         self.object_id = f"{nvr.camera.identifier}_manual_recording"
         self.name = f"{nvr.camera.name} Manual Recording"
         self.icon = "mdi:record"
@@ -51,8 +51,8 @@ class ManualRecordingToggle(CameraToggle):
 
     def turn_on(self) -> None:
         """Start an indefinite manual recording."""
-        self._nvr.start_manual_recording(ManualRecording(duration=None))
+        self.nvr.start_manual_recording(ManualRecording(duration=None))
 
     def turn_off(self) -> None:
         """Stop an ongoing manual recording."""
-        self._nvr.stop_manual_recording()
+        self.nvr.stop_manual_recording()

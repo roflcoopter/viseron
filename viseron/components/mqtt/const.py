@@ -13,10 +13,6 @@ MQTT_RC = {
     5: "Connection refused - not authorised",
 }
 
-MQTT_MANUAL_RECORDING_COMMAND_TOPIC = (
-    "{client_id}/{camera_identifier}/manual_recording/command"
-)
-
 MQTT_CLIENT_CONNECTION_TOPIC = "{client_id}/state"
 MQTT_CLIENT_CONNECTION_ONLINE = "online"
 MQTT_CLIENT_CONNECTION_OFFLINE = "offline"

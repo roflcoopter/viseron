@@ -1,28 +1,21 @@
 """MQTT interface."""
 from __future__ import annotations
 
-import json
 import logging
 import threading
 from collections.abc import Callable
-from functools import partial
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any
 
 import paho.mqtt.client as mqtt
 import voluptuous as vol
 
-from viseron.components.nvr.const import DOMAIN as NVR_DOMAIN
-from viseron.components.nvr.nvr import NVR
-from viseron.components.storage.models import TriggerTypes
+from viseron.components.nvr.toggle import ManualRecordingToggle
 from viseron.const import (
-    EVENT_DOMAIN_REGISTERED,
     EVENT_ENTITY_ADDED,
     EVENT_STATE_CHANGED,
     VISERON_SIGNAL_SHUTDOWN,
 )
-from viseron.domains.camera import AbstractCamera
-from viseron.domains.camera.recorder import ManualRecording
 from viseron.helpers.validators import CoerceNoneToDict, Maybe
 from viseron.states import EventEntityAddedData
 from viseron.watchdog.thread_watchdog import RestartableThread
@@ -61,14 +54,13 @@ from .const import (
     MQTT_CLIENT_CONNECTION_OFFLINE,
     MQTT_CLIENT_CONNECTION_ONLINE,
     MQTT_CLIENT_CONNECTION_TOPIC,
-    MQTT_MANUAL_RECORDING_COMMAND_TOPIC,
     MQTT_RC,
 )
 from .entity import MQTTEntity
 from .entity.binary_sensor import BinarySensorMQTTEntity
 from .entity.image import ImageMQTTEntity
 from .entity.sensor import SensorMQTTEntity
-from .entity.toggle import ToggleMQTTEntity
+from .entity.toggle import ManualRecordingToggleMQTTEntity, ToggleMQTTEntity
 from .event import EventMQTTEntityAddedData
 from .helpers import PublishPayload, SubscribeTopic
 from .homeassistant import HassMQTTInterface
@@ -148,11 +140,15 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-DOMAIN_MAP = {
+ENTITY_MAP: dict[str, type[MQTTEntity]] = {
     "binary_sensor": BinarySensorMQTTEntity,
     "image": ImageMQTTEntity,
     "sensor": SensorMQTTEntity,
     "toggle": ToggleMQTTEntity,
+}
+
+ENTITY_OVERRIDES: dict[type, type[MQTTEntity]] = {
+    ManualRecordingToggle: ManualRecordingToggleMQTTEntity,
 }
 
 
@@ -196,7 +192,9 @@ class MQTT:
                 LOGGER.debug(f"Entity {entity.entity_id} has already been added")
                 return
 
-            if entity_class := DOMAIN_MAP.get(entity.domain):
+            if entity_class := ENTITY_OVERRIDES.get(type(entity)):
+                mqtt_entity = entity_class(self._vis, self._config, entity)
+            elif entity_class := ENTITY_MAP.get(entity.domain):
                 mqtt_entity = entity_class(self._vis, self._config, entity)
             else:
                 LOGGER.debug(f"Unsupported domain encountered: {entity.domain}")
@@ -262,10 +260,6 @@ class MQTT:
         self._vis.listen_event(EVENT_ENTITY_ADDED, self.entity_added)
         self.create_entities(self._vis.get_entities())
         self._vis.listen_event(EVENT_STATE_CHANGED, self.state_changed)
-        self._vis.listen_event(
-            EVENT_DOMAIN_REGISTERED.format(domain=NVR_DOMAIN),
-            self._nvr_registered,
-        )
 
     def on_disconnect(self, _client, _userdata, returncode) -> None:
         """On MQTT disconnection."""
@@ -327,20 +321,6 @@ class MQTT:
         self._subscriptions.setdefault(subscription.topic, [])
         self._subscriptions[subscription.topic].append(subscription.callback)
 
-    def _nvr_registered(self, event_data: Event[NVR]) -> None:
-        """Subscribe to command topics when an NVR is registered."""
-        nvr = event_data.data
-        topic = MQTT_MANUAL_RECORDING_COMMAND_TOPIC.format(
-            client_id=self._config[CONFIG_CLIENT_ID],
-            camera_identifier=nvr.camera.identifier,
-        )
-        self.subscribe(
-            SubscribeTopic(
-                topic=topic,
-                callback=partial(manual_recording_command_handler, nvr),
-            )
-        )
-
     def publish(self, payload: PublishPayload) -> None:
         """Put payload in publish queue."""
         self._publish_queue.put(payload)
@@ -384,84 +364,3 @@ class MQTT:
         self._kill_received = True
         self._client.disconnect()
         self._client.loop_stop()
-
-
-def manual_recording_command_handler(nvr: NVR, message) -> None:
-    """Handle manual recording command payloads for a specific camera.
-
-    Supported payloads:
-      - {"action":"start","duration":<seconds>}
-      - duration is optional, if omitted recording continues until stopped
-      - {"action":"stop"}
-    """
-    payload_raw = message.payload.decode().strip()
-    camera: AbstractCamera = nvr.camera
-    action = None
-    duration: int | None = None
-
-    if not payload_raw:
-        LOGGER.error("Empty manual recording command payload, ignoring")
-        return
-
-    if payload_raw.startswith("{"):
-        try:
-            data = json.loads(payload_raw)
-            action = data.get("action")
-            if action == "start" and data.get("duration") is not None:
-                duration = int(data.get("duration"))
-        except Exception as exc:  # pylint: disable=broad-except
-            LOGGER.error(
-                "Failed to parse JSON manual recording payload for "
-                f"{camera.identifier}: {exc}"
-            )
-            return
-
-    if action not in {"start", "stop"}:
-        LOGGER.debug(
-            f"Unsupported manual recording action '{action}' "
-            f"for camera {camera.identifier}"
-        )
-        return
-
-    if duration is not None and duration <= 0:
-        LOGGER.debug(
-            f"Invalid manual recording duration {duration} "
-            f"for camera {camera.identifier}"
-        )
-        return
-
-    if action == "start":
-        if (
-            camera.is_recording
-            and camera.recorder.active_recording
-            and camera.recorder.active_recording.trigger_type == TriggerTypes.MANUAL
-        ):
-            LOGGER.debug(
-                f"Camera {camera.identifier} already in a manual recording, "
-                "ignoring start command"
-            )
-            return
-        if camera.current_frame is None:
-            LOGGER.debug(
-                f"No frame available for camera {camera.identifier}, "
-                "cannot start manual recording"
-            )
-            return
-        manual_recording = ManualRecording(duration=duration)
-        nvr.start_manual_recording(manual_recording)
-        LOGGER.debug(
-            f"Started manual recording for camera {camera.identifier} with "
-            f"{f'duration {duration}s' if duration else 'no duration'}"
-        )
-    elif action == "stop":
-        if not (
-            camera.is_recording
-            and camera.recorder.active_recording
-            and camera.recorder.active_recording.trigger_type == TriggerTypes.MANUAL
-        ):
-            LOGGER.debug(
-                f"Stop manual recording requested for camera {camera.identifier} "
-                "but no manual recording active"
-            )
-            return
-        nvr.stop_manual_recording()
