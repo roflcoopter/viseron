@@ -6,16 +6,15 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import { useEffect, useReducer, useRef } from "react";
-import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useLayoutEffect, useReducer, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
 import { TextFieldItem, TextFieldItemState } from "components/TextFieldItem";
 import { useAuthContext } from "context/AuthContext";
 import { useTitle } from "hooks/UseTitle";
 import { useAuthLogin } from "lib/api/auth";
-import queryClient from "lib/api/client";
-import { setManualLogout } from "lib/tokens";
+import { sessionExpired, setManualLogout } from "lib/tokens";
 
 type InputState = {
   username: TextFieldItemState;
@@ -44,6 +43,77 @@ function reducer(state: InputState, action: InputAction): InputState {
   };
 }
 
+function FormFields({ login }: { login: ReturnType<typeof useAuthLogin> }) {
+  const [inputState, dispatch] = useReducer(reducer, initialState);
+
+  return (
+    <Stack spacing={3} sx={{ mt: 2 }}>
+      <TextFieldItem<keyof InputState>
+        inputKind="username"
+        inputState={inputState}
+        dispatch={dispatch}
+        value={inputState.username.value}
+      />
+      <TextFieldItem<keyof InputState>
+        inputKind="password"
+        inputState={inputState}
+        dispatch={dispatch}
+        password
+      />
+
+      <Button
+        type="submit"
+        fullWidth
+        variant="contained"
+        startIcon={<LoginIcon size={16} />}
+        size="large"
+        disabled={
+          !inputState.username.value ||
+          !inputState.password.value ||
+          !!inputState.username.error ||
+          !!inputState.password.error ||
+          login.isPending
+        }
+        onClick={() => {
+          login.mutate(
+            {
+              username: inputState.username.value,
+              password: inputState.password.value,
+            },
+            {
+              onSuccess: async (_data, _variables, _context) => {
+                // Wait for backend to set cookie
+                await new Promise((resolve) => {
+                  setTimeout(resolve, 100);
+                });
+
+                window.location.href = "/";
+              },
+            },
+          );
+        }}
+        sx={{
+          py: 1.5,
+          borderRadius: 2,
+          textTransform: "none",
+          fontSize: "1rem",
+          fontWeight: 600,
+          mt: 2,
+          boxShadow: 2,
+          "&:hover": {
+            boxShadow: 4,
+          },
+          "&:disabled": {
+            boxShadow: 0,
+          },
+        }}
+      >
+        {login.isPending ? "SIGNING IN..." : "SIGN IN"}
+      </Button>
+    </Stack>
+  );
+}
+
 function Login() {
   useTitle("Login");
   const theme = useTheme();
@@ -52,25 +122,25 @@ function Login() {
   const navigate = useNavigate();
   const login = useAuthLogin();
 
-  const [inputState, dispatch] = useReducer(reducer, initialState);
   const fromRef = useRef(undefined);
+
+  useLayoutEffect(() => {
+    if (auth.enabled && !auth.onboarding_complete) {
+      navigate("/onboarding", { replace: true });
+    }
+
+    if (!auth.enabled) {
+      navigate("/", { replace: true });
+    }
+
+    if (user && !sessionExpired()) {
+      navigate("/", { replace: true });
+    }
+  }, [auth.enabled, auth.onboarding_complete, navigate, user]);
 
   useEffect(() => {
     // Reset manual logout flag when entering login page
     setManualLogout(false);
-
-    // Clean up queries when navigating to login page
-    queryClient.removeQueries({
-      predicate(query) {
-        return query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled";
-      },
-    });
-    queryClient.invalidateQueries({
-      refetchType: "none",
-      predicate(query) {
-        return query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled";
-      },
-    });
 
     fromRef.current =
       location.state && location.state.from ? location.state.from : null;
@@ -80,18 +150,6 @@ function Login() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  if (auth.enabled && !auth.onboarding_complete) {
-    return <Navigate to="/onboarding" />;
-  }
-
-  if (!auth.enabled) {
-    return <Navigate to="/" />;
-  }
-
-  if (user) {
-    return <Navigate to="/" />;
-  }
 
   return (
     <Box
@@ -264,70 +322,7 @@ function Login() {
                   e.preventDefault();
                 }}
               >
-                <Stack spacing={3} sx={{ mt: 2 }}>
-                  <TextFieldItem<keyof InputState>
-                    inputKind="username"
-                    inputState={inputState}
-                    dispatch={dispatch}
-                    value={inputState.username.value}
-                  />
-                  <TextFieldItem<keyof InputState>
-                    inputKind="password"
-                    inputState={inputState}
-                    dispatch={dispatch}
-                    password
-                  />
-
-                  <Button
-                    type="submit"
-                    fullWidth
-                    variant="contained"
-                    startIcon={<LoginIcon size={16} />}
-                    size="large"
-                    disabled={
-                      !inputState.username.value ||
-                      !inputState.password.value ||
-                      !!inputState.username.error ||
-                      !!inputState.password.error ||
-                      login.isPending
-                    }
-                    onClick={() => {
-                      login.mutate(
-                        {
-                          username: inputState.username.value,
-                          password: inputState.password.value,
-                        },
-                        {
-                          onSuccess: async (_data, _variables, _context) => {
-                            // Wait for backend to set cookie
-                            await new Promise((resolve) => {
-                              setTimeout(resolve, 100);
-                            });
-
-                            window.location.href = "/";
-                          },
-                        },
-                      );
-                    }}
-                    sx={{
-                      py: 1.5,
-                      borderRadius: 2,
-                      textTransform: "none",
-                      fontSize: "1rem",
-                      fontWeight: 600,
-                      mt: 2,
-                      boxShadow: 2,
-                      "&:hover": {
-                        boxShadow: 4,
-                      },
-                      "&:disabled": {
-                        boxShadow: 0,
-                      },
-                    }}
-                  >
-                    {login.isPending ? "SIGNING IN..." : "SIGN IN"}
-                  </Button>
-                </Stack>
+                <FormFields login={login} />
               </form>
             </Box>
           </Paper>
