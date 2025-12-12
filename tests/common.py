@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from viseron.components.storage.models import Files, Recordings
 from viseron.const import LOADED
 from viseron.domains.camera.const import DOMAIN as CAMERA_DOMAIN
+from viseron.domains.motion_detector import AbstractMotionDetectorScanner
+from viseron.domains.object_detector import AbstractObjectDetector
 from viseron.helpers import utcnow
 
 if TYPE_CHECKING:
@@ -58,6 +60,57 @@ class MockCamera(MagicMock):
         )
         if vis:
             vis.register_domain(CAMERA_DOMAIN, identifier, self)
+
+
+class MockMotionDetector(MagicMock):
+    """Representation of a fake motion detector scanner."""
+
+    def __init__(
+        self,
+        *,
+        fps: int = 5,
+        trigger_event_recording: bool = True,
+        recorder_keepalive: bool = False,
+        max_recorder_keepalive: int | None = None,
+        motion_detected: bool = False,
+        motion_contours=None,
+        **kwargs,
+    ):
+        """Initialize the mock motion detector."""
+        super().__init__(
+            spec=AbstractMotionDetectorScanner,
+            fps=fps,
+            trigger_event_recording=trigger_event_recording,
+            recorder_keepalive=recorder_keepalive,
+            max_recorder_keepalive=max_recorder_keepalive,
+            motion_detected=motion_detected,
+            motion_contours=motion_contours,
+            **kwargs,
+        )
+
+
+class MockObjectDetector(MagicMock):
+    """Representation of a fake object detector."""
+
+    def __init__(
+        self,
+        *,
+        fps: int = 5,
+        scan_on_motion_only: bool = False,
+        objects_in_fov: list | None = None,
+        zones: list | None = None,
+        object_filters: dict[str, Any] | None = None,
+        **kwargs,
+    ):
+        super().__init__(
+            spec=AbstractObjectDetector,
+            fps=fps,
+            scan_on_motion_only=scan_on_motion_only,
+            objects_in_fov=[] if objects_in_fov is None else objects_in_fov,
+            zones=[] if zones is None else zones,
+            object_filters={} if object_filters is None else object_filters,
+            **kwargs,
+        )
 
 
 class BaseTestWithRecordings:

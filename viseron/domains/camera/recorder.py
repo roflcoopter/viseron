@@ -96,6 +96,7 @@ class Recording:
     thumbnail_path: str | None
     clip_path: str | None
     objects: list[DetectedObject]
+    trigger_type: TriggerTypes | None
 
     def as_dict(self):
         """Return as dict."""
@@ -108,6 +109,7 @@ class Recording:
             "date": self.date,
             "thumbnail_path": self.thumbnail_path,
             "objects": self.objects,
+            "trigger_type": self.trigger_type,
         }
 
     def get_fragments(
@@ -115,6 +117,13 @@ class Recording:
     ):
         """Return a list of files for this recording."""
         return get_recording_fragments(self.id, lookback, get_session, now)
+
+
+@dataclass
+class ManualRecording:
+    """Dataclass for manual recordings."""
+
+    duration: int | None = None
 
 
 class RecorderBase:
@@ -302,6 +311,7 @@ class AbstractRecorder(ABC, RecorderBase):
             ),
             clip_path=None,
             objects=objects_in_fov,
+            trigger_type=trigger_type,
         )
 
         self._start(recording, shared_frame, objects_in_fov)
