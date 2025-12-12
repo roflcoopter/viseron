@@ -39,7 +39,7 @@ from .const import (
 
 OBJECT_DETECTOR_SCHEMA = OBJECT_DETECTOR_BASE_CONFIG_SCHEMA.extend(
     {
-        vol.Optional(
+        vol.Required(
             CONFIG_MODEL_PATH,
             default=DEFAULT_MODEL_PATH,
             description=DESC_MODEL_PATH,
