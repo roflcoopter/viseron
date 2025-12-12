@@ -129,13 +129,6 @@ export function PlayerGrid({
         height: "100%",
         maxHeight: "100%",
         overflow: "hidden",
-        ...(gridLayout.columns === 1 &&
-          gridLayout.rows > 1 && {
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "flex-start",
-            overflowY: "auto",
-          }),
       }}
       alignContent="center"
       justifyContent="center"
