@@ -489,20 +489,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libedgetpu1-std python3-gi python3-gst-1.0
       - name: Install libhailort for hailo docs
-        env:
-          AZURE_DEVOPS_EXT_PAT: ${{ secrets.AZURE_DEVOPS_EXT_PAT }}
         run: |
           set -e
           HAILO_VERSION=$(grep '^HAILO_VERSION=' azure-pipelines/.env | cut -d'"' -f2)
-          echo "Logging in to Azure DevOps"
-          echo "$AZURE_DEVOPS_EXT_PAT" | az devops login --organization https://dev.azure.com/viseron || true
-          echo "Downloading libhailort-amd64 version $HAILO_VERSION"
-          az artifacts universal download --organization https://dev.azure.com/viseron/ --project="Viseron Pipelines" --scope project --feed viseron-binaries --name libhailort-amd64 --version "$HAILO_VERSION" --path libhailort_pkg
-          echo "Installing libhailort to /usr/local/lib"
-          sudo cp libhailort_pkg/libhailort.so.* /usr/local/lib/
+          if [ -z "$HAILO_VERSION" ]; then
+            echo "Failed to determine HAILO_VERSION" >&2
+            exit 1
+          fi
+          IMAGE_NAME="roflcoopter/amd64-hailo:${HAILO_VERSION}"
+          echo "Pulling $IMAGE_NAME"
+          docker pull $IMAGE_NAME
+          CID=$(docker create "$IMAGE_NAME" bash)
+
+          echo "Copying libhailort version $HAILO_VERSION from Docker image"
+          sudo docker cp $CID:/usr/local/lib/libhailort.so.${HAILO_VERSION} /usr/local/lib/
           sudo ldconfig
-          ls -l /usr/local/lib/libhailort.so.*
-          az devops logout
+
+          docker rm $CID
+          echo "Extracted libhailort files:"; ls -1 /usr/local/lib/libhailort.*
       - name: Run script to check generated docs
         uses: ./.github/templates/run_in_venv
         with:

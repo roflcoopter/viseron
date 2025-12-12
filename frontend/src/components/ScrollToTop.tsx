@@ -1,4 +1,4 @@
-import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import { ArrowUp } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Fab from "@mui/material/Fab";
 import Fade from "@mui/material/Fade";
@@ -6,21 +6,21 @@ import useScrollTrigger from "@mui/material/useScrollTrigger";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
-export const ScrollToTop = () => {
+export function ScrollToTop() {
   const { pathname } = useLocation();
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
   return null;
-};
+}
 
-export const ScrollToTopOnMount = () => {
+export function ScrollToTopOnMount() {
   useEffect(() => {
     window.scrollTo(0, 0);
   });
   return null;
-};
+}
 
 export function ScrollToTopFab() {
   const trigger = useScrollTrigger({
@@ -40,7 +40,7 @@ export function ScrollToTopFab() {
         sx={{ position: "fixed", bottom: 16, right: 16 }}
       >
         <Fab size="small" aria-label="scroll back to top" color="primary">
-          <KeyboardArrowUpIcon />
+          <ArrowUp size={20} />
         </Fab>
       </Box>
     </Fade>

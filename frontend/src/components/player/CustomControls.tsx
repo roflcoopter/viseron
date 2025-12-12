@@ -1,13 +1,16 @@
-import CircleIcon from "@mui/icons-material/Circle";
-import Forward10Icon from "@mui/icons-material/Forward10";
-import FullscreenIcon from "@mui/icons-material/Fullscreen";
-import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
-import PauseIcon from "@mui/icons-material/Pause";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import Replay10Icon from "@mui/icons-material/Replay10";
-import SpeedIcon from "@mui/icons-material/Speed";
-import VolumeOffIcon from "@mui/icons-material/VolumeOff";
-import VolumeUpIcon from "@mui/icons-material/VolumeUp";
+import {
+  CircleFill,
+  Forward_10 as Forward10,
+  Launch,
+  MeterAlt,
+  Pause,
+  Play,
+  PopIn,
+  Rewind_10 as Rewind10,
+  ShrinkScreen,
+  VolumeMute,
+  VolumeUp,
+} from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Fab from "@mui/material/Fab";
@@ -15,41 +18,61 @@ import Fade from "@mui/material/Fade";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Slider from "@mui/material/Slider";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
-import { SxProps, Theme } from "@mui/material/styles";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import screenfull from "screenfull";
 
+import { useFullscreen } from "context/FullscreenContext";
 import { isTouchDevice } from "lib/helpers";
 
-const ZINDEX = 3;
+const ZINDEX = 900;
 
 interface CustomFabProps {
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   size?: "small" | "medium" | "large";
   children: React.ReactNode;
+  title?: string;
+  isFullscreen?: boolean;
 }
-export const CustomFab = ({
+export function CustomFab({
   onClick,
   size = "small",
   children,
-}: CustomFabProps) => (
-  <Fab
-    onClick={onClick}
-    onTouchStart={(e) => e.stopPropagation()}
-    size={size}
-    color="primary"
-    sx={{ margin: 0.25, zIndex: ZINDEX }}
-  >
-    {children}
-  </Fab>
-);
+  title,
+  isFullscreen = false,
+}: CustomFabProps) {
+  const { isFullscreen: isContainerFullscreen } = useFullscreen();
 
-const iconStyles: SxProps<Theme> = {
-  width: "12px",
-  height: "12px",
-  marginRight: 1,
-};
+  const fab = (
+    <Fab
+      onClick={onClick}
+      onTouchStart={(e) => e.stopPropagation()}
+      size={size}
+      color="primary"
+      sx={{ margin: 0.25, zIndex: ZINDEX }}
+    >
+      {children}
+    </Fab>
+  );
+
+  // Determine z-index based on fullscreen state or container fullscreen
+  const tooltipZIndex = isFullscreen || isContainerFullscreen ? 9001 : 999;
+
+  return title ? (
+    <Tooltip
+      title={title}
+      arrow={false}
+      PopperProps={{
+        style: { zIndex: tooltipZIndex },
+      }}
+    >
+      {fab}
+    </Tooltip>
+  ) : (
+    fab
+  );
+}
 
 interface CustomControlsProps {
   isPlaying?: boolean;
@@ -66,10 +89,12 @@ interface CustomControlsProps {
   playbackSpeed?: number;
   isFullscreen?: boolean;
   onFullscreenToggle?: () => void;
+  onPictureInPictureToggle?: () => void;
+  isPictureInPictureSupported?: boolean;
   extraButtons?: React.ReactNode;
 }
 
-export const CustomControls: React.FC<CustomControlsProps> = ({
+export function CustomControls({
   isPlaying = false,
   onPlayPause,
   onJumpBackward,
@@ -84,8 +109,10 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
   playbackSpeed = 1,
   isFullscreen = false,
   onFullscreenToggle,
+  onPictureInPictureToggle,
+  isPictureInPictureSupported = false,
   extraButtons,
-}) => {
+}: CustomControlsProps) {
   const [isVolumeSliderVisible, setIsVolumeSliderVisible] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -161,18 +188,31 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
         {/* Center controls */}
         <Box display="flex" justifyContent="center" alignItems="center">
           {onJumpBackward && (
-            <CustomFab onClick={onJumpBackward}>
-              <Replay10Icon />
+            <CustomFab
+              onClick={onJumpBackward}
+              title="Rewind 10 seconds"
+              isFullscreen={isFullscreen}
+            >
+              <Rewind10 size={20} />
             </CustomFab>
           )}
           {onPlayPause && (
-            <CustomFab onClick={onPlayPause} size="medium">
-              {isPlaying ? <PauseIcon /> : <PlayArrowIcon />}
+            <CustomFab
+              onClick={onPlayPause}
+              size="medium"
+              title={isPlaying ? "Pause" : "Play"}
+              isFullscreen={isFullscreen}
+            >
+              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
             </CustomFab>
           )}
           {onJumpForward && (
-            <CustomFab onClick={onJumpForward}>
-              <Forward10Icon />
+            <CustomFab
+              onClick={onJumpForward}
+              title="Forward 10 seconds"
+              isFullscreen={isFullscreen}
+            >
+              <Forward10 size={20} />
             </CustomFab>
           )}
         </Box>
@@ -198,7 +238,11 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
               size="small"
               sx={{ margin: 0.25 }}
             >
-              <CircleIcon htmlColor={isLive ? "red" : "gray"} sx={iconStyles} />
+              <CircleFill
+                fill={isLive ? "red" : "gray"}
+                size={12}
+                style={{ marginRight: 8 }}
+              />
               <Typography variant="button">LIVE</Typography>
             </Button>
           ) : (
@@ -268,16 +312,28 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
                   </Box>
                 )}
                 {onMuteToggle && (
-                  <CustomFab onClick={onMuteToggle}>
-                    {isMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
+                  <CustomFab
+                    onClick={onMuteToggle}
+                    title={isMuted ? "Unmute" : "Mute"}
+                    isFullscreen={isFullscreen}
+                  >
+                    {isMuted ? (
+                      <VolumeMute size={20} />
+                    ) : (
+                      <VolumeUp size={20} />
+                    )}
                   </CustomFab>
                 )}
               </Box>
             )}
             {onPlaybackSpeedChange && (
               <>
-                <CustomFab onClick={handleSpeedClick}>
-                  <SpeedIcon />
+                <CustomFab
+                  onClick={handleSpeedClick}
+                  title="Playback speed"
+                  isFullscreen={isFullscreen}
+                >
+                  <MeterAlt size={20} />
                 </CustomFab>
                 <Menu
                   anchorEl={anchorEl}
@@ -324,9 +380,22 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
               </>
             )}
             {extraButtons}
+            {onPictureInPictureToggle && isPictureInPictureSupported && (
+              <CustomFab
+                onClick={onPictureInPictureToggle}
+                title="Picture in Picture"
+                isFullscreen={isFullscreen}
+              >
+                <ShrinkScreen size={20} />
+              </CustomFab>
+            )}
             {onFullscreenToggle && screenfull.isEnabled && (
-              <CustomFab onClick={onFullscreenToggle}>
-                {isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+              <CustomFab
+                onClick={onFullscreenToggle}
+                title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                isFullscreen={isFullscreen}
+              >
+                {isFullscreen ? <PopIn size={20} /> : <Launch size={20} />}
               </CustomFab>
             )}
           </Box>
@@ -334,4 +403,4 @@ export const CustomControls: React.FC<CustomControlsProps> = ({
       </Box>
     </Fade>
   );
-};
+}

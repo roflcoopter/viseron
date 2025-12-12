@@ -7,6 +7,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import queryClient from "lib/api/client";
 import { clearSessionExpiredTimeout } from "lib/tokens";
 
 const useSessionExpiredEvent = (
@@ -16,7 +17,21 @@ const useSessionExpiredEvent = (
 
   useEffect(() => {
     document.addEventListener("session-expired", () => {
-      navigate("/login");
+      queryClient.removeQueries({
+        predicate(query) {
+          return (
+            query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled"
+          );
+        },
+      });
+      queryClient.invalidateQueries({
+        predicate(query) {
+          return (
+            query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled"
+          );
+        },
+      });
+      navigate("/login", { replace: true });
       setOpen(true);
     });
     return () => {
@@ -27,7 +42,7 @@ const useSessionExpiredEvent = (
   }, []);
 };
 
-const SessionExpired = () => {
+function SessionExpired() {
   const [open, setOpen] = useState(false);
   useSessionExpiredEvent(setOpen);
 
@@ -57,6 +72,6 @@ const SessionExpired = () => {
       </DialogActions>
     </Dialog>
   );
-};
+}
 
 export default SessionExpired;

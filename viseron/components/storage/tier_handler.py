@@ -31,6 +31,7 @@ from viseron.components.storage.const import (
     CONFIG_CHECK_INTERVAL,
     CONFIG_CONTINUOUS,
     CONFIG_DAYS,
+    CONFIG_DRAIN,
     CONFIG_EVENTS,
     CONFIG_HOURS,
     CONFIG_INTERVAL,
@@ -190,6 +191,11 @@ class TierHandler(FileSystemEventHandler):
         """Return tier id."""
         return self._tier_id
 
+    @property
+    def tier_base_path(self) -> str:
+        """Return tier base path."""
+        return self._tier[CONFIG_PATH]
+
     def add_file_handler(self, path: str, pattern: str):
         """Add file handler to webserver."""
         self._logger.debug(f"Adding handler for /files{pattern}")
@@ -232,6 +238,7 @@ class TierHandler(FileSystemEventHandler):
             min_age=self._min_age,
             max_age=self._max_age,
             min_bytes=self._min_bytes,
+            drain=self._tier[CONFIG_DRAIN],
         )
 
     def _check_tier_event_handler(self, _event: Event) -> None:
@@ -554,6 +561,7 @@ class SegmentsTierHandler(TierHandler):
             ),
             max_age=self._continuous_max_age,
             min_bytes=self._continuous_min_bytes,
+            drain=self._tier[CONFIG_DRAIN],
             events_enabled=self._events_enabled,
             events_max_bytes=self._events_max_bytes,
             events_min_age=self._events_min_age,

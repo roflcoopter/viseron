@@ -1,0 +1,41 @@
+ARG BUILD_FROM
+FROM ${BUILD_FROM} as build
+
+ARG GPAC_VERSION
+ARG MAKEFLAGS="-j2"
+ARG ARCH
+
+ENV \
+    DEBIAN_FRONTEND=noninteractive
+
+ARG BUILDPLATFORM
+RUN \
+    echo "Build platform: $BUILDPLATFORM" && \
+    echo "Target architecture: $ARCH" && \
+    if [ "$BUILDPLATFORM" = "linux/amd64" ]; then \
+    case "$ARCH" in \
+    aarch64|jetson-nano|rpi3) echo "Crossbuilding!" && cross-build-start;; \
+    esac \
+    fi
+
+RUN \
+    apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    pkg-config \
+    g++ \
+    gcc \
+    git \
+    cmake \
+    yasm \
+    zlib1g-dev
+
+RUN \
+    git clone --branch v${GPAC_VERSION} --depth 1 https://github.com/gpac/gpac.git
+RUN \
+    cd gpac && \
+    ./configure --static-bin / && \
+    make -j$(nproc)
+
+FROM scratch
+COPY --from=build /gpac/bin/gcc/ /gpac/bin/gcc

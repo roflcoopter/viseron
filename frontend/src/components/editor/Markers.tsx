@@ -24,7 +24,7 @@ const markerColors = {
   8: "red",
 };
 
-const Markers = ({ editor, markers, width }: MarkersProps) => {
+function Markers({ editor, markers, width }: MarkersProps) {
   if (markers.length === 0) {
     return null;
   }
@@ -48,9 +48,10 @@ const Markers = ({ editor, markers, width }: MarkersProps) => {
       >
         {markers.map((marker, index) => (
           <ListItem
+            // eslint-disable-next-line react/no-array-index-key
             key={index}
-            dense={true}
-            disablePadding={true}
+            dense
+            disablePadding
             onClick={() => {
               if (editor) {
                 editor.setPosition({
@@ -88,6 +89,6 @@ const Markers = ({ editor, markers, width }: MarkersProps) => {
       </List>
     </Box>
   );
-};
+}
 
 export default Markers;

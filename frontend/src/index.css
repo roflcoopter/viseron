@@ -17,7 +17,7 @@ body {
 
 :root {
   --toastify-toast-min-height: 0px;
-  --toastify-font-family: "Roboto","Helvetica","Arial",sans-serif;
+  --toastify-font-family: "IBM Plex Sans Variable", "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --toastify-icon-color-info: #fff;
   --toastify-icon-color-success: #fff;
   --toastify-icon-color-warning: #fff;
@@ -26,14 +26,6 @@ body {
   --toastify-color-success: #388e3c;
   --toastify-color-warning: #f57c00;
   --toastify-color-error: #d32f2f;
-}
-
-.Toastify__toast {
-  min-height: "0px";
-}
-
-.Toastify__close-button {
-  align-self: auto;
 }
 
 .page-enter {

@@ -1,13 +1,18 @@
+import {
+  Demo,
+  IntrusionPrevention,
+  Roadmap,
+  VideoChat,
+  VideoOff,
+} from "@carbon/icons-react";
 import Image from "@jy95/material-ui-image";
-import ImageSearchIcon from "@mui/icons-material/ImageSearch";
-import LiveTvIcon from "@mui/icons-material/LiveTv";
-import VideoFileIcon from "@mui/icons-material/VideoFile";
-import ViewTimelineIcon from "@mui/icons-material/ViewTimeline";
+import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
+import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
@@ -18,11 +23,13 @@ import { usePageVisibility } from "react-page-visibility";
 import { Link } from "react-router-dom";
 
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
+import { CameraUptime } from "components/camera/CameraUptime";
 import { FailedCameraCard } from "components/camera/FailedCameraCard";
 import { ViseronContext } from "context/ViseronContext";
 import { useFirstRender } from "hooks/UseFirstRender";
 import useOnScreen from "hooks/UseOnScreen";
 import { useCamera } from "lib/api/camera";
+import { BASE_PATH } from "lib/api/client";
 import * as types from "lib/types";
 
 type OnClick = (
@@ -54,23 +61,25 @@ interface CameraCardProps {
 const blankImage =
   "data:image/svg+xml;charset=utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E";
 
-const SuccessCameraCard = ({
+function SuccessCameraCard({
   camera,
   buttons = true,
   compact = false,
   onClick,
   border,
-}: SuccessCameraCardProps) => {
+}: SuccessCameraCardProps) {
   const { connected } = useContext(ViseronContext);
   const theme = useTheme();
-  const ref: any = useRef<HTMLDivElement>();
+  const ref: any = useRef<HTMLDivElement>(undefined);
   const onScreen = useOnScreen<HTMLDivElement>(ref);
   const isVisible = usePageVisibility();
   const firstRender = useFirstRender();
 
   const generateSnapshotURL = useCallback(
     (width = null) =>
-      `/api/v1/camera/${camera.identifier}/snapshot?rand=${(Math.random() + 1)
+      `${BASE_PATH}/api/v1/camera/${camera.identifier}/snapshot?rand=${(
+        Math.random() + 1
+      )
         .toString(36)
         .substring(7)}${width ? `&width=${Math.trunc(width)}` : ""}`,
     [camera.identifier],
@@ -82,7 +91,7 @@ const SuccessCameraCard = ({
     disableTransition: false,
     loading: true,
   });
-  const updateSnapshot = useRef<NodeJS.Timeout | null>();
+  const updateSnapshot = useRef<NodeJS.Timeout | null>(undefined);
   const updateImage = useCallback(() => {
     setSnapshotURL((prevSnapshotURL) => {
       if (prevSnapshotURL.loading && !firstRender) {
@@ -176,86 +185,128 @@ const SuccessCameraCard = ({
           sx={onClick ? null : { pointerEvents: "none" }}
         >
           <CardMedia>
-            <Image
-              src={snapshotURL.url}
-              disableSpinner={snapshotURL.disableSpinner}
-              disableTransition={snapshotURL.disableTransition}
-              animationDuration={1000}
-              aspectRatio={camera.still_image.width / camera.still_image.height}
-              color={theme.palette.background.default}
-              onLoad={() => {
-                setSnapshotURL((prevSnapshotURL) => ({
-                  ...prevSnapshotURL,
-                  disableSpinner: true,
-                  disableTransition: true,
-                  loading: false,
-                }));
-              }}
-              errorIcon={
-                camera.still_image.available
-                  ? Image.defaultProps!.loading
-                  : null
-              }
-              onError={() => {
-                setSnapshotURL((prevSnapshotURL) => ({
-                  ...prevSnapshotURL,
-                  disableSpinner: false,
-                  disableTransition: false,
-                  loading: false,
-                }));
-              }}
-            />
+            {!camera.connected ? (
+              <Box
+                sx={{
+                  aspectRatio:
+                    camera.still_image.width / camera.still_image.height,
+                  backgroundColor: theme.palette.background.default,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <VideoOff
+                  size={48}
+                  style={{
+                    color: theme.palette.text.secondary,
+                    opacity: 0.5,
+                  }}
+                />
+              </Box>
+            ) : (
+              <Image
+                src={snapshotURL.url}
+                disableSpinner={snapshotURL.disableSpinner}
+                disableTransition={snapshotURL.disableTransition}
+                animationDuration={1000}
+                aspectRatio={
+                  camera.still_image.width / camera.still_image.height
+                }
+                color={theme.palette.background.default}
+                onLoad={() => {
+                  setSnapshotURL((prevSnapshotURL) => ({
+                    ...prevSnapshotURL,
+                    disableSpinner: true,
+                    disableTransition: true,
+                    loading: false,
+                  }));
+                }}
+                errorIcon={
+                  camera.still_image.available ? (
+                    <CircularProgress enableTrackSlot />
+                  ) : null
+                }
+                onError={() => {
+                  setSnapshotURL((prevSnapshotURL) => ({
+                    ...prevSnapshotURL,
+                    disableSpinner: false,
+                    disableTransition: false,
+                    loading: false,
+                  }));
+                }}
+              />
+            )}
           </CardMedia>
         </CardActionArea>
         {buttons && (
           <CardActions>
-            <Stack direction="row" spacing={1} sx={{ ml: "auto" }}>
-              <Tooltip title="Events">
-                <IconButton
-                  component={Link}
-                  to={`/events?camera=${camera.identifier}&tab=events`}
-                >
-                  <ImageSearchIcon />
-                </IconButton>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                width: "100%",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <Tooltip title="Uptime Status">
+                <div style={{ cursor: "pointer" }}>
+                  <CameraUptime
+                    cameraIdentifier={camera.identifier}
+                    isConnected={camera.connected}
+                    compact
+                  />
+                </div>
               </Tooltip>
-              <Tooltip title="Timeline">
-                <IconButton
-                  component={Link}
-                  to={`/events?camera=${camera.identifier}&tab=timeline`}
-                >
-                  <ViewTimelineIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Recordings">
-                <IconButton
-                  component={Link}
-                  to={`/recordings/${camera.identifier}`}
-                >
-                  <VideoFileIcon />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Live View">
-                <IconButton
-                  component={Link}
-                  to={`/live?camera=${camera.identifier}`}
-                >
-                  <LiveTvIcon />
-                </IconButton>
-              </Tooltip>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <Tooltip title="Events">
+                  <IconButton
+                    component={Link}
+                    to={`/events?camera=${camera.identifier}&tab=events`}
+                  >
+                    <IntrusionPrevention size={20} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Timeline">
+                  <IconButton
+                    component={Link}
+                    to={`/events?camera=${camera.identifier}&tab=timeline`}
+                  >
+                    <Roadmap size={20} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Recordings">
+                  <IconButton
+                    component={Link}
+                    to={`/recordings/${camera.identifier}`}
+                  >
+                    <Demo size={20} />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Live View">
+                  <IconButton
+                    component={Link}
+                    to={`/live?camera=${camera.identifier}`}
+                  >
+                    <VideoChat size={20} />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
             </Stack>
           </CardActions>
         )}
       </Card>
     </div>
   );
-};
-export const CameraCard = ({
+}
+export function CameraCard({
   camera_identifier,
   buttons = true,
   compact = false,
   onClick,
   border,
-}: CameraCardProps) => {
+}: CameraCardProps) {
   const { connected } = useContext(ViseronContext);
   const cameraQuery = useCamera(camera_identifier, true, {
     enabled: connected,
@@ -281,4 +332,4 @@ export const CameraCard = ({
       border={border}
     />
   );
-};
+}

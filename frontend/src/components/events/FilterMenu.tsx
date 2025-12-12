@@ -1,5 +1,4 @@
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import FilterListIcon from "@mui/icons-material/FilterList";
+import { ChevronLeft, FunnelSort } from "@carbon/icons-react";
 import Checkbox from "@mui/material/Checkbox";
 import IconButton from "@mui/material/IconButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -38,7 +37,7 @@ const menuProps: MenuProps = {
   },
 };
 
-export const FilterMenu: React.FC = () => {
+export function FilterMenu() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
   const { filters, toggleFilter } = useFilterStore();
@@ -67,7 +66,7 @@ export const FilterMenu: React.FC = () => {
           color: theme.palette.primary.main,
         })}
       >
-        <FilterListIcon />
+        <FunnelSort size={20} />
       </IconButton>
       <Menu
         id="filter-menu"
@@ -77,7 +76,7 @@ export const FilterMenu: React.FC = () => {
         onClose={handleClose}
       >
         <NestedMenuItem
-          leftIcon={<ChevronLeftIcon />}
+          leftIcon={<ChevronLeft size={20} />}
           rightIcon={<div />}
           label="Events"
           parentMenuOpen={open}
@@ -104,7 +103,7 @@ export const FilterMenu: React.FC = () => {
           })}
         </NestedMenuItem>
         <MenuItem
-          key={"groupCameras"}
+          key="groupCameras"
           onClick={handleCheckboxClick("groupCameras")}
         >
           <Checkbox
@@ -114,7 +113,7 @@ export const FilterMenu: React.FC = () => {
           <ListItemText primary={filters.groupCameras.label} />
         </MenuItem>
         <MenuItem
-          key={"lookbackAdjust"}
+          key="lookbackAdjust"
           onClick={handleCheckboxClick("lookbackAdjust")}
         >
           <Checkbox
@@ -126,4 +125,4 @@ export const FilterMenu: React.FC = () => {
       </Menu>
     </>
   );
-};
+}

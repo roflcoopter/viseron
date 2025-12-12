@@ -1,9 +1,17 @@
-import Fade from "@mui/material/Fade";
+import { VideoOff } from "@carbon/icons-react";
+import Box from "@mui/material/Box";
+import CircularProgress from "@mui/material/CircularProgress";
 import { useTheme } from "@mui/material/styles";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import Hls, { LevelLoadedData } from "hls.js";
-import React, { useCallback, useContext, useEffect, useRef } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useShallow } from "zustand/react/shallow";
 
@@ -16,6 +24,7 @@ import {
 import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
 import { useFirstRender } from "hooks/UseFirstRender";
+import { BASE_PATH } from "lib/api/client";
 import { BLANK_IMAGE } from "lib/helpers";
 import { getToken } from "lib/tokens";
 import * as types from "lib/types";
@@ -31,7 +40,12 @@ const loadSource = (
   if (!hlsRef.current) {
     return;
   }
-  const source = `/api/v1/hls/${camera.identifier}/index.m3u8?start_timestamp=${playingDate}&date=${dayjs(playingDate * 1000).format("YYYY-MM-DD")}`;
+  // Subtract 1 hour from playingDate.
+  // This is to allow clicking on the timeline and then seek backwards a bit to get some
+  // context before the requested timestamp
+  const startTimestamp = playingDate - 3600;
+
+  const source = `${BASE_PATH}/api/v1/hls/${camera.identifier}/index.m3u8?start_timestamp=${startTimestamp}&date=${dayjs(playingDate * 1000).format("YYYY-MM-DD")}`;
   hlsClientIdRef.current = uuidv4();
   hlsRef.current.loadSource(source);
 };
@@ -39,7 +53,7 @@ const loadSource = (
 const onLevelLoaded = (
   data: LevelLoadedData,
   hlsRef: React.MutableRefObject<Hls | null>,
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   playingDateRef: React.MutableRefObject<number>,
 ) => {
@@ -68,7 +82,7 @@ const onLevelLoaded = (
 
 const onManifestParsed = (
   hlsRef: React.MutableRefObject<Hls | null>,
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
 ) => {
   if (!hlsRef.current || !videoRef.current) {
     return;
@@ -80,7 +94,7 @@ const onManifestParsed = (
 
 const onMediaAttached = (
   hlsRef: React.MutableRefObject<Hls | null>,
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   playingDateRef: React.MutableRefObject<number>,
 ) => {
@@ -105,7 +119,7 @@ const onMediaAttached = (
 const initializePlayer = (
   hlsRef: React.MutableRefObject<Hls | null>,
   hlsClientIdRef: React.MutableRefObject<string>,
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   auth: types.AuthEnabledResponse,
   camera: types.Camera | types.FailedCamera,
@@ -198,9 +212,12 @@ const initializePlayer = (
 
   // Handle errors
   hlsRef.current.on(Hls.Events.ERROR, (_event, data) => {
-    // Ignore FRAG_GAP errors
+    // Ignore some HLS errors:
+    // - FRAG_GAP: Natural since recordings are not necessarily continuous
+    // - BUFFER_STALLED_ERROR: Happens when too close to live edge, automatically stabilizezes itself
     switch (data.details) {
       case Hls.ErrorDetails.FRAG_GAP:
+      case Hls.ErrorDetails.BUFFER_STALLED_ERROR:
         break;
       default:
         setHlsRefsError(hlsRef, data.error.message.slice(0, 200));
@@ -231,7 +248,7 @@ const initializePlayer = (
 const useInitializePlayer = (
   hlsRef: React.MutableRefObject<Hls | null>,
   hlsClientIdRef: React.MutableRefObject<string>,
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   camera: types.Camera | types.FailedCamera,
 ) => {
@@ -249,8 +266,8 @@ const useInitializePlayer = (
       playingDateRef: state.playingDateRef,
     })),
   );
-  const delayedInitializationTimeoutRef = useRef<NodeJS.Timeout>();
-  const delayedRecoveryTimeoutRef = useRef<NodeJS.Timeout>();
+  const delayedInitializationTimeoutRef = useRef<NodeJS.Timeout>(undefined);
+  const delayedRecoveryTimeoutRef = useRef<NodeJS.Timeout>(undefined);
 
   const reInitPlayer = useCallback(() => {
     if (Hls.isSupported()) {
@@ -329,7 +346,7 @@ const useInitializePlayer = (
 const useSeekToTimestamp = (
   hlsRef: React.MutableRefObject<Hls | null>,
   hlsClientIdRef: React.MutableRefObject<string>,
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
   initialProgramDateTime: React.MutableRefObject<number | null>,
   camera: types.Camera | types.FailedCamera,
   reInitPlayer: () => void,
@@ -394,12 +411,13 @@ interface HlsPlayerProps {
   camera: types.Camera | types.FailedCamera;
 }
 
-export const HlsPlayer: React.FC<HlsPlayerProps> = ({ camera }) => {
+export function HlsPlayer({ camera }: HlsPlayerProps) {
   const theme = useTheme();
   const hlsRef = useRef<Hls | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsClientIdRef = useRef<string>(uuidv4());
   const initialProgramDateTime = useRef<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const { hlsRefError } = useHlsStore(
     useShallow((state) => ({
@@ -423,6 +441,29 @@ export const HlsPlayer: React.FC<HlsPlayerProps> = ({ camera }) => {
     reInitPlayer,
   );
 
+  // Handle loading state
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return () => {};
+
+    const handleLoadStart = () => setIsLoading(true);
+    const handleCanPlay = () => setIsLoading(false);
+    const handleLoadedData = () => setIsLoading(false);
+    const handleError = () => setIsLoading(false);
+
+    video.addEventListener("loadstart", handleLoadStart);
+    video.addEventListener("canplay", handleCanPlay);
+    video.addEventListener("loadeddata", handleLoadedData);
+    video.addEventListener("error", handleError);
+
+    return () => {
+      video.removeEventListener("loadstart", handleLoadStart);
+      video.removeEventListener("canplay", handleCanPlay);
+      video.removeEventListener("loadeddata", handleLoadedData);
+      video.removeEventListener("error", handleError);
+    };
+  }, []);
+
   return (
     <div
       style={{
@@ -432,6 +473,7 @@ export const HlsPlayer: React.FC<HlsPlayerProps> = ({ camera }) => {
         display: "flex",
       }}
     >
+      {/* Always render video-element */}
       <video
         ref={videoRef}
         poster={BLANK_IMAGE}
@@ -444,27 +486,73 @@ export const HlsPlayer: React.FC<HlsPlayerProps> = ({ camera }) => {
         controls={false}
         playsInline
       />
-      <Fade in={!!(hlsRef.current && hlsRefError)}>
-        <div
-          style={{
+
+      {/* Show loading indicator and when camera is connected */}
+      {isLoading && (
+        <Box
+          sx={{
             position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            textAlign: "center",
-            width: "100%",
-            height: "100%",
-            backgroundColor:
-              "rgba(0,0,0,0.65)" /* Black background with opacity */,
-            zIndex: 2,
+            backgroundColor: "rgba(0, 0, 0, 0.3)",
+            zIndex: 1,
             pointerEvents: "none",
-            userSelect: "none",
-            padding: "10px",
           }}
         >
-          {hlsRefError}
-        </div>
-      </Fade>
+          <CircularProgress enableTrackSlot />
+        </Box>
+      )}
+
+      {/* Show error overlay */}
+      {!!(hlsRef.current && hlsRefError) && (
+        <Box
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: (t) =>
+              t.palette.mode === "dark"
+                ? "rgba(0, 0, 0, 0.8)"
+                : "rgba(235, 235, 235, 0.8)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: 200,
+            gap: 2,
+            zIndex: 2,
+          }}
+        >
+          <VideoOff
+            size={48}
+            style={{
+              color: theme.palette.text.secondary,
+              opacity: 0.5,
+            }}
+          />
+          <Box
+            sx={{
+              color: theme.palette.text.secondary,
+              textAlign: "center",
+              fontSize: "0.875rem",
+              opacity: 0.7,
+              maxWidth: "80%",
+              wordBreak: "break-word",
+            }}
+          >
+            {hlsRefError}
+          </Box>
+        </Box>
+      )}
     </div>
   );
-};
+}

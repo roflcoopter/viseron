@@ -90,6 +90,18 @@ services:
         - roflcoopter/amd64-hailo:$HAILO_VERSION
     image: roflcoopter/amd64-hailo:$HAILO_VERSION
 
+  amd64-gpac:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.gpac
+      args:
+        BUILD_FROM: ubuntu:$UBUNTU_VERSION
+        MAKEFLAGS: "$MAKEFLAGS"
+        GPAC_VERSION: "$GPAC_VERSION"
+      cache_from:
+        - roflcoopter/amd64-gpac:$GPAC_VERSION
+    image: roflcoopter/amd64-gpac:$GPAC_VERSION
+
   amd64-wheels:
     build:
       context: ..
@@ -135,7 +147,8 @@ services:
         S6_OVERLAY_ARCH: amd64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
-        GPAC_VERSION: "$GPAC_VERSION"
+        NODE_VERSION: "$NODE_VERSION"
+        GPAC_IMAGE: roflcoopter/amd64-gpac:${GPAC_VERSION}
         GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
         - roflcoopter/amd64-viseron:dev
@@ -277,7 +290,8 @@ services:
         S6_OVERLAY_ARCH: amd64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
-        GPAC_VERSION: "$GPAC_VERSION"
+        NODE_VERSION: "$NODE_VERSION"
+        GPAC_IMAGE: roflcoopter/amd64-gpac:${GPAC_VERSION}
         GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
         - roflcoopter/amd64-cuda-viseron:dev
@@ -338,6 +352,18 @@ services:
         - roflcoopter/rpi3-sklearn:$SKLEARN_VERSION
     image: roflcoopter/rpi3-sklearn:$SKLEARN_VERSION
 
+  rpi3-gpac:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.gpac
+      args:
+        BUILD_FROM: balenalib/raspberrypi3-ubuntu:$UBUNTU_VERSION-build
+        MAKEFLAGS: "$MAKEFLAGS"
+        GPAC_VERSION: "$GPAC_VERSION"
+      cache_from:
+        - roflcoopter/rpi3-gpac:$GPAC_VERSION
+    image: roflcoopter/rpi3-gpac:$GPAC_VERSION
+
   rpi3-wheels:
     build:
       context: ..
@@ -377,7 +403,8 @@ services:
         S6_OVERLAY_ARCH: armhf
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
-        GPAC_VERSION: "$GPAC_VERSION"
+        NODE_VERSION: "$NODE_VERSION"
+        GPAC_IMAGE: roflcoopter/rpi3-gpac:${GPAC_VERSION}
         GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
         - roflcoopter/rpi3-viseron:dev
@@ -442,6 +469,19 @@ services:
       cache_from:
         - roflcoopter/aarch64-hailo:$HAILO_VERSION
     image: roflcoopter/aarch64-hailo:$HAILO_VERSION
+
+  aarch64-gpac:
+    build:
+      context: ..
+      dockerfile: ./docker/Dockerfile.gpac
+      args:
+        BUILD_FROM: balenalib/aarch64-ubuntu:$UBUNTU_VERSION-build
+        MAKEFLAGS: "$MAKEFLAGS"
+        GPAC_VERSION: "$GPAC_VERSION"
+      cache_from:
+        - roflcoopter/aarch64-gpac:$GPAC_VERSION
+    image: roflcoopter/aarch64-gpac:$GPAC_VERSION
+
   aarch64-wheels:
     build:
       context: ..
@@ -480,7 +520,8 @@ services:
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
-        GPAC_VERSION: "$GPAC_VERSION"
+        NODE_VERSION: "$NODE_VERSION"
+        GPAC_IMAGE: roflcoopter/aarch64-gpac:${GPAC_VERSION}
         GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
         - roflcoopter/aarch64-viseron:dev
@@ -636,7 +677,8 @@ services:
         S6_OVERLAY_ARCH: aarch64
         S6_OVERLAY_VERSION: "$S6_OVERLAY_VERSION"
         UBUNTU_VERSION: "$UBUNTU_VERSION"
-        GPAC_VERSION: "$GPAC_VERSION"
+        NODE_VERSION: "$NODE_VERSION"
+        GPAC_IMAGE: roflcoopter/aarch64-gpac:${GPAC_VERSION}
         GO2RTC_VERSION: "$GO2RTC_VERSION"
       cache_from:
         - roflcoopter/jetson-nano-viseron:dev

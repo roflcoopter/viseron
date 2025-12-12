@@ -1,5 +1,4 @@
-import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
-import SearchIcon from "@mui/icons-material/Search";
+import { CarFront, Search } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 
 type LicensePlateRecognitionProps = {
@@ -16,29 +15,23 @@ type LicensePlateRecognitionProps = {
     | undefined;
 };
 
-const LicensePlateRecognition = ({
+function LicensePlateRecognition({
   color = undefined,
-}: LicensePlateRecognitionProps) => (
-  <Box sx={{ position: "relative" }}>
-    <DirectionsCarIcon color={color} />
-    <SearchIcon
-      sx={(theme) => ({
-        position: "absolute",
-        right: "-6.5px",
-        bottom: "-1px",
-        strokeWidth: 2,
-        stroke: theme.palette.background.paper,
-      })}
-    />
-    <SearchIcon
-      color={color}
-      sx={{
-        position: "absolute",
-        right: "-6.5px",
-        bottom: "-1px",
-      }}
-    />
-  </Box>
-);
+}: LicensePlateRecognitionProps) {
+  return (
+    <Box sx={{ position: "relative" }}>
+      <CarFront color={color} size={20} />
+      <Box
+        sx={{
+          position: "absolute",
+          right: "-6.5px",
+          bottom: "-1px",
+        }}
+      >
+        <Search color={color} size={16} />
+      </Box>
+    </Box>
+  );
+}
 
 export default LicensePlateRecognition;

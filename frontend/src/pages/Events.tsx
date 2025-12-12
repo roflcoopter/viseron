@@ -30,7 +30,7 @@ const getDefaultTab = (searchParams: URLSearchParams) => {
   return "events";
 };
 
-const Events = () => {
+function Events() {
   useTitle("Events");
   useHideScrollbar();
   const [searchParams] = useSearchParams();
@@ -84,7 +84,7 @@ const Events = () => {
   if (camerasAll.cameras.isError) {
     return (
       <ErrorMessage
-        text={`Error loading cameras`}
+        text="Error loading cameras"
         subtext={camerasAll.cameras.error.message}
         image={
           <ServerDown
@@ -114,6 +114,6 @@ const Events = () => {
       setSelectedTab={setSelectedTab}
     />
   );
-};
+}
 
 export default Events;

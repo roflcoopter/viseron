@@ -27,7 +27,9 @@ import * as types from "lib/types";
 
 dayjs.extend(utc);
 
-const usePlayerCardCallbacks = (paperRef: React.RefObject<HTMLDivElement>) => {
+const usePlayerCardCallbacks = (
+  paperRef: React.RefObject<HTMLDivElement | null>,
+) => {
   const { hlsRefs, setHlsRefsError } = useHlsStore(
     useShallow((state) => ({
       hlsRefs: state.hlsRefs,
@@ -238,7 +240,7 @@ const usePlayerCardCallbacks = (paperRef: React.RefObject<HTMLDivElement>) => {
   };
 };
 
-export const PlayerCard = () => {
+export function PlayerCard() {
   const theme = useTheme();
   const paperRef: React.MutableRefObject<HTMLDivElement | null> = useRef(null);
 
@@ -313,6 +315,7 @@ export const PlayerCard = () => {
               cameras={filteredCameras}
               containerRef={paperRef}
               renderPlayer={renderPlayer}
+              useDoubleColumnMobile
             />
           ) : (
             src &&
@@ -351,4 +354,4 @@ export const PlayerCard = () => {
       </Paper>
     </SyncManager>
   );
-};
+}

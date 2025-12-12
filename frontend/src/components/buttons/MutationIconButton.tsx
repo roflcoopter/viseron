@@ -16,38 +16,47 @@ function MutationIconButtonInner<T>(
   props: MutationIconButtonProps<T>,
   ref: React.ForwardedRef<any>,
 ) {
-  const { mutation, ...forwardedProps } = props;
-  forwardedProps.sx = {
-    ...props.sx,
-    transition: "color .5s ease",
-    WebkitTransition: "color .5s ease",
-    MozTransition: "color .5s ease",
+  const { mutation, sx, disabled, color: colorProp, ...forwardedProps } = props;
+
+  const newProps = {
+    ...forwardedProps,
+    sx: {
+      ...sx,
+      transition: "color .5s ease",
+      WebkitTransition: "color .5s ease",
+      MozTransition: "color .5s ease",
+    },
   };
 
-  const [color, setColor] = React.useState<"default" | "error">("default");
+  const [color, setColor] = React.useState<IconButtonProps["color"]>(
+    colorProp || "default",
+  );
 
   React.useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
-    if (props.mutation.isError) {
+    if (mutation.isError) {
       setColor("error");
       timer = setTimeout(() => {
-        setColor("default");
+        setColor(colorProp || "default");
       }, 5000);
+    } else if (!mutation.isError && colorProp) {
+      setColor(colorProp);
     }
     return () => {
       if (timer) {
         clearTimeout(timer);
       }
     };
-  }, [props.mutation.isError]);
+  }, [mutation.isError, colorProp]);
 
   return (
     <div>
       <IconButton
-        {...forwardedProps}
+        // eslint-disable-next-line react/jsx-props-no-spreading
+        {...newProps}
         ref={ref}
         color={color}
-        disabled={props.mutation.isPending || props.disabled}
+        disabled={mutation.isPending || disabled}
       />
     </div>
   );
@@ -55,6 +64,6 @@ function MutationIconButtonInner<T>(
 
 const MutationIconButton = React.forwardRef(MutationIconButtonInner) as <T>(
   p: MutationIconButtonProps<T> & { ref?: React.Ref<HTMLDivElement> },
-) => React.ReactElement;
+) => React.ReactElement<any>;
 
 export default MutationIconButton;

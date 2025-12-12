@@ -7,13 +7,7 @@ import {
 } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { deepmerge } from "@mui/utils";
-import {
-  createContext,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useCallback, useMemo, useState } from "react";
 
 declare module "@mui/material/styles/createPalette" {
   interface ColorRange {
@@ -29,7 +23,6 @@ declare module "@mui/material/styles/createPalette" {
     900: string;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-interface
   interface PaletteColor extends ColorRange {}
 
   interface Palette {
@@ -95,33 +88,26 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
   const preferredMode = useMediaQuery("(prefers-color-scheme: dark)")
     ? "dark"
     : "light";
-  const [mode, setMode] = useState<"light" | "dark">("light");
+
+  // Persisted user choice (or null if not set)
+  const [chosenMode, setChosenMode] = useState<"light" | "dark" | null>(() => {
+    const stored = localStorage.getItem("chosenMode");
+    return stored === "dark" ? "dark" : stored === "light" ? "light" : null;
+  });
+
+  // Effective mode: user choice overrides system preference
+  const mode = chosenMode ?? preferredMode;
+
   const colorMode = useMemo(
     () => ({
       toggleColorMode: () => {
-        setMode((prevMode) => {
-          const nextMode = prevMode === "light" ? "dark" : "light";
-          localStorage.setItem("chosenMode", nextMode);
-          return nextMode;
-        });
+        const nextMode = mode === "light" ? "dark" : "light";
+        setChosenMode(nextMode);
+        localStorage.setItem("chosenMode", nextMode);
       },
     }),
-    [],
+    [mode],
   );
-
-  useEffect(() => {
-    const chosenMode = localStorage.getItem("chosenMode");
-    switch (chosenMode) {
-      case "dark":
-        setMode("dark");
-        break;
-      case "light":
-        setMode("light");
-        break;
-      default:
-        setMode(preferredMode);
-    }
-  }, [preferredMode]);
 
   const getDesignTokens = useCallback(
     (requestedMode: "light" | "dark") =>
@@ -130,14 +116,14 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
           borderRadius: 5,
         },
 
-        ...(mode === "light" && {
+        ...(requestedMode === "light" && {
           text: {
             primary: grey[900],
             secondary: grey[700],
           },
         }),
 
-        ...(mode === "dark" && {
+        ...(requestedMode === "dark" && {
           text: {
             primary: "#fff",
             secondary: grey[400],
@@ -149,7 +135,7 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         headerMargin: "0.5dvh",
 
         palette: {
-          mode,
+          mode: requestedMode,
           motion: "#f9b4f6",
           recording: "#5df15d",
           ...(requestedMode === "light"
@@ -174,8 +160,13 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
         },
 
         typography: {
+          fontFamily:
+            '"IBM Plex Sans Variable", "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
           h5: {
-            color: mode === "dark" ? blue[300] : blue.main,
+            color: requestedMode === "dark" ? blue[300] : blue.main,
+          },
+          h6: {
+            color: requestedMode === "dark" ? blue[300] : blue.main,
           },
           uppercase: {
             textTransform: "uppercase",
@@ -184,27 +175,25 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
           },
         },
       }) as ThemeOptions,
-    [mode],
+    [],
   );
 
   function getThemedComponents(theme: Theme) {
     return {
       components: {
         MuiCssBaseline: {
-          styleOverrides: (themeParam: Theme) => ({
-            body:
-              themeParam.palette.mode === "dark"
-                ? darkScrollbar({
-                    track: "#0f2740",
-                    thumb: "#1f5286",
-                    active: "#2867a9",
-                  })
-                : darkScrollbar({
-                    track: "#f1f1f1",
-                    thumb: "#c1c1c1",
-                    active: "#a8a8a8",
-                  }),
-          }),
+          styleOverrides: (themeParam: Theme) =>
+            themeParam.palette.mode === "dark"
+              ? darkScrollbar({
+                  track: "#0f2740",
+                  thumb: "#1f5286",
+                  active: "#2867a9",
+                })
+              : darkScrollbar({
+                  track: "#f1f1f1",
+                  thumb: "#c1c1c1",
+                  active: "#a8a8a8",
+                }),
         },
         MuiContainer: {
           styleOverrides: {
@@ -264,7 +253,10 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
                   ? theme.palette.primary[900]
                   : theme.palette.primary[200]
               }`,
-              boxShadow: "5px 5px 8px 0px rgba(0,0,0,0.40)",
+              boxShadow:
+                theme.palette.mode === "dark"
+                  ? "0px 4px 16px rgba(0, 0, 0, 0.32), 0px 2px 4px rgba(0, 0, 0, 0.24)"
+                  : "0px 2px 8px rgba(0, 0, 0, 0.08), 0px 1px 2px rgba(0, 0, 0, 0.04)",
             },
           },
         },
@@ -300,7 +292,10 @@ export function ColorModeProvider({ children }: ColorModeProviderProps) {
                   : theme.palette.primary[200]
               }`,
               color: theme.palette.text.primary,
-              boxShadow: "5px 5px 8px 0px rgba(0,0,0,0.40)",
+              boxShadow:
+                theme.palette.mode === "dark"
+                  ? "0px 4px 16px rgba(0, 0, 0, 0.32), 0px 2px 4px rgba(0, 0, 0, 0.24)"
+                  : "0px 2px 8px rgba(0, 0, 0, 0.08), 0px 1px 2px rgba(0, 0, 0, 0.04)",
             },
           },
         },

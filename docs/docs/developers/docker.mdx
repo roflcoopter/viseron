@@ -61,6 +61,8 @@ To build all the `amd64` image from scratch the following commands can be used.
 docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-ffmpeg && \
 docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-opencv && \
 docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-dlib && \
+docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-hailo && \
+docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-gpac && \
 docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-wheels && \
 docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-base && \
 docker compose --file ./azure-pipelines/docker-compose-build.yaml --env-file ./azure-pipelines/.env build amd64-viseron

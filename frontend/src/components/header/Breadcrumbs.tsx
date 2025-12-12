@@ -1,4 +1,4 @@
-import NavigateNextIcon from "@mui/icons-material/NavigateNext";
+import { ChevronRight } from "@carbon/icons-react";
 import MuiBreadcrumbs from "@mui/material/Breadcrumbs";
 import Link from "@mui/material/Link";
 import Typography from "@mui/material/Typography";
@@ -30,7 +30,7 @@ export default function Breadcrumbs() {
   return (
     <MuiBreadcrumbs
       maxItems={4}
-      separator={<NavigateNextIcon fontSize="small" />}
+      separator={<ChevronRight size={20} />}
       aria-label="Breadcrumb"
     >
       <Typography color="textPrimary" />

@@ -1,12 +1,12 @@
+import { Code, Erase, Warning } from "@carbon/icons-react";
 import { StreamLanguage } from "@codemirror/language";
 import { jinja2 } from "@codemirror/legacy-modes/mode/jinja2";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import { TextField } from "@mui/material";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
-import Grid from "@mui/material/Grid2";
+import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
@@ -39,13 +39,13 @@ type EditorProps = {
   loading: boolean;
 };
 
-const Editor = ({
+function Editor({
   template,
   setTemplate,
   handleRender,
   clearTemplate,
   loading,
-}: EditorProps) => {
+}: EditorProps) {
   const theme = useTheme();
 
   return (
@@ -66,6 +66,7 @@ const Editor = ({
       <Box sx={{ display: "flex", gap: 2 }}>
         <Button
           variant="contained"
+          startIcon={<Code size={16} />}
           onClick={handleRender}
           disabled={loading || !template.trim()}
         >
@@ -73,6 +74,8 @@ const Editor = ({
         </Button>
         <Button
           variant="contained"
+          color="error"
+          startIcon={<Erase size={16} />}
           onClick={clearTemplate}
           disabled={!template.trim()}
         >
@@ -81,39 +84,41 @@ const Editor = ({
       </Box>
     </Paper>
   );
-};
+}
 
 type ResultProps = {
   result: string;
   error: string | null;
 };
 
-const Result = ({ result, error }: ResultProps) => (
-  <Paper variant="outlined" sx={paperStyle}>
-    <Typography variant="h6" sx={{ mb: 2 }}>
-      Result
-    </Typography>
-    {error ? (
-      <Alert severity="error" icon={<ErrorOutlineIcon />}>
-        {error}
-      </Alert>
-    ) : result ? (
-      <TextField
-        value={result}
-        multiline
-        slotProps={{
-          input: {
-            readOnly: true,
-          },
-        }}
-      >
-        {result}
-      </TextField>
-    ) : null}
-  </Paper>
-);
+function Result({ result, error }: ResultProps) {
+  return (
+    <Paper variant="outlined" sx={paperStyle}>
+      <Typography variant="h6" sx={{ mb: 2 }}>
+        Result
+      </Typography>
+      {error ? (
+        <Alert severity="error" icon={<Warning size={20} />}>
+          {error}
+        </Alert>
+      ) : result ? (
+        <TextField
+          value={result}
+          multiline
+          slotProps={{
+            input: {
+              readOnly: true,
+            },
+          }}
+        >
+          {result}
+        </TextField>
+      ) : null}
+    </Paper>
+  );
+}
 
-const TemplateEditor = () => {
+function TemplateEditor() {
   const [template, setTemplate] = useState<string>("");
 
   const { result, error, loading, renderNow, clear } =
@@ -129,7 +134,7 @@ const TemplateEditor = () => {
   };
 
   return (
-    <Container>
+    <Container sx={{ paddingX: 2 }}>
       <Grid container spacing={1} alignItems="stretch">
         <Grid size={{ xs: 12, md: 6 }}>
           <Editor
@@ -146,6 +151,6 @@ const TemplateEditor = () => {
       </Grid>
     </Container>
   );
-};
+}
 
 export default TemplateEditor;

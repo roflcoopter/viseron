@@ -1,3 +1,4 @@
+import { Erase, PlayFilledAlt, StopFilledAlt } from "@carbon/icons-react";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -13,7 +14,7 @@ import { useToast } from "hooks/UseToast";
 import { useSystemDispatchedEvents } from "lib/api/system";
 import { subscribeEvent } from "lib/commands";
 
-const SystemEvents = () => {
+function SystemEvents() {
   const { connection } = useContext(ViseronContext);
   const toast = useToast();
 
@@ -57,7 +58,7 @@ const SystemEvents = () => {
   };
 
   return (
-    <Container>
+    <Container sx={{ paddingX: 2 }}>
       <Paper variant="outlined" sx={{ p: 3, mb: 1 }}>
         <Typography variant="h6" sx={{ mb: 2 }}>
           Listen to events
@@ -84,7 +85,12 @@ const SystemEvents = () => {
         />
         <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
           {subscribed ? (
-            <Button variant="contained" onClick={handleUnsubscribe}>
+            <Button
+              variant="contained"
+              color="warning"
+              onClick={handleUnsubscribe}
+              startIcon={<StopFilledAlt size={16} />}
+            >
               STOP LISTENING
             </Button>
           ) : (
@@ -92,11 +98,17 @@ const SystemEvents = () => {
               variant="contained"
               onClick={handleSubscribe}
               disabled={!event}
+              startIcon={<PlayFilledAlt size={16} />}
             >
               START LISTENING
             </Button>
           )}
-          <Button variant="contained" onClick={handleClearEvents}>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleClearEvents}
+            startIcon={<Erase size={16} />}
+          >
             CLEAR EVENTS
           </Button>
         </Box>
@@ -112,6 +124,7 @@ const SystemEvents = () => {
       {receivedEvents.length > 0 && (
         <Paper variant="outlined" sx={{ p: 3 }}>
           {receivedEvents.map((ev, idx) => (
+            // eslint-disable-next-line react/no-array-index-key
             <Box key={idx} sx={{ mb: 3 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Event {receivedEvents.length - idx - 1}:
@@ -135,6 +148,6 @@ const SystemEvents = () => {
       )}
     </Container>
   );
-};
+}
 
 export default SystemEvents;

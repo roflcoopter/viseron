@@ -19,6 +19,22 @@ The user interface can be reached by default on port 8888 inside the container.
 
 :::
 
+## Public Image URLs
+
+The webserver can generate public URLs for images (e.g., for notifications) that are accessible without authentication. These URLs can be configured with:
+
+- **Expiration time** (`public_url_expiry_hours`): How long the URL remains valid (default: 24 hours, max: 31 days)
+- **Download limit** (`public_url_max_downloads`): How many times the image can be downloaded before automatic deletion
+  - `0` (default): Unlimited downloads - only time expiration applies
+  - `1`: Single-use URL - perfect for one-time notifications
+  - `2+`: Limited sharing - image deleted after N downloads
+
+**Use cases:**
+
+- **Single-use notifications**: Set `public_url_max_downloads: 1` for images that should only be viewed once
+- **Limited sharing**: Set a specific number to allow multiple views but prevent unlimited distribution
+- **Temporary unlimited access**: Set `public_url_max_downloads: 0` with an expiry time for time-limited but unlimited views
+
 ## Configuration
 
 <details>
@@ -27,6 +43,9 @@ The user interface can be reached by default on port 8888 inside the container.
 ```yaml title="/config/config.yaml"
 webserver:
   port: 8888
+  public_base_url: "https://public.dns-viseron.org"
+  public_url_expiry_hours: 240 # default: 24, max: 744 = 31 days
+  public_url_max_downloads: 3 # default: 0 (unlimited)
 ```
 
 </details>

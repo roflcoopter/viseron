@@ -32,6 +32,7 @@ class TestCheckTier(BaseTestWithRecordings):
             min_age_timestamp=self._simulated_now.timestamp(),
             min_bytes=0,
             max_age_timestamp=0,
+            drain=False,
         )
 
         assert len(files_to_move) == 8
@@ -57,6 +58,7 @@ class TestCheckTier(BaseTestWithRecordings):
             min_age_timestamp=min_age_timestamp,
             min_bytes=0,
             max_age_timestamp=0,
+            drain=False,
         )
 
         assert len(files_to_move) == 2
@@ -79,6 +81,7 @@ class TestCheckTier(BaseTestWithRecordings):
             min_age_timestamp=self._simulated_now.timestamp(),
             min_bytes=0,
             max_age_timestamp=max_age_timestamp,
+            drain=False,
         )
         assert len(files_to_move) == 6
         assert files_to_move[0]["id"] == 1
@@ -107,6 +110,7 @@ class TestCheckTier(BaseTestWithRecordings):
             min_age_timestamp=self._simulated_now.timestamp(),
             min_bytes=110,
             max_age_timestamp=max_age_timestamp,
+            drain=False,
         )
         assert len(files_to_move) == 5
         assert files_to_move[0]["id"] == 1
@@ -135,6 +139,7 @@ class TestCheckTier(BaseTestWithRecordings):
             min_age_timestamp=self._simulated_now.timestamp(),
             min_bytes=0,
             max_age_timestamp=max_age_timestamp,
+            drain=False,
         )
 
         assert len(files_to_move) == 9
@@ -142,6 +147,46 @@ class TestCheckTier(BaseTestWithRecordings):
         assert files_to_move[1]["id"] == 3
         assert files_to_move[2]["id"] == 5
         assert files_to_move[8]["id"] == 17
+
+    def test_get_files_to_move_drain(self) -> None:
+        """Test get_files_to_move using drain."""
+        data = load_tier(
+            get_session=self._get_db_session,
+            category="recorder",
+            subcategories=["segments"],
+            tier_id=0,
+            camera_identifier="test",
+        )
+        files_to_move = get_files_to_move(
+            data=data,
+            max_bytes=80,
+            min_age_timestamp=self._simulated_now.timestamp(),
+            min_bytes=0,
+            max_age_timestamp=0,
+            drain=True,
+        )
+
+        assert len(files_to_move) == len(data)
+
+    def test_get_files_to_move_drain_limit_not_reached(self) -> None:
+        """Test get_files_to_move using drain when limit is not reached."""
+        data = load_tier(
+            get_session=self._get_db_session,
+            category="recorder",
+            subcategories=["segments"],
+            tier_id=0,
+            camera_identifier="test",
+        )
+        files_to_move = get_files_to_move(
+            data=data,
+            max_bytes=9999,
+            min_age_timestamp=self._simulated_now.timestamp(),
+            min_bytes=0,
+            max_age_timestamp=0,
+            drain=True,
+        )
+
+        assert len(files_to_move) == 0
 
     def test_recordings_to_move_query_max_bytes(self) -> None:
         """Test recordings_to_move_query using max_bytes."""
@@ -165,6 +210,7 @@ class TestCheckTier(BaseTestWithRecordings):
             max_age_timestamp=0,
             min_bytes=0,
             file_min_age_timestamp=self._simulated_now.timestamp(),
+            drain=False,
         )
 
         assert len(files_to_move) == 13
@@ -202,6 +248,7 @@ class TestCheckTier(BaseTestWithRecordings):
             max_age_timestamp=0,
             min_bytes=0,
             file_min_age_timestamp=self._simulated_now.timestamp(),
+            drain=False,
         )
 
         assert len(files_to_move) == 9
@@ -239,6 +286,7 @@ class TestCheckTier(BaseTestWithRecordings):
             max_age_timestamp=max_age_timestamp,
             min_bytes=0,
             file_min_age_timestamp=self._simulated_now.timestamp(),
+            drain=False,
         )
 
         assert len(files_to_move) == 13
@@ -282,6 +330,7 @@ class TestCheckTier(BaseTestWithRecordings):
             max_age_timestamp=max_age_timestamp,
             min_bytes=100,
             file_min_age_timestamp=self._simulated_now.timestamp(),
+            drain=False,
         )
 
         assert len(files_to_move) == 9
@@ -323,6 +372,7 @@ class TestCheckTier(BaseTestWithRecordings):
             max_age_timestamp=max_age_timestamp,
             min_bytes=0,
             file_min_age_timestamp=self._simulated_now.timestamp(),
+            drain=False,
         )
 
         assert len(files_to_move) == 13
@@ -377,6 +427,7 @@ class TestCheckTier(BaseTestWithRecordings):
             max_age_timestamp=0,
             min_bytes=0,
             file_min_age_timestamp=self._simulated_now.timestamp(),
+            drain=False,
         )
 
         assert len(files_to_move) == 13
@@ -406,6 +457,63 @@ class TestCheckTier(BaseTestWithRecordings):
             max_age_timestamp=0,
             min_bytes=0,
             file_min_age_timestamp=self._simulated_now.timestamp() - 35,
+            drain=False,
         )
 
         assert len(files_to_move) == 8
+
+    def test_recordings_to_move_query_drain(self) -> None:
+        """Test recordings_to_move_query using drain."""
+        files_data = load_tier(
+            get_session=self._get_db_session,
+            category="recorder",
+            subcategories=["segments"],
+            tier_id=0,
+            camera_identifier="test",
+        )
+        recordings_data = load_recordings(
+            get_session=self._get_db_session,
+            camera_identifier="test",
+        )
+        files_to_move = get_recordings_to_move(
+            recordings_data=recordings_data,
+            files_data=files_data,
+            segment_length=5,
+            max_bytes=80,
+            min_age_timestamp=self._simulated_now.timestamp(),
+            max_age_timestamp=0,
+            min_bytes=0,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
+            drain=True,
+        )
+
+        assert len(files_to_move) == len(files_data)
+
+    def test_recordings_to_move_query_drain_limit_not_reached(self) -> None:
+        """Test recordings_to_move_query using drain when limit is not reached."""
+        files_data = load_tier(
+            get_session=self._get_db_session,
+            category="recorder",
+            subcategories=["segments"],
+            tier_id=0,
+            camera_identifier="test",
+        )
+        recordings_data = load_recordings(
+            get_session=self._get_db_session,
+            camera_identifier="test",
+        )
+        files_to_move = get_recordings_to_move(
+            recordings_data=recordings_data,
+            files_data=files_data,
+            segment_length=5,
+            max_bytes=9999,
+            min_age_timestamp=self._simulated_now.timestamp(),
+            max_age_timestamp=0,
+            min_bytes=0,
+            file_min_age_timestamp=self._simulated_now.timestamp(),
+            drain=True,
+        )
+
+        assert len(files_to_move) == 6
+        for file in files_to_move:
+            assert file["recording_id"] == -1

@@ -6,7 +6,7 @@ import Tabs from "@theme/Tabs";
 Viseron runs exclusively in Docker.<br />
 First of all, choose the appropriate Docker container for your machine. <br />
 
-Builds are published to [Docker Hub](https://hub.docker.com/repository/docker/roflcoopter/viseron).
+Builds are published to [Docker Hub](https://hub.docker.com/u/roflcoopter?page=1&search=viseron).
 
 :::tip HOW DO I CHOOSE?
 
@@ -432,6 +432,64 @@ To utilize it you need to add `--device /dev/dri` to your docker command.
 
 EdgeTPU support is also included in all containers.<br />
 To use it, add `-v /dev/bus/usb:/dev/bus/usb --privileged` to your docker command.
+
+:::
+
+## Running Behind a Reverse Proxy
+
+You can run Viseron behind a reverse proxy (like Nginx, Traefik, Caddy, etc.) and you can also use a subpath (e.g., `https://yourdomain.com/viseron/`).
+
+### 1. Viseron Configuration
+
+Add the `subpath` configuration to your `config.yaml`:
+
+```yaml
+webserver:
+  subpath: "/viseron"  # Must start with / and match your reverse proxy path
+```
+
+### 2. Reverse Proxy Configuration
+
+Configure your external reverse proxy to pass requests with the subpath to Viseron.
+
+Nginx example:
+
+```nginx
+location /viseron/ {
+    proxy_pass http://localhost:8888/;  # Note: trailing slash strips the /viseron prefix
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    
+    # WebSocket support (required for live updates)
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+}
+```
+
+:::warning IMPORTANT
+
+The `proxy_pass` URL must end with `/` and NOT include the subpath.
+- ✅ Correct: `proxy_pass http://localhost:8888/;`
+- ❌ Wrong: `proxy_pass http://localhost:8888/viseron/;`
+
+The trailing slash in `proxy_pass` tells Nginx to strip the `/viseron` prefix before forwarding.
+This way, a request to `/viseron/assets/main.js` becomes `/assets/main.js` when forwarded to the container.
+
+:::
+
+:::tip SIMPLE SETUP
+
+The subpath value only needs to be set in **two places**:
+1. `config.yaml`: `webserver: { subpath: "/viseron" }`
+2. External reverse proxy: `location /viseron/ { ... }`
+
+Both must:
+- Start with a forward slash `/`
+- Use the exact same path
+- Not end with a trailing slash (except in nginx location directives)
 
 :::
 

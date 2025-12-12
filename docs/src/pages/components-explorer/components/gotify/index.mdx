@@ -44,12 +44,15 @@ gotify:
   gotify_token: "YOUR_APPLICATION_TOKEN" # Application token from Gotify
   priority: 5 # Priority of the notifications (1-10)
   detection_label: "person,cat" # Labels of objects to send notifications for
-  send_thumbnail: false # Send a thumbnail of the detected object
+  send_thumbnail: true # Send a thumbnail of the detected object
+  use_public_url: true # Generate a temp public URL with a unique token for the image. Require public_base_url in webserver conf
+  image_max_size: 800 # Maximum width/height in pixels for thumbnails (default: 800). For 4K cameras, use 1920 or higher
+  image_quality: 95 # JPEG quality for images (1-100, default: 95). Higher = better quality but larger files
   cameras:
     camera1: # Camera identifier with empty config
     camera2: # Another camera identifier
       detection_label: "car,truck" # Override detection labels for this camera
-      send_thumbnail: true # Override thumbnail setting for this camera
+      send_thumbnail: false # Override thumbnail setting for this camera
 ```
 
 </details>

@@ -125,8 +125,9 @@ class HlsAPIHandler(BaseAPIHandler):
             )
             return
 
+        subpath = self.get_subpath()
         playlist = await self.run_in_executor(
-            _generate_playlist, self._get_session, camera, recording_id
+            _generate_playlist, self._get_session, camera, recording_id, subpath
         )
         if not playlist:
             self.response_error(
@@ -154,6 +155,7 @@ class HlsAPIHandler(BaseAPIHandler):
             return
 
         hls_client_id = self.request.headers.get("Hls-Client-Id", None)
+        subpath = self.get_subpath()
         playlist = await self.run_in_executor(
             _generate_playlist_time_period,
             self._get_session,
@@ -163,6 +165,7 @@ class HlsAPIHandler(BaseAPIHandler):
             self.request_arguments["start_timestamp"],
             self.request_arguments["end_timestamp"],
             self.request_arguments["date"],
+            subpath,
         )
         if not playlist:
             self.response_error(
@@ -236,6 +239,7 @@ def _generate_playlist(
     get_session: Callable[[], Session],
     camera: AbstractCamera | FailedCamera,
     recording_id: int,
+    subpath: str,
 ) -> str | None:
     """Generate the HLS playlist for a recording."""
     now = utcnow()
@@ -254,7 +258,7 @@ def _generate_playlist(
     fragments = [
         Fragment(
             file.filename,
-            f"/files{file.path}",
+            f"{subpath}/files{file.path}",
             file.duration,
             file.orig_ctime,
         )
@@ -285,7 +289,7 @@ def _generate_playlist(
 
     playlist = generate_playlist(
         fragments,
-        f"/files{init_file}",
+        f"{subpath}/files{init_file}",
         end=end,
         file_directive=False,
     )
@@ -319,6 +323,7 @@ def _generate_playlist_time_period(
     start_timestamp: int,
     end_timestamp: int | None = None,
     date: str | None = None,
+    subpath: str = "",
 ) -> str | None:
     """Generate the HLS playlist for a time period."""
     end_playlist = False
@@ -335,15 +340,37 @@ def _generate_playlist_time_period(
     files = get_time_period_fragments(
         [camera.identifier], start_timestamp, end_timestamp, get_session
     )
-    fragments = [
-        Fragment(
-            file.filename,
-            f"/files{file.path}",
-            file.duration,
-            file.orig_ctime,
+    fragments = []
+    for file in files:
+        # For tiers other than the first one, we need to alter the path to
+        # point to the first tier and then provide the actual tier path as a
+        # query parameter.
+        # This is to not break the HLS specifications for files that are moved
+        # between updates of the playlist
+        path: str
+        if file.tier_id > 0:
+            first_tier_path = camera.tier_base_path(
+                0, TIER_CATEGORY_RECORDER, TIER_SUBCATEGORY_SEGMENTS
+            )
+            path = file.path.replace(
+                file.tier_path,
+                first_tier_path,
+                1,
+            )
+            path += (
+                f"?first_tier_path={first_tier_path}&actual_tier_path={file.tier_path}"
+            )
+        else:
+            path = file.path
+
+        fragments.append(
+            Fragment(
+                file.filename,
+                f"{subpath}/files{path}",
+                file.duration,
+                file.orig_ctime,
+            )
         )
-        for file in files
-    ]
 
     media_sequence = (
         update_hls_client(hls_client_id, fragments)
@@ -357,7 +384,7 @@ def _generate_playlist_time_period(
 
     playlist = generate_playlist(
         fragments,
-        f"/files{init_file}",
+        f"{subpath}/files{init_file}",
         media_sequence=media_sequence,
         end=end_playlist,
         file_directive=False,

@@ -71,7 +71,7 @@ const calculateEntities = (entities: types.Entities, filters: Filters) =>
     return true;
   });
 
-const Entities = () => {
+function Entities() {
   useTitle("Entities");
   const viseron = useContext(ViseronContext);
   const theme = useTheme();
@@ -136,7 +136,7 @@ const Entities = () => {
   const filteredEntities = calculateEntities(entities, filters);
 
   return (
-    <Container maxWidth={false}>
+    <Container maxWidth={false} sx={{ paddingX: 2 }}>
       <TableContainer component={Paper}>
         <Table
           sx={() => ({
@@ -193,6 +193,6 @@ const Entities = () => {
       </TableContainer>
     </Container>
   );
-};
+}
 
 export default Entities;

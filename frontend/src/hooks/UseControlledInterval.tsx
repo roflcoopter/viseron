@@ -7,8 +7,8 @@ const useControlledInterval = (
   delay: number,
   pauseInvisible = false, // Pause the interval when the tab is not visible
 ) => {
-  const savedCallback = useRef<typeof callback>();
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const savedCallback = useRef<typeof callback>(undefined);
+  const timeoutRef = useRef<NodeJS.Timeout>(undefined);
   const isVisible = usePageVisibility();
 
   useEffect(() => {

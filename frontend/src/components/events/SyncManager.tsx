@@ -22,13 +22,14 @@ interface SyncManagerProps {
   children: React.ReactNode;
 }
 
-const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
+function SyncManager({ children }: SyncManagerProps) {
   const { hlsRefs, setHlsRefsError } = useHlsStore(
     useShallow((state) => ({
       hlsRefs: state.hlsRefs,
       setHlsRefsError: state.setHlsRefsError,
     })),
   );
+
   const {
     setReferencePlayer,
     isPlaying,
@@ -49,7 +50,7 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
     })),
   );
   const seekSafely = useCallback((player: Hls, referenceDate: Date) => {
-    if (!player.levels || player.levels.length === 0) {
+    if (!player.levels || player.levels.length === 0 || !player.media) {
       return false;
     }
 
@@ -73,14 +74,14 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
     }
     const seekTarget = getSeekTarget(targetFragment, referenceTimestamp);
 
-    const seekable = player.media!.seekable;
+    const seekable = player.media.seekable;
     if (seekable.length === 0) {
       return false;
     }
 
     for (let i = 0; i < seekable.length; i++) {
       if (seekTarget >= seekable.start(i) && seekTarget <= seekable.end(i)) {
-        player.media!.currentTime = seekTarget;
+        player.media.currentTime = seekTarget;
         return true;
       }
     }
@@ -95,12 +96,16 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
 
     const playersWithTime = hlsRefs.filter(
       (player): player is React.MutableRefObject<Hls> =>
-        player.current !== null && player.current.playingDate !== null,
+        player.current !== null &&
+        player.current.playingDate !== null &&
+        player.current.media !== null,
     );
 
     // Sync mute state
     playersWithTime.forEach((player) => {
-      player.current.media!.muted = isMuted;
+      if (player.current.media) {
+        player.current.media.muted = isMuted;
+      }
     });
 
     if (!isPlaying) {
@@ -112,9 +117,9 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
       playersWithTime.reduce<React.MutableRefObject<Hls> | null>(
         (prev, current) => {
           if (prev === null) {
-            return !current.current.media!.paused ? current : null;
+            return !current.current.media?.paused ? current : null;
           }
-          return !current.current.media!.paused &&
+          return !current.current.media?.paused &&
             current.current.playingDate! > prev.current.playingDate!
             ? current
             : prev;
@@ -142,9 +147,9 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
               player.current,
               referencePlayer.current.playingDate!,
             );
-            if (seeked) {
-              player.current
-                .media!.play()
+            if (seeked && player.current.media) {
+              player.current.media
+                .play()
                 .then(() => {
                   setHlsRefsError(player, null);
                 })
@@ -164,8 +169,28 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
       setReferencePlayer(null);
     }
 
+    // If there are no players with time, play the first player
+    if (playersWithTime.length === 0) {
+      if (
+        hlsRefs.length > 0 &&
+        hlsRefs[0].current &&
+        hlsRefs[0].current.media
+      ) {
+        hlsRefs[0].current.media
+          .play()
+          .then(() => {
+            setHlsRefsError(hlsRefs[0], null);
+          })
+          .catch(() => {
+            // Ignore play errors
+          });
+      }
+    }
+
     // Check if all players are paused
-    if (playersWithTime.every((player) => player.current.media!.paused)) {
+    if (
+      playersWithTime.every((player) => player.current.media?.paused ?? true)
+    ) {
       const playingDateMillis = playingDateRef.current * 1000;
 
       let playerToPlayIndex = -1;
@@ -173,7 +198,8 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
 
       playersWithTime.forEach((player, index) => {
         const fragments =
-          player.current.levels[player.current.currentLevel].details?.fragments;
+          player.current.levels[player.current.currentLevel]?.details
+            ?.fragments;
         if (!fragments || fragments.length === 0) {
           return;
         }
@@ -198,8 +224,8 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
       if (playerToPlayIndex !== -1) {
         const playerToPlay = playersWithTime[playerToPlayIndex];
         const fragments =
-          playerToPlay.current.levels[playerToPlay.current.currentLevel].details
-            ?.fragments;
+          playerToPlay.current.levels[playerToPlay.current.currentLevel]
+            ?.details?.fragments;
         if (!fragments || fragments.length === 0) {
           return;
         }
@@ -207,17 +233,23 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
           fragments,
           playingDateMillis,
         );
-        if (closestFragment && closestFragment.programDateTime) {
-          playerToPlay.current.media!.currentTime = closestFragment.start;
+        if (
+          closestFragment &&
+          closestFragment.programDateTime &&
+          playerToPlay.current.media
+        ) {
+          playerToPlay.current.media.currentTime = closestFragment.start;
         }
-        playerToPlay.current
-          .media!.play()
-          .then(() => {
-            setHlsRefsError(playerToPlay, null);
-          })
-          .catch(() => {
-            // Ignore play errors
-          });
+        if (playerToPlay.current.media) {
+          playerToPlay.current.media
+            .play()
+            .then(() => {
+              setHlsRefsError(playerToPlay, null);
+            })
+            .catch(() => {
+              // Ignore play errors
+            });
+        }
       }
     }
   }, [
@@ -240,29 +272,37 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
       if (player.current) {
         player.current.on(Hls.Events.ERROR, (_event, data) => {
           // Dont pause if this is the only playing player
-          console.warn("SyncManager: Error event", data);
+          // console.warn("SyncManager: Error event", data);
           if (
-            hlsRefs.filter((p) => p.current && !p.current.media!.paused)
-              .length === 1
+            hlsRefs.filter(
+              (p) => p.current && p.current.media && !p.current.media.paused,
+            ).length === 1
           ) {
-            player.current!.media!.play().catch(() => {
-              // Ignore play errors
-            });
+            if (player.current!.media) {
+              player.current!.media.play().catch(() => {
+                // Ignore play errors
+              });
+            }
             return;
           }
 
           if (
             data.details === Hls.ErrorDetails.BUFFER_NUDGE_ON_STALL ||
             data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR ||
-            data.details === Hls.ErrorDetails.LEVEL_LOAD_ERROR
+            data.details === Hls.ErrorDetails.LEVEL_LOAD_ERROR ||
+            data.details === Hls.ErrorDetails.LEVEL_PARSING_ERROR
           ) {
-            player.current!.media!.play().catch(() => {
-              // Ignore play errors
-            });
+            if (player.current!.media) {
+              player.current!.media.play().catch(() => {
+                // Ignore play errors
+              });
+            }
             return;
           }
 
-          player.current!.media!.pause();
+          if (player.current!.media) {
+            player.current!.media.pause();
+          }
         });
       }
     });
@@ -276,7 +316,7 @@ const SyncManager: React.FC<SyncManagerProps> = ({ children }) => {
     };
   }, [hlsRefs]);
 
-  return <>{children}</>;
-};
+  return children;
+}
 
 export default SyncManager;

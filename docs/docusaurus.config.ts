@@ -49,16 +49,17 @@ const config: Config = {
           label: "Documentation",
         },
         {
-          type: "doc",
-          docId: "contributing",
-          position: "left",
-          label: "Contributing",
-        },
-        {
           title: "Components",
           to: "components-explorer",
           label: "Components",
           position: "left",
+        },
+        
+        {
+          type: "doc",
+          docId: "contributing",
+          position: "left",
+          label: "Contributing",
         },
         {
           type: "doc",
@@ -67,9 +68,23 @@ const config: Config = {
           label: "Developers",
         },
         {
+          href: "https://hub.docker.com/r/roflcoopter/viseron/tags",
+          label: "Docker Hub",
+          position: "right",
+        },
+        {
           href: "https://github.com/roflcoopter/viseron",
           label: "GitHub",
           position: "right",
+        },
+        {
+          type: 'html',
+          position: 'right',
+          value: `
+            <span class="docker-pull-count">
+              <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/roflcoopter/viseron?color=blue">
+            </span>
+          `
         },
       ],
     },
@@ -155,6 +170,9 @@ const config: Config = {
     ],
   ],
   plugins: ["@docusaurus/plugin-ideal-image"],
+  clientModules: [
+    require.resolve("./src/lib/injectVersion.ts")
+  ],
 };
 
 export default config;

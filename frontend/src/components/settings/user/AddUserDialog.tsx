@@ -19,7 +19,7 @@ interface AddUserDialogProps {
   onClose: () => void;
 }
 
-const AddUserDialog: React.FC<AddUserDialogProps> = ({ onClose }) => {
+function AddUserDialog({ onClose }: AddUserDialogProps) {
   const { inputState, dispatch, isFormValid } = useUserForm(true);
   const authCreate = useAuthCreate();
 
@@ -117,6 +117,6 @@ const AddUserDialog: React.FC<AddUserDialogProps> = ({ onClose }) => {
       </DialogActions>
     </Dialog>
   );
-};
+}
 
 export default AddUserDialog;

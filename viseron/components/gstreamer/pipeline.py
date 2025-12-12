@@ -263,7 +263,7 @@ class JetsonPipeline(BasePipeline):
         return [
             "nvv4l2decoder",
             "enable-max-performance=true",
-            f"drop-frame-interval={int(self._stream.fps/self._stream.output_fps)}",
+            f"drop-frame-interval={int(self._stream.fps / self._stream.output_fps)}",
             "!",
         ]
 

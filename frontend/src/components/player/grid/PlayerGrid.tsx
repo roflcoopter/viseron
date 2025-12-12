@@ -1,8 +1,8 @@
 import Box from "@mui/material/Box";
-import Grid from "@mui/material/Grid2";
+import Grid from "@mui/material/Grid";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import { type JSX, forwardRef, useImperativeHandle, useRef } from "react";
 
 import {
   GridLayout,
@@ -13,7 +13,7 @@ import * as types from "lib/types";
 
 type PlayerItemProps = {
   camera: types.Camera | types.FailedCamera;
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   gridLayout: GridLayout;
   renderPlayer: (
     camera: types.Camera | types.FailedCamera,
@@ -47,13 +47,29 @@ const PlayerItem = forwardRef<PlayerItemRef, PlayerItemProps>(
         key={camera.identifier}
         sx={{
           flexBasis: "min-content",
+          ...(gridLayout.columns === 1 &&
+            gridLayout.rows > 1 && {
+              width: "100%",
+              maxWidth: "100%",
+              flexBasis: "auto",
+            }),
         }}
-        size={12 / gridLayout.columns}
+        size={
+          gridLayout.columns === 1 && gridLayout.rows > 1
+            ? 12
+            : 12 / gridLayout.columns
+        }
       >
         <Box
           ref={boxRef}
           sx={{
             position: "relative",
+            maxWidth: "100%",
+            maxHeight: "100%",
+            overflow: "hidden",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
           {renderPlayer(camera, playerRef)}
@@ -69,39 +85,51 @@ export interface PlayerItemRef {
 
 type PlayerGridProps = {
   cameras: types.CamerasOrFailedCameras;
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   renderPlayer: (
     camera: types.Camera | types.FailedCamera,
     playerRef: React.RefObject<any>,
   ) => JSX.Element;
   forceBreakpoint?: boolean;
+  useDoubleColumnMobile?: boolean;
 };
-export const PlayerGrid = ({
+export function PlayerGrid({
   cameras,
   containerRef,
   renderPlayer,
   forceBreakpoint,
-}: PlayerGridProps) => {
+  useDoubleColumnMobile,
+}: PlayerGridProps) {
   const playerItemRefs = useRef<(PlayerItemRef | null)[]>([]);
   const setPlayerItemRef = (index: number, ref: PlayerItemRef | null) => {
     playerItemRefs.current[index] = ref;
   };
 
-  const setPlayerItemsSize = useCallback(() => {
+  const setPlayerItemsSize = () => {
     playerItemRefs.current.forEach((playerItemRef) => {
       if (playerItemRef) {
         playerItemRef.setSize();
       }
     });
-  }, [playerItemRefs]);
+  };
 
-  const gridLayout = useGridLayout(containerRef, cameras, setPlayerItemsSize);
+  const gridLayout = useGridLayout(
+    containerRef,
+    cameras,
+    setPlayerItemsSize,
+    undefined,
+    useDoubleColumnMobile,
+  );
 
   return (
     <Grid
       container
       spacing={0}
-      sx={{ height: "100%" }}
+      sx={{
+        height: "100%",
+        maxHeight: "100%",
+        overflow: "hidden",
+      }}
       alignContent="center"
       justifyContent="center"
     >
@@ -120,4 +148,4 @@ export const PlayerGrid = ({
       ))}
     </Grid>
   );
-};
+}

@@ -1,4 +1,5 @@
 """Viseron components."""
+
 from __future__ import annotations
 
 import importlib
@@ -781,6 +782,10 @@ def setup_components(vis: Viseron, config: dict[str, Any]) -> None:
     # Setup core components
     for component in CORE_COMPONENTS:
         setup_component(vis, get_component(vis, component, config))
+
+    # Small delay to ensure core components are fully initialized
+    # before setting up default components (especially storage)
+    time.sleep(0.5)
 
     # Setup default components
     for component in DEFAULT_COMPONENTS:

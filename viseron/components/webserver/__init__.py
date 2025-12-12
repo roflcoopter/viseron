@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import secrets
 import threading
 from typing import TYPE_CHECKING
@@ -15,6 +16,7 @@ from tornado.routing import PathMatches
 from viseron.components.webserver.auth import Auth
 from viseron.const import DEFAULT_PORT, VISERON_SIGNAL_SHUTDOWN
 from viseron.exceptions import ComponentNotReady
+from viseron.helpers import current_system_datetime
 from viseron.helpers.storage import Storage
 from viseron.helpers.validators import CoerceNoneToDict, Deprecated
 
@@ -27,10 +29,17 @@ from .const import (
     CONFIG_HOURS,
     CONFIG_MINUTES,
     CONFIG_PORT,
+    CONFIG_PUBLIC_BASE_URL,
+    CONFIG_PUBLIC_URL_EXPIRY_HOURS,
+    CONFIG_PUBLIC_URL_MAX_DOWNLOADS,
     CONFIG_SESSION_EXPIRY,
+    CONFIG_SUBPATH,
     DEFAULT_COMPONENT,
     DEFAULT_DEBUG,
+    DEFAULT_PUBLIC_URL_EXPIRY_HOURS,
+    DEFAULT_PUBLIC_URL_MAX_DOWNLOADS,
     DEFAULT_SESSION_EXPIRY,
+    DEFAULT_SUBPATH,
     DESC_AUTH,
     DESC_COMPONENT,
     DESC_DAYS,
@@ -38,8 +47,14 @@ from .const import (
     DESC_HOURS,
     DESC_MINUTES,
     DESC_PORT,
+    DESC_PUBLIC_BASE_URL,
+    DESC_PUBLIC_URL_EXPIRY_HOURS,
+    DESC_PUBLIC_URL_MAX_DOWNLOADS,
     DESC_SESSION_EXPIRY,
+    DESC_SUBPATH,
     DOWNLOAD_TOKENS,
+    PUBLIC_IMAGE_TOKENS,
+    PUBLIC_IMAGES_PATH,
     WEBSERVER_STORAGE_KEY,
     WEBSOCKET_COMMANDS,
     WEBSOCKET_CONNECTIONS,
@@ -68,6 +83,7 @@ from .websocket_api.commands import (
 if TYPE_CHECKING:
     from viseron import Viseron
     from viseron.components.webserver.download_token import DownloadToken
+    from viseron.components.webserver.public_image_token import PublicImageToken
 
 
 LOGGER = logging.getLogger(__name__)
@@ -86,6 +102,23 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(
                     CONFIG_DEBUG, default=DEFAULT_DEBUG, description=DESC_DEBUG
                 ): bool,
+                vol.Optional(
+                    CONFIG_SUBPATH, default=DEFAULT_SUBPATH, description=DESC_SUBPATH
+                ): vol.Maybe(str),
+                vol.Optional(
+                    CONFIG_PUBLIC_BASE_URL,
+                    description=DESC_PUBLIC_BASE_URL,
+                ): str,
+                vol.Optional(
+                    CONFIG_PUBLIC_URL_EXPIRY_HOURS,
+                    description=DESC_PUBLIC_URL_EXPIRY_HOURS,
+                    default=DEFAULT_PUBLIC_URL_EXPIRY_HOURS,
+                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=744)),
+                vol.Optional(
+                    CONFIG_PUBLIC_URL_MAX_DOWNLOADS,
+                    description=DESC_PUBLIC_URL_MAX_DOWNLOADS,
+                    default=DEFAULT_PUBLIC_URL_MAX_DOWNLOADS,
+                ): vol.All(vol.Coerce(int), vol.Range(min=0)),
                 vol.Optional(CONFIG_AUTH, description=DESC_AUTH): vol.All(
                     CoerceNoneToDict(),
                     {
@@ -217,11 +250,19 @@ class Webserver(threading.Thread):
         if self._config.get(CONFIG_AUTH, False):
             self._auth = Auth(vis, config)
         self._store = WebserverStore(vis)
+        self._subpath = self._normalize_subpath(config.get(CONFIG_SUBPATH))
 
         vis.data[COMPONENT] = self
         vis.data[WEBSOCKET_COMMANDS] = {}
         vis.data[WEBSOCKET_CONNECTIONS] = []
         vis.data[DOWNLOAD_TOKENS] = {}
+        vis.data[PUBLIC_IMAGE_TOKENS] = {}
+
+        # Create persistent directory for public images
+        os.makedirs(PUBLIC_IMAGES_PATH, exist_ok=True)
+
+        # Clean up expired public images on startup
+        self._cleanup_expired_public_images()
 
         self._asyncio_ioloop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._asyncio_ioloop)
@@ -241,6 +282,70 @@ class Webserver(threading.Thread):
             raise error
         self._ioloop = tornado.ioloop.IOLoop.current()
 
+        # Schedule periodic cleanup of expired public images (every hour)
+        self._cleanup_task: asyncio.Task | None = None
+
+    @staticmethod
+    def _normalize_subpath(subpath: str | None) -> str:
+        """Normalize subpath to ensure it starts with / and doesn't end with /."""
+        if not subpath:
+            return ""
+        subpath = subpath.strip()
+        if not subpath.startswith("/"):
+            subpath = "/" + subpath
+        if subpath.endswith("/"):
+            subpath = subpath.rstrip("/")
+        return subpath
+
+    def _cleanup_expired_public_images(self):
+        """Clean up expired public images (files older than max expiry)."""
+        try:
+
+            timestamp_limit = current_system_datetime().timestamp() - (
+                self.public_url_expiry_hours * 3600
+            )
+            cleaned_count = 0
+
+            # Scan all files in the public images directory
+            if os.path.exists(PUBLIC_IMAGES_PATH):
+                for filename in os.listdir(PUBLIC_IMAGES_PATH):
+                    file_path = os.path.join(PUBLIC_IMAGES_PATH, filename)
+
+                    # Only process files (not directories)
+                    if not os.path.isfile(file_path):
+                        continue
+
+                    # Check file age
+                    try:
+                        file_mtime = os.path.getmtime(file_path)
+                        # If file is older than max expiry, delete it
+                        if file_mtime < timestamp_limit:
+                            os.remove(file_path)
+                            cleaned_count += 1
+                            LOGGER.debug(f"Deleted expired public image: {file_path} ")
+                    except OSError as e:
+                        LOGGER.error(f"Failed to process file {file_path}: {e}")
+
+            if cleaned_count > 0:
+                LOGGER.info(
+                    f"Cleaned up {cleaned_count} expired public image(s) on startup"
+                )
+        except Exception as e:  # pylint: disable=broad-except
+            LOGGER.error(f"Error during expired public images cleanup: {e}")
+
+    async def _periodic_cleanup(self):
+        """Run periodic cleanup of expired public images."""
+        while True:
+            try:
+                await asyncio.sleep(3600)  # Run every hour
+                await self._asyncio_ioloop.run_in_executor(
+                    None, self._cleanup_expired_public_images
+                )
+            except asyncio.CancelledError:
+                break
+            except Exception as e:  # pylint: disable=broad-except
+                LOGGER.error(f"Error during public images cleanup: {e}")
+
     @property
     def auth(self):
         """Return auth."""
@@ -256,6 +361,35 @@ class Webserver(threading.Thread):
         """Return download tokens."""
         return self._vis.data[DOWNLOAD_TOKENS]
 
+    @property
+    def public_image_tokens(self) -> dict[str, PublicImageToken]:
+        """Return public image tokens."""
+        return self._vis.data[PUBLIC_IMAGE_TOKENS]
+
+    @property
+    def public_base_url(self) -> str | None:
+        """Return public base URL."""
+        return self._config.get(CONFIG_PUBLIC_BASE_URL)
+
+    @property
+    def public_url_expiry_hours(self) -> int:
+        """Return public URL expiry hours."""
+        return self._config.get(
+            CONFIG_PUBLIC_URL_EXPIRY_HOURS, DEFAULT_PUBLIC_URL_EXPIRY_HOURS
+        )
+
+    @property
+    def public_url_max_downloads(self) -> int:
+        """Return public URL max downloads."""
+        return self._config.get(
+            CONFIG_PUBLIC_URL_MAX_DOWNLOADS, DEFAULT_PUBLIC_URL_MAX_DOWNLOADS
+        )
+
+    @property
+    def configured_subpath(self) -> str:
+        """Return configured subpath."""
+        return self._subpath
+
     def register_websocket_command(self, handler) -> None:
         """Register a websocket command."""
         if handler.command in self._vis.data[WEBSOCKET_COMMANDS]:
@@ -266,6 +400,9 @@ class Webserver(threading.Thread):
 
     def run(self) -> None:
         """Start ioloop."""
+        # Start periodic cleanup task
+        self._cleanup_task = self._asyncio_ioloop.create_task(self._periodic_cleanup())
+
         self._ioloop.start()
         self._ioloop.close(True)
         LOGGER.debug("IOLoop closed")
@@ -280,6 +417,10 @@ class Webserver(threading.Thread):
         shutdown_event = threading.Event()
 
         async def shutdown():
+            # Cancel cleanup task
+            if self._cleanup_task and not self._cleanup_task.done():
+                self._cleanup_task.cancel()
+
             connection: WebSocketHandler
             for connection in self._vis.data[WEBSOCKET_CONNECTIONS]:
                 LOGGER.debug("Closing websocket connection, %s", connection)

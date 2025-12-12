@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { type JSX, memo } from "react";
 
 import { SnapshotEvent } from "components/events/SnapshotEvent";
 import { ActivityLine } from "components/events/timeline/ActivityLine";
@@ -31,7 +31,7 @@ export const Item = memo(
         active={!!item.activityLineVariant}
         cameraEvent={item.timedEvent}
         variant={item.activityLineVariant}
-        availableTimespan={!!item.availableTimespan}
+        availableTimespan={item.availableTimespan}
       />
       {item.snapshotEvents ? (
         <SnapshotEvent

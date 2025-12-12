@@ -1,6 +1,4 @@
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import VideocamIcon from "@mui/icons-material/Videocam";
+import { CalendarHeatMap, Download, VideoAdd } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import Fab from "@mui/material/Fab";
 import Tooltip from "@mui/material/Tooltip";
@@ -37,14 +35,14 @@ export const FloatingMenu = memo(({ date, setDate }: FloatingMenuProps) => {
         }}
       />
       <ExportDialog open={exportDialogOpen} setOpen={setExportDialogOpen} />
-      <Box sx={{ position: "absolute", bottom: 14, right: 24 }}>
+      <Box sx={{ position: "absolute", bottom: 16, right: 24 }}>
         <Tooltip title="Select Cameras">
           <Fab
             size="small"
             color="primary"
             onClick={() => setCameraDialogOpen(true)}
           >
-            <VideocamIcon />
+            <VideoAdd size={20} />
           </Fab>
         </Tooltip>
         <Tooltip title="Select Date">
@@ -54,7 +52,7 @@ export const FloatingMenu = memo(({ date, setDate }: FloatingMenuProps) => {
             sx={{ marginLeft: 1 }}
             onClick={() => setDateDialogOpen(true)}
           >
-            <CalendarMonthIcon />
+            <CalendarHeatMap size={20} />
           </Fab>
         </Tooltip>
         <Tooltip title="Download">
@@ -64,7 +62,7 @@ export const FloatingMenu = memo(({ date, setDate }: FloatingMenuProps) => {
             sx={{ marginLeft: 1 }}
             onClick={() => setExportDialogOpen(true)}
           >
-            <FileDownloadIcon />
+            <Download size={20} />
           </Fab>
         </Tooltip>
       </Box>

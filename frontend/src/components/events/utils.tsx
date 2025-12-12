@@ -1,10 +1,12 @@
-import AirIcon from "@mui/icons-material/Air";
-import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
-import PersonIcon from "@mui/icons-material/DirectionsWalk";
-import FaceIcon from "@mui/icons-material/Face";
-import ImageSearchIcon from "@mui/icons-material/ImageSearch";
-import PetsIcon from "@mui/icons-material/Pets";
-import VideoFileIcon from "@mui/icons-material/VideoFile";
+import {
+  Car,
+  DocumentVideo,
+  DogWalker,
+  FaceActivated,
+  IntrusionPrevention,
+  Movement,
+  UserActivity,
+} from "@carbon/icons-react";
 import dayjs, { Dayjs } from "dayjs";
 import Hls, { Fragment } from "hls.js";
 import { useCallback } from "react";
@@ -22,12 +24,12 @@ import * as types from "lib/types";
 export const TICK_HEIGHT = 8;
 export const SCALE = 60;
 export const EXTRA_TICKS = 10;
-export const COLUMN_HEIGHT = "99dvh";
-export const COLUMN_HEIGHT_SMALL = "98.5dvh";
+export const COLUMN_HEIGHT = "98.2dvh";
+export const COLUMN_HEIGHT_SMALL = "98dvh";
 export const EVENT_ICON_HEIGHT = 30;
 export const LIVE_EDGE_DELAY = 10;
 
-export const playerCardSmMaxHeight = () => window.innerHeight * 0.4;
+export const playerCardSmMaxHeight = () => window.innerHeight * 0.5;
 
 // Get all possible keys from Filters
 export type FilterKeysFromFilters =
@@ -220,7 +222,7 @@ export const DEFAULT_ITEM: TimelineItem = {
   time: 0,
   timedEvent: null,
   snapshotEvents: null,
-  availableTimespan: null,
+  availableTimespan: false,
   activityLineVariant: null,
 };
 
@@ -228,7 +230,7 @@ export type TimelineItem = {
   time: number;
   timedEvent: null | types.CameraMotionEvent | types.CameraRecordingEvent;
   snapshotEvents: null | types.CameraSnapshotEvents;
-  availableTimespan: null | types.HlsAvailableTimespan;
+  availableTimespan: boolean;
   activityLineVariant: "first" | "middle" | "last" | "round" | null;
 };
 
@@ -326,13 +328,27 @@ export const calculateIndexFromTime = (
 ) => Math.round((startRef.current - (timestamp || dayjs().unix())) / SCALE);
 
 // Common logic for items that affect the activity line
-export const createActivityLineItem = (
+export function createActivityLineItem(
   startRef: React.MutableRefObject<number>,
   indexStart: number,
   indexEnd: number,
-  event: types.CameraEvent | types.HlsAvailableTimespan,
+  event: boolean,
+  eventType: "availableTimespan",
+): TimelineItems;
+export function createActivityLineItem(
+  startRef: React.MutableRefObject<number>,
+  indexStart: number,
+  indexEnd: number,
+  event: types.CameraTimedEvents,
+  eventType: "timedEvent",
+): TimelineItems;
+export function createActivityLineItem(
+  startRef: React.MutableRefObject<number>,
+  indexStart: number,
+  indexEnd: number,
+  event: types.CameraEvent | boolean,
   eventType: "availableTimespan" | "timedEvent",
-) => {
+): TimelineItems {
   const timelineItems: TimelineItems = {};
 
   let time = calculateTimeFromIndex(startRef, indexStart);
@@ -364,7 +380,7 @@ export const createActivityLineItem = (
   }
 
   return timelineItems;
-};
+}
 
 // For snapshot events, make sure adjacent events are grouped together
 const addSnapshotEvent = (
@@ -426,7 +442,7 @@ export const getTimelineItems = (
         startRef,
         indexStart,
         indexEnd,
-        timespan,
+        true,
         "availableTimespan",
       ),
     };
@@ -720,29 +736,29 @@ export const useSelectEvent = () => {
 const labelToIcon = (label: string) => {
   switch (label) {
     case "person":
-      return PersonIcon;
+      return UserActivity;
 
     case "car":
     case "truck":
     case "vehicle":
-      return DirectionsCarIcon;
+      return Car;
 
     case "dog":
     case "cat":
     case "animal":
-      return PetsIcon;
+      return DogWalker;
 
     default:
-      return ImageSearchIcon;
+      return IntrusionPrevention;
   }
 };
 
 const iconMap = {
-  object: PersonIcon,
-  face_recognition: FaceIcon,
+  object: UserActivity,
+  face_recognition: FaceActivated,
   license_plate_recognition: LicensePlateRecognitionIcon,
-  motion: AirIcon,
-  recording: VideoFileIcon,
+  motion: Movement,
+  recording: DocumentVideo,
 };
 
 export const getIcon = (event: types.CameraEvent) => {
@@ -759,8 +775,13 @@ export const getIcon = (event: types.CameraEvent) => {
   }
 };
 
-export const getIconFromType = (type: types.CameraEvent["type"]) =>
-  iconMap[type];
+export const getIconFromType = (type: types.CameraEvent["type"]) => {
+  const IconComponent = iconMap[type];
+  function IconWithSize() {
+    return <IconComponent size={20} />;
+  }
+  return IconWithSize;
+};
 
 // Base hook that contains shared logic
 const useTimespansBase = (

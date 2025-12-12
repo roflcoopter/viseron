@@ -2,7 +2,13 @@ import { Container } from "@mui/material";
 import Button from "@mui/material/Button";
 import { AxiosHeaders } from "axios";
 import Cookies from "js-cookie";
-import { FC, createContext, useContext, useLayoutEffect, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 
 import SessionExpired from "components/dialog/SessionExpired";
@@ -11,7 +17,7 @@ import { Loading } from "components/loading/Loading";
 import { useToast } from "hooks/UseToast";
 import { useAuthEnabled, useAuthUser } from "lib/api/auth";
 import { viseronAPI } from "lib/api/client";
-import { getToken } from "lib/tokens";
+import { getToken, isManualLogoutActive } from "lib/tokens";
 import * as types from "lib/types";
 
 function ErrorLoadingUser() {
@@ -35,9 +41,11 @@ function ErrorLoadingUser() {
 
 const useAuthAxiosInterceptor = (
   auth: types.AuthEnabledResponse | undefined,
+  user: types.AuthUserResponse | null,
 ) => {
   const toast = useToast();
   const requestInterceptorRef = useRef<number | undefined>(undefined);
+  const sessionErrorShownRef = useRef(false);
 
   useLayoutEffect(() => {
     if (requestInterceptorRef.current !== undefined) {
@@ -76,7 +84,14 @@ const useAuthAxiosInterceptor = (
         }
 
         if (!cookies.user) {
-          toast.error("Session expired, please log in again");
+          if (
+            !sessionErrorShownRef.current &&
+            !isManualLogoutActive() &&
+            user !== null
+          ) {
+            sessionErrorShownRef.current = true;
+            toast.error("Session expired, please log in again");
+          }
           throw new Error("Invalid session.");
         }
 
@@ -96,7 +111,7 @@ const useAuthAxiosInterceptor = (
         viseronAPI.interceptors.request.eject(requestInterceptorRef.current);
       }
     };
-  }, [auth, toast]);
+  }, [auth, toast, user]);
 };
 
 type AuthContextState = {
@@ -110,11 +125,8 @@ type AuthProviderProps = {
   children: React.ReactNode;
 };
 
-export const AuthProvider: FC<AuthProviderProps> = ({
-  children,
-}: AuthProviderProps) => {
+export function AuthProvider({ children }: AuthProviderProps) {
   const authQuery = useAuthEnabled();
-  useAuthAxiosInterceptor(authQuery.data);
   const location = useLocation();
 
   const cookies = Cookies.get();
@@ -128,6 +140,16 @@ export const AuthProvider: FC<AuthProviderProps> = ({
       ),
     },
   });
+
+  useAuthAxiosInterceptor(authQuery.data, userQuery.data ?? null);
+
+  const authContextState = useMemo<AuthContextState>(
+    () => ({
+      auth: authQuery.data!,
+      user: userQuery.data ?? null,
+    }),
+    [authQuery.data, userQuery.data],
+  );
 
   if (authQuery.isPending || authQuery.isLoading) {
     return <Loading text="Loading Auth" />;
@@ -143,11 +165,13 @@ export const AuthProvider: FC<AuthProviderProps> = ({
   }
 
   // isLoading instead of isPending because query might be disabled
-  if (userQuery.isLoading) {
+  // Skip loading screen during manual logout to avoid flash
+  if (userQuery.isLoading && !isManualLogoutActive()) {
     return <Loading text="Loading User" />;
   }
 
-  if (userQuery.isError) {
+  // Don't show error if we're on login page or if there's no cookie (user just logged out)
+  if (userQuery.isError && cookies.user && location.pathname !== "/login") {
     return <ErrorLoadingUser />;
   }
 
@@ -159,18 +183,22 @@ export const AuthProvider: FC<AuthProviderProps> = ({
     return <Navigate to="/onboarding" replace />;
   }
 
+  if (!authQuery.data) {
+    return (
+      <ErrorMessage
+        text="Error loading auth"
+        subtext="Auth context value is null"
+      />
+    );
+  }
+
   return (
-    <AuthContext.Provider
-      value={{
-        auth: authQuery.data,
-        user: userQuery.data || null,
-      }}
-    >
+    <AuthContext.Provider value={authContextState}>
       {authQuery.data.enabled ? <SessionExpired /> : null}
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
 export const useAuthContext = () => {
   const context = useContext(AuthContext);

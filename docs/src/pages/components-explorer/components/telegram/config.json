@@ -22,18 +22,6 @@
         "default": null
       },
       {
-        "type": "list",
-        "values": [
-          {
-            "type": "integer"
-          }
-        ],
-        "name": "telegram_user_ids",
-        "description": "List of user IDs to accept commands from.",
-        "required": true,
-        "default": null
-      },
-      {
         "type": "map",
         "value": [
           {
@@ -49,6 +37,18 @@
         "description": "Cameras to control with the Telegram bot and get notifications from.",
         "required": true,
         "default": null
+      },
+      {
+        "type": "list",
+        "values": [
+          {
+            "type": "integer"
+          }
+        ],
+        "name": "telegram_user_ids",
+        "description": "List of user IDs to accept commands from. Only applicable in public chats.",
+        "optional": true,
+        "default": []
       },
       {
         "type": "string",
@@ -87,7 +87,7 @@
       }
     ],
     "name": "telegram",
-    "description": "Telegram bot to control pan-tilt-zoom cameras.",
+    "description": "Telegram bot to control cameras.",
     "required": true,
     "default": null
   }

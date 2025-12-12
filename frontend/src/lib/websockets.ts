@@ -3,7 +3,7 @@ import React from "react";
 
 import { Toast, toastIds } from "hooks/UseToast";
 import { authToken } from "lib/api/auth";
-import { clientId } from "lib/api/client";
+import { BASE_PATH, clientId } from "lib/api/client";
 import { sleep } from "lib/helpers";
 import * as messages from "lib/messages";
 import { loadTokens, tokenExpired } from "lib/tokens";
@@ -214,12 +214,11 @@ export class Connection {
       return;
     }
 
-    document.cookie = `X-Client-UTC-Offset=${dayjs().utcOffset()}; path=/websocket`;
+    document.cookie = `X-Client-UTC-Offset=${dayjs().utcOffset()}; path=${BASE_PATH}/websocket`;
     const wsURL = `${
       window.location.protocol === "https:" ? "wss://" : "ws://"
-    }${location.host}/websocket`;
+    }${location.host}${BASE_PATH}/websocket`;
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
         ({ socket: this.socket, system_information: this.system_information } =
@@ -228,7 +227,6 @@ export class Connection {
         break;
       } catch (error) {
         if (error === ERR_INVALID_AUTH) {
-          // eslint-disable-next-line @typescript-eslint/no-throw-literal
           throw error;
         }
         console.debug("Error connecting, retrying", error);
@@ -514,7 +512,6 @@ export class Connection {
 
   private _sendMessage(message: Message) {
     if (!this.connected) {
-      // eslint-disable-next-line @typescript-eslint/no-throw-literal
       throw ERR_CONNECTION_LOST;
     }
     console.debug("Sending", message);

@@ -1,7 +1,5 @@
+import { Restart, Save } from "@carbon/icons-react";
 import Editor, { Monaco, loader } from "@monaco-editor/react";
-import { RestartAlt } from "@mui/icons-material";
-import SaveIcon from "@mui/icons-material/Save";
-import LoadingButton from "@mui/lab/LoadingButton";
 import Backdrop from "@mui/material/Backdrop";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -90,11 +88,11 @@ const useResize = (
   }, [updateDimensions]);
 };
 
-const ConfigEditor = () => {
+function ConfigEditor() {
   const viseron = useContext(ViseronContext);
   const theme = useTheme();
 
-  const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>();
+  const editorInstance = useRef<monaco.editor.IStandaloneCodeEditor>(undefined);
   const markersRef = useRef<monaco.editor.IMarker[]>([]);
 
   useResize(editorInstance);
@@ -187,10 +185,10 @@ const ConfigEditor = () => {
     }
   };
 
-  function onValidate(currentMarkers: monaco.editor.IMarker[]) {
+  const onValidate = (currentMarkers: monaco.editor.IMarker[]) => {
     setMarkers(currentMarkers);
     markersRef.current = currentMarkers;
-  }
+  };
 
   useEffect(() => {
     if (viseron.connection) {
@@ -221,7 +219,7 @@ const ConfigEditor = () => {
         aria-describedby="alert-dialog-description"
       >
         <DialogTitle id="alert-dialog-title">
-          {"An error occurred when saving configuration."}
+          An error occurred when saving configuration.
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
@@ -250,7 +248,7 @@ const ConfigEditor = () => {
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
       >
-        <DialogTitle id="alert-dialog-title">{"Syntax errors."}</DialogTitle>
+        <DialogTitle id="alert-dialog-title">Syntax errors.</DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
             You have syntax errors in your config. Are you sure you want to
@@ -287,7 +285,7 @@ const ConfigEditor = () => {
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
       >
-        <DialogTitle id="alert-dialog-title">{"Restart Viseron."}</DialogTitle>
+        <DialogTitle id="alert-dialog-title">Restart Viseron.</DialogTitle>
         {restartDialog.text && (
           <DialogContent>
             <DialogContentText id="alert-dialog-description">
@@ -321,30 +319,21 @@ const ConfigEditor = () => {
           </Button>
         </DialogActions>
       </Dialog>
-      <Stack justifyContent="flex-start" alignItems="flex-start" spacing={2}>
+      <Stack
+        justifyContent="flex-start"
+        alignItems="flex-start"
+        paddingTop={1}
+        spacing={2}
+      >
         <Stack
           direction="row"
           justifyContent="flex-start"
           alignItems="flex-start"
           spacing={2}
         >
-          <Tooltip title="Ctrl+S" enterDelay={300}>
-            <span>
-              <LoadingButton
-                startIcon={<SaveIcon />}
-                loadingPosition="start"
-                onClick={handleSave}
-                variant="contained"
-                loading={savePending}
-                disabled={!configUnsaved}
-              >
-                Save
-              </LoadingButton>
-            </span>
-          </Tooltip>
           <span>
-            <LoadingButton
-              startIcon={<RestartAlt />}
+            <Button
+              startIcon={<Restart />}
               loadingPosition="start"
               onClick={handleRestart}
               variant="contained"
@@ -352,8 +341,22 @@ const ConfigEditor = () => {
               color="error"
             >
               Restart
-            </LoadingButton>
+            </Button>
           </span>
+          <Tooltip title="Ctrl+S" enterDelay={300}>
+            <span>
+              <Button
+                startIcon={<Save />}
+                loadingPosition="start"
+                onClick={handleSave}
+                variant="contained"
+                loading={savePending}
+                disabled={!configUnsaved}
+              >
+                Save
+              </Button>
+            </span>
+          </Tooltip>
         </Stack>
         <Box
           sx={[
@@ -363,15 +366,15 @@ const ConfigEditor = () => {
             },
             markers.length > 0
               ? {
-                  height: "80vh",
+                  height: "70vh",
                 }
               : {
-                  height: "90vh",
+                  height: "80vh",
                 },
           ]}
         >
           <Backdrop open={savePending} sx={{ position: "absolute", zIndex: 1 }}>
-            <CircularProgress color="inherit" />
+            <CircularProgress enableTrackSlot color="inherit" />
           </Backdrop>
           <Card
             variant="outlined"
@@ -383,7 +386,7 @@ const ConfigEditor = () => {
             })}
           >
             <Editor
-              height={markers.length > 0 ? "80vh" : "90vh"}
+              height={markers.length > 0 ? "70vh" : "80vh"}
               defaultLanguage="yaml"
               theme={`${theme.palette.mode === "dark" ? "vs-dark" : "light"}`}
               defaultValue={savedConfig}
@@ -403,6 +406,6 @@ const ConfigEditor = () => {
       </Stack>
     </div>
   );
-};
+}
 
 export default ConfigEditor;

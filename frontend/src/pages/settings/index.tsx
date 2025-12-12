@@ -1,7 +1,11 @@
-import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
-import ArticleIcon from "@mui/icons-material/Article";
-import PeopleIcon from "@mui/icons-material/People";
-import SettingsIcon from "@mui/icons-material/Settings";
+import {
+  ArrowRight,
+  DataBlob,
+  Script,
+  SettingsEdit,
+  Trigger,
+  UserMultiple,
+} from "@carbon/icons-react";
 import { ListItemButton } from "@mui/material";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
@@ -17,7 +21,7 @@ import { useAuthContext } from "context/AuthContext";
 import { useHideScrollbar } from "hooks/UseHideScrollbar";
 import { useTitle } from "hooks/UseTitle";
 
-const Settings = () => {
+function Settings() {
   useTitle("Settings");
   useHideScrollbar();
 
@@ -28,7 +32,7 @@ const Settings = () => {
       name: "Configuration",
       description: "Edit the YAML configuration",
       path: "/settings/configuration",
-      icon: <SettingsIcon />,
+      icon: <SettingsEdit size={23} />,
       color: "blue",
       disabled: false,
       disabledReason: null,
@@ -37,7 +41,7 @@ const Settings = () => {
       name: "User Management",
       description: "Create, edit, and delete users",
       path: "/settings/users",
-      icon: <PeopleIcon />,
+      icon: <UserMultiple size={23} />,
       color: "green",
       disabled: !auth.enabled || user?.role !== "admin",
       disabledReason: !auth.enabled
@@ -48,7 +52,7 @@ const Settings = () => {
       name: "System Events",
       description: "View system events dispatched by the server",
       path: "/settings/system-events",
-      icon: <ArticleIcon />,
+      icon: <Trigger size={23} />,
       color: "purple",
       disabled: false,
       disabledReason: null,
@@ -57,7 +61,7 @@ const Settings = () => {
       name: "Template Editor",
       description: "Test and render Jinja2 templates",
       path: "/settings/template-editor",
-      icon: <ArticleIcon />,
+      icon: <Script size={23} />,
       color: "teal",
       disabled: false,
       disabledReason: null,
@@ -66,7 +70,7 @@ const Settings = () => {
       name: "Logs",
       description: "View system logs",
       path: "/settings/logs",
-      icon: <ArticleIcon />,
+      icon: <DataBlob size={23} />,
       color: "orange",
       disabled: true,
       disabledReason: "Not implemented yet",
@@ -74,13 +78,13 @@ const Settings = () => {
   ];
 
   return (
-    <Container maxWidth={false}>
+    <Container maxWidth={false} sx={{ paddingX: 2 }}>
       <Box
         sx={{
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          minHeight: "80vh",
+          minHeight: "70vh",
         }}
       >
         <Card sx={{ maxWidth: 600, width: "100%" }}>
@@ -116,7 +120,7 @@ const Settings = () => {
                         : item.description
                     }
                   />
-                  <ArrowForwardIosIcon fontSize="small" />
+                  <ArrowRight fontSize="small" />
                 </ListItemButton>
               ))}
             </List>
@@ -125,6 +129,6 @@ const Settings = () => {
       </Box>
     </Container>
   );
-};
+}
 
 export default Settings;

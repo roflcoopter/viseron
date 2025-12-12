@@ -1,8 +1,8 @@
 import TabContext from "@mui/lab/TabContext";
 import TabList from "@mui/lab/TabList";
 import TabPanel from "@mui/lab/TabPanel";
-import Box from "@mui/material/Box";
-import Grid from "@mui/material/Grid2";
+import Container from "@mui/material/Container";
+import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
 import Tab from "@mui/material/Tab";
 import Typography from "@mui/material/Typography";
@@ -26,9 +26,9 @@ import { useResizeObserver } from "hooks/UseResizeObserver";
 import { insertURLParameter } from "lib/helpers";
 
 const setTableHeight = (
-  tabListRef: React.RefObject<HTMLDivElement>,
-  eventsRef: React.RefObject<HTMLDivElement>,
-  timelineRef: React.RefObject<HTMLDivElement>,
+  tabListRef: React.RefObject<HTMLDivElement | null>,
+  eventsRef: React.RefObject<HTMLDivElement | null>,
+  timelineRef: React.RefObject<HTMLDivElement | null>,
   playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>,
   theme: any,
   smBreakpoint: boolean,
@@ -50,9 +50,9 @@ const setTableHeight = (
 };
 
 const useSetTableHeight = (
-  tabListRef: React.RefObject<HTMLDivElement>,
-  eventsRef: React.RefObject<HTMLDivElement>,
-  timelineRef: React.RefObject<HTMLDivElement>,
+  tabListRef: React.RefObject<HTMLDivElement | null>,
+  eventsRef: React.RefObject<HTMLDivElement | null>,
+  timelineRef: React.RefObject<HTMLDivElement | null>,
   playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>,
 ) => {
   const theme = useTheme();
@@ -111,12 +111,12 @@ type TabsProps = {
   setSelectedTab: (tab: "events" | "timeline") => void;
   playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>;
 };
-const Tabs = ({
+function Tabs({
   date,
   selectedTab,
   setSelectedTab,
   playerCardGridItemRef,
-}: TabsProps) => {
+}: TabsProps) {
   const filteredCameras = useFilteredCameras();
   const tabListRef = useRef<HTMLDivElement | null>(null);
   const eventsRef = useRef<HTMLDivElement | null>(null);
@@ -210,7 +210,7 @@ const Tabs = ({
       </TabPanel>
     </TabContext>
   );
-};
+}
 
 type LayoutProps = {
   date: Dayjs | null;
@@ -227,10 +227,10 @@ export const Layout = memo(
     useSetPlayerCardHeight(playerCardGridItemRef);
 
     return (
-      <Box>
+      <Container sx={{ paddingX: 2 }}>
         <Grid
           container
-          direction={"row"}
+          direction="row"
           rowSpacing={{ xs: 0.5, sm: 0 }}
           columnSpacing={1}
         >
@@ -255,8 +255,8 @@ export const Layout = memo(
               xs: 12,
               sm: 8,
               md: 8,
-              lg: 9,
-              xl: 10,
+              lg: 8.5,
+              xl: 9.5,
             }}
           >
             <PlayerCard />
@@ -266,8 +266,8 @@ export const Layout = memo(
               xs: 12,
               sm: 4,
               md: 4,
-              lg: 3,
-              xl: 2,
+              lg: 3.5,
+              xl: 2.5,
             }}
           >
             <Paper variant="outlined">
@@ -281,7 +281,7 @@ export const Layout = memo(
           </Grid>
           <FloatingMenu date={date} setDate={setDate} />
         </Grid>
-      </Box>
+      </Container>
     );
   },
 );
