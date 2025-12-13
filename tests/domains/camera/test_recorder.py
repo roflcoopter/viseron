@@ -11,7 +11,7 @@ import pytest
 from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
-from viseron.components.storage.models import Files, Recordings
+from viseron.components.storage.models import Files, Recordings, TriggerTypes
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.recorder import (
     AbstractRecorder,
@@ -400,6 +400,7 @@ def fixture_create_recording(recording_params):
             thumbnail_path=params["thumbnail_path"],
             clip_path=None,
             objects=[],
+            trigger_type=TriggerTypes.MANUAL,
         )
 
     return _create_recording

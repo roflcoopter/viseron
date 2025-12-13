@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 import paho.mqtt.client as mqtt
 import voluptuous as vol
 
+from viseron.components.nvr.toggle import ManualRecordingToggle
 from viseron.const import (
     EVENT_ENTITY_ADDED,
     EVENT_STATE_CHANGED,
@@ -59,7 +60,7 @@ from .entity import MQTTEntity
 from .entity.binary_sensor import BinarySensorMQTTEntity
 from .entity.image import ImageMQTTEntity
 from .entity.sensor import SensorMQTTEntity
-from .entity.toggle import ToggleMQTTEntity
+from .entity.toggle import ManualRecordingToggleMQTTEntity, ToggleMQTTEntity
 from .event import EventMQTTEntityAddedData
 from .helpers import PublishPayload, SubscribeTopic
 from .homeassistant import HassMQTTInterface
@@ -139,11 +140,15 @@ CONFIG_SCHEMA = vol.Schema(
 )
 
 
-DOMAIN_MAP = {
+ENTITY_MAP: dict[str, type[MQTTEntity]] = {
     "binary_sensor": BinarySensorMQTTEntity,
     "image": ImageMQTTEntity,
     "sensor": SensorMQTTEntity,
     "toggle": ToggleMQTTEntity,
+}
+
+ENTITY_OVERRIDES: dict[type, type[MQTTEntity]] = {
+    ManualRecordingToggle: ManualRecordingToggleMQTTEntity,
 }
 
 
@@ -187,7 +192,9 @@ class MQTT:
                 LOGGER.debug(f"Entity {entity.entity_id} has already been added")
                 return
 
-            if entity_class := DOMAIN_MAP.get(entity.domain):
+            if entity_class := ENTITY_OVERRIDES.get(type(entity)):
+                mqtt_entity = entity_class(self._vis, self._config, entity)
+            elif entity_class := ENTITY_MAP.get(entity.domain):
                 mqtt_entity = entity_class(self._vis, self._config, entity)
             else:
                 LOGGER.debug(f"Unsupported domain encountered: {entity.domain}")

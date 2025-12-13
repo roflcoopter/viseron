@@ -111,3 +111,8 @@ class Filter:
     def require_motion(self) -> bool:
         """Return if label requires motion to trigger recorder."""
         return self._require_motion
+
+    @require_motion.setter
+    def require_motion(self, value: bool) -> None:
+        """Set require motion value."""
+        self._require_motion = value
