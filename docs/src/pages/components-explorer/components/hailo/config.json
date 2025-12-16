@@ -385,7 +385,7 @@
         "name": "multi_process_service",
         "description": "Allow multiple processes to share the Hailo device.",
         "optional": true,
-        "default": true
+        "default": false
       }
     ],
     "name": "hailo",

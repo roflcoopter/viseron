@@ -97,7 +97,7 @@ def setup(vis: Viseron, config: dict[str, Any]) -> bool:
     config = config[COMPONENT]
 
     try:
-        vis.data[COMPONENT] = Hailo8Detector(vis, config[CONFIG_OBJECT_DETECTOR])
+        vis.data[COMPONENT] = Hailo8Detector(vis, config)
     except Exception as error:
         LOGGER.error("Failed to start Hailo 8 detector: %s", error, exc_info=True)
         raise ComponentNotReady from error
@@ -137,8 +137,10 @@ class Hailo8Detector(ChildProcessWorker):
             LOGGER.error("Failed to detect Hailo architecture.")
             raise ComponentNotReady
 
-        self.model_path = get_model(config[CONFIG_MODEL_PATH], hailo_arch)
-        self.labels = load_labels(config[CONFIG_LABEL_PATH])
+        self.model_path = get_model(
+            config[CONFIG_OBJECT_DETECTOR][CONFIG_MODEL_PATH], hailo_arch
+        )
+        self.labels = load_labels(config[CONFIG_OBJECT_DETECTOR][CONFIG_LABEL_PATH])
 
         self._result_queues: dict[str, Queue] = {}
         self._process_initialization_done = mp.Event()

@@ -16,7 +16,7 @@ HAILO8L_DEFAULT_URL = (
 CONFIG_OBJECT_DETECTOR = "object_detector"
 CONFIG_MULTI_PROCESS_SERVICE = "multi_process_service"
 
-DEFAULT_MULTI_PROCESS_SERVICE: Final = True
+DEFAULT_MULTI_PROCESS_SERVICE: Final = False
 
 DESC_COMPONENT = "Hailo configuration."
 DESC_OBJECT_DETECTOR = "Object detector domain config."
