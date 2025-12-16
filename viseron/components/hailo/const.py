@@ -6,7 +6,6 @@ COMPONENT = "hailo"
 HAILO8_DEFAULT_URL = (
     "https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/"
     "ModelZoo/Compiled/v2.16.0/hailo8l/yolov11m.hef"
-    "ModelZoo/Compiled/v2.14.0/hailo8/yolov6n.hef"
 )
 HAILO8L_DEFAULT_URL = (
     "https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/"
@@ -17,7 +16,7 @@ HAILO8L_DEFAULT_URL = (
 CONFIG_OBJECT_DETECTOR = "object_detector"
 CONFIG_MULTI_PROCESS_SERVICE = "multi_process_service"
 
-DEFAULT_MULTI_PROCESS_SERVICE: Final = True
+DEFAULT_MULTI_PROCESS_SERVICE: Final = False
 
 DESC_COMPONENT = "Hailo configuration."
 DESC_OBJECT_DETECTOR = "Object detector domain config."
