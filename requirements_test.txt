@@ -34,5 +34,5 @@ types-requests==2.31.0.6
 types-psutil
 types-psycopg2
 types-python-slugify
-types-PyYAML
+# types-ruamel.yaml not available, using inline types
 pygobject-stubs

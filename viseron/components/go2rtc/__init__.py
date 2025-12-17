@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import requests
 import voluptuous as vol
-import yaml
+from ruamel.yaml import YAML
 
 from .const import COMPONENT, DESC_COMPONENT, GO2RTC_CONFIG
 
@@ -44,6 +44,8 @@ class Go2RTC:
         self.restart()
 
     def _create_config(self):
+        yaml = YAML()
+        yaml.default_flow_style = False
         with open(GO2RTC_CONFIG, "w", encoding="utf-8") as config_file:
             yaml.dump(self._config[COMPONENT], config_file)
 
