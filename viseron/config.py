@@ -26,7 +26,7 @@ def create_default_config(config_path) -> bool:
 def load_secrets():
     """Return secrets from secrets.yaml."""
     try:
-        yaml = YAML(typ='safe', pure=True)
+        yaml = YAML(typ="safe", pure=True)
         with open(SECRETS_PATH, encoding="utf-8") as secrets_file:
             return yaml.load(secrets_file)
     except FileNotFoundError:
@@ -45,10 +45,10 @@ def load_config(create_default=True):
             )
         value = loader.construct_scalar(node)
         if value not in secrets:
-            raise ValueError(f"secret {value} does not exist in secrets.yaml")
+            raise ValueError(f"secret {value} does not exist in secrets.yaml")  # noqa: E713
         return secrets[value]
 
-    yaml = YAML(typ='safe', pure=True)
+    yaml = YAML(typ="safe", pure=True)
     yaml.constructor.add_constructor("!secret", secret_constructor)
 
     try:

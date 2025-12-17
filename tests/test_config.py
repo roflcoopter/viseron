@@ -25,7 +25,10 @@ class TestLoadSecrets:
 
             Path(temp_file.name).unlink()
 
-        assert secrets == {"my_secret": "secret_value", "another_secret": "another_value"}
+        assert secrets == {
+            "my_secret": "secret_value",
+            "another_secret": "another_value",
+        }
 
     def test_load_secrets_file_not_found(self):
         """Test loading secrets when file doesn't exist."""
