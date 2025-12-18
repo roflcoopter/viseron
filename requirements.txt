@@ -22,6 +22,7 @@ python-debouncer==0.1.5
 python-slugify==8.0.4
 PyGObject==3.42.2 # Newer versions does not compile for the Jetson Nano
 PyYAML==6.0.1
+ruamel.yaml==0.18.9
 requests==2.32.0
 scikit-learn==1.2.2
 scipy==1.13.0
