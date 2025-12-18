@@ -13,6 +13,10 @@ python3 -m pip install -r requirements.txt
 cd $WORKSPACE_DIR/frontend
 npm install
 
+# Install docs dependencies
+cd $WORKSPACE_DIR/docs
+npm install
+
 # Install pre-commit hooks
 cd $WORKSPACE_DIR
 pre-commit install
