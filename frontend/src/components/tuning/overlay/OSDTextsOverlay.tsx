@@ -15,7 +15,7 @@ function measureTextWidth(text: string, fontSize: number): number {
   const context = canvas.getContext("2d");
   if (!context) return text.length * fontSize * 0.5; // fallback
 
-  context.font = `200 ${fontSize}px 'DejaVu Sans', monospace`;
+  context.font = `150 ${fontSize}px 'DejaVu Sans', monospace`;
   const metrics = context.measureText(text);
   return metrics.width;
 }
@@ -121,15 +121,21 @@ export function OSDTextsOverlay({
         // Measure text width accurately
         const textWidth = measureTextWidth(previewText, osdText.fontSize);
         const boxPaddingX = 4;
+        const boxPaddingY = 2;
         const boxWidth = textWidth + boxPaddingX * 2;
-        const boxHeight = osdText.fontSize;
+        // Adjust box height to match actual text rendering (~0.75 of fontSize for tighter fit)
+        const boxHeight = osdText.fontSize * 0.75 + boxPaddingY * 2;
 
         return (
           <g key={osdText.id}>
             {hasBackground && (
               <rect
                 x={anchor === "end" ? x - boxWidth : x - boxPaddingX}
-                y={baseline === "hanging" ? y : y - boxHeight}
+                y={
+                  baseline === "hanging"
+                    ? y - boxPaddingY
+                    : y - boxHeight + boxPaddingY
+                }
                 width={boxWidth}
                 height={boxHeight}
                 fill={backgroundColor}
