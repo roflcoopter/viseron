@@ -5,6 +5,10 @@ import os
 
 from ultralytics import YOLO
 
+from viseron.components.darknet.const import DEFAULT_LABEL_PATH as DARKNET_LABEL_PATH
+from viseron.components.edgetpu.const import DEFAULT_CLASSIFIER_LABEL_PATH
+from viseron.components.hailo.const import DEFAULT_LABEL_PATH as HAILO_LABEL_PATH
+
 LOGGER = logging.getLogger(__name__)
 
 CODEPROJECTAI_MODELS = {
@@ -91,20 +95,25 @@ def get_available_labels(
     component_name: str, domain_config: dict | None = None
 ) -> list[str] | None:
     """Get available labels for an object detector component."""
-    if component_name in ("darknet", "hailo"):
-        label_path = "/detectors/models/darknet/coco.names"  # Default path
+    if component_name == "darknet":
+        label_path = DARKNET_LABEL_PATH
+        if domain_config and "label_path" in domain_config:
+            label_path = domain_config["label_path"]
+        return _load_labels_from_file(label_path)
+    if component_name == "hailo":
+        label_path = HAILO_LABEL_PATH
         if domain_config and "label_path" in domain_config:
             label_path = domain_config["label_path"]
         return _load_labels_from_file(label_path)
     if component_name == "edgetpu":
-        label_path = "/detectors/models/edgetpu/labels.txt"  # Default path
+        label_path = DEFAULT_CLASSIFIER_LABEL_PATH
         if domain_config and "label_path" in domain_config:
             label_path = domain_config["label_path"]
         return _load_labels_from_file(label_path)
     if component_name == "deepstack":
         if domain_config and domain_config.get("custom_model"):
             return None  # No available labels for custom models
-        return _load_labels_from_file("/detectors/models/darknet/coco.names")
+        return _load_labels_from_file(DARKNET_LABEL_PATH)  # Default options
     if component_name == "codeprojectai":
         selected_model = "ipcam-general"  # Default model
         if domain_config and "custom_model" in domain_config:
