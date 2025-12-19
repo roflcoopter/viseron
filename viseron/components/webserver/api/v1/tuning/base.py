@@ -3,6 +3,8 @@
 import logging
 from typing import Any
 
+from ruamel.yaml.comments import CommentedMap
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -12,6 +14,74 @@ class BaseTuningHandler:
     def __init__(self, config: dict[str, Any]):
         """Initialize the handler with config."""
         self.config = config
+
+    def _preserve_yaml_tags(
+        self, existing: Any, new_data: dict[str, Any]
+    ) -> dict[str, Any]:
+        """
+        Preserve YAML tags (like !secret) when updating configuration.
+
+        If the new value is the same as the existing value's string representation,
+        keep the existing value with its tag intact.
+        """
+        if not isinstance(existing, dict):
+            return new_data
+
+        # Create result dict, preserving CommentedMap if existing is one
+        result: dict[str, Any] = (
+            CommentedMap() if isinstance(existing, CommentedMap) else {}
+        )
+
+        # Process all keys from new_data
+        for key, new_value in new_data.items():
+            if key in existing:
+                existing_value = existing[key]
+
+                # Recursively handle nested dicts first
+                if isinstance(new_value, dict) and isinstance(existing_value, dict):
+                    result[key] = self._preserve_yaml_tags(existing_value, new_value)
+                    continue
+
+                # Recursively handle lists
+                if isinstance(new_value, list) and isinstance(existing_value, list):
+                    result[key] = self._preserve_yaml_tags_in_list(
+                        existing_value, new_value
+                    )
+                    continue
+
+                # Check if existing value has a tag (like !secret)
+                # Only check after ensuring it's not a dict/list (CommentedMap/CommentedSeq)
+                if (
+                    hasattr(existing_value, "tag")
+                    and hasattr(existing_value, "value")
+                    and existing_value.tag is not None
+                ):
+                    # Check if the string representation matches
+                    if str(existing_value.value) == str(new_value):
+                        # Keep the tagged value
+                        result[key] = existing_value
+                        continue
+
+            # Default: use new value
+            result[key] = new_value
+
+        return result
+
+    def _preserve_yaml_tags_in_list(
+        self, existing: list[Any], new_data: list[Any]
+    ) -> list[Any]:
+        """Preserve YAML tags in list items."""
+        result = []
+        for i, new_item in enumerate(new_data):
+            if i < len(existing):
+                existing_item = existing[i]
+                if isinstance(new_item, dict) and isinstance(existing_item, dict):
+                    result.append(self._preserve_yaml_tags(existing_item, new_item))
+                else:
+                    result.append(new_item)
+            else:
+                result.append(new_item)
+        return result
 
     def _get_camera_config(
         self, camera_id: str, component: str, domain: str

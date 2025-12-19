@@ -20,8 +20,7 @@ class CameraTuningHandler(BaseTuningHandler):
         # Get camera_domain dict to update it
         camera_domain = self.config[component]["camera"]
 
-        # Replace camera configuration entirely with data from request
-        # Frontend should filter out internal fields before sending
-        camera_domain[camera_id] = data
+        updated_config = self._preserve_yaml_tags(camera_config, data)
+        camera_domain[camera_id] = updated_config
 
         return True

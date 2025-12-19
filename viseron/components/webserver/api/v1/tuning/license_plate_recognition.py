@@ -52,6 +52,17 @@ class LicensePlateRecognitionTuningHandler(BaseTuningHandler):
         for key, value in data.items():
             if key not in {"labels", "mask"}:
                 if value is not None:
+                    # Preserve YAML tags if existing value has one
+                    if key in camera_config:
+                        existing_value = camera_config[key]
+                        if (
+                            hasattr(existing_value, "tag")
+                            and existing_value.tag is not None
+                            and str(existing_value.value) == str(value)
+                        ):
+                            # Keep the tagged value
+                            ordered_config[key] = existing_value
+                            continue
                     ordered_config[key] = value
 
         # Replace camera_config with ordered version

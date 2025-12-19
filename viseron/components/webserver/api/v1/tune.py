@@ -6,6 +6,7 @@ from http import HTTPStatus
 from typing import Any
 
 from ruamel.yaml import YAML, YAMLError
+from ruamel.yaml.scalarstring import ScalarString
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.auth import Role
@@ -63,6 +64,26 @@ class TuneAPIHandler(BaseAPIHandler):
             "method": "update_camera_tune",
         },
     ]
+
+    @staticmethod
+    def _sanitize_yaml_objects(obj: Any) -> Any:
+        """Convert ruamel.yaml objects to standard Python types."""
+        if isinstance(obj, dict):
+            return {
+                key: TuneAPIHandler._sanitize_yaml_objects(value)
+                for key, value in obj.items()
+            }
+        if isinstance(obj, list):
+            return [TuneAPIHandler._sanitize_yaml_objects(item) for item in obj]
+        if isinstance(obj, ScalarString):
+            return str(obj)
+        if hasattr(obj, "value"):  # TaggedScalar has a 'value' attribute
+            return str(obj.value)
+        if isinstance(obj, (str, int, float, bool, type(None))):
+            return obj
+
+        # Fallback: try to convert to string
+        return str(obj)
 
     def _load_config(self) -> dict[str, Any]:
         """Load and parse config.yaml."""
@@ -246,7 +267,8 @@ class TuneAPIHandler(BaseAPIHandler):
 
         def _load_and_transform() -> dict[str, Any]:
             config = self._load_config()
-            return self._transform_to_tune_structure(config)
+            tune_settings = self._transform_to_tune_structure(config)
+            return self._sanitize_yaml_objects(tune_settings)
 
         tune_settings = await self.run_in_executor(_load_and_transform)
         await self.response_success(response=tune_settings)
@@ -257,7 +279,8 @@ class TuneAPIHandler(BaseAPIHandler):
         def _load_and_transform() -> dict[str, Any]:
             config = self._load_config()
             tune_settings = self._transform_to_tune_structure(config, camera_identifier)
-            return tune_settings.get(camera_identifier, {})
+            camera_settings = tune_settings.get(camera_identifier, {})
+            return self._sanitize_yaml_objects(camera_settings)
 
         camera_tune_settings = await self.run_in_executor(_load_and_transform)
 
