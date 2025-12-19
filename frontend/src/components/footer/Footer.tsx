@@ -12,8 +12,7 @@ const Footer = styled("footer")(() => ({
   position: "relative",
   left: 0,
   bottom: 0,
-  marginTop: "30px",
-  paddingBottom: "25px",
+  paddingBottom: "30px",
 }));
 
 export default function AppFooter() {
@@ -23,9 +22,10 @@ export default function AppFooter() {
   const showFooter = !["/events", "/live", "/settings/configuration"].includes(
     location.pathname,
   );
+  const isCamera = location.pathname.startsWith("/cameras");
 
   return showFooter ? (
-    <Footer>
+    <Footer sx={{ paddingTop: isCamera ? "30px" : "60px" }}>
       <Box
         sx={{
           display: "flex",
