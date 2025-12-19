@@ -62,11 +62,6 @@ export function OSDTextsOverlay({
 
   return (
     <>
-      <defs>
-        <style>
-          {`@import url('https://fonts.cdnfonts.com/css/dejavu-sans');`}
-        </style>
-      </defs>
       {osdTexts.map((osdText) => {
         // Calculate position based on position setting
         let x = osdText.paddingX;
