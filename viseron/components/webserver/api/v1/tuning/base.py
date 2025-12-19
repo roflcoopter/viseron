@@ -50,7 +50,7 @@ class BaseTuningHandler:
                     continue
 
                 # Check if existing value has a tag (like !secret)
-                # Only check after ensuring it's not a dict/list (CommentedMap/CommentedSeq)
+                # Only check after ensuring it's not a dict/list
                 if (
                     hasattr(existing_value, "tag")
                     and hasattr(existing_value, "value")
