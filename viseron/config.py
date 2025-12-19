@@ -1,7 +1,7 @@
 """Create base configs for Viseron."""
 import logging
 
-import yaml
+from ruamel.yaml import YAML
 
 from viseron.const import CONFIG_PATH, DEFAULT_CONFIG, DEFAULT_PORT, SECRETS_PATH
 
@@ -26,8 +26,9 @@ def create_default_config(config_path) -> bool:
 def load_secrets():
     """Return secrets from secrets.yaml."""
     try:
+        yaml = YAML(typ="safe", pure=True)
         with open(SECRETS_PATH, encoding="utf-8") as secrets_file:
-            return yaml.load(secrets_file, Loader=yaml.SafeLoader)
+            return yaml.load(secrets_file)
     except FileNotFoundError:
         return None
 
@@ -36,21 +37,23 @@ def load_config(create_default=True):
     """Return contents of config.yaml."""
     secrets = load_secrets()
 
-    def secret_yaml(_, node):
+    def secret_constructor(loader, node):
         if secrets is None:
             raise ValueError(
                 "!secret found in config.yaml, but no secrets.yaml exists. "
                 f"Make sure it exists under {SECRETS_PATH}"
             )
-        if node.value not in secrets:
-            raise ValueError(f"secret {node.value} does not exist in secrets.yaml")
-        return secrets[node.value]
+        value = loader.construct_scalar(node)
+        if value not in secrets:
+            raise ValueError(f"secret {value} does not exist in secrets.yaml")
+        return secrets[value]
 
-    yaml.add_constructor("!secret", secret_yaml, Loader=yaml.SafeLoader)
+    yaml = YAML(typ="safe", pure=True)
+    yaml.constructor.add_constructor("!secret", secret_constructor)
 
     try:
         with open(CONFIG_PATH, encoding="utf-8") as config_file:
-            yaml_config = yaml.load(config_file, Loader=yaml.SafeLoader)
+            yaml_config = yaml.load(config_file)
             config_file.seek(0)
             raw_config = config_file.read()
     except FileNotFoundError as error:
