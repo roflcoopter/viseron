@@ -118,23 +118,15 @@ export function TuneComponentList({
         </Tabs>
       </Box>
       <CardContent sx={{ flexGrow: 1, overflow: "auto", p: 2 }}>
-        {currentDomainData && (
+        {currentDomainData && typeof currentDomainData === "object" && (
           <Box>
-            {typeof currentDomainData === "boolean" ? (
-              <Typography>
-                Enabled: {currentDomainData ? "Yes" : "No"}
-              </Typography>
-            ) : (
-              currentDomainData &&
-              typeof currentDomainData === "object" &&
-              Object.entries(currentDomainData as object).map(
-                ([componentName, componentData]) =>
-                  renderComponentAccordion(
-                    currentDomainName,
-                    componentName,
-                    componentData,
-                  ),
-              )
+            {Object.entries(currentDomainData as object).map(
+              ([componentName, componentData]) =>
+                renderComponentAccordion(
+                  currentDomainName,
+                  componentName,
+                  componentData,
+                ),
             )}
           </Box>
         )}
