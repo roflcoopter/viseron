@@ -44,7 +44,7 @@ if TYPE_CHECKING:
 # pylint: disable=wrong-import-position,wrong-import-order,no-name-in-module
 gi.require_version("Gst", "1.0")
 gi.require_version("GstApp", "1.0")
-from gi.repository import GLib, Gst, GstApp  # type: ignore[attr-defined] # noqa: E402
+from gi.repository import GLib, Gst, GstApp  # noqa: E402
 
 # pylint: enable=useless-suppression
 # pylint: enable=wrong-import-position,wrong-import-order,no-name-in-module
