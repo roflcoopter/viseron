@@ -127,8 +127,7 @@ export function parseDrawtextFilter(
   // Parse position from x and y coordinates
   const x = params.x || "10";
   const y = params.y || "10";
-  let position: "top-left" | "top-right" | "bottom-left" | "bottom-right" =
-    "top-left";
+  let position: "top-left" | "top-right" | "bottom-left" | "bottom-right";
 
   if (x.includes("w-")) {
     position = y.includes("h-") ? "bottom-right" : "top-right";
