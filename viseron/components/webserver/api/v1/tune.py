@@ -5,7 +5,7 @@ import logging
 from http import HTTPStatus
 from typing import Any
 
-import yaml
+from ruamel.yaml import YAML, YAMLError
 
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.components.webserver.auth import Role
@@ -66,8 +66,11 @@ class TuneAPIHandler(BaseAPIHandler):
 
     def _load_config(self) -> dict[str, Any]:
         """Load and parse config.yaml."""
+        yaml = YAML(typ="rt")  # round-trip mode, required to keep comments
+        yaml.preserve_quotes = True
+
         with open(CONFIG_PATH, encoding="utf-8") as config_file:
-            return yaml.safe_load(config_file) or {}
+            return yaml.load(config_file) or {}
 
     def _should_skip_camera(self, cam_id: str, camera_identifier: str | None) -> bool:
         """Check if camera should be skipped based on filter."""
@@ -232,14 +235,11 @@ class TuneAPIHandler(BaseAPIHandler):
     def _save_config(self, config: dict[str, Any]) -> None:
         """Save config back to config.yaml."""
 
-        # Custom representer to represent None as empty string instead of 'null'
-        def represent_none(self, _):
-            return self.represent_scalar("tag:yaml.org,2002:null", "")
-
-        yaml.add_representer(type(None), represent_none)
+        yaml = YAML(typ="rt")  # round-trip mode, required to keep comments
+        yaml.preserve_quotes = True
 
         with open(CONFIG_PATH, "w", encoding="utf-8") as config_file:
-            yaml.dump(config, config_file, default_flow_style=False, sort_keys=False)
+            yaml.dump(config, config_file)
 
     async def get_all_camera_tune(self) -> None:
         """Return all camera tune settings."""
@@ -355,7 +355,7 @@ class TuneAPIHandler(BaseAPIHandler):
                     f"'{camera_identifier}' in {component}.{domain}",
                 )
                 return
-        except (OSError, yaml.YAMLError) as e:
+        except (OSError, YAMLError) as e:
             LOGGER.error(f"Error updating camera tune: {e}", exc_info=True)
             self.response_error(
                 status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
