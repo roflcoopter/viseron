@@ -45,7 +45,6 @@ const defaultToastOptions = (theme: Theme): ToastOptions => ({
     fontSize: "0.875rem",
     lineHeight: 1.43,
     letterSpacing: "0.01071em",
-    border: `1px solid ${theme.palette.divider}`,
     borderRadius: theme.shape.borderRadius,
   },
   icon: ({ type }: ToastifyIconProps) => <ToastIcon type={type} />,

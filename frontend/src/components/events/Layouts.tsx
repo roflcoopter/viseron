@@ -178,7 +178,11 @@ function Tabs({
         {Object.keys(filteredCameras).length > 0 ? (
           <EventTable parentRef={eventsRef} date={date} />
         ) : (
-          <Typography align="center" sx={{ marginTop: "20px" }}>
+          <Typography
+            color="text.secondary"
+            align="center"
+            sx={{ marginTop: "20px" }}
+          >
             Select at least one camera to load Events
           </Typography>
         )}
@@ -203,7 +207,11 @@ function Tabs({
             date={date}
           />
         ) : (
-          <Typography align="center" sx={{ marginTop: "20px" }}>
+          <Typography
+            color="text.secondary"
+            align="center"
+            sx={{ marginTop: "20px" }}
+          >
             Select at least one camera to load Timeline
           </Typography>
         )}
@@ -227,7 +235,7 @@ export const Layout = memo(
     useSetPlayerCardHeight(playerCardGridItemRef);
 
     return (
-      <Container sx={{ paddingX: 2 }}>
+      <Container sx={{ paddingX: { xs: 1, md: 2 } }}>
         <Grid
           container
           direction="row"

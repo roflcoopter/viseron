@@ -88,6 +88,7 @@ class BaseAPIHandler(ViseronRequestHandler):
                 await self.run_in_executor(self.set_header, header, value)
 
         if isinstance(response, dict):
+            self.set_header("Content-Type", "application/json")
             self.finish(await self.run_in_executor(_json_dumps))
             return
 
@@ -96,6 +97,7 @@ class BaseAPIHandler(ViseronRequestHandler):
     def response_error(self, status_code: HTTPStatus, reason: str) -> None:
         """Send error response."""
         self.set_status(status_code, reason=reason.replace("\n", ""))
+        self.set_header("Content-Type", "application/json")
         response = {"status": status_code, "error": reason}
         self.finish(response)
 

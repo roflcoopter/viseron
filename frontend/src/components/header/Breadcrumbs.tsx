@@ -6,9 +6,11 @@ import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 
-import { getCameraNameFromQueryCache, toTitleCase } from "lib/helpers";
-
-const getTitle = (str: string) => toTitleCase(str.replace("-", " "));
+import {
+  capitalizeEachWord,
+  getCameraNameFromQueryCache,
+  isDateFormat,
+} from "lib/helpers";
 
 export default function Breadcrumbs() {
   const theme = useTheme();
@@ -20,9 +22,15 @@ export default function Breadcrumbs() {
   }
 
   if (!mediaQuerySmall) {
+    const cameraName = getCameraNameFromQueryCache(pathnames[0]);
+    const displayValue = cameraName || pathnames[0];
+    // Only capitalize if it's not a camera name or date
+    const shouldCapitalize =
+      (!cameraName || cameraName === pathnames[0]) &&
+      !isDateFormat(pathnames[0]);
     return (
-      <Typography color="textPrimary" align="center" style={{ width: "100%" }}>
-        {getTitle(pathnames[0])}
+      <Typography color="textPrimary" sx={{ width: "100%" }}>
+        {shouldCapitalize ? capitalizeEachWord(displayValue) : displayValue}
       </Typography>
     );
   }
@@ -37,14 +45,21 @@ export default function Breadcrumbs() {
       {pathnames.map((value: any, index: number) => {
         const last = index === pathnames.length - 1;
         const to = `/${pathnames.slice(0, index + 1).join("/")}`;
+
+        // Use camera name if available, otherwise use original value
         const cameraName = getCameraNameFromQueryCache(value);
-        if (cameraName) {
-          value = cameraName;
-        }
+        const displayText = cameraName || value;
+
+        // Only capitalize if it's not a camera name or date
+        const shouldCapitalize =
+          (!cameraName || cameraName === value) && !isDateFormat(value);
+        const displayValue = shouldCapitalize
+          ? capitalizeEachWord(displayText)
+          : displayText;
 
         return last ? (
           <Typography color="textPrimary" key={to}>
-            {getTitle(value)}
+            {displayValue}
           </Typography>
         ) : (
           <Link
@@ -54,7 +69,7 @@ export default function Breadcrumbs() {
             to={to}
             key={to}
           >
-            {getTitle(value)}
+            {displayValue}
           </Link>
         );
       })}

@@ -88,7 +88,7 @@ function CameraRecordings() {
   };
 
   return (
-    <Container sx={{ paddingX: 2 }}>
+    <Container sx={{ paddingX: { xs: 1, md: 2 }, paddingY: 0.5 }}>
       <RecordingHeader
         camera={cameraQuery.data}
         totalDays={totalDays}

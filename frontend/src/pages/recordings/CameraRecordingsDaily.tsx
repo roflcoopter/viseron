@@ -140,7 +140,7 @@ function CameraRecordingsDaily() {
   };
 
   return (
-    <Container sx={{ paddingX: 2 }}>
+    <Container sx={{ paddingX: { xs: 1, md: 2 }, paddingY: 0.5 }}>
       <RecordingHeaderDaily
         camera={cameraQuery.data}
         date={date}

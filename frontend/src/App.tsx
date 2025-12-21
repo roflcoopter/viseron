@@ -3,6 +3,7 @@ import { lazy } from "react";
 import { Navigate, useRoutes } from "react-router-dom";
 
 const Cameras = lazy(() => import("pages/Cameras"));
+const Tuning = lazy(() => import("pages/Tuning"));
 const CameraRecordings = lazy(
   () => import("pages/recordings/CameraRecordings"),
 );
@@ -29,12 +30,23 @@ function App() {
       element: <PrivateLayout />,
       children: [
         {
-          path: "/cameras",
-          element: <Navigate to="/" replace />,
-        },
-        {
           path: "/",
           element: <Cameras />,
+        },
+        {
+          path: "/cameras",
+          children: [
+            { index: true, element: <Navigate to="/" replace /> },
+            {
+              element: <RequireRole userRole={["admin"]} />,
+              children: [
+                {
+                  path: ":camera_identifier",
+                  children: [{ index: true, element: <Tuning /> }],
+                },
+              ],
+            },
+          ],
         },
         {
           path: "/recordings",

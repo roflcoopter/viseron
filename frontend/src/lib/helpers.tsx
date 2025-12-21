@@ -102,6 +102,18 @@ export function toTitleCase(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
+export function capitalizeEachWord(str: string) {
+  return str
+    .replace(/-/g, " ")
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+export function isDateFormat(str: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(str);
+}
+
 // eslint-disable-next-line no-promise-executor-return
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

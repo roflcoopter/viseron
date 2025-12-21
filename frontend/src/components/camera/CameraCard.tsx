@@ -2,6 +2,7 @@ import {
   Demo,
   IntrusionPrevention,
   Roadmap,
+  SettingsAdjust,
   VideoChat,
   VideoOff,
 } from "@carbon/icons-react";
@@ -25,6 +26,7 @@ import { Link } from "react-router-dom";
 import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { CameraUptime } from "components/camera/CameraUptime";
 import { FailedCameraCard } from "components/camera/FailedCameraCard";
+import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
 import { useFirstRender } from "hooks/UseFirstRender";
 import useOnScreen from "hooks/UseOnScreen";
@@ -69,6 +71,7 @@ function SuccessCameraCard({
   border,
 }: SuccessCameraCardProps) {
   const { connected } = useContext(ViseronContext);
+  const { auth, user } = useAuthContext();
   const theme = useTheme();
   const ref: any = useRef<HTMLDivElement>(undefined);
   const onScreen = useOnScreen<HTMLDivElement>(ref);
@@ -292,6 +295,16 @@ function SuccessCameraCard({
                     <VideoChat size={20} />
                   </IconButton>
                 </Tooltip>
+                {(!auth.enabled || user?.role === "admin") && (
+                  <Tooltip title="Camera Tuning">
+                    <IconButton
+                      component={Link}
+                      to={`/cameras/${camera.identifier}`}
+                    >
+                      <SettingsAdjust size={20} />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Stack>
             </Stack>
           </CardActions>
