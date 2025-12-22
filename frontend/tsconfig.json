@@ -23,8 +23,9 @@
     "jsx": "react-jsx",
     "baseUrl": "src",
     "paths": {
-      "tests/*": ["../tests/*"]
+      "tests/*": ["../tests/*"],
+      "e2e/*": ["../e2e/*"]
     }
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests", "e2e", "playwright.config.ts"]
 }

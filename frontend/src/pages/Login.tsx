@@ -62,6 +62,7 @@ function FormFields({ login }: { login: ReturnType<typeof useAuthLogin> }) {
       />
 
       <Button
+        data-testid="login-submit-button"
         type="submit"
         fullWidth
         variant="contained"
