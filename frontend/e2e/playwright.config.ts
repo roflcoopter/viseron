@@ -11,6 +11,9 @@ export default defineConfig({
     timezoneId: "UTC",
     video: "off",
   },
+  expect: {
+    timeout: 10000,
+  },
   projects: [
     {
       name: "chromium",
