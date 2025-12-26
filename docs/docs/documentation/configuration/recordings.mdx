@@ -3,7 +3,7 @@ import Tabs from "@theme/Tabs";
 
 # Recordings
 
-There are two types of recordings in Viseron, event recordings and continuous recordings.
+There are three types of recordings in Viseron: event recordings, continuous recordings and manual recordings.
 
 ## Event recordings
 
@@ -164,6 +164,75 @@ The `Activity Line` visually represents the activity detected by the cameras ove
 
 The same [filters as for event recordings](#filters) can be applied to continuous recordings.
 
+## Manual recordings
+
+Manual recordings can be started and stopped on-demand in multiple ways:
+- Using the web interface
+- Through the REST API
+- The Telegram component
+- The MQTT component
+
+Manual recordings run until stopped or their given duration has passed, but will never exceed `max_recording_time`.
+
+### Web interface
+
+To start a manual recording from the web interface, go to the `Live View` page and click the `Record` button in the camera controls.
+
+TODO screenshot
+
+When you want to stop the recording, simply click the `Stop Recording` button that appears in place of the `Record` button.
+
+### REST API
+
+To start a manual recording using the REST API, send a `POST` request to the `/api/v1/camera/<camera identifier>/manual_recording` endpoint with the following JSON payload:
+
+```json
+{
+  "action": "start",
+  "duration": 60  // Optional, duration in seconds
+}
+```
+
+To stop it, send a `POST` request to the same endpoint with the JSON payload:
+
+```json
+{
+  "action": "stop",
+}
+```
+
+### Telegram component
+
+To start a manual recording using the Telegram component, you first need to select the camera you want to record by using the `/select` command.
+Then, you can start a manual recording by sending the `/record <duration>` command, where `<duration>` is the optional duration in seconds.
+
+To stop the recording, send the `/stop_recorder` command.
+
+### MQTT component
+
+To start a manual recording using the MQTT component, publish a message to the `<MQTT client id>/toggle/<camera identifier>_manual_recording/command` topic with the following JSON payload:
+
+```json
+{
+  "action": "start",
+  "duration": 60  // Optional, duration in seconds
+}
+```
+
+To stop it, publish a message to the same topic with the JSON payload:
+
+```json
+{
+  "action": "stop",
+}
+```
+
+:::tip
+
+For a default configuration with the camera identifier `camera1` the topic would be `viseron/toggle/camera1_manual_recording/command`.
+
+:::
+
 ## Retention rules
 
 There are a number of ways to control the retention of recordings.
@@ -173,6 +242,12 @@ There are a number of ways to control the retention of recordings.
 Storage tiers can be used to move recordings to different storage locations based on age or size.
 
 See the [storage component tiers documentation](/components-explorer/components/storage#tiers) for more information.
+
+:::
+
+:::info
+
+Manual recordings follow the same retention rules as event recordings.
 
 :::
 

@@ -444,6 +444,63 @@ Camera connection state.
 
 </details>
 
+#### `{client_id}/toggle/{camera_identifier}_manual_recording/command`
+
+Used for starting/stopping a manual recording. Payload should be a valid JSON, `ON` or `OFF`.
+
+<details>
+  <summary>Payloads</summary>
+
+<Tabs>
+<TabItem value="on" label="Start recording" default>
+```json
+{
+  "action": "start",
+  "duration": 120
+}
+```
+or
+```
+ON
+```
+</TabItem>
+
+<TabItem value="off" label="Stop recording" default>
+```json
+{
+  "action": "stop"
+}
+```
+or
+```
+OFF
+```
+</TabItem>
+</Tabs>
+
+#### `{client_id}/toggle/{camera_identifier}_manual_recording/state`
+Manual recording state.
+<details>
+  <summary>Payloads</summary>
+<Tabs>
+<TabItem value="on" label="on" default>
+```json
+{
+  "state": "on",
+  "attributes": {}
+}
+```
+</TabItem>
+<TabItem value="off" label="off" default>
+```json
+{
+  "state": "off",
+  "attributes": {}
+}
+```
+</TabItem>
+</Tabs>
+
 ### Image topics
 
 #### `{client_id}/image/{camera_identifier}_latest_thumbnail/image`
