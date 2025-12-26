@@ -78,6 +78,7 @@ export default defineConfig(({ mode }) => {
       globals: true,
       environment: "jsdom",
       setupFiles: "tests/setupTests.ts",
+      include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
     },
   };
 });
