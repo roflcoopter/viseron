@@ -84,6 +84,8 @@
 
 # Frontend
 !/frontend
+!/frontend/e2e
+!/frontend/e2e/**
 !/frontend/public
 !/frontend/public/*
 !/frontend/public/static

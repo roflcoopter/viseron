@@ -144,7 +144,7 @@ export interface Recording {
   end_time: string;
   end_timestamp: number;
   trigger_type: string;
-  trigger_id: number;
+  trigger_id: number | null;
   thumbnail_path: string;
   hls_url: string;
 }
