@@ -81,7 +81,9 @@ export const useInvalidateQueryOnStateChange = (
       const queryKeys = subscriptionRef.current[entityId].queryKeys;
 
       const _stateChanged = (_event: types.StateChangedEvent) => {
-        queryClient.invalidateQueries({ queryKey: queryKeys });
+        queryKeys.forEach((key) => {
+          queryClient.invalidateQueries({ queryKey: key });
+        });
       };
 
       subscriptionRef.current[entityId].count++;
