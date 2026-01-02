@@ -210,6 +210,7 @@ class AbstractCamera(AbstractDomain):
             "is_on": self.is_on,
             "connected": self.connected,
             "live_stream_available": self.live_stream_available,
+            "is_recording": self.is_recording,
         }
 
     def generate_token(self):
