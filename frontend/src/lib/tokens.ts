@@ -6,27 +6,6 @@ import { clientId } from "lib/api/client";
 import { dispatchCustomEvent } from "lib/events";
 import * as types from "lib/types";
 
-let sessionExpiredTimeout: NodeJS.Timeout | undefined;
-
-export const clearSessionExpiredTimeout = () => {
-  if (sessionExpiredTimeout) {
-    clearTimeout(sessionExpiredTimeout);
-    sessionExpiredTimeout = undefined;
-  }
-};
-
-export const setSessionExpiredTimeout = (session_expires_at: Dayjs) => {
-  if (sessionExpiredTimeout) {
-    clearTimeout(sessionExpiredTimeout);
-  }
-  sessionExpiredTimeout = setTimeout(
-    () => {
-      dispatchCustomEvent("session-expired");
-    },
-    (session_expires_at.unix() - dayjs().unix()) * 1000,
-  );
-};
-
 export const genTokens = (
   tokens: types.AuthTokenResponse,
 ): types.StoredTokens => ({
@@ -44,7 +23,6 @@ export const loadTokens = (): types.StoredTokens | null => {
   if (tokensStorage !== null) {
     const jsonTokens = JSON.parse(tokensStorage);
     const tokens = genTokens(jsonTokens);
-    setSessionExpiredTimeout(tokens.session_expires_at);
     return tokens;
   }
   return null;
@@ -57,6 +35,36 @@ export const setManualLogout = (value: boolean) => {
 };
 
 export const isManualLogoutActive = () => isManualLogout;
+
+let sessionExpiredTimeout: NodeJS.Timeout | undefined;
+export const clearSessionExpiredTimeout = () => {
+  if (sessionExpiredTimeout) {
+    clearTimeout(sessionExpiredTimeout);
+    sessionExpiredTimeout = undefined;
+  }
+};
+
+export const setSessionExpiredTimeout = () => {
+  const storedTokens = loadTokens();
+  if (!storedTokens) {
+    return;
+  }
+
+  if (sessionExpiredTimeout) {
+    clearTimeout(sessionExpiredTimeout);
+  }
+
+  if (storedTokens.session_expires_at <= dayjs()) {
+    return;
+  }
+
+  sessionExpiredTimeout = setTimeout(
+    () => {
+      dispatchCustomEvent("session-expired");
+    },
+    (storedTokens.session_expires_at.unix() - dayjs().unix()) * 1000,
+  );
+};
 
 export const clearTokens = () => {
   localStorage.removeItem("tokens");

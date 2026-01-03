@@ -5,6 +5,7 @@ import {
   WarningAltFilled,
 } from "@carbon/icons-react";
 import { Theme, useTheme } from "@mui/material/styles";
+import { useMemo } from "react";
 import {
   Id,
   ToastContent,
@@ -58,27 +59,43 @@ export const toastIds = {
   userLoadError: "userLoadError",
 };
 
-export const useToast = () => {
+export const useToast = (): Toast => {
   const localTheme = useTheme();
-  return {
-    info: (content: ToastContent, options: ToastOptions = {}) => {
-      options = { ...defaultToastOptions(localTheme), ...options };
-      return toast.info(content, options);
-    },
-    success: (content: ToastContent, options: ToastOptions = {}) => {
-      options = { ...defaultToastOptions(localTheme), ...options };
-      return toast.success(content, options);
-    },
-    warning: (content: ToastContent, options: ToastOptions = {}) => {
-      options = { ...defaultToastOptions(localTheme), ...options };
-      return toast.warning(content, options);
-    },
-    error: (content: ToastContent, options: ToastOptions = {}) => {
-      options = { ...defaultToastOptions(localTheme), ...options };
-      return toast.error(content, options);
-    },
-    dismiss: (id: string | number | undefined = undefined) => toast.dismiss(id),
-    update: (id: string | number, options: UpdateOptions) =>
-      toast.update(id, options),
-  };
+  return useMemo(
+    () => ({
+      info: (content: ToastContent, options: ToastOptions = {}) => {
+        const mergedOptions = {
+          ...defaultToastOptions(localTheme),
+          ...options,
+        };
+        return toast.info(content, mergedOptions);
+      },
+      success: (content: ToastContent, options: ToastOptions = {}) => {
+        const mergedOptions = {
+          ...defaultToastOptions(localTheme),
+          ...options,
+        };
+        return toast.success(content, mergedOptions);
+      },
+      warning: (content: ToastContent, options: ToastOptions = {}) => {
+        const mergedOptions = {
+          ...defaultToastOptions(localTheme),
+          ...options,
+        };
+        return toast.warning(content, mergedOptions);
+      },
+      error: (content: ToastContent, options: ToastOptions = {}) => {
+        const mergedOptions = {
+          ...defaultToastOptions(localTheme),
+          ...options,
+        };
+        return toast.error(content, mergedOptions);
+      },
+      dismiss: (id: string | number | undefined = undefined) =>
+        toast.dismiss(id),
+      update: (id: string | number, options: UpdateOptions) =>
+        toast.update(id, options),
+    }),
+    [localTheme],
+  );
 };

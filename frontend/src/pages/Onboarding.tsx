@@ -16,11 +16,105 @@ import { InputState, useUserForm } from "hooks/UseUserForm";
 import queryClient from "lib/api/client";
 import { useOnboarding } from "lib/api/onboarding";
 
+function FormFields({
+  onboarding,
+}: {
+  onboarding: ReturnType<typeof useOnboarding>;
+}) {
+  const { inputState, dispatch, isFormValid } = useUserForm(false);
+
+  return (
+    <Grid container spacing={3} sx={{ padding: "15px" }}>
+      <Grid size={{ xs: 12, sm: 6 }}>
+        <TextFieldItem<keyof InputState>
+          autoFocus
+          inputKind="displayName"
+          inputState={inputState}
+          dispatch={dispatch}
+        />
+      </Grid>
+      <Grid size={{ xs: 12, sm: 6 }}>
+        <TextFieldItem<keyof InputState>
+          inputKind="username"
+          inputState={inputState}
+          dispatch={dispatch}
+          value={inputState.username.value}
+          onFocus={() => {
+            if (!inputState.username.value) {
+              dispatch({
+                type: "username",
+                value: inputState.displayName.value.toLowerCase(),
+              });
+            }
+          }}
+        />
+      </Grid>
+      <Grid size={{ xs: 12, sm: 6 }}>
+        <TextFieldItem<keyof InputState>
+          inputKind="password"
+          inputState={inputState}
+          dispatch={dispatch}
+          password
+        />
+      </Grid>
+      <Grid size={{ xs: 12, sm: 6 }}>
+        <TextFieldItem<keyof InputState>
+          inputKind="confirmPassword"
+          inputState={inputState}
+          dispatch={dispatch}
+          password
+        />
+      </Grid>
+      <Grid size={12}>
+        <Button
+          type="submit"
+          fullWidth
+          variant="contained"
+          startIcon={<AddFilled size={16} />}
+          disabled={!isFormValid() || onboarding.isPending}
+          onClick={() => {
+            onboarding.mutate(
+              {
+                name: inputState.displayName.value,
+                username: inputState.username.value,
+                password: inputState.password.value,
+              },
+              {
+                onSuccess: async () => {
+                  // Invalidate auth query to force a re-fetch, which will redirect to the dashboard
+                  await queryClient.invalidateQueries({
+                    queryKey: ["auth"],
+                  });
+                },
+              },
+            );
+          }}
+          sx={{
+            py: 1.5,
+            borderRadius: 2,
+            textTransform: "none",
+            fontSize: "1rem",
+            fontWeight: 600,
+            boxShadow: 2,
+            "&:hover": {
+              boxShadow: 4,
+            },
+            "&:disabled": {
+              boxShadow: 0,
+            },
+          }}
+        >
+          SIGN UP
+        </Button>
+      </Grid>
+    </Grid>
+  );
+}
+
 function Onboarding() {
   useTitle("Onboarding");
   const theme = useTheme();
   const { auth } = useAuthContext();
-  const { inputState, dispatch, isFormValid } = useUserForm(false);
   const onboarding = useOnboarding();
 
   if ((auth.enabled && auth.onboarding_complete) || !auth.enabled) {
@@ -175,90 +269,7 @@ function Onboarding() {
                 e.preventDefault();
               }}
             >
-              <Grid container spacing={3} sx={{ padding: "15px" }}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextFieldItem<keyof InputState>
-                    autoFocus
-                    inputKind="displayName"
-                    inputState={inputState}
-                    dispatch={dispatch}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextFieldItem<keyof InputState>
-                    inputKind="username"
-                    inputState={inputState}
-                    dispatch={dispatch}
-                    value={inputState.username.value}
-                    onFocus={() => {
-                      if (!inputState.username.value) {
-                        dispatch({
-                          type: "username",
-                          value: inputState.displayName.value.toLowerCase(),
-                        });
-                      }
-                    }}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextFieldItem<keyof InputState>
-                    inputKind="password"
-                    inputState={inputState}
-                    dispatch={dispatch}
-                    password
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextFieldItem<keyof InputState>
-                    inputKind="confirmPassword"
-                    inputState={inputState}
-                    dispatch={dispatch}
-                    password
-                  />
-                </Grid>
-                <Grid size={12}>
-                  <Button
-                    type="submit"
-                    fullWidth
-                    variant="contained"
-                    startIcon={<AddFilled size={16} />}
-                    disabled={!isFormValid() || onboarding.isPending}
-                    onClick={() => {
-                      onboarding.mutate(
-                        {
-                          name: inputState.displayName.value,
-                          username: inputState.username.value,
-                          password: inputState.password.value,
-                        },
-                        {
-                          onSuccess: async () => {
-                            // Invalidate auth query to force a re-fetch, which will redirect to the dashboard
-                            await queryClient.invalidateQueries({
-                              queryKey: ["auth"],
-                            });
-                          },
-                        },
-                      );
-                    }}
-                    sx={{
-                      py: 1.5,
-                      borderRadius: 2,
-                      textTransform: "none",
-                      fontSize: "1rem",
-                      fontWeight: 600,
-                      boxShadow: 2,
-                      "&:hover": {
-                        boxShadow: 4,
-                      },
-                      "&:disabled": {
-                        boxShadow: 0,
-                      },
-                    }}
-                  >
-                    SIGN UP
-                  </Button>
-                </Grid>
-              </Grid>
+              <FormFields onboarding={onboarding} />
             </form>
           </Paper>
         </Box>
