@@ -32,7 +32,11 @@ function StatusIcon({ camera }: { camera: types.Camera }) {
     <CircleFill
       size={12}
       style={{
-        color: camera.connected ? "red" : "gray",
+        color: camera.is_recording
+          ? "red"
+          : camera.connected
+            ? "green"
+            : "gray",
         marginLeft: "4px",
       }}
     />
@@ -57,9 +61,18 @@ export function CameraNameOverlay({
   }
   const camera = cameraQuery.data;
 
-  const showStatusText = !camera.failed && (!camera.is_on || !camera.connected);
-  const statusText =
-    !camera.failed && camera.is_on ? "Disconnected" : "Camera is off";
+  let statusText = null;
+  if (camera.failed) {
+    statusText = "Camera error";
+  } else if (camera.is_recording) {
+    statusText = "Recording";
+  } else if (!camera.connected) {
+    statusText = "Disconnected";
+  } else if (!camera.is_on) {
+    statusText = "Camera is off";
+  } else {
+    statusText = null;
+  }
 
   return (
     <Box sx={overlayStyles}>
@@ -75,7 +88,7 @@ export function CameraNameOverlay({
         </Typography>
         {!camera.failed && <StatusIcon camera={camera as types.Camera} />}
       </Box>
-      {showStatusText && (
+      {statusText && (
         <Typography
           variant="body2"
           sx={{ ...cameraNameStyles, fontSize: "0.7rem", textAlign: "right" }}

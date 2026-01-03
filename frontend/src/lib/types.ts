@@ -183,6 +183,7 @@ export interface Camera {
   is_on: boolean;
   connected: boolean;
   live_stream_available: boolean;
+  is_recording: boolean;
 }
 
 export interface Cameras {

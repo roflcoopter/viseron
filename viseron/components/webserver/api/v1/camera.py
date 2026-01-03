@@ -1,7 +1,9 @@
 """Camera API Handler."""
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from http import HTTPStatus
 
 import cv2
@@ -11,6 +13,7 @@ import numpy as np
 import voluptuous as vol
 
 from viseron.components.nvr.const import DOMAIN as NVR_DOMAIN
+from viseron.components.storage.models import TriggerTypes
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.domains.camera import AbstractCamera
 from viseron.domains.camera.const import (
@@ -225,18 +228,71 @@ class CameraAPIHandler(BaseAPIHandler):
             )
             return
 
+        if not camera.is_on or not camera.connected:
+            self.response_error(
+                HTTPStatus.BAD_REQUEST,
+                reason="Camera is off or disconnected",
+            )
+            return
+
+        if nvr.operation_state == "idle":
+            self.response_error(
+                HTTPStatus.BAD_REQUEST,
+                reason="NVR is idle",
+            )
+            return
+
+        async def wait_for_recording_start(timeout=5) -> bool:
+            """Wait for recording to start."""
+            start_time = time.time()
+            while True:
+                if time.time() - start_time > timeout:
+                    return False
+
+                if (
+                    nvr.camera.is_recording
+                    and nvr.camera.recorder.active_recording
+                    and (
+                        nvr.camera.recorder.active_recording.trigger_type
+                        == TriggerTypes.MANUAL
+                    )
+                ):
+                    return True
+                await asyncio.sleep(0.1)
+
+        async def wait_for_recording_stop(timeout=5) -> bool:
+            """Wait for recording to stop."""
+            start_time = time.time()
+            while True:
+                if time.time() - start_time > timeout:
+                    return False
+
+                if not nvr.camera.is_recording:
+                    return True
+                await asyncio.sleep(0.1)
+
         action = self.json_body["action"]
         if action == "start":
             duration = self.json_body.get("duration", None)
             manual_recording = ManualRecording(duration=duration)
             await self.run_in_executor(nvr.start_manual_recording, manual_recording)
-            await self.response_success()
-            return
+            if await wait_for_recording_start():
+                await self.response_success()
+                return
+            return self.response_error(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                reason="Failed to start manual recording",
+            )
 
         if action == "stop":
             await self.run_in_executor(nvr.stop_manual_recording)
-            await self.response_success()
-            return
+            if await wait_for_recording_stop():
+                await self.response_success()
+                return
+            return self.response_error(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                reason="Failed to stop manual recording",
+            )
 
         self.response_error(
             HTTPStatus.BAD_REQUEST,
