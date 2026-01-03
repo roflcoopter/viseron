@@ -138,7 +138,7 @@ describe("Tokens", () => {
     test("should set session expired timeout", () => {
       const sessionExpiresAt = dayjs().add(1, "hour");
 
-      tokens.setSessionExpiredTimeout(sessionExpiresAt);
+      tokens.setSessionExpiredTimeout();
 
       expect(dispatchCustomEventSpy).not.toHaveBeenCalled();
 
@@ -150,14 +150,13 @@ describe("Tokens", () => {
 
     test("should clear existing session expired timeout", () => {
       const clearTimeout = vi.spyOn(window, "clearTimeout");
-      const sessionExpiresAt = dayjs().add(1, "hour");
 
-      tokens.setSessionExpiredTimeout(sessionExpiresAt);
+      tokens.setSessionExpiredTimeout();
 
       expect(clearTimeout).toHaveBeenCalledTimes(1);
       expect(dispatchCustomEventSpy).not.toHaveBeenCalled();
 
-      tokens.setSessionExpiredTimeout(sessionExpiresAt);
+      tokens.setSessionExpiredTimeout();
 
       expect(clearTimeout).toHaveBeenCalledTimes(2);
       expect(dispatchCustomEventSpy).not.toHaveBeenCalled();
