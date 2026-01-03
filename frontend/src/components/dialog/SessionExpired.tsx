@@ -16,7 +16,7 @@ const useSessionExpiredEvent = (
   const navigate = useNavigate();
 
   useEffect(() => {
-    document.addEventListener("session-expired", () => {
+    const handleSessionExpired = () => {
       queryClient.removeQueries({
         predicate(query) {
           return (
@@ -33,13 +33,15 @@ const useSessionExpiredEvent = (
       });
       navigate("/login", { replace: true });
       setOpen(true);
-    });
+    };
+
+    document.addEventListener("session-expired", handleSessionExpired);
+
     return () => {
-      document.removeEventListener("session-expired", () => setOpen(false));
+      document.removeEventListener("session-expired", handleSessionExpired);
       clearSessionExpiredTimeout();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [navigate, setOpen]);
 };
 
 function SessionExpired() {

@@ -143,14 +143,15 @@ function Login() {
     // Reset manual logout flag when entering login page
     setManualLogout(false);
 
-    fromRef.current =
+    const from =
       location.state && location.state.from ? location.state.from : null;
+    fromRef.current = from;
+
     // Clear the state parameter
-    if (fromRef.current) {
+    if (from) {
       navigate(location.pathname, { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [location.pathname, location.state, navigate]);
 
   return (
     <Box
