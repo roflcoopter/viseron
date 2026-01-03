@@ -6,7 +6,7 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
-import { useEffect, useLayoutEffect, useReducer, useRef } from "react";
+import { useEffect, useLayoutEffect, useReducer } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import ViseronLogo from "svg/viseron-logo.svg?react";
 
@@ -44,6 +44,8 @@ function reducer(state: InputState, action: InputAction): InputState {
 }
 
 function FormFields({ login }: { login: ReturnType<typeof useAuthLogin> }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [inputState, dispatch] = useReducer(reducer, initialState);
 
   return (
@@ -88,7 +90,14 @@ function FormFields({ login }: { login: ReturnType<typeof useAuthLogin> }) {
                   setTimeout(resolve, 100);
                 });
 
-                window.location.href = "/";
+                navigate(
+                  location.state &&
+                    location.state.from &&
+                    location.state.from !== "/login"
+                    ? location.state.from
+                    : "/",
+                  { replace: true },
+                );
               },
             },
           );
@@ -119,11 +128,8 @@ function Login() {
   useTitle("Login");
   const theme = useTheme();
   const { auth, user } = useAuthContext();
-  const location = useLocation();
   const navigate = useNavigate();
   const login = useAuthLogin();
-
-  const fromRef = useRef(undefined);
 
   useLayoutEffect(() => {
     if (auth.enabled && !auth.onboarding_complete) {
@@ -142,16 +148,7 @@ function Login() {
   useEffect(() => {
     // Reset manual logout flag when entering login page
     setManualLogout(false);
-
-    const from =
-      location.state && location.state.from ? location.state.from : null;
-    fromRef.current = from;
-
-    // Clear the state parameter
-    if (from) {
-      navigate(location.pathname, { replace: true });
-    }
-  }, [location.pathname, location.state, navigate]);
+  }, []);
 
   return (
     <Box
