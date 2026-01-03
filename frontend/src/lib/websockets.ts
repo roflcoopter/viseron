@@ -231,7 +231,7 @@ export class Connection {
         }
         console.debug("Error connecting, retrying", error);
         // eslint-disable-next-line no-await-in-loop
-        await sleep(5000);
+        await sleep(1000);
       }
     }
     this._initializeSocket();
