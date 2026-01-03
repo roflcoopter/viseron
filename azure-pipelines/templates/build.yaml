@@ -96,6 +96,7 @@ jobs:
               --build-arg BUILDKIT_INLINE_CACHE=1
               --build-arg VISERON_VERSION=$(viseronVersion)
               --build-arg VISERON_GIT_COMMIT=$(Build.SourceVersion)
+              --build-arg NODE_OPTIONS="--max-old-space-size=4096"
               ${{ architecture }}-${{ parameters.image }}
             displayName: Build ${{ architecture }}-${{ parameters.image }}
             condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', false))
@@ -111,6 +112,7 @@ jobs:
               --build-arg BUILDKIT_INLINE_CACHE=1
               --build-arg VISERON_VERSION=$(viseronVersion)
               --build-arg VISERON_GIT_COMMIT=$(Build.SourceVersion)
+              --build-arg NODE_OPTIONS="--max-old-space-size=4096"
               ${{ parameters.image }}
             displayName: Build ${{ parameters.image }}
             condition: and(succeeded(), eq('${{ parameters.imageNameOnly }}', true))
