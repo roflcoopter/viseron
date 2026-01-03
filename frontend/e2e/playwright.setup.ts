@@ -25,7 +25,7 @@ test.beforeEach(async ({ page, context }) => {
       );
   });
 
-  // Set cookies for spoofin authentication
+  // Set cookies for spoofing authentication
   await context.addCookies([
     {
       name: "user",
@@ -35,4 +35,23 @@ test.beforeEach(async ({ page, context }) => {
       httpOnly: false,
     },
   ]);
+
+  // Set selected cameras in local storage
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "camera-store",
+      JSON.stringify({
+        state: {
+          cameras: {
+            camera1: true,
+            camera2: true,
+            camera3: true,
+          },
+          selectedCameras: ["camera1", "camera2", "camera3"],
+          selectionOrder: ["camera1", "camera2", "camera3"],
+        },
+        version: 0,
+      }),
+    );
+  });
 });

@@ -167,6 +167,7 @@ The same [filters as for event recordings](#filters) can be applied to continuou
 ## Manual recordings
 
 Manual recordings can be started and stopped on-demand in multiple ways:
+
 - Using the web interface
 - Through the REST API
 - The Telegram component
@@ -176,9 +177,17 @@ Manual recordings run until stopped or their given duration has passed, but will
 
 ### Web interface
 
-To start a manual recording from the web interface, go to the `Live View` page and click the `Record` button in the camera controls.
+To start a manual recording from the web interface, go to the `Live View` page and click the `Start Recording` button in the camera controls.
 
-TODO screenshot
+<details>
+  <summary>Record button (highlighted in a green circle)</summary>
+  <img
+    src="/img/ui/live/manual-recording-button.png"
+    alt-text="Record Button"
+    width={700}
+  />
+
+</details>
 
 When you want to stop the recording, simply click the `Stop Recording` button that appears in place of the `Record` button.
 
@@ -189,7 +198,7 @@ To start a manual recording using the REST API, send a `POST` request to the `/a
 ```json
 {
   "action": "start",
-  "duration": 60  // Optional, duration in seconds
+  "duration": 60 // Optional, duration in seconds
 }
 ```
 
@@ -197,7 +206,7 @@ To stop it, send a `POST` request to the same endpoint with the JSON payload:
 
 ```json
 {
-  "action": "stop",
+  "action": "stop"
 }
 ```
 
@@ -215,7 +224,7 @@ To start a manual recording using the MQTT component, publish a message to the `
 ```json
 {
   "action": "start",
-  "duration": 60  // Optional, duration in seconds
+  "duration": 60 // Optional, duration in seconds
 }
 ```
 
@@ -223,7 +232,7 @@ To stop it, publish a message to the same topic with the JSON payload:
 
 ```json
 {
-  "action": "stop",
+  "action": "stop"
 }
 ```
 

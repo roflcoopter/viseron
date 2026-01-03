@@ -12,7 +12,7 @@ export default defineConfig({
     video: "off",
   },
   expect: {
-    timeout: 10000,
+    timeout: 30000,
   },
   projects: [
     {

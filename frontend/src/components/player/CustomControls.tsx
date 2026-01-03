@@ -38,6 +38,7 @@ interface CustomFabProps {
   title?: string;
   isFullscreen?: boolean;
   disabled?: boolean;
+  "data-testid"?: string;
 }
 export function CustomFab({
   onClick,
@@ -46,6 +47,7 @@ export function CustomFab({
   title,
   isFullscreen = false,
   disabled = false,
+  "data-testid": dataTestId,
 }: CustomFabProps) {
   const { isFullscreen: isContainerFullscreen } = useFullscreen();
 
@@ -57,6 +59,7 @@ export function CustomFab({
       color="primary"
       sx={{ margin: 0.25, zIndex: ZINDEX }}
       disabled={disabled}
+      data-testid={dataTestId}
     >
       {children}
     </Fab>
@@ -263,6 +266,7 @@ export function CustomControls({
               onClick={onManualRecording}
               title={isRecording ? "Stop Recording" : "Start Recording"}
               disabled={manualRecordingLoading}
+              data-testid="manual-recording-button"
             >
               {manualRecordingLoading ? (
                 <CircularProgress enableTrackSlot size={20} />

@@ -50,13 +50,21 @@ Viserons features include, but not limited to the following:
 
 ## Screenshots
 
+:::note
+
+Some screenshots may be outdated as the UI is constantly being improved.<br />
+
+Several screenshots are taken programmatically during end-to-end tests, thus camera snapshots and streams are not visible in them.
+
+:::
+
 ### Camera view
 
 <img src="/img/ui/cameras/main.png" alt-text="Camera view"/>
 
 ### Live view
 
-<img src="/img/screenshots/Viseron-screenshot-live.png" alt-text="Live view"/>
+<img src="/img/ui/live/main.png" alt-text="Live view"/>
 
 ### Recordings view
 
