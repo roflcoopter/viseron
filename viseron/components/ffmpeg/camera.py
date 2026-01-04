@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
+import signal
 import time
 from queue import Empty, Full
 from typing import TYPE_CHECKING, Any
@@ -358,6 +359,9 @@ class Camera(AbstractCamera):
 
     def _create_frame_reader(self):
         """Return a frame reader thread."""
+        if self._frame_queue:
+            self._frame_queue.close()
+        self._frame_queue = mp.Queue(maxsize=2)
         return RestartableProcess(
             name="viseron.camera." + self.identifier,
             args=(self._frame_queue,),
@@ -460,7 +464,9 @@ class Camera(AbstractCamera):
                 self.decode_error.set()
 
         self.stream.close_pipe()
+        self._frame_queue.close()
         self._logger.debug("Frame reader stopped")
+        os.kill(os.getpid(), signal.SIGKILL)
 
     def relay_frame(self):
         """Read from the frame queue and create a SharedFrame."""
@@ -553,11 +559,10 @@ class Camera(AbstractCamera):
             self._frame_relay.join(timeout=5)
 
         if self._frame_reader:
+            self._frame_reader.stop()
             self._frame_reader.join(timeout=5)
-            self._frame_reader.terminate()
             if self._frame_reader.is_alive():
                 self._logger.debug("Timed out trying to stop camera. Killing pipe")
-                self._frame_reader.terminate()
                 self._frame_reader.kill()
                 self._frame_reader.join(timeout=5)
                 self._frame_reader = None
