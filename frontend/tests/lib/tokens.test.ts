@@ -6,24 +6,25 @@ import * as types from "lib/types";
 
 const TOKENS_KEY = "tokens";
 
+const NOW = dayjs();
 const TOKEN_RESPONSE: types.AuthTokenResponse = {
   header: "header",
   payload: "payload",
   expiration: 3600,
-  expires_at: "2023-11-30T11:05:38Z",
-  expires_at_timestamp: 1701338738,
-  session_expires_at: "2023-11-30T11:05:38Z",
-  session_expires_at_timestamp: 1701338738,
+  expires_at: NOW.add(3600, "second").toISOString(),
+  expires_at_timestamp: NOW.add(3600, "second").unix(),
+  session_expires_at: NOW.add(3600, "second").toISOString(),
+  session_expires_at_timestamp: NOW.add(3600, "second").unix(),
 };
 
 const TOKEN_DATA: types.StoredTokens = {
   header: "header",
   payload: "payload",
   expiration: 3600,
-  expires_at: dayjs("2023-11-30T11:05:38Z"),
-  expires_at_timestamp: 1701338738,
-  session_expires_at: dayjs("2023-11-30T11:05:38Z"),
-  session_expires_at_timestamp: 1701338738,
+  expires_at: NOW.add(3600, "second"),
+  expires_at_timestamp: NOW.add(3600, "second").unix(),
+  session_expires_at: NOW.add(3600, "second"),
+  session_expires_at_timestamp: NOW.add(3600, "second").unix(),
 };
 
 vi.useFakeTimers();
@@ -33,7 +34,13 @@ describe("Tokens", () => {
   const setItemSpy = vi.spyOn(Storage.prototype, "setItem");
   const removeItemSpy = vi.spyOn(Storage.prototype, "removeItem");
 
+  beforeEach(() => {
+    vi.useFakeTimers();
+    localStorage.setItem(TOKENS_KEY, JSON.stringify(TOKEN_DATA));
+  });
+
   afterEach(() => {
+    vi.useRealTimers();
     localStorage.clear();
     getItemSpy.mockClear();
     setItemSpy.mockClear();
@@ -75,6 +82,7 @@ describe("Tokens", () => {
   describe("tokenExpired", () => {
     test("token is flagged as expired", () => {
       tokens.storeTokens(TOKEN_RESPONSE);
+      vi.advanceTimersByTime(3601 * 1000);
       const expired = tokens.tokenExpired();
       expect(expired).toBe(true);
     });
@@ -109,6 +117,7 @@ describe("Tokens", () => {
   describe("sessionExpired", () => {
     test("session is flagged as expired", () => {
       tokens.storeTokens(TOKEN_RESPONSE);
+      vi.advanceTimersByTime(3601 * 1000);
       const expired = tokens.sessionExpired();
       expect(expired).toBe(true);
     });
@@ -149,17 +158,22 @@ describe("Tokens", () => {
     });
 
     test("should clear existing session expired timeout", () => {
-      const clearTimeout = vi.spyOn(window, "clearTimeout");
+      // First clear any existing timeout from previous tests
+      tokens.clearSessionExpiredTimeout();
 
+      // Create a new spy
+      const clearTimeoutSpyLocal = vi.spyOn(window, "clearTimeout");
       tokens.setSessionExpiredTimeout();
 
-      expect(clearTimeout).toHaveBeenCalledTimes(1);
+      expect(clearTimeoutSpyLocal).not.toHaveBeenCalled();
       expect(dispatchCustomEventSpy).not.toHaveBeenCalled();
 
       tokens.setSessionExpiredTimeout();
 
-      expect(clearTimeout).toHaveBeenCalledTimes(2);
+      expect(clearTimeoutSpyLocal).toHaveBeenCalledTimes(1);
       expect(dispatchCustomEventSpy).not.toHaveBeenCalled();
+
+      clearTimeoutSpyLocal.mockClear();
     });
   });
 });
