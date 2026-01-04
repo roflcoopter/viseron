@@ -445,7 +445,7 @@ Add the `subpath` configuration to your `config.yaml`:
 
 ```yaml
 webserver:
-  subpath: "/viseron"  # Must start with / and match your reverse proxy path
+  subpath: "/viseron" # Must start with / and match your reverse proxy path
 ```
 
 ### 2. Reverse Proxy Configuration
@@ -461,7 +461,7 @@ location /viseron/ {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
-    
+
     # WebSocket support (required for live updates)
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
@@ -472,6 +472,7 @@ location /viseron/ {
 :::warning IMPORTANT
 
 The `proxy_pass` URL must end with `/` and NOT include the subpath.
+
 - ✅ Correct: `proxy_pass http://localhost:8888/;`
 - ❌ Wrong: `proxy_pass http://localhost:8888/viseron/;`
 
@@ -483,10 +484,12 @@ This way, a request to `/viseron/assets/main.js` becomes `/assets/main.js` when 
 :::tip SIMPLE SETUP
 
 The subpath value only needs to be set in **two places**:
+
 1. `config.yaml`: `webserver: { subpath: "/viseron" }`
 2. External reverse proxy: `location /viseron/ { ... }`
 
 Both must:
+
 - Start with a forward slash `/`
 - Use the exact same path
 - Not end with a trailing slash (except in nginx location directives)
@@ -569,3 +572,11 @@ The `s6-overlay` init scripts do a good job at fixing permissions for other user
 If you do have issues, please open an issue and i will do my best to fix them.
 
 :::
+
+## Database
+
+Viseron uses a PostgreSQL database to store all the data needed for the application.
+By default, the database runs within the container and is not exposed to the host machine.
+
+You can however point Viseron to an external database by setting the `POSTGRES_DATABASE_URL` environment variable.
+See the [storage component documentation](/components-explorer/components/storage#external-database) for more information.
