@@ -8,11 +8,13 @@ import { CameraNameOverlay } from "components/camera/CameraNameOverlay";
 import { CustomControls } from "components/player/CustomControls.js";
 import { ZoomPanOverlay } from "components/player/ZoomPanOverlay";
 import { useZoomPan } from "components/player/hooks/useZoomPan";
+import { useCameraManualRecording } from "lib/api/camera";
 import { isTouchDevice } from "lib/helpers.js";
 import * as types from "lib/types";
 
 const useMjpegControlsVisibility = (
   containerRef: React.RefObject<HTMLDivElement | null>,
+  camera: types.Camera | types.FailedCamera,
   onPlayerFullscreenChange?: (isFullscreen: boolean) => void,
 ) => {
   const [controlsVisible, setControlsVisible] = useState(false);
@@ -22,6 +24,7 @@ const useMjpegControlsVisibility = (
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pipVideoRef = useRef<HTMLVideoElement | null>(null);
   const animationRef = useRef<number | null>(null);
+  const manualRecording = useCameraManualRecording();
 
   const showControlsTemporarily = useCallback(() => {
     setControlsVisible(true);
@@ -248,6 +251,17 @@ const useMjpegControlsVisibility = (
     }
   }, [controlsVisible, showControlsTemporarily]);
 
+  const handleManualRecording = useCallback(() => {
+    if (camera.failed || manualRecording.isPending) {
+      return;
+    }
+    if (camera.is_recording) {
+      manualRecording.mutate({ camera, action: "stop" });
+    } else {
+      manualRecording.mutate({ camera, action: "start" });
+    }
+  }, [manualRecording, camera]);
+
   useEffect(
     () => () => {
       if (timeoutRef.current) {
@@ -275,6 +289,8 @@ const useMjpegControlsVisibility = (
     handleMouseEnter,
     handleMouseLeave,
     handleTouchStart,
+    handleManualRecording,
+    manualRecordingLoading: manualRecording.isPending,
   };
 };
 
@@ -402,7 +418,13 @@ export function MjpegPlayer({
     handleMouseEnter,
     handleMouseLeave,
     handleTouchStart,
-  } = useMjpegControlsVisibility(containerRef, onPlayerFullscreenChange);
+    handleManualRecording,
+    manualRecordingLoading,
+  } = useMjpegControlsVisibility(
+    containerRef,
+    camera,
+    onPlayerFullscreenChange,
+  );
 
   const { error, isLoading } = useMjpegErrorHandling(imgRef, src);
 
@@ -473,6 +495,9 @@ export function MjpegPlayer({
         onFullscreenToggle={handleFullscreenToggle}
         onPictureInPictureToggle={handlePictureInPictureToggle}
         isPictureInPictureSupported={isPictureInPictureSupported}
+        onManualRecording={camera.failed ? undefined : handleManualRecording}
+        isRecording={camera.failed ? undefined : camera.is_recording}
+        manualRecordingLoading={manualRecordingLoading}
         extraButtons={extraButtons}
       />
       <div
