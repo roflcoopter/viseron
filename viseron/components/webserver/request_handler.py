@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from tornado.ioloop import IOLoop
 
 from viseron.components import DomainToSetup
+from viseron.components.nvr.const import DOMAIN as NVR_DOMAIN
 from viseron.components.storage.const import COMPONENT as STORAGE_COMPONENT
 from viseron.components.webserver.auth import Role
 from viseron.components.webserver.const import COMPONENT
@@ -23,6 +24,7 @@ from viseron.helpers import get_utc_offset, utcnow
 
 if TYPE_CHECKING:
     from viseron import Viseron
+    from viseron.components.nvr.nvr import NVR
     from viseron.components.storage import Storage
     from viseron.components.webserver import Webserver
     from viseron.components.webserver.auth import RefreshToken, User
@@ -353,6 +355,16 @@ class ViseronRequestHandler(tornado.web.RequestHandler):
     ) -> AbstractCamera | FailedCamera | None:
         """Get camera instance."""
         return self._get_camera(camera_identifier, failed)
+
+    def get_nvr(self, camera_identifier: str) -> NVR | None:
+        """Get NVR instance for camera."""
+        try:
+            return self._vis.get_registered_domain(
+                NVR_DOMAIN,
+                camera_identifier,
+            )
+        except DomainNotRegisteredError:
+            return None
 
     def _get_session(self) -> Session:
         """Get a database session."""

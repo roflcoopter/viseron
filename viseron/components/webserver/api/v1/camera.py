@@ -12,7 +12,6 @@ import imutils
 import numpy as np
 import voluptuous as vol
 
-from viseron.components.nvr.const import DOMAIN as NVR_DOMAIN
 from viseron.components.storage.models import TriggerTypes
 from viseron.components.webserver.api.handlers import BaseAPIHandler
 from viseron.domains.camera import AbstractCamera
@@ -61,6 +60,16 @@ class CameraAPIHandler(BaseAPIHandler):
                     vol.Optional("failed", default=False): request_argument_bool,
                 },
             ),
+        },
+        {
+            "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/start",
+            "supported_methods": ["POST"],
+            "method": "post_start_camera",
+        },
+        {
+            "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/stop",
+            "supported_methods": ["POST"],
+            "method": "post_stop_camera",
         },
         {
             "path_pattern": (
@@ -155,7 +164,6 @@ class CameraAPIHandler(BaseAPIHandler):
     async def get_snapshot(self, camera_identifier: str) -> None:
         """Return camera snapshot."""
         camera = await self.run_in_executor(self._get_camera, camera_identifier)
-
         if not camera:
             self.response_error(
                 HTTPStatus.NOT_FOUND,
@@ -198,7 +206,6 @@ class CameraAPIHandler(BaseAPIHandler):
         camera = self._get_camera(
             camera_identifier, failed=self.request_arguments["failed"]
         )
-
         if not camera:
             self.response_error(
                 HTTPStatus.NOT_FOUND,
@@ -209,10 +216,9 @@ class CameraAPIHandler(BaseAPIHandler):
         await self.response_success(response=camera.as_dict())
         return
 
-    async def post_manual_recording(self, camera_identifier: str) -> None:
-        """Start/stop manual recording."""
+    async def post_start_camera(self, camera_identifier: str) -> None:
+        """Start camera."""
         camera = self._get_camera(camera_identifier, failed=False)
-
         if not camera:
             self.response_error(
                 HTTPStatus.NOT_FOUND,
@@ -220,7 +226,59 @@ class CameraAPIHandler(BaseAPIHandler):
             )
             return
 
-        nvr = self._vis.get_registered_domain(NVR_DOMAIN, camera_identifier)
+        nvr = self.get_nvr(camera_identifier)
+        if not nvr:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"NVR for camera {camera_identifier} not found",
+            )
+            return
+
+        if camera.is_on:
+            await self.response_success()
+            return
+
+        await self.run_in_executor(camera.start_camera)
+        await self.response_success()
+        return
+
+    async def post_stop_camera(self, camera_identifier: str) -> None:
+        """Stop camera."""
+        camera = self._get_camera(camera_identifier, failed=False)
+        if not camera:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
+            )
+            return
+
+        nvr = self.get_nvr(camera_identifier)
+        if not nvr:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"NVR for camera {camera_identifier} not found",
+            )
+            return
+
+        if not camera.is_on:
+            await self.response_success()
+            return
+
+        await self.run_in_executor(camera.stop_camera)
+        await self.response_success()
+        return
+
+    async def post_manual_recording(self, camera_identifier: str) -> None:
+        """Start/stop manual recording."""
+        camera = self._get_camera(camera_identifier, failed=False)
+        if not camera:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
+            )
+            return
+
+        nvr = self.get_nvr(camera_identifier)
         if not nvr:
             self.response_error(
                 HTTPStatus.NOT_FOUND,

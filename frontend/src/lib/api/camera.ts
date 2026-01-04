@@ -106,3 +106,38 @@ export const useCameraManualRecording = () => {
     },
   });
 };
+
+type CameraStartStopVariables = {
+  camera: types.Camera;
+  action: "start" | "stop";
+};
+
+async function startStopCamera({ camera, action }: CameraStartStopVariables) {
+  const response = await viseronAPI.post<types.APISuccessResponse>(
+    `/camera/${camera.identifier}/${action}`,
+  );
+  return response.data;
+}
+
+export const useCameraStartStop = () => {
+  const toast = useToast();
+  return useMutation<
+    types.APISuccessResponse,
+    types.APIErrorResponse,
+    CameraStartStopVariables
+  >({
+    mutationFn: startStopCamera,
+    onSuccess: async (_data, variables, _context) => {
+      toast.success(
+        `Camera ${variables.action === "start" ? "started" : "stopped"}: ${variables.camera.name}`,
+      );
+    },
+    onError: async (error, variables, _context) => {
+      toast.error(
+        error.response && error.response.data.error
+          ? `Error ${variables.action === "start" ? "starting" : "stopping"} camera: ${error.response.data.error}`
+          : `An error occurred: ${error.message}`,
+      );
+    },
+  });
+};
