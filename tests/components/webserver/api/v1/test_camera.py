@@ -35,7 +35,7 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
     def _build_camera_and_nvr(
         self, *, is_recording: bool, connected: bool = True
     ) -> tuple[MockCamera, MagicMock]:
-        camera = MockCamera(identifier="cam1")
+        camera = MockCamera(identifier="test")
         camera.is_recording = is_recording
         camera.connected = connected
         camera.recorder.active_recording = (
@@ -71,7 +71,7 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
             "viseron.components.webserver.api.v1.camera.time.time", new=_ticking_time()
         ):
             response = self.fetch_with_auth(
-                "/api/v1/camera/cam1/manual_recording",
+                "/api/v1/camera/test/manual_recording",
                 method="POST",
                 body=json.dumps({"action": "start", "duration": 5}),
             )
@@ -100,7 +100,7 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
             "viseron.components.webserver.api.v1.camera.time.time", new=_ticking_time()
         ):
             response = self.fetch_with_auth(
-                "/api/v1/camera/cam1/manual_recording",
+                "/api/v1/camera/test/manual_recording",
                 method="POST",
                 body=json.dumps({"action": "start"}),
             )
@@ -136,7 +136,7 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
             "viseron.components.webserver.api.v1.camera.time.time", new=_ticking_time()
         ):
             response = self.fetch_with_auth(
-                "/api/v1/camera/cam1/manual_recording",
+                "/api/v1/camera/test/manual_recording",
                 method="POST",
                 body=json.dumps({"action": "stop"}),
             )
@@ -165,7 +165,7 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
             "viseron.components.webserver.api.v1.camera.time.time", new=_ticking_time()
         ):
             response = self.fetch_with_auth(
-                "/api/v1/camera/cam1/manual_recording",
+                "/api/v1/camera/test/manual_recording",
                 method="POST",
                 body=json.dumps({"action": "stop"}),
             )
@@ -189,14 +189,14 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
             return_value=None,
         ):
             response = self.fetch_with_auth(
-                "/api/v1/camera/cam1/manual_recording",
+                "/api/v1/camera/test/manual_recording",
                 method="POST",
                 body=json.dumps({"action": "start"}),
             )
 
         assert response.code == 404
         assert json.loads(response.body) == {
-            "error": "Camera cam1 not found",
+            "error": "Camera test not found",
             "status": 404,
         }
 
@@ -212,7 +212,7 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
             return_value=camera,
         ), patch.object(self.vis, "get_registered_domain", return_value=nvr):
             response = self.fetch_with_auth(
-                "/api/v1/camera/cam1/manual_recording",
+                "/api/v1/camera/test/manual_recording",
                 method="POST",
                 body=json.dumps({"action": "start"}),
             )
@@ -227,7 +227,7 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
     def test_manual_recording_nvr_not_found(self):
         """Returns 404 when NVR domain is missing."""
 
-        camera = MockCamera(identifier="cam1")
+        camera = MockCamera(identifier="test")
 
         with patch(
             (
@@ -237,14 +237,14 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
             return_value=camera,
         ), patch.object(self.vis, "get_registered_domain", return_value=None):
             response = self.fetch_with_auth(
-                "/api/v1/camera/cam1/manual_recording",
+                "/api/v1/camera/test/manual_recording",
                 method="POST",
                 body=json.dumps({"action": "start"}),
             )
 
         assert response.code == 404
         assert json.loads(response.body) == {
-            "error": "NVR for camera cam1 not found",
+            "error": "NVR for camera test not found",
             "status": 404,
         }
 
@@ -261,7 +261,7 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
             return_value=camera,
         ), patch.object(self.vis, "get_registered_domain", return_value=nvr):
             response = self.fetch_with_auth(
-                "/api/v1/camera/cam1/manual_recording",
+                "/api/v1/camera/test/manual_recording",
                 method="POST",
                 body=json.dumps({"action": "start"}),
             )
@@ -277,7 +277,7 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
         """Invalid action schema returns 400 without hitting handler logic."""
 
         response = self.fetch_with_auth(
-            "/api/v1/camera/cam1/manual_recording",
+            "/api/v1/camera/test/manual_recording",
             method="POST",
             body=json.dumps({"action": "invalid"}),
         )
@@ -286,3 +286,195 @@ class TestCameraAPIHandlerManualRecording(TestAppBaseAuth):
         body = json.loads(response.body)
         assert body["status"] == 400
         assert "Invalid body" in body["error"]
+
+    def test_start_camera_success(self):
+        """Start camera triggers start_camera when off."""
+        camera = MockCamera(identifier="test")
+        camera.is_on = False
+
+        def start_camera() -> None:
+            camera.is_on = True
+
+        camera.start_camera = MagicMock(side_effect=start_camera)
+
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=camera,
+        ), patch.object(self.vis, "get_registered_domain", return_value=MagicMock()):
+            response = self.fetch_with_auth(
+                "/api/v1/camera/test/start",
+                method="POST",
+                body="",
+            )
+
+        assert response.code == 200
+        assert json.loads(response.body) == {"success": True}
+        assert camera.start_camera.call_count == 1
+        assert camera.is_on is True
+
+    def test_start_camera_already_on(self):
+        """Start camera is a no-op when already on."""
+        camera = MockCamera(identifier="test")
+        camera.is_on = True
+        camera.start_camera = MagicMock()
+
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=camera,
+        ), patch.object(self.vis, "get_registered_domain", return_value=MagicMock()):
+            response = self.fetch_with_auth(
+                "/api/v1/camera/test/start",
+                method="POST",
+                body="",
+            )
+
+        assert response.code == 200
+        assert json.loads(response.body) == {"success": True}
+        camera.start_camera.assert_not_called()
+
+    def test_start_camera_not_found(self):
+        """Start camera returns 404 when camera missing."""
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=None,
+        ):
+            response = self.fetch_with_auth(
+                "/api/v1/camera/test/start",
+                method="POST",
+                body="",
+            )
+
+        assert response.code == 404
+        assert json.loads(response.body) == {
+            "error": "Camera test not found",
+            "status": 404,
+        }
+
+    def test_start_camera_nvr_not_found(self):
+        """Start camera returns 404 when NVR missing."""
+        camera = MockCamera(identifier="test")
+        camera.is_on = False
+
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=camera,
+        ), patch.object(self.vis, "get_registered_domain", return_value=None):
+            response = self.fetch_with_auth(
+                "/api/v1/camera/test/start",
+                method="POST",
+                body="",
+            )
+
+        assert response.code == 404
+        assert json.loads(response.body) == {
+            "error": "NVR for camera test not found",
+            "status": 404,
+        }
+
+    def test_stop_camera_success(self):
+        """Stop camera triggers stop_camera when on."""
+        camera = MockCamera(identifier="test")
+        camera.is_on = True
+
+        def stop_camera() -> None:
+            camera.is_on = False
+
+        camera.stop_camera = MagicMock(side_effect=stop_camera)
+
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=camera,
+        ), patch.object(self.vis, "get_registered_domain", return_value=MagicMock()):
+            response = self.fetch_with_auth(
+                "/api/v1/camera/test/stop",
+                method="POST",
+                body="",
+            )
+
+        assert response.code == 200
+        assert json.loads(response.body) == {"success": True}
+        assert camera.stop_camera.call_count == 1
+        assert camera.is_on is False
+
+    def test_stop_camera_already_off(self):
+        """Stop camera is a no-op when already off."""
+        camera = MockCamera(identifier="test")
+        camera.is_on = False
+        camera.stop_camera = MagicMock()
+
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=camera,
+        ), patch.object(self.vis, "get_registered_domain", return_value=MagicMock()):
+            response = self.fetch_with_auth(
+                "/api/v1/camera/test/stop",
+                method="POST",
+                body="",
+            )
+
+        assert response.code == 200
+        assert json.loads(response.body) == {"success": True}
+        camera.stop_camera.assert_not_called()
+
+    def test_stop_camera_not_found(self):
+        """Stop camera returns 404 when camera missing."""
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=None,
+        ):
+            response = self.fetch_with_auth(
+                "/api/v1/camera/test/stop",
+                method="POST",
+                body="",
+            )
+
+        assert response.code == 404
+        assert json.loads(response.body) == {
+            "error": "Camera test not found",
+            "status": 404,
+        }
+
+    def test_stop_camera_nvr_not_found(self):
+        """Stop camera returns 404 when NVR missing."""
+        camera = MockCamera(identifier="test")
+        camera.is_on = True
+
+        with patch(
+            (
+                "viseron.components.webserver.request_handler.ViseronRequestHandler."
+                "_get_camera"
+            ),
+            return_value=camera,
+        ), patch.object(self.vis, "get_registered_domain", return_value=None):
+            response = self.fetch_with_auth(
+                "/api/v1/camera/test/stop",
+                method="POST",
+                body="",
+            )
+
+        assert response.code == 404
+        assert json.loads(response.body) == {
+            "error": "NVR for camera test not found",
+            "status": 404,
+        }

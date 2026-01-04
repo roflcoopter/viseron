@@ -63,6 +63,16 @@ class CameraAPIHandler(BaseAPIHandler):
             ),
         },
         {
+            "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/start",
+            "supported_methods": ["POST"],
+            "method": "post_start_camera",
+        },
+        {
+            "path_pattern": r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/stop",
+            "supported_methods": ["POST"],
+            "method": "post_stop_camera",
+        },
+        {
             "path_pattern": (
                 r"/camera/(?P<camera_identifier>[A-Za-z0-9_]+)/manual_recording"
             ),
@@ -207,6 +217,60 @@ class CameraAPIHandler(BaseAPIHandler):
             return
 
         await self.response_success(response=camera.as_dict())
+        return
+
+    async def post_start_camera(self, camera_identifier: str) -> None:
+        """Start camera."""
+        camera = self._get_camera(camera_identifier, failed=False)
+
+        if not camera:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
+            )
+            return
+
+        nvr = self._vis.get_registered_domain(NVR_DOMAIN, camera_identifier)
+        if not nvr:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"NVR for camera {camera_identifier} not found",
+            )
+            return
+
+        if camera.is_on:
+            await self.response_success()
+            return
+
+        await self.run_in_executor(camera.start_camera)
+        await self.response_success()
+        return
+
+    async def post_stop_camera(self, camera_identifier: str) -> None:
+        """Stop camera."""
+        camera = self._get_camera(camera_identifier, failed=False)
+
+        if not camera:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"Camera {camera_identifier} not found",
+            )
+            return
+
+        nvr = self._vis.get_registered_domain(NVR_DOMAIN, camera_identifier)
+        if not nvr:
+            self.response_error(
+                HTTPStatus.NOT_FOUND,
+                reason=f"NVR for camera {camera_identifier} not found",
+            )
+            return
+
+        if not camera.is_on:
+            await self.response_success()
+            return
+
+        await self.run_in_executor(camera.stop_camera)
+        await self.response_success()
         return
 
     async def post_manual_recording(self, camera_identifier: str) -> None:
