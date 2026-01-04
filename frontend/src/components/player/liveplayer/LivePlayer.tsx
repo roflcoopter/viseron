@@ -25,7 +25,6 @@ const useVideoControlsVisibility = (
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPictureInPicture, setIsPictureInPicture] = useState(false);
-  const [manualRecordingLoading, setManualRecordingLoading] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const manualRecording = useCameraManualRecording();
 
@@ -144,28 +143,13 @@ const useVideoControlsVisibility = (
   }, [controlsVisible, showControlsTemporarily]);
 
   const handleManualRecording = useCallback(() => {
-    if (camera.failed) {
+    if (camera.failed || manualRecording.isPending) {
       return;
     }
-    setManualRecordingLoading(true);
     if (camera.is_recording) {
-      manualRecording.mutate(
-        { camera, action: "stop" },
-        {
-          onSettled: () => {
-            setManualRecordingLoading(false);
-          },
-        },
-      );
+      manualRecording.mutate({ camera, action: "stop" });
     } else {
-      manualRecording.mutate(
-        { camera, action: "start" },
-        {
-          onSettled: () => {
-            setManualRecordingLoading(false);
-          },
-        },
-      );
+      manualRecording.mutate({ camera, action: "start" });
     }
   }, [manualRecording, camera]);
 
@@ -222,7 +206,7 @@ const useVideoControlsVisibility = (
     handleMouseLeave,
     handleTouchStart,
     handleManualRecording,
-    manualRecordingLoading,
+    manualRecordingLoading: manualRecording.isPending,
     controlsVisible,
     isHovering,
     isPlaying,
