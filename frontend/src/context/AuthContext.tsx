@@ -5,9 +5,11 @@ import Cookies from "js-cookie";
 import {
   createContext,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 
@@ -114,6 +116,25 @@ const useAuthAxiosInterceptor = (
   }, [auth, toast, user]);
 };
 
+// Sync user cookie with state to trigger re-renders
+const useUserCookieSync = () => {
+  const [cookiesUser, setCookiesUser] = useState(Cookies.get("user"));
+
+  useEffect(() => {
+    const checkCookie = () => {
+      const currentCookie = Cookies.get("user");
+      setCookiesUser(currentCookie);
+    };
+    checkCookie();
+
+    const interval = setInterval(checkCookie, 100);
+
+    return () => clearInterval(interval);
+  }, [setCookiesUser]);
+
+  return cookiesUser;
+};
+
 type AuthContextState = {
   auth: types.AuthEnabledResponse;
   user: types.AuthUserResponse | null;
@@ -128,15 +149,15 @@ type AuthProviderProps = {
 export function AuthProvider({ children }: AuthProviderProps) {
   const authQuery = useAuthEnabled();
   const location = useLocation();
+  const cookiesUser = useUserCookieSync();
 
-  const cookies = Cookies.get();
   const userQuery = useAuthUser({
-    username: cookies.user,
+    username: cookiesUser || "",
     configOptions: {
       enabled: !!(
         authQuery.data?.enabled &&
         authQuery.data?.onboarding_complete &&
-        !!cookies.user
+        !!cookiesUser
       ),
     },
   });
@@ -171,7 +192,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   // Don't show error if we're on login page or if there's no cookie (user just logged out)
-  if (userQuery.isError && cookies.user && location.pathname !== "/login") {
+  if (userQuery.isError && cookiesUser && location.pathname !== "/login") {
     return <ErrorLoadingUser />;
   }
 

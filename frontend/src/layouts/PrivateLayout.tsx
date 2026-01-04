@@ -31,7 +31,7 @@ function PrivateLayoutContent() {
       <Navigate
         to="/login"
         state={{
-          from: location,
+          from: location.pathname,
         }}
       />
     );
@@ -43,7 +43,7 @@ function PrivateLayoutContent() {
       <Navigate
         to="/login"
         state={{
-          from: location,
+          from: location.pathname,
         }}
       />
     );
@@ -104,7 +104,7 @@ export function RequireRole({ userRole }: RequireRoleProps) {
       <Navigate
         to="/login"
         state={{
-          from: location,
+          from: location.pathname,
         }}
       />
     );

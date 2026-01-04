@@ -21,13 +21,13 @@ export default function useOnScreen<T extends Element>(
         rootMargin,
       },
     );
-    if (ref.current) {
-      observer.observe(ref.current);
+    const target = ref.current;
+    if (target) {
+      observer.observe(target);
     }
     return () => {
-      if (ref.current) {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        observer.unobserve(ref.current);
+      if (target) {
+        observer.unobserve(target);
       }
     };
   }, [ref, rootMargin]);
