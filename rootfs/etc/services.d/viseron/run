@@ -7,11 +7,16 @@ pkill -f ffmpeg_
 pkill -f gstreamer_
 
 # Wait until PostgreSQL is ready
-until s6-setuidgid postgres pg_isready -d viseron; do
-  log_info "Waiting for PostgreSQL Server to start..."
-  sleep 1
-done
-log_info "PostgreSQL Server has started!"
+if [ -n "$POSTGRES_DATABASE_URL" ]; then
+  log_info "POSTGRES_DATABASE_URL is set. Skipping wait for local PostgreSQL server."
+else
+  until s6-setuidgid postgres pg_isready -d viseron; do
+    log_info "Waiting for PostgreSQL Server to start..."
+    sleep 1
+  done
+  log_info "PostgreSQL Server has started!"
+fi
+
 
 cd /src
 exec justc-envdir /var/run/environment s6-setuidgid abc exec -a "viseron" python3 -u -m viseron

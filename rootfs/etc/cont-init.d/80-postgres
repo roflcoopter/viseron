@@ -5,6 +5,13 @@ source /helpers/set_env.sh
 source /etc/os-release
 
 log_info "***************** Preparing PostgreSQL *******************"
+
+if [ -n "$POSTGRES_DATABASE_URL" ]; then
+  log_info "POSTGRES_DATABASE_URL is set. Skipping local PostgreSQL setup."
+  log_info "*********************** Done *****************************"
+  exit 0
+fi
+
 mkdir -p $PGDATA /var/run/postgresql
 chown -R postgres:abc $PGDATA /var/run/postgresql
 

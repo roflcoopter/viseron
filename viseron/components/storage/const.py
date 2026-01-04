@@ -1,6 +1,7 @@
 """Storage component constants."""
 from __future__ import annotations
 
+import os
 from enum import Enum
 from typing import Any, Final
 
@@ -8,7 +9,9 @@ from sqlalchemy import create_engine
 
 COMPONENT = "storage"
 
-DATABASE_URL = "postgresql://postgres@localhost/viseron"
+DATABASE_URL = os.getenv(
+    "POSTGRES_DATABASE_URL", "postgresql://postgres@localhost/viseron"
+)
 ENGINE = create_engine(DATABASE_URL, connect_args={"options": "-c timezone=UTC"})
 
 

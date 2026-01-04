@@ -1,6 +1,14 @@
 #!/usr/bin/with-contenv bash
 
+source /helpers/logger.sh
 source /helpers/set_env.sh
 
-echo "Starting PostgreSQL Server..."
-s6-setuidgid postgres $PG_BIN/postgres -D $VISERON_CONFIG_DIR/postgresql
+if [ -n "$POSTGRES_DATABASE_URL" ]; then
+  log_info "POSTGRES_DATABASE_URL is set. Won't start local PostgreSQL server."
+  # Start a dummy process to keep s6 happy
+  exec s6-pause
+  exit 0
+fi
+
+log_info "Starting PostgreSQL Server..."
+s6-setuidgid postgres $PG_BIN/postgres -D $PGDATA
