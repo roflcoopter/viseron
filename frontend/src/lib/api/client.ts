@@ -48,6 +48,12 @@ const queryClient = new QueryClient({
   },
 });
 
+// Helper to check if a queryKey already exists in the array to avoid duplicates
+const queryKeyExists = (queryKeys: QueryKey[], queryKey: QueryKey): boolean =>
+  queryKeys.some(
+    (existingKey) => JSON.stringify(existingKey) === JSON.stringify(queryKey),
+  );
+
 type EntityQueryPair = {
   entityId: string;
   queryKey: QueryKey;
@@ -74,7 +80,9 @@ export const useInvalidateQueryOnStateChange = (
         };
       }
 
-      if (!subscriptionRef.current[entityId].queryKeys.includes(queryKey)) {
+      if (
+        !queryKeyExists(subscriptionRef.current[entityId].queryKeys, queryKey)
+      ) {
         subscriptionRef.current[entityId].queryKeys.push(queryKey);
       }
 
@@ -160,7 +168,7 @@ export const useInvalidateQueryOnEvent = (
         };
       }
 
-      if (!subscriptionRef.current[event].queryKeys.includes(queryKey)) {
+      if (!queryKeyExists(subscriptionRef.current[event].queryKeys, queryKey)) {
         subscriptionRef.current[event].queryKeys.push(queryKey);
       }
 
