@@ -66,10 +66,10 @@ export function CameraNameOverlay({
     statusText = "Camera error";
   } else if (camera.is_recording) {
     statusText = "Recording";
-  } else if (!camera.connected) {
-    statusText = "Disconnected";
   } else if (!camera.is_on) {
     statusText = "Camera is off";
+  } else if (!camera.connected) {
+    statusText = "Disconnected";
   } else {
     statusText = null;
   }
