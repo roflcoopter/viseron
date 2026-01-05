@@ -139,6 +139,11 @@ class RestartableProcess:
         if self._process:
             self._process.join(timeout=timeout)
 
+    def stop(self) -> None:
+        """Stop (unregister) the process."""
+        self._started = False
+        ProcessWatchDog.unregister(self)
+
     def terminate(self) -> None:
         """Terminate the process."""
         self._started = False
