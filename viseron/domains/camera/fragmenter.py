@@ -512,6 +512,9 @@ class Fragmenter:
 
     def _fragment_command(self):
         """Periodically send work to the subprocess."""
+        if self._camera.stopped.is_set():
+            return
+
         try:
             self._fragment_worker.input_queue.put({"cmd": "fragment"}, timeout=1)
         except queue.Full:
