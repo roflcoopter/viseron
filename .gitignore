@@ -115,7 +115,7 @@
 # Scripts
 !/scripts
 !/scripts/*
-!/scripts/gen_docs/*
+!/scripts/**
 
 # Repo
 !/.codespellrc
