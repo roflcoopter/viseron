@@ -49,6 +49,12 @@ declare module "@mui/material/Typography" {
   }
 }
 
+declare module "@mui/material/Menu" {
+  interface MenuPaperSlotPropsOverrides {
+    "data-testid"?: string;
+  }
+}
+
 const blue = {
   50: "#F0F7FF",
   100: "#C2E0FF",
