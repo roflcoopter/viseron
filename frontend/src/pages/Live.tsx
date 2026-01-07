@@ -371,6 +371,7 @@ function MenuProvider({ children }: { children: React.ReactNode }) {
           container={() => document.body}
           slotProps={{
             paper: {
+              "data-testid": "live-player-context-menu-paper",
               sx: {
                 minWidth: 200,
                 zIndex: isFullscreen ? 9004 : isPlayerFullscreen ? 8100 : 1001,
