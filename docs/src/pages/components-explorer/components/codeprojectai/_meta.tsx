@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/logos/codeprojectai.png",
   tags: ["face_recognition", "license_plate_recognition", "object_detector"],
   category: null,
+  path: "viseron/components/codeprojectai",
+  issue: "codeprojectai",
 };
 
 export default ComponentMetadata;

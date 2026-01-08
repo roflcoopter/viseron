@@ -24,6 +24,8 @@ export type Component = {
   image: string;
   tags: DomainType[];
   category: string | null;
+  path: string;
+  issue: string;
 };
 
 export const Domains: { [type in DomainType]: Domain } = {

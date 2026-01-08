@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/logos/deepstack.png",
   tags: ["object_detector", "face_recognition"],
   category: null,
+  path: "viseron/components/deepstack",
+  issue: "deepstack",
 };
 
 export default ComponentMetadata;

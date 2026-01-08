@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/logos/mqtt.svg",
   tags: ["protocol"],
   category: null,
+  path: "viseron/components/mqtt",
+  issue: "mqtt",
 };
 
 export default ComponentMetadata;

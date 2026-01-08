@@ -8,6 +8,8 @@ const ComponentMetadata: Component = {
   image: "/img/logos/ffmpeg.svg",
   tags: ["camera"],
   category: "choose_one",
+  path: "viseron/components/ffmpeg",
+  issue: "ffmpeg%20OR%20camera",
 };
 
 export default ComponentMetadata;
