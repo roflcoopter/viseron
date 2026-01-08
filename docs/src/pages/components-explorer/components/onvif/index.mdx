@@ -1,0 +1,172 @@
+import ComponentConfiguration from "@site/src/pages/components-explorer/_components/ComponentConfiguration";
+import ComponentHeader from "@site/src/pages/components-explorer/_components/ComponentHeader";
+import ComponentTroubleshooting from "@site/src/pages/components-explorer/_components/ComponentTroubleshooting/index.mdx";
+
+import ComponentMetadata from "./_meta";
+import config from "./config.json";
+
+<ComponentHeader meta={ComponentMetadata} />
+
+The ONVIF component allows you to manage ONVIF cameras directly in Viseron using the [Profile S](https://www.onvif.org/wp-content/uploads/2019/12/ONVIF_Profile_-S_Specification_v1-3.pdf) Client requirements implementation. Currently, the implementation is limited to the **Device**, **Media**, **Imaging**, and **PTZ** (pan-tilt-zoom) services. And not all operations on the service are implemented in this component, if you feel the implementation of the operation is lacking, [please contribute!](/docs/contributing)
+
+All services can be configured directly via the Viseron Dashboard ([Camera Tuning](/docs/documentation/configuration)), and the PTZ service can also be controlled via the [Telegram component](/components-explorer/components/telegram) or via [Live View](/docs/documentation/configuration/live_view) page.
+
+Since this component's implementation uses the `onvif-python` library, you can visit the project's [GitHub Repository](https://github.com/nirsimetri/onvif-python) for more details.
+
+:::warning
+
+If `auto_config` is set to **false** and one of the configurations under the `device`, `media`, `imaging`, and `ptz` services are filled in, when Viseron starts, these configurations will be set to the ONVIF camera.
+
+If `auto_config` is set to **true**, all service configurations will be ignored and the existing configuration on the ONVIF camera will be used.
+
+:::
+
+:::tip
+
+It is recommended to set `auto_config` to **true** so you can configure further ONVIF settings directly in the [Camera Tuning](/docs/documentation/configuration). But if you want the ONVIF settings to be persistent every time Viseron is started, then you can configure it directly in each key service.
+
+:::
+
+## Configuration
+
+<details>
+  <summary>Configuration example</summary>
+
+```yaml title="/config/config.yaml"
+onvif:
+  cameras:
+    camera_one:
+      port: 2020
+      username: !secret onvif_username
+      password: !secret onvif_password
+      timeout: 15 # set timeout for ONVIF connections
+      use_https: true # use HTTPS for ONVIF connections
+      verify_ssl: false # set to false if using self-signed certificated
+    camera_two:
+      port: 8000
+      username: my_username
+      password: "@myS3curepassword"
+      auto_config: false # will use the configuration below
+      device:
+        ntp_from_dhcp: false
+        ntp_type: DNS
+        ntp_server: pool.ntp.org
+      imaging:
+        brightness: 50.0
+        color_saturation: 50.0
+        contrast: 50.0
+        sharpness: 75.5
+        ircut_filter: AUTO
+        backlight_compensation: OFF
+        exposure:
+          mode: AUTO
+          min_gain: 0.0
+          max_gain: 100.0
+        white_balance:
+          mode: AUTO
+        defogging:
+          mode: ON
+          level: 0.6
+      ptz:
+        home_position: false
+        reverse_pan: true
+        reverse_tilt: false
+        min_pan: -0.73 # used to limit pan swings to useful fov
+        max_pan: 0.04 # used to limit pan swings to useful fov
+        presets: # allows switching between pre-defined (absolute) positions
+          - name: front # name them
+            x: 1.0
+            y: 0.4
+            z: 0.7
+            on_startup: true # have the camera move to this preset when Viseron starts
+          - name: left
+            x: -0.5
+            y: 0.0
+          - name: right
+            x: 0.5
+            y: 0.0
+```
+
+</details>
+
+<ComponentConfiguration meta={ComponentMetadata} config={config} />
+
+## Services
+
+The ONVIF component is structured around several core ONVIF services, each representing a distinct set of capabilities exposed by an ONVIF-compliant device. A service defines what kind of operations can be performed, such as retrieving device information, configuring video streams, adjusting image parameters, or controlling camera movement.
+
+Not every camera supports all services or all operations within a service, as availability depends on the device’s hardware and firmware. This section describes the supported ONVIF services in Viseron, outlines their purpose, and lists the specific operations that are implemented for each service.
+
+### Device
+
+Device service allows you to manage ONVIF devices in the following subcategories: capabilities, system, security, and network. Device service is mandatory for all ONVIF devices, so regardless of your camera brand/model, device service will always be available.
+
+But it should be noted that **not all operations are supported by all types of cameras**, and this **ONVIF component does not implement all operations**. For a more detailed explanation, you can refer to the [official document](https://developer.onvif.org/pub/specs/branches/development/doc/Core.xml) regarding this service. The operations implemented by this component in the Device service are described as follows:
+
+| No  | Area         | Operations                                                                                                                                                                            |
+| --- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Capabilities | `GetCapabilities`, `GetServices`                                                                                                                                                      |
+| 2   | System       | `GetDeviceInformation`, `GetDiscoveryMode`, `SetDiscoveryMode`, `GetScopes`, `AddScopes`, `SetScopes`, `RemoveScopes`, `GetSystemDateAndTime`, `SetSystemDateAndTime`, `SystemReboot` |
+| 3   | Security     | `GetUsers`, `CreateUsers`, `DeleteUsers`, `SetUser`                                                                                                                                   |
+| 4   | Network      | `GetHostname`, `SetHostname`, `GetNTP`, `SetNTP`, `GetNetworkDefaultGateway`, `GetNetworkInterfaces`, `GetNetworkProtocols`, `GetDNS`                                                 |
+
+All Device service operations and settings can be configured via the [Camera Tuning](/docs/documentation/configuration) page.
+
+### Media
+
+### Imaging
+
+Imaging service allows you to control and configure the imaging properties of your ONVIF camera video. The Imaging service is mandatory for ONVIF camera devices with a video source, so if your ONVIF device is a camera, this service is definitely present. For a more detailed explanation, you can refer to the [official document](https://developer.onvif.org/pub/specs/branches/development/doc/Imaging.xml) regarding this service.
+
+Please note that **not all Imaging service operations parameters are supported by your camera**, this component will adjust automatically in the frontend ([Camera Tuning](/docs/documentation/configuration) page) based on your camera capabilities. The operations implemented by this component in the Imaging service are described as follows:
+
+| No  | Area     | Operations                                               |
+| --- | -------- | -------------------------------------------------------- |
+| 1   | Settings | `GetOptions`, `GetImagingSettings`, `SetImagingSettings` |
+| 2   | Focus    | `GetMoveOptions`, `GetStatus`, `Move`, `Stop`            |
+
+All Imaging service operations and settings can be configured via the [Camera Tuning](/docs/documentation/configuration) page.
+
+If you decide not to use auto configuration (`auto_config` is set to `false`) the `brightness`, `color_saturation`, `contrast`, and `sharpness` parameters have their units unspecified and you must know their minimum and maximum values beforehand. If you enter the unit incorrectly, an error will appear.
+
+Then for the parameters `exposure`, `focus`, `wide_dynamic_range`, `white_balance`, `image_stabilization`, `ircut_filter_auto_adjustment`, `tone_compensation`, `defogging`, and `noise_reduction` **must be filled with keys in "snake_case" form**, you can see all the key parameters available in this [WSDL document](https://developer.onvif.org/pub/specs/branches/development/wsdl/ver20/imaging/wsdl/imaging.wsdl).
+
+For example, based on the ONVIF WSDL document, `WideDynamicRange` has several key parameters like this:
+
+```
+WideDynamicRange - optional; [WideDynamicRange20]
+  Mode [WideDynamicMode]
+  Level - optional; [float]
+```
+
+Then for `wide_dynamic_range` it should be configured like this:
+
+```yaml
+wide_dynamic_range:
+  mode: ON
+  level: 50.0
+```
+
+### PTZ
+
+PTZ service allows you to control and configure the Pan, Tilt, and Zoom movements of your ONVIF PTZ camera. As explained in the ONVIF component description above, this PTZ can be controlled via the [Telegram component](/components-explorer/components/telegram) or via [Live View](/docs/documentation/configuration/live_view) page (as a player menu).
+
+:::note
+
+This ONVIF component can still be used on ONVIF-compatible cameras even if the camera itself isn't a PTZ camera. This means you can use/configure services other than PTZ. And if your ONVIF camera does not support PTZ, then the `ptz` key in the configuration or PTZ control will be completely ignored.
+
+:::
+
+But it should be noted that **not all operations are supported by all types of cameras**, and this **ONVIF component does not implement all operations**. For a more detailed explanation, you can refer to the [official document](https://developer.onvif.org/pub/specs/branches/development/doc/PTZ.xml) regarding this service. The operations implemented by this component in the PTZ service are described as follows:
+
+| No  | Area          | Operations                                                                                                  |
+| --- | ------------- | ----------------------------------------------------------------------------------------------------------- |
+| 1   | Movement      | `ContinuousMove`, `RelativeMove`, `AbsoluteMove`, `Stop`                                                    |
+| 2   | Position      | `GotoHomePosition`, `SetHomePosition`, `GetStatus`, `GetPresets`, `GotoPreset`, `SetPreset`, `RemovePreset` |
+| 3   | Configuration | `GetNodes`, `GetConfigurations`, `GetConfigurationOptions`                                                  |
+
+All PTZ service settings can be configured via the [Camera Tuning](/docs/documentation/configuration) page and some settings/operations can be configured on the [Live View](/docs/documentation/configuration/live_view) page.
+
+For transparency, PTZ Control available in [Live View](/docs/documentation/configuration/live_view) uses the `ContinuousMove` operation, which is **mandatory for all ONVIF PTZ cameras**. PTZ Control in the [Telegram component](/components-explorer/components/telegram), however, will use the `RelativeMove` operation if supported by the camera, and will use `ContinuousMove` as a fallback.
+
+<ComponentTroubleshooting meta={ComponentMetadata} />
