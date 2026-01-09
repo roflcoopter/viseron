@@ -100,9 +100,9 @@ class HassMQTTEntity(ABC, Generic[T]):
         return self._mqtt_entity.entity.entity_id
 
     @property
-    def object_id(self):
-        """Return object ID."""
-        return self._mqtt_entity.entity.object_id
+    def default_entity_id(self):
+        """Return default entity ID."""
+        return f"{self.domain}.{self._mqtt_entity.entity.object_id}"
 
     @property
     def state_topic(self):
@@ -124,7 +124,7 @@ class HassMQTTEntity(ABC, Generic[T]):
         """Return config topic."""
         return (
             f"{self._config[CONFIG_HOME_ASSISTANT][CONFIG_DISCOVERY_PREFIX]}/"
-            f"{self.domain}/{self.object_id}/config"
+            f"{self.domain}/{self._mqtt_entity.entity.object_id}/config"
         )
 
     @property
@@ -134,7 +134,9 @@ class HassMQTTEntity(ABC, Generic[T]):
         payload["availability"] = self.availability
         payload["enabled_by_default"] = self.enabled_by_default
         payload["name"] = self.name
-        payload["object_id"] = self.object_id  # last part of Home Assistant entity_id
+        payload[
+            "default_entity_id"
+        ] = self.default_entity_id  # Full Home Assistant entity_id
         payload["unique_id"] = self.unique_id
         payload["state_topic"] = self.state_topic
         payload["value_template"] = "{{ value_json.state }}"
