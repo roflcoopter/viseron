@@ -86,11 +86,11 @@
                     "options": [
                       {
                         "type": "constant",
-                        "value": "Manual"
+                        "value": "NTP"
                       },
                       {
                         "type": "constant",
-                        "value": "NTP"
+                        "value": "Manual"
                       }
                     ],
                     "name": "datetime_type",
@@ -124,15 +124,15 @@
                     "options": [
                       {
                         "type": "constant",
+                        "value": "IPv6"
+                      },
+                      {
+                        "type": "constant",
                         "value": "IPv4"
                       },
                       {
                         "type": "constant",
                         "value": "DNS"
-                      },
-                      {
-                        "type": "constant",
-                        "value": "IPv6"
                       }
                     ],
                     "name": "ntp_type",
@@ -204,15 +204,15 @@
                     "options": [
                       {
                         "type": "constant",
-                        "value": "OFF"
-                      },
-                      {
-                        "type": "constant",
                         "value": "AUTO"
                       },
                       {
                         "type": "constant",
                         "value": "ON"
+                      },
+                      {
+                        "type": "constant",
+                        "value": "OFF"
                       }
                     ],
                     "name": "ircut_filter",
@@ -225,11 +225,11 @@
                     "options": [
                       {
                         "type": "constant",
-                        "value": "OFF"
+                        "value": "ON"
                       },
                       {
                         "type": "constant",
-                        "value": "ON"
+                        "value": "OFF"
                       }
                     ],
                     "name": "backlight_compensation",
