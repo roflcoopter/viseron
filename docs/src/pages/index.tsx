@@ -7,7 +7,7 @@ import {
   Demo,
   FaceActivated,
   GroupObjects,
-  Help,
+  CheckmarkOutline,
   ImageReference,
   Movement,
   Video,
@@ -56,6 +56,15 @@ function HomepageHeader() {
                   <div className={styles.featureTitle}>Camera Agnostic</div>
                   <div className={styles.featureDesc}>
                     Works with any camera brand or type
+                  </div>
+                </div>
+              </Link>
+              <Link to="/components-explorer/components/onvif" className={styles.featureItem}>
+                <CheckmarkOutline size={32} className={styles.featureIcon} />
+                <div>
+                  <div className={styles.featureTitle}>ONVIF Compatible</div>
+                  <div className={styles.featureDesc}>
+                    Control and configure ONVIF cameras
                   </div>
                 </div>
               </Link>
@@ -158,15 +167,6 @@ function HomepageHeader() {
                   <div className={styles.featureTitle}>24/7 Recordings</div>
                   <div className={styles.featureDesc}>
                     Continuous recording with retention
-                  </div>
-                </div>
-              </Link>
-              <Link to="/docs/contributing" className={styles.featureItem}>
-                <Help size={32} className={styles.featureIcon} />
-                <div>
-                  <div className={styles.featureTitle}>Upcoming Features</div>
-                  <div className={styles.featureDesc}>
-                    And more features in the future..
                   </div>
                 </div>
               </Link>
