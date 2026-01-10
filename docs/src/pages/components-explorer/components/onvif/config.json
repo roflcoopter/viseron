@@ -124,15 +124,15 @@
                     "options": [
                       {
                         "type": "constant",
-                        "value": "IPv6"
-                      },
-                      {
-                        "type": "constant",
                         "value": "IPv4"
                       },
                       {
                         "type": "constant",
                         "value": "DNS"
+                      },
+                      {
+                        "type": "constant",
+                        "value": "IPv6"
                       }
                     ],
                     "name": "ntp_type",
@@ -155,7 +155,196 @@
               },
               {
                 "type": "map",
-                "value": [],
+                "value": [
+                  {
+                    "type": "map",
+                    "value": [
+                      {
+                        "type": "select",
+                        "options": [
+                          {
+                            "type": "constant",
+                            "value": "MPEG4"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "H264"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "JPEG"
+                          }
+                        ],
+                        "name": "encoding",
+                        "description": "Used video codec, either Jpeg, H.264 or Mpeg4",
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "type": "map",
+                        "value": [
+                          {
+                            "type": "integer",
+                            "name": "width",
+                            "description": "Number of the columns of the Video image. If there is a 90-degree rotation, this represents the number of lines of the Video image.",
+                            "required": true,
+                            "default": null
+                          },
+                          {
+                            "type": "integer",
+                            "name": "height",
+                            "description": "Number of the lines of the Video image. If there is a 90-degree rotation, this represents the number of columns of the Video image.",
+                            "required": true,
+                            "default": null
+                          }
+                        ],
+                        "name": "resolution",
+                        "description": "Configured video resolution",
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "type": "boolean",
+                        "name": "force_persistence",
+                        "description": "To determine whether this video encoder setting will persist even after a device reboot.",
+                        "optional": true,
+                        "default": true
+                      },
+                      {
+                        "type": "select",
+                        "options": [
+                          {
+                            "type": "constant",
+                            "value": "ASP"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "SP"
+                          }
+                        ],
+                        "name": "mpeg4_profile",
+                        "description": "Only valid if <code>encoding</code> key is set to <code>MPEG4</code>. The Mpeg4 profile, either simple profile (SP) or advanced simple profile (ASP)",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "select",
+                        "options": [
+                          {
+                            "type": "constant",
+                            "value": "High"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "Baseline"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "Extended"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "Main"
+                          }
+                        ],
+                        "name": "h264_profile",
+                        "description": "Only valid if <code>encoding</code> key is set to <code>H264</code>. The H.264 profile, either baseline, main, extended or high",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "float",
+                        "name": "quality",
+                        "description": "Relative value for the video quantizers and the quality of the video. A high value within supported quality range means higher quality",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "integer",
+                        "name": "frame_rate",
+                        "description": "Maximum output framerate in fps. If an <code>encoding_interval</code> is provided the resulting encoded framerate will be reduced by the given factor.",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "integer",
+                        "name": "encoding_interval",
+                        "description": "Interval at which images are encoded and transmitted. (A value of 1 means that every frame is encoded, a value of 2 means that every 2nd frame is encoded ...)",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "integer",
+                        "name": "bitrate_limit",
+                        "description": "the maximum output bitrate in kbps",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "integer",
+                        "name": "gov_length",
+                        "description": "Determines typically the interval in which the I-Frames will be coded. An entry of 1 indicates I-Frames are continuously generated. An entry of 2 indicates that every 2nd image is an I-Frame, and 3 only every 3rd frame, etc. The frames in between are coded as P or B Frames.",
+                        "optional": true,
+                        "default": null
+                      }
+                    ],
+                    "name": "video_encoder",
+                    "description": "Settings applied to your camera's video encoder. These settings will be applied to the <b>media profile that matches the RTSP url</b> you set in the camera domain (<a href='/components-explorer/components/ffmpeg'>ffmpeg</a> or <a href='/components-explorer/components/gstreamer'>gstreamer</a>).",
+                    "optional": true,
+                    "default": null
+                  },
+                  {
+                    "type": "map",
+                    "value": [
+                      {
+                        "type": "select",
+                        "options": [
+                          {
+                            "type": "constant",
+                            "value": "AAC"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "G726"
+                          },
+                          {
+                            "type": "constant",
+                            "value": "G711"
+                          }
+                        ],
+                        "name": "encoding",
+                        "description": "Audio codec used for encoding the audio input (either G.711, G.726 or AAC)",
+                        "required": true,
+                        "default": null
+                      },
+                      {
+                        "type": "boolean",
+                        "name": "force_persistence",
+                        "description": "To determine whether this audio encoder setting will persist even after a device reboot.",
+                        "optional": true,
+                        "default": true
+                      },
+                      {
+                        "type": "integer",
+                        "name": "bitrate",
+                        "description": "The output bitrate in kbps.",
+                        "optional": true,
+                        "default": null
+                      },
+                      {
+                        "type": "integer",
+                        "name": "sample_rate",
+                        "description": "The output sample rate in kHz.",
+                        "optional": true,
+                        "default": null
+                      }
+                    ],
+                    "name": "audio_encoder",
+                    "description": "Settings applied to your camera's audio encoder. These settings will be applied to the <b>media profile that matches the RTSP url</b> you set in the camera domain (<a href='/components-explorer/components/ffmpeg'>ffmpeg</a> or <a href='/components-explorer/components/gstreamer'>gstreamer</a>).",
+                    "optional": true,
+                    "default": null
+                  }
+                ],
                 "name": "media",
                 "description": "Media service configuration.",
                 "optional": true,
@@ -208,11 +397,11 @@
                       },
                       {
                         "type": "constant",
-                        "value": "ON"
+                        "value": "OFF"
                       },
                       {
                         "type": "constant",
-                        "value": "OFF"
+                        "value": "ON"
                       }
                     ],
                     "name": "ircut_filter",
@@ -225,11 +414,11 @@
                     "options": [
                       {
                         "type": "constant",
-                        "value": "ON"
+                        "value": "OFF"
                       },
                       {
                         "type": "constant",
-                        "value": "OFF"
+                        "value": "ON"
                       }
                     ],
                     "name": "backlight_compensation",

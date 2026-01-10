@@ -18,7 +18,13 @@ from viseron.helpers.validators import CameraIdentifier
 from viseron.watchdog.thread_watchdog import RestartableThread
 
 from .const import (
+    AUDIO_ENCODING_MAP,
     COMPONENT,
+    CONFIG_AUDIO_BITRATE,
+    CONFIG_AUDIO_ENCODER,
+    CONFIG_AUDIO_ENCODING,
+    CONFIG_AUDIO_FORCE_PERSISTENCE,
+    CONFIG_AUDIO_SAMPLE_RATE,
     CONFIG_CAMERAS,
     CONFIG_DEVICE,
     CONFIG_DEVICE_DATETIME_TYPE,
@@ -72,6 +78,20 @@ from .const import (
     CONFIG_PTZ_PRESETS,
     CONFIG_PTZ_REVERSE_PAN,
     CONFIG_PTZ_REVERSE_TILT,
+    CONFIG_VIDEO_BITRATE,
+    CONFIG_VIDEO_ENCODER,
+    CONFIG_VIDEO_ENCODING,
+    CONFIG_VIDEO_ENCODING_INTERVAL,
+    CONFIG_VIDEO_FORCE_PERSISTENCE,
+    CONFIG_VIDEO_FRAME_RATE,
+    CONFIG_VIDEO_GOV_LENGTH,
+    CONFIG_VIDEO_H264,
+    CONFIG_VIDEO_MPEG4,
+    CONFIG_VIDEO_QUALITY,
+    CONFIG_VIDEO_RESOLUTION,
+    CONFIG_VIDEO_RESOLUTION_HEIGHT,
+    CONFIG_VIDEO_RESOLUTION_WIDTH,
+    DEFAULT_AUDIO_FORCE_PERSISTENCE,
     DEFAULT_IMAGING_FORCE_PERSISTENCE,
     DEFAULT_ONVIF_AUTO_CONFIG,
     DEFAULT_ONVIF_TIMEOUT,
@@ -81,6 +101,12 @@ from .const import (
     DEFAULT_PTZ_PRESET_ON_STARTUP,
     DEFAULT_PTZ_REVERSE_PAN,
     DEFAULT_PTZ_REVERSE_TILT,
+    DEFAULT_VIDEO_FORCE_PERSISTENCE,
+    DESC_AUDIO_BITRATE,
+    DESC_AUDIO_ENCODER,
+    DESC_AUDIO_ENCODING,
+    DESC_AUDIO_FORCE_PERSISTENCE,
+    DESC_AUDIO_SAMPLE_RATE,
     DESC_CAMERAS,
     DESC_COMPONENT,
     DESC_DEVICE,
@@ -134,10 +160,26 @@ from .const import (
     DESC_PTZ_PRESETS,
     DESC_PTZ_REVERSE_PAN,
     DESC_PTZ_REVERSE_TILT,
+    DESC_VIDEO_BITRATE,
+    DESC_VIDEO_ENCODER,
+    DESC_VIDEO_ENCODING,
+    DESC_VIDEO_ENCODING_INTERVAL,
+    DESC_VIDEO_FORCE_PERSISTENCE,
+    DESC_VIDEO_FRAME_RATE,
+    DESC_VIDEO_GOV_LENGTH,
+    DESC_VIDEO_H264,
+    DESC_VIDEO_MPEG4,
+    DESC_VIDEO_QUALITY,
+    DESC_VIDEO_RESOLUTION,
+    DESC_VIDEO_RESOLUTION_HEIGHT,
+    DESC_VIDEO_RESOLUTION_WIDTH,
     DEVICE_DATETIME_TYPE_MAP,
     DEVICE_NTP_TYPE_MAP,
     IMAGING_BACKLIGHT_COMPENSATION_MAP,
     IMAGING_IRCUT_FILTER_MAP,
+    VIDEO_ENCODING_MAP,
+    VIDEO_H264_MAP,
+    VIDEO_MPEG4_MAP,
 )
 from .device import Device
 from .imaging import Imaging
@@ -188,8 +230,98 @@ DEVICE_SCHEMA = vol.Schema(
     }
 )
 
+# Video Encoder for Media Schema
+VIDEO_SCHEMA = vol.Schema(
+    {
+        vol.Optional(
+            CONFIG_VIDEO_FORCE_PERSISTENCE,
+            description=DESC_VIDEO_FORCE_PERSISTENCE,
+            default=DEFAULT_VIDEO_FORCE_PERSISTENCE,
+        ): bool,
+        vol.Required(
+            CONFIG_VIDEO_ENCODING,
+            description=DESC_VIDEO_ENCODING,
+        ): vol.In(VIDEO_ENCODING_MAP),
+        vol.Optional(
+            CONFIG_VIDEO_MPEG4,
+            description=DESC_VIDEO_MPEG4,
+        ): vol.In(VIDEO_MPEG4_MAP),
+        vol.Optional(
+            CONFIG_VIDEO_H264,
+            description=DESC_VIDEO_H264,
+        ): vol.In(VIDEO_H264_MAP),
+        vol.Required(
+            CONFIG_VIDEO_RESOLUTION,
+            description=DESC_VIDEO_RESOLUTION,
+        ): vol.Schema(
+            {
+                vol.Required(
+                    CONFIG_VIDEO_RESOLUTION_WIDTH,
+                    description=DESC_VIDEO_RESOLUTION_WIDTH,
+                ): int,
+                vol.Required(
+                    CONFIG_VIDEO_RESOLUTION_HEIGHT,
+                    description=DESC_VIDEO_RESOLUTION_HEIGHT,
+                ): int,
+            }
+        ),
+        vol.Optional(
+            CONFIG_VIDEO_QUALITY,
+            description=DESC_VIDEO_QUALITY,
+        ): vol.Coerce(float),
+        vol.Optional(
+            CONFIG_VIDEO_FRAME_RATE,
+            description=DESC_VIDEO_FRAME_RATE,
+        ): int,
+        vol.Optional(
+            CONFIG_VIDEO_ENCODING_INTERVAL,
+            description=DESC_VIDEO_ENCODING_INTERVAL,
+        ): int,
+        vol.Optional(
+            CONFIG_VIDEO_BITRATE,
+            description=DESC_VIDEO_BITRATE,
+        ): int,
+        vol.Optional(
+            CONFIG_VIDEO_GOV_LENGTH,
+            description=DESC_VIDEO_GOV_LENGTH,
+        ): int,
+    }
+)
+
+# Audio Encoder for Media Schema
+AUDIO_SCHEMA = vol.Schema(
+    {
+        vol.Optional(
+            CONFIG_AUDIO_FORCE_PERSISTENCE,
+            description=DESC_AUDIO_FORCE_PERSISTENCE,
+            default=DEFAULT_AUDIO_FORCE_PERSISTENCE,
+        ): bool,
+        vol.Required(
+            CONFIG_AUDIO_ENCODING,
+            description=DESC_AUDIO_ENCODING,
+        ): vol.In(AUDIO_ENCODING_MAP),
+        vol.Optional(
+            CONFIG_AUDIO_BITRATE,
+            description=DESC_AUDIO_BITRATE,
+        ): int,
+        vol.Optional(
+            CONFIG_AUDIO_SAMPLE_RATE,
+            description=DESC_AUDIO_SAMPLE_RATE,
+        ): int,
+    }
+)
+
 # Media Service Schema
-MEDIA_SCHEMA = vol.Schema({})
+MEDIA_SCHEMA = vol.Schema(
+    {
+        vol.Optional(
+            CONFIG_VIDEO_ENCODER, description=DESC_VIDEO_ENCODER
+        ): VIDEO_SCHEMA,
+        vol.Optional(
+            CONFIG_AUDIO_ENCODER, description=DESC_AUDIO_ENCODER
+        ): AUDIO_SCHEMA,
+    }
+)
 
 # Imaging Service Schema
 IMAGING_SCHEMA = vol.Schema(

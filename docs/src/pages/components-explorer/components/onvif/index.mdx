@@ -114,6 +114,24 @@ All Device service operations and settings can be configured via the [Camera Tun
 
 ### Media
 
+The Media service allows you to manage and configure the video and audio streams transmitted by your ONVIF camera. This service is responsible for stream profiles, video encoder configuration, audio encoder configuration, and managing the camera's built-in OSD (On-Screen Display).
+
+The Media service is mandatory for ONVIF devices that provide media streaming capabilities, so all ONVIF-compatible cameras with video output will support this service. However, **not all cameras support all Media operations or configuration options**, as availability depends on the camera hardware and firmware.
+
+This ONVIF component does **not implement all Media service operations** defined in the ONVIF specification. For a more detailed explanation, you can refer to the [official document](https://developer.onvif.org/pub/specs/branches/development/doc/Media.xml) regarding this service. The operations implemented by this component in the Media service are described as follows:
+
+| No  | Area     | Operations                                                                                            |
+| --- | -------- | ----------------------------------------------------------------------------------------------------- |
+| 1   | Profiles | `GetProfiles`, `GetProfile`, `CreateProfile`, `DeleteProfile`                                         |
+| 2   | URI      | `GetStreamUri`, `GetSnapshotUri`                                                                      |
+| 3   | Video    | `GetVideoEncoderConfiguration`, `GetVideoEncoderConfigurationOptions`, `SetVideoEncoderConfiguration` |
+| 4   | Audio    | `GetAudioEncoderConfiguration`, `GetAudioEncoderConfigurationOptions`, `SetVideoEncoderConfiguration` |
+| 5   | OSD      | `GetOSD`, `GetOSDs`, `GetOSDOptions`, `CreateOSD`, `DeleteOSD`, `SetOSD`                              |
+
+All Media service operations and settings can be configured via the [Camera Tuning](/docs/documentation/configuration) page.
+
+If you decide not to use auto configuration (`auto_config` is set to `false`), this ONVIF component **assumes that you know the variable options for each key in `video_encoder` and `audio_encoder`**. If you fill them in incorrectly, an error will appear.
+
 ### Imaging
 
 Imaging service allows you to control and configure the imaging properties of your ONVIF camera video. The Imaging service is mandatory for ONVIF camera devices with a video source, so if your ONVIF device is a camera, this service is definitely present. For a more detailed explanation, you can refer to the [official document](https://developer.onvif.org/pub/specs/branches/development/doc/Imaging.xml) regarding this service.

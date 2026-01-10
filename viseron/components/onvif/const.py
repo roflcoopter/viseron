@@ -21,6 +21,22 @@ DEFAULT_ONVIF_USE_HTTPS = False
 DEFAULT_ONVIF_VERIFY_SSL = True
 DEFAULT_ONVIF_AUTO_CONFIG = True
 
+DESC_CAMERAS = "List of ONVIF cameras to make available to the component."
+DESC_ONVIF_PORT = "ONVIF port of the camera."
+DESC_ONVIF_USERNAME = "ONVIF username for the camera."
+DESC_ONVIF_PASSWORD = "ONVIF password for the camera."
+
+DESC_ONVIF_TIMEOUT = "Timeout for ONVIF connections in seconds."
+DESC_ONVIF_USE_HTTPS = "Use HTTPS for ONVIF connections."
+DESC_ONVIF_VERIFY_SSL = "Verify SSL certificates for ONVIF connections."
+DESC_ONVIF_WSDL_DIR = "Path to custom WSDL directory for ONVIF client."
+DESC_ONVIF_AUTO_CONFIG = (
+    "Set to <code>true</code> then it <b>will ignore all configuration</b> per each "
+    "service and use the default service that is already on the ONVIF camera. Don't "
+    "worry! This ONVIF component will automatically detect the existing "
+    "configuration in the ONVIF camera precisely."
+)
+
 """
 If all the service configurations below are filled in, then when Viseron starts up all
 these configurations will be overridden to the ONVIF device and only if the auto_config
@@ -40,72 +56,6 @@ CONFIG_DEVICE_NTP_FROM_DHCP = "ntp_from_dhcp"
 CONFIG_DEVICE_NTP_TYPE = "ntp_type"
 DEVICE_NTP_TYPE_MAP = {"DNS", "IPv4", "IPv6"}
 CONFIG_DEVICE_NTP_SERVER = "ntp_server"
-
-# ONVIF IMAGING CONFIG
-CONFIG_IMAGING = "imaging"
-CONFIG_IMAGING_FORCE_PERSISTENCE = "force_persistence"
-CONFIG_IMAGING_BRIGHTNESS = "brightness"
-CONFIG_IMAGING_COLOR_SATURATION = "color_saturation"
-CONFIG_IMAGING_CONTRAST = "contrast"
-CONFIG_IMAGING_SHARPNESS = "sharpness"
-CONFIG_IMAGING_IRCUT_FILTER = "ircut_filter"
-IMAGING_IRCUT_FILTER_MAP = {"ON", "OFF", "AUTO"}
-CONFIG_IMAGING_BACKLIGHT_COMPENSATION = "backlight_compensation"
-IMAGING_BACKLIGHT_COMPENSATION_MAP = {"ON", "OFF"}
-CONFIG_IMAGING_EXPOSURE = "exposure"
-CONFIG_IMAGING_FOCUS = "focus"
-CONFIG_IMAGING_WIDE_DYNAMIC_RANGE = "wide_dynamic_range"
-CONFIG_IMAGING_WHITE_BALANCE = "white_balance"
-CONFIG_IMAGING_IMAGE_STABILIZATION = "image_stabilization"
-CONFIG_IMAGING_IRCUT_FILTER_AUTO_ADJUSTMENT = "ircut_filter_auto_adjustment"
-CONFIG_IMAGING_TONE_COMPENSATION = "tone_compensation"
-CONFIG_IMAGING_DEFOGGING = "defogging"
-CONFIG_IMAGING_NOISE_REDUCTION = "noise_reduction"
-
-DEFAULT_IMAGING_FORCE_PERSISTENCE = True
-
-# ONVIF MEDIA CONFIG
-CONFIG_MEDIA = "media"
-
-# ONVIF PTZ CONFIG
-CONFIG_PTZ = "ptz"
-CONFIG_PTZ_HOME_POSITION = "home_position"
-CONFIG_PTZ_REVERSE_PAN = "reverse_pan"
-CONFIG_PTZ_REVERSE_TILT = "reverse_tilt"
-CONFIG_PTZ_MIN_PAN = "min_pan"
-CONFIG_PTZ_MAX_PAN = "max_pan"
-CONFIG_PTZ_MIN_TILT = "min_tilt"
-CONFIG_PTZ_MAX_TILT = "max_tilt"
-CONFIG_PTZ_MIN_ZOOM = "min_zoom"
-CONFIG_PTZ_MAX_ZOOM = "max_zoom"
-CONFIG_PTZ_PRESETS = "presets"
-CONFIG_PTZ_PRESET_NAME = "name"
-CONFIG_PTZ_PRESET_PAN = "pan"
-CONFIG_PTZ_PRESET_TILT = "tilt"
-CONFIG_PTZ_PRESET_ZOOM = "zoom"
-CONFIG_PTZ_PRESET_ON_STARTUP = "on_startup"
-
-DEFAULT_PTZ_HOME_POSITION = False
-DEFAULT_PTZ_REVERSE_PAN = False
-DEFAULT_PTZ_REVERSE_TILT = False
-DEFAULT_PTZ_PRESET_ON_STARTUP = False
-
-# ONVIF CONFIG DESCRIPTIONS
-DESC_CAMERAS = "List of ONVIF cameras to make available to the component."
-DESC_ONVIF_PORT = "ONVIF port of the camera."
-DESC_ONVIF_USERNAME = "ONVIF username for the camera."
-DESC_ONVIF_PASSWORD = "ONVIF password for the camera."
-
-DESC_ONVIF_TIMEOUT = "Timeout for ONVIF connections in seconds."
-DESC_ONVIF_USE_HTTPS = "Use HTTPS for ONVIF connections."
-DESC_ONVIF_VERIFY_SSL = "Verify SSL certificates for ONVIF connections."
-DESC_ONVIF_WSDL_DIR = "Path to custom WSDL directory for ONVIF client."
-DESC_ONVIF_AUTO_CONFIG = (
-    "Set to <code>true</code> then it <b>will ignore all configuration</b> per each "
-    "service and use the default service that is already on the ONVIF camera. Don't "
-    "worry! This ONVIF component will automatically detect the existing "
-    "configuration in the ONVIF camera precisely."
-)
 
 DESC_DEVICE = "Device service configuration."
 DESC_DEVICE_HOSTNAME = "The hostname of the device."
@@ -133,9 +83,28 @@ DESC_DEVICE_NTP_SERVER = (
     "key is set to <code>true</code>. "
 )
 
+# ONVIF IMAGING CONFIG
+CONFIG_IMAGING = "imaging"
+CONFIG_IMAGING_FORCE_PERSISTENCE = "force_persistence"
+CONFIG_IMAGING_BRIGHTNESS = "brightness"
+CONFIG_IMAGING_COLOR_SATURATION = "color_saturation"
+CONFIG_IMAGING_CONTRAST = "contrast"
+CONFIG_IMAGING_SHARPNESS = "sharpness"
+CONFIG_IMAGING_IRCUT_FILTER = "ircut_filter"
+IMAGING_IRCUT_FILTER_MAP = {"ON", "OFF", "AUTO"}
+CONFIG_IMAGING_BACKLIGHT_COMPENSATION = "backlight_compensation"
+IMAGING_BACKLIGHT_COMPENSATION_MAP = {"ON", "OFF"}
+CONFIG_IMAGING_EXPOSURE = "exposure"
+CONFIG_IMAGING_FOCUS = "focus"
+CONFIG_IMAGING_WIDE_DYNAMIC_RANGE = "wide_dynamic_range"
+CONFIG_IMAGING_WHITE_BALANCE = "white_balance"
+CONFIG_IMAGING_IMAGE_STABILIZATION = "image_stabilization"
+CONFIG_IMAGING_IRCUT_FILTER_AUTO_ADJUSTMENT = "ircut_filter_auto_adjustment"
+CONFIG_IMAGING_TONE_COMPENSATION = "tone_compensation"
+CONFIG_IMAGING_DEFOGGING = "defogging"
+CONFIG_IMAGING_NOISE_REDUCTION = "noise_reduction"
 
-DESC_MEDIA = "Media service configuration."
-
+DEFAULT_IMAGING_FORCE_PERSISTENCE = True
 
 DESC_IMAGING = "Imaging service configuration."
 DESC_IMAGING_FORCE_PERSISTENCE = (
@@ -166,6 +135,120 @@ DESC_IMAGING_TONE_COMPENSATION = (
 DESC_IMAGING_DEFOGGING = "Optional element to configure Image Defogging."
 DESC_IMAGING_NOISE_REDUCTION = "Optional element to configure Image Noise Reduction."
 
+# ONVIF MEDIA CONFIG
+CONFIG_MEDIA = "media"
+CONFIG_VIDEO_ENCODER = "video_encoder"
+CONFIG_VIDEO_FORCE_PERSISTENCE = "force_persistence"
+CONFIG_VIDEO_ENCODING = "encoding"
+VIDEO_ENCODING_MAP = {"JPEG", "MPEG4", "H264"}
+CONFIG_VIDEO_MPEG4 = "mpeg4_profile"
+VIDEO_MPEG4_MAP = {"SP", "ASP"}
+CONFIG_VIDEO_H264 = "h264_profile"
+VIDEO_H264_MAP = {"Baseline", "Main", "Extended", "High"}
+CONFIG_VIDEO_RESOLUTION = "resolution"
+CONFIG_VIDEO_RESOLUTION_WIDTH = "width"
+CONFIG_VIDEO_RESOLUTION_HEIGHT = "height"
+CONFIG_VIDEO_QUALITY = "quality"
+CONFIG_VIDEO_FRAME_RATE = "frame_rate"
+CONFIG_VIDEO_ENCODING_INTERVAL = "encoding_interval"
+CONFIG_VIDEO_BITRATE = "bitrate_limit"
+CONFIG_VIDEO_GOV_LENGTH = "gov_length"
+CONFIG_AUDIO_ENCODER = "audio_encoder"
+CONFIG_AUDIO_FORCE_PERSISTENCE = "force_persistence"
+CONFIG_AUDIO_ENCODING = "encoding"
+AUDIO_ENCODING_MAP = {"G711", "G726", "AAC"}
+CONFIG_AUDIO_BITRATE = "bitrate"
+CONFIG_AUDIO_SAMPLE_RATE = "sample_rate"
+
+DEFAULT_VIDEO_FORCE_PERSISTENCE = True
+DEFAULT_AUDIO_FORCE_PERSISTENCE = True
+
+DESC_MEDIA = "Media service configuration."
+DESC_VIDEO_ENCODER = (
+    "Settings applied to your camera's video encoder. These settings will be applied "
+    "to the <b>media profile that matches the RTSP url</b> you set in the camera domain"
+    " (<a href='/components-explorer/components/ffmpeg'>ffmpeg</a> or <a "
+    "href='/components-explorer/components/gstreamer'>gstreamer</a>)."
+)
+DESC_VIDEO_FORCE_PERSISTENCE = (
+    "To determine whether this video encoder setting will persist even after a "
+    "device reboot."
+)
+DESC_VIDEO_ENCODING = "Used video codec, either Jpeg, H.264 or Mpeg4"
+DESC_VIDEO_MPEG4 = (
+    "Only valid if <code>encoding</code> key is set to <code>MPEG4</code>. The Mpeg4 "
+    "profile, either simple profile (SP) or advanced simple profile (ASP)"
+)
+DESC_VIDEO_H264 = (
+    "Only valid if <code>encoding</code> key is set to <code>H264</code>. The H.264 "
+    "profile, either baseline, main, extended or high"
+)
+DESC_VIDEO_RESOLUTION = "Configured video resolution"
+DESC_VIDEO_RESOLUTION_WIDTH = (
+    "Number of the columns of the Video image. If there is a 90-degree rotation, this "
+    "represents the number of lines of the Video image."
+)
+DESC_VIDEO_RESOLUTION_HEIGHT = (
+    "Number of the lines of the Video image. If there is a 90-degree rotation, this "
+    "represents the number of columns of the Video image."
+)
+DESC_VIDEO_QUALITY = (
+    "Relative value for the video quantizers and the quality of the video. A high "
+    "value within supported quality range means higher quality"
+)
+DESC_VIDEO_FRAME_RATE = (
+    "Maximum output framerate in fps. If an <code>encoding_interval</code> is provided "
+    "the resulting encoded framerate will be reduced by the given factor."
+)
+DESC_VIDEO_ENCODING_INTERVAL = (
+    "Interval at which images are encoded and transmitted. (A value of 1 means that "
+    "every frame is encoded, a value of 2 means that every 2nd frame is encoded ...)"
+)
+DESC_VIDEO_BITRATE = "the maximum output bitrate in kbps"
+DESC_VIDEO_GOV_LENGTH = (
+    "Determines typically the interval in which the I-Frames will be coded. An entry "
+    "of 1 indicates I-Frames are continuously generated. An entry of 2 indicates that "
+    "every 2nd image is an I-Frame, and 3 only every 3rd frame, etc. The frames in "
+    "between are coded as P or B Frames."
+)
+DESC_AUDIO_ENCODER = (
+    "Settings applied to your camera's audio encoder. These settings will be applied "
+    "to the <b>media profile that matches the RTSP url</b> you set in the camera domain"
+    " (<a href='/components-explorer/components/ffmpeg'>ffmpeg</a> or <a "
+    "href='/components-explorer/components/gstreamer'>gstreamer</a>)."
+)
+DESC_AUDIO_FORCE_PERSISTENCE = (
+    "To determine whether this audio encoder setting will persist even after a "
+    "device reboot."
+)
+DESC_AUDIO_ENCODING = (
+    "Audio codec used for encoding the audio input (either G.711, G.726 or AAC)"
+)
+DESC_AUDIO_BITRATE = "The output bitrate in kbps."
+DESC_AUDIO_SAMPLE_RATE = "The output sample rate in kHz."
+
+# ONVIF PTZ CONFIG
+CONFIG_PTZ = "ptz"
+CONFIG_PTZ_HOME_POSITION = "home_position"
+CONFIG_PTZ_REVERSE_PAN = "reverse_pan"
+CONFIG_PTZ_REVERSE_TILT = "reverse_tilt"
+CONFIG_PTZ_MIN_PAN = "min_pan"
+CONFIG_PTZ_MAX_PAN = "max_pan"
+CONFIG_PTZ_MIN_TILT = "min_tilt"
+CONFIG_PTZ_MAX_TILT = "max_tilt"
+CONFIG_PTZ_MIN_ZOOM = "min_zoom"
+CONFIG_PTZ_MAX_ZOOM = "max_zoom"
+CONFIG_PTZ_PRESETS = "presets"
+CONFIG_PTZ_PRESET_NAME = "name"
+CONFIG_PTZ_PRESET_PAN = "pan"
+CONFIG_PTZ_PRESET_TILT = "tilt"
+CONFIG_PTZ_PRESET_ZOOM = "zoom"
+CONFIG_PTZ_PRESET_ON_STARTUP = "on_startup"
+
+DEFAULT_PTZ_HOME_POSITION = False
+DEFAULT_PTZ_REVERSE_PAN = False
+DEFAULT_PTZ_REVERSE_TILT = False
+DEFAULT_PTZ_PRESET_ON_STARTUP = False
 
 DESC_PTZ = "PTZ service configuration."
 DESC_PTZ_HOME_POSITION = (
