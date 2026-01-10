@@ -5,6 +5,12 @@ import queryClient, { clientId, viseronAPI } from "lib/api/client";
 import { clearTokens, setManualLogout, storeTokens } from "lib/tokens";
 import * as types from "lib/types";
 
+export const ROLE_LABELS: Record<string, string> = {
+  admin: "Administrator",
+  read: "Read Only",
+  write: "Read & Write",
+};
+
 interface AuthCreateVariables {
   name: string;
   username: string;
