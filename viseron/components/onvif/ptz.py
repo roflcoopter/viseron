@@ -25,7 +25,7 @@ from .const import (
     CONFIG_PTZ_REVERSE_PAN,
     CONFIG_PTZ_REVERSE_TILT,
 )
-from .utils import find_matching_profile_token, operation
+from .utils import operation
 
 if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
@@ -59,40 +59,10 @@ class PTZ:
         """Initialize the PTZ service."""
         self._ptz_service = self._client.ptz()
 
-        if self._media_service is None:
-            LOGGER.warning(
-                f"Media service not available for {self._camera.identifier}, "
-                "PTZ operations may not work correctly"
-            )
-            return
+        self._media_profile = self._media_service.get_selected_profile()
 
-        profiles = self._media_service.get_cached_profiles()
-        if profiles:
-            # Try to find matching profile based on camera's RTSP URL
-            self._media_profile = await find_matching_profile_token(
-                self._camera, self._media_service, profiles
-            )
-
-            if self._media_profile:
-                LOGGER.debug(
-                    f"Using matching profile {self._media_profile.token} for "
-                    f"PTZ service on camera {self._camera.identifier}"
-                )
-            else:
-                # Fallback to first profile
-                self._media_profile = profiles[0]
-                LOGGER.warning(
-                    f"No matching profile found, using first profile for "
-                    f"PTZ service on camera {self._camera.identifier}"
-                )
-
-            self._ptz_config = await self.get_configurations()
-            self._ptz_config_options = await self.get_configuration_options()
-        else:
-            LOGGER.warning(
-                f"No media profiles found for {self._camera.identifier}, "
-                "PTZ operations may not work correctly"
-            )
+        self._ptz_config = await self.get_configurations()
+        self._ptz_config_options = await self.get_configuration_options()
 
         if not self._auto_config and self._config:
             await self.apply_config()

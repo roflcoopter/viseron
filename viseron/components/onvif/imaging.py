@@ -27,7 +27,7 @@ from .const import (
     CONFIG_IMAGING_WIDE_DYNAMIC_RANGE,
     DEFAULT_IMAGING_FORCE_PERSISTENCE,
 )
-from .utils import find_matching_profile_token, operation
+from .utils import operation
 
 if TYPE_CHECKING:
     from viseron.domains.camera import AbstractCamera
@@ -53,6 +53,7 @@ class Imaging:
         self._media_service = (
             media_service  # you can't use imaging without media service
         )
+        self._media_profile: Any = None  # selected media profile
         self._imaging_service: Any = None
         self._video_source_token: str | None = None
 
@@ -61,34 +62,10 @@ class Imaging:
 
         self._imaging_service = self._client.imaging()
 
-        profiles = self._media_service.get_cached_profiles()
-        if profiles:
-            # Try to find matching profile based on camera's RTSP URL
-            matching_profile = await find_matching_profile_token(
-                self._camera, self._media_service, profiles
-            )
-            if matching_profile:
-                self._video_source_token = (
-                    matching_profile.VideoSourceConfiguration.SourceToken
-                )
-                LOGGER.debug(
-                    f"Using matching profile {matching_profile.token} for "
-                    f"Imaging service on camera {self._camera.identifier}"
-                )
-            else:
-                # Fallback to first profile
-                self._video_source_token = profiles[
-                    0
-                ].VideoSourceConfiguration.SourceToken
-                LOGGER.warning(
-                    f"No matching profile found, using first profile for "
-                    f"Imaging service on camera {self._camera.identifier}"
-                )
-        else:
-            LOGGER.warning(
-                f"No media profiles found for {self._camera.identifier}, "
-                "Imaging operations may not work correctly"
-            )
+        self._media_profile = self._media_service.get_selected_profile()
+        self._video_source_token = (
+            self._media_profile.VideoSourceConfiguration.SourceToken
+        )
 
         if not self._auto_config and self._config:
             await self.apply_config()

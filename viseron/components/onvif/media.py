@@ -63,7 +63,7 @@ class Media:
         if self._profiles:
             # Try to find matching profile based on camera's RTSP URL
             self._selected_profile = await find_matching_profile_token(
-                self._camera, self._media_service, self._profiles
+                self._camera, self, self._profiles
             )
 
             if self._selected_profile:
@@ -226,9 +226,9 @@ class Media:
 
     # ## Profile Accessors ## #
 
-    def get_cached_profiles(self):
-        """Get cached media profiles without making ONVIF call."""
-        return self._profiles
+    def get_selected_profile(self):
+        """Get selected media profile without making ONVIF call."""
+        return self._selected_profile
 
     def get_primary_profile(self):
         """Get the primary (first) media profile."""
