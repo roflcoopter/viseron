@@ -20,7 +20,14 @@ import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
 import { useDeleteRecording } from "lib/api/recordings";
-import { getTimeFromDate, getVideoElement, objHasValues } from "lib/helpers";
+import {
+  getDateStringFromDayjs,
+  getDayjsFromDateString,
+  getDayjsFromDateTimeString,
+  getTimeStringFromDayjs,
+  getVideoElement,
+  objHasValues,
+} from "lib/helpers";
 import * as types from "lib/types";
 
 interface RecordingCardDailyProps {
@@ -54,7 +61,9 @@ export default function RecordingCardDaily({
       }
     >
       <CardContent>
-        <Typography variant="h6">{date}</Typography>
+        <Typography variant="h6">
+          {getDateStringFromDayjs(getDayjsFromDateString(date))}
+        </Typography>
       </CardContent>
       <CardMedia>
         <LazyLoad
@@ -102,7 +111,9 @@ export default function RecordingCardDaily({
             <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
               Latest recording:{"\n"}
               <span style={{ color: theme.palette.info.main }}>
-                {getTimeFromDate(new Date(recording.start_time))}
+                {getTimeStringFromDayjs(
+                  getDayjsFromDateTimeString(recording.start_time),
+                )}
               </span>
             </Typography>
           ) : (

@@ -1,10 +1,10 @@
 import { QueryClient, QueryKey } from "@tanstack/react-query";
 import axios from "axios";
-import dayjs from "dayjs";
 import { useContext, useEffect } from "react";
 
 import { ViseronContext } from "context/ViseronContext";
 import { subscribeEvent, subscribeStates } from "lib/commands";
+import { getDayjs } from "lib/helpers";
 import * as types from "lib/types";
 
 // Detect base path from the current URL for subpath support
@@ -25,7 +25,7 @@ export const viseronAPI = axios.create({
   headers: {
     "Content-Type": "application/json",
     "X-Requested-With": "XMLHttpRequest",
-    "X-Client-UTC-Offset": dayjs().utcOffset().toString(),
+    "X-Client-UTC-Offset": getDayjs().utcOffset().toString(),
   },
 });
 export const clientId = (): string =>

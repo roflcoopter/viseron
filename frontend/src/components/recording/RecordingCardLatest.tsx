@@ -18,7 +18,13 @@ import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPla
 import { useAuthContext } from "context/AuthContext";
 import { useCamera } from "lib/api/camera";
 import { useDeleteRecording, useRecordings } from "lib/api/recordings";
-import { getTimeFromDate, getVideoElement, objHasValues } from "lib/helpers";
+import {
+  getDateStringFromDayjs,
+  getDayjsFromDateTimeString,
+  getTimeStringFromDayjs,
+  getVideoElement,
+  objHasValues,
+} from "lib/helpers";
 import * as types from "lib/types";
 
 interface RecordingCardLatestProps {
@@ -166,8 +172,10 @@ export default function RecordingCardLatest({
               Latest recording:{"\n"}
               <span style={{ color: theme.palette.info.main }}>
                 {(() => {
-                  const startDate = new Date(recording.start_time);
-                  return `${startDate.toLocaleDateString()} - ${getTimeFromDate(startDate)}`;
+                  const startDate = getDayjsFromDateTimeString(
+                    recording.start_time,
+                  );
+                  return `${getDateStringFromDayjs(startDate)} - ${getTimeStringFromDayjs(startDate)}`;
                 })()}
               </span>
             </Typography>

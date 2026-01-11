@@ -1,10 +1,9 @@
-import dayjs from "dayjs";
 import React from "react";
 
 import { Toast, toastIds } from "hooks/UseToast";
 import { authToken } from "lib/api/auth";
 import { BASE_PATH, clientId } from "lib/api/client";
-import { sleep } from "lib/helpers";
+import { getDayjs, sleep } from "lib/helpers";
 import * as messages from "lib/messages";
 import { loadTokens, tokenExpired } from "lib/tokens";
 import * as types from "lib/types";
@@ -214,7 +213,7 @@ export class Connection {
       return;
     }
 
-    document.cookie = `X-Client-UTC-Offset=${dayjs().utcOffset()}; path=${BASE_PATH}/websocket`;
+    document.cookie = `X-Client-UTC-Offset=${getDayjs().utcOffset()}; path=${BASE_PATH}/websocket`;
     const wsURL = `${
       window.location.protocol === "https:" ? "wss://" : "ws://"
     }${location.host}${BASE_PATH}/websocket`;

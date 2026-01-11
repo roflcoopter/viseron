@@ -1,6 +1,6 @@
 import Typography from "@mui/material/Typography";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import dayjs, { Dayjs } from "dayjs";
+import { Dayjs } from "dayjs";
 import { memo, useLayoutEffect, useMemo, useState } from "react";
 
 import { useFilteredCameras } from "components/camera/useCameraStore";
@@ -12,7 +12,7 @@ import {
 } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { useEventsMultiple } from "lib/api/events";
-import { objIsEmpty } from "lib/helpers";
+import { getDateStringFromDayjs, objIsEmpty } from "lib/helpers";
 import * as types from "lib/types";
 
 // Group events that are within 2 minutes of each other
@@ -62,16 +62,16 @@ const useGroupedEvents = (snapshotEvents: types.CameraEvent[]) => {
 
 type EventTableProps = {
   parentRef: React.RefObject<HTMLDivElement | null>;
-  date: Dayjs | null;
+  date: Dayjs;
 };
 
 export const EventTable = memo(({ parentRef, date }: EventTableProps) => {
-  const formattedDate = dayjs(date).format("YYYY-MM-DD");
+  const dateString = getDateStringFromDayjs(date);
   const [elementHeight, setElementHeight] = useState<number | null>(null);
   const filteredCameras = useFilteredCameras();
   const eventsQueries = useEventsMultiple({
     camera_identifiers: Object.keys(filteredCameras),
-    date: formattedDate,
+    date: dateString,
     configOptions: { enabled: !!date },
   });
 
@@ -99,7 +99,7 @@ export const EventTable = memo(({ parentRef, date }: EventTableProps) => {
   if (!eventsQueries.data || objIsEmpty(eventsQueries.data)) {
     return (
       <Typography align="center" padding={2}>
-        No Events found for {formattedDate}
+        No Events found for {dateString}.
       </Typography>
     );
   }

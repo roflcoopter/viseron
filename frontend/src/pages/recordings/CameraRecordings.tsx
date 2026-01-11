@@ -1,7 +1,7 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
-import dayjs, { Dayjs } from "dayjs";
+import { Dayjs } from "dayjs";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
@@ -14,7 +14,7 @@ import { RecordingHeader } from "components/recording/RecordingHeader";
 import { useTitle } from "hooks/UseTitle";
 import { useCamera } from "lib/api/camera";
 import { useRecordings } from "lib/api/recordings";
-import { objHasValues } from "lib/helpers";
+import { getDayjsFromDateString, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
 type CameraRecordingsParams = {
@@ -74,7 +74,7 @@ function CameraRecordings() {
   const filteredDates =
     startDate && endDate
       ? availableDates.filter((date) => {
-          const d = dayjs(date);
+          const d = getDayjsFromDateString(date);
           return (
             (d.isAfter(startDate, "day") || d.isSame(startDate, "day")) &&
             (d.isBefore(endDate, "day") || d.isSame(endDate, "day"))

@@ -1,7 +1,7 @@
 import Container from "@mui/material/Container";
 import Grid from "@mui/material/Grid";
 import Grow from "@mui/material/Grow";
-import dayjs, { Dayjs } from "dayjs";
+import { Dayjs } from "dayjs";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
@@ -14,7 +14,11 @@ import { RecordingHeaderDaily } from "components/recording/RecordingHeaderDaily"
 import { useTitle } from "hooks/UseTitle";
 import { useCamera } from "lib/api/camera";
 import { useRecordings } from "lib/api/recordings";
-import { objHasValues } from "lib/helpers";
+import {
+  getDayjsFromDateString,
+  getDayjsFromDateTimeString,
+  objHasValues,
+} from "lib/helpers";
 import * as types from "lib/types";
 
 type CameraRecordingsDailyParams = {
@@ -79,7 +83,9 @@ function CameraRecordingsDaily() {
     startTime && endTime
       ? allRecordings.filter((recording) => {
           const recordingData = recordingsQuery.data[date][recording];
-          const recordingTime = dayjs(recordingData.start_time);
+          const recordingTime = getDayjsFromDateTimeString(
+            recordingData.start_time,
+          );
           const timeMatch =
             (recordingTime.isAfter(startTime) ||
               recordingTime.isSame(startTime)) &&
@@ -104,7 +110,7 @@ function CameraRecordingsDaily() {
   const handleStartTimeChange = (newValue: Dayjs | null) => {
     if (newValue) {
       // Set time with the correct date context
-      const timeWithDate = dayjs(date)
+      const timeWithDate = getDayjsFromDateString(date)
         .hour(newValue.hour())
         .minute(newValue.minute())
         .second(newValue.second());
@@ -117,7 +123,7 @@ function CameraRecordingsDaily() {
   const handleEndTimeChange = (newValue: Dayjs | null) => {
     if (newValue) {
       // Set time with the correct date context
-      const timeWithDate = dayjs(date)
+      const timeWithDate = getDayjsFromDateString(date)
         .hour(newValue.hour())
         .minute(newValue.minute())
         .second(newValue.second());

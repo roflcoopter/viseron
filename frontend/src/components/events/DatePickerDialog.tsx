@@ -6,10 +6,11 @@ import {
   DateValidationError,
   PickerChangeHandlerContext,
 } from "@mui/x-date-pickers/models";
-import dayjs, { Dayjs } from "dayjs";
+import { Dayjs } from "dayjs";
 
 import { useFilteredCameras } from "components/camera/useCameraStore";
 import { useEventsDatesOfInterest } from "lib/api/events";
+import { DATE_FORMAT } from "lib/helpers";
 import * as types from "lib/types";
 
 function HasEvent(
@@ -18,16 +19,16 @@ function HasEvent(
   },
 ) {
   const { highlightedDays = {}, day, outsideCurrentMonth, ...other } = props;
-  const date = day.format("YYYY-MM-DD");
+  const dateString = day.format(DATE_FORMAT);
   const isSelected =
-    !outsideCurrentMonth && Object.keys(highlightedDays).includes(date);
+    !outsideCurrentMonth && Object.keys(highlightedDays).includes(dateString);
   return (
     <Badge
       key={day.toString()}
       overlap="circular"
       badgeContent={
-        isSelected && highlightedDays[date].events > 0
-          ? highlightedDays[date].events
+        isSelected && highlightedDays[dateString].events > 0
+          ? highlightedDays[dateString].events
           : undefined
       }
       max={99}
@@ -96,7 +97,7 @@ export function DatePickerDialog({
         onChange={onChange}
         onAccept={handleClose}
         onClose={handleClose}
-        value={dayjs(date)}
+        value={date || undefined}
         slots={{
           day: HasEvent,
         }}

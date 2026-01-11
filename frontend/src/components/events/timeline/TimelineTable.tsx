@@ -1,4 +1,4 @@
-import dayjs, { Dayjs } from "dayjs";
+import { Dayjs } from "dayjs";
 import { memo, useContext, useEffect, useMemo, useRef, useState } from "react";
 import ServerDown from "svg/undraw/server_down.svg?react";
 import { useShallow } from "zustand/react/shallow";
@@ -22,12 +22,12 @@ import {
 import { Loading } from "components/loading/Loading";
 import { ViseronContext } from "context/ViseronContext";
 import { useEventsMultiple } from "lib/api/events";
-import { dateToTimestamp, objHasValues } from "lib/helpers";
+import { DATE_FORMAT, getDayjs, objHasValues } from "lib/helpers";
 import * as types from "lib/types";
 
 // Move startRef.current forward every SCALE seconds
 const useAddTicks = (
-  date: Dayjs | null,
+  date: Dayjs,
   startRef: React.MutableRefObject<number>,
   setStart: React.Dispatch<React.SetStateAction<number>>,
 ) => {
@@ -36,7 +36,7 @@ const useAddTicks = (
 
   useEffect(() => {
     // If date is not today, don't add ticks
-    if (!date || !date.isSame(dayjs(), "day")) {
+    if (!date.isSame(getDayjs(), "day")) {
       return () => {};
     }
     const addTicks = (ticksToAdd: number) => {
@@ -52,7 +52,7 @@ const useAddTicks = (
 
     const recursiveTimeout = () => {
       const timeDiff =
-        dayjs().unix() - (startRef.current - SCALE * EXTRA_TICKS);
+        getDayjs().unix() - (startRef.current - SCALE * EXTRA_TICKS);
       if (timeDiff >= SCALE) {
         const ticksToAdd = Math.floor(timeDiff / SCALE);
         addTicks(ticksToAdd);
@@ -79,10 +79,13 @@ const timelineClick = (
   const bounds = containerRef.current.getBoundingClientRect();
   const y = event.clientY - bounds.top;
 
-  const timestamp = dateToTimestamp(
-    getDateAtPosition(y, bounds.height, startRef, endRef),
-  );
-  if (timestamp > dayjs().unix()) {
+  const timestamp = getDateAtPosition(
+    y,
+    bounds.height,
+    startRef,
+    endRef,
+  ).unix();
+  if (timestamp > getDayjs().unix()) {
     return;
   }
   // Position the line and display the time
@@ -91,7 +94,7 @@ const timelineClick = (
 
 type TimelineTableProps = {
   parentRef: React.MutableRefObject<HTMLDivElement | null>;
-  date: Dayjs | null;
+  date: Dayjs;
 };
 export const TimelineTable = memo(({ parentRef, date }: TimelineTableProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -111,8 +114,7 @@ export const TimelineTable = memo(({ parentRef, date }: TimelineTableProps) => {
   const filteredCameras = useFilteredCameras();
   const eventsQueries = useEventsMultiple({
     camera_identifiers: Object.keys(filteredCameras),
-    date: date ? date.format("YYYY-MM-DD") : "",
-    configOptions: { enabled: !!date },
+    date: date.format(DATE_FORMAT),
   });
   const { setRequestedTimestamp } = useReferencePlayerStore(
     useShallow((state) => ({

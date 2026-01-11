@@ -1,4 +1,4 @@
-import dayjs, { Dayjs } from "dayjs";
+import { Dayjs } from "dayjs";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import ServerDown from "svg/undraw/server_down.svg?react";
@@ -13,6 +13,9 @@ import { useHideScrollbar } from "hooks/UseHideScrollbar";
 import { useTitle } from "hooks/UseTitle";
 import { useCamerasAll } from "lib/api/cameras";
 import {
+  getDateStringFromDayjs,
+  getDayjs,
+  getDayjsFromDateString,
   insertURLParameter,
   objHasValues,
   objIsEmpty,
@@ -42,10 +45,10 @@ function Events() {
   );
   const camerasAll = useCamerasAll();
 
-  const [date, setDate] = useState<Dayjs | null>(
+  const [date, setDate] = useState<Dayjs>(
     searchParams.has("date")
-      ? dayjs(searchParams.get("date") as string)
-      : dayjs(),
+      ? getDayjsFromDateString(searchParams.get("date") as string)
+      : getDayjs(),
   );
   const [selectedTab, setSelectedTab] = useState<"events" | "timeline">(
     getDefaultTab(searchParams),
@@ -65,7 +68,7 @@ function Events() {
 
   useEffect(() => {
     if (date) {
-      insertURLParameter("date", date.format("YYYY-MM-DD"));
+      insertURLParameter("date", getDateStringFromDayjs(date));
     }
   }, [date]);
 
