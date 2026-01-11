@@ -204,13 +204,6 @@ export function isTouchDevice() {
   return "ontouchstart" in window || navigator.maxTouchPoints > 0;
 }
 
-export function is12HourFormat() {
-  const format = new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-  }).resolvedOptions().hourCycle;
-  return !!format?.startsWith("h12");
-}
-
 export function getCameraFromQueryCache(
   camera_identifier: string,
 ): types.Camera | types.FailedCamera | undefined {

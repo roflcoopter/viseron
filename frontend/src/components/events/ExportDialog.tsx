@@ -12,7 +12,7 @@ import { useState } from "react";
 
 import { useFilteredCameras } from "components/camera/useCameraStore";
 import { useExportTimespan } from "lib/commands";
-import { is12HourFormat } from "lib/helpers";
+import { is12HourFormat } from "lib/helpers/dates";
 
 type ExportDialogProps = {
   open: boolean;
