@@ -22,28 +22,57 @@ LOGGER = logging.getLogger(__name__)
 
 @cache
 def get_handler(api_version: str, endpoint: str):
-    """Get handler for endpoint."""
+    """Get handler for endpoint, supporting nested paths."""
     version_path = Path(__file__).parent / api_version
 
     if not version_path.is_dir():
         return APINotFoundHandler
 
+    # First try direct file match (e.g., endpoint.py)
     module_path = version_path / f"{endpoint}.py"
-    if not module_path.is_file():
-        return APINotFoundHandler
+    if module_path.is_file():
+        try:
+            module = importlib.import_module(
+                f"viseron.components.webserver.api.{api_version}.{endpoint}"
+            )
+            handler_name = f"{endpoint.title()}APIHandler"
+            if hasattr(module, handler_name):
+                return getattr(module, handler_name)
+        except ImportError as error:
+            LOGGER.warning(
+                f"Error importing API handler {endpoint}: {error}",
+                exc_info=True,
+            )
 
-    try:
-        module = importlib.import_module(
-            f"viseron.components.webserver.api.{api_version}.{endpoint}"
+    # Try nested path (e.g., endpoint/sub/file.py)
+    # Split endpoint path and look for the deepest matching module
+    endpoint_parts = endpoint.split("/")
+    for i in range(len(endpoint_parts), 0, -1):
+        module_parts = endpoint_parts[:i]
+        module_path = (
+            version_path / "/".join(module_parts[:-1]) / f"{module_parts[-1]}.py"
         )
-        handler_name = f"{endpoint.title()}APIHandler"
-        if hasattr(module, handler_name):
-            return getattr(module, handler_name)
-    except ImportError as error:
-        LOGGER.warning(
-            f"Error importing API handler {endpoint}: {error}",
-            exc_info=True,
-        )
+
+        if module_path.is_file():
+            try:
+                module_import_path = ".".join(module_parts)
+                module = importlib.import_module(
+                    f"viseron.components.webserver.api.{api_version}."
+                    f"{module_import_path}"
+                )
+
+                handler_name = (
+                    "".join(part.title() for part in module_parts) + "APIHandler"
+                )
+                if hasattr(module, handler_name):
+                    return getattr(module, handler_name)
+
+            except ImportError as error:
+                LOGGER.debug(
+                    f"Error importing nested API handler {module_import_path}: {error}",
+                )
+                continue
+
     return APINotFoundHandler
 
 
@@ -61,8 +90,11 @@ class APIRouter(tornado.routing.Router):
     ) -> _HandlerDelegate:
         """Route to correct API handler."""
         try:
-            api_version = request.path.split("/")[2]
-            endpoint = request.path.split("/")[3]
+            # Split path: /api/v1/endpoint/sub/path :
+            # ['', 'api', 'v1', 'endpoint', 'sub', 'path']
+            path_parts = request.path.split("/")
+            api_version = path_parts[2]  # 'v1'
+            endpoint = "/".join(path_parts[3:])  # 'endpoint/sub/path'
         except IndexError:
             LOGGER.warning(
                 f"Invalid API request URL: {request.path}",
