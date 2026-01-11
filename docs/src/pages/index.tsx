@@ -7,7 +7,7 @@ import {
   Demo,
   FaceActivated,
   GroupObjects,
-  CheckmarkOutline,
+  PartitionAuto,
   ImageReference,
   Movement,
   Video,
@@ -60,7 +60,7 @@ function HomepageHeader() {
                 </div>
               </Link>
               <Link to="/components-explorer/components/onvif" className={styles.featureItem}>
-                <CheckmarkOutline size={32} className={styles.featureIcon} />
+                <PartitionAuto size={32} className={styles.featureIcon} />
                 <div>
                   <div className={styles.featureTitle}>ONVIF Compatible</div>
                   <div className={styles.featureDesc}>
