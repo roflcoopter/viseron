@@ -34,6 +34,7 @@ const ZINDEX = 900;
 interface CustomFabProps {
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   size?: "small" | "medium" | "large";
+  color?: "primary" | "success" | "error";
   children: React.ReactNode;
   title?: string;
   isFullscreen?: boolean;
@@ -43,6 +44,7 @@ interface CustomFabProps {
 export function CustomFab({
   onClick,
   size = "small",
+  color = "primary",
   children,
   title,
   isFullscreen = false,
@@ -56,7 +58,7 @@ export function CustomFab({
       onClick={onClick}
       onTouchStart={(e) => e.stopPropagation()}
       size={size}
-      color="primary"
+      color={color}
       sx={{ margin: 0.25, zIndex: ZINDEX }}
       disabled={disabled}
       data-testid={dataTestId}
@@ -267,13 +269,14 @@ export function CustomControls({
               title={isRecording ? "Stop Recording" : "Start Recording"}
               disabled={manualRecordingLoading}
               data-testid="manual-recording-button"
+              color={isRecording ? "error" : "success"}
             >
               {manualRecordingLoading ? (
                 <CircularProgress enableTrackSlot size={20} />
               ) : isRecording ? (
-                <StopFilledAlt size={25} color="red" />
+                <StopFilledAlt size={20} />
               ) : (
-                <RecordingFilled size={25} />
+                <RecordingFilled size={20} />
               )}
             </CustomFab>
           )}
