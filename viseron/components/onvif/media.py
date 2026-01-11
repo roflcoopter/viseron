@@ -110,7 +110,6 @@ class Media:
     async def delete_profile(self, profile_token: str) -> bool:
         """Delete a media profile."""
         self._media_service.DeleteProfile(ProfileToken=profile_token)
-
         return True
 
     # ---- URI Operations ---- #
@@ -223,6 +222,57 @@ class Media:
         return True
 
     # ---- OSD Operations ---- #
+
+    @operation()
+    async def get_osd(self, token: str) -> Any:
+        """Get on-screen display configuration."""
+        return self._media_service.GetOSD(OSDToken=token)
+
+    @operation()
+    async def get_osds(self, config_token: str | None = None) -> Any:
+        """Get all on-screen display configurations."""
+        return self._media_service.GetOSDs(
+            ConfigurationToken=config_token
+            or self._selected_profile.VideoSourceConfiguration.token
+        )
+
+    @operation()
+    async def get_osd_options(self, config_token: str | None = None) -> Any:
+        """Get on-screen display configuration options."""
+        return self._media_service.GetOSDOptions(
+            ConfigurationToken=config_token
+            or self._selected_profile.VideoSourceConfiguration.token
+        )
+
+    @operation()
+    async def create_osd(self, osd_config: dict[str, Any]) -> bool:
+        """Create new on-screen display configuration."""
+
+        if not osd_config.get("VideoSourceConfigurationToken"):
+            osd_config[
+                "VideoSourceConfigurationToken"
+            ] = self._selected_profile.VideoSourceConfiguration.token
+
+        self._media_service.CreateOSD(OSD=osd_config)
+        return True
+
+    @operation()
+    async def delete_osd(self, token: str) -> bool:
+        """Delete on-screen display configuration."""
+        self._media_service.DeleteOSD(OSDToken=token)
+        return True
+
+    @operation()
+    async def set_osd(self, osd_config: dict[str, Any]) -> bool:
+        """Set existing on-screen display configuration."""
+
+        if not osd_config.get("VideoSourceConfigurationToken"):
+            osd_config[
+                "VideoSourceConfigurationToken"
+            ] = self._selected_profile.VideoSourceConfiguration.token
+
+        self._media_service.SetOSD(OSD=osd_config)
+        return True
 
     # ## Profile Accessors ## #
 
@@ -360,7 +410,7 @@ class Media:
                 return True
 
             LOGGER.error(
-                f"Error applying Imaging service configuration for "
+                f"Error applying Media service configuration for "
                 f"{self._camera.identifier}!"
             )
             return False
