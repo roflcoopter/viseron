@@ -124,11 +124,11 @@
                     "options": [
                       {
                         "type": "constant",
-                        "value": "IPv4"
+                        "value": "DNS"
                       },
                       {
                         "type": "constant",
-                        "value": "DNS"
+                        "value": "IPv4"
                       },
                       {
                         "type": "constant",
@@ -164,15 +164,15 @@
                         "options": [
                           {
                             "type": "constant",
+                            "value": "JPEG"
+                          },
+                          {
+                            "type": "constant",
                             "value": "MPEG4"
                           },
                           {
                             "type": "constant",
                             "value": "H264"
-                          },
-                          {
-                            "type": "constant",
-                            "value": "JPEG"
                           }
                         ],
                         "name": "encoding",
@@ -215,11 +215,11 @@
                         "options": [
                           {
                             "type": "constant",
-                            "value": "ASP"
+                            "value": "SP"
                           },
                           {
                             "type": "constant",
-                            "value": "SP"
+                            "value": "ASP"
                           }
                         ],
                         "name": "mpeg4_profile",
@@ -232,11 +232,11 @@
                         "options": [
                           {
                             "type": "constant",
-                            "value": "High"
+                            "value": "Baseline"
                           },
                           {
                             "type": "constant",
-                            "value": "Baseline"
+                            "value": "Main"
                           },
                           {
                             "type": "constant",
@@ -244,7 +244,7 @@
                           },
                           {
                             "type": "constant",
-                            "value": "Main"
+                            "value": "High"
                           }
                         ],
                         "name": "h264_profile",
@@ -301,7 +301,7 @@
                         "options": [
                           {
                             "type": "constant",
-                            "value": "AAC"
+                            "value": "G711"
                           },
                           {
                             "type": "constant",
@@ -309,7 +309,7 @@
                           },
                           {
                             "type": "constant",
-                            "value": "G711"
+                            "value": "AAC"
                           }
                         ],
                         "name": "encoding",
@@ -393,7 +393,7 @@
                     "options": [
                       {
                         "type": "constant",
-                        "value": "AUTO"
+                        "value": "ON"
                       },
                       {
                         "type": "constant",
@@ -401,7 +401,7 @@
                       },
                       {
                         "type": "constant",
-                        "value": "ON"
+                        "value": "AUTO"
                       }
                     ],
                     "name": "ircut_filter",
@@ -414,11 +414,11 @@
                     "options": [
                       {
                         "type": "constant",
-                        "value": "OFF"
+                        "value": "ON"
                       },
                       {
                         "type": "constant",
-                        "value": "ON"
+                        "value": "OFF"
                       }
                     ],
                     "name": "backlight_compensation",
