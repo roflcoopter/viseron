@@ -113,10 +113,6 @@ export function capitalizeEachWord(str: string) {
     .join(" ");
 }
 
-export function isDateFormat(str: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(str);
-}
-
 // eslint-disable-next-line no-promise-executor-return
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
