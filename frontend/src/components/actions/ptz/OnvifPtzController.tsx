@@ -282,22 +282,22 @@ export function OnvifPtzController({
             </IconButton>
           </Tooltip>
           <Tooltip
-              title="Zoom In"
-              PopperProps={{
-                style: { zIndex: 9005 },
-              }}
+            title="Zoom In"
+            PopperProps={{
+              style: { zIndex: 9005 },
+            }}
+          >
+            <IconButton
+              onMouseDown={() => handleMoveStart(0, 0, 0.1)}
+              onMouseUp={handleStop}
+              onTouchStart={() => handleMoveStart(0, 0, 0.1)}
+              onTouchEnd={handleStop}
+              sx={{ bgcolor: "action.hover" }}
+              disabled={!supportsZoom}
             >
-              <IconButton
-                onMouseDown={() => handleMoveStart(0, 0, 0.1)}
-                onMouseUp={handleStop}
-                onTouchStart={() => handleMoveStart(0, 0, 0.1)}
-                onTouchEnd={handleStop}
-                sx={{ bgcolor: "action.hover" }}
-                disabled={!supportsZoom}
-              >
-                <ZoomIn size={24} />
-              </IconButton>
-            </Tooltip>
+              <ZoomIn size={24} />
+            </IconButton>
+          </Tooltip>
 
           {/* Middle Row */}
           <Tooltip
@@ -362,22 +362,22 @@ export function OnvifPtzController({
             </IconButton>
           </Tooltip>
           <Tooltip
-              title="Zoom Out"
-              PopperProps={{
-                style: { zIndex: 9005 },
-              }}
+            title="Zoom Out"
+            PopperProps={{
+              style: { zIndex: 9005 },
+            }}
+          >
+            <IconButton
+              onMouseDown={() => handleMoveStart(0, 0, -0.1)}
+              onMouseUp={handleStop}
+              onTouchStart={() => handleMoveStart(0, 0, -0.1)}
+              onTouchEnd={handleStop}
+              sx={{ bgcolor: "action.hover" }}
+              disabled={!supportsZoom}
             >
-              <IconButton
-                onMouseDown={() => handleMoveStart(0, 0, -0.1)}
-                onMouseUp={handleStop}
-                onTouchStart={() => handleMoveStart(0, 0, -0.1)}
-                onTouchEnd={handleStop}
-                sx={{ bgcolor: "action.hover" }}
-                disabled={!supportsZoom}
-              >
-                <ZoomOut size={24} />
-              </IconButton>
-            </Tooltip>
+              <ZoomOut size={24} />
+            </IconButton>
+          </Tooltip>
         </Box>
 
         {/* Speed Control Slider */}
