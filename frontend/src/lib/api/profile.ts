@@ -43,7 +43,11 @@ export const useProfileUpdatePreferences = () => {
     onSuccess: async (_data, _variables, _context) => {
       toast.success("Preferences updated successfully");
       queryClient.invalidateQueries({
-        queryKey: ["auth", "user"],
+        predicate(query) {
+          const isAuthEnabled =
+            query.queryKey[0] === "auth" && query.queryKey[1] === "enabled";
+          return !isAuthEnabled;
+        },
       });
     },
     onError: async (error, _variables, _context) => {

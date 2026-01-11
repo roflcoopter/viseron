@@ -137,9 +137,9 @@ export const useAuthLogout = () =>
       // Clear all queries except auth.enabled to prevent unnecessary refetching
       queryClient.removeQueries({
         predicate: (query) => {
-          const key = query.queryKey;
-          // Keep auth.enabled query
-          return !(key[0] === "auth" && key[1] === "enabled");
+          const isAuthEnabled =
+            query.queryKey[0] === "auth" && query.queryKey[1] === "enabled";
+          return !isAuthEnabled;
         },
       });
     },

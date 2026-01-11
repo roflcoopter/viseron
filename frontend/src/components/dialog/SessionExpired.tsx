@@ -25,16 +25,16 @@ const useSessionExpiredEvent = (
     const handleSessionExpired = () => {
       queryClient.removeQueries({
         predicate(query) {
-          return (
-            query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled"
-          );
+          const isAuthEnabled =
+            query.queryKey[0] === "auth" && query.queryKey[1] === "enabled";
+          return !isAuthEnabled;
         },
       });
       queryClient.invalidateQueries({
         predicate(query) {
-          return (
-            query.queryKey[0] !== "auth" && query.queryKey[1] !== "enabled"
-          );
+          const isAuthEnabled =
+            query.queryKey[0] === "auth" && query.queryKey[1] === "enabled";
+          return !isAuthEnabled;
         },
       });
       if (location.pathname !== "/login") {
@@ -59,7 +59,7 @@ const useSessionExpiredEvent = (
 function SessionExpired() {
   const [open, setOpen] = useState(false);
   useSessionExpiredEvent(setOpen);
-
+  console.log("SessionExpired: rendering");
   return (
     <Dialog
       open={open}
