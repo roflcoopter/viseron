@@ -12,7 +12,8 @@ import {
 } from "components/events/utils";
 import { Loading } from "components/loading/Loading";
 import { useEventsMultiple } from "lib/api/events";
-import { getDateStringFromDayjs, objIsEmpty } from "lib/helpers";
+import { objIsEmpty } from "lib/helpers";
+import { getDateStringFromDayjs } from "lib/helpers/dates";
 import * as types from "lib/types";
 
 // Group events that are within 2 minutes of each other

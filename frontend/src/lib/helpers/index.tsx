@@ -1,12 +1,9 @@
-import dayjs, { Dayjs } from "dayjs";
 import { Suspense, lazy } from "react";
 
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import queryClient from "lib/api/client";
 import { getAuthHeader } from "lib/tokens";
 import * as types from "lib/types";
-
-export const DATE_FORMAT = "YYYY-MM-DD";
 
 const VideoPlayer = lazy(
   () => import("components/player/videoplayer/VideoPlayer"),
@@ -115,48 +112,6 @@ export function capitalizeEachWord(str: string) {
 
 // eslint-disable-next-line no-promise-executor-return
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// Get a timezone aware dayjs instance for the current time
-export function getDayjs() {
-  return dayjs().tz();
-}
-
-// Get a timezone aware dayjs instance from a Date object
-export function getDayjsFromDate(date: Date) {
-  return dayjs(date).tz();
-}
-
-// Get a timezone aware dayjs instance from a time string
-// eg. "2026-01-10T17:20:09.263303+00:00"
-export function getDayjsFromDateTimeString(dateString: string) {
-  return dayjs(dateString).tz();
-}
-
-// Get a timezone aware dayjs instance from a date string
-// eg. "2026-01-10"
-export function getDayjsFromDateString(dateString: string) {
-  return dayjs.tz(dateString);
-}
-
-// Get a timezone aware dayjs instance from a unix timestamp
-// Supports both seconds and milliseconds
-// Milliseconds are converted to seconds
-export function getDayjsFromUnixTimestamp(timestamp: number) {
-  if (timestamp.toString().length === 13) {
-    timestamp = Math.floor(timestamp / 1000);
-  }
-  return dayjs.unix(timestamp).tz();
-}
-
-// Format a dayjs instance to a time string HH:mm:ss or HH:mm
-export function getTimeStringFromDayjs(date: Dayjs, seconds = true) {
-  return date.format(seconds ? "HH:mm:ss" : "HH:mm");
-}
-
-// Format a dayjs instance to a date string YYYY-MM-DD
-export function getDateStringFromDayjs(date: Dayjs) {
-  return date.format(DATE_FORMAT);
-}
 
 export function removeURLParameter(url: string, parameter: string) {
   const [base, queryString] = url.split("?");

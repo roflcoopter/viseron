@@ -9,7 +9,7 @@ import { alpha, useTheme } from "@mui/material/styles";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { Dayjs } from "dayjs";
 
-import { DATE_FORMAT } from "lib/helpers";
+import { DATE_FORMAT } from "lib/helpers/dates";
 import * as types from "lib/types";
 
 interface RecordingHeaderProps {

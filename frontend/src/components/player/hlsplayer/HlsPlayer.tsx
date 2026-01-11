@@ -23,11 +23,11 @@ import { useAuthContext } from "context/AuthContext";
 import { ViseronContext } from "context/ViseronContext";
 import { useFirstRender } from "hooks/UseFirstRender";
 import { BASE_PATH } from "lib/api/client";
+import { BLANK_IMAGE } from "lib/helpers";
 import {
-  BLANK_IMAGE,
   getDateStringFromDayjs,
   getDayjsFromUnixTimestamp,
-} from "lib/helpers";
+} from "lib/helpers/dates";
 import { getToken } from "lib/tokens";
 import * as types from "lib/types";
 

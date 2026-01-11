@@ -14,11 +14,11 @@ import { RecordingHeaderDaily } from "components/recording/RecordingHeaderDaily"
 import { useTitle } from "hooks/UseTitle";
 import { useCamera } from "lib/api/camera";
 import { useRecordings } from "lib/api/recordings";
+import { objHasValues } from "lib/helpers";
 import {
   getDayjsFromDateString,
   getDayjsFromDateTimeString,
-  objHasValues,
-} from "lib/helpers";
+} from "lib/helpers/dates";
 import * as types from "lib/types";
 
 type CameraRecordingsDailyParams = {

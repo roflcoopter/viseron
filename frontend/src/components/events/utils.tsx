@@ -18,12 +18,12 @@ import { useCameraStore } from "components/camera/useCameraStore";
 import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognition";
 import { useCameras } from "lib/api/cameras";
 import { useSubscribeTimespans } from "lib/commands";
+import { BLANK_IMAGE } from "lib/helpers";
 import {
-  BLANK_IMAGE,
   DATE_FORMAT,
   getDayjs,
   getDayjsFromUnixTimestamp,
-} from "lib/helpers";
+} from "lib/helpers/dates";
 import * as types from "lib/types";
 
 export const TICK_HEIGHT = 8;

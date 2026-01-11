@@ -4,7 +4,7 @@ import { useContext, useEffect } from "react";
 
 import { ViseronContext } from "context/ViseronContext";
 import { subscribeEvent, subscribeStates } from "lib/commands";
-import { getDayjs } from "lib/helpers";
+import { getDayjs } from "lib/helpers/dates";
 import * as types from "lib/types";
 
 // Detect base path from the current URL for subpath support

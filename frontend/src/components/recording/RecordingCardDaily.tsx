@@ -20,14 +20,13 @@ import MutationIconButton from "components/buttons/MutationIconButton";
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
 import { useDeleteRecording } from "lib/api/recordings";
+import { getVideoElement, objHasValues } from "lib/helpers";
 import {
   getDateStringFromDayjs,
   getDayjsFromDateString,
   getDayjsFromDateTimeString,
   getTimeStringFromDayjs,
-  getVideoElement,
-  objHasValues,
-} from "lib/helpers";
+} from "lib/helpers/dates";
 import * as types from "lib/types";
 
 interface RecordingCardDailyProps {

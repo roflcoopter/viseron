@@ -10,7 +10,7 @@ import { Dayjs } from "dayjs";
 
 import { useFilteredCameras } from "components/camera/useCameraStore";
 import { useEventsDatesOfInterest } from "lib/api/events";
-import { DATE_FORMAT } from "lib/helpers";
+import { DATE_FORMAT } from "lib/helpers/dates";
 import * as types from "lib/types";
 
 function HasEvent(

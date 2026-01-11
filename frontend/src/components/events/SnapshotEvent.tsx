@@ -36,13 +36,11 @@ import {
 import { ImageWithFallback } from "components/images/ImageWithFallback";
 import { useFirstRender } from "hooks/UseFirstRender";
 import { useExportEvent } from "lib/commands";
+import { BLANK_IMAGE, isTouchDevice, toTitleCase } from "lib/helpers";
 import {
-  BLANK_IMAGE,
   getDayjsFromDateTimeString,
   getTimeStringFromDayjs,
-  isTouchDevice,
-  toTitleCase,
-} from "lib/helpers";
+} from "lib/helpers/dates";
 import * as types from "lib/types";
 
 const getText = (event: types.CameraEvent) => {

@@ -14,7 +14,8 @@ import {
   useReferencePlayerStore,
 } from "components/events/utils";
 import useControlledInterval from "hooks/UseControlledInterval";
-import { getDayjsFromDate, sleep } from "lib/helpers";
+import { sleep } from "lib/helpers";
+import { getDayjsFromDate } from "lib/helpers/dates";
 
 const SYNC_INTERVAL = 100; // Sync interval in milliseconds
 const MAX_DRIFT = 0.5; // Maximum allowed drift in seconds

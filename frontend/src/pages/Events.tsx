@@ -13,14 +13,16 @@ import { useHideScrollbar } from "hooks/UseHideScrollbar";
 import { useTitle } from "hooks/UseTitle";
 import { useCamerasAll } from "lib/api/cameras";
 import {
-  getDateStringFromDayjs,
-  getDayjs,
-  getDayjsFromDateString,
   insertURLParameter,
   objHasValues,
   objIsEmpty,
   removeURLParameter,
 } from "lib/helpers";
+import {
+  getDateStringFromDayjs,
+  getDayjs,
+  getDayjsFromDateString,
+} from "lib/helpers/dates";
 
 const getDefaultTab = (searchParams: URLSearchParams) => {
   if (

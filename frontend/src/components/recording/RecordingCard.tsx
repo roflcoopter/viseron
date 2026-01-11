@@ -19,11 +19,11 @@ import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognitio
 import VideoPlayerPlaceholder from "components/player/videoplayer/VideoPlayerPlaceholder";
 import { useAuthContext } from "context/AuthContext";
 import { useDeleteRecording } from "lib/api/recordings";
+import { getVideoElement } from "lib/helpers";
 import {
   getDayjsFromDateTimeString,
   getTimeStringFromDayjs,
-  getVideoElement,
-} from "lib/helpers";
+} from "lib/helpers/dates";
 import * as types from "lib/types";
 
 interface RecordingCardInterface {

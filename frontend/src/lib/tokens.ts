@@ -4,8 +4,9 @@ import { Dayjs } from "dayjs";
 import { authToken } from "lib/api/auth";
 import { clientId } from "lib/api/client";
 import { dispatchCustomEvent } from "lib/events";
-import { getDayjs, getDayjsFromDateTimeString } from "lib/helpers";
 import * as types from "lib/types";
+
+import { getDayjs, getDayjsFromDateTimeString } from "./helpers/dates";
 
 export const genTokens = (
   tokens: types.AuthTokenResponse,

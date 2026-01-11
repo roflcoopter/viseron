@@ -3,7 +3,7 @@ import DOMPurify from "dompurify";
 import { memo, useEffect, useRef } from "react";
 
 import { getDateAtPosition } from "components/events/utils";
-import { getDayjs, getTimeStringFromDayjs } from "lib/helpers";
+import { getDayjs, getTimeStringFromDayjs } from "lib/helpers/dates";
 
 const useSetPosition = (
   ref: React.MutableRefObject<HTMLInputElement | null>,

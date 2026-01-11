@@ -17,12 +17,11 @@ import {
 } from "components/events/utils";
 import { ImageWithFallback } from "components/images/ImageWithFallback";
 import { useFirstRender } from "hooks/UseFirstRender";
+import { BLANK_IMAGE, getCameraNameFromQueryCache } from "lib/helpers";
 import {
-  BLANK_IMAGE,
-  getCameraNameFromQueryCache,
   getDayjsFromDateTimeString,
   getTimeStringFromDayjs,
-} from "lib/helpers";
+} from "lib/helpers/dates";
 import * as types from "lib/types";
 
 type EventTableItemIconsProps = {

@@ -4,7 +4,7 @@ import Hls from "hls.js";
 import { memo, useEffect, useRef } from "react";
 
 import { getYPosition, useReferencePlayerStore } from "components/events/utils";
-import { getDayjsFromDate, getTimeStringFromDayjs } from "lib/helpers";
+import { getDayjsFromDate, getTimeStringFromDayjs } from "lib/helpers/dates";
 
 const useTimeUpdate = (
   hls: Hls | null,

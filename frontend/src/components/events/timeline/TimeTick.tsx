@@ -3,7 +3,10 @@ import { useTheme } from "@mui/material/styles";
 import { memo } from "react";
 
 import { TICK_HEIGHT } from "components/events/utils";
-import { getDayjsFromUnixTimestamp, getTimeStringFromDayjs } from "lib/helpers";
+import {
+  getDayjsFromUnixTimestamp,
+  getTimeStringFromDayjs,
+} from "lib/helpers/dates";
 
 type TimeTickProps = {
   time: number;

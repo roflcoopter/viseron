@@ -22,7 +22,8 @@ import {
 import { Loading } from "components/loading/Loading";
 import { ViseronContext } from "context/ViseronContext";
 import { useEventsMultiple } from "lib/api/events";
-import { DATE_FORMAT, getDayjs, objHasValues } from "lib/helpers";
+import { objHasValues } from "lib/helpers";
+import { DATE_FORMAT, getDayjs } from "lib/helpers/dates";
 import * as types from "lib/types";
 
 // Move startRef.current forward every SCALE seconds
