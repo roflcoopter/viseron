@@ -36,7 +36,7 @@ export function CameraUptime({
         sx={{
           fontSize: "0.75rem",
           height: 30,
-          borderRadius: 0.7,
+          borderRadius: 1.2,
           px: 0.5,
           py: 1,
         }}

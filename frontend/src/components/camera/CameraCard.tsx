@@ -5,6 +5,8 @@ import {
   SettingsAdjust,
   VideoChat,
   VideoOff,
+  ViewFilled,
+  ViewOffFilled,
 } from "@carbon/icons-react";
 import Image from "@jy95/material-ui-image";
 import Box from "@mui/material/Box";
@@ -13,10 +15,10 @@ import CardActionArea from "@mui/material/CardActionArea";
 import CardActions from "@mui/material/CardActions";
 import CardContent from "@mui/material/CardContent";
 import CardMedia from "@mui/material/CardMedia";
+import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
-import Switch from "@mui/material/Switch";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useTheme } from "@mui/material/styles";
@@ -254,13 +256,33 @@ function SuccessCameraCard({
             >
               <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
                 <Tooltip title={camera.is_on ? "Stop Camera" : "Start Camera"}>
-                  <Switch
-                    checked={camera.is_on}
+                  <Chip
+                    icon={
+                      camera.is_on ? (
+                        <ViewOffFilled size={18} />
+                      ) : (
+                        <ViewFilled size={18} />
+                      )
+                    }
+                    label=""
                     disabled={cameraStartStop.isPending}
-                    onChange={() => {
-                      if (cameraStartStop.isPending) {
-                        return;
-                      }
+                    color={camera.is_on ? "error" : "primary"}
+                    size="small"
+                    sx={{
+                      height: 30,
+                      borderRadius: 1.2,
+                      px: 1.5,
+                      "& .MuiChip-icon": {
+                        margin: 0,
+                      },
+                      "& .MuiChip-label": {
+                        padding: 0,
+                        width: 0,
+                      },
+                      justifyContent: "center",
+                    }}
+                    onClick={() => {
+                      if (cameraStartStop.isPending) return;
                       cameraStartStop.mutate({
                         camera,
                         action: camera.is_on ? "stop" : "start",
