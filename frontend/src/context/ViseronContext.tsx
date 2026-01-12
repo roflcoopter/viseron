@@ -55,11 +55,17 @@ export function ViseronProvider({ children }: ViseronProviderProps) {
   const onConnectRef = React.useRef<() => void>(undefined);
   const onDisconnectRef = React.useRef<() => void>(undefined);
   const onConnectionErrorRef = React.useRef<() => void>(undefined);
+  const initialConnectionEstablishedRef = React.useRef(false);
 
   useEffect(() => {
     if (connection) {
       onConnectRef.current = async () => {
-        queryClient.invalidateQueries();
+        // Invalidate all queries ONLY when connection is re-established, not on initial connect
+        if (initialConnectionEstablishedRef.current) {
+          queryClient.invalidateQueries();
+        } else {
+          initialConnectionEstablishedRef.current = true;
+        }
         setContextValue((prevContextValue) => ({
           ...prevContextValue,
           connected: true,
