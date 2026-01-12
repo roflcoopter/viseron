@@ -1,10 +1,8 @@
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc.js";
 import { HttpResponse, http } from "msw";
 
+import { getDayjs } from "lib/helpers/dates";
 import * as types from "lib/types";
 
-dayjs.extend(utc);
 export const API_BASE_URL = "/api/v1";
 
 export const handlers = [
@@ -21,10 +19,10 @@ export const handlers = [
         header: "testheader",
         payload: "testpayload",
         expiration: 3600,
-        expires_at: dayjs().add(1, "hour").toISOString(),
-        expires_at_timestamp: dayjs().add(1, "hour").unix(),
-        session_expires_at: dayjs().add(1, "hour").toISOString(),
-        session_expires_at_timestamp: dayjs().add(1, "hour").unix(),
+        expires_at: getDayjs().add(1, "hour").toISOString(),
+        expires_at_timestamp: getDayjs().add(1, "hour").unix(),
+        session_expires_at: getDayjs().add(1, "hour").toISOString(),
+        session_expires_at_timestamp: getDayjs().add(1, "hour").unix(),
       } as types.AuthTokenResponse,
       { status: 200 },
     ),
@@ -45,7 +43,7 @@ export const handlers = [
   ),
 
   http.post(`${API_BASE_URL}/auth/token`, () => {
-    const now = dayjs().add(7, "day");
+    const now = getDayjs().add(7, "day");
     return HttpResponse.json(
       {
         header: "testheader",
@@ -219,18 +217,18 @@ export const handlers = [
 
   // Recordings list
   http.get(`${API_BASE_URL}/recordings/camera1`, () => {
-    const today = dayjs.utc().format("YYYY-MM-DD");
-    const yesterday = dayjs.utc().subtract(1, "day").format("YYYY-MM-DD");
+    const today = getDayjs().format("YYYY-MM-DD");
+    const yesterday = getDayjs().subtract(1, "day").format("YYYY-MM-DD");
     return HttpResponse.json(
       {
         [today]: {
           "2": {
             id: 2,
             camera_identifier: "camera1",
-            start_time: dayjs.utc().subtract(1, "hour").toISOString(),
-            start_timestamp: dayjs.utc().subtract(1, "hour").unix(),
-            end_time: dayjs.utc().subtract(55, "minute").toISOString(),
-            end_timestamp: dayjs.utc().subtract(55, "minute").unix(),
+            start_time: getDayjs().subtract(1, "hour").toISOString(),
+            start_timestamp: getDayjs().subtract(1, "hour").unix(),
+            end_time: getDayjs().subtract(55, "minute").toISOString(),
+            end_timestamp: getDayjs().subtract(55, "minute").unix(),
             trigger_type: "object",
             trigger_id: null,
             thumbnail_path: "/files/tier1/thumbnails/camera1/2.jpg",
@@ -241,15 +239,13 @@ export const handlers = [
           "1": {
             id: 1,
             camera_identifier: "camera1",
-            start_time: dayjs.utc().subtract(1, "day").toISOString(),
-            start_timestamp: dayjs.utc().subtract(1, "day").unix(),
-            end_time: dayjs
-              .utc()
+            start_time: getDayjs().subtract(1, "day").toISOString(),
+            start_timestamp: getDayjs().subtract(1, "day").unix(),
+            end_time: getDayjs()
               .subtract(1, "day")
               .add(5, "minute")
               .toISOString(),
-            end_timestamp: dayjs
-              .utc()
+            end_timestamp: getDayjs()
               .subtract(1, "day")
               .add(5, "minute")
               .unix(),
@@ -264,18 +260,18 @@ export const handlers = [
     );
   }),
   http.get(`${API_BASE_URL}/recordings/camera2`, () => {
-    const today = dayjs.utc().format("YYYY-MM-DD");
-    const yesterday = dayjs.utc().subtract(1, "day").format("YYYY-MM-DD");
+    const today = getDayjs().format("YYYY-MM-DD");
+    const yesterday = getDayjs().subtract(1, "day").format("YYYY-MM-DD");
     return HttpResponse.json(
       {
         [today]: {
           "4": {
             id: 4,
             camera_identifier: "camera2",
-            start_time: dayjs.utc().subtract(1, "hour").toISOString(),
-            start_timestamp: dayjs.utc().subtract(1, "hour").unix(),
-            end_time: dayjs.utc().subtract(55, "minute").toISOString(),
-            end_timestamp: dayjs.utc().subtract(55, "minute").unix(),
+            start_time: getDayjs().subtract(1, "hour").toISOString(),
+            start_timestamp: getDayjs().subtract(1, "hour").unix(),
+            end_time: getDayjs().subtract(55, "minute").toISOString(),
+            end_timestamp: getDayjs().subtract(55, "minute").unix(),
             trigger_type: "object",
             trigger_id: null,
             thumbnail_path: "/files/tier1/thumbnails/camera2/4.jpg",
@@ -286,15 +282,13 @@ export const handlers = [
           "3": {
             id: 3,
             camera_identifier: "camera2",
-            start_time: dayjs.utc().subtract(1, "day").toISOString(),
-            start_timestamp: dayjs.utc().subtract(1, "day").unix(),
-            end_time: dayjs
-              .utc()
+            start_time: getDayjs().subtract(1, "day").toISOString(),
+            start_timestamp: getDayjs().subtract(1, "day").unix(),
+            end_time: getDayjs()
               .subtract(1, "day")
               .add(5, "minute")
               .toISOString(),
-            end_timestamp: dayjs
-              .utc()
+            end_timestamp: getDayjs()
               .subtract(1, "day")
               .add(5, "minute")
               .unix(),
