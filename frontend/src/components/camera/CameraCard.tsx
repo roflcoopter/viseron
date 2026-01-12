@@ -255,41 +255,45 @@ function SuccessCameraCard({
               sx={{ width: "100%", alignItems: "center" }}
             >
               <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <Tooltip title={camera.is_on ? "Stop Camera" : "Start Camera"}>
-                  <Chip
-                    icon={
-                      camera.is_on ? (
-                        <ViewOffFilled size={18} />
-                      ) : (
-                        <ViewFilled size={18} />
-                      )
-                    }
-                    label=""
-                    disabled={cameraStartStop.isPending}
-                    color={camera.is_on ? "error" : "primary"}
-                    size="small"
-                    sx={{
-                      height: 30,
-                      borderRadius: 1.2,
-                      px: 1.5,
-                      "& .MuiChip-icon": {
-                        margin: 0,
-                      },
-                      "& .MuiChip-label": {
-                        padding: 0,
-                        width: 0,
-                      },
-                      justifyContent: "center",
-                    }}
-                    onClick={() => {
-                      if (cameraStartStop.isPending) return;
-                      cameraStartStop.mutate({
-                        camera,
-                        action: camera.is_on ? "stop" : "start",
-                      });
-                    }}
-                  />
-                </Tooltip>
+                {(!auth.enabled || user?.role === "admin") && (
+                  <Tooltip
+                    title={camera.is_on ? "Stop Camera" : "Start Camera"}
+                  >
+                    <Chip
+                      icon={
+                        camera.is_on ? (
+                          <ViewOffFilled size={18} />
+                        ) : (
+                          <ViewFilled size={18} />
+                        )
+                      }
+                      label=""
+                      disabled={cameraStartStop.isPending}
+                      color={camera.is_on ? "error" : "primary"}
+                      size="small"
+                      sx={{
+                        height: 30,
+                        borderRadius: 1.2,
+                        px: 1.5,
+                        "& .MuiChip-icon": {
+                          margin: 0,
+                        },
+                        "& .MuiChip-label": {
+                          padding: 0,
+                          width: 0,
+                        },
+                        justifyContent: "center",
+                      }}
+                      onClick={() => {
+                        if (cameraStartStop.isPending) return;
+                        cameraStartStop.mutate({
+                          camera,
+                          action: camera.is_on ? "stop" : "start",
+                        });
+                      }}
+                    />
+                  </Tooltip>
+                )}
                 <Tooltip title="Uptime Status">
                   <div style={{ cursor: "pointer" }}>
                     <CameraUptime
