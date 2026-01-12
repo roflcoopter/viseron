@@ -169,7 +169,14 @@ function Preferences({ user }: { user: types.AuthUserResponse }) {
 
 function ProfileCard({ user }: { user: types.AuthUserResponse }) {
   return (
-    <Card sx={{ maxWidth: 600, width: "100%" }}>
+    <Card
+      sx={{
+        maxWidth: 600,
+        width: "100%",
+        paddingX: { xs: 1, md: 2 },
+        paddingY: { xs: 0.5, md: 1 },
+      }}
+    >
       <CardContent>
         <UserInfo user={user} />
         <DisplayName user={user} />
@@ -198,10 +205,12 @@ function Profile() {
     <Container
       maxWidth={false}
       sx={{
-        paddingX: 2,
+        height: { md: "75vh" },
+        paddingY: 0.5,
+        paddingX: { xs: 1, md: 2 },
         display: "flex",
         justifyContent: "center",
-        alignItems: "flex-start",
+        alignItems: "center",
       }}
     >
       <ProfileCard user={user} />
