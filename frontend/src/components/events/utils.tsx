@@ -7,7 +7,7 @@ import {
   Movement,
   UserActivity,
 } from "@carbon/icons-react";
-import dayjs, { Dayjs } from "dayjs";
+import { Dayjs } from "dayjs";
 import Hls, { Fragment } from "hls.js";
 import { useCallback } from "react";
 import { create } from "zustand";
@@ -18,7 +18,12 @@ import { useCameraStore } from "components/camera/useCameraStore";
 import LicensePlateRecognitionIcon from "components/icons/LicensePlateRecognition";
 import { useCameras } from "lib/api/cameras";
 import { useSubscribeTimespans } from "lib/commands";
-import { BLANK_IMAGE, dateToTimestamp } from "lib/helpers";
+import { BLANK_IMAGE } from "lib/helpers";
+import {
+  DATE_FORMAT,
+  getDayjs,
+  getDayjsFromUnixTimestamp,
+} from "lib/helpers/dates";
 import * as types from "lib/types";
 
 export const TICK_HEIGHT = 8;
@@ -209,13 +214,13 @@ export const useReferencePlayerStore = create<ReferencePlayerStore>((set) => ({
   setIsMuted: (isMuted) => set({ isMuted }),
   playbackSpeed: 1,
   setPlaybackSpeed: (playbackSpeed) => set({ playbackSpeed }),
-  requestedTimestamp: dayjs().unix() - LIVE_EDGE_DELAY,
+  requestedTimestamp: getDayjs().unix() - LIVE_EDGE_DELAY,
   setRequestedTimestamp: (requestedTimestamp) =>
     set((state) => {
       state.playingDateRef.current = requestedTimestamp;
       return { ...state, requestedTimestamp };
     }),
-  playingDateRef: { current: dayjs().unix() - LIVE_EDGE_DELAY },
+  playingDateRef: { current: getDayjs().unix() - LIVE_EDGE_DELAY },
 }));
 
 export const DEFAULT_ITEM: TimelineItem = {
@@ -238,7 +243,7 @@ export type TimelineItems = {
   [key: string]: TimelineItem;
 };
 
-// Get a Date object that corresponds to 'position'
+// Get a Dayjs object that corresponds to 'position'
 export const getDateAtPosition = (
   position: number,
   height: number,
@@ -250,15 +255,17 @@ export const getDateAtPosition = (
 
   // First time tick is preceded by a margin of half the time tick height
   // so we add half the scale to get the correct time
-  const _start = startRef.current * 1000 + (SCALE * 1000) / 2;
+  const _start = startRef.current + SCALE / 2;
   // Last time tick is followed by a margin of half the time tick height
   // so we subtract half the scale to get the correct time
-  const _end = endRef.current * 1000 - (SCALE * 1000) / 2;
-  // Calculate the time difference in milliseconds between start and end dates
+  const _end = endRef.current - SCALE / 2;
+  // Calculate the time difference in seconds between start and end dates
   const timeDifference = _end - _start;
 
   // Calculate the time corresponding to the cursor position
-  const dateAtCursor = new Date(_start + percentage * timeDifference);
+  const dateAtCursor = getDayjsFromUnixTimestamp(
+    _start + percentage * timeDifference,
+  );
   return dateAtCursor;
 };
 
@@ -284,30 +291,34 @@ export const getYPosition = (
 };
 
 // Round to neareset SCALE
-export const round = (num: number) => Math.ceil(num / SCALE) * SCALE;
+export const roundToScale = (num: number) => Math.ceil(num / SCALE) * SCALE;
 
 // Calculate the start time of the timeline, called on first render
 export const calculateStart = (date: Dayjs | null) => {
   if (!date) {
-    return round(dateToTimestamp(new Date()) + SCALE * EXTRA_TICKS);
+    return roundToScale(
+      getDayjs()
+        .add(SCALE * EXTRA_TICKS, "second")
+        .unix(),
+    );
   }
   // if date is today, start at current time
-  if (date.isSame(dayjs(), "day")) {
-    return round(dateToTimestamp(new Date()) + SCALE * EXTRA_TICKS);
+  if (date.isSame(getDayjs(), "day")) {
+    return roundToScale(
+      getDayjs()
+        .add(SCALE * EXTRA_TICKS, "second")
+        .unix(),
+    );
   }
   // Otherwise start at midnight the next day
-  return dateToTimestamp(
-    new Date(date.add(1, "day").toDate().setHours(0, 0, 0, 0)),
-  );
+  return date.add(1, "day").hour(0).minute(0).second(0).millisecond(0).unix();
 };
 
 // Calculate the end time of the timeline, called on first render
 export const calculateEnd = (date: Dayjs | null) =>
-  dateToTimestamp(
-    date
-      ? new Date(date.toDate().setHours(0, 0, 0, 0))
-      : new Date(new Date().setHours(0, 0, 0, 0)),
-  );
+  date
+    ? date.clone().hour(0).minute(0).second(0).millisecond(0).unix()
+    : getDayjs().hour(0).minute(0).second(0).millisecond(0).unix();
 
 // Calculate the number of items to render in the virtual list
 export const calculateItemCount = (
@@ -325,7 +336,7 @@ export const calculateTimeFromIndex = (
 export const calculateIndexFromTime = (
   startRef: React.MutableRefObject<number>,
   timestamp: number | null,
-) => Math.round((startRef.current - (timestamp || dayjs().unix())) / SCALE);
+) => Math.round((startRef.current - (timestamp || getDayjs().unix())) / SCALE);
 
 // Common logic for items that affect the activity line
 export function createActivityLineItem(
@@ -805,7 +816,7 @@ const useTimespansBase = (
 
   useSubscribeTimespans(
     selectedCameras,
-    date ? date.format("YYYY-MM-DD") : null,
+    date ? date.format(DATE_FORMAT) : null,
     callback,
     _enabled,
     debounce,

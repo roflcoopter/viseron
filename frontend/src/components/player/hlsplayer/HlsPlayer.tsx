@@ -2,8 +2,6 @@ import { VideoOff } from "@carbon/icons-react";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTheme } from "@mui/material/styles";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
 import Hls, { LevelLoadedData } from "hls.js";
 import React, {
   useCallback,
@@ -26,10 +24,12 @@ import { ViseronContext } from "context/ViseronContext";
 import { useFirstRender } from "hooks/UseFirstRender";
 import { BASE_PATH } from "lib/api/client";
 import { BLANK_IMAGE } from "lib/helpers";
+import {
+  getDateStringFromDayjs,
+  getDayjsFromUnixTimestamp,
+} from "lib/helpers/dates";
 import { getToken } from "lib/tokens";
 import * as types from "lib/types";
-
-dayjs.extend(utc);
 
 const loadSource = (
   hlsRef: React.MutableRefObject<Hls | null>,
@@ -45,7 +45,10 @@ const loadSource = (
   // context before the requested timestamp
   const startTimestamp = playingDate - 3600;
 
-  const source = `${BASE_PATH}/api/v1/hls/${camera.identifier}/index.m3u8?start_timestamp=${startTimestamp}&date=${dayjs(playingDate * 1000).format("YYYY-MM-DD")}`;
+  const source =
+    `${BASE_PATH}/api/v1/hls/${camera.identifier}/index.m3u8` +
+    `?start_timestamp=${startTimestamp}` +
+    `&date=${getDateStringFromDayjs(getDayjsFromUnixTimestamp(playingDate))}`;
   hlsClientIdRef.current = uuidv4();
   hlsRef.current.loadSource(source);
 };

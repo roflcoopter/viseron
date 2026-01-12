@@ -9,7 +9,7 @@ import { CustomControls } from "components/player/CustomControls.js";
 import { ZoomPanOverlay } from "components/player/ZoomPanOverlay";
 import { useZoomPan } from "components/player/hooks/useZoomPan";
 import { useCameraManualRecording } from "lib/api/camera";
-import { isTouchDevice } from "lib/helpers.js";
+import { isTouchDevice } from "lib/helpers";
 import * as types from "lib/types";
 
 const useMjpegControlsVisibility = (

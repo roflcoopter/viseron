@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from threading import Lock
 from typing import TYPE_CHECKING, Any, Literal, cast
+from zoneinfo import available_timezones
 
 import bcrypt
 import jwt
@@ -58,6 +59,10 @@ class LastAdminUserError(ViseronError):
     """Cannot delete the last admin user."""
 
 
+class InvalidTimezoneError(ViseronError):
+    """Invalid timezone specified."""
+
+
 @dataclass
 class RefreshToken:
     """Refresh token.
@@ -88,6 +93,19 @@ class Role(enum.Enum):
 
 
 @dataclass
+class Preferences:
+    """User preferences."""
+
+    timezone: str | None = None
+
+    def asdict(self) -> dict[str, Any]:
+        """Convert preferences to dict."""
+        return {
+            "timezone": self.timezone,
+        }
+
+
+@dataclass
 class User:
     """User."""
 
@@ -98,6 +116,7 @@ class User:
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     enabled: bool = True
     assigned_cameras: list[str] | None = None
+    preferences: Preferences | None = None
 
     def asdict(self) -> dict[str, Any]:
         """Convert user to dict."""
@@ -107,6 +126,7 @@ class User:
             "username": self.username,
             "role": self.role.value,
             "assigned_cameras": self.assigned_cameras,
+            "preferences": self.preferences,
         }
 
 
@@ -256,11 +276,7 @@ class Auth:
         return user
 
     def validate_user(self, username: str, password: str) -> User:
-        """Validate username and password.
-
-        Raises:
-            AuthenticationFailed: If authentication failed
-        """
+        """Validate username and password."""
         username = username.strip().casefold()
         fakepw_hash = b"$2b$12$JkLmYgiPenMkcym29yHqReoa1dkONXqy6S2OBoU6FmjLShqDn/OuS"
         user = None
@@ -361,6 +377,44 @@ class Auth:
             LOGGER.debug(f"Updated user {user.username}")
             self.save()
 
+    def update_display_name(self, user_id: str, name: str) -> None:
+        """Update the display name for a user."""
+        trimmed_name = name.strip()
+        if not trimmed_name:
+            raise ValueError("Display name cannot be empty")
+
+        with self._user_lock:
+            if user_id not in self.users:
+                raise UserDoesNotExistError(f"User with ID {user_id} does not exist")
+
+            user = self.users[user_id]
+            user.name = trimmed_name
+            LOGGER.debug(f"Updated display name for user {user.username}")
+            self.save()
+
+    def update_preferences(
+        self,
+        user_id: str,
+        preferences: Preferences,
+    ) -> None:
+        """Update user preferences."""
+        with self._user_lock:
+            if user_id not in self.users:
+                raise UserDoesNotExistError(f"User with ID {user_id} does not exist")
+
+            user = self.users[user_id]
+
+            # Validate timezone if provided
+            timezone = preferences.timezone
+            if timezone is not None and timezone not in available_timezones():
+                raise InvalidTimezoneError(f"Invalid timezone: {timezone}")
+
+            # Update preferences
+            user.preferences = preferences
+
+            LOGGER.debug(f"Updated preferences for user {user.username}")
+            self.save()
+
     def _load(self) -> None:
         """Load users from storage."""
         LOGGER.debug("Loading data from auth store")
@@ -370,6 +424,10 @@ class Auth:
         refresh_tokens: dict[str, RefreshToken] = {}
 
         for user in data.get("users", {}).values():
+            preferences: Preferences | None = None
+            if preferences_dict := user.get("preferences", None):
+                preferences = Preferences(**preferences_dict)
+
             users[user["id"]] = User(
                 name=user["name"],
                 username=user["username"],
@@ -379,6 +437,7 @@ class Auth:
                 id=user["id"],
                 enabled=user["enabled"],
                 assigned_cameras=user.get("assigned_cameras", None),
+                preferences=preferences,
             )
 
         for refresh_token in data.get("refresh_tokens", {}).values():

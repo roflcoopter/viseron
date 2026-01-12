@@ -17,6 +17,7 @@ const Login = lazy(() => import("pages/Login"));
 const Live = lazy(() => import("pages/Live"));
 const NotFound = lazy(() => import("pages/NotFound"));
 const Onboarding = lazy(() => import("pages/Onboarding"));
+const Profile = lazy(() => import("pages/Profile"));
 const PublicLayout = lazy(() => import("layouts/PublicLayout"));
 const Recordings = lazy(() => import("pages/recordings/Recordings"));
 const Settings = lazy(() => import("pages/settings"));
@@ -75,6 +76,10 @@ function App() {
         {
           path: "/entities",
           element: <Entities />,
+        },
+        {
+          path: "/profile",
+          element: <Profile />,
         },
         {
           element: <RequireRole userRole={["admin"]} />,

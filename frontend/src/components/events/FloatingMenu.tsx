@@ -10,8 +10,8 @@ import { DatePickerDialog } from "components/events/DatePickerDialog";
 import { ExportDialog } from "components/events/ExportDialog";
 
 type FloatingMenuProps = {
-  date: Dayjs | null;
-  setDate: (date: Dayjs | null) => void;
+  date: Dayjs;
+  setDate: (date: Dayjs) => void;
 };
 
 export const FloatingMenu = memo(({ date, setDate }: FloatingMenuProps) => {
@@ -31,7 +31,9 @@ export const FloatingMenu = memo(({ date, setDate }: FloatingMenuProps) => {
         date={date}
         onChange={(value) => {
           setDateDialogOpen(false);
-          setDate(value);
+          if (value) {
+            setDate(value);
+          }
         }}
       />
       <ExportDialog open={exportDialogOpen} setOpen={setExportDialogOpen} />

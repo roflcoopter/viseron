@@ -106,7 +106,7 @@ const useSetPlayerCardHeight = (
 };
 
 type TabsProps = {
-  date: Dayjs | null;
+  date: Dayjs;
   selectedTab: "events" | "timeline";
   setSelectedTab: (tab: "events" | "timeline") => void;
   playerCardGridItemRef: React.MutableRefObject<HTMLDivElement | null>;
@@ -221,8 +221,8 @@ function Tabs({
 }
 
 type LayoutProps = {
-  date: Dayjs | null;
-  setDate: (date: Dayjs | null) => void;
+  date: Dayjs;
+  setDate: (date: Dayjs) => void;
   selectedTab: "events" | "timeline";
   setSelectedTab: (tab: "events" | "timeline") => void;
 };

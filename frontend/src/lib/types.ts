@@ -121,12 +121,17 @@ export type StoredTokens = {
   session_expires_at_timestamp: number;
 };
 
+export type UserPreferences = {
+  timezone?: string | null;
+};
+
 export type AuthUserResponse = {
   id: string;
   name: string;
   username: string;
   role: "admin" | "read" | "write";
   assigned_cameras: string[] | null;
+  preferences: UserPreferences | null;
 };
 
 export type AuthUsersResponse = {

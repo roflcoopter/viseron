@@ -19,6 +19,11 @@ import { Loading } from "components/loading/Loading";
 import { useToast } from "hooks/UseToast";
 import { useAuthEnabled, useAuthUser } from "lib/api/auth";
 import { viseronAPI } from "lib/api/client";
+import {
+  dayjsSetDefaultTimezone,
+  getDayjs,
+  getDefaultTimezone,
+} from "lib/helpers/dates";
 import { getToken, isManualLogoutActive } from "lib/tokens";
 import * as types from "lib/types";
 
@@ -211,6 +216,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
         subtext="Auth context value is null"
       />
     );
+  }
+
+  // Set global timezone based on user preference
+  const userTimezone =
+    userQuery.data?.preferences?.timezone ??
+    Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (getDefaultTimezone() !== userTimezone) {
+    dayjsSetDefaultTimezone(userTimezone);
+    // Update api client UTC offset header
+    viseronAPI.defaults.headers.common["X-Client-UTC-Offset"] = getDayjs()
+      .utcOffset()
+      .toString();
   }
 
   return (
