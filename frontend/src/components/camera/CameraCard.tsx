@@ -262,9 +262,19 @@ function SuccessCameraCard({
                     <Chip
                       icon={
                         camera.is_on ? (
-                          <ViewOffFilled size={18} />
+                          <ViewOffFilled
+                            style={{
+                              width: "clamp(16px, 3vw, 18px)",
+                              height: "clamp(16px, 3vw, 18px)",
+                            }}
+                          />
                         ) : (
-                          <ViewFilled size={18} />
+                          <ViewFilled
+                            style={{
+                              width: "clamp(16px, 3vw, 18px)",
+                              height: "clamp(16px, 3vw, 18px)",
+                            }}
+                          />
                         )
                       }
                       label=""
@@ -311,7 +321,12 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/events?camera=${camera.identifier}&tab=events`}
                   >
-                    <IntrusionPrevention size={20} />
+                    <IntrusionPrevention
+                      style={{
+                        width: "clamp(18px, 3vw, 20px)",
+                        height: "clamp(18px, 3vw, 20px)",
+                      }}
+                    />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Timeline">
@@ -319,7 +334,12 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/events?camera=${camera.identifier}&tab=timeline`}
                   >
-                    <Roadmap size={20} />
+                    <Roadmap
+                      style={{
+                        width: "clamp(18px, 3vw, 20px)",
+                        height: "clamp(18px, 3vw, 20px)",
+                      }}
+                    />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Recordings">
@@ -327,7 +347,12 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/recordings/${camera.identifier}`}
                   >
-                    <Demo size={20} />
+                    <Demo
+                      style={{
+                        width: "clamp(18px, 3vw, 20px)",
+                        height: "clamp(18px, 3vw, 20px)",
+                      }}
+                    />
                   </IconButton>
                 </Tooltip>
                 <Tooltip title="Live View">
@@ -335,7 +360,12 @@ function SuccessCameraCard({
                     component={Link}
                     to={`/live?camera=${camera.identifier}`}
                   >
-                    <VideoChat size={20} />
+                    <VideoChat
+                      style={{
+                        width: "clamp(18px, 3vw, 20px)",
+                        height: "clamp(18px, 3vw, 20px)",
+                      }}
+                    />
                   </IconButton>
                 </Tooltip>
                 {(!auth.enabled || user?.role === "admin") && (
@@ -344,7 +374,12 @@ function SuccessCameraCard({
                       component={Link}
                       to={`/cameras/${camera.identifier}`}
                     >
-                      <SettingsAdjust size={20} />
+                      <SettingsAdjust
+                        style={{
+                          width: "clamp(18px, 3vw, 20px)",
+                          height: "clamp(18px, 3vw, 20px)",
+                        }}
+                      />
                     </IconButton>
                   </Tooltip>
                 )}
