@@ -39,7 +39,7 @@ LOGGER = logging.getLogger(__name__)
 
 # The component has a "cameras" key but the option to do tuning is missing
 # or has not been implemented.
-SKIPED_COMPONENTS = [
+SKIPPED_COMPONENTS = [
     NVR_COMPONENT,
     LOGGER_COMPONENT,
     DISCORD_COMPONENT,
@@ -256,8 +256,8 @@ class TuneAPIHandler(BaseAPIHandler):
             if not isinstance(component_config, dict):
                 continue
 
-            # Skiped components
-            if component_name in SKIPED_COMPONENTS:
+            # Skipped components
+            if component_name in SKIPPED_COMPONENTS:
                 continue
 
             # Handle components with direct 'cameras' key

@@ -29,7 +29,9 @@ class LicensePlateRecognitionTuningHandler(BaseTuningHandler):
             return False
 
         # Get cameras dict to update it later
-        cameras = self.config[component][LICENSE_PLATE_RECOGNITION_DOMAIN][CONFIG_CAMERAS]
+        cameras = self.config[component][LICENSE_PLATE_RECOGNITION_DOMAIN][
+            CONFIG_CAMERAS
+        ]
 
         # Build ordered config with labels first, then mask, then other fields
         ordered_config = {}
