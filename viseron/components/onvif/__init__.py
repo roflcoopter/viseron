@@ -698,7 +698,7 @@ class ONVIF:
                 await ptz_service.initialize()
                 self._ptz_services[camera.identifier] = ptz_service
                 # Inject PTZ support into camera
-                camera.get_ptz_support = lambda: COMPONENT
+                camera._ptz_support = COMPONENT
                 LOGGER.debug(f"Initialized PTZ service for {camera.identifier}")
             except Exception as error:  # pylint: disable=broad-exception-caught
                 LOGGER.error(

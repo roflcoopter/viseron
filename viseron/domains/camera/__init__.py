@@ -185,6 +185,8 @@ class AbstractCamera(AbstractDomain):
             self._logger.debug("Still image is configured, setting availability.")
             self.still_image_available = True
 
+        self._ptz_support: str | None = None
+
     def __post_init__(self, *args, **kwargs):
         """Post init hook."""
         self._vis.register_domain(DOMAIN, self._identifier, self)
@@ -211,7 +213,7 @@ class AbstractCamera(AbstractDomain):
             "connected": self.connected,
             "live_stream_available": self.live_stream_available,
             "is_recording": self.is_recording,
-            "ptz_support": self.get_ptz_support(),
+            "ptz_support": self.ptz_support,
         }
 
     def generate_token(self):
@@ -429,9 +431,10 @@ class AbstractCamera(AbstractDomain):
         """Return camera config."""
         return self._config
 
-    def get_ptz_support(self) -> str | None:
+    @property
+    def ptz_support(self) -> str | None:
         """Return PTZ support type."""
-        return None
+        return self._ptz_support
 
     def tier_base_path(self, tier_id: int, tier_category: str, subcategory: str) -> str:
         """Return storage tier base path."""
