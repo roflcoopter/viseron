@@ -3,6 +3,15 @@
 import logging
 from typing import Any
 
+from viseron.domains.license_plate_recognition.const import (
+    DOMAIN as LICENSE_PLATE_RECOGNITION_DOMAIN,
+)
+from viseron.domains.post_processor.const import (
+    CONFIG_CAMERAS,
+    CONFIG_LABELS,
+    CONFIG_MASK,
+)
+
 from .base import BaseTuningHandler
 
 LOGGER = logging.getLogger(__name__)
@@ -14,43 +23,43 @@ class LicensePlateRecognitionTuningHandler(BaseTuningHandler):
     def update(self, camera_id: str, component: str, data: dict[str, Any]) -> bool:
         """Update license plate recognition configuration."""
         camera_config = self._get_camera_config(
-            camera_id, component, "license_plate_recognition"
+            camera_id, component, LICENSE_PLATE_RECOGNITION_DOMAIN
         )
         if camera_config is None:
             return False
 
         # Get cameras dict to update it later
-        cameras = self.config[component]["license_plate_recognition"]["cameras"]
+        cameras = self.config[component][LICENSE_PLATE_RECOGNITION_DOMAIN][CONFIG_CAMERAS]
 
         # Build ordered config with labels first, then mask, then other fields
         ordered_config = {}
 
         # Update labels (simple list of strings for license_plate_recognition)
-        if "labels" in data:
-            if data["labels"]:
-                ordered_config["labels"] = data["labels"]
+        if CONFIG_LABELS in data:
+            if data[CONFIG_LABELS]:
+                ordered_config[CONFIG_LABELS] = data[CONFIG_LABELS]
             # If labels is empty/None, don't include it (will be deleted from existing)
-        elif "labels" in camera_config:
+        elif CONFIG_LABELS in camera_config:
             # Preserve existing labels if not in data
-            ordered_config["labels"] = camera_config["labels"]
+            ordered_config[CONFIG_LABELS] = camera_config[CONFIG_LABELS]
 
         # Update mask (always replace)
-        if "mask" in data:
-            if data["mask"]:
-                ordered_config["mask"] = data["mask"]
+        if CONFIG_MASK in data:
+            if data[CONFIG_MASK]:
+                ordered_config[CONFIG_MASK] = data[CONFIG_MASK]
             # If mask is empty/None, don't include it (will be deleted from existing)
-        elif "mask" in camera_config:
+        elif CONFIG_MASK in camera_config:
             # Preserve existing mask if not in data
-            ordered_config["mask"] = camera_config["mask"]
+            ordered_config[CONFIG_MASK] = camera_config[CONFIG_MASK]
 
         # Update all other fields (miscellaneous fields)
         # Frontend should filter out internal fields before sending
         for key, value in camera_config.items():
-            if key not in {"labels", "mask"}:
+            if key not in {CONFIG_LABELS, CONFIG_MASK}:
                 ordered_config[key] = value
 
         for key, value in data.items():
-            if key not in {"labels", "mask"}:
+            if key not in {CONFIG_LABELS, CONFIG_MASK}:
                 if value is not None:
                     # Preserve YAML tags if existing value has one
                     if key in camera_config:
